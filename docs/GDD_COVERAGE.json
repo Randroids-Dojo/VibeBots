@@ -290,9 +290,15 @@
       "id": "REQ-018",
       "requirement": "Digging has render-layer texture: crack states, hardness-scaled particles, tweened movement, pitch-ramped pickups, rare-find fanfare.",
       "gddRef": "docs/gdd/06-mining.html#feel",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/components/mine-canvas.tsx",
+        "src/components/mine-panel.tsx",
+        "src/app/globals.css"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
       "followupRefs": [
         "F-016"
       ]
@@ -301,9 +307,14 @@
       "id": "REQ-019",
       "requirement": "Failed trips end with drama and a near-miss reveal: lost carry value and the treasure that was almost in reach.",
       "gddRef": "docs/gdd/06-mining.html#feel",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/components/mine-panel.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
       "followupRefs": []
     }
   ]

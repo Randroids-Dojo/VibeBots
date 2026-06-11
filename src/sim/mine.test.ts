@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   applyAction,
-  CARGO_CAPACITY,
   canDigRock,
   cargoCapacity,
   carriedCount,

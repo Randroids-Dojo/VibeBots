@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mining-juice" data-date="2026-06-11">
+    <h3>Mining Juice (dig feel, fanfare, near-miss reveal)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mining-juice</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the dig stops feeling binary (REQ-018): every break bursts debris particles in the block's color, screen shake scales with the event (rock chips, gas vents, dynamite, crushes), the miner glides between cells instead of teleporting, ore pickups float "+N cr" toward the HUD, cracking a part cache pops a gold fanfare with the part's name, wobbling boulders jitter and glow as their warning, and the background tint deepens with each stratum. Failed trips end in a reveal instead of a shrug (REQ-019): the sim now reports what a collapse cost (value, parts, position) and the overlay shows it plus the near-miss line ("a ruby sat 3 blocks from where the lamp died"), dismissible with a tap into the next trip. Reduced-motion preference stills the CSS animations. Also folds in the CodeRabbit feedback from PR #18 (unused import, contradictory F-018 fields, stale session labels in PLAYTEST, try/finally in the confirm script).</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (81), <code>pnpm build</code>, <code>pnpm test:e2e</code>; juice verified visually in the VibeReview pass after merge (Rule 10: moving pixels, not just active controls).</dd>
+      <dt>Assumptions</dt><dd>render-layer randomness (Math.random for particle scatter) never touches <code>src/sim</code>, so determinism holds; crack states wait for multi-hit blocks (a future hardness pass), audio waits for an audio slice; the near-miss search reads only client-generated rows (no extra generation).</dd>
+      <dt>GDD coverage</dt><dd>REQ-018 and REQ-019 partial (visual confirmation pending); build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>F-016 marked resolved pending VibeReview confirmation.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mining-hazards" data-date="2026-06-11">
     <h3>Mining Hazards and Consumables</h3>
     <dl>

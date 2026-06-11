@@ -37,7 +37,11 @@ export function DesignSaves() {
         setAvailable(false);
         return;
       }
-      if (!res.ok) return;
+      if (!res.ok) {
+        // Storage is configured; only the list failed. Keep the panel.
+        setAvailable(true);
+        return;
+      }
       const body = await res.json();
       setAvailable(true);
       setSaves(body.designs ?? []);

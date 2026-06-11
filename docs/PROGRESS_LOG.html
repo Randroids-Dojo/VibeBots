@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mining-ore-tiers" data-date="2026-06-11">
+    <h3>Mining Ore Tiers and Strata</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mining-ore-tiers</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the mine's single ore becomes seven tiers (coal 1cr through core crystal 320cr, roughly x2.5-x3 per step) in overlapping trapezoid depth bands; named strata (Topsoil, Clay Beds, Old Granite, Glow Caverns, Magma Verge) recolor the dirt as you descend, announce themselves with a banner, and pay one-time first-reach bonuses at cash-out against a new persistent <code>players.deepest_depth</code> record (the bonus is computed in SQL from the same STRATA table the sim exports, so they cannot drift). The HUD shows the carried haul itemized with its credit value, the climb-home energy cost, and a low-lamp warning (REQ-017). Diamond, core crystal, and part caches glow at the light's edge. The top two rows never roll rock, so the first digs always land (also de-flakes the mine e2e). Cash-outs now carry <code>MINE_VERSION</code>; sessions played on older generation rules get a 409 instead of a silent re-price.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (68; new band, value-curve, trapezoid, strata-bonus, rock-free-top, max-depth tests), <code>pnpm build</code>, <code>pnpm test:e2e</code> (5 passed, 2 storage-gated skips); live cash-out with milestone bonus to be smoke tested on production after merge.</dd>
+      <dt>Assumptions</dt><dd>ore values/bands and stratum bonuses are first-pass tuning for the VibeReview fun loop; Q-005 default A shipped (HUD says credits, the wallet column stays <code>emeralds</code>); the shop still prices parts in the same wallet unit; milestone bonuses only pay on a banked cash-out (a collapse-only trip records no depth credit), which keeps "banked loot is safe, lost loot is lost" coherent.</dd>
+      <dt>GDD coverage</dt><dd>REQ-011 done; REQ-012 and REQ-017 partial (live confirmation pending); build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>F-012, F-014, F-017 marked resolved pending VibeReview confirmation.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mining-design-pass" data-date="2026-06-11">
     <h3>Mining Design Pass (research + baseline playtest + spec)</h3>
     <dl>

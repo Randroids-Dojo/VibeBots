@@ -8,8 +8,12 @@
       "requirement": "Combat is autonomous after match start, with no manual steering, aiming, or firing.",
       "gddRef": "docs/gdd/03-combat-damage-and-disable.html#spec",
       "status": "partial",
-      "implementationRefs": ["src/sim/combat.ts"],
-      "testRefs": ["src/sim/combat.test.ts"],
+      "implementationRefs": [
+        "src/sim/combat.ts"
+      ],
+      "testRefs": [
+        "src/sim/combat.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -17,17 +21,39 @@
       "requirement": "The workshop supports connector-based modular robot construction with validity checks before combat.",
       "gddRef": "docs/gdd/02-parts-and-connectors.html#validity",
       "status": "partial",
-      "implementationRefs": ["src/sim/parts.ts", "src/sim/design.ts", "src/sim/assembly.ts", "src/sim/layout.ts", "src/state/workshop-store.ts", "src/app/workshop/page.tsx"],
-      "testRefs": ["src/sim/design.test.ts", "src/sim/assembly.test.ts", "src/state/workshop-store.test.ts", "tests/e2e/smoke.spec.ts"],
-      "followupRefs": ["F-006"]
+      "implementationRefs": [
+        "src/sim/parts.ts",
+        "src/sim/design.ts",
+        "src/sim/assembly.ts",
+        "src/sim/layout.ts",
+        "src/state/workshop-store.ts",
+        "src/app/workshop/page.tsx"
+      ],
+      "testRefs": [
+        "src/sim/design.test.ts",
+        "src/sim/assembly.test.ts",
+        "src/state/workshop-store.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": [
+        "F-006"
+      ]
     },
     {
       "id": "REQ-003",
       "requirement": "The part system supports varied robot silhouettes, including wheeled, legged, compact, and character-like builds.",
       "gddRef": "docs/gdd/02-parts-and-connectors.html#categories",
       "status": "partial",
-      "implementationRefs": ["src/sim/parts.ts", "src/sim/layout.ts", "src/state/workshop-store.ts"],
-      "testRefs": ["src/sim/layout.test.ts", "src/sim/assembly.test.ts", "src/state/workshop-store.test.ts"],
+      "implementationRefs": [
+        "src/sim/parts.ts",
+        "src/sim/layout.ts",
+        "src/state/workshop-store.ts"
+      ],
+      "testRefs": [
+        "src/sim/layout.test.ts",
+        "src/sim/assembly.test.ts",
+        "src/state/workshop-store.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -35,8 +61,14 @@
       "requirement": "Combat tracks component-level damage so parts can degrade, detach, or disable critical functions.",
       "gddRef": "docs/gdd/03-combat-damage-and-disable.html#damage",
       "status": "partial",
-      "implementationRefs": ["src/sim/combat.ts", "src/sim/parts.ts", "src/sim/assembly.ts"],
-      "testRefs": ["src/sim/combat.test.ts"],
+      "implementationRefs": [
+        "src/sim/combat.ts",
+        "src/sim/parts.ts",
+        "src/sim/assembly.ts"
+      ],
+      "testRefs": [
+        "src/sim/combat.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -44,8 +76,14 @@
       "requirement": "A match ends by full disable or by a time limit followed by score-based judgment.",
       "gddRef": "docs/gdd/04-match-resolution-and-scoring.html#resolution",
       "status": "partial",
-      "implementationRefs": ["src/sim/combat.ts", "src/sim/rewards.ts"],
-      "testRefs": ["src/sim/combat.test.ts", "src/sim/rewards.test.ts"],
+      "implementationRefs": [
+        "src/sim/combat.ts",
+        "src/sim/rewards.ts"
+      ],
+      "testRefs": [
+        "src/sim/combat.test.ts",
+        "src/sim/rewards.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -53,8 +91,14 @@
       "requirement": "Mining provides the primary resource path through depth, materials, tool upgrades, ladders, and light management.",
       "gddRef": "docs/gdd/06-mining.html#loop",
       "status": "partial",
-      "implementationRefs": ["src/sim/mine.ts", "src/app/mine/page.tsx"],
-      "testRefs": ["src/sim/mine.test.ts", "tests/e2e/smoke.spec.ts"],
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/app/mine/page.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -62,8 +106,12 @@
       "requirement": "Mining can rarely discover robot components in addition to ordinary sellable materials.",
       "gddRef": "docs/gdd/06-mining.html#loop",
       "status": "partial",
-      "implementationRefs": ["src/sim/mine.ts"],
-      "testRefs": ["src/sim/mine.test.ts"],
+      "implementationRefs": [
+        "src/sim/mine.ts"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -71,17 +119,31 @@
       "requirement": "Players can convert mining output into robot components through shops, player trading, or both.",
       "gddRef": "docs/gdd/07-economy.html#flow",
       "status": "partial",
-      "implementationRefs": ["src/app/api/mine/bank/route.ts", "src/app/api/shop/buy/route.ts", "src/sim/mine.ts"],
-      "testRefs": ["src/sim/mine.test.ts", "tests/e2e/smoke.spec.ts"],
-      "followupRefs": ["F-010"]
+      "implementationRefs": [
+        "src/app/api/mine/bank/route.ts",
+        "src/app/api/shop/buy/route.ts",
+        "src/sim/mine.ts"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": [
+        "F-010"
+      ]
     },
     {
       "id": "REQ-009",
       "requirement": "Players can test a valid bot against a CPU robot before online combat.",
       "gddRef": "docs/gdd/05-test-arena.html#spec",
       "status": "partial",
-      "implementationRefs": ["src/components/workshop-panel.tsx", "src/components/arena-canvas.tsx"],
-      "testRefs": ["tests/e2e/smoke.spec.ts"],
+      "implementationRefs": [
+        "src/components/workshop-panel.tsx",
+        "src/components/arena-canvas.tsx"
+      ],
+      "testRefs": [
+        "tests/e2e/smoke.spec.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -89,27 +151,54 @@
       "requirement": "Online matches support player-built bots fighting other player-built bots through the project's VibeKit online feature set.",
       "gddRef": "docs/gdd/04-match-resolution-and-scoring.html#resolution",
       "status": "partial",
-      "implementationRefs": ["src/sim/resolve.ts", "src/app/api/match/resolve/route.ts"],
-      "testRefs": ["src/app/api/match/resolve/route.test.ts", "tests/e2e/smoke.spec.ts"],
-      "followupRefs": ["F-002", "F-004", "F-005"]
+      "implementationRefs": [
+        "src/sim/resolve.ts",
+        "src/app/api/match/resolve/route.ts"
+      ],
+      "testRefs": [
+        "src/app/api/match/resolve/route.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": [
+        "F-002",
+        "F-004",
+        "F-005"
+      ]
     },
     {
       "id": "REQ-011",
       "requirement": "The mine has multiple ore tiers with exponential credit value, rarity inverse to value, and overlapping depth bands.",
       "gddRef": "docs/gdd/06-mining.html#ores",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": ["F-014"]
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/components/mine-canvas.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
+      "followupRefs": [
+        "F-014"
+      ]
     },
     {
       "id": "REQ-012",
       "requirement": "Named strata with distinct palettes mark descent, pay first-reach milestone bonuses, and a deepest-depth record persists on the profile.",
       "gddRef": "docs/gdd/06-mining.html#ores",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": ["F-017"]
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/app/api/mine/bank/route.ts",
+        "src/components/mine-panel.tsx",
+        "src/components/mine-canvas.tsx",
+        "src/server/db.ts"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
+      "followupRefs": [
+        "F-017"
+      ]
     },
     {
       "id": "REQ-013",
@@ -118,7 +207,9 @@
       "status": "not_started",
       "implementationRefs": [],
       "testRefs": [],
-      "followupRefs": ["F-013"]
+      "followupRefs": [
+        "F-013"
+      ]
     },
     {
       "id": "REQ-014",
@@ -145,16 +236,25 @@
       "status": "not_started",
       "implementationRefs": [],
       "testRefs": [],
-      "followupRefs": ["F-015"]
+      "followupRefs": [
+        "F-015"
+      ]
     },
     {
       "id": "REQ-017",
       "requirement": "The trip-back decision is informed: the HUD shows carried value and estimated return cost, and warns before the lamp drops below it.",
       "gddRef": "docs/gdd/06-mining.html#legibility",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": ["F-012"]
+      "status": "partial",
+      "implementationRefs": [
+        "src/components/mine-panel.tsx",
+        "src/sim/mine.ts"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
+      "followupRefs": [
+        "F-012"
+      ]
     },
     {
       "id": "REQ-018",
@@ -163,7 +263,9 @@
       "status": "not_started",
       "implementationRefs": [],
       "testRefs": [],
-      "followupRefs": ["F-016"]
+      "followupRefs": [
+        "F-016"
+      ]
     },
     {
       "id": "REQ-019",

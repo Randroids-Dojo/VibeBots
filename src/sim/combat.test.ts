@@ -4,6 +4,7 @@ import {
   combatStateString,
   createMatch,
   damagePart,
+  freeMatch,
   type MatchState,
   stepMatch,
 } from "./combat";
@@ -22,10 +23,27 @@ async function arenaWorld(): Promise<World> {
   return world;
 }
 
-async function newMatch(): Promise<{ world: World; match: MatchState }> {
+async function newMatch(): Promise<{
+  world: World;
+  match: MatchState;
+  cleanup: () => void;
+}> {
   const world = await arenaWorld();
   const match = createMatch(world, [TEST_BOT_DESIGN, TEST_BOT_DESIGN]);
-  return { world, match };
+  return {
+    world,
+    match,
+    cleanup: () => {
+      freeMatch(match);
+      world.free();
+    },
+  };
+}
+
+function totalDamage(match: MatchState): number {
+  return match.bots
+    .flatMap((bot) => [...bot.parts.values()])
+    .reduce((sum, part) => sum + (part.maxHealth - part.health), 0);
 }
 
 function coreDistance(match: MatchState): number {
@@ -38,35 +56,37 @@ function coreDistance(match: MatchState): number {
 
 describe("autonomous combat", () => {
   it("drives the bots into each other and deals contact damage", async () => {
-    const { world, match } = await newMatch();
+    const { match, cleanup } = await newMatch();
     try {
       const startDistance = coreDistance(match);
-      for (let i = 0; i < 120 && coreDistance(match) > 1.5; i++) {
+      // No spawn-drop or rolling self-damage before the bots ever touch.
+      for (let i = 0; i < 30; i++) {
+        stepMatch(match);
+      }
+      expect(totalDamage(match)).toBe(0);
+      for (let i = 0; i < 90 && coreDistance(match) > 1.5; i++) {
         stepMatch(match);
       }
       expect(coreDistance(match)).toBeLessThan(startDistance);
       for (let i = 0; i < 480; i++) {
         stepMatch(match);
       }
-      const totalDamage = match.bots
-        .flatMap((bot) => [...bot.parts.values()])
-        .reduce((sum, part) => sum + (part.maxHealth - part.health), 0);
-      expect(totalDamage).toBeGreaterThan(0);
+      expect(totalDamage(match)).toBeGreaterThan(0);
     } finally {
-      world.free();
+      cleanup();
     }
   });
 
   it("is deterministic across fresh matches", async () => {
     async function run(): Promise<string> {
-      const { world, match } = await newMatch();
+      const { match, cleanup } = await newMatch();
       try {
         for (let i = 0; i < 600; i++) {
           stepMatch(match);
         }
-        return `${fnv1a64(world.takeSnapshot())}::${combatStateString(match)}`;
+        return `${fnv1a64(match.world.takeSnapshot())}::${combatStateString(match)}`;
       } finally {
-        world.free();
+        cleanup();
       }
     }
     const a = await run();
@@ -75,7 +95,7 @@ describe("autonomous combat", () => {
   });
 
   it("detaches a destroyed part from its parent", async () => {
-    const { world, match } = await newMatch();
+    const { match, cleanup } = await newMatch();
     try {
       const jointsBefore = match.bots[0].assembled.jointToParent.size;
       damagePart(match, 0, "wheel-l", 9999);
@@ -86,13 +106,19 @@ describe("autonomous combat", () => {
       // One wheel left: still mobile, not disabled.
       expect(match.bots[0].disabled).toBe(false);
       expect(match.status.over).toBe(false);
+      // Detachment must not splash depenetration damage onto the core.
+      for (let i = 0; i < 20; i++) {
+        stepMatch(match);
+      }
+      const core = match.bots[0].parts.get("core");
+      expect(core?.health).toBe(core?.maxHealth);
     } finally {
-      world.free();
+      cleanup();
     }
   });
 
   it("disables a bot when all mobility parts are destroyed", async () => {
-    const { world, match } = await newMatch();
+    const { match, cleanup } = await newMatch();
     try {
       damagePart(match, 0, "wheel-l", 9999);
       damagePart(match, 0, "wheel-r", 9999);
@@ -100,24 +126,24 @@ describe("autonomous combat", () => {
       expect(match.bots[0].disabled).toBe(true);
       expect(match.status).toEqual({ over: true, winner: 1 });
     } finally {
-      world.free();
+      cleanup();
     }
   });
 
   it("disables a bot when its core is destroyed", async () => {
-    const { world, match } = await newMatch();
+    const { match, cleanup } = await newMatch();
     try {
       damagePart(match, 1, "core", 9999);
       stepMatch(match);
       expect(match.bots[1].disabled).toBe(true);
       expect(match.status).toEqual({ over: true, winner: 0 });
     } finally {
-      world.free();
+      cleanup();
     }
   });
 
   it("never accepts input after match start (controllers only read sim state)", async () => {
-    const { world, match } = await newMatch();
+    const { match, cleanup } = await newMatch();
     try {
       // The public stepping surface takes no input parameter at all; this
       // guards the REQ-001 contract at the type level.
@@ -125,7 +151,7 @@ describe("autonomous combat", () => {
       step(match);
       expect(match.tick).toBe(1);
     } finally {
-      world.free();
+      cleanup();
     }
   });
 });

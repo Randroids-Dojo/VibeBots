@@ -110,16 +110,19 @@ export const CORE_CUBE: PartDef = {
     { id: "bottom", kind: "rigid", position: { x: 0, y: -0.3, z: 0 } },
     { id: "front", kind: "rigid", position: { x: 0, y: 0, z: -0.3 } },
     { id: "back", kind: "rigid", position: { x: 0, y: 0, z: 0.3 } },
+    // Axle stubs sit outboard of the face so a mounted wheel (halfHeight
+    // 0.08) clears the core body. Overlapping connected parts would fire a
+    // violent depenetration impulse the moment the joint is removed.
     {
       id: "axle-left",
       kind: "axle",
-      position: { x: -0.3, y: 0, z: 0 },
+      position: { x: -0.39, y: 0, z: 0 },
       axis: X_AXIS,
     },
     {
       id: "axle-right",
       kind: "axle",
-      position: { x: 0.3, y: 0, z: 0 },
+      position: { x: 0.39, y: 0, z: 0 },
       axis: X_AXIS,
     },
   ],

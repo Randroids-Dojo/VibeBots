@@ -1,5 +1,7 @@
 import type {
   EventQueue,
+  RevoluteImpulseJoint,
+  RigidBody,
   World,
 } from "@dimforge/rapier3d-deterministic-compat";
 import RAPIER from "@dimforge/rapier3d-deterministic-compat";
@@ -17,9 +19,14 @@ import { PART_CATALOG, type PartDef, type Vec3 } from "./parts";
  * shared deterministic sim; deaths are processed in design part order.
  */
 
-/** Contact forces below this never damage parts (rolling, resting). */
-export const CONTACT_FORCE_THRESHOLD = 50;
-export const DAMAGE_PER_NEWTON = 0.05;
+/**
+ * Contact forces below this never damage parts. Measured with the starter
+ * Testbots: rolling and spawn-settle forces peak near 26 N, ram and
+ * sustained-shove contact holds near 49 N, so 35 N separates locomotion
+ * from combat contact. Retune when part masses change.
+ */
+export const CONTACT_FORCE_THRESHOLD = 35;
+export const DAMAGE_PER_NEWTON = 0.02;
 export const DRIVE_SPEED = 12;
 
 export interface PartCombatState {
@@ -34,6 +41,12 @@ export interface CombatBot {
   assembled: AssembledBot;
   parts: Map<string, PartCombatState>;
   disabled: boolean;
+  /** Core body cached at creation; the root body is never removed. */
+  coreBody: RigidBody;
+  /** Instance ids of mobility-category parts, from the match's catalog. */
+  mobilityIids: ReadonlySet<string>;
+  /** Child instance id -> parent instance id, from the design tree. */
+  parentIid: ReadonlyMap<string, string>;
 }
 
 export type MatchStatus =
@@ -70,7 +83,25 @@ function makeCombatBot(
     collider.setActiveEvents(RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS);
     collider.setContactForceEventThreshold(CONTACT_FORCE_THRESHOLD);
   }
-  return { design, assembled, parts, disabled: false };
+  const coreBody = assembled.bodies.get(assembled.rootIid);
+  if (!coreBody) throw new Error("assembled bot lost its core body");
+  const mobilityIids = new Set(
+    design.parts
+      .filter((p) => catalog[p.partId].category === "mobility")
+      .map((p) => p.iid),
+  );
+  const parentIid = new Map(
+    design.connections.map((c) => [c.childIid, c.parentIid]),
+  );
+  return {
+    design,
+    assembled,
+    parts,
+    disabled: false,
+    coreBody,
+    mobilityIids,
+    parentIid,
+  };
 }
 
 export function createMatch(
@@ -78,8 +109,10 @@ export function createMatch(
   designs: [BotDesign, BotDesign],
   catalog: Record<string, PartDef> = PART_CATALOG,
 ): MatchState {
-  const a = makeCombatBot(world, designs[0], { x: 0, y: 0.5, z: -3 }, catalog);
-  const b = makeCombatBot(world, designs[1], { x: 0, y: 0.5, z: 3 }, catalog);
+  // Spawn just above rest height; a tall drop would exceed the damage
+  // threshold on landing and bots would hurt themselves before contact.
+  const a = makeCombatBot(world, designs[0], { x: 0, y: 0.42, z: -3 }, catalog);
+  const b = makeCombatBot(world, designs[1], { x: 0, y: 0.42, z: 3 }, catalog);
   const colliderIndex = new Map<number, { bot: 0 | 1; iid: string }>();
   ([a, b] as const).forEach((bot, index) => {
     for (const [iid, collider] of bot.assembled.colliders) {
@@ -113,12 +146,7 @@ export function damagePart(
 
 /** The controller stub: full throttle toward the opponent's core. */
 function runControllers(match: MatchState): void {
-  const cores = match.bots.map(
-    (bot) =>
-      bot.assembled.bodies.get(bot.assembled.rootIid)?.translation() ?? {
-        z: 0,
-      },
-  );
+  const cores = match.bots.map((bot) => bot.coreBody.translation());
   match.bots.forEach((bot, index) => {
     if (bot.disabled) {
       setDriveVelocity(bot.assembled, 0);
@@ -131,14 +159,28 @@ function runControllers(match: MatchState): void {
   });
 }
 
+/** A part contributes only while its whole chain to the core is intact. */
+function attachedToCore(bot: CombatBot, iid: string): boolean {
+  let current = iid;
+  while (current !== bot.assembled.rootIid) {
+    if (bot.parts.get(current)?.destroyed) return false;
+    const parent = bot.parentIid.get(current);
+    if (parent === undefined) return false;
+    current = parent;
+  }
+  return !bot.parts.get(bot.assembled.rootIid)?.destroyed;
+}
+
 function processDeaths(match: MatchState): void {
-  match.bots.forEach((bot, _index) => {
+  for (const bot of match.bots) {
     // Design part order keeps death processing deterministic.
+    let anyDeath = false;
     for (const instance of bot.design.parts) {
       const state = bot.parts.get(instance.iid);
       if (!state || state.destroyed || state.health > 0) continue;
       state.destroyed = true;
       state.health = 0;
+      anyDeath = true;
       if (instance.iid === bot.assembled.rootIid) {
         bot.disabled = true;
         continue;
@@ -147,29 +189,29 @@ function processDeaths(match: MatchState): void {
       if (joint) {
         match.world.removeImpulseJoint(joint, true);
         bot.assembled.jointToParent.delete(instance.iid);
+        const jointIndex = bot.assembled.joints.indexOf(joint);
+        if (jointIndex >= 0) bot.assembled.joints.splice(jointIndex, 1);
         const axleIndex = bot.assembled.axleJoints.indexOf(
-          joint as (typeof bot.assembled.axleJoints)[number],
+          joint as RevoluteImpulseJoint,
         );
         if (axleIndex >= 0) bot.assembled.axleJoints.splice(axleIndex, 1);
       }
     }
+    if (!anyDeath || bot.disabled) continue;
 
-    // Immobilized without any working mobility part.
-    const catalogOf = (iid: string) =>
-      bot.design.parts.find((p) => p.iid === iid)?.partId ?? "";
-    let mobilityAlive = false;
-    for (const [iid, state] of bot.parts) {
-      const partId = catalogOf(iid);
-      if (PART_CATALOG[partId]?.category === "mobility" && !state.destroyed) {
-        mobilityAlive = true;
-        break;
+    // Immobilized: no mobility part is both intact and still attached
+    // (parts riding detached debris do not count).
+    if (bot.mobilityIids.size > 0) {
+      let mobile = false;
+      for (const iid of bot.mobilityIids) {
+        if (!bot.parts.get(iid)?.destroyed && attachedToCore(bot, iid)) {
+          mobile = true;
+          break;
+        }
       }
+      if (!mobile) bot.disabled = true;
     }
-    const hasMobility = bot.design.parts.some(
-      (p) => PART_CATALOG[p.partId]?.category === "mobility",
-    );
-    if (hasMobility && !mobilityAlive) bot.disabled = true;
-  });
+  }
 }
 
 function updateStatus(match: MatchState): void {
@@ -198,6 +240,14 @@ export function stepMatch(match: MatchState): void {
 
   processDeaths(match);
   updateStatus(match);
+}
+
+/**
+ * Frees the match's own WASM-side resources. The world is owned by the
+ * caller and freed separately.
+ */
+export function freeMatch(match: MatchState): void {
+  match.eventQueue.free();
 }
 
 /** Stable serialization of combat state, for hashing alongside snapshots. */

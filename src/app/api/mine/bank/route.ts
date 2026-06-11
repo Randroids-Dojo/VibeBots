@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
-import { MAX_TRIP_MOVES, replayTrip } from "@/sim/mine";
+import { MAX_TRIP_MOVES, MINE_VERSION, replayTrip, STRATA } from "@/sim/mine";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -12,13 +12,16 @@ const bodySchema = z.object({
     .array(z.enum(["down", "up", "left", "right"]))
     .min(1)
     .max(MAX_TRIP_MOVES),
+  mineVersion: z.number().int(),
 });
 
 /**
  * Cash out a mining session. The mine is a pure function of (seed,
  * moves), so the server replays the submitted log and credits exactly
- * what an honest client banked; each seed is creditable once per player
- * (the unique key), so a log cannot be resubmitted.
+ * what an honest client banked, plus first-reach stratum bonuses
+ * against the player's persistent deepest-depth record (REQ-012); each
+ * seed is creditable once per player (the unique key), so a log cannot
+ * be resubmitted.
  */
 export async function POST(request: Request): Promise<Response> {
   if (!storageConfigured()) {
@@ -34,9 +37,17 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.success) {
     return Response.json({ error: parsed.error.issues }, { status: 400 });
   }
+  if (parsed.data.mineVersion !== MINE_VERSION) {
+    // Generation rules changed under a live session; re-pricing the old
+    // log would not match what the player saw.
+    return Response.json(
+      { error: "the mine has shifted since this trip started; start fresh" },
+      { status: 409 },
+    );
+  }
 
   const trip = replayTrip(parsed.data.seed, parsed.data.moves);
-  if (trip.bankedEmeralds === 0 && trip.bankedParts.length === 0) {
+  if (trip.bankedCredits === 0 && trip.bankedParts.length === 0) {
     return Response.json(
       { error: "nothing banked in this run" },
       { status: 422 },
@@ -46,19 +57,32 @@ export async function POST(request: Request): Promise<Response> {
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
   // One statement = atomic on the neon HTTP driver (no cross-statement
-  // transactions): consume the seed, credit the wallet, and grant the
-  // parts together, or not at all.
+  // transactions): consume the seed, compute the first-reach stratum
+  // bonus against the stored record, credit the wallet, advance the
+  // record, and grant the parts together, or not at all. STRATA rides
+  // in as jsonb so the sim table and the SQL can never drift.
   const rows = (await sql`
-    WITH ins AS (
+    WITH prev AS (
+      SELECT deepest_depth FROM players WHERE id = ${playerId}
+    ), ins AS (
       INSERT INTO mine_runs (player_id, seed, banked_emeralds, banked_parts)
-      VALUES (${playerId}, ${parsed.data.seed}, ${trip.bankedEmeralds}, ${JSON.stringify(trip.bankedParts)}::jsonb)
+      VALUES (${playerId}, ${parsed.data.seed}, ${trip.bankedCredits}, ${JSON.stringify(trip.bankedParts)}::jsonb)
       ON CONFLICT (player_id, seed) DO NOTHING
       RETURNING banked_emeralds, banked_parts
+    ), bonus AS (
+      SELECT COALESCE(SUM((s ->> 'firstReachBonus')::int), 0)::int AS amount
+      FROM prev, jsonb_array_elements(${JSON.stringify(STRATA)}::jsonb) AS s
+      WHERE EXISTS (SELECT 1 FROM ins)
+        AND (s ->> 'startRow')::int > prev.deepest_depth
+        AND (s ->> 'startRow')::int <= ${trip.maxDepth}
     ), upd AS (
       UPDATE players
-      SET emeralds = emeralds + (SELECT banked_emeralds FROM ins)
+      SET emeralds = emeralds
+            + (SELECT banked_emeralds FROM ins)
+            + (SELECT amount FROM bonus),
+          deepest_depth = GREATEST(deepest_depth, ${trip.maxDepth})
       WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM ins)
-      RETURNING emeralds
+      RETURNING emeralds, deepest_depth
     ), granted AS (
       INSERT INTO player_parts (player_id, part_id, count)
       SELECT ${playerId}, value, count(*)::int
@@ -67,8 +91,13 @@ export async function POST(request: Request): Promise<Response> {
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
     )
-    SELECT (SELECT emeralds FROM upd) AS emeralds`) as Array<{
+    SELECT
+      (SELECT emeralds FROM upd) AS emeralds,
+      (SELECT deepest_depth FROM upd) AS deepest_depth,
+      (SELECT amount FROM bonus) AS bonus`) as Array<{
     emeralds: number | null;
+    deepest_depth: number | null;
+    bonus: number | null;
   }>;
   if (rows[0]?.emeralds === null || rows[0]?.emeralds === undefined) {
     return Response.json(
@@ -77,7 +106,12 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
   return Response.json({
-    credited: { emeralds: trip.bankedEmeralds, parts: trip.bankedParts },
+    credited: {
+      credits: trip.bankedCredits,
+      parts: trip.bankedParts,
+      milestoneBonus: rows[0].bonus ?? 0,
+    },
     balance: rows[0].emeralds,
+    deepestDepth: rows[0].deepest_depth,
   });
 }

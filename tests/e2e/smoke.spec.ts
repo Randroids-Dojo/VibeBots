@@ -77,6 +77,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   ).toBeVisible();
   const status = page.getByLabel("Mine status");
   await expect(status).toContainText("depth 0");
+  await expect(status).toContainText("Topsoil");
 
   await page.getByRole("button", { name: "Down" }).click();
   await expect(status).toContainText("depth 1");

@@ -32,8 +32,13 @@ async function applySchema(sql: Sql): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now(),
       credits integer NOT NULL DEFAULT 0,
       track_xp integer NOT NULL DEFAULT 0,
-      emeralds integer NOT NULL DEFAULT 0
+      emeralds integer NOT NULL DEFAULT 0,
+      deepest_depth integer NOT NULL DEFAULT 0
     )`;
+  // Existing deployments predate the column (REQ-012 milestone record).
+  await sql`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS deepest_depth integer NOT NULL DEFAULT 0`;
   await sql`
     CREATE TABLE IF NOT EXISTS player_parts (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,

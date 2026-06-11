@@ -4,19 +4,42 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group } from "three/webgpu";
 import { createWebGPU } from "@/components/part-visuals";
-import { type CellKind, isVisible, MINE_WIDTH } from "@/sim/mine";
+import {
+  isVisible,
+  MINE_WIDTH,
+  type OreId,
+  STRATA,
+  stratumAt,
+} from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
 
-const CELL_COLORS: Record<Exclude<CellKind, "empty">, string> = {
-  dirt: "#7a5a3a",
-  rock: "#555e6e",
+const ORE_COLORS: Record<OreId, string> = {
+  coal: "#33343a",
+  copper: "#c77b3f",
+  silver: "#cfd6e0",
   emerald: "#2ecc71",
-  "part-cache": "#f5c542",
+  ruby: "#e03358",
+  diamond: "#8fe9f2",
+  "core-crystal": "#b04df0",
 };
+
+/** Rare tiers glow so a glimpse at the light's edge reads as treasure. */
+const GLOWING_ORES = new Set<OreId>(["diamond", "core-crystal"]);
+
+/** Dirt palette per stratum, in STRATA order (REQ-012: visible descent). */
+const STRATA_DIRT = ["#7a5a3a", "#8c5a45", "#6e6862", "#4f5d6e", "#5a3a35"];
+
+const ROCK_COLOR = "#555e6e";
+const CACHE_COLOR = "#f5c542";
 
 /** Rows rendered above and below the miner. */
 const VIEW_ABOVE = 8;
 const VIEW_BELOW = 6;
+
+function dirtColorAt(row: number): string {
+  const index = STRATA.indexOf(stratumAt(row));
+  return STRATA_DIRT[Math.min(index, STRATA_DIRT.length - 1)];
+}
 
 function MineScene() {
   const tick = useMineStore((s) => s.tick);
@@ -43,18 +66,30 @@ function MineScene() {
     key: string;
     x: number;
     y: number;
-    kind: Exclude<CellKind, "empty">;
+    color: string;
+    glow: boolean;
   }> = [];
   for (let row = firstRow; row <= lastRow; row++) {
     if (!isVisible(mine, row)) continue;
     for (let col = 0; col < MINE_WIDTH; col++) {
       const cell = mine.rows[row]?.[col];
       if (!cell || cell.kind === "empty") continue;
+      const color =
+        cell.kind === "ore" && cell.ore
+          ? ORE_COLORS[cell.ore]
+          : cell.kind === "rock"
+            ? ROCK_COLOR
+            : cell.kind === "part-cache"
+              ? CACHE_COLOR
+              : dirtColorAt(row);
       blocks.push({
         key: `${col}:${row}`,
         x: col - (MINE_WIDTH - 1) / 2,
         y: -row,
-        kind: cell.kind,
+        color,
+        glow:
+          (cell.kind === "ore" && !!cell.ore && GLOWING_ORES.has(cell.ore)) ||
+          cell.kind === "part-cache",
       });
     }
   }
@@ -67,7 +102,12 @@ function MineScene() {
       {blocks.map((block) => (
         <mesh key={block.key} position={[block.x, block.y, 0]}>
           <boxGeometry args={[0.94, 0.94, 0.94]} />
-          <meshStandardMaterial color={CELL_COLORS[block.kind]} flatShading />
+          <meshStandardMaterial
+            color={block.color}
+            emissive={block.glow ? block.color : "#000000"}
+            emissiveIntensity={block.glow ? 0.45 : 0}
+            flatShading
+          />
         </mesh>
       ))}
       {/* Surface strip */}

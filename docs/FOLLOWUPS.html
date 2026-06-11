@@ -42,6 +42,46 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section data-f="F-005" data-priority="nice-to-have">
+    <h3>F-005: Replay format contract and simVersion invalidation</h3>
+    <dl>
+      <dt>Context</dt><dd>Because the sim is deterministic, a replay is just <code>{seed, design ids, simVersion}</code> re-simulated on demand; no Blob storage needed. A rapier (or sim logic) bump invalidates replays from earlier <code>SIM_VERSION</code>s.</dd>
+      <dt>Blocker (if any)</dt><dd>no persisted matches exist yet.</dd>
+      <dt>Unblock condition</dt><dd>match persistence lands (dots match-resolve-api / persistence-economy). Define then: how old-simVersion replays are surfaced (unwatchable vs keyframe-baked).</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section data-f="F-004" data-priority="nice-to-have">
+    <h3>F-004: Rate limiting on match resolution (Upstash Redis)</h3>
+    <dl>
+      <dt>Context</dt><dd>Server-side match resolution burns real CPU; abuse becomes plausible once matches are public. VibeKit ships a fixed-window rate limit over Redis.</dd>
+      <dt>Blocker (if any)</dt><dd>one-backing-store rule (AGENTS.md Rule 11): launch storage is a single dedicated Neon Postgres.</dd>
+      <dt>Unblock condition</dt><dd>real traffic on the match-resolve API makes abuse concrete; then provision a dedicated Upstash Redis via the marketplace UI.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section data-f="F-003" data-priority="nice-to-have">
+    <h3>F-003: Clerk sign-in upgrade over guest auth</h3>
+    <dl>
+      <dt>Context</dt><dd>Fun-first path is guest identity via a VibeKit-signed httpOnly cookie (zero signup friction). Clerk (native Vercel marketplace integration) adds cross-device accounts later; the players table carries a nullable <code>clerk_user_id</code> from day one so guest rows can be claimed on first sign-in.</dd>
+      <dt>Blocker (if any)</dt><dd>guest auth and the players table do not exist yet.</dd>
+      <dt>Unblock condition</dt><dd>guest-auth slice ships and cross-device persistence starts to matter.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section data-f="F-002" data-priority="nice-to-have">
+    <h3>F-002: Vercel Workflow for match orchestration</h3>
+    <dl>
+      <dt>Context</dt><dd>Single-match resolution fits a plain Fluid function with <code>maxDuration</code>. Vercel Workflow (durable steps, retries) is the right shape for multi-step pipelines: queue match, simulate, persist replay, update leaderboard, grant rewards, and batch tournaments.</dd>
+      <dt>Blocker (if any)</dt><dd>no multi-step match pipeline exists yet.</dd>
+      <dt>Unblock condition</dt><dd>match resolution grows beyond one request/response (tournaments, reward fan-out) or outgrows the function duration budget.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section data-f="F-001" data-priority="nice-to-have">
     <h3>F-001: Draft first GDD section</h3>
     <dl>

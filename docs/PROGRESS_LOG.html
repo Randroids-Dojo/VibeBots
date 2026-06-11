@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="walking-skeleton-scaffold" data-date="2026-06-10">
+    <h3>Walking Skeleton Scaffold</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/scaffold-walking-skeleton</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>stack decided and scaffolded (see AGENTS.md Rule 3): Next.js 16 App Router + three/webgpu + react-three-fiber 9 + exact-pinned <code>@dimforge/rapier3d-deterministic-compat</code> + VibeKit v0.2.0 + Biome/Vitest/Playwright. Landed the deterministic sim walking skeleton: <code>src/sim/</code> (pure TS module: seeded world, fixed timestep, periodic respawn, FNV-1a snapshot hashing), <code>GET /api/sim/verify</code> (server rerun of the identical sim, the hybrid-authority proof), a WebGPU canvas on <code>/</code> rendering the live sim with fixed-timestep interpolation, purity and dash check scripts, CI workflow, and the dots backlog under <code>.dots/</code>. Resolved Q-002 (deterministic reward tracks), Q-003 (hybrid authority), Q-004 (mining as 2D grid logic rendered low-poly 3D, user override). Dependency ledger gained watched entries for rapier, next, three, and fiber; VibeKit pin moved to v0.2.0 (adopted directly, v0.1.0 never installed).</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (7 unit tests incl. same-seed-same-hash determinism), <code>pnpm build</code>, <code>pnpm test:e2e</code> (canvas pixels change over 700ms per Rule 10, sim tick advances, verify API returns a stable hash). All green locally.</dd>
+      <dt>Assumptions</dt><dd>guest-first auth via VibeKit signed cookie before Clerk (F-003); single Neon Postgres as the only launch store (F-004 defers Redis); plain Fluid function for match resolution before Vercel Workflow (F-002); replays re-simulated from <code>{seed, design ids, simVersion}</code> (F-005).</dd>
+      <dt>GDD coverage</dt><dd>no rows flipped; this slice is tech foundation, not requirement behavior. REQ-010 flips to partial when the match-resolve API slice lands.</dd>
+      <dt>Followups</dt><dd>created <code>F-002</code> (Vercel Workflow), <code>F-003</code> (Clerk upgrade path), <code>F-004</code> (Redis rate limiting), <code>F-005</code> (replay format contract) in <code>docs/FOLLOWUPS.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="product-vision-captured" data-date="2026-06-10">
     <h3>Product Vision Captured</h3>
     <dl>

@@ -1,0 +1,12 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #0b0e14;
+  color: #e6e8ee;
+  font-family: system-ui, -apple-system, sans-serif;
+}

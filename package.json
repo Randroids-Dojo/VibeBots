@@ -1,0 +1,42 @@
+{
+  "name": "vibebots",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
+    "lint": "biome ci .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check:dashes": "bash scripts/check-dashes.sh",
+    "check:purity": "bash scripts/check-sim-purity.sh"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-deterministic-compat": "0.19.3",
+    "@randroids-dojo/vibekit": "github:Randroids-Dojo/VibeKit#v0.2.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "9.6.1",
+    "next": "16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "three": "0.184.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "~0.184.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.8"
+  }
+}

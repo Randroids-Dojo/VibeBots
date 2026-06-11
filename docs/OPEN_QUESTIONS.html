@@ -37,42 +37,13 @@
 
 <main id="open">
   <h2>Open</h2>
+  <p>(none currently)</p>
+</main>
 
-  <section data-q="Q-002" data-status="open">
-    <h3>Q-002: Reward model after combat</h3>
-    <dl>
-      <dt>Context</dt><dd>The pitch allows points, unique parts, loot boxes, or another reward format after a match, but the final economy is not decided.</dd>
-      <dt>Options</dt><dd>
-        <ol type="A">
-          <li>Points and currency only.</li>
-          <li>Deterministic reward tracks with occasional unique part unlocks.</li>
-          <li>Randomized loot boxes.</li>
-        </ol>
-      </dd>
-      <dt>Recommended default</dt><dd>B. Deterministic tracks keep progression readable while still allowing rare-feeling part unlocks. Avoid paid randomized rewards until explicitly approved.</dd>
-      <dt>Status</dt><dd>open</dd>
-      <dt>Resolution</dt><dd></dd>
-    </dl>
-  </section>
+<aside id="resolved">
+  <h2>Resolved</h2>
 
-  <section data-q="Q-003" data-status="open">
-    <h3>Q-003: Online match authority</h3>
-    <dl>
-      <dt>Context</dt><dd>Autonomous combat between player-built bots needs a trustworthy simulation path for multiplayer results.</dd>
-      <dt>Options</dt><dd>
-        <ol type="A">
-          <li>Server-authoritative deterministic simulation.</li>
-          <li>Client simulation with result submission and validation.</li>
-          <li>Hybrid: client preview, server result.</li>
-        </ol>
-      </dd>
-      <dt>Recommended default</dt><dd>C. Let the client provide fast previews and keep official match outcomes on a server-controlled path.</dd>
-      <dt>Status</dt><dd>open</dd>
-      <dt>Resolution</dt><dd></dd>
-    </dl>
-  </section>
-
-  <section data-q="Q-004" data-status="open">
+  <section data-q="Q-004" data-status="resolved">
     <h3>Q-004: Mining presentation</h3>
     <dl>
       <dt>Context</dt><dd>The mining loop is described as an old-school vertical digging game, but the camera, controls, and world format are not finalized.</dd>
@@ -84,15 +55,44 @@
         </ol>
       </dd>
       <dt>Recommended default</dt><dd>A. A 2D side-view mine is the clearest prototype path and keeps focus on resource decisions rather than terrain tech.</dd>
-      <dt>Status</dt><dd>open</dd>
-      <dt>Resolution</dt><dd></dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>User override of the default on 2026-06-10: the game is 3D low-poly throughout, and mining keeps 2D vertical-grid logic rendered as low-poly 3D blocks from a side camera. Resource decisions stay readable; the renderer and art style stay shared with workshop and arena. No voxel terrain tech.</dd>
     </dl>
   </section>
 
-</main>
+  <section data-q="Q-003" data-status="resolved">
+    <h3>Q-003: Online match authority</h3>
+    <dl>
+      <dt>Context</dt><dd>Autonomous combat between player-built bots needs a trustworthy simulation path for multiplayer results.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Server-authoritative deterministic simulation.</li>
+          <li>Client simulation with result submission and validation.</li>
+          <li>Hybrid: client preview, server result.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>C. Let the client provide fast previews and keep official match outcomes on a server-controlled path.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>User confirmed C on 2026-06-10. The browser previews matches with a local deterministic sim; a Vercel Node function reruns the exact same sim (same rapier WASM build, same seed) for the official result. World snapshot hashes are the verification primitive. Walking skeleton: <code>src/sim/run.ts</code> plus <code>GET /api/sim/verify</code>.</dd>
+    </dl>
+  </section>
 
-<aside id="resolved">
-  <h2>Resolved</h2>
+  <section data-q="Q-002" data-status="resolved">
+    <h3>Q-002: Reward model after combat</h3>
+    <dl>
+      <dt>Context</dt><dd>The pitch allows points, unique parts, loot boxes, or another reward format after a match, but the final economy is not decided.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Points and currency only.</li>
+          <li>Deterministic reward tracks with occasional unique part unlocks.</li>
+          <li>Randomized loot boxes.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>B. Deterministic tracks keep progression readable while still allowing rare-feeling part unlocks. Avoid paid randomized rewards until explicitly approved.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>User confirmed B on 2026-06-10. Combat pays currency plus readable progression tracks that unlock rare parts at known milestones. No randomized loot boxes.</dd>
+    </dl>
+  </section>
   <section data-q="Q-001" data-status="resolved">
     <h3>Q-001: First requirement file</h3>
     <dl>

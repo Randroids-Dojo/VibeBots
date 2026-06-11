@@ -51,19 +51,19 @@
     {
       "id": "REQ-006",
       "requirement": "Mining provides the primary resource path through depth, materials, tool upgrades, ladders, and light management.",
-      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-mining-resources",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "gddRef": "docs/gdd/06-mining.html#loop",
+      "status": "partial",
+      "implementationRefs": ["src/sim/mine.ts", "src/app/mine/page.tsx"],
+      "testRefs": ["src/sim/mine.test.ts", "tests/e2e/smoke.spec.ts"],
       "followupRefs": []
     },
     {
       "id": "REQ-007",
       "requirement": "Mining can rarely discover robot components in addition to ordinary sellable materials.",
-      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-rare-parts",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "gddRef": "docs/gdd/06-mining.html#loop",
+      "status": "partial",
+      "implementationRefs": ["src/sim/mine.ts"],
+      "testRefs": ["src/sim/mine.test.ts"],
       "followupRefs": []
     },
     {

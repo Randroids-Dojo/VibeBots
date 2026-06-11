@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mining-prototype" data-date="2026-06-10">
+    <h3>Mining Prototype</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mining-prototype</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the third loop opens (REQ-006, REQ-007): <code>src/sim/mine.ts</code> is a pure deterministic dig sim (seeded grid via VibeKit rng, lazily generated rows, depth-scaled rock/emerald/cache odds, energy costs, surface banking with lamp refill, collapse-loses-carry, rock routing, cleared-shaft up-moves, lantern visibility). /mine renders it as low-poly 3D blocks from a side camera with a follow rig, keyboard (WASD/arrows) and button controls, and a status HUD. Rare caches yield robot part ids deterministically (display-only until the economy slice). Home links to the mine.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (48; 8 new mine tests incl. same-seed-same-mine, deterministic cache finds, banking, collapse), <code>pnpm build</code>, <code>pnpm test:e2e</code> (4; new mine test digs and verifies depth/energy/bank-refill).</dd>
+      <dt>Assumptions</dt><dd>v1 numbers (energy 60, dirt 1/move 0.5, light radius 3, depth scaling caps) are placeholders for the fun pass; rock is undiggable until pickaxe upgrades; banked loot is display-only until the economy slice; the mine is in-memory per session.</dd>
+      <dt>GDD coverage</dt><dd>created <code>docs/gdd/06-mining.html</code> (partial); REQ-006 and REQ-007 flipped to partial.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="test-arena" data-date="2026-06-10">
     <h3>Test Arena</h3>
     <dl>

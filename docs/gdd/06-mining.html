@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mining</title>
+</head>
+<body>
+
+  <h1>Mining</h1>
+  <p data-status="partial">Status: partial</p>
+
+  <section data-role="spec" id="spec">
+    <h2>Spec</h2>
+    <p>Mining is the primary resource path (REQ-006): a deterministic 2D vertical grid rendered as low-poly 3D blocks from a side camera (Q-004 resolution). The player descends, digs, and decides when to turn back.</p>
+    <h3 id="loop">The trip loop</h3>
+    <ul>
+      <li>Every dig and move costs lamp energy. Dirt digs; rock is undiggable at pickaxe level 1 (route around it; upgrades later).</li>
+      <li>Emeralds and rare part caches (REQ-007) ride in the carry until banked. Banking happens only on the surface, which also refills the lamp.</li>
+      <li>Running dry underground is a collapse: the carry is lost, the crew hauls you up. The trip-back decision is the core tension.</li>
+      <li>Moving up requires a cleared shaft (ladders are implicit in cells you dug).</li>
+      <li>Light: only rows within lantern radius of the miner render; deeper rows are dark until approached.</li>
+      <li>Depth scaling: rock, emeralds, and caches all grow more common with depth.</li>
+    </ul>
+    <h3 id="not-yet">What this does NOT cover yet</h3>
+    <ul>
+      <li>Pickaxe and lantern upgrades, placeable ladders, hazards.</li>
+      <li>Selling emeralds or using found parts (economy slice; banked loot is display-only).</li>
+      <li>Persistence (a refresh forgets the mine).</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-06-10">Mining prototype: deterministic seeded grid (same seed, same mine, same finds), energy/banking/collapse rules, rock routing, implicit ladders, lantern visibility, depth-scaled generation; /mine page with side-camera 3D blocks, follow camera, keyboard and button controls, status HUD. Files: <code>src/sim/mine.ts</code>, <code>src/state/mine-store.ts</code>, <code>src/components/mine-canvas.tsx</code>, <code>src/components/mine-panel.tsx</code>, <code>src/app/mine/page.tsx</code>, <code>src/sim/mine.test.ts</code>. PR pending.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

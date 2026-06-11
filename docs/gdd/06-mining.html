@@ -11,27 +11,74 @@
 
   <section data-role="spec" id="spec">
     <h2>Spec</h2>
-    <p>Mining is the primary resource path (REQ-006): a deterministic 2D vertical grid rendered as low-poly 3D blocks from a side camera (Q-004 resolution). The player descends, digs, and decides when to turn back.</p>
-    <h3 id="loop">The trip loop</h3>
+    <p>Mining is the primary resource path (REQ-006): a deterministic 2D vertical grid rendered as low-poly 3D blocks from a side camera (Q-004 resolution). The player descends, digs, and decides when to turn back. The design below is the 2026-06-11 research pass (see <a href="../research/mining-mechanics.html">docs/research/mining-mechanics.html</a> and the baseline VibeReview findings F-012 to F-017): the goal is the "one more trip" engine of the genre's best mobile entries, kept fully deterministic so the server can replay any trip from (seed, gear, action log).</p>
+
+    <h3 id="loop">The trip loop (core, unchanged)</h3>
     <ul>
-      <li>Every dig and move costs lamp energy. Dirt digs; rock is undiggable at pickaxe level 1 (route around it; upgrades later).</li>
-      <li>Emeralds and rare part caches (REQ-007) ride in the carry until banked. Banking happens only on the surface, which also refills the lamp.</li>
-      <li>Running dry underground is a collapse: the carry is lost, the crew hauls you up. The trip-back decision is the core tension.</li>
-      <li>Moving up requires a cleared shaft (ladders are implicit in cells you dug).</li>
+      <li>Every dig and move costs lamp energy. Banking happens only on the surface, which also refills the lamp.</li>
+      <li>Carried loot is lost on collapse (lamp dead underground); banked loot is safe. The trip-back decision is the core tension.</li>
+      <li>Moving up requires a cleared shaft (ladders are implicit in cells you dug); there is no digging upward.</li>
       <li>Light: only rows within lantern radius of the miner render; deeper rows are dark until approached.</li>
-      <li>Depth scaling: rock, emeralds, and caches all grow more common with depth.</li>
+      <li>Same seed, same mine, same finds: a trip is a pure function of (seed, gear, action log), and the server replays it to credit cash-outs.</li>
     </ul>
+
+    <h3 id="ores">Ore tiers and strata (REQ-011, REQ-012)</h3>
+    <ul>
+      <li>Seven ore tiers with roughly exponential credit value and rarity inverse to value: coal 1, copper 3, silver 8, emerald 20, ruby 50, diamond 125, core crystal 320. Each tier lives in a depth band with overlap, so the previous tier stays present one band deeper and the next tier teases at a band's bottom edge.</li>
+      <li>Named strata roughly every 12 rows (Topsoil, Clay Beds, Old Granite, Glow Caverns, Magma Verge, ...), each with its own dirt palette so descent is visible without reading the HUD. Reaching a stratum for the first time in a trip shows a banner; the first time ever, it pays a one-time milestone bonus credited at banking (deterministic from max depth reached).</li>
+      <li>The wallet currency is "credits"; ores convert to credits when banked (Q-005). Banked part caches still grant robot parts (REQ-007).</li>
+      <li>A persistent deepest-depth record lives on the player profile.</li>
+    </ul>
+
+    <h3 id="hardness">Hardness and pickaxe gates (REQ-013)</h3>
+    <ul>
+      <li>Blocks have a hit count by material and depth (dirt 1, ores 2, hard rock 3+). Each swing is one action in the log and costs energy; partial damage renders as crack states.</li>
+      <li>Rock comes in tiers keyed to pickaxe tiers, Terraria style: below the required pickaxe tier the block does not break at all ("granite, my pick can't cut it"); at tier, it digs in a few hits. The player should hit a visible wall one band before they can afford the answer.</li>
+    </ul>
+
+    <h3 id="gear">Gear upgrades (REQ-013, REQ-014)</h3>
+    <ul>
+      <li>Four persistent per-player tracks bought with credits at the surface shop, superlinear costs (roughly x3 per tier): pickaxe (gates rock tiers, fewer hits), lamp cell (max energy), cargo hold (carry capacity), lantern (light radius).</li>
+      <li>Carry capacity is the secondary trip cap: a full hold forces the banking decision even with energy to spare.</li>
+      <li>Gear levels are part of the sim input. A trip is replayed with the gear snapshot taken at session start; the server validates the snapshot against owned gear at cash-out (Q-007).</li>
+    </ul>
+
+    <h3 id="hazards">Hazards (REQ-015)</h3>
+    <ul>
+      <li>Boulders: a boulder cell whose support is dug wobbles for one action, then falls on the next, crushing what it lands on. Getting crushed ends the trip like a collapse (carry lost, hauled up). Falls resolve as discrete grid steps from the action log: no physics engine.</li>
+      <li>Gas pockets: digging adjacent to a gas cell vents it; it detonates in a plus shape, destroying blocks (and their loot) and draining lamp energy. Gas can chain into gas. Reads as a slightly-off block so depth knowledge becomes player skill.</li>
+      <li>Hazard frequency grows with depth; no reflex-based hazards (one-thumb friendly).</li>
+    </ul>
+
+    <h3 id="consumables">Consumables (REQ-016)</h3>
+    <ul>
+      <li>Bought at the surface shop, carried into trips, used as logged actions: dynamite (clears a plus shape including rock at any pickaxe tier; destroyed blocks yield nothing) and recall rope (ends the trip from anywhere, keeping carry, banking normally). Priced at roughly 10-30% of an average trip haul.</li>
+      <li>Each resolves one dread: "I can't get through" (dynamite), "I won't make it back" (recall). Insurance converts anxiety into economy without deleting tension (F-015's fix).</li>
+    </ul>
+
+    <h3 id="legibility">Trip-decision legibility (REQ-017)</h3>
+    <ul>
+      <li>The HUD shows carried value in credits (the bet on the table) and an estimated return cost in energy for the climb home; the lamp readout warns when energy approaches the return cost (F-012's fix).</li>
+      <li>The collapse rules are stated in-world before the first descent (one line on the surface), not discovered by losing.</li>
+    </ul>
+
+    <h3 id="feel">Dig feel and fanfare (REQ-018, REQ-019)</h3>
+    <ul>
+      <li>Render-layer juice, never sim: crack states on multi-hit blocks, debris particles and shake scaled to hardness, tweened miner movement (no teleporting), pitch-ramped pickup chimes, slow-mo sting and banner on part-cache finds.</li>
+      <li>Collapse is a drama beat (lamp flicker, dim, "the crew hauls you up"), and every failed trip ends with a near-miss reveal: what you were carrying and the treasure that was almost in reach (the client has the full grid; pure UI).</li>
+    </ul>
+
     <h3 id="not-yet">What this does NOT cover yet</h3>
     <ul>
-      <li>Pickaxe and lantern upgrades, placeable ladders, hazards.</li>
-      <li>Selling emeralds or using found parts (economy slice; banked loot is display-only).</li>
-      <li>Persistence (a refresh forgets the mine).</li>
+      <li>Smelt combos (consecutive matching ores multiply value), surface accrual between trips, collections/museum screen, disguised hazard blocks beyond gas, server-issued seeds (F-011).</li>
+      <li>Audio is desirable (pitch-ramped chimes) but may land after visual juice.</li>
     </ul>
   </section>
 
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-06-11">Design pass: researched the genre (Motherload, Pocket Mine, Mr. Mine, Deep Town, SteamWorld Dig, Dome Keeper, Mr. Driller, Terraria; report at <code>docs/research/mining-mechanics.html</code>), ran the baseline VibeReview playtest of production /mine (session <code>docs/reviews/20260610-220517-4C845606/</code>, F-012 to F-017), and expanded this spec with ore tiers, strata, gear gates, hazards, consumables, legibility, and juice (REQ-011 to REQ-019). Files: <code>docs/gdd/06-mining.html</code>, <code>docs/research/mining-mechanics.html</code>, <code>scripts/playtest-mine.mjs</code>. PR pending.</li>
       <li data-date="2026-06-11">Banked loot became real: the Cash out button submits (seed, move log) and the server replays the deterministic mine to credit the wallet and inventory; the session then restarts on a fresh seed. Files: <code>src/state/mine-store.ts</code>, <code>src/components/mine-panel.tsx</code>, <code>src/app/api/mine/bank/route.ts</code>. PR pending.</li>
       <li data-date="2026-06-10">Mining prototype: deterministic seeded grid (same seed, same mine, same finds), energy/banking/collapse rules, rock routing, implicit ladders, lantern visibility, depth-scaled generation; /mine page with side-camera 3D blocks, follow camera, keyboard and button controls, status HUD. Files: <code>src/sim/mine.ts</code>, <code>src/state/mine-store.ts</code>, <code>src/components/mine-canvas.tsx</code>, <code>src/components/mine-panel.tsx</code>, <code>src/app/mine/page.tsx</code>, <code>src/sim/mine.test.ts</code>. PR pending.</li>
     </ul>

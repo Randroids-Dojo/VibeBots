@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Research: Mining Game Mechanics</title>
+</head>
+<body>
+
+<header>
+  <h1>Research: Mining Game Mechanics</h1>
+  <p>Date: 2026-06-11. Web research across wikis, postmortems, design analyses, and reviews for Motherload/Super Motherload, Pocket Mine 1-3, Mr. Mine, Deep Town, SteamWorld Dig 1 and 2, Dome Keeper, Mr. Driller, Idle Miner Tycoon, Mineblast!!, Terraria, plus game-feel and retention-psychology sources. Feeds the mining spec in <a href="../gdd/06-mining.html">docs/gdd/06-mining.html</a>.</p>
+</header>
+
+<section id="profiles">
+  <h2>Game profiles</h2>
+
+  <section data-game="motherload">
+    <h3>Motherload / Super Motherload</h3>
+    <ul>
+      <li>Core loop: fly a pod down a 2D grid, dig, fill cargo, return to surface to sell, refuel, repair, upgrade. Trip ends by choice (cargo full, fuel low) or death (fuel empty explodes the pod).</li>
+      <li>Fuel is the trip clock. Starting tank (10 L) lasts about 30 seconds. Tank tiers: 10, 15 ($750), 25 ($2,000), 40 ($5,000), 60 ($20,000), 100 ($100,000), 150 L ($500,000). Capacity grows ~15x while price grows ~667x: late tiers are prestige sinks.</li>
+      <li>Ten ore tiers, exponential value: Ironium $30, Bronzium $60, Silverium $100, Goldium $250, Platinum $750, Einsteinium $2,000, Emerald $5,000, Ruby $20,000, Diamond $100,000, Amazonite $500,000 (roughly 2-5x per tier). Heavier minerals slow the pod, so the richest cargo is the hardest to haul home.</li>
+      <li>Hazards by depth band: undiggable stone ~1,500 ft, lava pockets ~3,000 ft, gas pockets ~4,750 ft, fall damage. Hazards disguise as ordinary blocks, so depth knowledge becomes skill.</li>
+      <li>Consumables priced as insurance: Reserve Fuel ~$2,000, Dynamite ~$2,000, Plastic Explosive ~$5,000, Hull Nanobots ~$7,500, Quantum Teleporter $2,000, Matter Transmitter $10,000 (teleport home with cargo).</li>
+      <li>Dopamine: depth milestone story beats with cash gifts (-1,000 ft pays $3,000), random artifacts below 950 ft, hidden unique upgrades found (not bought) between 4,000 ft and the core.</li>
+      <li>Super Motherload adds consecutive-collection smelting combos (order of pickup multiplies value): route order becomes a scoring layer, fully deterministic.</li>
+    </ul>
+  </section>
+
+  <section data-game="pocket-mine">
+    <h3>Pocket Mine 1-3 (mobile)</h3>
+    <ul>
+      <li>One-thumb, sub-minute runs. Tap blocks to break; pickaxe durability is the energy budget (PM2 starts ~200 hits; PM3 ~50 effective digs per round). Everything auto-banks: loss is impossible, tension is spending durability wisely.</li>
+      <li>Special blocks carry the texture: bomb crates, explosive gas, ore boulders that clear neighbors, fireworks, bank blocks, rails, chain lightning. Chain reactions cost zero durability: spotting one is found money.</li>
+      <li>Meta: durability upgrades, card loadouts (use-once with cooldown timers), pets, per-world artifact collections that pay completion rewards.</li>
+      <li>Reviews call the tap-to-dig one-input model the mobile-native standard; its weakest element is reflex combat.</li>
+    </ul>
+  </section>
+
+  <section data-game="mr-mine">
+    <h3>Mr. Mine (idle)</h3>
+    <ul>
+      <li>Depth milestones gate all content: named unlocks at exact depths (Caves 45 km, Scientists 50 km, Chest Collector 100 km, Broken Robot 225 km, Underground City 300 km), 2,500+ km total. The depth number itself is the progress bar.</li>
+      <li>Lesson: publish the depth ruler. Named strata, milestone unlocks, and a visible deepest-depth stat are cheap and drive long-horizon goals.</li>
+    </ul>
+  </section>
+
+  <section data-game="deep-town">
+    <h3>Deep Town (mobile idle)</h3>
+    <ul>
+      <li>The mine is a vertical stack of floors, 9 segments per floor, with a boss block at the bottom of each area. Blocks get more resilient with depth.</li>
+      <li>Raw ore is worth little; processed goods are worth much more. Value comes from transformation, not just extraction.</li>
+      <li>Lesson: strata with a capstone block at the bottom of each band give each depth band a finale. Maps directly onto a 9-wide grid.</li>
+    </ul>
+  </section>
+
+  <section data-game="steamworld-dig">
+    <h3>SteamWorld Dig 1 and 2</h3>
+    <ul>
+      <li>Dig down, fill limited loot sacks, climb back, sell, upgrade. Trip enders: inventory full, light low, health low, or stuck.</li>
+      <li>The developers' published deep dive: "keeping the player in constant risk of getting stuck" was the deliberate primary tension; digging destroys the terrain you climb on. Playtesters hated stuck-with-no-out, so wall-jump was added as the skill escape valve. Punishing dead-ends need an escape valve (skill or consumable) or the tension reads as unfair.</li>
+      <li>Light is a soft timer: darkness makes everything risky rather than killing you; ore sparkles in the dark, so darkness hides value.</li>
+      <li>Upgrades unlock verbs, not just numbers: drill tiers gate tougher rock; dynamite, super jump, wall-jump change traversal. Story characters pay cash gifts at depth thresholds.</li>
+    </ul>
+  </section>
+
+  <section data-game="dome-keeper">
+    <h3>Dome Keeper</h3>
+    <ul>
+      <li>Between monster waves, dig and haul resources home; the wave timer forces a "one more vein or run home" call every 2-3 minutes inside 20-30 minute runs.</li>
+      <li>Carry capacity is the central decision: you start carrying a couple of units and they slow you; veins are bigger than your capacity. Three resources with three jobs (iron upgrades, water gadgets, cobalt repairs): the designers call two too flat and four overload.</li>
+      <li>Resource abundance grows with depth, so depth is always tempting. "Hundreds of micro-decisions" given meaning by the clock.</li>
+    </ul>
+  </section>
+
+  <section data-game="mr-driller">
+    <h3>Mr. Driller</h3>
+    <ul>
+      <li>Fixed-width well, blocks fall when unsupported and crush you; 4+ same-color blocks auto-clear, causing chains. Air depletes constantly, refilled by capsules in the field.</li>
+      <li>Lesson: support rules (unsupported blocks fall after a beat) are a fully deterministic, grid-native hazard producing dodges, near-misses, and self-inflicted disasters with zero physics engine.</li>
+    </ul>
+  </section>
+
+  <section data-game="others">
+    <h3>Idle Miner Tycoon, Mineblast!!, Terraria, Wall Kickers, juice canon</h3>
+    <ul>
+      <li>Idle Miner Tycoon: always one obvious next purchase (bottleneck-widening); reported D1 retention ~75% vs ~40% industry norm. Returning should feel like opening a present.</li>
+      <li>Mineblast!!: placing a bomb and watching a quadrant erupt is the juiciest verb in the genre.</li>
+      <li>Terraria: pickaxe-power hard gates (a pickaxe below threshold does nothing to the block); cavern layer has 4-5x surface ore density; this tier's ore builds the pickaxe for the next tier. Cleanest hard-gate progression in the genre.</li>
+      <li>Wall Kickers reviews credit one input with analog consequence, instant restart, 1-2 minute runs. The animation layer must feel analog even when the sim is discrete.</li>
+      <li>Juice canon (Juice It or Lose It, Vlambeer): crack states, debris particles, shake scaled to event size, pitch-ramped pickup sounds, pause-frames on big finds; reserve the big effects for rare events so they keep meaning. Near-miss psychology: losses that almost won activate reward circuitry; show what the player almost got.</li>
+    </ul>
+  </section>
+</section>
+
+<section id="patterns">
+  <h2>Cross-game patterns</h2>
+  <ul>
+    <li><strong>Trip anatomy:</strong> one primary trip clock plus one or two secondary caps (fuel + cargo + hull; durability + scroll; wave timer + carry). Trips end well when the player chose to come home and memorably when a gamble failed; both endings must be possible.</li>
+    <li><strong>Push-your-luck formula:</strong> value density rises with depth, return cost rises with depth, unbanked value is at risk. The strongest lever is carried-loot-lost-on-death, banked-loot-safe. Insurance consumables monetize the tension without removing it.</li>
+    <li><strong>Ore tiers:</strong> 6-10 tiers, exponential value (2-5x per step), rarity inverse to value, depth-banded with overlap so the previous tier remains one band deeper.</li>
+    <li><strong>Upgrades:</strong> tracks for dig strength (gates hard rock), energy, cargo, mobility, hull, light/information. Costs steeply superlinear (x2.5-x5 per tier). The best upgrades unlock verbs or access. Players should hit a visible wall one band before they can afford the answer.</li>
+    <li><strong>Hazards:</strong> mobile-friendly hazards are informational and positional, not reflexive: disguised damage blocks learned by depth, unsupported-block falls with a warning beat, undiggable stone forcing detours. Reflex enemies port badly to one-thumb play.</li>
+    <li><strong>Consumables:</strong> burst clearance (dynamite), escape insurance (reserve fuel, teleporter), information (scanner). Each resolves one dread; priced at ~10-30% of an average trip haul.</li>
+    <li><strong>Movement:</strong> gravity-walkers (dig is irreversible terrain editing) generate better grid decisions than free flight; one-thumb standard is tap-the-adjacent-block.</li>
+    <li><strong>Pacing:</strong> trips of under a minute (Pocket Mine) or decision points every 2-3 minutes (Dome Keeper). Dopamine schedule: guaranteed small payoff every few seconds, probable mid payoff per trip, rare jackpot every 5-20 trips with full fanfare.</li>
+    <li><strong>Meta:</strong> deepest-depth stat, named strata, collections with completion rewards, milestone gifts, daily/cooldown hooks, always-one-affordable-upgrade pacing.</li>
+  </ul>
+</section>
+
+<section id="priorities">
+  <h2>Prioritized mechanics for VibeBots (impact over implementation cost)</h2>
+  <p>Items marked [OMT] are primary "one more trip" compulsion drivers. All are table-driven or resolve as discrete grid steps, so server replay of the move log reproduces every payout exactly; juice lives entirely in the render layer.</p>
+  <ol>
+    <li>[OMT] Exponential depth-banded ore tiers (7-9 tiers, ~3x value per tier, overlapping bands).</li>
+    <li>[OMT] Carried-vs-banked loot with loss on collapse plus a visible carried-value HUD counter: the number on screen is the bet.</li>
+    <li>[OMT] Energy as the single trip clock with return cost rising with depth, surfaced to the player.</li>
+    <li>Block-break juice ladder: crack states, hardness-scaled particles and shake, pitch-ramped pickup audio, slow-mo plus sting on rare finds.</li>
+    <li>Hard-rock gates keyed to pickaxe tier (the block does not break at all below the required tier).</li>
+    <li>[OMT] Steep upgrade ladders on 4 tracks (pickaxe, energy, cargo, light) with superlinear costs (x2.5-x4 per tier).</li>
+    <li>Unsupported-block falls resolved as discrete grid steps with a one-tick wobble warning.</li>
+    <li>Insurance and burst consumables (bomb, emergency recall) priced at ~10-30% of an average trip haul.</li>
+    <li>[OMT] Depth milestones: named strata, first-reach bonus and banner, persistent deepest-depth record.</li>
+    <li>Chain-reaction blocks (gas pockets, ore boulders, crystal clusters): deterministic flood-fill.</li>
+    <li>Disguised hazard blocks learned by depth band.</li>
+    <li>[OMT] Robot-part caches as rare jackpots (one per 5-20 trips) with full fanfare, plus a collection screen.</li>
+    <li>[OMT] Post-trip near-miss reveal: what you died carrying and what was almost in reach.</li>
+    <li>Adjacency smelt combos (consecutive matching ores multiply value): route-ordering skill with zero new content.</li>
+    <li>Surface accrual between trips (restocks, contracts): returning feels like opening a present.</li>
+  </ol>
+  <p><strong>The "one more trip" engine:</strong> the exponential ore curve makes the next band irresistible, the carried-value counter makes greed visible, the energy clock forces the bank-or-push call before the player is ready, milestone and upgrade thresholds are always one trip away, jackpot caches run on a variable-ratio schedule, and the near-miss reveal ends every failed trip with proof that success was two blocks away. Trips of 60-120 seconds keep the cost of "just one more" trivially low.</p>
+</section>
+
+</body>
+</html>

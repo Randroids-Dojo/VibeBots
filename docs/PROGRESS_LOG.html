@@ -31,6 +31,20 @@
 
 <main id="entries">
 
+  <article data-slice="mining-design-pass" data-date="2026-06-11">
+    <h3>Mining Design Pass (research + baseline playtest + spec)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mining-design-pass</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the mining overhaul opens with design, not code. Researched the genre's best trip loops (Motherload, Pocket Mine, Mr. Mine, Deep Town, SteamWorld Dig, Dome Keeper, Mr. Driller, Terraria, juice canon; full report at <code>docs/research/mining-mechanics.html</code>), ran the baseline VibeReview playtest of production /mine (session <code>docs/reviews/20260610-220517-4C845606/</code> with scripted-run screenshots and a new <code>scripts/playtest-mine.mjs</code> driver), and expanded the GDD mining spec with the "one more trip" engine: seven exponential ore tiers in overlapping depth bands, named strata with milestone bonuses, four gear tracks with Terraria-style pickaxe hard gates, deterministic boulder/gas hazards, dynamite and recall-rope consumables, trip-decision legibility, and render-layer juice incl. a near-miss reveal. Coverage gains atomic rows REQ-011 to REQ-019 (all not_started); backlog dots created for the ore-tiers, gear, hazards, and juice slices plus recurring VibeReview sessions.</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm test</code> (62), JSON validity of the coverage ledger; no app code changed.</dd>
+      <dt>Assumptions</dt><dd>Q-005 default A (display currency "credits", DB column unchanged); Q-006 default B (extended action tokens with a log version); Q-007 default B (gear snapshot submitted, validated against owned). VibeReview's automatic captures grabbed the reviewer desktop instead of the game, so those screenshots were removed and the entries point at the scripted-run evidence; noted for the VibeReview tool itself.</dd>
+      <dt>GDD coverage</dt><dd>REQ-011 to REQ-019 added (not_started); build-log entry on 06; F-012 to F-017 created from the baseline playtest (F-012..F-015 land with the ore/gear/hazards slices, F-016/F-017 with juice/ore).</dd>
+      <dt>Followups</dt><dd>F-012, F-013, F-014, F-015, F-016, F-017 (VibeReview baseline session).</dd>
+    </dl>
+  </article>
+
+
   <article data-slice="economy" data-date="2026-06-11">
     <h3>Economy (cash-outs, wallets, shop)</h3>
     <dl>

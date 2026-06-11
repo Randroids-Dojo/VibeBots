@@ -143,10 +143,12 @@ function ArenaScene({
   onHud: (hud: HudState) => void;
 }) {
   const runRef = useRef<ArenaRun | null>(null);
+  const unmountedRef = useRef(false);
   const accumulatorRef = useRef(0);
   const endLingerRef = useRef(0);
   const restartingRef = useRef(false);
   const lastHudTickRef = useRef(-1);
+  const bannerShownRef = useRef(false);
   const viewsRef = useRef(new Map<string, PartView>());
   const groupRefs = useRef(new Map<string, Group | null>());
   const materialRefs = useRef(new Map<string, MeshStandardMaterial | null>());
@@ -173,9 +175,9 @@ function ArenaScene({
   }, []);
 
   useEffect(() => {
-    let disposed = false;
+    unmountedRef.current = false;
     bootMatch().then((run) => {
-      if (disposed) {
+      if (unmountedRef.current) {
         run.dispose();
         return;
       }
@@ -184,7 +186,7 @@ function ArenaScene({
       onHud(readHud(run.match));
     });
     return () => {
-      disposed = true;
+      unmountedRef.current = true;
       runRef.current?.dispose();
       runRef.current = null;
     };
@@ -233,8 +235,12 @@ function ArenaScene({
     if (stepped) {
       stageRef.current?.setAttribute("data-sim-tick", String(match.tick));
       const hudTick = Math.floor(match.tick / 15);
-      if (hudTick !== lastHudTickRef.current || match.status.over) {
+      // Edge-trigger the banner; a level trigger would re-render every
+      // frame for the whole end linger.
+      const bannerEdge = match.status.over && !bannerShownRef.current;
+      if (hudTick !== lastHudTickRef.current || bannerEdge) {
         lastHudTickRef.current = hudTick;
+        if (bannerEdge) bannerShownRef.current = true;
         onHud(readHud(match));
       }
     }
@@ -248,8 +254,14 @@ function ArenaScene({
         runRef.current = null;
         run.dispose();
         bootMatch().then((next) => {
+          if (unmountedRef.current) {
+            next.dispose();
+            return;
+          }
           runRef.current = next;
           syncViews(next.match, true);
+          bannerShownRef.current = false;
+          lastHudTickRef.current = -1;
           onHud(readHud(next.match));
           restartingRef.current = false;
         });

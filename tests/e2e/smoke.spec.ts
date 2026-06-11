@@ -24,6 +24,9 @@ test("home page renders a moving match (Rule 10 motion QA)", async ({
 
   await page.waitForTimeout(700);
 
+  // Assumes the match outlasts the sample window (matches run ~60s and the
+  // test samples within the first seconds). If tuning ever makes matches end
+  // near-instantly, the exhibition restart resets the tick and this flakes.
   const tickAfter = Number(await stage.getAttribute("data-sim-tick"));
   const shotAfter = await canvas.screenshot();
 

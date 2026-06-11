@@ -54,11 +54,10 @@ export const PRESSURE_CLOSING_SPEED = 0.5;
 
 /**
  * Timeout judgment weights (placeholders until the fun-factor pass).
- * Contact damage is symmetric between the two parts in a contact, so the
- * dealt/taken terms only separate bots through clamping (overkill pays
- * nothing) and debris hits; the asymmetric terms are health ratio, parts
+ * The weapon multiplier makes dealt/taken genuinely asymmetric (a weapon
+ * bot deals several times what it takes per clash); health ratio, parts
  * ratio, end-of-match mobility, and directional pressure (accrued only
- * while actually advancing on the enemy).
+ * while actually advancing on the enemy) separate bots further.
  */
 export const W_DEALT = 2;
 export const W_TAKEN = 1;
@@ -438,8 +437,10 @@ export function stepMatch(match: MatchState): void {
     for (const [side, owner] of owners.entries()) {
       if (!owner) continue;
       const other = owners[1 - side];
-      // Only combat contact damages: both parts owned, different bots.
+      // Only combat contact damages: both parts owned, different bots,
+      // and the striking part must still be alive (debris is inert).
       if (!other || other.bot === owner.bot) continue;
+      if (match.bots[other.bot].parts.get(other.iid)?.destroyed) continue;
       // Weapons concentrate force: the struck part takes extra damage.
       const amount = Math.min(
         other.isWeapon ? damage * WEAPON_DAMAGE_MULTIPLIER : damage,

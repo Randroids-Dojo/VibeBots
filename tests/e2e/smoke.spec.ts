@@ -14,6 +14,11 @@ test("home page renders a moving match (Rule 10 motion QA)", async ({
   await expect(page.getByText("Brawler", { exact: true })).toBeVisible();
   await expect(page.getByText("Rammer", { exact: true })).toBeVisible();
 
+  // Every page must reach the others (a missing nav link shipped once).
+  const nav = page.getByLabel("Game sections");
+  await expect(nav.getByRole("link", { name: "Workshop" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Mine" })).toBeVisible();
+
   const stage = page.locator("[data-sim-tick]");
   await expect
     .poll(async () => Number(await stage.getAttribute("data-sim-tick")), {
@@ -40,6 +45,9 @@ test("home page renders a moving match (Rule 10 motion QA)", async ({
 test("workshop builds and undoes parts", async ({ page }) => {
   await page.goto("/workshop");
   await expect(page.locator("canvas")).toBeVisible();
+  await expect(
+    page.getByLabel("Game sections").getByRole("link", { name: "Mine" }),
+  ).toBeVisible();
   await expect(page.getByText("My Bot: 1 part", { exact: true })).toBeVisible();
 
   const palette = page.getByLabel("Part palette");
@@ -64,6 +72,9 @@ test("workshop builds and undoes parts", async ({ page }) => {
 test("mine digs and tracks depth and energy", async ({ page }) => {
   await page.goto("/mine");
   await expect(page.locator("canvas")).toBeVisible();
+  await expect(
+    page.getByLabel("Game sections").getByRole("link", { name: "Arena" }),
+  ).toBeVisible();
   const status = page.getByLabel("Mine status");
   await expect(status).toContainText("depth 0");
 

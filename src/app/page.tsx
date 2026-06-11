@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArenaStage } from "@/components/arena-stage";
+import { GameNav } from "@/components/game-nav";
 
 export default function HomePage() {
   return (
@@ -19,16 +19,7 @@ export default function HomePage() {
         <p style={{ margin: 0, opacity: 0.6, fontSize: "0.85rem" }}>
           exhibition match: Brawler vs Rammer
         </p>
-        <Link
-          href="/workshop"
-          style={{
-            fontSize: "0.85rem",
-            color: "#54e0c7",
-            pointerEvents: "auto",
-          }}
-        >
-          open the workshop
-        </Link>
+        <GameNav current="/" />
       </header>
       <ArenaStage />
     </main>

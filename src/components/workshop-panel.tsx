@@ -2,7 +2,7 @@
 
 import { canRedo, canUndo } from "@randroids-dojo/vibekit";
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   type BotDesign,
   CPU_BRAWLER_DESIGN,
@@ -25,14 +25,9 @@ const panelStyle: React.CSSProperties = {
 
 export function WorkshopPanel() {
   const design = useWorkshopStore((s) => s.design);
-  const [testing, setTesting] = useState(false);
-  // Freeze the matchup per fight so the arena does not reboot on renders.
-  const matchup = useMemo<[BotDesign, BotDesign] | null>(
-    () => (testing ? [CPU_BRAWLER_DESIGN, design] : null),
-    // eslint-style note: design changes are irrelevant while testing; the
-    // build UI is hidden and the design frozen until "Back to build".
-    [testing, design],
-  );
+  // Captured at click time: the matchup identity is state, so nothing a
+  // render does can reboot a running test fight.
+  const [matchup, setMatchup] = useState<[BotDesign, BotDesign] | null>(null);
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const history = useWorkshopStore((s) => s.history);
   const addPart = useWorkshopStore((s) => s.addPart);
@@ -50,13 +45,13 @@ export function WorkshopPanel() {
     selectedIid !== null &&
     !design.connections.some((c) => c.parentIid === selectedIid);
 
-  if (testing && matchup) {
+  if (matchup) {
     return (
       <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
         <ArenaCanvas designs={matchup} />
         <button
           type="button"
-          onClick={() => setTesting(false)}
+          onClick={() => setMatchup(null)}
           style={{
             position: "absolute",
             top: 70,
@@ -178,7 +173,7 @@ export function WorkshopPanel() {
             </button>
             <button
               type="button"
-              onClick={() => setTesting(true)}
+              onClick={() => setMatchup([CPU_BRAWLER_DESIGN, design])}
               disabled={!validation.ok}
               title={validation.ok ? undefined : "fix validity errors first"}
               style={{

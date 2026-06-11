@@ -152,7 +152,8 @@ function ArenaScene({
   onHud: (hud: HudState) => void;
 }) {
   const runRef = useRef<ArenaRun | null>(null);
-  const unmountedRef = useRef(false);
+  /** Bumped on every effect (re)run and cleanup; stale async boots check it. */
+  const generationRef = useRef(0);
   const accumulatorRef = useRef(0);
   const endLingerRef = useRef(0);
   const restartingRef = useRef(false);
@@ -184,9 +185,9 @@ function ArenaScene({
   }, []);
 
   useEffect(() => {
-    unmountedRef.current = false;
+    const generation = ++generationRef.current;
     bootMatch(designs).then((run) => {
-      if (unmountedRef.current) {
+      if (generationRef.current !== generation) {
         run.dispose();
         return;
       }
@@ -195,7 +196,7 @@ function ArenaScene({
       onHud(readHud(run.match));
     });
     return () => {
-      unmountedRef.current = true;
+      generationRef.current += 1;
       runRef.current?.dispose();
       runRef.current = null;
     };
@@ -262,8 +263,9 @@ function ArenaScene({
         endLingerRef.current = 0;
         runRef.current = null;
         run.dispose();
+        const generation = generationRef.current;
         bootMatch(designs).then((next) => {
-          if (unmountedRef.current) {
+          if (generationRef.current !== generation) {
             next.dispose();
             return;
           }

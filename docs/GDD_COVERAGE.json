@@ -204,9 +204,19 @@
       "id": "REQ-013",
       "requirement": "Persistent gear tracks (pickaxe, lamp cell, cargo hold, lantern) are bought with credits; pickaxe tiers hard-gate rock and gear is part of the replayable sim input.",
       "gddRef": "docs/gdd/06-mining.html#gear",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/app/api/gear/route.ts",
+        "src/app/api/gear/upgrade/route.ts",
+        "src/app/api/mine/bank/route.ts",
+        "src/components/shop-panel.tsx",
+        "src/state/mine-store.ts",
+        "src/server/db.ts"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
       "followupRefs": [
         "F-013"
       ]
@@ -215,9 +225,14 @@
       "id": "REQ-014",
       "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining.",
       "gddRef": "docs/gdd/06-mining.html#gear",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/components/mine-panel.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
       "followupRefs": []
     },
     {

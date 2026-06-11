@@ -35,6 +35,22 @@ async function applySchema(sql: Sql): Promise<void> {
       emeralds integer NOT NULL DEFAULT 0
     )`;
   await sql`
+    CREATE TABLE IF NOT EXISTS player_parts (
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      part_id text NOT NULL,
+      count integer NOT NULL DEFAULT 0,
+      PRIMARY KEY (player_id, part_id)
+    )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS mine_runs (
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      seed bigint NOT NULL,
+      banked_emeralds integer NOT NULL,
+      banked_parts jsonb NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (player_id, seed)
+    )`;
+  await sql`
     CREATE TABLE IF NOT EXISTS bot_designs (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,

@@ -4,10 +4,15 @@ const PAGES = [
   { href: "/", label: "Arena" },
   { href: "/workshop", label: "Workshop" },
   { href: "/mine", label: "Mine" },
+  { href: "/shop", label: "Shop" },
 ] as const;
 
 /** The one nav row every page shares; the current page renders unlinked. */
-export function GameNav({ current }: { current: "/" | "/workshop" | "/mine" }) {
+export function GameNav({
+  current,
+}: {
+  current: "/" | "/workshop" | "/mine" | "/shop";
+}) {
   return (
     <nav
       aria-label="Game sections"

@@ -88,6 +88,23 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toContainText("energy 60.0");
 });
 
+test("shop lists parts and balance (needs storage)", async ({
+  page,
+  request,
+}) => {
+  const probe = await request.get("/api/shop");
+  test.skip(
+    probe.status() === 503,
+    "storage not configured in this environment",
+  );
+
+  await page.goto("/shop");
+  const shop = page.getByLabel("Part shop");
+  await expect(shop).toBeVisible();
+  await expect(shop.getByText("balance:")).toBeVisible();
+  await expect(shop.getByText("Drive Wheel")).toBeVisible();
+});
+
 test("garage saves and lists designs (needs storage)", async ({
   page,
   request,

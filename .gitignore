@@ -24,3 +24,4 @@ coverage/
 
 # TypeScript incremental build info
 tsconfig.tsbuildinfo
+.env*.local

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GameNav } from "@/components/game-nav";
 import { MinePanel } from "@/components/mine-panel";
 
 export default function MinePage() {
@@ -18,9 +18,7 @@ export default function MinePage() {
         <p style={{ margin: 0, opacity: 0.6, fontSize: "0.85rem" }}>
           dig for emeralds, find rare parts, make it back up
         </p>
-        <Link href="/" style={{ fontSize: "0.85rem", color: "#54e0c7" }}>
-          back to the arena
-        </Link>
+        <GameNav current="/mine" />
       </header>
       <MinePanel />
     </main>

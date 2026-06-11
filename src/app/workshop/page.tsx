@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GameNav } from "@/components/game-nav";
 import { WorkshopPanel } from "@/components/workshop-panel";
 
 export default function WorkshopPage() {
@@ -18,9 +18,7 @@ export default function WorkshopPage() {
         <p style={{ margin: 0, opacity: 0.6, fontSize: "0.85rem" }}>
           snap parts onto connectors, then watch it fight
         </p>
-        <Link href="/" style={{ fontSize: "0.85rem", color: "#54e0c7" }}>
-          back to the arena
-        </Link>
+        <GameNav current="/workshop" />
       </header>
       <WorkshopPanel />
     </main>

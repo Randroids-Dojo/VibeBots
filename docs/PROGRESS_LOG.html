@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="game-nav-fix" data-date="2026-06-11">
+    <h3>Game Nav Fix</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/game-nav</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the "go mining" home link from the mining slice never shipped: a scripted edit silently no-opped against the formatted file and no e2e covered navigation, so /mine was undiscoverable in production (user report). Replaced the ad-hoc per-page links with one shared <code>GameNav</code> (Arena / Workshop / Mine, current page unlinked) on all three pages, and the e2e smoke now asserts cross-page nav links on every page so a missing link cannot ship silently again.</dd>
+      <dt>Verification</dt><dd>dash check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (61), <code>pnpm build</code>, <code>pnpm test:e2e</code> (5, with new nav assertions on all three pages).</dd>
+      <dt>Assumptions</dt><dd>none.</dd>
+      <dt>GDD coverage</dt><dd>no rows changed (navigation glue).</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="varied-silhouettes" data-date="2026-06-10">
     <h3>Varied Silhouettes</h3>
     <dl>

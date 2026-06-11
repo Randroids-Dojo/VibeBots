@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="match-resolve-api" data-date="2026-06-10">
+    <h3>Match Resolve API</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/match-resolve-api</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the official-result path exists (REQ-010 partial, Q-003 realized at the bot level): <code>src/sim/resolve.ts</code> runs a match to its end and fingerprints it (FNV-1a over the final snapshot plus the combat state string; shared <code>matchResultHash</code> recipe); <code>POST /api/match/resolve</code> validates both designs (422 with validity errors), rejects stale sim versions (409), and returns winner, scores, deterministic rewards, and the hash. The workshop test fight captures its own end hash and a "Verify result on server" button shows whether the official result matches the local fight.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (53; route tests include the hybrid-authority assertion: the endpoint's hash equals an independent local resolution), <code>pnpm build</code>, <code>pnpm test:e2e</code> (5; new API e2e resolves the stock matchup twice and compares hashes).</dd>
+      <dt>Assumptions</dt><dd>resolution is synchronous per request (Vercel Workflow deferred, F-002); no persistence of results yet (economy slice); no rate limiting yet (F-004); matchmaking against other players' saved designs needs persistence first.</dd>
+      <dt>GDD coverage</dt><dd>REQ-010 flipped to partial; build-log entry on 04.</dd>
+      <dt>Followups</dt><dd>none new; F-002/F-004/F-005 now referenced from REQ-010.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mining-prototype" data-date="2026-06-10">
     <h3>Mining Prototype</h3>
     <dl>

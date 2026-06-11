@@ -3,6 +3,8 @@
 import { canRedo, canUndo } from "@randroids-dojo/vibekit";
 import dynamic from "next/dynamic";
 import { useState } from "react";
+import type { MatchEndInfo } from "@/components/arena-canvas";
+import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
   CPU_BRAWLER_DESIGN,
@@ -16,6 +18,12 @@ const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
 });
 const ArenaCanvas = dynamic(() => import("./arena-canvas"), { ssr: false });
 
+type Verification =
+  | { state: "idle" }
+  | { state: "pending" }
+  | { state: "done"; agrees: boolean; hash: string }
+  | { state: "error" };
+
 const panelStyle: React.CSSProperties = {
   background: "rgba(17, 21, 31, 0.92)",
   border: "1px solid #26304a",
@@ -28,6 +36,34 @@ export function WorkshopPanel() {
   // Captured at click time: the matchup identity is state, so nothing a
   // render does can reboot a running test fight.
   const [matchup, setMatchup] = useState<[BotDesign, BotDesign] | null>(null);
+  const [endInfo, setEndInfo] = useState<MatchEndInfo | null>(null);
+  const [verification, setVerification] = useState<Verification>({
+    state: "idle",
+  });
+
+  const verifyOnServer = async () => {
+    if (!matchup || !endInfo) return;
+    setVerification({ state: "pending" });
+    try {
+      const res = await fetch("/api/match/resolve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ designs: matchup, simVersion: SIM_VERSION }),
+      });
+      if (!res.ok) {
+        setVerification({ state: "error" });
+        return;
+      }
+      const official = await res.json();
+      setVerification({
+        state: "done",
+        agrees: official.hash === endInfo.hash,
+        hash: official.hash,
+      });
+    } catch {
+      setVerification({ state: "error" });
+    }
+  };
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const history = useWorkshopStore((s) => s.history);
   const addPart = useWorkshopStore((s) => s.addPart);
@@ -48,10 +84,71 @@ export function WorkshopPanel() {
   if (matchup) {
     return (
       <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
-        <ArenaCanvas designs={matchup} />
+        <ArenaCanvas
+          designs={matchup}
+          onMatchEnd={(info) => {
+            // The exhibition loop reruns the fight; a verdict from the
+            // previous run must not describe the new one.
+            setEndInfo(info);
+            setVerification({ state: "idle" });
+          }}
+        />
+        {endInfo && (
+          <div
+            style={{
+              position: "absolute",
+              top: 120,
+              left: 20,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              maxWidth: 260,
+            }}
+          >
+            <button
+              type="button"
+              onClick={verifyOnServer}
+              disabled={verification.state === "pending"}
+              style={{
+                background: "#26304a",
+                color: "#e6e8ee",
+                border: "1px solid #344061",
+                borderRadius: 8,
+                padding: "8px 16px",
+                cursor: "pointer",
+              }}
+            >
+              {verification.state === "pending"
+                ? "Asking the server..."
+                : "Verify result on server"}
+            </button>
+            {verification.state === "done" && (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.8rem",
+                  color: verification.agrees ? "#54e0c7" : "#ff6b6b",
+                }}
+              >
+                {verification.agrees
+                  ? `Official result matches (hash ${verification.hash.slice(0, 8)}...)`
+                  : "Mismatch: the server saw a different fight."}
+              </p>
+            )}
+            {verification.state === "error" && (
+              <p style={{ margin: 0, fontSize: "0.8rem", color: "#ff6b6b" }}>
+                Verification request failed.
+              </p>
+            )}
+          </div>
+        )}
         <button
           type="button"
-          onClick={() => setMatchup(null)}
+          onClick={() => {
+            setMatchup(null);
+            setEndInfo(null);
+            setVerification({ state: "idle" });
+          }}
           style={{
             position: "absolute",
             top: 70,
@@ -173,7 +270,11 @@ export function WorkshopPanel() {
             </button>
             <button
               type="button"
-              onClick={() => setMatchup([CPU_BRAWLER_DESIGN, design])}
+              onClick={() => {
+                setEndInfo(null);
+                setVerification({ state: "idle" });
+                setMatchup([CPU_BRAWLER_DESIGN, design]);
+              }}
               disabled={!validation.ok}
               title={validation.ok ? undefined : "fix validity errors first"}
               style={{

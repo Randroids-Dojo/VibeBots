@@ -159,6 +159,26 @@ describe("validateDesign", () => {
     );
   });
 
+  it("rejects designs over the part cap", () => {
+    const parts = [{ iid: "core", partId: "core-cube" }];
+    const connections = [];
+    let parent = "core";
+    let parentConnector = "top";
+    for (let i = 0; i < 36; i++) {
+      const iid = `plate-${i}`;
+      parts.push({ iid, partId: "frame-plate" });
+      connections.push({
+        parentIid: parent,
+        parentConnector,
+        childIid: iid,
+        childConnector: "bottom",
+      });
+      parent = iid;
+      parentConnector = "top";
+    }
+    expectErrors({ name: "tower", parts, connections }, "too many parts");
+  });
+
   it("rejects power overdraw", () => {
     const weakCore = { ...CORE_CUBE, powerSupply: 10 };
     const catalog = {

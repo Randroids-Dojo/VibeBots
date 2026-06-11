@@ -29,21 +29,27 @@ export async function POST(request: Request): Promise<Response> {
 
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
-  // Atomic conditional spend: no balance check/race outside the UPDATE.
-  const spent = (await sql`
-    UPDATE players
-    SET emeralds = emeralds - ${part.priceEmeralds}
-    WHERE id = ${playerId} AND emeralds >= ${part.priceEmeralds}
-    RETURNING emeralds`) as Array<{ emeralds: number }>;
-  if (spent.length === 0) {
+  // One statement = atomic on the neon HTTP driver: the spend and the
+  // inventory grant land together, or not at all (and the conditional
+  // UPDATE prevents negative balances under concurrency).
+  const rows = (await sql`
+    WITH spent AS (
+      UPDATE players
+      SET emeralds = emeralds - ${part.priceEmeralds}
+      WHERE id = ${playerId} AND emeralds >= ${part.priceEmeralds}
+      RETURNING emeralds
+    ), granted AS (
+      INSERT INTO player_parts (player_id, part_id, count)
+      SELECT ${playerId}, ${part.id}, 1 FROM spent
+      ON CONFLICT (player_id, part_id)
+      DO UPDATE SET count = player_parts.count + 1
+    )
+    SELECT emeralds FROM spent`) as Array<{ emeralds: number }>;
+  if (rows.length === 0) {
     return Response.json({ error: "not enough emeralds" }, { status: 409 });
   }
-  await sql`
-    INSERT INTO player_parts (player_id, part_id, count)
-    VALUES (${playerId}, ${part.id}, 1)
-    ON CONFLICT (player_id, part_id) DO UPDATE SET count = player_parts.count + 1`;
   return Response.json({
     bought: part.id,
-    emeralds: spent[0].emeralds,
+    emeralds: rows[0].emeralds,
   });
 }

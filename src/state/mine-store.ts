@@ -52,7 +52,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     cashOut: { state: "idle" },
 
     move: (dir) => {
-      const { mine, tick, moves } = get();
+      const { mine, tick, moves, cashOut } = get();
+      // The submitted log must match what gets credited; digging during
+      // a pending cash-out would be silently discarded on success.
+      if (cashOut.state === "pending") return;
       const result = step(mine, dir);
       moves.push(dir);
       set({ tick: tick + 1, lastResult: result });

@@ -45,33 +45,39 @@ export async function POST(request: Request): Promise<Response> {
 
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
-  const inserted = (await sql`
-    INSERT INTO mine_runs (player_id, seed, banked_emeralds, banked_parts)
-    VALUES (${playerId}, ${parsed.data.seed}, ${trip.bankedEmeralds}, ${JSON.stringify(trip.bankedParts)}::jsonb)
-    ON CONFLICT (player_id, seed) DO NOTHING
-    RETURNING seed`) as Array<{ seed: string }>;
-  if (inserted.length === 0) {
+  // One statement = atomic on the neon HTTP driver (no cross-statement
+  // transactions): consume the seed, credit the wallet, and grant the
+  // parts together, or not at all.
+  const rows = (await sql`
+    WITH ins AS (
+      INSERT INTO mine_runs (player_id, seed, banked_emeralds, banked_parts)
+      VALUES (${playerId}, ${parsed.data.seed}, ${trip.bankedEmeralds}, ${JSON.stringify(trip.bankedParts)}::jsonb)
+      ON CONFLICT (player_id, seed) DO NOTHING
+      RETURNING banked_emeralds, banked_parts
+    ), upd AS (
+      UPDATE players
+      SET emeralds = emeralds + (SELECT banked_emeralds FROM ins)
+      WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM ins)
+      RETURNING emeralds
+    ), granted AS (
+      INSERT INTO player_parts (player_id, part_id, count)
+      SELECT ${playerId}, value, count(*)::int
+      FROM ins, jsonb_array_elements_text(ins.banked_parts)
+      GROUP BY value
+      ON CONFLICT (player_id, part_id)
+      DO UPDATE SET count = player_parts.count + EXCLUDED.count
+    )
+    SELECT (SELECT emeralds FROM upd) AS emeralds`) as Array<{
+    emeralds: number | null;
+  }>;
+  if (rows[0]?.emeralds === null || rows[0]?.emeralds === undefined) {
     return Response.json(
       { error: "this run was already cashed out" },
       { status: 409 },
     );
   }
-
-  await sql`
-    UPDATE players SET emeralds = emeralds + ${trip.bankedEmeralds} WHERE id = ${playerId}`;
-  for (const partId of trip.bankedParts) {
-    await sql`
-      INSERT INTO player_parts (player_id, part_id, count)
-      VALUES (${playerId}, ${partId}, 1)
-      ON CONFLICT (player_id, part_id) DO UPDATE SET count = player_parts.count + 1`;
-  }
-
-  const balance = (await sql`
-    SELECT emeralds FROM players WHERE id = ${playerId}`) as Array<{
-    emeralds: number;
-  }>;
   return Response.json({
     credited: { emeralds: trip.bankedEmeralds, parts: trip.bankedParts },
-    balance: balance[0].emeralds,
+    balance: rows[0].emeralds,
   });
 }

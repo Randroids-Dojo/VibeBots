@@ -51,6 +51,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section data-f="F-011" data-priority="nice-to-have">
+    <h3>F-011: Server-issued mine seeds and cash-out rate limiting</h3>
+    <dl>
+      <dt>Context</dt><dd>Cash-outs are client-seeded by design (the log defines the session), which means a bot can offline-search the public seed space for rich mines, solve near-optimal move logs, and submit them in a loop. Per-submission payout is bounded (move cap, energy economy) but submission count is not.</dd>
+      <dt>Blocker (if any)</dt><dd>acceptable while the economy is cosmetic.</dd>
+      <dt>Unblock condition</dt><dd>before the economy matters competitively: issue seeds server-side (signed, single-use, time-boxed) and rate-limit /api/mine/bank per player (pairs with F-004's Redis decision).</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section data-f="F-010" data-priority="nice-to-have">
     <h3>F-010: Workshop consumes inventory</h3>
     <dl>

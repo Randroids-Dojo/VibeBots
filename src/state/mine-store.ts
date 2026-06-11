@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   createMine,
   type Direction,
+  MINE_VERSION,
   type MineState,
   type MoveResult,
   step,
@@ -25,7 +26,13 @@ function randomSeed(): number {
 export type CashOutState =
   | { state: "idle" }
   | { state: "pending" }
-  | { state: "done"; emeralds: number; parts: string[]; balance: number }
+  | {
+      state: "done";
+      credits: number;
+      parts: string[];
+      milestoneBonus: number;
+      balance: number;
+    }
   | { state: "unavailable" }
   | { state: "error"; message: string };
 
@@ -68,7 +75,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const res = await fetch("/api/mine/bank", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ seed: currentSeed, moves }),
+          body: JSON.stringify({
+            seed: currentSeed,
+            moves,
+            mineVersion: MINE_VERSION,
+          }),
         });
         if (res.status === 503) {
           set({ cashOut: { state: "unavailable" } });
@@ -91,8 +102,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         set({
           cashOut: {
             state: "done",
-            emeralds: body.credited.emeralds,
+            credits: body.credited.credits,
             parts: body.credited.parts,
+            milestoneBonus: body.credited.milestoneBonus ?? 0,
             balance: body.balance,
           },
           mine: createMine(nextSeed),

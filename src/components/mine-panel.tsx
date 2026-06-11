@@ -1,8 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
-import type { Direction } from "@/sim/mine";
+import { useEffect, useRef, useState } from "react";
+import {
+  carriedValue,
+  type Direction,
+  type OreId,
+  oreDef,
+  returnEnergyCost,
+  stratumAt,
+} from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
 
 const MineCanvas = dynamic(() => import("./mine-canvas"), { ssr: false });
@@ -24,6 +31,54 @@ const panelStyle: React.CSSProperties = {
   borderRadius: 10,
   padding: 14,
 };
+
+function carriedSummary(carried: Partial<Record<OreId, number>>): string {
+  const chunks: string[] = [];
+  for (const [id, count] of Object.entries(carried)) {
+    if (count)
+      chunks.push(`${count} ${oreDef(id as OreId).name.toLowerCase()}`);
+  }
+  return chunks.join(", ");
+}
+
+/** Banner shown for a few seconds when the miner enters a new stratum. */
+function StratumBanner({ row }: { row: number }) {
+  const [banner, setBanner] = useState<string | null>(null);
+  const deepestSeen = useRef(0);
+  const stratum = stratumAt(row);
+
+  useEffect(() => {
+    if (row <= deepestSeen.current) return;
+    const wasStratum = stratumAt(deepestSeen.current);
+    deepestSeen.current = row;
+    if (stratum.name === wasStratum.name) return;
+    setBanner(`Entering ${stratum.name}`);
+    const timer = setTimeout(() => setBanner(null), 2600);
+    return () => clearTimeout(timer);
+  }, [row, stratum.name]);
+
+  if (!banner) return null;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 90,
+        left: "50%",
+        transform: "translateX(-50%)",
+        background: "rgba(17, 21, 31, 0.92)",
+        border: "1px solid #54e0c7",
+        color: "#54e0c7",
+        borderRadius: 10,
+        padding: "10px 22px",
+        fontSize: "1.1rem",
+        fontWeight: 600,
+        pointerEvents: "none",
+      }}
+    >
+      {banner}
+    </div>
+  );
+}
 
 export function MinePanel() {
   const tick = useMineStore((s) => s.tick);
@@ -55,6 +110,14 @@ export function MinePanel() {
   }, []);
 
   const miner = mine.miner;
+  const stratum = stratumAt(miner.row);
+  const carryValue = carriedValue(miner);
+  const carrySummary = carriedSummary(miner.carried);
+  const climbCost = returnEnergyCost(miner);
+  // The climb estimate assumes a cleared shaft; warn with a margin so a
+  // detour or two does not turn the warning into a lie (REQ-017).
+  const lampLow = miner.row > 0 && miner.energy < climbCost * 1.25 + 2;
+
   const statusLine =
     lastResult && !lastResult.ok
       ? lastResult.reason === "blocked"
@@ -63,19 +126,20 @@ export function MinePanel() {
       : lastResult?.ok && lastResult.collapsed
         ? "Lamp died down there. The crew hauled you up; the cargo stayed below."
         : miner.row === 0
-          ? "On the surface. Loot banks automatically here."
+          ? "On the surface. Loot banks automatically here; going dark below means losing the carry."
           : undefined;
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
       <MineCanvas />
+      <StratumBanner row={miner.row} />
 
       <aside
         style={{
           position: "absolute",
           top: 70,
           left: 20,
-          width: 240,
+          width: 250,
           display: "flex",
           flexDirection: "column",
           gap: 12,
@@ -83,19 +147,40 @@ export function MinePanel() {
       >
         <section style={panelStyle} aria-label="Mine status">
           <p style={{ margin: 0, fontSize: "0.9rem" }}>
-            depth <strong>{miner.row}</strong>, energy{" "}
-            <strong>{miner.energy.toFixed(1)}</strong>
+            depth <strong>{miner.row}</strong> ({stratum.name}), energy{" "}
+            <strong style={lampLow ? { color: "#ff6b6b" } : undefined}>
+              {miner.energy.toFixed(1)}
+            </strong>
+          </p>
+          {miner.row > 0 && (
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "0.8rem",
+                color: lampLow ? "#ff6b6b" : "#8b93a7",
+              }}
+            >
+              climb home needs ~{climbCost.toFixed(1)} energy
+              {lampLow && ". The lamp is running low; bank it or lose it."}
+            </p>
+          )}
+          <p style={{ margin: "6px 0 0", fontSize: "0.85rem", opacity: 0.85 }}>
+            carrying{" "}
+            {carrySummary.length > 0 || miner.carriedParts.length > 0 ? (
+              <>
+                {carrySummary.length > 0 ? carrySummary : null}
+                {miner.carriedParts.length > 0 &&
+                  `${carrySummary.length > 0 ? ", " : ""}${miner.carriedParts.length} part${miner.carriedParts.length > 1 ? "s" : ""}`}{" "}
+                worth <strong>{carryValue} cr</strong>
+              </>
+            ) : (
+              "nothing"
+            )}
           </p>
           <p style={{ margin: "6px 0 0", fontSize: "0.85rem", opacity: 0.85 }}>
-            carrying {miner.carriedEmeralds} emeralds
-            {miner.carriedParts.length > 0 &&
-              `, ${miner.carriedParts.length} parts`}
+            banked {miner.bankedCredits} cr, {miner.bankedParts.length} parts
           </p>
-          <p style={{ margin: "6px 0 0", fontSize: "0.85rem", opacity: 0.85 }}>
-            banked {miner.bankedEmeralds} emeralds, {miner.bankedParts.length}{" "}
-            parts
-          </p>
-          {(miner.bankedEmeralds > 0 || miner.bankedParts.length > 0) && (
+          {(miner.bankedCredits > 0 || miner.bankedParts.length > 0) && (
             <button
               type="button"
               onClick={() => void submitCashOut()}
@@ -115,7 +200,9 @@ export function MinePanel() {
                 color: "#54e0c7",
               }}
             >
-              vaulted {cashOut.emeralds} emeralds
+              vaulted {cashOut.credits} cr
+              {cashOut.milestoneBonus > 0 &&
+                ` + ${cashOut.milestoneBonus} cr depth bonus`}
               {cashOut.parts.length > 0 && ` and ${cashOut.parts.length} parts`}
               ; balance {cashOut.balance}. Fresh claim opened.
             </p>
@@ -190,8 +277,8 @@ export function MinePanel() {
             </button>
           </div>
           <p style={{ margin: "8px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-            arrows or WASD work too. Dig deep, watch the lamp, bank on the
-            surface.
+            arrows or WASD work too. Richer ores run deeper; watch the lamp and
+            bank on the surface.
           </p>
         </section>
       </aside>

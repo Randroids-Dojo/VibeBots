@@ -59,6 +59,22 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await expect(page.getByLabel("Part palette")).toBeVisible();
 });
 
+test("mine digs and tracks depth and energy", async ({ page }) => {
+  await page.goto("/mine");
+  await expect(page.locator("canvas")).toBeVisible();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toContainText("depth 0");
+
+  await page.getByRole("button", { name: "Down" }).click();
+  await expect(status).toContainText("depth 1");
+  await expect(status).toContainText("energy 59.0");
+
+  await page.getByRole("button", { name: "Up" }).click();
+  await expect(status).toContainText("depth 0");
+  // Banking on the surface refills the lamp.
+  await expect(status).toContainText("energy 60.0");
+});
+
 test("sim verify API returns a stable deterministic hash", async ({
   request,
 }) => {

@@ -1,5 +1,6 @@
 import type { World } from "@dimforge/rapier3d-deterministic-compat";
 import { describe, expect, it } from "vitest";
+import { createArenaWorld } from "./arena";
 import {
   combatStateString,
   createMatch,
@@ -9,28 +10,16 @@ import {
   type MatchState,
   stepMatch,
 } from "./combat";
-import { DT, GRAVITY } from "./constants";
 import { TEST_BOT_DESIGN } from "./design";
 import { fnv1a64 } from "./hash";
 import { vec3Distance } from "./parts";
-import { ensureRapier } from "./world";
-
-async function arenaWorld(): Promise<World> {
-  const R = await ensureRapier();
-  const world = new R.World(GRAVITY);
-  world.integrationParameters.dt = DT;
-  world.createCollider(
-    R.ColliderDesc.cuboid(50, 0.5, 50).setTranslation(0, -0.5, 0),
-  );
-  return world;
-}
 
 async function newMatch(options?: MatchOptions): Promise<{
   world: World;
   match: MatchState;
   cleanup: () => void;
 }> {
-  const world = await arenaWorld();
+  const world = await createArenaWorld();
   const match = createMatch(world, [TEST_BOT_DESIGN, TEST_BOT_DESIGN], options);
   return {
     world,

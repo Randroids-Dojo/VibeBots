@@ -44,6 +44,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-06-10">Combat became visible: the homepage arena viewer renders live matches with per-part meshes; destroyed parts dim to a wreck color and tumble away as physical debris. Files: <code>src/components/arena-canvas.tsx</code>, <code>src/sim/arena.ts</code>. PR pending.</li>
       <li data-date="2026-06-10">Combat core: per-part health from catalog durability, contact-force damage via rapier force events, destruction with joint removal (physical detachment), core/immobilization disable conditions, winner/draw status, and a drive-at-enemy controller stub. Deterministic across fresh matches (snapshot hash plus combat state string). Files: <code>src/sim/combat.ts</code>, <code>src/sim/combat.test.ts</code>, durability added in <code>src/sim/parts.ts</code>, collider/joint maps exposed in <code>src/sim/assembly.ts</code>. PR pending.</li>
     </ul>
   </section>

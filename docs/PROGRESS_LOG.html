@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="arena-match-viewer" data-date="2026-06-10">
+    <h3>Arena Match Viewer</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/arena-match-viewer</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the game is watchable: the homepage now runs a live autonomous exhibition match (two Testbots) instead of the box-and-ball demo. <code>src/components/arena-canvas.tsx</code> renders every part body from the design (per-part meshes with the same axis reorientation as the colliders), interpolates between fixed sim ticks, dims destroyed parts to wreck colors as they detach and tumble, shows hull/parts HUD cards per bot, an end banner with winner and reason, and loops the exhibition after a short linger. <code>src/sim/arena.ts</code> extracts the shared arena-world construction (third duplication; viewer + both test suites now share it). The obsolete walking-skeleton canvas components were removed; <code>/api/sim/verify</code> is untouched.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (33), <code>pnpm build</code>, <code>pnpm test:e2e</code> (HUD visible, canvas pixels change, tick advances, verify API stable). A stale local <code>next start</code> on port 3000 masqueraded as a chunk 500 during verification; killed by port, clean pass.</dd>
+      <dt>Assumptions</dt><dd>the exhibition replays the same deterministic fight each loop (no seed variation yet; behavior parameters will vary future matches); HUD updates at 4 Hz; restart linger is 4 seconds.</dd>
+      <dt>GDD coverage</dt><dd>no rows flipped (REQ-009 still needs the player's own bot via the workshop); build-log entries added to sections 03 and 04 for the visible combat and resolution.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="match-end-and-scoring" data-date="2026-06-10">
     <h3>Match End and Scoring</h3>
     <dl>

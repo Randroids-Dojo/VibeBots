@@ -1,10 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-test("home page renders a moving sim (Rule 10 motion QA)", async ({ page }) => {
+test("home page renders a moving match (Rule 10 motion QA)", async ({
+  page,
+}) => {
   await page.goto("/");
 
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
+
+  // The match HUD must render alongside the arena.
+  await expect(page.getByText("Orange")).toBeVisible();
+  await expect(page.getByText("Teal")).toBeVisible();
 
   const stage = page.locator("[data-sim-tick]");
   await expect

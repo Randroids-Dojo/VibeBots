@@ -33,6 +33,7 @@ import {
   TEST_BOT_DESIGN,
 } from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
+import { matchResultHash } from "@/sim/resolve";
 
 /** Clamp on accumulated frame time so a background tab cannot spiral. */
 const MAX_FRAME_DELTA = 0.25;
@@ -142,14 +143,21 @@ function newPartView(): PartView {
   };
 }
 
+export interface MatchEndInfo {
+  hash: string;
+  tick: number;
+}
+
 function ArenaScene({
   designs,
   stageRef,
   onHud,
+  onMatchEnd,
 }: {
   designs: [BotDesign, BotDesign];
   stageRef: RefObject<HTMLDivElement | null>;
   onHud: (hud: HudState) => void;
+  onMatchEnd?: (info: MatchEndInfo) => void;
 }) {
   const runRef = useRef<ArenaRun | null>(null);
   /** Bumped on every effect (re)run and cleanup; stale async boots check it. */
@@ -250,7 +258,10 @@ function ArenaScene({
       const bannerEdge = match.status.over && !bannerShownRef.current;
       if (hudTick !== lastHudTickRef.current || bannerEdge) {
         lastHudTickRef.current = hudTick;
-        if (bannerEdge) bannerShownRef.current = true;
+        if (bannerEdge) {
+          bannerShownRef.current = true;
+          onMatchEnd?.({ hash: matchResultHash(match), tick: match.tick });
+        }
         onHud(readHud(match));
       }
     }
@@ -319,8 +330,10 @@ function ArenaScene({
 
 export default function ArenaCanvas({
   designs = EXHIBITION_DESIGNS,
+  onMatchEnd,
 }: {
   designs?: [BotDesign, BotDesign];
+  onMatchEnd?: (info: MatchEndInfo) => void;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [hud, setHud] = useState<HudState | null>(null);
@@ -333,7 +346,12 @@ export default function ArenaCanvas({
     >
       <Canvas camera={{ position: [8, 5, 10], fov: 42 }} gl={createWebGPU}>
         <color attach="background" args={["#0b0e14"]} />
-        <ArenaScene designs={designs} stageRef={stageRef} onHud={setHud} />
+        <ArenaScene
+          designs={designs}
+          stageRef={stageRef}
+          onHud={setHud}
+          onMatchEnd={onMatchEnd}
+        />
       </Canvas>
 
       {hud && (

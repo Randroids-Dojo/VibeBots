@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { SIM_VERSION } from "../../src/sim/constants";
+import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
 
 test("home page renders a moving match (Rule 10 motion QA)", async ({
   page,
@@ -73,6 +75,25 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toContainText("depth 0");
   // Banking on the surface refills the lamp.
   await expect(status).toContainText("energy 60.0");
+});
+
+test("match resolve API returns a deterministic official result", async ({
+  request,
+}) => {
+  const payload = {
+    designs: [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN],
+    simVersion: SIM_VERSION,
+    timeLimitTicks: 600,
+  };
+  const first = await request.post("/api/match/resolve", { data: payload });
+  expect(first.ok()).toBeTruthy();
+  const a = await first.json();
+  expect(a.hash).toMatch(/^[0-9a-f]{16}$/);
+  expect(a.status.over).toBe(true);
+
+  const second = await request.post("/api/match/resolve", { data: payload });
+  const b = await second.json();
+  expect(b.hash).toBe(a.hash);
 });
 
 test("sim verify API returns a stable deterministic hash", async ({

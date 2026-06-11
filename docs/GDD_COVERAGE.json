@@ -87,11 +87,11 @@
     {
       "id": "REQ-010",
       "requirement": "Online matches support player-built bots fighting other player-built bots through the project's VibeKit online feature set.",
-      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-online-matches",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "gddRef": "docs/gdd/04-match-resolution-and-scoring.html#resolution",
+      "status": "partial",
+      "implementationRefs": ["src/sim/resolve.ts", "src/app/api/match/resolve/route.ts"],
+      "testRefs": ["src/app/api/match/resolve/route.test.ts", "tests/e2e/smoke.spec.ts"],
+      "followupRefs": ["F-002", "F-004", "F-005"]
     }
   ]
 }

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vision and Pillars</title>
+</head>
+<body>
+
+  <h1>Vision and Pillars</h1>
+  <p data-status="partial">Status: partial</p>
+
+  <section data-role="spec" id="vision">
+    <h2>Vision</h2>
+    <p>VibeBots is an online autonomous robot battler inspired by competitive combat robotics. Players do not directly control robots during combat. They design, build, test, and improve a bot, then send it into matches where autonomous behavior, construction quality, component choices, and accumulated damage decide the winner.</p>
+    <p>The game has three connected loops: mine resources, build robots, and battle bots. Mining funds the economy and can reveal rare components. The workshop turns parts into valid machines using connector-based construction. Combat proves whether the build actually works against CPU test bots and other players' bots online.</p>
+  </section>
+
+  <section data-role="spec" id="pillars">
+    <h2>Design pillars</h2>
+    <ol>
+      <li><strong>Build creativity matters.</strong> Players can build compact wheeled machines, walking robots, character-like bots, or unusual contraptions as long as the build is mechanically valid.</li>
+      <li><strong>Combat is autonomous.</strong> The player wins before the match by choosing parts, geometry, durability, mobility, weapons, and behavior setup. During battle the bot acts on its own.</li>
+      <li><strong>Parts are physical.</strong> Components can take damage, lose effectiveness, detach, or disable the whole bot when critical systems fail.</li>
+      <li><strong>Mining feeds the machine.</strong> Players earn materials by digging vertically, managing ladders, light, depth, tool upgrades, danger, and the trip back to the surface.</li>
+      <li><strong>Progression creates new build options.</strong> Resources, shops, rare discoveries, market purchases, and rewards should expand the set of viable robot ideas.</li>
+      <li><strong>Solo and online play support each other.</strong> Solo mining and CPU test fights prepare a player for online autonomous matches against real player-built bots.</li>
+    </ol>
+  </section>
+
+  <section data-role="spec" id="core-loops">
+    <h2>Core loops</h2>
+    <section id="mining-loop">
+      <h3>Mining loop</h3>
+      <p>The player starts at the surface, descends through dirt and rock, gathers emeralds and other materials, places ladders, manages light with lanterns, upgrades a pickaxe to break deeper material, and returns to the surface to sell or bank resources. Rare finds can include robot components such as engine parts, weapons, mobility parts, sensors, or structural modules.</p>
+    </section>
+    <section id="build-loop">
+      <h3>Build loop</h3>
+      <p>The player uses a robot workshop to connect modular components into a valid bot. Construction should feel like block and hardpoint attachment systems from vehicle or ship builders: parts snap to connectors, have orientation, consume capacity or power, and contribute mass, durability, mobility, weapon output, and control behavior.</p>
+    </section>
+    <section id="combat-loop">
+      <h3>Combat loop</h3>
+      <p>The player tests a valid bot against an out-of-the-box CPU robot, then can enter online matches against other player-built bots. Matches are time-limited unless one robot is disabled first. If time expires, the winner is decided by match scoring such as damage dealt, damage taken, mobility, critical systems remaining, and combat pressure.</p>
+    </section>
+  </section>
+
+  <section data-role="spec" id="requirements">
+    <h2>Initial requirement anchors</h2>
+    <ul>
+      <li id="req-autonomous-combat">Combat must be autonomous after match start. Players cannot steer, aim, or fire manually during the fight.</li>
+      <li id="req-modular-workshop">The workshop must support connector-based modular robot construction with validity checks before combat.</li>
+      <li id="req-varied-bot-shapes">The part system must allow multiple robot silhouettes, including wheeled bots, legged bots, compact combat machines, and character-like builds.</li>
+      <li id="req-part-damage">Combat must track damage at the component level so parts can degrade, detach, or disable critical functions.</li>
+      <li id="req-match-resolution">A match must end by full disable or by a time limit followed by score-based judgment.</li>
+      <li id="req-mining-resources">Mining must provide the primary resource path through depth, materials, tool upgrades, ladders, and light management.</li>
+      <li id="req-rare-parts">Mining must have a rare component discovery path in addition to ordinary sellable materials.</li>
+      <li id="req-economy">Players must be able to convert mining output into robot components through shops, player trading, or both.</li>
+      <li id="req-test-arena">Players must be able to test a valid bot against a CPU robot before online combat.</li>
+      <li id="req-online-matches">Online matches must support player-built bots fighting other player-built bots through the project's VibeKit online feature set.</li>
+    </ul>
+  </section>
+
+  <section data-role="out-of-scope-for-now" id="out-of-scope-for-now">
+    <h2>Out of scope for now</h2>
+    <ul>
+      <li>Manual live control during combat.</li>
+      <li>Real-money loot boxes or paid randomized rewards without explicit legal and platform review.</li>
+      <li>Final reward economy tuning before prototype combat and mining loops exist.</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-06-10">Created the initial product vision, pillars, core loops, requirement anchors, and early out-of-scope notes from the user's game pitch. Files: <code>docs/gdd/01-vision-and-pillars.html</code>, <code>docs/gdd/index.html</code>, <code>docs/GDD_COVERAGE.json</code>. PR pending.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

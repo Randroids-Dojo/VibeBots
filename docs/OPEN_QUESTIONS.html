@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Open Questions</title>
+</head>
+<body>
+
+<header>
+  <h1>Open Questions</h1>
+  <p>Questions here block or influence implementation.</p>
+  <aside data-role="convention">
+    <strong>Critical convention.</strong> Every question must include a <code>&lt;dt&gt;Recommended default&lt;/dt&gt;</code> entry. The loop ships under that default and leaves the question open for override. Do not block the loop on dev sign-off. Stress-tested values that survive multiple iterations get frozen.
+  </aside>
+</header>
+
+<section id="how-to-add" data-role="entry-template">
+  <h2>How to add a new question</h2>
+  <pre><code>&lt;section data-q="Q-NNN" data-status="open"&gt;
+  &lt;h3&gt;Q-NNN: Short title&lt;/h3&gt;
+  &lt;dl&gt;
+    &lt;dt&gt;Context&lt;/dt&gt;&lt;dd&gt;one or two sentences on why this is a decision point.&lt;/dd&gt;
+    &lt;dt&gt;Options&lt;/dt&gt;&lt;dd&gt;
+      &lt;ol type="A"&gt;
+        &lt;li&gt;Option A description.&lt;/li&gt;
+        &lt;li&gt;Option B description.&lt;/li&gt;
+        &lt;li&gt;Option C description.&lt;/li&gt;
+      &lt;/ol&gt;
+    &lt;/dd&gt;
+    &lt;dt&gt;Recommended default&lt;/dt&gt;&lt;dd&gt;B. One sentence on the rationale.&lt;/dd&gt;
+    &lt;dt&gt;Status&lt;/dt&gt;&lt;dd&gt;open&lt;/dd&gt;
+    &lt;dt&gt;Resolution&lt;/dt&gt;&lt;dd&gt;(filled in once dev confirms or overrides)&lt;/dd&gt;
+  &lt;/dl&gt;
+&lt;/section&gt;</code></pre>
+  <p>Keep <code>Q-NNN</code> IDs monotonically increasing. When a question resolves, leave the entry in place and update <code>data-status</code> to <code>resolved</code> plus the <code>Resolution</code> entry. Never delete.</p>
+</section>
+
+<main id="open">
+  <h2>Open</h2>
+
+  <section data-q="Q-002" data-status="open">
+    <h3>Q-002: Reward model after combat</h3>
+    <dl>
+      <dt>Context</dt><dd>The pitch allows points, unique parts, loot boxes, or another reward format after a match, but the final economy is not decided.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Points and currency only.</li>
+          <li>Deterministic reward tracks with occasional unique part unlocks.</li>
+          <li>Randomized loot boxes.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>B. Deterministic tracks keep progression readable while still allowing rare-feeling part unlocks. Avoid paid randomized rewards until explicitly approved.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd></dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-003" data-status="open">
+    <h3>Q-003: Online match authority</h3>
+    <dl>
+      <dt>Context</dt><dd>Autonomous combat between player-built bots needs a trustworthy simulation path for multiplayer results.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Server-authoritative deterministic simulation.</li>
+          <li>Client simulation with result submission and validation.</li>
+          <li>Hybrid: client preview, server result.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>C. Let the client provide fast previews and keep official match outcomes on a server-controlled path.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd></dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-004" data-status="open">
+    <h3>Q-004: Mining presentation</h3>
+    <dl>
+      <dt>Context</dt><dd>The mining loop is described as an old-school vertical digging game, but the camera, controls, and world format are not finalized.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>2D side-view vertical mine.</li>
+          <li>2.5D grid mine with depth layers.</li>
+          <li>3D diggable mine.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. A 2D side-view mine is the clearest prototype path and keeps focus on resource decisions rather than terrain tech.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd></dd>
+    </dl>
+  </section>
+
+</main>
+
+<aside id="resolved">
+  <h2>Resolved</h2>
+  <section data-q="Q-001" data-status="resolved">
+    <h3>Q-001: First requirement file</h3>
+    <dl>
+      <dt>Context</dt><dd>which GDD section to draft first as the seed for the coverage ledger.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li><code>01-vision-and-pillars.html</code> (the abstract framing).</li>
+          <li>The first concrete user-visible feature.</li>
+          <li>The data model / persistence layer.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The pillars file is short, drives every subsequent decision, and unblocks the rest.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>Use <code>01-vision-and-pillars.html</code>. The user provided the core game pitch on 2026-06-10, and this section now anchors the initial GDD coverage rows.</dd>
+    </dl>
+  </section>
+</aside>
+
+</body>
+</html>

@@ -1,0 +1,97 @@
+{
+  "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
+  "_comment_2": "Allowed status values: not_started | partial | done. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
+  "updatedAt": "2026-06-10",
+  "rows": [
+    {
+      "id": "REQ-001",
+      "requirement": "Combat is autonomous after match start, with no manual steering, aiming, or firing.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-autonomous-combat",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "The workshop supports connector-based modular robot construction with validity checks before combat.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-modular-workshop",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "The part system supports varied robot silhouettes, including wheeled, legged, compact, and character-like builds.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-varied-bot-shapes",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "Combat tracks component-level damage so parts can degrade, detach, or disable critical functions.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-part-damage",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "A match ends by full disable or by a time limit followed by score-based judgment.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-match-resolution",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "Mining provides the primary resource path through depth, materials, tool upgrades, ladders, and light management.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-mining-resources",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-007",
+      "requirement": "Mining can rarely discover robot components in addition to ordinary sellable materials.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-rare-parts",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-008",
+      "requirement": "Players can convert mining output into robot components through shops, player trading, or both.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-economy",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-009",
+      "requirement": "Players can test a valid bot against a CPU robot before online combat.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-test-arena",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-010",
+      "requirement": "Online matches support player-built bots fighting other player-built bots through the project's VibeKit online feature set.",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-online-matches",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    }
+  ]
+}

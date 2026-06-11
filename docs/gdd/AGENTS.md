@@ -1,0 +1,1 @@
+../../.claude/rules/gdd-build-log.md

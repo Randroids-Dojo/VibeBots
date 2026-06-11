@@ -8,7 +8,7 @@ import {
   undoHistory,
 } from "@randroids-dojo/vibekit";
 import { create } from "zustand";
-import { type BotDesign, validateDesign } from "@/sim/design";
+import { type BotDesign, type Orientation, validateDesign } from "@/sim/design";
 import { PART_CATALOG, type PartDef } from "@/sim/parts";
 
 /**
@@ -114,6 +114,7 @@ export interface WorkshopState {
   selectedIid: string | null;
   addPart: (partId: string) => void;
   removeSelected: () => void;
+  rotateSelected: () => void;
   select: (iid: string | null) => void;
   undo: () => void;
   redo: () => void;
@@ -156,6 +157,39 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       connections: design.connections.filter((c) => c.childIid !== selectedIid),
     };
     set({ ...withDesign(pushHistory(history, next)), selectedIid: null });
+  },
+
+  rotateSelected: () => {
+    const { history, design, selectedIid } = get();
+    if (!selectedIid) return;
+    const index = design.connections.findIndex(
+      (c) => c.childIid === selectedIid,
+    );
+    if (index < 0) return;
+    const conn = design.connections[index];
+    const parent = design.parts.find((p) => p.iid === conn.parentIid);
+    const parentDef = parent ? PART_CATALOG[parent.partId] : null;
+    const parentConn = parentDef?.connectors.find(
+      (c) => c.id === conn.parentConnector,
+    );
+    // Axle connections cannot be oriented (validity rule).
+    if (!parentConn || parentConn.kind === "axle") return;
+    const orientationCycle: Orientation[] = [0, 90, 180, 270];
+    const current = (conn.orientation ?? 0) as Orientation;
+    const next: BotDesign = {
+      ...design,
+      connections: design.connections.map((c, i) =>
+        i === index
+          ? {
+              ...c,
+              orientation:
+                orientationCycle[(orientationCycle.indexOf(current) + 1) % 4],
+            }
+          : c,
+      ),
+    };
+    if (!validateDesign(next).ok) return;
+    set({ ...withDesign(pushHistory(history, next)) });
   },
 
   select: (iid) => set({ selectedIid: iid }),

@@ -66,6 +66,31 @@ describe("workshop store", () => {
     expect(store().design.parts).toHaveLength(2);
   });
 
+  it("rotates the selected part through quarter turns with undo", () => {
+    store().addPart("ram-spike");
+    const spikeIid = store().selectedIid;
+    expect(spikeIid).not.toBeNull();
+    store().rotateSelected();
+    let conn = store().design.connections.find((c) => c.childIid === spikeIid);
+    expect(conn?.orientation).toBe(90);
+    store().rotateSelected();
+    conn = store().design.connections.find((c) => c.childIid === spikeIid);
+    expect(conn?.orientation).toBe(180);
+    store().undo();
+    conn = store().design.connections.find((c) => c.childIid === spikeIid);
+    expect(conn?.orientation).toBe(90);
+  });
+
+  it("refuses to rotate axle-mounted parts", () => {
+    store().addPart("drive-wheel");
+    const wheelIid = store().selectedIid;
+    store().rotateSelected();
+    const conn = store().design.connections.find(
+      (c) => c.childIid === wheelIid,
+    );
+    expect(conn?.orientation ?? 0).toBe(0);
+  });
+
   it("keeps every reachable catalog part addable somewhere", () => {
     for (const part of Object.values(PART_CATALOG)) {
       if (part.category === "core") continue;

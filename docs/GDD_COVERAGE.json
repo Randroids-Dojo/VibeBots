@@ -24,10 +24,10 @@
     {
       "id": "REQ-003",
       "requirement": "The part system supports varied robot silhouettes, including wheeled, legged, compact, and character-like builds.",
-      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-varied-bot-shapes",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "gddRef": "docs/gdd/02-parts-and-connectors.html#categories",
+      "status": "partial",
+      "implementationRefs": ["src/sim/parts.ts", "src/sim/layout.ts", "src/state/workshop-store.ts"],
+      "testRefs": ["src/sim/layout.test.ts", "src/sim/assembly.test.ts", "src/state/workshop-store.test.ts"],
       "followupRefs": []
     },
     {

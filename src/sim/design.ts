@@ -15,11 +15,18 @@ export const partInstanceSchema = z.object({
 });
 export type PartInstance = z.infer<typeof partInstanceSchema>;
 
+export const orientationSchema = z
+  .union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)])
+  .optional();
+export type Orientation = 0 | 90 | 180 | 270;
+
 export const connectionSchema = z.object({
   parentIid: z.string().min(1),
   parentConnector: z.string().min(1),
   childIid: z.string().min(1),
   childConnector: z.string().min(1),
+  /** Yaw quarter-turns of the child around the attachment (F-006). */
+  orientation: orientationSchema,
 });
 export type Connection = z.infer<typeof connectionSchema>;
 
@@ -108,6 +115,11 @@ export function validateDesign(
     if (parentConn.kind !== childConn.kind) {
       errors.push(
         `connector kind mismatch: ${conn.parentIid}:${conn.parentConnector} is ${parentConn.kind}, ${conn.childIid}:${conn.childConnector} is ${childConn.kind}`,
+      );
+    }
+    if ((conn.orientation ?? 0) !== 0 && parentConn.kind === "axle") {
+      errors.push(
+        `axle connections cannot be oriented (${conn.parentIid}:${conn.parentConnector})`,
       );
     }
     for (const key of [

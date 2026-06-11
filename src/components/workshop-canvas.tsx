@@ -41,14 +41,16 @@ export default function WorkshopCanvas() {
       />
       {design.parts.map((instance) => {
         const def = PART_CATALOG[instance.partId];
-        const position = layout.get(instance.iid);
-        if (!def || !position) return null;
+        const placement = layout.get(instance.iid);
+        if (!def || !placement) return null;
+        const { position, rotation } = placement;
         const selected = instance.iid === selectedIid;
         return (
           // biome-ignore lint/a11y/noStaticElementInteractions: R3F scene graph node, not a DOM element
           <group
             key={instance.iid}
             position={[position.x, position.y, position.z]}
+            quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
             onClick={(event) => {
               // Camera drags that end on a part are not selections.
               if (event.delta > 2) return;

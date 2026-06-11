@@ -178,6 +178,46 @@ export const RAM_SPIKE: PartDef = {
   ],
 };
 
+export const CROSS_FRAME: PartDef = {
+  id: "cross-frame",
+  name: "Cross Frame",
+  category: "structure",
+  shape: { type: "cuboid", hx: 0.35, hy: 0.08, hz: 0.35 },
+  density: 1.4,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 90,
+  connectors: [
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.08, z: 0 } },
+    { id: "bottom", kind: "rigid", position: { x: 0, y: -0.08, z: 0 } },
+    { id: "north", kind: "rigid", position: { x: 0, y: 0, z: -0.35 } },
+    { id: "south", kind: "rigid", position: { x: 0, y: 0, z: 0.35 } },
+    { id: "east", kind: "rigid", position: { x: 0.35, y: 0, z: 0 } },
+    { id: "west", kind: "rigid", position: { x: -0.35, y: 0, z: 0 } },
+  ],
+};
+
+export const SENSOR_HEAD: PartDef = {
+  id: "sensor-head",
+  name: "Sensor Head",
+  category: "structure",
+  shape: { type: "ball", radius: 0.18 },
+  density: 1,
+  powerDraw: 2,
+  powerSupply: 0,
+  durability: 60,
+  connectors: [
+    { id: "neck", kind: "rigid", position: { x: 0, y: -0.18, z: 0 } },
+  ],
+};
+
 export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
-  [CORE_CUBE, FRAME_PLATE, DRIVE_WHEEL, RAM_SPIKE].map((p) => [p.id, p]),
+  [
+    CORE_CUBE,
+    FRAME_PLATE,
+    DRIVE_WHEEL,
+    RAM_SPIKE,
+    CROSS_FRAME,
+    SENSOR_HEAD,
+  ].map((p) => [p.id, p]),
 );

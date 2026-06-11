@@ -24,6 +24,44 @@ async function driveAndHash(
   }
 }
 
+const ORIENTED_DESIGN = {
+  name: "oriented",
+  parts: [
+    { iid: "core", partId: "core-cube" },
+    { iid: "frame", partId: "cross-frame" },
+    { iid: "spike", partId: "ram-spike" },
+    { iid: "wheel-l", partId: "drive-wheel" },
+    { iid: "wheel-r", partId: "drive-wheel" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "top",
+      childIid: "frame",
+      childConnector: "bottom",
+    },
+    {
+      parentIid: "frame",
+      parentConnector: "east",
+      childIid: "spike",
+      childConnector: "mount",
+      orientation: 90 as const,
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "wheel-l",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "wheel-r",
+      childConnector: "hub",
+    },
+  ],
+};
+
 describe("assembleBot", () => {
   it("creates one body per part and motors per axle connection", async () => {
     const world = await createArenaWorld();
@@ -64,6 +102,25 @@ describe("assembleBot", () => {
     // Wheels spin around the x axis, so the bot rolls along z.
     expect(Math.abs(a.rootZ)).toBeGreaterThan(0.5);
     expect(Math.abs(a.rootX)).toBeLessThan(0.25);
+  });
+
+  it("assembles oriented designs deterministically and holds the yaw", async () => {
+    async function run(): Promise<string> {
+      const world = await createArenaWorld();
+      try {
+        const bot = assembleBot(world, ORIENTED_DESIGN, { x: 0, y: 0.5, z: 0 });
+        setDriveVelocity(bot, 8);
+        for (let i = 0; i < 240; i++) {
+          world.step();
+        }
+        return fnv1a64(world.takeSnapshot());
+      } finally {
+        world.free();
+      }
+    }
+    const a = await run();
+    const b = await run();
+    expect(b).toBe(a);
   });
 
   it("keeps the assembly intact while driving", async () => {

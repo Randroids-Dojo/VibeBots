@@ -29,7 +29,8 @@ const GLOWING_ORES = new Set<OreId>(["diamond", "core-crystal"]);
 /** Dirt palette per stratum, in STRATA order (REQ-012: visible descent). */
 const STRATA_DIRT = ["#7a5a3a", "#8c5a45", "#6e6862", "#4f5d6e", "#5a3a35"];
 
-const ROCK_COLOR = "#555e6e";
+/** Rock darkens by tier so the hard gates read at a glance. */
+const ROCK_COLORS = ["#555e6e", "#46506a", "#3b3550"];
 const CACHE_COLOR = "#f5c542";
 
 /** Rows rendered above and below the miner. */
@@ -78,7 +79,9 @@ function MineScene() {
         cell.kind === "ore" && cell.ore
           ? ORE_COLORS[cell.ore]
           : cell.kind === "rock"
-            ? ROCK_COLOR
+            ? ROCK_COLORS[
+                Math.min((cell.rockTier ?? 1) - 1, ROCK_COLORS.length - 1)
+              ]
             : cell.kind === "part-cache"
               ? CACHE_COLOR
               : dirtColorAt(row);

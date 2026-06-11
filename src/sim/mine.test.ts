@@ -1,18 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
+  CARGO_CAPACITY,
+  canDigRock,
+  cargoCapacity,
   carriedCount,
   carriedValue,
   cellAt,
   createMine,
+  DEFAULT_GEAR,
   type Direction,
+  GEAR_TRACKS,
+  isVisible,
+  LAMP_ENERGY,
+  LANTERN_RADIUS,
   LIGHT_RADIUS,
   MINE_WIDTH,
+  maxGearLevel,
   ORES,
   oreChanceAt,
   oreDef,
+  ROCK_DIG_COST,
   ROCK_FREE_ROWS,
   replayTrip,
   returnEnergyCost,
+  rockTierAt,
   START_COL,
   START_ENERGY,
   STRATA,
@@ -246,5 +257,83 @@ describe("mine", () => {
     const state = createMine(5);
     expect(state.rows.length).toBeGreaterThanOrEqual(LIGHT_RADIUS + 1);
     expect(state.miner.col).toBe(START_COL);
+  });
+
+  it("scales lamp energy and bank refill with the lamp level", () => {
+    const base = createMine(3);
+    expect(base.miner.energy).toBe(LAMP_ENERGY[0]);
+    const upgraded = createMine(3, { ...DEFAULT_GEAR, lamp: 3 });
+    expect(upgraded.miner.energy).toBe(LAMP_ENERGY[2]);
+    step(upgraded, "down");
+    step(upgraded, "up");
+    expect(upgraded.miner.energy).toBe(LAMP_ENERGY[2]);
+  });
+
+  it("extends visibility with the lantern level", () => {
+    const base = createMine(3);
+    const lit = createMine(3, { ...DEFAULT_GEAR, lantern: 3 });
+    const deepRow = LANTERN_RADIUS[2];
+    expect(isVisible(base, deepRow)).toBe(false);
+    expect(isVisible(lit, deepRow)).toBe(true);
+  });
+
+  it("refuses ore with a full hold but still digs dirt", () => {
+    const state = createMine(19);
+    state.miner.carried = { coal: cargoCapacity(state.gear) };
+    state.rows[1][START_COL] = { kind: "ore", ore: "coal" };
+    const refused = step(state, "down");
+    expect(refused).toEqual({ ok: false, reason: "hold-full" });
+    state.rows[1][START_COL] = { kind: "dirt" };
+    const dug = step(state, "down");
+    expect(dug.ok).toBe(true);
+  });
+
+  it("tiers rock by depth and gates it on the pickaxe level", () => {
+    expect(rockTierAt(5)).toBe(1);
+    expect(rockTierAt(30)).toBe(2);
+    expect(rockTierAt(60)).toBe(3);
+    expect(canDigRock(DEFAULT_GEAR, 1)).toBe(false);
+    expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 2 }, 1)).toBe(true);
+    expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 2 }, 2)).toBe(false);
+    expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 4 }, 3)).toBe(true);
+
+    const state = createMine(19, { ...DEFAULT_GEAR, pickaxe: 2 });
+    state.rows[1][START_COL] = { kind: "rock", rockTier: 1 };
+    const before = state.miner.energy;
+    const dug = step(state, "down");
+    expect(dug.ok).toBe(true);
+    expect(before - state.miner.energy).toBe(ROCK_DIG_COST);
+
+    const walled = createMine(19);
+    walled.rows[1][START_COL] = { kind: "rock", rockTier: 1 };
+    expect(step(walled, "down")).toEqual({ ok: false, reason: "rock" });
+  });
+
+  it("replays identically with a gear snapshot", () => {
+    const gear = { pickaxe: 2, lamp: 2, cargo: 2, lantern: 2 };
+    // A push-your-luck descent: mostly down with lateral sweeps. The
+    // bigger lamp digs further before the collapse, so the snapshot
+    // genuinely changes the trip.
+    const moves: Direction[] = [];
+    for (let i = 0; i < 150; i++) {
+      moves.push(i % 7 === 3 ? "left" : i % 11 === 5 ? "right" : "down");
+    }
+    const state = createMine(777, gear);
+    for (const dir of moves) step(state, dir);
+    const replayed = replayTrip(777, moves, gear);
+    expect(replayed.bankedCredits).toBe(state.miner.bankedCredits);
+    expect(replayed.maxDepth).toBe(state.miner.maxDepth);
+    // A different gear snapshot is a different trip.
+    const otherGear = replayTrip(777, moves);
+    expect(otherGear.maxDepth).not.toBe(replayed.maxDepth);
+  });
+
+  it("prices gear tracks superlinearly", () => {
+    for (const trackDef of GEAR_TRACKS) {
+      for (let i = 1; i < trackDef.prices.length; i++) {
+        expect(trackDef.prices[i] / trackDef.prices[i - 1]).toBeGreaterThan(2);
+      }
+      expect(maxGearLevel(trackDef.track)).toBe(trackDef.prices.length + 1);
+    }
   });
 });

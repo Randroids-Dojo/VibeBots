@@ -1,10 +1,19 @@
 import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
-import { MAX_TRIP_MOVES, MINE_VERSION, replayTrip, STRATA } from "@/sim/mine";
+import {
+  MAX_TRIP_MOVES,
+  MINE_VERSION,
+  maxGearLevel,
+  replayTrip,
+  STRATA,
+} from "@/sim/mine";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const gearLevel = (track: "pickaxe" | "lamp" | "cargo" | "lantern") =>
+  z.number().int().min(1).max(maxGearLevel(track));
 
 const bodySchema = z.object({
   seed: z.number().int().min(0).max(4294967295),
@@ -13,6 +22,14 @@ const bodySchema = z.object({
     .min(1)
     .max(MAX_TRIP_MOVES),
   mineVersion: z.number().int(),
+  // The gear snapshot the session was played with (Q-007 default B):
+  // replay must match what the player saw, validated against ownership.
+  gear: z.object({
+    pickaxe: gearLevel("pickaxe"),
+    lamp: gearLevel("lamp"),
+    cargo: gearLevel("cargo"),
+    lantern: gearLevel("lantern"),
+  }),
 });
 
 /**
@@ -46,16 +63,31 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const trip = replayTrip(parsed.data.seed, parsed.data.moves);
+  const playerId = await getOrCreatePlayerId();
+  const sql = await db();
+
+  // Gear ownership check: claiming better gear than you own is the only
+  // way the snapshot could inflate a payout.
+  const owned = (await sql`
+    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level
+    FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
+  const gear = parsed.data.gear;
+  for (const track of ["pickaxe", "lamp", "cargo", "lantern"] as const) {
+    if (gear[track] > (owned[0]?.[`${track}_level`] ?? 1)) {
+      return Response.json(
+        { error: `gear not owned: ${track} level ${gear[track]}` },
+        { status: 422 },
+      );
+    }
+  }
+
+  const trip = replayTrip(parsed.data.seed, parsed.data.moves, gear);
   if (trip.bankedCredits === 0 && trip.bankedParts.length === 0) {
     return Response.json(
       { error: "nothing banked in this run" },
       { status: 422 },
     );
   }
-
-  const playerId = await getOrCreatePlayerId();
-  const sql = await db();
   // One statement = atomic on the neon HTTP driver (no cross-statement
   // transactions): consume the seed, compute the first-reach stratum
   // bonus against the stored record, credit the wallet, advance the

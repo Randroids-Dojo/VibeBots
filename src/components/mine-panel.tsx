@@ -3,8 +3,11 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import {
+  cargoCapacity,
+  carriedCount,
   carriedValue,
   type Direction,
+  maxEnergy,
   type OreId,
   oreDef,
   returnEnergyCost,
@@ -87,7 +90,13 @@ export function MinePanel() {
   const move = useMineStore((s) => s.move);
   const cashOut = useMineStore((s) => s.cashOut);
   const submitCashOut = useMineStore((s) => s.submitCashOut);
+  const gear = useMineStore((s) => s.gear);
+  const loadGear = useMineStore((s) => s.loadGear);
   void tick;
+
+  useEffect(() => {
+    void loadGear();
+  }, [loadGear]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -120,9 +129,13 @@ export function MinePanel() {
 
   const statusLine =
     lastResult && !lastResult.ok
-      ? lastResult.reason === "blocked"
-        ? "Rock. Your pickaxe is not strong enough."
-        : "Edge of the claim."
+      ? lastResult.reason === "rock"
+        ? "Hard rock. A better pickaxe from the Shop would cut it."
+        : lastResult.reason === "hold-full"
+          ? "The hold is full. Bank it on the surface (or upgrade the cargo hold)."
+          : lastResult.reason === "blocked"
+            ? "No way through there."
+            : "Edge of the claim."
       : lastResult?.ok && lastResult.collapsed
         ? "Lamp died down there. The crew hauled you up; the cargo stayed below."
         : miner.row === 0
@@ -151,6 +164,11 @@ export function MinePanel() {
             <strong style={lampLow ? { color: "#ff6b6b" } : undefined}>
               {miner.energy.toFixed(1)}
             </strong>
+            /{maxEnergy(gear)}
+          </p>
+          <p style={{ margin: "4px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
+            pickaxe {gear.pickaxe}, lamp {gear.lamp}, hold {carriedCount(miner)}
+            /{cargoCapacity(gear)}, lantern {gear.lantern}
           </p>
           {miner.row > 0 && (
             <p

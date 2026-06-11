@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { GEAR_TRACKS, type MineGear, maxGearLevel } from "@/sim/mine";
 
 interface ShopCatalogEntry {
   id: string;
@@ -28,8 +29,18 @@ const panelStyle: React.CSSProperties = {
   maxWidth: 420,
 };
 
+const buyButtonStyle = (affordable: boolean): React.CSSProperties => ({
+  background: affordable ? "#26304a" : "#161b28",
+  color: affordable ? "#e6e8ee" : "#5a6378",
+  border: "1px solid #344061",
+  borderRadius: 6,
+  padding: "4px 12px",
+  cursor: affordable ? "pointer" : "not-allowed",
+});
+
 export function ShopPanel() {
   const [shop, setShop] = useState<ShopState>({ state: "loading" });
+  const [gear, setGear] = useState<MineGear | null>(null);
 
   const refresh = useCallback(async (notice: string | null = null) => {
     try {
@@ -41,6 +52,11 @@ export function ShopPanel() {
       if (!res.ok) return;
       const data = await res.json();
       setShop({ state: "ready", data, notice });
+      const gearRes = await fetch("/api/gear");
+      if (gearRes.ok) {
+        const gearBody = await gearRes.json();
+        setGear(gearBody.gear);
+      }
     } catch {
       setShop({ state: "unavailable" });
     }
@@ -80,16 +96,78 @@ export function ShopPanel() {
     }
   };
 
+  const upgrade = async (track: string) => {
+    const res = await fetch("/api/gear/upgrade", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ track }),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      void refresh(`${track} upgraded to level ${body.level}!`);
+    } else {
+      const body = await res.json().catch(() => ({}));
+      void refresh(
+        typeof body.error === "string" ? body.error : "upgrade failed",
+      );
+    }
+  };
+
   return (
     <section style={panelStyle} aria-label="Part shop">
       <p style={{ margin: "0 0 12px", fontSize: "0.95rem" }}>
-        balance: <strong>{data.emeralds}</strong> emeralds
+        balance: <strong>{data.emeralds}</strong> cr
         {notice && (
           <span style={{ marginLeft: 10, opacity: 0.75, fontSize: "0.85rem" }}>
             {notice}
           </span>
         )}
       </p>
+
+      <h3 style={{ margin: "0 0 8px", fontSize: "0.9rem", opacity: 0.8 }}>
+        Mining gear
+      </h3>
+      <ul style={{ margin: "0 0 16px", padding: 0, listStyle: "none" }}>
+        {GEAR_TRACKS.map((trackDef) => {
+          const level = gear?.[trackDef.track] ?? 1;
+          const atMax = level >= maxGearLevel(trackDef.track);
+          const price = atMax ? null : trackDef.prices[level - 1];
+          const affordable = price !== null && data.emeralds >= price;
+          return (
+            <li
+              key={trackDef.track}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
+              <span style={{ fontSize: "0.9rem" }}>
+                {trackDef.name}{" "}
+                <span style={{ color: "#54e0c7" }}>lv {level}</span>
+                <span style={{ opacity: 0.5 }}> ({trackDef.blurb})</span>
+              </span>
+              {atMax ? (
+                <span style={{ opacity: 0.5, fontSize: "0.85rem" }}>max</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void upgrade(trackDef.track)}
+                  disabled={!affordable}
+                  style={buyButtonStyle(affordable)}
+                >
+                  {price} cr
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      <h3 style={{ margin: "0 0 8px", fontSize: "0.9rem", opacity: 0.8 }}>
+        Robot parts
+      </h3>
       <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
         {data.catalog.map((part) => (
           <li
@@ -115,27 +193,15 @@ export function ShopPanel() {
               type="button"
               onClick={() => void buy(part.id)}
               disabled={data.emeralds < part.priceEmeralds}
-              style={{
-                background:
-                  data.emeralds >= part.priceEmeralds ? "#26304a" : "#161b28",
-                color:
-                  data.emeralds >= part.priceEmeralds ? "#e6e8ee" : "#5a6378",
-                border: "1px solid #344061",
-                borderRadius: 6,
-                padding: "4px 12px",
-                cursor:
-                  data.emeralds >= part.priceEmeralds
-                    ? "pointer"
-                    : "not-allowed",
-              }}
+              style={buyButtonStyle(data.emeralds >= part.priceEmeralds)}
             >
-              {part.priceEmeralds} em
+              {part.priceEmeralds} cr
             </button>
           </li>
         ))}
       </ul>
       <p style={{ margin: "12px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-        emeralds come from the mine. Cash out at the surface, then spend here.
+        credits come from the mine. Cash out at the surface, then spend here.
       </p>
     </section>
   );

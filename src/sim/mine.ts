@@ -39,7 +39,97 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 2;
+export const MINE_VERSION = 3;
+
+/**
+ * Persistent gear tracks (REQ-013/REQ-014): part of the sim input, so a
+ * trip replays identically from (seed, gear, moves). Level arrays are
+ * indexed by level - 1; prices[i] upgrades from level i+1 to i+2.
+ */
+export interface MineGear {
+  pickaxe: number;
+  lamp: number;
+  cargo: number;
+  lantern: number;
+}
+
+export const DEFAULT_GEAR: MineGear = {
+  pickaxe: 1,
+  lamp: 1,
+  cargo: 1,
+  lantern: 1,
+};
+
+/** Max lamp energy by lamp level. */
+export const LAMP_ENERGY = [60, 90, 130, 180] as const;
+/** Visible rows below the miner by lantern level. */
+export const LANTERN_RADIUS = [3, 5, 7] as const;
+/** Ore chunks the hold carries by cargo level (parts ride free). */
+export const CARGO_CAPACITY = [8, 14, 22, 32] as const;
+
+export interface GearTrackDef {
+  track: keyof MineGear;
+  name: string;
+  /** prices[i] is the cost to go from level i+1 to level i+2. */
+  prices: readonly number[];
+  /** One-line shop copy for what the next level does. */
+  blurb: string;
+}
+
+export const GEAR_TRACKS: readonly GearTrackDef[] = [
+  {
+    track: "pickaxe",
+    name: "Pickaxe",
+    prices: [40, 150, 500],
+    blurb: "cuts harder rock tiers",
+  },
+  {
+    track: "lamp",
+    name: "Lamp Cell",
+    prices: [30, 100, 350],
+    blurb: "more energy per trip",
+  },
+  {
+    track: "cargo",
+    name: "Cargo Hold",
+    prices: [25, 80, 300],
+    blurb: "carry more ore per trip",
+  },
+  {
+    track: "lantern",
+    name: "Lantern",
+    prices: [50, 200],
+    blurb: "see deeper ahead",
+  },
+];
+
+export function gearTrackDef(track: keyof MineGear): GearTrackDef {
+  const def = GEAR_TRACKS.find((t) => t.track === track);
+  if (!def) throw new Error(`unknown gear track: ${track}`);
+  return def;
+}
+
+export function maxGearLevel(track: keyof MineGear): number {
+  return gearTrackDef(track).prices.length + 1;
+}
+
+/** Digging rock costs more than dirt even with the right pickaxe. */
+export const ROCK_DIG_COST = 2;
+
+/**
+ * Rock tier by depth (Terraria-style hard gates): pickaxe level N digs
+ * rock tiers up to N - 1, so level 1 digs none and the wall a player
+ * hits is always one shop visit away from opening.
+ */
+export function rockTierAt(row: number): number {
+  if (row < 24) return 1;
+  if (row < 48) return 2;
+  return 3;
+}
+
+export function canDigRock(gear: MineGear, tier: number): boolean {
+  return gear.pickaxe - 1 >= tier;
+}
 
 export const MINE_WIDTH = 9;
 /** Column the miner starts in (surface shaft entrance). */
@@ -222,6 +312,8 @@ export interface MineCell {
   kind: CellKind;
   /** Set when kind is "ore". */
   ore?: OreId;
+  /** Set when kind is "rock" (hard gate vs the pickaxe level). */
+  rockTier?: number;
 }
 
 /** Rare robot parts discoverable underground (REQ-007). */
@@ -244,9 +336,26 @@ export interface MinerState {
 
 export interface MineState {
   seed: number;
+  /** Gear snapshot for the session; part of the replay input (Q-007). */
+  gear: MineGear;
   /** Sparse rows, generated on demand; index 0 is the surface. */
   rows: MineCell[][];
   miner: MinerState;
+}
+
+/** Max lamp energy for the session's gear. */
+export function maxEnergy(gear: MineGear): number {
+  return LAMP_ENERGY[Math.min(gear.lamp, LAMP_ENERGY.length) - 1];
+}
+
+/** Lantern reach for the session's gear. */
+export function lightRadius(gear: MineGear): number {
+  return LANTERN_RADIUS[Math.min(gear.lantern, LANTERN_RADIUS.length) - 1];
+}
+
+/** Ore chunks the hold takes for the session's gear. */
+export function cargoCapacity(gear: MineGear): number {
+  return CARGO_CAPACITY[Math.min(gear.cargo, CARGO_CAPACITY.length) - 1];
 }
 
 /** Credit value of everything currently carried (the bet on the table). */
@@ -288,7 +397,8 @@ function rollCell(seed: number, row: number, col: number): MineCell {
     threshold += oreChanceAt(ore, row);
     if (roll < threshold) return { kind: "ore", ore: ore.id };
   }
-  if (roll < threshold + rockChance) return { kind: "rock" };
+  if (roll < threshold + rockChance)
+    return { kind: "rock", rockTier: rockTierAt(row) };
   return { kind: "dirt" };
 }
 
@@ -307,14 +417,18 @@ export function ensureRows(state: MineState, row: number): void {
   }
 }
 
-export function createMine(seed: number): MineState {
+export function createMine(
+  seed: number,
+  gear: MineGear = DEFAULT_GEAR,
+): MineState {
   const state: MineState = {
     seed,
+    gear,
     rows: [],
     miner: {
       col: START_COL,
       row: 0,
-      energy: START_ENERGY,
+      energy: maxEnergy(gear),
       carried: {},
       carriedParts: [],
       bankedCredits: 0,
@@ -323,7 +437,7 @@ export function createMine(seed: number): MineState {
       collapses: 0,
     },
   };
-  ensureRows(state, LIGHT_RADIUS + 1);
+  ensureRows(state, lightRadius(gear) + 1);
   return state;
 }
 
@@ -365,20 +479,25 @@ export type MoveResult =
       found: string | null;
       collapsed: boolean;
     }
-  | { ok: false; reason: "blocked" | "edge" };
+  | { ok: false; reason: "blocked" | "edge" | "rock" | "hold-full" };
 
 /**
  * Dig toward or move into the adjacent cell. Dirt/ore/cache cells are
- * dug (cost + loot); empty cells are walked into; rock is undiggable at
- * pickaxe level 1; moving up works only through already-dug cells
- * (ladders are implicit in the shaft you cleared).
+ * dug (cost + loot); empty cells are walked into; rock needs the
+ * pickaxe tier for its depth (REQ-013) and costs more energy to cut;
+ * a full cargo hold refuses ore until it is banked (REQ-014); moving up
+ * works only through already-dug cells (ladders are implicit in the
+ * shaft you cleared).
  */
 export function step(state: MineState, dir: Direction): MoveResult {
   const miner = state.miner;
   const t = target(state, dir);
   const cell = cellAt(state, t.col, t.row);
   if (!cell) return { ok: false, reason: "edge" };
-  if (cell.kind === "rock") return { ok: false, reason: "blocked" };
+  if (cell.kind === "rock" && !canDigRock(state.gear, cell.rockTier ?? 1))
+    return { ok: false, reason: "rock" };
+  if (cell.kind === "ore" && carriedCount(miner) >= cargoCapacity(state.gear))
+    return { ok: false, reason: "hold-full" };
   if (dir === "up" && cell.kind !== "empty")
     return { ok: false, reason: "blocked" };
 
@@ -388,7 +507,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   let cost = MOVE_COST;
   if (cell.kind !== "empty") {
     dug = cell.kind;
-    cost = DIG_COST_DIRT;
+    cost = cell.kind === "rock" ? ROCK_DIG_COST : DIG_COST_DIRT;
     if (cell.kind === "ore" && cell.ore) {
       dugOre = cell.ore;
       miner.carried[cell.ore] = (miner.carried[cell.ore] ?? 0) + 1;
@@ -408,36 +527,36 @@ export function step(state: MineState, dir: Direction): MoveResult {
 
   let collapsed = false;
   if (miner.row === 0) {
-    bank(miner);
+    bank(miner, state.gear);
   } else if (miner.energy <= 0) {
-    collapse(miner);
+    collapse(miner, state.gear);
     collapsed = true;
   }
-  ensureRows(state, miner.row + LIGHT_RADIUS + 1);
+  ensureRows(state, miner.row + lightRadius(state.gear) + 1);
   return { ok: true, dug, dugOre, found, collapsed };
 }
 
-function bank(miner: MinerState): void {
+function bank(miner: MinerState, gear: MineGear): void {
   miner.bankedCredits += carriedValue(miner);
   miner.bankedParts.push(...miner.carriedParts);
   miner.carried = {};
   miner.carriedParts = [];
-  miner.energy = START_ENERGY;
+  miner.energy = maxEnergy(gear);
 }
 
 /** Lamp dead underground: cargo is lost, the crew hauls you up. */
-function collapse(miner: MinerState): void {
+function collapse(miner: MinerState, gear: MineGear): void {
   miner.carried = {};
   miner.carriedParts = [];
   miner.collapses += 1;
   miner.col = START_COL;
   miner.row = 0;
-  miner.energy = START_ENERGY;
+  miner.energy = maxEnergy(gear);
 }
 
 /** A cell is visible when within lantern reach of the miner's row. */
 export function isVisible(state: MineState, row: number): boolean {
-  return row <= state.miner.row + LIGHT_RADIUS;
+  return row <= state.miner.row + lightRadius(state.gear);
 }
 
 /** Hard cap on submitted move logs (server replay cost control). */
@@ -452,12 +571,17 @@ export interface TripResult {
 }
 
 /**
- * Replays a full move log from a seed and returns what got banked. The
- * server uses this to credit cash-outs: the mine is a pure function of
- * (seed, moves), so an honest client and the server always agree.
+ * Replays a full move log from a seed and gear snapshot and returns
+ * what got banked. The server uses this to credit cash-outs: the mine
+ * is a pure function of (seed, gear, moves), so an honest client and
+ * the server always agree.
  */
-export function replayTrip(seed: number, moves: Direction[]): TripResult {
-  const state = createMine(seed);
+export function replayTrip(
+  seed: number,
+  moves: Direction[],
+  gear: MineGear = DEFAULT_GEAR,
+): TripResult {
+  const state = createMine(seed, gear);
   const capped = moves.slice(0, MAX_TRIP_MOVES);
   for (const dir of capped) {
     step(state, dir);

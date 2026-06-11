@@ -37,7 +37,57 @@
 
 <main id="open">
   <h2>Open</h2>
-  <p>(none currently)</p>
+
+  <section data-q="Q-005" data-status="open">
+    <h3>Q-005: Currency naming vs emerald the ore</h3>
+    <dl>
+      <dt>Context</dt><dd>The wallet currency is currently called emeralds and emerald is the only ore. The ore-tier design (REQ-011) makes emerald one mid-tier ore among seven, so "bank emeralds into an emerald balance" becomes ambiguous.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Display currency becomes "credits"; ores carry credit values and convert at banking; the players.emeralds DB column stays as-is (implementation detail).</li>
+          <li>Emerald stays the literal currency: emerald ore banks 1:1 and every other ore converts into emeralds.</li>
+          <li>Full rename including a DB column migration to credits.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. Players see one coherent currency, no migration risk, and the emerald ore keeps its identity; the column rename can ride a future schema migration if it ever matters.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(filled in once dev confirms or overrides)</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-006" data-status="open">
+    <h3>Q-006: Trip log format for multi-hit blocks and consumables</h3>
+    <dl>
+      <dt>Context</dt><dd>The cash-out API replays a Direction[] log. Multi-hit hardness keeps that shape (each swing is one direction action), but consumables (dynamite, recall) are new verbs that must live in the log for the server replay to agree.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Directions only; consumables resolved implicitly (fragile, ambiguous).</li>
+          <li>Extended action tokens ("down", "up", "left", "right", "dynamite:down", "recall") with a log version field in the payload.</li>
+          <li>A structured action object array.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>B. String tokens stay compact and zod-validatable, the version field lets old clients fail loudly, and multi-hit needs no format change at all.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(filled in once dev confirms or overrides)</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-007" data-status="open">
+    <h3>Q-007: Which gear levels does the server replay with?</h3>
+    <dl>
+      <dt>Context</dt><dd>Gear (pickaxe, lamp, cargo, lantern) changes sim behavior, so the replay must use the same levels the client played with; a player could buy an upgrade mid-session in another tab.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Server reads current gear at cash-out time (replay can disagree with the played session).</li>
+          <li>Client submits the gear snapshot taken at session start; server validates each level is at most the owned level.</li>
+          <li>Server-issued session tokens embedding the gear snapshot (pairs with F-011's server-issued seeds).</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>B. Replay always matches the played session, claiming gear you do not own is rejected, and the design upgrades cleanly to C when F-011 lands.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(filled in once dev confirms or overrides)</dd>
+    </dl>
+  </section>
 </main>
 
 <aside id="resolved">

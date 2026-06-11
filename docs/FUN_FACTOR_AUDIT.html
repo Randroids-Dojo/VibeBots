@@ -86,6 +86,19 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-11" data-audit-state="mining-baseline">
+    <h3>Audit 2026-06-11 (mining baseline, before the mining overhaul; focused on /mine)</h3>
+    <p>Source: VibeReview session <code>docs/reviews/20260610-220517-4C845606/</code>, scripted production playtest of <code>/mine</code> (screenshots <code>captures/mine-01..06*.png</code>): two trips, one loot sweep, one push-your-luck descent, cash-out attempt.</p>
+    <ul>
+      <li><strong>First 90 seconds:</strong> Partly. Digging starts instantly with zero instructions needed, but within 10 seconds the player hits rock whose message ("your pickaxe is not strong enough") advertises an upgrade that does not exist. Gap: F-013.</li>
+      <li><strong>Core action texture:</strong> No. Blocks vanish with no crack states, particles, or sound; the miner teleports between cells. The dig is binary. Gap: F-016.</li>
+      <li><strong>The core tension is uninformed:</strong> the go-deeper-or-go-home gamble exists in the rules (energy, surface banking, collapse) but the player has no return-cost signal, so the first collapse reads as a cheat, not a lesson. Gap: F-012.</li>
+      <li><strong>Variety:</strong> No. One ore (emerald), one obstacle (rock), uniform dirt at every depth; the scripted run saw nothing new between depth 1 and depth 13. Gaps: F-014, F-017.</li>
+      <li><strong>Navigation:</strong> retracing a zigzag descent from memory stranded the run at depth 4 with 3 unbanked emeralds; no ladders or escape tools exist. Gap: F-015.</li>
+      <li><strong>Mechanics:</strong> solid. Deterministic grid, energy and bank flow correct, cash-out credits the wallet, zero console errors in production.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-10" data-audit-state="combat-legibility-confirmation">
     <h3>Confirmation 2026-06-10 (production, after PR #6)</h3>
     <p>Headless re-playtest of production (screenshots <code>docs/reviews/20260610-220517-4C845606/captures/confirm-*.png</code>): hulls drop within the first seconds of engagement (Brawler 79%, Rammer 94%), per-part pips show where the damage went, and the banner reads "Rammer wins by timeout (55 vs 245)". The F-007 fun blocker (damageless fights, arbitrary winner) is resolved in production; guaranteed part destruction per match remains open on F-007.</p>

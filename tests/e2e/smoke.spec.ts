@@ -87,6 +87,15 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toContainText("depth 0");
   // Banking on the surface refills the lamp.
   await expect(status).toContainText("energy 60.0");
+
+  // Consumable controls exist even when empty (REQ-016); a scripted
+  // edit once shipped without them, so the smoke pins their presence.
+  await expect(
+    page.getByRole("button", { name: /Dynamite \(\d+\)/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Recall \(\d+\)/ }),
+  ).toBeVisible();
 });
 
 test("shop lists parts and balance (needs storage)", async ({

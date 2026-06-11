@@ -530,9 +530,33 @@ export function MinePanel() {
               Right
             </button>
           </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => setDynamiteArmed((armed) => !armed)}
+              disabled={mine.consumables.dynamite <= 0 && !dynamiteArmed}
+              aria-pressed={dynamiteArmed}
+              style={
+                dynamiteArmed
+                  ? { background: "#7a2c2c", color: "#ffd9d9" }
+                  : undefined
+              }
+            >
+              {dynamiteArmed
+                ? "Armed! Pick a direction"
+                : `Dynamite (${mine.consumables.dynamite})`}
+            </button>
+            <button
+              type="button"
+              onClick={() => move("recall")}
+              disabled={mine.consumables.rope <= 0 || miner.row === 0}
+            >
+              Recall ({mine.consumables.rope})
+            </button>
+          </div>
           <p style={{ margin: "8px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-            arrows or WASD work too. Richer ores run deeper; watch the lamp and
-            bank on the surface.
+            arrows or WASD work too. Richer ores run deeper; watch the lamp,
+            mind the wobbling boulders, and bank on the surface.
           </p>
         </section>
       </aside>

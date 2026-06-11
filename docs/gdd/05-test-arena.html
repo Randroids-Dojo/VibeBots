@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Test Arena</title>
+</head>
+<body>
+
+  <h1>Test Arena</h1>
+  <p data-status="partial">Status: partial</p>
+
+  <section data-role="spec" id="spec">
+    <h2>Spec</h2>
+    <p>Players can test a valid bot against a CPU robot before online combat (REQ-009). The test fight runs the same deterministic match the server will later use for official results: same assembly, same controller, same damage model. The workshop is the entry point: build, validate, test, adjust, repeat.</p>
+    <h3 id="not-yet">What this does NOT cover yet</h3>
+    <ul>
+      <li>Choice of CPU opponent (only the stock Brawler).</li>
+      <li>Match seeds or variations (every test replays the same deterministic fight for a given design).</li>
+      <li>Carrying results anywhere (rewards and persistence are later slices).</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-06-10">Workshop gained a "Test fight vs Brawler" mode: the arena viewer is parameterized over designs and runs the player's current bot (index 1, weapons facing the enemy) against the stock CPU Brawler, with the same HUD, banner, and exhibition loop. Files: <code>src/components/workshop-panel.tsx</code>, <code>src/components/arena-canvas.tsx</code>. PR pending.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

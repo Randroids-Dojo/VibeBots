@@ -2,13 +2,19 @@
 
 import { canRedo, canUndo } from "@randroids-dojo/vibekit";
 import dynamic from "next/dynamic";
-import { validateDesign } from "@/sim/design";
+import { useState } from "react";
+import {
+  type BotDesign,
+  CPU_BRAWLER_DESIGN,
+  validateDesign,
+} from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
 import { planAddPart, useWorkshopStore } from "@/state/workshop-store";
 
 const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
   ssr: false,
 });
+const ArenaCanvas = dynamic(() => import("./arena-canvas"), { ssr: false });
 
 const panelStyle: React.CSSProperties = {
   background: "rgba(17, 21, 31, 0.92)",
@@ -19,6 +25,9 @@ const panelStyle: React.CSSProperties = {
 
 export function WorkshopPanel() {
   const design = useWorkshopStore((s) => s.design);
+  // Captured at click time: the matchup identity is state, so nothing a
+  // render does can reboot a running test fight.
+  const [matchup, setMatchup] = useState<[BotDesign, BotDesign] | null>(null);
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const history = useWorkshopStore((s) => s.history);
   const addPart = useWorkshopStore((s) => s.addPart);
@@ -35,6 +44,31 @@ export function WorkshopPanel() {
     selectedDef.category !== "core" &&
     selectedIid !== null &&
     !design.connections.some((c) => c.parentIid === selectedIid);
+
+  if (matchup) {
+    return (
+      <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
+        <ArenaCanvas designs={matchup} />
+        <button
+          type="button"
+          onClick={() => setMatchup(null)}
+          style={{
+            position: "absolute",
+            top: 70,
+            left: 20,
+            background: "#26304a",
+            color: "#e6e8ee",
+            border: "1px solid #344061",
+            borderRadius: 8,
+            padding: "8px 16px",
+            cursor: "pointer",
+          }}
+        >
+          Back to build
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
@@ -136,6 +170,23 @@ export function WorkshopPanel() {
             </button>
             <button type="button" onClick={reset}>
               Reset
+            </button>
+            <button
+              type="button"
+              onClick={() => setMatchup([CPU_BRAWLER_DESIGN, design])}
+              disabled={!validation.ok}
+              title={validation.ok ? undefined : "fix validity errors first"}
+              style={{
+                background: validation.ok ? "#54e0c7" : "#161b28",
+                color: validation.ok ? "#0b0e14" : "#5a6378",
+                border: "1px solid #344061",
+                borderRadius: 6,
+                padding: "4px 12px",
+                fontWeight: 600,
+                cursor: validation.ok ? "pointer" : "not-allowed",
+              }}
+            >
+              Test fight vs Brawler
             </button>
           </div>
           {selectedDef && (

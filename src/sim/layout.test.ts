@@ -24,8 +24,8 @@ describe("layout orientation", () => {
   it("places an oriented child by its rotated anchor", () => {
     // A spike mounted on the cross-frame's east connector, yawed 90:
     // its mount anchor (0,0,0.2) rotates to (0.2,0,0), so the spike body
-    // sits at east (0.35,0,0) minus (0.2,0,0) = (0.15,0,0) relative to
-    // the frame, pointing its tip along -x... rotated 90 yaw.
+    // sits at east (0.3,0,0) minus (0.2,0,0) = (0.1,0,0) relative to the
+    // frame. (Pure placement math; validity would reject this overlap.)
     const design: BotDesign = {
       name: "oriented",
       parts: [
@@ -56,7 +56,7 @@ describe("layout orientation", () => {
     expect(spike).toBeDefined();
     if (!frame || !spike) return;
     close(frame.position.y, 0.38);
-    close(spike.position.x, frame.position.x + 0.35 - 0.2);
+    close(spike.position.x, frame.position.x + 0.3 - 0.2);
     close(spike.position.y, frame.position.y);
     close(spike.position.z, frame.position.z);
     close(Math.abs(spike.rotation.y), Math.sqrt(0.5));

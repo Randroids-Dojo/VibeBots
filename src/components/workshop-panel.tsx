@@ -11,7 +11,11 @@ import {
   validateDesign,
 } from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
-import { planAddPart, useWorkshopStore } from "@/state/workshop-store";
+import {
+  planAddPart,
+  planRotateSelected,
+  useWorkshopStore,
+} from "@/state/workshop-store";
 
 const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
   ssr: false,
@@ -269,7 +273,7 @@ export function WorkshopPanel() {
             <button
               type="button"
               onClick={rotateSelected}
-              disabled={!selectedIid || selectedIid === "core"}
+              disabled={planRotateSelected(design, selectedIid) === null}
               title="quarter-turn the selected part around its mount"
             >
               Rotate

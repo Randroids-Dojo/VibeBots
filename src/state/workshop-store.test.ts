@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { validateDesign } from "@/sim/design";
 import { DRIVE_WHEEL, PART_CATALOG } from "@/sim/parts";
 import {
-  findFreeConnector,
+  findFreeConnectors,
+  planAddPart,
   STARTER_DESIGN,
   useWorkshopStore,
 } from "./workshop-store";
@@ -26,7 +27,7 @@ describe("workshop store", () => {
     expect(design.parts).toHaveLength(3);
     expect(validateDesign(design).ok).toBe(true);
     // Both axle connectors are now taken: a third wheel has nowhere to go.
-    expect(findFreeConnector(design, DRIVE_WHEEL)).toBeNull();
+    expect(findFreeConnectors(design, DRIVE_WHEEL)).toHaveLength(0);
     store().addPart("drive-wheel");
     expect(store().design.parts).toHaveLength(3);
   });
@@ -67,17 +68,17 @@ describe("workshop store", () => {
   });
 
   it("rotates the selected part through quarter turns with undo", () => {
-    store().addPart("ram-spike");
-    const spikeIid = store().selectedIid;
-    expect(spikeIid).not.toBeNull();
+    store().addPart("sensor-head");
+    const headIid = store().selectedIid;
+    expect(headIid).not.toBeNull();
     store().rotateSelected();
-    let conn = store().design.connections.find((c) => c.childIid === spikeIid);
+    let conn = store().design.connections.find((c) => c.childIid === headIid);
     expect(conn?.orientation).toBe(90);
     store().rotateSelected();
-    conn = store().design.connections.find((c) => c.childIid === spikeIid);
+    conn = store().design.connections.find((c) => c.childIid === headIid);
     expect(conn?.orientation).toBe(180);
     store().undo();
-    conn = store().design.connections.find((c) => c.childIid === spikeIid);
+    conn = store().design.connections.find((c) => c.childIid === headIid);
     expect(conn?.orientation).toBe(90);
   });
 
@@ -94,7 +95,7 @@ describe("workshop store", () => {
   it("keeps every reachable catalog part addable somewhere", () => {
     for (const part of Object.values(PART_CATALOG)) {
       if (part.category === "core") continue;
-      expect(findFreeConnector(STARTER_DESIGN, part)).not.toBeNull();
+      expect(planAddPart(STARTER_DESIGN, part)).not.toBeNull();
     }
   });
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { computeLayout } from "./layout";
 import { PART_CATALOG, type PartDef, partMass } from "./parts";
 
 /**
@@ -160,6 +161,73 @@ export function validateDesign(
   for (const part of design.parts) {
     if (!reachable.has(part.iid)) {
       errors.push(`instance "${part.iid}" is not connected to the core`);
+    }
+  }
+
+  // Overlapping part volumes are illegal: contacts between jointed pairs
+  // are disabled in combat, so an overlapped part detaching would fire a
+  // violent depenetration impulse. Yaw quarter-turns keep every part
+  // axis-aligned, so world AABBs are exact.
+  if (errors.length === 0) {
+    const placements = computeLayout(design, catalog);
+    const boxes: Array<{ iid: string; min: number[]; max: number[] }> = [];
+    for (const part of design.parts) {
+      const def = resolvePart(part, catalog);
+      const placement = placements.get(part.iid);
+      if (!def || !placement) continue;
+      const s = def.shape;
+      let hx: number;
+      let hy: number;
+      let hz: number;
+      if (s.type === "cuboid") {
+        hx = s.hx;
+        hy = s.hy;
+        hz = s.hz;
+      } else if (s.type === "ball") {
+        hx = hy = hz = s.radius;
+      } else {
+        const along = s.halfHeight;
+        const across = s.radius;
+        if (s.axis === "x") {
+          hx = along;
+          hy = hz = across;
+        } else if (s.axis === "z") {
+          hz = along;
+          hx = hy = across;
+        } else {
+          hy = along;
+          hx = hz = across;
+        }
+      }
+      // Quarter-turn yaw swaps the x/z extents for 90 and 270.
+      const halfTurned =
+        Math.abs(placement.rotation.y) > 0.6 &&
+        Math.abs(placement.rotation.y) < 0.8;
+      const ex = halfTurned ? hz : hx;
+      const ez = halfTurned ? hx : hz;
+      const p = placement.position;
+      boxes.push({
+        iid: part.iid,
+        min: [p.x - ex, p.y - hy, p.z - ez],
+        max: [p.x + ex, p.y + hy, p.z + ez],
+      });
+    }
+    const EPS = 1e-6;
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i];
+        const b = boxes[j];
+        const overlaps =
+          a.min[0] < b.max[0] - EPS &&
+          b.min[0] < a.max[0] - EPS &&
+          a.min[1] < b.max[1] - EPS &&
+          b.min[1] < a.max[1] - EPS &&
+          a.min[2] < b.max[2] - EPS &&
+          b.min[2] < a.max[2] - EPS;
+        if (overlaps) {
+          errors.push(`parts overlap: "${a.iid}" and "${b.iid}"`);
+        }
+      }
     }
   }
 

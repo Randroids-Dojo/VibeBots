@@ -20,9 +20,10 @@ import { PART_CATALOG, type PartDef, type PartShape, type Vec3 } from "./parts";
  * order (BFS from the core, children sorted by instance id) is part of the
  * determinism contract; never reorder without bumping SIM_VERSION.
  *
- * Parts attach with identity rotation this slice: a child's world position
- * is parent position + parent connector offset - child connector offset.
- * Oriented attachment (90-degree connector steps) is followup F-006.
+ * Placement (positions and yaw quarter-turn rotations, F-006) comes from
+ * the shared layout module; bodies spawn with those rotations and fixed
+ * joints pin the same relative rotation so the constraint matches the
+ * spawn pose exactly.
  */
 
 const HALF_SQRT2 = Math.sqrt(0.5);

@@ -84,7 +84,15 @@ export function WorkshopPanel() {
   if (matchup) {
     return (
       <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
-        <ArenaCanvas designs={matchup} onMatchEnd={setEndInfo} />
+        <ArenaCanvas
+          designs={matchup}
+          onMatchEnd={(info) => {
+            // The exhibition loop reruns the fight; a verdict from the
+            // previous run must not describe the new one.
+            setEndInfo(info);
+            setVerification({ state: "idle" });
+          }}
+        />
         {endInfo && (
           <div
             style={{

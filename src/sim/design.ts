@@ -23,10 +23,16 @@ export const connectionSchema = z.object({
 });
 export type Connection = z.infer<typeof connectionSchema>;
 
+/** Hard cap on parts per design: sim cost is the server's to control. */
+export const MAX_DESIGN_PARTS = 32;
+
 export const botDesignSchema = z.object({
-  name: z.string().min(1),
-  parts: z.array(partInstanceSchema).min(1),
-  connections: z.array(connectionSchema),
+  name: z.string().min(1).max(60),
+  parts: z
+    .array(partInstanceSchema)
+    .min(1)
+    .max(MAX_DESIGN_PARTS * 2),
+  connections: z.array(connectionSchema).max(MAX_DESIGN_PARTS * 2),
 });
 export type BotDesign = z.infer<typeof botDesignSchema>;
 
@@ -60,6 +66,12 @@ export function validateDesign(
     byIid.set(part.iid, part);
     if (!resolvePart(part, catalog))
       errors.push(`unknown part "${part.partId}" (${part.iid})`);
+  }
+
+  if (design.parts.length > MAX_DESIGN_PARTS) {
+    errors.push(
+      `too many parts: ${design.parts.length} (limit ${MAX_DESIGN_PARTS})`,
+    );
   }
 
   const cores = design.parts.filter(

@@ -42,8 +42,9 @@ export async function resolveMatch(
   timeLimitTicks?: number,
 ): Promise<ResolvedMatch> {
   const world = await createArenaWorld();
-  const match = createMatch(world, designs, { timeLimitTicks });
+  let match: ReturnType<typeof createMatch> | null = null;
   try {
+    match = createMatch(world, designs, { timeLimitTicks });
     while (!match.status.over) {
       stepMatch(match);
     }
@@ -62,7 +63,7 @@ export async function resolveMatch(
       rewards,
     };
   } finally {
-    freeMatch(match);
+    if (match) freeMatch(match);
     world.free();
   }
 }

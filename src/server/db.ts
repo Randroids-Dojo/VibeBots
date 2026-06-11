@@ -39,6 +39,13 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS deepest_depth integer NOT NULL DEFAULT 0`;
+  // Gear tracks (REQ-013); levels start at 1.
+  await sql`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS pickaxe_level integer NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS lamp_level integer NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS cargo_level integer NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS lantern_level integer NOT NULL DEFAULT 1`;
   await sql`
     CREATE TABLE IF NOT EXISTS player_parts (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,

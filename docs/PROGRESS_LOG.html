@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mining-gear" data-date="2026-06-11">
+    <h3>Mining Gear (pickaxe gates, lamp, cargo, lantern)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mining-gear</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>four persistent gear tracks (REQ-013) bought with credits in a new shop section: pickaxe levels hard-gate rock tiers (rock is depth-tiered 1-3 and digs at 2 energy once the tier is owned), lamp cell raises max energy (60/90/130/180), cargo hold caps carried ore (8/14/22/32; REQ-014 done: a full hold refuses ore until banked), lantern widens the visible rows (3/5/7). Gear is part of the sim input: the client fetches it at mount (<code>GET /api/gear</code>), sessions restart on gear change, and cash-outs submit the session gear snapshot which the server validates against ownership before replaying (Q-007 default B). <code>POST /api/gear/upgrade</code> is a single conditional statement (balance and level guards). Prices are superlinear (x3-ish per tier). MINE_VERSION bumped to 3. The shop and the mine HUD now both read in credits (Q-005).</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (74; new lamp/lantern/cargo/pickaxe-gate/gear-replay/price-curve tests), <code>pnpm build</code>, <code>pnpm test:e2e</code>; live upgrade flow to be verified on production after merge.</dd>
+      <dt>Assumptions</dt><dd>gear prices are first-pass tuning (first upgrade affordable in 2-3 trips); rock tiers change at rows 24 and 48 to match the strata cadence; parts ride outside the cargo cap (jackpots should never be refused); upgrades restart the mine session (gear changes the sim, and shopping happens on the surface anyway).</dd>
+      <dt>GDD coverage</dt><dd>REQ-013 partial (live confirmation pending), REQ-014 done; build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>F-013 marked resolved pending VibeReview confirmation.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mining-ore-tiers" data-date="2026-06-11">
     <h3>Mining Ore Tiers and Strata</h3>
     <dl>

@@ -16,7 +16,7 @@ export default function MinePage() {
           The Mine
         </h1>
         <p style={{ margin: 0, opacity: 0.6, fontSize: "0.85rem" }}>
-          dig for emeralds, find rare parts, make it back up
+          dig deep, haul rich ore home, make it back before the lamp dies
         </p>
         <GameNav current="/mine" />
       </header>

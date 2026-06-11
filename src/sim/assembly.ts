@@ -6,8 +6,13 @@ import type {
   World,
 } from "@dimforge/rapier3d-deterministic-compat";
 import RAPIER from "@dimforge/rapier3d-deterministic-compat";
-import { type BotDesign, type Connection, validateDesign } from "./design";
-import { computeLayout } from "./layout";
+import {
+  type BotDesign,
+  type Connection,
+  type Orientation,
+  validateDesign,
+} from "./design";
+import { computeLayout, YAW_QUATS } from "./layout";
 import { PART_CATALOG, type PartDef, type PartShape, type Vec3 } from "./parts";
 
 /**
@@ -15,9 +20,10 @@ import { PART_CATALOG, type PartDef, type PartShape, type Vec3 } from "./parts";
  * order (BFS from the core, children sorted by instance id) is part of the
  * determinism contract; never reorder without bumping SIM_VERSION.
  *
- * Parts attach with identity rotation this slice: a child's world position
- * is parent position + parent connector offset - child connector offset.
- * Oriented attachment (90-degree connector steps) is followup F-006.
+ * Placement (positions and yaw quarter-turn rotations, F-006) comes from
+ * the shared layout module; bodies spawn with those rotations and fixed
+ * joints pin the same relative rotation so the constraint matches the
+ * spawn pose exactly.
  */
 
 const HALF_SQRT2 = Math.sqrt(0.5);
@@ -114,22 +120,25 @@ export function assembleBot(
   const axleJoints: AxleMotor[] = [];
   const jointToParent = new Map<string, ImpulseJoint>();
   // Shared with the workshop preview: what you build is what fights.
-  const positions = computeLayout(design, catalog, origin);
+  const placements = computeLayout(design, catalog, origin);
+  const placementOf = (iid: string) => {
+    const placement = placements.get(iid);
+    if (!placement) throw new Error(`assembly lost placement for "${iid}"`);
+    return placement.rotation;
+  };
 
   const queue = [rootIid];
   while (queue.length > 0) {
     const iid = queue.shift();
     if (iid === undefined) break;
     const part = partByIid.get(iid);
-    const position = positions.get(iid);
+    const position = placements.get(iid)?.position;
     if (!part || !position) throw new Error(`assembly lost instance "${iid}"`);
 
     const body = world.createRigidBody(
-      RAPIER.RigidBodyDesc.dynamic().setTranslation(
-        position.x,
-        position.y,
-        position.z,
-      ),
+      RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(position.x, position.y, position.z)
+        .setRotation(placementOf(iid)),
     );
     colliders.set(
       iid,
@@ -173,9 +182,12 @@ export function assembleBot(
       });
     } else {
       const identity = { x: 0, y: 0, z: 0, w: 1 };
+      // The fixed joint pins body2's identity frame to body1's yaw frame,
+      // enforcing exactly the layout's relative rotation.
+      const yaw = YAW_QUATS[(conn.orientation ?? 0) as Orientation];
       const data = RAPIER.JointData.fixed(
         parentAnchor.position,
-        identity,
+        yaw,
         childAnchor.position,
         identity,
       );

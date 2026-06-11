@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="varied-silhouettes" data-date="2026-06-10">
+    <h3>Varied Silhouettes</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/varied-silhouettes</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>oriented attachment (F-006) and new silhouette parts (REQ-003): connections carry optional yaw quarter-turns; the shared layout composes exact quaternions down the tree (identity stays bit-identical, proven by unchanged determinism hashes); assembly creates rotated bodies and pins fixed joints to the same relative rotation; axle connections cannot be oriented (validity rule). New catalog parts: Cross Frame (six rigid connectors) and Sensor Head, enabling wide, tall, and character-like builds alongside wheeled and compact ones (legged remains future work). Workshop gained a Rotate control cycling quarter turns with undo.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (61; new layout quaternion tests with a worked oriented-anchor example, oriented-assembly determinism, rotate cycling and axle refusal), <code>pnpm build</code>, <code>pnpm test:e2e</code>.</dd>
+      <dt>Assumptions</dt><dd>yaw-only this slice (pitch/roll quarter-turns follow the same pattern when a part needs them); rotating a part is gated to rigid mounts; legged locomotion is out of scope until actuated joints land.</dd>
+      <dt>GDD coverage</dt><dd>REQ-003 flipped to partial; build-log entry on 02; F-006 resolved.</dd>
+      <dt>Followups</dt><dd>F-006 resolved.</dd>
+    </dl>
+  </article>
+
   <article data-slice="match-resolve-api" data-date="2026-06-10">
     <h3>Match Resolve API</h3>
     <dl>

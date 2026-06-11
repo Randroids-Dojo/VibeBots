@@ -8,7 +8,7 @@ import {
   undoHistory,
 } from "@randroids-dojo/vibekit";
 import { create } from "zustand";
-import { type BotDesign, validateDesign } from "@/sim/design";
+import { type BotDesign, type Orientation, validateDesign } from "@/sim/design";
 import { PART_CATALOG, type PartDef } from "@/sim/parts";
 
 /**
@@ -30,23 +30,24 @@ interface FreeConnector {
 }
 
 /**
- * First free parent connector compatible with any of the part's
- * connectors, scanning in design order (deterministic). Among matching
- * child connectors, picks the one placing the part farthest from its
- * parent: anchors are surface points, so the farthest pairing is the
- * outward-facing one (a plate mounted by its 'top' would sink inside
- * the parent; its 'bottom' sits flush outside).
+ * All free parent connectors compatible with any of the part's
+ * connectors, in design order (deterministic). Among matching child
+ * connectors, each candidate picks the one placing the part farthest
+ * from its parent: anchors are surface points, so the farthest pairing
+ * is the outward-facing one (a plate mounted by its 'top' would sink
+ * inside the parent; its 'bottom' sits flush outside).
  */
-export function findFreeConnector(
+export function findFreeConnectors(
   design: BotDesign,
   part: PartDef,
   catalog: Record<string, PartDef> = PART_CATALOG,
-): FreeConnector | null {
+): FreeConnector[] {
   const used = new Set<string>();
   for (const conn of design.connections) {
     used.add(`${conn.parentIid}:${conn.parentConnector}`);
     used.add(`${conn.childIid}:${conn.childConnector}`);
   }
+  const candidates: FreeConnector[] = [];
   for (const instance of design.parts) {
     const def = catalog[instance.partId];
     if (!def) continue;
@@ -62,15 +63,15 @@ export function findFreeConnector(
         if (!best || dist > best.dist) best = { id: mount.id, dist };
       }
       if (best) {
-        return {
+        candidates.push({
           parentIid: instance.iid,
           parentConnector: connector.id,
           childConnector: best.id,
-        };
+        });
       }
     }
   }
-  return null;
+  return candidates;
 }
 
 /**
@@ -83,23 +84,59 @@ export function planAddPart(
   part: PartDef,
   catalog: Record<string, PartDef> = PART_CATALOG,
 ): { next: BotDesign; iid: string } | null {
-  const slot = findFreeConnector(design, part, catalog);
-  if (!slot) return null;
   const iid = nextIid(design, part.id);
-  const next: BotDesign = {
-    ...design,
-    parts: [...design.parts, { iid, partId: part.id }],
-    connections: [
-      ...design.connections,
-      {
-        parentIid: slot.parentIid,
-        parentConnector: slot.parentConnector,
-        childIid: iid,
-        childConnector: slot.childConnector,
-      },
-    ],
-  };
-  return validateDesign(next, catalog).ok ? { next, iid } : null;
+  // First slot whose resulting design validates (overlap rules included).
+  for (const slot of findFreeConnectors(design, part, catalog)) {
+    const next: BotDesign = {
+      ...design,
+      parts: [...design.parts, { iid, partId: part.id }],
+      connections: [
+        ...design.connections,
+        {
+          parentIid: slot.parentIid,
+          parentConnector: slot.parentConnector,
+          childIid: iid,
+          childConnector: slot.childConnector,
+        },
+      ],
+    };
+    if (validateDesign(next, catalog).ok) return { next, iid };
+  }
+  return null;
+}
+
+/** The full rotate precondition; null when no legal quarter-turn exists. */
+export function planRotateSelected(
+  design: BotDesign,
+  selectedIid: string | null,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): BotDesign | null {
+  if (!selectedIid) return null;
+  const index = design.connections.findIndex((c) => c.childIid === selectedIid);
+  if (index < 0) return null;
+  const conn = design.connections[index];
+  const parent = design.parts.find((p) => p.iid === conn.parentIid);
+  const parentDef = parent ? catalog[parent.partId] : null;
+  const parentConn = parentDef?.connectors.find(
+    (c) => c.id === conn.parentConnector,
+  );
+  // Axle connections cannot be oriented (validity rule).
+  if (!parentConn || parentConn.kind === "axle") return null;
+  const orientationCycle: Orientation[] = [0, 90, 180, 270];
+  const current = (conn.orientation ?? 0) as Orientation;
+  // Try successive quarter turns; skip ones the validity rules reject.
+  for (let stepCount = 1; stepCount < 4; stepCount++) {
+    const orientation =
+      orientationCycle[(orientationCycle.indexOf(current) + stepCount) % 4];
+    const next: BotDesign = {
+      ...design,
+      connections: design.connections.map((c, i) =>
+        i === index ? { ...c, orientation } : c,
+      ),
+    };
+    if (validateDesign(next, catalog).ok) return next;
+  }
+  return null;
 }
 
 function nextIid(design: BotDesign, partId: string): string {
@@ -114,6 +151,7 @@ export interface WorkshopState {
   selectedIid: string | null;
   addPart: (partId: string) => void;
   removeSelected: () => void;
+  rotateSelected: () => void;
   select: (iid: string | null) => void;
   undo: () => void;
   redo: () => void;
@@ -156,6 +194,13 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       connections: design.connections.filter((c) => c.childIid !== selectedIid),
     };
     set({ ...withDesign(pushHistory(history, next)), selectedIid: null });
+  },
+
+  rotateSelected: () => {
+    const { history, design, selectedIid } = get();
+    const next = planRotateSelected(design, selectedIid);
+    if (!next) return;
+    set({ ...withDesign(pushHistory(history, next)) });
   },
 
   select: (iid) => set({ selectedIid: iid }),

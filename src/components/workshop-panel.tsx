@@ -11,7 +11,11 @@ import {
   validateDesign,
 } from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
-import { planAddPart, useWorkshopStore } from "@/state/workshop-store";
+import {
+  planAddPart,
+  planRotateSelected,
+  useWorkshopStore,
+} from "@/state/workshop-store";
 
 const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
   ssr: false,
@@ -68,6 +72,7 @@ export function WorkshopPanel() {
   const history = useWorkshopStore((s) => s.history);
   const addPart = useWorkshopStore((s) => s.addPart);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
+  const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
   const undo = useWorkshopStore((s) => s.undo);
   const redo = useWorkshopStore((s) => s.redo);
   const reset = useWorkshopStore((s) => s.reset);
@@ -264,6 +269,14 @@ export function WorkshopPanel() {
               title={selectedIid ? undefined : "select a part in the scene"}
             >
               Remove selected
+            </button>
+            <button
+              type="button"
+              onClick={rotateSelected}
+              disabled={planRotateSelected(design, selectedIid) === null}
+              title="quarter-turn the selected part around its mount"
+            >
+              Rotate
             </button>
             <button type="button" onClick={reset}>
               Reset

@@ -548,7 +548,10 @@ export function MinePanel() {
             </button>
             <button
               type="button"
-              onClick={() => move("recall")}
+              onClick={() => {
+                setDynamiteArmed(false);
+                move("recall");
+              }}
               disabled={mine.consumables.rope <= 0 || miner.row === 0}
             >
               Recall ({mine.consumables.rope})

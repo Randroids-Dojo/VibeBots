@@ -31,11 +31,24 @@
 
 <main id="entries">
 
+  <article data-slice="mining-final-audit" data-date="2026-06-11">
+    <h3>Mining Final Audit (confirmation, verdict, closing docs)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/mining-final-audit</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the mining overhaul closes its loop. Final production confirmation runs verified every system live: trips banked credits with the Clay Beds first-reach bonus, the Cargo Hold upgrade was bought and changed the session (hold x/14), dynamite armed and blasted, the recall rope banked a part-cache find from depth, hazards blocked routes, the wreck reveal fired with a real near-miss line, and consecutive-frame diffs proved the juice moves (Rule 10). The fun-factor audit was re-run for mining with the verdict: fun and fully fleshed out per the research's "one more trip" engine; F-012 through F-017 carry production confirmations; F-019 (audio + multi-hit crack states) is the remaining polish backlog. Coverage: REQ-006, REQ-007, REQ-012, REQ-013, REQ-015, REQ-016, REQ-017, REQ-019 flipped to done; REQ-011/REQ-014 were already done; REQ-018 stays partial on F-019. Also folds in PR #21 review feedback (Recall disarms a primed dynamite; the playtest debug fetch is guarded) and fills this session's PR numbers into the log and the GDD build log. VibeReview's automatic captures were blocked by the running app holding port 37717, so the final evidence entries were appended to PLAYTEST.html manually with the scripted-run screenshots.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (81), <code>pnpm build</code>, <code>pnpm test:e2e</code>; coverage JSON validity.</dd>
+      <dt>Assumptions</dt><dd>the Chrome-extension interactive review was declined twice in-session, so all evidence comes from scripted Playwright runs against production and a local production build; the cache-crack fanfare was triggered by a confirmed cache find but never screenshotted (rare by design), and its overlay machinery is shared with the confirmed banner/reveal paths.</dd>
+      <dt>GDD coverage</dt><dd>REQ-006/007/012/013/015/016/017/019 done; REQ-018 partial (F-019); confirmation build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>created <code>F-019</code> (mining audio + crack states, polish); F-012..F-017 confirmed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-consumable-buttons-fix" data-date="2026-06-11">
     <h3>Mine Consumable Buttons Fix</h3>
     <dl>
       <dt>Branch</dt><dd><code>fix/mine-consumable-buttons</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#21</dd>
       <dt>Changed</dt><dd>the hazards slice shipped the dynamite arming logic and recall handler but not their buttons: the scripted edit that should have inserted them no-opped silently against the reformatted file (the same failure mode as the game-nav bug), so production sold consumables the mine UI could not use. Caught by the instrumented production playtest (api/gear returned dynamite 1, the button was missing from the DOM). The Dig controls section now has the Dynamite arm-toggle (aria-pressed, disabled only when empty and unarmed) and the Recall button with live counts, plus the boulder-aware hint copy; the mine e2e pins both buttons' presence so a silent edit cannot drop them again. Also: the production full-loop playtest script gained surface-walk trips with HUD-verified moves (the genuinely banked-and-bought run is in the evidence), and the local juice playtest script landed.</dd>
       <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (81), <code>pnpm build</code>, <code>pnpm test:e2e</code> (5 passed incl. the new button assertions); production dynamite/recall flow verified after merge.</dd>
       <dt>Assumptions</dt><dd>none.</dd>
@@ -48,7 +61,7 @@
     <h3>Mining Juice (dig feel, fanfare, near-miss reveal)</h3>
     <dl>
       <dt>Branch</dt><dd><code>feature/mining-juice</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#20</dd>
       <dt>Changed</dt><dd>the dig stops feeling binary (REQ-018): every break bursts debris particles in the block's color, screen shake scales with the event (rock chips, gas vents, dynamite, crushes), the miner glides between cells instead of teleporting, ore pickups float "+N cr" toward the HUD, cracking a part cache pops a gold fanfare with the part's name, wobbling boulders jitter and glow as their warning, and the background tint deepens with each stratum. Failed trips end in a reveal instead of a shrug (REQ-019): the sim now reports what a collapse cost (value, parts, position) and the overlay shows it plus the near-miss line ("a ruby sat 3 blocks from where the lamp died"), dismissible with a tap into the next trip. Reduced-motion preference stills the CSS animations. Also folds in the CodeRabbit feedback from PR #18 (unused import, contradictory F-018 fields, stale session labels in PLAYTEST, try/finally in the confirm script).</dd>
       <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (81), <code>pnpm build</code>, <code>pnpm test:e2e</code>; juice verified visually in the VibeReview pass after merge (Rule 10: moving pixels, not just active controls).</dd>
       <dt>Assumptions</dt><dd>render-layer randomness (Math.random for particle scatter) never touches <code>src/sim</code>, so determinism holds; crack states wait for multi-hit blocks (a future hardness pass), audio waits for an audio slice; the near-miss search reads only client-generated rows (no extra generation).</dd>
@@ -61,7 +74,7 @@
     <h3>Mining Hazards and Consumables</h3>
     <dl>
       <dt>Branch</dt><dd><code>feature/mining-hazards</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#19</dd>
       <dt>Changed</dt><dd>the mine learns to bite back (REQ-015): boulders are solid cells that wobble for exactly one action after losing support, then fall as discrete grid steps; a boulder passing through the miner ends the trip like a collapse (carry lost, crew digs you out). Gas pockets vent when a cell beside them is dug: a plus-shaped blast that destroys blocks (loot included), chains through other pockets, and burns 8 lamp energy per vent. Both stay out of the top 4 rows so the first lesson is gentle, and both scale with depth. Consumables (REQ-016): dynamite (10 cr) blasts a plus through anything including tier-3 rock (gas it touches chains, but the lamp is spared); the recall rope (8 cr) ends the trip from anywhere with the carry banked, the F-015 escape valve. The trip log became an action-token log ("down", "dynamite-left", "recall"; Q-006 default B), refused actions are no longer logged, and the cash-out payload carries the consumable snapshot: the server validates ownership, replays, and decrements spent items in the same atomic credit statement. The mine HUD gains an arm-then-direction Dynamite control (aria-pressed) and a Recall button; the shop gains a Supplies section. MINE_VERSION bumped to 4.</dd>
       <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (81; new gas-chain, wobble-then-fall, crush, dynamite, recall, consumable-replay, hazard-free-top tests), <code>pnpm build</code>, <code>pnpm test:e2e</code>; live consumable flow to be verified on production after merge.</dd>
       <dt>Assumptions</dt><dd>blast and vent destroy loot (greed-vs-safety stays a real trade) but part caches are reinforced and survive; dynamite costs no energy (its price was paid in credits); gas lit by dynamite spares the lamp (triggered from cover); consumables spent on a collapsed trip are not decremented server-side until F-011's server-issued sessions close that small leak (noted there).</dd>
@@ -74,7 +87,7 @@
     <h3>Mining Gear (pickaxe gates, lamp, cargo, lantern)</h3>
     <dl>
       <dt>Branch</dt><dd><code>feature/mining-gear</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#18</dd>
       <dt>Changed</dt><dd>four persistent gear tracks (REQ-013) bought with credits in a new shop section: pickaxe levels hard-gate rock tiers (rock is depth-tiered 1-3 and digs at 2 energy once the tier is owned), lamp cell raises max energy (60/90/130/180), cargo hold caps carried ore (8/14/22/32; REQ-014 done: a full hold refuses ore until banked), lantern widens the visible rows (3/5/7). Gear is part of the sim input: the client fetches it at mount (<code>GET /api/gear</code>), sessions restart on gear change, and cash-outs submit the session gear snapshot which the server validates against ownership before replaying (Q-007 default B). <code>POST /api/gear/upgrade</code> is a single conditional statement (balance and level guards). Prices are superlinear (x3-ish per tier). MINE_VERSION bumped to 3. The shop and the mine HUD now both read in credits (Q-005).</dd>
       <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (74; new lamp/lantern/cargo/pickaxe-gate/gear-replay/price-curve tests), <code>pnpm build</code>, <code>pnpm test:e2e</code>; live upgrade flow to be verified on production after merge.</dd>
       <dt>Assumptions</dt><dd>gear prices are first-pass tuning (first upgrade affordable in 2-3 trips); rock tiers change at rows 24 and 48 to match the strata cadence; parts ride outside the cargo cap (jackpots should never be refused); upgrades restart the mine session (gear changes the sim, and shopping happens on the surface anyway).</dd>
@@ -87,7 +100,7 @@
     <h3>Mining Ore Tiers and Strata</h3>
     <dl>
       <dt>Branch</dt><dd><code>feature/mining-ore-tiers</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#17</dd>
       <dt>Changed</dt><dd>the mine's single ore becomes seven tiers (coal 1cr through core crystal 320cr, roughly x2.5-x3 per step) in overlapping trapezoid depth bands; named strata (Topsoil, Clay Beds, Old Granite, Glow Caverns, Magma Verge) recolor the dirt as you descend, announce themselves with a banner, and pay one-time first-reach bonuses at cash-out against a new persistent <code>players.deepest_depth</code> record (the bonus is computed in SQL from the same STRATA table the sim exports, so they cannot drift). The HUD shows the carried haul itemized with its credit value, the climb-home energy cost, and a low-lamp warning (REQ-017). Diamond, core crystal, and part caches glow at the light's edge. The top two rows never roll rock, so the first digs always land (also de-flakes the mine e2e). Cash-outs now carry <code>MINE_VERSION</code>; sessions played on older generation rules get a 409 instead of a silent re-price.</dd>
       <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (68; new band, value-curve, trapezoid, strata-bonus, rock-free-top, max-depth tests), <code>pnpm build</code>, <code>pnpm test:e2e</code> (5 passed, 2 storage-gated skips); live cash-out with milestone bonus to be smoke tested on production after merge.</dd>
       <dt>Assumptions</dt><dd>ore values/bands and stratum bonuses are first-pass tuning for the VibeReview fun loop; Q-005 default A shipped (HUD says credits, the wallet column stays <code>emeralds</code>); the shop still prices parts in the same wallet unit; milestone bonuses only pay on a banked cash-out (a collapse-only trip records no depth credit), which keeps "banked loot is safe, lost loot is lost" coherent.</dd>
@@ -100,7 +113,7 @@
     <h3>Mining Design Pass (research + baseline playtest + spec)</h3>
     <dl>
       <dt>Branch</dt><dd><code>feature/mining-design-pass</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#16</dd>
       <dt>Changed</dt><dd>the mining overhaul opens with design, not code. Researched the genre's best trip loops (Motherload, Pocket Mine, Mr. Mine, Deep Town, SteamWorld Dig, Dome Keeper, Mr. Driller, Terraria, juice canon; full report at <code>docs/research/mining-mechanics.html</code>), ran the baseline VibeReview playtest of production /mine (session <code>docs/reviews/20260610-220517-4C845606/</code> with scripted-run screenshots and a new <code>scripts/playtest-mine.mjs</code> driver), and expanded the GDD mining spec with the "one more trip" engine: seven exponential ore tiers in overlapping depth bands, named strata with milestone bonuses, four gear tracks with Terraria-style pickaxe hard gates, deterministic boulder/gas hazards, dynamite and recall-rope consumables, trip-decision legibility, and render-layer juice incl. a near-miss reveal. Coverage gains atomic rows REQ-011 to REQ-019 (all not_started); backlog dots created for the ore-tiers, gear, hazards, and juice slices plus recurring VibeReview sessions.</dd>
       <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm test</code> (62), JSON validity of the coverage ledger; no app code changed.</dd>
       <dt>Assumptions</dt><dd>Q-005 default A (display currency "credits", DB column unchanged); Q-006 default B (extended action tokens with a log version); Q-007 default B (gear snapshot submitted, validated against owned). VibeReview's automatic captures grabbed the reviewer desktop instead of the game, so those screenshots were removed and the entries point at the scripted-run evidence; noted for the VibeReview tool itself.</dd>

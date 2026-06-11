@@ -1,4 +1,4 @@
-import { SimStage } from "@/components/sim-stage";
+import { ArenaStage } from "@/components/arena-stage";
 
 export default function HomePage() {
   return (
@@ -16,10 +16,10 @@ export default function HomePage() {
           VibeBots
         </h1>
         <p style={{ margin: 0, opacity: 0.6, fontSize: "0.85rem" }}>
-          deterministic sim walking skeleton
+          exhibition match: two autonomous Testbots
         </p>
       </header>
-      <SimStage />
+      <ArenaStage />
     </main>
   );
 }

@@ -1,26 +1,15 @@
 import type { World } from "@dimforge/rapier3d-deterministic-compat";
 import { describe, expect, it } from "vitest";
+import { createArenaWorld } from "./arena";
 import { assembleBot, setDriveVelocity } from "./assembly";
-import { DT, GRAVITY } from "./constants";
 import { TEST_BOT_DESIGN } from "./design";
 import { fnv1a64 } from "./hash";
 import { vec3Distance } from "./parts";
-import { ensureRapier } from "./world";
-
-async function arenaWorld(): Promise<World> {
-  const R = await ensureRapier();
-  const world = new R.World(GRAVITY);
-  world.integrationParameters.dt = DT;
-  world.createCollider(
-    R.ColliderDesc.cuboid(50, 0.5, 50).setTranslation(0, -0.5, 0),
-  );
-  return world;
-}
 
 async function driveAndHash(
   steps: number,
 ): Promise<{ hash: string; rootZ: number; rootX: number }> {
-  const world = await arenaWorld();
+  const world = await createArenaWorld();
   try {
     const bot = assembleBot(world, TEST_BOT_DESIGN, { x: 0, y: 0.5, z: 0 });
     setDriveVelocity(bot, 10);
@@ -38,7 +27,7 @@ async function driveAndHash(
 
 describe("assembleBot", () => {
   it("creates one body per part and motors per axle connection", async () => {
-    const world = await arenaWorld();
+    const world = await createArenaWorld();
     try {
       const bot = assembleBot(world, TEST_BOT_DESIGN, { x: 0, y: 0.5, z: 0 });
       expect(bot.bodies.size).toBe(4);
@@ -51,7 +40,7 @@ describe("assembleBot", () => {
   });
 
   it("throws on invalid designs", async () => {
-    const world = await arenaWorld();
+    const world = await createArenaWorld();
     try {
       expect(() =>
         assembleBot(
@@ -79,7 +68,7 @@ describe("assembleBot", () => {
   });
 
   it("keeps the assembly intact while driving", async () => {
-    const world = await arenaWorld();
+    const world = await createArenaWorld();
     try {
       const bot = assembleBot(world, TEST_BOT_DESIGN, { x: 0, y: 0.5, z: 0 });
       setDriveVelocity(bot, 10);

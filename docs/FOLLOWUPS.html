@@ -171,6 +171,7 @@
     <dt>Unblock condition</dt><dd>ready for review.</dd>
     <dt>PR / Dot reference</dt><dd>dots VibeBots-mining-slice-ore-c7e8ab2f (return-cost HUD, REQ-017)</dd>
     <dt>Resolved</dt><dd>Carried-value and climb-home-cost HUD with a low-lamp warning landed (ore-tiers slice, PR pending); VibeReview confirmation pending.</dd>
+    <dt>Confirmed</dt><dd>Production playtest 2026-06-11 (mining overhaul final audit; PRs #17-#21).</dd>
   </dl>
 </section>
 
@@ -183,6 +184,7 @@
     <dt>Unblock condition</dt><dd>ready for review.</dd>
     <dt>PR / Dot reference</dt><dd>dots VibeBots-mining-slice-gear-43df7d1a (REQ-013)</dd>
     <dt>Resolved</dt><dd>Pickaxe tiers exist in the shop and hard-gate depth-tiered rock; the rock message now points at the shop (gear slice, PR pending); VibeReview confirmation pending.</dd>
+    <dt>Confirmed</dt><dd>Production playtest 2026-06-11 (mining overhaul final audit; PRs #17-#21).</dd>
   </dl>
 </section>
 
@@ -195,6 +197,7 @@
     <dt>Unblock condition</dt><dd>ready for review.</dd>
     <dt>PR / Dot reference</dt><dd>dots VibeBots-mining-slice-ore-c7e8ab2f (REQ-011)</dd>
     <dt>Resolved</dt><dd>Seven ore tiers with exponential values and overlapping depth bands landed (ore-tiers slice, PR pending); VibeReview confirmation pending.</dd>
+    <dt>Confirmed</dt><dd>Production playtest 2026-06-11 (mining overhaul final audit; PRs #17-#21).</dd>
   </dl>
 </section>
 
@@ -207,6 +210,7 @@
     <dt>Unblock condition</dt><dd>ready for review.</dd>
     <dt>PR / Dot reference</dt><dd>dots VibeBots-mining-slice-hazards-cf5fd9fe (REQ-016)</dd>
     <dt>Resolved</dt><dd>The recall rope ends a trip from anywhere with the carry banked (8 cr in the shop), and dynamite blasts through any rock; stranding now has two purchasable outs (hazards slice, PR pending); VibeReview confirmation pending.</dd>
+    <dt>Confirmed</dt><dd>Production playtest 2026-06-11 (mining overhaul final audit; PRs #17-#21).</dd>
   </dl>
 </section>
 
@@ -219,6 +223,7 @@
     <dt>Unblock condition</dt><dd>ready for review.</dd>
     <dt>PR / Dot reference</dt><dd>dots VibeBots-mining-slice-juice-ca7f1fca (REQ-018)</dd>
     <dt>Resolved</dt><dd>Dig bursts in the block color, hardness-scaled screen shake, tweened miner movement, floating +cr pickups, a gold cache fanfare, wobble animation, depth-tinted backgrounds, and a collapse reveal landed (juice slice, PR pending); VibeReview confirmation pending. Crack states wait on multi-hit blocks; audio still open.</dd>
+    <dt>Confirmed</dt><dd>Production playtest 2026-06-11 (mining overhaul final audit; PRs #17-#21).</dd>
   </dl>
 </section>
 
@@ -231,6 +236,7 @@
     <dt>Unblock condition</dt><dd>ready for review.</dd>
     <dt>PR / Dot reference</dt><dd>dots VibeBots-mining-slice-ore-c7e8ab2f (REQ-012)</dd>
     <dt>Resolved</dt><dd>Named strata recolor the dirt by band, a banner announces each new stratum, and first-reach bonuses pay at cash-out (ore-tiers slice, PR pending); VibeReview confirmation pending.</dd>
+    <dt>Confirmed</dt><dd>Production playtest 2026-06-11 (mining overhaul final audit; PRs #17-#21).</dd>
   </dl>
 </section>
 
@@ -243,6 +249,16 @@
     <dt>Unblock condition</dt><dd>shipped.</dd>
     <dt>PR / Dot reference</dt><dd>PR #18</dd>
     <dt>Resolved</dt><dd>Mine and shop subtitles updated to the ore/credits world (gear slice, PR #18).</dd>
+  </dl>
+</section>
+
+<section data-f="F-019" data-priority="polish">
+  <h3>F-019: Mining audio and multi-hit crack states</h3>
+  <dl>
+    <dt>Context</dt><dd>Final mining audit 2026-06-11: the dig has visual texture (bursts, shake, tween, floats, fanfare) but no audio at all, and blocks break in one hit so crack states have nothing to show. The research canon (pitch-ramped pickup chimes, hardness-scaled feedback) says audio is the cheapest remaining multiplier; REQ-018 stays partial until both land.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>ready: a hardness pass (multi-hit blocks gated by pickaxe tier, crack-state rendering) plus a small audio kit (dig, pickup with rising pitch, vent, collapse, fanfare; mutable per PLAYTEST audio items).</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
   </dl>
 </section>
 </main>

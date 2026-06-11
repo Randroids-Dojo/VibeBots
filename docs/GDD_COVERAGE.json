@@ -90,10 +90,12 @@
       "id": "REQ-006",
       "requirement": "Mining provides the primary resource path through depth, materials, tool upgrades, ladders, and light management.",
       "gddRef": "docs/gdd/06-mining.html#loop",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
-        "src/app/mine/page.tsx"
+        "src/app/mine/page.tsx",
+        "src/components/mine-panel.tsx",
+        "src/components/mine-canvas.tsx"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
@@ -105,7 +107,7 @@
       "id": "REQ-007",
       "requirement": "Mining can rarely discover robot components in addition to ordinary sellable materials.",
       "gddRef": "docs/gdd/06-mining.html#loop",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts"
       ],
@@ -185,7 +187,7 @@
       "id": "REQ-012",
       "requirement": "Named strata with distinct palettes mark descent, pay first-reach milestone bonuses, and a deepest-depth record persists on the profile.",
       "gddRef": "docs/gdd/06-mining.html#ores",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/app/api/mine/bank/route.ts",
@@ -204,7 +206,7 @@
       "id": "REQ-013",
       "requirement": "Persistent gear tracks (pickaxe, lamp cell, cargo hold, lantern) are bought with credits; pickaxe tiers hard-gate rock and gear is part of the replayable sim input.",
       "gddRef": "docs/gdd/06-mining.html#gear",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/app/api/gear/route.ts",
@@ -239,7 +241,7 @@
       "id": "REQ-015",
       "requirement": "Deterministic positional hazards (falling boulders with a wobble warning, venting gas pockets that chain) grow with depth.",
       "gddRef": "docs/gdd/06-mining.html#hazards",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/components/mine-canvas.tsx",
@@ -254,7 +256,7 @@
       "id": "REQ-016",
       "requirement": "Surface-bought consumables (dynamite, recall rope) are logged actions that resolve routing and stranding dread.",
       "gddRef": "docs/gdd/06-mining.html#consumables",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/app/api/consumables/buy/route.ts",
@@ -274,7 +276,7 @@
       "id": "REQ-017",
       "requirement": "The trip-back decision is informed: the HUD shows carried value and estimated return cost, and warns before the lamp drops below it.",
       "gddRef": "docs/gdd/06-mining.html#legibility",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/components/mine-panel.tsx",
         "src/sim/mine.ts"
@@ -300,14 +302,15 @@
         "src/sim/mine.test.ts"
       ],
       "followupRefs": [
-        "F-016"
+        "F-016",
+        "F-019"
       ]
     },
     {
       "id": "REQ-019",
       "requirement": "Failed trips end with drama and a near-miss reveal: lost carry value and the treasure that was almost in reach.",
       "gddRef": "docs/gdd/06-mining.html#feel",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/components/mine-panel.tsx"

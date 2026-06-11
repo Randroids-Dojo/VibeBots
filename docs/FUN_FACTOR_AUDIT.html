@@ -86,6 +86,20 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-11" data-audit-state="mining-overhaul-final">
+    <h3>Audit 2026-06-11 (mining overhaul complete: re-run of the mining prompts after PRs #16-#21)</h3>
+    <p>Source: VibeReview session <code>docs/reviews/20260610-220517-4C845606/</code>, scripted production and local playtests (screenshots <code>captures/confirm-ore-*.png</code>, <code>captures/juice-*.png</code>, <code>captures/full-*.png</code>). The genre research is at <code>docs/research/mining-mechanics.html</code>.</p>
+    <ul>
+      <li><strong>First 90 seconds:</strong> Yes. Digging starts instantly with zero instructions, the top rows never wall the first digs, the first ore pops a "+1 cr" float within seconds, and the rock message now points at a shop that actually sells the answer. Baseline gaps F-013/F-014/F-016/F-017 all confirmed fixed in production.</li>
+      <li><strong>Core action texture:</strong> Yes, visually: debris bursts in the block's color, shake scales with the event, the miner glides, pickups float, boulders telegraph their fall. The dig is no longer binary. Remaining: audio and crack states (F-019; REQ-018 partial).</li>
+      <li><strong>The core tension is informed:</strong> the HUD prices the carry (the bet) and the climb home, and warns when the lamp runs close; the first collapse is now a gamble the player watched themselves take (F-012 confirmed fixed). The wreck reveal then shows what it cost and what was almost in reach ("a part cache sat 5 blocks from where the lamp died"): every failure sells the next trip.</li>
+      <li><strong>Variety:</strong> Yes. Seven ore tiers in overlapping bands, five strata with distinct palettes and deepening backgrounds, three rock tiers, two positional hazards, caches, and four gear tracks make trips at different depths play differently. The scripted deep wander met rock walls, hazard blocks, and a cache inside two minutes.</li>
+      <li><strong>Difficulty arc:</strong> the gentle top (rock-free and hazard-free rows) ramps into hard gates the shop answers; the superlinear gear ladder keeps "one more trip and I can afford it" alive (observed: 8 trips to the first real upgrade, with the Clay Beds bonus carrying the early wallet). The "I want to keep going" pull is the depth record plus the next band's ore values.</li>
+      <li><strong>Stickiness:</strong> persistent deepest-depth record, one-time stratum bonuses, jackpot part caches feeding the bot workshop, and the near-miss reveal. The mining-to-combat economy is the retention spine: dig, cash out, buy parts and gear, fight.</li>
+      <li><strong>Verdict:</strong> the mining loop is fun and fully fleshed out per the research's "one more trip" engine; all six baseline gaps (F-012 to F-017) are confirmed fixed in production with zero console errors. New polish backlog: F-019 (audio + multi-hit crack states). Future spec extensions stay listed in the GDD's "not yet" section (smelt combos, collections, surface accrual, server-issued seeds F-011).</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-11" data-audit-state="mining-ore-tiers-confirmation">
     <h3>Confirmation 2026-06-11 (production, after PR #17)</h3>
     <p>Scripted production re-playtest (screenshots <code>docs/reviews/20260610-220517-4C845606/captures/confirm-ore-*.png</code>): descent to depth 14 crossed a visibly redder Clay Beds stratum under an "Entering Clay Beds" banner; copper, silver, coal, rock, and a part cache all read as distinct blocks; the HUD priced the carry (2 coal worth 2 cr) and the climb home (~7.0 energy); the cash-out vaulted 2 cr + 15 cr first-reach depth bonus on a fresh balance of 17. Zero console errors. The baseline gaps F-012 (uninformed trip-back), F-014 (single ore), and F-017 (no sense of descent) are confirmed fixed in production. Still open from the baseline: F-013 (pickaxe progression, shipping in the gear slice), F-015 (stranding escape, hazards/consumables slice), F-016 (dig juice, juice slice). New polish: F-018 (stale emeralds copy, fixed in the gear slice).</p>

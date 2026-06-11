@@ -149,9 +149,10 @@
     "kind" : "fullSpiralHTML",
     "projectRootPath" : "\/Users\/randroid\/Documents\/Dev\/VibeBots"
   },
+  "endedAt" : "2026-06-11T20:31:18.747Z",
   "id" : "20260610-220517-4C845606",
   "projectRootPath" : "\/Users\/randroid\/Documents\/Dev\/VibeBots",
-  "resumedAt" : "2026-06-11T19:41:04.228Z",
-  "status" : "paused",
+  "resumedAt" : "2026-06-11T20:31:18.745Z",
+  "status" : "ended",
   "title" : "Arena exhibition match playtest (PR #5, production)"
 }

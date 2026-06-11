@@ -99,13 +99,29 @@ try {
   log(`pixels move after input: ${!shotA.equals(shotB)}`);
 
   // Earn credits over a few trips.
-  for (const col of [0, -2, 2, -4, 4]) await tripAndBank(col);
+  for (const col of [0, -2, 2, -4, 4, -1, 1, -3]) await tripAndBank(col);
 
   // Shop: buy dynamite and a rope.
   await page.goto(`${BASE}/shop`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1200);
   const shopText = () => page.getByLabel("Part shop").innerText();
   log(`shop: ${(await shopText()).split("\n").slice(0, 2).join(" | ")}`);
+  // Live gear-upgrade confirmation (REQ-013): the cargo hold is the
+  // cheapest track.
+  const cargoRow = page.locator("li", { hasText: "Cargo Hold" }).first();
+  const cargoBuy = cargoRow.getByRole("button");
+  if (
+    process.env.BUY_CARGO &&
+    (await cargoBuy.isEnabled().catch(() => false))
+  ) {
+    await cargoBuy.click();
+    await page.waitForTimeout(1200);
+    log(
+      `cargo upgrade: ${(await shopText()).match(/Cargo Hold[^)]*\)/)?.[0] ?? "?"}`,
+    );
+  } else {
+    log("could not afford the cargo upgrade");
+  }
   for (const name of ["Dynamite", "Recall Rope"]) {
     const row = page.locator("li", { hasText: name }).first();
     const buy = row.getByRole("button");
@@ -123,9 +139,9 @@ try {
   await page.goto(`${BASE}/mine`, { waitUntil: "networkidle" });
   await page.waitForTimeout(2000);
   log(`gear HUD: ${(await status()).replace(/\n/g, " | ")}`);
-  const gearDump = await page.evaluate(() =>
-    fetch("/api/gear").then((r) => r.json()),
-  );
+  const gearDump = await page
+    .evaluate(() => fetch("/api/gear").then((r) => r.json()))
+    .catch(() => "unavailable");
   log(`api/gear: ${JSON.stringify(gearDump)}`);
   await page.waitForTimeout(1500);
   const dynBtn = page.getByRole("button", { name: /dynamite/i });

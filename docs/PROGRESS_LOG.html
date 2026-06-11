@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="autonomous-combat-core" data-date="2026-06-10">
+    <h3>Autonomous Combat Core</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/autonomous-combat-core</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>combat becomes real: <code>src/sim/combat.ts</code> adds match state for two assembled bots, a drive-at-enemy controller stub (no input surface anywhere, REQ-001), per-part health seeded from a new <code>durability</code> catalog field, contact-force damage via rapier force events (threshold filters rolling/resting contacts), destruction with physical detachment (<code>removeImpulseJoint</code>, debris stays in the arena), and disable conditions (core destroyed, or all mobility parts destroyed). <code>src/sim/assembly.ts</code> now exposes collider and joint-to-parent maps for the damage pipeline.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (26 tests; 6 new combat tests: convergence + contact damage, full-match determinism via snapshot hash plus combat state string, detach, immobilization disable, core-destruction disable), <code>pnpm build</code>, <code>pnpm test:e2e</code>.</dd>
+      <dt>Assumptions</dt><dd>damage tuning constants (threshold 50 N, 0.05 damage per excess newton, drive speed 12 rad/s) are placeholders until the fun-factor pass; a detached part keeps its own children attached to it (debris clusters); both bots disabled in one tick is a draw.</dd>
+      <dt>GDD coverage</dt><dd>created <code>docs/gdd/03-combat-damage-and-disable.html</code> (partial); REQ-001 and REQ-004 flipped to partial; build-log entry on 02 for the durability field.</dd>
+      <dt>Followups</dt><dd>none new; steering/behavior parameters and time-limit scoring belong to the next slices (match-end-and-scoring is already in the backlog).</dd>
+    </dl>
+  </article>
+
   <article data-slice="sim-bot-assembly" data-date="2026-06-10">
     <h3>Sim Bot Assembly</h3>
     <dl>

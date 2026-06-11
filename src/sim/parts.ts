@@ -73,6 +73,8 @@ export const partDefSchema = z.object({
   powerDraw: z.number().min(0),
   /** Power provided (cores only in practice). */
   powerSupply: z.number().min(0),
+  /** Hit points before the part is destroyed (and detaches, combat slice). */
+  durability: z.number().positive(),
   connectors: z.array(connectorSchema).min(1),
 });
 export type PartDef = z.infer<typeof partDefSchema>;
@@ -102,6 +104,7 @@ export const CORE_CUBE: PartDef = {
   density: 2,
   powerDraw: 0,
   powerSupply: 100,
+  durability: 200,
   connectors: [
     { id: "top", kind: "rigid", position: { x: 0, y: 0.3, z: 0 } },
     { id: "bottom", kind: "rigid", position: { x: 0, y: -0.3, z: 0 } },
@@ -130,6 +133,7 @@ export const FRAME_PLATE: PartDef = {
   density: 1.5,
   powerDraw: 0,
   powerSupply: 0,
+  durability: 100,
   connectors: [
     { id: "top", kind: "rigid", position: { x: 0, y: 0.05, z: 0 } },
     { id: "bottom", kind: "rigid", position: { x: 0, y: -0.05, z: 0 } },
@@ -146,6 +150,7 @@ export const DRIVE_WHEEL: PartDef = {
   density: 1.2,
   powerDraw: 20,
   powerSupply: 0,
+  durability: 80,
   connectors: [
     { id: "hub", kind: "axle", position: { x: 0, y: 0, z: 0 }, axis: X_AXIS },
   ],
@@ -159,6 +164,7 @@ export const RAM_SPIKE: PartDef = {
   density: 3,
   powerDraw: 5,
   powerSupply: 0,
+  durability: 150,
   connectors: [
     { id: "mount", kind: "rigid", position: { x: 0, y: 0, z: 0.2 } },
   ],

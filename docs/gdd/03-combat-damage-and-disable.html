@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Combat Damage and Disable</title>
+</head>
+<body>
+
+  <h1>Combat Damage and Disable</h1>
+  <p data-status="partial">Status: partial</p>
+
+  <section data-role="spec" id="spec">
+    <h2>Spec</h2>
+    <p>Combat is fully autonomous after match start (REQ-001): no steering, aiming, or firing input exists anywhere in the combat surface. The player's influence ends at the design and its behavior parameters. Damage is physical (REQ-004): parts have durability, take damage from real contact forces in the deterministic sim, and destruction has mechanical consequences.</p>
+
+    <h3 id="damage">Damage model</h3>
+    <ul>
+      <li>Each part instance enters combat with health equal to its catalog durability.</li>
+      <li>Contact forces above a threshold deal damage proportional to the excess force to both parts in the contact. Rolling and resting contacts stay below the threshold.</li>
+      <li>Damage can also be applied directly (future actuated weapons use the same entry point).</li>
+    </ul>
+
+    <h3 id="destruction">Destruction and detachment</h3>
+    <ul>
+      <li>A part at zero health is destroyed. Non-core parts physically detach: the joint to their parent is removed and the part (with anything mounted on it) becomes loose debris in the arena.</li>
+      <li>Deaths are processed in design part order each tick, keeping replays deterministic.</li>
+    </ul>
+
+    <h3 id="disable">Disable conditions</h3>
+    <ul>
+      <li>Core destroyed: the bot is disabled immediately.</li>
+      <li>Immobilized: a bot whose design includes mobility parts is disabled when all of them are destroyed.</li>
+      <li>A disabled bot's motors stop. When either bot is disabled the match is over; both disabled in the same tick is a draw (time-limit scoring is the next slice, REQ-005).</li>
+    </ul>
+
+    <h3 id="not-yet">What this does NOT cover yet</h3>
+    <ul>
+      <li>Time limit and score-based judgment (REQ-005, match-end-and-scoring slice).</li>
+      <li>Steering: the controller stub drives straight toward the opponent; differential drive and behavior parameters come with the behavior slice.</li>
+      <li>Damage degradation short of destruction (e.g. weakened motors), armor, and damage types.</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-06-10">Combat core: per-part health from catalog durability, contact-force damage via rapier force events, destruction with joint removal (physical detachment), core/immobilization disable conditions, winner/draw status, and a drive-at-enemy controller stub. Deterministic across fresh matches (snapshot hash plus combat state string). Files: <code>src/sim/combat.ts</code>, <code>src/sim/combat.test.ts</code>, durability added in <code>src/sim/parts.ts</code>, collider/joint maps exposed in <code>src/sim/assembly.ts</code>. PR pending.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

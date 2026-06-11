@@ -1,4 +1,5 @@
 import type {
+  Collider,
   ImpulseJoint,
   RevoluteImpulseJoint,
   RigidBody,
@@ -23,9 +24,12 @@ const HALF_SQRT2 = Math.sqrt(0.5);
 export interface AssembledBot {
   rootIid: string;
   bodies: Map<string, RigidBody>;
+  colliders: Map<string, Collider>;
   joints: ImpulseJoint[];
   /** Revolute joints from axle connections, motor-ready (wheels, legs later). */
   axleJoints: RevoluteImpulseJoint[];
+  /** The joint attaching each non-root instance to its parent (detach point). */
+  jointToParent: Map<string, ImpulseJoint>;
 }
 
 function colliderDescFor(
@@ -98,8 +102,10 @@ export function assembleBot(
   if (rootIid === undefined) throw new Error("validated design lost its core");
 
   const bodies = new Map<string, RigidBody>();
+  const colliders = new Map<string, Collider>();
   const joints: ImpulseJoint[] = [];
   const axleJoints: RevoluteImpulseJoint[] = [];
+  const jointToParent = new Map<string, ImpulseJoint>();
   const positions = new Map<string, Vec3>([[rootIid, origin]]);
 
   const queue = [rootIid];
@@ -117,7 +123,10 @@ export function assembleBot(
         position.z,
       ),
     );
-    world.createCollider(colliderDescFor(part.shape, part.density), body);
+    colliders.set(
+      iid,
+      world.createCollider(colliderDescFor(part.shape, part.density), body),
+    );
     bodies.set(iid, body);
 
     for (const conn of childConnections.get(iid) ?? []) {
@@ -159,6 +168,7 @@ export function assembleBot(
       const joint = world.createImpulseJoint(data, parentBody, childBody, true);
       joint.setContactsEnabled(false);
       joints.push(joint);
+      jointToParent.set(conn.childIid, joint);
       axleJoints.push(joint as RevoluteImpulseJoint);
     } else {
       const identity = { x: 0, y: 0, z: 0, w: 1 };
@@ -171,10 +181,11 @@ export function assembleBot(
       const joint = world.createImpulseJoint(data, parentBody, childBody, true);
       joint.setContactsEnabled(false);
       joints.push(joint);
+      jointToParent.set(conn.childIid, joint);
     }
   }
 
-  return { rootIid, bodies, joints, axleJoints };
+  return { rootIid, bodies, colliders, joints, axleJoints, jointToParent };
 }
 
 /** Drives every axle motor at the given angular velocity (rad/s). */

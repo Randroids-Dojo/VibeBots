@@ -6,10 +6,10 @@
     {
       "id": "REQ-001",
       "requirement": "Combat is autonomous after match start, with no manual steering, aiming, or firing.",
-      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-autonomous-combat",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "gddRef": "docs/gdd/03-combat-damage-and-disable.html#spec",
+      "status": "partial",
+      "implementationRefs": ["src/sim/combat.ts"],
+      "testRefs": ["src/sim/combat.test.ts"],
       "followupRefs": []
     },
     {
@@ -33,10 +33,10 @@
     {
       "id": "REQ-004",
       "requirement": "Combat tracks component-level damage so parts can degrade, detach, or disable critical functions.",
-      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-part-damage",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "gddRef": "docs/gdd/03-combat-damage-and-disable.html#damage",
+      "status": "partial",
+      "implementationRefs": ["src/sim/combat.ts", "src/sim/parts.ts", "src/sim/assembly.ts"],
+      "testRefs": ["src/sim/combat.test.ts"],
       "followupRefs": []
     },
     {

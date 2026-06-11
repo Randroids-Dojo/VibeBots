@@ -152,6 +152,8 @@ export interface WorkshopState {
   addPart: (partId: string) => void;
   removeSelected: () => void;
   rotateSelected: () => void;
+  setName: (name: string) => void;
+  loadDesign: (design: BotDesign) => void;
   select: (iid: string | null) => void;
   undo: () => void;
   redo: () => void;
@@ -216,6 +218,19 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     if (!canRedo(history)) return;
     set({ ...withDesign(redoHistory(history)), selectedIid: null });
   },
+
+  setName: (name) => {
+    const { history, design } = get();
+    const trimmed = name.slice(0, 60);
+    if (!trimmed || trimmed === design.name) return;
+    set({ ...withDesign(pushHistory(history, { ...design, name: trimmed })) });
+  },
+
+  loadDesign: (design) =>
+    set({
+      ...withDesign(createHistory<BotDesign>(design)),
+      selectedIid: null,
+    }),
 
   reset: () =>
     set({

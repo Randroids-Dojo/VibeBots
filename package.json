@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-deterministic-compat": "0.19.3",
+    "@neondatabase/serverless": "^1.1.0",
     "@randroids-dojo/vibekit": "github:Randroids-Dojo/VibeKit#v0.2.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "9.6.1",

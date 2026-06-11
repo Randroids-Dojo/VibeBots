@@ -28,7 +28,10 @@ pnpm check:purity     # src/sim determinism contract
 
 ## Environment variables
 
-None required yet. When persistence lands, a dedicated Neon Postgres is provisioned via the Vercel marketplace UI and pulled with `vercel env pull` (see AGENTS.md Rule 11: one backing store per project, never shared).
+Set on the Vercel project (the dashboard or CLI), never committed:
+
+- `DATABASE_URL` and friends: auto-provisioned by the dedicated Neon Postgres marketplace integration (Rule 11: one backing store per project, never shared). Created as sensitive values, so they are injected at deploy time and do not `vercel env pull` locally; local dev without them degrades to 503 "storage not configured" on persistence routes.
+- `AUTH_SECRET`: HMAC secret for the signed guest cookie (Production + Preview).
 
 ## Project docs
 

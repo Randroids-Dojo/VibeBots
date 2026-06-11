@@ -1,0 +1,60 @@
+import { neon } from "@neondatabase/serverless";
+
+/**
+ * The project's single dedicated Neon Postgres (AGENTS.md Rule 11).
+ * Schema is applied lazily once per server instance; tables are
+ * idempotent CREATE IF NOT EXISTS so cold starts are safe and cheap.
+ */
+
+export function storageConfigured(): boolean {
+  return Boolean(process.env.DATABASE_URL && process.env.AUTH_SECRET);
+}
+
+type Sql = ReturnType<typeof neon>;
+
+let client: Sql | null = null;
+let schemaReady: Promise<void> | null = null;
+
+function sqlClient(): Sql {
+  if (!client) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("DATABASE_URL is not set");
+    client = neon(url);
+  }
+  return client;
+}
+
+async function applySchema(sql: Sql): Promise<void> {
+  await sql`
+    CREATE TABLE IF NOT EXISTS players (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      clerk_user_id text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      credits integer NOT NULL DEFAULT 0,
+      track_xp integer NOT NULL DEFAULT 0,
+      emeralds integer NOT NULL DEFAULT 0
+    )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS bot_designs (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      design jsonb NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (player_id, name)
+    )`;
+}
+
+/** The shared SQL client, with the schema guaranteed applied. */
+export async function db(): Promise<Sql> {
+  const sql = sqlClient();
+  if (!schemaReady) {
+    schemaReady = applySchema(sql).catch((error) => {
+      schemaReady = null;
+      throw error;
+    });
+  }
+  await schemaReady;
+  return sql;
+}

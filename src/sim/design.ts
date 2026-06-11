@@ -169,7 +169,7 @@ export function validateDesign(
 
 /** A known-valid starter design used by tests and the test arena. */
 export const TEST_BOT_DESIGN: BotDesign = {
-  name: "Testbot",
+  name: "Rammer",
   parts: [
     { iid: "core", partId: "core-cube" },
     { iid: "wheel-l", partId: "drive-wheel" },
@@ -194,6 +194,41 @@ export const TEST_BOT_DESIGN: BotDesign = {
       parentConnector: "front",
       childIid: "spike",
       childConnector: "mount",
+    },
+  ],
+};
+
+/**
+ * A second stock design so exhibition matchups are asymmetric: identical
+ * mirror bots take perfectly symmetric damage and always draw. The plate
+ * adds mass and a different silhouette instead of a weapon.
+ */
+export const CPU_BRAWLER_DESIGN: BotDesign = {
+  name: "Brawler",
+  parts: [
+    { iid: "core", partId: "core-cube" },
+    { iid: "wheel-l", partId: "drive-wheel" },
+    { iid: "wheel-r", partId: "drive-wheel" },
+    { iid: "plate", partId: "frame-plate" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "wheel-l",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "wheel-r",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "top",
+      childIid: "plate",
+      childConnector: "bottom",
     },
   ],
 };

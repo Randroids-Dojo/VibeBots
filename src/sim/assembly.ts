@@ -21,13 +21,19 @@ import { PART_CATALOG, type PartDef, type PartShape, type Vec3 } from "./parts";
 
 const HALF_SQRT2 = Math.sqrt(0.5);
 
+export interface AxleMotor {
+  joint: RevoluteImpulseJoint;
+  /** Sign of the parent connector's local x: -1 left, +1 right. */
+  side: number;
+}
+
 export interface AssembledBot {
   rootIid: string;
   bodies: Map<string, RigidBody>;
   colliders: Map<string, Collider>;
   joints: ImpulseJoint[];
-  /** Revolute joints from axle connections, motor-ready (wheels, legs later). */
-  axleJoints: RevoluteImpulseJoint[];
+  /** Motorized axle connections with their side, for differential drive. */
+  axleJoints: AxleMotor[];
   /** The joint attaching each non-root instance to its parent (detach point). */
   jointToParent: Map<string, ImpulseJoint>;
 }
@@ -104,7 +110,7 @@ export function assembleBot(
   const bodies = new Map<string, RigidBody>();
   const colliders = new Map<string, Collider>();
   const joints: ImpulseJoint[] = [];
-  const axleJoints: RevoluteImpulseJoint[] = [];
+  const axleJoints: AxleMotor[] = [];
   const jointToParent = new Map<string, ImpulseJoint>();
   const positions = new Map<string, Vec3>([[rootIid, origin]]);
 
@@ -169,7 +175,10 @@ export function assembleBot(
       joint.setContactsEnabled(false);
       joints.push(joint);
       jointToParent.set(conn.childIid, joint);
-      axleJoints.push(joint as RevoluteImpulseJoint);
+      axleJoints.push({
+        joint: joint as RevoluteImpulseJoint,
+        side: parentAnchor.position.x < 0 ? -1 : 1,
+      });
     } else {
       const identity = { x: 0, y: 0, z: 0, w: 1 };
       const data = RAPIER.JointData.fixed(
@@ -188,13 +197,21 @@ export function assembleBot(
   return { rootIid, bodies, colliders, joints, axleJoints, jointToParent };
 }
 
-/** Drives every axle motor at the given angular velocity (rad/s). */
+/**
+ * Differential drive: every axle motor runs at the base angular velocity
+ * (rad/s), modulated by its side and the steer term. steer > 0 turns the
+ * bot toward its local +x (left axles speed up, right axles slow down).
+ */
 export function setDriveVelocity(
   bot: AssembledBot,
   velocity: number,
+  steer = 0,
   factor = 50,
 ): void {
-  for (const joint of bot.axleJoints) {
-    joint.configureMotorVelocity(velocity, factor);
+  for (const motor of bot.axleJoints) {
+    motor.joint.configureMotorVelocity(
+      velocity * (1 - motor.side * steer),
+      factor,
+    );
   }
 }

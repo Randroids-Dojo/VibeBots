@@ -23,7 +23,7 @@ import {
   stepMatch,
 } from "@/sim/combat";
 import { DT } from "@/sim/constants";
-import { TEST_BOT_DESIGN } from "@/sim/design";
+import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "@/sim/design";
 import { PART_CATALOG, type PartShape } from "@/sim/parts";
 
 /** Clamp on accumulated frame time so a background tab cannot spiral. */
@@ -33,7 +33,8 @@ const RESTART_DELAY_SECONDS = 4;
 
 const BOT_COLORS = ["#ff9f43", "#54e0c7"] as const;
 const BOT_COLORS_DESTROYED = ["#6b4a26", "#2a5a52"] as const;
-const BOT_LABELS = ["Orange", "Teal"] as const;
+/** Rammer at index 1: its spike (front connector, -z) faces the enemy. */
+const EXHIBITION_DESIGNS = [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN] as const;
 
 interface ArenaRun {
   match: MatchState;
@@ -42,7 +43,10 @@ interface ArenaRun {
 
 async function bootMatch(): Promise<ArenaRun> {
   const world = await createArenaWorld();
-  const match = createMatch(world, [TEST_BOT_DESIGN, TEST_BOT_DESIGN]);
+  const match = createMatch(world, [
+    EXHIBITION_DESIGNS[0],
+    EXHIBITION_DESIGNS[1],
+  ]);
   return {
     match,
     dispose: () => {
@@ -52,11 +56,18 @@ async function bootMatch(): Promise<ArenaRun> {
   };
 }
 
+export interface HudPartPip {
+  iid: string;
+  healthRatio: number;
+  destroyed: boolean;
+}
+
 export interface HudBot {
   label: string;
   healthPercent: number;
   partsRemaining: number;
   partCount: number;
+  pips: HudPartPip[];
 }
 
 export interface HudState {
@@ -65,30 +76,44 @@ export interface HudState {
 }
 
 function readHud(match: MatchState): HudState {
+  const labels = match.bots.map((bot) => bot.design.name);
   const bots = match.bots.map((bot, index) => {
     let health = 0;
     let maxHealth = 0;
     let partsRemaining = 0;
-    for (const state of bot.parts.values()) {
+    const pips: HudPartPip[] = [];
+    for (const part of bot.design.parts) {
+      const state = bot.parts.get(part.iid);
+      if (!state) continue;
       health += state.health;
       maxHealth += state.maxHealth;
       if (!state.destroyed) partsRemaining += 1;
+      pips.push({
+        iid: part.iid,
+        healthRatio: state.maxHealth > 0 ? state.health / state.maxHealth : 0,
+        destroyed: state.destroyed,
+      });
     }
     return {
-      label: BOT_LABELS[index],
+      label: labels[index],
       healthPercent: maxHealth > 0 ? Math.round((health / maxHealth) * 100) : 0,
       partsRemaining,
       partCount: bot.parts.size,
+      pips,
     };
   }) as [HudBot, HudBot];
 
   let banner: string | null = null;
   const status = match.status;
   if (status.over) {
+    const detail =
+      status.reason === "timeout"
+        ? ` (${Math.round(status.scores[0].total)} vs ${Math.round(status.scores[1].total)})`
+        : "";
     banner =
       status.winner === null
-        ? `Draw by ${status.reason}`
-        : `${BOT_LABELS[status.winner]} wins by ${status.reason}`;
+        ? `Draw by ${status.reason}${detail}`
+        : `${labels[status.winner]} wins by ${status.reason}${detail}`;
   }
   return { bots, banner };
 }
@@ -274,7 +299,7 @@ function ArenaScene({
       <ambientLight intensity={0.45} />
       <directionalLight position={[6, 10, 4]} intensity={1.5} />
       {([0, 1] as const).map((botIndex) =>
-        TEST_BOT_DESIGN.parts.map((part) => {
+        EXHIBITION_DESIGNS[botIndex].parts.map((part) => {
           const key = `${botIndex}:${part.iid}`;
           const shape = PART_CATALOG[part.partId].shape;
           return (
@@ -375,9 +400,32 @@ export default function ArenaCanvas() {
                   }}
                 />
               </div>
-              <div style={{ opacity: 0.7, marginTop: 4 }}>
-                {bot.healthPercent}% hull, {bot.partsRemaining}/{bot.partCount}{" "}
-                parts
+              <div
+                style={{
+                  display: "flex",
+                  gap: 4,
+                  marginTop: 6,
+                  alignItems: "center",
+                }}
+              >
+                {bot.pips.map((pip) => (
+                  <span
+                    key={pip.iid}
+                    title={pip.iid}
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 3,
+                      background: pip.destroyed ? "#3a4358" : BOT_COLORS[index],
+                      opacity: pip.destroyed
+                        ? 0.6
+                        : 0.3 + 0.7 * pip.healthRatio,
+                    }}
+                  />
+                ))}
+                <span style={{ opacity: 0.7, marginLeft: 6 }}>
+                  {bot.healthPercent}% hull
+                </span>
               </div>
             </div>
           ))}

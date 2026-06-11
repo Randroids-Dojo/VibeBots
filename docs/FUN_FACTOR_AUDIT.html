@@ -86,9 +86,15 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
-  <article data-audit-date="2026-06-10" data-audit-state="initial">
-    <h3>Audit 2026-06-10 (initial)</h3>
-    <p>(populate when first run, after at least one full system has landed and coverage is non-trivial)</p>
+  <article data-audit-date="2026-06-10" data-audit-state="post-combat-viewer">
+    <h3>Audit 2026-06-10 (after the arena viewer landed; focused, coverage still under the 80% gate)</h3>
+    <p>Source: VibeReview session <code>docs/reviews/20260610-220517-4C845606/</code> (90s headless playtest of production, screenshots in <code>captures/</code>).</p>
+    <ul>
+      <li><strong>First 90 seconds:</strong> No. The bots drive together convincingly, then shove each other at 100% hull for the remaining ~55 seconds. The core fantasy (parts break off, bots get wrecked) never appears on screen. Gap: F-007.</li>
+      <li><strong>First surprising moment:</strong> negative: the banner declares "Orange wins by timeout" while both score cards read identical 100% / 4-parts; the result looks arbitrary. Gap: F-008.</li>
+      <li><strong>Core action texture:</strong> the drive-and-collide moment reads well (wheels, wedge, spike visible); consequence is what is missing. Chip damage exists numerically but the HUD rounds it invisible. Gap: F-009.</li>
+      <li><strong>Mechanics:</strong> solid. 60Hz ticks, clean end banner, clean exhibition restart, zero console errors in production.</li>
+    </ul>
   </article>
 
   <aside id="earlier-audits">

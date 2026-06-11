@@ -9,8 +9,8 @@ test("home page renders a moving match (Rule 10 motion QA)", async ({
   await expect(canvas).toBeVisible();
 
   // The match HUD must render alongside the arena.
-  await expect(page.getByText("Brawler")).toBeVisible();
-  await expect(page.getByText("Rammer")).toBeVisible();
+  await expect(page.getByText("Brawler", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rammer", { exact: true })).toBeVisible();
 
   const stage = page.locator("[data-sim-tick]");
   await expect
@@ -33,6 +33,22 @@ test("home page renders a moving match (Rule 10 motion QA)", async ({
   // The sim tick must advance and the visible pixels must actually change.
   expect(tickAfter).toBeGreaterThan(tickBefore);
   expect(Buffer.compare(shotBefore, shotAfter)).not.toBe(0);
+});
+
+test("workshop builds and undoes parts", async ({ page }) => {
+  await page.goto("/workshop");
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.getByText("My Bot: 1 parts")).toBeVisible();
+
+  const addWheel = page
+    .locator("div")
+    .filter({ hasText: /^Drive Wheel \(mobility\)Add$/ })
+    .getByRole("button");
+  await addWheel.click();
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByText("My Bot: 1 parts")).toBeVisible();
 });
 
 test("sim verify API returns a stable deterministic hash", async ({

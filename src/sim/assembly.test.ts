@@ -1,4 +1,3 @@
-import type { World } from "@dimforge/rapier3d-deterministic-compat";
 import { describe, expect, it } from "vitest";
 import { createArenaWorld } from "./arena";
 import { assembleBot, setDriveVelocity } from "./assembly";

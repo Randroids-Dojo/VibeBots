@@ -7,6 +7,7 @@ import type {
 } from "@dimforge/rapier3d-deterministic-compat";
 import RAPIER from "@dimforge/rapier3d-deterministic-compat";
 import { type BotDesign, type Connection, validateDesign } from "./design";
+import { computeLayout } from "./layout";
 import { PART_CATALOG, type PartDef, type PartShape, type Vec3 } from "./parts";
 
 /**
@@ -112,7 +113,8 @@ export function assembleBot(
   const joints: ImpulseJoint[] = [];
   const axleJoints: AxleMotor[] = [];
   const jointToParent = new Map<string, ImpulseJoint>();
-  const positions = new Map<string, Vec3>([[rootIid, origin]]);
+  // Shared with the workshop preview: what you build is what fights.
+  const positions = computeLayout(design, catalog, origin);
 
   const queue = [rootIid];
   while (queue.length > 0) {
@@ -136,16 +138,6 @@ export function assembleBot(
     bodies.set(iid, body);
 
     for (const conn of childConnections.get(iid) ?? []) {
-      const childPart = partByIid.get(conn.childIid);
-      if (!childPart)
-        throw new Error(`assembly lost instance "${conn.childIid}"`);
-      const parentAnchor = connectorOn(part, conn.parentConnector);
-      const childAnchor = connectorOn(childPart, conn.childConnector);
-      positions.set(conn.childIid, {
-        x: position.x + parentAnchor.position.x - childAnchor.position.x,
-        y: position.y + parentAnchor.position.y - childAnchor.position.y,
-        z: position.z + parentAnchor.position.z - childAnchor.position.z,
-      });
       queue.push(conn.childIid);
     }
   }

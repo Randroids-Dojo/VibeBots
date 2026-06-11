@@ -1,0 +1,41 @@
+"use client";
+
+import type { ReactElement } from "react";
+import { WebGPURenderer } from "three/webgpu";
+import type { PartShape } from "@/sim/parts";
+
+/** Geometry element matching a part's collider shape. */
+export function partGeometry(shape: PartShape): ReactElement {
+  switch (shape.type) {
+    case "cuboid":
+      return <boxGeometry args={[shape.hx * 2, shape.hy * 2, shape.hz * 2]} />;
+    case "ball":
+      return <icosahedronGeometry args={[shape.radius, 1]} />;
+    case "cylinder":
+      return (
+        <cylinderGeometry
+          args={[shape.radius, shape.radius, shape.halfHeight * 2, 14]}
+        />
+      );
+  }
+}
+
+/** Mesh-local rotation matching the collider's axis reorientation. */
+export function shapeRotation(shape: PartShape): [number, number, number] {
+  if (shape.type === "cylinder" && shape.axis === "x") {
+    return [0, 0, Math.PI / 2];
+  }
+  if (shape.type === "cylinder" && shape.axis === "z") {
+    return [Math.PI / 2, 0, 0];
+  }
+  return [0, 0, 0];
+}
+
+/** R3F gl factory: WebGPU renderer with automatic WebGL2 fallback. */
+export async function createWebGPU(glProps: unknown): Promise<WebGPURenderer> {
+  const renderer = new WebGPURenderer(
+    glProps as ConstructorParameters<typeof WebGPURenderer>[0],
+  );
+  await renderer.init();
+  return renderer;
+}

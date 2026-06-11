@@ -1,13 +1,15 @@
 import { create } from "zustand";
 import {
+  applyAction,
   createMine,
   DEFAULT_GEAR,
-  type Direction,
   MINE_VERSION,
+  type MineAction,
+  type MineConsumables,
   type MineGear,
   type MineState,
   type MoveResult,
-  step,
+  NO_CONSUMABLES,
 } from "@/sim/mine";
 
 /**
@@ -43,11 +45,12 @@ export interface MineSessionState {
   mine: MineState;
   seed: number;
   gear: MineGear;
-  moves: Direction[];
+  consumables: MineConsumables;
+  moves: MineAction[];
   tick: number;
   lastResult: MoveResult | null;
   cashOut: CashOutState;
-  move: (dir: Direction) => void;
+  move: (action: MineAction) => void;
   loadGear: () => Promise<void>;
   submitCashOut: () => Promise<void>;
   restart: (seed?: number) => void;
@@ -59,18 +62,20 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     mine: createMine(seed),
     seed,
     gear: DEFAULT_GEAR,
+    consumables: NO_CONSUMABLES,
     moves: [],
     tick: 0,
     lastResult: null,
     cashOut: { state: "idle" },
 
-    move: (dir) => {
+    move: (action) => {
       const { mine, tick, moves, cashOut } = get();
       // The submitted log must match what gets credited; digging during
       // a pending cash-out would be silently discarded on success.
       if (cashOut.state === "pending") return;
-      const result = step(mine, dir);
-      moves.push(dir);
+      const result = applyAction(mine, action);
+      // Refused actions are not part of the trip (the sim ignored them).
+      if (result.ok) moves.push(action);
       set({ tick: tick + 1, lastResult: result });
     },
 
@@ -80,12 +85,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         if (!res.ok) return; // 503 etc: defaults stay
         const body = await res.json();
         const gear: MineGear = body.gear;
+        const consumables: MineConsumables = body.consumables ?? NO_CONSUMABLES;
         const current = get().gear;
+        const currentCons = get().consumables;
         if (
           gear.pickaxe === current.pickaxe &&
           gear.lamp === current.lamp &&
           gear.cargo === current.cargo &&
-          gear.lantern === current.lantern
+          gear.lantern === current.lantern &&
+          consumables.dynamite === currentCons.dynamite &&
+          consumables.rope === currentCons.rope
         ) {
           return;
         }
@@ -94,7 +103,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const nextSeed = randomSeed();
         set({
           gear,
-          mine: createMine(nextSeed, gear),
+          consumables,
+          mine: createMine(nextSeed, gear, consumables),
           seed: nextSeed,
           moves: [],
           tick: 0,
@@ -106,7 +116,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     submitCashOut: async () => {
-      const { seed: currentSeed, moves, gear } = get();
+      const { seed: currentSeed, moves, gear, consumables } = get();
       set({ cashOut: { state: "pending" } });
       try {
         const res = await fetch("/api/mine/bank", {
@@ -117,6 +127,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             moves,
             mineVersion: MINE_VERSION,
             gear,
+            consumables,
           }),
         });
         if (res.status === 503) {
@@ -135,7 +146,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           return;
         }
         const body = await res.json();
-        // The seed is consumed server-side: a fresh mine starts.
+        // The seed is consumed server-side: a fresh mine starts with
+        // whatever consumables the trip left over.
+        const remaining: MineConsumables = { ...get().mine.consumables };
         const nextSeed = randomSeed();
         set({
           cashOut: {
@@ -145,7 +158,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             milestoneBonus: body.credited.milestoneBonus ?? 0,
             balance: body.balance,
           },
-          mine: createMine(nextSeed, get().gear),
+          consumables: remaining,
+          mine: createMine(nextSeed, get().gear, remaining),
           seed: nextSeed,
           moves: [],
           tick: 0,
@@ -159,7 +173,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     restart: (seedOverride) => {
       const nextSeed = seedOverride ?? randomSeed();
       set({
-        mine: createMine(nextSeed, get().gear),
+        mine: createMine(nextSeed, get().gear, get().consumables),
         seed: nextSeed,
         moves: [],
         tick: 0,

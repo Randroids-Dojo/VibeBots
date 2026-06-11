@@ -7,6 +7,7 @@ import {
   carriedCount,
   carriedValue,
   type Direction,
+  type MineAction,
   maxEnergy,
   type OreId,
   oreDef,
@@ -92,6 +93,13 @@ export function MinePanel() {
   const submitCashOut = useMineStore((s) => s.submitCashOut);
   const gear = useMineStore((s) => s.gear);
   const loadGear = useMineStore((s) => s.loadGear);
+  const [dynamiteArmed, setDynamiteArmedState] = useState(false);
+  const armedRef = useRef(false);
+  const setDynamiteArmed = (value: boolean | ((prev: boolean) => boolean)) => {
+    armedRef.current =
+      typeof value === "function" ? value(armedRef.current) : value;
+    setDynamiteArmedState(armedRef.current);
+  };
   void tick;
 
   useEffect(() => {
@@ -112,7 +120,13 @@ export function MinePanel() {
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
-      useMineStore.getState().move(dir);
+      if (armedRef.current) {
+        armedRef.current = false;
+        setDynamiteArmedState(false);
+        useMineStore.getState().move(`dynamite-${dir}` as MineAction);
+      } else {
+        useMineStore.getState().move(dir);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -130,17 +144,38 @@ export function MinePanel() {
   const statusLine =
     lastResult && !lastResult.ok
       ? lastResult.reason === "rock"
-        ? "Hard rock. A better pickaxe from the Shop would cut it."
+        ? "Hard rock. A better pickaxe from the Shop would cut it (or dynamite)."
         : lastResult.reason === "hold-full"
           ? "The hold is full. Bank it on the surface (or upgrade the cargo hold)."
-          : lastResult.reason === "blocked"
-            ? "No way through there."
-            : "Edge of the claim."
-      : lastResult?.ok && lastResult.collapsed
-        ? "Lamp died down there. The crew hauled you up; the cargo stayed below."
-        : miner.row === 0
-          ? "On the surface. Loot banks automatically here; going dark below means losing the carry."
-          : undefined;
+          : lastResult.reason === "no-dynamite"
+            ? "No dynamite left. The Shop sells it."
+            : lastResult.reason === "no-rope"
+              ? "No recall rope. The Shop sells it."
+              : lastResult.reason === "surface"
+                ? "Already on the surface."
+                : lastResult.reason === "blocked"
+                  ? "No way through there."
+                  : "Edge of the claim."
+      : lastResult?.ok && lastResult.crushed
+        ? "A boulder came down on you. The crew dug you out; the cargo stayed under the rock."
+        : lastResult?.ok && lastResult.collapsed
+          ? "Lamp died down there. The crew hauled you up; the cargo stayed below."
+          : lastResult?.ok && lastResult.recalled
+            ? "The rope yanked you home; the carry is banked."
+            : lastResult?.ok && (lastResult.vented ?? 0) > 0
+              ? `Gas vented! The lamp burned ${(lastResult.vented ?? 0) * 8} energy.`
+              : miner.row === 0
+                ? "On the surface. Loot banks automatically here; going dark below means losing the carry."
+                : undefined;
+
+  const act = (dir: Direction) => {
+    if (dynamiteArmed) {
+      setDynamiteArmed(false);
+      move(`dynamite-${dir}` as MineAction);
+    } else {
+      move(dir);
+    }
+  };
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
@@ -280,17 +315,17 @@ export function MinePanel() {
             }}
           >
             <span />
-            <button type="button" onClick={() => move("up")}>
+            <button type="button" onClick={() => act("up")}>
               Up
             </button>
             <span />
-            <button type="button" onClick={() => move("left")}>
+            <button type="button" onClick={() => act("left")}>
               Left
             </button>
-            <button type="button" onClick={() => move("down")}>
+            <button type="button" onClick={() => act("down")}>
               Down
             </button>
-            <button type="button" onClick={() => move("right")}>
+            <button type="button" onClick={() => act("right")}>
               Right
             </button>
           </div>

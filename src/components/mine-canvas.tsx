@@ -32,6 +32,9 @@ const STRATA_DIRT = ["#7a5a3a", "#8c5a45", "#6e6862", "#4f5d6e", "#5a3a35"];
 /** Rock darkens by tier so the hard gates read at a glance. */
 const ROCK_COLORS = ["#555e6e", "#46506a", "#3b3550"];
 const CACHE_COLOR = "#f5c542";
+const BOULDER_COLOR = "#8a7f70";
+const BOULDER_WOBBLE_COLOR = "#b59f82";
+const GAS_COLOR = "#8fa32e";
 
 /** Rows rendered above and below the miner. */
 const VIEW_ABOVE = 8;
@@ -84,7 +87,13 @@ function MineScene() {
               ]
             : cell.kind === "part-cache"
               ? CACHE_COLOR
-              : dirtColorAt(row);
+              : cell.kind === "boulder"
+                ? cell.wobbling
+                  ? BOULDER_WOBBLE_COLOR
+                  : BOULDER_COLOR
+                : cell.kind === "gas"
+                  ? GAS_COLOR
+                  : dirtColorAt(row);
       blocks.push({
         key: `${col}:${row}`,
         x: col - (MINE_WIDTH - 1) / 2,
@@ -92,7 +101,8 @@ function MineScene() {
         color,
         glow:
           (cell.kind === "ore" && !!cell.ore && GLOWING_ORES.has(cell.ore)) ||
-          cell.kind === "part-cache",
+          cell.kind === "part-cache" ||
+          (cell.kind === "boulder" && !!cell.wobbling),
       });
     }
   }

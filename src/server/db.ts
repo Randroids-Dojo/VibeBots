@@ -46,6 +46,11 @@ async function applySchema(sql: Sql): Promise<void> {
     ADD COLUMN IF NOT EXISTS lamp_level integer NOT NULL DEFAULT 1,
     ADD COLUMN IF NOT EXISTS cargo_level integer NOT NULL DEFAULT 1,
     ADD COLUMN IF NOT EXISTS lantern_level integer NOT NULL DEFAULT 1`;
+  // Consumables (REQ-016).
+  await sql`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS dynamite_count integer NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS rope_count integer NOT NULL DEFAULT 0`;
   await sql`
     CREATE TABLE IF NOT EXISTS player_parts (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,

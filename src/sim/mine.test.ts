@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyAction,
   CARGO_CAPACITY,
   canDigRock,
   cargoCapacity,
@@ -9,12 +10,15 @@ import {
   createMine,
   DEFAULT_GEAR,
   type Direction,
+  GAS_VENT_DRAIN,
   GEAR_TRACKS,
+  HAZARD_FREE_ROWS,
   isVisible,
   LAMP_ENERGY,
   LANTERN_RADIUS,
   LIGHT_RADIUS,
   MINE_WIDTH,
+  type MineAction,
   maxGearLevel,
   ORES,
   oreChanceAt,
@@ -326,6 +330,147 @@ describe("mine", () => {
     // A different gear snapshot is a different trip.
     const otherGear = replayTrip(777, moves);
     expect(otherGear.maxDepth).not.toBe(replayed.maxDepth);
+  });
+
+  it("keeps hazards out of the top rows", () => {
+    for (const seed of [5, 1234, 999999]) {
+      const state = createMine(seed);
+      for (let row = 1; row <= HAZARD_FREE_ROWS; row++) {
+        for (let col = 0; col < MINE_WIDTH; col++) {
+          const kind = cellAt(state, col, row)?.kind;
+          expect(kind).not.toBe("gas");
+          expect(kind).not.toBe("boulder");
+        }
+      }
+    }
+  });
+
+  it("vents gas when digging next to it, chaining through pockets", () => {
+    const state = createMine(41);
+    // Hand-build the scenario: dig down to row 1, gas at row 2 below,
+    // another gas in its blast plus to chain.
+    state.rows[1][START_COL] = { kind: "dirt" };
+    state.rows[2][START_COL] = { kind: "gas" };
+    state.rows[2][START_COL - 1] = { kind: "gas" };
+    state.rows[3][START_COL] = { kind: "ore", ore: "coal" };
+    const before = state.miner.energy;
+    const result = step(state, "down");
+    expect(result.ok && result.vented).toBe(2);
+    // Both pockets vented; the loot caught in the blast is gone.
+    expect(state.rows[2][START_COL].kind).toBe("empty");
+    expect(state.rows[2][START_COL - 1].kind).toBe("empty");
+    expect(state.rows[3][START_COL].kind).toBe("empty");
+    expect(before - state.miner.energy).toBe(1 + 2 * GAS_VENT_DRAIN);
+  });
+
+  it("wobbles an unsupported boulder for one action, then drops it", () => {
+    const state = createMine(43);
+    state.rows[1][START_COL] = { kind: "dirt" };
+    state.rows[2][START_COL] = { kind: "dirt" };
+    state.rows[1][START_COL - 1] = { kind: "boulder" };
+    state.rows[2][START_COL - 1] = { kind: "dirt" };
+    step(state, "down"); // miner to (col,1)
+    const side = step(state, "left"); // digs the boulder's support? no:
+    // left digs (col-1,1)... that IS the boulder: blocked.
+    expect(side).toEqual({ ok: false, reason: "blocked" });
+    step(state, "down"); // miner to (col,2)
+    const dugSupport = step(state, "left"); // digs (col-1,2), under boulder
+    expect(dugSupport.ok).toBe(true);
+    // The boulder above is wobbling now, falls on the NEXT action.
+    expect(state.rows[1][START_COL - 1].wobbling).toBe(true);
+    const next = step(state, "left"); // move further left
+    expect(next.ok).toBe(true);
+    // Boulder fell into the vacated cell at row 2.
+    expect(state.rows[1][START_COL - 1].kind).toBe("empty");
+    expect(state.rows[2][START_COL - 1].kind).toBe("boulder");
+  });
+
+  it("crushes the miner who stands under a falling boulder", () => {
+    const state = createMine(47);
+    state.rows[1][START_COL] = { kind: "boulder" };
+    state.rows[1][START_COL + 1] = { kind: "dirt" };
+    state.rows[2][START_COL] = { kind: "dirt" };
+    state.rows[2][START_COL + 1] = { kind: "dirt" };
+    // Tunnel around: down the right column, then dig left under the
+    // boulder, ending UNDER it as it wobbles.
+    step(state, "right"); // walk surface to col+1
+    step(state, "down"); // dig (col+1,1)
+    step(state, "down"); // dig (col+1,2)
+    const under = step(state, "left"); // dig (col,2): under the boulder
+    expect(under.ok).toBe(true);
+    expect(state.rows[1][START_COL].wobbling).toBe(true);
+    state.miner.carried = { coal: 3 };
+    state.rows[3][START_COL] = { kind: "dirt" };
+    const fatal = step(state, "down"); // dig deeper, straight into the path
+    expect(fatal.ok && fatal.crushed).toBe(true);
+    expect(fatal.ok && fatal.collapsed).toBe(true);
+    expect(state.miner.row).toBe(0);
+    expect(carriedCount(state.miner)).toBe(0);
+    expect(state.miner.collapses).toBe(1);
+  });
+
+  it("dynamite clears a plus including hard rock and is replay-counted", () => {
+    const noStick = createMine(53);
+    expect(applyAction(noStick, "dynamite-down")).toEqual({
+      ok: false,
+      reason: "no-dynamite",
+    });
+
+    const state = createMine(53, DEFAULT_GEAR, { dynamite: 2, rope: 0 });
+    state.rows[1][START_COL] = { kind: "rock", rockTier: 3 };
+    state.rows[2][START_COL] = { kind: "ore", ore: "coal" };
+    const result = applyAction(state, "dynamite-down");
+    expect(result.ok && (result.blasted ?? 0)).toBeGreaterThanOrEqual(2);
+    expect(state.rows[1][START_COL].kind).toBe("empty");
+    expect(state.rows[2][START_COL].kind).toBe("empty");
+    expect(state.consumables.dynamite).toBe(1);
+    expect(state.used.dynamite).toBe(1);
+    // No energy cost: the price was paid in credits.
+    expect(state.miner.energy).toBe(LAMP_ENERGY[0]);
+  });
+
+  it("recall rope banks the carry from any depth", () => {
+    const state = createMine(59, DEFAULT_GEAR, { dynamite: 0, rope: 1 });
+    expect(applyAction(state, "recall")).toEqual({
+      ok: false,
+      reason: "surface",
+    });
+    step(state, "down");
+    step(state, "down");
+    state.miner.carried = { silver: 3 };
+    const result = applyAction(state, "recall");
+    expect(result.ok && result.recalled).toBe(true);
+    expect(state.miner.row).toBe(0);
+    expect(state.miner.bankedCredits).toBe(24);
+    expect(state.used.rope).toBe(1);
+    expect(applyAction(state, "recall")).toEqual({
+      ok: false,
+      reason: "surface",
+    });
+  });
+
+  it("replays consumable trips identically with used counts", () => {
+    const consumables = { dynamite: 3, rope: 1 };
+    const actions: MineAction[] = [];
+    const state = createMine(61, DEFAULT_GEAR, consumables);
+    for (let i = 0; i < 60; i++) {
+      const action: MineAction =
+        i === 20
+          ? "dynamite-down"
+          : i === 50
+            ? "recall"
+            : i % 7 === 3
+              ? "left"
+              : "down";
+      const result = applyAction(state, action);
+      if (result.ok) actions.push(action);
+    }
+    const replayed = replayTrip(61, actions, DEFAULT_GEAR, consumables);
+    expect(replayed.bankedCredits).toBe(state.miner.bankedCredits);
+    expect(replayed.used).toEqual(state.used);
+    expect(replayTrip(61, actions, DEFAULT_GEAR, consumables)).toEqual(
+      replayed,
+    );
   });
 
   it("prices gear tracks superlinearly", () => {

@@ -11,12 +11,15 @@ export async function GET(): Promise<Response> {
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
   const rows = (await sql`
-    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level, emeralds
+    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
+           dynamite_count, rope_count, emeralds
     FROM players WHERE id = ${playerId}`) as Array<{
     pickaxe_level: number;
     lamp_level: number;
     cargo_level: number;
     lantern_level: number;
+    dynamite_count: number;
+    rope_count: number;
     emeralds: number;
   }>;
   const row = rows[0];
@@ -26,6 +29,10 @@ export async function GET(): Promise<Response> {
       lamp: row?.lamp_level ?? 1,
       cargo: row?.cargo_level ?? 1,
       lantern: row?.lantern_level ?? 1,
+    },
+    consumables: {
+      dynamite: row?.dynamite_count ?? 0,
+      rope: row?.rope_count ?? 0,
     },
     balance: row?.emeralds ?? 0,
   });

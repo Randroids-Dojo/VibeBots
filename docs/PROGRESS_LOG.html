@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="miner-lateral-teleport-fix" data-date="2026-06-11">
+    <h3>Miner Lateral Teleport Fix</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/miner-lateral-teleport</code></dd>
+      <dt>PR</dt><dd>#26</dd>
+      <dt>Changed</dt><dd>fixed the user-reported teleport: walking left or right snapped the rendered miner to the surface row and eased it back down. The miner group in <code>src/components/mine-canvas.tsx</code> had two writers: a JSX <code>position</code> prop (Y hardcoded 0) and the useFrame glide; column changes made R3F re-apply the prop mid-glide. useFrame now owns the transform exclusively (snap on first frame, ease after), and the canvas exposes <code>data-miner-x/y</code> so motion QA can read the rendered position (same pattern as the arena's <code>data-sim-tick</code>).</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (81), <code>pnpm build</code>, <code>pnpm test:e2e</code> (6 passed, 2 storage-skipped) including a new regression test that digs to depth 2, walks left, samples <code>data-miner-y</code> every frame, and asserts the glide never lifts toward the surface. Mutation-checked: the test fails against the buggy code (max Y reached -0.77 from depth 2) and passes against the fix.</dd>
+      <dt>Assumptions</dt><dd>rows 1-2 are rock-free and hazard-free per <code>ROCK_FREE_ROWS</code>/<code>HAZARD_FREE_ROWS</code>, so the test's dig-dig-left sequence succeeds on any session seed.</dd>
+      <dt>GDD coverage</dt><dd>no status changes (REQ-018 stays partial); the fix hardens the juice glide that PR #20 shipped.</dd>
+      <dt>Followups</dt><dd>created <code>F-020</code> (this bug, resolved in-slice) and <code>F-021</code> (mine visual overhaul, the next slice).</dd>
+    </dl>
+  </article>
+
   <article data-slice="mining-final-audit" data-date="2026-06-11">
     <h3>Mining Final Audit (confirmation, verdict, closing docs)</h3>
     <dl>

@@ -100,6 +100,7 @@ function MineScene() {
   const particlesRef = useRef<Group>(null);
   const juice = useRef<JuiceState>({ particles: [], nextId: 1, shake: 0 });
   const wobbleClock = useRef(0);
+  const minerPlaced = useRef(false);
 
   const minerRow = mine.miner.row;
   const firstRow = Math.max(0, minerRow - VIEW_ABOVE);
@@ -164,14 +165,27 @@ function MineScene() {
       state.camera.position.set(sx, rig.position.y + 1.5 + sy, 13);
       state.camera.lookAt(sx, rig.position.y + sy, 0);
     }
-    // The miner glides between cells instead of teleporting.
+    // The miner glides between cells instead of teleporting. useFrame is
+    // the only writer of this position: a JSX position prop here would be
+    // re-applied by R3F on every tick re-render, snapping Y back to the
+    // prop value mid-glide (the old walk-left teleport-to-surface bug).
     const miner = minerRef.current;
     if (miner) {
       const tx = cellX(mine.miner.col);
       const ty = -mine.miner.row;
-      const ease = Math.min(1, delta * 14);
-      miner.position.x += (tx - miner.position.x) * ease;
-      miner.position.y += (ty - miner.position.y) * ease;
+      if (!minerPlaced.current) {
+        minerPlaced.current = true;
+        miner.position.set(tx, ty, 0.2);
+      } else {
+        const ease = Math.min(1, delta * 14);
+        miner.position.x += (tx - miner.position.x) * ease;
+        miner.position.y += (ty - miner.position.y) * ease;
+      }
+      // Rendered position exposed for motion QA (Rule 10): e2e reads these
+      // to prove the glide never lifts toward the surface on lateral steps.
+      const el = state.gl.domElement;
+      el.dataset.minerX = miner.position.x.toFixed(2);
+      el.dataset.minerY = miner.position.y.toFixed(2);
     }
     // Particles: integrate, gravity, expire; positions sync imperatively
     // (creation/removal re-renders on tick).
@@ -289,8 +303,8 @@ function MineScene() {
         <boxGeometry args={[MINE_WIDTH + 2, 0.5, 1.5]} />
         <meshStandardMaterial color="#2f3640" flatShading />
       </mesh>
-      {/* The miner bot */}
-      <group ref={minerRef} position={[cellX(mine.miner.col), 0, 0.2]}>
+      {/* The miner bot. No position prop: useFrame owns the transform. */}
+      <group ref={minerRef}>
         <mesh>
           <boxGeometry args={[0.5, 0.5, 0.5]} />
           <meshStandardMaterial color="#ff9f43" flatShading />

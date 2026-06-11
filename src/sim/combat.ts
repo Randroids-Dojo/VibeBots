@@ -7,7 +7,7 @@ import type {
 import RAPIER from "@dimforge/rapier3d-deterministic-compat";
 import { type AssembledBot, assembleBot, setDriveVelocity } from "./assembly";
 import type { BotDesign } from "./design";
-import { PART_CATALOG, type PartDef, type Vec3 } from "./parts";
+import { PART_CATALOG, type PartDef, type Vec3, vec3Distance } from "./parts";
 
 /**
  * Autonomous combat core: per-part damage from contact forces, part
@@ -29,6 +29,27 @@ export const CONTACT_FORCE_THRESHOLD = 35;
 export const DAMAGE_PER_NEWTON = 0.02;
 export const DRIVE_SPEED = 12;
 
+/** Default match length: 60 seconds of sim time (REQ-005). */
+export const DEFAULT_TIME_LIMIT_TICKS = 3600;
+/** Pressure needs the enemy within range AND closing velocity above this. */
+export const PRESSURE_RANGE = 3;
+export const PRESSURE_CLOSING_SPEED = 0.5;
+
+/**
+ * Timeout judgment weights (placeholders until the fun-factor pass).
+ * Contact damage is symmetric between the two parts in a contact, so the
+ * dealt/taken terms only separate bots through clamping (overkill pays
+ * nothing) and debris hits; the asymmetric terms are health ratio, parts
+ * ratio, end-of-match mobility, and directional pressure (accrued only
+ * while actually advancing on the enemy).
+ */
+export const W_DEALT = 2;
+export const W_TAKEN = 1;
+export const W_HEALTH = 50;
+export const W_PARTS = 30;
+export const W_PRESSURE = 25;
+export const W_MOBILE = 15;
+
 export interface PartCombatState {
   health: number;
   maxHealth: number;
@@ -47,11 +68,34 @@ export interface CombatBot {
   mobilityIids: ReadonlySet<string>;
   /** Child instance id -> parent instance id, from the design tree. */
   parentIid: ReadonlyMap<string, string>;
+  /** Score accumulators for timeout judgment. */
+  damageDealt: number;
+  damageTaken: number;
+  pressureTicks: number;
 }
+
+export interface MatchScore {
+  damageDealt: number;
+  damageTaken: number;
+  partsRemaining: number;
+  partCount: number;
+  healthRemaining: number;
+  healthTotal: number;
+  pressureTicks: number;
+  mobileAtEnd: boolean;
+  total: number;
+}
+
+export type MatchEndReason = "disable" | "timeout";
 
 export type MatchStatus =
   | { over: false }
-  | { over: true; winner: 0 | 1 | null };
+  | {
+      over: true;
+      winner: 0 | 1 | null;
+      reason: MatchEndReason;
+      scores: [MatchScore, MatchScore];
+    };
 
 export interface MatchState {
   world: World;
@@ -60,6 +104,7 @@ export interface MatchState {
   /** collider handle -> owning bot index and part instance. */
   colliderIndex: Map<number, { bot: 0 | 1; iid: string }>;
   tick: number;
+  timeLimitTicks: number;
   status: MatchStatus;
 }
 
@@ -101,14 +146,23 @@ function makeCombatBot(
     coreBody,
     mobilityIids,
     parentIid,
+    damageDealt: 0,
+    damageTaken: 0,
+    pressureTicks: 0,
   };
+}
+
+export interface MatchOptions {
+  catalog?: Record<string, PartDef>;
+  timeLimitTicks?: number;
 }
 
 export function createMatch(
   world: World,
   designs: [BotDesign, BotDesign],
-  catalog: Record<string, PartDef> = PART_CATALOG,
+  options: MatchOptions = {},
 ): MatchState {
+  const catalog = options.catalog ?? PART_CATALOG;
   // Spawn just above rest height; a tall drop would exceed the damage
   // threshold on landing and bots would hurt themselves before contact.
   const a = makeCombatBot(world, designs[0], { x: 0, y: 0.42, z: -3 }, catalog);
@@ -125,6 +179,7 @@ export function createMatch(
     bots: [a, b],
     colliderIndex,
     tick: 0,
+    timeLimitTicks: options.timeLimitTicks ?? DEFAULT_TIME_LIMIT_TICKS,
     status: { over: false },
   };
 }
@@ -138,10 +193,14 @@ export function damagePart(
   bot: 0 | 1,
   iid: string,
   amount: number,
-): void {
+): number {
   const state = match.bots[bot].parts.get(iid);
-  if (!state || state.destroyed || amount <= 0) return;
-  state.health -= amount;
+  if (!state || state.destroyed || amount <= 0) return 0;
+  // Overkill pays nothing: only health actually removed counts as damage.
+  const applied = Math.min(amount, state.health);
+  state.health -= applied;
+  match.bots[bot].damageTaken += applied;
+  return applied;
 }
 
 /** The controller stub: full throttle toward the opponent's core. */
@@ -201,24 +260,83 @@ function processDeaths(match: MatchState): void {
 
     // Immobilized: no mobility part is both intact and still attached
     // (parts riding detached debris do not count).
-    if (bot.mobilityIids.size > 0) {
-      let mobile = false;
-      for (const iid of bot.mobilityIids) {
-        if (!bot.parts.get(iid)?.destroyed && attachedToCore(bot, iid)) {
-          mobile = true;
-          break;
-        }
-      }
-      if (!mobile) bot.disabled = true;
-    }
+    if (!isMobile(bot)) bot.disabled = true;
   }
+}
+
+function isMobile(bot: CombatBot): boolean {
+  if (bot.disabled) return false;
+  if (bot.mobilityIids.size === 0) return true;
+  for (const iid of bot.mobilityIids) {
+    if (!bot.parts.get(iid)?.destroyed && attachedToCore(bot, iid)) return true;
+  }
+  return false;
+}
+
+function scoreBot(bot: CombatBot, timeLimitTicks: number): MatchScore {
+  let partsRemaining = 0;
+  let healthRemaining = 0;
+  let healthTotal = 0;
+  for (const state of bot.parts.values()) {
+    if (!state.destroyed) partsRemaining += 1;
+    healthRemaining += state.health;
+    healthTotal += state.maxHealth;
+  }
+  const partCount = bot.parts.size;
+  const aliveRatio = partCount > 0 ? partsRemaining / partCount : 0;
+  const healthRatio = healthTotal > 0 ? healthRemaining / healthTotal : 0;
+  const pressureRatio =
+    timeLimitTicks > 0 ? bot.pressureTicks / timeLimitTicks : 0;
+  const mobileAtEnd = isMobile(bot);
+  const total =
+    bot.damageDealt * W_DEALT -
+    bot.damageTaken * W_TAKEN +
+    healthRatio * W_HEALTH +
+    aliveRatio * W_PARTS +
+    pressureRatio * W_PRESSURE +
+    (mobileAtEnd ? W_MOBILE : 0);
+  return {
+    damageDealt: bot.damageDealt,
+    damageTaken: bot.damageTaken,
+    partsRemaining,
+    partCount,
+    healthRemaining,
+    healthTotal,
+    pressureTicks: bot.pressureTicks,
+    mobileAtEnd,
+    total,
+  };
+}
+
+function endMatch(match: MatchState, reason: MatchEndReason): void {
+  const scores: [MatchScore, MatchScore] = [
+    scoreBot(match.bots[0], match.timeLimitTicks),
+    scoreBot(match.bots[1], match.timeLimitTicks),
+  ];
+  let winner: 0 | 1 | null;
+  if (reason === "disable") {
+    const [a, b] = match.bots;
+    winner = a.disabled && b.disabled ? null : a.disabled ? 1 : 0;
+  } else {
+    winner =
+      scores[0].total > scores[1].total
+        ? 0
+        : scores[1].total > scores[0].total
+          ? 1
+          : null;
+  }
+  match.status = { over: true, winner, reason, scores };
 }
 
 function updateStatus(match: MatchState): void {
   const [a, b] = match.bots;
-  if (!a.disabled && !b.disabled) return;
-  if (a.disabled && b.disabled) match.status = { over: true, winner: null };
-  else match.status = { over: true, winner: a.disabled ? 1 : 0 };
+  if (a.disabled || b.disabled) {
+    endMatch(match, "disable");
+    return;
+  }
+  if (match.tick >= match.timeLimitTicks) {
+    endMatch(match, "timeout");
+  }
 }
 
 /** Advances the match by one fixed timestep. */
@@ -232,11 +350,41 @@ export function stepMatch(match: MatchState): void {
     const force = event.totalForceMagnitude();
     const damage = (force - CONTACT_FORCE_THRESHOLD) * DAMAGE_PER_NEWTON;
     if (damage <= 0) return;
-    for (const handle of [event.collider1(), event.collider2()]) {
-      const owner = match.colliderIndex.get(handle);
-      if (owner) damagePart(match, owner.bot, owner.iid, damage);
+    const owners = [event.collider1(), event.collider2()].map((handle) =>
+      match.colliderIndex.get(handle),
+    );
+    for (const [side, owner] of owners.entries()) {
+      if (!owner) continue;
+      // Hitting destroyed debris applies (and credits) nothing.
+      const applied = damagePart(match, owner.bot, owner.iid, damage);
+      if (applied <= 0) continue;
+      const other = owners[1 - side];
+      if (other && other.bot !== owner.bot) {
+        match.bots[other.bot].damageDealt += applied;
+      }
     }
   });
+
+  // Directional pressure: in range AND actually closing on the enemy.
+  const a = match.bots[0].coreBody.translation();
+  const b = match.bots[1].coreBody.translation();
+  const gap = vec3Distance(a, b);
+  if (gap < PRESSURE_RANGE && gap > 0) {
+    for (const [index, bot] of match.bots.entries()) {
+      if (bot.disabled) continue;
+      const me = index === 0 ? a : b;
+      const enemy = index === 0 ? b : a;
+      const vel = bot.coreBody.linvel();
+      const closingSpeed =
+        (vel.x * (enemy.x - me.x) +
+          vel.y * (enemy.y - me.y) +
+          vel.z * (enemy.z - me.z)) /
+        gap;
+      if (closingSpeed > PRESSURE_CLOSING_SPEED) {
+        bot.pressureTicks += 1;
+      }
+    }
+  }
 
   processDeaths(match);
   updateStatus(match);
@@ -253,13 +401,19 @@ export function freeMatch(match: MatchState): void {
 /** Stable serialization of combat state, for hashing alongside snapshots. */
 export function combatStateString(match: MatchState): string {
   return match.bots
-    .map((bot) =>
-      bot.design.parts
+    .map((bot) => {
+      const parts = bot.design.parts
         .map((p) => {
           const s = bot.parts.get(p.iid);
           return `${p.iid}=${s?.health.toFixed(4)}${s?.destroyed ? "x" : ""}`;
         })
-        .join(","),
-    )
+        .join(",");
+      const score = [
+        bot.damageDealt.toFixed(4),
+        bot.damageTaken.toFixed(4),
+        bot.pressureTicks,
+      ].join("/");
+      return `${parts};${score}`;
+    })
     .join("|");
 }

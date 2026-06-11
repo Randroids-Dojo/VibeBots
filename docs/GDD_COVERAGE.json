@@ -42,10 +42,10 @@
     {
       "id": "REQ-005",
       "requirement": "A match ends by full disable or by a time limit followed by score-based judgment.",
-      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-match-resolution",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "gddRef": "docs/gdd/04-match-resolution-and-scoring.html#resolution",
+      "status": "partial",
+      "implementationRefs": ["src/sim/combat.ts", "src/sim/rewards.ts"],
+      "testRefs": ["src/sim/combat.test.ts", "src/sim/rewards.test.ts"],
       "followupRefs": []
     },
     {

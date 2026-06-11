@@ -5,12 +5,14 @@ import {
   createMatch,
   damagePart,
   freeMatch,
+  type MatchOptions,
   type MatchState,
   stepMatch,
 } from "./combat";
 import { DT, GRAVITY } from "./constants";
 import { TEST_BOT_DESIGN } from "./design";
 import { fnv1a64 } from "./hash";
+import { vec3Distance } from "./parts";
 import { ensureRapier } from "./world";
 
 async function arenaWorld(): Promise<World> {
@@ -23,13 +25,13 @@ async function arenaWorld(): Promise<World> {
   return world;
 }
 
-async function newMatch(): Promise<{
+async function newMatch(options?: MatchOptions): Promise<{
   world: World;
   match: MatchState;
   cleanup: () => void;
 }> {
   const world = await arenaWorld();
-  const match = createMatch(world, [TEST_BOT_DESIGN, TEST_BOT_DESIGN]);
+  const match = createMatch(world, [TEST_BOT_DESIGN, TEST_BOT_DESIGN], options);
   return {
     world,
     match,
@@ -47,11 +49,8 @@ function totalDamage(match: MatchState): number {
 }
 
 function coreDistance(match: MatchState): number {
-  const [a, b] = match.bots.map((bot) =>
-    bot.assembled.bodies.get(bot.assembled.rootIid)?.translation(),
-  );
-  if (!a || !b) throw new Error("cores missing");
-  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
+  const [a, b] = match.bots.map((bot) => bot.coreBody.translation());
+  return vec3Distance(a, b);
 }
 
 describe("autonomous combat", () => {
@@ -124,7 +123,11 @@ describe("autonomous combat", () => {
       damagePart(match, 0, "wheel-r", 9999);
       stepMatch(match);
       expect(match.bots[0].disabled).toBe(true);
-      expect(match.status).toEqual({ over: true, winner: 1 });
+      expect(match.status).toMatchObject({
+        over: true,
+        winner: 1,
+        reason: "disable",
+      });
     } finally {
       cleanup();
     }
@@ -136,7 +139,69 @@ describe("autonomous combat", () => {
       damagePart(match, 1, "core", 9999);
       stepMatch(match);
       expect(match.bots[1].disabled).toBe(true);
-      expect(match.status).toEqual({ over: true, winner: 0 });
+      expect(match.status).toMatchObject({
+        over: true,
+        winner: 0,
+        reason: "disable",
+      });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("ends by timeout with score-based judgment (REQ-005)", async () => {
+    // 60 ticks: the bots are still meters apart when time expires.
+    const { match, cleanup } = await newMatch({ timeLimitTicks: 60 });
+    try {
+      // Tilt the judgment: bot 1 starts the match already damaged.
+      damagePart(match, 1, "core", 50);
+      for (let i = 0; i < 120; i++) {
+        stepMatch(match);
+      }
+      expect(match.tick).toBe(60);
+      const status = match.status;
+      expect(status.over).toBe(true);
+      if (status.over) {
+        expect(status.reason).toBe("timeout");
+        expect(status.winner).toBe(0);
+        expect(status.scores[1].damageTaken).toBeGreaterThanOrEqual(50);
+        expect(status.scores[1].healthRemaining).toBeLessThan(
+          status.scores[1].healthTotal,
+        );
+        expect(status.scores[0].total).toBeGreaterThan(status.scores[1].total);
+      }
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("clamps overkill damage to the part's remaining health", async () => {
+    const { match, cleanup } = await newMatch();
+    try {
+      const applied = damagePart(match, 0, "wheel-l", 9999);
+      expect(applied).toBe(80);
+      expect(match.bots[0].damageTaken).toBe(80);
+      // A destroyed part absorbs (and credits) nothing further.
+      stepMatch(match);
+      expect(damagePart(match, 0, "wheel-l", 50)).toBe(0);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("reports disable as the end reason with scores attached", async () => {
+    const { match, cleanup } = await newMatch();
+    try {
+      damagePart(match, 1, "core", 9999);
+      stepMatch(match);
+      const status = match.status;
+      expect(status.over).toBe(true);
+      if (status.over) {
+        expect(status.reason).toBe("disable");
+        expect(status.winner).toBe(0);
+        expect(status.scores[0].partsRemaining).toBe(4);
+        expect(status.scores[1].partsRemaining).toBe(3);
+      }
     } finally {
       cleanup();
     }

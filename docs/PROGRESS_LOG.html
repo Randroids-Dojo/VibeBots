@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="combat-legibility" data-date="2026-06-10">
+    <h3>Combat Legibility (fun-factor audit response)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/combat-legibility</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>response to the first VibeReview playtest (session <code>docs/reviews/20260610-220517-4C845606</code>), which found 60s exhibition matches ending with both bots at 100% hull. Root causes found by force probes: wheels (radius 0.4) protruded past the core face and ate every frontal contact below threshold; bots could not steer, so after the first clash they drifted onto parallel tracks and never re-engaged; the first impact burst was the only damage source (one-shot or nothing). Landed: weapon-first differential-drive steering (quaternion-rotated facing, cross-product steer, behind-hemisphere turns, all pure arithmetic), ram cycles (charge, back off, re-charge), damage restricted to bot-versus-bot contacts, weapon damage multiplier (x6), per-event damage cap (45) so the opening clash cannot one-shot, retuned threshold (20 N) and scale (0.22) from measured force distributions, wheel radius 0.34, core durability 180, SIM_VERSION 2. Second stock design (Brawler) because identical mirror bots always draw; the exhibition is now Brawler vs Rammer with design-name HUD labels, per-part damage pips, and timeout banners showing the deciding totals (epsilon-close totals are honest draws).</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (34; new stock-matchup test asserts the fight is destructive: Brawler loses over 20% of total durability and the Rammer wins), <code>pnpm build</code>, <code>pnpm test:e2e</code>. Tuning probes ran full 3600-tick matches against measured force distributions.</dd>
+      <dt>Assumptions</dt><dd>ground and self contacts deal no damage until arena hazards exist; per-event cap 45 trades guaranteed part destruction for multi-clash fights (F-007 stays open); steering gain 2, backoff 60 ticks at 0.8 speed.</dd>
+      <dt>GDD coverage</dt><dd>build-log entries on 02 (Brawler design, wheel sizing) and 03 (steering, ram cycles, damage model); REQ-001 strengthened in place (still partial).</dd>
+      <dt>Followups</dt><dd>F-008 and F-009 resolved; F-007 remains open with a progress note (part destruction not yet guaranteed per match).</dd>
+    </dl>
+  </article>
+
   <article data-slice="arena-match-viewer" data-date="2026-06-10">
     <h3>Arena Match Viewer</h3>
     <dl>

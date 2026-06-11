@@ -20,14 +20,31 @@ import { PART_CATALOG, type PartDef, type Vec3, vec3Distance } from "./parts";
  */
 
 /**
- * Contact forces below this never damage parts. Measured with the starter
- * Testbots: rolling and spawn-settle forces peak near 26 N, ram and
- * sustained-shove contact holds near 49 N, so 35 N separates locomotion
- * from combat contact. Retune when part masses change.
+ * Only bot-versus-bot contacts deal damage; ground and self contacts are
+ * free (arena hazards come later). Measured over full exhibitions (probe,
+ * 2026-06-10): cross-bot wheel contact peaks near 19 N, core shoving holds
+ * 30 to 49 N. 20 N makes sustained shoving grind cores down while wheel
+ * brushes stay near-free; the scale makes a shove-dominated match destroy
+ * parts well before the time limit. Retune when part masses change.
  */
-export const CONTACT_FORCE_THRESHOLD = 35;
-export const DAMAGE_PER_NEWTON = 0.02;
+export const CONTACT_FORCE_THRESHOLD = 20;
+export const DAMAGE_PER_NEWTON = 0.22;
+/** Victim damage multiplier when the striking part is a weapon. */
+export const WEAPON_DAMAGE_MULTIPLIER = 6;
+/**
+ * Per-event damage cap (after the weapon multiplier). First impacts fire
+ * several very-high-force events in a burst; uncapped they one-shot cores
+ * and the show ends at the opening clash.
+ */
+export const MAX_EVENT_DAMAGE = 45;
 export const DRIVE_SPEED = 12;
+/** Timeout totals closer than this are an honest draw, not float noise. */
+export const SCORE_DRAW_EPSILON = 1;
+
+/** Controller ram cycle: back off after closing in, then charge again. */
+export const BACKOFF_TRIGGER_RANGE = 0.95;
+export const BACKOFF_TICKS = 60;
+export const BACKOFF_SPEED_FACTOR = 0.8;
 
 /** Default match length: 60 seconds of sim time (REQ-005). */
 export const DEFAULT_TIME_LIMIT_TICKS = 3600;
@@ -37,11 +54,10 @@ export const PRESSURE_CLOSING_SPEED = 0.5;
 
 /**
  * Timeout judgment weights (placeholders until the fun-factor pass).
- * Contact damage is symmetric between the two parts in a contact, so the
- * dealt/taken terms only separate bots through clamping (overkill pays
- * nothing) and debris hits; the asymmetric terms are health ratio, parts
+ * The weapon multiplier makes dealt/taken genuinely asymmetric (a weapon
+ * bot deals several times what it takes per clash); health ratio, parts
  * ratio, end-of-match mobility, and directional pressure (accrued only
- * while actually advancing on the enemy).
+ * while actually advancing on the enemy) separate bots further.
  */
 export const W_DEALT = 2;
 export const W_TAKEN = 1;
@@ -72,6 +88,8 @@ export interface CombatBot {
   damageDealt: number;
   damageTaken: number;
   pressureTicks: number;
+  /** Ram-cycle controller state: charging when 0, else back off until tick. */
+  backoffUntilTick: number;
 }
 
 export interface MatchScore {
@@ -102,7 +120,7 @@ export interface MatchState {
   eventQueue: EventQueue;
   bots: [CombatBot, CombatBot];
   /** collider handle -> owning bot index and part instance. */
-  colliderIndex: Map<number, { bot: 0 | 1; iid: string }>;
+  colliderIndex: Map<number, { bot: 0 | 1; iid: string; isWeapon: boolean }>;
   tick: number;
   timeLimitTicks: number;
   status: MatchStatus;
@@ -149,6 +167,7 @@ function makeCombatBot(
     damageDealt: 0,
     damageTaken: 0,
     pressureTicks: 0,
+    backoffUntilTick: 0,
   };
 }
 
@@ -167,10 +186,18 @@ export function createMatch(
   // threshold on landing and bots would hurt themselves before contact.
   const a = makeCombatBot(world, designs[0], { x: 0, y: 0.42, z: -3 }, catalog);
   const b = makeCombatBot(world, designs[1], { x: 0, y: 0.42, z: 3 }, catalog);
-  const colliderIndex = new Map<number, { bot: 0 | 1; iid: string }>();
+  const colliderIndex = new Map<
+    number,
+    { bot: 0 | 1; iid: string; isWeapon: boolean }
+  >();
   ([a, b] as const).forEach((bot, index) => {
     for (const [iid, collider] of bot.assembled.colliders) {
-      colliderIndex.set(collider.handle, { bot: index as 0 | 1, iid });
+      const partId = bot.design.parts.find((p) => p.iid === iid)?.partId ?? "";
+      colliderIndex.set(collider.handle, {
+        bot: index as 0 | 1,
+        iid,
+        isWeapon: catalog[partId]?.category === "weapon",
+      });
     }
   });
   return {
@@ -203,18 +230,73 @@ export function damagePart(
   return applied;
 }
 
-/** The controller stub: full throttle toward the opponent's core. */
+/** Local +z rotated by the body's quaternion. Pure arithmetic, no trig. */
+function bodyPlusZ(body: RigidBody): { x: number; z: number } {
+  const q = body.rotation();
+  return {
+    x: 2 * (q.x * q.z + q.w * q.y),
+    z: 1 - 2 * (q.x * q.x + q.y * q.y),
+  };
+}
+
+const STEER_GAIN = 2;
+const MAX_STEER = 0.9;
+
+/**
+ * The controller: weapon-first differential drive with ram cycles.
+ * Steers toward the enemy (cross product of facing and to-enemy in the
+ * ground plane), charges, backs off briefly after closing in, charges
+ * again. Repeated impacts are what make physical combat read as combat:
+ * a constant push just wedges the bots below the damage threshold.
+ * Deterministic: tick and sim state only, arithmetic only.
+ */
 function runControllers(match: MatchState): void {
   const cores = match.bots.map((bot) => bot.coreBody.translation());
+  const gap = vec3Distance(cores[0], cores[1]);
   match.bots.forEach((bot, index) => {
     if (bot.disabled) {
       setDriveVelocity(bot.assembled, 0);
       return;
     }
-    const myZ = cores[index].z;
-    const enemyZ = cores[1 - index].z;
-    const direction = enemyZ > myZ ? 1 : -1;
-    setDriveVelocity(bot.assembled, direction * DRIVE_SPEED);
+    if (bot.backoffUntilTick === 0 && gap < BACKOFF_TRIGGER_RANGE) {
+      bot.backoffUntilTick = match.tick + BACKOFF_TICKS;
+    } else if (
+      bot.backoffUntilTick !== 0 &&
+      match.tick >= bot.backoffUntilTick
+    ) {
+      bot.backoffUntilTick = 0;
+    }
+
+    const me = cores[index];
+    const enemy = cores[1 - index];
+    const toLen = Math.sqrt((enemy.x - me.x) ** 2 + (enemy.z - me.z) ** 2) || 1;
+    const tx = (enemy.x - me.x) / toLen;
+    const tz = (enemy.z - me.z) / toLen;
+    // The bot's front (weapon side) is local -z.
+    const plusZ = bodyPlusZ(bot.coreBody);
+    const fLen = Math.sqrt(plusZ.x ** 2 + plusZ.z ** 2) || 1;
+    const fx = -plusZ.x / fLen;
+    const fz = -plusZ.z / fLen;
+    const aligned = fx * tx + fz * tz;
+    const cross = fx * tz - fz * tx;
+    // Enemy behind: commit to a full turn (cross alone is zero directly
+    // astern, the pursuit singularity). Tie-break is deterministic.
+    const steer =
+      aligned < -0.2
+        ? cross >= 0
+          ? MAX_STEER
+          : -MAX_STEER
+        : Math.max(-MAX_STEER, Math.min(MAX_STEER, STEER_GAIN * cross));
+
+    if (bot.backoffUntilTick !== 0) {
+      // Reverse straight back to set up the next ram.
+      setDriveVelocity(bot.assembled, DRIVE_SPEED * BACKOFF_SPEED_FACTOR, 0);
+    } else {
+      // Negative motor velocity drives the front (local -z) forward;
+      // throttle down while turning hard so the turn actually happens.
+      const throttle = aligned < -0.2 ? 0.45 : 1;
+      setDriveVelocity(bot.assembled, -DRIVE_SPEED * throttle, steer);
+    }
   });
 }
 
@@ -250,8 +332,8 @@ function processDeaths(match: MatchState): void {
         bot.assembled.jointToParent.delete(instance.iid);
         const jointIndex = bot.assembled.joints.indexOf(joint);
         if (jointIndex >= 0) bot.assembled.joints.splice(jointIndex, 1);
-        const axleIndex = bot.assembled.axleJoints.indexOf(
-          joint as RevoluteImpulseJoint,
+        const axleIndex = bot.assembled.axleJoints.findIndex(
+          (motor) => motor.joint === joint,
         );
         if (axleIndex >= 0) bot.assembled.axleJoints.splice(axleIndex, 1);
       }
@@ -318,12 +400,11 @@ function endMatch(match: MatchState, reason: MatchEndReason): void {
     const [a, b] = match.bots;
     winner = a.disabled && b.disabled ? null : a.disabled ? 1 : 0;
   } else {
+    const margin = scores[0].total - scores[1].total;
+    // Sub-epsilon margins are float noise from symmetric grinding, not a
+    // result a viewer should be told is a win.
     winner =
-      scores[0].total > scores[1].total
-        ? 0
-        : scores[1].total > scores[0].total
-          ? 1
-          : null;
+      margin > SCORE_DRAW_EPSILON ? 0 : margin < -SCORE_DRAW_EPSILON ? 1 : null;
   }
   match.status = { over: true, winner, reason, scores };
 }
@@ -355,11 +436,19 @@ export function stepMatch(match: MatchState): void {
     );
     for (const [side, owner] of owners.entries()) {
       if (!owner) continue;
-      // Hitting destroyed debris applies (and credits) nothing.
-      const applied = damagePart(match, owner.bot, owner.iid, damage);
-      if (applied <= 0) continue;
       const other = owners[1 - side];
-      if (other && other.bot !== owner.bot) {
+      // Only combat contact damages: both parts owned, different bots,
+      // and the striking part must still be alive (debris is inert).
+      if (!other || other.bot === owner.bot) continue;
+      if (match.bots[other.bot].parts.get(other.iid)?.destroyed) continue;
+      // Weapons concentrate force: the struck part takes extra damage.
+      const amount = Math.min(
+        other.isWeapon ? damage * WEAPON_DAMAGE_MULTIPLIER : damage,
+        MAX_EVENT_DAMAGE,
+      );
+      // Hitting destroyed debris applies (and credits) nothing.
+      const applied = damagePart(match, owner.bot, owner.iid, amount);
+      if (applied > 0) {
         match.bots[other.bot].damageDealt += applied;
       }
     }

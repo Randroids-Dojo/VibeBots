@@ -10,7 +10,7 @@ import {
   type MatchState,
   stepMatch,
 } from "./combat";
-import { TEST_BOT_DESIGN } from "./design";
+import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "./design";
 import { fnv1a64 } from "./hash";
 import { vec3Distance } from "./parts";
 
@@ -193,6 +193,32 @@ describe("autonomous combat", () => {
       }
     } finally {
       cleanup();
+    }
+  });
+
+  it("stock exhibition matchup produces a damaging, legible fight", async () => {
+    const world = await createArenaWorld();
+    // Rammer at index 1: its spike faces the Brawler.
+    const match = createMatch(world, [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN]);
+    try {
+      for (let i = 0; i < 3600 && !match.status.over; i++) {
+        stepMatch(match);
+      }
+      const status = match.status;
+      expect(status.over).toBe(true);
+      if (status.over) {
+        // The fight must be visibly destructive and the winner earned:
+        // the Rammer's spike grinds the Brawler down.
+        expect(status.winner).toBe(1);
+        expect(status.scores[0].damageTaken).toBeGreaterThan(50);
+        expect(status.scores[1].damageDealt).toBeGreaterThan(50);
+        expect(status.scores[0].healthRemaining).toBeLessThan(
+          status.scores[0].healthTotal * 0.8,
+        );
+      }
+    } finally {
+      freeMatch(match);
+      world.free();
     }
   });
 

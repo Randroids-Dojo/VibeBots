@@ -36,11 +36,42 @@
 <main>
 <section id="blocks-release">
   <h2>Blocks Release</h2>
-  <p>(none yet)</p>
+
+  <section data-f="F-007" data-priority="blocks-release">
+    <h3>F-007: Combat damage tuning: fights must visibly destroy parts</h3>
+    <dl>
+      <dt>Context</dt><dd>Fun-factor audit 2026-06-10 (VibeReview session 20260610-220517-4C845606): a full 60s production exhibition match ends with both bots at 100% hull and 4/4 parts. The shove force spreads across wheel contacts that sit below the 35 N threshold, so grind damage is a few points per minute against a 510-point pool. The pitch is "watch those bots fight"; damageless fights fail the core fantasy.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>ready now: re-measure per-contact forces over a full match, retune threshold/scale, and give weapon-category parts a damage multiplier so the spike matters. Acceptance: a default exhibition match destroys at least one part.</dd>
+      <dt>PR / Dot reference</dt><dd>combat-legibility slice (PR pending): steering + ram cycles + weapon multiplier + cross-only damage landed; a stock match now grinds the Brawler core below 50% with a clear winner. Part destruction within every stock match is NOT yet guaranteed (the per-event cap that prevents one-shot kills also slows kills); stays open for the active-weapons / next tuning pass.</dd>
+    </dl>
+  </section>
 </section>
 
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
+
+  <section data-f="F-009" data-priority="nice-to-have">
+    <h3>F-009: HUD damage readability (pips, not rounded percent)</h3>
+    <dl>
+      <dt>Context</dt><dd>Audit 2026-06-10: chip damage exists numerically but Math.round hides anything under ~0.5% of the pool. Per-part pips that dim with damage (and go dark on destruction) read better than a single rounded bar.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>ready; pairs naturally with F-007.</dd>
+      <dt>PR / Dot reference</dt><dd>combat-legibility slice</dd>
+      <dt>Resolved</dt><dd>Per-part pips with health-scaled opacity landed in the arena HUD (combat-legibility slice, PR pending).</dd>
+    </dl>
+  </section>
+
+  <section data-f="F-008" data-priority="nice-to-have">
+    <h3>F-008: Timeout winner legibility</h3>
+    <dl>
+      <dt>Context</dt><dd>Audit 2026-06-10: the banner declared "Orange wins by timeout" while both score cards showed identical 100% / 4-parts; the judgment decided on sub-point pressure noise. Either surface the deciding score totals on the banner or treat near-ties as draws (epsilon on the total comparison).</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>ready; pairs with F-007 (real damage will usually make scores legible by itself).</dd>
+      <dt>PR / Dot reference</dt><dd>combat-legibility slice</dd>
+      <dt>Resolved</dt><dd>Both: timeout banners now show the deciding score totals, and totals within an epsilon are honest draws (combat-legibility slice, PR pending).</dd>
+    </dl>
+  </section>
 
   <section data-f="F-006" data-priority="nice-to-have">
     <h3>F-006: Oriented part attachment (90-degree connector steps)</h3>

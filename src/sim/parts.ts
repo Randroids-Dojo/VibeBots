@@ -108,7 +108,7 @@ export const CORE_CUBE: PartDef = {
   density: 2,
   powerDraw: 0,
   powerSupply: 100,
-  durability: 200,
+  durability: 180,
   connectors: [
     { id: "top", kind: "rigid", position: { x: 0, y: 0.3, z: 0 } },
     { id: "bottom", kind: "rigid", position: { x: 0, y: -0.3, z: 0 } },
@@ -152,8 +152,9 @@ export const DRIVE_WHEEL: PartDef = {
   name: "Drive Wheel",
   category: "mobility",
   // Radius must clear the core's half-height (0.3) so wheels, not the
-  // chassis belly, carry the bot.
-  shape: { type: "cylinder", halfHeight: 0.08, radius: 0.4, axis: "x" },
+  // chassis belly, carry the bot, but must NOT protrude far past the core
+  // front (0.3) or wheels eat every frontal contact and weapons never land.
+  shape: { type: "cylinder", halfHeight: 0.08, radius: 0.34, axis: "x" },
   density: 1.2,
   powerDraw: 20,
   powerSupply: 0,

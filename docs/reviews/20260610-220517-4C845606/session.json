@@ -1,0 +1,23 @@
+{
+  "artifactRootPath" : "\/Users\/randroid\/Documents\/Dev\/VibeBots\/docs\/reviews\/20260610-220517-4C845606",
+  "captures" : [
+
+  ],
+  "createdAt" : "2026-06-11T03:05:17.785Z",
+  "docsProfile" : {
+    "docsDirectoryPath" : "\/Users\/randroid\/Documents\/Dev\/VibeBots\/docs",
+    "hasFollowupsHTML" : true,
+    "hasFunFactorHTML" : true,
+    "hasLegacyMarkdown" : false,
+    "hasOpenQuestionsHTML" : true,
+    "hasPlaytestHTML" : true,
+    "kind" : "fullSpiralHTML",
+    "projectRootPath" : "\/Users\/randroid\/Documents\/Dev\/VibeBots"
+  },
+  "endedAt" : "2026-06-11T03:09:26.677Z",
+  "id" : "20260610-220517-4C845606",
+  "projectRootPath" : "\/Users\/randroid\/Documents\/Dev\/VibeBots",
+  "resumedAt" : "2026-06-11T03:09:26.676Z",
+  "status" : "ended",
+  "title" : "Arena exhibition match playtest (PR #5, production)"
+}

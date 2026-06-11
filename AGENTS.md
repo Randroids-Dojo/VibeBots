@@ -197,6 +197,34 @@ If you find yourself about to run `vercel env add KV_REST_API_URL` with a value 
 
 ---
 
+## RULE 12: VibeReview playtest evidence
+
+VibeReview (skill `randroid:vibereview`) is the qualitative-gate evidence pipeline for this project. The mining overhaul (PRs #16-#24) is the reference run; its session lives at `docs/reviews/20260610-220517-4C845606/`. Follow this shape for future feature loops.
+
+### The loop shape that works
+
+1. **Baseline playtest before design.** Play the current production feature with a scripted Playwright driver (see `scripts/playtest-mine*.mjs` for patterns), save screenshots into the session's `captures/` dir, and capture findings as VibeReview notes. The captures become `F-NNN` followups; those followups become the slice backlog.
+2. **One confirmation pass per merged slice.** Re-run a scripted playtest against production after each slice deploys, confirm the specific followups it claimed to fix, and record the confirmation in `docs/FUN_FACTOR_AUDIT.html` (append a dated article; never edit old ones).
+3. **Final audit with a verdict.** When the feature's coverage rows are done, re-run the audit prompts honestly and write the verdict. Anything still weak becomes a new followup, not a softened answer.
+
+### Tool mechanics and traps
+
+- **CLI path:** never run bare `vibereview` (it can launch the GUI app). Use the standalone binary, normally `../VibeReview/.build/reinstall/vibereview`. The skill's preflight snippet finds it.
+- **Sessions are sticky:** `start` reattaches to the existing per-project session regardless of the `--title` you pass. The title is cosmetic; captures still land in this project's ledgers. Do not fight it.
+- **Captures screenshot the reviewer's desktop, not the game.** The capture bridge talks to the live Chrome session (port 37717), so the UUID-named `captures/*.png` and the `browserTitle`/`browserURL` fields record whatever the human had on screen. That is private data. After every capture batch: delete the UUID PNG/browser.json files, repoint the generated PLAYTEST/FOLLOWUPS entries (Context, Screenshot, URL fields and the session html figures) at the scripted-run screenshots, and blank `browserTitle`/`browserURL` in `session.json`. Never commit desktop screenshots.
+- **Real evidence comes from the Playwright run itself.** Have the driver save named screenshots (`confirm-*.png`, `juice-*.png`) into the same `captures/` dir and reference those from ledger entries.
+- **Port 37717 conflict:** if the VibeReview GUI app is running, `capture` fails outright. Do not kill the user's app; append the evidence articles to `docs/PLAYTEST.html` manually in the same format and note the manual capture in the entry.
+- **Inspect the diff before committing.** VibeReview auto-writes `F-NNN` followups and PLAYTEST articles from captures. Fix junk fields (wrong session labels, dead links) while the entries are still uncommitted; once committed they are append-only history.
+
+### Scripted playtest drivers
+
+- Verify moves against HUD numbers (energy always drops on a real action, depth is exact), never against full status-text diffs; render lag desyncs text comparisons.
+- Production sits behind Vercel bot protection. Use a real browser context with `waitForSelector` and a generous timeout for the app shell; do not hammer `curl` at the page (it triggers the security checkpoint for the whole IP and blocks headless runs too; it cools down after a few quiet minutes). For deploy-readiness checks, poll the Vercel API for the commit sha instead of scraping HTML.
+- Prove motion per Rule 10 with consecutive-frame screenshot diffs after an input.
+- Assert the presence of UI controls a slice claims to add (a scripted edit once shipped without its buttons; only an instrumented production run caught it). Pin such controls in the Playwright smoke afterward.
+
+---
+
 ## Quick pre-commit checklist
 
 1. No em-dashes. Run `grep -rnP '[\x{2014}\x{2013}]' .` (checks for U+2014 em-dash and U+2013 en-dash). Must return nothing.

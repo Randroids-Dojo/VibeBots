@@ -66,7 +66,23 @@ Claude Code already picks up slice-discipline by path glob without the symlink.
 
 ## RULE 3: Stack constraints
 
-TBD game application stack. Online features should follow the user's normal VibeKit patterns once the project stack is selected.
+Decided 2026-06-10 (walking-skeleton slice):
+
+- **App**: Next.js 16 App Router on Vercel (Fluid Node runtime), TypeScript strict, React 19, pnpm. Turbopack default.
+- **Rendering**: three (via `three/webgpu`: WebGPURenderer with automatic WebGL2 fallback, TSL for materials and postprocessing) + `@react-three/fiber` 9 + `@react-three/drei`. R3F canvases are client components dynamically imported with `ssr: false`. Do NOT use the WebGL-only pmndrs `postprocessing` packages; use three's native TSL post-processing.
+- **Physics**: `@dimforge/rapier3d-deterministic-compat`, EXACT-pinned (never caret), the same package on client and server. Do not swap variants (simd, non-compat) and do not use `@react-three/rapier` for the authoritative sim.
+- **State**: zustand for UI/game state (added when the workshop slice needs it). Sim state never lives in React state.
+- **Shared kit**: `@randroids-dojo/vibekit`, tag-pinned github dep (rng, math, storage, editor-history; server kv/sign/rate-limit). Listed in `transpilePackages` (it ships raw TS).
+- **Storage**: one dedicated Neon Postgres via the Vercel marketplace UI when persistence lands (Rule 11). Replays are `{seed, design ids, simVersion}` re-simulated on demand, so no Blob store.
+- **Auth**: guest-first via a VibeKit-signed httpOnly cookie; Clerk later (players table carries a nullable `clerk_user_id`).
+- **Tooling**: Biome 2 (no ESLint/Prettier), Vitest 4, Playwright.
+
+Determinism contract (hybrid match authority, Q-003):
+
+- `src/sim` is pure TypeScript: no react/next/three/zustand imports. Enforced by a Biome override and `scripts/check-sim-purity.sh`.
+- No `Math.random` and no transcendental `Math` calls (sin/cos/pow/log/etc.) in `src/sim`; results differ across JS engines. Arithmetic, `Math.sqrt`, `Math.imul`, floor/min/max/abs are fine. Randomness comes from VibeKit's seeded rng only.
+- The browser previews with the local sim; a Vercel Node function (never edge) reruns the identical sim for the official result. World snapshot hashes (`fnv1a64(world.takeSnapshot())`) are the verification primitive.
+- Any rapier bump, DT change, or world-construction change bumps `SIM_VERSION` in `src/sim/constants.ts`.
 
 Do not introduce new dependencies in core categories without explicit user approval.
 

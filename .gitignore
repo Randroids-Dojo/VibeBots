@@ -6,6 +6,13 @@ Thumbs.db
 node_modules/
 dist/
 build/
+.next/
+next-env.d.ts
+
+# Test output
+test-results/
+playwright-report/
+coverage/
 
 # Secrets and local env (never commit these, see AGENTS.md Rule 8)
 .env
@@ -14,3 +21,6 @@ build/
 
 # Vercel
 .vercel
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo

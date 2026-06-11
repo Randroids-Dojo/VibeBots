@@ -31,13 +31,13 @@
   </dl>
 
   <article data-dep="@randroids-dojo/vibekit">
-    <h3>Example: <code>@randroids-dojo/vibekit</code></h3>
+    <h3><code>@randroids-dojo/vibekit</code></h3>
     <dl>
       <dt>Name</dt><dd><code>@randroids-dojo/vibekit</code></dd>
       <dt>Why watched</dt><dd>internally maintained, pre-1.0, breaking changes possible on every release.</dd>
       <dt>Source</dt><dd><a href="https://github.com/Randroids-Dojo/VibeKit/releases">https://github.com/Randroids-Dojo/VibeKit/releases</a></dd>
       <dt>Pin format</dt><dd><code>github:Randroids-Dojo/VibeKit#vX.Y.Z</code> (tag-pinned)</dd>
-      <dt>Currently pinned</dt><dd><code>v0.1.0</code></dd>
+      <dt>Currently pinned</dt><dd><code>v0.2.0</code></dd>
       <dt>Detect-new</dt><dd><code>gh api repos/Randroids-Dojo/VibeKit/releases/latest --jq .tag_name</code></dd>
       <dt>Bootstrap / cookbook</dt><dd>the <code>vibekit</code> skill supplies <code>/vibekit add</code> (pins the dep, prints this ledger entry) and <code>/vibekit cookbook</code> (per-module wire-up patterns: joystick, editor-history, confetti, rng, math, storage, server kv/sign/rate-limit). Optional companion to spiral-html.</dd>
       <dt>Migration notes</dt><dd>
@@ -46,6 +46,81 @@
           <li>Read the kit's <code>CHANGELOG.md</code> between the pinned and target tag.</li>
           <li>Type errors usually surface in <code>pnpm type-check</code>; runtime regressions in unit tests + the targeted Playwright smoke for any UI that touches the kit.</li>
           <li>For wire-up patterns (especially when a kit module's signature shifts), consult <code>/vibekit cookbook &lt;module&gt;</code> rather than re-reading the kit's full README.</li>
+          <li>v0.1.0 to v0.2.0: the <code>rng</code> module gained an <code>Rng</code> object form with <code>splitRng</code>/<code>serializeRng</code>/<code>deserializeRng</code> (Mulberry32 core unchanged); <code>server/kv</code> gained a <code>KvLike</code> interface plus <code>adaptUpstashRedis</code>. v0.1.0 was never installed here; the project adopted the kit directly at v0.2.0.</li>
+          <li>The kit ships raw TypeScript source (<code>exports</code> point at <code>.ts</code> files); it sits in <code>transpilePackages</code> in <code>next.config.ts</code>. Keep it there after bumps.</li>
+        </ul>
+      </dd>
+    </dl>
+  </article>
+
+  <article data-dep="@dimforge/rapier3d-deterministic-compat">
+    <h3><code>@dimforge/rapier3d-deterministic-compat</code></h3>
+    <dl>
+      <dt>Name</dt><dd><code>@dimforge/rapier3d-deterministic-compat</code></dd>
+      <dt>Why watched</dt><dd>determinism-critical physics engine; any version change alters simulation results everywhere at once.</dd>
+      <dt>Source</dt><dd><a href="https://www.npmjs.com/package/@dimforge/rapier3d-deterministic-compat">npm registry</a>, <a href="https://github.com/dimforge/rapier.js/releases">rapier.js releases</a></dd>
+      <dt>Pin format</dt><dd>npm EXACT version, never a caret or tilde. Client and server must run the identical WASM build.</dd>
+      <dt>Currently pinned</dt><dd><code>0.19.3</code></dd>
+      <dt>Detect-new</dt><dd><code>npm view @dimforge/rapier3d-deterministic-compat version</code></dd>
+      <dt>Migration notes</dt><dd>
+        <ul>
+          <li>Any bump changes physics results across the board. The bump PR must also bump <code>SIM_VERSION</code> in <code>src/sim/constants.ts</code> and note that stored hashes/replays from earlier sim versions are invalid.</li>
+          <li>Rerun the determinism tests AND compare a local hash against a preview-deploy hash (<code>/api/sim/verify</code>) before merging.</li>
+          <li>Never swap to the non-compat or simd variants: compat embeds the WASM as base64 (works under Turbopack and Vercel file tracing); the deterministic build carries the cross-platform guarantee.</li>
+        </ul>
+      </dd>
+    </dl>
+  </article>
+
+  <article data-dep="next">
+    <h3><code>next</code></h3>
+    <dl>
+      <dt>Name</dt><dd><code>next</code></dd>
+      <dt>Why watched</dt><dd>framework; majors and minors both move App Router, Turbopack, and caching behavior.</dd>
+      <dt>Source</dt><dd><a href="https://github.com/vercel/next.js/releases">next.js releases</a></dd>
+      <dt>Pin format</dt><dd>npm exact version.</dd>
+      <dt>Currently pinned</dt><dd><code>16.2.9</code></dd>
+      <dt>Detect-new</dt><dd><code>npm view next dist-tags.latest</code></dd>
+      <dt>Migration notes</dt><dd>
+        <ul>
+          <li>Use the official upgrade guide and codemods (<code>next upgrade</code>); check route handler and caching semantics changes.</li>
+          <li>Verify <code>transpilePackages</code> (VibeKit) and the dynamic <code>ssr: false</code> canvas import still behave after the bump.</li>
+        </ul>
+      </dd>
+    </dl>
+  </article>
+
+  <article data-dep="three">
+    <h3><code>three</code></h3>
+    <dl>
+      <dt>Name</dt><dd><code>three</code></dd>
+      <dt>Why watched</dt><dd>monthly release cadence with real WebGPU/TSL API churn while those stabilize.</dd>
+      <dt>Source</dt><dd><a href="https://github.com/mrdoob/three.js/releases">three.js releases</a></dd>
+      <dt>Pin format</dt><dd>npm exact version. <code>three</code>, <code>@react-three/fiber</code>, and <code>@react-three/drei</code> move as a triplet; <code>@types/three</code> tracks the same minor.</dd>
+      <dt>Currently pinned</dt><dd><code>0.184.0</code></dd>
+      <dt>Detect-new</dt><dd><code>npm view three version</code></dd>
+      <dt>Migration notes</dt><dd>
+        <ul>
+          <li>Read the migration guide section for the release; WebGPURenderer and TSL APIs are the likely breakage surface.</li>
+          <li>Check fiber/drei compatibility before bumping; bump <code>@types/three</code> in the same PR.</li>
+        </ul>
+      </dd>
+    </dl>
+  </article>
+
+  <article data-dep="@react-three/fiber">
+    <h3><code>@react-three/fiber</code></h3>
+    <dl>
+      <dt>Name</dt><dd><code>@react-three/fiber</code></dd>
+      <dt>Why watched</dt><dd>tracks React majors and three internals; the async WebGPU <code>gl</code> factory relies on v9+ behavior.</dd>
+      <dt>Source</dt><dd><a href="https://github.com/pmndrs/react-three-fiber/releases">react-three-fiber releases</a></dd>
+      <dt>Pin format</dt><dd>npm exact version.</dd>
+      <dt>Currently pinned</dt><dd><code>9.6.1</code></dd>
+      <dt>Detect-new</dt><dd><code>npm view @react-three/fiber dist-tags.latest</code></dd>
+      <dt>Migration notes</dt><dd>
+        <ul>
+          <li>Check drei compatibility before bumping; fiber and drei move together.</li>
+          <li>Verify the WebGPURenderer canvas still initializes (the <code>gl</code> async factory) after the bump.</li>
         </ul>
       </dd>
     </dl>

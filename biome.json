@@ -1,0 +1,64 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!node_modules",
+      "!.next",
+      "!docs",
+      "!.dots",
+      "!test-results",
+      "!playwright-report",
+      "!coverage"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/sim/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "react": "src/sim is renderer-free: no react imports.",
+                  "react-dom": "src/sim is renderer-free: no react-dom imports.",
+                  "next": "src/sim is renderer-free: no next imports.",
+                  "three": "src/sim is renderer-free: no three imports.",
+                  "three/webgpu": "src/sim is renderer-free: no three imports.",
+                  "three/tsl": "src/sim is renderer-free: no three imports.",
+                  "@react-three/fiber": "src/sim is renderer-free: no @react-three imports.",
+                  "@react-three/drei": "src/sim is renderer-free: no @react-three imports.",
+                  "zustand": "src/sim holds no UI state: no zustand imports."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

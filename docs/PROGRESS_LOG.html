@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="test-arena" data-date="2026-06-10">
+    <h3>Test Arena</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/test-arena</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the build and combat loops connect (REQ-009): the workshop gained a "Test fight vs Brawler" button (enabled only for valid designs) that runs the player's current bot against the stock CPU Brawler in the same deterministic match pipeline the exhibition and the future server resolution use. The arena viewer is parameterized over designs (exhibition matchup stays the default); the player's bot sits at index 1 so its forward-mounted weapons face the enemy. "Back to build" returns to the editor with the design intact.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (40), <code>pnpm build</code>, <code>pnpm test:e2e</code> (workshop e2e extended: enter the test fight, see both HUD cards, return to build).</dd>
+      <dt>Assumptions</dt><dd>only the stock Brawler as CPU opponent for now; every test replays the same deterministic fight for a given design (seeds and behavior variation come later); the matchup is frozen per fight via memo so the arena does not reboot mid-fight.</dd>
+      <dt>GDD coverage</dt><dd>created <code>docs/gdd/05-test-arena.html</code> (partial); REQ-009 flipped to partial.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-viewport" data-date="2026-06-10">
     <h3>Workshop Viewport</h3>
     <dl>

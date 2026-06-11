@@ -27,7 +27,11 @@ import {
   stepMatch,
 } from "@/sim/combat";
 import { DT } from "@/sim/constants";
-import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "@/sim/design";
+import {
+  type BotDesign,
+  CPU_BRAWLER_DESIGN,
+  TEST_BOT_DESIGN,
+} from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
 
 /** Clamp on accumulated frame time so a background tab cannot spiral. */
@@ -38,19 +42,19 @@ const RESTART_DELAY_SECONDS = 4;
 const BOT_COLORS = ["#ff9f43", "#54e0c7"] as const;
 const BOT_COLORS_DESTROYED = ["#6b4a26", "#2a5a52"] as const;
 /** Rammer at index 1: its spike (front connector, -z) faces the enemy. */
-const EXHIBITION_DESIGNS = [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN] as const;
+const EXHIBITION_DESIGNS: [BotDesign, BotDesign] = [
+  CPU_BRAWLER_DESIGN,
+  TEST_BOT_DESIGN,
+];
 
 interface ArenaRun {
   match: MatchState;
   dispose: () => void;
 }
 
-async function bootMatch(): Promise<ArenaRun> {
+async function bootMatch(designs: [BotDesign, BotDesign]): Promise<ArenaRun> {
   const world = await createArenaWorld();
-  const match = createMatch(world, [
-    EXHIBITION_DESIGNS[0],
-    EXHIBITION_DESIGNS[1],
-  ]);
+  const match = createMatch(world, designs);
   return {
     match,
     dispose: () => {
@@ -139,9 +143,11 @@ function newPartView(): PartView {
 }
 
 function ArenaScene({
+  designs,
   stageRef,
   onHud,
 }: {
+  designs: [BotDesign, BotDesign];
   stageRef: RefObject<HTMLDivElement | null>;
   onHud: (hud: HudState) => void;
 }) {
@@ -179,7 +185,7 @@ function ArenaScene({
 
   useEffect(() => {
     unmountedRef.current = false;
-    bootMatch().then((run) => {
+    bootMatch(designs).then((run) => {
       if (unmountedRef.current) {
         run.dispose();
         return;
@@ -193,7 +199,7 @@ function ArenaScene({
       runRef.current?.dispose();
       runRef.current = null;
     };
-  }, [syncViews, onHud]);
+  }, [syncViews, onHud, designs]);
 
   useFrame((_, delta) => {
     const run = runRef.current;
@@ -256,7 +262,7 @@ function ArenaScene({
         endLingerRef.current = 0;
         runRef.current = null;
         run.dispose();
-        bootMatch().then((next) => {
+        bootMatch(designs).then((next) => {
           if (unmountedRef.current) {
             next.dispose();
             return;
@@ -277,7 +283,7 @@ function ArenaScene({
       <ambientLight intensity={0.45} />
       <directionalLight position={[6, 10, 4]} intensity={1.5} />
       {([0, 1] as const).map((botIndex) =>
-        EXHIBITION_DESIGNS[botIndex].parts.map((part) => {
+        designs[botIndex].parts.map((part) => {
           const key = `${botIndex}:${part.iid}`;
           const shape = PART_CATALOG[part.partId].shape;
           return (
@@ -309,7 +315,11 @@ function ArenaScene({
   );
 }
 
-export default function ArenaCanvas() {
+export default function ArenaCanvas({
+  designs = EXHIBITION_DESIGNS,
+}: {
+  designs?: [BotDesign, BotDesign];
+}) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [hud, setHud] = useState<HudState | null>(null);
 
@@ -321,7 +331,7 @@ export default function ArenaCanvas() {
     >
       <Canvas camera={{ position: [8, 5, 10], fov: 42 }} gl={createWebGPU}>
         <color attach="background" args={["#0b0e14"]} />
-        <ArenaScene stageRef={stageRef} onHud={setHud} />
+        <ArenaScene designs={designs} stageRef={stageRef} onHud={setHud} />
       </Canvas>
 
       {hud && (

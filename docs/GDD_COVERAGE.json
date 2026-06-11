@@ -78,10 +78,10 @@
     {
       "id": "REQ-009",
       "requirement": "Players can test a valid bot against a CPU robot before online combat.",
-      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-test-arena",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "gddRef": "docs/gdd/05-test-arena.html#spec",
+      "status": "partial",
+      "implementationRefs": ["src/components/workshop-panel.tsx", "src/components/arena-canvas.tsx"],
+      "testRefs": ["tests/e2e/smoke.spec.ts"],
       "followupRefs": []
     },
     {

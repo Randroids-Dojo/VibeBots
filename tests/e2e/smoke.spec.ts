@@ -50,6 +50,13 @@ test("workshop builds and undoes parts", async ({ page }) => {
 
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("My Bot: 1 part", { exact: true })).toBeVisible();
+
+  // Test arena (REQ-009): fight the current bot against the CPU Brawler.
+  await page.getByRole("button", { name: "Test fight vs Brawler" }).click();
+  await expect(page.getByText("My Bot", { exact: true })).toBeVisible();
+  await expect(page.getByText("Brawler", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Back to build" }).click();
+  await expect(page.getByLabel("Part palette")).toBeVisible();
 });
 
 test("sim verify API returns a stable deterministic hash", async ({

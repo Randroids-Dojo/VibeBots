@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-consumable-buttons-fix" data-date="2026-06-11">
+    <h3>Mine Consumable Buttons Fix</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-consumable-buttons</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the hazards slice shipped the dynamite arming logic and recall handler but not their buttons: the scripted edit that should have inserted them no-opped silently against the reformatted file (the same failure mode as the game-nav bug), so production sold consumables the mine UI could not use. Caught by the instrumented production playtest (api/gear returned dynamite 1, the button was missing from the DOM). The Dig controls section now has the Dynamite arm-toggle (aria-pressed, disabled only when empty and unarmed) and the Recall button with live counts, plus the boulder-aware hint copy; the mine e2e pins both buttons' presence so a silent edit cannot drop them again. Also: the production full-loop playtest script gained surface-walk trips with HUD-verified moves (the genuinely banked-and-bought run is in the evidence), and the local juice playtest script landed.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (81), <code>pnpm build</code>, <code>pnpm test:e2e</code> (5 passed incl. the new button assertions); production dynamite/recall flow verified after merge.</dd>
+      <dt>Assumptions</dt><dd>none.</dd>
+      <dt>GDD coverage</dt><dd>no status changes (REQ-016 stays partial until the live consumable flow is confirmed post-merge).</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mining-juice" data-date="2026-06-11">
     <h3>Mining Juice (dig feel, fanfare, near-miss reveal)</h3>
     <dl>

@@ -32,36 +32,53 @@ const OPP = {
   ArrowRight: "ArrowLeft",
 };
 
-async function tripAndBank(targetDepth) {
-  const path = [];
-  let stuck = 0;
-  while ((await depth()) < targetDepth && stuck < 30) {
-    let moved = false;
-    for (const key of ["ArrowDown", "ArrowLeft", "ArrowRight"]) {
-      const before = await status();
-      await page.keyboard.press(key);
-      await page.waitForTimeout(90);
-      const after = await status();
-      if (
-        after !== before &&
-        !/Hard rock|No way|Edge|hold is full/.test(after)
-      ) {
-        path.push(key);
-        moved = true;
-        break;
-      }
-      stuck++;
-    }
-    if (!moved) break;
-    stuck = 0;
+// Surface-walk to a fresh column, then a pure vertical shaft: both
+// legs verify against the HUD numbers (energy drops on real moves,
+// depth is exact), so render lag cannot desync the path home.
+const energy = async () =>
+  Number((await status()).match(/energy\s+([\d.]+)/)?.[1] ?? "0");
+
+async function dismissWreck() {
+  const reveal = page.getByText(/The lamp died|Crushed by a boulder/);
+  if (await reveal.isVisible().catch(() => false)) {
+    await page.mouse.click(640, 700);
+    await page.waitForTimeout(300);
   }
-  for (const key of path.reverse()) {
-    await page.keyboard.press(OPP[key]);
-    await page.waitForTimeout(90);
+}
+
+async function tripAndBank(column) {
+  await dismissWreck();
+  // Surface walk: count real steps via energy drops (edges are free).
+  const sideKey = column < 0 ? "ArrowLeft" : "ArrowRight";
+  let walked = 0;
+  for (let i = 0; i < Math.abs(column); i++) {
+    const beforeE = await energy();
+    await page.keyboard.press(sideKey);
+    await page.waitForTimeout(140);
+    if ((await energy()) < beforeE) walked++;
+  }
+  // Vertical shaft: down until something blocks, verified by depth.
+  for (let i = 0; i < 22; i++) {
+    const before = await depth();
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(140);
+    if ((await depth()) === before) break;
+  }
+  // Straight home: depth to 0, then walk back the counted steps.
+  let guard = 40;
+  while ((await depth()) > 0 && guard-- > 0) {
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(140);
+  }
+  await dismissWreck();
+  const backKey = OPP[sideKey];
+  for (let i = 0; i < walked; i++) {
+    await page.keyboard.press(backKey);
+    await page.waitForTimeout(140);
   }
   const cashBtn = page.getByRole("button", { name: /cash out/i });
   if (await cashBtn.isVisible().catch(() => false)) {
-    await cashBtn.click();
+    await cashBtn.click().catch(() => {});
     await page.waitForTimeout(2500);
   }
   log(`trip done: ${(await status()).replace(/\n/g, " | ")}`);
@@ -69,6 +86,8 @@ async function tripAndBank(targetDepth) {
 
 try {
   await page.goto(`${BASE}/mine`, { waitUntil: "networkidle" });
+  // Vercel bot checkpoint can interpose; wait for the real HUD.
+  await page.waitForSelector('[aria-label="Mine status"]', { timeout: 45000 });
   await page.waitForTimeout(2500);
   log(`start: ${(await status()).replace(/\n/g, " | ")}`);
 
@@ -80,7 +99,7 @@ try {
   log(`pixels move after input: ${!shotA.equals(shotB)}`);
 
   // Earn credits over a few trips.
-  for (let trip = 0; trip < 3; trip++) await tripAndBank(13);
+  for (const col of [0, -2, 2, -4, 4]) await tripAndBank(col);
 
   // Shop: buy dynamite and a rope.
   await page.goto(`${BASE}/shop`, { waitUntil: "networkidle" });
@@ -104,7 +123,13 @@ try {
   await page.goto(`${BASE}/mine`, { waitUntil: "networkidle" });
   await page.waitForTimeout(2000);
   log(`gear HUD: ${(await status()).replace(/\n/g, " | ")}`);
+  const gearDump = await page.evaluate(() =>
+    fetch("/api/gear").then((r) => r.json()),
+  );
+  log(`api/gear: ${JSON.stringify(gearDump)}`);
+  await page.waitForTimeout(1500);
   const dynBtn = page.getByRole("button", { name: /dynamite/i });
+  log(`dynamite button: ${await dynBtn.innerText().catch(() => "missing")}`);
   if (await dynBtn.isEnabled().catch(() => false)) {
     await page.keyboard.press("ArrowDown");
     await page.waitForTimeout(150);

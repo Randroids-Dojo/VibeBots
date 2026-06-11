@@ -17,8 +17,8 @@
       "requirement": "The workshop supports connector-based modular robot construction with validity checks before combat.",
       "gddRef": "docs/gdd/02-parts-and-connectors.html#validity",
       "status": "partial",
-      "implementationRefs": ["src/sim/parts.ts", "src/sim/design.ts", "src/sim/assembly.ts"],
-      "testRefs": ["src/sim/design.test.ts", "src/sim/assembly.test.ts"],
+      "implementationRefs": ["src/sim/parts.ts", "src/sim/design.ts", "src/sim/assembly.ts", "src/sim/layout.ts", "src/state/workshop-store.ts", "src/app/workshop/page.tsx"],
+      "testRefs": ["src/sim/design.test.ts", "src/sim/assembly.test.ts", "src/state/workshop-store.test.ts", "tests/e2e/smoke.spec.ts"],
       "followupRefs": ["F-006"]
     },
     {

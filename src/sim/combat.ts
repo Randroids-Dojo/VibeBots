@@ -1,6 +1,5 @@
 import type {
   EventQueue,
-  RevoluteImpulseJoint,
   RigidBody,
   World,
 } from "@dimforge/rapier3d-deterministic-compat";

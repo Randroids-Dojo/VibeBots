@@ -1,0 +1,180 @@
+import {
+  canRedo,
+  canUndo,
+  createHistory,
+  type EditorHistory,
+  pushHistory,
+  redoHistory,
+  undoHistory,
+} from "@randroids-dojo/vibekit";
+import { create } from "zustand";
+import { type BotDesign, validateDesign } from "@/sim/design";
+import { PART_CATALOG, type PartDef } from "@/sim/parts";
+
+/**
+ * Workshop UI state. The design is the single source of truth (the same
+ * structure that fights online); history snapshots whole designs via
+ * VibeKit's editor history. Sim state never lives here.
+ */
+
+export const STARTER_DESIGN: BotDesign = {
+  name: "My Bot",
+  parts: [{ iid: "core", partId: "core-cube" }],
+  connections: [],
+};
+
+interface FreeConnector {
+  parentIid: string;
+  parentConnector: string;
+  childConnector: string;
+}
+
+/**
+ * First free parent connector compatible with any of the part's
+ * connectors, scanning in design order (deterministic). Among matching
+ * child connectors, picks the one placing the part farthest from its
+ * parent: anchors are surface points, so the farthest pairing is the
+ * outward-facing one (a plate mounted by its 'top' would sink inside
+ * the parent; its 'bottom' sits flush outside).
+ */
+export function findFreeConnector(
+  design: BotDesign,
+  part: PartDef,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): FreeConnector | null {
+  const used = new Set<string>();
+  for (const conn of design.connections) {
+    used.add(`${conn.parentIid}:${conn.parentConnector}`);
+    used.add(`${conn.childIid}:${conn.childConnector}`);
+  }
+  for (const instance of design.parts) {
+    const def = catalog[instance.partId];
+    if (!def) continue;
+    for (const connector of def.connectors) {
+      if (used.has(`${instance.iid}:${connector.id}`)) continue;
+      let best: { id: string; dist: number } | null = null;
+      for (const mount of part.connectors) {
+        if (mount.kind !== connector.kind) continue;
+        const dx = connector.position.x - mount.position.x;
+        const dy = connector.position.y - mount.position.y;
+        const dz = connector.position.z - mount.position.z;
+        const dist = dx * dx + dy * dy + dz * dz;
+        if (!best || dist > best.dist) best = { id: mount.id, dist };
+      }
+      if (best) {
+        return {
+          parentIid: instance.iid,
+          parentConnector: connector.id,
+          childConnector: best.id,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * The full add precondition: a slot exists AND the resulting design
+ * validates. The palette and addPart share this so the button state
+ * never lies about what a click will do.
+ */
+export function planAddPart(
+  design: BotDesign,
+  part: PartDef,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): { next: BotDesign; iid: string } | null {
+  const slot = findFreeConnector(design, part, catalog);
+  if (!slot) return null;
+  const iid = nextIid(design, part.id);
+  const next: BotDesign = {
+    ...design,
+    parts: [...design.parts, { iid, partId: part.id }],
+    connections: [
+      ...design.connections,
+      {
+        parentIid: slot.parentIid,
+        parentConnector: slot.parentConnector,
+        childIid: iid,
+        childConnector: slot.childConnector,
+      },
+    ],
+  };
+  return validateDesign(next, catalog).ok ? { next, iid } : null;
+}
+
+function nextIid(design: BotDesign, partId: string): string {
+  let n = 1;
+  while (design.parts.some((p) => p.iid === `${partId}-${n}`)) n += 1;
+  return `${partId}-${n}`;
+}
+
+export interface WorkshopState {
+  history: EditorHistory<BotDesign>;
+  design: BotDesign;
+  selectedIid: string | null;
+  addPart: (partId: string) => void;
+  removeSelected: () => void;
+  select: (iid: string | null) => void;
+  undo: () => void;
+  redo: () => void;
+  reset: () => void;
+}
+
+function withDesign(history: EditorHistory<BotDesign>) {
+  return { history, design: history.present };
+}
+
+export const useWorkshopStore = create<WorkshopState>((set, get) => ({
+  ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
+  selectedIid: null,
+
+  addPart: (partId) => {
+    const { history, design } = get();
+    const def = PART_CATALOG[partId];
+    if (!def) return;
+    const plan = planAddPart(design, def);
+    if (!plan) return;
+    set({
+      ...withDesign(pushHistory(history, plan.next)),
+      selectedIid: plan.iid,
+    });
+  },
+
+  removeSelected: () => {
+    const { history, design, selectedIid } = get();
+    if (!selectedIid) return;
+    const def =
+      PART_CATALOG[
+        design.parts.find((p) => p.iid === selectedIid)?.partId ?? ""
+      ];
+    if (!def || def.category === "core") return;
+    // Leaves only: a part with children must lose its subtree first.
+    if (design.connections.some((c) => c.parentIid === selectedIid)) return;
+    const next: BotDesign = {
+      ...design,
+      parts: design.parts.filter((p) => p.iid !== selectedIid),
+      connections: design.connections.filter((c) => c.childIid !== selectedIid),
+    };
+    set({ ...withDesign(pushHistory(history, next)), selectedIid: null });
+  },
+
+  select: (iid) => set({ selectedIid: iid }),
+
+  undo: () => {
+    const { history } = get();
+    if (!canUndo(history)) return;
+    set({ ...withDesign(undoHistory(history)), selectedIid: null });
+  },
+
+  redo: () => {
+    const { history } = get();
+    if (!canRedo(history)) return;
+    set({ ...withDesign(redoHistory(history)), selectedIid: null });
+  },
+
+  reset: () =>
+    set({
+      ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
+      selectedIid: null,
+    }),
+}));

@@ -13,8 +13,12 @@ import {
   type MeshStandardMaterial,
   Quaternion,
   Vector3,
-  WebGPURenderer,
 } from "three/webgpu";
+import {
+  createWebGPU,
+  partGeometry,
+  shapeRotation,
+} from "@/components/part-visuals";
 import { createArenaWorld } from "@/sim/arena";
 import {
   createMatch,
@@ -24,7 +28,7 @@ import {
 } from "@/sim/combat";
 import { DT } from "@/sim/constants";
 import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "@/sim/design";
-import { PART_CATALOG, type PartShape } from "@/sim/parts";
+import { PART_CATALOG } from "@/sim/parts";
 
 /** Clamp on accumulated frame time so a background tab cannot spiral. */
 const MAX_FRAME_DELTA = 0.25;
@@ -132,32 +136,6 @@ function newPartView(): PartView {
     prevRot: new Quaternion(),
     currRot: new Quaternion(),
   };
-}
-
-function partGeometry(shape: PartShape) {
-  switch (shape.type) {
-    case "cuboid":
-      return <boxGeometry args={[shape.hx * 2, shape.hy * 2, shape.hz * 2]} />;
-    case "ball":
-      return <icosahedronGeometry args={[shape.radius, 1]} />;
-    case "cylinder":
-      return (
-        <cylinderGeometry
-          args={[shape.radius, shape.radius, shape.halfHeight * 2, 14]}
-        />
-      );
-  }
-}
-
-/** Mesh-local rotation matching the collider's axis reorientation. */
-function shapeRotation(shape: PartShape): [number, number, number] {
-  if (shape.type === "cylinder" && shape.axis === "x") {
-    return [0, 0, Math.PI / 2];
-  }
-  if (shape.type === "cylinder" && shape.axis === "z") {
-    return [Math.PI / 2, 0, 0];
-  }
-  return [0, 0, 0];
 }
 
 function ArenaScene({
@@ -341,16 +319,7 @@ export default function ArenaCanvas() {
       data-sim-tick="0"
       style={{ position: "relative", width: "100%", height: "100dvh" }}
     >
-      <Canvas
-        camera={{ position: [8, 5, 10], fov: 42 }}
-        gl={async (glProps) => {
-          const renderer = new WebGPURenderer(
-            glProps as ConstructorParameters<typeof WebGPURenderer>[0],
-          );
-          await renderer.init();
-          return renderer;
-        }}
-      >
+      <Canvas camera={{ position: [8, 5, 10], fov: 42 }} gl={createWebGPU}>
         <color attach="background" args={["#0b0e14"]} />
         <ArenaScene stageRef={stageRef} onHud={setHud} />
       </Canvas>

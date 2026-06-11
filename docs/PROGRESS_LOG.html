@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-viewport" data-date="2026-06-10">
+    <h3>Workshop Viewport</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/workshop-viewport</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>players can build (REQ-002 user-facing): /workshop renders the design as connector-snapped 3D parts using a new pure layout module (<code>src/sim/layout.ts</code>) that assembly also consumes, so the preview and the fighting bot place parts identically. Part palette gated by free compatible connectors, live validity errors and mass/power stats, click-to-select with leaf-only removal (core protected), undo/redo via VibeKit editor history inside a zustand store (zustand added per the approved plan). Shared part visuals extracted (<code>src/components/part-visuals.tsx</code>) for arena and workshop. Home and workshop link to each other. Also records the production confirmation playtest of PR #6 in the fun-factor audit.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (40; 6 new store tests: deterministic slot picking, power-budget refusal, leaf-only removal, undo/redo, palette reachability), <code>pnpm build</code>, <code>pnpm test:e2e</code> (3; new workshop test adds a wheel and undoes it).</dd>
+      <dt>Assumptions</dt><dd>v1 places parts on the first free compatible connector (no manual slot choice or orientation yet, F-006); removal is leaf-only; the design is in-memory only (persistence slice owns saving).</dd>
+      <dt>GDD coverage</dt><dd>REQ-002 refs extended with the workshop files (status stays partial until orientation and slot choice land); build-log entry on 02.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="combat-legibility" data-date="2026-06-10">
     <h3>Combat Legibility (fun-factor audit response)</h3>
     <dl>

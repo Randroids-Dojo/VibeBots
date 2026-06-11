@@ -124,7 +124,11 @@ describe("autonomous combat", () => {
       damagePart(match, 0, "wheel-r", 9999);
       stepMatch(match);
       expect(match.bots[0].disabled).toBe(true);
-      expect(match.status).toEqual({ over: true, winner: 1 });
+      expect(match.status).toMatchObject({
+        over: true,
+        winner: 1,
+        reason: "disable",
+      });
     } finally {
       cleanup();
     }
@@ -136,7 +140,56 @@ describe("autonomous combat", () => {
       damagePart(match, 1, "core", 9999);
       stepMatch(match);
       expect(match.bots[1].disabled).toBe(true);
-      expect(match.status).toEqual({ over: true, winner: 0 });
+      expect(match.status).toMatchObject({
+        over: true,
+        winner: 0,
+        reason: "disable",
+      });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("ends by timeout with score-based judgment (REQ-005)", async () => {
+    const world = await arenaWorld();
+    // 60 ticks: the bots are still meters apart when time expires.
+    const match = createMatch(world, [TEST_BOT_DESIGN, TEST_BOT_DESIGN], {
+      timeLimitTicks: 60,
+    });
+    try {
+      // Tilt the judgment: bot 1 starts the match already damaged.
+      damagePart(match, 1, "core", 50);
+      for (let i = 0; i < 120; i++) {
+        stepMatch(match);
+      }
+      expect(match.tick).toBe(60);
+      const status = match.status;
+      expect(status.over).toBe(true);
+      if (status.over) {
+        expect(status.reason).toBe("timeout");
+        expect(status.winner).toBe(0);
+        expect(status.scores[1].damageTaken).toBeGreaterThanOrEqual(50);
+        expect(status.scores[0].total).toBeGreaterThan(status.scores[1].total);
+      }
+    } finally {
+      freeMatch(match);
+      world.free();
+    }
+  });
+
+  it("reports disable as the end reason with scores attached", async () => {
+    const { match, cleanup } = await newMatch();
+    try {
+      damagePart(match, 1, "core", 9999);
+      stepMatch(match);
+      const status = match.status;
+      expect(status.over).toBe(true);
+      if (status.over) {
+        expect(status.reason).toBe("disable");
+        expect(status.winner).toBe(0);
+        expect(status.scores[0].partsRemaining).toBe(4);
+        expect(status.scores[1].partsRemaining).toBe(3);
+      }
     } finally {
       cleanup();
     }

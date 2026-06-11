@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="match-end-and-scoring" data-date="2026-06-10">
+    <h3>Match End and Scoring</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/match-end-and-scoring</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>matches now resolve (REQ-005): a 60-second default time limit (configurable per match) with score-based judgment on timeout; per-bot score accumulators (damage dealt with attribution from contact pairs, damage taken via the shared damagePart entry point, combat-pressure ticks within 2m, distance traveled capped at judgment so fleeing cannot outscore fighting, parts remaining); end status carries the reason (disable or timeout) plus both score cards. <code>src/sim/rewards.ts</code> adds the deterministic reward computation from Q-002 (outcome base pay plus capped damage bonus, credits and track XP). Also closes the combat dot file duplicate left by the PR #3 merge sequence.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (32 tests; 6 new: timeout judgment with a tilted score, disable reason with score cards, reward determinism, win/draw/loss pay, damage-bonus cap), <code>pnpm build</code>, <code>pnpm test:e2e</code>.</dd>
+      <dt>Assumptions</dt><dd>judgment weights (dealt x2, taken x1, parts 50, pressure 25, distance capped at 25) and reward rates (win/draw/loss 100/40/25 credits, 50/20/10 track XP, damage bonus capped 100/50) are placeholders until the fun-factor pass; direct damage counts as damage taken; pressure accrues to both bots inside 2m.</dd>
+      <dt>GDD coverage</dt><dd>created <code>docs/gdd/04-match-resolution-and-scoring.html</code> (partial); REQ-005 flipped to partial.</dd>
+      <dt>Followups</dt><dd>none new; reward-track milestones land with the economy slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="autonomous-combat-core" data-date="2026-06-10">
     <h3>Autonomous Combat Core</h3>
     <dl>

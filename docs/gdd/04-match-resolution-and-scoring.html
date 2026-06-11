@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Match Resolution and Scoring</title>
+</head>
+<body>
+
+  <h1>Match Resolution and Scoring</h1>
+  <p data-status="partial">Status: partial</p>
+
+  <section data-role="spec" id="spec">
+    <h2>Spec</h2>
+    <p>A match ends by full disable or by a time limit followed by score-based judgment (REQ-005). Combat pays deterministic rewards (Q-002 resolution): currency plus reward-track progress at known rates, never randomized.</p>
+
+    <h3 id="resolution">Resolution</h3>
+    <ul>
+      <li>Default time limit: 60 seconds of sim time. Disable ends the match immediately; both bots disabled in the same tick is a draw.</li>
+      <li>On timeout, the higher judgment score wins; equal scores draw.</li>
+      <li>The end status carries the reason (disable or timeout) and both score cards.</li>
+    </ul>
+
+    <h3 id="scoring">Judgment score</h3>
+    <p>Accumulated per bot during the match, weighted at judgment: damage dealt (positive), damage taken (negative), parts remaining ratio, combat pressure (ticks with cores within 2m), and distance traveled (capped, so fleeing cannot outscore fighting). Weights are placeholders until the fun-factor pass.</p>
+
+    <h3 id="rewards">Deterministic rewards</h3>
+    <ul>
+      <li>Outcome base pay: win 100 credits, draw 40, loss 25. Track XP: 50 / 20 / 10.</li>
+      <li>Performance bonus: credits equal to damage dealt (capped at 100); track XP at half rate (capped at 50).</li>
+      <li>The same match result always pays the same rewards. Track milestones that unlock parts arrive with the economy slice.</li>
+    </ul>
+
+    <h3 id="not-yet">What this does NOT cover yet</h3>
+    <ul>
+      <li>Reward-track milestone definitions and part unlocks (economy slice).</li>
+      <li>Server-side persistence of results and rewards (match-resolve API and persistence slices).</li>
+      <li>Score weight tuning against real fights (fun-factor pass).</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-06-10">Time limit with score-based judgment (damage dealt/taken, parts remaining, pressure, capped distance), end reasons, per-bot score cards in the match status, and deterministic reward computation (credits + track XP). Files: <code>src/sim/combat.ts</code>, <code>src/sim/rewards.ts</code>, <code>src/sim/combat.test.ts</code>, <code>src/sim/rewards.test.ts</code>. PR pending.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

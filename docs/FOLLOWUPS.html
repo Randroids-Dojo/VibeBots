@@ -42,6 +42,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section data-f="F-006" data-priority="nice-to-have">
+    <h3>F-006: Oriented part attachment (90-degree connector steps)</h3>
+    <dl>
+      <dt>Context</dt><dd>Assembly currently attaches every part with identity rotation at connector offsets (<code>src/sim/assembly.ts</code>). The GDD build loop expects parts to "have orientation"; axis-aligned 90-degree steps keep quaternions exact (components from 0, 0.5, sqrt(0.5), 1) so determinism holds without trig.</dd>
+      <dt>Blocker (if any)</dt><dd>none; the starter catalog does not need it yet.</dd>
+      <dt>Unblock condition</dt><dd>first part whose silhouette needs rotation (side-mounted spikes, vertical wheels) or the workshop viewport's rotate control.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section data-f="F-005" data-priority="nice-to-have">
     <h3>F-005: Replay format contract and simVersion invalidation</h3>
     <dl>

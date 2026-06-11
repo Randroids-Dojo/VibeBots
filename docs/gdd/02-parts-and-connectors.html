@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Parts and Connectors</title>
+</head>
+<body>
+
+  <h1>Parts and Connectors</h1>
+  <p data-status="partial">Status: partial</p>
+
+  <section data-role="spec" id="spec">
+    <h2>Spec</h2>
+    <p>Robots are built from modular parts joined at connectors. A part is pure data: a physical shape, a density, power figures, a category, and a set of connectors. A bot design is a graph of part instances and connections that must form a tree rooted at exactly one core part. The design, not the assembled physics state, is the unit that gets saved, shared, and fought online.</p>
+
+    <h3 id="categories">Part categories</h3>
+    <ul>
+      <li><strong>core</strong>: the mandatory root. Supplies power. Losing it disables the bot (combat slice).</li>
+      <li><strong>structure</strong>: frames and plates that extend the connector surface.</li>
+      <li><strong>mobility</strong>: wheels now; legs and other locomotion later. Attach via powered axle connectors.</li>
+      <li><strong>weapon</strong>: damage dealers. Passive (spikes) now; actuated weapons later.</li>
+    </ul>
+
+    <h3 id="connectors">Connector kinds</h3>
+    <ul>
+      <li><strong>rigid</strong>: fixed structural attachment. Becomes a fixed joint.</li>
+      <li><strong>axle</strong>: powered rotating attachment with a local axis. Becomes a revolute joint with a velocity motor.</li>
+    </ul>
+    <p>A connection joins one parent connector and one child connector of the same kind. Each connector accepts at most one connection. Prismatic (sliding) connectors are anticipated for actuated weapons but do not exist yet.</p>
+
+    <h3 id="validity">Validity rules (checked before any combat, REQ-002)</h3>
+    <ol>
+      <li>Instance ids are unique and every part id resolves in the catalog.</li>
+      <li>Exactly one core part.</li>
+      <li>Every connection references existing instances and connectors, with matching kinds.</li>
+      <li>No connector is used twice; no part has two parents; the core is never a child.</li>
+      <li>Every part is reachable from the core (the graph is a tree).</li>
+      <li>Total power draw does not exceed the core's power supply.</li>
+    </ol>
+    <p>Validation returns design stats (part count, total mass from shape volume times density, power draw and supply) that the workshop UI will surface.</p>
+
+    <h3 id="not-yet">What this does NOT cover yet</h3>
+    <ul>
+      <li>Oriented attachment: parts currently attach with identity rotation at connector offsets (90-degree connector orientation steps are followup F-006).</li>
+      <li>Per-part durability, damage, and detachment (the combat slice owns those).</li>
+      <li>Capacity/slot budgets beyond power, part pricing, and rarity tiers (economy slices).</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-06-10">Part schema, starter catalog (cube core, frame plate, drive wheel, ram spike), design validity checks, and deterministic assembly of design trees into rapier bodies and joints with motorized axles. The starter Testbot drives along the ground deterministically in tests. Files: <code>src/sim/parts.ts</code>, <code>src/sim/design.ts</code>, <code>src/sim/assembly.ts</code>, <code>src/sim/design.test.ts</code>, <code>src/sim/assembly.test.ts</code>. PR pending.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

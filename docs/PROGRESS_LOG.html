@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="sim-bot-assembly" data-date="2026-06-10">
+    <h3>Sim Bot Assembly</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/sim-bot-assembly</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the part system foundation: zod part schema with categories (core/structure/mobility/weapon) and connector kinds (rigid/axle) in <code>src/sim/parts.ts</code> plus a four-part starter catalog; pure design validity checks (tree rooted at one core, kind matching, connector exclusivity, power budget) with design stats in <code>src/sim/design.ts</code>; deterministic assembly of design trees into rapier bodies, fixed joints, and motorized revolute axles in <code>src/sim/assembly.ts</code>. The starter Testbot (core, two drive wheels, ram spike) drives along the arena floor deterministically.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (20 tests: 13 new covering validity rules, assembly shape, locomotion, and same-design-same-hash determinism), <code>pnpm build</code>, <code>pnpm test:e2e</code>.</dd>
+      <dt>Assumptions</dt><dd>parts attach with identity rotation this slice (oriented attachment deferred to F-006); joints disable contacts between connected bodies explicitly; wheel radius must exceed the core half-height so wheels rather than the chassis carry the bot (encoded in the catalog comment).</dd>
+      <dt>GDD coverage</dt><dd>created <code>docs/gdd/02-parts-and-connectors.html</code> (status partial, build log entry); REQ-002 flipped to partial with implementation and test refs.</dd>
+      <dt>Followups</dt><dd>created <code>F-006</code> (oriented attachment via exact 90-degree quaternion steps).</dd>
+    </dl>
+  </article>
+
   <article data-slice="walking-skeleton-scaffold" data-date="2026-06-10">
     <h3>Walking Skeleton Scaffold</h3>
     <dl>

@@ -1,4 +1,28 @@
-import { createRng, type Rng } from "./rng";
+/**
+ * Per-cell deterministic randomness: a 32-bit integer mix of
+ * (seed, row, col, salt) fed through one mulberry32 step. Pure function
+ * of its inputs, so the mine is identical for a seed regardless of the
+ * path walked or the order cells are queried (no shared rng stream).
+ */
+function cellRandom(
+  seed: number,
+  row: number,
+  col: number,
+  salt: number,
+): number {
+  let h =
+    seed ^
+    Math.imul(row + 1, 0x9e3779b1) ^
+    Math.imul(col + 1, 0x85ebca6b) ^
+    salt;
+  h = Math.imul(h ^ (h >>> 16), 0x21f0aaad);
+  h = Math.imul(h ^ (h >>> 15), 0x735a2d97);
+  h ^= h >>> 15;
+  let t = (h + 0x6d2b79f5) >>> 0;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
 
 /**
  * The mining loop (REQ-006/REQ-007): a deterministic 2D vertical grid.
@@ -43,18 +67,17 @@ export interface MinerState {
 
 export interface MineState {
   seed: number;
-  rng: Rng;
   /** Sparse rows, generated on demand; index 0 is the surface. */
   rows: MineCell[][];
   miner: MinerState;
 }
 
-function rollCell(rng: Rng, row: number): MineCell {
+function rollCell(seed: number, row: number, col: number): MineCell {
   // Depth scaling: rock and treasure both grow with depth.
   const rockChance = Math.min(0.05 + row * 0.012, 0.35);
   const emeraldChance = Math.min(0.04 + row * 0.01, 0.22);
   const cacheChance = Math.min(0.004 + row * 0.0012, 0.03);
-  const roll = rng.next();
+  const roll = cellRandom(seed, row, col, 0);
   if (roll < cacheChance) return { kind: "part-cache" };
   if (roll < cacheChance + emeraldChance) return { kind: "emerald" };
   if (roll < cacheChance + emeraldChance + rockChance) return { kind: "rock" };
@@ -70,7 +93,7 @@ export function ensureRows(state: MineState, row: number): void {
       for (let c = 0; c < MINE_WIDTH; c++) cells.push({ kind: "empty" });
     } else {
       for (let c = 0; c < MINE_WIDTH; c++)
-        cells.push(rollCell(state.rng, index));
+        cells.push(rollCell(state.seed, index, c));
     }
     state.rows.push(cells);
   }
@@ -79,7 +102,6 @@ export function ensureRows(state: MineState, row: number): void {
 export function createMine(seed: number): MineState {
   const state: MineState = {
     seed,
-    rng: createRng(seed),
     rows: [],
     miner: {
       col: START_COL,
@@ -126,8 +148,8 @@ function target(
 }
 
 export type MoveResult =
-  | { ok: true; dug: CellKind | null; found: string | null }
-  | { ok: false; reason: "blocked" | "exhausted" | "edge" };
+  | { ok: true; dug: CellKind | null; found: string | null; collapsed: boolean }
+  | { ok: false; reason: "blocked" | "edge" };
 
 /**
  * Dig toward or move into the adjacent cell. Dirt/emerald/cache cells are
@@ -137,7 +159,6 @@ export type MoveResult =
  */
 export function step(state: MineState, dir: Direction): MoveResult {
   const miner = state.miner;
-  if (miner.energy <= 0) return { ok: false, reason: "exhausted" };
   const t = target(state, dir);
   const cell = cellAt(state, t.col, t.row);
   if (!cell) return { ok: false, reason: "edge" };
@@ -153,7 +174,8 @@ export function step(state: MineState, dir: Direction): MoveResult {
     cost = DIG_COST_DIRT;
     if (cell.kind === "emerald") miner.carriedEmeralds += 1;
     if (cell.kind === "part-cache") {
-      found = CACHE_PART_IDS[state.rng.nextInt(0, CACHE_PART_IDS.length)];
+      const pick = cellRandom(state.seed, t.row, t.col, 1);
+      found = CACHE_PART_IDS[Math.floor(pick * CACHE_PART_IDS.length)];
       miner.carriedParts.push(found);
     }
     state.rows[t.row][t.col] = { kind: "empty" };
@@ -163,13 +185,15 @@ export function step(state: MineState, dir: Direction): MoveResult {
   miner.col = t.col;
   miner.row = t.row;
 
+  let collapsed = false;
   if (miner.row === 0) {
     bank(miner);
   } else if (miner.energy <= 0) {
     collapse(miner);
+    collapsed = true;
   }
   ensureRows(state, miner.row + LIGHT_RADIUS + 1);
-  return { ok: true, dug, found };
+  return { ok: true, dug, found, collapsed };
 }
 
 function bank(miner: MinerState): void {

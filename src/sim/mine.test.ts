@@ -21,6 +21,21 @@ describe("mine", () => {
     }
   });
 
+  it("generates the same mine regardless of the path walked", () => {
+    const a = createMine(42);
+    const b = createMine(42);
+    // Walk a and b along different paths (different digs, cache pulls,
+    // and query orders), then compare freshly generated deep rows.
+    for (let i = 0; i < 60; i++) step(a, i % 5 === 0 ? "left" : "down");
+    for (let i = 0; i < 60; i++) step(b, i % 3 === 0 ? "right" : "down");
+    cellAt(a, 0, 80);
+    for (let col = 0; col < MINE_WIDTH; col++) {
+      for (let row = 60; row < 80; row++) {
+        expect(cellAt(a, col, row)?.kind).toBe(cellAt(b, col, row)?.kind);
+      }
+    }
+  });
+
   it("generates different mines for different seeds", () => {
     const a = createMine(1);
     const b = createMine(2);
@@ -67,14 +82,19 @@ describe("mine", () => {
   it("collapses underground when energy runs out, losing the carry", () => {
     const state = createMine(13);
     step(state, "down");
+    expect(state.miner.row).toBe(1);
     state.miner.carriedEmeralds = 9;
-    state.miner.energy = 1;
-    // Burn the last energy underground.
-    let guard = 0;
-    while (state.miner.row > 0 && guard++ < 10) {
-      const result = step(state, "down");
-      if (!result.ok) break;
+    state.miner.energy = 0.5;
+    // Any successful action now drains the lamp underground.
+    let collapsed = false;
+    for (const dir of ["down", "left", "right"] as const) {
+      const result = step(state, dir);
+      if (result.ok) {
+        collapsed = result.collapsed;
+        break;
+      }
     }
+    expect(collapsed).toBe(true);
     expect(state.miner.collapses).toBe(1);
     expect(state.miner.carriedEmeralds).toBe(0);
     expect(state.miner.bankedEmeralds).toBe(0);

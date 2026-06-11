@@ -34,6 +34,15 @@ export function MinePanel() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const targetEl = event.target as HTMLElement | null;
+      if (
+        targetEl &&
+        (targetEl.isContentEditable ||
+          /^(INPUT|TEXTAREA|SELECT)$/.test(targetEl.tagName))
+      ) {
+        return;
+      }
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
@@ -48,12 +57,12 @@ export function MinePanel() {
     lastResult && !lastResult.ok
       ? lastResult.reason === "blocked"
         ? "Rock. Your pickaxe is not strong enough."
-        : lastResult.reason === "exhausted"
-          ? "Lamp's dead. The crew hauled you up; the cargo stayed below."
-          : "Edge of the claim."
-      : miner.row === 0
-        ? "On the surface. Loot banks automatically here."
-        : undefined;
+        : "Edge of the claim."
+      : lastResult?.ok && lastResult.collapsed
+        ? "Lamp died down there. The crew hauled you up; the cargo stayed below."
+        : miner.row === 0
+          ? "On the surface. Loot banks automatically here."
+          : undefined;
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100dvh" }}>

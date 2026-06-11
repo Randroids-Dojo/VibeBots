@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { GEAR_TRACKS, type MineGear, maxGearLevel } from "@/sim/mine";
+import {
+  CONSUMABLE_PRICES,
+  GEAR_TRACKS,
+  type MineConsumables,
+  type MineGear,
+  maxGearLevel,
+} from "@/sim/mine";
 
 interface ShopCatalogEntry {
   id: string;
@@ -41,6 +47,7 @@ const buyButtonStyle = (affordable: boolean): React.CSSProperties => ({
 export function ShopPanel() {
   const [shop, setShop] = useState<ShopState>({ state: "loading" });
   const [gear, setGear] = useState<MineGear | null>(null);
+  const [consumables, setConsumables] = useState<MineConsumables | null>(null);
 
   const refresh = useCallback(async (notice: string | null = null) => {
     try {
@@ -56,6 +63,7 @@ export function ShopPanel() {
       if (gearRes.ok) {
         const gearBody = await gearRes.json();
         setGear(gearBody.gear);
+        setConsumables(gearBody.consumables ?? null);
       }
     } catch {
       setShop({ state: "unavailable" });
@@ -88,6 +96,23 @@ export function ShopPanel() {
     });
     if (res.ok) {
       void refresh("bought!");
+    } else {
+      const body = await res.json().catch(() => ({}));
+      void refresh(
+        typeof body.error === "string" ? body.error : "purchase failed",
+      );
+    }
+  };
+
+  const buyConsumable = async (item: "dynamite" | "rope") => {
+    const res = await fetch("/api/consumables/buy", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ item }),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      void refresh(`${item} stocked (now ${body.count})`);
     } else {
       const body = await res.json().catch(() => ({}));
       void refresh(
@@ -160,6 +185,48 @@ export function ShopPanel() {
                   {price} cr
                 </button>
               )}
+            </li>
+          );
+        })}
+      </ul>
+
+      <h3 style={{ margin: "0 0 8px", fontSize: "0.9rem", opacity: 0.8 }}>
+        Supplies
+      </h3>
+      <ul style={{ margin: "0 0 16px", padding: 0, listStyle: "none" }}>
+        {(
+          [
+            ["dynamite", "Dynamite", "blasts a plus, any rock"],
+            ["rope", "Recall Rope", "bank the carry from anywhere"],
+          ] as const
+        ).map(([item, name, blurb]) => {
+          const price = CONSUMABLE_PRICES[item];
+          const affordable = data.emeralds >= price;
+          return (
+            <li
+              key={item}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
+              <span style={{ fontSize: "0.9rem" }}>
+                {name}{" "}
+                <span style={{ color: "#54e0c7" }}>
+                  x{consumables?.[item] ?? 0}
+                </span>
+                <span style={{ opacity: 0.5 }}> ({blurb})</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => void buyConsumable(item)}
+                disabled={!affordable}
+                style={buyButtonStyle(affordable)}
+              >
+                {price} cr
+              </button>
             </li>
           );
         })}

@@ -239,18 +239,33 @@
       "id": "REQ-015",
       "requirement": "Deterministic positional hazards (falling boulders with a wobble warning, venting gas pockets that chain) grow with depth.",
       "gddRef": "docs/gdd/06-mining.html#hazards",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/components/mine-canvas.tsx",
+        "src/components/mine-panel.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
       "followupRefs": []
     },
     {
       "id": "REQ-016",
       "requirement": "Surface-bought consumables (dynamite, recall rope) are logged actions that resolve routing and stranding dread.",
       "gddRef": "docs/gdd/06-mining.html#consumables",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/app/api/consumables/buy/route.ts",
+        "src/app/api/mine/bank/route.ts",
+        "src/components/shop-panel.tsx",
+        "src/components/mine-panel.tsx",
+        "src/state/mine-store.ts"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
       "followupRefs": [
         "F-015"
       ]

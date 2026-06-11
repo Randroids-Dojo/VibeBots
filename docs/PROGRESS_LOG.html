@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mining-hazards" data-date="2026-06-11">
+    <h3>Mining Hazards and Consumables</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mining-hazards</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the mine learns to bite back (REQ-015): boulders are solid cells that wobble for exactly one action after losing support, then fall as discrete grid steps; a boulder passing through the miner ends the trip like a collapse (carry lost, crew digs you out). Gas pockets vent when a cell beside them is dug: a plus-shaped blast that destroys blocks (loot included), chains through other pockets, and burns 8 lamp energy per vent. Both stay out of the top 4 rows so the first lesson is gentle, and both scale with depth. Consumables (REQ-016): dynamite (10 cr) blasts a plus through anything including tier-3 rock (gas it touches chains, but the lamp is spared); the recall rope (8 cr) ends the trip from anywhere with the carry banked, the F-015 escape valve. The trip log became an action-token log ("down", "dynamite-left", "recall"; Q-006 default B), refused actions are no longer logged, and the cash-out payload carries the consumable snapshot: the server validates ownership, replays, and decrements spent items in the same atomic credit statement. The mine HUD gains an arm-then-direction Dynamite control (aria-pressed) and a Recall button; the shop gains a Supplies section. MINE_VERSION bumped to 4.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (81; new gas-chain, wobble-then-fall, crush, dynamite, recall, consumable-replay, hazard-free-top tests), <code>pnpm build</code>, <code>pnpm test:e2e</code>; live consumable flow to be verified on production after merge.</dd>
+      <dt>Assumptions</dt><dd>blast and vent destroy loot (greed-vs-safety stays a real trade) but part caches are reinforced and survive; dynamite costs no energy (its price was paid in credits); gas lit by dynamite spares the lamp (triggered from cover); consumables spent on a collapsed trip are not decremented server-side until F-011's server-issued sessions close that small leak (noted there).</dd>
+      <dt>GDD coverage</dt><dd>REQ-015 and REQ-016 partial (live confirmation pending); build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>F-015 marked resolved pending VibeReview confirmation.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mining-gear" data-date="2026-06-11">
     <h3>Mining Gear (pickaxe gates, lamp, cargo, lantern)</h3>
     <dl>

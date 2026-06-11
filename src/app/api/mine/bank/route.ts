@@ -3,6 +3,7 @@ import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
 import {
   MAX_TRIP_MOVES,
+  MINE_ACTIONS,
   MINE_VERSION,
   maxGearLevel,
   replayTrip,
@@ -17,10 +18,7 @@ const gearLevel = (track: "pickaxe" | "lamp" | "cargo" | "lantern") =>
 
 const bodySchema = z.object({
   seed: z.number().int().min(0).max(4294967295),
-  moves: z
-    .array(z.enum(["down", "up", "left", "right"]))
-    .min(1)
-    .max(MAX_TRIP_MOVES),
+  moves: z.array(z.enum(MINE_ACTIONS)).min(1).max(MAX_TRIP_MOVES),
   mineVersion: z.number().int(),
   // The gear snapshot the session was played with (Q-007 default B):
   // replay must match what the player saw, validated against ownership.
@@ -29,6 +27,11 @@ const bodySchema = z.object({
     lamp: gearLevel("lamp"),
     cargo: gearLevel("cargo"),
     lantern: gearLevel("lantern"),
+  }),
+  // Consumables held at session start; spent ones decrement at cash-out.
+  consumables: z.object({
+    dynamite: z.number().int().min(0).max(999),
+    rope: z.number().int().min(0).max(999),
   }),
 });
 
@@ -69,7 +72,8 @@ export async function POST(request: Request): Promise<Response> {
   // Gear ownership check: claiming better gear than you own is the only
   // way the snapshot could inflate a payout.
   const owned = (await sql`
-    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level
+    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
+           dynamite_count, rope_count
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
   const gear = parsed.data.gear;
   for (const track of ["pickaxe", "lamp", "cargo", "lantern"] as const) {
@@ -80,8 +84,20 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
   }
+  const consumables = parsed.data.consumables;
+  if (
+    consumables.dynamite > (owned[0]?.dynamite_count ?? 0) ||
+    consumables.rope > (owned[0]?.rope_count ?? 0)
+  ) {
+    return Response.json({ error: "consumables not owned" }, { status: 422 });
+  }
 
-  const trip = replayTrip(parsed.data.seed, parsed.data.moves, gear);
+  const trip = replayTrip(
+    parsed.data.seed,
+    parsed.data.moves,
+    gear,
+    consumables,
+  );
   if (trip.bankedCredits === 0 && trip.bankedParts.length === 0) {
     return Response.json(
       { error: "nothing banked in this run" },
@@ -112,7 +128,9 @@ export async function POST(request: Request): Promise<Response> {
       SET emeralds = emeralds
             + (SELECT banked_emeralds FROM ins)
             + (SELECT amount FROM bonus),
-          deepest_depth = GREATEST(deepest_depth, ${trip.maxDepth})
+          deepest_depth = GREATEST(deepest_depth, ${trip.maxDepth}),
+          dynamite_count = GREATEST(0, dynamite_count - ${trip.used.dynamite}),
+          rope_count = GREATEST(0, rope_count - ${trip.used.rope})
       WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM ins)
       RETURNING emeralds, deepest_depth
     ), granted AS (

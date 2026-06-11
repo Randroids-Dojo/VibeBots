@@ -39,7 +39,28 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 3;
+export const MINE_VERSION = 4;
+
+/**
+ * Consumables (REQ-016): bought on the surface, spent as logged actions
+ * so the server replay can verify and decrement them. Each resolves one
+ * dread: dynamite ("I can't get through"), recall rope ("I won't make
+ * it back": ends the trip from anywhere, banking the carry).
+ */
+export interface MineConsumables {
+  dynamite: number;
+  rope: number;
+}
+
+export const NO_CONSUMABLES: MineConsumables = { dynamite: 0, rope: 0 };
+
+export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
+  dynamite: 10,
+  rope: 8,
+};
+
+/** Lamp energy burned per gas pocket vented (heat, not shrapnel). */
+export const GAS_VENT_DRAIN = 8;
 
 /**
  * Persistent gear tracks (REQ-013/REQ-014): part of the sim input, so a
@@ -306,7 +327,14 @@ export function strataBonusBetween(
   return total;
 }
 
-export type CellKind = "dirt" | "rock" | "ore" | "part-cache" | "empty";
+export type CellKind =
+  | "dirt"
+  | "rock"
+  | "ore"
+  | "part-cache"
+  | "boulder"
+  | "gas"
+  | "empty";
 
 export interface MineCell {
   kind: CellKind;
@@ -314,6 +342,8 @@ export interface MineCell {
   ore?: OreId;
   /** Set when kind is "rock" (hard gate vs the pickaxe level). */
   rockTier?: number;
+  /** A boulder whose support was dug: it falls on the next action. */
+  wobbling?: boolean;
 }
 
 /** Rare robot parts discoverable underground (REQ-007). */
@@ -338,6 +368,10 @@ export interface MineState {
   seed: number;
   /** Gear snapshot for the session; part of the replay input (Q-007). */
   gear: MineGear;
+  /** Consumables remaining this session; part of the replay input. */
+  consumables: MineConsumables;
+  /** Consumables spent this session (server decrements at cash-out). */
+  used: MineConsumables;
   /** Sparse rows, generated on demand; index 0 is the surface. */
   rows: MineCell[][];
   miner: MinerState;
@@ -384,22 +418,35 @@ export function returnEnergyCost(miner: MinerState): number {
 
 /** The top rows never roll rock: the first digs always land. */
 export const ROCK_FREE_ROWS = 2;
+/** The top rows never roll hazards: the first lesson is gentle. */
+export const HAZARD_FREE_ROWS = 4;
 
 function rollCell(seed: number, row: number, col: number): MineCell {
-  // Depth scaling: rock and treasure both grow with depth.
+  // Depth scaling: rock, treasure, and hazards all grow with depth.
   const rockChance =
     row <= ROCK_FREE_ROWS ? 0 : Math.min(0.05 + row * 0.012, 0.35);
-  const cacheChance = Math.min(0.004 + row * 0.0012, 0.03);
+  const gasChance =
+    row <= HAZARD_FREE_ROWS ? 0 : Math.min(0.003 + row * 0.0008, 0.025);
+  const boulderChance =
+    row <= HAZARD_FREE_ROWS ? 0 : Math.min(0.004 + row * 0.001, 0.03);
   const roll = cellRandom(seed, row, col, 0);
-  if (roll < cacheChance) return { kind: "part-cache" };
-  let threshold = cacheChance;
+  if (roll < cacheChance(row)) return { kind: "part-cache" };
+  let threshold = cacheChance(row);
   for (const ore of ORES) {
     threshold += oreChanceAt(ore, row);
     if (roll < threshold) return { kind: "ore", ore: ore.id };
   }
+  threshold += gasChance;
+  if (roll < threshold) return { kind: "gas" };
+  threshold += boulderChance;
+  if (roll < threshold) return { kind: "boulder" };
   if (roll < threshold + rockChance)
     return { kind: "rock", rockTier: rockTierAt(row) };
   return { kind: "dirt" };
+}
+
+function cacheChance(row: number): number {
+  return Math.min(0.004 + row * 0.0012, 0.03);
 }
 
 /** Generates rows up to and including the given row index. */
@@ -420,10 +467,13 @@ export function ensureRows(state: MineState, row: number): void {
 export function createMine(
   seed: number,
   gear: MineGear = DEFAULT_GEAR,
+  consumables: MineConsumables = NO_CONSUMABLES,
 ): MineState {
   const state: MineState = {
     seed,
     gear,
+    consumables: { ...consumables },
+    used: { dynamite: 0, rope: 0 },
     rows: [],
     miner: {
       col: START_COL,
@@ -478,8 +528,141 @@ export type MoveResult =
       dugOre: OreId | null;
       found: string | null;
       collapsed: boolean;
+      /** A falling boulder ended the trip (carry lost). */
+      crushed?: boolean;
+      /** Gas pockets vented by this action (lamp energy burned). */
+      vented?: number;
+      /** Cells destroyed by a dynamite blast. */
+      blasted?: number;
+      /** A recall rope ended the trip from below (carry banked). */
+      recalled?: boolean;
     }
-  | { ok: false; reason: "blocked" | "edge" | "rock" | "hold-full" };
+  | {
+      ok: false;
+      reason:
+        | "blocked"
+        | "edge"
+        | "rock"
+        | "hold-full"
+        | "no-dynamite"
+        | "no-rope"
+        | "surface";
+    };
+
+/**
+ * The full trip action vocabulary (Q-006 default B): plain directions
+ * dig and move; dynamite tokens blast toward a direction; recall ends
+ * the trip from anywhere, banking the carry. The cash-out log is an
+ * array of these tokens.
+ */
+export type MineAction =
+  | Direction
+  | "dynamite-down"
+  | "dynamite-up"
+  | "dynamite-left"
+  | "dynamite-right"
+  | "recall";
+
+export const MINE_ACTIONS = [
+  "down",
+  "up",
+  "left",
+  "right",
+  "dynamite-down",
+  "dynamite-up",
+  "dynamite-left",
+  "dynamite-right",
+  "recall",
+] as const;
+
+/** Blast-destructible kinds (caches are reinforced; jackpots survive). */
+const BLASTABLE: ReadonlySet<CellKind> = new Set([
+  "dirt",
+  "ore",
+  "rock",
+  "boulder",
+]);
+
+/**
+ * Detonates every gas cell 4-adjacent to (col, row), chaining through
+ * gas caught in each plus-shaped blast. Returns the number of pockets
+ * vented. Destroyed cells (including their loot) become empty.
+ */
+function ventGasAround(state: MineState, col: number, row: number): number {
+  const queue: Array<{ col: number; row: number }> = [];
+  for (const [dc, dr] of [
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+  ] as const) {
+    const cell = cellAt(state, col + dc, row + dr);
+    if (cell?.kind === "gas") queue.push({ col: col + dc, row: row + dr });
+  }
+  let vented = 0;
+  while (queue.length > 0) {
+    const g = queue.pop();
+    if (!g) break;
+    const gasCell = cellAt(state, g.col, g.row);
+    if (gasCell?.kind !== "gas") continue;
+    state.rows[g.row][g.col] = { kind: "empty" };
+    vented++;
+    for (const [dc, dr] of [
+      [0, 0],
+      [0, 1],
+      [0, -1],
+      [1, 0],
+      [-1, 0],
+    ] as const) {
+      const nc = g.col + dc;
+      const nr = g.row + dr;
+      if (nr < 1) continue;
+      const n = cellAt(state, nc, nr);
+      if (!n) continue;
+      if (n.kind === "gas") queue.push({ col: nc, row: nr });
+      else if (BLASTABLE.has(n.kind)) state.rows[nr][nc] = { kind: "empty" };
+    }
+  }
+  return vented;
+}
+
+/**
+ * Wobbling boulders drop until they rest on something solid. Returns
+ * true when one passed through or landed on the miner (the crew digs
+ * you out, the carry stays under the rock). Bottom-up per column so
+ * stacked boulders settle onto each other deterministically.
+ */
+function resolveFalls(state: MineState): boolean {
+  const miner = state.miner;
+  let crushed = false;
+  for (let row = state.rows.length - 1; row >= 1; row--) {
+    for (let col = 0; col < MINE_WIDTH; col++) {
+      const cell = state.rows[row][col];
+      if (cell.kind !== "boulder" || !cell.wobbling) continue;
+      let rest = row;
+      while (true) {
+        const below = cellAt(state, col, rest + 1);
+        if (!below || below.kind !== "empty") break;
+        rest++;
+        if (miner.col === col && miner.row === rest) crushed = true;
+      }
+      state.rows[row][col] = { kind: "empty" };
+      state.rows[rest][col] = { kind: "boulder" };
+    }
+  }
+  return crushed;
+}
+
+/** Boulders whose support vanished start wobbling (one-action warning). */
+function markWobbling(state: MineState): void {
+  for (let row = 1; row < state.rows.length - 1; row++) {
+    for (let col = 0; col < MINE_WIDTH; col++) {
+      const cell = state.rows[row][col];
+      if (cell.kind !== "boulder" || cell.wobbling) continue;
+      if (state.rows[row + 1]?.[col]?.kind === "empty") cell.wobbling = true;
+    }
+  }
+}
 
 /**
  * Dig toward or move into the adjacent cell. Dirt/ore/cache cells are
@@ -496,6 +679,8 @@ export function step(state: MineState, dir: Direction): MoveResult {
   if (!cell) return { ok: false, reason: "edge" };
   if (cell.kind === "rock" && !canDigRock(state.gear, cell.rockTier ?? 1))
     return { ok: false, reason: "rock" };
+  if (cell.kind === "boulder" || cell.kind === "gas")
+    return { ok: false, reason: "blocked" };
   if (cell.kind === "ore" && carriedCount(miner) >= cargoCapacity(state.gear))
     return { ok: false, reason: "hold-full" };
   if (dir === "up" && cell.kind !== "empty")
@@ -505,6 +690,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   let dugOre: OreId | null = null;
   let found: string | null = null;
   let cost = MOVE_COST;
+  let vented = 0;
   if (cell.kind !== "empty") {
     dug = cell.kind;
     cost = cell.kind === "rock" ? ROCK_DIG_COST : DIG_COST_DIRT;
@@ -518,22 +704,128 @@ export function step(state: MineState, dir: Direction): MoveResult {
       miner.carriedParts.push(found);
     }
     state.rows[t.row][t.col] = { kind: "empty" };
+    // Digging next to a pocket vents it: the burn is lamp heat.
+    vented = ventGasAround(state, t.col, t.row);
   }
 
-  miner.energy = Math.max(0, miner.energy - cost);
+  miner.energy = Math.max(0, miner.energy - cost - vented * GAS_VENT_DRAIN);
   miner.col = t.col;
   miner.row = t.row;
   if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
 
+  const crushed = resolveFalls(state);
+  markWobbling(state);
+
   let collapsed = false;
-  if (miner.row === 0) {
+  if (crushed) {
+    collapse(miner, state.gear);
+    collapsed = true;
+  } else if (miner.row === 0) {
     bank(miner, state.gear);
   } else if (miner.energy <= 0) {
     collapse(miner, state.gear);
     collapsed = true;
   }
   ensureRows(state, miner.row + lightRadius(state.gear) + 1);
-  return { ok: true, dug, dugOre, found, collapsed };
+  return { ok: true, dug, dugOre, found, collapsed, crushed, vented };
+}
+
+/**
+ * Throws dynamite at the adjacent cell in the given direction: a plus
+ * blast clears dirt, ore (loot destroyed), any rock tier, and boulders;
+ * caught gas chains. Costs one dynamite, no energy; the miner stays put
+ * behind cover.
+ */
+function blast(state: MineState, dir: Direction): MoveResult {
+  if (state.consumables.dynamite <= 0)
+    return { ok: false, reason: "no-dynamite" };
+  const t = target(state, dir);
+  if (t.col < 0 || t.col >= MINE_WIDTH || t.row < 1)
+    return { ok: false, reason: "edge" };
+  state.consumables.dynamite--;
+  state.used.dynamite++;
+  let blasted = 0;
+  let vented = 0;
+  for (const [dc, dr] of [
+    [0, 0],
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+  ] as const) {
+    const nc = t.col + dc;
+    const nr = t.row + dr;
+    if (nr < 1) continue;
+    const cell = cellAt(state, nc, nr);
+    if (!cell) continue;
+    if (cell.kind === "gas") {
+      // Light it from a distance: chains, but the heat misses the lamp.
+      state.rows[nr][nc] = { kind: "empty" };
+      vented += 1 + ventGasAround(state, nc, nr);
+      blasted++;
+    } else if (BLASTABLE.has(cell.kind)) {
+      state.rows[nr][nc] = { kind: "empty" };
+      blasted++;
+    }
+  }
+  const crushed = resolveFalls(state);
+  markWobbling(state);
+  let collapsed = false;
+  if (crushed) {
+    collapse(state.miner, state.gear);
+    collapsed = true;
+  }
+  return {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed,
+    crushed,
+    vented,
+    blasted,
+  };
+}
+
+/** The recall rope: ends the trip from anywhere, banking the carry. */
+function recall(state: MineState): MoveResult {
+  const miner = state.miner;
+  if (miner.row === 0) return { ok: false, reason: "surface" };
+  if (state.consumables.rope <= 0) return { ok: false, reason: "no-rope" };
+  state.consumables.rope--;
+  state.used.rope++;
+  miner.col = START_COL;
+  miner.row = 0;
+  bank(miner, state.gear);
+  return {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    recalled: true,
+  };
+}
+
+/** Dispatches any logged trip action (Q-006 default B). */
+export function applyAction(state: MineState, action: MineAction): MoveResult {
+  switch (action) {
+    case "down":
+    case "up":
+    case "left":
+    case "right":
+      return step(state, action);
+    case "dynamite-down":
+      return blast(state, "down");
+    case "dynamite-up":
+      return blast(state, "up");
+    case "dynamite-left":
+      return blast(state, "left");
+    case "dynamite-right":
+      return blast(state, "right");
+    case "recall":
+      return recall(state);
+  }
 }
 
 function bank(miner: MinerState, gear: MineGear): void {
@@ -568,28 +860,32 @@ export interface TripResult {
   /** Deepest row reached (drives the milestone bonus server-side). */
   maxDepth: number;
   moves: number;
+  /** Consumables spent (server decrements at cash-out). */
+  used: MineConsumables;
 }
 
 /**
- * Replays a full move log from a seed and gear snapshot and returns
- * what got banked. The server uses this to credit cash-outs: the mine
- * is a pure function of (seed, gear, moves), so an honest client and
- * the server always agree.
+ * Replays a full action log from a seed, gear, and consumable snapshot
+ * and returns what got banked. The server uses this to credit
+ * cash-outs: the mine is a pure function of (seed, gear, consumables,
+ * actions), so an honest client and the server always agree.
  */
 export function replayTrip(
   seed: number,
-  moves: Direction[],
+  actions: MineAction[],
   gear: MineGear = DEFAULT_GEAR,
+  consumables: MineConsumables = NO_CONSUMABLES,
 ): TripResult {
-  const state = createMine(seed, gear);
-  const capped = moves.slice(0, MAX_TRIP_MOVES);
-  for (const dir of capped) {
-    step(state, dir);
+  const state = createMine(seed, gear, consumables);
+  const capped = actions.slice(0, MAX_TRIP_MOVES);
+  for (const action of capped) {
+    applyAction(state, action);
   }
   return {
     bankedCredits: state.miner.bankedCredits,
     bankedParts: [...state.miner.bankedParts],
     maxDepth: state.miner.maxDepth,
     moves: capped.length,
+    used: { ...state.used },
   };
 }

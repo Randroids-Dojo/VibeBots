@@ -38,17 +38,18 @@ test("home page renders a moving match (Rule 10 motion QA)", async ({
 test("workshop builds and undoes parts", async ({ page }) => {
   await page.goto("/workshop");
   await expect(page.locator("canvas")).toBeVisible();
-  await expect(page.getByText("My Bot: 1 parts")).toBeVisible();
+  await expect(page.getByText("My Bot: 1 part", { exact: true })).toBeVisible();
 
-  const addWheel = page
+  const palette = page.getByLabel("Part palette");
+  await palette
     .locator("div")
-    .filter({ hasText: /^Drive Wheel \(mobility\)Add$/ })
-    .getByRole("button");
-  await addWheel.click();
+    .filter({ hasText: "Drive Wheel" })
+    .getByRole("button", { name: "Add" })
+    .click();
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
 
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect(page.getByText("My Bot: 1 parts")).toBeVisible();
+  await expect(page.getByText("My Bot: 1 part", { exact: true })).toBeVisible();
 });
 
 test("sim verify API returns a stable deterministic hash", async ({

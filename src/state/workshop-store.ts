@@ -8,7 +8,7 @@ import {
   undoHistory,
 } from "@randroids-dojo/vibekit";
 import { create } from "zustand";
-import { type BotDesign, type Connection, validateDesign } from "@/sim/design";
+import { type BotDesign, validateDesign } from "@/sim/design";
 import { PART_CATALOG, type PartDef } from "@/sim/parts";
 
 /**
@@ -30,16 +30,18 @@ interface FreeConnector {
 }
 
 /**
- * First free parent connector compatible with the part's first connector,
- * scanning parts and connectors in design order (deterministic).
+ * First free parent connector compatible with any of the part's
+ * connectors, scanning in design order (deterministic). Among matching
+ * child connectors, picks the one placing the part farthest from its
+ * parent: anchors are surface points, so the farthest pairing is the
+ * outward-facing one (a plate mounted by its 'top' would sink inside
+ * the parent; its 'bottom' sits flush outside).
  */
 export function findFreeConnector(
   design: BotDesign,
   part: PartDef,
   catalog: Record<string, PartDef> = PART_CATALOG,
 ): FreeConnector | null {
-  const mount = part.connectors[0];
-  if (!mount) return null;
   const used = new Set<string>();
   for (const conn of design.connections) {
     used.add(`${conn.parentIid}:${conn.parentConnector}`);
@@ -49,16 +51,55 @@ export function findFreeConnector(
     const def = catalog[instance.partId];
     if (!def) continue;
     for (const connector of def.connectors) {
-      if (connector.kind !== mount.kind) continue;
       if (used.has(`${instance.iid}:${connector.id}`)) continue;
-      return {
-        parentIid: instance.iid,
-        parentConnector: connector.id,
-        childConnector: mount.id,
-      };
+      let best: { id: string; dist: number } | null = null;
+      for (const mount of part.connectors) {
+        if (mount.kind !== connector.kind) continue;
+        const dx = connector.position.x - mount.position.x;
+        const dy = connector.position.y - mount.position.y;
+        const dz = connector.position.z - mount.position.z;
+        const dist = dx * dx + dy * dy + dz * dz;
+        if (!best || dist > best.dist) best = { id: mount.id, dist };
+      }
+      if (best) {
+        return {
+          parentIid: instance.iid,
+          parentConnector: connector.id,
+          childConnector: best.id,
+        };
+      }
     }
   }
   return null;
+}
+
+/**
+ * The full add precondition: a slot exists AND the resulting design
+ * validates. The palette and addPart share this so the button state
+ * never lies about what a click will do.
+ */
+export function planAddPart(
+  design: BotDesign,
+  part: PartDef,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): { next: BotDesign; iid: string } | null {
+  const slot = findFreeConnector(design, part, catalog);
+  if (!slot) return null;
+  const iid = nextIid(design, part.id);
+  const next: BotDesign = {
+    ...design,
+    parts: [...design.parts, { iid, partId: part.id }],
+    connections: [
+      ...design.connections,
+      {
+        parentIid: slot.parentIid,
+        parentConnector: slot.parentConnector,
+        childIid: iid,
+        childConnector: slot.childConnector,
+      },
+    ],
+  };
+  return validateDesign(next, catalog).ok ? { next, iid } : null;
 }
 
 function nextIid(design: BotDesign, partId: string): string {
@@ -91,22 +132,12 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     const { history, design } = get();
     const def = PART_CATALOG[partId];
     if (!def) return;
-    const slot = findFreeConnector(design, def);
-    if (!slot) return;
-    const iid = nextIid(design, partId);
-    const connection: Connection = {
-      parentIid: slot.parentIid,
-      parentConnector: slot.parentConnector,
-      childIid: iid,
-      childConnector: slot.childConnector,
-    };
-    const next: BotDesign = {
-      ...design,
-      parts: [...design.parts, { iid, partId }],
-      connections: [...design.connections, connection],
-    };
-    if (!validateDesign(next).ok) return;
-    set({ ...withDesign(pushHistory(history, next)), selectedIid: iid });
+    const plan = planAddPart(design, def);
+    if (!plan) return;
+    set({
+      ...withDesign(pushHistory(history, plan.next)),
+      selectedIid: plan.iid,
+    });
   },
 
   removeSelected: () => {

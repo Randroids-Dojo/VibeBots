@@ -50,6 +50,8 @@ export default function WorkshopCanvas() {
             key={instance.iid}
             position={[position.x, position.y, position.z]}
             onClick={(event) => {
+              // Camera drags that end on a part are not selections.
+              if (event.delta > 2) return;
               event.stopPropagation();
               select(selected ? null : instance.iid);
             }}

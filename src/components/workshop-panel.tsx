@@ -4,7 +4,7 @@ import { canRedo, canUndo } from "@randroids-dojo/vibekit";
 import dynamic from "next/dynamic";
 import { validateDesign } from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
-import { findFreeConnector, useWorkshopStore } from "@/state/workshop-store";
+import { planAddPart, useWorkshopStore } from "@/state/workshop-store";
 
 const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
   ssr: false,
@@ -56,7 +56,7 @@ export function WorkshopPanel() {
           {Object.values(PART_CATALOG)
             .filter((p) => p.category !== "core")
             .map((part) => {
-              const free = findFreeConnector(design, part) !== null;
+              const free = planAddPart(design, part) !== null;
               return (
                 <div
                   key={part.id}
@@ -93,7 +93,8 @@ export function WorkshopPanel() {
 
         <section style={panelStyle} aria-label="Design stats">
           <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
-            {design.name}: {design.parts.length} parts
+            {design.name}: {design.parts.length}{" "}
+            {design.parts.length === 1 ? "part" : "parts"}
           </h2>
           {validation.ok ? (
             <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.8 }}>

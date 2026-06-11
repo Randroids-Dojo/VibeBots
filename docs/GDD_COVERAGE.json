@@ -69,11 +69,11 @@
     {
       "id": "REQ-008",
       "requirement": "Players can convert mining output into robot components through shops, player trading, or both.",
-      "gddRef": "docs/gdd/01-vision-and-pillars.html#req-economy",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "gddRef": "docs/gdd/07-economy.html#flow",
+      "status": "partial",
+      "implementationRefs": ["src/app/api/mine/bank/route.ts", "src/app/api/shop/buy/route.ts", "src/sim/mine.ts"],
+      "testRefs": ["src/sim/mine.test.ts", "tests/e2e/smoke.spec.ts"],
+      "followupRefs": ["F-010"]
     },
     {
       "id": "REQ-009",

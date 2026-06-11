@@ -218,3 +218,30 @@ function collapse(miner: MinerState): void {
 export function isVisible(state: MineState, row: number): boolean {
   return row <= state.miner.row + LIGHT_RADIUS;
 }
+
+/** Hard cap on submitted move logs (server replay cost control). */
+export const MAX_TRIP_MOVES = 5000;
+
+export interface TripResult {
+  bankedEmeralds: number;
+  bankedParts: string[];
+  moves: number;
+}
+
+/**
+ * Replays a full move log from a seed and returns what got banked. The
+ * server uses this to credit cash-outs: the mine is a pure function of
+ * (seed, moves), so an honest client and the server always agree.
+ */
+export function replayTrip(seed: number, moves: Direction[]): TripResult {
+  const state = createMine(seed);
+  const capped = moves.slice(0, MAX_TRIP_MOVES);
+  for (const dir of capped) {
+    step(state, dir);
+  }
+  return {
+    bankedEmeralds: state.miner.bankedEmeralds,
+    bankedParts: [...state.miner.bankedParts],
+    moves: capped.length,
+  };
+}

@@ -30,6 +30,8 @@ export function MinePanel() {
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);
   const move = useMineStore((s) => s.move);
+  const cashOut = useMineStore((s) => s.cashOut);
+  const submitCashOut = useMineStore((s) => s.submitCashOut);
   void tick;
 
   useEffect(() => {
@@ -93,6 +95,43 @@ export function MinePanel() {
             banked {miner.bankedEmeralds} emeralds, {miner.bankedParts.length}{" "}
             parts
           </p>
+          {(miner.bankedEmeralds > 0 || miner.bankedParts.length > 0) &&
+            cashOut.state !== "unavailable" && (
+              <button
+                type="button"
+                onClick={() => void submitCashOut()}
+                disabled={cashOut.state === "pending"}
+                style={{ marginTop: 8 }}
+              >
+                {cashOut.state === "pending"
+                  ? "Hauling to the vault..."
+                  : "Cash out banked loot"}
+              </button>
+            )}
+          {cashOut.state === "done" && (
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "0.8rem",
+                color: "#54e0c7",
+              }}
+            >
+              vaulted {cashOut.emeralds} emeralds
+              {cashOut.parts.length > 0 && ` and ${cashOut.parts.length} parts`}
+              ; balance {cashOut.balance}. Fresh claim opened.
+            </p>
+          )}
+          {cashOut.state === "error" && (
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "0.8rem",
+                color: "#ff6b6b",
+              }}
+            >
+              {cashOut.message}
+            </p>
+          )}
           {miner.collapses > 0 && (
             <p
               style={{

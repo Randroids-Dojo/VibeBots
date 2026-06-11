@@ -5,6 +5,7 @@ import {
   type Direction,
   LIGHT_RADIUS,
   MINE_WIDTH,
+  replayTrip,
   START_COL,
   START_ENERGY,
   step,
@@ -134,6 +135,22 @@ describe("mine", () => {
       return found;
     };
     expect(walk(a)).toEqual(walk(b));
+  });
+
+  it("replays a trip to identical banked results", () => {
+    const moves = [] as Array<"down" | "up" | "left" | "right">;
+    const state = createMine(31337);
+    for (let i = 0; i < 80; i++) {
+      const dir =
+        i % 9 === 4 ? "left" : i % 13 === 6 ? "right" : i % 2 ? "down" : "up";
+      moves.push(dir);
+      step(state, dir);
+    }
+    const replayed = replayTrip(31337, moves);
+    expect(replayed.bankedEmeralds).toBe(state.miner.bankedEmeralds);
+    expect(replayed.bankedParts).toEqual(state.miner.bankedParts);
+    // Same log, same credit: the server and an honest client agree.
+    expect(replayTrip(31337, moves)).toEqual(replayed);
   });
 
   it("keeps light bounded by lantern radius", () => {

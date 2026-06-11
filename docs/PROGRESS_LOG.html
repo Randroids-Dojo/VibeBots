@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="economy" data-date="2026-06-11">
+    <h3>Economy (cash-outs, wallets, shop)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/economy</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>REQ-008 lands: mining output converts to parts. The mine is a pure function of (seed, move log), so cashing out submits the log and <code>POST /api/mine/bank</code> replays it server-side (replayTrip, capped at 5000 moves) and credits emeralds plus found parts; each seed credits once per player (primary-key consume; resubmission 409) and the client session restarts on a fresh random seed. Parts gained shop prices (cores not sold); <code>/shop</code> lists the catalog with balance and per-player inventory; purchases are atomic conditional spends (UPDATE ... WHERE emeralds >= price). Schema adds <code>player_parts</code> and <code>mine_runs</code>. Nav gains Shop.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (62; new replayTrip agreement test), <code>pnpm build</code>, <code>pnpm test:e2e</code> (5 passed, shop and garage tests soft-skip without storage); live wallet flow verified against production after merge.</dd>
+      <dt>Assumptions</dt><dd>prices (3 to 8 emeralds) are placeholders for the fun pass; combat rewards do not pay into the wallet yet; the workshop does not consume inventory yet (F-010, needs a starter-loadout decision).</dd>
+      <dt>GDD coverage</dt><dd>created <code>docs/gdd/07-economy.html</code> (partial); REQ-008 flipped to partial; build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>created <code>F-010</code> (workshop consumes inventory).</dd>
+    </dl>
+  </article>
+
   <article data-slice="players-and-designs" data-date="2026-06-11">
     <h3>Players and Designs (guest identity + persistence)</h3>
     <dl>

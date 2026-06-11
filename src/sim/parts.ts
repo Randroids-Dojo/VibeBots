@@ -79,6 +79,8 @@ export const partDefSchema = z.object({
   powerSupply: z.number().min(0),
   /** Hit points before the part is destroyed (and detaches, combat slice). */
   durability: z.number().positive(),
+  /** Shop price in emeralds; 0 means not sold (cores are starter gear). */
+  priceEmeralds: z.number().min(0),
   connectors: z.array(connectorSchema).min(1),
 });
 export type PartDef = z.infer<typeof partDefSchema>;
@@ -109,6 +111,7 @@ export const CORE_CUBE: PartDef = {
   powerDraw: 0,
   powerSupply: 100,
   durability: 180,
+  priceEmeralds: 0,
   connectors: [
     { id: "top", kind: "rigid", position: { x: 0, y: 0.3, z: 0 } },
     { id: "bottom", kind: "rigid", position: { x: 0, y: -0.3, z: 0 } },
@@ -141,6 +144,7 @@ export const FRAME_PLATE: PartDef = {
   powerDraw: 0,
   powerSupply: 0,
   durability: 100,
+  priceEmeralds: 3,
   connectors: [
     { id: "top", kind: "rigid", position: { x: 0, y: 0.05, z: 0 } },
     { id: "bottom", kind: "rigid", position: { x: 0, y: -0.05, z: 0 } },
@@ -159,6 +163,7 @@ export const DRIVE_WHEEL: PartDef = {
   powerDraw: 20,
   powerSupply: 0,
   durability: 80,
+  priceEmeralds: 6,
   connectors: [
     { id: "hub", kind: "axle", position: { x: 0, y: 0, z: 0 }, axis: X_AXIS },
   ],
@@ -173,6 +178,7 @@ export const RAM_SPIKE: PartDef = {
   powerDraw: 5,
   powerSupply: 0,
   durability: 150,
+  priceEmeralds: 8,
   connectors: [
     { id: "mount", kind: "rigid", position: { x: 0, y: 0, z: 0.2 } },
   ],
@@ -188,6 +194,7 @@ export const CROSS_FRAME: PartDef = {
   powerDraw: 0,
   powerSupply: 0,
   durability: 90,
+  priceEmeralds: 5,
   connectors: [
     { id: "top", kind: "rigid", position: { x: 0, y: 0.08, z: 0 } },
     { id: "bottom", kind: "rigid", position: { x: 0, y: -0.08, z: 0 } },
@@ -207,6 +214,7 @@ export const SENSOR_HEAD: PartDef = {
   powerDraw: 2,
   powerSupply: 0,
   durability: 60,
+  priceEmeralds: 4,
   connectors: [
     { id: "neck", kind: "rigid", position: { x: 0, y: -0.18, z: 0 } },
   ],

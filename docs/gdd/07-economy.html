@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Economy</title>
+</head>
+<body>
+
+  <h1>Economy</h1>
+  <p data-status="partial">Status: partial</p>
+
+  <section data-role="spec" id="spec">
+    <h2>Spec</h2>
+    <p>Players convert mining output into robot components (REQ-008). Trust comes from determinism, not from the client: a mining session is a pure function of (seed, move log), so cashing out submits the log and the server replays it to credit exactly what an honest client banked.</p>
+    <h3 id="flow">The conversion flow</h3>
+    <ul>
+      <li>Each mine session has a random seed and records every attempted move. Cashing out submits (seed, moves); the server replays, credits emeralds and found parts, and consumes the seed (one credit per player per seed; resubmission is rejected).</li>
+      <li>After a cash-out the session restarts with a fresh seed: new mine, new finds.</li>
+      <li>The shop sells catalog parts for emeralds at fixed prices; purchases are atomic conditional spends (no negative balances under concurrency). Inventory is per player.</li>
+      <li>Cores are starter gear and are not sold.</li>
+    </ul>
+    <h3 id="not-yet">What this does NOT cover yet</h3>
+    <ul>
+      <li>The workshop does not yet consume inventory (any part is buildable); gating is followup F-010.</li>
+      <li>Player-to-player trading, combat reward payout into the same wallet, pricing balance.</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-06-11">Server-verified cash-outs (replayTrip over the move log, seed consumed on credit), per-player wallets and part inventory, and the /shop page with atomic purchases. Files: <code>src/sim/mine.ts</code>, <code>src/app/api/mine/bank/route.ts</code>, <code>src/app/api/shop/route.ts</code>, <code>src/app/api/shop/buy/route.ts</code>, <code>src/components/shop-panel.tsx</code>, <code>src/state/mine-store.ts</code>. PR pending.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

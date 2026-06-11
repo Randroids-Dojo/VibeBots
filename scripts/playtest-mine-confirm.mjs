@@ -25,7 +25,12 @@ const status = () => page.locator('[aria-label="Mine status"]').innerText();
 await page.screenshot({ path: `${OUT}/confirm-ore-01-surface.png` });
 log(`surface: ${(await status()).replace(/\n/g, " | ")}`);
 
-const OPP = { ArrowDown: "ArrowUp", ArrowUp: "ArrowDown", ArrowLeft: "ArrowRight", ArrowRight: "ArrowLeft" };
+const OPP = {
+  ArrowDown: "ArrowUp",
+  ArrowUp: "ArrowDown",
+  ArrowLeft: "ArrowRight",
+  ArrowRight: "ArrowLeft",
+};
 const path = [];
 const depth = async () =>
   Number((await status()).match(/depth\s+(\d+)/)?.[1] ?? "0");

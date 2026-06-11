@@ -261,6 +261,27 @@
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
   </dl>
 </section>
+
+<section data-f="F-020" data-priority="bug">
+  <h3>F-020: Walking left or right teleported the miner to the surface row, then it eased back down the shaft</h3>
+  <dl>
+    <dt>Context</dt><dd>User-reported 2026-06-11: any lateral step snapped the rendered miner to the top of the screen and animated it quickly back down. Root cause in <code>src/components/mine-canvas.tsx</code>: the miner group carried a JSX <code>position</code> prop with Y hardcoded to 0 while <code>useFrame</code> eased the same transform imperatively; column changes made R3F re-apply the prop, resetting Y to the surface mid-glide. Vertical digs never changed the prop's X, which is why only lateral moves showed it.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>resolved.</dd>
+    <dt>PR / Dot reference</dt><dd>dot VibeBots-mine-render-fix-e2addc40</dd>
+    <dt>Resolved</dt><dd>useFrame is now the sole writer of the miner transform (snap on first frame, ease after); the canvas exposes <code>data-miner-x/y</code> and the e2e suite walks left at depth 2 sampling every frame, asserting the glide never lifts toward the surface. The test was verified to fail against the buggy code (observed Y rose to -0.77 from depth 2) and pass against the fix. PR pending.</dd>
+  </dl>
+</section>
+
+<section data-f="F-021" data-priority="high">
+  <h3>F-021: The mine scene reads as flat colored cubes; the visuals need to shine</h3>
+  <dl>
+    <dt>Context</dt><dd>User-reported 2026-06-11: the mining graphics are too simple. The scene is flat-shaded boxes on a solid background: no headlamp pool, no material variety between dirt/rock/ore, no cave depth, no surface dressing, and the miner is an anonymous orange cube. The juice slice (PR #20) added motion but not material or lighting quality.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>ready: a visual overhaul of <code>mine-canvas.tsx</code> (robot miner model with a headlamp, depth-driven lighting and fog, beveled blocks with per-kind materials, crystal ore shapes, cave backdrop and surface dressing), validated with scripted playtest screenshots.</dd>
+    <dt>PR / Dot reference</dt><dd>dot VibeBots-mine-render-graphics-58b8d4bb</dd>
+  </dl>
+</section>
 </main>
 
 </body>

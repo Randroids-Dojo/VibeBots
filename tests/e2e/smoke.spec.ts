@@ -98,6 +98,59 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("miner stays at depth when walking sideways (lateral teleport regression)", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+
+  // Rows 1-2 are rock-free and hazard-free, so two digs down and one
+  // lateral step are guaranteed to succeed regardless of the session seed.
+  await page.getByRole("button", { name: "Down" }).click();
+  await expect(status).toContainText("depth 1");
+  await page.getByRole("button", { name: "Down" }).click();
+  await expect(status).toContainText("depth 2");
+
+  // Wait for the eased render position to settle at the dug depth.
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-miner-y")), {
+      timeout: 15_000,
+    })
+    .toBeLessThan(-1.8);
+
+  // Record the highest rendered Y across every frame of the lateral step.
+  await page.evaluate(() => {
+    const el = document.querySelector("canvas");
+    const w = window as unknown as { __maxMinerY: number; __minerRaf: number };
+    w.__maxMinerY = Number.NEGATIVE_INFINITY;
+    const sample = () => {
+      const y = Number(el?.getAttribute("data-miner-y"));
+      if (!Number.isNaN(y)) w.__maxMinerY = Math.max(w.__maxMinerY, y);
+      w.__minerRaf = requestAnimationFrame(sample);
+    };
+    sample();
+  });
+
+  await page.getByRole("button", { name: "Left" }).click();
+  // The miner glides one cell left (start col 4 renders at x=0, col 3 at -1)...
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+      timeout: 15_000,
+    })
+    .toBeLessThan(-0.8);
+
+  const maxY = await page.evaluate(() => {
+    const w = window as unknown as { __maxMinerY: number; __minerRaf: number };
+    cancelAnimationFrame(w.__minerRaf);
+    return w.__maxMinerY;
+  });
+  // ...without ever lifting toward the surface. The old bug re-applied the
+  // JSX position prop on column changes, snapping the rendered Y to 0.
+  expect(maxY).toBeLessThan(-1.5);
+});
+
 test("shop lists parts and balance (needs storage)", async ({
   page,
   request,

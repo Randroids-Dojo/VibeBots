@@ -88,6 +88,27 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toContainText("energy 60.0");
 });
 
+test("garage saves and lists designs (needs storage)", async ({
+  page,
+  request,
+}) => {
+  const probe = await request.get("/api/designs");
+  test.skip(
+    probe.status() === 503,
+    "storage not configured in this environment",
+  );
+
+  await page.goto("/workshop");
+  const garage = page.getByLabel("Saved designs");
+  await expect(garage).toBeVisible();
+  const name = `E2E Bot ${Date.now()}`;
+  await garage.getByLabel("Design name").fill(name);
+  await garage.getByLabel("Design name").blur();
+  await garage.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("saved to the garage")).toBeVisible();
+  await expect(garage.getByRole("button", { name })).toBeVisible();
+});
+
 test("match resolve API returns a deterministic official result", async ({
   request,
 }) => {

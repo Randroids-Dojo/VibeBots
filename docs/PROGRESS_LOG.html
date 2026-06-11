@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="players-and-designs" data-date="2026-06-11">
+    <h3>Players and Designs (guest identity + persistence)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/players-and-designs</code></dd>
+      <dt>PR</dt><dd>#13</dd>
+      <dt>Changed</dt><dd>the dedicated Neon Postgres (provisioned by the user via the marketplace UI per Rule 11) is wired in: <code>src/server/db.ts</code> (lazy idempotent schema: <code>players</code> with nullable <code>clerk_user_id</code> for the F-003 upgrade path, <code>bot_designs</code> jsonb unique per player+name) using <code>@neondatabase/serverless</code> (the store's standard driver; Rule 3 dependency noted in the PR). Guest-first identity per the resolved plan: <code>src/server/player.ts</code> issues a signed httpOnly cookie (VibeKit signToken, AUTH_SECRET) and creates the player row on first contact. <code>/api/designs</code> lists and upserts validated designs (cap 20 per player). The workshop gained a Garage panel: name the design, save it, load any save; the panel hides entirely where storage is unconfigured (503), which is also the local/CI behavior since the marketplace creates sensitive env values that cannot be pulled.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (61), <code>pnpm build</code>, <code>pnpm test:e2e</code> (5 passed, garage test soft-skips without storage and runs against deployments); full save/list flow verified live against the preview deployment after the PR opens.</dd>
+      <dt>Assumptions</dt><dd>AUTH_SECRET set for Production and Preview via the project env API (the CLI's non-interactive preview add has a guidance-loop bug); local dev runs without storage by design; design persistence is the matchmaking substrate for REQ-010 later.</dd>
+      <dt>GDD coverage</dt><dd>no rows flipped (infrastructure for REQ-008/REQ-010); the shop/banking slice flips REQ-008.</dd>
+      <dt>Followups</dt><dd>F-003 (Clerk upgrade) stays open and now has its nullable column in place.</dd>
+    </dl>
+  </article>
+
   <article data-slice="game-nav-fix" data-date="2026-06-11">
     <h3>Game Nav Fix</h3>
     <dl>

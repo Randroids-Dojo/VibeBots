@@ -11,6 +11,9 @@ importers:
       '@dimforge/rapier3d-deterministic-compat':
         specifier: 0.19.3
         version: 0.19.3
+      '@neondatabase/serverless':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@randroids-dojo/vibekit':
         specifier: github:Randroids-Dojo/VibeKit#v0.2.0
         version: https://codeload.github.com/Randroids-Dojo/VibeKit/tar.gz/705fe03ef5a3d18edc9bfc795bdee671e37864bf
@@ -314,6 +317,10 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
+
+  '@neondatabase/serverless@1.1.0':
+    resolution: {integrity: sha512-r3ZZhRjEcfEdKIZnoB1RusNgvHuaBRqfCzV4Gi+5A9yUX0S4HTws/ASWqt13wL4y4I+0rqsWGdA2w7EQXHi3+Q==}
+    engines: {node: '>=19.0.0'}
 
   '@next/env@16.2.9':
     resolution: {integrity: sha512-ki5VxxXfzD/9TDe13wyeTKIjQTAwBVpnr8KhRDUr8ltMUq1/NBpWNT5tiPoxiGl+PHM4X2ahSOiPk6iAimIzPg==}
@@ -1356,6 +1363,8 @@ snapshots:
       '@emnapi/runtime': 1.10.0
       '@tybys/wasm-util': 0.10.2
     optional: true
+
+  '@neondatabase/serverless@1.1.0': {}
 
   '@next/env@16.2.9': {}
 

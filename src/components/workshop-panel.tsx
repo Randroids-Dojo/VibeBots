@@ -4,6 +4,7 @@ import { canRedo, canUndo } from "@randroids-dojo/vibekit";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
+import { DesignSaves } from "@/components/design-saves";
 import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
@@ -310,6 +311,8 @@ export function WorkshopPanel() {
             </p>
           )}
         </section>
+
+        <DesignSaves />
       </aside>
     </div>
   );

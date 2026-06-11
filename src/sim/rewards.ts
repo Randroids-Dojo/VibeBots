@@ -7,18 +7,20 @@ import type { MatchScore } from "./combat";
  * the economy slice; this module only computes the per-match earnings.
  */
 
-export const CREDITS_WIN = 100;
-export const CREDITS_DRAW = 40;
-export const CREDITS_LOSS = 25;
+export type MatchOutcome = "win" | "draw" | "loss";
+
+export const OUTCOME_PAY: Record<
+  MatchOutcome,
+  { credits: number; trackXp: number }
+> = {
+  win: { credits: 100, trackXp: 50 },
+  draw: { credits: 40, trackXp: 20 },
+  loss: { credits: 25, trackXp: 10 },
+};
+
 /** Performance bonus: one credit per point of damage dealt, capped. */
 export const CREDITS_DAMAGE_CAP = 100;
-
-export const TRACK_XP_WIN = 50;
-export const TRACK_XP_DRAW = 20;
-export const TRACK_XP_LOSS = 10;
 export const TRACK_XP_DAMAGE_CAP = 50;
-
-export type MatchOutcome = "win" | "draw" | "loss";
 
 export interface MatchRewards {
   outcome: MatchOutcome;
@@ -32,27 +34,15 @@ export function outcomeFor(winner: 0 | 1 | null, side: 0 | 1): MatchOutcome {
 }
 
 export function computeRewards(
-  winner: 0 | 1 | null,
-  scores: [MatchScore, MatchScore],
-  side: 0 | 1,
+  outcome: MatchOutcome,
+  score: MatchScore,
 ): MatchRewards {
-  const outcome = outcomeFor(winner, side);
-  const dealt = scores[side].damageDealt;
-  const base =
-    outcome === "win"
-      ? CREDITS_WIN
-      : outcome === "draw"
-        ? CREDITS_DRAW
-        : CREDITS_LOSS;
-  const xpBase =
-    outcome === "win"
-      ? TRACK_XP_WIN
-      : outcome === "draw"
-        ? TRACK_XP_DRAW
-        : TRACK_XP_LOSS;
+  const base = OUTCOME_PAY[outcome];
+  const dealt = score.damageDealt;
   return {
     outcome,
-    credits: base + Math.min(Math.floor(dealt), CREDITS_DAMAGE_CAP),
-    trackXp: xpBase + Math.min(Math.floor(dealt / 2), TRACK_XP_DAMAGE_CAP),
+    credits: base.credits + Math.min(Math.floor(dealt), CREDITS_DAMAGE_CAP),
+    trackXp:
+      base.trackXp + Math.min(Math.floor(dealt / 2), TRACK_XP_DAMAGE_CAP),
   };
 }

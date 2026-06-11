@@ -13,6 +13,10 @@ export const vec3Schema = z.object({
 });
 export type Vec3 = z.infer<typeof vec3Schema>;
 
+export function vec3Distance(a: Vec3, b: Vec3): number {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
+}
+
 /**
  * rigid: a fixed structural attachment (fixed joint).
  * axle: a powered rotating attachment (revolute joint with a motor).

@@ -21,7 +21,7 @@
     </ul>
 
     <h3 id="scoring">Judgment score</h3>
-    <p>Accumulated per bot during the match, weighted at judgment: damage dealt (positive), damage taken (negative), parts remaining ratio, combat pressure (ticks with cores within 2m), and distance traveled (capped, so fleeing cannot outscore fighting). Weights are placeholders until the fun-factor pass.</p>
+    <p>Accumulated per bot and weighted at judgment: damage dealt (positive; clamped to health actually removed, so overkill and hits on destroyed debris pay nothing), damage taken (negative), remaining health ratio, parts remaining ratio, directional combat pressure (ticks spent within range AND closing on the enemy, so aggression scores and fleeing does not), and mobility at match end. Contact damage is symmetric between the two parts in a contact, so the asymmetric terms (health, parts, pressure, mobility) are what separate bots in organic play. Weights are placeholders until the fun-factor pass.</p>
 
     <h3 id="rewards">Deterministic rewards</h3>
     <ul>

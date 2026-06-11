@@ -4,6 +4,7 @@ import { assembleBot, setDriveVelocity } from "./assembly";
 import { DT, GRAVITY } from "./constants";
 import { TEST_BOT_DESIGN } from "./design";
 import { fnv1a64 } from "./hash";
+import { vec3Distance } from "./parts";
 import { ensureRapier } from "./world";
 
 async function arenaWorld(): Promise<World> {
@@ -88,11 +89,7 @@ describe("assembleBot", () => {
       const root = bot.bodies.get("core");
       const spike = bot.bodies.get("spike");
       if (!root || !spike) throw new Error("bodies missing");
-      const dr = root.translation();
-      const ds = spike.translation();
-      const dist = Math.sqrt(
-        (dr.x - ds.x) ** 2 + (dr.y - ds.y) ** 2 + (dr.z - ds.z) ** 2,
-      );
+      const dist = vec3Distance(root.translation(), spike.translation());
       // Spike mount keeps it 0.5m from the core center.
       expect(dist).toBeGreaterThan(0.3);
       expect(dist).toBeLessThan(0.7);

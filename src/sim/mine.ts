@@ -536,6 +536,8 @@ export type MoveResult =
       blasted?: number;
       /** A recall rope ended the trip from below (carry banked). */
       recalled?: boolean;
+      /** What a collapse/crush cost, for the near-miss reveal (REQ-019). */
+      lost?: { value: number; parts: string[]; col: number; row: number };
     }
   | {
       ok: false;
@@ -717,14 +719,21 @@ export function step(state: MineState, dir: Direction): MoveResult {
   markWobbling(state);
 
   let collapsed = false;
-  if (crushed) {
+  let lost: { value: number; parts: string[]; col: number; row: number };
+  if (crushed || (miner.row > 0 && miner.energy <= 0)) {
+    lost = {
+      value: carriedValue(miner),
+      parts: [...miner.carriedParts],
+      col: miner.col,
+      row: miner.row,
+    };
     collapse(miner, state.gear);
     collapsed = true;
-  } else if (miner.row === 0) {
+    ensureRows(state, lost.row + lightRadius(state.gear) + 1);
+    return { ok: true, dug, dugOre, found, collapsed, crushed, vented, lost };
+  }
+  if (miner.row === 0) {
     bank(miner, state.gear);
-  } else if (miner.energy <= 0) {
-    collapse(miner, state.gear);
-    collapsed = true;
   }
   ensureRows(state, miner.row + lightRadius(state.gear) + 1);
   return { ok: true, dug, dugOre, found, collapsed, crushed, vented };
@@ -771,7 +780,16 @@ function blast(state: MineState, dir: Direction): MoveResult {
   const crushed = resolveFalls(state);
   markWobbling(state);
   let collapsed = false;
+  let lost:
+    | { value: number; parts: string[]; col: number; row: number }
+    | undefined;
   if (crushed) {
+    lost = {
+      value: carriedValue(state.miner),
+      parts: [...state.miner.carriedParts],
+      col: state.miner.col,
+      row: state.miner.row,
+    };
     collapse(state.miner, state.gear);
     collapsed = true;
   }
@@ -784,6 +802,7 @@ function blast(state: MineState, dir: Direction): MoveResult {
     crushed,
     vented,
     blasted,
+    lost,
   };
 }
 

@@ -49,6 +49,7 @@ export interface MineSessionState {
   moves: MineAction[];
   tick: number;
   lastResult: MoveResult | null;
+  lastAction: MineAction | null;
   cashOut: CashOutState;
   move: (action: MineAction) => void;
   loadGear: () => Promise<void>;
@@ -66,6 +67,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     moves: [],
     tick: 0,
     lastResult: null,
+    lastAction: null,
     cashOut: { state: "idle" },
 
     move: (action) => {
@@ -76,7 +78,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const result = applyAction(mine, action);
       // Refused actions are not part of the trip (the sim ignored them).
       if (result.ok) moves.push(action);
-      set({ tick: tick + 1, lastResult: result });
+      set({ tick: tick + 1, lastResult: result, lastAction: action });
     },
 
     loadGear: async () => {

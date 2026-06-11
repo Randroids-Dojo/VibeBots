@@ -7,13 +7,16 @@ import {
   carriedCount,
   carriedValue,
   type Direction,
+  MINE_WIDTH,
   type MineAction,
+  type MineState,
   maxEnergy,
   type OreId,
   oreDef,
   returnEnergyCost,
   stratumAt,
 } from "@/sim/mine";
+import { PART_CATALOG } from "@/sim/parts";
 import { useMineStore } from "@/state/mine-store";
 
 const MineCanvas = dynamic(() => import("./mine-canvas"), { ssr: false });
@@ -81,6 +84,203 @@ function StratumBanner({ row }: { row: number }) {
     >
       {banner}
     </div>
+  );
+}
+
+/**
+ * Render-layer near-miss search (REQ-019): the best treasure within
+ * reach of where the lamp died, from rows the client already generated.
+ */
+function nearMissLine(
+  mine: MineState,
+  at: { col: number; row: number },
+): string | null {
+  let best: { name: string; value: number; dist: number } | null = null;
+  const lo = Math.max(1, at.row - 6);
+  const hi = Math.min(mine.rows.length - 1, at.row + 6);
+  for (let r = lo; r <= hi; r++) {
+    for (let c = 0; c < MINE_WIDTH; c++) {
+      const cell = mine.rows[r][c];
+      const dist = Math.abs(r - at.row) + Math.abs(c - at.col);
+      if (dist === 0 || dist > 6) continue;
+      const value =
+        cell.kind === "part-cache"
+          ? 999
+          : cell.kind === "ore" && cell.ore
+            ? oreDef(cell.ore).value
+            : 0;
+      if (value < 20) continue;
+      const name =
+        cell.kind === "part-cache"
+          ? "a part cache"
+          : cell.ore
+            ? oreDef(cell.ore).name.toLowerCase()
+            : "";
+      if (
+        !best ||
+        value > best.value ||
+        (value === best.value && dist < best.dist)
+      ) {
+        best = { name, value, dist };
+      }
+    }
+  }
+  if (!best) return null;
+  const what = best.name === "a part cache" ? best.name : `a ${best.name}`;
+  return `${what} sat ${best.dist} block${best.dist > 1 ? "s" : ""} from where the lamp died.`;
+}
+
+interface FloatNote {
+  id: number;
+  text: string;
+  color: string;
+}
+
+/** Floating pickup text, cache fanfare, and the collapse reveal. */
+function JuiceOverlays() {
+  const tick = useMineStore((s) => s.tick);
+  const mine = useMineStore((s) => s.mine);
+  const lastResult = useMineStore((s) => s.lastResult);
+  const [floats, setFloats] = useState<FloatNote[]>([]);
+  const [fanfare, setFanfare] = useState<string | null>(null);
+  const [wreck, setWreck] = useState<{
+    crushed: boolean;
+    value: number;
+    parts: number;
+    nearMiss: string | null;
+  } | null>(null);
+  const nextId = useRef(1);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
+  useEffect(() => {
+    if (!lastResult?.ok) return;
+    if (lastResult.dugOre) {
+      const ore = oreDef(lastResult.dugOre);
+      const id = nextId.current++;
+      setFloats((prev) => [
+        ...prev.slice(-4),
+        { id, text: `+${ore.value} cr`, color: "#54e0c7" },
+      ]);
+      setTimeout(
+        () => setFloats((prev) => prev.filter((f) => f.id !== id)),
+        1300,
+      );
+    }
+    if (lastResult.found) {
+      const name = PART_CATALOG[lastResult.found]?.name ?? lastResult.found;
+      setFanfare(`Cache cracked: ${name}!`);
+      setTimeout(() => setFanfare(null), 2800);
+    }
+    if (lastResult.collapsed && lastResult.lost) {
+      setWreck({
+        crushed: lastResult.crushed ?? false,
+        value: lastResult.lost.value,
+        parts: lastResult.lost.parts.length,
+        nearMiss: nearMissLine(mine, lastResult.lost),
+      });
+    }
+  }, [tick]);
+
+  return (
+    <>
+      {floats.map((f, i) => (
+        <div
+          key={f.id}
+          className="mine-juice"
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: `calc(50% - ${i * 18}px)`,
+            transform: "translateX(-50%)",
+            color: f.color,
+            fontWeight: 700,
+            fontSize: "1.05rem",
+            textShadow: "0 1px 6px rgba(0,0,0,0.8)",
+            pointerEvents: "none",
+            animation: "mine-float-up 1.25s ease-out forwards",
+          }}
+        >
+          {f.text}
+        </div>
+      ))}
+      {fanfare && (
+        <div
+          className="mine-juice"
+          style={{
+            position: "absolute",
+            top: 140,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(40, 32, 8, 0.95)",
+            border: "2px solid #f5c542",
+            color: "#f5c542",
+            borderRadius: 12,
+            padding: "14px 30px",
+            fontSize: "1.25rem",
+            fontWeight: 700,
+            pointerEvents: "none",
+            animation: "mine-fanfare-pop 2.8s ease-out forwards",
+            boxShadow: "0 0 30px rgba(245, 197, 66, 0.35)",
+          }}
+        >
+          {fanfare}
+        </div>
+      )}
+      {wreck && (
+        <button
+          type="button"
+          onClick={() => setWreck(null)}
+          aria-label="Dismiss trip report"
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 20,
+            background:
+              "radial-gradient(ellipse at center, rgba(60, 10, 10, 0.35), rgba(10, 4, 4, 0.85))",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(24, 12, 14, 0.96)",
+              border: "1px solid #ff6b6b",
+              borderRadius: 12,
+              padding: "20px 30px",
+              maxWidth: 360,
+              color: "#ffd9d9",
+              textAlign: "center",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>
+              {wreck.crushed ? "Crushed by a boulder" : "The lamp died"}
+            </p>
+            <p style={{ margin: "10px 0 0", fontSize: "0.95rem" }}>
+              {wreck.value > 0 || wreck.parts > 0
+                ? `The cargo stayed below: ${wreck.value} cr${wreck.parts > 0 ? ` and ${wreck.parts} part${wreck.parts > 1 ? "s" : ""}` : ""}.`
+                : "At least the hold was empty."}
+            </p>
+            {wreck.nearMiss && (
+              <p
+                style={{
+                  margin: "10px 0 0",
+                  fontSize: "0.9rem",
+                  color: "#f5c542",
+                }}
+              >
+                So close: {wreck.nearMiss}
+              </p>
+            )}
+            <p style={{ margin: "12px 0 0", fontSize: "0.8rem", opacity: 0.7 }}>
+              tap anywhere for one more trip
+            </p>
+          </div>
+        </button>
+      )}
+    </>
   );
 }
 
@@ -181,6 +381,7 @@ export function MinePanel() {
     <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
       <MineCanvas />
       <StratumBanner row={miner.row} />
+      <JuiceOverlays />
 
       <aside
         style={{

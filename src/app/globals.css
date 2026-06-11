@@ -10,3 +10,41 @@ body {
   color: #e6e8ee;
   font-family: system-ui, -apple-system, sans-serif;
 }
+
+/* Mine juice (REQ-018): floating pickup text and fanfare entrances. */
+@keyframes mine-float-up {
+  from {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -56px);
+    opacity: 0;
+  }
+}
+
+@keyframes mine-fanfare-pop {
+  0% {
+    transform: translateX(-50%) scale(0.6);
+    opacity: 0;
+  }
+  18% {
+    transform: translateX(-50%) scale(1.08);
+    opacity: 1;
+  }
+  28% {
+    transform: translateX(-50%) scale(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mine-juice {
+    animation: none !important;
+  }
+}

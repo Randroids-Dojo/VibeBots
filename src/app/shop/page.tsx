@@ -16,7 +16,7 @@ export default function ShopPage() {
           Part Shop
         </h1>
         <p style={{ margin: 0, opacity: 0.6, fontSize: "0.85rem" }}>
-          turn emeralds into machinery
+          turn credits into machinery and better gear
         </p>
         <GameNav current="/shop" />
       </header>

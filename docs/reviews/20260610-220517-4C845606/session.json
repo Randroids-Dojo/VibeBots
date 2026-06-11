@@ -106,6 +106,36 @@
         "mining",
         "mechanics"
       ]
+    },
+    {
+      "browserSnapshotRelativePath": "captures/1401105A-51A1-4025-A9BA-1DDFA3589D71.browser.json",
+      "browserTitle": "",
+      "browserURL": "",
+      "createdAt": "2026-06-11T19:07:19.525Z",
+      "id": "1401105A-51A1-4025-A9BA-1DDFA3589D71",
+      "note": "Ore-tiers slice confirmed on production: scripted run dug to depth 14, the Entering Clay Beds banner fired over a visibly redder stratum, copper/silver/coal/cache all read as distinct block colors, the HUD showed carried value (2 coal worth 2 cr) and climb cost (~7.0 energy), and cash-out paid 2 cr + 15 cr first-reach depth bonus with zero console errors. F-012, F-014, F-017 confirmed fixed in production.",
+      "rating": 4,
+      "screenshotRelativePath": "captures/1401105A-51A1-4025-A9BA-1DDFA3589D71.png",
+      "severity": "note",
+      "tags": [
+        "mining",
+        "confirmation"
+      ]
+    },
+    {
+      "browserSnapshotRelativePath": "captures/D85B2F37-8664-4D57-ABBF-51264D0C9141.browser.json",
+      "browserTitle": "",
+      "browserURL": "",
+      "createdAt": "2026-06-11T19:07:20.540Z",
+      "id": "D85B2F37-8664-4D57-ABBF-51264D0C9141",
+      "note": "The /mine subtitle still reads 'dig for emeralds, find rare parts, make it back up'; emeralds are now one mid-tier ore and the currency is credits. Update the copy to match the ore-tier world.",
+      "rating": 3,
+      "screenshotRelativePath": "captures/D85B2F37-8664-4D57-ABBF-51264D0C9141.png",
+      "severity": "polish",
+      "tags": [
+        "mining",
+        "copy"
+      ]
     }
   ],
   "createdAt": "2026-06-11T03:05:17.785Z",
@@ -119,10 +149,10 @@
     "kind": "fullSpiralHTML",
     "projectRootPath": "/Users/randroid/Documents/Dev/VibeBots"
   },
-  "endedAt": "2026-06-11T18:29:22.636Z",
+  "endedAt": "2026-06-11T19:07:20.563Z",
   "id": "20260610-220517-4C845606",
   "projectRootPath": "/Users/randroid/Documents/Dev/VibeBots",
-  "resumedAt": "2026-06-11T18:29:22.635Z",
+  "resumedAt": "2026-06-11T19:07:20.561Z",
   "status": "ended",
   "title": "Arena exhibition match playtest (PR #5, production)"
 }

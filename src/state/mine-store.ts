@@ -11,6 +11,7 @@ import {
   type MineState,
   type MoveResult,
   NO_CONSUMABLES,
+  START_COL,
 } from "@/sim/mine";
 
 /**
@@ -47,6 +48,12 @@ export interface MineSessionState {
   seed: number;
   gear: MineGear;
   consumables: MineConsumables;
+  /** Village purchases made since this session started (REQ-021). */
+  bought: MineConsumables;
+  /** Wallet balance from the last server response; null = unknown. */
+  balance: number | null;
+  /** One-line feedback for the stall menus. */
+  shopNote: string | null;
   moves: MineAction[];
   tick: number;
   lastResult: MoveResult | null;
@@ -55,7 +62,14 @@ export interface MineSessionState {
   move: (action: MineAction) => void;
   loadGear: () => Promise<void>;
   submitCashOut: () => Promise<void>;
+  buyConsumable: (item: keyof MineConsumables) => Promise<void>;
+  buyGearUpgrade: (track: keyof MineGear) => Promise<void>;
   restart: (seed?: number) => void;
+}
+
+/** Every logged action so far is a surface walk (left/right on row 0). */
+function surfaceOnlyLog(moves: MineAction[]): boolean {
+  return moves.every((m) => m === "left" || m === "right");
 }
 
 export const useMineStore = create<MineSessionState>((set, get) => {
@@ -65,6 +79,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     seed,
     gear: DEFAULT_GEAR,
     consumables: NO_CONSUMABLES,
+    bought: NO_CONSUMABLES,
+    balance: null,
+    shopNote: null,
     moves: [],
     tick: 0,
     lastResult: null,
@@ -89,6 +106,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const body = await res.json();
         const gear: MineGear = body.gear;
         const consumables: MineConsumables = body.consumables ?? NO_CONSUMABLES;
+        set({
+          balance: typeof body.balance === "number" ? body.balance : null,
+        });
         const current = get().gear;
         const currentCons = get().consumables;
         if (
@@ -108,6 +128,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         set({
           gear,
           consumables,
+          bought: NO_CONSUMABLES,
           mine: createMine(nextSeed, gear, consumables),
           seed: nextSeed,
           moves: [],
@@ -120,7 +141,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     submitCashOut: async () => {
-      const { seed: currentSeed, moves, gear, consumables } = get();
+      const { seed: currentSeed, moves, mine, consumables } = get();
       set({ cashOut: { state: "pending" } });
       try {
         const res = await fetch("/api/mine/bank", {
@@ -130,7 +151,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             seed: currentSeed,
             moves,
             mineVersion: MINE_VERSION,
-            gear,
+            // The snapshot the session actually ran on: a gear upgrade
+            // bought mid-trip applies to the next claim, not this log.
+            gear: mine.gear,
             consumables,
           }),
         });
@@ -152,9 +175,27 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const body = await res.json();
         // The seed is consumed server-side: a fresh mine starts with
         // the purchased consumables the trip left over (the free ladder
-        // provision is per-trip and does not bank).
-        const remaining: MineConsumables = carryoverConsumables(get().mine);
+        // provision is per-trip and does not bank) plus anything bought
+        // at the depot since, on the store gear (a deferred upgrade
+        // lands here).
+        const carry = carryoverConsumables(get().mine);
+        const pending = get().bought;
+        const remaining: MineConsumables = {
+          dynamite: carry.dynamite + pending.dynamite,
+          rope: carry.rope + pending.rope,
+          ladder: carry.ladder + pending.ladder,
+        };
         const nextSeed = randomSeed();
+        const nextMine = createMine(nextSeed, get().gear, remaining);
+        // Selling happens standing at the Assay Office; the fresh claim
+        // walks back there instead of teleporting to the shaft.
+        const atCol = get().mine.miner.col;
+        const walk: MineAction[] = [];
+        for (let c = START_COL; c !== atCol; c += atCol < c ? -1 : 1) {
+          const dir = atCol < c ? "left" : "right";
+          applyAction(nextMine, dir);
+          walk.push(dir);
+        }
         set({
           cashOut: {
             state: "done",
@@ -163,10 +204,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             milestoneBonus: body.credited.milestoneBonus ?? 0,
             balance: body.balance,
           },
+          balance: typeof body.balance === "number" ? body.balance : null,
           consumables: remaining,
-          mine: createMine(nextSeed, get().gear, remaining),
+          bought: NO_CONSUMABLES,
+          mine: nextMine,
           seed: nextSeed,
-          moves: [],
+          moves: walk,
           tick: 0,
           lastResult: null,
         });
@@ -175,11 +218,127 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       }
     },
 
+    buyConsumable: async (item) => {
+      const { cashOut } = get();
+      if (cashOut.state === "pending") return;
+      try {
+        const res = await fetch("/api/consumables/buy", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ item }),
+        });
+        if (res.status === 503) {
+          set({ shopNote: "the depot ledger is offline; nothing was charged" });
+          return;
+        }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          set({
+            shopNote:
+              typeof body.error === "string" ? body.error : "purchase failed",
+          });
+          return;
+        }
+        const body = await res.json();
+        // Re-provision the live session: replaying the full log over a
+        // strictly larger consumable snapshot reproduces the world
+        // exactly (refusal thresholds only loosen), so the new stock is
+        // usable immediately, mid-claim, without losing the dig.
+        const { seed: s0, gear, consumables, bought, moves, tick } = get();
+        const owned: MineConsumables = {
+          ...consumables,
+          [item]: consumables[item] + bought[item] + 1,
+        };
+        for (const key of ["dynamite", "rope", "ladder"] as const) {
+          if (key !== item) owned[key] = consumables[key] + bought[key];
+        }
+        const rebuilt = createMine(s0, gear, owned);
+        for (const m of moves) applyAction(rebuilt, m);
+        set({
+          mine: rebuilt,
+          consumables: owned,
+          bought: NO_CONSUMABLES,
+          balance: typeof body.balance === "number" ? body.balance : null,
+          shopNote: `+1 ${item} packed (${body.count} owned)`,
+          tick: tick + 1,
+        });
+      } catch {
+        set({ shopNote: "purchase failed" });
+      }
+    },
+
+    buyGearUpgrade: async (track) => {
+      const { cashOut } = get();
+      if (cashOut.state === "pending") return;
+      try {
+        const res = await fetch("/api/gear/upgrade", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ track }),
+        });
+        if (res.status === 503) {
+          set({
+            shopNote: "the outfitter ledger is offline; nothing was charged",
+          });
+          return;
+        }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          set({
+            shopNote:
+              typeof body.error === "string" ? body.error : "upgrade failed",
+          });
+          return;
+        }
+        const body = await res.json();
+        const { gear, consumables, bought, moves, seed: s0, tick } = get();
+        const nextGear: MineGear = { ...gear, [track]: body.level };
+        if (surfaceOnlyLog(moves)) {
+          // Gear changes the sim, so the live session only absorbs it
+          // while the log is pure surface walks (replay-identical under
+          // any gear). Otherwise it lands on the next claim.
+          const owned: MineConsumables = {
+            dynamite: consumables.dynamite + bought.dynamite,
+            rope: consumables.rope + bought.rope,
+            ladder: consumables.ladder + bought.ladder,
+          };
+          const rebuilt = createMine(s0, nextGear, owned);
+          for (const m of moves) applyAction(rebuilt, m);
+          set({
+            gear: nextGear,
+            mine: rebuilt,
+            consumables: owned,
+            bought: NO_CONSUMABLES,
+            balance: typeof body.balance === "number" ? body.balance : null,
+            shopNote: `${track} is now level ${body.level}`,
+            tick: tick + 1,
+          });
+        } else {
+          set({
+            gear: nextGear,
+            balance: typeof body.balance === "number" ? body.balance : null,
+            shopNote: `${track} level ${body.level} delivered; it applies on the next claim`,
+            tick: tick + 1,
+          });
+        }
+      } catch {
+        set({ shopNote: "upgrade failed" });
+      }
+    },
+
     restart: (seedOverride) => {
       const nextSeed = seedOverride ?? randomSeed();
+      const { consumables, bought } = get();
+      const owned: MineConsumables = {
+        dynamite: consumables.dynamite + bought.dynamite,
+        rope: consumables.rope + bought.rope,
+        ladder: consumables.ladder + bought.ladder,
+      };
       set({
-        mine: createMine(nextSeed, get().gear, get().consumables),
+        mine: createMine(nextSeed, get().gear, owned),
         seed: nextSeed,
+        consumables: owned,
+        bought: NO_CONSUMABLES,
         moves: [],
         tick: 0,
         lastResult: null,

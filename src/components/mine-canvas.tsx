@@ -22,6 +22,7 @@ import {
   stratumAt,
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
+import { STALLS } from "./mine-stalls";
 
 const ORE_COLORS: Record<OreId, string> = {
   coal: "#33343a",
@@ -373,12 +374,56 @@ function MinerBot({
 }
 
 /** Night-camp surface dressing: headframe, lantern posts, grass. */
-function SurfaceDressing() {
+/** A village stall building: hut, pyramid roof, door, lit sign. */
+function StallBuilding({
+  x,
+  color,
+  active,
+}: {
+  x: number;
+  color: string;
+  active: boolean;
+}) {
+  return (
+    <group position={[x, 0, -0.1]}>
+      <RoundedBox
+        args={[1.22, 0.85, 0.85]}
+        radius={0.05}
+        smoothness={2}
+        position={[0, 1.43, 0]}
+      >
+        <meshStandardMaterial color="#5a4632" roughness={0.9} flatShading />
+      </RoundedBox>
+      <mesh position={[0, 2.08, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <coneGeometry args={[0.95, 0.55, 4]} />
+        <meshStandardMaterial color="#3a2c1e" roughness={0.95} flatShading />
+      </mesh>
+      {/* Door */}
+      <mesh position={[0, 1.25, 0.44]}>
+        <boxGeometry args={[0.3, 0.48, 0.04]} />
+        <meshStandardMaterial color="#241a10" roughness={1} flatShading />
+      </mesh>
+      {/* Sign: brightens when the miner stands at the stall */}
+      <mesh position={[0, 1.72, 0.46]}>
+        <boxGeometry args={[0.62, 0.18, 0.05]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={active ? 1.7 : 0.55}
+          flatShading
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function SurfaceDressing({ activeCol }: { activeCol: number | null }) {
   const tufts = [];
   for (let i = 0; i < 12; i++) {
     const h = cellHash(i, 97, 3);
     const x = (h - 0.5) * (MINE_WIDTH + 1);
     if (Math.abs(x) < 0.9) continue;
+    if (STALLS.some((stall) => Math.abs(x - cellX(stall.col)) < 0.85)) continue;
     tufts.push(
       <mesh
         key={i}
@@ -436,8 +481,17 @@ function SurfaceDressing() {
           <meshStandardMaterial color="#23262f" flatShading />
         </mesh>
       </group>
-      {/* Lantern posts flanking the camp */}
-      {[-3.4, 3.4].map((x) => (
+      {/* The village stalls (REQ-021) */}
+      {STALLS.map((stall) => (
+        <StallBuilding
+          key={stall.id}
+          x={cellX(stall.col)}
+          color={stall.color}
+          active={activeCol === stall.col}
+        />
+      ))}
+      {/* Lantern posts flanking the headframe */}
+      {[-1.3, 1.3].map((x) => (
         <group key={x} position={[x, 0, 0.3]}>
           <mesh position={[0, 1.45, 0]}>
             <boxGeometry args={[0.07, 0.95, 0.07]} />
@@ -902,7 +956,9 @@ function MineScene() {
         <boxGeometry args={[MINE_WIDTH + 2, 1.04, 0.12]} />
         <meshStandardMaterial color="#171310" roughness={1} />
       </mesh>
-      <SurfaceDressing />
+      <SurfaceDressing
+        activeCol={mine.miner.row === 0 ? mine.miner.col : null}
+      />
       {/* The miner bot. No position prop: useFrame owns the transform. */}
       <group ref={minerRef}>
         <MinerBot

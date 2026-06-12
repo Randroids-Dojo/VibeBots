@@ -337,6 +337,22 @@
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-021",
+      "requirement": "A surface village: walkable shop stalls on the surface row (Assay Office sells banked loot, Supply Depot sells consumables, Outfitter sells gear) with proximity menus; purchases enter the live session per Q-008's re-provision rule.",
+      "gddRef": "docs/gdd/06-mining.html#village",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/mine-stalls.ts",
+        "src/components/mine-panel.tsx",
+        "src/components/mine-canvas.tsx",
+        "src/state/mine-store.ts"
+      ],
+      "testRefs": [
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": []
     }
   ]
 }

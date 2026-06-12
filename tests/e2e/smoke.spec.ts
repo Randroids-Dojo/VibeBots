@@ -102,6 +102,42 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(page.getByText(/Ladders \(\d+\)/)).toBeVisible();
 });
 
+test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  await expect(status).toContainText("depth 0");
+
+  // Walk left from the shaft (col 4) to the Assay Office (col 1).
+  for (let i = 0; i < 3; i++) {
+    await page.getByRole("button", { name: "Left" }).click();
+  }
+  const assay = page.getByLabel("Assay Office");
+  await expect(assay).toBeVisible();
+  await expect(assay).toContainText("nothing banked yet");
+
+  // Walk right to the Supply Depot (col 6): consumables with prices.
+  for (let i = 0; i < 5; i++) {
+    await page.getByRole("button", { name: "Right" }).click();
+  }
+  const depot = page.getByLabel("Supply Depot");
+  await expect(depot).toBeVisible();
+  await expect(depot).toContainText("Ladder");
+  await expect(depot).toContainText("2 cr");
+
+  // And on to the Outfitter (col 8): the four gear tracks.
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole("button", { name: "Right" }).click();
+  }
+  const outfitter = page.getByLabel("Outfitter");
+  await expect(outfitter).toBeVisible();
+  await expect(outfitter).toContainText("Pickaxe");
+  await expect(outfitter).toContainText("Cargo Hold");
+
+  // Walking off the stall column closes the menu.
+  await page.getByRole("button", { name: "Left" }).click();
+  await expect(outfitter).not.toBeVisible();
+});
+
 test("miner stays at depth when walking sideways (lateral teleport regression)", async ({
   page,
 }) => {

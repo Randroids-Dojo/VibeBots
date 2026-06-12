@@ -35,7 +35,7 @@
     <h3>Mobile-Only Control Copy</h3>
     <dl>
       <dt>Branch</dt><dd><code>fix/mobile-control-copy</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#48</dd>
       <dt>Changed</dt><dd>user-reported: the onboarding hint told phone players "WASD works too". An audit found it was the only user-facing keyboard mention left after the HUD streamline; it now gates on the same coarse-pointer heuristic the renderer backend uses, reading "drag anywhere to move" on touch and adding the WASD note only on fine pointers.</dd>
       <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (93), <code>pnpm build</code>, <code>pnpm test:e2e</code> (12 passed: the phone-viewport suite now runs with hasTouch and asserts the keyboard-free hint; the desktop test pins the WASD copy).</dd>
       <dt>Assumptions</dt><dd>coarse pointer remains the mobile heuristic, consistent with the renderer backend choice.</dd>

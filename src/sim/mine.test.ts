@@ -11,6 +11,7 @@ import {
   createMine,
   DEFAULT_GEAR,
   type Direction,
+  exportDiff,
   GAS_VENT_DRAIN,
   GEAR_TRACKS,
   HAZARD_FREE_ROWS,
@@ -19,11 +20,11 @@ import {
   LAMP_ENERGY,
   LANTERN_RADIUS,
   LIGHT_RADIUS,
-  MINE_WIDTH,
   type MineAction,
   type MineState,
   type MoveResult,
   maxGearLevel,
+  NO_CONSUMABLES,
   ORES,
   oreChanceAt,
   oreDef,
@@ -38,6 +39,7 @@ import {
   START_ENERGY,
   STRATA,
   SWING_COST,
+  setCell,
   step,
   strataBonusBetween,
   stratumAt,
@@ -78,7 +80,7 @@ describe("mine", () => {
     const a = createMine(42);
     const b = createMine(42);
     for (let row = 0; row < 40; row++) {
-      for (let col = 0; col < MINE_WIDTH; col++) {
+      for (let col = -6; col <= 6; col++) {
         expect(cellAt(a, col, row)?.kind).toBe(cellAt(b, col, row)?.kind);
         expect(cellAt(a, col, row)?.ore).toBe(cellAt(b, col, row)?.ore);
       }
@@ -93,7 +95,7 @@ describe("mine", () => {
     for (let i = 0; i < 60; i++) step(a, i % 5 === 0 ? "left" : "down");
     for (let i = 0; i < 60; i++) step(b, i % 3 === 0 ? "right" : "down");
     cellAt(a, 0, 80);
-    for (let col = 0; col < MINE_WIDTH; col++) {
+    for (let col = -6; col <= 6; col++) {
       for (let row = 60; row < 80; row++) {
         expect(cellAt(a, col, row)?.kind).toBe(cellAt(b, col, row)?.kind);
       }
@@ -105,7 +107,7 @@ describe("mine", () => {
     const b = createMine(2);
     let differences = 0;
     for (let row = 1; row < 30; row++) {
-      for (let col = 0; col < MINE_WIDTH; col++) {
+      for (let col = -6; col <= 6; col++) {
         if (cellAt(a, col, row)?.kind !== cellAt(b, col, row)?.kind)
           differences++;
       }
@@ -117,7 +119,7 @@ describe("mine", () => {
     for (const seed of [3, 77, 901]) {
       const state = createMine(seed);
       for (let row = 1; row < 120; row++) {
-        for (let col = 0; col < MINE_WIDTH; col++) {
+        for (let col = -6; col <= 6; col++) {
           const cell = cellAt(state, col, row);
           if (cell?.kind === "ore" && cell.ore) {
             const def = oreDef(cell.ore);
@@ -155,7 +157,7 @@ describe("mine", () => {
     for (const seed of [5, 1234, 999999]) {
       const state = createMine(seed);
       for (let row = 1; row <= ROCK_FREE_ROWS; row++) {
-        for (let col = 0; col < MINE_WIDTH; col++) {
+        for (let col = -6; col <= 6; col++) {
           expect(cellAt(state, col, row)?.kind).not.toBe("rock");
         }
       }
@@ -294,10 +296,53 @@ describe("mine", () => {
     expect(replayTrip(31337, moves)).toEqual(replayed);
   });
 
-  it("keeps light bounded by lantern radius", () => {
+  it("persists the carved world across trips via the diff (REQ-026)", () => {
+    const trip1: MineAction[] = ["down", "down", "down", "down", "up", "up"];
+    const state = createMine(211);
+    for (const a of trip1) applyAction(state, a);
+    // The dug shaft and its ladders are in the diff...
+    const diff = exportDiff(state);
+    expect(diff.length).toBeGreaterThan(0);
+    // ...and a fresh trip over the diff resumes the same world: the
+    // shaft is still dug, the ladder still planted, but the trip state
+    // (energy, provision, log) is fresh.
+    const next = createMine(211, DEFAULT_GEAR, NO_CONSUMABLES, diff);
+    expect(cellAt(next, START_COL, 1)?.kind).toBe("empty");
+    expect(cellAt(next, START_COL, 1)?.ladder).toBe(true);
+    expect(next.miner.energy).toBe(START_ENERGY);
+    expect(next.consumables.ladder).toBe(LADDER_PROVISION);
+    // Server-side replay parity holds trip over trip: replaying trip 2
+    // on trip 1's checkpoint matches the live client.
+    const trip2: MineAction[] = ["down", "left", "left", "left", "abandon"];
+    for (const a of trip2) applyAction(next, a);
+    const replayed = replayTrip(211, trip2, DEFAULT_GEAR, NO_CONSUMABLES, diff);
+    expect(replayed.maxDepth).toBe(next.miner.maxDepth);
+    expect(replayed.diff).toEqual(exportDiff(next));
+  });
+
+  it("digs into negative columns: the claim is endless (REQ-027)", () => {
+    const state = createMine(223);
+    // March left along the surface and dig down well past the old edge.
+    for (let i = 0; i < 12; i++) step(state, "left");
+    expect(state.miner.col).toBe(-12);
+    const before = state.miner.energy;
+    dig(state, "down");
+    expect(state.miner.row).toBe(1);
+    expect(before).toBe(START_ENERGY);
+    // Generation is deterministic out there too (compare pristine
+    // rows below the one this test dug).
+    const twin = createMine(223);
+    for (let r = 2; r < 20; r++) {
+      expect(cellAt(twin, -12, r)?.kind).toBe(cellAt(state, -12, r)?.kind);
+    }
+  });
+
+  it("starts pristine at the village shaft", () => {
     const state = createMine(5);
-    expect(state.rows.length).toBeGreaterThanOrEqual(LIGHT_RADIUS + 1);
+    // Nothing is overridden until the player digs; generation is pure.
+    expect(state.cells.size).toBe(0);
     expect(state.miner.col).toBe(START_COL);
+    expect(cellAt(state, 0, LIGHT_RADIUS + 1)?.kind).toBeDefined();
   });
 
   it("scales lamp energy and bank refill with the lamp level", () => {
@@ -321,10 +366,10 @@ describe("mine", () => {
   it("refuses ore with a full hold but still digs dirt", () => {
     const state = createMine(19);
     state.miner.carried = { coal: cargoCapacity(state.gear) };
-    state.rows[1][START_COL] = { kind: "ore", ore: "coal" };
+    setCell(state, START_COL, 1, { kind: "ore", ore: "coal" });
     const refused = step(state, "down");
     expect(refused).toEqual({ ok: false, reason: "hold-full" });
-    state.rows[1][START_COL] = { kind: "dirt" };
+    setCell(state, START_COL, 1, { kind: "dirt" });
     const dug = dig(state, "down");
     expect(dug.ok && dug.dug).toBe("dirt");
   });
@@ -339,7 +384,7 @@ describe("mine", () => {
     expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 4 }, 3)).toBe(true);
 
     const state = createMine(19, { ...DEFAULT_GEAR, pickaxe: 2 });
-    state.rows[1][START_COL] = { kind: "rock", rockTier: 1 };
+    setCell(state, START_COL, 1, { kind: "rock", rockTier: 1 });
     const before = state.miner.energy;
     const dug = dig(state, "down");
     expect(dug.ok && dug.dug).toBe("rock");
@@ -351,7 +396,7 @@ describe("mine", () => {
     void ROCK_DIG_COST;
 
     const walled = createMine(19);
-    walled.rows[1][START_COL] = { kind: "rock", rockTier: 1 };
+    setCell(walled, START_COL, 1, { kind: "rock", rockTier: 1 });
     expect(step(walled, "down")).toEqual({ ok: false, reason: "rock" });
   });
 
@@ -378,7 +423,7 @@ describe("mine", () => {
     for (const seed of [5, 1234, 999999]) {
       const state = createMine(seed);
       for (let row = 1; row <= HAZARD_FREE_ROWS; row++) {
-        for (let col = 0; col < MINE_WIDTH; col++) {
+        for (let col = -6; col <= 6; col++) {
           const kind = cellAt(state, col, row)?.kind;
           expect(kind).not.toBe("gas");
           expect(kind).not.toBe("boulder");
@@ -391,26 +436,26 @@ describe("mine", () => {
     const state = createMine(41);
     // Hand-build the scenario: dig down to row 1, gas at row 2 below,
     // another gas in its blast plus to chain.
-    state.rows[1][START_COL] = { kind: "dirt" };
-    state.rows[2][START_COL] = { kind: "gas" };
-    state.rows[2][START_COL - 1] = { kind: "gas" };
-    state.rows[3][START_COL] = { kind: "ore", ore: "coal" };
+    setCell(state, START_COL, 1, { kind: "dirt" });
+    setCell(state, START_COL, 2, { kind: "gas" });
+    setCell(state, START_COL - 1, 2, { kind: "gas" });
+    setCell(state, START_COL, 3, { kind: "ore", ore: "coal" });
     const before = state.miner.energy;
     const result = dig(state, "down");
     expect(result.ok && result.vented).toBe(2);
     // Both pockets vented; the loot caught in the blast is gone.
-    expect(state.rows[2][START_COL].kind).toBe("empty");
-    expect(state.rows[2][START_COL - 1].kind).toBe("empty");
-    expect(state.rows[3][START_COL].kind).toBe("empty");
+    expect(cellAt(state, START_COL, 2)?.kind).toBe("empty");
+    expect(cellAt(state, START_COL - 1, 2)?.kind).toBe("empty");
+    expect(cellAt(state, START_COL, 3)?.kind).toBe("empty");
     expect(before - state.miner.energy).toBeCloseTo(1 + 2 * GAS_VENT_DRAIN, 5);
   });
 
   it("wobbles an unsupported boulder for one action, then drops it", () => {
     const state = createMine(43);
-    state.rows[1][START_COL] = { kind: "dirt" };
-    state.rows[2][START_COL] = { kind: "dirt" };
-    state.rows[1][START_COL - 1] = { kind: "boulder" };
-    state.rows[2][START_COL - 1] = { kind: "dirt" };
+    setCell(state, START_COL, 1, { kind: "dirt" });
+    setCell(state, START_COL, 2, { kind: "dirt" });
+    setCell(state, START_COL - 1, 1, { kind: "boulder" });
+    setCell(state, START_COL - 1, 2, { kind: "dirt" });
     dig(state, "down"); // miner to (col,1)
     const side = step(state, "left"); // digs the boulder's support? no:
     // left digs (col-1,1)... that IS the boulder: blocked.
@@ -420,20 +465,20 @@ describe("mine", () => {
     expect(dugSupport.ok).toBe(true);
     // The boulder above is wobbling now, falls on the NEXT action
     // (a cracking swing counts: every swing is an action).
-    expect(state.rows[1][START_COL - 1].wobbling).toBe(true);
+    expect(cellAt(state, START_COL - 1, 1)?.wobbling).toBe(true);
     const next = step(state, "left"); // swing further left
     expect(next.ok).toBe(true);
     // Boulder fell into the vacated cell at row 2.
-    expect(state.rows[1][START_COL - 1].kind).toBe("empty");
-    expect(state.rows[2][START_COL - 1].kind).toBe("boulder");
+    expect(cellAt(state, START_COL - 1, 1)?.kind).toBe("empty");
+    expect(cellAt(state, START_COL - 1, 2)?.kind).toBe("boulder");
   });
 
   it("crushes the miner who stands under a falling boulder", () => {
     const state = createMine(47);
-    state.rows[1][START_COL] = { kind: "boulder" };
-    state.rows[1][START_COL + 1] = { kind: "dirt" };
-    state.rows[2][START_COL] = { kind: "dirt" };
-    state.rows[2][START_COL + 1] = { kind: "dirt" };
+    setCell(state, START_COL, 1, { kind: "boulder" });
+    setCell(state, START_COL + 1, 1, { kind: "dirt" });
+    setCell(state, START_COL, 2, { kind: "dirt" });
+    setCell(state, START_COL + 1, 2, { kind: "dirt" });
     // Tunnel around: down the right column, then dig left under the
     // boulder, ending UNDER it as it wobbles.
     step(state, "right"); // walk surface to col+1
@@ -441,9 +486,9 @@ describe("mine", () => {
     dig(state, "down"); // dig (col+1,2)
     const under = dig(state, "left"); // dig (col,2): under the boulder
     expect(under.ok).toBe(true);
-    expect(state.rows[1][START_COL].wobbling).toBe(true);
+    expect(cellAt(state, START_COL, 1)?.wobbling).toBe(true);
     state.miner.carried = { coal: 3 };
-    state.rows[3][START_COL] = { kind: "dirt" };
+    setCell(state, START_COL, 3, { kind: "dirt" });
     const fatal = step(state, "down"); // one more swing, under the path
     expect(fatal.ok && fatal.crushed).toBe(true);
     expect(fatal.ok && fatal.collapsed).toBe(true);
@@ -465,12 +510,12 @@ describe("mine", () => {
       ladder: 0,
       plank: 0,
     });
-    state.rows[1][START_COL] = { kind: "rock", rockTier: 3 };
-    state.rows[2][START_COL] = { kind: "ore", ore: "coal" };
+    setCell(state, START_COL, 1, { kind: "rock", rockTier: 3 });
+    setCell(state, START_COL, 2, { kind: "ore", ore: "coal" });
     const result = applyAction(state, "dynamite-down");
     expect(result.ok && (result.blasted ?? 0)).toBeGreaterThanOrEqual(2);
-    expect(state.rows[1][START_COL].kind).toBe("empty");
-    expect(state.rows[2][START_COL].kind).toBe("empty");
+    expect(cellAt(state, START_COL, 1)?.kind).toBe("empty");
+    expect(cellAt(state, START_COL, 2)?.kind).toBe("empty");
     expect(state.consumables.dynamite).toBe(1);
     expect(state.used.dynamite).toBe(1);
     // No energy cost: the price was paid in credits.

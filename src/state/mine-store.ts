@@ -5,6 +5,7 @@ import {
   carryoverConsumables,
   createMine,
   DEFAULT_GEAR,
+  exportDiff,
   MINE_VERSION,
   type MineAction,
   type MineConsumables,
@@ -13,7 +14,32 @@ import {
   type MoveResult,
   NO_CONSUMABLES,
   START_COL,
+  type WorldDiff,
 } from "@/sim/mine";
+
+/** Guests keep the persistent world in localStorage (REQ-026). */
+const LOCAL_WORLD_KEY = "vibebots-mine-world-v1";
+
+function loadLocalWorld(): { seed: number; diff: WorldDiff } | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_WORLD_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.seed !== "number" || !Array.isArray(parsed.diff))
+      return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalWorld(seed: number, diff: WorldDiff): void {
+  try {
+    localStorage.setItem(LOCAL_WORLD_KEY, JSON.stringify({ seed, diff }));
+  } catch {
+    // Storage full or blocked: the world still lives in memory.
+  }
+}
 
 /**
  * Mining session state. The MineState object is mutated in place by the
@@ -55,12 +81,15 @@ export interface MineSessionState {
   balance: number | null;
   /** One-line feedback for the stall menus. */
   shopNote: string | null;
+  /** Server replay-protection counter; null until the world loads. */
+  tripIndex: number;
   moves: MineAction[];
   tick: number;
   lastResult: MoveResult | null;
   lastAction: MineAction | null;
   cashOut: CashOutState;
   move: (action: MineAction) => void;
+  loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
   submitCashOut: () => Promise<void>;
   buyConsumable: (item: keyof MineConsumables) => Promise<void>;
@@ -83,6 +112,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     bought: NO_CONSUMABLES,
     balance: null,
     shopNote: null,
+    tripIndex: 0,
     moves: [],
     tick: 0,
     lastResult: null,
@@ -98,6 +128,48 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // Refused actions are not part of the trip (the sim ignored them).
       if (result.ok) moves.push(action);
       set({ tick: tick + 1, lastResult: result, lastAction: action });
+      // The carved world persists even for guests: checkpoint locally
+      // every so often and at trip-ending moments.
+      if (
+        result.ok &&
+        (result.collapsed || result.recalled || moves.length % 25 === 0)
+      ) {
+        saveLocalWorld(get().seed, exportDiff(mine));
+      }
+    },
+
+    loadWorld: async () => {
+      // Server world first (storage configured); guests fall back to
+      // the locally persisted world; a fresh browser starts pristine.
+      try {
+        const res = await fetch("/api/mine/world");
+        if (res.ok) {
+          const body = await res.json();
+          const { gear, consumables } = get();
+          set({
+            seed: body.seed,
+            tripIndex: body.tripIndex ?? 0,
+            mine: createMine(body.seed, gear, consumables, body.diff ?? []),
+            moves: [],
+            tick: 0,
+            lastResult: null,
+          });
+          return;
+        }
+      } catch {
+        // offline: fall through to local
+      }
+      const local = loadLocalWorld();
+      if (local) {
+        const { gear, consumables } = get();
+        set({
+          seed: local.seed,
+          mine: createMine(local.seed, gear, consumables, local.diff),
+          moves: [],
+          tick: 0,
+          lastResult: null,
+        });
+      }
     },
 
     loadGear: async () => {
@@ -124,15 +196,14 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         ) {
           return;
         }
-        // Gear changes the sim, so a session restarts with the snapshot
-        // (only at mount or after shopping; mid-trip this never fires).
-        const nextSeed = randomSeed();
+        // Gear changes the sim, so the trip restarts with the snapshot,
+        // but the carved world stays (REQ-026): same seed, same diff.
+        const { seed: worldSeed, mine } = get();
         set({
           gear,
           consumables,
           bought: NO_CONSUMABLES,
-          mine: createMine(nextSeed, gear, consumables),
-          seed: nextSeed,
+          mine: createMine(worldSeed, gear, consumables, exportDiff(mine)),
           moves: [],
           tick: 0,
           lastResult: null,
@@ -143,7 +214,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     submitCashOut: async () => {
-      const { seed: currentSeed, moves, mine, consumables } = get();
+      const { seed: currentSeed, moves, mine, consumables, tripIndex } = get();
       set({ cashOut: { state: "pending" } });
       try {
         const res = await fetch("/api/mine/bank", {
@@ -151,10 +222,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             seed: currentSeed,
+            tripIndex,
             moves,
             mineVersion: MINE_VERSION,
-            // The snapshot the session actually ran on: a gear upgrade
-            // bought mid-trip applies to the next claim, not this log.
+            // The snapshot the trip actually ran on: a gear upgrade
+            // bought mid-trip applies to the next trip, not this log.
             gear: mine.gear,
             consumables,
           }),
@@ -175,18 +247,22 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           return;
         }
         const body = await res.json();
-        // The seed is consumed server-side: a fresh mine starts with
-        // the purchased consumables the trip left over (the free ladder
-        // provision is per-trip and does not bank) plus anything bought
-        // at the depot since, on the store gear (a deferred upgrade
-        // lands here).
+        // The world persists (REQ-026): the next trip resumes the SAME
+        // carved claim. Only the trip state is fresh: leftover purchased
+        // consumables plus anything bought at the depot since, on the
+        // store gear (a deferred upgrade lands here).
         const remaining: MineConsumables = addConsumables(
           carryoverConsumables(get().mine),
           get().bought,
         );
-        const nextSeed = randomSeed();
-        const nextMine = createMine(nextSeed, get().gear, remaining);
-        // Selling happens standing at the Assay Office; the fresh claim
+        const worldDiff = exportDiff(get().mine);
+        const nextMine = createMine(
+          currentSeed,
+          get().gear,
+          remaining,
+          worldDiff,
+        );
+        // Selling happens standing at the Assay Office; the fresh trip
         // walks back there instead of teleporting to the shaft.
         const atCol = get().mine.miner.col;
         const walk: MineAction[] = [];
@@ -195,6 +271,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           applyAction(nextMine, dir);
           walk.push(dir);
         }
+        saveLocalWorld(currentSeed, worldDiff);
         set({
           cashOut: {
             state: "done",
@@ -207,7 +284,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           consumables: remaining,
           bought: NO_CONSUMABLES,
           mine: nextMine,
-          seed: nextSeed,
+          tripIndex:
+            typeof body.tripIndex === "number"
+              ? body.tripIndex
+              : get().tripIndex + 1,
           moves: walk,
           tick: 0,
           lastResult: null,
@@ -246,7 +326,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const { seed: s0, gear, consumables, bought, moves, tick } = get();
         const owned = addConsumables(consumables, bought);
         owned[item] += 1;
-        const rebuilt = createMine(s0, gear, owned);
+        const rebuilt = createMine(s0, gear, owned, exportDiff(get().mine));
         for (const m of moves) applyAction(rebuilt, m);
         set({
           mine: rebuilt,
@@ -292,7 +372,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           // while the log is pure surface walks (replay-identical under
           // any gear). Otherwise it lands on the next claim.
           const owned = addConsumables(consumables, bought);
-          const rebuilt = createMine(s0, nextGear, owned);
+          const rebuilt = createMine(
+            s0,
+            nextGear,
+            owned,
+            exportDiff(get().mine),
+          );
           for (const m of moves) applyAction(rebuilt, m);
           set({
             gear: nextGear,
@@ -317,12 +402,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     restart: (seedOverride) => {
-      const nextSeed = seedOverride ?? randomSeed();
-      const { consumables, bought } = get();
+      // A restart abandons the trip log, never the world (REQ-026). The
+      // seed override remains for deterministic test harnesses, which
+      // get a pristine world for that seed.
+      const { consumables, bought, seed: worldSeed, mine } = get();
       const owned = addConsumables(consumables, bought);
+      const seed = seedOverride ?? worldSeed;
+      const diff = seedOverride === undefined ? exportDiff(mine) : undefined;
       set({
-        mine: createMine(nextSeed, get().gear, owned),
-        seed: nextSeed,
+        mine: createMine(seed, get().gear, owned, diff),
+        seed,
         consumables: owned,
         bought: NO_CONSUMABLES,
         moves: [],

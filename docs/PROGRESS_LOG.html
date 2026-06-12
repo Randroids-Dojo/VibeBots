@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-persistent-endless-world" data-date="2026-06-12">
+    <h3>Persistent Endless World Core</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-persistent-world</code></dd>
+      <dt>PR</dt><dd>#53</dd>
+      <dt>Changed</dt><dd>the epic's foundation (REQ-026/REQ-027, Q-009/Q-010 defaults). The 9-wide row-array grid became sparse overrides on pure per-cell generation across all integer coordinates: a cell not in the override map regenerates identically from the seed on read, so endlessness costs nothing and the map IS the world save. Falls and wobbles localized to each action's emptied cells with deterministic ordering. The shaft sits at the origin (stalls at -3/2/4, same walking distances), the camera follows the trail anywhere, and the bedrock edge pillars are gone. Cash-outs no longer reset anything: the server stores each player's world (<code>mine_worlds</code>: server-issued seed, diff checkpoint, trip counter as the replay guard, all advanced atomically with the credit), replays the trip on the stored checkpoint, and zero-bank carving trips checkpoint legitimately; the client resumes the same carved claim, and guests checkpoint to local storage at trip-ending moments. Gear changes and depot purchases rebuild over the same world. <code>MINE_VERSION</code> 10.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (96: new specs for diff round-trip with trip-over-trip replay parity and negative-column digging), <code>pnpm build</code>, <code>pnpm test:e2e</code> (13 passed including a new reload test: dig, abandon, reload, and the shaft descends as two plain walks at exactly 59.0 energy).</dd>
+      <dt>Assumptions</dt><dd>the diff stores whole cell objects (simple, compresses in jsonb; compaction is future work logged in the epic); local checkpoints fire on trip endings and every 25 moves; the seed override path in restart() remains for deterministic test harnesses and yields a pristine world.</dd>
+      <dt>GDD coverage</dt><dd>REQ-026 and REQ-027 flipped to done; build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>none new; next epic slices: elevator, teleporter, deep dangers, stuck-floor legibility.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-endless-epic-design" data-date="2026-06-12">
     <h3>Endless-Mine Epic Design Pass</h3>
     <dl>

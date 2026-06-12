@@ -10,6 +10,7 @@ import {
   PLANK_PROVISION,
   replayTrip,
   STRATA,
+  type WorldDiff,
 } from "@/sim/mine";
 
 export const runtime = "nodejs";
@@ -20,6 +21,8 @@ const gearLevel = (track: "pickaxe" | "lamp" | "cargo" | "lantern") =>
 
 const bodySchema = z.object({
   seed: z.number().int().min(0).max(4294967295),
+  // Replay-protection: must match the stored world's trip counter.
+  tripIndex: z.number().int().min(0),
   moves: z.array(z.enum(MINE_ACTIONS)).min(1).max(MAX_TRIP_MOVES),
   mineVersion: z.number().int(),
   // The gear snapshot the session was played with (Q-007 default B):
@@ -73,6 +76,28 @@ export async function POST(request: Request): Promise<Response> {
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
 
+  // The persistent world checkpoint (REQ-026): the trip replays on top
+  // of the stored diff; seed and trip counter must match.
+  const worlds = (await sql`
+    SELECT seed, diff, trip_count FROM mine_worlds
+    WHERE player_id = ${playerId}`) as Array<{
+    seed: string | number;
+    diff: unknown;
+    trip_count: number;
+  }>;
+  if (worlds.length === 0) {
+    return Response.json({ error: "no claim on file" }, { status: 409 });
+  }
+  if (Number(worlds[0].seed) !== parsed.data.seed) {
+    return Response.json({ error: "wrong claim seed" }, { status: 422 });
+  }
+  if (worlds[0].trip_count !== parsed.data.tripIndex) {
+    return Response.json(
+      { error: "this trip was already cashed out; reload the mine" },
+      { status: 409 },
+    );
+  }
+
   // Gear ownership check: claiming better gear than you own is the only
   // way the snapshot could inflate a payout.
   const owned = (await sql`
@@ -103,13 +128,10 @@ export async function POST(request: Request): Promise<Response> {
     parsed.data.moves,
     gear,
     consumables,
+    (worlds[0].diff ?? []) as WorldDiff,
   );
-  if (trip.bankedCredits === 0 && trip.bankedParts.length === 0) {
-    return Response.json(
-      { error: "nothing banked in this run" },
-      { status: 422 },
-    );
-  }
+  // Zero-bank trips are legitimate now: carving and laddering are
+  // world investments worth checkpointing even with an empty hold.
   // One statement = atomic on the neon HTTP driver (no cross-statement
   // transactions): consume the seed, compute the first-reach stratum
   // bonus against the stored record, credit the wallet, advance the
@@ -118,21 +140,24 @@ export async function POST(request: Request): Promise<Response> {
   const rows = (await sql`
     WITH prev AS (
       SELECT deepest_depth FROM players WHERE id = ${playerId}
-    ), ins AS (
-      INSERT INTO mine_runs (player_id, seed, banked_emeralds, banked_parts)
-      VALUES (${playerId}, ${parsed.data.seed}, ${trip.bankedCredits}, ${JSON.stringify(trip.bankedParts)}::jsonb)
-      ON CONFLICT (player_id, seed) DO NOTHING
-      RETURNING banked_emeralds, banked_parts
+    ), world AS (
+      UPDATE mine_worlds
+      SET diff = ${JSON.stringify(trip.diff)}::jsonb,
+          trip_count = trip_count + 1,
+          updated_at = now()
+      WHERE player_id = ${playerId}
+        AND trip_count = ${parsed.data.tripIndex}
+      RETURNING trip_count
     ), bonus AS (
       SELECT COALESCE(SUM((s ->> 'firstReachBonus')::int), 0)::int AS amount
       FROM prev, jsonb_array_elements(${JSON.stringify(STRATA)}::jsonb) AS s
-      WHERE EXISTS (SELECT 1 FROM ins)
+      WHERE EXISTS (SELECT 1 FROM world)
         AND (s ->> 'startRow')::int > prev.deepest_depth
         AND (s ->> 'startRow')::int <= ${trip.maxDepth}
     ), upd AS (
       UPDATE players
       SET emeralds = emeralds
-            + (SELECT banked_emeralds FROM ins)
+            + ${trip.bankedCredits}
             + (SELECT amount FROM bonus),
           deepest_depth = GREATEST(deepest_depth, ${trip.maxDepth}),
           dynamite_count = GREATEST(0, dynamite_count - ${trip.used.dynamite}),
@@ -141,12 +166,13 @@ export async function POST(request: Request): Promise<Response> {
             - ${Math.max(0, trip.used.ladder - LADDER_PROVISION)}),
           plank_count = GREATEST(0, plank_count
             - ${Math.max(0, trip.used.plank - PLANK_PROVISION)})
-      WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM ins)
+      WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM world)
       RETURNING emeralds, deepest_depth
     ), granted AS (
       INSERT INTO player_parts (player_id, part_id, count)
       SELECT ${playerId}, value, count(*)::int
-      FROM ins, jsonb_array_elements_text(ins.banked_parts)
+      FROM jsonb_array_elements_text(${JSON.stringify(trip.bankedParts)}::jsonb)
+      WHERE EXISTS (SELECT 1 FROM world)
       GROUP BY value
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
@@ -154,14 +180,16 @@ export async function POST(request: Request): Promise<Response> {
     SELECT
       (SELECT emeralds FROM upd) AS emeralds,
       (SELECT deepest_depth FROM upd) AS deepest_depth,
-      (SELECT amount FROM bonus) AS bonus`) as Array<{
+      (SELECT amount FROM bonus) AS bonus,
+      (SELECT trip_count FROM world) AS trip_count`) as Array<{
     emeralds: number | null;
     deepest_depth: number | null;
     bonus: number | null;
+    trip_count: number | null;
   }>;
   if (rows[0]?.emeralds === null || rows[0]?.emeralds === undefined) {
     return Response.json(
-      { error: "this run was already cashed out" },
+      { error: "this trip was already cashed out" },
       { status: 409 },
     );
   }
@@ -173,5 +201,6 @@ export async function POST(request: Request): Promise<Response> {
     },
     balance: rows[0].emeralds,
     deepestDepth: rows[0].deepest_depth,
+    tripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
   });
 }

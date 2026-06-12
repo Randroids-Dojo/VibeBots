@@ -15,6 +15,7 @@ import {
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
   exportDiff,
+  findBeacon,
   GAS_VENT_DRAIN,
   GEAR_TRACKS,
   HAZARD_FREE_ROWS,
@@ -46,6 +47,8 @@ import {
   step,
   strataBonusBetween,
   stratumAt,
+  WARP_PAD_COL,
+  warpRange,
 } from "./mine";
 
 /** Swing at a direction until the block breaks (or the action ends). */
@@ -403,6 +406,84 @@ describe("mine", () => {
     expect(elevatorSegmentPrice(4)).toBeGreaterThan(600);
   });
 
+  it("plants one beacon and warps within coil range (REQ-029)", () => {
+    const cons = { ...NO_CONSUMABLES, beacon: 2 };
+    const state = createMine(241, DEFAULT_GEAR, cons);
+    expect(applyAction(state, "place-beacon")).toEqual({
+      ok: false,
+      reason: "surface",
+    });
+    expect(applyAction(state, "warp-down")).toEqual({
+      ok: false,
+      reason: "no-beacon",
+    });
+    dig(state, "down");
+    dig(state, "down");
+    const planted = applyAction(state, "place-beacon");
+    expect(planted.ok).toBe(true);
+    expect(state.used.beacon).toBe(1);
+    expect(findBeacon(state)).toEqual({ col: START_COL, row: 2 });
+    // Warp home banks from the beacon cell; warp down returns to it.
+    state.miner.carried = { coal: 1 };
+    expect(applyAction(state, "warp-home").ok).toBe(true);
+    expect(state.miner.row).toBe(0);
+    expect(state.miner.col).toBe(WARP_PAD_COL);
+    expect(state.miner.bankedCredits).toBe(1);
+    expect(applyAction(state, "warp-down").ok).toBe(true);
+    expect(state.miner.row).toBe(2);
+    // Replanting moves the single beacon.
+    dig(state, "down");
+    expect(applyAction(state, "place-beacon").ok).toBe(true);
+    expect(findBeacon(state)).toEqual({ col: START_COL, row: 3 });
+    expect(state.consumables.beacon).toBe(0);
+    expect(applyAction(state, "place-beacon")).toEqual({
+      ok: false,
+      reason: "no-beacon",
+    });
+  });
+
+  it("refuses warps past the coil range until upgraded", () => {
+    const cons = { ...NO_CONSUMABLES, beacon: 1 };
+    const state = createMine(251, DEFAULT_GEAR, cons);
+    dig(state, "down");
+    const beaconCell = findBeacon(state);
+    expect(beaconCell).toBeNull();
+    applyAction(state, "place-beacon");
+    // Fake depth beyond range by moving the beacon record deep.
+    const planted = findBeacon(state);
+    expect(planted).not.toBeNull();
+    if (planted) {
+      setCell(state, planted.col, planted.row, { kind: "empty" });
+      setCell(state, planted.col, 100, { kind: "empty", beacon: true });
+    }
+    expect(applyAction(state, "warp-home")).toEqual({
+      ok: false,
+      reason: "out-of-range",
+    });
+    const coil = createMine(251, { ...DEFAULT_GEAR, warpcoil: 3 }, cons);
+    expect(warpRange(coil.gear)).toBe(400);
+  });
+
+  it("replays beacon trips identically", () => {
+    const cons = { ...NO_CONSUMABLES, beacon: 1 };
+    const actions: MineAction[] = [
+      "down",
+      "down",
+      "down",
+      "down",
+      "down",
+      "down",
+      "place-beacon",
+      "warp-home",
+    ];
+    const state = createMine(257, DEFAULT_GEAR, cons);
+    for (const a of actions) applyAction(state, a);
+    const replayed = replayTrip(257, actions, DEFAULT_GEAR, cons);
+    expect(replayed.used.beacon).toBe(state.used.beacon);
+    expect(replayed.diff).toEqual(exportDiff(state));
+    expect(replayTrip(257, actions, DEFAULT_GEAR, cons)).toEqual(replayed);
+  });
+
   it("starts pristine at the village shaft", () => {
     const state = createMine(5);
     // Nothing is overridden until the player digs; generation is pure.
@@ -467,7 +548,14 @@ describe("mine", () => {
   });
 
   it("replays identically with a gear snapshot", () => {
-    const gear = { pickaxe: 2, lamp: 2, cargo: 2, lantern: 2, elevator: 0 };
+    const gear = {
+      pickaxe: 2,
+      lamp: 2,
+      cargo: 2,
+      lantern: 2,
+      elevator: 0,
+      warpcoil: 1,
+    };
     // A push-your-luck descent: mostly down with lateral sweeps. The
     // bigger lamp digs further before the collapse, so the snapshot
     // genuinely changes the trip.
@@ -575,6 +663,7 @@ describe("mine", () => {
       rope: 0,
       ladder: 0,
       plank: 0,
+      beacon: 0,
     });
     setCell(state, START_COL, 1, { kind: "rock", rockTier: 3 });
     setCell(state, START_COL, 2, { kind: "ore", ore: "coal" });
@@ -594,6 +683,7 @@ describe("mine", () => {
       rope: 1,
       ladder: 0,
       plank: 0,
+      beacon: 0,
     });
     expect(applyAction(state, "recall")).toEqual({
       ok: false,
@@ -652,7 +742,7 @@ describe("mine", () => {
   });
 
   it("banks only purchased ladders between trips", () => {
-    const owned = { dynamite: 0, rope: 0, ladder: 3, plank: 0 };
+    const owned = { dynamite: 0, rope: 0, ladder: 3, plank: 0, beacon: 0 };
     const state = createMine(83, DEFAULT_GEAR, owned);
     expect(state.consumables.ladder).toBe(3 + LADDER_PROVISION);
     // Spend two: both come out of the free provision.
@@ -674,6 +764,7 @@ describe("mine", () => {
       rope: 0,
       ladder: 1,
       plank: 0,
+      beacon: 0,
     });
   });
 
@@ -690,6 +781,7 @@ describe("mine", () => {
       rope: 0,
       ladder: 0,
       plank: 0,
+      beacon: 0,
     });
     applyAction(state, "dynamite-down");
     expect(cellAt(state, START_COL, 1)?.kind).toBe("empty");
@@ -798,7 +890,13 @@ describe("mine", () => {
       "left",
       "right",
     ];
-    const consumables = { dynamite: 1, rope: 0, ladder: 0, plank: 0 };
+    const consumables = {
+      dynamite: 1,
+      rope: 0,
+      ladder: 0,
+      plank: 0,
+      beacon: 0,
+    };
     const state = createMine(109, DEFAULT_GEAR, consumables);
     for (const action of actions) applyAction(state, action);
     const replayed = replayTrip(109, actions, DEFAULT_GEAR, consumables);
@@ -825,7 +923,13 @@ describe("mine", () => {
   });
 
   it("replays consumable trips identically with used counts", () => {
-    const consumables = { dynamite: 3, rope: 1, ladder: 0, plank: 0 };
+    const consumables = {
+      dynamite: 3,
+      rope: 1,
+      ladder: 0,
+      plank: 0,
+      beacon: 0,
+    };
     const actions: MineAction[] = [];
     const state = createMine(61, DEFAULT_GEAR, consumables);
     for (let i = 0; i < 60; i++) {

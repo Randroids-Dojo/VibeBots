@@ -53,10 +53,12 @@ async function applySchema(sql: Sql): Promise<void> {
     ADD COLUMN IF NOT EXISTS rope_count integer NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS ladder_count integer NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS plank_count integer NOT NULL DEFAULT 0`;
-  // The elevator rail (REQ-028): depth in rows.
+  // The elevator rail (REQ-028) and teleporter (REQ-029).
   await sql`
     ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS elevator_depth integer NOT NULL DEFAULT 0`;
+    ADD COLUMN IF NOT EXISTS elevator_depth integer NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS warpcoil_level integer NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS beacon_count integer NOT NULL DEFAULT 0`;
   await sql`
     CREATE TABLE IF NOT EXISTS player_parts (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,

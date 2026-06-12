@@ -336,6 +336,26 @@ test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await expect(outfitter).not.toBeVisible();
 });
 
+test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "0");
+
+  // The pad stands six columns right of the shaft.
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press("ArrowRight");
+  }
+  const pad = page.getByLabel("Warp Pad");
+  await expect(pad).toBeVisible();
+  await expect(pad).toContainText("no beacon planted");
+  await expect(pad).toContainText("range 60 rows");
+  await expect(
+    pad.getByRole("button", { name: "Warp to beacon" }),
+  ).toBeDisabled();
+});
+
 test("the winch tower sells rail and gates rides on it (REQ-028)", async ({
   page,
 }) => {

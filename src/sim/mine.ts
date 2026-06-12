@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 11;
+export const MINE_VERSION = 12;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -52,6 +52,8 @@ export interface MineConsumables {
   rope: number;
   ladder: number;
   plank: number;
+  /** Warp beacon kits (REQ-029): one active beacon, replanting moves it. */
+  beacon: number;
 }
 
 export const NO_CONSUMABLES: MineConsumables = {
@@ -59,6 +61,7 @@ export const NO_CONSUMABLES: MineConsumables = {
   rope: 0,
   ladder: 0,
   plank: 0,
+  beacon: 0,
 };
 
 export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
@@ -66,6 +69,7 @@ export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
   rope: 8,
   ladder: 2,
   plank: 2,
+  beacon: 60,
 };
 
 /** Per-key sum, shared by the store's carryover and purchase merges. */
@@ -78,6 +82,7 @@ export function addConsumables(
     rope: a.rope + b.rope,
     ladder: a.ladder + b.ladder,
     plank: a.plank + b.plank,
+    beacon: a.beacon + b.beacon,
   };
 }
 
@@ -111,6 +116,8 @@ export interface MineGear {
   lantern: number;
   /** Elevator rail depth in rows (REQ-028); 0 = no rail bought yet. */
   elevator: number;
+  /** Warpcoil level (REQ-029): indexes WARP_RANGE. */
+  warpcoil: number;
 }
 
 export const DEFAULT_GEAR: MineGear = {
@@ -119,6 +126,7 @@ export const DEFAULT_GEAR: MineGear = {
   cargo: 1,
   lantern: 1,
   elevator: 0,
+  warpcoil: 1,
 };
 
 /** The winch tower's column: the elevator runs down this shaft. */
@@ -172,7 +180,23 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     prices: [50, 200],
     blurb: "see deeper ahead",
   },
+  {
+    track: "warpcoil",
+    name: "Warpcoil",
+    prices: [120, 400, 1200],
+    blurb: "longer beacon warp range",
+  },
 ];
+
+/** Beacon warp reach in rows by warpcoil level (REQ-029). */
+export const WARP_RANGE = [60, 150, 400, 1000] as const;
+
+export function warpRange(gear: MineGear): number {
+  return WARP_RANGE[Math.min(gear.warpcoil, WARP_RANGE.length) - 1];
+}
+
+/** The village warp pad's column. */
+export const WARP_PAD_COL = 6;
 
 export function gearTrackDef(track: keyof MineGear): GearTrackDef {
   const def = GEAR_TRACKS.find((t) => t.track === track);
@@ -450,6 +474,8 @@ export interface MineCell {
    * full health for its kind and the digger's pickaxe.
    */
   hp?: number;
+  /** The active warp beacon stands here (REQ-029); at most one world-wide. */
+  beacon?: boolean;
 }
 
 /** Rare robot parts discoverable underground (REQ-007). */
@@ -581,6 +607,7 @@ export function carryoverConsumables(state: MineState): MineConsumables {
     rope: state.consumables.rope,
     ladder: Math.max(0, state.consumables.ladder - ladderFree),
     plank: Math.max(0, state.consumables.plank - plankFree),
+    beacon: state.consumables.beacon,
   };
 }
 
@@ -637,7 +664,7 @@ export function createMine(
       ladder: consumables.ladder + LADDER_PROVISION,
       plank: consumables.plank + PLANK_PROVISION,
     },
-    used: { dynamite: 0, rope: 0, ladder: 0, plank: 0 },
+    used: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     cells: importDiff(diff),
     miner: {
       col: START_COL,
@@ -747,6 +774,8 @@ export type MoveResult =
         | "no-ladder"
         | "no-plank"
         | "no-elevator"
+        | "no-beacon"
+        | "out-of-range"
         | "surface";
     };
 
@@ -765,7 +794,10 @@ export type MineAction =
   | "recall"
   | "abandon"
   | "ride-down"
-  | "ride-up";
+  | "ride-up"
+  | "place-beacon"
+  | "warp-home"
+  | "warp-down";
 
 export const MINE_ACTIONS = [
   "down",
@@ -780,6 +812,9 @@ export const MINE_ACTIONS = [
   "abandon",
   "ride-down",
   "ride-up",
+  "place-beacon",
+  "warp-home",
+  "warp-down",
 ] as const;
 
 /** Blast-destructible kinds (caches are reinforced; jackpots survive). */
@@ -1246,6 +1281,63 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
   return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
 }
 
+/** Locate the active beacon in the world diff, if any. */
+export function findBeacon(
+  state: MineState,
+): { col: number; row: number } | null {
+  for (const [key, cell] of state.cells) {
+    if (cell.beacon) {
+      const [col, row] = key.split(",").map(Number);
+      return { col, row };
+    }
+  }
+  return null;
+}
+
+/**
+ * The teleporter (REQ-029): a beacon kit plants the one active beacon
+ * at the miner's cell; the village warp pad and the beacon exchange
+ * the miner freely while the beacon's depth is within warpcoil range.
+ * All logged, all free of energy: the late game compresses conquered
+ * space, never unconquered space.
+ */
+function placeBeacon(state: MineState): MoveResult {
+  const miner = state.miner;
+  if (miner.row < 1) return { ok: false, reason: "surface" };
+  if (state.consumables.beacon <= 0) return { ok: false, reason: "no-beacon" };
+  const old = findBeacon(state);
+  if (old) {
+    const cell = cellMut(state, old.col, old.row);
+    cell.beacon = undefined;
+  }
+  state.consumables.beacon--;
+  state.used.beacon++;
+  cellMut(state, miner.col, miner.row).beacon = true;
+  return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+}
+
+function warp(state: MineState, dir: "home" | "down"): MoveResult {
+  const miner = state.miner;
+  const beacon = findBeacon(state);
+  if (!beacon) return { ok: false, reason: "no-beacon" };
+  if (beacon.row > warpRange(state.gear))
+    return { ok: false, reason: "out-of-range" };
+  if (dir === "home") {
+    if (miner.col !== beacon.col || miner.row !== beacon.row)
+      return { ok: false, reason: "blocked" };
+    miner.col = WARP_PAD_COL;
+    miner.row = 0;
+    bank(miner, state.gear);
+    return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+  }
+  if (miner.row !== 0 || miner.col !== WARP_PAD_COL)
+    return { ok: false, reason: "blocked" };
+  miner.col = beacon.col;
+  miner.row = beacon.row;
+  if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
+  return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+}
+
 /** Dispatches any logged trip action (Q-006 default B). */
 export function applyAction(state: MineState, action: MineAction): MoveResult {
   switch (action) {
@@ -1270,6 +1362,12 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
       return rideElevator(state, "down");
     case "ride-up":
       return rideElevator(state, "up");
+    case "place-beacon":
+      return placeBeacon(state);
+    case "warp-home":
+      return warp(state, "home");
+    case "warp-down":
+      return warp(state, "down");
   }
 }
 

@@ -16,8 +16,9 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const gearLevel = (track: "pickaxe" | "lamp" | "cargo" | "lantern") =>
-  z.number().int().min(1).max(maxGearLevel(track));
+const gearLevel = (
+  track: "pickaxe" | "lamp" | "cargo" | "lantern" | "warpcoil",
+) => z.number().int().min(1).max(maxGearLevel(track));
 
 const bodySchema = z.object({
   seed: z.number().int().min(0).max(4294967295),
@@ -33,6 +34,7 @@ const bodySchema = z.object({
     cargo: gearLevel("cargo"),
     lantern: gearLevel("lantern"),
     elevator: z.number().int().min(0).max(100000),
+    warpcoil: gearLevel("warpcoil"),
   }),
   // Consumables held at session start; spent ones decrement at cash-out.
   consumables: z.object({
@@ -40,6 +42,7 @@ const bodySchema = z.object({
     rope: z.number().int().min(0).max(999),
     ladder: z.number().int().min(0).max(999),
     plank: z.number().int().min(0).max(999),
+    beacon: z.number().int().min(0).max(999),
   }),
 });
 
@@ -103,11 +106,18 @@ export async function POST(request: Request): Promise<Response> {
   // way the snapshot could inflate a payout.
   const owned = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           elevator_depth,
-           dynamite_count, rope_count, ladder_count, plank_count
+           warpcoil_level, elevator_depth,
+           dynamite_count, rope_count, ladder_count, plank_count,
+           beacon_count
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
   const gear = parsed.data.gear;
-  for (const track of ["pickaxe", "lamp", "cargo", "lantern"] as const) {
+  for (const track of [
+    "pickaxe",
+    "lamp",
+    "cargo",
+    "lantern",
+    "warpcoil",
+  ] as const) {
     if (gear[track] > (owned[0]?.[`${track}_level`] ?? 1)) {
       return Response.json(
         { error: `gear not owned: ${track} level ${gear[track]}` },
@@ -126,7 +136,8 @@ export async function POST(request: Request): Promise<Response> {
     consumables.dynamite > (owned[0]?.dynamite_count ?? 0) ||
     consumables.rope > (owned[0]?.rope_count ?? 0) ||
     consumables.ladder > (owned[0]?.ladder_count ?? 0) ||
-    consumables.plank > (owned[0]?.plank_count ?? 0)
+    consumables.plank > (owned[0]?.plank_count ?? 0) ||
+    consumables.beacon > (owned[0]?.beacon_count ?? 0)
   ) {
     return Response.json({ error: "consumables not owned" }, { status: 422 });
   }
@@ -173,7 +184,8 @@ export async function POST(request: Request): Promise<Response> {
           ladder_count = GREATEST(0, ladder_count
             - ${Math.max(0, trip.used.ladder - LADDER_PROVISION)}),
           plank_count = GREATEST(0, plank_count
-            - ${Math.max(0, trip.used.plank - PLANK_PROVISION)})
+            - ${Math.max(0, trip.used.plank - PLANK_PROVISION)}),
+          beacon_count = GREATEST(0, beacon_count - ${trip.used.beacon})
       WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM world)
       RETURNING emeralds, deepest_depth
     ), granted AS (

@@ -6,7 +6,7 @@ import { CONSUMABLE_PRICES } from "@/sim/mine";
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  item: z.enum(["dynamite", "rope", "ladder", "plank"]),
+  item: z.enum(["dynamite", "rope", "ladder", "plank", "beacon"]),
 });
 
 /**
@@ -51,11 +51,17 @@ export async function POST(request: Request): Promise<Response> {
         SET emeralds = emeralds - ${price}, ladder_count = ladder_count + 1
         WHERE id = ${playerId} AND emeralds >= ${price}
         RETURNING emeralds, ladder_count AS count`
-        : sql`
+        : item === "plank"
+          ? sql`
         UPDATE players
         SET emeralds = emeralds - ${price}, plank_count = plank_count + 1
         WHERE id = ${playerId} AND emeralds >= ${price}
-        RETURNING emeralds, plank_count AS count`)) as Array<{
+        RETURNING emeralds, plank_count AS count`
+          : sql`
+        UPDATE players
+        SET emeralds = emeralds - ${price}, beacon_count = beacon_count + 1
+        WHERE id = ${playerId} AND emeralds >= ${price}
+        RETURNING emeralds, beacon_count AS count`)) as Array<{
     emeralds: number;
     count: number;
   }>;

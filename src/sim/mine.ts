@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 9;
+export const MINE_VERSION = 10;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -226,9 +226,11 @@ export function canDigRock(gear: MineGear, tier: number): boolean {
   return gear.pickaxe - 1 >= tier;
 }
 
-export const MINE_WIDTH = 9;
-/** Column the miner starts in (surface shaft entrance). */
-export const START_COL = 4;
+/**
+ * The claim is endless on both axes (REQ-027): columns span all
+ * integers with the village anchored at the origin.
+ */
+export const START_COL = 0;
 export const START_ENERGY = 60;
 
 export const DIG_COST_DIRT = 1;
@@ -463,9 +465,40 @@ export interface MineState {
   consumables: MineConsumables;
   /** Consumables spent this session (server decrements at cash-out). */
   used: MineConsumables;
-  /** Sparse rows, generated on demand; index 0 is the surface. */
-  rows: MineCell[][];
+  /**
+   * Player mutations over pure generation, keyed "col,row" (Q-010):
+   * dug cells, crack damage, ladders, planks, fallen boulders. This
+   * map IS the persistent world (REQ-026): everything not in it
+   * regenerates identically from the seed on read.
+   */
+  cells: Map<string, MineCell>;
   miner: MinerState;
+}
+
+/** Serialized world mutations: the save format for client and server. */
+export type WorldDiff = Array<[number, number, MineCell]>;
+
+const cellKey = (col: number, row: number) => `${col},${row}`;
+
+/** The world diff, sorted for deterministic serialization. */
+export function exportDiff(state: MineState): WorldDiff {
+  const entries: WorldDiff = [];
+  for (const [key, cell] of state.cells) {
+    const [col, row] = key.split(",").map(Number);
+    entries.push([col, row, { ...cell }]);
+  }
+  entries.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  return entries;
+}
+
+function importDiff(diff: WorldDiff | undefined): Map<string, MineCell> {
+  const cells = new Map<string, MineCell>();
+  if (diff) {
+    for (const [col, row, cell] of diff) {
+      cells.set(cellKey(col, row), { ...cell });
+    }
+  }
+  return cells;
 }
 
 /** Max lamp energy for the session's gear. */
@@ -515,7 +548,7 @@ export function returnEnergyCost(miner: MinerState): number {
 export function returnLadderNeed(state: MineState): number {
   let need = 0;
   for (let r = 1; r <= state.miner.row; r++) {
-    const cell = state.rows[r]?.[state.miner.col];
+    const cell = cellAt(state, state.miner.col, r);
     if (!(cell?.kind === "empty" && cell.ladder)) need++;
   }
   return need;
@@ -571,27 +604,19 @@ function cacheChance(row: number): number {
   return Math.min(0.004 + row * 0.0012, 0.03);
 }
 
-/** Generates rows up to and including the given row index. */
-export function ensureRows(state: MineState, row: number): void {
-  while (state.rows.length <= row) {
-    const index = state.rows.length;
-    const cells: MineCell[] = [];
-    if (index === 0) {
-      for (let c = 0; c < MINE_WIDTH; c++) cells.push({ kind: "empty" });
-    } else {
-      for (let c = 0; c < MINE_WIDTH; c++)
-        cells.push(rollCell(state.seed, index, c));
-    }
-    state.rows.push(cells);
-  }
+/** Pristine cell for coordinates the player never touched. */
+function generatedCell(seed: number, col: number, row: number): MineCell {
+  if (row === 0) return { kind: "empty" };
+  return rollCell(seed, row, col);
 }
 
 export function createMine(
   seed: number,
   gear: MineGear = DEFAULT_GEAR,
   consumables: MineConsumables = NO_CONSUMABLES,
+  diff?: WorldDiff,
 ): MineState {
-  const state: MineState = {
+  return {
     seed,
     gear,
     consumables: {
@@ -600,7 +625,7 @@ export function createMine(
       plank: consumables.plank + PLANK_PROVISION,
     },
     used: { dynamite: 0, rope: 0, ladder: 0, plank: 0 },
-    rows: [],
+    cells: importDiff(diff),
     miner: {
       col: START_COL,
       row: 0,
@@ -613,18 +638,42 @@ export function createMine(
       collapses: 0,
     },
   };
-  ensureRows(state, lightRadius(gear) + 1);
-  return state;
 }
 
+/**
+ * Read a cell. Pristine cells are regenerated per call: do not mutate
+ * the result; mutate through cellMut so the change joins the diff.
+ */
 export function cellAt(
   state: MineState,
   col: number,
   row: number,
 ): MineCell | null {
-  if (col < 0 || col >= MINE_WIDTH || row < 0) return null;
-  ensureRows(state, row);
-  return state.rows[row][col];
+  if (row < 0) return null;
+  return (
+    state.cells.get(cellKey(col, row)) ?? generatedCell(state.seed, col, row)
+  );
+}
+
+/** Materialize a cell into the diff and return the stored object. */
+function cellMut(state: MineState, col: number, row: number): MineCell {
+  const key = cellKey(col, row);
+  let cell = state.cells.get(key);
+  if (!cell) {
+    cell = generatedCell(state.seed, col, row);
+    state.cells.set(key, cell);
+  }
+  return cell;
+}
+
+/** Overwrite a cell (also the test hook for fabricating scenarios). */
+export function setCell(
+  state: MineState,
+  col: number,
+  row: number,
+  cell: MineCell,
+): void {
+  state.cells.set(cellKey(col, row), cell);
 }
 
 export type Direction = "down" | "left" | "right" | "up";
@@ -728,7 +777,12 @@ const BLASTABLE: ReadonlySet<CellKind> = new Set([
  * gas caught in each plus-shaped blast. Returns the number of pockets
  * vented. Destroyed cells (including their loot) become empty.
  */
-function ventGasAround(state: MineState, col: number, row: number): number {
+function ventGasAround(
+  state: MineState,
+  col: number,
+  row: number,
+  emptied: Array<{ col: number; row: number }>,
+): number {
   const queue: Array<{ col: number; row: number }> = [];
   for (const [dc, dr] of [
     [0, 1],
@@ -745,7 +799,8 @@ function ventGasAround(state: MineState, col: number, row: number): number {
     if (!g) break;
     const gasCell = cellAt(state, g.col, g.row);
     if (gasCell?.kind !== "gas") continue;
-    state.rows[g.row][g.col] = { kind: "empty" };
+    setCell(state, g.col, g.row, { kind: "empty" });
+    emptied.push({ col: g.col, row: g.row });
     vented++;
     for (const [dc, dr] of [
       [0, 0],
@@ -760,7 +815,10 @@ function ventGasAround(state: MineState, col: number, row: number): number {
       const n = cellAt(state, nc, nr);
       if (!n) continue;
       if (n.kind === "gas") queue.push({ col: nc, row: nr });
-      else if (BLASTABLE.has(n.kind)) state.rows[nr][nc] = { kind: "empty" };
+      else if (BLASTABLE.has(n.kind)) {
+        setCell(state, nc, nr, { kind: "empty" });
+        emptied.push({ col: nc, row: nr });
+      }
     }
   }
   return vented;
@@ -772,34 +830,54 @@ function ventGasAround(state: MineState, col: number, row: number): number {
  * you out, the carry stays under the rock). Bottom-up per column so
  * stacked boulders settle onto each other deterministically.
  */
-function resolveFalls(state: MineState): boolean {
+function resolveFalls(
+  state: MineState,
+  emptied: Array<{ col: number; row: number }>,
+): boolean {
   const miner = state.miner;
   let crushed = false;
-  for (let row = state.rows.length - 1; row >= 1; row--) {
-    for (let col = 0; col < MINE_WIDTH; col++) {
-      const cell = state.rows[row][col];
-      if (cell.kind !== "boulder" || !cell.wobbling) continue;
-      let rest = row;
-      while (true) {
-        const below = cellAt(state, col, rest + 1);
-        if (!below || below.kind !== "empty") break;
-        rest++;
-        if (miner.col === col && miner.row === rest) crushed = true;
-      }
-      state.rows[row][col] = { kind: "empty" };
-      state.rows[rest][col] = { kind: "boulder" };
+  // Only override cells can wobble (pristine cells never do), so the
+  // scan is bounded by the wobble count; sort bottom-up, then by
+  // column, so stacked boulders settle deterministically regardless of
+  // map insertion order.
+  const wobbling: Array<{ col: number; row: number }> = [];
+  for (const [key, cell] of state.cells) {
+    if (cell.kind === "boulder" && cell.wobbling) {
+      const [col, row] = key.split(",").map(Number);
+      wobbling.push({ col, row });
     }
+  }
+  wobbling.sort((a, b) => b.row - a.row || a.col - b.col);
+  for (const { col, row } of wobbling) {
+    let rest = row;
+    while (true) {
+      const below = cellAt(state, col, rest + 1);
+      if (!below || below.kind !== "empty") break;
+      rest++;
+      if (miner.col === col && miner.row === rest) crushed = true;
+    }
+    setCell(state, col, row, { kind: "empty" });
+    emptied.push({ col, row });
+    setCell(state, col, rest, { kind: "boulder" });
   }
   return crushed;
 }
 
-/** Boulders whose support vanished start wobbling (one-action warning). */
-function markWobbling(state: MineState): void {
-  for (let row = 1; row < state.rows.length - 1; row++) {
-    for (let col = 0; col < MINE_WIDTH; col++) {
-      const cell = state.rows[row][col];
-      if (cell.kind !== "boulder" || cell.wobbling) continue;
-      if (state.rows[row + 1]?.[col]?.kind === "empty") cell.wobbling = true;
+/**
+ * Boulders whose support vanished start wobbling (one-action warning).
+ * Localized: only cells directly above this action's emptied cells can
+ * have lost support.
+ */
+function markWobbling(
+  state: MineState,
+  emptied: Array<{ col: number; row: number }>,
+): void {
+  for (const { col, row } of emptied) {
+    if (row < 2) continue;
+    const above = cellAt(state, col, row - 1);
+    if (above?.kind !== "boulder" || above.wobbling) continue;
+    if (cellAt(state, col, row)?.kind === "empty") {
+      cellMut(state, col, row - 1).wobbling = true;
     }
   }
 }
@@ -831,14 +909,16 @@ export function step(state: MineState, dir: Direction): MoveResult {
   // Every swing is its own logged action and burns lamp energy, so a
   // dig can still collapse the trip mid-block.
   if (cell.kind !== "empty") {
-    const remaining = (cell.hp ?? hitsFor(cell.kind, state.gear)) - 1;
+    const struck = cellMut(state, t.col, t.row);
+    const remaining = (struck.hp ?? hitsFor(struck.kind, state.gear)) - 1;
     if (remaining > 0) {
-      cell.hp = remaining;
-      miner.energy = Math.max(0, miner.energy - swingCostFor(cell.kind));
+      struck.hp = remaining;
+      miner.energy = Math.max(0, miner.energy - swingCostFor(struck.kind));
       // A swing is a full action: wobbling boulders still drop, and the
       // lamp can still die mid-block.
-      const crushedMid = resolveFalls(state);
-      markWobbling(state);
+      const emptiedMid: Array<{ col: number; row: number }> = [];
+      const crushedMid = resolveFalls(state, emptiedMid);
+      markWobbling(state, emptiedMid);
       if (crushedMid || (miner.row > 0 && miner.energy <= 0)) {
         const lost = {
           value: carriedValue(miner),
@@ -847,7 +927,6 @@ export function step(state: MineState, dir: Direction): MoveResult {
           row: miner.row,
         };
         collapse(miner, state.gear);
-        ensureRows(state, lost.row + lightRadius(state.gear) + 1);
         return {
           ok: true,
           dug: null,
@@ -864,13 +943,13 @@ export function step(state: MineState, dir: Direction): MoveResult {
         dugOre: null,
         found: null,
         collapsed: false,
-        cracked: { kind: cell.kind, remaining },
+        cracked: { kind: struck.kind, remaining },
       };
     }
   }
   let laddered = false;
   if (dir === "up" && miner.row >= 1) {
-    const here = state.rows[miner.row][miner.col];
+    const here = cellMut(state, miner.col, miner.row);
     if (!here.ladder) {
       if (state.consumables.ladder <= 0)
         return { ok: false, reason: "no-ladder" };
@@ -902,6 +981,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   let found: string | null = null;
   let cost = MOVE_COST;
   let vented = 0;
+  const emptied: Array<{ col: number; row: number }> = [];
   if (cell.kind !== "empty") {
     dug = cell.kind;
     cost = swingCostFor(cell.kind);
@@ -914,18 +994,19 @@ export function step(state: MineState, dir: Direction): MoveResult {
       found = CACHE_PART_IDS[Math.floor(pick * CACHE_PART_IDS.length)];
       miner.carriedParts.push(found);
     }
-    state.rows[t.row][t.col] = { kind: "empty" };
+    setCell(state, t.col, t.row, { kind: "empty" });
+    emptied.push({ col: t.col, row: t.row });
     // Digging next to a pocket vents it: the burn is lamp heat.
-    vented = ventGasAround(state, t.col, t.row);
+    vented = ventGasAround(state, t.col, t.row, emptied);
   }
 
   let planked = false;
   if (needPlank) {
-    // After dig resolution the target object may be a fresh empty cell;
-    // the plank lives on whatever now occupies the target.
+    // After dig resolution the target is an override empty cell; the
+    // plank lives on it.
     state.consumables.plank--;
     state.used.plank++;
-    state.rows[t.row][t.col].plank = true;
+    cellMut(state, t.col, t.row).plank = true;
     planked = true;
   }
 
@@ -934,8 +1015,8 @@ export function step(state: MineState, dir: Direction): MoveResult {
   miner.row = t.row;
   if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
 
-  const crushed = resolveFalls(state);
-  markWobbling(state);
+  const crushed = resolveFalls(state, emptied);
+  markWobbling(state, emptied);
 
   let collapsed = false;
   let lost: { value: number; parts: string[]; col: number; row: number };
@@ -948,7 +1029,6 @@ export function step(state: MineState, dir: Direction): MoveResult {
     };
     collapse(miner, state.gear);
     collapsed = true;
-    ensureRows(state, lost.row + lightRadius(state.gear) + 1);
     return {
       ok: true,
       dug,
@@ -965,7 +1045,6 @@ export function step(state: MineState, dir: Direction): MoveResult {
   if (miner.row === 0) {
     bank(miner, state.gear);
   }
-  ensureRows(state, miner.row + lightRadius(state.gear) + 1);
   return {
     ok: true,
     dug,
@@ -989,12 +1068,12 @@ function blast(state: MineState, dir: Direction): MoveResult {
   if (state.consumables.dynamite <= 0)
     return { ok: false, reason: "no-dynamite" };
   const t = target(state, dir);
-  if (t.col < 0 || t.col >= MINE_WIDTH || t.row < 1)
-    return { ok: false, reason: "edge" };
+  if (t.row < 1) return { ok: false, reason: "edge" };
   state.consumables.dynamite--;
   state.used.dynamite++;
   let blasted = 0;
   let vented = 0;
+  const emptied: Array<{ col: number; row: number }> = [];
   for (const [dc, dr] of [
     [0, 0],
     [0, 1],
@@ -1009,16 +1088,18 @@ function blast(state: MineState, dir: Direction): MoveResult {
     if (!cell) continue;
     if (cell.kind === "gas") {
       // Light it from a distance: chains, but the heat misses the lamp.
-      state.rows[nr][nc] = { kind: "empty" };
-      vented += 1 + ventGasAround(state, nc, nr);
+      setCell(state, nc, nr, { kind: "empty" });
+      emptied.push({ col: nc, row: nr });
+      vented += 1 + ventGasAround(state, nc, nr, emptied);
       blasted++;
     } else if (BLASTABLE.has(cell.kind)) {
-      state.rows[nr][nc] = { kind: "empty" };
+      setCell(state, nc, nr, { kind: "empty" });
+      emptied.push({ col: nc, row: nr });
       blasted++;
     }
   }
-  const crushed = resolveFalls(state);
-  markWobbling(state);
+  const crushed = resolveFalls(state, emptied);
+  markWobbling(state, emptied);
   let collapsed = false;
   let lost:
     | { value: number; parts: string[]; col: number; row: number }
@@ -1150,6 +1231,8 @@ export interface TripResult {
   moves: number;
   /** Consumables spent (server decrements at cash-out). */
   used: MineConsumables;
+  /** The world after the trip: persisted as the next checkpoint. */
+  diff: WorldDiff;
 }
 
 /**
@@ -1163,8 +1246,9 @@ export function replayTrip(
   actions: MineAction[],
   gear: MineGear = DEFAULT_GEAR,
   consumables: MineConsumables = NO_CONSUMABLES,
+  diff?: WorldDiff,
 ): TripResult {
-  const state = createMine(seed, gear, consumables);
+  const state = createMine(seed, gear, consumables, diff);
   const capped = actions.slice(0, MAX_TRIP_MOVES);
   for (const action of capped) {
     applyAction(state, action);
@@ -1175,5 +1259,6 @@ export function replayTrip(
     maxDepth: state.miner.maxDepth,
     moves: capped.length,
     used: { ...state.used },
+    diff: exportDiff(state),
   };
 }

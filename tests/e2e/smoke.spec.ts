@@ -272,6 +272,39 @@ test.describe("phone viewport", () => {
   });
 });
 
+test("the carved world survives a reload (REQ-026)", async ({ page }) => {
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "0");
+
+  // Dig a two-deep shaft, then abandon (a trip-ending moment, which
+  // checkpoints the guest world to local storage).
+  await digTo(page, 2);
+  const abandon = page.getByRole("button", { name: "Abandon trip" });
+  await abandon.click();
+  await expect(abandon).toContainText("Sure?");
+  await expect
+    .poll(
+      async () => {
+        const depth = await status.getAttribute("data-depth");
+        if (depth !== "0") await abandon.click();
+        return depth;
+      },
+      { timeout: 10_000 },
+    )
+    .toBe("0");
+  await page.getByLabel("Dismiss trip report").click();
+
+  // Reload: the claim must still be carved. Descending the old shaft
+  // is two plain walks (0.5 energy each), not multi-swing digs.
+  await page.reload();
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveAttribute("data-depth", "2");
+  await expect(status).toHaveAttribute("data-energy", "59.0");
+});
+
 test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");

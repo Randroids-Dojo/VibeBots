@@ -15,21 +15,21 @@ export interface StallDef {
 export const STALLS: readonly StallDef[] = [
   {
     id: "assay",
-    col: 1,
+    col: -3,
     name: "Assay Office",
     color: "#f5c542",
     blurb: "sells your banked haul to the vault",
   },
   {
     id: "supply",
-    col: 6,
+    col: 2,
     name: "Supply Depot",
     color: "#ff9f43",
     blurb: "dynamite, rope, and ladder bundles",
   },
   {
     id: "outfitter",
-    col: 8,
+    col: 4,
     name: "Outfitter",
     color: "#54e0c7",
     blurb: "persistent gear upgrades",

@@ -7,9 +7,9 @@ import {
   cargoCapacity,
   carriedCount,
   carriedValue,
+  cellAt,
   type Direction,
   GEAR_TRACKS,
-  MINE_WIDTH,
   type MineAction,
   type MineGear,
   type MineState,
@@ -110,10 +110,11 @@ function nearMissLine(
 ): string | null {
   let best: { name: string; value: number; dist: number } | null = null;
   const lo = Math.max(1, at.row - 6);
-  const hi = Math.min(mine.rows.length - 1, at.row + 6);
+  const hi = at.row + 6;
   for (let r = lo; r <= hi; r++) {
-    for (let c = 0; c < MINE_WIDTH; c++) {
-      const cell = mine.rows[r][c];
+    for (let c = at.col - 6; c <= at.col + 6; c++) {
+      const cell = cellAt(mine, c, r);
+      if (!cell) continue;
       const dist = Math.abs(r - at.row) + Math.abs(c - at.col);
       if (dist === 0 || dist > 6) continue;
       const value =
@@ -484,6 +485,7 @@ export function MinePanel() {
   const submitCashOut = useMineStore((s) => s.submitCashOut);
   const gear = useMineStore((s) => s.gear);
   const loadGear = useMineStore((s) => s.loadGear);
+  const loadWorld = useMineStore((s) => s.loadWorld);
   const balance = useMineStore((s) => s.balance);
   const shopNote = useMineStore((s) => s.shopNote);
   const buyConsumable = useMineStore((s) => s.buyConsumable);
@@ -502,8 +504,10 @@ export function MinePanel() {
   void tick;
 
   useEffect(() => {
-    void loadGear();
-  }, [loadGear]);
+    // The world first (it seeds the claim), then gear (which rebuilds
+    // the trip over that world when levels differ).
+    void loadWorld().then(() => loadGear());
+  }, [loadWorld, loadGear]);
 
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
@@ -592,7 +596,7 @@ export function MinePanel() {
                   : undefined;
   const cashNote =
     cashOut.state === "done"
-      ? `Vaulted ${cashOut.credits} cr${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Fresh claim.`
+      ? `Vaulted ${cashOut.credits} cr${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. The claim stands.`
       : cashOut.state === "unavailable"
         ? "Vault unreachable; loot is safe, try again."
         : cashOut.state === "error"

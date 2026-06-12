@@ -15,9 +15,9 @@ import type {
 import { Color } from "three/webgpu";
 import { createWebGPU } from "@/components/part-visuals";
 import {
+  cellAt,
   hitsFor,
   isVisible,
-  MINE_WIDTH,
   type OreId,
   START_COL,
   STRATA,
@@ -111,7 +111,12 @@ interface JuiceState {
   lunge: { x: number; y: number; t: number };
 }
 
-const cellX = (col: number) => col - (MINE_WIDTH - 1) / 2;
+/** World coordinates ARE render coordinates in the endless claim. */
+const cellX = (col: number) => col;
+/** Columns rendered to either side of the miner. */
+const VIEW_COLS = 14;
+/** Width of the dressed surface camp strip around the origin. */
+const CAMP_WIDTH = 60;
 
 function pushParticle(juice: JuiceState, p: Omit<Particle, "id">): void {
   juice.particles.push({ ...p, id: juice.nextId++ });
@@ -536,7 +541,7 @@ const SurfaceDressing = memo(function SurfaceDressing({
   const tufts = [];
   for (let i = 0; i < 12; i++) {
     const h = cellHash(i, 97, 3);
-    const x = (h - 0.5) * (MINE_WIDTH + 1);
+    const x = (h - 0.5) * 12;
     if (Math.abs(x) < 0.9) continue;
     if (STALLS.some((stall) => Math.abs(x - cellX(stall.col)) < 0.85)) continue;
     tufts.push(
@@ -557,7 +562,7 @@ const SurfaceDressing = memo(function SurfaceDressing({
       <NightStars />
       {/* Grassy lip along the ground line the miner walks on */}
       <mesh position={[0, -0.47, -0.3]}>
-        <boxGeometry args={[MINE_WIDTH + 2, 0.07, 0.9]} />
+        <boxGeometry args={[CAMP_WIDTH, 0.07, 0.9]} />
         <meshStandardMaterial color="#3d5c3a" roughness={1} flatShading />
       </mesh>
       {tufts}
@@ -749,17 +754,9 @@ function MineScene() {
       // the whole map; gliding the camera through it reads as broken.
       if (Math.abs(targetY - rig.position.y) > 6) rig.position.y = targetY;
       rig.position.y += (targetY - rig.position.y) * Math.min(1, delta * 5);
-      // Narrow (phone portrait) viewports see only ~2.6 world units of
-      // half-width, so the camera must follow the miner laterally too,
-      // clamped so the claim edges still frame. On wide aspects the
-      // clamp is zero and the camera stays centered as before.
-      const cam = state.camera as PerspectiveCamera;
-      const halfW = Math.tan((cam.fov * Math.PI) / 360) * 13 * cam.aspect;
-      const maxPan = Math.max(0, 5.6 - halfW);
-      const targetX = Math.max(
-        -maxPan,
-        Math.min(maxPan, cellX(mine.miner.col)),
-      );
+      // The endless claim has no edges: the camera follows the miner
+      // laterally everywhere (the old clamp framed a 9-wide world).
+      const targetX = cellX(mine.miner.col);
       if (Math.abs(targetX - rig.position.x) > 6) rig.position.x = targetX;
       rig.position.x += (targetX - rig.position.x) * Math.min(1, delta * 5);
       j.shake = Math.max(0, j.shake - delta * 0.9);
@@ -884,8 +881,12 @@ function MineScene() {
   const crackMeshes = [];
   for (let row = firstRow; row <= lastRow; row++) {
     if (!isVisible(mine, row)) continue;
-    for (let col = 0; col < MINE_WIDTH; col++) {
-      const cell = mine.rows[row]?.[col];
+    for (
+      let col = mine.miner.col - VIEW_COLS;
+      col <= mine.miner.col + VIEW_COLS;
+      col++
+    ) {
+      const cell = cellAt(mine, col, row);
       if (!cell) continue;
       const key = `${col}:${row}`;
       const x = cellX(col);
@@ -1090,45 +1091,6 @@ function MineScene() {
     }
   }
 
-  // Bedrock pillars frame the claim; hashed wall stones catch the lamp.
-  // Memoized per visible window: rebuilding them on every dig tick was
-  // wasted reconciliation.
-  const walls = useMemo(() => {
-    const pillarTop = -firstRow + 2;
-    const pillarBottom = -lastRow - 6;
-    const stones = [];
-    for (let row = firstRow; row <= lastRow + 4; row++) {
-      for (const side of [-1, 1]) {
-        const h = cellHash(side, row, 47);
-        if (h < 0.45) continue;
-        stones.push(
-          <mesh
-            key={`${side}:${row}`}
-            position={[
-              side * (4.78 + h * 0.35),
-              -row + (cellHash(side, row, 53) - 0.5),
-              -0.3,
-            ]}
-            rotation={[h * 3, h * 5, h * 7]}
-          >
-            <dodecahedronGeometry args={[0.3 + h * 0.25, 0]} />
-            <meshStandardMaterial
-              color={variedColor("#262b36", side + 4, row)}
-              roughness={0.85}
-              flatShading
-            />
-          </mesh>,
-        );
-      }
-    }
-    return {
-      stones,
-      pillarHeight: pillarTop - pillarBottom,
-      pillarY: (pillarTop + pillarBottom) / 2,
-    };
-  }, [firstRow, lastRow]);
-  const { stones: wallStones, pillarHeight, pillarY } = walls;
-
   return (
     <>
       <color attach="background" args={[bg]} />
@@ -1146,15 +1108,6 @@ function MineScene() {
       {tunnelMeshes}
       {blockMeshes}
       {crackMeshes}
-      {wallStones}
-      <mesh position={[-5.35, pillarY, -0.2]}>
-        <boxGeometry args={[1.7, pillarHeight, 1.4]} />
-        <meshStandardMaterial color="#11141c" roughness={0.95} flatShading />
-      </mesh>
-      <mesh position={[5.35, pillarY, -0.2]}>
-        <boxGeometry args={[1.7, pillarHeight, 1.4]} />
-        <meshStandardMaterial color="#11141c" roughness={0.95} flatShading />
-      </mesh>
       <group ref={particlesRef}>
         {juice.current.particles.map((p) => (
           <mesh key={p.id} position={[p.x, p.y, 0.4]} userData={{ id: p.id }}>
@@ -1174,7 +1127,7 @@ function MineScene() {
           stalls, and the grass all share one ground line now (the old
           raised shelf made the surface read as a pit). */}
       <mesh position={[0, 0, -0.42]}>
-        <boxGeometry args={[MINE_WIDTH + 2, 1.04, 0.12]} />
+        <boxGeometry args={[CAMP_WIDTH, 1.04, 0.12]} />
         <meshStandardMaterial color="#10130d" roughness={1} />
       </mesh>
       <SurfaceDressing

@@ -490,6 +490,9 @@ export function MinePanel() {
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
   const [abandonArmed, setAbandonArmed] = useState(false);
+  // Touch players never see keyboard copy (matches the renderer's
+  // coarse-pointer heuristic). False during SSR; set before paint.
+  const [coarsePointer, setCoarsePointer] = useState(false);
   const armedRef = useRef(false);
   const setDynamiteArmed = (value: boolean | ((prev: boolean) => boolean)) => {
     armedRef.current =
@@ -501,6 +504,10 @@ export function MinePanel() {
   useEffect(() => {
     void loadGear();
   }, [loadGear]);
+
+  useEffect(() => {
+    setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
+  }, []);
 
   // The abandon confirm disarms itself; a stray thumb cannot torch a
   // haul twenty minutes deep.
@@ -816,7 +823,9 @@ export function MinePanel() {
             pointerEvents: "none",
           }}
         >
-          drag anywhere to move &#183; WASD works too
+          {coarsePointer
+            ? "drag anywhere to move"
+            : "drag anywhere to move \u00b7 WASD works too"}
         </div>
       )}
     </div>

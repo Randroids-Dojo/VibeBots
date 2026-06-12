@@ -72,6 +72,22 @@
     </dl>
   </section>
 
+  <section data-q="Q-008" data-status="open">
+    <h3>Q-008: How do village purchases enter a live mining session?</h3>
+    <dl>
+      <dt>Context</dt><dd>The surface village (REQ-021) sells consumables and gear while a session is in progress, but the session is a pure replay of (seed, gear, consumables, action log); changing the inputs mid-log can diverge from what the player saw.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>All purchases apply only to the next claim.</li>
+          <li>Consumable purchases re-provision the live session by replaying the full log over the increased snapshot (lossless: refusal thresholds only loosen, so every logged action reproduces identically); gear purchases re-provision only while the log is pure surface walks, otherwise they land on the next claim.</li>
+          <li>Purchases become logged actions validated against the wallet at replay time.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>B. Buying a ladder at the depot is usable immediately even mid-claim, gear stays replay-exact, and C remains the clean upgrade if purchases ever need server-priced validation inside the log.</dd>
+      <dt>Status</dt><dd>open (shipped under the recommended default in the surface-village slice)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-007" data-status="open">
     <h3>Q-007: Which gear levels does the server replay with?</h3>
     <dl>

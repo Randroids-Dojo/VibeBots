@@ -3,14 +3,18 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import {
+  CONSUMABLE_PRICES,
   cargoCapacity,
   carriedCount,
   carriedValue,
   type Direction,
+  GEAR_TRACKS,
   MINE_WIDTH,
   type MineAction,
+  type MineGear,
   type MineState,
   maxEnergy,
+  maxGearLevel,
   type OreId,
   oreDef,
   returnEnergyCost,
@@ -19,6 +23,7 @@ import {
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
 import { useMineStore } from "@/state/mine-store";
+import { type StallDef, stallAt } from "./mine-stalls";
 
 const MineCanvas = dynamic(() => import("./mine-canvas"), { ssr: false });
 
@@ -285,6 +290,177 @@ function JuiceOverlays() {
   );
 }
 
+/**
+ * The menu for the stall the miner is standing at (REQ-021): sell at
+ * the Assay Office, buy consumables at the Supply Depot, buy gear at
+ * the Outfitter. Walking off the column closes it.
+ */
+function StallMenu({
+  stall,
+  mine,
+  gear,
+  balance,
+  shopNote,
+  cashOutPending,
+  onCashOut,
+  onBuyConsumable,
+  onBuyGear,
+}: {
+  stall: StallDef;
+  mine: MineState;
+  gear: MineGear;
+  balance: number | null;
+  shopNote: string | null;
+  cashOutPending: boolean;
+  onCashOut: () => void;
+  onBuyConsumable: (item: "dynamite" | "rope" | "ladder") => void;
+  onBuyGear: (track: keyof MineGear) => void;
+}) {
+  const miner = mine.miner;
+  const banked = miner.bankedCredits;
+  const bankedParts = miner.bankedParts.length;
+  const offline = balance === null;
+  const rowStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 6,
+  };
+  return (
+    <section
+      aria-label={stall.name}
+      style={{
+        position: "absolute",
+        bottom: 28,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: 320,
+        background: "rgba(17, 21, 31, 0.95)",
+        border: `1px solid ${stall.color}`,
+        borderRadius: 10,
+        padding: 14,
+        zIndex: 10,
+      }}
+    >
+      <p style={{ margin: 0, fontWeight: 700, color: stall.color }}>
+        {stall.name}
+      </p>
+      <p style={{ margin: "2px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
+        {stall.blurb}
+        {balance !== null && ` | wallet: ${balance} cr`}
+      </p>
+      {offline && (
+        <p style={{ margin: "8px 0 0", fontSize: "0.8rem", color: "#f5c542" }}>
+          the ledger is offline right now; browsing only
+        </p>
+      )}
+      {stall.id === "assay" &&
+        (banked > 0 || bankedParts > 0 ? (
+          <>
+            <p style={{ margin: "10px 0 0", fontSize: "0.9rem" }}>
+              on the books: <strong>{banked} cr</strong>
+              {bankedParts > 0 &&
+                ` and ${bankedParts} part${bankedParts > 1 ? "s" : ""}`}
+            </p>
+            <button
+              type="button"
+              onClick={onCashOut}
+              disabled={cashOutPending || offline}
+              style={{ marginTop: 10 }}
+            >
+              {cashOutPending ? "Hauling to the vault..." : "Sell banked loot"}
+            </button>
+          </>
+        ) : (
+          <p style={{ margin: "10px 0 0", fontSize: "0.85rem", opacity: 0.7 }}>
+            nothing banked yet; haul something up and it lands on the books.
+          </p>
+        ))}
+      {stall.id === "supply" && (
+        <div>
+          {(
+            [
+              ["dynamite", "Dynamite"],
+              ["rope", "Recall Rope"],
+              ["ladder", "Ladder"],
+            ] as const
+          ).map(([item, name]) => {
+            const price = CONSUMABLE_PRICES[item];
+            const affordable = balance !== null && balance >= price;
+            return (
+              <div key={item} style={rowStyle}>
+                <span style={{ fontSize: "0.9rem" }}>
+                  {name}{" "}
+                  <span style={{ color: "#54e0c7" }}>
+                    x{mine.consumables[item]}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onBuyConsumable(item)}
+                  disabled={!affordable}
+                >
+                  {price} cr
+                </button>
+              </div>
+            );
+          })}
+          <p style={{ margin: "8px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+            purchases pack straight into the current claim.
+          </p>
+        </div>
+      )}
+      {stall.id === "outfitter" && (
+        <div>
+          {GEAR_TRACKS.map((def) => {
+            const level = gear[def.track];
+            const maxed = level >= maxGearLevel(def.track);
+            const price = maxed ? null : def.prices[level - 1];
+            const affordable =
+              price !== null && balance !== null && balance >= price;
+            return (
+              <div key={def.track} style={rowStyle}>
+                <span style={{ fontSize: "0.9rem" }}>
+                  {def.name} lv {level}
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: "0.7rem",
+                      opacity: 0.55,
+                    }}
+                  >
+                    {def.blurb}
+                  </span>
+                </span>
+                {maxed ? (
+                  <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>max</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onBuyGear(def.track)}
+                    disabled={!affordable}
+                  >
+                    {price} cr
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          <p style={{ margin: "8px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+            upgrades bought mid-dig apply on the next claim.
+          </p>
+        </div>
+      )}
+      {shopNote && (
+        <p style={{ margin: "10px 0 0", fontSize: "0.8rem", color: "#54e0c7" }}>
+          {shopNote}
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function MinePanel() {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
@@ -294,6 +470,10 @@ export function MinePanel() {
   const submitCashOut = useMineStore((s) => s.submitCashOut);
   const gear = useMineStore((s) => s.gear);
   const loadGear = useMineStore((s) => s.loadGear);
+  const balance = useMineStore((s) => s.balance);
+  const shopNote = useMineStore((s) => s.shopNote);
+  const buyConsumable = useMineStore((s) => s.buyConsumable);
+  const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
   const armedRef = useRef(false);
   const setDynamiteArmed = (value: boolean | ((prev: boolean) => boolean)) => {
@@ -344,6 +524,8 @@ export function MinePanel() {
   // Ladder budget for the same straight-home climb (REQ-020).
   const laddersNeeded = returnLadderNeed(mine);
   const ladderShort = miner.row > 0 && laddersNeeded > mine.consumables.ladder;
+  // The village (REQ-021): standing on a stall's column opens its menu.
+  const stall = miner.row === 0 ? stallAt(miner.col) : null;
 
   const statusLine =
     lastResult && !lastResult.ok
@@ -388,6 +570,19 @@ export function MinePanel() {
       <MineCanvas />
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
+      {stall && (
+        <StallMenu
+          stall={stall}
+          mine={mine}
+          gear={gear}
+          balance={balance}
+          shopNote={shopNote}
+          cashOutPending={cashOut.state === "pending"}
+          onCashOut={() => void submitCashOut()}
+          onBuyConsumable={(item) => void buyConsumable(item)}
+          onBuyGear={(track) => void buyGearUpgrade(track)}
+        />
+      )}
 
       <aside
         style={{
@@ -444,16 +639,16 @@ export function MinePanel() {
             banked {miner.bankedCredits} cr, {miner.bankedParts.length} parts
           </p>
           {(miner.bankedCredits > 0 || miner.bankedParts.length > 0) && (
-            <button
-              type="button"
-              onClick={() => void submitCashOut()}
-              disabled={cashOut.state === "pending"}
-              style={{ marginTop: 8 }}
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "0.8rem",
+                color: "#f5c542",
+              }}
             >
-              {cashOut.state === "pending"
-                ? "Hauling to the vault..."
-                : "Cash out banked loot"}
-            </button>
+              sell it at the Assay Office on the surface (the gold-sign building
+              to the left).
+            </p>
           )}
           {cashOut.state === "done" && (
             <p

@@ -751,6 +751,31 @@ function MineScene() {
             </group>,
           );
         }
+        // A plank bridge (REQ-022): boards spanning the cell floor.
+        if (cell.plank) {
+          tunnelMeshes.push(
+            <group key={`plank:${key}`} position={[x, y - 0.42, 0.05]}>
+              {[-0.14, 0.14].map((pz) => (
+                <mesh key={pz} position={[0, 0, pz]}>
+                  <boxGeometry args={[0.98, 0.07, 0.22]} />
+                  <meshStandardMaterial
+                    color="#b58a4a"
+                    roughness={0.85}
+                    flatShading
+                  />
+                </mesh>
+              ))}
+              <mesh position={[0, -0.05, 0]}>
+                <boxGeometry args={[0.2, 0.06, 0.56]} />
+                <meshStandardMaterial
+                  color="#8a6536"
+                  roughness={0.9}
+                  flatShading
+                />
+              </mesh>
+            </group>,
+          );
+        }
         continue;
       }
       if (cell.kind === "ore" && cell.ore) {

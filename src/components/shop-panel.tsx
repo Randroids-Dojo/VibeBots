@@ -104,7 +104,9 @@ export function ShopPanel() {
     }
   };
 
-  const buyConsumable = async (item: "dynamite" | "rope" | "ladder") => {
+  const buyConsumable = async (
+    item: "dynamite" | "rope" | "ladder" | "plank",
+  ) => {
     const res = await fetch("/api/consumables/buy", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -199,6 +201,7 @@ export function ShopPanel() {
             ["dynamite", "Dynamite", "blasts a plus, any rock"],
             ["rope", "Recall Rope", "bank the carry from anywhere"],
             ["ladder", "Ladder", "climbs one cell; trips pack 8 free"],
+            ["plank", "Plank", "bridges one gap; trips pack 4 free"],
           ] as const
         ).map(([item, name, blurb]) => {
           const price = CONSUMABLE_PRICES[item];

@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 5;
+export const MINE_VERSION = 6;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -51,19 +51,35 @@ export interface MineConsumables {
   dynamite: number;
   rope: number;
   ladder: number;
+  plank: number;
 }
 
 export const NO_CONSUMABLES: MineConsumables = {
   dynamite: 0,
   rope: 0,
   ladder: 0,
+  plank: 0,
 };
 
 export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
   dynamite: 10,
   rope: 8,
   ladder: 2,
+  plank: 2,
 };
+
+/** Per-key sum, shared by the store's carryover and purchase merges. */
+export function addConsumables(
+  a: MineConsumables,
+  b: MineConsumables,
+): MineConsumables {
+  return {
+    dynamite: a.dynamite + b.dynamite,
+    rope: a.rope + b.rope,
+    ladder: a.ladder + b.ladder,
+    plank: a.plank + b.plank,
+  };
+}
 
 /**
  * Free ladders provisioned at the start of every trip. Climbing is
@@ -72,6 +88,13 @@ export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
  * provision does not bank between trips (see carryoverConsumables).
  */
 export const LADDER_PROVISION = 8;
+
+/**
+ * Free planks provisioned per trip (REQ-022): lateral steps over a void
+ * are plank-gated; gaps are self-made (digs, blasts, vents), so the
+ * provision is smaller than the ladder bundle.
+ */
+export const PLANK_PROVISION = 4;
 
 /** Lamp energy burned per gas pocket vented (heat, not shrapnel). */
 export const GAS_VENT_DRAIN = 8;
@@ -364,6 +387,12 @@ export interface MineCell {
    * overwrites the cell (a falling boulder) smashes the ladder.
    */
   ladder?: boolean;
+  /**
+   * A deployed plank bridge (REQ-022), only meaningful on empty cells.
+   * Stepping laterally into this cell over a void is free once placed;
+   * a falling boulder smashes it like a ladder.
+   */
+  plank?: boolean;
 }
 
 /** Rare robot parts discoverable underground (REQ-007). */
@@ -457,11 +486,13 @@ export function returnLadderNeed(state: MineState): number {
  * the unspent part of the provision.
  */
 export function carryoverConsumables(state: MineState): MineConsumables {
-  const freeLeft = Math.max(0, LADDER_PROVISION - state.used.ladder);
+  const ladderFree = Math.max(0, LADDER_PROVISION - state.used.ladder);
+  const plankFree = Math.max(0, PLANK_PROVISION - state.used.plank);
   return {
     dynamite: state.consumables.dynamite,
     rope: state.consumables.rope,
-    ladder: Math.max(0, state.consumables.ladder - freeLeft),
+    ladder: Math.max(0, state.consumables.ladder - ladderFree),
+    plank: Math.max(0, state.consumables.plank - plankFree),
   };
 }
 
@@ -524,8 +555,9 @@ export function createMine(
     consumables: {
       ...consumables,
       ladder: consumables.ladder + LADDER_PROVISION,
+      plank: consumables.plank + PLANK_PROVISION,
     },
-    used: { dynamite: 0, rope: 0, ladder: 0 },
+    used: { dynamite: 0, rope: 0, ladder: 0, plank: 0 },
     rows: [],
     miner: {
       col: START_COL,
@@ -590,6 +622,8 @@ export type MoveResult =
       recalled?: boolean;
       /** This climb consumed and placed a new ladder (REQ-020). */
       laddered?: boolean;
+      /** This step consumed and placed a new plank bridge (REQ-022). */
+      planked?: boolean;
       /** What a collapse/crush cost, for the near-miss reveal (REQ-019). */
       lost?: { value: number; parts: string[]; col: number; row: number };
     }
@@ -603,6 +637,7 @@ export type MoveResult =
         | "no-dynamite"
         | "no-rope"
         | "no-ladder"
+        | "no-plank"
         | "surface";
     };
 
@@ -755,6 +790,19 @@ export function step(state: MineState, dir: Direction): MoveResult {
       laddered = true;
     }
   }
+  // Lateral steps over a void need a plank bridge in the target cell
+  // (REQ-022). The surface walk row is boardwalked; below it, a placed
+  // plank carries every later crossing. Checked before any mutation so
+  // a refusal costs nothing.
+  let needPlank = false;
+  if ((dir === "left" || dir === "right") && t.row >= 1) {
+    const below = cellAt(state, t.col, t.row + 1);
+    if (below?.kind === "empty" && !cell.plank) {
+      if (state.consumables.plank <= 0)
+        return { ok: false, reason: "no-plank" };
+      needPlank = true;
+    }
+  }
 
   let dug: CellKind | null = null;
   let dugOre: OreId | null = null;
@@ -776,6 +824,16 @@ export function step(state: MineState, dir: Direction): MoveResult {
     state.rows[t.row][t.col] = { kind: "empty" };
     // Digging next to a pocket vents it: the burn is lamp heat.
     vented = ventGasAround(state, t.col, t.row);
+  }
+
+  let planked = false;
+  if (needPlank) {
+    // After dig resolution the target object may be a fresh empty cell;
+    // the plank lives on whatever now occupies the target.
+    state.consumables.plank--;
+    state.used.plank++;
+    state.rows[t.row][t.col].plank = true;
+    planked = true;
   }
 
   miner.energy = Math.max(0, miner.energy - cost - vented * GAS_VENT_DRAIN);
@@ -807,6 +865,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       crushed,
       vented,
       laddered,
+      planked,
       lost,
     };
   }
@@ -814,7 +873,17 @@ export function step(state: MineState, dir: Direction): MoveResult {
     bank(miner, state.gear);
   }
   ensureRows(state, miner.row + lightRadius(state.gear) + 1);
-  return { ok: true, dug, dugOre, found, collapsed, crushed, vented, laddered };
+  return {
+    ok: true,
+    dug,
+    dugOre,
+    found,
+    collapsed,
+    crushed,
+    vented,
+    laddered,
+    planked,
+  };
 }
 
 /**

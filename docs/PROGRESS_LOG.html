@@ -35,7 +35,7 @@
     <h3>Deep Strata, Magma, and the No-Softlock Floor</h3>
     <dl>
       <dt>Branch</dt><dd><code>feature/mine-deep-dangers</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#57</dd>
       <dt>Changed</dt><dd>the epic's escalation and recovery slice (REQ-030/REQ-031). Four new strata extend past the Magma Verge (Ashfall Galleries 64, the Black Seam 84, Echo Vaults 110, Core Approach 140) with first-reach bonuses up to 3000 cr and their own dirt and background palettes. Magma seams generate below row 56, read as ember-red blocks, refuse digs like gas, and vent at triple the gas burn (24 energy each), chaining with gas pockets and dynamite. Rock tier 4 appears below row 90 and gates on the new pickaxe level 5 (1500 cr). Part caches below row 40 roll a core-cube-weighted table so the bot-part reward scales with depth. The no-softlock floor became legible: the depot states "every trip packs 8 ladders and 4 planks free, broke or not" and a surface zero-ladder toast points at selling or abandoning for a fresh provision. <code>MINE_VERSION</code> 13.</dd>
       <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (103: strata naming and bonus sums, tier-4 gating, triple magma burn with exact energy, deep cache table), <code>pnpm build</code>, <code>pnpm test:e2e</code> (15 passed).</dd>
       <dt>Assumptions</dt><dd>magma counts as three gas-equivalent vents so the existing energy math and toast hold; the deep cache table reuses the existing part catalog (core-cube weighted) until richer parts exist.</dd>

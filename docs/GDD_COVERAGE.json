@@ -415,6 +415,60 @@
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-026",
+      "requirement": "The claim persists forever: selling banks loot but never resets the carved world (tunnels, ladders, planks, structures all survive); the server stores a sparse world diff and replays trips on top of it.",
+      "gddRef": "docs/gdd/06-mining.html#persistent-world",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-027",
+      "requirement": "The mine is endless on both axes: pure per-cell generation over all integer columns and rows, sparse overrides for mutations, village anchored at the origin.",
+      "gddRef": "docs/gdd/06-mining.html#persistent-world",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-028",
+      "requirement": "Elevator: a per-player winch tower selling rail segments priced per stratum; free logged rides between the surface and the railed depth along its column.",
+      "gddRef": "docs/gdd/06-mining.html#transport",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-029",
+      "requirement": "Teleporter: beacon-kit consumables plant a movable beacon; a village warp pad warps to and from it while its depth is within the upgradeable warpcoil range track.",
+      "gddRef": "docs/gdd/06-mining.html#transport",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-030",
+      "requirement": "Depth keeps escalating: new strata past the Magma Verge with first-reach bonuses, magma pockets, rock tier 4+, denser hazards, and depth-scaled part-cache tables.",
+      "gddRef": "docs/gdd/06-mining.html#deep-dangers",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-031",
+      "requirement": "No softlock: free per-descent consumable provisions, provision-reachable shallow ore, and Abandon guarantee a broke miner recovers in one shallow trip; the depot and a zero-wallet toast say so.",
+      "gddRef": "docs/gdd/06-mining.html#stuck-floor",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
     }
   ]
 }

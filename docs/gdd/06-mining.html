@@ -96,6 +96,34 @@
       <li>Collapse is a drama beat (lamp flicker, dim, "the crew hauls you up"), and every failed trip ends with a near-miss reveal: what you were carrying and the treasure that was almost in reach (the client has the full grid; pure UI).</li>
     </ul>
 
+    <h3 id="persistent-world">The persistent endless claim (REQ-026, REQ-027)</h3>
+    <ul>
+      <li>The claim never resets (user-directed 2026-06-12: "it doesn't feel rewarding to see the mine reset every time I sell"). Selling at the Assay Office banks credits and parts but the carved world stays: every tunnel, ladder, plank, and structure persists forever. The trail IS the trophy (SteamWorld Dig 2 lesson).</li>
+      <li>The world is endless both horizontally and vertically: generation stays a pure function of (seed, col, row) over all integers, the village anchors at the origin columns, and the camera follows wherever the trail goes.</li>
+      <li>Persistence model (Q-009 default): the world state is a sparse diff over pure generation (dug cells plus placed structures); the server stores the diff per player and replays each trip's action log on top of it to credit cash-outs, so determinism and anti-cheat survive without replaying a lifetime log. Guests persist the diff locally and adopt it server-side on first cash-out.</li>
+      <li>A trip is now surface-to-surface; the free consumable provision refreshes per descent, not per world.</li>
+    </ul>
+
+    <h3 id="transport">The transport ladder (REQ-028 elevator, REQ-029 teleporter)</h3>
+    <ul>
+      <li>Progression arc: ladders and planks carry the early game; the elevator compresses the mid-game commute; range-limited warp beacons compress the late game; each tier is a visible investment in the world.</li>
+      <li><strong>Elevator (REQ-028)</strong>: one per player, a winch tower on its own surface column beside the village. Depth is bought in segments at the tower (superlinear pricing per stratum reached); building it carves and rails its column. Riding is free and logged: at the tower, ride to the rail bottom; anywhere on the railed column, ride to the surface. The shaft is part of the persistent world.</li>
+      <li><strong>Teleporter (REQ-029)</strong>: late game. Beacon kits are consumables (priced like big dynamite); placing one plants a beacon at the miner's cell (one active beacon; replanting moves it). The village gains a warp pad; warping between pad and beacon is free and logged but only works while the beacon's depth is within the warpcoil's range. The warpcoil is a persistent gear track upgraded over time (range tiers roughly 60, 150, 400, 1000 rows).</li>
+      <li>Transport never skips unconquered space: elevators only descend rail you bought, beacons only plant where you stand. Range and segment pricing keep depth earned.</li>
+    </ul>
+
+    <h3 id="deep-dangers">Deeper dangers and richer rewards (REQ-030)</h3>
+    <ul>
+      <li>Strata continue past the Magma Verge (Ashfall Galleries, the Black Seam, Echo Vaults, Core Approach, ...), each with palettes, first-reach bonuses, and a new pressure: magma pockets (vent like gas but burn triple), rock tier 4+ gating pickaxe 5+, denser hazard rolls.</li>
+      <li>Part caches scale with depth: deeper bands roll from richer part tables, so the bot-building reward track (REQ-007) keeps paying the deeper you push.</li>
+    </ul>
+
+    <h3 id="stuck-floor">The no-softlock floor (REQ-031)</h3>
+    <ul>
+      <li>A broke miner is never stuck: every descent provisions the free ladder and plank bundle regardless of wallet, shallow coal always sits within provision reach, and Abandon is always available. Being out of money is a setback measured in one shallow trip, never a dead account.</li>
+      <li>Legibility: the Supply Depot states the free provision outright, and a zero-wallet, zero-ladders surface state surfaces a "the camp fronts you the basics" toast pointing at it.</li>
+    </ul>
+
     <h3 id="not-yet">What this does NOT cover yet</h3>
     <ul>
       <li>Smelt combos (consecutive matching ores multiply value), surface accrual between trips, collections/museum screen, disguised hazard blocks beyond gas, server-issued seeds (F-011).</li>
@@ -106,6 +134,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-06-12">Endless-mine epic design pass (user-directed): persistent never-resetting claim, endless on both axes, the ladder-elevator-teleporter transport arc, deeper strata and dangers, depth-scaled caches, and the no-softlock floor specced as REQ-026 through REQ-031 with Q-009 to Q-011 recording the architecture defaults; the research doc gained a transport-and-persistence pass over Mr. Mine, Motherload, SteamWorld Dig 2, Deep Town, and Terraria. Files: <code>docs/gdd/06-mining.html</code>, <code>docs/research/mining-mechanics.html</code>, <code>docs/OPEN_QUESTIONS.html</code>, <code>docs/GDD_COVERAGE.json</code>. PR pending.</li>
       <li data-date="2026-06-12">Multi-hit digging landed (REQ-013 hardness, user-directed "4 or 5 hits with the starting pickaxe"): blocks soak swings before breaking (dirt 4 / ore 5 / cache 6 / rock 5 at pickaxe 1, one fewer per pickaxe level), every swing is a logged action with per-swing energy that preserves block totals, cracking swings still resolve boulder falls and can collapse the lamp mid-block, damage renders as crack decals, and each swing lunges and sparks. The F-019 crack-state half ships; audio remains. MINE_VERSION 9. Files: <code>src/sim/mine.ts</code>, <code>src/components/mine-canvas.tsx</code>, <code>src/sim/mine.test.ts</code>, <code>tests/e2e/smoke.spec.ts</code>. PR #50.</li>
       <li data-date="2026-06-12">Pointer-aware control copy (user-reported): the onboarding hint drops the WASD mention on coarse-pointer devices (the only user-facing keyboard copy left after the HUD streamline); e2e covers both pointer types via a hasTouch context. Files: <code>src/components/mine-panel.tsx</code>, <code>tests/e2e/smoke.spec.ts</code>. PR #48.</li>
       <li data-date="2026-06-12">Plank-over-ladder fix (user-reported): lateral steps no longer burn a plank when the target cell holds a ladder or the cell below's ladder tops out underfoot; MINE_VERSION 8. Sim tests rebuilt around dynamite-made true gaps (the old shapes crossed ladder-supported shaft mouths); the e2e now pins the no-spend crossing. Files: <code>src/sim/mine.ts</code>, <code>src/sim/mine.test.ts</code>, <code>tests/e2e/smoke.spec.ts</code>. PR #46.</li>

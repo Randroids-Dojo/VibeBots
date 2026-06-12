@@ -72,6 +72,53 @@
     </dl>
   </section>
 
+  <section data-q="Q-011" data-status="open">
+    <h3>Q-011: How are elevators priced and owned?</h3>
+    <dl>
+      <dt>Context</dt><dd>REQ-028: the elevator is a persistent per-player investment that compresses the commute along one shaft.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>A gear-like track at the Outfitter (level = rail depth band).</li>
+          <li>Its own winch-tower building selling rail segments priced per stratum, stored as a rail-depth integer on the player.</li>
+          <li>Rail segments as consumables placed cell by cell.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>B. A building keeps the village the place where investments live, per-stratum segment pricing scales naturally to an endless mine, and one integer (rail depth) stays trivially replay-validatable.</dd>
+      <dt>Status</dt><dd>open</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-010" data-status="open">
+    <h3>Q-010: How does an endless-width world stay storable and renderable?</h3>
+    <dl>
+      <dt>Context</dt><dd>REQ-027 removes the 9-column bound; row arrays and column-indexed loops assume it.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Grow arrays with an offset as the miner travels.</li>
+          <li>Sparse overrides: generation is computed per (seed, col, row) on read; only mutated cells live in a map keyed by coordinates; renderers iterate a camera window, falls and wobbles scan only the action's neighborhood.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>B. Pure-on-read generation makes endlessness free, memory tracks only what the player changed (which is also exactly the persistence payload), and locality keeps the per-action cost bounded.</dd>
+      <dt>Status</dt><dd>open</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-009" data-status="open">
+    <h3>Q-009: What is the authority model for a persistent world?</h3>
+    <dl>
+      <dt>Context</dt><dd>REQ-026: the claim never resets, but cash-out anti-cheat relies on replaying deterministic logs, and a lifetime log grows without bound (multi-hit digging multiplies it).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Store the full lifetime action log and replay it all each cash-out.</li>
+          <li>Store a sparse world diff per player; each cash-out replays only the trip's log on top of the stored diff, then persists the updated diff (state checkpointing).</li>
+          <li>Client-authoritative world with server spot checks.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>B. Replay cost stays bounded per trip, the diff doubles as the save format for guests (local storage) and the server, and determinism still guarantees an honest client and the server agree given (seed, diff, gear, consumables, trip log).</dd>
+      <dt>Status</dt><dd>open</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-008" data-status="open">
     <h3>Q-008: How do village purchases enter a live mining session?</h3>
     <dl>

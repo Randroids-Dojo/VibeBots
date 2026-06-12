@@ -86,6 +86,15 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-12" data-audit-state="touch-controls-confirmation">
+    <h3>Confirmation 2026-06-12 (VibeKit thumbstick and unselectable game text live: PR #37)</h3>
+    <p>Source: scripted production probe at phone viewport against <code>vibe-bots.vercel.app</code> (screenshot <code>captures/stick-prod-01.png</code>).</p>
+    <ul>
+      <li><strong>REQ-023 confirmed live:</strong> <code>body</code> computes <code>user-select: none</code> (the Android long-press copy/share menu from the user's report can no longer trigger off game text), the thumbstick spawned at the press point, and a held downward drag auto-repeated digs to depth 6 with zero console errors.</li>
+      <li><strong>VibeKit reuse:</strong> the input runs on the kit's <code>virtual-joystick</code> module per the Rule 3 shared-kit policy; no new dependency.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-12" data-audit-state="ground-plank-confirmation">
     <h3>Confirmation 2026-06-12 (surface ground line and plank bridges live: PRs #33 and #34)</h3>
     <p>Source: scripted production probes against <code>vibe-bots.vercel.app</code> (screenshots <code>captures/ground-prod-01-surface.png</code>, <code>captures/plank-prod-01-bridge.png</code>).</p>

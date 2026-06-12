@@ -15,6 +15,7 @@ import type {
 import { Color } from "three/webgpu";
 import { createWebGPU } from "@/components/part-visuals";
 import {
+  hitsFor,
   isVisible,
   MINE_WIDTH,
   type OreId,
@@ -252,6 +253,35 @@ function CacheCrate({ col, row }: { col: number; row: number }) {
       </mesh>
     </group>
   );
+}
+
+/** Crack decals on a damaged block: more and longer as hp drops. */
+function CrackMarks({
+  col,
+  row,
+  damage,
+}: {
+  col: number;
+  row: number;
+  damage: number;
+}) {
+  const count = Math.min(3, Math.max(1, Math.ceil(damage * 3)));
+  const marks = [];
+  for (let i = 0; i < count; i++) {
+    const a = cellHash(col, row, 61 + i);
+    const b = cellHash(col, row, 67 + i);
+    marks.push(
+      <mesh
+        key={i}
+        position={[(a - 0.5) * 0.6, (b - 0.5) * 0.6, 0.5]}
+        rotation={[0, 0, a * 3.1]}
+      >
+        <boxGeometry args={[0.3 + damage * 0.35, 0.035, 0.02]} />
+        <meshStandardMaterial color="#0d0b08" roughness={1} />
+      </mesh>,
+    );
+  }
+  return <group>{marks}</group>;
 }
 
 /**
@@ -629,6 +659,25 @@ function MineScene() {
     if (!lastResult?.ok) return;
     const miner = mine.miner;
     const at = lastResult.lost ?? { col: miner.col, row: miner.row };
+    if (lastResult.cracked) {
+      j.swing = 0.3;
+      const dc = lastAction === "left" ? -1 : lastAction === "right" ? 1 : 0;
+      const dr = lastAction === "down" ? 1 : lastAction === "up" ? -1 : 0;
+      const sx = cellX(miner.col + dc);
+      const sy = -(miner.row + dr);
+      spawnSparks(j, sx, sy, 4);
+      spawnBurst(
+        j,
+        sx,
+        sy,
+        lastResult.cracked.kind === "rock"
+          ? ROCK_COLORS[0]
+          : dirtColorAt(miner.row + dr),
+        3,
+      );
+      j.shake = Math.max(j.shake, 0.02);
+      j.lunge = { x: dc * 0.16, y: -dr * 0.13, t: 0.22 };
+    }
     if (lastResult.dug) {
       j.swing = 0.3;
       const color =
@@ -832,6 +881,7 @@ function MineScene() {
   wobbleRefs.current.clear();
   const blockMeshes = [];
   const tunnelMeshes = [];
+  const crackMeshes = [];
   for (let row = firstRow; row <= lastRow; row++) {
     if (!isVisible(mine, row)) continue;
     for (let col = 0; col < MINE_WIDTH; col++) {
@@ -840,6 +890,16 @@ function MineScene() {
       const key = `${col}:${row}`;
       const x = cellX(col);
       const y = -row;
+      // Damaged blocks wear cracks (REQ-013); the overlay rides above
+      // whatever shape the kind renders.
+      if (cell.hp !== undefined && cell.kind !== "empty") {
+        const damage = 1 - cell.hp / hitsFor(cell.kind, mine.gear);
+        crackMeshes.push(
+          <group key={`crack:${key}`} position={[x, y, 0]}>
+            <CrackMarks col={col} row={row} damage={damage} />
+          </group>,
+        );
+      }
       if (cell.kind === "empty") {
         // Carved tunnels read as recessed rock, not as holes in the sky.
         if (row >= 1) {
@@ -1085,6 +1145,7 @@ function MineScene() {
       </group>
       {tunnelMeshes}
       {blockMeshes}
+      {crackMeshes}
       {wallStones}
       <mesh position={[-5.35, pillarY, -0.2]}>
         <boxGeometry args={[1.7, pillarHeight, 1.4]} />

@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 8;
+export const MINE_VERSION = 9;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -173,6 +173,43 @@ export function maxGearLevel(track: keyof MineGear): number {
 
 /** Digging rock costs more than dirt even with the right pickaxe. */
 export const ROCK_DIG_COST = 2;
+
+/**
+ * Multi-hit digging (REQ-013, user-directed 2026-06-12): swings to
+ * break each diggable kind at pickaxe level 1. Each pickaxe level
+ * above 1 removes one swing (min 1), so the upgrade buys speed and
+ * energy, not just permission.
+ */
+export const BASE_HITS = {
+  dirt: 4,
+  ore: 5,
+  "part-cache": 6,
+  rock: 5,
+} as const;
+
+/**
+ * Lamp energy per swing. At pickaxe 1 a block's swing total matches
+ * the old one-swing dig cost (dirt 4 x 0.25 = 1, rock 5 x 0.4 = 2),
+ * so the trip economy is unchanged; caches cost a little more.
+ */
+export const SWING_COST = {
+  dirt: 0.25,
+  ore: 0.2,
+  "part-cache": 0.25,
+  rock: 0.4,
+} as const;
+
+/** Swings to break a cell of this kind under this gear. */
+export function hitsFor(kind: CellKind, gear: MineGear): number {
+  const base = BASE_HITS[kind as keyof typeof BASE_HITS];
+  if (!base) return 1;
+  return Math.max(1, base - (gear.pickaxe - 1));
+}
+
+/** Lamp energy one swing at this kind costs. */
+export function swingCostFor(kind: CellKind): number {
+  return SWING_COST[kind as keyof typeof SWING_COST] ?? MOVE_COST;
+}
 
 /**
  * Rock tier by depth (Terraria-style hard gates): pickaxe level N digs
@@ -393,6 +430,11 @@ export interface MineCell {
    * a falling boulder smashes it like a ladder.
    */
   plank?: boolean;
+  /**
+   * Swings remaining before this block breaks (REQ-013). Unset means
+   * full health for its kind and the digger's pickaxe.
+   */
+  hp?: number;
 }
 
 /** Rare robot parts discoverable underground (REQ-007). */
@@ -626,6 +668,8 @@ export type MoveResult =
       laddered?: boolean;
       /** This step consumed and placed a new plank bridge (REQ-022). */
       planked?: boolean;
+      /** The swing damaged but did not break the block (REQ-013). */
+      cracked?: { kind: CellKind; remaining: number };
       /** What a collapse/crush cost, for the near-miss reveal (REQ-019). */
       lost?: { value: number; parts: string[]; col: number; row: number };
     }
@@ -782,6 +826,48 @@ export function step(state: MineState, dir: Direction): MoveResult {
     return { ok: false, reason: "hold-full" };
   if (dir === "up" && cell.kind !== "empty")
     return { ok: false, reason: "blocked" };
+  // Multi-hit digging (REQ-013): a solid cell soaks swings before it
+  // breaks; only the breaking swing moves the miner and yields loot.
+  // Every swing is its own logged action and burns lamp energy, so a
+  // dig can still collapse the trip mid-block.
+  if (cell.kind !== "empty") {
+    const remaining = (cell.hp ?? hitsFor(cell.kind, state.gear)) - 1;
+    if (remaining > 0) {
+      cell.hp = remaining;
+      miner.energy = Math.max(0, miner.energy - swingCostFor(cell.kind));
+      // A swing is a full action: wobbling boulders still drop, and the
+      // lamp can still die mid-block.
+      const crushedMid = resolveFalls(state);
+      markWobbling(state);
+      if (crushedMid || (miner.row > 0 && miner.energy <= 0)) {
+        const lost = {
+          value: carriedValue(miner),
+          parts: [...miner.carriedParts],
+          col: miner.col,
+          row: miner.row,
+        };
+        collapse(miner, state.gear);
+        ensureRows(state, lost.row + lightRadius(state.gear) + 1);
+        return {
+          ok: true,
+          dug: null,
+          dugOre: null,
+          found: null,
+          collapsed: true,
+          crushed: crushedMid,
+          lost,
+        };
+      }
+      return {
+        ok: true,
+        dug: null,
+        dugOre: null,
+        found: null,
+        collapsed: false,
+        cracked: { kind: cell.kind, remaining },
+      };
+    }
+  }
   let laddered = false;
   if (dir === "up" && miner.row >= 1) {
     const here = state.rows[miner.row][miner.col];
@@ -818,7 +904,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   let vented = 0;
   if (cell.kind !== "empty") {
     dug = cell.kind;
-    cost = cell.kind === "rock" ? ROCK_DIG_COST : DIG_COST_DIRT;
+    cost = swingCostFor(cell.kind);
     if (cell.kind === "ore" && cell.ore) {
       dugOre = cell.ore;
       miner.carried[cell.ore] = (miner.carried[cell.ore] ?? 0) + 1;

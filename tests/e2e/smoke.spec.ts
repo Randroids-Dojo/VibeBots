@@ -1,4 +1,30 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+/** Multi-hit digging (REQ-013): swing down until the depth is reached. */
+async function digTo(page: Page, depth: number): Promise<void> {
+  const status = page.getByLabel("Mine status");
+  for (let i = 0; i < 8 * depth + 8; i++) {
+    if (Number(await status.getAttribute("data-depth")) >= depth) return;
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(60);
+  }
+}
+
+/** Swing a lateral direction until the rendered miner crosses targetX. */
+async function digLateral(
+  page: Page,
+  key: "ArrowLeft" | "ArrowRight",
+  pastX: number,
+): Promise<void> {
+  const canvas = page.locator("canvas");
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press(key);
+    await page.waitForTimeout(150);
+    const x = Number(await canvas.getAttribute("data-miner-x"));
+    if (key === "ArrowLeft" ? x < pastX : x > pastX) return;
+  }
+}
+
 import { SIM_VERSION } from "../../src/sim/constants";
 import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
 
@@ -81,9 +107,14 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toHaveAttribute("data-depth", "0");
   await expect(status).toContainText("Topsoil");
 
-  await page.keyboard.press("ArrowDown");
+  // Blocks soak multiple swings now (REQ-013); dig through row 1.
+  await digTo(page, 1);
   await expect(status).toHaveAttribute("data-depth", "1");
-  await expect(status).toHaveAttribute("data-energy", "59.0");
+  // The block's swing total preserves the old economy: a dirt or ore
+  // block costs 1.0 in total (a rare cache costs 1.5).
+  const energy = Number(await status.getAttribute("data-energy"));
+  expect(energy).toBeLessThanOrEqual(59.0);
+  expect(energy).toBeGreaterThanOrEqual(58.5);
   // The climb estimate prices ladders as well as energy (REQ-020).
   await expect(status).toHaveAttribute("data-climb-ladders", "1");
 
@@ -117,13 +148,11 @@ test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022
   // below), tunnel one cell left, then step back across the shaft
   // mouth: the ladder top under the step is support, so the crossing
   // must NOT consume a plank (the reported bug burned one here).
-  await page.keyboard.press("ArrowDown");
-  await expect(status).toHaveAttribute("data-depth", "1");
-  await page.keyboard.press("ArrowDown");
+  await digTo(page, 2);
   await expect(status).toHaveAttribute("data-depth", "2");
   await page.keyboard.press("ArrowUp");
   await expect(status).toHaveAttribute("data-depth", "1");
-  await page.keyboard.press("ArrowLeft");
+  await digLateral(page, "ArrowLeft", -0.8);
   await page.keyboard.press("ArrowRight");
   await expect(status).toHaveAttribute("data-ladders", "7");
   await expect(status).toHaveAttribute("data-planks", "4");
@@ -153,7 +182,7 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
   // Holding past the deadzone fires immediately, then auto-repeats.
   await expect
     .poll(async () => Number(await status.getAttribute("data-depth")), {
-      timeout: 5_000,
+      timeout: 12_000,
     })
     .toBeGreaterThanOrEqual(2);
 
@@ -170,7 +199,7 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
   const abandon = page.getByRole("button", { name: "Abandon trip" });
   await expect(abandon).toBeDisabled();
 
-  await page.keyboard.press("ArrowDown");
+  await digTo(page, 1);
   await expect(status).toHaveAttribute("data-depth", "1");
   await expect(abandon).toBeEnabled();
 
@@ -210,11 +239,12 @@ test.describe("phone viewport", () => {
     // viewport the half-width is ~2.6 world units, so without lateral
     // camera tracking the bot at x=-3 left the screen entirely (the
     // reported "horizontal mining does not update the screen").
-    await page.keyboard.press("ArrowDown");
+    await digTo(page, 1);
     await expect(status).toHaveAttribute("data-depth", "1");
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 18; i++) {
       await page.keyboard.press("ArrowLeft");
-      await page.waitForTimeout(180);
+      await page.waitForTimeout(120);
+      if (Number(await canvas.getAttribute("data-cam-x")) < -1.5) break;
     }
     // The rig pans toward the miner; the bot stays in frame.
     await expect
@@ -276,11 +306,9 @@ test("miner stays at depth when walking sideways (lateral teleport regression)",
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
 
-  // Rows 1-2 are rock-free and hazard-free, so two digs down and one
-  // lateral step are guaranteed to succeed regardless of the session seed.
-  await page.keyboard.press("ArrowDown");
-  await expect(status).toHaveAttribute("data-depth", "1");
-  await page.keyboard.press("ArrowDown");
+  // Rows 1-2 are rock-free and hazard-free, so digging down and one
+  // lateral dig are guaranteed to succeed regardless of the session seed.
+  await digTo(page, 2);
   await expect(status).toHaveAttribute("data-depth", "2");
 
   // Wait for the eased render position to settle at the dug depth.
@@ -303,7 +331,10 @@ test("miner stays at depth when walking sideways (lateral teleport regression)",
     sample();
   });
 
-  await page.keyboard.press("ArrowLeft");
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(120);
+  }
   // The miner glides one cell left (start col 4 renders at x=0, col 3 at -1)...
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {

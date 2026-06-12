@@ -25,6 +25,8 @@ page.on("console", (m) => {
 });
 
 const status = () => page.locator('[aria-label="Mine status"]').innerText();
+const hudNumber = async (attr) =>
+  Number(await page.locator('[aria-label="Mine status"]').getAttribute(attr));
 const minerY = async () =>
   Number(await page.locator("canvas").getAttribute("data-miner-y"));
 
@@ -60,9 +62,8 @@ try {
   // to the surface and silently fake the "deep" evidence.
   let heading = "ArrowLeft";
   for (let i = 0; i < 120; i++) {
-    const hud = await status();
-    const depth = Number((hud.match(/depth\s+(\d+)/) ?? [])[1] ?? 0);
-    const energy = Number((hud.match(/energy\s+([\d.]+)/) ?? [])[1] ?? 0);
+    const depth = await hudNumber("data-depth");
+    const energy = await hudNumber("data-energy");
     if (depth >= TARGET_DEPTH || energy < 14) break;
     await page.keyboard.press(heading);
     await page.waitForTimeout(60);
@@ -71,7 +72,7 @@ try {
     // message always means this press was refused: step down and flip
     // (comparing against the pre-press text stalled on back-to-back
     // identical blocked states).
-    if (/Hard rock|No way|Edge/.test(after)) {
+    if (/Too hard|No way|Edge|No planks/.test(after)) {
       await page.keyboard.press("ArrowDown");
       await page.waitForTimeout(60);
       heading = heading === "ArrowLeft" ? "ArrowRight" : "ArrowLeft";
@@ -79,7 +80,7 @@ try {
   }
   await page.waitForTimeout(900);
   const deepHud = await status();
-  const deepDepth = Number((deepHud.match(/depth\s+(\d+)/) ?? [])[1] ?? 0);
+  const deepDepth = await hudNumber("data-depth");
   if (deepDepth < TARGET_DEPTH) {
     log(
       `FAIL: deep capture taken at depth ${deepDepth} (target ${TARGET_DEPTH}); visuals-04 is not valid deep evidence`,

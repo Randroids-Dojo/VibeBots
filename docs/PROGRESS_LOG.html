@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-mobile-hud" data-date="2026-06-12">
+    <h3>Mine Mobile-Game HUD</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-hud-streamline</code></dd>
+      <dt>PR</dt><dd>#39</dd>
+      <dt>Changed</dt><dd>the mine stopped looking like a website (REQ-024, user-directed: "too much crap in the UI... make it less of a website and more of a mobile game"). Gone: the page h1 and subtitle, the D-pad buttons (the thumbstick and WASD/arrows are the one control scheme), the gear-levels line, the carried-ore prose, the assay hint paragraph, and the standing help text. The two stacked text panels became thin chips: depth + stratum, an energy bar chip that fills and turns red when the lamp runs low, hold count, carry and banked value chips (only when nonzero), and a climb-cost chip (energy + ladders, red on shortage). All action feedback is now a single terse toast line ("Too hard for this pickaxe.", "No planks to bridge that drop."), cash-out results included. Consumables moved to thumb-reach icon buttons bottom-right (dynamite keeps its armed glow and aria-pressed; accessible names keep the "Dynamite (n)" form the smoke pins). A one-shot "drag anywhere to move" hint shows until the first action. The HUD exposes <code>data-depth/energy/ladders/planks/banked/climb-ladders</code> as the stable test surface; the mine e2e and the visuals driver moved from prose assertions and button clicks to attributes and keyboard input.</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (90), <code>pnpm build</code>, <code>pnpm test:e2e</code> (9 passed, all five mine tests rewritten onto the data-attribute surface); phone-viewport screenshots at surface and depth 4 show the full-screen game with chips only.</dd>
+      <dt>Assumptions</dt><dd>desktop shares the same HUD (one consistent rule; keyboard plus mouse-drag thumbstick replace the D-pad there too); legacy playtest drivers (playtest-mine.mjs and siblings) predate the HUD and need their own update before any future rerun.</dd>
+      <dt>GDD coverage</dt><dd>REQ-024 added as done; HUD-discipline bullet in the controls section; build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-touch-controls" data-date="2026-06-12">
     <h3>Mine Touch Controls (VibeKit thumbstick)</h3>
     <dl>

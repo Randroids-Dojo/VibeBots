@@ -39,21 +39,27 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
   d: "right",
 };
 
-const panelStyle: React.CSSProperties = {
-  background: "rgba(17, 21, 31, 0.92)",
+const chipStyle: React.CSSProperties = {
+  background: "rgba(17, 21, 31, 0.82)",
   border: "1px solid #26304a",
-  borderRadius: 10,
-  padding: 14,
+  borderRadius: 999,
+  padding: "4px 10px",
+  fontSize: "0.8rem",
+  lineHeight: 1.3,
+  whiteSpace: "nowrap",
+  display: "inline-block",
 };
 
-function carriedSummary(carried: Partial<Record<OreId, number>>): string {
-  const chunks: string[] = [];
-  for (const [id, count] of Object.entries(carried)) {
-    if (count)
-      chunks.push(`${count} ${oreDef(id as OreId).name.toLowerCase()}`);
-  }
-  return chunks.join(", ");
-}
+const iconButtonStyle: React.CSSProperties = {
+  background: "rgba(17, 21, 31, 0.88)",
+  border: "1px solid #26304a",
+  borderRadius: 14,
+  color: "#e6e8ee",
+  minWidth: 54,
+  height: 46,
+  fontSize: "0.95rem",
+  pointerEvents: "auto",
+};
 
 /** Banner shown for a few seconds when the miner enters a new stratum. */
 function StratumBanner({ row }: { row: number }) {
@@ -518,7 +524,6 @@ export function MinePanel() {
   const miner = mine.miner;
   const stratum = stratumAt(miner.row);
   const carryValue = carriedValue(miner);
-  const carrySummary = carriedSummary(miner.carried);
   const climbCost = returnEnergyCost(miner);
   // The climb estimate assumes a cleared shaft; warn with a margin so a
   // detour or two does not turn the warning into a lie (REQ-017).
@@ -529,36 +534,46 @@ export function MinePanel() {
   // The village (REQ-021): standing on a stall's column opens its menu.
   const stall = miner.row === 0 ? stallAt(miner.col) : null;
 
+  // One terse toast, game-style: the chips carry the numbers.
   const statusLine =
     lastResult && !lastResult.ok
       ? lastResult.reason === "rock"
-        ? "Hard rock. A better pickaxe from the Shop would cut it (or dynamite)."
+        ? "Too hard for this pickaxe."
         : lastResult.reason === "hold-full"
-          ? "The hold is full. Bank it on the surface (or upgrade the cargo hold)."
+          ? "Hold full. Bank it topside."
           : lastResult.reason === "no-dynamite"
-            ? "No dynamite left. The Shop sells it."
+            ? "No dynamite."
             : lastResult.reason === "no-ladder"
-              ? "Out of ladders; the wall is sheer. Buy ladders at the Shop, or recall before the lamp dies."
+              ? "No ladders to climb. Recall or buy more."
               : lastResult.reason === "no-plank"
-                ? "That's a drop. Out of planks to bridge it; buy more at the depot or find another way around."
+                ? "No planks to bridge that drop."
                 : lastResult.reason === "no-rope"
-                  ? "No recall rope. The Shop sells it."
+                  ? "No rope."
                   : lastResult.reason === "surface"
-                    ? "Already on the surface."
+                    ? undefined
                     : lastResult.reason === "blocked"
-                      ? "No way through there."
+                      ? "No way through."
                       : "Edge of the claim."
       : lastResult?.ok && lastResult.crushed
-        ? "A boulder came down on you. The crew dug you out; the cargo stayed under the rock."
+        ? "Crushed! The crew dug you out; the cargo stayed behind."
         : lastResult?.ok && lastResult.collapsed
-          ? "Lamp died down there. The crew hauled you up; the cargo stayed below."
+          ? "The lamp died. Hauled up empty."
           : lastResult?.ok && lastResult.recalled
-            ? "The rope yanked you home; the carry is banked."
+            ? "Roped home; carry banked."
             : lastResult?.ok && (lastResult.vented ?? 0) > 0
-              ? `Gas vented! The lamp burned ${(lastResult.vented ?? 0) * 8} energy.`
-              : miner.row === 0
-                ? "On the surface. Loot banks automatically here; going dark below means losing the carry."
+              ? `Gas! ${(lastResult.vented ?? 0) * 8} energy burned.`
+              : miner.row === 0 &&
+                  (miner.bankedCredits > 0 || miner.bankedParts.length > 0)
+                ? "Sell at the Assay Office (gold sign)."
                 : undefined;
+  const cashNote =
+    cashOut.state === "done"
+      ? `Vaulted ${cashOut.credits} cr${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Fresh claim.`
+      : cashOut.state === "unavailable"
+        ? "Vault unreachable; loot is safe, try again."
+        : cashOut.state === "error"
+          ? cashOut.message
+          : null;
 
   const act = (dir: Direction) => {
     if (dynamiteArmed) {
@@ -589,201 +604,178 @@ export function MinePanel() {
         />
       )}
 
-      <aside
+      {/* Chip HUD (REQ-024): thin, glanceable, game-first. Data
+          attributes are the stable test surface; copy can change. */}
+      <section
+        aria-label="Mine status"
+        data-depth={miner.row}
+        data-energy={miner.energy.toFixed(1)}
+        data-ladders={mine.consumables.ladder}
+        data-planks={mine.consumables.plank}
+        data-banked={miner.bankedCredits}
+        data-climb-ladders={laddersNeeded}
         style={{
           position: "absolute",
-          top: 70,
-          left: 20,
-          width: 250,
+          top: 10,
+          left: 12,
+          right: 12,
           display: "flex",
           flexDirection: "column",
-          gap: 12,
+          alignItems: "flex-start",
+          gap: 6,
+          pointerEvents: "none",
+          zIndex: 5,
         }}
       >
-        <section style={panelStyle} aria-label="Mine status">
-          <p style={{ margin: 0, fontSize: "0.9rem" }}>
-            depth <strong>{miner.row}</strong> ({stratum.name}), energy{" "}
-            <strong style={lampLow ? { color: "#ff6b6b" } : undefined}>
-              {miner.energy.toFixed(1)}
-            </strong>
-            /{maxEnergy(gear)}
-          </p>
-          <p style={{ margin: "4px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-            pickaxe {gear.pickaxe}, lamp {gear.lamp}, hold {carriedCount(miner)}
-            /{cargoCapacity(gear)}, lantern {gear.lantern}
-          </p>
-          {miner.row > 0 && (
-            <p
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            flexWrap: "wrap",
+            maxWidth: "calc(100% - 250px)",
+          }}
+        >
+          <span style={chipStyle}>
+            <span style={{ opacity: 0.65 }}>&#9660;</span> {miner.row}{" "}
+            <span style={{ opacity: 0.65 }}>{stratum.name}</span>
+          </span>
+          <span
+            style={{
+              ...chipStyle,
+              position: "relative",
+              overflow: "hidden",
+              minWidth: 118,
+            }}
+          >
+            <span
               style={{
-                margin: "6px 0 0",
-                fontSize: "0.8rem",
+                position: "absolute",
+                inset: 0,
+                width: `${Math.max(0, Math.min(100, (miner.energy / maxEnergy(mine.gear)) * 100))}%`,
+                background: lampLow ? "#ff6b6b" : "#54e0c7",
+                opacity: 0.3,
+              }}
+            />
+            <span style={{ position: "relative" }}>
+              &#128294; {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
+            </span>
+          </span>
+          <span style={chipStyle}>
+            &#127890; {carriedCount(miner)}/{cargoCapacity(mine.gear)}
+          </span>
+          {(carryValue > 0 || miner.carriedParts.length > 0) && (
+            <span style={{ ...chipStyle, color: "#f5c542" }}>
+              &#128176; {carryValue} cr
+              {miner.carriedParts.length > 0 &&
+                ` +${miner.carriedParts.length}p`}
+            </span>
+          )}
+          {(miner.bankedCredits > 0 || miner.bankedParts.length > 0) && (
+            <span style={{ ...chipStyle, color: "#f5c542" }}>
+              &#127974; {miner.bankedCredits} cr
+              {miner.bankedParts.length > 0 && ` +${miner.bankedParts.length}p`}
+            </span>
+          )}
+          {miner.row > 0 && (
+            <span
+              style={{
+                ...chipStyle,
                 color: lampLow || ladderShort ? "#ff6b6b" : "#8b93a7",
               }}
             >
-              climb home needs ~{climbCost.toFixed(1)} energy and{" "}
-              {laddersNeeded} ladder{laddersNeeded === 1 ? "" : "s"}
-              {lampLow && ". The lamp is running low; bank it or lose it."}
-              {ladderShort &&
-                ". Not enough ladders to climb home; buy more or keep a rope."}
-            </p>
+              &#11014; {climbCost.toFixed(1)}&#9889; {laddersNeeded}&#129699;
+            </span>
           )}
-          <p style={{ margin: "6px 0 0", fontSize: "0.85rem", opacity: 0.85 }}>
-            carrying{" "}
-            {carrySummary.length > 0 || miner.carriedParts.length > 0 ? (
-              <>
-                {carrySummary.length > 0 ? carrySummary : null}
-                {miner.carriedParts.length > 0 &&
-                  `${carrySummary.length > 0 ? ", " : ""}${miner.carriedParts.length} part${miner.carriedParts.length > 1 ? "s" : ""}`}{" "}
-                worth <strong>{carryValue} cr</strong>
-              </>
-            ) : (
-              "nothing"
-            )}
-          </p>
-          <p style={{ margin: "6px 0 0", fontSize: "0.85rem", opacity: 0.85 }}>
-            banked {miner.bankedCredits} cr, {miner.bankedParts.length} parts
-          </p>
-          {(miner.bankedCredits > 0 || miner.bankedParts.length > 0) && (
-            <p
-              style={{
-                margin: "6px 0 0",
-                fontSize: "0.8rem",
-                color: "#f5c542",
-              }}
-            >
-              sell it at the Assay Office on the surface (the gold-sign building
-              to the left).
-            </p>
-          )}
-          {cashOut.state === "done" && (
-            <p
-              style={{
-                margin: "6px 0 0",
-                fontSize: "0.8rem",
-                color: "#54e0c7",
-              }}
-            >
-              vaulted {cashOut.credits} cr
-              {cashOut.milestoneBonus > 0 &&
-                ` + ${cashOut.milestoneBonus} cr depth bonus`}
-              {cashOut.parts.length > 0 && ` and ${cashOut.parts.length} parts`}
-              ; balance {cashOut.balance}. Fresh claim opened.
-            </p>
-          )}
-          {cashOut.state === "unavailable" && (
-            <p
-              style={{
-                margin: "6px 0 0",
-                fontSize: "0.8rem",
-                color: "#f5c542",
-              }}
-            >
-              the vault is unreachable right now; your loot is safe, try again
-            </p>
-          )}
-          {cashOut.state === "error" && (
-            <p
-              style={{
-                margin: "6px 0 0",
-                fontSize: "0.8rem",
-                color: "#ff6b6b",
-              }}
-            >
-              {cashOut.message}
-            </p>
-          )}
-          {miner.collapses > 0 && (
-            <p
-              style={{
-                margin: "6px 0 0",
-                fontSize: "0.8rem",
-                color: "#ff6b6b",
-              }}
-            >
-              collapses: {miner.collapses}
-            </p>
-          )}
-          {statusLine && (
-            <p
-              style={{
-                margin: "8px 0 0",
-                fontSize: "0.8rem",
-                color: "#f5c542",
-              }}
-            >
-              {statusLine}
-            </p>
-          )}
-        </section>
-
-        <section style={panelStyle} aria-label="Dig controls">
-          <div
+        </div>
+        {statusLine && (
+          <span style={{ ...chipStyle, color: "#f5c542" }}>{statusLine}</span>
+        )}
+        {cashNote && (
+          <span
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 6,
+              ...chipStyle,
+              color: cashOut.state === "error" ? "#ff6b6b" : "#54e0c7",
             }}
           >
-            <span />
-            <button type="button" onClick={() => act("up")}>
-              Up
-            </button>
-            <span />
-            <button type="button" onClick={() => act("left")}>
-              Left
-            </button>
-            <button type="button" onClick={() => act("down")}>
-              Down
-            </button>
-            <button type="button" onClick={() => act("right")}>
-              Right
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-            <button
-              type="button"
-              onClick={() => setDynamiteArmed((armed) => !armed)}
-              disabled={mine.consumables.dynamite <= 0 && !dynamiteArmed}
-              aria-pressed={dynamiteArmed}
-              style={
-                dynamiteArmed
-                  ? { background: "#7a2c2c", color: "#ffd9d9" }
-                  : undefined
-              }
-            >
-              {dynamiteArmed
-                ? "Armed! Pick a direction"
-                : `Dynamite (${mine.consumables.dynamite})`}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDynamiteArmed(false);
-                move("recall");
-              }}
-              disabled={mine.consumables.rope <= 0 || miner.row === 0}
-            >
-              Recall ({mine.consumables.rope})
-            </button>
-            <span
-              style={{
-                alignSelf: "center",
-                fontSize: "0.85rem",
-                color: ladderShort ? "#ff6b6b" : "#8b93a7",
-              }}
-            >
-              Ladders ({mine.consumables.ladder}) | Planks (
-              {mine.consumables.plank})
-            </span>
-          </div>
-          <p style={{ margin: "8px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-            arrows or WASD work too. Climbing plants a ladder per cell (8 free
-            per trip); stepping over a drop plants a plank (4 free). Placed ones
-            stay usable. Richer ores run deeper; watch the lamp, mind the
-            wobbling boulders, and bank on the surface.
-          </p>
-        </section>
-      </aside>
+            {cashNote}
+          </span>
+        )}
+      </section>
+
+      {/* Consumable cluster: thumb-reach icon buttons. Movement is the
+          thumbstick (or WASD/arrows); the D-pad is gone. */}
+      <section
+        aria-label="Dig controls"
+        style={{
+          position: "absolute",
+          right: 12,
+          bottom: 18,
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          zIndex: 5,
+        }}
+      >
+        <span
+          style={{
+            ...chipStyle,
+            color: ladderShort ? "#ff6b6b" : "#8b93a7",
+          }}
+        >
+          &#129699; {mine.consumables.ladder}
+        </span>
+        <span style={{ ...chipStyle, color: "#8b93a7" }}>
+          &#129717; {mine.consumables.plank}
+        </span>
+        <button
+          type="button"
+          aria-label={`Dynamite (${mine.consumables.dynamite})`}
+          onClick={() => setDynamiteArmed((armed) => !armed)}
+          disabled={mine.consumables.dynamite <= 0 && !dynamiteArmed}
+          aria-pressed={dynamiteArmed}
+          style={{
+            ...iconButtonStyle,
+            ...(dynamiteArmed
+              ? {
+                  background: "#7a2c2c",
+                  borderColor: "#ff6b6b",
+                  boxShadow: "0 0 12px rgba(255, 107, 107, 0.5)",
+                }
+              : null),
+          }}
+        >
+          &#129512; {mine.consumables.dynamite}
+        </button>
+        <button
+          type="button"
+          aria-label={`Recall (${mine.consumables.rope})`}
+          onClick={() => {
+            setDynamiteArmed(false);
+            move("recall");
+          }}
+          disabled={mine.consumables.rope <= 0 || miner.row === 0}
+          style={iconButtonStyle}
+        >
+          &#129526; {mine.consumables.rope}
+        </button>
+      </section>
+
+      {/* One-shot onboarding: gone after the first action. */}
+      {tick === 0 && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 88,
+            left: "50%",
+            transform: "translateX(-50%)",
+            ...chipStyle,
+            color: "#8b93a7",
+            pointerEvents: "none",
+          }}
+        >
+          drag anywhere to move &#183; WASD works too
+        </div>
+      )}
     </div>
   );
 }

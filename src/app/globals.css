@@ -9,6 +9,24 @@ body {
   background: #0b0e14;
   color: #e6e8ee;
   font-family: system-ui, -apple-system, sans-serif;
+  /* Game UI: long-presses and drags must never start a text selection
+     or the platform copy/share callout. Editable fields opt back in. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+button,
+a {
+  /* Kill the 300ms double-tap zoom delay on game controls. */
+  touch-action: manipulation;
 }
 
 /* Mine juice (REQ-018): floating pickup text and fanfare entrances. */

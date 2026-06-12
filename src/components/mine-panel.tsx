@@ -24,6 +24,7 @@ import {
 import { PART_CATALOG } from "@/sim/parts";
 import { useMineStore } from "@/state/mine-store";
 import { type StallDef, stallAt } from "./mine-stalls";
+import { MineTouchControls } from "./mine-touch-controls";
 
 const MineCanvas = dynamic(() => import("./mine-canvas"), { ssr: false });
 
@@ -571,6 +572,7 @@ export function MinePanel() {
   return (
     <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
       <MineCanvas />
+      <MineTouchControls onDirection={act} />
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
       {stall && (

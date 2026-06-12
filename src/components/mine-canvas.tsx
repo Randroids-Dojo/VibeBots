@@ -79,12 +79,18 @@ function variedColor(base: string, col: number, row: number): Color {
   return c;
 }
 
+type ParticleKind = "debris" | "spark" | "dust";
+
 interface Particle {
   id: number;
+  kind: ParticleKind;
   x: number;
   y: number;
   vx: number;
   vy: number;
+  /** Downward pull per second (dust floats, debris drops). */
+  gravity: number;
+  size: number;
   color: string;
   /** Seconds of life remaining (counts down in useFrame). */
   life: number;
@@ -99,10 +105,19 @@ interface JuiceState {
   swing: number;
   /** Lateral facing: -1 left, 1 right, 0 camera-facing. */
   facing: number;
+  /** Dig lunge: body offset toward the struck cell, decaying. */
+  lunge: { x: number; y: number; t: number };
 }
 
 const cellX = (col: number) => col - (MINE_WIDTH - 1) / 2;
 
+function pushParticle(juice: JuiceState, p: Omit<Particle, "id">): void {
+  juice.particles.push({ ...p, id: juice.nextId++ });
+  if (juice.particles.length > 260)
+    juice.particles.splice(0, juice.particles.length - 260);
+}
+
+/** Chunky debris in the struck block's color. */
 function spawnBurst(
   juice: JuiceState,
   x: number,
@@ -111,18 +126,57 @@ function spawnBurst(
   count: number,
 ): void {
   for (let i = 0; i < count; i++) {
-    juice.particles.push({
-      id: juice.nextId++,
+    pushParticle(juice, {
+      kind: "debris",
       x: x + (Math.random() - 0.5) * 0.5,
       y: y + (Math.random() - 0.5) * 0.5,
       vx: (Math.random() - 0.5) * 3,
       vy: Math.random() * 2.5 + 0.5,
+      gravity: 9,
+      size: 0.1 + Math.random() * 0.09,
       color,
       life: 0.45 + Math.random() * 0.3,
     });
   }
-  if (juice.particles.length > 220)
-    juice.particles.splice(0, juice.particles.length - 220);
+}
+
+/** Hot pick-strike sparks: fast, bright, gone in a blink. */
+function spawnSparks(
+  juice: JuiceState,
+  x: number,
+  y: number,
+  count: number,
+): void {
+  for (let i = 0; i < count; i++) {
+    pushParticle(juice, {
+      kind: "spark",
+      x: x + (Math.random() - 0.5) * 0.3,
+      y: y + (Math.random() - 0.5) * 0.3,
+      vx: (Math.random() - 0.5) * 6,
+      vy: Math.random() * 3.5 + 0.8,
+      gravity: 11,
+      size: 0.05 + Math.random() * 0.04,
+      color: "#ffe9a8",
+      life: 0.14 + Math.random() * 0.16,
+    });
+  }
+}
+
+/** A soft scuff of dust kicked up by treads on a plain move. */
+function spawnDust(juice: JuiceState, x: number, y: number): void {
+  for (let i = 0; i < 3; i++) {
+    pushParticle(juice, {
+      kind: "dust",
+      x: x + (Math.random() - 0.5) * 0.4,
+      y: y - 0.35,
+      vx: (Math.random() - 0.5) * 0.7,
+      vy: Math.random() * 0.6 + 0.15,
+      gravity: 1.2,
+      size: 0.06 + Math.random() * 0.05,
+      color: "#7a6a55",
+      life: 0.4 + Math.random() * 0.35,
+    });
+  }
 }
 
 /** Crystals jutting from an ore cell, sized and angled per cell hash. */
@@ -535,6 +589,7 @@ function MineScene() {
     shake: 0,
     swing: 0,
     facing: 0,
+    lunge: { x: 0, y: 0, t: 0 },
   });
   const minerPlaced = useRef(false);
 
@@ -569,9 +624,29 @@ function MineScene() {
         cellX(at.col),
         -at.row,
         color,
-        lastResult.dug === "rock" ? 14 : 9,
+        lastResult.dug === "rock" ? 16 : 11,
       );
-      if (lastResult.dug === "rock") j.shake = Math.max(j.shake, 0.12);
+      spawnSparks(
+        j,
+        cellX(at.col),
+        -at.row,
+        lastResult.dug === "rock" ? 10 : 6,
+      );
+      // Every strike thumps; rock thumps harder.
+      j.shake = Math.max(j.shake, lastResult.dug === "rock" ? 0.12 : 0.045);
+      // Lunge the body toward the struck cell.
+      const ldx = lastAction === "left" ? -1 : lastAction === "right" ? 1 : 0;
+      const ldy = lastAction === "down" ? -1 : lastAction === "up" ? 1 : 0;
+      j.lunge = { x: ldx * 0.16, y: ldy * 0.13, t: 0.22 };
+    } else if (
+      lastResult.ok &&
+      (lastAction === "left" ||
+        lastAction === "right" ||
+        lastAction === "down" ||
+        lastAction === "up")
+    ) {
+      // A plain step into open tunnel: treads kick a little dust.
+      spawnDust(j, cellX(miner.col), -miner.row);
     }
     if ((lastResult.blasted ?? 0) > 0 && lastAction?.startsWith("dynamite")) {
       const dir = lastAction.slice("dynamite-".length);
@@ -656,11 +731,18 @@ function MineScene() {
     }
     // Body language: face the walk direction, idle bob, pick swings.
     const body = minerBodyRef.current;
-    if (body) {
+    if (body && miner) {
       const targetYaw = j.facing * 0.85;
       body.rotation.y += (targetYaw - body.rotation.y) * Math.min(1, delta * 8);
+      // Dig lunge decays over its window; bob hums underneath.
+      j.lunge.t = Math.max(0, j.lunge.t - delta);
+      const lk = j.lunge.t / 0.22;
+      body.position.x = j.lunge.x * lk;
       // Grounded on the cell floor, with a soft idle hover bob.
-      body.position.y = -0.14 + Math.sin(t * 2.4) * 0.018;
+      body.position.y = -0.14 + Math.sin(t * 2.4) * 0.018 + j.lunge.y * lk;
+      // Lean into the glide while moving between cells.
+      const vx = cellX(mine.miner.col) - miner.position.x;
+      body.rotation.z = Math.max(-0.16, Math.min(0.16, -vx * 0.3));
     }
     const arm = pickArmRef.current;
     if (arm) {
@@ -686,7 +768,7 @@ function MineScene() {
       p.life -= delta;
       p.x += p.vx * delta;
       p.y += p.vy * delta;
-      p.vy -= 9 * delta;
+      p.vy -= p.gravity * delta;
     }
     j.particles = j.particles.filter((p) => p.life > 0);
     const group = particlesRef.current;
@@ -969,11 +1051,13 @@ function MineScene() {
       <group ref={particlesRef}>
         {juice.current.particles.map((p) => (
           <mesh key={p.id} position={[p.x, p.y, 0.4]} userData={{ id: p.id }}>
-            <boxGeometry args={[0.14, 0.14, 0.14]} />
+            <boxGeometry args={[p.size, p.size, p.size]} />
             <meshStandardMaterial
               color={p.color}
               emissive={p.color}
-              emissiveIntensity={0.4}
+              emissiveIntensity={
+                p.kind === "spark" ? 1.8 : p.kind === "debris" ? 0.4 : 0.05
+              }
               flatShading
             />
           </mesh>

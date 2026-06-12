@@ -371,6 +371,21 @@
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-023",
+      "requirement": "Touch-first mine controls: a float-where-you-tap virtual thumbstick (VibeKit virtual-joystick) fires cardinal moves with hold-to-repeat anywhere on the view; game text is unselectable so long-presses never open the platform copy/share UI.",
+      "gddRef": "docs/gdd/06-mining.html#controls",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/mine-touch-controls.tsx",
+        "src/components/mine-panel.tsx",
+        "src/app/globals.css"
+      ],
+      "testRefs": [
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": []
     }
   ]
 }

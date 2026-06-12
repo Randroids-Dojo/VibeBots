@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-touch-controls" data-date="2026-06-12">
+    <h3>Mine Touch Controls (VibeKit thumbstick)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-touch-controls</code></dd>
+      <dt>PR</dt><dd>#37</dd>
+      <dt>Changed</dt><dd>mobile play stopped fighting the browser (REQ-023, user-directed: a phone screenshot showed Android's copy/share selection UI opening over the dig buttons, and asked for VibeKit mobile components plus tap-anywhere thumbstick controls). VibeKit's <code>virtual-joystick</code> module (the kit's mobile input component) now drives a float-where-you-tap thumbstick over the mine view: press anywhere, the stick spawns under the finger, pushing past <code>JOYSTICK_DEADZONE</code> fires the dominant cardinal immediately and repeats every 220ms while held, release dismisses. It routes through the same act path as keys and buttons (a primed dynamite throws toward the flick). Buttons, stall menus, and overlays stack above the touch surface and keep their taps. Globally, game text is unselectable (<code>user-select: none</code>, <code>-webkit-touch-callout: none</code>, transparent tap highlight) with inputs and textareas opted back in, and controls get <code>touch-action: manipulation</code>.</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (90), <code>pnpm build</code>, <code>pnpm test:e2e</code> (9 passed including a new pointer-driven test: stick appears where pressed, immediate fire plus auto-repeat reaches depth 2+, stick hides on release, and <code>body</code> computes <code>user-select: none</code>); phone-viewport drag screenshot reached depth 6 on hold.</dd>
+      <dt>Assumptions</dt><dd>the thumbstick listens to pointer events, so mouse drags work on desktop too (harmless, and it lets CI drive the touch path); the overlay is mine-only since the other pages have no directional movement.</dd>
+      <dt>GDD coverage</dt><dd>REQ-023 added as done; controls section on 06 plus build-log entry.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-plank-bridges" data-date="2026-06-11">
     <h3>Mine Plank Bridges</h3>
     <dl>

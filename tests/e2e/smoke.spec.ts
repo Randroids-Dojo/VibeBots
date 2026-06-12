@@ -125,6 +125,40 @@ test("planks bridge a lateral gap (REQ-022)", async ({ page }) => {
   await expect(page.getByText(/Planks \(3\)/)).toBeVisible();
 });
 
+test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  await expect(status).toContainText("depth 0");
+
+  // Game text never selects (the mobile long-press copy/share bug).
+  expect(
+    await page.evaluate(() => getComputedStyle(document.body).userSelect),
+  ).toBe("none");
+
+  // Press on open ground right of the panels: the stick appears there.
+  await page.mouse.move(900, 380);
+  await page.mouse.down();
+  await page.mouse.move(900, 450, { steps: 5 });
+  await expect(page.locator("[data-joystick]")).toBeVisible();
+
+  // Holding past the deadzone fires immediately, then auto-repeats.
+  await expect(status).toContainText("depth 1");
+  await expect
+    .poll(
+      async () => {
+        const text = await status.innerText();
+        return Number((text.match(/depth\s+(\d+)/) ?? [])[1] ?? 0);
+      },
+      { timeout: 5_000 },
+    )
+    .toBeGreaterThanOrEqual(2);
+
+  await page.mouse.up();
+  await expect(page.locator("[data-joystick]")).not.toBeVisible();
+});
+
 test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");

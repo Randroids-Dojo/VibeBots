@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mine: camera X tracking + mobile WebGL backend</title>
+<meta name="dot-title" content="Mine: camera X tracking + mobile WebGL backend">
+<meta name="dot-status" content="active">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-06-12T02:32:24.933791-05:00">
+</head>
+<body>
+<article>
+<h1>Mine: camera X tracking + mobile WebGL backend</h1>
+<section id="description">
+Root cause of phone &#39;no screen change on lateral mining&#39;: camera never follows X and the phone half-width is ~2.6 units, so the bot walks offscreen. Clamped X tracking (no-op on wide aspects) + forceWebGL on coarse pointers for Android framerate.
+</section>
+</article>
+</body>
+</html>

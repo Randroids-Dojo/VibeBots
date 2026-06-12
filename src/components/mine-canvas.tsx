@@ -9,6 +9,7 @@ import type {
   Group,
   HemisphereLight,
   Mesh,
+  PerspectiveCamera,
   PointLight,
 } from "three/webgpu";
 import { Color } from "three/webgpu";
@@ -699,11 +700,26 @@ function MineScene() {
       // the whole map; gliding the camera through it reads as broken.
       if (Math.abs(targetY - rig.position.y) > 6) rig.position.y = targetY;
       rig.position.y += (targetY - rig.position.y) * Math.min(1, delta * 5);
+      // Narrow (phone portrait) viewports see only ~2.6 world units of
+      // half-width, so the camera must follow the miner laterally too,
+      // clamped so the claim edges still frame. On wide aspects the
+      // clamp is zero and the camera stays centered as before.
+      const cam = state.camera as PerspectiveCamera;
+      const halfW = Math.tan((cam.fov * Math.PI) / 360) * 13 * cam.aspect;
+      const maxPan = Math.max(0, 5.6 - halfW);
+      const targetX = Math.max(
+        -maxPan,
+        Math.min(maxPan, cellX(mine.miner.col)),
+      );
+      if (Math.abs(targetX - rig.position.x) > 6) rig.position.x = targetX;
+      rig.position.x += (targetX - rig.position.x) * Math.min(1, delta * 5);
       j.shake = Math.max(0, j.shake - delta * 0.9);
-      const sx = (Math.random() - 0.5) * j.shake;
+      const sx = rig.position.x + (Math.random() - 0.5) * j.shake;
       const sy = (Math.random() - 0.5) * j.shake;
       state.camera.position.set(sx, rig.position.y + 1.5 + sy, 13);
       state.camera.lookAt(sx, rig.position.y + sy, 0);
+      // Rendered camera pan exposed for motion QA on narrow viewports.
+      state.gl.domElement.dataset.camX = rig.position.x.toFixed(2);
       depthT = Math.min(1, Math.max(0, -rig.position.y / DARK_DEPTH));
     }
     // Daylight dies with depth; the lamp takes over as the key light.

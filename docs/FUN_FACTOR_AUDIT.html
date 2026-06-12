@@ -86,6 +86,16 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-11" data-audit-state="mine-polish-confirmation">
+    <h3>Confirmation 2026-06-11 (ladder ascent and surface village live: PRs #30 and #31)</h3>
+    <p>Source: scripted production probes against <code>vibe-bots.vercel.app</code> (screenshots <code>captures/ladders-prod-01.png</code>, <code>captures/village-prod-01-assay.png</code>, <code>captures/village-prod-02-depot.png</code>).</p>
+    <ul>
+      <li><strong>REQ-020 (ladder-gated ascent) confirmed live:</strong> at depth 2 the HUD priced the climb at "~1.0 energy and 2 ladders"; one climb dropped the count to Ladders (7) of the trip's 8 free, and the planted ladder rendered in the shaft. Replay parity is covered by sim tests; the smoke pins the climb line and the count.</li>
+      <li><strong>REQ-021 (surface village) confirmed live:</strong> walking the surface opened all three stall menus at their columns (Assay Office, Supply Depot with ladder pricing at 2 cr, Outfitter with all four gear tracks) and the wallet line rendered from the live ledger, proving storage-backed menus. The fresh guest wallet held 0 cr, so no purchase was executed in this probe; the buy endpoints themselves were production-confirmed in the mining-overhaul audit, and the new re-provision path is covered by the deterministic replay argument recorded in Q-008.</li>
+      <li><strong>Evidence integrity:</strong> both probes ran zero console errors; captures are scripted-run screenshots only.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-11" data-audit-state="mine-render-confirmation">
     <h3>Confirmation 2026-06-11 (mine render fixes live: PRs #26 and #27)</h3>
     <p>Source: scripted production runs of <code>scripts/playtest-mine-visuals.mjs</code> against <code>vibe-bots.vercel.app</code> (screenshots <code>captures/visuals-01-surface.png</code> through <code>visuals-04-deep-lamp.png</code>), plus an instrumented lateral-walk probe reading the canvas <code>data-miner-y</code>.</p>

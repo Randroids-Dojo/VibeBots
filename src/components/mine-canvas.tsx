@@ -385,7 +385,7 @@ function StallBuilding({
   active: boolean;
 }) {
   return (
-    <group position={[x, 0, -0.1]}>
+    <group position={[x, -1.5, -0.1]}>
       <RoundedBox
         args={[1.22, 0.85, 0.85]}
         radius={0.05}
@@ -427,7 +427,7 @@ function SurfaceDressing({ activeCol }: { activeCol: number | null }) {
     tufts.push(
       <mesh
         key={i}
-        position={[x, 1.06, (cellHash(i, 89, 7) - 0.5) * 0.9]}
+        position={[x, -0.44, (cellHash(i, 89, 7) - 0.5) * 0.5 - 0.2]}
         rotation={[0, h * 3, 0]}
       >
         <coneGeometry args={[0.07, 0.16 + h * 0.12, 5]} />
@@ -451,14 +451,14 @@ function SurfaceDressing({ activeCol }: { activeCol: number | null }) {
     <group>
       {/* Night sky over the camp */}
       {stars}
-      {/* Grassy lip on the dirt shelf */}
-      <mesh position={[0, 0.97, 0]}>
-        <boxGeometry args={[MINE_WIDTH + 2, 0.08, 1.54]} />
+      {/* Grassy lip along the ground line the miner walks on */}
+      <mesh position={[0, -0.47, -0.3]}>
+        <boxGeometry args={[MINE_WIDTH + 2, 0.07, 0.9]} />
         <meshStandardMaterial color="#3d5c3a" roughness={1} flatShading />
       </mesh>
       {tufts}
       {/* Headframe straddling the starting shaft */}
-      <group position={[frameX, 0, 0]}>
+      <group position={[frameX, -1.5, 0]}>
         <mesh position={[-0.62, 1.62, 0]} rotation={[0, 0, 0.32]}>
           <boxGeometry args={[0.1, 1.5, 0.1]} />
           <meshStandardMaterial color="#4a3424" roughness={0.9} flatShading />
@@ -492,7 +492,7 @@ function SurfaceDressing({ activeCol }: { activeCol: number | null }) {
       ))}
       {/* Lantern posts flanking the headframe */}
       {[-1.3, 1.3].map((x) => (
-        <group key={x} position={[x, 0, 0.3]}>
+        <group key={x} position={[x, -1.5, 0.3]}>
           <mesh position={[0, 1.45, 0]}>
             <boxGeometry args={[0.07, 0.95, 0.07]} />
             <meshStandardMaterial color="#4a3424" roughness={0.9} flatShading />
@@ -945,16 +945,12 @@ function MineScene() {
           </mesh>
         ))}
       </group>
-      {/* Surface shelf */}
-      <mesh position={[0, 0.75, 0]}>
-        <boxGeometry args={[MINE_WIDTH + 2, 0.5, 1.5]} />
-        <meshStandardMaterial color="#3b2f22" roughness={1} flatShading />
-      </mesh>
-      {/* Dark earth face behind the standing row, so the surface row
-          reads as a carved ledge instead of raw void. */}
+      {/* Night meadow backdrop behind the walk row: the bot, the
+          stalls, and the grass all share one ground line now (the old
+          raised shelf made the surface read as a pit). */}
       <mesh position={[0, 0, -0.42]}>
         <boxGeometry args={[MINE_WIDTH + 2, 1.04, 0.12]} />
-        <meshStandardMaterial color="#171310" roughness={1} />
+        <meshStandardMaterial color="#10130d" roughness={1} />
       </mesh>
       <SurfaceDressing
         activeCol={mine.miner.row === 0 ? mine.miner.col : null}

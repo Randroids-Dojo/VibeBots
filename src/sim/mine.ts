@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 4;
+export const MINE_VERSION = 5;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -50,14 +50,28 @@ export const MINE_VERSION = 4;
 export interface MineConsumables {
   dynamite: number;
   rope: number;
+  ladder: number;
 }
 
-export const NO_CONSUMABLES: MineConsumables = { dynamite: 0, rope: 0 };
+export const NO_CONSUMABLES: MineConsumables = {
+  dynamite: 0,
+  rope: 0,
+  ladder: 0,
+};
 
 export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
   dynamite: 10,
   rope: 8,
+  ladder: 2,
 };
+
+/**
+ * Free ladders provisioned at the start of every trip. Climbing is
+ * ladder-gated (REQ-020): the provision keeps the gentle top learnable
+ * without a shop visit; deep runs budget purchased bundles. Leftover
+ * provision does not bank between trips (see carryoverConsumables).
+ */
+export const LADDER_PROVISION = 8;
 
 /** Lamp energy burned per gas pocket vented (heat, not shrapnel). */
 export const GAS_VENT_DRAIN = 8;
@@ -344,6 +358,12 @@ export interface MineCell {
   rockTier?: number;
   /** A boulder whose support was dug: it falls on the next action. */
   wobbling?: boolean;
+  /**
+   * A deployed ladder (REQ-020), only meaningful on empty cells.
+   * Climbing out of this cell is free once placed. Anything that
+   * overwrites the cell (a falling boulder) smashes the ladder.
+   */
+  ladder?: boolean;
 }
 
 /** Rare robot parts discoverable underground (REQ-007). */
@@ -416,6 +436,35 @@ export function returnEnergyCost(miner: MinerState): number {
   return miner.row * MOVE_COST;
 }
 
+/**
+ * Ladders still needed to climb straight home up the current column
+ * (REQ-020). Same cleared-shaft assumption as returnEnergyCost: cells
+ * already holding a ladder climb free, everything else needs one.
+ */
+export function returnLadderNeed(state: MineState): number {
+  let need = 0;
+  for (let r = 1; r <= state.miner.row; r++) {
+    const cell = state.rows[r]?.[state.miner.col];
+    if (!(cell?.kind === "empty" && cell.ladder)) need++;
+  }
+  return need;
+}
+
+/**
+ * Consumables that survive into the next session: purchased stock only.
+ * The free ladder provision is per-trip; the pool spends provision
+ * first, so the purchased leftover is what remains after subtracting
+ * the unspent part of the provision.
+ */
+export function carryoverConsumables(state: MineState): MineConsumables {
+  const freeLeft = Math.max(0, LADDER_PROVISION - state.used.ladder);
+  return {
+    dynamite: state.consumables.dynamite,
+    rope: state.consumables.rope,
+    ladder: Math.max(0, state.consumables.ladder - freeLeft),
+  };
+}
+
 /** The top rows never roll rock: the first digs always land. */
 export const ROCK_FREE_ROWS = 2;
 /** The top rows never roll hazards: the first lesson is gentle. */
@@ -472,8 +521,11 @@ export function createMine(
   const state: MineState = {
     seed,
     gear,
-    consumables: { ...consumables },
-    used: { dynamite: 0, rope: 0 },
+    consumables: {
+      ...consumables,
+      ladder: consumables.ladder + LADDER_PROVISION,
+    },
+    used: { dynamite: 0, rope: 0, ladder: 0 },
     rows: [],
     miner: {
       col: START_COL,
@@ -536,6 +588,8 @@ export type MoveResult =
       blasted?: number;
       /** A recall rope ended the trip from below (carry banked). */
       recalled?: boolean;
+      /** This climb consumed and placed a new ladder (REQ-020). */
+      laddered?: boolean;
       /** What a collapse/crush cost, for the near-miss reveal (REQ-019). */
       lost?: { value: number; parts: string[]; col: number; row: number };
     }
@@ -548,6 +602,7 @@ export type MoveResult =
         | "hold-full"
         | "no-dynamite"
         | "no-rope"
+        | "no-ladder"
         | "surface";
     };
 
@@ -671,8 +726,9 @@ function markWobbling(state: MineState): void {
  * dug (cost + loot); empty cells are walked into; rock needs the
  * pickaxe tier for its depth (REQ-013) and costs more energy to cut;
  * a full cargo hold refuses ore until it is banked (REQ-014); moving up
- * works only through already-dug cells (ladders are implicit in the
- * shaft you cleared).
+ * works only through already-dug cells AND needs a ladder in the cell
+ * being climbed from (REQ-020): one is consumed and placed on first
+ * climb, then the shaft climbs free until something smashes it.
  */
 export function step(state: MineState, dir: Direction): MoveResult {
   const miner = state.miner;
@@ -687,6 +743,18 @@ export function step(state: MineState, dir: Direction): MoveResult {
     return { ok: false, reason: "hold-full" };
   if (dir === "up" && cell.kind !== "empty")
     return { ok: false, reason: "blocked" };
+  let laddered = false;
+  if (dir === "up" && miner.row >= 1) {
+    const here = state.rows[miner.row][miner.col];
+    if (!here.ladder) {
+      if (state.consumables.ladder <= 0)
+        return { ok: false, reason: "no-ladder" };
+      state.consumables.ladder--;
+      state.used.ladder++;
+      here.ladder = true;
+      laddered = true;
+    }
+  }
 
   let dug: CellKind | null = null;
   let dugOre: OreId | null = null;
@@ -730,13 +798,23 @@ export function step(state: MineState, dir: Direction): MoveResult {
     collapse(miner, state.gear);
     collapsed = true;
     ensureRows(state, lost.row + lightRadius(state.gear) + 1);
-    return { ok: true, dug, dugOre, found, collapsed, crushed, vented, lost };
+    return {
+      ok: true,
+      dug,
+      dugOre,
+      found,
+      collapsed,
+      crushed,
+      vented,
+      laddered,
+      lost,
+    };
   }
   if (miner.row === 0) {
     bank(miner, state.gear);
   }
   ensureRows(state, miner.row + lightRadius(state.gear) + 1);
-  return { ok: true, dug, dugOre, found, collapsed, crushed, vented };
+  return { ok: true, dug, dugOre, found, collapsed, crushed, vented, laddered };
 }
 
 /**

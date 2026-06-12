@@ -12,7 +12,7 @@ export async function GET(): Promise<Response> {
   const sql = await db();
   const rows = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           dynamite_count, rope_count, emeralds
+           dynamite_count, rope_count, ladder_count, emeralds
     FROM players WHERE id = ${playerId}`) as Array<{
     pickaxe_level: number;
     lamp_level: number;
@@ -20,6 +20,7 @@ export async function GET(): Promise<Response> {
     lantern_level: number;
     dynamite_count: number;
     rope_count: number;
+    ladder_count: number;
     emeralds: number;
   }>;
   const row = rows[0];
@@ -33,6 +34,7 @@ export async function GET(): Promise<Response> {
     consumables: {
       dynamite: row?.dynamite_count ?? 0,
       rope: row?.rope_count ?? 0,
+      ladder: row?.ladder_count ?? 0,
     },
     balance: row?.emeralds ?? 0,
   });

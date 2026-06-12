@@ -670,6 +670,33 @@ function MineScene() {
             </mesh>,
           );
         }
+        // A planted ladder (REQ-020): rails and rungs against the wall.
+        if (cell.ladder) {
+          tunnelMeshes.push(
+            <group key={`ladder:${key}`} position={[x, y, -0.28]}>
+              {[-0.16, 0.16].map((rx) => (
+                <mesh key={rx} position={[rx, 0, 0]}>
+                  <boxGeometry args={[0.05, 1, 0.05]} />
+                  <meshStandardMaterial
+                    color="#a87b3e"
+                    roughness={0.85}
+                    flatShading
+                  />
+                </mesh>
+              ))}
+              {[-0.3, 0, 0.3].map((ry) => (
+                <mesh key={ry} position={[0, ry, 0]}>
+                  <boxGeometry args={[0.36, 0.05, 0.05]} />
+                  <meshStandardMaterial
+                    color="#c99a55"
+                    roughness={0.85}
+                    flatShading
+                  />
+                </mesh>
+              ))}
+            </group>,
+          );
+        }
         continue;
       }
       if (cell.kind === "ore" && cell.ore) {

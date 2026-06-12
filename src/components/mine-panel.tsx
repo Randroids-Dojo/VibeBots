@@ -14,6 +14,7 @@ import {
   type OreId,
   oreDef,
   returnEnergyCost,
+  returnLadderNeed,
   stratumAt,
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
@@ -340,6 +341,9 @@ export function MinePanel() {
   // The climb estimate assumes a cleared shaft; warn with a margin so a
   // detour or two does not turn the warning into a lie (REQ-017).
   const lampLow = miner.row > 0 && miner.energy < climbCost * 1.25 + 2;
+  // Ladder budget for the same straight-home climb (REQ-020).
+  const laddersNeeded = returnLadderNeed(mine);
+  const ladderShort = miner.row > 0 && laddersNeeded > mine.consumables.ladder;
 
   const statusLine =
     lastResult && !lastResult.ok
@@ -349,13 +353,15 @@ export function MinePanel() {
           ? "The hold is full. Bank it on the surface (or upgrade the cargo hold)."
           : lastResult.reason === "no-dynamite"
             ? "No dynamite left. The Shop sells it."
-            : lastResult.reason === "no-rope"
-              ? "No recall rope. The Shop sells it."
-              : lastResult.reason === "surface"
-                ? "Already on the surface."
-                : lastResult.reason === "blocked"
-                  ? "No way through there."
-                  : "Edge of the claim."
+            : lastResult.reason === "no-ladder"
+              ? "Out of ladders; the wall is sheer. Buy ladders at the Shop, or recall before the lamp dies."
+              : lastResult.reason === "no-rope"
+                ? "No recall rope. The Shop sells it."
+                : lastResult.reason === "surface"
+                  ? "Already on the surface."
+                  : lastResult.reason === "blocked"
+                    ? "No way through there."
+                    : "Edge of the claim."
       : lastResult?.ok && lastResult.crushed
         ? "A boulder came down on you. The crew dug you out; the cargo stayed under the rock."
         : lastResult?.ok && lastResult.collapsed
@@ -411,11 +417,14 @@ export function MinePanel() {
               style={{
                 margin: "6px 0 0",
                 fontSize: "0.8rem",
-                color: lampLow ? "#ff6b6b" : "#8b93a7",
+                color: lampLow || ladderShort ? "#ff6b6b" : "#8b93a7",
               }}
             >
-              climb home needs ~{climbCost.toFixed(1)} energy
+              climb home needs ~{climbCost.toFixed(1)} energy and{" "}
+              {laddersNeeded} ladder{laddersNeeded === 1 ? "" : "s"}
               {lampLow && ". The lamp is running low; bank it or lose it."}
+              {ladderShort &&
+                ". Not enough ladders to climb home; buy more or keep a rope."}
             </p>
           )}
           <p style={{ margin: "6px 0 0", fontSize: "0.85rem", opacity: 0.85 }}>
@@ -556,10 +565,21 @@ export function MinePanel() {
             >
               Recall ({mine.consumables.rope})
             </button>
+            <span
+              style={{
+                alignSelf: "center",
+                fontSize: "0.85rem",
+                color: ladderShort ? "#ff6b6b" : "#8b93a7",
+              }}
+            >
+              Ladders ({mine.consumables.ladder})
+            </span>
           </div>
           <p style={{ margin: "8px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-            arrows or WASD work too. Richer ores run deeper; watch the lamp,
-            mind the wobbling boulders, and bank on the surface.
+            arrows or WASD work too. Climbing up plants a ladder per cell (each
+            trip packs 8 free; placed ones stay climbable). Richer ores run
+            deeper; watch the lamp, mind the wobbling boulders, and bank on the
+            surface.
           </p>
         </section>
       </aside>

@@ -5,6 +5,7 @@ import {
   cargoCapacity,
   carriedCount,
   carriedValue,
+  carryoverConsumables,
   cellAt,
   createMine,
   DEFAULT_GEAR,
@@ -13,6 +14,7 @@ import {
   GEAR_TRACKS,
   HAZARD_FREE_ROWS,
   isVisible,
+  LADDER_PROVISION,
   LAMP_ENERGY,
   LANTERN_RADIUS,
   LIGHT_RADIUS,
@@ -26,6 +28,7 @@ import {
   ROCK_FREE_ROWS,
   replayTrip,
   returnEnergyCost,
+  returnLadderNeed,
   rockTierAt,
   START_COL,
   START_ENERGY,
@@ -415,7 +418,11 @@ describe("mine", () => {
       reason: "no-dynamite",
     });
 
-    const state = createMine(53, DEFAULT_GEAR, { dynamite: 2, rope: 0 });
+    const state = createMine(53, DEFAULT_GEAR, {
+      dynamite: 2,
+      rope: 0,
+      ladder: 0,
+    });
     state.rows[1][START_COL] = { kind: "rock", rockTier: 3 };
     state.rows[2][START_COL] = { kind: "ore", ore: "coal" };
     const result = applyAction(state, "dynamite-down");
@@ -429,7 +436,11 @@ describe("mine", () => {
   });
 
   it("recall rope banks the carry from any depth", () => {
-    const state = createMine(59, DEFAULT_GEAR, { dynamite: 0, rope: 1 });
+    const state = createMine(59, DEFAULT_GEAR, {
+      dynamite: 0,
+      rope: 1,
+      ladder: 0,
+    });
     expect(applyAction(state, "recall")).toEqual({
       ok: false,
       reason: "surface",
@@ -448,8 +459,86 @@ describe("mine", () => {
     });
   });
 
+  it("provisions free ladders per trip and gates climbs on them", () => {
+    const state = createMine(71);
+    expect(state.consumables.ladder).toBe(LADDER_PROVISION);
+    step(state, "down");
+    step(state, "down");
+    const climb = step(state, "up");
+    expect(climb.ok && climb.laddered).toBe(true);
+    expect(state.consumables.ladder).toBe(LADDER_PROVISION - 1);
+    expect(state.used.ladder).toBe(1);
+    expect(cellAt(state, START_COL, 2)?.ladder).toBe(true);
+    // Re-descending and re-climbing the same cell reuses the ladder.
+    step(state, "down");
+    const reclimb = step(state, "up");
+    expect(reclimb.ok && !reclimb.laddered).toBe(true);
+    expect(state.consumables.ladder).toBe(LADDER_PROVISION - 1);
+    expect(state.used.ladder).toBe(1);
+  });
+
+  it("refuses to climb without ladders", () => {
+    const state = createMine(73);
+    step(state, "down");
+    state.consumables.ladder = 0;
+    expect(step(state, "up")).toEqual({ ok: false, reason: "no-ladder" });
+    // Still standing where the refusal happened, lamp untouched by it.
+    expect(state.miner.row).toBe(1);
+  });
+
+  it("prices the ladder budget for the climb home", () => {
+    const state = createMine(79);
+    for (let i = 0; i < 4; i++) step(state, "down");
+    expect(returnLadderNeed(state)).toBe(state.miner.row);
+    step(state, "up");
+    // The placed ladder discounts the straight-home estimate.
+    expect(returnLadderNeed(state)).toBe(state.miner.row);
+    step(state, "down");
+    expect(returnLadderNeed(state)).toBe(state.miner.row - 1);
+  });
+
+  it("banks only purchased ladders between trips", () => {
+    const owned = { dynamite: 0, rope: 0, ladder: 3 };
+    const state = createMine(83, DEFAULT_GEAR, owned);
+    expect(state.consumables.ladder).toBe(3 + LADDER_PROVISION);
+    // Spend two: both come out of the free provision.
+    step(state, "down");
+    step(state, "down");
+    step(state, "up");
+    step(state, "down");
+    step(state, "down");
+    step(state, "up");
+    expect(state.used.ladder).toBe(2);
+    expect(carryoverConsumables(state).ladder).toBe(3);
+    // Spend past the provision: purchases start burning.
+    state.used.ladder = LADDER_PROVISION + 2;
+    state.consumables.ladder = 3 + LADDER_PROVISION - state.used.ladder;
+    expect(carryoverConsumables(state).ladder).toBe(1);
+    expect(carryoverConsumables(createMine(83)).ladder).toBe(0);
+    expect(carryoverConsumables(state)).toEqual({
+      dynamite: 0,
+      rope: 0,
+      ladder: 1,
+    });
+  });
+
+  it("replays ladder trips identically", () => {
+    const actions: MineAction[] = [];
+    const state = createMine(89);
+    for (let i = 0; i < 120; i++) {
+      const action: MineAction =
+        i % 11 === 5 ? "left" : i % 3 === 1 ? "up" : "down";
+      actions.push(action);
+      applyAction(state, action);
+    }
+    const replayed = replayTrip(89, actions);
+    expect(replayed.bankedCredits).toBe(state.miner.bankedCredits);
+    expect(replayed.used.ladder).toBe(state.used.ladder);
+    expect(replayTrip(89, actions)).toEqual(replayed);
+  });
+
   it("replays consumable trips identically with used counts", () => {
-    const consumables = { dynamite: 3, rope: 1 };
+    const consumables = { dynamite: 3, rope: 1, ladder: 0 };
     const actions: MineAction[] = [];
     const state = createMine(61, DEFAULT_GEAR, consumables);
     for (let i = 0; i < 60; i++) {

@@ -67,7 +67,11 @@ try {
     await page.keyboard.press(heading);
     await page.waitForTimeout(60);
     const after = await status();
-    if (/Hard rock|No way|Edge/.test(after) && after !== hud) {
+    // Successful moves clear the status line, so a lingering blocked
+    // message always means this press was refused: step down and flip
+    // (comparing against the pre-press text stalled on back-to-back
+    // identical blocked states).
+    if (/Hard rock|No way|Edge/.test(after)) {
       await page.keyboard.press("ArrowDown");
       await page.waitForTimeout(60);
       heading = heading === "ArrowLeft" ? "ArrowRight" : "ArrowLeft";
@@ -78,8 +82,10 @@ try {
   const deepDepth = Number((deepHud.match(/depth\s+(\d+)/) ?? [])[1] ?? 0);
   if (deepDepth < TARGET_DEPTH) {
     log(
-      `WARNING: deep capture taken at depth ${deepDepth} (target ${TARGET_DEPTH}); treat visuals-04 as shallow evidence`,
+      `FAIL: deep capture taken at depth ${deepDepth} (target ${TARGET_DEPTH}); visuals-04 is not valid deep evidence`,
     );
+    // Confirmation runs must not promote shallow captures silently.
+    process.exitCode = 1;
   }
   log(`deep: ${deepHud.replace(/\n/g, " | ")}`);
   await page.screenshot({ path: `${OUT}/visuals-04-deep-lamp.png` });

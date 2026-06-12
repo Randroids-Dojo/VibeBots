@@ -35,7 +35,7 @@
     <h3>Surface Ground Line Fix</h3>
     <dl>
       <dt>Branch</dt><dd><code>fix/surface-ground-line</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#33</dd>
       <dt>Changed</dt><dd>user-reported from a phone screenshot: the miner walked the surface row 1.5 units below the village ground plane (the raised shelf carried the stalls, grass, headframe, and lanterns), so the bot read as stuck in a pit while standing at a shop. Render-only fix: the raised shelf is gone and every piece of surface dressing dropped to the walk row's floor line (the top of the first block row), so the bot, the stall doors, the grass, and the headframe legs all share one ground line. Verified on desktop and phone-portrait framings.</dd>
       <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (86), <code>pnpm build</code>, <code>pnpm test:e2e</code> (7 passed); before/after screenshots at both viewports.</dd>
       <dt>Assumptions</dt><dd>none; pure render change, no sim or DOM contract touched.</dd>

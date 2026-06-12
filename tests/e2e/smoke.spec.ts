@@ -174,7 +174,9 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
   await expect(abandon).toContainText("Sure?");
   await abandon.click();
   await expect(status).toHaveAttribute("data-depth", "0");
-  await expect(page.getByText("Abandoned the dig")).toBeVisible();
+  await expect(
+    page.getByLabel("Dismiss trip report").getByText("Abandoned the dig"),
+  ).toBeVisible();
   // Dismiss the trip report.
   await page.getByLabel("Dismiss trip report").click();
 });

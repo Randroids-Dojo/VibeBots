@@ -86,6 +86,16 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-11" data-audit-state="mine-render-confirmation">
+    <h3>Confirmation 2026-06-11 (mine render fixes live: PRs #26 and #27)</h3>
+    <p>Source: scripted production runs of <code>scripts/playtest-mine-visuals.mjs</code> against <code>vibe-bots.vercel.app</code> (screenshots <code>captures/visuals-01-surface.png</code> through <code>visuals-04-deep-lamp.png</code>), plus an instrumented lateral-walk probe reading the canvas <code>data-miner-y</code>.</p>
+    <ul>
+      <li><strong>F-020 (lateral teleport) confirmed fixed in production:</strong> after digging to depth 2, a left walk held the rendered Y at -2 across every sampled frame (the bug snapped it to 0); the eased X arrived at the neighbor cell. The e2e suite pins this with a frame-sampling regression that was mutation-checked against the buggy code.</li>
+      <li><strong>F-021 (visuals) confirmed live:</strong> the surface camp renders stars, headframe, lantern posts, and the articulated robot (visuals-01); the lateral walk shows the bot turned to face its direction mid-glide; the depth-8 capture (visuals-04) shows the lamp as sole key light with dust motes, lamplit dirt, and rock silhouettes at the edge of darkness. Consecutive frame pairs differ after input (Rule 10), zero console errors on both runs.</li>
+      <li><strong>Evidence integrity note:</strong> the first production sweep collapsed before reaching depth and silently captured the surface as "deep" evidence; the driver now stops the sweep while the lamp still burns and warns when the deep capture falls short of target depth (CodeRabbit catch on PR #27).</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-11" data-audit-state="mining-overhaul-final">
     <h3>Audit 2026-06-11 (mining overhaul complete: re-run of the mining prompts after PRs #16-#21)</h3>
     <p>Source: VibeReview session <code>docs/reviews/20260610-220517-4C845606/</code>, scripted production and local playtests (screenshots <code>captures/confirm-ore-*.png</code>, <code>captures/juice-*.png</code>, <code>captures/full-*.png</code>). The genre research is at <code>docs/research/mining-mechanics.html</code>.</p>

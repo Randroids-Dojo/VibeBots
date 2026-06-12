@@ -9,6 +9,9 @@ import {
   carriedValue,
   cellAt,
   type Direction,
+  ELEVATOR_COL,
+  ELEVATOR_SEGMENT_ROWS,
+  elevatorSegmentPrice,
   GEAR_TRACKS,
   type MineAction,
   type MineGear,
@@ -319,6 +322,8 @@ function StallMenu({
   onCashOut,
   onBuyConsumable,
   onBuyGear,
+  onBuyElevator,
+  onRide,
 }: {
   stall: StallDef;
   mine: MineState;
@@ -329,6 +334,8 @@ function StallMenu({
   onCashOut: () => void;
   onBuyConsumable: (item: "dynamite" | "rope" | "ladder" | "plank") => void;
   onBuyGear: (track: keyof MineGear) => void;
+  onBuyElevator: () => void;
+  onRide: (dir: "ride-down" | "ride-up") => void;
 }) {
   const miner = mine.miner;
   const banked = miner.bankedCredits;
@@ -467,6 +474,49 @@ function StallMenu({
           </p>
         </div>
       )}
+      {stall.id === "winch" && (
+        <div>
+          <p style={{ margin: "10px 0 0", fontSize: "0.9rem" }}>
+            {gear.elevator > 0
+              ? `rail reaches ${gear.elevator} deep`
+              : "no rail yet; the shaft waits"}
+          </p>
+          <div style={rowStyle}>
+            <span style={{ fontSize: "0.9rem" }}>
+              extend rail {ELEVATOR_SEGMENT_ROWS} rows
+              <span
+                style={{ display: "block", fontSize: "0.7rem", opacity: 0.55 }}
+              >
+                free rides, surface to rail end
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={onBuyElevator}
+              disabled={
+                balance === null ||
+                balance <
+                  elevatorSegmentPrice(
+                    gear.elevator / ELEVATOR_SEGMENT_ROWS + 1,
+                  )
+              }
+            >
+              {elevatorSegmentPrice(gear.elevator / ELEVATOR_SEGMENT_ROWS + 1)}{" "}
+              cr
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => onRide("ride-down")}
+            disabled={mine.gear.elevator <= 0}
+            style={{ marginTop: 10 }}
+          >
+            {mine.gear.elevator > 0
+              ? `Ride down to ${mine.gear.elevator}`
+              : "Ride down (no rail)"}
+          </button>
+        </div>
+      )}
       {shopNote && (
         <p style={{ margin: "10px 0 0", fontSize: "0.8rem", color: "#54e0c7" }}>
           {shopNote}
@@ -490,6 +540,7 @@ export function MinePanel() {
   const shopNote = useMineStore((s) => s.shopNote);
   const buyConsumable = useMineStore((s) => s.buyConsumable);
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
+  const buyElevator = useMineStore((s) => s.buyElevator);
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
   const [abandonArmed, setAbandonArmed] = useState(false);
   // Touch players never see keyboard copy (matches the renderer's
@@ -632,6 +683,8 @@ export function MinePanel() {
           onCashOut={() => void submitCashOut()}
           onBuyConsumable={(item) => void buyConsumable(item)}
           onBuyGear={(track) => void buyGearUpgrade(track)}
+          onBuyElevator={() => void buyElevator()}
+          onRide={(dir) => move(dir)}
         />
       )}
 
@@ -789,6 +842,18 @@ export function MinePanel() {
         >
           &#129526; {mine.consumables.rope}
         </button>
+        {miner.col === ELEVATOR_COL &&
+          miner.row >= 1 &&
+          miner.row <= mine.gear.elevator && (
+            <button
+              type="button"
+              aria-label="Ride elevator up"
+              onClick={() => move("ride-up")}
+              style={iconButtonStyle}
+            >
+              &#128727;
+            </button>
+          )}
         <button
           type="button"
           aria-label="Abandon trip"

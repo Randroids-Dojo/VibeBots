@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-elevator" data-date="2026-06-12">
+    <h3>Mine Elevator (Winch Tower)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-elevator</code></dd>
+      <dt>PR</dt><dd>#55</dd>
+      <dt>Changed</dt><dd>the mid-game transport investment (REQ-028, Q-011 default B). The Winch Tower joins the village at column -5: it sells 12-row rail segments at superlinear prices (40, 100, 250, 630, ...) persisted as <code>players.elevator_depth</code> and carried in the gear snapshot (<code>MineGear.elevator</code>, replay-validated against ownership). Rides are free logged actions: ride-down works only at the tower with rail bought, bores the rail span clear on the way (the crew milled it; no loot), lands at the rail end, and still resolves boulder falls; ride-up lifts from anywhere on the railed column to the surface and banks. The rail renders as metal guides and ties down the shaft, the tower menu shows rail status, the next segment price, and the ride button, and an elevator button appears in the HUD cluster while standing on the rail below ground. Purchases apply to the live trip only while the log is pure surface walks, like gear. <code>MINE_VERSION</code> 11.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (99: ride semantics, boring, banking, refusals, replay parity incl. world diff equality, segment pricing), <code>pnpm build</code>, <code>pnpm test:e2e</code> (14 passed incl. the tower menu walk with gated ride); local screenshot of the tower, menu, and pricing.</dd>
+      <dt>Assumptions</dt><dd>rides cost zero energy (the rail is the payoff); boring destroys loot in the rail column silently (documented in the tower's role); the rail column is fixed at -5 so the village layout stays one consistent strip.</dd>
+      <dt>GDD coverage</dt><dd>REQ-028 done; build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>none new; teleporter and deep-dangers slices remain in the epic dots.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-persistent-endless-world" data-date="2026-06-12">
     <h3>Persistent Endless World Core</h3>
     <dl>

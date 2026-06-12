@@ -115,6 +115,7 @@ export interface MineSessionState {
   submitCashOut: () => Promise<void>;
   buyConsumable: (item: keyof MineConsumables) => Promise<void>;
   buyGearUpgrade: (track: keyof MineGear) => Promise<void>;
+  buyElevator: () => Promise<void>;
   restart: (seed?: number) => void;
 }
 
@@ -462,6 +463,53 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         }
       } catch {
         set({ shopNote: "upgrade failed" });
+      }
+    },
+
+    buyElevator: async () => {
+      if (get().cashOut.state === "pending") return;
+      try {
+        const res = await fetch("/api/elevator/upgrade", { method: "POST" });
+        if (res.status === 503) {
+          set({ shopNote: "the tower ledger is offline; nothing was charged" });
+          return;
+        }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          set({
+            shopNote:
+              typeof body.error === "string" ? body.error : "purchase failed",
+          });
+          return;
+        }
+        const body = await res.json();
+        const { gear, consumables, bought, moves, seed: s0, tick } = get();
+        const nextGear: MineGear = { ...gear, elevator: body.elevator };
+        if (surfaceOnlyLog(moves)) {
+          // Same rule as gear: rail applies to the live trip only while
+          // the log is pure surface walks (replay-identical).
+          const owned = addConsumables(consumables, bought);
+          const rebuilt = createMine(s0, nextGear, owned, get().tripBaseDiff);
+          for (const m of moves) applyAction(rebuilt, m);
+          set({
+            gear: nextGear,
+            mine: rebuilt,
+            consumables: owned,
+            bought: NO_CONSUMABLES,
+            balance: typeof body.balance === "number" ? body.balance : null,
+            shopNote: `rail extended to ${body.elevator} deep`,
+            tick: tick + 1,
+          });
+        } else {
+          set({
+            gear: nextGear,
+            balance: typeof body.balance === "number" ? body.balance : null,
+            shopNote: `rail extended to ${body.elevator} deep; rides start next trip`,
+            tick: tick + 1,
+          });
+        }
+      } catch {
+        set({ shopNote: "purchase failed" });
       }
     },
 

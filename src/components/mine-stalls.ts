@@ -4,7 +4,7 @@
  * the panel; the canvas draws the buildings at the same columns.
  */
 export interface StallDef {
-  id: "assay" | "supply" | "outfitter";
+  id: "assay" | "supply" | "outfitter" | "winch";
   col: number;
   name: string;
   /** Sign/trim color, shared by the canvas building and the menu. */
@@ -13,6 +13,13 @@ export interface StallDef {
 }
 
 export const STALLS: readonly StallDef[] = [
+  {
+    id: "winch",
+    col: -5,
+    name: "Winch Tower",
+    color: "#9aa7ff",
+    blurb: "rail segments down the shaft; free rides",
+  },
   {
     id: "assay",
     col: -3,

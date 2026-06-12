@@ -24,6 +24,7 @@ import {
   ORES,
   oreChanceAt,
   oreDef,
+  PLANK_PROVISION,
   ROCK_DIG_COST,
   ROCK_FREE_ROWS,
   replayTrip,
@@ -422,6 +423,7 @@ describe("mine", () => {
       dynamite: 2,
       rope: 0,
       ladder: 0,
+      plank: 0,
     });
     state.rows[1][START_COL] = { kind: "rock", rockTier: 3 };
     state.rows[2][START_COL] = { kind: "ore", ore: "coal" };
@@ -440,6 +442,7 @@ describe("mine", () => {
       dynamite: 0,
       rope: 1,
       ladder: 0,
+      plank: 0,
     });
     expect(applyAction(state, "recall")).toEqual({
       ok: false,
@@ -498,7 +501,7 @@ describe("mine", () => {
   });
 
   it("banks only purchased ladders between trips", () => {
-    const owned = { dynamite: 0, rope: 0, ladder: 3 };
+    const owned = { dynamite: 0, rope: 0, ladder: 3, plank: 0 };
     const state = createMine(83, DEFAULT_GEAR, owned);
     expect(state.consumables.ladder).toBe(3 + LADDER_PROVISION);
     // Spend two: both come out of the free provision.
@@ -519,7 +522,72 @@ describe("mine", () => {
       dynamite: 0,
       rope: 0,
       ladder: 1,
+      plank: 0,
     });
+  });
+
+  it("bridges lateral gaps with planks and reuses them", () => {
+    // Dig a shaft two deep, climb out, tunnel one cell left, then step
+    // back right across the open shaft mouth at row 1: that lateral
+    // step crosses a void (row 2 below it is dug out) and needs a plank.
+    const state = createMine(101);
+    step(state, "down");
+    step(state, "down");
+    step(state, "up");
+    step(state, "left");
+    expect(state.used.plank).toBe(0);
+    const cross = step(state, "right");
+    expect(cross.ok && cross.planked).toBe(true);
+    expect(state.consumables.plank).toBe(PLANK_PROVISION - 1);
+    expect(state.used.plank).toBe(1);
+    expect(cellAt(state, START_COL, 1)?.plank).toBe(true);
+    // Re-crossing the planked cell is free.
+    step(state, "left");
+    const recross = step(state, "right");
+    expect(recross.ok && !recross.planked).toBe(true);
+    expect(state.used.plank).toBe(1);
+  });
+
+  it("refuses the gap step without planks, costing nothing", () => {
+    const state = createMine(103);
+    step(state, "down");
+    step(state, "down");
+    step(state, "up");
+    step(state, "left");
+    state.consumables.plank = 0;
+    const energy = state.miner.energy;
+    expect(step(state, "right")).toEqual({ ok: false, reason: "no-plank" });
+    expect(state.miner.col).toBe(START_COL - 1);
+    expect(state.miner.energy).toBe(energy);
+  });
+
+  it("keeps the surface walk row plank-free over open shafts", () => {
+    const state = createMine(107);
+    step(state, "down");
+    step(state, "up");
+    step(state, "left");
+    // Crossing the shaft mouth on the surface row is boardwalked.
+    const cross = step(state, "right");
+    expect(cross.ok && !cross.planked).toBe(true);
+    expect(state.used.plank).toBe(0);
+  });
+
+  it("replays plank trips identically", () => {
+    const actions: MineAction[] = [
+      "down",
+      "down",
+      "up",
+      "left",
+      "right",
+      "left",
+      "right",
+    ];
+    const state = createMine(109);
+    for (const action of actions) applyAction(state, action);
+    const replayed = replayTrip(109, actions);
+    expect(replayed.used.plank).toBe(state.used.plank);
+    expect(replayed.used.plank).toBe(1);
+    expect(replayTrip(109, actions)).toEqual(replayed);
   });
 
   it("replays ladder trips identically", () => {
@@ -538,7 +606,7 @@ describe("mine", () => {
   });
 
   it("replays consumable trips identically with used counts", () => {
-    const consumables = { dynamite: 3, rope: 1, ladder: 0 };
+    const consumables = { dynamite: 3, rope: 1, ladder: 0, plank: 0 };
     const actions: MineAction[] = [];
     const state = createMine(61, DEFAULT_GEAR, consumables);
     for (let i = 0; i < 60; i++) {

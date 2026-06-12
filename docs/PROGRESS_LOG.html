@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-plank-bridges" data-date="2026-06-11">
+    <h3>Mine Plank Bridges</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-planks</code></dd>
+      <dt>PR</dt><dd>#34</dd>
+      <dt>Changed</dt><dd>lateral traversal over voids is now plank-gated (REQ-022, user-directed: "planks as well as ladders for traversing horizontally over gaps"). Stepping left or right into a cell with empty space below consumes a plank and places a bridge there once; the planked cell crosses free afterwards, falling boulders smash it, and the surface walk row is exempt so village strolling stays frictionless. Trips provision 4 free planks (<code>PLANK_PROVISION</code>); the Supply Depot and Shop sell more at 2 cr; only purchased planks bank between trips or debit at cash-out. The refusal is checked before any mutation (a blocked step costs no energy) with an honest message. HUD shows the plank count beside ladders; planted planks render as boards spanning the cell floor. <code>MINE_VERSION</code> bumped to 6; <code>players.plank_count</code> added idempotently; the buy/gear/bank routes extended; the store's consumable merges consolidated onto a shared <code>addConsumables</code> helper.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (90: 4 new covering bridge placement and reuse, no-cost refusal, surface exemption, and replay parity), <code>pnpm build</code>, <code>pnpm test:e2e</code> (8 passed including a deterministic gap-crossing that pins the plank count decrement); local screenshot of the planted bridge over the shaft mouth.</dd>
+      <dt>Assumptions</dt><dd>no miner gravity: an unbridgeable gap refuses the step rather than dropping the miner (consistent with the ladder refusal pattern); descending into an open shaft stays free (that is the climb-down, priced by the ladder rule on the way back).</dd>
+      <dt>GDD coverage</dt><dd>REQ-022 added as done; the traversal-aids section on 06 covers both consumables; build-log entry.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="surface-ground-line" data-date="2026-06-11">
     <h3>Surface Ground Line Fix</h3>
     <dl>

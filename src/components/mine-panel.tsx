@@ -313,7 +313,7 @@ function StallMenu({
   shopNote: string | null;
   cashOutPending: boolean;
   onCashOut: () => void;
-  onBuyConsumable: (item: "dynamite" | "rope" | "ladder") => void;
+  onBuyConsumable: (item: "dynamite" | "rope" | "ladder" | "plank") => void;
   onBuyGear: (track: keyof MineGear) => void;
 }) {
   const miner = mine.miner;
@@ -384,6 +384,7 @@ function StallMenu({
               ["dynamite", "Dynamite"],
               ["rope", "Recall Rope"],
               ["ladder", "Ladder"],
+              ["plank", "Plank"],
             ] as const
           ).map(([item, name]) => {
             const price = CONSUMABLE_PRICES[item];
@@ -537,13 +538,15 @@ export function MinePanel() {
             ? "No dynamite left. The Shop sells it."
             : lastResult.reason === "no-ladder"
               ? "Out of ladders; the wall is sheer. Buy ladders at the Shop, or recall before the lamp dies."
-              : lastResult.reason === "no-rope"
-                ? "No recall rope. The Shop sells it."
-                : lastResult.reason === "surface"
-                  ? "Already on the surface."
-                  : lastResult.reason === "blocked"
-                    ? "No way through there."
-                    : "Edge of the claim."
+              : lastResult.reason === "no-plank"
+                ? "That's a drop. Out of planks to bridge it; buy more at the depot or find another way around."
+                : lastResult.reason === "no-rope"
+                  ? "No recall rope. The Shop sells it."
+                  : lastResult.reason === "surface"
+                    ? "Already on the surface."
+                    : lastResult.reason === "blocked"
+                      ? "No way through there."
+                      : "Edge of the claim."
       : lastResult?.ok && lastResult.crushed
         ? "A boulder came down on you. The crew dug you out; the cargo stayed under the rock."
         : lastResult?.ok && lastResult.collapsed
@@ -767,14 +770,15 @@ export function MinePanel() {
                 color: ladderShort ? "#ff6b6b" : "#8b93a7",
               }}
             >
-              Ladders ({mine.consumables.ladder})
+              Ladders ({mine.consumables.ladder}) | Planks (
+              {mine.consumables.plank})
             </span>
           </div>
           <p style={{ margin: "8px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-            arrows or WASD work too. Climbing up plants a ladder per cell (each
-            trip packs 8 free; placed ones stay climbable). Richer ores run
-            deeper; watch the lamp, mind the wobbling boulders, and bank on the
-            surface.
+            arrows or WASD work too. Climbing plants a ladder per cell (8 free
+            per trip); stepping over a drop plants a plank (4 free). Placed ones
+            stay usable. Richer ores run deeper; watch the lamp, mind the
+            wobbling boulders, and bank on the surface.
           </p>
         </section>
       </aside>

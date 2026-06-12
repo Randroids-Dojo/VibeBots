@@ -102,6 +102,29 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(page.getByText(/Ladders \(\d+\)/)).toBeVisible();
 });
 
+test("planks bridge a lateral gap (REQ-022)", async ({ page }) => {
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  await expect(status).toContainText("depth 0");
+  // Planks ride the same indicator as ladders; trips pack 4 free.
+  await expect(page.getByText(/Planks \(4\)/)).toBeVisible();
+
+  // Dig a two-deep shaft, climb out, tunnel one cell left (all within
+  // the rock-free, hazard-free top rows, so this works on every seed).
+  await page.getByRole("button", { name: "Down" }).click();
+  await expect(status).toContainText("depth 1");
+  await page.getByRole("button", { name: "Down" }).click();
+  await expect(status).toContainText("depth 2");
+  await page.getByRole("button", { name: "Up" }).click();
+  await expect(status).toContainText("depth 1");
+  await page.getByRole("button", { name: "Left" }).click();
+
+  // Step back right across the open shaft mouth: a void below means a
+  // plank is consumed and placed.
+  await page.getByRole("button", { name: "Right" }).click();
+  await expect(page.getByText(/Planks \(3\)/)).toBeVisible();
+});
+
 test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");

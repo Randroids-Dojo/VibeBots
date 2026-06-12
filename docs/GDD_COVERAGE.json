@@ -353,6 +353,24 @@
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-022",
+      "requirement": "Lateral traversal over voids is plank-gated: stepping sideways into a cell with empty space below consumes and places a plank bridge once (free re-crossings, smashed by boulders, surface row exempt); trips provision a free bundle and the shop sells more.",
+      "gddRef": "docs/gdd/06-mining.html#ladders",
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/app/api/mine/bank/route.ts",
+        "src/app/api/consumables/buy/route.ts",
+        "src/components/mine-panel.tsx",
+        "src/components/mine-canvas.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": []
     }
   ]
 }

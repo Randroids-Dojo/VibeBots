@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  addConsumables,
   applyAction,
   carryoverConsumables,
   createMine,
@@ -118,7 +119,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           gear.lantern === current.lantern &&
           consumables.dynamite === currentCons.dynamite &&
           consumables.rope === currentCons.rope &&
-          consumables.ladder === currentCons.ladder
+          consumables.ladder === currentCons.ladder &&
+          consumables.plank === currentCons.plank
         ) {
           return;
         }
@@ -178,13 +180,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // provision is per-trip and does not bank) plus anything bought
         // at the depot since, on the store gear (a deferred upgrade
         // lands here).
-        const carry = carryoverConsumables(get().mine);
-        const pending = get().bought;
-        const remaining: MineConsumables = {
-          dynamite: carry.dynamite + pending.dynamite,
-          rope: carry.rope + pending.rope,
-          ladder: carry.ladder + pending.ladder,
-        };
+        const remaining: MineConsumables = addConsumables(
+          carryoverConsumables(get().mine),
+          get().bought,
+        );
         const nextSeed = randomSeed();
         const nextMine = createMine(nextSeed, get().gear, remaining);
         // Selling happens standing at the Assay Office; the fresh claim
@@ -245,13 +244,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // exactly (refusal thresholds only loosen), so the new stock is
         // usable immediately, mid-claim, without losing the dig.
         const { seed: s0, gear, consumables, bought, moves, tick } = get();
-        const owned: MineConsumables = {
-          ...consumables,
-          [item]: consumables[item] + bought[item] + 1,
-        };
-        for (const key of ["dynamite", "rope", "ladder"] as const) {
-          if (key !== item) owned[key] = consumables[key] + bought[key];
-        }
+        const owned = addConsumables(consumables, bought);
+        owned[item] += 1;
         const rebuilt = createMine(s0, gear, owned);
         for (const m of moves) applyAction(rebuilt, m);
         set({
@@ -297,11 +291,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           // Gear changes the sim, so the live session only absorbs it
           // while the log is pure surface walks (replay-identical under
           // any gear). Otherwise it lands on the next claim.
-          const owned: MineConsumables = {
-            dynamite: consumables.dynamite + bought.dynamite,
-            rope: consumables.rope + bought.rope,
-            ladder: consumables.ladder + bought.ladder,
-          };
+          const owned = addConsumables(consumables, bought);
           const rebuilt = createMine(s0, nextGear, owned);
           for (const m of moves) applyAction(rebuilt, m);
           set({
@@ -329,11 +319,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     restart: (seedOverride) => {
       const nextSeed = seedOverride ?? randomSeed();
       const { consumables, bought } = get();
-      const owned: MineConsumables = {
-        dynamite: consumables.dynamite + bought.dynamite,
-        rope: consumables.rope + bought.rope,
-        ladder: consumables.ladder + bought.ladder,
-      };
+      const owned = addConsumables(consumables, bought);
       set({
         mine: createMine(nextSeed, get().gear, owned),
         seed: nextSeed,

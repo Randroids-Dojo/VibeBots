@@ -86,6 +86,16 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-12" data-audit-state="abandon-motion-anim-confirmation">
+    <h3>Confirmation 2026-06-12 (abandon, motion fixes, dig juice, framerate pass live: PRs #40 to #42)</h3>
+    <p>Source: scripted production probe at phone viewport (screenshots <code>captures/abandon-prod-01.png</code>, <code>captures/sparks-prod-01.png</code>).</p>
+    <ul>
+      <li><strong>REQ-025 confirmed live:</strong> the Abandon button armed to "Sure?" on first tap and hauled the miner to depth 0 on the second, with the trip report shown and dismissed; zero console errors.</li>
+      <li><strong>Motion and juice live:</strong> the strike capture shows the spark flash over the debris burst; the thumbstick hysteresis and snap-on-reset shipped in the same batch (axis zigzag and the glide-through-rock are gone by construction; on-device feel check requested from the player).</li>
+      <li><strong>Perf instrumentation live:</strong> the canvas exposes <code>data-draw-calls</code> on production for on-device measurement; the headless probe read it successfully. The DPR cap and surface-churn cuts shipped; the user's phone retest is the real acceptance gate and is noted as such in the progress log.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-12" data-audit-state="mobile-hud-confirmation">
     <h3>Confirmation 2026-06-12 (mobile-game HUD live: PR #39)</h3>
     <p>Source: scripted production probe at phone viewport (screenshot <code>captures/hud-prod-01-surface.png</code>).</p>

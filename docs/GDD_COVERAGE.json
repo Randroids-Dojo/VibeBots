@@ -386,6 +386,20 @@
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-024",
+      "requirement": "The mine reads as a mobile game, not a website: chip HUD (depth, energy bar, hold, carry, banked, climb cost) with one-line toasts, icon consumable buttons in thumb reach, no page header or D-pad, and a one-shot drag-to-move hint.",
+      "gddRef": "docs/gdd/06-mining.html#controls",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/mine-panel.tsx",
+        "src/app/mine/page.tsx"
+      ],
+      "testRefs": [
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": []
     }
   ]
 }

@@ -75,21 +75,23 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(
     page.getByLabel("Game sections").getByRole("link", { name: "Arena" }),
   ).toBeVisible();
+  // The HUD exposes the sim numbers as data attributes (REQ-024): the
+  // chip copy can change, the test surface cannot.
   const status = page.getByLabel("Mine status");
-  await expect(status).toContainText("depth 0");
+  await expect(status).toHaveAttribute("data-depth", "0");
   await expect(status).toContainText("Topsoil");
 
-  await page.getByRole("button", { name: "Down" }).click();
-  await expect(status).toContainText("depth 1");
-  await expect(status).toContainText("energy 59.0");
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveAttribute("data-depth", "1");
+  await expect(status).toHaveAttribute("data-energy", "59.0");
   // The climb estimate prices ladders as well as energy (REQ-020).
-  await expect(status).toContainText("and 1 ladder");
+  await expect(status).toHaveAttribute("data-climb-ladders", "1");
 
   // Climbing out consumes a provisioned ladder (REQ-020).
-  await page.getByRole("button", { name: "Up" }).click();
-  await expect(status).toContainText("depth 0");
+  await page.keyboard.press("ArrowUp");
+  await expect(status).toHaveAttribute("data-depth", "0");
   // Banking on the surface refills the lamp.
-  await expect(status).toContainText("energy 60.0");
+  await expect(status).toHaveAttribute("data-energy", "60.0");
 
   // Consumable controls exist even when empty (REQ-016); a scripted
   // edit once shipped without them, so the smoke pins their presence.
@@ -99,30 +101,30 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: /Recall \(\d+\)/ }),
   ).toBeVisible();
-  await expect(page.getByText(/Ladders \(\d+\)/)).toBeVisible();
+  await expect(status).toHaveAttribute("data-ladders", /\d+/);
 });
 
 test("planks bridge a lateral gap (REQ-022)", async ({ page }) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");
-  await expect(status).toContainText("depth 0");
-  // Planks ride the same indicator as ladders; trips pack 4 free.
-  await expect(page.getByText(/Planks \(4\)/)).toBeVisible();
+  await expect(status).toHaveAttribute("data-depth", "0");
+  // Trips pack 4 free planks.
+  await expect(status).toHaveAttribute("data-planks", "4");
 
   // Dig a two-deep shaft, climb out, tunnel one cell left (all within
   // the rock-free, hazard-free top rows, so this works on every seed).
-  await page.getByRole("button", { name: "Down" }).click();
-  await expect(status).toContainText("depth 1");
-  await page.getByRole("button", { name: "Down" }).click();
-  await expect(status).toContainText("depth 2");
-  await page.getByRole("button", { name: "Up" }).click();
-  await expect(status).toContainText("depth 1");
-  await page.getByRole("button", { name: "Left" }).click();
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveAttribute("data-depth", "1");
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveAttribute("data-depth", "2");
+  await page.keyboard.press("ArrowUp");
+  await expect(status).toHaveAttribute("data-depth", "1");
+  await page.keyboard.press("ArrowLeft");
 
   // Step back right across the open shaft mouth: a void below means a
   // plank is consumed and placed.
-  await page.getByRole("button", { name: "Right" }).click();
-  await expect(page.getByText(/Planks \(3\)/)).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(status).toHaveAttribute("data-planks", "3");
 });
 
 test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
@@ -130,7 +132,7 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
 }) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");
-  await expect(status).toContainText("depth 0");
+  await expect(status).toHaveAttribute("data-depth", "0");
 
   // Game text never selects (the mobile long-press copy/share bug).
   expect(
@@ -144,15 +146,10 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
   await expect(page.locator("[data-joystick]")).toBeVisible();
 
   // Holding past the deadzone fires immediately, then auto-repeats.
-  await expect(status).toContainText("depth 1");
   await expect
-    .poll(
-      async () => {
-        const text = await status.innerText();
-        return Number((text.match(/depth\s+(\d+)/) ?? [])[1] ?? 0);
-      },
-      { timeout: 5_000 },
-    )
+    .poll(async () => Number(await status.getAttribute("data-depth")), {
+      timeout: 5_000,
+    })
     .toBeGreaterThanOrEqual(2);
 
   await page.mouse.up();
@@ -162,11 +159,11 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
 test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");
-  await expect(status).toContainText("depth 0");
+  await expect(status).toHaveAttribute("data-depth", "0");
 
   // Walk left from the shaft (col 4) to the Assay Office (col 1).
   for (let i = 0; i < 3; i++) {
-    await page.getByRole("button", { name: "Left" }).click();
+    await page.keyboard.press("ArrowLeft");
   }
   const assay = page.getByLabel("Assay Office");
   await expect(assay).toBeVisible();
@@ -174,7 +171,7 @@ test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
 
   // Walk right to the Supply Depot (col 6): consumables with prices.
   for (let i = 0; i < 5; i++) {
-    await page.getByRole("button", { name: "Right" }).click();
+    await page.keyboard.press("ArrowRight");
   }
   const depot = page.getByLabel("Supply Depot");
   await expect(depot).toBeVisible();
@@ -183,7 +180,7 @@ test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
 
   // And on to the Outfitter (col 8): the four gear tracks.
   for (let i = 0; i < 2; i++) {
-    await page.getByRole("button", { name: "Right" }).click();
+    await page.keyboard.press("ArrowRight");
   }
   const outfitter = page.getByLabel("Outfitter");
   await expect(outfitter).toBeVisible();
@@ -191,7 +188,7 @@ test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await expect(outfitter).toContainText("Cargo Hold");
 
   // Walking off the stall column closes the menu.
-  await page.getByRole("button", { name: "Left" }).click();
+  await page.keyboard.press("ArrowLeft");
   await expect(outfitter).not.toBeVisible();
 });
 
@@ -205,10 +202,10 @@ test("miner stays at depth when walking sideways (lateral teleport regression)",
 
   // Rows 1-2 are rock-free and hazard-free, so two digs down and one
   // lateral step are guaranteed to succeed regardless of the session seed.
-  await page.getByRole("button", { name: "Down" }).click();
-  await expect(status).toContainText("depth 1");
-  await page.getByRole("button", { name: "Down" }).click();
-  await expect(status).toContainText("depth 2");
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveAttribute("data-depth", "1");
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveAttribute("data-depth", "2");
 
   // Wait for the eased render position to settle at the dug depth.
   await expect
@@ -230,7 +227,7 @@ test("miner stays at depth when walking sideways (lateral teleport regression)",
     sample();
   });
 
-  await page.getByRole("button", { name: "Left" }).click();
+  await page.keyboard.press("ArrowLeft");
   // The miner glides one cell left (start col 4 renders at x=0, col 3 at -1)...
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {

@@ -86,6 +86,14 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-12" data-audit-state="plank-over-ladder-confirmation">
+    <h3>Confirmation 2026-06-12 (no planks over ladders: PR #46)</h3>
+    <p>Source: scripted production probe at phone viewport.</p>
+    <ul>
+      <li><strong>Fix confirmed live:</strong> dig two, climb one (ladder planted below), tunnel left, step back over the shaft mouth: the HUD read ladders 7 and planks 4, so the crossing rode the ladder top and spent nothing (it burned a plank before the fix). An earlier probe that appeared to pass had actually hit the pre-deploy bundle through a piped exit code; the re-run above is the honest one.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-12" data-audit-state="camera-x-confirmation">
     <h3>Confirmation 2026-06-12 (lateral camera tracking and mobile WebGL backend live: PR #44)</h3>
     <p>Source: scripted production probes at the 390px phone viewport (screenshot <code>captures/camx-prod-01.png</code>).</p>

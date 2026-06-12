@@ -517,7 +517,10 @@ export function MinePanel() {
   // haul twenty minutes deep.
   useEffect(() => {
     if (!abandonArmed) return;
-    const timer = setTimeout(() => setAbandonArmed(false), 4000);
+    // Generous on purpose: the guard exists to stop double-tap
+    // accidents (sub-second), and slow devices can take seconds
+    // between deliberate taps.
+    const timer = setTimeout(() => setAbandonArmed(false), 8000);
     return () => clearTimeout(timer);
   }, [abandonArmed]);
 

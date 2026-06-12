@@ -203,21 +203,14 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
   await expect(status).toHaveAttribute("data-depth", "1");
   await expect(abandon).toBeEnabled();
 
-  // Two-tap confirm: the first tap arms, the second fires. A slow CI
-  // can outlast the confirm window between taps, so re-confirm until
-  // the haul-up lands.
+  // Two-tap confirm: the first tap arms, the second fires (the window
+  // is 8s, which covers slow CI between two awaited clicks).
   await abandon.click();
   await expect(abandon).toContainText("Sure?");
-  await expect
-    .poll(
-      async () => {
-        const depth = await status.getAttribute("data-depth");
-        if (depth !== "0") await abandon.click();
-        return depth;
-      },
-      { timeout: 10_000 },
-    )
-    .toBe("0");
+  await abandon.click();
+  await expect(status).toHaveAttribute("data-depth", "0", {
+    timeout: 15_000,
+  });
   await expect(
     page.getByLabel("Dismiss trip report").getByText("Abandoned the dig"),
   ).toBeVisible();
@@ -283,16 +276,10 @@ test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   const abandon = page.getByRole("button", { name: "Abandon trip" });
   await abandon.click();
   await expect(abandon).toContainText("Sure?");
-  await expect
-    .poll(
-      async () => {
-        const depth = await status.getAttribute("data-depth");
-        if (depth !== "0") await abandon.click();
-        return depth;
-      },
-      { timeout: 10_000 },
-    )
-    .toBe("0");
+  await abandon.click();
+  await expect(status).toHaveAttribute("data-depth", "0", {
+    timeout: 15_000,
+  });
   await page.getByLabel("Dismiss trip report").click();
 
   // Reload: the claim must still be carved. Descending the old shaft

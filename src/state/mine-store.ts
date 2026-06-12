@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import {
   applyAction,
+  carryoverConsumables,
   createMine,
   DEFAULT_GEAR,
   MINE_VERSION,
@@ -96,7 +97,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           gear.cargo === current.cargo &&
           gear.lantern === current.lantern &&
           consumables.dynamite === currentCons.dynamite &&
-          consumables.rope === currentCons.rope
+          consumables.rope === currentCons.rope &&
+          consumables.ladder === currentCons.ladder
         ) {
           return;
         }
@@ -149,8 +151,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         }
         const body = await res.json();
         // The seed is consumed server-side: a fresh mine starts with
-        // whatever consumables the trip left over.
-        const remaining: MineConsumables = { ...get().mine.consumables };
+        // the purchased consumables the trip left over (the free ladder
+        // provision is per-trip and does not bank).
+        const remaining: MineConsumables = carryoverConsumables(get().mine);
         const nextSeed = randomSeed();
         set({
           cashOut: {

@@ -319,6 +319,24 @@
         "src/sim/mine.test.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-020",
+      "requirement": "Ascent is ladder-gated: climbing out of a cell consumes and plants a ladder once (then climbs free); trips provision a free bundle and the shop sells more; out of ladders means recall, buy, or lose the carry.",
+      "gddRef": "docs/gdd/06-mining.html#ladders",
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/app/api/mine/bank/route.ts",
+        "src/app/api/consumables/buy/route.ts",
+        "src/components/mine-panel.tsx",
+        "src/components/mine-canvas.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": []
     }
   ]
 }

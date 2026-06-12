@@ -82,7 +82,10 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await page.getByRole("button", { name: "Down" }).click();
   await expect(status).toContainText("depth 1");
   await expect(status).toContainText("energy 59.0");
+  // The climb estimate prices ladders as well as energy (REQ-020).
+  await expect(status).toContainText("and 1 ladder");
 
+  // Climbing out consumes a provisioned ladder (REQ-020).
   await page.getByRole("button", { name: "Up" }).click();
   await expect(status).toContainText("depth 0");
   // Banking on the surface refills the lamp.
@@ -96,6 +99,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: /Recall \(\d+\)/ }),
   ).toBeVisible();
+  await expect(page.getByText(/Ladders \(\d+\)/)).toBeVisible();
 });
 
 test("miner stays at depth when walking sideways (lateral teleport regression)", async ({

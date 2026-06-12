@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
 import {
+  LADDER_PROVISION,
   MAX_TRIP_MOVES,
   MINE_ACTIONS,
   MINE_VERSION,
@@ -32,6 +33,7 @@ const bodySchema = z.object({
   consumables: z.object({
     dynamite: z.number().int().min(0).max(999),
     rope: z.number().int().min(0).max(999),
+    ladder: z.number().int().min(0).max(999),
   }),
 });
 
@@ -73,7 +75,7 @@ export async function POST(request: Request): Promise<Response> {
   // way the snapshot could inflate a payout.
   const owned = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           dynamite_count, rope_count
+           dynamite_count, rope_count, ladder_count
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
   const gear = parsed.data.gear;
   for (const track of ["pickaxe", "lamp", "cargo", "lantern"] as const) {
@@ -87,7 +89,8 @@ export async function POST(request: Request): Promise<Response> {
   const consumables = parsed.data.consumables;
   if (
     consumables.dynamite > (owned[0]?.dynamite_count ?? 0) ||
-    consumables.rope > (owned[0]?.rope_count ?? 0)
+    consumables.rope > (owned[0]?.rope_count ?? 0) ||
+    consumables.ladder > (owned[0]?.ladder_count ?? 0)
   ) {
     return Response.json({ error: "consumables not owned" }, { status: 422 });
   }
@@ -130,7 +133,9 @@ export async function POST(request: Request): Promise<Response> {
             + (SELECT amount FROM bonus),
           deepest_depth = GREATEST(deepest_depth, ${trip.maxDepth}),
           dynamite_count = GREATEST(0, dynamite_count - ${trip.used.dynamite}),
-          rope_count = GREATEST(0, rope_count - ${trip.used.rope})
+          rope_count = GREATEST(0, rope_count - ${trip.used.rope}),
+          ladder_count = GREATEST(0, ladder_count
+            - ${Math.max(0, trip.used.ladder - LADDER_PROVISION)})
       WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM ins)
       RETURNING emeralds, deepest_depth
     ), granted AS (

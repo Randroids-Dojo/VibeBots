@@ -181,6 +181,43 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
   await page.getByLabel("Dismiss trip report").click();
 });
 
+test.describe("phone viewport", () => {
+  test.use({ viewport: { width: 390, height: 760 } });
+
+  test("camera pans laterally so mining left stays on screen", async ({
+    page,
+  }) => {
+    await page.goto("/mine");
+    const status = page.getByLabel("Mine status");
+    const canvas = page.locator("canvas");
+    await expect(status).toHaveAttribute("data-depth", "0");
+
+    // Dig down one, then tunnel left three: on a 390px-wide portrait
+    // viewport the half-width is ~2.6 world units, so without lateral
+    // camera tracking the bot at x=-3 left the screen entirely (the
+    // reported "horizontal mining does not update the screen").
+    await page.keyboard.press("ArrowDown");
+    await expect(status).toHaveAttribute("data-depth", "1");
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForTimeout(180);
+    }
+    // The rig pans toward the miner; the bot stays in frame.
+    await expect
+      .poll(async () => Number(await canvas.getAttribute("data-cam-x")), {
+        timeout: 5_000,
+      })
+      .toBeLessThan(-1.5);
+    // And the visible pixels actually changed across the lateral digs
+    // (Rule 10): two frames straddling one more lateral dig differ.
+    const before = await canvas.screenshot();
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(250);
+    const after = await canvas.screenshot();
+    expect(Buffer.compare(before, after)).not.toBe(0);
+  });
+});
+
 test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");

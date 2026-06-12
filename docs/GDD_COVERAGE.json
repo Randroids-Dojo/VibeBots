@@ -400,6 +400,21 @@
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-025",
+      "requirement": "A stuck trip always has an exit: the Abandon action (below ground, no consumable, two-tap confirm) forfeits the carry and hauls the miner up instantly, like a chosen collapse.",
+      "gddRef": "docs/gdd/06-mining.html#consumables",
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/components/mine-panel.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": []
     }
   ]
 }

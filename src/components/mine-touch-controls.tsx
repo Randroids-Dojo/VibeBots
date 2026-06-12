@@ -14,6 +14,10 @@ import type { Direction } from "@/sim/mine";
 
 /** Repeat cadence while the stick is held past the deadzone. */
 const REPEAT_MS = 220;
+/** Floor between any two fires, including direction changes. */
+const MIN_FIRE_MS = 140;
+/** A new axis must clearly dominate before the direction switches. */
+const AXIS_HYSTERESIS = 1.35;
 
 /**
  * Float-where-you-tap thumbstick (VibeKit virtual-joystick): pressing
@@ -53,21 +57,29 @@ export function MineTouchControls({
   const syncDirection = () => {
     const v = readJoystick(js.current);
     const len = Math.hypot(v.x, v.y);
-    const dir: Direction | null =
-      len < JOYSTICK_DEADZONE
-        ? null
-        : Math.abs(v.x) >= Math.abs(v.y)
-          ? v.x > 0
-            ? "right"
-            : "left"
-          : v.y > 0
-            ? "down"
-            : "up";
-    if (dir !== heldDir.current) {
+    const held = heldDir.current;
+    let dir: Direction | null = null;
+    if (len >= JOYSTICK_DEADZONE) {
+      const ax = Math.abs(v.x);
+      const ay = Math.abs(v.y);
+      // Hysteresis: near the diagonal, a drag would otherwise flip the
+      // dominant axis on every pointer event and machine-gun alternating
+      // moves. Stay on the held axis until the other clearly wins.
+      const lateralHeld = held === "left" || held === "right";
+      const verticalHeld = held === "up" || held === "down";
+      const lateral = lateralHeld
+        ? ay <= ax * AXIS_HYSTERESIS
+        : verticalHeld
+          ? ax > ay * AXIS_HYSTERESIS
+          : ax >= ay;
+      dir = lateral ? (v.x > 0 ? "right" : "left") : v.y > 0 ? "down" : "up";
+    }
+    if (dir !== held) {
       heldDir.current = dir;
       stopRepeat();
       if (dir) {
-        fire(dir);
+        // Rate-clamped even across direction changes.
+        if (Date.now() - lastFire.current >= MIN_FIRE_MS) fire(dir);
         repeatTimer.current = setInterval(() => {
           if (heldDir.current) fire(heldDir.current);
         }, REPEAT_MS);

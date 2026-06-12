@@ -572,6 +572,35 @@ describe("mine", () => {
     expect(state.used.plank).toBe(0);
   });
 
+  it("abandons the trip from anywhere, forfeiting the carry", () => {
+    const state = createMine(113);
+    expect(applyAction(state, "abandon")).toEqual({
+      ok: false,
+      reason: "surface",
+    });
+    step(state, "down");
+    step(state, "down");
+    state.miner.carried = { silver: 2 };
+    const result = applyAction(state, "abandon");
+    expect(result.ok && result.abandoned && result.collapsed).toBe(true);
+    expect(result.ok && result.lost?.value).toBe(16);
+    expect(state.miner.row).toBe(0);
+    expect(carriedCount(state.miner)).toBe(0);
+    expect(state.miner.bankedCredits).toBe(0);
+    expect(state.miner.collapses).toBe(1);
+    expect(state.miner.energy).toBe(START_ENERGY);
+  });
+
+  it("replays abandon trips identically", () => {
+    const actions: MineAction[] = ["down", "down", "abandon", "down"];
+    const state = createMine(127);
+    for (const action of actions) applyAction(state, action);
+    const replayed = replayTrip(127, actions);
+    expect(replayed.bankedCredits).toBe(state.miner.bankedCredits);
+    expect(replayed.maxDepth).toBe(state.miner.maxDepth);
+    expect(replayTrip(127, actions)).toEqual(replayed);
+  });
+
   it("replays plank trips identically", () => {
     const actions: MineAction[] = [
       "down",

@@ -490,18 +490,28 @@
       "id": "REQ-030",
       "requirement": "Depth keeps escalating: new strata past the Magma Verge with first-reach bonuses, magma pockets, rock tier 4+, denser hazards, and depth-scaled part-cache tables.",
       "gddRef": "docs/gdd/06-mining.html#deep-dangers",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/components/mine-canvas.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
       "followupRefs": []
     },
     {
       "id": "REQ-031",
       "requirement": "No softlock: free per-descent consumable provisions, provision-reachable shallow ore, and Abandon guarantee a broke miner recovers in one shallow trip; the depot and a zero-wallet toast say so.",
       "gddRef": "docs/gdd/06-mining.html#stuck-floor",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/components/mine-panel.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts"
+      ],
       "followupRefs": []
     }
   ]

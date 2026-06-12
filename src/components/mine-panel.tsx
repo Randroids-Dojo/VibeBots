@@ -12,6 +12,7 @@ import {
   ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
+  findBeacon,
   GEAR_TRACKS,
   type MineAction,
   type MineGear,
@@ -23,6 +24,7 @@ import {
   returnEnergyCost,
   returnLadderNeed,
   stratumAt,
+  warpRange,
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
 import { useMineStore } from "@/state/mine-store";
@@ -332,10 +334,12 @@ function StallMenu({
   shopNote: string | null;
   cashOutPending: boolean;
   onCashOut: () => void;
-  onBuyConsumable: (item: "dynamite" | "rope" | "ladder" | "plank") => void;
+  onBuyConsumable: (
+    item: "dynamite" | "rope" | "ladder" | "plank" | "beacon",
+  ) => void;
   onBuyGear: (track: keyof MineGear) => void;
   onBuyElevator: () => void;
-  onRide: (dir: "ride-down" | "ride-up") => void;
+  onRide: (dir: "ride-down" | "ride-up" | "warp-down" | "warp-home") => void;
 }) {
   const miner = mine.miner;
   const banked = miner.bankedCredits;
@@ -406,6 +410,7 @@ function StallMenu({
               ["rope", "Recall Rope"],
               ["ladder", "Ladder"],
               ["plank", "Plank"],
+              ["beacon", "Warp Beacon"],
             ] as const
           ).map(([item, name]) => {
             const price = CONSUMABLE_PRICES[item];
@@ -514,6 +519,33 @@ function StallMenu({
             {mine.gear.elevator > 0
               ? `Ride down to ${mine.gear.elevator}`
               : "Ride down (no rail)"}
+          </button>
+        </div>
+      )}
+      {stall.id === "warp" && (
+        <div>
+          <p style={{ margin: "10px 0 0", fontSize: "0.9rem" }}>
+            {(() => {
+              const beacon = findBeacon(mine);
+              return beacon
+                ? `beacon planted at ${beacon.row} deep`
+                : "no beacon planted; kits at the depot";
+            })()}
+          </p>
+          <p style={{ margin: "4px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
+            warpcoil range {warpRange(mine.gear)} rows (upgrade at the
+            Outfitter)
+          </p>
+          <button
+            type="button"
+            onClick={() => onRide("warp-down")}
+            disabled={(() => {
+              const beacon = findBeacon(mine);
+              return !beacon || beacon.row > warpRange(mine.gear);
+            })()}
+            style={{ marginTop: 10 }}
+          >
+            Warp to beacon
           </button>
         </div>
       )}
@@ -627,13 +659,17 @@ export function MinePanel() {
               ? "No ladders to climb. Recall or buy more."
               : lastResult.reason === "no-plank"
                 ? "No planks to bridge that drop."
-                : lastResult.reason === "no-rope"
-                  ? "No rope."
-                  : lastResult.reason === "surface"
-                    ? undefined
-                    : lastResult.reason === "blocked"
-                      ? "No way through."
-                      : "Edge of the claim."
+                : lastResult.reason === "no-beacon"
+                  ? "No beacon. Kits are at the depot."
+                  : lastResult.reason === "out-of-range"
+                    ? "Beacon out of warpcoil range. Upgrade at the Outfitter."
+                    : lastResult.reason === "no-rope"
+                      ? "No rope."
+                      : lastResult.reason === "surface"
+                        ? undefined
+                        : lastResult.reason === "blocked"
+                          ? "No way through."
+                          : "Edge of the claim."
       : lastResult?.ok && lastResult.crushed
         ? "Crushed! The crew dug you out; the cargo stayed behind."
         : lastResult?.ok && lastResult.abandoned
@@ -842,6 +878,34 @@ export function MinePanel() {
         >
           &#129526; {mine.consumables.rope}
         </button>
+        {miner.row >= 1 && mine.consumables.beacon > 0 && (
+          <button
+            type="button"
+            aria-label="Plant warp beacon"
+            onClick={() => move("place-beacon")}
+            style={iconButtonStyle}
+          >
+            &#128225; {mine.consumables.beacon}
+          </button>
+        )}
+        {(() => {
+          const beacon = findBeacon(mine);
+          return (
+            beacon &&
+            miner.row === beacon.row &&
+            miner.col === beacon.col &&
+            beacon.row <= warpRange(mine.gear) && (
+              <button
+                type="button"
+                aria-label="Warp home"
+                onClick={() => move("warp-home")}
+                style={iconButtonStyle}
+              >
+                &#127756;
+              </button>
+            )
+          );
+        })()}
         {miner.col === ELEVATOR_COL &&
           miner.row >= 1 &&
           miner.row <= mine.gear.elevator && (

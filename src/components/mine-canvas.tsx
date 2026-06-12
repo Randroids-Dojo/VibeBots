@@ -944,6 +944,38 @@ function MineScene() {
             </group>,
           );
         }
+        // The warp beacon (REQ-029): a humming pylon in the dark.
+        if (cell.beacon) {
+          tunnelMeshes.push(
+            <group key={`beacon:${key}`} position={[x, y - 0.18, 0.1]}>
+              <mesh>
+                <cylinderGeometry args={[0.07, 0.12, 0.5, 8]} />
+                <meshStandardMaterial
+                  color="#5a3a78"
+                  metalness={0.5}
+                  roughness={0.4}
+                  flatShading
+                />
+              </mesh>
+              <mesh position={[0, 0.35, 0]}>
+                <octahedronGeometry args={[0.12, 0]} />
+                <meshStandardMaterial
+                  color="#e08aff"
+                  emissive="#e08aff"
+                  emissiveIntensity={1.6}
+                  flatShading
+                />
+              </mesh>
+              <pointLight
+                position={[0, 0.4, 0.4]}
+                color="#e08aff"
+                intensity={1.4}
+                distance={4}
+                decay={1.6}
+              />
+            </group>,
+          );
+        }
         // A plank bridge (REQ-022): boards spanning the cell floor.
         if (cell.plank) {
           tunnelMeshes.push(

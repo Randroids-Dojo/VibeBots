@@ -4,7 +4,7 @@
  * the panel; the canvas draws the buildings at the same columns.
  */
 export interface StallDef {
-  id: "assay" | "supply" | "outfitter" | "winch";
+  id: "assay" | "supply" | "outfitter" | "winch" | "warp";
   col: number;
   name: string;
   /** Sign/trim color, shared by the canvas building and the menu. */
@@ -40,6 +40,13 @@ export const STALLS: readonly StallDef[] = [
     name: "Outfitter",
     color: "#54e0c7",
     blurb: "persistent gear upgrades",
+  },
+  {
+    id: "warp",
+    col: 6,
+    name: "Warp Pad",
+    color: "#e08aff",
+    blurb: "jumps to your beacon, range by warpcoil",
   },
 ] as const;
 

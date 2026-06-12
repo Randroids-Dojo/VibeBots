@@ -41,9 +41,29 @@ const ORE_COLORS: Record<OreId, string> = {
 const GLOWING_ORES = new Set<OreId>(["diamond", "core-crystal"]);
 
 /** Dirt palette per stratum, in STRATA order (REQ-012: visible descent). */
-const STRATA_DIRT = ["#7a5a3a", "#8c5a45", "#6e6862", "#4f5d6e", "#5a3a35"];
+const STRATA_DIRT = [
+  "#7a5a3a",
+  "#8c5a45",
+  "#6e6862",
+  "#4f5d6e",
+  "#5a3a35",
+  "#4a4448",
+  "#2f2c33",
+  "#3a4452",
+  "#52303f",
+];
 /** Background deepens with the strata so descent reads at the edges. */
-const STRATA_BG = ["#0b0e14", "#0d0c12", "#0a0a10", "#070a12", "#100809"];
+const STRATA_BG = [
+  "#0b0e14",
+  "#0d0c12",
+  "#0a0a10",
+  "#070a12",
+  "#100809",
+  "#0c0a0e",
+  "#060608",
+  "#05080d",
+  "#120608",
+];
 
 /** Rock darkens by tier so the hard gates read at a glance. */
 const ROCK_COLORS = ["#555e6e", "#46506a", "#3b3550"];
@@ -51,6 +71,7 @@ const CACHE_COLOR = "#f5c542";
 const BOULDER_COLOR = "#8a7f70";
 const BOULDER_WOBBLE_COLOR = "#b59f82";
 const GAS_COLOR = "#8fa32e";
+const MAGMA_COLOR = "#ff5a2e";
 
 /** Rows rendered above and below the miner. */
 const VIEW_ABOVE = 8;
@@ -1081,6 +1102,26 @@ function MineScene() {
           <group key={key} position={[x, y, 0]}>
             <CacheCrate col={col} row={row} />
           </group>,
+        );
+        continue;
+      }
+      if (cell.kind === "magma") {
+        blockMeshes.push(
+          <RoundedBox
+            key={key}
+            args={[0.94, 0.94, 0.94]}
+            radius={0.07}
+            smoothness={2}
+            position={[x, y, 0]}
+          >
+            <meshStandardMaterial
+              color={variedColor("#5a2418", col, row)}
+              emissive={MAGMA_COLOR}
+              emissiveIntensity={0.55}
+              roughness={0.6}
+              flatShading
+            />
+          </RoundedBox>,
         );
         continue;
       }

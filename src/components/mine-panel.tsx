@@ -683,7 +683,9 @@ export function MinePanel() {
                 : miner.row === 0 &&
                     (miner.bankedCredits > 0 || miner.bankedParts.length > 0)
                   ? "Sell at the Assay Office (gold sign)."
-                  : undefined;
+                  : miner.row === 0 && mine.consumables.ladder === 0
+                    ? "Out of ladders? Selling or abandoning starts a fresh trip with 8 free."
+                    : undefined;
   const cashNote =
     cashOut.state === "done"
       ? `Vaulted ${cashOut.credits} cr${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. The claim stands.`

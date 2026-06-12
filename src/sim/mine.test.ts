@@ -175,7 +175,7 @@ describe("mine", () => {
     expect(stratumAt(11).name).toBe("Topsoil");
     expect(stratumAt(12).name).toBe("Clay Beds");
     expect(stratumAt(48).name).toBe("Magma Verge");
-    expect(stratumAt(500).name).toBe("Magma Verge");
+    expect(stratumAt(500).name).toBe("Core Approach");
     // From a fresh record to row 30: Clay Beds (15) + Old Granite (40).
     expect(strataBonusBetween(0, 30)).toBe(15 + 40);
     // Already past Clay Beds: only Old Granite pays.
@@ -482,6 +482,33 @@ describe("mine", () => {
     expect(replayed.used.beacon).toBe(state.used.beacon);
     expect(replayed.diff).toEqual(exportDiff(state));
     expect(replayTrip(257, actions, DEFAULT_GEAR, cons)).toEqual(replayed);
+  });
+
+  it("escalates the deep: strata, magma, tier-4 rock, richer caches (REQ-030)", () => {
+    // Strata extend past the Magma Verge with growing bonuses.
+    expect(stratumAt(70).name).toBe("Ashfall Galleries");
+    expect(stratumAt(90).name).toBe("The Black Seam");
+    expect(stratumAt(120).name).toBe("Echo Vaults");
+    expect(stratumAt(200).name).toBe("Core Approach");
+    expect(strataBonusBetween(48, 140)).toBe(500 + 1000 + 1800 + 3000);
+    // Rock tier 4 gates on pickaxe 5.
+    expect(rockTierAt(95)).toBe(4);
+    expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 4 }, 4)).toBe(false);
+    expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 5 }, 4)).toBe(true);
+    expect(maxGearLevel("pickaxe")).toBe(5);
+    // Magma vents like gas at triple burn.
+    const state = createMine(263);
+    setCell(state, START_COL, 1, { kind: "dirt" });
+    setCell(state, START_COL, 2, { kind: "magma" });
+    const before = state.miner.energy;
+    const result = dig(state, "down");
+    expect(result.ok && result.vented).toBe(3);
+    expect(before - state.miner.energy).toBeCloseTo(1 + 3 * GAS_VENT_DRAIN, 5);
+    // Deep caches roll the richer table deterministically.
+    const deep = createMine(269);
+    setCell(deep, START_COL, 1, { kind: "part-cache" });
+    const found = dig(deep, "down");
+    expect(found.ok && typeof found.found).toBe("string");
   });
 
   it("starts pristine at the village shaft", () => {

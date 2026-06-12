@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 12;
+export const MINE_VERSION = 13;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -159,7 +159,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
   {
     track: "pickaxe",
     name: "Pickaxe",
-    prices: [40, 150, 500],
+    prices: [40, 150, 500, 1500],
     blurb: "cuts harder rock tiers",
   },
   {
@@ -256,7 +256,8 @@ export function swingCostFor(kind: CellKind): number {
 export function rockTierAt(row: number): number {
   if (row < 24) return 1;
   if (row < 48) return 2;
-  return 3;
+  if (row < 90) return 3;
+  return 4;
 }
 
 export function canDigRock(gear: MineGear, tier: number): boolean {
@@ -413,6 +414,10 @@ export const STRATA: readonly Stratum[] = [
   { name: "Old Granite", startRow: 24, firstReachBonus: 40 },
   { name: "Glow Caverns", startRow: 36, firstReachBonus: 100 },
   { name: "Magma Verge", startRow: 48, firstReachBonus: 250 },
+  { name: "Ashfall Galleries", startRow: 64, firstReachBonus: 500 },
+  { name: "The Black Seam", startRow: 84, firstReachBonus: 1000 },
+  { name: "Echo Vaults", startRow: 110, firstReachBonus: 1800 },
+  { name: "Core Approach", startRow: 140, firstReachBonus: 3000 },
 ];
 
 export function stratumAt(row: number): Stratum {
@@ -447,6 +452,7 @@ export type CellKind =
   | "part-cache"
   | "boulder"
   | "gas"
+  | "magma"
   | "empty";
 
 export interface MineCell {
@@ -478,8 +484,25 @@ export interface MineCell {
   beacon?: boolean;
 }
 
-/** Rare robot parts discoverable underground (REQ-007). */
-const CACHE_PART_IDS = ["drive-wheel", "ram-spike", "frame-plate"];
+/**
+ * Rare robot parts discoverable underground (REQ-007). Deeper bands
+ * roll richer tables (REQ-030): the bot-building reward keeps paying
+ * the deeper the push.
+ */
+const CACHE_PART_TIERS: ReadonlyArray<{
+  minRow: number;
+  ids: readonly string[];
+}> = [
+  { minRow: 40, ids: ["core-cube", "core-cube", "drive-wheel", "ram-spike"] },
+  { minRow: 0, ids: ["drive-wheel", "ram-spike", "frame-plate"] },
+];
+
+function cachePartIdsAt(row: number): readonly string[] {
+  for (const tier of CACHE_PART_TIERS) {
+    if (row >= tier.minRow) return tier.ids;
+  }
+  return CACHE_PART_TIERS[CACHE_PART_TIERS.length - 1].ids;
+}
 
 export interface MinerState {
   col: number;
@@ -622,6 +645,9 @@ function rollCell(seed: number, row: number, col: number): MineCell {
     row <= ROCK_FREE_ROWS ? 0 : Math.min(0.05 + row * 0.012, 0.35);
   const gasChance =
     row <= HAZARD_FREE_ROWS ? 0 : Math.min(0.003 + row * 0.0008, 0.025);
+  // Magma seams (REQ-030): the deep pressure, three times the burn.
+  const magmaChance =
+    row < 56 ? 0 : Math.min(0.002 + (row - 56) * 0.0006, 0.02);
   const boulderChance =
     row <= HAZARD_FREE_ROWS ? 0 : Math.min(0.004 + row * 0.001, 0.03);
   const roll = cellRandom(seed, row, col, 0);
@@ -633,6 +659,8 @@ function rollCell(seed: number, row: number, col: number): MineCell {
   }
   threshold += gasChance;
   if (roll < threshold) return { kind: "gas" };
+  threshold += magmaChance;
+  if (roll < threshold) return { kind: "magma" };
   threshold += boulderChance;
   if (roll < threshold) return { kind: "boulder" };
   if (roll < threshold + rockChance)
@@ -844,17 +872,19 @@ function ventGasAround(
     [-1, 0],
   ] as const) {
     const cell = cellAt(state, col + dc, row + dr);
-    if (cell?.kind === "gas") queue.push({ col: col + dc, row: row + dr });
+    if (cell?.kind === "gas" || cell?.kind === "magma")
+      queue.push({ col: col + dc, row: row + dr });
   }
   let vented = 0;
   while (queue.length > 0) {
     const g = queue.pop();
     if (!g) break;
     const gasCell = cellAt(state, g.col, g.row);
-    if (gasCell?.kind !== "gas") continue;
+    if (gasCell?.kind !== "gas" && gasCell?.kind !== "magma") continue;
     setCell(state, g.col, g.row, { kind: "empty" });
     emptied.push({ col: g.col, row: g.row });
-    vented++;
+    // Magma burns triple: it counts as three gas-equivalent vents.
+    vented += gasCell.kind === "magma" ? 3 : 1;
     for (const [dc, dr] of [
       [0, 0],
       [0, 1],
@@ -867,7 +897,8 @@ function ventGasAround(
       if (nr < 1) continue;
       const n = cellAt(state, nc, nr);
       if (!n) continue;
-      if (n.kind === "gas") queue.push({ col: nc, row: nr });
+      if (n.kind === "gas" || n.kind === "magma")
+        queue.push({ col: nc, row: nr });
       else if (BLASTABLE.has(n.kind)) {
         setCell(state, nc, nr, { kind: "empty" });
         emptied.push({ col: nc, row: nr });
@@ -951,7 +982,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   if (!cell) return { ok: false, reason: "edge" };
   if (cell.kind === "rock" && !canDigRock(state.gear, cell.rockTier ?? 1))
     return { ok: false, reason: "rock" };
-  if (cell.kind === "boulder" || cell.kind === "gas")
+  if (cell.kind === "boulder" || cell.kind === "gas" || cell.kind === "magma")
     return { ok: false, reason: "blocked" };
   if (cell.kind === "ore" && carriedCount(miner) >= cargoCapacity(state.gear))
     return { ok: false, reason: "hold-full" };
@@ -1043,8 +1074,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
       miner.carried[cell.ore] = (miner.carried[cell.ore] ?? 0) + 1;
     }
     if (cell.kind === "part-cache") {
+      const table = cachePartIdsAt(t.row);
       const pick = cellRandom(state.seed, t.row, t.col, 1);
-      found = CACHE_PART_IDS[Math.floor(pick * CACHE_PART_IDS.length)];
+      found = table[Math.floor(pick * table.length)];
       miner.carriedParts.push(found);
     }
     setCell(state, t.col, t.row, { kind: "empty" });
@@ -1139,11 +1171,12 @@ function blast(state: MineState, dir: Direction): MoveResult {
     if (nr < 1) continue;
     const cell = cellAt(state, nc, nr);
     if (!cell) continue;
-    if (cell.kind === "gas") {
+    if (cell.kind === "gas" || cell.kind === "magma") {
       // Light it from a distance: chains, but the heat misses the lamp.
       setCell(state, nc, nr, { kind: "empty" });
       emptied.push({ col: nc, row: nr });
-      vented += 1 + ventGasAround(state, nc, nr, emptied);
+      vented +=
+        (cell.kind === "magma" ? 3 : 1) + ventGasAround(state, nc, nr, emptied);
       blasted++;
     } else if (BLASTABLE.has(cell.kind)) {
       setCell(state, nc, nr, { kind: "empty" });

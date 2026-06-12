@@ -513,7 +513,7 @@ export function MinePanel() {
   // haul twenty minutes deep.
   useEffect(() => {
     if (!abandonArmed) return;
-    const timer = setTimeout(() => setAbandonArmed(false), 2500);
+    const timer = setTimeout(() => setAbandonArmed(false), 4000);
     return () => clearTimeout(timer);
   }, [abandonArmed]);
 

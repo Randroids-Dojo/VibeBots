@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyAction,
+  BASE_HITS,
   canDigRock,
   cargoCapacity,
   carriedCount,
@@ -20,6 +21,8 @@ import {
   LIGHT_RADIUS,
   MINE_WIDTH,
   type MineAction,
+  type MineState,
+  type MoveResult,
   maxGearLevel,
   ORES,
   oreChanceAt,
@@ -34,12 +37,43 @@ import {
   START_COL,
   START_ENERGY,
   STRATA,
+  SWING_COST,
   step,
   strataBonusBetween,
   stratumAt,
 } from "./mine";
 
+/** Swing at a direction until the block breaks (or the action ends). */
+function dig(state: MineState, dir: Direction): MoveResult {
+  let res = step(state, dir);
+  for (let i = 0; i < 8 && res.ok && res.cracked; i++) res = step(state, dir);
+  return res;
+}
+
 describe("mine", () => {
+  it("soaks swings before breaking and tracks crack hp (REQ-013)", () => {
+    const state = createMine(137);
+    // Dirt at pickaxe 1 takes 4 swings; the first three crack in place.
+    for (let hit = 1; hit <= 3; hit++) {
+      const res = step(state, "down");
+      expect(res.ok && res.cracked?.remaining).toBe(4 - hit);
+      expect(state.miner.row).toBe(0);
+    }
+    expect(state.miner.energy).toBeCloseTo(START_ENERGY - 0.75, 5);
+    const broke = step(state, "down");
+    expect(broke.ok && broke.dug !== null).toBe(true);
+    expect(state.miner.row).toBe(1);
+    // Block totals match the old single-swing economy (dirt/ore = 1.0,
+    // so depth 1 always costs exactly 1 energy at pickaxe 1)...
+    if (broke.ok && broke.dug === "dirt") {
+      expect(state.miner.energy).toBeCloseTo(START_ENERGY - 1, 5);
+    }
+    // ...and a better pickaxe needs fewer swings.
+    const strong = createMine(137, { ...DEFAULT_GEAR, pickaxe: 3 });
+    const first = step(strong, "down");
+    expect(first.ok && (first.cracked?.remaining ?? 0)).toBeLessThanOrEqual(2);
+  });
+
   it("generates the same mine for the same seed", () => {
     const a = createMine(42);
     const b = createMine(42);
@@ -168,7 +202,7 @@ describe("mine", () => {
 
   it("banks carried loot only at the surface and refills energy", () => {
     const state = createMine(11);
-    step(state, "down");
+    dig(state, "down");
     state.miner.carried = { silver: 2, coal: 3 };
     const up = step(state, "up");
     expect(up.ok).toBe(true);
@@ -180,11 +214,11 @@ describe("mine", () => {
 
   it("collapses underground when energy runs out, losing the carry", () => {
     const state = createMine(13);
-    step(state, "down");
+    dig(state, "down");
     expect(state.miner.row).toBe(1);
     state.miner.carried = { emerald: 2 };
-    state.miner.energy = 0.5;
-    // Any successful action now drains the lamp underground.
+    state.miner.energy = 0.2;
+    // Any successful swing now drains the lamp underground.
     let collapsed = false;
     for (const dir of ["down", "left", "right"] as const) {
       const result = step(state, dir);
@@ -202,10 +236,10 @@ describe("mine", () => {
 
   it("up-moves need a cleared shaft", () => {
     const state = createMine(17);
-    step(state, "down");
-    step(state, "left");
-    step(state, "down");
-    const sideways = step(state, "right");
+    dig(state, "down");
+    dig(state, "left");
+    dig(state, "down");
+    const sideways = dig(state, "right");
     if (sideways.ok) {
       const upThroughDirt = step(state, "up");
       if (!upThroughDirt.ok) {
@@ -234,7 +268,7 @@ describe("mine", () => {
 
   it("tracks max depth and prices the climb home", () => {
     const state = createMine(23);
-    for (let i = 0; i < 6; i++) step(state, "down");
+    for (let i = 0; i < 6; i++) dig(state, "down");
     const reached = state.miner.row;
     expect(state.miner.maxDepth).toBe(reached);
     expect(returnEnergyCost(state.miner)).toBe(reached * 0.5);
@@ -271,7 +305,7 @@ describe("mine", () => {
     expect(base.miner.energy).toBe(LAMP_ENERGY[0]);
     const upgraded = createMine(3, { ...DEFAULT_GEAR, lamp: 3 });
     expect(upgraded.miner.energy).toBe(LAMP_ENERGY[2]);
-    step(upgraded, "down");
+    dig(upgraded, "down");
     step(upgraded, "up");
     expect(upgraded.miner.energy).toBe(LAMP_ENERGY[2]);
   });
@@ -291,8 +325,8 @@ describe("mine", () => {
     const refused = step(state, "down");
     expect(refused).toEqual({ ok: false, reason: "hold-full" });
     state.rows[1][START_COL] = { kind: "dirt" };
-    const dug = step(state, "down");
-    expect(dug.ok).toBe(true);
+    const dug = dig(state, "down");
+    expect(dug.ok && dug.dug).toBe("dirt");
   });
 
   it("tiers rock by depth and gates it on the pickaxe level", () => {
@@ -307,9 +341,14 @@ describe("mine", () => {
     const state = createMine(19, { ...DEFAULT_GEAR, pickaxe: 2 });
     state.rows[1][START_COL] = { kind: "rock", rockTier: 1 };
     const before = state.miner.energy;
-    const dug = step(state, "down");
-    expect(dug.ok).toBe(true);
-    expect(before - state.miner.energy).toBe(ROCK_DIG_COST);
+    const dug = dig(state, "down");
+    expect(dug.ok && dug.dug).toBe("rock");
+    // Pickaxe 2 cuts tier-1 rock in 4 swings of the rock swing cost.
+    expect(before - state.miner.energy).toBeCloseTo(
+      (BASE_HITS.rock - 1) * SWING_COST.rock,
+      5,
+    );
+    void ROCK_DIG_COST;
 
     const walled = createMine(19);
     walled.rows[1][START_COL] = { kind: "rock", rockTier: 1 };
@@ -357,13 +396,13 @@ describe("mine", () => {
     state.rows[2][START_COL - 1] = { kind: "gas" };
     state.rows[3][START_COL] = { kind: "ore", ore: "coal" };
     const before = state.miner.energy;
-    const result = step(state, "down");
+    const result = dig(state, "down");
     expect(result.ok && result.vented).toBe(2);
     // Both pockets vented; the loot caught in the blast is gone.
     expect(state.rows[2][START_COL].kind).toBe("empty");
     expect(state.rows[2][START_COL - 1].kind).toBe("empty");
     expect(state.rows[3][START_COL].kind).toBe("empty");
-    expect(before - state.miner.energy).toBe(1 + 2 * GAS_VENT_DRAIN);
+    expect(before - state.miner.energy).toBeCloseTo(1 + 2 * GAS_VENT_DRAIN, 5);
   });
 
   it("wobbles an unsupported boulder for one action, then drops it", () => {
@@ -372,16 +411,17 @@ describe("mine", () => {
     state.rows[2][START_COL] = { kind: "dirt" };
     state.rows[1][START_COL - 1] = { kind: "boulder" };
     state.rows[2][START_COL - 1] = { kind: "dirt" };
-    step(state, "down"); // miner to (col,1)
+    dig(state, "down"); // miner to (col,1)
     const side = step(state, "left"); // digs the boulder's support? no:
     // left digs (col-1,1)... that IS the boulder: blocked.
     expect(side).toEqual({ ok: false, reason: "blocked" });
-    step(state, "down"); // miner to (col,2)
-    const dugSupport = step(state, "left"); // digs (col-1,2), under boulder
+    dig(state, "down"); // miner to (col,2)
+    const dugSupport = dig(state, "left"); // digs (col-1,2), under boulder
     expect(dugSupport.ok).toBe(true);
-    // The boulder above is wobbling now, falls on the NEXT action.
+    // The boulder above is wobbling now, falls on the NEXT action
+    // (a cracking swing counts: every swing is an action).
     expect(state.rows[1][START_COL - 1].wobbling).toBe(true);
-    const next = step(state, "left"); // move further left
+    const next = step(state, "left"); // swing further left
     expect(next.ok).toBe(true);
     // Boulder fell into the vacated cell at row 2.
     expect(state.rows[1][START_COL - 1].kind).toBe("empty");
@@ -397,14 +437,14 @@ describe("mine", () => {
     // Tunnel around: down the right column, then dig left under the
     // boulder, ending UNDER it as it wobbles.
     step(state, "right"); // walk surface to col+1
-    step(state, "down"); // dig (col+1,1)
-    step(state, "down"); // dig (col+1,2)
-    const under = step(state, "left"); // dig (col,2): under the boulder
+    dig(state, "down"); // dig (col+1,1)
+    dig(state, "down"); // dig (col+1,2)
+    const under = dig(state, "left"); // dig (col,2): under the boulder
     expect(under.ok).toBe(true);
     expect(state.rows[1][START_COL].wobbling).toBe(true);
     state.miner.carried = { coal: 3 };
     state.rows[3][START_COL] = { kind: "dirt" };
-    const fatal = step(state, "down"); // dig deeper, straight into the path
+    const fatal = step(state, "down"); // one more swing, under the path
     expect(fatal.ok && fatal.crushed).toBe(true);
     expect(fatal.ok && fatal.collapsed).toBe(true);
     expect(state.miner.row).toBe(0);
@@ -448,8 +488,8 @@ describe("mine", () => {
       ok: false,
       reason: "surface",
     });
-    step(state, "down");
-    step(state, "down");
+    dig(state, "down");
+    dig(state, "down");
     state.miner.carried = { silver: 3 };
     const result = applyAction(state, "recall");
     expect(result.ok && result.recalled).toBe(true);
@@ -465,8 +505,8 @@ describe("mine", () => {
   it("provisions free ladders per trip and gates climbs on them", () => {
     const state = createMine(71);
     expect(state.consumables.ladder).toBe(LADDER_PROVISION);
-    step(state, "down");
-    step(state, "down");
+    dig(state, "down");
+    dig(state, "down");
     const climb = step(state, "up");
     expect(climb.ok && climb.laddered).toBe(true);
     expect(state.consumables.ladder).toBe(LADDER_PROVISION - 1);
@@ -482,7 +522,7 @@ describe("mine", () => {
 
   it("refuses to climb without ladders", () => {
     const state = createMine(73);
-    step(state, "down");
+    dig(state, "down");
     state.consumables.ladder = 0;
     expect(step(state, "up")).toEqual({ ok: false, reason: "no-ladder" });
     // Still standing where the refusal happened, lamp untouched by it.
@@ -491,7 +531,7 @@ describe("mine", () => {
 
   it("prices the ladder budget for the climb home", () => {
     const state = createMine(79);
-    for (let i = 0; i < 4; i++) step(state, "down");
+    for (let i = 0; i < 4; i++) dig(state, "down");
     expect(returnLadderNeed(state)).toBe(state.miner.row);
     step(state, "up");
     // The placed ladder discounts the straight-home estimate.
@@ -505,11 +545,11 @@ describe("mine", () => {
     const state = createMine(83, DEFAULT_GEAR, owned);
     expect(state.consumables.ladder).toBe(3 + LADDER_PROVISION);
     // Spend two: both come out of the free provision.
-    step(state, "down");
-    step(state, "down");
+    dig(state, "down");
+    dig(state, "down");
     step(state, "up");
     step(state, "down");
-    step(state, "down");
+    dig(state, "down");
     step(state, "up");
     expect(state.used.ladder).toBe(2);
     expect(carryoverConsumables(state).ladder).toBe(3);
@@ -578,16 +618,16 @@ describe("mine", () => {
   it("never spends planks where ladders already support the step", () => {
     // Dig two deep and climb out: ladders planted at (4,2) and (4,1).
     const state = createMine(131);
-    step(state, "down");
-    step(state, "down");
+    dig(state, "down");
+    dig(state, "down");
     step(state, "up");
     step(state, "up");
     expect(state.used.ladder).toBe(2);
     // Tunnel down beside the shaft, then step back into it: the target
     // cell holds a ladder and the cell below tops out underfoot. No
     // plank either way (the reported bug burned one here).
-    step(state, "left");
-    step(state, "down");
+    dig(state, "left");
+    dig(state, "down");
     const cross = step(state, "right");
     expect(cross.ok && !cross.planked).toBe(true);
     expect(state.used.plank).toBe(0);
@@ -615,8 +655,8 @@ describe("mine", () => {
       ok: false,
       reason: "surface",
     });
-    step(state, "down");
-    step(state, "down");
+    dig(state, "down");
+    dig(state, "down");
     state.miner.carried = { silver: 2 };
     const result = applyAction(state, "abandon");
     expect(result.ok && result.abandoned && result.collapsed).toBe(true);

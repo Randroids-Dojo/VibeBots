@@ -498,32 +498,51 @@ function StallBuilding({
   active: boolean;
 }) {
   return (
-    <group position={[x, -1.5, -0.1]}>
+    // Set back in depth so the miner stands clearly IN FRONT of the
+    // facade at the doorstep instead of clipping through it.
+    <group position={[x, -1.5, -0.55]}>
       <RoundedBox
-        args={[1.22, 0.85, 0.85]}
-        radius={0.05}
+        args={[1.45, 1.0, 0.8]}
+        radius={0.06}
         smoothness={2}
-        position={[0, 1.43, 0]}
+        position={[0, 1.5, 0]}
       >
         <meshStandardMaterial color="#5a4632" roughness={0.9} flatShading />
       </RoundedBox>
-      <mesh position={[0, 2.08, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <coneGeometry args={[0.95, 0.55, 4]} />
+      <mesh position={[0, 2.25, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <coneGeometry args={[1.12, 0.62, 4]} />
         <meshStandardMaterial color="#3a2c1e" roughness={0.95} flatShading />
       </mesh>
-      {/* Door */}
-      <mesh position={[0, 1.25, 0.44]}>
-        <boxGeometry args={[0.3, 0.48, 0.04]} />
-        <meshStandardMaterial color="#241a10" roughness={1} flatShading />
+      {/* Door: lit while the shop is open */}
+      <mesh position={[0, 1.28, 0.42]}>
+        <boxGeometry args={[0.38, 0.58, 0.04]} />
+        <meshStandardMaterial
+          color={active ? "#3a2c14" : "#241a10"}
+          emissive={active ? "#ffd9a0" : "#000000"}
+          emissiveIntensity={active ? 0.5 : 0}
+          roughness={1}
+          flatShading
+        />
       </mesh>
       {/* Sign: brightens when the miner stands at the stall */}
-      <mesh position={[0, 1.72, 0.46]}>
-        <boxGeometry args={[0.62, 0.18, 0.05]} />
+      <mesh position={[0, 1.85, 0.44]}>
+        <boxGeometry args={[0.74, 0.2, 0.05]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
           emissiveIntensity={active ? 1.7 : 0.55}
           flatShading
+        />
+      </mesh>
+      {/* Doorstep mat at the standing spot, glowing when open */}
+      <mesh position={[0, 0.99, 0.62]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.8, 0.5]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={active ? 0.5 : 0.12}
+          transparent
+          opacity={0.55}
         />
       </mesh>
     </group>

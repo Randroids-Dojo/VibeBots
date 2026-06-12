@@ -86,6 +86,15 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-12" data-audit-state="camera-x-confirmation">
+    <h3>Confirmation 2026-06-12 (lateral camera tracking and mobile WebGL backend live: PR #44)</h3>
+    <p>Source: scripted production probes at the 390px phone viewport (screenshot <code>captures/camx-prod-01.png</code>).</p>
+    <ul>
+      <li><strong>Root cause closed:</strong> the "horizontal mining does not update the screen" report was the static camera: a portrait phone sees ~2.6 world units of half-width and the bot walked out of frame. On production, three lateral digs now pan the camera past x -1.5 with every dig changing pixels and zero console errors.</li>
+      <li><strong>Mobile backend:</strong> coarse-pointer devices now run the WebGL2 backend (Android Chrome's WebGPU path was the framerate complaint); the player's on-device retest is the final acceptance check for feel.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-12" data-audit-state="abandon-motion-anim-confirmation">
     <h3>Confirmation 2026-06-12 (abandon, motion fixes, dig juice, framerate pass live: PRs #40 to #42)</h3>
     <p>Source: scripted production probe at phone viewport (screenshots <code>captures/abandon-prod-01.png</code>, <code>captures/sparks-prod-01.png</code>).</p>

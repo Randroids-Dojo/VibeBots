@@ -799,7 +799,7 @@ export function MinePanel() {
               : null),
           }}
         >
-          {abandonArmed ? "Sure?" : <>&#127937;</>}
+          {abandonArmed ? "Sure?" : <>&#127987;</>}
         </button>
       </section>
 

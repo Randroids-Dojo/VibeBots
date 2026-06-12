@@ -1,6 +1,7 @@
 // Visual-overhaul evidence run: captures the surface camp, the lit
 // shaft, lateral walk facing, ore crystals, and deep-lamp lighting.
 // Frame pairs after inputs prove the pixels move (Rule 10).
+import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
 const BASE = process.env.PLAYTEST_BASE ?? "http://localhost:3000";
@@ -9,6 +10,10 @@ if (!OUT) {
   console.error("usage: node scripts/playtest-mine-visuals.mjs <captures-dir>");
   process.exit(1);
 }
+mkdirSync(OUT, { recursive: true });
+
+/** Deep enough that the lamp has fully taken over from daylight. */
+const TARGET_DEPTH = 8;
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -50,25 +55,33 @@ try {
   await page.keyboard.press("ArrowRight");
   await page.waitForTimeout(550);
 
-  // Sweep down for depth: lighting should hand off to the lamp.
+  // Sweep down for depth: lighting should hand off to the lamp. Stop
+  // while the lamp still burns; a collapse would snap the capture back
+  // to the surface and silently fake the "deep" evidence.
   let heading = "ArrowLeft";
   for (let i = 0; i < 120; i++) {
-    const depth = Number(
-      ((await status()).match(/depth\s+(\d+)/) ?? [])[1] ?? 0,
-    );
-    if (depth >= 9) break;
-    const before = await status();
+    const hud = await status();
+    const depth = Number((hud.match(/depth\s+(\d+)/) ?? [])[1] ?? 0);
+    const energy = Number((hud.match(/energy\s+([\d.]+)/) ?? [])[1] ?? 0);
+    if (depth >= TARGET_DEPTH || energy < 14) break;
     await page.keyboard.press(heading);
     await page.waitForTimeout(60);
     const after = await status();
-    if (/Hard rock|No way|Edge/.test(after) && after !== before) {
+    if (/Hard rock|No way|Edge/.test(after) && after !== hud) {
       await page.keyboard.press("ArrowDown");
       await page.waitForTimeout(60);
       heading = heading === "ArrowLeft" ? "ArrowRight" : "ArrowLeft";
     }
   }
   await page.waitForTimeout(900);
-  log(`deep: ${(await status()).replace(/\n/g, " | ")}`);
+  const deepHud = await status();
+  const deepDepth = Number((deepHud.match(/depth\s+(\d+)/) ?? [])[1] ?? 0);
+  if (deepDepth < TARGET_DEPTH) {
+    log(
+      `WARNING: deep capture taken at depth ${deepDepth} (target ${TARGET_DEPTH}); treat visuals-04 as shallow evidence`,
+    );
+  }
+  log(`deep: ${deepHud.replace(/\n/g, " | ")}`);
   await page.screenshot({ path: `${OUT}/visuals-04-deep-lamp.png` });
 
   log(`console errors: ${errors.length}`);

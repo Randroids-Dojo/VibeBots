@@ -113,8 +113,10 @@ interface JuiceState {
 
 /** World coordinates ARE render coordinates in the endless claim. */
 const cellX = (col: number) => col;
-/** Columns rendered to either side of the miner. */
-const VIEW_COLS = 14;
+/** Columns rendered to either side of the miner: the widest desktop
+ * frustum sees ~8.2, so 9 covers every aspect with glide margin while
+ * keeping the mesh count near the old fixed-width world. */
+const VIEW_COLS = 9;
 /** Width of the dressed surface camp strip around the origin. */
 const CAMP_WIDTH = 60;
 

@@ -290,6 +290,14 @@ test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   await page.keyboard.press("ArrowDown");
   await expect(status).toHaveAttribute("data-depth", "2");
   await expect(status).toHaveAttribute("data-energy", "59.0");
+
+  // And a MID-TRIP reload resumes exactly where the trip stood: the
+  // in-flight log replays over the trip-start checkpoint, so depth and
+  // energy come back identical (carry included).
+  const energyBefore = await status.getAttribute("data-energy");
+  await page.reload();
+  await expect(status).toHaveAttribute("data-depth", "2");
+  await expect(status).toHaveAttribute("data-energy", energyBefore ?? "");
 });
 
 test("surface village stalls open their menus (REQ-021)", async ({ page }) => {

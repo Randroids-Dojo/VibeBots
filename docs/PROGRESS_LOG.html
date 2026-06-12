@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-surface-framerate" data-date="2026-06-12">
+    <h3>Mine Surface Framerate Pass</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-surface-framerate</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>user phone report: digging the first rows janks until the surface buildings scroll offscreen. Shipped every surface-specific delta: the 46 individual star meshes became one points draw call; the whole village dressing tree (stalls, headframe, lanterns, grass) is memoized so per-dig ticks stop re-reconciling roughly 80 elements; wall stones and bedrock pillars are memoized per visible row window; the per-frame particle sync swapped an O(n^2) find for a Map; and the canvas DPR is capped at [1, 2] (DPR-3 phones were paying 2.25x the fragment work for invisible gain). The canvas dataset now carries <code>data-draw-calls</code> permanently for on-device measurement.</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (92), <code>pnpm build</code>, <code>pnpm test:e2e</code> (10 passed). Honest measurement note: headless frame times are noise-bound and could not reproduce phone-grade jank, and the new draw-call stat reads 124 at the surface vs 280 deep, so steady-state draw count is NOT the bottleneck; the shipped fixes target the surface-only reconciliation and fill costs, and the DPR cap is the largest phone-fragment win. Needs an on-device retest to confirm feel.</dd>
+      <dt>Assumptions</dt><dd>DPR 2 is visually indistinguishable from 3 at this art style and view distance.</dd>
+      <dt>GDD coverage</dt><dd>no status changes; build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>if the on-device retest still janks, the next suspects are WebGPU pipeline warm-up on first-seen material variants and the per-tick block-array reconciliation, both measurable now via <code>data-draw-calls</code> plus a frame probe.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-dig-animations" data-date="2026-06-12">
     <h3>Mine Dig Animations</h3>
     <dl>

@@ -2,7 +2,7 @@
 
 import { RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import type {
   AmbientLight,
   DirectionalLight,
@@ -427,7 +427,6 @@ function MinerBot({
   );
 }
 
-/** Night-camp surface dressing: headframe, lantern posts, grass. */
 /** A village stall building: hut, pyramid roof, door, lit sign. */
 function StallBuilding({
   x,
@@ -471,7 +470,38 @@ function StallBuilding({
   );
 }
 
-function SurfaceDressing({ activeCol }: { activeCol: number | null }) {
+/** All 46 stars in a single points draw call (phones count draws). */
+function NightStars() {
+  const positions = useMemo(() => {
+    const arr = new Float32Array(46 * 3);
+    for (let i = 0; i < 46; i++) {
+      arr[i * 3] = (cellHash(i, 131, 1) - 0.5) * 34;
+      arr[i * 3 + 1] = 2.4 + cellHash(i, 137, 9) * 9;
+      arr[i * 3 + 2] = -4;
+    }
+    return arr;
+  }, []);
+  return (
+    <points>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial size={0.05} color="#cfe0ff" fog={false} />
+    </points>
+  );
+}
+
+/**
+ * Night-camp surface dressing: headframe, lanterns, grass, stalls.
+ * Memoized: it re-renders only when the active stall changes, not on
+ * every dig tick (per-tick reconciliation of this tree was part of the
+ * surface-rows jank).
+ */
+const SurfaceDressing = memo(function SurfaceDressing({
+  activeCol,
+}: {
+  activeCol: number | null;
+}) {
   const tufts = [];
   for (let i = 0; i < 12; i++) {
     const h = cellHash(i, 97, 3);
@@ -490,21 +520,10 @@ function SurfaceDressing({ activeCol }: { activeCol: number | null }) {
     );
   }
   const frameX = cellX(START_COL);
-  const stars = [];
-  for (let i = 0; i < 46; i++) {
-    const a = cellHash(i, 131, 1);
-    const b = cellHash(i, 137, 9);
-    stars.push(
-      <mesh key={i} position={[(a - 0.5) * 34, 2.4 + b * 9, -4]}>
-        <icosahedronGeometry args={[0.02 + cellHash(i, 139, 4) * 0.03, 0]} />
-        <meshBasicMaterial color="#cfe0ff" fog={false} />
-      </mesh>,
-    );
-  }
   return (
     <group>
       {/* Night sky over the camp */}
-      {stars}
+      <NightStars />
       {/* Grassy lip along the ground line the miner walks on */}
       <mesh position={[0, -0.47, -0.3]}>
         <boxGeometry args={[MINE_WIDTH + 2, 0.07, 0.9]} />
@@ -564,7 +583,7 @@ function SurfaceDressing({ activeCol }: { activeCol: number | null }) {
       ))}
     </group>
   );
-}
+});
 
 function MineScene() {
   const tick = useMineStore((s) => s.tick);
@@ -728,6 +747,8 @@ function MineScene() {
       const el = state.gl.domElement;
       el.dataset.minerX = miner.position.x.toFixed(2);
       el.dataset.minerY = miner.position.y.toFixed(2);
+      // Last frame's draw-call count: the budget that phones live by.
+      el.dataset.drawCalls = String(state.gl.info.render.calls);
     }
     // Body language: face the walk direction, idle bob, pick swings.
     const body = minerBodyRef.current;
@@ -773,8 +794,9 @@ function MineScene() {
     j.particles = j.particles.filter((p) => p.life > 0);
     const group = particlesRef.current;
     if (group) {
+      const byId = new Map(j.particles.map((q) => [q.id, q]));
       for (const child of group.children) {
-        const p = j.particles.find((q) => q.id === child.userData.id);
+        const p = byId.get(child.userData.id as number);
         if (p) {
           child.position.set(p.x, p.y, 0.4);
           child.scale.setScalar(Math.max(0.05, p.life));
@@ -993,35 +1015,43 @@ function MineScene() {
   }
 
   // Bedrock pillars frame the claim; hashed wall stones catch the lamp.
-  const pillarTop = -firstRow + 2;
-  const pillarBottom = -lastRow - 6;
-  const pillarHeight = pillarTop - pillarBottom;
-  const pillarY = (pillarTop + pillarBottom) / 2;
-  const wallStones = [];
-  for (let row = firstRow; row <= lastRow + 4; row++) {
-    for (const side of [-1, 1]) {
-      const h = cellHash(side, row, 47);
-      if (h < 0.45) continue;
-      wallStones.push(
-        <mesh
-          key={`${side}:${row}`}
-          position={[
-            side * (4.78 + h * 0.35),
-            -row + (cellHash(side, row, 53) - 0.5),
-            -0.3,
-          ]}
-          rotation={[h * 3, h * 5, h * 7]}
-        >
-          <dodecahedronGeometry args={[0.3 + h * 0.25, 0]} />
-          <meshStandardMaterial
-            color={variedColor("#262b36", side + 4, row)}
-            roughness={0.85}
-            flatShading
-          />
-        </mesh>,
-      );
+  // Memoized per visible window: rebuilding them on every dig tick was
+  // wasted reconciliation.
+  const walls = useMemo(() => {
+    const pillarTop = -firstRow + 2;
+    const pillarBottom = -lastRow - 6;
+    const stones = [];
+    for (let row = firstRow; row <= lastRow + 4; row++) {
+      for (const side of [-1, 1]) {
+        const h = cellHash(side, row, 47);
+        if (h < 0.45) continue;
+        stones.push(
+          <mesh
+            key={`${side}:${row}`}
+            position={[
+              side * (4.78 + h * 0.35),
+              -row + (cellHash(side, row, 53) - 0.5),
+              -0.3,
+            ]}
+            rotation={[h * 3, h * 5, h * 7]}
+          >
+            <dodecahedronGeometry args={[0.3 + h * 0.25, 0]} />
+            <meshStandardMaterial
+              color={variedColor("#262b36", side + 4, row)}
+              roughness={0.85}
+              flatShading
+            />
+          </mesh>,
+        );
+      }
     }
-  }
+    return {
+      stones,
+      pillarHeight: pillarTop - pillarBottom,
+      pillarY: (pillarTop + pillarBottom) / 2,
+    };
+  }, [firstRow, lastRow]);
+  const { stones: wallStones, pillarHeight, pillarY } = walls;
 
   return (
     <>
@@ -1088,7 +1118,11 @@ function MineScene() {
 
 export default function MineCanvas() {
   return (
-    <Canvas camera={{ position: [0, 1.5, 13], fov: 42 }} gl={createWebGPU}>
+    <Canvas
+      camera={{ position: [0, 1.5, 13], fov: 42 }}
+      dpr={[1, 2]}
+      gl={createWebGPU}
+    >
       <MineScene />
     </Canvas>
   );

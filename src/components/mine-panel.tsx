@@ -309,10 +309,112 @@ function JuiceOverlays() {
   );
 }
 
+/** Big-tap-target sheet row: icon tile, label, action button. */
+function SheetRow({
+  icon,
+  name,
+  sub,
+  badge,
+  action,
+}: {
+  icon: string;
+  name: string;
+  sub?: string;
+  badge?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "10px 0",
+        borderBottom: "1px solid rgba(38, 48, 74, 0.55)",
+      }}
+    >
+      <span
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          background: "rgba(38, 48, 74, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "1.2rem",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span
+          style={{ display: "block", fontSize: "0.95rem", fontWeight: 600 }}
+        >
+          {name}
+          {badge && (
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                color: "#54e0c7",
+              }}
+            >
+              {badge}
+            </span>
+          )}
+        </span>
+        {sub && (
+          <span
+            style={{ display: "block", fontSize: "0.72rem", opacity: 0.55 }}
+          >
+            {sub}
+          </span>
+        )}
+      </span>
+      {action}
+    </div>
+  );
+}
+
+const sheetButtonStyle = (enabled: boolean): React.CSSProperties => ({
+  minWidth: 78,
+  minHeight: 42,
+  borderRadius: 12,
+  border: "1px solid #2c3a5c",
+  background: enabled ? "#1d2738" : "rgba(29, 39, 56, 0.4)",
+  color: enabled ? "#e6e8ee" : "rgba(230, 232, 238, 0.35)",
+  fontWeight: 700,
+  fontSize: "0.9rem",
+});
+
+const STALL_ICONS: Record<StallDef["id"], string> = {
+  assay: "\u{1F3E6}",
+  supply: "\u{1F4E6}",
+  outfitter: "\u{1F6E0}\u{FE0F}",
+  winch: "\u{1F6D7}",
+  warp: "\u{1F300}",
+};
+
+const ITEM_ICONS: Record<string, string> = {
+  dynamite: "\u{1F9E8}",
+  rope: "\u{1FAA2}",
+  ladder: "\u{1FA9C}",
+  plank: "\u{1FAB5}",
+  beacon: "\u{1F4E1}",
+  pickaxe: "\u{26CF}\u{FE0F}",
+  lamp: "\u{1F526}",
+  cargo: "\u{1F392}",
+  lantern: "\u{1F3EE}",
+  warpcoil: "\u{1F300}",
+};
+
 /**
- * The menu for the stall the miner is standing at (REQ-021): sell at
- * the Assay Office, buy consumables at the Supply Depot, buy gear at
- * the Outfitter. Walking off the column closes it.
+ * The shop sheet (REQ-021): standing at a stall slides a mobile bottom
+ * sheet up over the lower screen, with thumb-sized rows and the wallet
+ * in the header. Walking off the column closes it.
  */
 function StallMenu({
   stall,
@@ -345,60 +447,119 @@ function StallMenu({
   const banked = miner.bankedCredits;
   const bankedParts = miner.bankedParts.length;
   const offline = balance === null;
-  const rowStyle: React.CSSProperties = {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 6,
-  };
+  const beacon = findBeacon(mine);
   return (
     <section
       aria-label={stall.name}
+      className="stall-sheet"
       style={{
         position: "absolute",
-        bottom: 28,
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: 320,
-        background: "rgba(17, 21, 31, 0.95)",
-        border: `1px solid ${stall.color}`,
-        borderRadius: 10,
-        padding: 14,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        margin: "0 auto",
+        maxWidth: 440,
+        background:
+          "linear-gradient(180deg, rgba(21, 27, 41, 0.97), rgba(12, 15, 23, 0.99))",
+        borderTop: `2px solid ${stall.color}`,
+        borderRadius: "18px 18px 0 0",
+        boxShadow: "0 -14px 44px rgba(0, 0, 0, 0.55)",
+        padding: "8px 18px 18px",
         zIndex: 10,
       }}
     >
-      <p style={{ margin: 0, fontWeight: 700, color: stall.color }}>
-        {stall.name}
-      </p>
-      <p style={{ margin: "2px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-        {stall.blurb}
-        {balance !== null && ` | wallet: ${balance} cr`}
-      </p>
+      <div
+        aria-hidden
+        style={{
+          width: 38,
+          height: 4,
+          borderRadius: 999,
+          background: stall.color,
+          opacity: 0.4,
+          margin: "0 auto 10px",
+        }}
+      />
+      <header
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 4,
+        }}
+      >
+        <span style={{ fontSize: "1.5rem" }}>{STALL_ICONS[stall.id]}</span>
+        <span style={{ flex: 1 }}>
+          <span
+            style={{
+              display: "block",
+              fontWeight: 800,
+              fontSize: "1.05rem",
+              color: stall.color,
+            }}
+          >
+            {stall.name}
+          </span>
+          <span
+            style={{ display: "block", fontSize: "0.72rem", opacity: 0.55 }}
+          >
+            {stall.blurb}
+          </span>
+        </span>
+        <span
+          style={{
+            background: "rgba(38, 48, 74, 0.6)",
+            borderRadius: 999,
+            padding: "6px 12px",
+            fontSize: "0.85rem",
+            fontWeight: 700,
+            color: offline ? "#8b93a7" : "#f5c542",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {offline ? "offline" : `\u{1F4B0} ${balance} cr`}
+        </span>
+      </header>
       {offline && (
-        <p style={{ margin: "8px 0 0", fontSize: "0.8rem", color: "#f5c542" }}>
+        <p style={{ margin: "6px 0 0", fontSize: "0.78rem", color: "#f5c542" }}>
           the ledger is offline right now; browsing only
         </p>
       )}
       {stall.id === "assay" &&
         (banked > 0 || bankedParts > 0 ? (
           <>
-            <p style={{ margin: "10px 0 0", fontSize: "0.9rem" }}>
-              on the books: <strong>{banked} cr</strong>
-              {bankedParts > 0 &&
-                ` and ${bankedParts} part${bankedParts > 1 ? "s" : ""}`}
-            </p>
+            <SheetRow
+              icon={"\u{1F4B0}"}
+              name={`${banked} cr on the books`}
+              sub={
+                bankedParts > 0
+                  ? `plus ${bankedParts} part${bankedParts > 1 ? "s" : ""} for the workshop`
+                  : "hauled up and ready to vault"
+              }
+            />
             <button
               type="button"
               onClick={onCashOut}
               disabled={cashOutPending || offline}
-              style={{ marginTop: 10 }}
+              style={{
+                ...sheetButtonStyle(!cashOutPending && !offline),
+                width: "100%",
+                marginTop: 12,
+                minHeight: 48,
+                background:
+                  cashOutPending || offline
+                    ? "rgba(58, 47, 16, 0.4)"
+                    : "#3a2f10",
+                borderColor: "#f5c542",
+                color: cashOutPending || offline ? "#8b93a7" : "#f5c542",
+              }}
             >
               {cashOutPending ? "Hauling to the vault..." : "Sell banked loot"}
             </button>
           </>
         ) : (
-          <p style={{ margin: "10px 0 0", fontSize: "0.85rem", opacity: 0.7 }}>
+          <p
+            style={{ margin: "12px 0 2px", fontSize: "0.85rem", opacity: 0.7 }}
+          >
             nothing banked yet; haul something up and it lands on the books.
           </p>
         ))}
@@ -406,35 +567,38 @@ function StallMenu({
         <div>
           {(
             [
-              ["dynamite", "Dynamite"],
-              ["rope", "Recall Rope"],
-              ["ladder", "Ladder"],
-              ["plank", "Plank"],
-              ["beacon", "Warp Beacon"],
+              ["dynamite", "Dynamite", "blasts a plus through anything"],
+              ["rope", "Recall Rope", "bank the carry from anywhere"],
+              ["ladder", "Ladder", "climbs one cell, stays planted"],
+              ["plank", "Plank", "bridges one gap, stays planted"],
+              ["beacon", "Warp Beacon", "plants the warp anchor"],
             ] as const
-          ).map(([item, name]) => {
+          ).map(([item, name, blurb]) => {
             const price = CONSUMABLE_PRICES[item];
             const affordable = balance !== null && balance >= price;
             return (
-              <div key={item} style={rowStyle}>
-                <span style={{ fontSize: "0.9rem" }}>
-                  {name}{" "}
-                  <span style={{ color: "#54e0c7" }}>
-                    x{mine.consumables[item]}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onBuyConsumable(item)}
-                  disabled={!affordable}
-                >
-                  {price} cr
-                </button>
-              </div>
+              <SheetRow
+                key={item}
+                icon={ITEM_ICONS[item]}
+                name={name}
+                sub={blurb}
+                badge={`x${mine.consumables[item]}`}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => onBuyConsumable(item)}
+                    disabled={!affordable}
+                    style={sheetButtonStyle(affordable)}
+                  >
+                    {price} cr
+                  </button>
+                }
+              />
             );
           })}
-          <p style={{ margin: "8px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            purchases pack straight into the current claim.
+          <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+            purchases pack straight into the current claim. Every trip packs 8
+            ladders and 4 planks free, broke or not.
           </p>
         </div>
       )}
@@ -447,74 +611,85 @@ function StallMenu({
             const affordable =
               price !== null && balance !== null && balance >= price;
             return (
-              <div key={def.track} style={rowStyle}>
-                <span style={{ fontSize: "0.9rem" }}>
-                  {def.name} lv {level}
-                  <span
-                    style={{
-                      display: "block",
-                      fontSize: "0.7rem",
-                      opacity: 0.55,
-                    }}
-                  >
-                    {def.blurb}
-                  </span>
-                </span>
-                {maxed ? (
-                  <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>max</span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onBuyGear(def.track)}
-                    disabled={!affordable}
-                  >
-                    {price} cr
-                  </button>
-                )}
-              </div>
+              <SheetRow
+                key={def.track}
+                icon={ITEM_ICONS[def.track] ?? "\u{2699}\u{FE0F}"}
+                name={def.name}
+                sub={def.blurb}
+                badge={`lv ${level}`}
+                action={
+                  maxed ? (
+                    <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>
+                      max
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onBuyGear(def.track)}
+                      disabled={!affordable}
+                      style={sheetButtonStyle(affordable)}
+                    >
+                      {price} cr
+                    </button>
+                  )
+                }
+              />
             );
           })}
-          <p style={{ margin: "8px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+          <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
             upgrades bought mid-dig apply on the next claim.
           </p>
         </div>
       )}
       {stall.id === "winch" && (
         <div>
-          <p style={{ margin: "10px 0 0", fontSize: "0.9rem" }}>
-            {gear.elevator > 0
-              ? `rail reaches ${gear.elevator} deep`
-              : "no rail yet; the shaft waits"}
-          </p>
-          <div style={rowStyle}>
-            <span style={{ fontSize: "0.9rem" }}>
-              extend rail {ELEVATOR_SEGMENT_ROWS} rows
-              <span
-                style={{ display: "block", fontSize: "0.7rem", opacity: 0.55 }}
+          <SheetRow
+            icon={"\u{1F6D7}"}
+            name={
+              gear.elevator > 0
+                ? `rail reaches ${gear.elevator} deep`
+                : "no rail yet; the shaft waits"
+            }
+            sub="free rides, surface to rail end"
+            action={
+              <button
+                type="button"
+                onClick={onBuyElevator}
+                disabled={
+                  balance === null ||
+                  balance <
+                    elevatorSegmentPrice(
+                      gear.elevator / ELEVATOR_SEGMENT_ROWS + 1,
+                    )
+                }
+                style={sheetButtonStyle(
+                  balance !== null &&
+                    balance >=
+                      elevatorSegmentPrice(
+                        gear.elevator / ELEVATOR_SEGMENT_ROWS + 1,
+                      ),
+                )}
               >
-                free rides, surface to rail end
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={onBuyElevator}
-              disabled={
-                balance === null ||
-                balance <
-                  elevatorSegmentPrice(
-                    gear.elevator / ELEVATOR_SEGMENT_ROWS + 1,
-                  )
-              }
-            >
-              {elevatorSegmentPrice(gear.elevator / ELEVATOR_SEGMENT_ROWS + 1)}{" "}
-              cr
-            </button>
-          </div>
+                {elevatorSegmentPrice(
+                  gear.elevator / ELEVATOR_SEGMENT_ROWS + 1,
+                )}{" "}
+                cr
+              </button>
+            }
+          />
+          <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+            each segment extends the rail {ELEVATOR_SEGMENT_ROWS} rows
+          </p>
           <button
             type="button"
             onClick={() => onRide("ride-down")}
             disabled={mine.gear.elevator <= 0}
-            style={{ marginTop: 10 }}
+            style={{
+              ...sheetButtonStyle(mine.gear.elevator > 0),
+              width: "100%",
+              marginTop: 12,
+              minHeight: 48,
+            }}
           >
             {mine.gear.elevator > 0
               ? `Ride down to ${mine.gear.elevator}`
@@ -524,33 +699,34 @@ function StallMenu({
       )}
       {stall.id === "warp" && (
         <div>
-          <p style={{ margin: "10px 0 0", fontSize: "0.9rem" }}>
-            {(() => {
-              const beacon = findBeacon(mine);
-              return beacon
+          <SheetRow
+            icon={ITEM_ICONS.beacon}
+            name={
+              beacon
                 ? `beacon planted at ${beacon.row} deep`
-                : "no beacon planted; kits at the depot";
-            })()}
-          </p>
-          <p style={{ margin: "4px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-            warpcoil range {warpRange(mine.gear)} rows (upgrade at the
-            Outfitter)
-          </p>
+                : "no beacon planted; kits at the depot"
+            }
+            sub={`warpcoil range ${warpRange(mine.gear)} rows (upgrade at the Outfitter)`}
+          />
           <button
             type="button"
             onClick={() => onRide("warp-down")}
-            disabled={(() => {
-              const beacon = findBeacon(mine);
-              return !beacon || beacon.row > warpRange(mine.gear);
-            })()}
-            style={{ marginTop: 10 }}
+            disabled={!beacon || beacon.row > warpRange(mine.gear)}
+            style={{
+              ...sheetButtonStyle(
+                !!beacon && beacon.row <= warpRange(mine.gear),
+              ),
+              width: "100%",
+              marginTop: 12,
+              minHeight: 48,
+            }}
           >
             Warp to beacon
           </button>
         </div>
       )}
       {shopNote && (
-        <p style={{ margin: "10px 0 0", fontSize: "0.8rem", color: "#54e0c7" }}>
+        <p style={{ margin: "12px 0 0", fontSize: "0.8rem", color: "#54e0c7" }}>
           {shopNote}
         </p>
       )}

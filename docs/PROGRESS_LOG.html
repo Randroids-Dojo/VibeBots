@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-shop-polish" data-date="2026-06-12">
+    <h3>Mobile Shop Polish (Bottom Sheets and Building Depth)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-shop-polish</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>the shop moment grew up (user-directed: the bot clipped through a flat hut and a cramped card popped up). Stall menus are now mobile bottom sheets: they slide up from the screen bottom (reduced-motion aware) with a drag handle, a header carrying the stall icon, name, blurb, and a wallet chip, and thumb-sized rows: a 42px icon tile, bold name with a teal owned-count or level badge, a one-line blurb, and a large rounded price button; primary actions (sell, ride, warp) are full-width 48px buttons. All five stalls share the layout. In the scene, buildings scaled up and moved back in depth so the miner's standing range no longer intersects any facade, each door gets a lit doorstep mat at the standing spot, and the door glows while its shop is open.</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (103), <code>pnpm build</code>, <code>pnpm test:e2e</code> (15 passed: every stall-menu test string preserved in the sheet layout); phone and desktop screenshots of the depot and outfitter sheets plus the set-back buildings with doorstep mats.</dd>
+      <dt>Assumptions</dt><dd>the sheet intentionally covers the lower screen on phones (the mobile-store convention); walking off the column still closes it, and the game area above stays interactive.</dd>
+      <dt>GDD coverage</dt><dd>shop-feel bullet added to the village section; build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-deep-dangers" data-date="2026-06-12">
     <h3>Deep Strata, Magma, and the No-Softlock Floor</h3>
     <dl>

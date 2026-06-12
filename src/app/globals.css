@@ -61,8 +61,25 @@ a {
   }
 }
 
+/* Stall shops slide up like a mobile bottom sheet (REQ-021 polish). */
+@keyframes stall-sheet-up {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.stall-sheet {
+  animation: stall-sheet-up 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .mine-juice {
+  .mine-juice,
+  .stall-sheet {
     animation: none !important;
   }
 }

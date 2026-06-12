@@ -35,7 +35,7 @@
     <h3>Mine Dig Animations</h3>
     <dl>
       <dt>Branch</dt><dd><code>feature/mine-dig-animations</code></dd>
-      <dt>PR</dt><dd>pending</dd>
+      <dt>PR</dt><dd>#41</dd>
       <dt>Changed</dt><dd>the strike got a body (user-directed: "we need actual mining animations and particle effects"). Every dig lunges the bot toward the struck cell (a 0.22s decaying offset layered under the pick swing), throws a flash of hot sparks over the block-colored debris, and thumps a small screen shake even on dirt (rock keeps the heavy one). Plain steps into open tunnel kick a scuff of tread dust, and the bot leans into its glide between cells (roll proportional to remaining travel). The particle system grew kinds: debris (chunky, block-colored), sparks (small, fast, emissive 1.8, gone in a blink), and dust (slow, floaty, near-matte), each with its own size range and gravity. Render-layer only; the sim is untouched.</dd>
       <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (92), <code>pnpm build</code>, <code>pnpm test:e2e</code> (10 passed); strike-frame screenshots show sparks over the burst and the glide lean mid-move (Rule 10 frame pairs already enforced by the suite).</dd>
       <dt>Assumptions</dt><dd>particle cap raised to 260 to fit the spark layer; spark color is fixed warm (pick on stone) rather than block-colored.</dd>

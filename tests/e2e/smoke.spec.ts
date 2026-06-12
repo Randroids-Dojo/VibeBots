@@ -336,6 +336,25 @@ test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await expect(outfitter).not.toBeVisible();
 });
 
+test("the winch tower sells rail and gates rides on it (REQ-028)", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "0");
+
+  // The tower stands five columns left of the shaft.
+  for (let i = 0; i < 5; i++) {
+    await page.keyboard.press("ArrowLeft");
+  }
+  const winch = page.getByLabel("Winch Tower");
+  await expect(winch).toBeVisible();
+  await expect(winch).toContainText("no rail yet");
+  await expect(winch).toContainText("40 cr");
+  // Without rail the ride is disabled; without storage so is the buy.
+  await expect(winch.getByRole("button", { name: /Ride down/ })).toBeDisabled();
+});
+
 test("miner stays at depth when walking sideways (lateral teleport regression)", async ({
   page,
 }) => {

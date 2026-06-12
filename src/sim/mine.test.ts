@@ -11,6 +11,9 @@ import {
   createMine,
   DEFAULT_GEAR,
   type Direction,
+  ELEVATOR_COL,
+  ELEVATOR_SEGMENT_ROWS,
+  elevatorSegmentPrice,
   exportDiff,
   GAS_VENT_DRAIN,
   GEAR_TRACKS,
@@ -337,6 +340,69 @@ describe("mine", () => {
     }
   });
 
+  it("rides the elevator down and up along bought rail (REQ-028)", () => {
+    const norail = createMine(229);
+    expect(applyAction(norail, "ride-down")).toEqual({
+      ok: false,
+      reason: "no-elevator",
+    });
+
+    const gear = { ...DEFAULT_GEAR, elevator: ELEVATOR_SEGMENT_ROWS };
+    const state = createMine(229, gear);
+    // Riding from anywhere but the tower column is refused.
+    expect(applyAction(state, "ride-down")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    // Walk to the tower; the ride is free, bores the rail span clear,
+    // and lands at the rail bottom.
+    while (state.miner.col > ELEVATOR_COL) step(state, "left");
+    const energyAtTower = state.miner.energy;
+    const ride = applyAction(state, "ride-down");
+    expect(ride.ok).toBe(true);
+    expect(state.miner.row).toBe(ELEVATOR_SEGMENT_ROWS);
+    expect(state.miner.col).toBe(ELEVATOR_COL);
+    expect(state.miner.energy).toBe(energyAtTower);
+    for (let r = 1; r <= ELEVATOR_SEGMENT_ROWS; r++) {
+      expect(cellAt(state, ELEVATOR_COL, r)?.kind).toBe("empty");
+    }
+    // Ride back up: free, banks at the surface.
+    state.miner.carried = { coal: 2 };
+    const up = applyAction(state, "ride-up");
+    expect(up.ok).toBe(true);
+    expect(state.miner.row).toBe(0);
+    expect(state.miner.bankedCredits).toBe(2);
+    // Off-rail ride-up is refused.
+    step(state, "right");
+    expect(applyAction(state, "ride-up")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+  });
+
+  it("replays elevator trips identically", () => {
+    const gear = { ...DEFAULT_GEAR, elevator: ELEVATOR_SEGMENT_ROWS };
+    const actions: MineAction[] = [
+      ...Array.from({ length: 5 }, () => "left" as const),
+      "ride-down",
+      "down",
+      "ride-up",
+    ];
+    const state = createMine(233, gear);
+    for (const a of actions) applyAction(state, a);
+    const replayed = replayTrip(233, actions, gear);
+    expect(replayed.maxDepth).toBe(state.miner.maxDepth);
+    expect(replayed.diff).toEqual(exportDiff(state));
+    expect(replayTrip(233, actions, gear)).toEqual(replayed);
+  });
+
+  it("prices rail segments superlinearly", () => {
+    expect(elevatorSegmentPrice(1)).toBe(40);
+    expect(elevatorSegmentPrice(2)).toBe(100);
+    expect(elevatorSegmentPrice(3)).toBe(250);
+    expect(elevatorSegmentPrice(4)).toBeGreaterThan(600);
+  });
+
   it("starts pristine at the village shaft", () => {
     const state = createMine(5);
     // Nothing is overridden until the player digs; generation is pure.
@@ -401,7 +467,7 @@ describe("mine", () => {
   });
 
   it("replays identically with a gear snapshot", () => {
-    const gear = { pickaxe: 2, lamp: 2, cargo: 2, lantern: 2 };
+    const gear = { pickaxe: 2, lamp: 2, cargo: 2, lantern: 2, elevator: 0 };
     // A push-your-luck descent: mostly down with lateral sweeps. The
     // bigger lamp digs further before the collapse, so the snapshot
     // genuinely changes the trip.

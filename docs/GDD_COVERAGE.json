@@ -453,9 +453,18 @@
       "id": "REQ-028",
       "requirement": "Elevator: a per-player winch tower selling rail segments priced per stratum; free logged rides between the surface and the railed depth along its column.",
       "gddRef": "docs/gdd/06-mining.html#transport",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/mine.ts",
+        "src/app/api/elevator/upgrade/route.ts",
+        "src/state/mine-store.ts",
+        "src/components/mine-panel.tsx",
+        "src/components/mine-canvas.tsx"
+      ],
+      "testRefs": [
+        "src/sim/mine.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
       "followupRefs": []
     },
     {

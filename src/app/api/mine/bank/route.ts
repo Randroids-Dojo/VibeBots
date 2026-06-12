@@ -32,6 +32,7 @@ const bodySchema = z.object({
     lamp: gearLevel("lamp"),
     cargo: gearLevel("cargo"),
     lantern: gearLevel("lantern"),
+    elevator: z.number().int().min(0).max(100000),
   }),
   // Consumables held at session start; spent ones decrement at cash-out.
   consumables: z.object({
@@ -102,6 +103,7 @@ export async function POST(request: Request): Promise<Response> {
   // way the snapshot could inflate a payout.
   const owned = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
+           elevator_depth,
            dynamite_count, rope_count, ladder_count, plank_count
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
   const gear = parsed.data.gear;
@@ -112,6 +114,12 @@ export async function POST(request: Request): Promise<Response> {
         { status: 422 },
       );
     }
+  }
+  if (gear.elevator > (owned[0]?.elevator_depth ?? 0)) {
+    return Response.json(
+      { error: `rail not owned: depth ${gear.elevator}` },
+      { status: 422 },
+    );
   }
   const consumables = parsed.data.consumables;
   if (

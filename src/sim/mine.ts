@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 10;
+export const MINE_VERSION = 11;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -109,6 +109,8 @@ export interface MineGear {
   lamp: number;
   cargo: number;
   lantern: number;
+  /** Elevator rail depth in rows (REQ-028); 0 = no rail bought yet. */
+  elevator: number;
 }
 
 export const DEFAULT_GEAR: MineGear = {
@@ -116,7 +118,18 @@ export const DEFAULT_GEAR: MineGear = {
   lamp: 1,
   cargo: 1,
   lantern: 1,
+  elevator: 0,
 };
+
+/** The winch tower's column: the elevator runs down this shaft. */
+export const ELEVATOR_COL = -5;
+/** Rows of rail per purchased segment (one stratum band). */
+export const ELEVATOR_SEGMENT_ROWS = 12;
+
+/** Price of the nth rail segment (1-based): superlinear per stratum. */
+export function elevatorSegmentPrice(segment: number): number {
+  return Math.round((40 * 2.5 ** (segment - 1)) / 10) * 10;
+}
 
 /** Max lamp energy by lamp level. */
 export const LAMP_ENERGY = [60, 90, 130, 180] as const;
@@ -733,6 +746,7 @@ export type MoveResult =
         | "no-rope"
         | "no-ladder"
         | "no-plank"
+        | "no-elevator"
         | "surface";
     };
 
@@ -749,7 +763,9 @@ export type MineAction =
   | "dynamite-left"
   | "dynamite-right"
   | "recall"
-  | "abandon";
+  | "abandon"
+  | "ride-down"
+  | "ride-up";
 
 export const MINE_ACTIONS = [
   "down",
@@ -762,6 +778,8 @@ export const MINE_ACTIONS = [
   "dynamite-right",
   "recall",
   "abandon",
+  "ride-down",
+  "ride-up",
 ] as const;
 
 /** Blast-destructible kinds (caches are reinforced; jackpots survive). */
@@ -1174,6 +1192,60 @@ function abandon(state: MineState): MoveResult {
   };
 }
 
+/**
+ * The elevator (REQ-028): free logged rides along the winch tower's
+ * column. Ride-down bores the rail span clear on the way (the crew
+ * built the shaft; anything inside was milled, no loot), ride-up lifts
+ * from anywhere on the rail to the surface. Both cost no energy: the
+ * rail is the investment paying out.
+ */
+function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
+  const miner = state.miner;
+  const rail = state.gear.elevator;
+  if (rail <= 0) return { ok: false, reason: "no-elevator" };
+  if (dir === "down") {
+    if (miner.row !== 0 || miner.col !== ELEVATOR_COL)
+      return { ok: false, reason: "blocked" };
+    const emptied: Array<{ col: number; row: number }> = [];
+    for (let r = 1; r <= rail; r++) {
+      const cell = cellAt(state, ELEVATOR_COL, r);
+      if (cell && cell.kind !== "empty") {
+        setCell(state, ELEVATOR_COL, r, { kind: "empty" });
+        emptied.push({ col: ELEVATOR_COL, row: r });
+      }
+    }
+    miner.row = rail;
+    if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
+    const crushed = resolveFalls(state, emptied);
+    markWobbling(state, emptied);
+    if (crushed) {
+      const lost = {
+        value: carriedValue(miner),
+        parts: [...miner.carriedParts],
+        col: miner.col,
+        row: miner.row,
+      };
+      collapse(miner, state.gear);
+      return {
+        ok: true,
+        dug: null,
+        dugOre: null,
+        found: null,
+        collapsed: true,
+        crushed: true,
+        lost,
+      };
+    }
+    return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+  }
+  if (miner.col !== ELEVATOR_COL || miner.row < 1 || miner.row > rail)
+    return { ok: false, reason: "blocked" };
+  miner.col = ELEVATOR_COL;
+  miner.row = 0;
+  bank(miner, state.gear);
+  return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+}
+
 /** Dispatches any logged trip action (Q-006 default B). */
 export function applyAction(state: MineState, action: MineAction): MoveResult {
   switch (action) {
@@ -1194,6 +1266,10 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
       return recall(state);
     case "abandon":
       return abandon(state);
+    case "ride-down":
+      return rideElevator(state, "down");
+    case "ride-up":
+      return rideElevator(state, "up");
   }
 }
 

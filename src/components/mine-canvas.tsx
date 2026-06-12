@@ -16,6 +16,7 @@ import { Color } from "three/webgpu";
 import { createWebGPU } from "@/components/part-visuals";
 import {
   cellAt,
+  ELEVATOR_COL,
   hitsFor,
   isVisible,
   type OreId,
@@ -1110,6 +1111,46 @@ function MineScene() {
       {tunnelMeshes}
       {blockMeshes}
       {crackMeshes}
+      {/* The elevator rail (REQ-028): guides and ties down the bored
+          shaft, rendered for the visible span of the bought rail. */}
+      {mine.gear.elevator > 0 &&
+        (() => {
+          const railTop = Math.max(1, firstRow);
+          const railBottom = Math.min(mine.gear.elevator, lastRow);
+          if (railBottom < railTop) return null;
+          const mid = -(railTop + railBottom) / 2;
+          const span = railBottom - railTop + 1;
+          const ties = [];
+          for (let r = railTop; r <= railBottom; r += 2) {
+            ties.push(
+              <mesh key={r} position={[ELEVATOR_COL, -r, -0.3]}>
+                <boxGeometry args={[0.7, 0.06, 0.1]} />
+                <meshStandardMaterial
+                  color="#6b7baa"
+                  roughness={0.6}
+                  metalness={0.4}
+                  flatShading
+                />
+              </mesh>,
+            );
+          }
+          return (
+            <group>
+              {[-0.32, 0.32].map((rx) => (
+                <mesh key={rx} position={[ELEVATOR_COL + rx, mid, -0.3]}>
+                  <boxGeometry args={[0.07, span, 0.07]} />
+                  <meshStandardMaterial
+                    color="#9aa7ff"
+                    roughness={0.45}
+                    metalness={0.5}
+                    flatShading
+                  />
+                </mesh>
+              ))}
+              {ties}
+            </group>
+          );
+        })()}
       <group ref={particlesRef}>
         {juice.current.particles.map((p) => (
           <mesh key={p.id} position={[p.x, p.y, 0.4]} userData={{ id: p.id }}>

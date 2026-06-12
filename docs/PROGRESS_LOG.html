@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-visual-overhaul" data-date="2026-06-11">
+    <h3>Mine Visual Overhaul</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-visual-overhaul</code></dd>
+      <dt>PR</dt><dd>#27</dd>
+      <dt>Changed</dt><dd>the mine scene rebuilt for atmosphere (F-021, user-reported "graphics are too simple"). The miner is now an articulated robot (treaded chassis, glowing chest screen and visor, hard hat with headlamp, antenna, a pickaxe arm that swings on digs) that turns to face its walk direction, bobs at idle, and carries the scene's key light: a warm point lamp that takes over as ambient/hemisphere/directional daylight dies toward depth 14 (with a low-energy gutter flicker). Blocks are beveled RoundedBoxes with stable hash-varied tones per cell: rock tiers are dodecahedron stone chunks, ores are dirt blocks studded with emissive octahedron crystals, caches are timber crates with glowing gold straps, gas is an off-green block, boulders are icosahedrons that now tremble every frame while wobbling. The claim is framed by bedrock pillars with hashed wall stones; carved tunnels render as recessed earth instead of holes to the void; fog and a camera-tracked backdrop close the distance. The surface became a night camp: stars, grass tufts, a headframe with sheave wheel over the starting shaft, and lantern posts. Dust motes drift in the lamp light underground. All render-layer: <code>src/sim</code> untouched; <code>scripts/playtest-mine-visuals.mjs</code> landed as the scripted evidence driver.</dd>
+      <dt>Verification</dt><dd>dash check, purity check, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (81), <code>pnpm build</code>, <code>pnpm test:e2e</code> (6 passed incl. the F-020 lateral-glide regression against the new scene, 2 storage-skipped); scripted screenshot run verified surface camp, dusk shaft, lateral facing at depth, and the deep lamp-lit cave (frame pairs differ after input per Rule 10).</dd>
+      <dt>Assumptions</dt><dd>per-cell visual variation hashes (col, row, salt) so re-renders never shimmer; the night-sky surface reads as a deliberate "night shift" theme consistent with the game's dark UI rather than a day scene.</dd>
+      <dt>GDD coverage</dt><dd>no status flips (REQ-012 and REQ-018 already counted descent legibility and juice); build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>resolved <code>F-021</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="miner-lateral-teleport-fix" data-date="2026-06-11">
     <h3>Miner Lateral Teleport Fix</h3>
     <dl>

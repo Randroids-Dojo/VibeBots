@@ -1,13 +1,23 @@
 "use client";
 
+import { RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
-import type { Group } from "three/webgpu";
+import type {
+  AmbientLight,
+  DirectionalLight,
+  Group,
+  HemisphereLight,
+  Mesh,
+  PointLight,
+} from "three/webgpu";
+import { Color } from "three/webgpu";
 import { createWebGPU } from "@/components/part-visuals";
 import {
   isVisible,
   MINE_WIDTH,
   type OreId,
+  START_COL,
   STRATA,
   stratumAt,
 } from "@/sim/mine";
@@ -42,9 +52,30 @@ const GAS_COLOR = "#8fa32e";
 const VIEW_ABOVE = 8;
 const VIEW_BELOW = 6;
 
+/** Depth (in rows) at which the lighting reaches full darkness. */
+const DARK_DEPTH = 14;
+
 function dirtColorAt(row: number): string {
   const index = STRATA.indexOf(stratumAt(row));
   return STRATA_DIRT[Math.min(index, STRATA_DIRT.length - 1)];
+}
+
+/**
+ * Stable per-cell randomness for visual variation. Render-layer only;
+ * deterministic per (col, row, salt) so blocks do not shimmer when the
+ * scene re-renders on every action tick.
+ */
+function cellHash(col: number, row: number, salt: number): number {
+  let h = (col * 374761393 + row * 668265263 + salt * 1274126177) >>> 0;
+  h = ((h ^ (h >>> 13)) * 1274126177) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/** Lightness-jittered variant of a base color, stable per cell. */
+function variedColor(base: string, col: number, row: number): Color {
+  const c = new Color(base);
+  c.offsetHSL(0, 0, (cellHash(col, row, 5) - 0.5) * 0.1);
+  return c;
 }
 
 interface Particle {
@@ -63,6 +94,10 @@ interface JuiceState {
   nextId: number;
   /** Screen-shake magnitude, decays in useFrame. */
   shake: number;
+  /** Seconds left in the pick-swing animation. */
+  swing: number;
+  /** Lateral facing: -1 left, 1 right, 0 camera-facing. */
+  facing: number;
 }
 
 const cellX = (col: number) => col - (MINE_WIDTH - 1) / 2;
@@ -89,6 +124,340 @@ function spawnBurst(
     juice.particles.splice(0, juice.particles.length - 220);
 }
 
+/** Crystals jutting from an ore cell, sized and angled per cell hash. */
+function OreCrystals({
+  col,
+  row,
+  color,
+  glow,
+}: {
+  col: number;
+  row: number;
+  color: string;
+  glow: boolean;
+}) {
+  const count = 2 + Math.floor(cellHash(col, row, 7) * 2);
+  const crystals = [];
+  for (let i = 0; i < count; i++) {
+    const a = cellHash(col, row, 11 + i);
+    const b = cellHash(col, row, 23 + i);
+    const s = 0.09 + cellHash(col, row, 31 + i) * 0.09;
+    crystals.push(
+      <mesh
+        key={i}
+        position={[(a - 0.5) * 0.52, (b - 0.5) * 0.52, 0.42]}
+        rotation={[a * 2.2, b * 2.2, (a + b) * 1.8]}
+        scale={[s, s * 1.7, s]}
+      >
+        <octahedronGeometry args={[1, 0]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={glow ? 1.1 : 0.4}
+          roughness={0.25}
+          metalness={0.1}
+          flatShading
+        />
+      </mesh>,
+    );
+  }
+  return <>{crystals}</>;
+}
+
+/** A buried supply crate: timber box with glowing gold straps. */
+function CacheCrate({ col, row }: { col: number; row: number }) {
+  const tilt = (cellHash(col, row, 41) - 0.5) * 0.3;
+  return (
+    <group rotation={[0, 0, tilt]}>
+      <RoundedBox args={[0.8, 0.8, 0.8]} radius={0.06} smoothness={2}>
+        <meshStandardMaterial color="#8a6b3f" roughness={0.8} flatShading />
+      </RoundedBox>
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry args={[0.86, 0.16, 0.86]} />
+        <meshStandardMaterial
+          color={CACHE_COLOR}
+          emissive={CACHE_COLOR}
+          emissiveIntensity={0.5}
+          metalness={0.4}
+          roughness={0.3}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry args={[0.16, 0.86, 0.86]} />
+        <meshStandardMaterial
+          color={CACHE_COLOR}
+          emissive={CACHE_COLOR}
+          emissiveIntensity={0.5}
+          metalness={0.4}
+          roughness={0.3}
+          flatShading
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * The miner robot: treaded chassis, orange torso with a glowing chest
+ * screen, visored head under a hard hat with a working headlamp, and a
+ * pickaxe arm that swings on digs. Animated parts get refs; the outer
+ * group's transform belongs to useFrame in MineScene.
+ */
+function MinerBot({
+  bodyRef,
+  armRef,
+  lampRef,
+  motesRef,
+}: {
+  bodyRef: React.RefObject<Group | null>;
+  armRef: React.RefObject<Group | null>;
+  lampRef: React.RefObject<PointLight | null>;
+  motesRef: React.RefObject<Group | null>;
+}) {
+  const motes = [];
+  for (let i = 0; i < 14; i++) {
+    const a = cellHash(i, 211, 1);
+    const b = cellHash(i, 223, 9);
+    const r = 0.55 + cellHash(i, 227, 3) * 1.35;
+    motes.push(
+      <mesh
+        key={i}
+        position={[
+          Math.cos(a * 6.28) * r,
+          Math.sin(b * 6.28) * r * 0.8,
+          0.5 + a * 0.4,
+        ]}
+      >
+        <icosahedronGeometry args={[0.016 + b * 0.014, 0]} />
+        <meshBasicMaterial color="#ffe2b0" transparent opacity={0.45} />
+      </mesh>,
+    );
+  }
+  return (
+    <>
+      {/* Dust motes drifting in the lamp light (hidden on the surface). */}
+      <group ref={motesRef}>{motes}</group>
+      <group ref={bodyRef}>
+        {/* Treads */}
+        <mesh position={[0, -0.27, 0]}>
+          <boxGeometry args={[0.4, 0.14, 0.3]} />
+          <meshStandardMaterial color="#23262f" roughness={0.9} flatShading />
+        </mesh>
+        <mesh position={[-0.2, -0.27, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.09, 0.09, 0.3, 10]} />
+          <meshStandardMaterial color="#3a3f4d" roughness={0.7} flatShading />
+        </mesh>
+        <mesh position={[0.2, -0.27, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.09, 0.09, 0.3, 10]} />
+          <meshStandardMaterial color="#3a3f4d" roughness={0.7} flatShading />
+        </mesh>
+        {/* Torso */}
+        <RoundedBox
+          args={[0.42, 0.34, 0.32]}
+          radius={0.06}
+          smoothness={2}
+          position={[0, -0.03, 0]}
+        >
+          <meshStandardMaterial
+            color="#ff9f43"
+            roughness={0.5}
+            metalness={0.25}
+            flatShading
+          />
+        </RoundedBox>
+        {/* Chest screen */}
+        <mesh position={[0, -0.03, 0.17]}>
+          <boxGeometry args={[0.18, 0.12, 0.02]} />
+          <meshStandardMaterial
+            color="#0d2b26"
+            emissive="#54e0c7"
+            emissiveIntensity={0.9}
+            flatShading
+          />
+        </mesh>
+        {/* Head */}
+        <RoundedBox
+          args={[0.3, 0.2, 0.26]}
+          radius={0.06}
+          smoothness={2}
+          position={[0, 0.26, 0]}
+        >
+          <meshStandardMaterial
+            color="#ffb066"
+            roughness={0.45}
+            metalness={0.25}
+            flatShading
+          />
+        </RoundedBox>
+        {/* Visor */}
+        <mesh position={[0, 0.26, 0.13]}>
+          <boxGeometry args={[0.22, 0.08, 0.03]} />
+          <meshStandardMaterial
+            color="#101820"
+            emissive="#7df9ff"
+            emissiveIntensity={1.2}
+            flatShading
+          />
+        </mesh>
+        {/* Hard hat */}
+        <mesh position={[0, 0.39, 0]}>
+          <cylinderGeometry args={[0.18, 0.2, 0.09, 12]} />
+          <meshStandardMaterial
+            color="#f5c542"
+            roughness={0.4}
+            metalness={0.2}
+            flatShading
+          />
+        </mesh>
+        {/* Headlamp housing and glow */}
+        <mesh position={[0, 0.38, 0.16]}>
+          <cylinderGeometry args={[0.05, 0.06, 0.07, 10]} />
+          <meshStandardMaterial
+            color="#fff3c4"
+            emissive="#ffe9a8"
+            emissiveIntensity={2.2}
+            flatShading
+          />
+        </mesh>
+        {/* Antenna */}
+        <mesh position={[0.12, 0.47, 0]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.14, 6]} />
+          <meshStandardMaterial color="#3a3f4d" flatShading />
+        </mesh>
+        <mesh position={[0.12, 0.55, 0]}>
+          <icosahedronGeometry args={[0.03, 0]} />
+          <meshStandardMaterial
+            color="#ff6b6b"
+            emissive="#ff6b6b"
+            emissiveIntensity={1.6}
+            flatShading
+          />
+        </mesh>
+        {/* Pick arm: shoulder pivot so the swing reads as a chop */}
+        <group ref={armRef} position={[0.24, 0.08, 0.06]}>
+          <mesh position={[0.05, -0.08, 0]} rotation={[0, 0, -0.5]}>
+            <boxGeometry args={[0.08, 0.22, 0.08]} />
+            <meshStandardMaterial
+              color="#e08a32"
+              roughness={0.55}
+              flatShading
+            />
+          </mesh>
+          <mesh position={[0.13, -0.2, 0]} rotation={[0, 0, 0.5]}>
+            <cylinderGeometry args={[0.02, 0.02, 0.3, 8]} />
+            <meshStandardMaterial color="#6b4a2a" roughness={0.9} flatShading />
+          </mesh>
+          <mesh position={[0.2, -0.31, 0]} rotation={[0, 0, 1.05]}>
+            <boxGeometry args={[0.2, 0.05, 0.05]} />
+            <meshStandardMaterial
+              color="#aeb6c4"
+              metalness={0.6}
+              roughness={0.3}
+              flatShading
+            />
+          </mesh>
+        </group>
+      </group>
+      {/* The lamp is the scene's key light below the surface. */}
+      <pointLight
+        ref={lampRef}
+        position={[0, 0.4, 1.1]}
+        color="#ffd9a0"
+        intensity={1.2}
+        distance={9}
+        decay={1.4}
+      />
+    </>
+  );
+}
+
+/** Night-camp surface dressing: headframe, lantern posts, grass. */
+function SurfaceDressing() {
+  const tufts = [];
+  for (let i = 0; i < 12; i++) {
+    const h = cellHash(i, 97, 3);
+    const x = (h - 0.5) * (MINE_WIDTH + 1);
+    if (Math.abs(x) < 0.9) continue;
+    tufts.push(
+      <mesh
+        key={i}
+        position={[x, 1.06, (cellHash(i, 89, 7) - 0.5) * 0.9]}
+        rotation={[0, h * 3, 0]}
+      >
+        <coneGeometry args={[0.07, 0.16 + h * 0.12, 5]} />
+        <meshStandardMaterial color="#4f7a4a" roughness={1} flatShading />
+      </mesh>,
+    );
+  }
+  const frameX = cellX(START_COL);
+  const stars = [];
+  for (let i = 0; i < 46; i++) {
+    const a = cellHash(i, 131, 1);
+    const b = cellHash(i, 137, 9);
+    stars.push(
+      <mesh key={i} position={[(a - 0.5) * 34, 2.4 + b * 9, -4]}>
+        <icosahedronGeometry args={[0.02 + cellHash(i, 139, 4) * 0.03, 0]} />
+        <meshBasicMaterial color="#cfe0ff" fog={false} />
+      </mesh>,
+    );
+  }
+  return (
+    <group>
+      {/* Night sky over the camp */}
+      {stars}
+      {/* Grassy lip on the dirt shelf */}
+      <mesh position={[0, 0.97, 0]}>
+        <boxGeometry args={[MINE_WIDTH + 2, 0.08, 1.54]} />
+        <meshStandardMaterial color="#3d5c3a" roughness={1} flatShading />
+      </mesh>
+      {tufts}
+      {/* Headframe straddling the starting shaft */}
+      <group position={[frameX, 0, 0]}>
+        <mesh position={[-0.62, 1.62, 0]} rotation={[0, 0, 0.32]}>
+          <boxGeometry args={[0.1, 1.5, 0.1]} />
+          <meshStandardMaterial color="#4a3424" roughness={0.9} flatShading />
+        </mesh>
+        <mesh position={[0.62, 1.62, 0]} rotation={[0, 0, -0.32]}>
+          <boxGeometry args={[0.1, 1.5, 0.1]} />
+          <meshStandardMaterial color="#4a3424" roughness={0.9} flatShading />
+        </mesh>
+        <mesh position={[0, 2.3, 0]}>
+          <torusGeometry args={[0.22, 0.05, 8, 14]} />
+          <meshStandardMaterial
+            color="#8a4f2d"
+            metalness={0.4}
+            roughness={0.5}
+            flatShading
+          />
+        </mesh>
+        <mesh position={[0, 1.66, 0]}>
+          <boxGeometry args={[0.025, 1.3, 0.025]} />
+          <meshStandardMaterial color="#23262f" flatShading />
+        </mesh>
+      </group>
+      {/* Lantern posts flanking the camp */}
+      {[-3.4, 3.4].map((x) => (
+        <group key={x} position={[x, 0, 0.3]}>
+          <mesh position={[0, 1.45, 0]}>
+            <boxGeometry args={[0.07, 0.95, 0.07]} />
+            <meshStandardMaterial color="#4a3424" roughness={0.9} flatShading />
+          </mesh>
+          <mesh position={[0, 1.95, 0]}>
+            <icosahedronGeometry args={[0.12, 0]} />
+            <meshStandardMaterial
+              color="#ffe9a8"
+              emissive="#ffd9a0"
+              emissiveIntensity={1.8}
+              flatShading
+            />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function MineScene() {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
@@ -97,23 +466,42 @@ function MineScene() {
   void tick; // subscription trigger: the mine object mutates in place
   const rigRef = useRef<Group>(null);
   const minerRef = useRef<Group>(null);
+  const minerBodyRef = useRef<Group>(null);
+  const motesRef = useRef<Group>(null);
+  const pickArmRef = useRef<Group>(null);
+  const lampRef = useRef<PointLight>(null);
+  const ambientRef = useRef<AmbientLight>(null);
+  const hemiRef = useRef<HemisphereLight>(null);
+  const dirRef = useRef<DirectionalLight>(null);
   const particlesRef = useRef<Group>(null);
-  const juice = useRef<JuiceState>({ particles: [], nextId: 1, shake: 0 });
-  const wobbleClock = useRef(0);
+  const wobbleRefs = useRef<Map<string, Mesh>>(new Map());
+  const juice = useRef<JuiceState>({
+    particles: [],
+    nextId: 1,
+    shake: 0,
+    swing: 0,
+    facing: 0,
+  });
   const minerPlaced = useRef(false);
 
   const minerRow = mine.miner.row;
   const firstRow = Math.max(0, minerRow - VIEW_ABOVE);
   const lastRow = minerRow + VIEW_BELOW;
 
-  // Dig/blast feedback: bursts and shake keyed to the last sim result.
+  // Dig/blast feedback: bursts, shake, swing, and facing keyed to the
+  // last sim result.
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
   useEffect(() => {
-    if (!lastResult?.ok) return;
     const j = juice.current;
+    if (lastAction === "left" || lastAction === "dynamite-left") j.facing = -1;
+    else if (lastAction === "right" || lastAction === "dynamite-right")
+      j.facing = 1;
+    else if (lastAction != null) j.facing = 0;
+    if (!lastResult?.ok) return;
     const miner = mine.miner;
     const at = lastResult.lost ?? { col: miner.col, row: miner.row };
     if (lastResult.dug) {
+      j.swing = 0.3;
       const color =
         lastResult.dugOre != null
           ? ORE_COLORS[lastResult.dugOre]
@@ -153,10 +541,11 @@ function MineScene() {
 
   useFrame((state, delta) => {
     const j = juice.current;
-    wobbleClock.current += delta;
+    const t = state.clock.elapsedTime;
     // Camera rig eases down the shaft after the miner, with shake.
     const targetY = -minerRow;
     const rig = rigRef.current;
+    let depthT = 0;
     if (rig) {
       rig.position.y += (targetY - rig.position.y) * Math.min(1, delta * 5);
       j.shake = Math.max(0, j.shake - delta * 0.9);
@@ -164,6 +553,21 @@ function MineScene() {
       const sy = (Math.random() - 0.5) * j.shake;
       state.camera.position.set(sx, rig.position.y + 1.5 + sy, 13);
       state.camera.lookAt(sx, rig.position.y + sy, 0);
+      depthT = Math.min(1, Math.max(0, -rig.position.y / DARK_DEPTH));
+    }
+    // Daylight dies with depth; the lamp takes over as the key light.
+    const day = (1 - depthT) ** 1.7;
+    if (ambientRef.current) ambientRef.current.intensity = 0.07 + 0.48 * day;
+    if (hemiRef.current) hemiRef.current.intensity = 0.5 * day * day;
+    if (dirRef.current) dirRef.current.intensity = 0.06 + 1.04 * day;
+    const lamp = lampRef.current;
+    if (lamp) {
+      let intensity = 1.0 + 3.8 * depthT;
+      // The lamp gutters when the trip is nearly out of energy.
+      const energy = mine.miner.energy;
+      if (minerRow > 0 && energy < 10)
+        intensity *= 0.78 + 0.22 * Math.sin(t * 26) * Math.sin(t * 7.3);
+      lamp.intensity = intensity;
     }
     // The miner glides between cells instead of teleporting. useFrame is
     // the only writer of this position: a JSX position prop here would be
@@ -186,6 +590,32 @@ function MineScene() {
       const el = state.gl.domElement;
       el.dataset.minerX = miner.position.x.toFixed(2);
       el.dataset.minerY = miner.position.y.toFixed(2);
+    }
+    // Body language: face the walk direction, idle bob, pick swings.
+    const body = minerBodyRef.current;
+    if (body) {
+      const targetYaw = j.facing * 0.85;
+      body.rotation.y += (targetYaw - body.rotation.y) * Math.min(1, delta * 8);
+      // Grounded on the cell floor, with a soft idle hover bob.
+      body.position.y = -0.14 + Math.sin(t * 2.4) * 0.018;
+    }
+    const arm = pickArmRef.current;
+    if (arm) {
+      j.swing = Math.max(0, j.swing - delta);
+      const k = j.swing / 0.3;
+      arm.rotation.z = -2.1 * k * k;
+    }
+    // Lamp-lit dust drifts around the bot underground.
+    const motes = motesRef.current;
+    if (motes) {
+      motes.visible = minerRow > 0;
+      motes.rotation.z = t * 0.12;
+    }
+    // Wobbling boulders tremble every frame, not once per action.
+    for (const mesh of wobbleRefs.current.values()) {
+      mesh.position.x =
+        (mesh.userData.baseX as number) +
+        Math.sin(t * 30 + mesh.userData.baseY) * 0.05;
     }
     // Particles: integrate, gravity, expire; positions sync imperatively
     // (creation/removal re-renders on tick).
@@ -210,81 +640,217 @@ function MineScene() {
     }
   });
 
-  const blocks: Array<{
-    key: string;
-    x: number;
-    y: number;
-    color: string;
-    glow: boolean;
-    wobble: boolean;
-  }> = [];
+  const stratumIndex = Math.min(
+    STRATA.indexOf(stratumAt(minerRow)),
+    STRATA_BG.length - 1,
+  );
+  const bg = STRATA_BG[stratumIndex];
+
+  wobbleRefs.current.clear();
+  const blockMeshes = [];
+  const tunnelMeshes = [];
   for (let row = firstRow; row <= lastRow; row++) {
     if (!isVisible(mine, row)) continue;
     for (let col = 0; col < MINE_WIDTH; col++) {
       const cell = mine.rows[row]?.[col];
-      if (!cell || cell.kind === "empty") continue;
-      const color =
-        cell.kind === "ore" && cell.ore
-          ? ORE_COLORS[cell.ore]
-          : cell.kind === "rock"
-            ? ROCK_COLORS[
-                Math.min((cell.rockTier ?? 1) - 1, ROCK_COLORS.length - 1)
-              ]
-            : cell.kind === "part-cache"
-              ? CACHE_COLOR
-              : cell.kind === "boulder"
-                ? cell.wobbling
-                  ? BOULDER_WOBBLE_COLOR
-                  : BOULDER_COLOR
-                : cell.kind === "gas"
-                  ? GAS_COLOR
-                  : dirtColorAt(row);
-      blocks.push({
-        key: `${col}:${row}`,
-        x: cellX(col),
-        y: -row,
-        color,
-        glow:
-          (cell.kind === "ore" && !!cell.ore && GLOWING_ORES.has(cell.ore)) ||
-          cell.kind === "part-cache" ||
-          (cell.kind === "boulder" && !!cell.wobbling),
-        wobble: cell.kind === "boulder" && !!cell.wobbling,
-      });
+      if (!cell) continue;
+      const key = `${col}:${row}`;
+      const x = cellX(col);
+      const y = -row;
+      if (cell.kind === "empty") {
+        // Carved tunnels read as recessed rock, not as holes in the sky.
+        if (row >= 1) {
+          tunnelMeshes.push(
+            <mesh key={key} position={[x, y, -0.42]}>
+              <boxGeometry args={[1, 1, 0.12]} />
+              <meshStandardMaterial
+                color={variedColor("#15120e", col, row)}
+                roughness={1}
+              />
+            </mesh>,
+          );
+        }
+        continue;
+      }
+      if (cell.kind === "ore" && cell.ore) {
+        const oreColor = ORE_COLORS[cell.ore];
+        const glow = GLOWING_ORES.has(cell.ore);
+        blockMeshes.push(
+          <group key={key} position={[x, y, 0]}>
+            <RoundedBox args={[0.94, 0.94, 0.94]} radius={0.07} smoothness={2}>
+              <meshStandardMaterial
+                color={variedColor(dirtColorAt(row), col, row)}
+                roughness={0.95}
+                flatShading
+              />
+            </RoundedBox>
+            <OreCrystals col={col} row={row} color={oreColor} glow={glow} />
+          </group>,
+        );
+        continue;
+      }
+      if (cell.kind === "rock") {
+        const tier = Math.min((cell.rockTier ?? 1) - 1, ROCK_COLORS.length - 1);
+        blockMeshes.push(
+          <mesh
+            key={key}
+            position={[x, y, 0]}
+            rotation={[
+              cellHash(col, row, 13) * 3.1,
+              cellHash(col, row, 17) * 3.1,
+              cellHash(col, row, 19) * 3.1,
+            ]}
+          >
+            <dodecahedronGeometry args={[0.62, 0]} />
+            <meshStandardMaterial
+              color={variedColor(ROCK_COLORS[tier], col, row)}
+              roughness={0.6}
+              metalness={0.15}
+              flatShading
+            />
+          </mesh>,
+        );
+        continue;
+      }
+      if (cell.kind === "boulder") {
+        const wobbling = !!cell.wobbling;
+        blockMeshes.push(
+          <mesh
+            key={key}
+            position={[x, y, 0]}
+            rotation={[0, cellHash(col, row, 29) * 3.1, 0]}
+            ref={
+              wobbling
+                ? (mesh: Mesh | null) => {
+                    if (mesh) {
+                      mesh.userData.baseX = x;
+                      mesh.userData.baseY = y;
+                      wobbleRefs.current.set(key, mesh);
+                    } else {
+                      wobbleRefs.current.delete(key);
+                    }
+                  }
+                : undefined
+            }
+          >
+            <icosahedronGeometry args={[0.56, 0]} />
+            <meshStandardMaterial
+              color={wobbling ? BOULDER_WOBBLE_COLOR : BOULDER_COLOR}
+              emissive={wobbling ? BOULDER_WOBBLE_COLOR : "#000000"}
+              emissiveIntensity={wobbling ? 0.45 : 0}
+              roughness={0.8}
+              flatShading
+            />
+          </mesh>,
+        );
+        continue;
+      }
+      if (cell.kind === "part-cache") {
+        blockMeshes.push(
+          <group key={key} position={[x, y, 0]}>
+            <CacheCrate col={col} row={row} />
+          </group>,
+        );
+        continue;
+      }
+      if (cell.kind === "gas") {
+        blockMeshes.push(
+          <RoundedBox
+            key={key}
+            args={[0.94, 0.94, 0.94]}
+            radius={0.07}
+            smoothness={2}
+            position={[x, y, 0]}
+          >
+            <meshStandardMaterial
+              color={variedColor(dirtColorAt(row), col, row).lerp(
+                new Color(GAS_COLOR),
+                0.45,
+              )}
+              emissive={GAS_COLOR}
+              emissiveIntensity={0.12}
+              roughness={0.7}
+              flatShading
+            />
+          </RoundedBox>,
+        );
+        continue;
+      }
+      // Dirt: chunky beveled cube with stable per-cell tone variation.
+      blockMeshes.push(
+        <RoundedBox
+          key={key}
+          args={[0.94, 0.94, 0.94]}
+          radius={0.07}
+          smoothness={2}
+          position={[x, y, 0]}
+        >
+          <meshStandardMaterial
+            color={variedColor(dirtColorAt(row), col, row)}
+            roughness={0.95}
+            flatShading
+          />
+        </RoundedBox>,
+      );
     }
   }
 
-  const bg =
-    STRATA_BG[
-      Math.min(STRATA.indexOf(stratumAt(minerRow)), STRATA_BG.length - 1)
-    ];
+  // Bedrock pillars frame the claim; hashed wall stones catch the lamp.
+  const pillarTop = -firstRow + 2;
+  const pillarBottom = -lastRow - 6;
+  const pillarHeight = pillarTop - pillarBottom;
+  const pillarY = (pillarTop + pillarBottom) / 2;
+  const wallStones = [];
+  for (let row = firstRow; row <= lastRow + 4; row++) {
+    for (const side of [-1, 1]) {
+      const h = cellHash(side, row, 47);
+      if (h < 0.45) continue;
+      wallStones.push(
+        <mesh
+          key={`${side}:${row}`}
+          position={[
+            side * (4.78 + h * 0.35),
+            -row + (cellHash(side, row, 53) - 0.5),
+            -0.3,
+          ]}
+          rotation={[h * 3, h * 5, h * 7]}
+        >
+          <dodecahedronGeometry args={[0.3 + h * 0.25, 0]} />
+          <meshStandardMaterial
+            color={variedColor("#262b36", side + 4, row)}
+            roughness={0.85}
+            flatShading
+          />
+        </mesh>,
+      );
+    }
+  }
 
   return (
     <>
       <color attach="background" args={[bg]} />
-      <ambientLight intensity={0.55} />
-      <directionalLight position={[3, 6, 8]} intensity={1.2} />
-      <group ref={rigRef} />
-      {blocks.map((block) => (
-        <mesh
-          key={block.key}
-          position={[
-            block.x +
-              (block.wobble
-                ? Math.sin(wobbleClock.current * 30 + block.y) * 0.05
-                : 0),
-            block.y,
-            0,
-          ]}
-        >
-          <boxGeometry args={[0.94, 0.94, 0.94]} />
-          <meshStandardMaterial
-            color={block.color}
-            emissive={block.glow ? block.color : "#000000"}
-            emissiveIntensity={block.glow ? 0.45 : 0}
-            flatShading
-          />
+      <fog attach="fog" args={[bg, 12, 26]} />
+      <ambientLight ref={ambientRef} intensity={0.55} color="#cdd8f4" />
+      <hemisphereLight ref={hemiRef} args={["#8fb4e8", "#2a2017", 0.5]} />
+      <directionalLight ref={dirRef} position={[3, 6, 8]} intensity={1.1} />
+      <group ref={rigRef}>
+        {/* Cave backdrop tracks the camera so depth never shows raw void. */}
+        <mesh position={[0, 0, -5]}>
+          <planeGeometry args={[60, 44]} />
+          <meshStandardMaterial color="#05060a" roughness={1} />
         </mesh>
-      ))}
+      </group>
+      {tunnelMeshes}
+      {blockMeshes}
+      {wallStones}
+      <mesh position={[-5.35, pillarY, -0.2]}>
+        <boxGeometry args={[1.7, pillarHeight, 1.4]} />
+        <meshStandardMaterial color="#11141c" roughness={0.95} flatShading />
+      </mesh>
+      <mesh position={[5.35, pillarY, -0.2]}>
+        <boxGeometry args={[1.7, pillarHeight, 1.4]} />
+        <meshStandardMaterial color="#11141c" roughness={0.95} flatShading />
+      </mesh>
       <group ref={particlesRef}>
         {juice.current.particles.map((p) => (
           <mesh key={p.id} position={[p.x, p.y, 0.4]} userData={{ id: p.id }}>
@@ -298,26 +864,26 @@ function MineScene() {
           </mesh>
         ))}
       </group>
-      {/* Surface strip */}
+      {/* Surface shelf */}
       <mesh position={[0, 0.75, 0]}>
         <boxGeometry args={[MINE_WIDTH + 2, 0.5, 1.5]} />
-        <meshStandardMaterial color="#2f3640" flatShading />
+        <meshStandardMaterial color="#3b2f22" roughness={1} flatShading />
       </mesh>
+      {/* Dark earth face behind the standing row, so the surface row
+          reads as a carved ledge instead of raw void. */}
+      <mesh position={[0, 0, -0.42]}>
+        <boxGeometry args={[MINE_WIDTH + 2, 1.04, 0.12]} />
+        <meshStandardMaterial color="#171310" roughness={1} />
+      </mesh>
+      <SurfaceDressing />
       {/* The miner bot. No position prop: useFrame owns the transform. */}
       <group ref={minerRef}>
-        <mesh>
-          <boxGeometry args={[0.5, 0.5, 0.5]} />
-          <meshStandardMaterial color="#ff9f43" flatShading />
-        </mesh>
-        <mesh position={[0, 0.4, 0]}>
-          <icosahedronGeometry args={[0.16, 1]} />
-          <meshStandardMaterial
-            color="#ffe66d"
-            emissive="#ffe66d"
-            emissiveIntensity={0.7}
-            flatShading
-          />
-        </mesh>
+        <MinerBot
+          bodyRef={minerBodyRef}
+          armRef={pickArmRef}
+          lampRef={lampRef}
+          motesRef={motesRef}
+        />
       </group>
     </>
   );

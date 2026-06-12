@@ -86,6 +86,16 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-12" data-audit-state="ground-plank-confirmation">
+    <h3>Confirmation 2026-06-12 (surface ground line and plank bridges live: PRs #33 and #34)</h3>
+    <p>Source: scripted production probes against <code>vibe-bots.vercel.app</code> (screenshots <code>captures/ground-prod-01-surface.png</code>, <code>captures/plank-prod-01-bridge.png</code>).</p>
+    <ul>
+      <li><strong>Ground line (PR #33) confirmed live:</strong> the bot now stands on the same floor line as the stall doors, headframe legs, and grass (the user's phone report showed it a full block below the village, reading as stuck underground). Verified at desktop framing on production after desktop + phone-portrait checks locally.</li>
+      <li><strong>REQ-022 (plank bridges, PR #34) confirmed live:</strong> the dig-climb-tunnel-cross sequence consumed a plank crossing the open shaft mouth (HUD went Planks (4) to Planks (3)) and the planted boards rendered spanning the gap; ladders sat at (7) from the same trip's climb, confirming both aids coexist.</li>
+      <li><strong>Evidence integrity:</strong> scripted-run screenshots only; zero console errors on the probes.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-11" data-audit-state="mine-polish-confirmation">
     <h3>Confirmation 2026-06-11 (ladder ascent and surface village live: PRs #30 and #31)</h3>
     <p>Source: scripted production probes against <code>vibe-bots.vercel.app</code> (screenshots <code>captures/ladders-prod-01.png</code>, <code>captures/village-prod-01-assay.png</code>, <code>captures/village-prod-02-depot.png</code>).</p>

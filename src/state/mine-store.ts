@@ -17,27 +17,46 @@ import {
   type WorldDiff,
 } from "@/sim/mine";
 
-/** Guests keep the persistent world in localStorage (REQ-026). */
-const LOCAL_WORLD_KEY = "vibebots-mine-world-v1";
+/**
+ * The in-flight trip persists locally on every move (REQ-026): the
+ * trip-start checkpoint plus the action log replays to the exact
+ * mid-trip state on reload, carry included. The server's diff only
+ * advances at cash-out, so this is what keeps un-sold carving alive.
+ */
+const LOCAL_TRIP_KEY = "vibebots-mine-trip-v2";
 
-function loadLocalWorld(): { seed: number; diff: WorldDiff } | null {
+interface SavedTrip {
+  seed: number;
+  tripIndex: number;
+  gear: MineGear;
+  consumables: MineConsumables;
+  baseDiff: WorldDiff;
+  moves: MineAction[];
+}
+
+function loadLocalTrip(): SavedTrip | null {
   try {
-    const raw = localStorage.getItem(LOCAL_WORLD_KEY);
+    const raw = localStorage.getItem(LOCAL_TRIP_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (typeof parsed.seed !== "number" || !Array.isArray(parsed.diff))
+    if (
+      typeof parsed.seed !== "number" ||
+      typeof parsed.tripIndex !== "number" ||
+      !Array.isArray(parsed.baseDiff) ||
+      !Array.isArray(parsed.moves)
+    )
       return null;
-    return parsed;
+    return parsed as SavedTrip;
   } catch {
     return null;
   }
 }
 
-function saveLocalWorld(seed: number, diff: WorldDiff): void {
+function saveLocalTrip(trip: SavedTrip): void {
   try {
-    localStorage.setItem(LOCAL_WORLD_KEY, JSON.stringify({ seed, diff }));
+    localStorage.setItem(LOCAL_TRIP_KEY, JSON.stringify(trip));
   } catch {
-    // Storage full or blocked: the world still lives in memory.
+    // Storage full or blocked: the trip still lives in memory.
   }
 }
 
@@ -83,6 +102,8 @@ export interface MineSessionState {
   shopNote: string | null;
   /** Server replay-protection counter; null until the world loads. */
   tripIndex: number;
+  /** The world checkpoint this trip started from (the replay base). */
+  tripBaseDiff: WorldDiff;
   moves: MineAction[];
   tick: number;
   lastResult: MoveResult | null;
@@ -113,6 +134,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     balance: null,
     shopNote: null,
     tripIndex: 0,
+    tripBaseDiff: [],
     moves: [],
     tick: 0,
     lastResult: null,
@@ -128,48 +150,75 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // Refused actions are not part of the trip (the sim ignored them).
       if (result.ok) moves.push(action);
       set({ tick: tick + 1, lastResult: result, lastAction: action });
-      // The carved world persists even for guests: checkpoint locally
-      // every so often and at trip-ending moments.
-      if (
-        result.ok &&
-        (result.collapsed || result.recalled || moves.length % 25 === 0)
-      ) {
-        saveLocalWorld(get().seed, exportDiff(mine));
+      // Persist the in-flight trip so a reload resumes mid-trip,
+      // carry and carving intact.
+      if (result.ok) {
+        const st = get();
+        saveLocalTrip({
+          seed: st.seed,
+          tripIndex: st.tripIndex,
+          gear: mine.gear,
+          consumables: st.consumables,
+          baseDiff: st.tripBaseDiff,
+          moves,
+        });
       }
     },
 
     loadWorld: async () => {
-      // Server world first (storage configured); guests fall back to
-      // the locally persisted world; a fresh browser starts pristine.
+      // Server checkpoint first (storage configured); the locally saved
+      // in-flight trip resumes on top of it when it matches; guests run
+      // entirely from the local trip; a fresh browser starts pristine.
+      const saved = loadLocalTrip();
+      const resume = (seed: number, tripIndex: number, baseDiff: WorldDiff) => {
+        if (
+          saved &&
+          saved.seed === seed &&
+          saved.tripIndex === tripIndex &&
+          saved.moves.length > 0
+        ) {
+          const resumed = createMine(
+            seed,
+            saved.gear,
+            saved.consumables,
+            baseDiff,
+          );
+          for (const a of saved.moves) applyAction(resumed, a);
+          set({
+            seed,
+            tripIndex,
+            tripBaseDiff: baseDiff,
+            gear: saved.gear,
+            consumables: saved.consumables,
+            mine: resumed,
+            moves: [...saved.moves],
+            tick: saved.moves.length,
+            lastResult: null,
+          });
+          return;
+        }
+        const { gear, consumables } = get();
+        set({
+          seed,
+          tripIndex,
+          tripBaseDiff: baseDiff,
+          mine: createMine(seed, gear, consumables, baseDiff),
+          moves: [],
+          tick: 0,
+          lastResult: null,
+        });
+      };
       try {
         const res = await fetch("/api/mine/world");
         if (res.ok) {
           const body = await res.json();
-          const { gear, consumables } = get();
-          set({
-            seed: body.seed,
-            tripIndex: body.tripIndex ?? 0,
-            mine: createMine(body.seed, gear, consumables, body.diff ?? []),
-            moves: [],
-            tick: 0,
-            lastResult: null,
-          });
+          resume(body.seed, body.tripIndex ?? 0, body.diff ?? []);
           return;
         }
       } catch {
         // offline: fall through to local
       }
-      const local = loadLocalWorld();
-      if (local) {
-        const { gear, consumables } = get();
-        set({
-          seed: local.seed,
-          mine: createMine(local.seed, gear, consumables, local.diff),
-          moves: [],
-          tick: 0,
-          lastResult: null,
-        });
-      }
+      if (saved) resume(saved.seed, saved.tripIndex, saved.baseDiff);
     },
 
     loadGear: async () => {
@@ -196,14 +245,22 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         ) {
           return;
         }
-        // Gear changes the sim, so the trip restarts with the snapshot,
-        // but the carved world stays (REQ-026): same seed, same diff.
+        // Gear changes the sim. A fresh trip restarts on the snapshot
+        // over the same world; a resumed in-flight trip keeps ITS
+        // snapshot (the owned gear applies on the next trip, exactly
+        // like an outfitter purchase mid-dig).
+        if (get().moves.length > 0) {
+          set({ gear });
+          return;
+        }
         const { seed: worldSeed, mine } = get();
+        const baseDiff = exportDiff(mine);
         set({
           gear,
           consumables,
           bought: NO_CONSUMABLES,
-          mine: createMine(worldSeed, gear, consumables, exportDiff(mine)),
+          tripBaseDiff: baseDiff,
+          mine: createMine(worldSeed, gear, consumables, baseDiff),
           moves: [],
           tick: 0,
           lastResult: null,
@@ -271,8 +328,20 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           applyAction(nextMine, dir);
           walk.push(dir);
         }
-        saveLocalWorld(currentSeed, worldDiff);
+        const nextTripIndex =
+          typeof body.tripIndex === "number"
+            ? body.tripIndex
+            : get().tripIndex + 1;
+        saveLocalTrip({
+          seed: currentSeed,
+          tripIndex: nextTripIndex,
+          gear: get().gear,
+          consumables: remaining,
+          baseDiff: worldDiff,
+          moves: walk,
+        });
         set({
+          tripBaseDiff: worldDiff,
           cashOut: {
             state: "done",
             credits: body.credited.credits,
@@ -284,10 +353,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           consumables: remaining,
           bought: NO_CONSUMABLES,
           mine: nextMine,
-          tripIndex:
-            typeof body.tripIndex === "number"
-              ? body.tripIndex
-              : get().tripIndex + 1,
+          tripIndex: nextTripIndex,
           moves: walk,
           tick: 0,
           lastResult: null,
@@ -326,7 +392,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const { seed: s0, gear, consumables, bought, moves, tick } = get();
         const owned = addConsumables(consumables, bought);
         owned[item] += 1;
-        const rebuilt = createMine(s0, gear, owned, exportDiff(get().mine));
+        // Replay over the TRIP-START checkpoint, never the live diff:
+        // the live diff already contains the moves' effects and the
+        // server replays from the checkpoint too.
+        const rebuilt = createMine(s0, gear, owned, get().tripBaseDiff);
         for (const m of moves) applyAction(rebuilt, m);
         set({
           mine: rebuilt,
@@ -372,12 +441,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           // while the log is pure surface walks (replay-identical under
           // any gear). Otherwise it lands on the next claim.
           const owned = addConsumables(consumables, bought);
-          const rebuilt = createMine(
-            s0,
-            nextGear,
-            owned,
-            exportDiff(get().mine),
-          );
+          const rebuilt = createMine(s0, nextGear, owned, get().tripBaseDiff);
           for (const m of moves) applyAction(rebuilt, m);
           set({
             gear: nextGear,
@@ -408,10 +472,19 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const { consumables, bought, seed: worldSeed, mine } = get();
       const owned = addConsumables(consumables, bought);
       const seed = seedOverride ?? worldSeed;
-      const diff = seedOverride === undefined ? exportDiff(mine) : undefined;
+      const diff = seedOverride === undefined ? exportDiff(mine) : [];
+      saveLocalTrip({
+        seed,
+        tripIndex: get().tripIndex,
+        gear: get().gear,
+        consumables: owned,
+        baseDiff: diff,
+        moves: [],
+      });
       set({
         mine: createMine(seed, get().gear, owned, diff),
         seed,
+        tripBaseDiff: diff,
         consumables: owned,
         bought: NO_CONSUMABLES,
         moves: [],

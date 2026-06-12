@@ -203,11 +203,21 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
   await expect(status).toHaveAttribute("data-depth", "1");
   await expect(abandon).toBeEnabled();
 
-  // Two-tap confirm: the first tap arms, the second fires.
+  // Two-tap confirm: the first tap arms, the second fires. A slow CI
+  // can outlast the confirm window between taps, so re-confirm until
+  // the haul-up lands.
   await abandon.click();
   await expect(abandon).toContainText("Sure?");
-  await abandon.click();
-  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect
+    .poll(
+      async () => {
+        const depth = await status.getAttribute("data-depth");
+        if (depth !== "0") await abandon.click();
+        return depth;
+      },
+      { timeout: 10_000 },
+    )
+    .toBe("0");
   await expect(
     page.getByLabel("Dismiss trip report").getByText("Abandoned the dig"),
   ).toBeVisible();

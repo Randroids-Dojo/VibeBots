@@ -141,6 +141,9 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
     await page.evaluate(() => getComputedStyle(document.body).userSelect),
   ).toBe("none");
 
+  // Fine-pointer devices keep the keyboard mention in the hint.
+  await expect(page.getByText(/drag anywhere to move/)).toContainText("WASD");
+
   // Press on open ground right of the panels: the stick appears there.
   await page.mouse.move(900, 380);
   await page.mouse.down();
@@ -184,7 +187,16 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
 });
 
 test.describe("phone viewport", () => {
-  test.use({ viewport: { width: 390, height: 760 } });
+  test.use({ viewport: { width: 390, height: 760 }, hasTouch: true });
+
+  test("control copy never mentions the keyboard on touch devices", async ({
+    page,
+  }) => {
+    await page.goto("/mine");
+    const hint = page.getByText(/drag anywhere to move/);
+    await expect(hint).toBeVisible();
+    await expect(hint).not.toContainText("WASD");
+  });
 
   test("camera pans laterally so mining left stays on screen", async ({
     page,

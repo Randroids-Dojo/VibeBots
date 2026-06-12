@@ -86,6 +86,15 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-12" data-audit-state="multihit-confirmation">
+    <h3>Confirmation 2026-06-12 (multi-hit digging live: PR #50)</h3>
+    <p>Source: scripted production probe at phone viewport (screenshot <code>captures/multihit-prod-01.png</code>).</p>
+    <ul>
+      <li><strong>REQ-013 hardness confirmed live:</strong> one swing cracked the block in place (depth stayed 0, energy 60.0 to 59.8) and the dirt block broke through on the fourth swing, exactly the user's "4 or 5 hits with the starting pickaxe". Crack decals captured mid-dig.</li>
+      <li><strong>Process note:</strong> the slice's first CI run exposed a real race (slow CI outlasting the abandon confirm window between taps); the window widened to 4s and the e2e re-confirms, which also reads better for a human hovering over the decision.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-12" data-audit-state="plank-over-ladder-confirmation">
     <h3>Confirmation 2026-06-12 (no planks over ladders: PR #46)</h3>
     <p>Source: scripted production probe at phone viewport.</p>

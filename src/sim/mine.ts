@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 6;
+export const MINE_VERSION = 7;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -620,6 +620,8 @@ export type MoveResult =
       blasted?: number;
       /** A recall rope ended the trip from below (carry banked). */
       recalled?: boolean;
+      /** The trip was voluntarily abandoned (carry forfeited). */
+      abandoned?: boolean;
       /** This climb consumed and placed a new ladder (REQ-020). */
       laddered?: boolean;
       /** This step consumed and placed a new plank bridge (REQ-022). */
@@ -653,7 +655,8 @@ export type MineAction =
   | "dynamite-up"
   | "dynamite-left"
   | "dynamite-right"
-  | "recall";
+  | "recall"
+  | "abandon";
 
 export const MINE_ACTIONS = [
   "down",
@@ -665,6 +668,7 @@ export const MINE_ACTIONS = [
   "dynamite-left",
   "dynamite-right",
   "recall",
+  "abandon",
 ] as const;
 
 /** Blast-destructible kinds (caches are reinforced; jackpots survive). */
@@ -973,6 +977,33 @@ function recall(state: MineState): MoveResult {
   };
 }
 
+/**
+ * Giving up (REQ-025): always available below ground, no consumable
+ * needed. The crew hauls you up and the carry stays behind, exactly
+ * like a collapse but chosen. The escape valve for being stuck with
+ * no ladders and no rope.
+ */
+function abandon(state: MineState): MoveResult {
+  const miner = state.miner;
+  if (miner.row === 0) return { ok: false, reason: "surface" };
+  const lost = {
+    value: carriedValue(miner),
+    parts: [...miner.carriedParts],
+    col: miner.col,
+    row: miner.row,
+  };
+  collapse(miner, state.gear);
+  return {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: true,
+    abandoned: true,
+    lost,
+  };
+}
+
 /** Dispatches any logged trip action (Q-006 default B). */
 export function applyAction(state: MineState, action: MineAction): MoveResult {
   switch (action) {
@@ -991,6 +1022,8 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
       return blast(state, "right");
     case "recall":
       return recall(state);
+    case "abandon":
+      return abandon(state);
   }
 }
 

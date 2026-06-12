@@ -158,6 +158,7 @@ function JuiceOverlays() {
   const [fanfare, setFanfare] = useState<string | null>(null);
   const [wreck, setWreck] = useState<{
     crushed: boolean;
+    abandoned: boolean;
     value: number;
     parts: number;
     nearMiss: string | null;
@@ -187,6 +188,7 @@ function JuiceOverlays() {
     if (lastResult.collapsed && lastResult.lost) {
       setWreck({
         crushed: lastResult.crushed ?? false,
+        abandoned: lastResult.abandoned ?? false,
         value: lastResult.lost.value,
         parts: lastResult.lost.parts.length,
         nearMiss: nearMissLine(mine, lastResult.lost),
@@ -269,7 +271,11 @@ function JuiceOverlays() {
             }}
           >
             <p style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>
-              {wreck.crushed ? "Crushed by a boulder" : "The lamp died"}
+              {wreck.crushed
+                ? "Crushed by a boulder"
+                : wreck.abandoned
+                  ? "Abandoned the dig"
+                  : "The lamp died"}
             </p>
             <p style={{ margin: "10px 0 0", fontSize: "0.95rem" }}>
               {wreck.value > 0 || wreck.parts > 0
@@ -483,6 +489,7 @@ export function MinePanel() {
   const buyConsumable = useMineStore((s) => s.buyConsumable);
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
+  const [abandonArmed, setAbandonArmed] = useState(false);
   const armedRef = useRef(false);
   const setDynamiteArmed = (value: boolean | ((prev: boolean) => boolean)) => {
     armedRef.current =
@@ -494,6 +501,14 @@ export function MinePanel() {
   useEffect(() => {
     void loadGear();
   }, [loadGear]);
+
+  // The abandon confirm disarms itself; a stray thumb cannot torch a
+  // haul twenty minutes deep.
+  useEffect(() => {
+    if (!abandonArmed) return;
+    const timer = setTimeout(() => setAbandonArmed(false), 2500);
+    return () => clearTimeout(timer);
+  }, [abandonArmed]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -556,16 +571,18 @@ export function MinePanel() {
                       : "Edge of the claim."
       : lastResult?.ok && lastResult.crushed
         ? "Crushed! The crew dug you out; the cargo stayed behind."
-        : lastResult?.ok && lastResult.collapsed
-          ? "The lamp died. Hauled up empty."
-          : lastResult?.ok && lastResult.recalled
-            ? "Roped home; carry banked."
-            : lastResult?.ok && (lastResult.vented ?? 0) > 0
-              ? `Gas! ${(lastResult.vented ?? 0) * 8} energy burned.`
-              : miner.row === 0 &&
-                  (miner.bankedCredits > 0 || miner.bankedParts.length > 0)
-                ? "Sell at the Assay Office (gold sign)."
-                : undefined;
+        : lastResult?.ok && lastResult.abandoned
+          ? "Abandoned the dig; the carry stayed behind."
+          : lastResult?.ok && lastResult.collapsed
+            ? "The lamp died. Hauled up empty."
+            : lastResult?.ok && lastResult.recalled
+              ? "Roped home; carry banked."
+              : lastResult?.ok && (lastResult.vented ?? 0) > 0
+                ? `Gas! ${(lastResult.vented ?? 0) * 8} energy burned.`
+                : miner.row === 0 &&
+                    (miner.bankedCredits > 0 || miner.bankedParts.length > 0)
+                  ? "Sell at the Assay Office (gold sign)."
+                  : undefined;
   const cashNote =
     cashOut.state === "done"
       ? `Vaulted ${cashOut.credits} cr${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Fresh claim.`
@@ -757,6 +774,32 @@ export function MinePanel() {
           style={iconButtonStyle}
         >
           &#129526; {mine.consumables.rope}
+        </button>
+        <button
+          type="button"
+          aria-label="Abandon trip"
+          onClick={() => {
+            if (abandonArmed) {
+              setAbandonArmed(false);
+              setDynamiteArmed(false);
+              move("abandon");
+            } else {
+              setAbandonArmed(true);
+            }
+          }}
+          disabled={miner.row === 0}
+          style={{
+            ...iconButtonStyle,
+            ...(abandonArmed
+              ? {
+                  background: "#7a2c2c",
+                  borderColor: "#ff6b6b",
+                  color: "#ffd9d9",
+                }
+              : null),
+          }}
+        >
+          {abandonArmed ? "Sure?" : <>&#127937;</>}
         </button>
       </section>
 

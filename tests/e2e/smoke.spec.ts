@@ -156,6 +156,31 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
   await expect(page.locator("[data-joystick]")).not.toBeVisible();
 });
 
+test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "0");
+  const abandon = page.getByRole("button", { name: "Abandon trip" });
+  await expect(abandon).toBeDisabled();
+
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveAttribute("data-depth", "1");
+  await expect(abandon).toBeEnabled();
+
+  // Two-tap confirm: the first tap arms, the second fires.
+  await abandon.click();
+  await expect(abandon).toContainText("Sure?");
+  await abandon.click();
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(
+    page.getByLabel("Dismiss trip report").getByText("Abandoned the dig"),
+  ).toBeVisible();
+  // Dismiss the trip report.
+  await page.getByLabel("Dismiss trip report").click();
+});
+
 test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");

@@ -601,6 +601,9 @@ function MineScene() {
     const rig = rigRef.current;
     let depthT = 0;
     if (rig) {
+      // Trip resets (collapse, recall, abandon) move the miner across
+      // the whole map; gliding the camera through it reads as broken.
+      if (Math.abs(targetY - rig.position.y) > 6) rig.position.y = targetY;
       rig.position.y += (targetY - rig.position.y) * Math.min(1, delta * 5);
       j.shake = Math.max(0, j.shake - delta * 0.9);
       const sx = (Math.random() - 0.5) * j.shake;
@@ -631,7 +634,13 @@ function MineScene() {
     if (miner) {
       const tx = cellX(mine.miner.col);
       const ty = -mine.miner.row;
-      if (!minerPlaced.current) {
+      // Teleport-scale jumps (trip resets) snap; easing across them
+      // would fly the bot up through solid rock for seconds.
+      if (
+        !minerPlaced.current ||
+        Math.abs(tx - miner.position.x) > 3 ||
+        Math.abs(ty - miner.position.y) > 3
+      ) {
         minerPlaced.current = true;
         miner.position.set(tx, ty, 0.2);
       } else {

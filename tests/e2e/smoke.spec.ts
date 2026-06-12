@@ -104,15 +104,19 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
 });
 
-test("planks bridge a lateral gap (REQ-022)", async ({ page }) => {
+test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022)", async ({
+  page,
+}) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
   // Trips pack 4 free planks.
   await expect(status).toHaveAttribute("data-planks", "4");
 
-  // Dig a two-deep shaft, climb out, tunnel one cell left (all within
-  // the rock-free, hazard-free top rows, so this works on every seed).
+  // Dig a two-deep shaft, climb out one (planting a ladder in the cell
+  // below), tunnel one cell left, then step back across the shaft
+  // mouth: the ladder top under the step is support, so the crossing
+  // must NOT consume a plank (the reported bug burned one here).
   await page.keyboard.press("ArrowDown");
   await expect(status).toHaveAttribute("data-depth", "1");
   await page.keyboard.press("ArrowDown");
@@ -120,11 +124,9 @@ test("planks bridge a lateral gap (REQ-022)", async ({ page }) => {
   await page.keyboard.press("ArrowUp");
   await expect(status).toHaveAttribute("data-depth", "1");
   await page.keyboard.press("ArrowLeft");
-
-  // Step back right across the open shaft mouth: a void below means a
-  // plank is consumed and placed.
   await page.keyboard.press("ArrowRight");
-  await expect(status).toHaveAttribute("data-planks", "3");
+  await expect(status).toHaveAttribute("data-ladders", "7");
+  await expect(status).toHaveAttribute("data-planks", "4");
 });
 
 test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({

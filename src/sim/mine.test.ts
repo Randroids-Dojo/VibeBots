@@ -526,15 +526,33 @@ describe("mine", () => {
     });
   });
 
-  it("bridges lateral gaps with planks and reuses them", () => {
-    // Dig a shaft two deep, climb out, tunnel one cell left, then step
-    // back right across the open shaft mouth at row 1: that lateral
-    // step crosses a void (row 2 below it is dug out) and needs a plank.
-    const state = createMine(101);
+  /**
+   * Blast a true gap under the shaft mouth: dynamite-down clears
+   * (4,1), (4,2), (3,1), (5,1), leaving (4,2) an empty void with no
+   * ladder in it. Rows 1-2 are rock- and hazard-free, so only a rare
+   * part-cache could survive the blast; the emptiness asserts guard
+   * against picking such a seed.
+   */
+  function blastGap(seed: number) {
+    const state = createMine(seed, DEFAULT_GEAR, {
+      dynamite: 1,
+      rope: 0,
+      ladder: 0,
+      plank: 0,
+    });
+    applyAction(state, "dynamite-down");
+    expect(cellAt(state, START_COL, 1)?.kind).toBe("empty");
+    expect(cellAt(state, START_COL, 2)?.kind).toBe("empty");
+    expect(cellAt(state, START_COL - 1, 1)?.kind).toBe("empty");
     step(state, "down");
-    step(state, "down");
-    step(state, "up");
     step(state, "left");
+    return state;
+  }
+
+  it("bridges lateral gaps with planks and reuses them", () => {
+    // Standing at (3,1) after the blast, stepping right into (4,1)
+    // crosses the void at (4,2): no ladder anywhere, so a plank goes in.
+    const state = blastGap(101);
     expect(state.used.plank).toBe(0);
     const cross = step(state, "right");
     expect(cross.ok && cross.planked).toBe(true);
@@ -549,16 +567,35 @@ describe("mine", () => {
   });
 
   it("refuses the gap step without planks, costing nothing", () => {
-    const state = createMine(103);
-    step(state, "down");
-    step(state, "down");
-    step(state, "up");
-    step(state, "left");
+    const state = blastGap(103);
     state.consumables.plank = 0;
     const energy = state.miner.energy;
     expect(step(state, "right")).toEqual({ ok: false, reason: "no-plank" });
     expect(state.miner.col).toBe(START_COL - 1);
     expect(state.miner.energy).toBe(energy);
+  });
+
+  it("never spends planks where ladders already support the step", () => {
+    // Dig two deep and climb out: ladders planted at (4,2) and (4,1).
+    const state = createMine(131);
+    step(state, "down");
+    step(state, "down");
+    step(state, "up");
+    step(state, "up");
+    expect(state.used.ladder).toBe(2);
+    // Tunnel down beside the shaft, then step back into it: the target
+    // cell holds a ladder and the cell below tops out underfoot. No
+    // plank either way (the reported bug burned one here).
+    step(state, "left");
+    step(state, "down");
+    const cross = step(state, "right");
+    expect(cross.ok && !cross.planked).toBe(true);
+    expect(state.used.plank).toBe(0);
+    expect(state.consumables.plank).toBe(PLANK_PROVISION);
+    // And stepping out again over the ladder top stays free.
+    const back = step(state, "left");
+    expect(back.ok).toBe(true);
+    expect(state.used.plank).toBe(0);
   });
 
   it("keeps the surface walk row plank-free over open shafts", () => {
@@ -603,20 +640,22 @@ describe("mine", () => {
 
   it("replays plank trips identically", () => {
     const actions: MineAction[] = [
+      "dynamite-down",
       "down",
-      "down",
-      "up",
       "left",
       "right",
       "left",
       "right",
     ];
-    const state = createMine(109);
+    const consumables = { dynamite: 1, rope: 0, ladder: 0, plank: 0 };
+    const state = createMine(109, DEFAULT_GEAR, consumables);
     for (const action of actions) applyAction(state, action);
-    const replayed = replayTrip(109, actions);
+    const replayed = replayTrip(109, actions, DEFAULT_GEAR, consumables);
     expect(replayed.used.plank).toBe(state.used.plank);
     expect(replayed.used.plank).toBe(1);
-    expect(replayTrip(109, actions)).toEqual(replayed);
+    expect(replayTrip(109, actions, DEFAULT_GEAR, consumables)).toEqual(
+      replayed,
+    );
   });
 
   it("replays ladder trips identically", () => {

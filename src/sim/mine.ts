@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 7;
+export const MINE_VERSION = 8;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -796,12 +796,15 @@ export function step(state: MineState, dir: Direction): MoveResult {
   }
   // Lateral steps over a void need a plank bridge in the target cell
   // (REQ-022). The surface walk row is boardwalked; below it, a placed
-  // plank carries every later crossing. Checked before any mutation so
-  // a refusal costs nothing.
+  // plank carries every later crossing, and ladders count as support
+  // too: one in the target cell is held onto, one in the cell below
+  // tops out under the miner's feet. Checked before any mutation so a
+  // refusal costs nothing.
   let needPlank = false;
   if ((dir === "left" || dir === "right") && t.row >= 1) {
     const below = cellAt(state, t.col, t.row + 1);
-    if (below?.kind === "empty" && !cell.plank) {
+    const supported = cell.plank || cell.ladder || below?.ladder;
+    if (below?.kind === "empty" && !supported) {
       if (state.consumables.plank <= 0)
         return { ok: false, reason: "no-plank" };
       needPlank = true;

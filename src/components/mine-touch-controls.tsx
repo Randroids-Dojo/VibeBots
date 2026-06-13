@@ -12,10 +12,12 @@ import {
 import { useRef, useState } from "react";
 import type { Direction } from "@/sim/mine";
 
-/** Repeat cadence while the stick is held past the deadzone. */
-const REPEAT_MS = 220;
-/** Floor between any two fires, including direction changes. */
-const MIN_FIRE_MS = 140;
+/** Repeat cadence while the stick is held past the deadzone. Half the
+ * old 220ms: a held stick walks at a readable pace, not a sprint. */
+const REPEAT_MS = 440;
+/** Floor between any two fires, including direction changes. The first
+ * fire on a fresh press is still immediate, so taps stay responsive. */
+const MIN_FIRE_MS = 200;
 /** A new axis must clearly dominate before the direction switches. */
 const AXIS_HYSTERESIS = 1.35;
 

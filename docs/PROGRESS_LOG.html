@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-speed-and-shop-prompt" data-date="2026-06-13">
+    <h3>Slower Walk and Tap-to-Open Shops</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-speed-and-shop-prompt</code></dd>
+      <dt>PR</dt><dd>#64</dd>
+      <dt>Changed</dt><dd>two user-directed control changes. (1) Movement speed is halved: the thumbstick held-repeat cadence went 220ms to 440ms, held arrow/WASD keys are clamped to the same 440ms (deliberate presses still fire instantly), and the between-cell glide eases gentler so the bot walks rather than snaps. (2) Stalls no longer open their menu on walk-by. Standing on a stall now shows a labelled prompt button ("[icon] Stall Name, Tap to open") at the bottom of the screen; tapping it opens the sheet. Closing the sheet (button or swipe) returns to the prompt; stepping off the column hides it, so the menu never pops as the miner passes.</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>tsc --noEmit</code>, <code>biome ci</code>, <code>pnpm vitest run</code> (103), <code>pnpm build</code>, <code>pnpm test:e2e</code> (17 passed, 2 storage-skipped): the stall specs now tap the prompt via an <code>openStall</code> helper and assert the sheet does not auto-open; a phone probe confirmed no auto-open, prompt-then-tap opens, close returns to the prompt, and walking off hides it.</dd>
+      <dt>Assumptions</dt><dd>the keyboard hold-throttle keys off <code>event.repeat</code>, so scripted discrete presses (and deliberate human taps) are never throttled, only OS auto-repeat. The prompt sits bottom-centre above the consumable cluster.</dd>
+      <dt>GDD coverage</dt><dd>no row changes (control tuning under REQ-023, village interaction under REQ-021); build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-bot-legs" data-date="2026-06-13">
     <h3>Miner Bot Walk Cycle (Articulated Legs Replace the Treads)</h3>
     <dl>

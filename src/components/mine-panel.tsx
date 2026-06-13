@@ -44,6 +44,9 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
   d: "right",
 };
 
+/** Min gap between auto-repeated key moves; matches the thumbstick. */
+const KEY_REPEAT_MS = 440;
+
 const chipStyle: React.CSSProperties = {
   background: "rgba(17, 21, 31, 0.82)",
   border: "1px solid #26304a",
@@ -821,14 +824,17 @@ export function MinePanel() {
   const buyElevator = useMineStore((s) => s.buyElevator);
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
   const [abandonArmed, setAbandonArmed] = useState(false);
-  // The column whose stall sheet the player closed. Closing suppresses
-  // the sheet only while they stand there; stepping away clears it so a
-  // return reopens the shop (no walk-away required to dismiss).
-  const [dismissedCol, setDismissedCol] = useState<number | null>(null);
+  // The column whose stall sheet is open. Standing on a stall no longer
+  // auto-opens it: a prompt button appears and tapping it sets this.
+  // Stepping off clears it, so walking by never pops the menu.
+  const [openStallCol, setOpenStallCol] = useState<number | null>(null);
   // Touch players never see keyboard copy (matches the renderer's
   // coarse-pointer heuristic). False during SSR; set before paint.
   const [coarsePointer, setCoarsePointer] = useState(false);
   const armedRef = useRef(false);
+  // Throttle held-key auto-repeat to the same walk cadence as the
+  // thumbstick; deliberate presses (event.repeat false) always fire.
+  const lastKeyMoveRef = useRef(0);
   const setDynamiteArmed = (value: boolean | ((prev: boolean) => boolean)) => {
     armedRef.current =
       typeof value === "function" ? value(armedRef.current) : value;
@@ -846,11 +852,11 @@ export function MinePanel() {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
   }, []);
 
-  // Moving off the column clears a dismissal so revisiting reopens the
-  // shop; the close action only mutes the sheet for the current stop.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: column is the reset trigger, not read in the body; dropping it would fire once and never reopen
+  // Moving off the column closes any open sheet, so the menu never
+  // follows the miner and a return shows the prompt, not the open sheet.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: column is the reset trigger, not read in the body; dropping it would fire once and never re-close
   useEffect(() => {
-    setDismissedCol(null);
+    setOpenStallCol(null);
   }, [mine.miner.col]);
 
   // The abandon confirm disarms itself; a stray thumb cannot torch a
@@ -878,6 +884,12 @@ export function MinePanel() {
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
+      // Held keys auto-repeat far faster than the walk cadence; clamp
+      // the repeats so keyboard speed matches the thumbstick.
+      if (event.repeat && Date.now() - lastKeyMoveRef.current < KEY_REPEAT_MS) {
+        return;
+      }
+      lastKeyMoveRef.current = Date.now();
       if (armedRef.current) {
         armedRef.current = false;
         setDynamiteArmedState(false);
@@ -968,7 +980,39 @@ export function MinePanel() {
       <MineTouchControls onDirection={act} />
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
-      {stall && dismissedCol !== miner.col && (
+      {/* Standing on a stall shows a prompt; the menu opens on tap, not
+          on walk-by. Tapping again-after-close needs another tap. */}
+      {stall && openStallCol !== miner.col && (
+        <button
+          type="button"
+          aria-label={`Open ${stall.name}`}
+          onClick={() => setOpenStallCol(miner.col)}
+          style={{
+            position: "absolute",
+            bottom: 92,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 16px",
+            borderRadius: 999,
+            border: `2px solid ${stall.color}`,
+            background: "rgba(17, 21, 31, 0.92)",
+            color: "#e6e8ee",
+            fontWeight: 700,
+            fontSize: "0.95rem",
+            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
+            zIndex: 8,
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span style={{ fontSize: "1.2rem" }}>{STALL_ICONS[stall.id]}</span>
+          <span style={{ color: stall.color }}>{stall.name}</span>
+          <span style={{ opacity: 0.6, fontSize: "0.82rem" }}>Tap to open</span>
+        </button>
+      )}
+      {stall && openStallCol === miner.col && (
         <StallMenu
           stall={stall}
           mine={mine}
@@ -981,7 +1025,7 @@ export function MinePanel() {
           onBuyGear={(track) => void buyGearUpgrade(track)}
           onBuyElevator={() => void buyElevator()}
           onRide={(dir) => move(dir)}
-          onClose={() => setDismissedCol(miner.col)}
+          onClose={() => setOpenStallCol(null)}
         />
       )}
 

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-building-quality" data-date="2026-06-12">
+    <h3>Village Building Quality (Distinct Shop Models)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-building-quality</code></dd>
+      <dt>PR</dt><dd>#61</dd>
+      <dt>Changed</dt><dd>the five village stalls each got their own structure in place of the shared hut (user-directed: "make the shop buildings better quality, maybe walk around instead"). Winch Tower: a timber derrick with sheave wheel, cable, and drum over a cabin. Assay Office: a stone bank with portico columns, a pediment, a gold emblem, lit windows, and entry steps. Supply Depot: an open-front counter under a canvas awning stocked with dynamite, rope, and a crate, flanked by stock. Outfitter: a smithy with an ember-topped chimney, an always-glowing forge window, an anvil, and a pick leaning on the wall. Warp Pad: a glowing arch and crystal on a platform between emitter pylons with a console. The row moved deeper (z -0.85) behind a split boardwalk so the miner walks clearly in front of and into each shopfront, with porch lamps on the timber shops and one warm porch light on the open stall. The night-meadow backdrop moved behind the village footprint; at its old depth it occluded every set-back body below the horizon band.</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>tsc --noEmit</code>, Biome, <code>pnpm vitest run</code> (103), <code>pnpm build</code>, <code>pnpm test:e2e</code> (15 passed, 2 storage-skipped); phone (390x760) and desktop screenshot walks past all five stalls on the production build.</dd>
+      <dt>Assumptions</dt><dd>"walk around instead them" read as depth separation, not enterable interiors; recorded as Q-012 with default A.</dd>
+      <dt>GDD coverage</dt><dd>no row changes (REQ-021 already done); build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>none new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-shop-polish" data-date="2026-06-12">
     <h3>Mobile Shop Polish (Bottom Sheets and Building Depth)</h3>
     <dl>

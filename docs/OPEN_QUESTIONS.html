@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-012" data-status="open">
+    <h3>Q-012: What does "walk around" the shop buildings mean?</h3>
+    <dl>
+      <dt>Context</dt><dd>The building-quality request said "Maybe walk around instead them", which could mean the miner reading as walking around in front of real structures, or fully enterable interiors.</dd>
+      <dt>Options</dt><dd>
+        <ul>
+          <li>A: depth separation: distinct set-back buildings behind a boardwalk, the miner always in front, sheet menus stay the interaction surface.</li>
+          <li>B: enterable interiors with their own framing and walkable floor.</li>
+        </ul>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It resolves the clipping complaint directly, keeps one movement rule on the surface row, and adds no new sim states; interiors would add a second movement context with no mechanical gain.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under default A in PR #61; flip to B in a future slice if interiors are wanted)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-005" data-status="open">
     <h3>Q-005: Currency naming vs emerald the ore</h3>
     <dl>

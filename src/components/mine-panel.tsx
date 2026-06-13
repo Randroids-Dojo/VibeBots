@@ -428,6 +428,7 @@ function StallMenu({
   onBuyGear,
   onBuyElevator,
   onRide,
+  onClose,
 }: {
   stall: StallDef;
   mine: MineState;
@@ -442,12 +443,42 @@ function StallMenu({
   onBuyGear: (track: keyof MineGear) => void;
   onBuyElevator: () => void;
   onRide: (dir: "ride-down" | "ride-up" | "warp-down" | "warp-home") => void;
+  onClose: () => void;
 }) {
   const miner = mine.miner;
   const banked = miner.bankedCredits;
   const bankedParts = miner.bankedParts.length;
   const offline = balance === null;
   const beacon = findBeacon(mine);
+  // Swipe-to-dismiss: the grab zone follows the finger down, and a far
+  // enough pull (or a flick) closes the sheet. A short tug snaps back.
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<number | null>(null);
+  const dismiss = () => {
+    setDragY(0);
+    setDragging(false);
+    dragStart.current = null;
+    onClose();
+  };
+  const onGrabDown = (e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStart.current = e.clientY;
+    setDragging(true);
+  };
+  const onGrabMove = (e: React.PointerEvent) => {
+    if (dragStart.current === null) return;
+    const dy = e.clientY - dragStart.current;
+    setDragY(dy > 0 ? dy : 0);
+  };
+  const onGrabUp = (e: React.PointerEvent) => {
+    if (dragStart.current === null) return;
+    const dy = e.clientY - dragStart.current;
+    dragStart.current = null;
+    setDragging(false);
+    if (dy > 70) dismiss();
+    else setDragY(0);
+  };
   return (
     <section
       aria-label={stall.name}
@@ -466,19 +497,36 @@ function StallMenu({
         boxShadow: "0 -14px 44px rgba(0, 0, 0, 0.55)",
         padding: "8px 18px 18px",
         zIndex: 10,
+        transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+        transition: dragging ? "none" : "transform 180ms ease",
       }}
     >
+      {/* Grab zone: the handle plus the strip around it (the iOS sheet
+          convention). Pointer drag here pulls the sheet down to close. */}
       <div
-        aria-hidden
+        onPointerDown={onGrabDown}
+        onPointerMove={onGrabMove}
+        onPointerUp={onGrabUp}
+        onPointerCancel={onGrabUp}
         style={{
-          width: 38,
-          height: 4,
-          borderRadius: 999,
-          background: stall.color,
-          opacity: 0.4,
-          margin: "0 auto 10px",
+          margin: "-8px -18px 0",
+          padding: "10px 18px 4px",
+          touchAction: "none",
+          cursor: "grab",
         }}
-      />
+      >
+        <div
+          aria-hidden
+          style={{
+            width: 38,
+            height: 4,
+            borderRadius: 999,
+            background: stall.color,
+            opacity: 0.4,
+            margin: "0 auto 8px",
+          }}
+        />
+      </div>
       <header
         style={{
           display: "flex",
@@ -518,6 +566,25 @@ function StallMenu({
         >
           {offline ? "offline" : `\u{1F4B0} ${balance} cr`}
         </span>
+        <button
+          type="button"
+          aria-label="Close shop"
+          onClick={dismiss}
+          style={{
+            flexShrink: 0,
+            width: 34,
+            height: 34,
+            borderRadius: 999,
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+            background: "rgba(38, 48, 74, 0.6)",
+            color: "#cdd6ea",
+            fontSize: "1.2rem",
+            lineHeight: 1,
+            cursor: "pointer",
+          }}
+        >
+          {"×"}
+        </button>
       </header>
       {offline && (
         <p style={{ margin: "6px 0 0", fontSize: "0.78rem", color: "#f5c542" }}>
@@ -751,6 +818,10 @@ export function MinePanel() {
   const buyElevator = useMineStore((s) => s.buyElevator);
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
   const [abandonArmed, setAbandonArmed] = useState(false);
+  // The column whose stall sheet the player closed. Closing suppresses
+  // the sheet only while they stand there; stepping away clears it so a
+  // return reopens the shop (no walk-away required to dismiss).
+  const [dismissedCol, setDismissedCol] = useState<number | null>(null);
   // Touch players never see keyboard copy (matches the renderer's
   // coarse-pointer heuristic). False during SSR; set before paint.
   const [coarsePointer, setCoarsePointer] = useState(false);
@@ -771,6 +842,13 @@ export function MinePanel() {
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
   }, []);
+
+  // Moving off the column clears a dismissal so revisiting reopens the
+  // shop; the close action only mutes the sheet for the current stop.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: column is the reset trigger, not read in the body; dropping it would fire once and never reopen
+  useEffect(() => {
+    setDismissedCol(null);
+  }, [mine.miner.col]);
 
   // The abandon confirm disarms itself; a stray thumb cannot torch a
   // haul twenty minutes deep.
@@ -819,7 +897,8 @@ export function MinePanel() {
   // Ladder budget for the same straight-home climb (REQ-020).
   const laddersNeeded = returnLadderNeed(mine);
   const ladderShort = miner.row > 0 && laddersNeeded > mine.consumables.ladder;
-  // The village (REQ-021): standing on a stall's column opens its menu.
+  // The village (REQ-021): standing on a stall's column opens its menu,
+  // unless the player just closed it here (swipe-down or close button).
   const stall = miner.row === 0 ? stallAt(miner.col) : null;
 
   // One terse toast, game-style: the chips carry the numbers.
@@ -886,7 +965,7 @@ export function MinePanel() {
       <MineTouchControls onDirection={act} />
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
-      {stall && (
+      {stall && dismissedCol !== miner.col && (
         <StallMenu
           stall={stall}
           mine={mine}
@@ -899,6 +978,7 @@ export function MinePanel() {
           onBuyGear={(track) => void buyGearUpgrade(track)}
           onBuyElevator={() => void buyElevator()}
           onRide={(dir) => move(dir)}
+          onClose={() => setDismissedCol(miner.col)}
         />
       )}
 

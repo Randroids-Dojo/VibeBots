@@ -263,6 +263,35 @@ test.describe("phone viewport", () => {
     const after = await canvas.screenshot();
     expect(Buffer.compare(before, after)).not.toBe(0);
   });
+
+  test("a downward drag on the sheet handle dismisses it", async ({ page }) => {
+    await page.goto("/mine");
+    const status = page.getByLabel("Mine status");
+    await expect(status).toHaveAttribute("data-depth", "0");
+
+    // Stand at the Supply Depot (two columns right of the shaft).
+    for (let i = 0; i < 2; i++) {
+      await page.keyboard.press("ArrowRight");
+    }
+    const depot = page.getByLabel("Supply Depot");
+    await expect(depot).toBeVisible();
+
+    // Drag the top of the sheet (the grab handle) down past the close
+    // threshold: the sheet dismisses without leaving the column.
+    const box = await depot.boundingBox();
+    if (!box) throw new Error("sheet has no bounding box");
+    const x = box.x + box.width / 2;
+    const y = box.y + 8;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) {
+      await page.mouse.move(x, y + i * 25);
+      await page.waitForTimeout(20);
+    }
+    await page.mouse.up();
+    await expect(depot).not.toBeVisible();
+    await expect(status).toHaveAttribute("data-depth", "0");
+  });
 });
 
 test("the carved world survives a reload (REQ-026)", async ({ page }) => {
@@ -334,6 +363,32 @@ test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   // Walking off the stall column closes the menu.
   await page.keyboard.press("ArrowLeft");
   await expect(outfitter).not.toBeVisible();
+});
+
+test("a stall sheet closes in place and reopens on return", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "0");
+
+  // Stand at the Assay Office (three columns left of the shaft).
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press("ArrowLeft");
+  }
+  const assay = page.getByLabel("Assay Office");
+  await expect(assay).toBeVisible();
+
+  // The close button dismisses without walking away: still on the
+  // column (depth 0), but the sheet is gone.
+  await assay.getByRole("button", { name: "Close shop" }).click();
+  await expect(assay).not.toBeVisible();
+  await expect(status).toHaveAttribute("data-depth", "0");
+
+  // Stepping off and back reopens the shop (dismissal was local).
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowLeft");
+  await expect(assay).toBeVisible();
 });
 
 test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({

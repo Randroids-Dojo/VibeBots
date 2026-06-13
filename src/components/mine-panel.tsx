@@ -379,6 +379,9 @@ function SheetRow({
   );
 }
 
+/** Downward drag distance (px) past which releasing closes the sheet. */
+const SWIPE_DISMISS_PX = 70;
+
 const sheetButtonStyle = (enabled: boolean): React.CSSProperties => ({
   minWidth: 78,
   minHeight: 42,
@@ -476,7 +479,7 @@ function StallMenu({
     const dy = e.clientY - dragStart.current;
     dragStart.current = null;
     setDragging(false);
-    if (dy > 70) dismiss();
+    if (dy > SWIPE_DISMISS_PX) dismiss();
     else setDragY(0);
   };
   return (

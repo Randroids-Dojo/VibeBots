@@ -1409,7 +1409,9 @@ function MineScene() {
         minerPlaced.current = true;
         miner.position.set(tx, ty, 0.2);
       } else {
-        const ease = Math.min(1, delta * 14);
+        // Gentler glide than before: with the halved move cadence the
+        // bot has time to walk between cells instead of snapping.
+        const ease = Math.min(1, delta * 9);
         miner.position.x += (tx - miner.position.x) * ease;
         miner.position.y += (ty - miner.position.y) * ease;
       }

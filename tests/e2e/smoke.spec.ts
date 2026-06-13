@@ -10,6 +10,17 @@ async function digTo(page: Page, depth: number): Promise<void> {
   }
 }
 
+/** Standing on a stall shows a prompt; tap it to open the menu. Returns
+ * the menu region. Stalls no longer auto-open on walk-by. */
+async function openStall(page: Page, name: string) {
+  const prompt = page.getByRole("button", { name: `Open ${name}` });
+  await expect(prompt).toBeVisible();
+  await prompt.click();
+  const sheet = page.getByRole("region", { name, exact: true });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
 /** Swing a lateral direction until the rendered miner crosses targetX. */
 async function digLateral(
   page: Page,
@@ -269,12 +280,12 @@ test.describe("phone viewport", () => {
     const status = page.getByLabel("Mine status");
     await expect(status).toHaveAttribute("data-depth", "0");
 
-    // Stand at the Supply Depot (two columns right of the shaft).
+    // Stand at the Supply Depot (two columns right of the shaft) and
+    // tap the prompt to open the sheet.
     for (let i = 0; i < 2; i++) {
       await page.keyboard.press("ArrowRight");
     }
-    const depot = page.getByLabel("Supply Depot");
-    await expect(depot).toBeVisible();
+    const depot = await openStall(page, "Supply Depot");
     // Let the slide-up entrance (0.28s) settle so the docked baseline
     // is the resting position, not a mid-animation frame.
     await page.waitForTimeout(450);
@@ -350,34 +361,37 @@ test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   await expect(status).toHaveAttribute("data-energy", energyBefore ?? "");
 });
 
-test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
+test("surface village stalls open their menus on tap (REQ-021)", async ({
+  page,
+}) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
 
-  // Walk left from the shaft (col 4) to the Assay Office (col 1).
+  // Walk left from the shaft to the Assay Office; the menu does not pop
+  // on walk-by, the prompt does, and tapping it opens the menu.
   for (let i = 0; i < 3; i++) {
     await page.keyboard.press("ArrowLeft");
   }
-  const assay = page.getByLabel("Assay Office");
-  await expect(assay).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Assay Office", exact: true }),
+  ).not.toBeVisible();
+  const assay = await openStall(page, "Assay Office");
   await expect(assay).toContainText("nothing banked yet");
 
-  // Walk right to the Supply Depot (col 6): consumables with prices.
+  // Walk right to the Supply Depot: consumables with prices.
   for (let i = 0; i < 5; i++) {
     await page.keyboard.press("ArrowRight");
   }
-  const depot = page.getByLabel("Supply Depot");
-  await expect(depot).toBeVisible();
+  const depot = await openStall(page, "Supply Depot");
   await expect(depot).toContainText("Ladder");
   await expect(depot).toContainText("2 cr");
 
-  // And on to the Outfitter (col 8): the four gear tracks.
+  // And on to the Outfitter: the four gear tracks.
   for (let i = 0; i < 2; i++) {
     await page.keyboard.press("ArrowRight");
   }
-  const outfitter = page.getByLabel("Outfitter");
-  await expect(outfitter).toBeVisible();
+  const outfitter = await openStall(page, "Outfitter");
   await expect(outfitter).toContainText("Pickaxe");
   await expect(outfitter).toContainText("Cargo Hold");
 
@@ -386,9 +400,7 @@ test("surface village stalls open their menus (REQ-021)", async ({ page }) => {
   await expect(outfitter).not.toBeVisible();
 });
 
-test("a stall sheet closes in place and reopens on return", async ({
-  page,
-}) => {
+test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
@@ -397,18 +409,22 @@ test("a stall sheet closes in place and reopens on return", async ({
   for (let i = 0; i < 3; i++) {
     await page.keyboard.press("ArrowLeft");
   }
-  const assay = page.getByLabel("Assay Office");
-  await expect(assay).toBeVisible();
+  const prompt = page.getByRole("button", { name: "Open Assay Office" });
+  const assay = page.getByRole("region", { name: "Assay Office", exact: true });
+  await expect(prompt).toBeVisible();
+  await expect(assay).not.toBeVisible();
 
-  // The close button dismisses without walking away: still on the
-  // column (depth 0), but the sheet is gone.
+  // Tap opens; the close button dismisses without walking away (still on
+  // the column at depth 0) and the prompt comes back.
+  await prompt.click();
+  await expect(assay).toBeVisible();
   await assay.getByRole("button", { name: "Close shop" }).click();
   await expect(assay).not.toBeVisible();
+  await expect(prompt).toBeVisible();
   await expect(status).toHaveAttribute("data-depth", "0");
 
-  // Stepping off and back reopens the shop (dismissal was local).
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("ArrowLeft");
+  // Tapping the prompt again reopens it.
+  await prompt.click();
   await expect(assay).toBeVisible();
 });
 
@@ -423,8 +439,7 @@ test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
   for (let i = 0; i < 6; i++) {
     await page.keyboard.press("ArrowRight");
   }
-  const pad = page.getByLabel("Warp Pad");
-  await expect(pad).toBeVisible();
+  const pad = await openStall(page, "Warp Pad");
   await expect(pad).toContainText("no beacon planted");
   await expect(pad).toContainText("range 60 rows");
   await expect(
@@ -443,8 +458,7 @@ test("the winch tower sells rail and gates rides on it (REQ-028)", async ({
   for (let i = 0; i < 5; i++) {
     await page.keyboard.press("ArrowLeft");
   }
-  const winch = page.getByLabel("Winch Tower");
-  await expect(winch).toBeVisible();
+  const winch = await openStall(page, "Winch Tower");
   await expect(winch).toContainText("no rail yet");
   await expect(winch).toContainText("40 cr");
   // Without rail the ride is disabled; without storage so is the buy.

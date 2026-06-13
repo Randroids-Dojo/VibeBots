@@ -275,6 +275,33 @@ test.describe("phone viewport", () => {
     expect(Buffer.compare(before, after)).not.toBe(0);
   });
 
+  test("walking past the surface shops stays smooth (no per-step rebuild)", async ({
+    page,
+  }) => {
+    await page.goto("/mine");
+    const status = page.getByLabel("Mine status");
+    const canvas = page.locator("canvas");
+    await expect(status).toHaveAttribute("data-depth", "0");
+    await page.waitForTimeout(800);
+
+    // Walk back and forth across the whole shop row sampling the smoothed
+    // frame time. The static village must not spike it the way the old
+    // per-step reconciliation did. The ceiling is generous so software
+    // rendering on CI passes; a regression rebuilds ~70 meshes per step
+    // and pushes the smoothed time far past it.
+    for (let pass = 0; pass < 2; pass++) {
+      for (const key of ["ArrowLeft", "ArrowRight"]) {
+        for (let i = 0; i < 6; i++) {
+          await page.keyboard.press(key);
+          await page.waitForTimeout(90);
+          const ms = Number(await canvas.getAttribute("data-frame-ms"));
+          expect(ms).toBeGreaterThan(0);
+          expect(ms).toBeLessThan(120);
+        }
+      }
+    }
+  });
+
   test("a downward drag on the sheet handle dismisses it", async ({ page }) => {
     await page.goto("/mine");
     const status = page.getByLabel("Mine status");

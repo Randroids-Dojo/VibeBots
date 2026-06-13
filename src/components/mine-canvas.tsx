@@ -552,12 +552,10 @@ const METAL = "#8a8f9c";
 /** Emissive name board; brightens while the stall menu is open. */
 function SignBoard({
   color,
-  active,
   position,
   width = 0.78,
 }: {
   color: string;
-  active: boolean;
   position: [number, number, number];
   width?: number;
 }) {
@@ -567,7 +565,7 @@ function SignBoard({
       <meshStandardMaterial
         color={color}
         emissive={color}
-        emissiveIntensity={active ? 1.7 : 0.55}
+        emissiveIntensity={0.95}
         flatShading
       />
     </mesh>
@@ -576,11 +574,9 @@ function SignBoard({
 
 /** Doorway recess with a warm glow while the shop is open. */
 function DoorGlow({
-  active,
   position,
   size = [0.4, 0.62],
 }: {
-  active: boolean;
   position: [number, number, number];
   size?: [number, number];
 }) {
@@ -588,9 +584,9 @@ function DoorGlow({
     <mesh position={position}>
       <boxGeometry args={[size[0], size[1], 0.05]} />
       <meshStandardMaterial
-        color={active ? "#3a2c14" : "#241a10"}
-        emissive={active ? "#ffd9a0" : "#000000"}
-        emissiveIntensity={active ? 0.6 : 0}
+        color="#2e2410"
+        emissive="#ffd9a0"
+        emissiveIntensity={0.3}
         roughness={1}
         flatShading
       />
@@ -614,13 +610,7 @@ function PorchLamp({ position }: { position: [number, number, number] }) {
 }
 
 /** Winch Tower: timber derrick with a sheave wheel over a drum cabin. */
-function WinchTowerModel({
-  color,
-  active,
-}: {
-  color: string;
-  active: boolean;
-}) {
+function WinchTowerModel({ color }: { color: string }) {
   return (
     <>
       <RoundedBox
@@ -631,7 +621,7 @@ function WinchTowerModel({
       >
         <meshStandardMaterial color={TIMBER} roughness={0.9} flatShading />
       </RoundedBox>
-      <DoorGlow active={active} position={[0.3, 1.4, 0.41]} />
+      <DoorGlow position={[0.3, 1.4, 0.41]} />
       <PorchLamp position={[0.62, 1.78, 0.4]} />
       {/* Derrick legs and cross-braces rising off the cabin roof */}
       <mesh position={[-0.46, 2.55, 0]} rotation={[0, 0, 0.16]}>
@@ -686,24 +676,13 @@ function WinchTowerModel({
           flatShading
         />
       </mesh>
-      <SignBoard
-        color={color}
-        active={active}
-        position={[-0.3, 1.78, 0.44]}
-        width={0.6}
-      />
+      <SignBoard color={color} position={[-0.3, 1.78, 0.44]} width={0.6} />
     </>
   );
 }
 
 /** Assay Office: a stone bank with columns and a gold emblem. */
-function AssayOfficeModel({
-  color,
-  active,
-}: {
-  color: string;
-  active: boolean;
-}) {
+function AssayOfficeModel({ color }: { color: string }) {
   return (
     <>
       <RoundedBox
@@ -752,11 +731,7 @@ function AssayOfficeModel({
         <boxGeometry args={[1.06, 0.12, 0.2]} />
         <meshStandardMaterial color={STONE_LIGHT} roughness={0.7} flatShading />
       </mesh>
-      <DoorGlow
-        active={active}
-        position={[0, 1.42, 0.47]}
-        size={[0.44, 0.68]}
-      />
+      <DoorGlow position={[0, 1.42, 0.47]} size={[0.44, 0.68]} />
       <PorchLamp position={[0, 1.9, 0.52]} />
       {/* Lit side windows */}
       <mesh position={[-0.58, 1.75, 0.46]}>
@@ -786,24 +761,13 @@ function AssayOfficeModel({
         <boxGeometry args={[0.64, 0.09, 0.3]} />
         <meshStandardMaterial color={STONE} roughness={0.9} flatShading />
       </mesh>
-      <SignBoard
-        color={color}
-        active={active}
-        position={[0, 2.26, 0.55]}
-        width={0.8}
-      />
+      <SignBoard color={color} position={[0, 2.26, 0.55]} width={0.8} />
     </>
   );
 }
 
 /** Supply Depot: open-front trade post with goods on the counter. */
-function SupplyDepotModel({
-  color,
-  active,
-}: {
-  color: string;
-  active: boolean;
-}) {
+function SupplyDepotModel({ color }: { color: string }) {
   return (
     <>
       <RoundedBox
@@ -828,7 +792,7 @@ function SupplyDepotModel({
         <meshStandardMaterial
           color="#171209"
           emissive="#ffd9a0"
-          emissiveIntensity={active ? 0.35 : 0.08}
+          emissiveIntensity={0.22}
           roughness={1}
           flatShading
         />
@@ -877,18 +841,13 @@ function SupplyDepotModel({
         <cylinderGeometry args={[0.14, 0.17, 0.3, 9]} />
         <meshStandardMaterial color="#7a5230" roughness={0.85} flatShading />
       </mesh>
-      <SignBoard
-        color={color}
-        active={active}
-        position={[0, 2.28, 0.2]}
-        width={0.9}
-      />
+      <SignBoard color={color} position={[0, 2.28, 0.2]} width={0.9} />
     </>
   );
 }
 
 /** Outfitter: a smithy with a glowing forge window and chimney. */
-function OutfitterModel({ color, active }: { color: string; active: boolean }) {
+function OutfitterModel({ color }: { color: string }) {
   return (
     <>
       <RoundedBox
@@ -917,7 +876,7 @@ function OutfitterModel({ color, active }: { color: string; active: boolean }) {
           flatShading
         />
       </mesh>
-      <DoorGlow active={active} position={[0.28, 1.36, 0.44]} />
+      <DoorGlow position={[0.28, 1.36, 0.44]} />
       <PorchLamp position={[0.55, 1.7, 0.46]} />
       {/* Forge window: always glowing, the smith never sleeps */}
       <mesh position={[-0.32, 1.6, 0.46]}>
@@ -957,18 +916,13 @@ function OutfitterModel({ color, active }: { color: string; active: boolean }) {
           flatShading
         />
       </mesh>
-      <SignBoard
-        color={color}
-        active={active}
-        position={[0, 1.92, 0.5]}
-        width={0.7}
-      />
+      <SignBoard color={color} position={[0, 1.92, 0.5]} width={0.7} />
     </>
   );
 }
 
 /** Warp Pad: a humming arch and crystal, nothing like the timber row. */
-function WarpPadModel({ color, active }: { color: string; active: boolean }) {
+function WarpPadModel({ color }: { color: string }) {
   return (
     <>
       <mesh position={[0, 1.12, 0]} scale={[1, 1, 0.62]}>
@@ -985,7 +939,7 @@ function WarpPadModel({ color, active }: { color: string; active: boolean }) {
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={active ? 2.4 : 1.0}
+          emissiveIntensity={1.7}
           metalness={0.3}
           roughness={0.4}
           flatShading
@@ -996,7 +950,7 @@ function WarpPadModel({ color, active }: { color: string; active: boolean }) {
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={active ? 2.6 : 1.6}
+          emissiveIntensity={2.0}
           flatShading
         />
       </mesh>
@@ -1054,46 +1008,36 @@ function WarpPadModel({ color, active }: { color: string; active: boolean }) {
   );
 }
 
-/** A village stall: each shop gets its own distinct structure. */
+/** A village stall: each shop gets its own distinct structure. The
+ * village is static (the tap-to-open prompt signals the active shop),
+ * so the memoized SurfaceDressing never reconciles while walking. */
 function StallBuilding({
   id,
   x,
   color,
-  active,
 }: {
   id: StallDef["id"];
   x: number;
   color: string;
-  active: boolean;
 }) {
   return (
     <group position={[x, -1.5, -0.85]}>
-      {id === "winch" && <WinchTowerModel color={color} active={active} />}
-      {id === "assay" && <AssayOfficeModel color={color} active={active} />}
-      {id === "supply" && <SupplyDepotModel color={color} active={active} />}
-      {id === "outfitter" && <OutfitterModel color={color} active={active} />}
-      {id === "warp" && <WarpPadModel color={color} active={active} />}
+      {id === "winch" && <WinchTowerModel color={color} />}
+      {id === "assay" && <AssayOfficeModel color={color} />}
+      {id === "supply" && <SupplyDepotModel color={color} />}
+      {id === "outfitter" && <OutfitterModel color={color} />}
+      {id === "warp" && <WarpPadModel color={color} />}
       {/* Doorstep mat on the boardwalk marks the standing spot */}
       <mesh position={[0, 1.1, 0.9]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.8, 0.5]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={active ? 0.5 : 0.12}
+          emissiveIntensity={0.26}
           transparent
           opacity={0.55}
         />
       </mesh>
-      {/* One warm porch light, only on the open stall */}
-      {active && (
-        <pointLight
-          position={[0, 1.7, 1.1]}
-          color="#ffd9a0"
-          intensity={1.6}
-          distance={4.5}
-          decay={1.6}
-        />
-      )}
     </group>
   );
 }
@@ -1121,15 +1065,11 @@ function NightStars() {
 
 /**
  * Night-camp surface dressing: headframe, lanterns, grass, stalls.
- * Memoized: it re-renders only when the active stall changes, not on
- * every dig tick (per-tick reconciliation of this tree was part of the
- * surface-rows jank).
+ * Memoized with no props, so it renders once and never reconciles on a
+ * move tick. The per-step rebuild of this tree (heavier since the
+ * detailed buildings landed) was the surface walk-by stutter.
  */
-const SurfaceDressing = memo(function SurfaceDressing({
-  activeCol,
-}: {
-  activeCol: number | null;
-}) {
+const SurfaceDressing = memo(function SurfaceDressing() {
   const tufts = [];
   for (let i = 0; i < 14; i++) {
     const h = cellHash(i, 97, 3);
@@ -1198,7 +1138,6 @@ const SurfaceDressing = memo(function SurfaceDressing({
           id={stall.id}
           x={cellX(stall.col)}
           color={stall.color}
-          active={activeCol === stall.col}
         />
       ))}
       {/* Lantern posts flanking the headframe */}
@@ -1256,6 +1195,9 @@ function MineScene() {
     lunge: { x: 0, y: 0, t: 0 },
   });
   const minerPlaced = useRef(false);
+  // Smoothed frame time (ms), exposed for performance QA. A surface walk
+  // must not spike this the way the per-step village rebuild used to.
+  const frameMsRef = useRef(16);
 
   const minerRow = mine.miner.row;
   const firstRow = Math.max(0, minerRow - VIEW_ABOVE);
@@ -1422,6 +1364,9 @@ function MineScene() {
       el.dataset.minerY = miner.position.y.toFixed(2);
       // Last frame's draw-call count: the budget that phones live by.
       el.dataset.drawCalls = String(state.gl.info.render.calls);
+      // Smoothed frame time: a steady low value means no per-step hitches.
+      frameMsRef.current += (delta * 1000 - frameMsRef.current) * 0.1;
+      el.dataset.frameMs = frameMsRef.current.toFixed(1);
     }
     // Body language: face the walk direction, idle bob, pick swings.
     const body = minerBodyRef.current;
@@ -1858,9 +1803,7 @@ function MineScene() {
         <boxGeometry args={[CAMP_WIDTH, 1.04, 0.12]} />
         <meshStandardMaterial color="#10130d" roughness={1} />
       </mesh>
-      <SurfaceDressing
-        activeCol={mine.miner.row === 0 ? mine.miner.col : null}
-      />
+      <SurfaceDressing />
       {/* The miner bot. No position prop: useFrame owns the transform. */}
       <group ref={minerRef}>
         <MinerBot

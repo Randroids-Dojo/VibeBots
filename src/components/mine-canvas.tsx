@@ -319,16 +319,72 @@ function CrackMarks({
  * pickaxe arm that swings on digs. Animated parts get refs; the outer
  * group's transform belongs to useFrame in MineScene.
  */
+/** One articulated leg: a hip pivot (ref'd, swung by useFrame) holding
+ * a thigh, a shin, and a chunky foot. Mirror with `side` = -1 or 1. */
+function MinerLeg({
+  side,
+  legRef,
+}: {
+  side: number;
+  legRef: React.RefObject<Group | null>;
+}) {
+  return (
+    // Hip pivot. useFrame swings this group's X rotation for the stride;
+    // the foot bottoms at child-space y ~ -0.36, the old tread floor.
+    <group ref={legRef} position={[0.12 * side, -0.14, 0]}>
+      {/* Hip servo */}
+      <mesh>
+        <cylinderGeometry args={[0.055, 0.055, 0.12, 8]} />
+        <meshStandardMaterial
+          color="#3a3f4d"
+          metalness={0.4}
+          roughness={0.6}
+          flatShading
+        />
+      </mesh>
+      {/* Thigh */}
+      <mesh position={[0, -0.06, 0]}>
+        <boxGeometry args={[0.08, 0.11, 0.09]} />
+        <meshStandardMaterial color="#2b2f3a" roughness={0.8} flatShading />
+      </mesh>
+      {/* Knee */}
+      <mesh position={[0, -0.115, 0]}>
+        <icosahedronGeometry args={[0.04, 0]} />
+        <meshStandardMaterial
+          color="#54e0c7"
+          emissive="#1a4f47"
+          roughness={0.5}
+          flatShading
+        />
+      </mesh>
+      {/* Shin */}
+      <mesh position={[0, -0.15, 0.005]}>
+        <boxGeometry args={[0.07, 0.1, 0.08]} />
+        <meshStandardMaterial color="#3a3f4d" roughness={0.8} flatShading />
+      </mesh>
+      {/* Foot */}
+      <mesh position={[0, -0.195, 0.03]}>
+        <boxGeometry args={[0.12, 0.05, 0.16]} />
+        <meshStandardMaterial color="#23262f" roughness={0.9} flatShading />
+      </mesh>
+    </group>
+  );
+}
+
 function MinerBot({
   bodyRef,
   armRef,
   lampRef,
   motesRef,
+  legLRef,
+  legRRef,
 }: {
   bodyRef: React.RefObject<Group | null>;
   armRef: React.RefObject<Group | null>;
   lampRef: React.RefObject<PointLight | null>;
   motesRef: React.RefObject<Group | null>;
+  legLRef: React.RefObject<Group | null>;
+  legRRef: React.RefObject<Group | null>;
 }) {
   const motes = [];
   for (let i = 0; i < 14; i++) {
@@ -354,19 +410,13 @@ function MinerBot({
       {/* Dust motes drifting in the lamp light (hidden on the surface). */}
       <group ref={motesRef}>{motes}</group>
       <group ref={bodyRef}>
-        {/* Treads */}
-        <mesh position={[0, -0.27, 0]}>
-          <boxGeometry args={[0.4, 0.14, 0.3]} />
-          <meshStandardMaterial color="#23262f" roughness={0.9} flatShading />
+        {/* Pelvis the legs hang from (replaces the old tread chassis) */}
+        <mesh position={[0, -0.13, 0]}>
+          <boxGeometry args={[0.34, 0.12, 0.26]} />
+          <meshStandardMaterial color="#2b2f3a" roughness={0.85} flatShading />
         </mesh>
-        <mesh position={[-0.2, -0.27, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.09, 0.09, 0.3, 10]} />
-          <meshStandardMaterial color="#3a3f4d" roughness={0.7} flatShading />
-        </mesh>
-        <mesh position={[0.2, -0.27, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.09, 0.09, 0.3, 10]} />
-          <meshStandardMaterial color="#3a3f4d" roughness={0.7} flatShading />
-        </mesh>
+        <MinerLeg side={-1} legRef={legLRef} />
+        <MinerLeg side={1} legRef={legRRef} />
         {/* Torso */}
         <RoundedBox
           args={[0.42, 0.34, 0.32]}
@@ -1184,6 +1234,13 @@ function MineScene() {
   const minerBodyRef = useRef<Group>(null);
   const motesRef = useRef<Group>(null);
   const pickArmRef = useRef<Group>(null);
+  const legLRef = useRef<Group>(null);
+  const legRRef = useRef<Group>(null);
+  // Walk cadence: advanced by distance actually travelled so the stride
+  // is foot-locked to the glide, plus the prior frame's position to
+  // measure that distance.
+  const walkPhase = useRef(0);
+  const prevMinerPos = useRef<{ x: number; y: number } | null>(null);
   const lampRef = useRef<PointLight>(null);
   const ambientRef = useRef<AmbientLight>(null);
   const hemiRef = useRef<HemisphereLight>(null);
@@ -1378,6 +1435,30 @@ function MineScene() {
       // Lean into the glide while moving between cells.
       const vx = cellX(mine.miner.col) - miner.position.x;
       body.rotation.z = Math.max(-0.16, Math.min(0.16, -vx * 0.3));
+    }
+    // Legs: a foot-locked walk cycle. The stride advances by the
+    // distance actually travelled this frame (no skating), and the legs
+    // ease back to a neutral stance when the bot stands still or digs.
+    const legL = legLRef.current;
+    const legR = legRRef.current;
+    if (legL && legR && miner) {
+      const prev = prevMinerPos.current;
+      const dx = prev ? miner.position.x - prev.x : 0;
+      const dy = prev ? miner.position.y - prev.y : 0;
+      prevMinerPos.current = { x: miner.position.x, y: miner.position.y };
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      // Teleport-scale jumps (trip resets) must not spin the stride.
+      const stepping = dist > 0.0006 && dist < 1;
+      if (stepping) walkPhase.current += dist * 10;
+      const ph = walkPhase.current;
+      const amp = stepping ? 0.6 : 0;
+      const k = Math.min(1, delta * 12);
+      legL.rotation.x += (Math.sin(ph) * amp - legL.rotation.x) * k;
+      legR.rotation.x += (Math.sin(ph + Math.PI) * amp - legR.rotation.x) * k;
+      // The leg swinging forward lifts a touch off the cell floor.
+      const lift = stepping ? 0.02 : 0;
+      legL.position.y = -0.14 + Math.max(0, Math.sin(ph)) * lift;
+      legR.position.y = -0.14 + Math.max(0, Math.sin(ph + Math.PI)) * lift;
     }
     const arm = pickArmRef.current;
     if (arm) {
@@ -1785,6 +1866,8 @@ function MineScene() {
           armRef={pickArmRef}
           lampRef={lampRef}
           motesRef={motesRef}
+          legLRef={legLRef}
+          legRRef={legRRef}
         />
       </group>
     </>

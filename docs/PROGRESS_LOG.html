@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-bot-legs" data-date="2026-06-13">
+    <h3>Miner Bot Walk Cycle (Articulated Legs Replace the Treads)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-bot-legs</code></dd>
+      <dt>PR</dt><dd>#63</dd>
+      <dt>Changed</dt><dd>the miner rode on a static treaded chassis whose wheels never turned, so its locomotion read as dead while it glided (user-reported: "fix the mining robot's leg animations"). The treads are gone; the bot now stands on two articulated legs (hip servo, thigh, glowing knee, shin, chunky foot) hung from a pelvis. A foot-locked walk cycle in <code>useFrame</code> swings the hips in opposition, advancing the stride by the distance actually travelled each frame (no skating) and lifting the forward foot, so the gait tracks the glide and slows as the bot arrives. The legs ease back to a planted stance when standing or digging, and teleport-scale jumps (trip resets) do not spin the stride. The feet bottom on the same floor line as the old treads, so grounding is unchanged.</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>tsc --noEmit</code>, <code>biome ci</code>, <code>pnpm vitest run</code> (103), <code>pnpm build</code>, <code>pnpm test:e2e</code> (17 passed, 2 storage-skipped; the lateral-glide and motion regressions still hold); tight-crop screenshots of the idle stance and a five-frame surface walk showing the legs stride.</dd>
+      <dt>Assumptions</dt><dd>"legs" replaces the treads rather than adding legs over them; the bot keeps its compact silhouette and the stride is a depth-swing read from the bot's 3/4 facing.</dd>
+      <dt>GDD coverage</dt><dd>no row changes (presentation polish under REQ-004); build-log entry on 06.</dd>
+      <dt>Followups</dt><dd>none new. Also records the post-merge production confirmation pass for PRs #61 and #62 in <code>docs/FUN_FACTOR_AUDIT.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-sheet-dismiss" data-date="2026-06-12">
     <h3>Stall Sheet Dismissal (Swipe-Down and Close Button)</h3>
     <dl>

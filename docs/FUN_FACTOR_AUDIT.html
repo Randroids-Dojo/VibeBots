@@ -86,6 +86,17 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-13" data-audit-state="building-and-dismiss-confirmation">
+    <h3>Confirmation 2026-06-13 (distinct shop buildings and sheet dismissal live: PRs #61, #62)</h3>
+    <p>Source: scripted production probes at phone viewport (screenshots <code>captures/dismiss-01-open.png</code>, <code>captures/dismiss-02-closed.png</code>, <code>captures/dismiss-03-swiped.png</code>), plus the player's own on-device Android screenshot of the village.</p>
+    <ul>
+      <li><strong>PR #61 confirmed live:</strong> each village stall now reads as its own structure on production (the derrick winch tower, the columned stone assay bank, the awning depot, the forge-lit outfitter, and the warp arch), set back behind the boardwalk so the miner walks in front of the facades instead of clipping them. Confirmed both by the scripted walk past all five stalls and by the player's own production screenshot.</li>
+      <li><strong>PR #62 close button confirmed live:</strong> the Supply Depot sheet closes in place via the header button while the miner stays on the column (depth held at 0), and stepping off and back reopens the shop. No walk-away is needed to dismiss.</li>
+      <li><strong>PR #62 swipe-down confirmed live:</strong> a downward drag on the sheet handle moved its top from y 313 to y 463 (the sheet follows the finger) and dismissed on release past the threshold; a sub-threshold tug snaps back. Verified by direct production drag, not just the local e2e.</li>
+      <li>Zero console errors across the probes.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-12" data-audit-state="shop-polish-confirmation">
     <h3>Confirmation 2026-06-12 (mobile shop sheets live: PR #59)</h3>
     <p>Source: scripted production probe at phone viewport (screenshot <code>captures/shop-prod-01.png</code>).</p>

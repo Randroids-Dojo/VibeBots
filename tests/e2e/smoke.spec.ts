@@ -275,6 +275,43 @@ test.describe("phone viewport", () => {
     expect(Buffer.compare(before, after)).not.toBe(0);
   });
 
+  test("walking the surface shop row stays responsive", async ({ page }) => {
+    await page.goto("/mine");
+    const status = page.getByLabel("Mine status");
+    const canvas = page.locator("canvas");
+    await expect(status).toHaveAttribute("data-depth", "0");
+    await page.waitForTimeout(800);
+
+    // Walk left across the shops (winch is five columns out) and confirm
+    // the camera actually tracks the whole way: the static village (no
+    // per-step reconciliation) must not stall input. Absolute frame time
+    // is not asserted here, since CI's software renderer is far slower
+    // than any device; data-frame-ms exists for manual perf probing.
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForTimeout(90);
+    }
+    await expect
+      .poll(async () => Number(await canvas.getAttribute("data-cam-x")), {
+        timeout: 5_000,
+      })
+      .toBeLessThan(-3);
+    // The frame-time stat is wired up (a real number, not NaN/absent).
+    expect(Number(await canvas.getAttribute("data-frame-ms"))).toBeGreaterThan(
+      0,
+    );
+    // Walking back the other way still tracks, so input never wedged.
+    for (let i = 0; i < 10; i++) {
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(90);
+    }
+    await expect
+      .poll(async () => Number(await canvas.getAttribute("data-cam-x")), {
+        timeout: 5_000,
+      })
+      .toBeGreaterThan(0);
+  });
+
   test("a downward drag on the sheet handle dismisses it", async ({ page }) => {
     await page.goto("/mine");
     const status = page.getByLabel("Mine status");

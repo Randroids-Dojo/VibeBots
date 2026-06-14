@@ -86,6 +86,17 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-06-13" data-audit-state="legs-speed-prompt-perf-confirmation">
+    <h3>Confirmation 2026-06-13 (legs, slower walk, tap-to-open shops, and the surface stutter fix live: PRs #63, #64, #65)</h3>
+    <p>Source: a scripted production probe at phone viewport (screenshots <code>captures/perf-prod-01-village.png</code>, <code>captures/prompt-prod-01-onstall.png</code>, <code>captures/prompt-prod-02-opened.png</code>).</p>
+    <ul>
+      <li><strong>PR #63 confirmed live:</strong> the miner walks on articulated legs, not static treads. Two frames straddling a single step differ, so the walk cycle animates on production.</li>
+      <li><strong>PR #64 confirmed live:</strong> standing on the Supply Depot no longer auto-opens the menu; the labelled prompt button appears instead and a tap opens the sheet. Walk speed is the halved cadence.</li>
+      <li><strong>PR #65 confirmed live:</strong> the surface stutter is gone. Walking back and forth across the whole shop row held a flat smoothed frame time (avg 19.9ms, max 20.7ms): the static village no longer reconciles per step. The screenshot caught the bot mid-stride past the assay bank.</li>
+      <li>Zero console errors across the probe.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-13" data-audit-state="building-and-dismiss-confirmation">
     <h3>Confirmation 2026-06-13 (distinct shop buildings and sheet dismissal live: PRs #61, #62)</h3>
     <p>Source: scripted production probes at phone viewport (screenshots <code>captures/dismiss-01-open.png</code>, <code>captures/dismiss-02-closed.png</code>, <code>captures/dismiss-03-swiped.png</code>), plus the player's own on-device Android screenshot of the village.</p>

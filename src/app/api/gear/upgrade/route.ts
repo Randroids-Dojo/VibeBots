@@ -75,7 +75,7 @@ export async function POST(request: Request): Promise<Response> {
   const rows = upgraded as Array<{ emeralds: number; level: number }>;
   if (rows.length === 0) {
     return Response.json(
-      { error: "not enough credits (or already upgraded)" },
+      { error: "not enough vibes (or already upgraded)" },
       { status: 409 },
     );
   }

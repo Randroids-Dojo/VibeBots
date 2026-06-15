@@ -70,23 +70,6 @@
     </dl>
   </section>
 
-  <section data-q="Q-005" data-status="open">
-    <h3>Q-005: Currency naming vs emerald the ore</h3>
-    <dl>
-      <dt>Context</dt><dd>The wallet currency is currently called emeralds and emerald is the only ore. The ore-tier design (REQ-011) makes emerald one mid-tier ore among seven, so "bank emeralds into an emerald balance" becomes ambiguous.</dd>
-      <dt>Options</dt><dd>
-        <ol type="A">
-          <li>Display currency becomes "credits"; ores carry credit values and convert at banking; the players.emeralds DB column stays as-is (implementation detail).</li>
-          <li>Emerald stays the literal currency: emerald ore banks 1:1 and every other ore converts into emeralds.</li>
-          <li>Full rename including a DB column migration to credits.</li>
-        </ol>
-      </dd>
-      <dt>Recommended default</dt><dd>A. Players see one coherent currency, no migration risk, and the emerald ore keeps its identity; the column rename can ride a future schema migration if it ever matters.</dd>
-      <dt>Status</dt><dd>open</dd>
-      <dt>Resolution</dt><dd>(filled in once dev confirms or overrides)</dd>
-    </dl>
-  </section>
-
   <section data-q="Q-006" data-status="open">
     <h3>Q-006: Trip log format for multi-hit blocks and consumables</h3>
     <dl>
@@ -187,6 +170,23 @@
 
 <aside id="resolved">
   <h2>Resolved</h2>
+
+  <section data-q="Q-005" data-status="resolved">
+    <h3>Q-005: Currency naming vs emerald the ore</h3>
+    <dl>
+      <dt>Context</dt><dd>The wallet currency is currently called emeralds and emerald is the only ore. The ore-tier design (REQ-011) makes emerald one mid-tier ore among seven, so "bank emeralds into an emerald balance" becomes ambiguous.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Display currency becomes "credits"; ores carry credit values and convert at banking; the players.emeralds DB column stays as-is (implementation detail).</li>
+          <li>Emerald stays the literal currency: emerald ore banks 1:1 and every other ore converts into emeralds.</li>
+          <li>Full rename including a DB column migration to credits.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. Players see one coherent currency, no migration risk, and the emerald ore keeps its identity; the column rename can ride a future schema migration if it ever matters.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>2026-06-15 (user-directed via remote control): option A's shape, with the display name set to "Vibe-Brainiums" ("vibes" for short) instead of "credits". The player-facing label across the mine HUD and Part Shop is now vibes; the <code>players.emeralds</code> DB column and the internal <code>credits</code>/<code>bankedCredits</code> fields stay as implementation details, so no migration and no sim-version bump. The emerald ore keeps its own identity.</dd>
+    </dl>
+  </section>
 
   <section data-q="Q-004" data-status="resolved">
     <h3>Q-004: Mining presentation</h3>

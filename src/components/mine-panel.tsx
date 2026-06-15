@@ -182,7 +182,7 @@ function JuiceOverlays() {
       const id = nextId.current++;
       setFloats((prev) => [
         ...prev.slice(-4),
-        { id, text: `+${ore.value} cr`, color: "#54e0c7" },
+        { id, text: `+${ore.value} vibes`, color: "#54e0c7" },
       ]);
       setTimeout(
         () => setFloats((prev) => prev.filter((f) => f.id !== id)),
@@ -288,7 +288,7 @@ function JuiceOverlays() {
             </p>
             <p style={{ margin: "10px 0 0", fontSize: "0.95rem" }}>
               {wreck.value > 0 || wreck.parts > 0
-                ? `The cargo stayed below: ${wreck.value} cr${wreck.parts > 0 ? ` and ${wreck.parts} part${wreck.parts > 1 ? "s" : ""}` : ""}.`
+                ? `The cargo stayed below: ${wreck.value} vibes${wreck.parts > 0 ? ` and ${wreck.parts} part${wreck.parts > 1 ? "s" : ""}` : ""}.`
                 : "At least the hold was empty."}
             </p>
             {wreck.nearMiss && (
@@ -570,7 +570,7 @@ function StallMenu({
             whiteSpace: "nowrap",
           }}
         >
-          {offline ? "offline" : `\u{1F4B0} ${balance} cr`}
+          {offline ? "offline" : `\u{1F4B0} ${balance} vibes`}
         </span>
         <button
           type="button"
@@ -602,7 +602,7 @@ function StallMenu({
           <>
             <SheetRow
               icon={"\u{1F4B0}"}
-              name={`${banked} cr on the books`}
+              name={`${banked} vibes on the books`}
               sub={
                 bankedParts > 0
                   ? `plus ${bankedParts} part${bankedParts > 1 ? "s" : ""} for the workshop`
@@ -663,7 +663,7 @@ function StallMenu({
                     disabled={!affordable}
                     style={sheetButtonStyle(affordable)}
                   >
-                    {price} cr
+                    {price} vibes
                   </button>
                 }
               />
@@ -702,7 +702,7 @@ function StallMenu({
                       disabled={!affordable}
                       style={sheetButtonStyle(affordable)}
                     >
-                      {price} cr
+                      {price} vibes
                     </button>
                   )
                 }
@@ -746,7 +746,7 @@ function StallMenu({
                 {elevatorSegmentPrice(
                   gear.elevator / ELEVATOR_SEGMENT_ROWS + 1,
                 )}{" "}
-                cr
+                vibes
               </button>
             }
           />
@@ -958,7 +958,7 @@ export function MinePanel() {
                     : undefined;
   const cashNote =
     cashOut.state === "done"
-      ? `Vaulted ${cashOut.credits} cr${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. The claim stands.`
+      ? `Vaulted ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. The claim stands.`
       : cashOut.state === "unavailable"
         ? "Vault unreachable; loot is safe, try again."
         : cashOut.state === "error"
@@ -1090,14 +1090,14 @@ export function MinePanel() {
           </span>
           {(carryValue > 0 || miner.carriedParts.length > 0) && (
             <span style={{ ...chipStyle, color: "#f5c542" }}>
-              &#128176; {carryValue} cr
+              &#128176; {carryValue} vibes
               {miner.carriedParts.length > 0 &&
                 ` +${miner.carriedParts.length}p`}
             </span>
           )}
           {(miner.bankedCredits > 0 || miner.bankedParts.length > 0) && (
             <span style={{ ...chipStyle, color: "#f5c542" }}>
-              &#127974; {miner.bankedCredits} cr
+              &#127974; {miner.bankedCredits} vibes
               {miner.bankedParts.length > 0 && ` +${miner.bankedParts.length}p`}
             </span>
           )}

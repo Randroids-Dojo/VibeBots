@@ -143,7 +143,7 @@ export function ShopPanel() {
   return (
     <section style={panelStyle} aria-label="Part shop">
       <p style={{ margin: "0 0 12px", fontSize: "0.95rem" }}>
-        balance: <strong>{data.emeralds}</strong> cr
+        balance: <strong>{data.emeralds}</strong> vibes
         {notice && (
           <span style={{ marginLeft: 10, opacity: 0.75, fontSize: "0.85rem" }}>
             {notice}
@@ -184,7 +184,7 @@ export function ShopPanel() {
                   disabled={!affordable}
                   style={buyButtonStyle(affordable)}
                 >
-                  {price} cr
+                  {price} vibes
                 </button>
               )}
             </li>
@@ -229,7 +229,7 @@ export function ShopPanel() {
                 disabled={!affordable}
                 style={buyButtonStyle(affordable)}
               >
-                {price} cr
+                {price} vibes
               </button>
             </li>
           );
@@ -266,13 +266,14 @@ export function ShopPanel() {
               disabled={data.emeralds < part.priceEmeralds}
               style={buyButtonStyle(data.emeralds >= part.priceEmeralds)}
             >
-              {part.priceEmeralds} cr
+              {part.priceEmeralds} vibes
             </button>
           </li>
         ))}
       </ul>
       <p style={{ margin: "12px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-        credits come from the mine. Cash out at the surface, then spend here.
+        Vibe-Brainiums come from the mine. Cash out at the surface, then spend
+        here.
       </p>
     </section>
   );

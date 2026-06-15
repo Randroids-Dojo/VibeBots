@@ -36,7 +36,7 @@ export async function POST(): Promise<Response> {
   }>;
   if (updated.length === 0) {
     return Response.json(
-      { error: "not enough credits (or already extended)" },
+      { error: "not enough vibes (or already extended)" },
       { status: 409 },
     );
   }

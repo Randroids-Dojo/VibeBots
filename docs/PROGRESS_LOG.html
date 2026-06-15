@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="vibes-currency-naming" data-date="2026-06-15">
+    <h3>Rename The Mining Currency To Vibe-Brainiums (Vibes)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/vibes-currency-naming</code></dd>
+      <dt>PR</dt><dd>#N (pending)</dd>
+      <dt>Changed</dt><dd>user-directed (remote control): the player-facing mining currency is no longer "credits"/"cr". Prose now reads "Vibe-Brainiums" and every amount is suffixed "vibes" (e.g. "350 vibes"). Updated the mine HUD (carry value, banked, balance chip, floating ore pickups, lost-cargo reveal, cash-out vault toast, depot/outfitter/winch prices) in <code>src/components/mine-panel.tsx</code>, the Part Shop (balance, supply/gear/part prices, footer) in <code>src/components/shop-panel.tsx</code>, the shop page tagline in <code>src/app/shop/page.tsx</code>, and the player-facing "not enough ..." purchase errors in the shop/consumables/gear/elevator API routes. Display-only: the <code>players.emeralds</code> column and the internal <code>credits</code>/<code>bankedCredits</code> fields are unchanged, so there is no DB migration and no <code>MINE_VERSION</code>/<code>SIM_VERSION</code> bump.</dd>
+      <dt>Verification</dt><dd>em-dash/en-dash grep, <code>git diff --check</code>, <code>tsc --noEmit</code>, <code>biome check</code>, mine/rewards unit tests. The two e2e smoke assertions that pinned "2 cr"/"40 cr" were updated to "vibes".</dd>
+      <dt>Assumptions</dt><dd>"the mining part of the game" covers the mine HUD and the Part Shop (where mined currency is spent); combat <code>rewards.ts</code> values feed the same wallet but have no player-facing currency label today, so nothing there changed. Kept the internal/DB names per Q-005's "column is an implementation detail" stance.</dd>
+      <dt>GDD coverage</dt><dd>no coverage rows flipped (terminology change). Resolved Q-005 in <code>docs/OPEN_QUESTIONS.html</code> and added a Build log entry to <code>docs/gdd/06-mining.html</code> plus updated its canonical currency-naming line.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="embedded-claim-cookie" data-date="2026-06-14">
     <h3>Fix No-Claim-On-File When Embedded In A Cross-Site Iframe</h3>
     <dl>

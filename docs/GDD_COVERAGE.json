@@ -239,7 +239,7 @@
     },
     {
       "id": "REQ-015",
-      "requirement": "Deterministic positional hazards (falling boulders with a wobble warning, venting gas pockets that chain) grow with depth.",
+      "requirement": "Deterministic positional hazards (undermined rock and boulders that teeter a few actions then fall, crushing or blocking; venting gas pockets that chain) grow with depth.",
       "gddRef": "docs/gdd/06-mining.html#hazards",
       "status": "done",
       "implementationRefs": [
@@ -250,7 +250,9 @@
       "testRefs": [
         "src/sim/mine.test.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-022"
+      ]
     },
     {
       "id": "REQ-016",

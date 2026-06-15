@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 13;
+export const MINE_VERSION = 14;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -461,8 +461,13 @@ export interface MineCell {
   ore?: OreId;
   /** Set when kind is "rock" (hard gate vs the pickaxe level). */
   rockTier?: number;
-  /** A boulder whose support was dug: it falls on the next action. */
-  wobbling?: boolean;
+  /**
+   * An undermined rock or boulder counting down to its fall (REQ-015):
+   * actions remaining before it drops. Set when its support is dug out,
+   * decremented each action, and the block falls when it reaches zero.
+   * The teeter (escalating tremble) is the tell. Unset means stable.
+   */
+  fallIn?: number;
   /**
    * A deployed ladder (REQ-020), only meaningful on empty cells.
    * Climbing out of this cell is free once placed. Anything that
@@ -638,6 +643,16 @@ export function carryoverConsumables(state: MineState): MineConsumables {
 export const ROCK_FREE_ROWS = 2;
 /** The top rows never roll hazards: the first lesson is gentle. */
 export const HAZARD_FREE_ROWS = 4;
+
+/**
+ * Actions an undermined rock or boulder teeters before it drops
+ * (REQ-015, user-directed 2026-06-14: "rocks fall a few seconds after
+ * the dirt beneath them is mined away"). The delay is counted in player
+ * actions, not wall-clock time, so the trip stays a pure function of
+ * (seed, gear, actions) and the server replay still agrees. A few digs
+ * of escalating tremble give the miner time to clear out or commit.
+ */
+export const FALL_DELAY_ACTIONS = 3;
 
 function rollCell(seed: number, row: number, col: number): MineCell {
   // Depth scaling: rock, treasure, and hazards all grow with depth.
@@ -909,30 +924,32 @@ function ventGasAround(
 }
 
 /**
- * Wobbling boulders drop until they rest on something solid. Returns
- * true when one passed through or landed on the miner (the crew digs
- * you out, the carry stays under the rock). Bottom-up per column so
- * stacked boulders settle onto each other deterministically.
+ * Advances every teetering block's countdown by one action; any that
+ * reach zero drop until they rest on something solid (REQ-015). Returns
+ * true when a dropping block passed through or landed on the miner (the
+ * crew digs you out, the carry stays under the rubble). Bottom-up per
+ * column so stacked blocks settle onto each other deterministically.
  */
-function resolveFalls(
+function tickFalls(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
 ): boolean {
   const miner = state.miner;
   let crushed = false;
-  // Only override cells can wobble (pristine cells never do), so the
-  // scan is bounded by the wobble count; sort bottom-up, then by
-  // column, so stacked boulders settle deterministically regardless of
-  // map insertion order.
-  const wobbling: Array<{ col: number; row: number }> = [];
+  // Only override cells teeter (pristine cells never do), so the scan is
+  // bounded by the teeter count. Decrement every countdown; the ones
+  // that reach zero fall this action. Sort bottom-up, then by column, so
+  // stacked blocks settle deterministically regardless of insertion order.
+  const dropping: Array<{ col: number; row: number; cell: MineCell }> = [];
   for (const [key, cell] of state.cells) {
-    if (cell.kind === "boulder" && cell.wobbling) {
-      const [col, row] = key.split(",").map(Number);
-      wobbling.push({ col, row });
-    }
+    if (cell.fallIn === undefined) continue;
+    cell.fallIn -= 1;
+    if (cell.fallIn > 0) continue;
+    const [col, row] = key.split(",").map(Number);
+    dropping.push({ col, row, cell });
   }
-  wobbling.sort((a, b) => b.row - a.row || a.col - b.col);
-  for (const { col, row } of wobbling) {
+  dropping.sort((a, b) => b.row - a.row || a.col - b.col);
+  for (const { col, row, cell } of dropping) {
     let rest = row;
     while (true) {
       const below = cellAt(state, col, rest + 1);
@@ -942,26 +959,34 @@ function resolveFalls(
     }
     setCell(state, col, row, { kind: "empty" });
     emptied.push({ col, row });
-    setCell(state, col, rest, { kind: "boulder" });
+    // The block relocates intact: a rock keeps its tier gate, a boulder
+    // stays a boulder. The teeter resets and crack damage is shaken off.
+    const placed: MineCell = { kind: cell.kind };
+    if (cell.rockTier !== undefined) placed.rockTier = cell.rockTier;
+    setCell(state, col, rest, placed);
   }
   return crushed;
 }
 
 /**
- * Boulders whose support vanished start wobbling (one-action warning).
+ * Rock and boulders whose support vanished start a fall countdown
+ * (REQ-015): they teeter for FALL_DELAY_ACTIONS actions, then drop.
  * Localized: only cells directly above this action's emptied cells can
- * have lost support.
+ * have lost support. Blocks in the hazard-free top rows never fall, so
+ * the first lesson stays gentle.
  */
-function markWobbling(
+function markUnstable(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
 ): void {
   for (const { col, row } of emptied) {
-    if (row < 2) continue;
-    const above = cellAt(state, col, row - 1);
-    if (above?.kind !== "boulder" || above.wobbling) continue;
+    const blockRow = row - 1;
+    if (blockRow <= HAZARD_FREE_ROWS) continue;
+    const above = cellAt(state, col, blockRow);
+    if (!above || (above.kind !== "rock" && above.kind !== "boulder")) continue;
+    if (above.fallIn !== undefined) continue;
     if (cellAt(state, col, row)?.kind === "empty") {
-      cellMut(state, col, row - 1).wobbling = true;
+      cellMut(state, col, blockRow).fallIn = FALL_DELAY_ACTIONS;
     }
   }
 }
@@ -998,11 +1023,11 @@ export function step(state: MineState, dir: Direction): MoveResult {
     if (remaining > 0) {
       struck.hp = remaining;
       miner.energy = Math.max(0, miner.energy - swingCostFor(struck.kind));
-      // A swing is a full action: wobbling boulders still drop, and the
-      // lamp can still die mid-block.
+      // A swing is a full action: teetering blocks count down and drop,
+      // and the lamp can still die mid-block.
       const emptiedMid: Array<{ col: number; row: number }> = [];
-      const crushedMid = resolveFalls(state, emptiedMid);
-      markWobbling(state, emptiedMid);
+      const crushedMid = tickFalls(state, emptiedMid);
+      markUnstable(state, emptiedMid);
       if (crushedMid || (miner.row > 0 && miner.energy <= 0)) {
         const lost = {
           value: carriedValue(miner),
@@ -1100,8 +1125,8 @@ export function step(state: MineState, dir: Direction): MoveResult {
   miner.row = t.row;
   if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
 
-  const crushed = resolveFalls(state, emptied);
-  markWobbling(state, emptied);
+  const crushed = tickFalls(state, emptied);
+  markUnstable(state, emptied);
 
   let collapsed = false;
   let lost: { value: number; parts: string[]; col: number; row: number };
@@ -1184,8 +1209,8 @@ function blast(state: MineState, dir: Direction): MoveResult {
       blasted++;
     }
   }
-  const crushed = resolveFalls(state, emptied);
-  markWobbling(state, emptied);
+  const crushed = tickFalls(state, emptied);
+  markUnstable(state, emptied);
   let collapsed = false;
   let lost:
     | { value: number; parts: string[]; col: number; row: number }
@@ -1284,8 +1309,8 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
     }
     miner.row = rail;
     if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
-    const crushed = resolveFalls(state, emptied);
-    markWobbling(state, emptied);
+    const crushed = tickFalls(state, emptied);
+    markUnstable(state, emptied);
     if (crushed) {
       const lost = {
         value: carriedValue(miner),

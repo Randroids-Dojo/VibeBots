@@ -283,6 +283,16 @@
     <dt>Resolved</dt><dd>The scene rebuilt around a lamp-lit descent: an articulated robot miner (treads, visor, hard hat, headlamp, swinging pickaxe arm) that faces its walk direction; daylight hands off to the miner's point lamp by depth 14 with fog and a tracked cave backdrop; beveled per-kind blocks (hash-varied dirt, dodecahedron rock tiers, crystal-studded ores, banded cache crates, off-green gas, icosahedron boulders that tremble per frame); bedrock pillars and wall stones frame the claim; the surface gained a night camp (stars, headframe, lanterns, grass) and dust motes drift in the lamp underground. Evidence: scripted screenshots from <code>scripts/playtest-mine-visuals.mjs</code>. PR #27.</dd>
   </dl>
 </section>
+
+<section data-f="F-022" data-priority="polish">
+  <h3>F-022: Falling-rock landing juice and a deep-strata balance pass</h3>
+  <dl>
+    <dt>Context</dt><dd>The falling-rock hazard (REQ-015, PR pending) landed with a teeter tell but no payoff on impact: a dropped rock just appears in its rest cell, with no thud shake, no debris burst, and no sound. Separately, rock is common at depth (up to ~35% of cells), and the action-counted fall plus the gentle-top exemption were chosen as the balance defaults (Q-013) without an on-device playtest, so deep strata could feel either toothless or collapse-prone.</dd>
+    <dt>Blocker (if any)</dt><dd>none; the feature ships functional and deterministic.</dd>
+    <dt>Unblock condition</dt><dd>ready: add a landing beat in <code>mine-canvas.tsx</code> (impact dust + a short screen shake scaled to fall distance, optional pitched thud once mine audio exists), then run a scripted/on-device playtest at 390x760 through the Old Granite and Magma Verge bands to tune <code>FALL_DELAY_ACTIONS</code> and whether every rock or only some should fall. Acceptance: a fall reads as an impact, and a deep trip is tense without feeling unfair.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
 </main>
 
 </body>

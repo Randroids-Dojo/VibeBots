@@ -17,6 +17,7 @@ import { createWebGPU } from "@/components/part-visuals";
 import {
   cellAt,
   ELEVATOR_COL,
+  FALL_DELAY_ACTIONS,
   hitsFor,
   isVisible,
   type OreId,
@@ -71,6 +72,8 @@ const ROCK_COLORS = ["#555e6e", "#46506a", "#3b3550"];
 const CACHE_COLOR = "#f5c542";
 const BOULDER_COLOR = "#8a7f70";
 const BOULDER_WOBBLE_COLOR = "#b59f82";
+/** Warm warning glow on a rock or boulder that is about to drop. */
+const TEETER_EMISSIVE = "#d9863a";
 const GAS_COLOR = "#8fa32e";
 const MAGMA_COLOR = "#ff5a2e";
 
@@ -1486,11 +1489,14 @@ function MineScene() {
       motes.visible = minerRow > 0;
       motes.rotation.z = t * 0.12;
     }
-    // Wobbling boulders tremble every frame, not once per action.
+    // Teetering rock and boulders tremble every frame, harder and faster
+    // the closer they are to dropping (the escalating tell).
     for (const mesh of wobbleRefs.current.values()) {
+      const urgency = (mesh.userData.urgency as number) ?? 1;
       mesh.position.x =
         (mesh.userData.baseX as number) +
-        Math.sin(t * 30 + mesh.userData.baseY) * 0.05;
+        Math.sin(t * (22 + 16 * urgency) + (mesh.userData.baseY as number)) *
+          (0.015 + 0.05 * urgency);
     }
     // Particles: integrate, gravity, expire; positions sync imperatively
     // (creation/removal re-renders on tick).
@@ -1523,6 +1529,22 @@ function MineScene() {
   const bg = STRATA_BG[stratumIndex];
 
   wobbleRefs.current.clear();
+  // Register a teetering block's mesh so useFrame can tremble it; the
+  // urgency (0..1, rising as the countdown nears zero) drives the shake.
+  const teeterRef =
+    (key: string, x: number, y: number, urgency: number) =>
+    (mesh: Mesh | null) => {
+      if (mesh) {
+        mesh.userData.baseX = x;
+        mesh.userData.baseY = y;
+        mesh.userData.urgency = urgency;
+        wobbleRefs.current.set(key, mesh);
+      } else {
+        wobbleRefs.current.delete(key);
+      }
+    };
+  const teeterUrgency = (fallIn: number) =>
+    (FALL_DELAY_ACTIONS - fallIn + 1) / FALL_DELAY_ACTIONS;
   const blockMeshes = [];
   const tunnelMeshes = [];
   const crackMeshes = [];
@@ -1666,6 +1688,8 @@ function MineScene() {
       }
       if (cell.kind === "rock") {
         const tier = Math.min((cell.rockTier ?? 1) - 1, ROCK_COLORS.length - 1);
+        const teeter = cell.fallIn;
+        const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
         blockMeshes.push(
           <mesh
             key={key}
@@ -1675,10 +1699,17 @@ function MineScene() {
               cellHash(col, row, 17) * 3.1,
               cellHash(col, row, 19) * 3.1,
             ]}
+            ref={
+              teeter !== undefined ? teeterRef(key, x, y, urgency) : undefined
+            }
           >
             <dodecahedronGeometry args={[0.62, 0]} />
             <meshStandardMaterial
               color={variedColor(ROCK_COLORS[tier], col, row)}
+              emissive={teeter !== undefined ? TEETER_EMISSIVE : "#000000"}
+              emissiveIntensity={
+                teeter !== undefined ? 0.15 + 0.5 * urgency : 0
+              }
               roughness={0.6}
               metalness={0.15}
               flatShading
@@ -1688,31 +1719,24 @@ function MineScene() {
         continue;
       }
       if (cell.kind === "boulder") {
-        const wobbling = !!cell.wobbling;
+        const teeter = cell.fallIn;
+        const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
         blockMeshes.push(
           <mesh
             key={key}
             position={[x, y, 0]}
             rotation={[0, cellHash(col, row, 29) * 3.1, 0]}
             ref={
-              wobbling
-                ? (mesh: Mesh | null) => {
-                    if (mesh) {
-                      mesh.userData.baseX = x;
-                      mesh.userData.baseY = y;
-                      wobbleRefs.current.set(key, mesh);
-                    } else {
-                      wobbleRefs.current.delete(key);
-                    }
-                  }
-                : undefined
+              teeter !== undefined ? teeterRef(key, x, y, urgency) : undefined
             }
           >
             <icosahedronGeometry args={[0.56, 0]} />
             <meshStandardMaterial
-              color={wobbling ? BOULDER_WOBBLE_COLOR : BOULDER_COLOR}
-              emissive={wobbling ? BOULDER_WOBBLE_COLOR : "#000000"}
-              emissiveIntensity={wobbling ? 0.45 : 0}
+              color={
+                teeter !== undefined ? BOULDER_WOBBLE_COLOR : BOULDER_COLOR
+              }
+              emissive={teeter !== undefined ? TEETER_EMISSIVE : "#000000"}
+              emissiveIntensity={teeter !== undefined ? 0.2 + 0.5 * urgency : 0}
               roughness={0.8}
               flatShading
             />

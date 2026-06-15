@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-013" data-status="open">
+    <h3>Q-013: How literal is "rocks fall a few seconds after the dirt beneath them is mined away"?</h3>
+    <dl>
+      <dt>Context</dt><dd>The falling-rock request says "a few seconds", but the mine sim is turn-based and deterministic: the server replays the action log to credit cash-outs and there is no wall-clock time in it, and the GDD bars reflex-based hazards (REQ-015, one-thumb friendly). A literal real-time timer would break replay parity and turn the hazard reflex-based.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Count the delay in player actions (<code>FALL_DELAY_ACTIONS</code> = 3), with an escalating tremble tell and a hazard-free top zone. Reads as "a few seconds" while actively mining; standing still is always safe; fully deterministic.</li>
+          <li>A real wall-clock timer that drops the rock even when idle. Truer to the wording, but requires weaving time into the sim and the server replay, and makes the hazard reflex-based (against REQ-015).</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A (shipped). It preserves the determinism contract and the no-reflex rule while delivering the felt hazard. Because rock is common at depth, the gentle-top exemption and the escalating tell are the fairness valves; deep-strata fall density is left for an on-device balance pass (<a href="FOLLOWUPS.html#F-022">F-022</a>).</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under default A pending playtest; revisit if falling rock makes deep strata feel collapse-prone or unfair)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-012" data-status="open">
     <h3>Q-012: What does "walk around" the shop buildings mean?</h3>
     <dl>

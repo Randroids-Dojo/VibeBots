@@ -75,4 +75,12 @@ export function playPickaxeClang(): void {
     ring.start(now);
     ring.stop(now + len + 0.02);
   }
+
+  // Oscillators self-release when they stop, but the per-call master gain
+  // and bandpass do not: drop them once the tail (the last-stopping thud)
+  // finishes, so mashing a hard rock can't pile up dead nodes.
+  thud.onended = () => {
+    band.disconnect();
+    out.disconnect();
+  };
 }

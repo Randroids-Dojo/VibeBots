@@ -422,7 +422,7 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   }
   const depot = await openStall(page, "Supply Depot");
   await expect(depot).toContainText("Ladder");
-  await expect(depot).toContainText("2 cr");
+  await expect(depot).toContainText("2 vibes");
 
   // And on to the Outfitter: the four gear tracks.
   for (let i = 0; i < 2; i++) {
@@ -497,7 +497,7 @@ test("the winch tower sells rail and gates rides on it (REQ-028)", async ({
   }
   const winch = await openStall(page, "Winch Tower");
   await expect(winch).toContainText("no rail yet");
-  await expect(winch).toContainText("40 cr");
+  await expect(winch).toContainText("40 vibes");
   // Without rail the ride is disabled; without storage so is the buy.
   await expect(winch.getByRole("button", { name: /Ride down/ })).toBeDisabled();
 });

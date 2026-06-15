@@ -66,7 +66,7 @@ export async function POST(request: Request): Promise<Response> {
     count: number;
   }>;
   if (rows.length === 0) {
-    return Response.json({ error: "not enough credits" }, { status: 409 });
+    return Response.json({ error: "not enough vibes" }, { status: 409 });
   }
   return Response.json({
     item,

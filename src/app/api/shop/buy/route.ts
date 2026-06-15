@@ -46,7 +46,7 @@ export async function POST(request: Request): Promise<Response> {
     )
     SELECT emeralds FROM spent`) as Array<{ emeralds: number }>;
   if (rows.length === 0) {
-    return Response.json({ error: "not enough emeralds" }, { status: 409 });
+    return Response.json({ error: "not enough vibes" }, { status: 409 });
   }
   return Response.json({
     bought: part.id,

@@ -25,6 +25,7 @@ import {
   stratumAt,
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
+import { playPickaxeClang } from "./mine-sfx";
 import { STALLS, type StallDef } from "./mine-stalls";
 
 const ORE_COLORS: Record<OreId, string> = {
@@ -127,11 +128,16 @@ interface JuiceState {
   shake: number;
   /** Seconds left in the pick-swing animation. */
   swing: number;
+  /** Seconds left in the too-hard pick bounce (overrides swing). */
+  bounce: number;
   /** Lateral facing: -1 left, 1 right, 0 camera-facing. */
   facing: number;
   /** Dig lunge: body offset toward the struck cell, decaying. */
   lunge: { x: number; y: number; t: number };
 }
+
+/** Length of the bounce-off animation when the pick can't cut the rock. */
+const BOUNCE_SECONDS = 0.42;
 
 /** World coordinates ARE render coordinates in the endless claim. */
 const cellX = (col: number) => col;
@@ -189,6 +195,33 @@ function spawnSparks(
       size: 0.05 + Math.random() * 0.04,
       color: "#ffe9a8",
       life: 0.14 + Math.random() * 0.16,
+    });
+  }
+}
+
+/**
+ * A cold metallic shower when the pick glances off rock too hard to cut:
+ * steel-white sparks spraying back toward the miner (no rock chips fly,
+ * nothing breaks), keyed cool to read apart from a hot, successful hit.
+ */
+function spawnClang(
+  juice: JuiceState,
+  x: number,
+  y: number,
+  awayX: number,
+  awayY: number,
+): void {
+  for (let i = 0; i < 10; i++) {
+    pushParticle(juice, {
+      kind: "spark",
+      x: x + (Math.random() - 0.5) * 0.3,
+      y: y + (Math.random() - 0.5) * 0.3,
+      vx: awayX * (2 + Math.random() * 3.5) + (Math.random() - 0.5) * 2.4,
+      vy: awayY * (2 + Math.random() * 3.5) + (Math.random() - 0.5) * 2.4 + 0.6,
+      gravity: 13,
+      size: 0.045 + Math.random() * 0.05,
+      color: i % 3 === 0 ? "#fff4cc" : "#cfe1ff",
+      life: 0.12 + Math.random() * 0.16,
     });
   }
 }
@@ -1191,6 +1224,7 @@ function MineScene() {
     nextId: 1,
     shake: 0,
     swing: 0,
+    bounce: 0,
     facing: 0,
     lunge: { x: 0, y: 0, t: 0 },
   });
@@ -1212,6 +1246,24 @@ function MineScene() {
     else if (lastAction === "right" || lastAction === "dynamite-right")
       j.facing = 1;
     else if (lastAction != null) j.facing = 0;
+    // The starter pick glancing off rock it can't cut (REQ "too hard"):
+    // a real swing that bounces back, a thud, a body recoil, and a cold
+    // spark shower, so the wall reads as physically immovable, not just
+    // as a toast. Nothing chips: no debris, no progress.
+    if (lastResult && !lastResult.ok && lastResult.reason === "rock") {
+      const miner = mine.miner;
+      const dc = lastAction === "left" ? -1 : lastAction === "right" ? 1 : 0;
+      const dr = lastAction === "down" ? 1 : lastAction === "up" ? -1 : 0;
+      const sx = cellX(miner.col + dc);
+      const sy = -(miner.row + dr);
+      j.bounce = BOUNCE_SECONDS;
+      // Recoil the body AWAY from the rock: the swing rebounds off it.
+      j.lunge = { x: -dc * 0.14, y: dr * 0.12, t: 0.26 };
+      j.shake = Math.max(j.shake, 0.14);
+      // Sparks fly off the rock face back toward the miner.
+      spawnClang(j, sx, sy, -dc, dr);
+      playPickaxeClang();
+    }
     if (!lastResult?.ok) return;
     const miner = mine.miner;
     const at = lastResult.lost ?? { col: miner.col, row: miner.row };
@@ -1410,8 +1462,23 @@ function MineScene() {
     const arm = pickArmRef.current;
     if (arm) {
       j.swing = Math.max(0, j.swing - delta);
-      const k = j.swing / 0.3;
-      arm.rotation.z = -2.1 * k * k;
+      j.bounce = Math.max(0, j.bounce - delta);
+      if (j.bounce > 0) {
+        // Too-hard rock: the pick slams down then judders back up instead
+        // of biting in. Two phases: a quick slam to impact, then a damped
+        // rebound that kicks past rest and settles.
+        const e = 1 - j.bounce / BOUNCE_SECONDS; // 0 -> 1 elapsed
+        if (e < 0.32) {
+          const p = e / 0.32; // raised to impact
+          arm.rotation.z = -2 * (1 - p) * (1 - p);
+        } else {
+          const p = (e - 0.32) / 0.68; // rebound and settle
+          arm.rotation.z = Math.sin(p * Math.PI) * 0.85 * (1 - p * 0.6);
+        }
+      } else {
+        const k = j.swing / 0.3;
+        arm.rotation.z = -2.1 * k * k;
+      }
     }
     // Lamp-lit dust drifts around the bot underground.
     const motes = motesRef.current;

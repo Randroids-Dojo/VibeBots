@@ -15,6 +15,7 @@ import {
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
   exportDiff,
+  FALL_DELAY_ACTIONS,
   findBeacon,
   GAS_VENT_DRAIN,
   GEAR_TRACKS,
@@ -48,6 +49,7 @@ import {
   strataBonusBetween,
   stratumAt,
   WARP_PAD_COL,
+  type WorldDiff,
   warpRange,
 } from "./mine";
 
@@ -631,51 +633,127 @@ describe("mine", () => {
     expect(before - state.miner.energy).toBeCloseTo(1 + 2 * GAS_VENT_DRAIN, 5);
   });
 
-  it("wobbles an unsupported boulder for one action, then drops it", () => {
-    const state = createMine(43);
-    setCell(state, START_COL, 1, { kind: "dirt" });
-    setCell(state, START_COL, 2, { kind: "dirt" });
-    setCell(state, START_COL - 1, 1, { kind: "boulder" });
-    setCell(state, START_COL - 1, 2, { kind: "dirt" });
-    dig(state, "down"); // miner to (col,1)
-    const side = step(state, "left"); // digs the boulder's support? no:
-    // left digs (col-1,1)... that IS the boulder: blocked.
-    expect(side).toEqual({ ok: false, reason: "blocked" });
-    dig(state, "down"); // miner to (col,2)
-    const dugSupport = dig(state, "left"); // digs (col-1,2), under boulder
-    expect(dugSupport.ok).toBe(true);
-    // The boulder above is wobbling now, falls on the NEXT action
-    // (a cracking swing counts: every swing is an action).
-    expect(cellAt(state, START_COL - 1, 1)?.wobbling).toBe(true);
-    const next = step(state, "left"); // swing further left
-    expect(next.ok).toBe(true);
-    // Boulder fell into the vacated cell at row 2.
-    expect(cellAt(state, START_COL - 1, 1)?.kind).toBe("empty");
-    expect(cellAt(state, START_COL - 1, 2)?.kind).toBe("boulder");
+  it("teeters an undermined boulder, then drops it after a few actions", () => {
+    // Fast pickaxe so the dirt support breaks in a single swing and the
+    // action count after the undermining dig is exact.
+    const state = createMine(43, { ...DEFAULT_GEAR, pickaxe: 4 });
+    const c = START_COL;
+    state.miner.row = 6;
+    state.miner.col = c;
+    setCell(state, c, 6, { kind: "empty" }); // miner stands here
+    setCell(state, c + 1, 6, { kind: "dirt" }); // the boulder's support
+    setCell(state, c + 1, 5, { kind: "boulder" });
+    setCell(state, c + 1, 7, { kind: "dirt" }); // floor: the boulder rests at row 6
+    // An empty corridor to step clear along, each cell floored so the
+    // walk needs no planks.
+    for (let dc = 2; dc <= 4; dc++) {
+      setCell(state, c + dc, 6, { kind: "empty" });
+      setCell(state, c + dc, 7, { kind: "dirt" });
+    }
+    // Dig out the support: the boulder above starts its countdown.
+    const dug = dig(state, "right");
+    expect(dug.ok).toBe(true);
+    expect(state.miner.col).toBe(c + 1);
+    expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS);
+    // Step clear; the countdown ticks one per action with no early drop.
+    expect(step(state, "right").ok).toBe(true); // -> c+2
+    expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS - 1);
+    expect(step(state, "right").ok).toBe(true); // -> c+3
+    expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS - 2);
+    expect(cellAt(state, c + 1, 5)?.kind).toBe("boulder"); // still perched
+    expect(step(state, "right").ok).toBe(true); // -> c+4: the countdown hits zero
+    // The boulder fell into the vacated support cell and rests there.
+    expect(cellAt(state, c + 1, 5)?.kind).toBe("empty");
+    expect(cellAt(state, c + 1, 6)?.kind).toBe("boulder");
   });
 
-  it("crushes the miner who stands under a falling boulder", () => {
+  it("drops an undermined rock onto a lingering miner, crushing them", () => {
+    // Default pickaxe: dirt takes four swings, so chipping a wall keeps
+    // the miner in place under the rock while its countdown runs out.
     const state = createMine(47);
-    setCell(state, START_COL, 1, { kind: "boulder" });
-    setCell(state, START_COL + 1, 1, { kind: "dirt" });
-    setCell(state, START_COL, 2, { kind: "dirt" });
-    setCell(state, START_COL + 1, 2, { kind: "dirt" });
-    // Tunnel around: down the right column, then dig left under the
-    // boulder, ending UNDER it as it wobbles.
-    step(state, "right"); // walk surface to col+1
-    dig(state, "down"); // dig (col+1,1)
-    dig(state, "down"); // dig (col+1,2)
-    const under = dig(state, "left"); // dig (col,2): under the boulder
-    expect(under.ok).toBe(true);
-    expect(cellAt(state, START_COL, 1)?.wobbling).toBe(true);
+    const c = START_COL;
+    state.miner.row = 6;
+    state.miner.col = c;
+    setCell(state, c, 6, { kind: "empty" });
+    setCell(state, c + 1, 6, { kind: "dirt" }); // the rock's support
+    setCell(state, c + 1, 5, { kind: "rock", rockTier: 1 });
+    setCell(state, c + 1, 7, { kind: "dirt" }); // chip-in-place wall below
     state.miner.carried = { coal: 3 };
-    setCell(state, START_COL, 3, { kind: "dirt" });
-    const fatal = step(state, "down"); // one more swing, under the path
+    const dug = dig(state, "right"); // undermine: miner ends at (c+1,6)
+    expect(dug.ok).toBe(true);
+    expect(state.miner.col).toBe(c + 1);
+    expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS);
+    // Chip the floor in place; each swing ticks the countdown.
+    expect(step(state, "down").ok).toBe(true); // fallIn -> 2
+    expect(step(state, "down").ok).toBe(true); // fallIn -> 1
+    const fatal = step(state, "down"); // fallIn -> 0: the rock drops on the miner
     expect(fatal.ok && fatal.crushed).toBe(true);
     expect(fatal.ok && fatal.collapsed).toBe(true);
     expect(state.miner.row).toBe(0);
     expect(carriedCount(state.miner)).toBe(0);
     expect(state.miner.collapses).toBe(1);
+  });
+
+  it("never drops rock in the hazard-free top rows", () => {
+    const state = createMine(103, { ...DEFAULT_GEAR, pickaxe: 4 });
+    const c = START_COL;
+    // A rock at the deepest hazard-free row, sitting on dirt one below.
+    state.miner.row = HAZARD_FREE_ROWS + 1;
+    state.miner.col = c;
+    setCell(state, c, HAZARD_FREE_ROWS + 1, { kind: "empty" });
+    setCell(state, c + 1, HAZARD_FREE_ROWS + 1, { kind: "dirt" }); // support
+    setCell(state, c + 1, HAZARD_FREE_ROWS, { kind: "rock", rockTier: 1 });
+    setCell(state, c + 1, HAZARD_FREE_ROWS + 2, { kind: "dirt" }); // floor
+    const dug = dig(state, "right"); // undermine the gentle-top rock
+    expect(dug.ok).toBe(true);
+    // Inside the gentle top the rock never starts a countdown, so it
+    // never falls: the first lesson stays safe.
+    expect(cellAt(state, c + 1, HAZARD_FREE_ROWS)?.fallIn).toBeUndefined();
+    expect(cellAt(state, c + 1, HAZARD_FREE_ROWS)?.kind).toBe("rock");
+  });
+
+  it("drops an undermined rock deterministically across a replay", () => {
+    const seed = 777;
+    const gear = { ...DEFAULT_GEAR, pickaxe: 4 };
+    const c = START_COL;
+    // Initial world: an empty descent shaft and a rock perched on dirt
+    // that the trip will undermine and drop, with a floored escape corridor.
+    const diff: WorldDiff = [
+      [c, 1, { kind: "empty" }],
+      [c, 2, { kind: "empty" }],
+      [c, 3, { kind: "empty" }],
+      [c, 4, { kind: "empty" }],
+      [c, 5, { kind: "empty" }],
+      [c, 6, { kind: "empty" }],
+      [c + 1, 5, { kind: "rock", rockTier: 1 }],
+      [c + 1, 6, { kind: "dirt" }],
+      [c + 1, 7, { kind: "dirt" }],
+      [c + 2, 6, { kind: "empty" }],
+      [c + 2, 7, { kind: "dirt" }],
+      [c + 3, 6, { kind: "empty" }],
+      [c + 3, 7, { kind: "dirt" }],
+    ];
+    const actions: MineAction[] = [
+      "down",
+      "down",
+      "down",
+      "down",
+      "down",
+      "down", // descend the shaft to row 6
+      "right", // undermine the rock (one swing)
+      "right", // step clear; countdown ticks
+      "right", // countdown ticks
+      "left", // countdown hits zero: the rock drops behind the miner
+    ];
+    const live = createMine(seed, gear, NO_CONSUMABLES, diff);
+    for (const action of actions) applyAction(live, action);
+    // The rock left its perch and rests in the vacated support cell.
+    expect(cellAt(live, c + 1, 5)?.kind).toBe("empty");
+    expect(cellAt(live, c + 1, 6)?.kind).toBe("rock");
+    expect(cellAt(live, c + 1, 6)?.rockTier).toBe(1);
+    // The server replay of the same log lands on the identical world.
+    const replayed = replayTrip(seed, actions, gear, NO_CONSUMABLES, diff);
+    expect(replayed.diff).toEqual(exportDiff(live));
   });
 
   it("dynamite clears a plus including hard rock and is replay-counted", () => {

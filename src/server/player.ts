@@ -46,7 +46,16 @@ export async function getOrCreatePlayerId(): Promise<string> {
   jar.set(COOKIE_NAME, signToken({ playerId }, secret()), {
     httpOnly: true,
     secure: true,
-    sameSite: "lax",
+    // The game runs embedded in a cross-site iframe (VibeCoded.games loads
+    // vibe-bots.vercel.app). A SameSite=Lax cookie is excluded from every
+    // request whose frame ancestry is cross-site, so the player id never
+    // returns and each call mints a fresh player: cash-out then hits "no
+    // claim on file". SameSite=None + Partitioned (CHIPS) keeps the cookie
+    // flowing, partitioned per top-level site, which browsers that block
+    // unpartitioned third-party cookies still accept. Each embedding host
+    // gets its own guest claim, which is fine for guest-first identity.
+    sameSite: "none",
+    partitioned: true,
     maxAge: COOKIE_MAX_AGE_SECONDS,
     path: "/",
   });

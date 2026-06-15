@@ -1108,7 +1108,7 @@ export function MinePanel() {
                 color: lampLow || ladderShort ? "#ff6b6b" : "#8b93a7",
               }}
             >
-              &#11014; {climbCost.toFixed(1)}&#9889; {laddersNeeded}&#129699;
+              &#11014; {climbCost.toFixed(1)}&#9889; {laddersNeeded}&#129692;
             </span>
           )}
         </div>
@@ -1147,7 +1147,7 @@ export function MinePanel() {
             color: ladderShort ? "#ff6b6b" : "#8b93a7",
           }}
         >
-          &#129699; {mine.consumables.ladder}
+          &#129692; {mine.consumables.ladder}
         </span>
         <span style={{ ...chipStyle, color: "#8b93a7" }}>
           &#129717; {mine.consumables.plank}

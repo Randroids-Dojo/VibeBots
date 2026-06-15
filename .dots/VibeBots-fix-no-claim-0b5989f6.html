@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Fix no-claim-on-file when embedded in a cross-site iframe</title>
+<meta name="dot-title" content="Fix no-claim-on-file when embedded in a cross-site iframe">
+<meta name="dot-status" content="active">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-06-14T21:26:03.529084-05:00">
+</head>
+<body>
+<article>
+<h1>Fix no-claim-on-file when embedded in a cross-site iframe</h1>
+<section id="description">
+VibeCoded.games loads vibe-bots.vercel.app in a cross-site iframe. The vb_player cookie was SameSite=Lax, so it was dropped on every request from the iframe and each call minted a fresh player; cash-out then hit &#39;no claim on file&#39;. Switch the cookie to SameSite=None; Secure; Partitioned (CHIPS).
+</section>
+</article>
+</body>
+</html>

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="embedded-claim-cookie" data-date="2026-06-14">
+    <h3>Fix No-Claim-On-File When Embedded In A Cross-Site Iframe</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/embedded-iframe-claim-cookie</code></dd>
+      <dt>PR</dt><dd>#67</dd>
+      <dt>Changed</dt><dd>selling at the Assay Office while the game ran embedded in VibeCoded.games (an iframe loading <code>vibe-bots.vercel.app</code> under a different top-level site) failed with "no claim on file" (user-reported). Root cause: the <code>vb_player</code> identity cookie was <code>SameSite=Lax</code>, which browsers exclude from every request whose frame ancestry is cross-site, including the iframe's own same-origin fetches. With no cookie, <code>getOrCreatePlayerId</code> minted a fresh player on each call, so the cash-out POST ran as a new player with no <code>mine_worlds</code> row. The cookie is now <code>SameSite=None; Secure; Partitioned</code> (CHIPS), so it flows in the embedded context, partitioned per top-level site, which browsers that block unpartitioned third-party cookies still accept. File: <code>src/server/player.ts</code>.</dd>
+      <dt>Verification</dt><dd>dash check, <code>git diff --check</code>, <code>tsc --noEmit</code>, <code>biome check</code> on the changed file. The fix is a cookie attribute change verified by reasoning against the SameSite and CHIPS specs; behavioral proof needs an HTTPS preview embedded cross-site (a <code>Secure</code> cookie will not set over <code>http://localhost</code>).</dd>
+      <dt>Assumptions</dt><dd>identity is partitioned per embedding host: a guest playing standalone and the same guest playing embedded get separate claims, which is consistent with guest-first identity (F-003) and unavoidable given modern browser storage partitioning.</dd>
+      <dt>GDD coverage</dt><dd>no coverage rows flipped; added a Build log entry to <code>docs/gdd/06-mining.html</code> (persistent claim, REQ-026).</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-surface-perf" data-date="2026-06-13">
     <h3>Surface Walk Stutter Fix (Static Village)</h3>
     <dl>

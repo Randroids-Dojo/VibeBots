@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyAction,
   BASE_HITS,
+  blastRadius,
   canDigRock,
   cargoCapacity,
   carriedCount,
@@ -1133,5 +1134,31 @@ describe("mine", () => {
       }
       expect(maxGearLevel(trackDef.track)).toBe(trackDef.prices.length + 1);
     }
+  });
+
+  it("maps the blast gear level to the diamond radius", () => {
+    expect(blastRadius({ ...DEFAULT_GEAR, blast: 1 })).toBe(1);
+    expect(blastRadius({ ...DEFAULT_GEAR, blast: 3 })).toBe(3);
+    // A gear snapshot that predates the track reads as radius 1.
+    const legacy: Partial<typeof DEFAULT_GEAR> = { ...DEFAULT_GEAR };
+    legacy.blast = undefined;
+    expect(blastRadius(legacy as typeof DEFAULT_GEAR)).toBe(1);
+  });
+
+  it("widens the dynamite blast with the blast gear", () => {
+    // Same seed and dig path, only the blast gear differs: the wider
+    // charge clears strictly more solid cells from the same spot.
+    const cons = { dynamite: 1, rope: 0, ladder: 0, plank: 0, beacon: 0 };
+    const small = createMine(401, { ...DEFAULT_GEAR, blast: 1 }, cons);
+    const big = createMine(401, { ...DEFAULT_GEAR, blast: 3 }, cons);
+    for (const s of [small, big]) {
+      for (let i = 0; i < 3; i++) dig(s, "down");
+    }
+    const a = applyAction(small, "dynamite-down");
+    const b = applyAction(big, "dynamite-down");
+    expect(a.ok && b.ok).toBe(true);
+    expect(b.ok && (b.blasted ?? 0)).toBeGreaterThan(
+      a.ok ? (a.blasted ?? 0) : 0,
+    );
   });
 });

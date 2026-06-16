@@ -138,7 +138,8 @@ export interface MineGear {
   /**
    * Dynamite blast radius (Manhattan distance). Absent or 1 is the
    * classic 5-cell plus; each level widens the diamond by one ring.
-   * Uncapped like the elevator, so it lives outside GEAR_TRACKS.
+   * Optional for backward-compat with gear snapshots that predate the
+   * track (read as 1); bought at the outfitter like the other tracks.
    */
   blast?: number;
 }
@@ -171,12 +172,7 @@ export const LANTERN_RADIUS = [3, 5, 7] as const;
 export const CARGO_CAPACITY = [8, 14, 22, 32] as const;
 
 export interface GearTrackDef {
-  /**
-   * Capped, always-present gear tracks only. The blast track is optional
-   * and uncapped, so it lives outside GEAR_TRACKS; excluding it here keeps
-   * gear[def.track] a defined number for the outfitter list.
-   */
-  track: Exclude<keyof MineGear, "blast">;
+  track: keyof MineGear;
   name: string;
   /** prices[i] is the cost to go from level i+1 to level i+2. */
   prices: readonly number[];
@@ -214,6 +210,12 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     name: "Warpcoil",
     prices: [120, 400, 1200],
     blurb: "longer beacon warp range",
+  },
+  {
+    track: "blast",
+    name: "Blast Charge",
+    prices: [250, 1000],
+    blurb: "wider dynamite blast, more loot",
   },
 ];
 

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-blast-upgrade" data-date="2026-06-16">
+    <h3>Buy The Blast Charge In The Outfitter With The Other Gear</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/dynamite-loot-collection</code></dd>
+      <dt>PR</dt><dd>#N (pending)</dd>
+      <dt>Changed</dt><dd>user-directed ("add it with the other upgrade options"): the dynamite blast-radius gear landed earlier without a purchase path (it sat outside <code>GEAR_TRACKS</code> and stayed at level 1). Made <code>blast</code> a capped <code>GEAR_TRACKS</code> entry (Blast Charge, <code>[250, 1000]</code>, max level 3) so it renders and buys through the existing outfitter + <code>buyGearUpgrade</code> machinery, kept the field optional for back-compat (outfitter reads <code>gear[track] ?? 1</code>), and threaded it end to end: a <code>blast_level</code> column (<code>db.ts</code>), the gear read route, a <code>blast</code> case in the gear-upgrade route, and the bank route (schema + ownership check + replay) so cash-out re-sims the same diamond and never under-credits a wider blast. Added a 💥 icon and reverted the earlier <code>Exclude&lt;keyof MineGear, "blast"&gt;</code> stopgap on <code>GearTrackDef.track</code>.</dd>
+      <dt>Verification</dt><dd>em-dash/en-dash grep, <code>tsc --noEmit</code> clean, <code>biome check</code> exit 0, <code>check-sim-purity.sh</code>, full Vitest suite (110 passing). Added sim tests: blast level maps to the diamond radius (and a pre-track snapshot reads as 1), and a wider blast clears strictly more cells than the classic plus. The existing "prices gear tracks superlinearly" test now also covers the Blast Charge entry.</dd>
+      <dt>Assumptions</dt><dd>capped at level 3 (radius 3, a 25-cell diamond) rather than uncapped: an infinite auto-collecting blast would trivialize the dig. Prices <code>[250, 1000]</code> are a first pass, worth a balance look. No <code>MINE_VERSION</code> bump (the blast feature already bumped to 16; making higher levels reachable does not change replay rules). No DB migration beyond the additive <code>blast_level</code> column (default 1).</dd>
+      <dt>GDD coverage</dt><dd>updated the consumables spec line in <code>docs/gdd/06-mining.html</code> (dynamite now collects loot and the blast widens with gear) and appended a Build log entry. No coverage-row status flipped.</dd>
+      <dt>Followups</dt><dd>none. The warpcoil track has the same gap (in <code>GEAR_TRACKS</code> but absent from the gear-upgrade route's enum, so it 400s) and is worth a separate fix.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-free-stock-on-death" data-date="2026-06-15">
     <h3>Free Ladders And Planks Only On Death, Not On Selling Or Giving Up</h3>
     <dl>

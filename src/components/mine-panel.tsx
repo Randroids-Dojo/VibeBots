@@ -414,6 +414,7 @@ const ITEM_ICONS: Record<string, string> = {
   cargo: "\u{1F392}",
   lantern: "\u{1F3EE}",
   warpcoil: "\u{1F300}",
+  blast: "\u{1F4A5}",
 };
 
 /**
@@ -678,7 +679,8 @@ function StallMenu({
       {stall.id === "outfitter" && (
         <div>
           {GEAR_TRACKS.map((def) => {
-            const level = gear[def.track];
+            // blast is optional on gear (absent reads as level 1).
+            const level = gear[def.track] ?? 1;
             const maxed = level >= maxGearLevel(def.track);
             const price = maxed ? null : def.prices[level - 1];
             const affordable =

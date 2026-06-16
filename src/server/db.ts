@@ -45,7 +45,8 @@ async function applySchema(sql: Sql): Promise<void> {
     ADD COLUMN IF NOT EXISTS pickaxe_level integer NOT NULL DEFAULT 1,
     ADD COLUMN IF NOT EXISTS lamp_level integer NOT NULL DEFAULT 1,
     ADD COLUMN IF NOT EXISTS cargo_level integer NOT NULL DEFAULT 1,
-    ADD COLUMN IF NOT EXISTS lantern_level integer NOT NULL DEFAULT 1`;
+    ADD COLUMN IF NOT EXISTS lantern_level integer NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS blast_level integer NOT NULL DEFAULT 1`;
   // Consumables (REQ-016); ladders joined in REQ-020, planks in REQ-022.
   await sql`
     ALTER TABLE players

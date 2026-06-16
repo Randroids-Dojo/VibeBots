@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="app-release-notes" data-date="2026-06-16">
+    <h3>Versioned In-Game Release Notes</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/app-release-notes</code></dd>
+      <dt>PR</dt><dd>#N (pending)</dd>
+      <dt>Changed</dt><dd>Mine players now get a concise dismissible <code>New in VibeBots</code> dialog. The app version is derived server-side at build time as <code>package.version.gitCommitCount</code>, with a Vercel/git-ref fallback when git metadata is unavailable, so every new main commit produces a higher deployed build version. The first note is a single 48-hour backfill shown once to every browser, including first-time players, with a stable note id (<code>2026-06-16-48h-backfill</code>) stored on dismissal so the same backfill does not reappear on later builds. A gear-shaped Settings button in the mine HUD now lets players reopen the same release notes manually after dismissal. The note says: "Last 48 hours: falling rocks, embedded save fixes, Vibe-Brainiums, death-only traversal refills, loot-collecting dynamite upgrades, Warpcoil and Blast Charge buys, elevator speed, and mining SFX."</dd>
+      <dt>Verification</dt><dd>Dependency gate: <code>@randroids-dojo/vibekit</code> latest <code>v0.3.0</code> vs pinned <code>v0.2.0</code> remains deferred to dot <code>VibeBots-bump-vibekit-to-ecbad715</code>; rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code> matched the ledger. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm test</code> (116 passing), <code>pnpm lint</code> (exit 0 with existing warnings in <code>src/app/globals.css</code>, <code>src/components/mine-touch-controls.tsx</code>, and <code>src/sim/mine.ts</code>), <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm check:purity</code>, and a direct Playwright production probe against a fresh <code>next start</code> on port 3001 that confirmed the dialog appears for a fresh browser, shows one "Last 48 hours" note, stores the dismissed note id, stays hidden after reload, then reopens from Settings. The normal targeted Playwright CLI run on port 3000 was discarded because the project config reuses an existing server on that port.</dd>
+      <dt>Assumptions</dt><dd>Commit count is the app build number because main only advances through normal commits; if git metadata is absent at build time, the user still gets a unique ref-based version but not a numeric increment. This backfill is intentionally all-users, not returning-users-only, and it uses a note id rather than the version as the dismissal key so future builds do not replay the same backfill.</dd>
+      <dt>GDD coverage</dt><dd>no coverage row changed; appended a Build log entry to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none for release notes. Existing dependency bump dot <code>VibeBots-bump-vibekit-to-ecbad715</code> remains the next dependency-gate item.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-elevator-speed" data-date="2026-06-16">
     <h3>Make Elevator Rides Non-Instant And Speed-Upgradable</h3>
     <dl>

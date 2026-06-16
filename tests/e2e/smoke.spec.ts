@@ -36,6 +36,14 @@ async function digLateral(
   }
 }
 
+async function dismissReleaseNotes(page: Page): Promise<void> {
+  const dialog = page.getByRole("dialog", { name: "New in VibeBots" });
+  if (await dialog.isVisible().catch(() => false)) {
+    await dialog.getByRole("button", { name: "Got it" }).click();
+  }
+  await expect(dialog).not.toBeVisible();
+}
+
 import { SIM_VERSION } from "../../src/sim/constants";
 import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
 
@@ -108,6 +116,7 @@ test("workshop builds and undoes parts", async ({ page }) => {
 
 test("mine digs and tracks depth and energy", async ({ page }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   await expect(page.locator("canvas")).toBeVisible();
   await expect(
     page.getByLabel("Game sections").getByRole("link", { name: "Arena" }),
@@ -146,10 +155,46 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
 });
 
+test("mine shows the backfilled release note once to a fresh browser", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  const dialog = page.getByRole("dialog", { name: "New in VibeBots" });
+  await expect(dialog).toBeVisible();
+  const version = await dialog.getAttribute("data-app-version");
+  const noteId = await dialog.getAttribute("data-release-note-id");
+  expect(version).toBeTruthy();
+  expect(noteId).toBeTruthy();
+  await expect(dialog.locator("li")).toHaveCount(1);
+  await expect(dialog.locator("li").first()).toContainText("Last 48 hours:");
+
+  await dialog.getByRole("button", { name: "Got it" }).click();
+  await expect(dialog).not.toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("vibebots-release-notes-dismissed-id"),
+    ),
+  ).toBe(noteId);
+
+  await page.reload();
+  await expect(dialog).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Open settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await expect(settings).toBeVisible();
+  await settings.getByRole("button", { name: "Release notes" }).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("li")).toHaveCount(1);
+  await expect(dialog.locator("li").first()).toContainText("Last 48 hours:");
+  await dialog.getByRole("button", { name: "Got it" }).click();
+  await expect(dialog).not.toBeVisible();
+});
+
 test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022)", async ({
   page,
 }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
   // Trips pack 4 free planks.
@@ -173,6 +218,7 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
   page,
 }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
 
@@ -205,6 +251,7 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
   page,
 }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
   const abandon = page.getByRole("button", { name: "Abandon trip" });
@@ -236,6 +283,7 @@ test.describe("phone viewport", () => {
     page,
   }) => {
     await page.goto("/mine");
+    await dismissReleaseNotes(page);
     const hint = page.getByText(/drag anywhere to move/);
     await expect(hint).toBeVisible();
     await expect(hint).not.toContainText("WASD");
@@ -245,6 +293,7 @@ test.describe("phone viewport", () => {
     page,
   }) => {
     await page.goto("/mine");
+    await dismissReleaseNotes(page);
     const status = page.getByLabel("Mine status");
     const canvas = page.locator("canvas");
     await expect(status).toHaveAttribute("data-depth", "0");
@@ -277,6 +326,7 @@ test.describe("phone viewport", () => {
 
   test("walking the surface shop row stays responsive", async ({ page }) => {
     await page.goto("/mine");
+    await dismissReleaseNotes(page);
     const status = page.getByLabel("Mine status");
     const canvas = page.locator("canvas");
     await expect(status).toHaveAttribute("data-depth", "0");
@@ -314,6 +364,7 @@ test.describe("phone viewport", () => {
 
   test("a downward drag on the sheet handle dismisses it", async ({ page }) => {
     await page.goto("/mine");
+    await dismissReleaseNotes(page);
     const status = page.getByLabel("Mine status");
     await expect(status).toHaveAttribute("data-depth", "0");
 
@@ -365,6 +416,7 @@ test.describe("phone viewport", () => {
 
 test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
 
@@ -402,6 +454,7 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   page,
 }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
 
@@ -439,6 +492,7 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
 
 test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
 
@@ -469,6 +523,7 @@ test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
   page,
 }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
 
@@ -488,6 +543,7 @@ test("the winch tower sells rail and gates rides on it (REQ-028)", async ({
   page,
 }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
 
@@ -506,6 +562,7 @@ test("miner stays at depth when walking sideways (lateral teleport regression)",
   page,
 }) => {
   await page.goto("/mine");
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();

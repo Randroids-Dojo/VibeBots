@@ -1,7 +1,9 @@
 import { GameNav } from "@/components/game-nav";
 import { MinePanel } from "@/components/mine-panel";
+import { getAppRelease } from "@/lib/app-release";
 
 export default function MinePage() {
+  const appRelease = getAppRelease();
   return (
     <main>
       {/* Game-first chrome: just the nav, floated clear of the HUD. */}
@@ -15,7 +17,7 @@ export default function MinePage() {
       >
         <GameNav current="/mine" />
       </header>
-      <MinePanel />
+      <MinePanel appRelease={appRelease} />
     </main>
   );
 }

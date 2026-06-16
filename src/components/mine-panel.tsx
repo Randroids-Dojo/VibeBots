@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
+import type { AppRelease } from "@/lib/app-release-types";
 import {
   CONSUMABLE_PRICES,
   cargoCapacity,
@@ -32,6 +33,11 @@ import { type StallDef, stallAt } from "./mine-stalls";
 import { MineTouchControls } from "./mine-touch-controls";
 
 const MineCanvas = dynamic(() => import("./mine-canvas"), { ssr: false });
+
+const RELEASE_LAST_PLAYED_KEY = "vibebots-last-played-app-version";
+const RELEASE_LAST_PLAYED_BUILD_KEY = "vibebots-last-played-app-build";
+const RELEASE_DISMISSED_KEY = "vibebots-release-notes-dismissed-id";
+const RELEASE_PENDING_FROM_BUILD_KEY = "vibebots-release-notes-from-build";
 
 const KEY_DIRECTIONS: Record<string, Direction> = {
   ArrowDown: "down",
@@ -104,6 +110,182 @@ function StratumBanner({ row }: { row: number }) {
       }}
     >
       {banner}
+    </div>
+  );
+}
+
+function storedBuild(key: string): number | null {
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function releaseNoteTexts(release: AppRelease): string[] {
+  const items = release.changes.map((change) => change.text);
+  return items.length > 0 ? items : ["Fresh build deployed."];
+}
+
+function ReleaseNotesPopup({
+  release,
+  manualOpenCount,
+}: {
+  release: AppRelease;
+  manualOpenCount: number;
+}) {
+  const [items, setItems] = useState<string[]>([]);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (manualOpenCount <= 0) return;
+    setItems(releaseNoteTexts(release));
+    setVisible(true);
+  }, [manualOpenCount, release]);
+
+  useEffect(() => {
+    const lastPlayed = localStorage.getItem(RELEASE_LAST_PLAYED_KEY);
+    const dismissed = localStorage.getItem(RELEASE_DISMISSED_KEY);
+    const lastPlayedBuild = storedBuild(RELEASE_LAST_PLAYED_BUILD_KEY);
+    let fromBuild = storedBuild(RELEASE_PENDING_FROM_BUILD_KEY);
+
+    if (lastPlayed && lastPlayed !== release.version) {
+      fromBuild = lastPlayedBuild;
+      if (fromBuild !== null) {
+        localStorage.setItem(RELEASE_PENDING_FROM_BUILD_KEY, String(fromBuild));
+      } else {
+        localStorage.removeItem(RELEASE_PENDING_FROM_BUILD_KEY);
+      }
+    }
+
+    if (lastPlayed !== release.version) {
+      localStorage.setItem(RELEASE_LAST_PLAYED_KEY, release.version);
+      if (release.build !== null) {
+        localStorage.setItem(
+          RELEASE_LAST_PLAYED_BUILD_KEY,
+          String(release.build),
+        );
+      } else {
+        localStorage.removeItem(RELEASE_LAST_PLAYED_BUILD_KEY);
+      }
+    }
+
+    if (dismissed === release.noticeId) return;
+    if (!lastPlayed && !release.showToAll) return;
+
+    const unseen = release.showToAll
+      ? release.changes.map((change) => change.text)
+      : release.changes
+          .filter(
+            (change) =>
+              fromBuild === null ||
+              change.build === null ||
+              change.build > fromBuild,
+          )
+          .slice(0, 4)
+          .map((change) => change.text);
+    setItems(unseen.length > 0 ? unseen : ["Fresh build deployed."]);
+    setVisible(true);
+  }, [release]);
+
+  if (!visible) return null;
+
+  const dismiss = () => {
+    localStorage.setItem(RELEASE_DISMISSED_KEY, release.noticeId);
+    localStorage.removeItem(RELEASE_PENDING_FROM_BUILD_KEY);
+    setVisible(false);
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="release-notes-title"
+      data-app-version={release.version}
+      data-release-note-id={release.noticeId}
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 30,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 18,
+        background: "rgba(5, 8, 13, 0.58)",
+        pointerEvents: "auto",
+      }}
+    >
+      <section
+        style={{
+          width: "min(92vw, 360px)",
+          border: "1px solid #54e0c7",
+          borderRadius: 12,
+          background: "rgba(17, 21, 31, 0.97)",
+          boxShadow: "0 18px 54px rgba(0, 0, 0, 0.52)",
+          color: "#e6e8ee",
+          padding: "16px 18px",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 8,
+          }}
+        >
+          <h2
+            id="release-notes-title"
+            style={{
+              margin: 0,
+              flex: 1,
+              color: "#54e0c7",
+              fontSize: "1.02rem",
+              lineHeight: 1.2,
+            }}
+          >
+            New in VibeBots
+          </h2>
+          <span
+            style={{
+              color: "#8b93a7",
+              fontSize: "0.72rem",
+              fontWeight: 700,
+            }}
+          >
+            v{release.version}
+          </span>
+        </header>
+        <ul
+          style={{
+            margin: "0 0 14px",
+            paddingLeft: 18,
+            color: "#cdd6ea",
+            fontSize: "0.88rem",
+            lineHeight: 1.35,
+          }}
+        >
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={dismiss}
+          style={{
+            width: "100%",
+            minHeight: 42,
+            borderRadius: 10,
+            border: "1px solid #54e0c7",
+            background: "#172b30",
+            color: "#54e0c7",
+            fontWeight: 800,
+            fontSize: "0.9rem",
+            cursor: "pointer",
+          }}
+        >
+          Got it
+        </button>
+      </section>
     </div>
   );
 }
@@ -811,7 +993,7 @@ function StallMenu({
   );
 }
 
-export function MinePanel() {
+export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);
@@ -828,6 +1010,8 @@ export function MinePanel() {
   const buyElevator = useMineStore((s) => s.buyElevator);
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
   const [abandonArmed, setAbandonArmed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
   // The column whose stall sheet is open. Standing on a stall no longer
   // auto-opens it: a prompt button appears and tapping it sets this.
   // Stepping off clears it, so walking by never pops the menu.
@@ -1002,6 +1186,73 @@ export function MinePanel() {
       <MineTouchControls onDirection={act} />
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
+      <ReleaseNotesPopup
+        release={appRelease}
+        manualOpenCount={releaseNotesOpenCount}
+      />
+      <button
+        type="button"
+        aria-label="Open settings"
+        aria-expanded={settingsOpen}
+        onClick={() => setSettingsOpen((open) => !open)}
+        style={{
+          position: "absolute",
+          top: 58,
+          right: 14,
+          zIndex: 7,
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          border: "1px solid #26304a",
+          background: "rgba(17, 21, 31, 0.88)",
+          color: "#e6e8ee",
+          fontSize: "1.12rem",
+          fontWeight: 800,
+          pointerEvents: "auto",
+          cursor: "pointer",
+        }}
+      >
+        &#9881;
+      </button>
+      {settingsOpen && (
+        <section
+          aria-label="Settings"
+          style={{
+            position: "absolute",
+            top: 108,
+            right: 14,
+            zIndex: 7,
+            width: 190,
+            border: "1px solid #26304a",
+            borderRadius: 12,
+            background: "rgba(17, 21, 31, 0.96)",
+            boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42)",
+            padding: 10,
+            color: "#e6e8ee",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen(false);
+              setReleaseNotesOpenCount((count) => count + 1);
+            }}
+            style={{
+              width: "100%",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #54e0c7",
+              background: "#172b30",
+              color: "#54e0c7",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Release notes
+          </button>
+        </section>
+      )}
       {/* Standing on a stall shows a prompt; the menu opens on tap, not
           on walk-by. Tapping again-after-close needs another tap. */}
       {stall && openStallCol !== miner.col && (

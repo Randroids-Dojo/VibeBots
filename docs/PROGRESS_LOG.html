@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="app-release-notes-copy" data-date="2026-06-16">
+    <h3>Rewrite The Initial All-Users Release Notes</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/app-release-notes</code></dd>
+      <dt>PR</dt><dd>N/A (user-directed direct main push)</dd>
+      <dt>Changed</dt><dd>The first all-users <code>New in VibeBots</code> note now uses a friendly feedback opener as a paragraph above the bullets and covers the recent player-facing commits as grouped benefits rather than one terse time-labeled line. The notice id moved to <code>2026-06-16-48h-backfill-v2</code> so the revised initial note is shown once to all users, including players who dismissed the first copy. The popup no longer says "Last 48 hours" and no longer mentions saves. Its bullets now cover falling-rock warnings and rock feedback, mining SFX, Vibe-Brainiums (Vibes), Supply Depot quantity controls and plain labels, the ladder icon fix, cave-in recovery with 8 ladders and 4 planks on the next run, Abandon as the clean exit, loot-collecting dynamite, larger Blast Charge upgrades, working Warpcoil purchases, the current upgrade and investment list (Pickaxe, Lamp Cell, Cargo Hold, Lantern, Elevator Speed, Warpcoil, Blast Charge, Winch Tower rail depth), embedded play reliability, and the Settings release-notes reopen path.</dd>
+      <dt>Verification</dt><dd><code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, and focused Playwright release-note smoke against a clean <code>next start</code> on port 3004 (1 passed).</dd>
+      <dt>Assumptions</dt><dd>Internal cleanup, merge, archive, and confirmation-only commits stay out of the player-facing popup because they do not describe a new play benefit. The revised copy intentionally gets a new stable notice id, then stays dismissed until a later release note gets a newer id.</dd>
+      <dt>GDD coverage</dt><dd>no coverage row changed; appended a Build log entry to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-depot-bulk-and-falling-rocks" data-date="2026-06-16">
     <h3>Depot Bulk Buys And Falling-Rock Clarity</h3>
     <dl>

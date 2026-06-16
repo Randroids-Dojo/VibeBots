@@ -126,6 +126,16 @@ function releaseNoteTexts(release: AppRelease): string[] {
   return items.length > 0 ? items : ["Fresh build deployed."];
 }
 
+function releaseNoteContent(release: AppRelease): {
+  intro: string | null;
+  items: string[];
+} {
+  return {
+    intro: release.intro ?? null,
+    items: releaseNoteTexts(release),
+  };
+}
+
 function ReleaseNotesPopup({
   release,
   manualOpenCount,
@@ -133,12 +143,15 @@ function ReleaseNotesPopup({
   release: AppRelease;
   manualOpenCount: number;
 }) {
-  const [items, setItems] = useState<string[]>([]);
+  const [content, setContent] = useState<{
+    intro: string | null;
+    items: string[];
+  }>({ intro: null, items: [] });
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (manualOpenCount <= 0) return;
-    setItems(releaseNoteTexts(release));
+    setContent(releaseNoteContent(release));
     setVisible(true);
   }, [manualOpenCount, release]);
 
@@ -183,7 +196,10 @@ function ReleaseNotesPopup({
           )
           .slice(0, 4)
           .map((change) => change.text);
-    setItems(unseen.length > 0 ? unseen : ["Fresh build deployed."]);
+    setContent({
+      intro: release.intro ?? null,
+      items: unseen.length > 0 ? unseen : ["Fresh build deployed."],
+    });
     setVisible(true);
   }, [release]);
 
@@ -255,6 +271,18 @@ function ReleaseNotesPopup({
             v{release.version}
           </span>
         </header>
+        {content.intro && (
+          <p
+            style={{
+              margin: "0 0 12px",
+              color: "#dce5f7",
+              fontSize: "0.9rem",
+              lineHeight: 1.35,
+            }}
+          >
+            {content.intro}
+          </p>
+        )}
         <ul
           style={{
             margin: "0 0 14px",
@@ -264,7 +292,7 @@ function ReleaseNotesPopup({
             lineHeight: 1.35,
           }}
         >
-          {items.map((item) => (
+          {content.items.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>

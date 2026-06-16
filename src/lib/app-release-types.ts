@@ -9,5 +9,6 @@ export interface AppRelease {
   build: number | null;
   ref: string;
   showToAll: boolean;
+  intro?: string;
   changes: AppReleaseChange[];
 }

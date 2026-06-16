@@ -165,8 +165,10 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog.locator("li")).toHaveCount(1);
-  await expect(dialog.locator("li").first()).toContainText("Last 48 hours:");
+  await expect(dialog).toContainText("Thanks for the feedback.");
+  await expect(dialog.locator("li")).toHaveCount(6);
+  await expect(dialog.locator("li").first()).toContainText("Falling rocks");
+  await expect(dialog.locator("li").nth(1)).toContainText("Supply Depot");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -184,8 +186,10 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(settings).toBeVisible();
   await settings.getByRole("button", { name: "Release notes" }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator("li")).toHaveCount(1);
-  await expect(dialog.locator("li").first()).toContainText("Last 48 hours:");
+  await expect(dialog).toContainText("Thanks for the feedback.");
+  await expect(dialog.locator("li")).toHaveCount(6);
+  await expect(dialog.locator("li").first()).toContainText("Falling rocks");
+  await expect(dialog.locator("li").nth(1)).toContainText("Supply Depot");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });

@@ -673,6 +673,42 @@ export function carriedCount(miner: MinerState): number {
 }
 
 /**
+ * Pour an ore pile into the hold up to the cargo cap. Returns how many
+ * chunks were taken and whatever overflowed (the caller decides where the
+ * leftover lands). Shared by walk-over pickups and dynamite collection so
+ * the fill-to-cap loop lives in one place; the running count avoids
+ * re-summing the hold on every chunk.
+ */
+function fillHold(
+  state: MineState,
+  pile: Partial<Record<OreId, number>>,
+): {
+  taken: number;
+  dropped: number;
+  leftover: Partial<Record<OreId, number>>;
+} {
+  const miner = state.miner;
+  const cap = cargoCapacity(state.gear);
+  let carried = carriedCount(miner);
+  let taken = 0;
+  let dropped = 0;
+  const leftover: Partial<Record<OreId, number>> = {};
+  for (const [id, n] of Object.entries(pile) as Array<[OreId, number]>) {
+    for (let i = 0; i < n; i++) {
+      if (carried < cap) {
+        miner.carried[id] = (miner.carried[id] ?? 0) + 1;
+        carried++;
+        taken++;
+      } else {
+        leftover[id] = (leftover[id] ?? 0) + 1;
+        dropped++;
+      }
+    }
+  }
+  return { taken, dropped, leftover };
+}
+
+/**
  * Energy needed to climb straight home through a cleared shaft
  * (REQ-017): the trip-back decision should be a real call, not a guess.
  */
@@ -1213,25 +1249,10 @@ export function step(state: MineState, dir: Direction): MoveResult {
   if (miner.row >= 1) {
     const here = state.cells.get(cellKey(t.col, t.row));
     if (here?.drop) {
-      let scooped = 0;
-      const remaining: Partial<Record<OreId, number>> = {};
-      let anyLeft = false;
-      for (const [id, n] of Object.entries(here.drop) as Array<
-        [OreId, number]
-      >) {
-        for (let i = 0; i < n; i++) {
-          if (carriedCount(miner) < cargoCapacity(state.gear)) {
-            miner.carried[id] = (miner.carried[id] ?? 0) + 1;
-            scooped++;
-          } else {
-            remaining[id] = (remaining[id] ?? 0) + 1;
-            anyLeft = true;
-          }
-        }
-      }
-      if (anyLeft) here.drop = remaining;
+      const { taken, dropped, leftover } = fillHold(state, here.drop);
+      if (dropped > 0) here.drop = leftover;
       else delete here.drop;
-      if (scooped > 0) pickedUp = scooped;
+      if (taken > 0) pickedUp = taken;
     }
   }
 
@@ -1323,7 +1344,6 @@ function blast(state: MineState, dir: Direction): MoveResult {
   state.consumables.dynamite--;
   state.used.dynamite++;
   const miner = state.miner;
-  const cap = cargoCapacity(state.gear);
   let blasted = 0;
   let vented = 0;
   let collected = 0;
@@ -1367,21 +1387,10 @@ function blast(state: MineState, dir: Direction): MoveResult {
     blasted++;
     // Fill the hold from the blast centre outward; the overflow stays on
     // the now-empty cell as a floor drop.
-    const leftover: Partial<Record<OreId, number>> = {};
-    let anyLeft = false;
-    for (const [id, n] of Object.entries(pile) as Array<[OreId, number]>) {
-      for (let i = 0; i < n; i++) {
-        if (carriedCount(miner) < cap) {
-          miner.carried[id] = (miner.carried[id] ?? 0) + 1;
-          collected++;
-        } else {
-          leftover[id] = (leftover[id] ?? 0) + 1;
-          dropped++;
-          anyLeft = true;
-        }
-      }
-    }
-    if (anyLeft) cellMut(state, nc, nr).drop = leftover;
+    const { taken, dropped: spilled, leftover } = fillHold(state, pile);
+    collected += taken;
+    dropped += spilled;
+    if (spilled > 0) cellMut(state, nc, nr).drop = leftover;
   }
   const crushed = tickFalls(state, emptied);
   markUnstable(state, emptied);

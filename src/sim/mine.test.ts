@@ -28,6 +28,7 @@ import {
   LANTERN_RADIUS,
   LIGHT_RADIUS,
   type MineAction,
+  type MineConsumables,
   type MineState,
   type MoveResult,
   maxGearLevel,
@@ -60,6 +61,11 @@ function dig(state: MineState, dir: Direction): MoveResult {
   let res = step(state, dir);
   for (let i = 0; i < 8 && res.ok && res.cracked; i++) res = step(state, dir);
   return res;
+}
+
+/** A consumable snapshot with only the named counts set (rest zero). */
+function stock(over: Partial<MineConsumables>): MineConsumables {
+  return { ...NO_CONSUMABLES, ...over };
 }
 
 describe("mine", () => {
@@ -213,7 +219,7 @@ describe("mine", () => {
   });
 
   it("banks carried loot only at the surface and refills energy", () => {
-    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const owned = stock({ ladder: 8 });
     const state = createMine(11, DEFAULT_GEAR, owned);
     dig(state, "down");
     state.miner.carried = { silver: 2, coal: 3 };
@@ -248,7 +254,7 @@ describe("mine", () => {
   });
 
   it("up-moves need a cleared shaft", () => {
-    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const owned = stock({ ladder: 8 });
     const state = createMine(17, DEFAULT_GEAR, owned);
     dig(state, "down");
     dig(state, "left");
@@ -310,7 +316,7 @@ describe("mine", () => {
 
   it("persists the carved world across trips via the diff (REQ-026)", () => {
     const trip1: MineAction[] = ["down", "down", "down", "down", "up", "up"];
-    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const owned = stock({ ladder: 8 });
     const state = createMine(211, DEFAULT_GEAR, owned);
     for (const a of trip1) applyAction(state, a);
     // The dug shaft and its ladders are in the diff...
@@ -549,7 +555,7 @@ describe("mine", () => {
   it("scales lamp energy and bank refill with the lamp level", () => {
     const base = createMine(3);
     expect(base.miner.energy).toBe(LAMP_ENERGY[0]);
-    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const owned = stock({ ladder: 8 });
     const upgraded = createMine(3, { ...DEFAULT_GEAR, lamp: 3 }, owned);
     expect(upgraded.miner.energy).toBe(LAMP_ENERGY[2]);
     dig(upgraded, "down");
@@ -835,7 +841,7 @@ describe("mine", () => {
   });
 
   it("gates climbs on owned ladders and plants them", () => {
-    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const owned = stock({ ladder: 8 });
     const state = createMine(71, DEFAULT_GEAR, owned);
     // Trips no longer ship free ladders: the stock is what was bought.
     expect(state.consumables.ladder).toBe(8);
@@ -855,7 +861,7 @@ describe("mine", () => {
   });
 
   it("refills ladders and planks up to the floor on death", () => {
-    const owned = { dynamite: 0, rope: 0, ladder: 2, plank: 1, beacon: 0 };
+    const owned = stock({ ladder: 2, plank: 1 });
     const state = createMine(91, DEFAULT_GEAR, owned);
     expect(state.consumables.ladder).toBe(2);
     expect(state.consumables.plank).toBe(1);
@@ -877,7 +883,7 @@ describe("mine", () => {
   });
 
   it("grants no free stock when the miner gives up", () => {
-    const owned = { dynamite: 0, rope: 0, ladder: 2, plank: 1, beacon: 0 };
+    const owned = stock({ ladder: 2, plank: 1 });
     const state = createMine(93, DEFAULT_GEAR, owned);
     dig(state, "down");
     const ab = applyAction(state, "abandon");
@@ -899,7 +905,7 @@ describe("mine", () => {
   });
 
   it("prices the ladder budget for the climb home", () => {
-    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const owned = stock({ ladder: 8 });
     const state = createMine(79, DEFAULT_GEAR, owned);
     for (let i = 0; i < 4; i++) dig(state, "down");
     expect(returnLadderNeed(state)).toBe(state.miner.row);
@@ -911,7 +917,7 @@ describe("mine", () => {
   });
 
   it("banks only purchased ladders between trips", () => {
-    const owned = { dynamite: 0, rope: 0, ladder: 3, plank: 0, beacon: 0 };
+    const owned = stock({ ladder: 3 });
     const state = createMine(83, DEFAULT_GEAR, owned);
     // No free provision at the start: the stock is what was bought.
     expect(state.consumables.ladder).toBe(3);
@@ -987,7 +993,7 @@ describe("mine", () => {
 
   it("never spends planks where ladders already support the step", () => {
     // Dig two deep and climb out: ladders planted at (4,2) and (4,1).
-    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 4, beacon: 0 };
+    const owned = stock({ ladder: 8, plank: 4 });
     const state = createMine(131, DEFAULT_GEAR, owned);
     dig(state, "down");
     dig(state, "down");
@@ -1053,7 +1059,7 @@ describe("mine", () => {
     // Free death-rungs only stay free if the server agrees on the grant.
     // Drive a real death from the action log alone (dig straight down with
     // a top pickaxe so nothing blocks, until the lamp burns out below).
-    const owned = { dynamite: 0, rope: 0, ladder: 3, plank: 0, beacon: 0 };
+    const owned = stock({ ladder: 3 });
     const gear = { ...DEFAULT_GEAR, pickaxe: 5 };
     const live = createMine(4, gear, owned);
     const actions: MineAction[] = [];
@@ -1168,7 +1174,7 @@ describe("mine", () => {
   it("widens the dynamite blast with the blast gear", () => {
     // Same seed and dig path, only the blast gear differs: the wider
     // charge clears strictly more solid cells from the same spot.
-    const cons = { dynamite: 1, rope: 0, ladder: 0, plank: 0, beacon: 0 };
+    const cons = stock({ dynamite: 1 });
     const small = createMine(401, { ...DEFAULT_GEAR, blast: 1 }, cons);
     const big = createMine(401, { ...DEFAULT_GEAR, blast: 3 }, cons);
     for (const s of [small, big]) {

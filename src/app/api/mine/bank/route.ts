@@ -119,14 +119,18 @@ export async function POST(request: Request): Promise<Response> {
            beacon_count
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
   const gear = parsed.data.gear;
+  // Every track whose level column is `${track}_level` validates the same
+  // way; blast joins them (absent reads as 1). elevatorSpeed's column is
+  // elevator_speed_level, so it stays a separate check below.
   for (const track of [
     "pickaxe",
     "lamp",
     "cargo",
     "lantern",
     "warpcoil",
+    "blast",
   ] as const) {
-    if (gear[track] > (owned[0]?.[`${track}_level`] ?? 1)) {
+    if ((gear[track] ?? 1) > (owned[0]?.[`${track}_level`] ?? 1)) {
       return Response.json(
         { error: `gear not owned: ${track} level ${gear[track]}` },
         { status: 422 },
@@ -136,12 +140,6 @@ export async function POST(request: Request): Promise<Response> {
   if (gear.elevator > (owned[0]?.elevator_depth ?? 0)) {
     return Response.json(
       { error: `rail not owned: depth ${gear.elevator}` },
-      { status: 422 },
-    );
-  }
-  if ((gear.blast ?? 1) > (owned[0]?.blast_level ?? 1)) {
-    return Response.json(
-      { error: `gear not owned: blast level ${gear.blast}` },
       { status: 422 },
     );
   }

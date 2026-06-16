@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-depot-bulk-and-falling-rocks" data-date="2026-06-16">
+    <h3>Depot Bulk Buys And Falling-Rock Clarity</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/mine-depot-rock-clarity</code></dd>
+      <dt>PR</dt><dd>N/A (user-directed direct main push)</dd>
+      <dt>Changed</dt><dd>User backlog slice: the Supply Depot now separates owned stock from the purchase amount with "have N" badges, adds a quantity selector for x1, x5, and x10 buys, and sends the selected quantity through one atomic consumable purchase route. Falling rocks now drop after two player moves (<code>FALL_DELAY_ACTIONS = 2</code>), and rocks that are teetering or have fallen render as a distinct shard asset instead of the normal pickaxe-gated rock mesh.</dd>
+      <dt>Verification</dt><dd>Dependency gate observed <code>@randroids-dojo/vibekit</code> latest <code>v0.3.0</code> vs ledger pin <code>v0.2.0</code>; left existing dot <code>VibeBots-bump-vibekit-to-ecbad715</code> open and did not bundle it. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm typecheck</code>, <code>pnpm exec vitest run src/sim/mine.test.ts</code> (59 passed), <code>pnpm lint</code> (exit 0 with existing warnings in <code>src/app/globals.css</code> and <code>src/components/mine-touch-controls.tsx</code>), <code>pnpm build</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, and <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3007.config.ts</code> against a clean server on port 3007 (19 passed, 2 storage-gated skips). A normal <code>pnpm test:e2e</code> first reused a stale server already on port 3000 and showed old depot copy, so that result was discarded.</dd>
+      <dt>Assumptions</dt><dd>"buy items at a time" was implemented as quick quantities of 1, 5, and 10 for depot consumables. "Drop rocks after two moves instead of one" is deterministic action-count timing, not wall-clock timing, so replay parity stays intact. A fallen rock remains mechanically a rock with its original tier gate; the new <code>fallen</code> flag is only a render cue.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status flipped. Updated <code>docs/gdd/06-mining.html</code> hazard and Supply Depot spec text and appended a build-log entry there.</dd>
+      <dt>Followups</dt><dd>none. Dot <code>VibeBots-mine-depot-bulk-b79fefdc</code> tracks this slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="app-release-notes" data-date="2026-06-16">
     <h3>Versioned In-Game Release Notes</h3>
     <dl>

@@ -601,6 +601,9 @@ const ITEM_ICONS: Record<string, string> = {
   elevatorSpeed: "\u{1F6D7}",
 };
 
+type DepotItem = "dynamite" | "rope" | "ladder" | "plank" | "beacon";
+const DEPOT_BUY_QUANTITIES = [1, 5, 10] as const;
+
 /**
  * The shop sheet (REQ-021): standing at a stall slides a mobile bottom
  * sheet up over the lower screen, with thumb-sized rows and the wallet
@@ -627,9 +630,7 @@ function StallMenu({
   shopNote: string | null;
   cashOutPending: boolean;
   onCashOut: () => void;
-  onBuyConsumable: (
-    item: "dynamite" | "rope" | "ladder" | "plank" | "beacon",
-  ) => void;
+  onBuyConsumable: (item: DepotItem, quantity: number) => void;
   onBuyGear: (track: keyof MineGear) => void;
   onBuyElevator: () => void;
   onRide: (dir: "ride-down" | "ride-up" | "warp-down" | "warp-home") => void;
@@ -644,6 +645,7 @@ function StallMenu({
   // enough pull (or a flick) closes the sheet. A short tug snaps back.
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [buyQuantity, setBuyQuantity] = useState(1);
   const dragStart = useRef<number | null>(null);
   const dismiss = () => {
     setDragY(0);
@@ -822,6 +824,42 @@ function StallMenu({
         ))}
       {stall.id === "supply" && (
         <div>
+          <fieldset
+            aria-label="Buy quantity"
+            style={{
+              display: "flex",
+              gap: 8,
+              margin: "10px 0 6px",
+              padding: 0,
+              border: 0,
+            }}
+          >
+            {DEPOT_BUY_QUANTITIES.map((quantity) => {
+              const active = buyQuantity === quantity;
+              return (
+                <button
+                  key={quantity}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setBuyQuantity(quantity)}
+                  style={{
+                    border: active ? "1px solid #54e0c7" : "1px solid #2c3a5c",
+                    background: active
+                      ? "rgba(84, 224, 199, 0.16)"
+                      : "rgba(38, 48, 74, 0.55)",
+                    color: active ? "#54e0c7" : "#cdd6ea",
+                    borderRadius: 10,
+                    minWidth: 48,
+                    minHeight: 34,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  x{quantity}
+                </button>
+              );
+            })}
+          </fieldset>
           {(
             [
               ["dynamite", "Dynamite", "blasts a plus through anything"],
@@ -832,22 +870,23 @@ function StallMenu({
             ] as const
           ).map(([item, name, blurb]) => {
             const price = CONSUMABLE_PRICES[item];
-            const affordable = balance !== null && balance >= price;
+            const totalPrice = price * buyQuantity;
+            const affordable = balance !== null && balance >= totalPrice;
             return (
               <SheetRow
                 key={item}
                 icon={ITEM_ICONS[item]}
                 name={name}
                 sub={blurb}
-                badge={`x${mine.consumables[item]}`}
+                badge={`have ${mine.consumables[item]}`}
                 action={
                   <button
                     type="button"
-                    onClick={() => onBuyConsumable(item)}
+                    onClick={() => onBuyConsumable(item, buyQuantity)}
                     disabled={!affordable}
-                    style={sheetButtonStyle(affordable)}
+                    style={{ ...sheetButtonStyle(affordable), minWidth: 124 }}
                   >
-                    {price} vibes
+                    Buy {buyQuantity} for {totalPrice} vibes
                   </button>
                 }
               />
@@ -1294,7 +1333,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           shopNote={shopNote}
           cashOutPending={cashOut.state === "pending"}
           onCashOut={() => void submitCashOut()}
-          onBuyConsumable={(item) => void buyConsumable(item)}
+          onBuyConsumable={(item, quantity) =>
+            void buyConsumable(item, quantity)
+          }
           onBuyGear={(track) => void buyGearUpgrade(track)}
           onBuyElevator={() => void buyElevator()}
           onRide={(dir) => move(dir)}

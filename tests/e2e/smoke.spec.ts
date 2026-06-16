@@ -475,7 +475,10 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   }
   const depot = await openStall(page, "Supply Depot");
   await expect(depot).toContainText("Ladder");
-  await expect(depot).toContainText("2 vibes");
+  await expect(depot).toContainText("have");
+  await expect(depot).toContainText("Buy 1 for 2 vibes");
+  await depot.getByRole("button", { name: "x5" }).click();
+  await expect(depot).toContainText("Buy 5 for 10 vibes");
 
   // And on to the Upgrades stall: the four gear tracks.
   for (let i = 0; i < 2; i++) {

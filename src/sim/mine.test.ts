@@ -665,7 +665,7 @@ describe("mine", () => {
     expect(before - state.miner.energy).toBeCloseTo(1 + 2 * GAS_VENT_DRAIN, 5);
   });
 
-  it("teeters an undermined boulder, then drops it after a few actions", () => {
+  it("teeters an undermined boulder, then drops it after two moves", () => {
     // Fast pickaxe so the dirt support breaks in a single swing and the
     // action count after the undermining dig is exact.
     const state = createMine(43, { ...DEFAULT_GEAR, pickaxe: 4 });
@@ -690,10 +690,8 @@ describe("mine", () => {
     // Step clear; the countdown ticks one per action with no early drop.
     expect(step(state, "right").ok).toBe(true); // -> c+2
     expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS - 1);
-    expect(step(state, "right").ok).toBe(true); // -> c+3
-    expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS - 2);
     expect(cellAt(state, c + 1, 5)?.kind).toBe("boulder"); // still perched
-    expect(step(state, "right").ok).toBe(true); // -> c+4: the countdown hits zero
+    expect(step(state, "right").ok).toBe(true); // -> c+3: the countdown hits zero
     // The boulder fell into the vacated support cell and rests there.
     expect(cellAt(state, c + 1, 5)?.kind).toBe("empty");
     expect(cellAt(state, c + 1, 6)?.kind).toBe("boulder");
@@ -716,7 +714,6 @@ describe("mine", () => {
     expect(state.miner.col).toBe(c + 1);
     expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS);
     // Chip the floor in place; each swing ticks the countdown.
-    expect(step(state, "down").ok).toBe(true); // fallIn -> 2
     expect(step(state, "down").ok).toBe(true); // fallIn -> 1
     const fatal = step(state, "down"); // fallIn -> 0: the rock drops on the miner
     expect(fatal.ok && fatal.crushed).toBe(true);
@@ -774,8 +771,7 @@ describe("mine", () => {
       "down", // descend the shaft to row 6
       "right", // undermine the rock (one swing)
       "right", // step clear; countdown ticks
-      "right", // countdown ticks
-      "left", // countdown hits zero: the rock drops behind the miner
+      "right", // countdown hits zero: the rock drops behind the miner
     ];
     const live = createMine(seed, gear, NO_CONSUMABLES, diff);
     for (const action of actions) applyAction(live, action);
@@ -783,6 +779,7 @@ describe("mine", () => {
     expect(cellAt(live, c + 1, 5)?.kind).toBe("empty");
     expect(cellAt(live, c + 1, 6)?.kind).toBe("rock");
     expect(cellAt(live, c + 1, 6)?.rockTier).toBe(1);
+    expect(cellAt(live, c + 1, 6)?.fallen).toBe(true);
     // The server replay of the same log lands on the identical world.
     const replayed = replayTrip(seed, actions, gear, NO_CONSUMABLES, diff);
     expect(replayed.diff).toEqual(exportDiff(live));

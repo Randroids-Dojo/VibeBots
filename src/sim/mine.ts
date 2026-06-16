@@ -545,6 +545,8 @@ export interface MineCell {
    * cells; never stored empty.
    */
   drop?: Partial<Record<OreId, number>>;
+  /** A rock that entered the falling-rock hazard system. Render-layer cue. */
+  fallen?: boolean;
 }
 
 /**
@@ -759,10 +761,10 @@ export const HAZARD_FREE_ROWS = 4;
  * (REQ-015, user-directed 2026-06-14: "rocks fall a few seconds after
  * the dirt beneath them is mined away"). The delay is counted in player
  * actions, not wall-clock time, so the trip stays a pure function of
- * (seed, gear, actions) and the server replay still agrees. A few digs
+ * (seed, gear, actions) and the server replay still agrees. Two moves
  * of escalating tremble give the miner time to clear out or commit.
  */
-export const FALL_DELAY_ACTIONS = 3;
+export const FALL_DELAY_ACTIONS = 2;
 
 function rollCell(seed: number, row: number, col: number): MineCell {
   // Depth scaling: rock, treasure, and hazards all grow with depth.
@@ -1071,7 +1073,7 @@ function tickFalls(
     let rest = row;
     while (true) {
       const below = cellAt(state, col, rest + 1);
-      if (!below || below.kind !== "empty") break;
+      if (below?.kind !== "empty") break;
       rest++;
       if (miner.col === col && miner.row === rest) crushed = true;
     }
@@ -1081,6 +1083,7 @@ function tickFalls(
     // stays a boulder. The teeter resets and crack damage is shaken off.
     const placed: MineCell = { kind: cell.kind };
     if (cell.rockTier !== undefined) placed.rockTier = cell.rockTier;
+    if (cell.kind === "rock") placed.fallen = true;
     setCell(state, col, rest, placed);
   }
   return crushed;

@@ -114,7 +114,10 @@ export interface MineSessionState {
   loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
   submitCashOut: () => Promise<void>;
-  buyConsumable: (item: keyof MineConsumables) => Promise<void>;
+  buyConsumable: (
+    item: keyof MineConsumables,
+    quantity?: number,
+  ) => Promise<void>;
   buyGearUpgrade: (track: keyof MineGear) => Promise<void>;
   buyElevator: () => Promise<void>;
   restart: (seed?: number) => void;
@@ -377,14 +380,15 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       }
     },
 
-    buyConsumable: async (item) => {
+    buyConsumable: async (item, quantity = 1) => {
       const { cashOut } = get();
       if (cashOut.state === "pending") return;
+      const count = Math.max(1, Math.floor(quantity));
       try {
         const res = await fetch("/api/consumables/buy", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ item }),
+          body: JSON.stringify({ item, quantity: count }),
         });
         if (res.status === 503) {
           set({ shopNote: "the depot ledger is offline; nothing was charged" });
@@ -405,7 +409,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // usable immediately, mid-trip, without losing the dig.
         const { seed: s0, gear, consumables, bought, moves, tick } = get();
         const owned = addConsumables(consumables, bought);
-        owned[item] += 1;
+        owned[item] += count;
         // Replay over the TRIP-START checkpoint, never the live diff:
         // the live diff already contains the moves' effects and the
         // server replays from the checkpoint too.
@@ -416,7 +420,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           consumables: owned,
           bought: NO_CONSUMABLES,
           balance: typeof body.balance === "number" ? body.balance : null,
-          shopNote: `+1 ${item} packed (${body.count} owned)`,
+          shopNote: `+${count} ${item} packed (${body.count} owned)`,
           tick: tick + 1,
         });
       } catch {

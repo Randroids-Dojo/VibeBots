@@ -285,6 +285,48 @@ function OreCrystals({
   return <>{crystals}</>;
 }
 
+function FallingRockShard({
+  col,
+  row,
+  urgency,
+}: {
+  col: number;
+  row: number;
+  urgency: number;
+}) {
+  const tilt = (cellHash(col, row, 83) - 0.5) * 0.7;
+  const glow = urgency > 0 ? 0.2 + 0.55 * urgency : 0.05;
+  return (
+    <group rotation={[0.15, 0, tilt]}>
+      <mesh position={[0, -0.02, 0]} scale={[0.9, 1.08, 0.72]}>
+        <coneGeometry args={[0.48, 0.92, 5]} />
+        <meshStandardMaterial
+          color="#7d4a3c"
+          emissive={TEETER_EMISSIVE}
+          emissiveIntensity={glow}
+          roughness={0.72}
+          metalness={0.08}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[-0.2, 0.2, 0.2]} rotation={[0.7, 0.4, -0.2]}>
+        <coneGeometry args={[0.18, 0.45, 4]} />
+        <meshStandardMaterial
+          color="#a45f43"
+          emissive={TEETER_EMISSIVE}
+          emissiveIntensity={glow * 0.7}
+          roughness={0.7}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[0.22, -0.18, 0.24]} rotation={[-0.5, 0.2, 0.6]}>
+        <boxGeometry args={[0.18, 0.52, 0.2]} />
+        <meshStandardMaterial color="#4d3637" roughness={0.86} flatShading />
+      </mesh>
+    </group>
+  );
+}
+
 /** A buried supply crate: timber box with glowing gold straps. */
 function CacheCrate({ col, row }: { col: number; row: number }) {
   const tilt = (cellHash(col, row, 41) - 0.5) * 0.3;
@@ -1220,7 +1262,7 @@ function MineScene() {
   const hemiRef = useRef<HemisphereLight>(null);
   const dirRef = useRef<DirectionalLight>(null);
   const particlesRef = useRef<Group>(null);
-  const wobbleRefs = useRef<Map<string, Mesh>>(new Map());
+  const wobbleRefs = useRef<Map<string, Group | Mesh>>(new Map());
   const juice = useRef<JuiceState>({
     particles: [],
     nextId: 1,
@@ -1532,7 +1574,7 @@ function MineScene() {
   // urgency (0..1, rising as the countdown nears zero) drives the shake.
   const teeterRef =
     (key: string, x: number, y: number, urgency: number) =>
-    (mesh: Mesh | null) => {
+    (mesh: Group | Mesh | null) => {
       if (mesh) {
         mesh.userData.baseX = x;
         mesh.userData.baseY = y;
@@ -1689,6 +1731,20 @@ function MineScene() {
         const tier = Math.min((cell.rockTier ?? 1) - 1, ROCK_COLORS.length - 1);
         const teeter = cell.fallIn;
         const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
+        if (teeter !== undefined || cell.fallen) {
+          blockMeshes.push(
+            <group
+              key={key}
+              position={[x, y, 0]}
+              ref={
+                teeter !== undefined ? teeterRef(key, x, y, urgency) : undefined
+              }
+            >
+              <FallingRockShard col={col} row={row} urgency={urgency} />
+            </group>,
+          );
+          continue;
+        }
         blockMeshes.push(
           <mesh
             key={key}

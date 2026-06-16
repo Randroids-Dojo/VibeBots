@@ -21,7 +21,7 @@ import {
   GEAR_TRACKS,
   HAZARD_FREE_ROWS,
   isVisible,
-  LADDER_PROVISION,
+  LADDER_RECOVERY_FLOOR,
   LAMP_ENERGY,
   LANTERN_RADIUS,
   LIGHT_RADIUS,
@@ -33,7 +33,7 @@ import {
   ORES,
   oreChanceAt,
   oreDef,
-  PLANK_PROVISION,
+  PLANK_RECOVERY_FLOOR,
   ROCK_DIG_COST,
   ROCK_FREE_ROWS,
   replayTrip,
@@ -211,7 +211,8 @@ describe("mine", () => {
   });
 
   it("banks carried loot only at the surface and refills energy", () => {
-    const state = createMine(11);
+    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const state = createMine(11, DEFAULT_GEAR, owned);
     dig(state, "down");
     state.miner.carried = { silver: 2, coal: 3 };
     const up = step(state, "up");
@@ -245,7 +246,8 @@ describe("mine", () => {
   });
 
   it("up-moves need a cleared shaft", () => {
-    const state = createMine(17);
+    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const state = createMine(17, DEFAULT_GEAR, owned);
     dig(state, "down");
     dig(state, "left");
     dig(state, "down");
@@ -306,19 +308,21 @@ describe("mine", () => {
 
   it("persists the carved world across trips via the diff (REQ-026)", () => {
     const trip1: MineAction[] = ["down", "down", "down", "down", "up", "up"];
-    const state = createMine(211);
+    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const state = createMine(211, DEFAULT_GEAR, owned);
     for (const a of trip1) applyAction(state, a);
     // The dug shaft and its ladders are in the diff...
     const diff = exportDiff(state);
     expect(diff.length).toBeGreaterThan(0);
     // ...and a fresh trip over the diff resumes the same world: the
     // shaft is still dug, the ladder still planted, but the trip state
-    // (energy, provision, log) is fresh.
+    // (energy, stock, log) is fresh.
     const next = createMine(211, DEFAULT_GEAR, NO_CONSUMABLES, diff);
     expect(cellAt(next, START_COL, 1)?.kind).toBe("empty");
     expect(cellAt(next, START_COL, 1)?.ladder).toBe(true);
     expect(next.miner.energy).toBe(START_ENERGY);
-    expect(next.consumables.ladder).toBe(LADDER_PROVISION);
+    // Trips no longer ship free ladders: stock starts at the carried value.
+    expect(next.consumables.ladder).toBe(0);
     // Server-side replay parity holds trip over trip: replaying trip 2
     // on trip 1's checkpoint matches the live client.
     const trip2: MineAction[] = ["down", "left", "left", "left", "abandon"];
@@ -524,7 +528,8 @@ describe("mine", () => {
   it("scales lamp energy and bank refill with the lamp level", () => {
     const base = createMine(3);
     expect(base.miner.energy).toBe(LAMP_ENERGY[0]);
-    const upgraded = createMine(3, { ...DEFAULT_GEAR, lamp: 3 });
+    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const upgraded = createMine(3, { ...DEFAULT_GEAR, lamp: 3 }, owned);
     expect(upgraded.miner.energy).toBe(LAMP_ENERGY[2]);
     dig(upgraded, "down");
     step(upgraded, "up");
@@ -808,22 +813,59 @@ describe("mine", () => {
     });
   });
 
-  it("provisions free ladders per trip and gates climbs on them", () => {
-    const state = createMine(71);
-    expect(state.consumables.ladder).toBe(LADDER_PROVISION);
+  it("gates climbs on owned ladders and plants them", () => {
+    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const state = createMine(71, DEFAULT_GEAR, owned);
+    // Trips no longer ship free ladders: the stock is what was bought.
+    expect(state.consumables.ladder).toBe(8);
     dig(state, "down");
     dig(state, "down");
     const climb = step(state, "up");
     expect(climb.ok && climb.laddered).toBe(true);
-    expect(state.consumables.ladder).toBe(LADDER_PROVISION - 1);
+    expect(state.consumables.ladder).toBe(7);
     expect(state.used.ladder).toBe(1);
     expect(cellAt(state, START_COL, 2)?.ladder).toBe(true);
     // Re-descending and re-climbing the same cell reuses the ladder.
     step(state, "down");
     const reclimb = step(state, "up");
     expect(reclimb.ok && !reclimb.laddered).toBe(true);
-    expect(state.consumables.ladder).toBe(LADDER_PROVISION - 1);
+    expect(state.consumables.ladder).toBe(7);
     expect(state.used.ladder).toBe(1);
+  });
+
+  it("refills ladders and planks up to the floor on death", () => {
+    const owned = { dynamite: 0, rope: 0, ladder: 2, plank: 1, beacon: 0 };
+    const state = createMine(91, DEFAULT_GEAR, owned);
+    expect(state.consumables.ladder).toBe(2);
+    expect(state.consumables.plank).toBe(1);
+    // Drop below ground, then swing with a dead lamp: a death (not a
+    // chosen bail), so the recovery floor tops the stock back up.
+    dig(state, "down");
+    state.miner.energy = 0;
+    const death = step(state, "down");
+    expect(death.ok && death.collapsed && !death.abandoned).toBe(true);
+    expect(state.miner.row).toBe(0);
+    expect(state.consumables.ladder).toBe(LADDER_RECOVERY_FLOOR);
+    expect(state.consumables.plank).toBe(PLANK_RECOVERY_FLOOR);
+    // The free top-up is recorded so cash-out forgives it (not charged).
+    expect(state.granted.ladder).toBe(LADDER_RECOVERY_FLOOR - 2);
+    expect(state.granted.plank).toBe(PLANK_RECOVERY_FLOOR - 1);
+    // Unspent free rungs do not bank: only the purchased stock survives.
+    expect(carryoverConsumables(state).ladder).toBe(2);
+    expect(carryoverConsumables(state).plank).toBe(1);
+  });
+
+  it("grants no free stock when the miner gives up", () => {
+    const owned = { dynamite: 0, rope: 0, ladder: 2, plank: 1, beacon: 0 };
+    const state = createMine(93, DEFAULT_GEAR, owned);
+    dig(state, "down");
+    const ab = applyAction(state, "abandon");
+    expect(ab.ok && ab.abandoned).toBe(true);
+    // Abandoning is a chosen bail: stock and grants stay put.
+    expect(state.consumables.ladder).toBe(2);
+    expect(state.consumables.plank).toBe(1);
+    expect(state.granted.ladder).toBe(0);
+    expect(state.granted.plank).toBe(0);
   });
 
   it("refuses to climb without ladders", () => {
@@ -836,7 +878,8 @@ describe("mine", () => {
   });
 
   it("prices the ladder budget for the climb home", () => {
-    const state = createMine(79);
+    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 0, beacon: 0 };
+    const state = createMine(79, DEFAULT_GEAR, owned);
     for (let i = 0; i < 4; i++) dig(state, "down");
     expect(returnLadderNeed(state)).toBe(state.miner.row);
     step(state, "up");
@@ -849,8 +892,9 @@ describe("mine", () => {
   it("banks only purchased ladders between trips", () => {
     const owned = { dynamite: 0, rope: 0, ladder: 3, plank: 0, beacon: 0 };
     const state = createMine(83, DEFAULT_GEAR, owned);
-    expect(state.consumables.ladder).toBe(3 + LADDER_PROVISION);
-    // Spend two: both come out of the free provision.
+    // No free provision at the start: the stock is what was bought.
+    expect(state.consumables.ladder).toBe(3);
+    // Spend two purchased ladders climbing out and back.
     dig(state, "down");
     dig(state, "down");
     step(state, "up");
@@ -858,10 +902,7 @@ describe("mine", () => {
     dig(state, "down");
     step(state, "up");
     expect(state.used.ladder).toBe(2);
-    expect(carryoverConsumables(state).ladder).toBe(3);
-    // Spend past the provision: purchases start burning.
-    state.used.ladder = LADDER_PROVISION + 2;
-    state.consumables.ladder = 3 + LADDER_PROVISION - state.used.ladder;
+    // Nothing was granted (no death), so the leftover purchased stock banks.
     expect(carryoverConsumables(state).ladder).toBe(1);
     expect(carryoverConsumables(createMine(83)).ladder).toBe(0);
     expect(carryoverConsumables(state)).toEqual({
@@ -885,7 +926,7 @@ describe("mine", () => {
       dynamite: 1,
       rope: 0,
       ladder: 0,
-      plank: 0,
+      plank: 4,
       beacon: 0,
     });
     applyAction(state, "dynamite-down");
@@ -904,7 +945,7 @@ describe("mine", () => {
     expect(state.used.plank).toBe(0);
     const cross = step(state, "right");
     expect(cross.ok && cross.planked).toBe(true);
-    expect(state.consumables.plank).toBe(PLANK_PROVISION - 1);
+    expect(state.consumables.plank).toBe(PLANK_RECOVERY_FLOOR - 1);
     expect(state.used.plank).toBe(1);
     expect(cellAt(state, START_COL, 1)?.plank).toBe(true);
     // Re-crossing the planked cell is free.
@@ -925,7 +966,8 @@ describe("mine", () => {
 
   it("never spends planks where ladders already support the step", () => {
     // Dig two deep and climb out: ladders planted at (4,2) and (4,1).
-    const state = createMine(131);
+    const owned = { dynamite: 0, rope: 0, ladder: 8, plank: 4, beacon: 0 };
+    const state = createMine(131, DEFAULT_GEAR, owned);
     dig(state, "down");
     dig(state, "down");
     step(state, "up");
@@ -939,7 +981,7 @@ describe("mine", () => {
     const cross = step(state, "right");
     expect(cross.ok && !cross.planked).toBe(true);
     expect(state.used.plank).toBe(0);
-    expect(state.consumables.plank).toBe(PLANK_PROVISION);
+    expect(state.consumables.plank).toBe(4);
     // And stepping out again over the ladder top stays free.
     const back = step(state, "left");
     expect(back.ok).toBe(true);
@@ -986,6 +1028,33 @@ describe("mine", () => {
     expect(replayTrip(127, actions)).toEqual(replayed);
   });
 
+  it("replays an action-driven death and its recovery grant", () => {
+    // Free death-rungs only stay free if the server agrees on the grant.
+    // Drive a real death from the action log alone (dig straight down with
+    // a top pickaxe so nothing blocks, until the lamp burns out below).
+    const owned = { dynamite: 0, rope: 0, ladder: 3, plank: 0, beacon: 0 };
+    const gear = { ...DEFAULT_GEAR, pickaxe: 5 };
+    const live = createMine(4, gear, owned);
+    const actions: MineAction[] = [];
+    let collapsed = false;
+    for (let i = 0; i < 2000 && !collapsed; i++) {
+      const r = step(live, "down");
+      if (!r.ok) break;
+      actions.push("down");
+      collapsed = r.collapsed ?? false;
+    }
+    expect(collapsed).toBe(true);
+    expect(live.miner.collapses).toBe(1);
+    // The death topped the ladder stock up to the floor (owned 3 -> 8).
+    expect(live.granted.ladder).toBe(LADDER_RECOVERY_FLOOR - 3);
+    expect(live.used.ladder).toBe(0);
+    // The server replay reproduces the death and the exact free grant, so
+    // cash-out forgives (used - granted) deterministically.
+    const replayed = replayTrip(4, actions, gear, owned);
+    expect(replayed.granted).toEqual(live.granted);
+    expect(replayed.used).toEqual(live.used);
+  });
+
   it("replays plank trips identically", () => {
     const actions: MineAction[] = [
       "dynamite-down",
@@ -999,7 +1068,7 @@ describe("mine", () => {
       dynamite: 1,
       rope: 0,
       ladder: 0,
-      plank: 0,
+      plank: 4,
       beacon: 0,
     };
     const state = createMine(109, DEFAULT_GEAR, consumables);

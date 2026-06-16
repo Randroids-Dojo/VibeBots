@@ -1,5 +1,6 @@
 import { signToken, verifyToken } from "@randroids-dojo/vibekit/server";
 import { cookies } from "next/headers";
+import { LADDER_RECOVERY_FLOOR, PLANK_RECOVERY_FLOOR } from "@/sim/mine";
 import { db } from "./db";
 
 /**
@@ -37,10 +38,16 @@ export async function getOrCreatePlayerId(): Promise<string> {
   const existing = await currentPlayerId();
   if (existing) return existing;
   const sql = await db();
-  const rows =
-    (await sql`INSERT INTO players DEFAULT VALUES RETURNING id`) as Array<{
-      id: string;
-    }>;
+  // One-time starting kit: a fresh player begins with the basic ladder and
+  // plank bundle so the first descent works without a shop visit. It is a
+  // gift at account creation only, not a per-trip grant: once spent it is
+  // bought back at the depot or refilled by dying (see MineState.granted).
+  const rows = (await sql`
+    INSERT INTO players (ladder_count, plank_count)
+    VALUES (${LADDER_RECOVERY_FLOOR}, ${PLANK_RECOVERY_FLOOR})
+    RETURNING id`) as Array<{
+    id: string;
+  }>;
   const playerId = rows[0].id;
   const jar = await cookies();
   jar.set(COOKIE_NAME, signToken({ playerId }, secret()), {

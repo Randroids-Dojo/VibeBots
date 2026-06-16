@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 14;
+export const MINE_VERSION = 16;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -87,19 +87,36 @@ export function addConsumables(
 }
 
 /**
- * Free ladders provisioned at the start of every trip. Climbing is
- * ladder-gated (REQ-020): the provision keeps the gentle top learnable
- * without a shop visit; deep runs budget purchased bundles. Leftover
- * provision does not bank between trips (see carryoverConsumables).
+ * Death-recovery floor for ladders. Trips no longer ship free ladders:
+ * climbing is ladder-gated (REQ-020) and the rungs are bought at the
+ * depot. The one free source is dying in the mine (lamp out or crushed,
+ * not giving up): a death tops the stock back up TO this floor so the
+ * miner can climb out again. Free rungs granted this way do not bank
+ * between trips (see carryoverConsumables) and are not charged at
+ * cash-out (see MineState.granted and the bank route).
  */
-export const LADDER_PROVISION = 8;
+export const LADDER_RECOVERY_FLOOR = 8;
 
 /**
- * Free planks provisioned per trip (REQ-022): lateral steps over a void
- * are plank-gated; gaps are self-made (digs, blasts, vents), so the
- * provision is smaller than the ladder bundle.
+ * Death-recovery floor for planks (REQ-022): lateral steps over a void
+ * are plank-gated. Same rule as ladders, smaller floor: bought at the
+ * depot, refilled up to this count only when the miner dies.
  */
-export const PLANK_PROVISION = 4;
+export const PLANK_RECOVERY_FLOOR = 4;
+
+/**
+ * The one-time starting kit a brand-new player is gifted at account
+ * creation: the basic ladder and plank bundle so the very first descent
+ * works without a shop visit. It is a gift once, not a per-trip grant:
+ * once spent it is bought back at the depot or refilled by dying. The
+ * server seeds it into a new player row; the client mirrors it for a
+ * fresh storage-less session (guest/local dev) where there is no row.
+ */
+export const STARTING_CONSUMABLES: MineConsumables = {
+  ...NO_CONSUMABLES,
+  ladder: LADDER_RECOVERY_FLOOR,
+  plank: PLANK_RECOVERY_FLOOR,
+};
 
 /** Lamp energy burned per gas pocket vented (heat, not shrapnel). */
 export const GAS_VENT_DRAIN = 8;
@@ -118,6 +135,12 @@ export interface MineGear {
   elevator: number;
   /** Warpcoil level (REQ-029): indexes WARP_RANGE. */
   warpcoil: number;
+  /**
+   * Dynamite blast radius (Manhattan distance). Absent or 1 is the
+   * classic 5-cell plus; each level widens the diamond by one ring.
+   * Uncapped like the elevator, so it lives outside GEAR_TRACKS.
+   */
+  blast?: number;
 }
 
 export const DEFAULT_GEAR: MineGear = {
@@ -127,6 +150,7 @@ export const DEFAULT_GEAR: MineGear = {
   lantern: 1,
   elevator: 0,
   warpcoil: 1,
+  blast: 1,
 };
 
 /** The winch tower's column: the elevator runs down this shaft. */
@@ -147,7 +171,12 @@ export const LANTERN_RADIUS = [3, 5, 7] as const;
 export const CARGO_CAPACITY = [8, 14, 22, 32] as const;
 
 export interface GearTrackDef {
-  track: keyof MineGear;
+  /**
+   * Capped, always-present gear tracks only. The blast track is optional
+   * and uncapped, so it lives outside GEAR_TRACKS; excluding it here keeps
+   * gear[def.track] a defined number for the outfitter list.
+   */
+  track: Exclude<keyof MineGear, "blast">;
   name: string;
   /** prices[i] is the cost to go from level i+1 to level i+2. */
   prices: readonly number[];
@@ -487,6 +516,14 @@ export interface MineCell {
   hp?: number;
   /** The active warp beacon stands here (REQ-029); at most one world-wide. */
   beacon?: boolean;
+  /**
+   * Ore lying on the floor of an empty cell: chunks that overflowed a
+   * dynamite blast's cargo hold. Scooped up by walking over the cell once
+   * the hold has room (a partial take leaves the rest as a smaller pile).
+   * A falling block buries it like a ladder. Only meaningful on empty
+   * cells; never stored empty.
+   */
+  drop?: Partial<Record<OreId, number>>;
 }
 
 /**
@@ -532,6 +569,13 @@ export interface MineState {
   consumables: MineConsumables;
   /** Consumables spent this session (server decrements at cash-out). */
   used: MineConsumables;
+  /**
+   * Free recovery stock granted this session by deaths (the top-up to
+   * the recovery floor). Only ladders and planks are ever granted. The
+   * cash-out decrement forgives this much of `used`, and carryover
+   * strips the unspent part, so death rungs cost nothing and never bank.
+   */
+  granted: MineConsumables;
   /**
    * Player mutations over pure generation, keyed "col,row" (Q-010):
    * dug cells, crack damage, ladders, planks, fallen boulders. This
@@ -583,6 +627,14 @@ export function cargoCapacity(gear: MineGear): number {
   return CARGO_CAPACITY[Math.min(gear.cargo, CARGO_CAPACITY.length) - 1];
 }
 
+/**
+ * Dynamite blast radius in cells (Manhattan distance). Level 1 (or
+ * unset) is the classic 5-cell plus; each blast-gear level adds a ring.
+ */
+export function blastRadius(gear: MineGear): number {
+  return Math.max(1, gear.blast ?? 1);
+}
+
 /** Credit value of everything currently carried (the bet on the table). */
 export function carriedValue(miner: MinerState): number {
   let total = 0;
@@ -623,13 +675,14 @@ export function returnLadderNeed(state: MineState): number {
 
 /**
  * Consumables that survive into the next session: purchased stock only.
- * The free ladder provision is per-trip; the pool spends provision
- * first, so the purchased leftover is what remains after subtracting
- * the unspent part of the provision.
+ * Death-granted recovery rungs are free and do not bank, so the unspent
+ * part of what was granted this trip is stripped off. The pool spends
+ * granted stock first (used offsets granted), so whatever granted rungs
+ * were not yet spent get subtracted from the leftover.
  */
 export function carryoverConsumables(state: MineState): MineConsumables {
-  const ladderFree = Math.max(0, LADDER_PROVISION - state.used.ladder);
-  const plankFree = Math.max(0, PLANK_PROVISION - state.used.plank);
+  const ladderFree = Math.max(0, state.granted.ladder - state.used.ladder);
+  const plankFree = Math.max(0, state.granted.plank - state.used.plank);
   return {
     dynamite: state.consumables.dynamite,
     rope: state.consumables.rope,
@@ -702,12 +755,12 @@ export function createMine(
   return {
     seed,
     gear,
-    consumables: {
-      ...consumables,
-      ladder: consumables.ladder + LADDER_PROVISION,
-      plank: consumables.plank + PLANK_PROVISION,
-    },
+    // Trips start with exactly the purchased/carried stock: no free
+    // ladders or planks here anymore. The only free rungs come from
+    // dying (see collapse), which tops the live stock up to the floor.
+    consumables: { ...consumables },
     used: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
+    granted: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     cells: importDiff(diff),
     miner: {
       col: START_COL,
@@ -792,6 +845,14 @@ export type MoveResult =
       vented?: number;
       /** Cells destroyed by a dynamite blast. */
       blasted?: number;
+      /** Ore chunks a dynamite blast collected into the hold. */
+      collected?: number;
+      /** Ore chunks a blast left on the floor because the hold was full. */
+      dropped?: number;
+      /** Parts a dynamite blast cracked out of caches in range. */
+      foundParts?: string[];
+      /** Ore chunks scooped by walking over a floor drop. */
+      pickedUp?: number;
       /** A recall rope ended the trip from below (carry banked). */
       recalled?: boolean;
       /** The trip was voluntarily abandoned (carry forfeited). */
@@ -1035,7 +1096,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
           col: miner.col,
           row: miner.row,
         };
-        collapse(miner, state.gear);
+        collapse(state, true);
         return {
           ok: true,
           dug: null,
@@ -1099,9 +1160,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       miner.carried[cell.ore] = (miner.carried[cell.ore] ?? 0) + 1;
     }
     if (cell.kind === "part-cache") {
-      const table = cachePartIdsAt(t.row);
-      const pick = cellRandom(state.seed, t.row, t.col, 1);
-      found = table[Math.floor(pick * table.length)];
+      found = rollCachePart(state, t.col, t.row);
       miner.carriedParts.push(found);
     }
     setCell(state, t.col, t.row, { kind: "empty" });
@@ -1125,6 +1184,36 @@ export function step(state: MineState, dir: Direction): MoveResult {
   miner.row = t.row;
   if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
 
+  // Walk-over pickup: scoop a floor drop on the entered cell into the
+  // hold, ore up to the cap (a partial take leaves the rest as a smaller
+  // pile). Only stored cells can hold a drop, so a miss never materializes
+  // a pristine cell.
+  let pickedUp: number | undefined;
+  if (miner.row >= 1) {
+    const here = state.cells.get(cellKey(t.col, t.row));
+    if (here?.drop) {
+      let scooped = 0;
+      const remaining: Partial<Record<OreId, number>> = {};
+      let anyLeft = false;
+      for (const [id, n] of Object.entries(here.drop) as Array<
+        [OreId, number]
+      >) {
+        for (let i = 0; i < n; i++) {
+          if (carriedCount(miner) < cargoCapacity(state.gear)) {
+            miner.carried[id] = (miner.carried[id] ?? 0) + 1;
+            scooped++;
+          } else {
+            remaining[id] = (remaining[id] ?? 0) + 1;
+            anyLeft = true;
+          }
+        }
+      }
+      if (anyLeft) here.drop = remaining;
+      else delete here.drop;
+      if (scooped > 0) pickedUp = scooped;
+    }
+  }
+
   const crushed = tickFalls(state, emptied);
   markUnstable(state, emptied);
 
@@ -1137,7 +1226,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       col: miner.col,
       row: miner.row,
     };
-    collapse(miner, state.gear);
+    collapse(state, true);
     collapsed = true;
     return {
       ok: true,
@@ -1165,14 +1254,45 @@ export function step(state: MineState, dir: Direction): MoveResult {
     vented,
     laddered,
     planked,
+    pickedUp,
   };
 }
 
+/** The part a cache at (col,row) yields; deterministic from the seed. */
+function rollCachePart(state: MineState, col: number, row: number): string {
+  const table = cachePartIdsAt(row);
+  const pick = cellRandom(state.seed, row, col, 1);
+  return table[Math.floor(pick * table.length)];
+}
+
 /**
- * Throws dynamite at the adjacent cell in the given direction: a plus
- * blast clears dirt, ore (loot destroyed), any rock tier, and boulders;
- * caught gas chains. Costs one dynamite, no energy; the miner stays put
- * behind cover.
+ * Cell offsets within Manhattan distance r of the blast centre, ordered
+ * centre-out (ring ascending) then by (dr, dc). The order is frozen: the
+ * hold fills along it, so changing it would change which ore overflows
+ * to the floor. r=1 yields the classic 5-cell plus; r=2 -> 13, r=3 -> 25.
+ */
+function diamondOffsets(r: number): ReadonlyArray<readonly [number, number]> {
+  const out: Array<[number, number]> = [];
+  for (let ring = 0; ring <= r; ring++) {
+    const ringCells: Array<[number, number]> = [];
+    for (let dr = -ring; dr <= ring; dr++) {
+      const dc = ring - Math.abs(dr);
+      ringCells.push([dc, dr]);
+      if (dc !== 0) ringCells.push([-dc, dr]);
+    }
+    ringCells.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+    out.push(...ringCells);
+  }
+  return out;
+}
+
+/**
+ * Throws dynamite at the adjacent cell in the given direction: a diamond
+ * blast (radius from the blast gear) clears dirt, any rock tier, and
+ * boulders, and COLLECTS the ore and part-caches it breaks. Ore beyond
+ * the cargo hold spills onto the floor to scoop up later; parts ride
+ * free. Caught gas chains, but those leave caches be. Costs one dynamite,
+ * no energy; the miner stays put behind cover.
  */
 function blast(state: MineState, dir: Direction): MoveResult {
   if (state.consumables.dynamite <= 0)
@@ -1181,16 +1301,15 @@ function blast(state: MineState, dir: Direction): MoveResult {
   if (t.row < 1) return { ok: false, reason: "edge" };
   state.consumables.dynamite--;
   state.used.dynamite++;
+  const miner = state.miner;
+  const cap = cargoCapacity(state.gear);
   let blasted = 0;
   let vented = 0;
+  let collected = 0;
+  let dropped = 0;
+  const foundParts: string[] = [];
   const emptied: Array<{ col: number; row: number }> = [];
-  for (const [dc, dr] of [
-    [0, 0],
-    [0, 1],
-    [0, -1],
-    [1, 0],
-    [-1, 0],
-  ] as const) {
+  for (const [dc, dr] of diamondOffsets(blastRadius(state.gear))) {
     const nc = t.col + dc;
     const nr = t.row + dr;
     if (nr < 1) continue;
@@ -1203,11 +1322,45 @@ function blast(state: MineState, dir: Direction): MoveResult {
       vented +=
         (cell.kind === "magma" ? 3 : 1) + ventGasAround(state, nc, nr, emptied);
       blasted++;
-    } else if (BLASTABLE.has(cell.kind)) {
+      continue;
+    }
+    if (cell.kind === "part-cache") {
+      // Dynamite cracks caches the diamond reaches directly (gas chains
+      // still leave them be); the part is collected free of the hold.
+      const part = rollCachePart(state, nc, nr);
+      miner.carriedParts.push(part);
+      foundParts.push(part);
       setCell(state, nc, nr, { kind: "empty" });
       emptied.push({ col: nc, row: nr });
       blasted++;
+      continue;
     }
+    if (!BLASTABLE.has(cell.kind)) continue;
+    // Re-collect any pile already on the cell too, so re-blasting a drop
+    // is a valid way to scoop it once the hold has room.
+    const pile: Partial<Record<OreId, number>> = { ...cell.drop };
+    if (cell.kind === "ore" && cell.ore)
+      pile[cell.ore] = (pile[cell.ore] ?? 0) + 1;
+    setCell(state, nc, nr, { kind: "empty" });
+    emptied.push({ col: nc, row: nr });
+    blasted++;
+    // Fill the hold from the blast centre outward; the overflow stays on
+    // the now-empty cell as a floor drop.
+    const leftover: Partial<Record<OreId, number>> = {};
+    let anyLeft = false;
+    for (const [id, n] of Object.entries(pile) as Array<[OreId, number]>) {
+      for (let i = 0; i < n; i++) {
+        if (carriedCount(miner) < cap) {
+          miner.carried[id] = (miner.carried[id] ?? 0) + 1;
+          collected++;
+        } else {
+          leftover[id] = (leftover[id] ?? 0) + 1;
+          dropped++;
+          anyLeft = true;
+        }
+      }
+    }
+    if (anyLeft) cellMut(state, nc, nr).drop = leftover;
   }
   const crushed = tickFalls(state, emptied);
   markUnstable(state, emptied);
@@ -1217,12 +1370,12 @@ function blast(state: MineState, dir: Direction): MoveResult {
     | undefined;
   if (crushed) {
     lost = {
-      value: carriedValue(state.miner),
-      parts: [...state.miner.carriedParts],
-      col: state.miner.col,
-      row: state.miner.row,
+      value: carriedValue(miner),
+      parts: [...miner.carriedParts],
+      col: miner.col,
+      row: miner.row,
     };
-    collapse(state.miner, state.gear);
+    collapse(state, true);
     collapsed = true;
   }
   return {
@@ -1234,6 +1387,9 @@ function blast(state: MineState, dir: Direction): MoveResult {
     crushed,
     vented,
     blasted,
+    collected,
+    dropped,
+    foundParts: foundParts.length > 0 ? foundParts : undefined,
     lost,
   };
 }
@@ -1273,7 +1429,8 @@ function abandon(state: MineState): MoveResult {
     col: miner.col,
     row: miner.row,
   };
-  collapse(miner, state.gear);
+  // Giving up grants no free recovery stock: only dying refills.
+  collapse(state, false);
   return {
     ok: true,
     dug: null,
@@ -1318,7 +1475,7 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
         col: miner.col,
         row: miner.row,
       };
-      collapse(miner, state.gear);
+      collapse(state, true);
       return {
         ok: true,
         dug: null,
@@ -1438,13 +1595,37 @@ function bank(miner: MinerState, gear: MineGear): void {
 }
 
 /** Lamp dead underground: cargo is lost, the crew hauls you up. */
-function collapse(miner: MinerState, gear: MineGear): void {
+/**
+ * End the trip the hard way: drop the carry, haul up to the surface,
+ * refill the lamp. `recover` marks a death (lamp out or crushed) rather
+ * than a chosen give-up: a death tops the ladder/plank stock back up to
+ * the recovery floor for free so the miner is never stranded, while
+ * abandoning grants nothing. Granting is deterministic, so the server
+ * replay agrees and the cash-out math forgives exactly what was given.
+ */
+function collapse(state: MineState, recover: boolean): void {
+  const miner = state.miner;
   miner.carried = {};
   miner.carriedParts = [];
   miner.collapses += 1;
   miner.col = START_COL;
   miner.row = 0;
-  miner.energy = maxEnergy(gear);
+  miner.energy = maxEnergy(state.gear);
+  if (recover) {
+    grantRecovery(state, "ladder", LADDER_RECOVERY_FLOOR);
+    grantRecovery(state, "plank", PLANK_RECOVERY_FLOOR);
+  }
+}
+
+/** Top one consumable up TO the floor, recording the free grant. */
+function grantRecovery(
+  state: MineState,
+  item: "ladder" | "plank",
+  floor: number,
+): void {
+  const add = Math.max(0, floor - state.consumables[item]);
+  state.consumables[item] += add;
+  state.granted[item] += add;
 }
 
 /** A cell is visible when within lantern reach of the miner's row. */
@@ -1463,6 +1644,8 @@ export interface TripResult {
   moves: number;
   /** Consumables spent (server decrements at cash-out). */
   used: MineConsumables;
+  /** Free recovery stock granted by deaths: forgiven at cash-out. */
+  granted: MineConsumables;
   /** The world after the trip: persisted as the next checkpoint. */
   diff: WorldDiff;
 }
@@ -1491,6 +1674,7 @@ export function replayTrip(
     maxDepth: state.miner.maxDepth,
     moves: capped.length,
     used: { ...state.used },
+    granted: { ...state.granted },
     diff: exportDiff(state),
   };
 }

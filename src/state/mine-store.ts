@@ -14,6 +14,7 @@ import {
   type MoveResult,
   NO_CONSUMABLES,
   START_COL,
+  STARTING_CONSUMABLES,
   type WorldDiff,
 } from "@/sim/mine";
 
@@ -225,7 +226,19 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     loadGear: async () => {
       try {
         const res = await fetch("/api/gear");
-        if (!res.ok) return; // 503 etc: defaults stay
+        if (!res.ok) {
+          // Storage-less (guest / local dev): no player row to front the
+          // one-time starting kit, so the client grants it for a fresh
+          // session. A resumed local trip keeps its own logged stock.
+          if (res.status === 503 && get().moves.length === 0) {
+            const { seed: s, gear: g, tripBaseDiff } = get();
+            set({
+              consumables: STARTING_CONSUMABLES,
+              mine: createMine(s, g, STARTING_CONSUMABLES, tripBaseDiff),
+            });
+          }
+          return;
+        }
         const body = await res.json();
         const gear: MineGear = body.gear;
         const consumables: MineConsumables = body.consumables ?? NO_CONSUMABLES;

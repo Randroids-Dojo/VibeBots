@@ -200,8 +200,8 @@ export function ShopPanel() {
           [
             ["dynamite", "Dynamite", "blasts a plus, any rock"],
             ["rope", "Recall Rope", "bank the carry from anywhere"],
-            ["ladder", "Ladder", "climbs one cell; trips pack 8 free"],
-            ["plank", "Plank", "bridges one gap; trips pack 4 free"],
+            ["ladder", "Ladder", "climbs one cell; free refill on death"],
+            ["plank", "Plank", "bridges one gap; free refill on death"],
           ] as const
         ).map(([item, name, blurb]) => {
           const price = CONSUMABLE_PRICES[item];

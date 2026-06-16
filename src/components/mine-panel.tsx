@@ -19,7 +19,6 @@ import {
   type MineState,
   maxEnergy,
   maxGearLevel,
-  type OreId,
   oreDef,
   returnEnergyCost,
   returnLadderNeed,
@@ -670,8 +669,9 @@ function StallMenu({
             );
           })}
           <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            purchases pack straight into the current claim. Every trip packs 8
-            ladders and 4 planks free, broke or not.
+            purchases pack straight into the current claim. Ladders and planks
+            cost vibes now; the only free batch comes from dying in the mine,
+            which refills you to 8 ladders and 4 planks.
           </p>
         </div>
       )}
@@ -954,7 +954,7 @@ export function MinePanel() {
                     (miner.bankedCredits > 0 || miner.bankedParts.length > 0)
                   ? "Sell at the Assay Office (gold sign)."
                   : miner.row === 0 && mine.consumables.ladder === 0
-                    ? "Out of ladders? Selling or abandoning starts a fresh trip with 8 free."
+                    ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
                     : undefined;
   const cashNote =
     cashOut.state === "done"

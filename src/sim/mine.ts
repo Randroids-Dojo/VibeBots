@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 16;
+export const MINE_VERSION = 17;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -142,6 +142,11 @@ export interface MineGear {
    * track (read as 1); bought at the outfitter like the other tracks.
    */
   blast?: number;
+  /**
+   * Elevator car speed: rows travelled per ride (see elevatorSpeedRows).
+   * Optional/back-compat like blast (absent reads as level 1, two rows).
+   */
+  elevatorSpeed?: number;
 }
 
 export const DEFAULT_GEAR: MineGear = {
@@ -152,6 +157,7 @@ export const DEFAULT_GEAR: MineGear = {
   elevator: 0,
   warpcoil: 1,
   blast: 1,
+  elevatorSpeed: 1,
 };
 
 /** The winch tower's column: the elevator runs down this shaft. */
@@ -223,6 +229,12 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
       3500000, 9500000, 26000000, 70000000,
     ],
     blurb: "wider dynamite blast, more loot",
+  },
+  {
+    track: "elevatorSpeed",
+    name: "Elevator Speed",
+    prices: [80, 200, 500, 1300, 3500, 9000, 24000, 65000],
+    blurb: "faster elevator rides (needs a rail)",
   },
 ];
 
@@ -1452,28 +1464,47 @@ function abandon(state: MineState): MoveResult {
 }
 
 /**
- * The elevator (REQ-028): free logged rides along the winch tower's
- * column. Ride-down bores the rail span clear on the way (the crew
- * built the shaft; anything inside was milled, no loot), ride-up lifts
- * from anywhere on the rail to the surface. Both cost no energy: the
- * rail is the investment paying out.
+ * Rows the elevator travels per ride action (REQ-028, user-directed
+ * 2026-06-16: "I do not want it to be instant. Start a little faster than
+ * taking stairs straight down, then upgrade so the speed picks up faster
+ * and faster and greater distances"). Stairs move one row per dig, so the
+ * base car covers two; each Elevator Speed level accelerates (~1.6x + 1),
+ * so a deep rail clears in fewer rides as the gear climbs. Integer and
+ * transcendental-free so the server replay agrees.
+ */
+export function elevatorSpeedRows(gear: MineGear): number {
+  const level = Math.max(1, gear.elevatorSpeed ?? 1);
+  let rows = 2;
+  for (let i = 1; i < level; i++) rows = Math.floor(rows * 1.6) + 1;
+  return rows;
+}
+
+/**
+ * The elevator (REQ-028): logged rides along the winch tower's column,
+ * a fixed number of rows per ride (see elevatorSpeedRows). Ride-down
+ * bores the rail span clear on the way (the crew built the shaft; anything
+ * inside was milled, no loot) and stops at the rail bottom; ride-up lifts
+ * toward the surface and banks the carry once it lands. No energy: the
+ * rail is the investment paying out. Ride again to keep travelling.
  */
 function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
   const miner = state.miner;
   const rail = state.gear.elevator;
   if (rail <= 0) return { ok: false, reason: "no-elevator" };
+  const step = elevatorSpeedRows(state.gear);
   if (dir === "down") {
-    if (miner.row !== 0 || miner.col !== ELEVATOR_COL)
+    if (miner.col !== ELEVATOR_COL || miner.row >= rail)
       return { ok: false, reason: "blocked" };
+    const target = Math.min(rail, miner.row + step);
     const emptied: Array<{ col: number; row: number }> = [];
-    for (let r = 1; r <= rail; r++) {
+    for (let r = miner.row + 1; r <= target; r++) {
       const cell = cellAt(state, ELEVATOR_COL, r);
       if (cell && cell.kind !== "empty") {
         setCell(state, ELEVATOR_COL, r, { kind: "empty" });
         emptied.push({ col: ELEVATOR_COL, row: r });
       }
     }
-    miner.row = rail;
+    miner.row = target;
     if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
     const crushed = tickFalls(state, emptied);
     markUnstable(state, emptied);
@@ -1499,9 +1530,9 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
   }
   if (miner.col !== ELEVATOR_COL || miner.row < 1 || miner.row > rail)
     return { ok: false, reason: "blocked" };
-  miner.col = ELEVATOR_COL;
-  miner.row = 0;
-  bank(miner, state.gear);
+  miner.row = Math.max(0, miner.row - step);
+  // Banking happens topside: a partial ride up just travels.
+  if (miner.row === 0) bank(miner, state.gear);
   return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
 }
 

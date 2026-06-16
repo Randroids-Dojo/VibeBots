@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-elevator-speed" data-date="2026-06-16">
+    <h3>Make Elevator Rides Non-Instant And Speed-Upgradable</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/dynamite-loot-collection</code></dd>
+      <dt>PR</dt><dd>#N (pending)</dd>
+      <dt>Changed</dt><dd>user-directed: "I do not want it to be instant. Start a little faster than taking stairs straight down, then upgrade so the speed picks up faster and faster and greater distances." <code>rideElevator</code> no longer jumps to the rail bottom in one action; it travels <code>elevatorSpeedRows(gear)</code> rows per ride (base car 2 rows, vs 1 row per dig on the stairs), boring only the span it passes, and ride-up banks only when the car lands at the surface. Added an Elevator Speed gear track that accelerates the car (~1.6x rows per level, 8 tiers: 2, 4, 7, 12, 20, 33, 53, 85, 137), wired exactly like blast: a capped <code>GEAR_TRACKS</code> entry, an <code>elevator_speed_level</code> column, gear-read and gear-upgrade routes (the latter with an explicit track-to-column map since <code>elevatorSpeed</code> is not snake-cased by rote), and the bank route's schema, ownership check, and replay so cash-out re-sims the same ride distances. A HUD ride-down button now continues the descent from underground (the surface stall button starts it); ride-up gained a matching glyph.</dd>
+      <dt>Verification</dt><dd>em-dash/en-dash grep, <code>tsc --noEmit</code> clean, full Vitest suite (111 passing), <code>biome check</code> exit 0, <code>check-sim-purity.sh</code> (elevatorSpeedRows is integer and transcendental-free so the server replay agrees). Rewrote the elevator ride test for incremental travel (covers car speed per ride, stops at the bottom, banks only topside) and added a test that the speed gear strictly accelerates and reaches a deep rail in fewer rides. The existing elevator replay-parity test still holds.</dd>
+      <dt>Assumptions</dt><dd>both directions use the same car speed (the user described descent, but a one-way speed would be odd). Base 2 rows keeps the elevator strictly better than stairs (no ladders, 2x rows) without being instant; the top tier (137 rows/ride) is effectively instant for any realistic rail, which is the intended late-game payoff. Speed is meaningless without a rail, so the blurb says "needs a rail"; it renders in the Outfitter with the other gear (the user grouped it there). <code>MINE_VERSION</code> bumped 16 -&gt; 17 because ride mechanics changed; pre-track gear snapshots replay as the base car.</dd>
+      <dt>GDD coverage</dt><dd>updated the REQ-028 elevator spec in <code>docs/gdd/06-mining.html</code> (rides are non-instant and speed-upgradable) and appended a Build log entry. No coverage-row status flipped.</dd>
+      <dt>Followups</dt><dd>none. A ride-animation feel pass (the camera glide for a multi-row ride) could be worth a look, and elevator speed could later move to the Winch stall if the Outfitter list gets crowded.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-blast-cap-warpcoil" data-date="2026-06-16">
     <h3>Stagger The Blast Cap And Make Warpcoil Buyable</h3>
     <dl>

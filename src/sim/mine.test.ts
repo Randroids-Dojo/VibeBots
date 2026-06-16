@@ -15,6 +15,7 @@ import {
   ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
+  elevatorSpeedRows,
   exportDiff,
   FALL_DELAY_ACTIONS,
   findBeacon,
@@ -357,29 +358,48 @@ describe("mine", () => {
       reason: "no-elevator",
     });
 
-    const gear = { ...DEFAULT_GEAR, elevator: ELEVATOR_SEGMENT_ROWS };
+    const rail = ELEVATOR_SEGMENT_ROWS;
+    const gear = { ...DEFAULT_GEAR, elevator: rail };
     const state = createMine(229, gear);
     // Riding from anywhere but the tower column is refused.
     expect(applyAction(state, "ride-down")).toEqual({
       ok: false,
       reason: "blocked",
     });
-    // Walk to the tower; the ride is free, bores the rail span clear,
-    // and lands at the rail bottom.
+    // Walk to the tower; rides are free and bore the rail span as they go.
     while (state.miner.col > ELEVATOR_COL) step(state, "left");
     const energyAtTower = state.miner.energy;
+    // A ride covers the car's speed in rows (base car = 2), not the whole
+    // rail: it is no longer instant.
+    const carRows = elevatorSpeedRows(gear);
+    expect(carRows).toBe(2);
     const ride = applyAction(state, "ride-down");
     expect(ride.ok).toBe(true);
-    expect(state.miner.row).toBe(ELEVATOR_SEGMENT_ROWS);
+    expect(state.miner.row).toBe(carRows);
     expect(state.miner.col).toBe(ELEVATOR_COL);
     expect(state.miner.energy).toBe(energyAtTower);
-    for (let r = 1; r <= ELEVATOR_SEGMENT_ROWS; r++) {
+    for (let r = 1; r <= carRows; r++) {
       expect(cellAt(state, ELEVATOR_COL, r)?.kind).toBe("empty");
     }
-    // Ride back up: free, banks at the surface.
+    // Keep riding to the bottom; it stops there and never overshoots.
+    let guard = 0;
+    while (state.miner.row < rail && guard++ < 50)
+      applyAction(state, "ride-down");
+    expect(state.miner.row).toBe(rail);
+    expect(applyAction(state, "ride-down")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    for (let r = 1; r <= rail; r++) {
+      expect(cellAt(state, ELEVATOR_COL, r)?.kind).toBe("empty");
+    }
+    // Ride back up: free, banks only when the car lands at the surface.
     state.miner.carried = { coal: 2 };
-    const up = applyAction(state, "ride-up");
-    expect(up.ok).toBe(true);
+    applyAction(state, "ride-up");
+    expect(state.miner.row).toBeGreaterThan(0);
+    expect(state.miner.bankedCredits).toBe(0);
+    guard = 0;
+    while (state.miner.row > 0 && guard++ < 50) applyAction(state, "ride-up");
     expect(state.miner.row).toBe(0);
     expect(state.miner.bankedCredits).toBe(2);
     // Off-rail ride-up is refused.
@@ -1160,5 +1180,42 @@ describe("mine", () => {
     expect(b.ok && (b.blasted ?? 0)).toBeGreaterThan(
       a.ok ? (a.blasted ?? 0) : 0,
     );
+  });
+
+  it("accelerates the elevator car with the speed gear", () => {
+    // Base car is a little faster than stairs (2 rows vs 1 per dig); each
+    // level picks up more rows per ride.
+    expect(elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: 1 })).toBe(2);
+    expect(elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: 2 })).toBe(4);
+    expect(elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: 3 })).toBe(7);
+    // A gear snapshot that predates the track reads as the base car.
+    const legacy: Partial<typeof DEFAULT_GEAR> = { ...DEFAULT_GEAR };
+    legacy.elevatorSpeed = undefined;
+    expect(elevatorSpeedRows(legacy as typeof DEFAULT_GEAR)).toBe(2);
+    // It strictly accelerates across the whole track.
+    let prev = 0;
+    for (let lvl = 1; lvl <= maxGearLevel("elevatorSpeed"); lvl++) {
+      const rows = elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: lvl });
+      expect(rows).toBeGreaterThan(prev);
+      prev = rows;
+    }
+    // A faster car reaches a deep rail in fewer rides.
+    const rail = 40;
+    const ridesToBottom = (speed: number) => {
+      const s = createMine(251, {
+        ...DEFAULT_GEAR,
+        elevator: rail,
+        elevatorSpeed: speed,
+      });
+      while (s.miner.col > ELEVATOR_COL) step(s, "left");
+      let rides = 0;
+      let guard = 0;
+      while (s.miner.row < rail && guard++ < 100) {
+        if (applyAction(s, "ride-down").ok) rides++;
+      }
+      expect(s.miner.row).toBe(rail);
+      return rides;
+    };
+    expect(ridesToBottom(5)).toBeLessThan(ridesToBottom(1));
   });
 });

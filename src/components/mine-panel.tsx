@@ -415,6 +415,7 @@ const ITEM_ICONS: Record<string, string> = {
   lantern: "\u{1F3EE}",
   warpcoil: "\u{1F300}",
   blast: "\u{1F4A5}",
+  elevatorSpeed: "\u{1F6D7}",
 };
 
 /**
@@ -767,7 +768,7 @@ function StallMenu({
             }}
           >
             {mine.gear.elevator > 0
-              ? `Ride down to ${mine.gear.elevator}`
+              ? `Ride down (rail to ${mine.gear.elevator})`
               : "Ride down (no rail)"}
           </button>
         </div>
@@ -1215,6 +1216,18 @@ export function MinePanel() {
         })()}
         {miner.col === ELEVATOR_COL &&
           miner.row >= 1 &&
+          miner.row < mine.gear.elevator && (
+            <button
+              type="button"
+              aria-label="Ride elevator down"
+              onClick={() => move("ride-down")}
+              style={iconButtonStyle}
+            >
+              &#128727;&#11015;&#65039;
+            </button>
+          )}
+        {miner.col === ELEVATOR_COL &&
+          miner.row >= 1 &&
           miner.row <= mine.gear.elevator && (
             <button
               type="button"
@@ -1222,7 +1235,7 @@ export function MinePanel() {
               onClick={() => move("ride-up")}
               style={iconButtonStyle}
             >
-              &#128727;
+              &#128727;&#11014;&#65039;
             </button>
           )}
         <button

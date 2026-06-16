@@ -6,8 +6,27 @@ import { gearTrackDef, type MineGear, maxGearLevel } from "@/sim/mine";
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  track: z.enum(["pickaxe", "lamp", "cargo", "lantern", "warpcoil", "blast"]),
+  track: z.enum([
+    "pickaxe",
+    "lamp",
+    "cargo",
+    "lantern",
+    "warpcoil",
+    "blast",
+    "elevatorSpeed",
+  ]),
 });
+
+/** Track key to its level column (elevatorSpeed is not snake-cased by rote). */
+const LEVEL_COLUMN: Record<string, string> = {
+  pickaxe: "pickaxe_level",
+  lamp: "lamp_level",
+  cargo: "cargo_level",
+  lantern: "lantern_level",
+  warpcoil: "warpcoil_level",
+  blast: "blast_level",
+  elevatorSpeed: "elevator_speed_level",
+};
 
 /**
  * Buys the next level of a gear track (REQ-013). The spend and the
@@ -35,9 +54,9 @@ export async function POST(request: Request): Promise<Response> {
   const sql = await db();
   const current = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           warpcoil_level, blast_level
+           warpcoil_level, blast_level, elevator_speed_level
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
-  const level = current[0]?.[`${track}_level`] ?? 1;
+  const level = current[0]?.[LEVEL_COLUMN[track]] ?? 1;
   if (level >= maxGearLevel(track)) {
     return Response.json({ error: "already at max level" }, { status: 422 });
   }
@@ -83,6 +102,12 @@ export async function POST(request: Request): Promise<Response> {
           SET emeralds = emeralds - ${price}, blast_level = ${level + 1}
           WHERE id = ${playerId} AND emeralds >= ${price} AND blast_level = ${level}
           RETURNING emeralds, blast_level AS level`;
+      case "elevatorSpeed":
+        return sql`
+          UPDATE players
+          SET emeralds = emeralds - ${price}, elevator_speed_level = ${level + 1}
+          WHERE id = ${playerId} AND emeralds >= ${price} AND elevator_speed_level = ${level}
+          RETURNING emeralds, elevator_speed_level AS level`;
     }
   })();
   const rows = upgraded as Array<{ emeralds: number; level: number }>;

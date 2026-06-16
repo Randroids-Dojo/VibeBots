@@ -15,7 +15,14 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const gearLevel = (
-  track: "pickaxe" | "lamp" | "cargo" | "lantern" | "warpcoil" | "blast",
+  track:
+    | "pickaxe"
+    | "lamp"
+    | "cargo"
+    | "lantern"
+    | "warpcoil"
+    | "blast"
+    | "elevatorSpeed",
 ) => z.number().int().min(1).max(maxGearLevel(track));
 
 const bodySchema = z.object({
@@ -33,8 +40,9 @@ const bodySchema = z.object({
     lantern: gearLevel("lantern"),
     elevator: z.number().int().min(0).max(100000),
     warpcoil: gearLevel("warpcoil"),
-    // Optional: gear snapshots that predate the blast track replay as 1.
+    // Optional: gear snapshots that predate these tracks replay as 1.
     blast: gearLevel("blast").optional(),
+    elevatorSpeed: gearLevel("elevatorSpeed").optional(),
   }),
   // Consumables held at session start; spent ones decrement at cash-out.
   consumables: z.object({
@@ -106,7 +114,7 @@ export async function POST(request: Request): Promise<Response> {
   // way the snapshot could inflate a payout.
   const owned = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           warpcoil_level, elevator_depth, blast_level,
+           warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
            dynamite_count, rope_count, ladder_count, plank_count,
            beacon_count
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
@@ -134,6 +142,12 @@ export async function POST(request: Request): Promise<Response> {
   if ((gear.blast ?? 1) > (owned[0]?.blast_level ?? 1)) {
     return Response.json(
       { error: `gear not owned: blast level ${gear.blast}` },
+      { status: 422 },
+    );
+  }
+  if ((gear.elevatorSpeed ?? 1) > (owned[0]?.elevator_speed_level ?? 1)) {
+    return Response.json(
+      { error: `gear not owned: elevator speed ${gear.elevatorSpeed}` },
       { status: 422 },
     );
   }

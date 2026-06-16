@@ -340,7 +340,7 @@ describe("mine", () => {
     expect(replayed.diff).toEqual(exportDiff(next));
   });
 
-  it("digs into negative columns: the claim is endless (REQ-027)", () => {
+  it("digs into negative columns: the mine is endless (REQ-027)", () => {
     const state = createMine(223);
     // March left along the surface and dig down well past the old edge.
     for (let i = 0; i < 12; i++) step(state, "left");

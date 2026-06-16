@@ -77,10 +77,10 @@
 
     <h3 id="village">The surface village (REQ-021)</h3>
     <ul>
-      <li>The surface row is a place, not a menu bar: the miner walks between shop stalls drawn in the scene (Assay Office at the left, the shaft headframe center, Supply Depot and Outfitter to the right). Standing on a stall's column opens its menu; walking away closes it.</li>
-      <li>Assay Office: sells the banked haul to the vault (the cash-out). After a sale the fresh claim walks the miner back to the office instead of teleporting to the shaft.</li>
-      <li>Supply Depot: dynamite, rope, and ladders at REQ-016/REQ-020 prices, packed straight into the current claim (Q-008 rule B).</li>
-      <li>Outfitter: the four persistent gear tracks; an upgrade applies immediately while the log is pure surface walks, otherwise on the next claim.</li>
+      <li>The surface row is a place, not a menu bar: the miner walks between shop stalls drawn in the scene (Buyer at the left, the shaft headframe center, Supply Depot and Upgrades to the right). Standing on a stall's column opens its menu; walking away closes it.</li>
+      <li>Buyer: buys the banked haul for vibes (the cash-out). After a sale the fresh trip walks the miner back to the Buyer instead of teleporting to the shaft.</li>
+      <li>Supply Depot: dynamite, rope, and ladders at REQ-016/REQ-020 prices, packed straight into the current trip (Q-008 rule B).</li>
+      <li>Upgrades: the four permanent gear tracks; an upgrade applies immediately while the log is pure surface walks, otherwise on the next trip.</li>
       <li>Without storage the stalls stay browsable with an honest "ledger offline" line; nothing is charged.</li>
       <li>Shop feel (user-directed 2026-06-12): stall menus are mobile bottom sheets that slide up with thumb-sized rows (icon tile, name, blurb, owned or level badge, big price button) and the wallet in the header; buildings sit back in depth with a lit doorstep so the miner stands at the door instead of clipping the facade, and the door lights while the shop is open.</li>
     </ul>
@@ -97,9 +97,9 @@
       <li>Collapse is a drama beat (lamp flicker, dim, "the crew hauls you up"), and every failed trip ends with a near-miss reveal: what you were carrying and the treasure that was almost in reach (the client has the full grid; pure UI).</li>
     </ul>
 
-    <h3 id="persistent-world">The persistent endless claim (REQ-026, REQ-027)</h3>
+    <h3 id="persistent-world">The persistent endless mine (REQ-026, REQ-027)</h3>
     <ul>
-      <li>The claim never resets (user-directed 2026-06-12: "it doesn't feel rewarding to see the mine reset every time I sell"). Selling at the Assay Office banks credits and parts but the carved world stays: every tunnel, ladder, plank, and structure persists forever. The trail IS the trophy (SteamWorld Dig 2 lesson).</li>
+      <li>The mine never resets (user-directed 2026-06-12: "it doesn't feel rewarding to see the mine reset every time I sell"). Selling at the Buyer banks credits and parts but the carved world stays: every tunnel, ladder, plank, and structure persists forever. The trail IS the trophy (SteamWorld Dig 2 lesson).</li>
       <li>The world is endless both horizontally and vertically: generation stays a pure function of (seed, col, row) over all integers, the village anchors at the origin columns, and the camera follows wherever the trail goes.</li>
       <li>Persistence model (Q-009 default): the world state is a sparse diff over pure generation (dug cells plus placed structures); the server stores the diff per player and replays each trip's action log on top of it to credit cash-outs, so determinism and anti-cheat survive without replaying a lifetime log. Guests persist the diff locally and adopt it server-side on first cash-out.</li>
       <li>A trip is now surface-to-surface; consumables are bought and carry over per descent, not per world. The free ladder/plank refill is a death-recovery, not a per-trip grant (user-directed 2026-06-15).</li>
@@ -108,7 +108,7 @@
     <h3 id="transport">The transport ladder (REQ-028 elevator, REQ-029 teleporter)</h3>
     <ul>
       <li>Progression arc: ladders and planks carry the early game; the elevator compresses the mid-game commute; range-limited warp beacons compress the late game; each tier is a visible investment in the world.</li>
-      <li><strong>Elevator (REQ-028)</strong>: one per player, a winch tower on its own surface column beside the village. Depth is bought in segments at the tower (superlinear pricing per stratum reached); building it carves and rails its column. Riding is free and logged but NOT instant (user-directed 2026-06-16): a ride travels a fixed number of rows (the base car covers two, a little faster than taking the stairs one row at a time), so a deep rail takes several rides. The Elevator Speed gear track accelerates the car (more rows per ride, ~1.6x per level), so the climb compresses as the gear grows; at the top levels a single ride covers a whole stratum. Ride-down stops at the rail bottom; ride-up banks the carry when the car lands topside. The shaft is part of the persistent world.</li>
+      <li><strong>Elevator (REQ-028)</strong>: one per player, an elevator tower on its own surface column beside the village. Depth is bought in segments at the tower (superlinear pricing per stratum reached); building it carves and rails its column. Riding is free and logged but NOT instant (user-directed 2026-06-16): a ride travels a fixed number of rows (the base car covers two, a little faster than taking the stairs one row at a time), so a deep rail takes several rides. The Elevator Speed gear track accelerates the car (more rows per ride, ~1.6x per level), so the climb compresses as the gear grows; at the top levels a single ride covers a whole stratum. Ride-down stops at the rail bottom; ride-up banks the carry when the car lands topside. The shaft is part of the persistent world.</li>
       <li><strong>Teleporter (REQ-029)</strong>: late game. Beacon kits are consumables (priced like big dynamite); placing one plants a beacon at the miner's cell (one active beacon; replanting moves it). The village gains a warp pad; warping between pad and beacon is free and logged but only works while the beacon's depth is within the warpcoil's range. The warpcoil is a persistent gear track upgraded over time (range tiers roughly 60, 150, 400, 1000 rows).</li>
       <li>Transport never skips unconquered space: elevators only descend rail you bought, beacons only plant where you stand. Range and segment pricing keep depth earned.</li>
     </ul>

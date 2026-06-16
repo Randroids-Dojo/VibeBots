@@ -262,7 +262,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // Gear changes the sim. A fresh trip restarts on the snapshot
         // over the same world; a resumed in-flight trip keeps ITS
         // snapshot (the owned gear applies on the next trip, exactly
-        // like an outfitter purchase mid-dig).
+        // like an Upgrades purchase mid-dig).
         if (get().moves.length > 0) {
           set({ gear });
           return;
@@ -319,7 +319,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         }
         const body = await res.json();
         // The world persists (REQ-026): the next trip resumes the SAME
-        // carved claim. Only the trip state is fresh: leftover purchased
+        // carved mine. Only the trip state is fresh: leftover purchased
         // consumables plus anything bought at the depot since, on the
         // store gear (a deferred upgrade lands here).
         const remaining: MineConsumables = addConsumables(
@@ -333,7 +333,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           remaining,
           worldDiff,
         );
-        // Selling happens standing at the Assay Office; the fresh trip
+        // Selling happens standing at the Buyer; the fresh trip
         // walks back there instead of teleporting to the shaft.
         const atCol = get().mine.miner.col;
         const walk: MineAction[] = [];
@@ -402,7 +402,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // Re-provision the live session: replaying the full log over a
         // strictly larger consumable snapshot reproduces the world
         // exactly (refusal thresholds only loosen), so the new stock is
-        // usable immediately, mid-claim, without losing the dig.
+        // usable immediately, mid-trip, without losing the dig.
         const { seed: s0, gear, consumables, bought, moves, tick } = get();
         const owned = addConsumables(consumables, bought);
         owned[item] += 1;
@@ -435,7 +435,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         if (res.status === 503) {
           set({
-            shopNote: "the outfitter ledger is offline; nothing was charged",
+            shopNote: "the upgrades shop is offline; nothing was charged",
           });
           return;
         }
@@ -453,7 +453,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         if (surfaceOnlyLog(moves)) {
           // Gear changes the sim, so the live session only absorbs it
           // while the log is pure surface walks (replay-identical under
-          // any gear). Otherwise it lands on the next claim.
+          // any gear). Otherwise it lands on the next trip.
           const owned = addConsumables(consumables, bought);
           const rebuilt = createMine(s0, nextGear, owned, get().tripBaseDiff);
           for (const m of moves) applyAction(rebuilt, m);
@@ -470,7 +470,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           set({
             gear: nextGear,
             balance: typeof body.balance === "number" ? body.balance : null,
-            shopNote: `${track} level ${body.level} delivered; it applies on the next claim`,
+            shopNote: `${track} level ${body.level} delivered; it applies on the next trip`,
             tick: tick + 1,
           });
         }

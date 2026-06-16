@@ -4,7 +4,7 @@
  * the panel; the canvas draws the buildings at the same columns.
  */
 export interface StallDef {
-  id: "assay" | "supply" | "outfitter" | "winch" | "warp";
+  id: "buyer" | "supply" | "upgrades" | "elevator" | "warp";
   col: number;
   name: string;
   /** Sign/trim color, shared by the canvas building and the menu. */
@@ -14,18 +14,18 @@ export interface StallDef {
 
 export const STALLS: readonly StallDef[] = [
   {
-    id: "winch",
+    id: "elevator",
     col: -5,
-    name: "Winch Tower",
+    name: "Elevator",
     color: "#9aa7ff",
     blurb: "rail segments down the shaft; free rides",
   },
   {
-    id: "assay",
+    id: "buyer",
     col: -3,
-    name: "Assay Office",
+    name: "Buyer",
     color: "#f5c542",
-    blurb: "sells your banked haul to the vault",
+    blurb: "buys your haul for vibes",
   },
   {
     id: "supply",
@@ -35,11 +35,11 @@ export const STALLS: readonly StallDef[] = [
     blurb: "dynamite, rope, and ladder bundles",
   },
   {
-    id: "outfitter",
+    id: "upgrades",
     col: 4,
-    name: "Outfitter",
+    name: "Upgrades",
     color: "#54e0c7",
-    blurb: "persistent gear upgrades",
+    blurb: "permanent gear upgrades",
   },
   {
     id: "warp",

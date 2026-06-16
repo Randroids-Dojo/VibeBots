@@ -579,10 +579,10 @@ const sheetButtonStyle = (enabled: boolean): React.CSSProperties => ({
 });
 
 const STALL_ICONS: Record<StallDef["id"], string> = {
-  assay: "\u{1F3E6}",
+  buyer: "\u{1F3E6}",
   supply: "\u{1F4E6}",
-  outfitter: "\u{1F6E0}\u{FE0F}",
-  winch: "\u{1F6D7}",
+  upgrades: "\u{1F6E0}\u{FE0F}",
+  elevator: "\u{1F6D7}",
   warp: "\u{1F300}",
 };
 
@@ -781,16 +781,16 @@ function StallMenu({
           the ledger is offline right now; browsing only
         </p>
       )}
-      {stall.id === "assay" &&
+      {stall.id === "buyer" &&
         (banked > 0 || bankedParts > 0 ? (
           <>
             <SheetRow
               icon={"\u{1F4B0}"}
-              name={`${banked} vibes on the books`}
+              name={`${banked} vibes banked`}
               sub={
                 bankedParts > 0
                   ? `plus ${bankedParts} part${bankedParts > 1 ? "s" : ""} for the workshop`
-                  : "hauled up and ready to vault"
+                  : "hauled up and ready to sell"
               }
             />
             <button
@@ -810,14 +810,14 @@ function StallMenu({
                 color: cashOutPending || offline ? "#8b93a7" : "#f5c542",
               }}
             >
-              {cashOutPending ? "Hauling to the vault..." : "Sell banked loot"}
+              {cashOutPending ? "Selling..." : "Sell banked loot"}
             </button>
           </>
         ) : (
           <p
             style={{ margin: "12px 0 2px", fontSize: "0.85rem", opacity: 0.7 }}
           >
-            nothing banked yet; haul something up and it lands on the books.
+            nothing banked yet; haul something up and it banks.
           </p>
         ))}
       {stall.id === "supply" && (
@@ -854,13 +854,13 @@ function StallMenu({
             );
           })}
           <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            purchases pack straight into the current claim. Ladders and planks
+            purchases pack straight into your current trip. Ladders and planks
             cost vibes now; the only free batch comes from dying in the mine,
             which refills you to 8 ladders and 4 planks.
           </p>
         </div>
       )}
-      {stall.id === "outfitter" && (
+      {stall.id === "upgrades" && (
         <div>
           {GEAR_TRACKS.map((def) => {
             // blast is optional on gear (absent reads as level 1).
@@ -896,11 +896,11 @@ function StallMenu({
             );
           })}
           <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            upgrades bought mid-dig apply on the next claim.
+            upgrades bought mid-dig apply on the next trip.
           </p>
         </div>
       )}
-      {stall.id === "winch" && (
+      {stall.id === "elevator" && (
         <div>
           <SheetRow
             icon={"\u{1F6D7}"}
@@ -965,7 +965,7 @@ function StallMenu({
                 ? `beacon planted at ${beacon.row} deep`
                 : "no beacon planted; kits at the depot"
             }
-            sub={`warpcoil range ${warpRange(mine.gear)} rows (upgrade at the Outfitter)`}
+            sub={`warpcoil range ${warpRange(mine.gear)} rows (upgrade at the Upgrades stall)`}
           />
           <button
             type="button"
@@ -1033,7 +1033,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   void tick;
 
   useEffect(() => {
-    // The world first (it seeds the claim), then gear (which rebuilds
+    // The world first (it seeds the mine), then gear (which rebuilds
     // the trip over that world when levels differ).
     void loadWorld().then(() => loadGear());
   }, [loadWorld, loadGear]);
@@ -1138,14 +1138,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 : lastResult.reason === "no-beacon"
                   ? "No beacon. Kits are at the depot."
                   : lastResult.reason === "out-of-range"
-                    ? "Beacon out of warpcoil range. Upgrade at the Outfitter."
+                    ? "Beacon out of warpcoil range. Upgrade at the Upgrades stall."
                     : lastResult.reason === "no-rope"
                       ? "No rope."
                       : lastResult.reason === "surface"
                         ? undefined
                         : lastResult.reason === "blocked"
                           ? "No way through."
-                          : "Edge of the claim."
+                          : "Edge of the mine."
       : lastResult?.ok && lastResult.crushed
         ? "Crushed! The crew dug you out; the cargo stayed behind."
         : lastResult?.ok && lastResult.abandoned
@@ -1158,15 +1158,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 ? `Gas! ${(lastResult.vented ?? 0) * 8} energy burned.`
                 : miner.row === 0 &&
                     (miner.bankedCredits > 0 || miner.bankedParts.length > 0)
-                  ? "Sell at the Assay Office (gold sign)."
+                  ? "Sell at the Buyer (gold sign)."
                   : miner.row === 0 && mine.consumables.ladder === 0
                     ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
                     : undefined;
   const cashNote =
     cashOut.state === "done"
-      ? `Vaulted ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. The claim stands.`
+      ? `Sold for ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Your mine stays.`
       : cashOut.state === "unavailable"
-        ? "Vault unreachable; loot is safe, try again."
+        ? "Couldn't sell; loot is safe, try again."
         : cashOut.state === "error"
           ? cashOut.message
           : null;

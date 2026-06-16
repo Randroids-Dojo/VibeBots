@@ -4,7 +4,7 @@ import { getOrCreatePlayerId } from "@/server/player";
 export const runtime = "nodejs";
 
 /**
- * The player's persistent claim (REQ-026): seed, world diff, and the
+ * The player's persistent mine (REQ-026): seed, world diff, and the
  * trip counter. Created on first visit with a server-issued seed (which
  * also closes the client-seed search exploit from F-011 for worlds).
  */

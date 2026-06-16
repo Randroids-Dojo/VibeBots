@@ -98,10 +98,10 @@ export async function POST(request: Request): Promise<Response> {
     trip_count: number;
   }>;
   if (worlds.length === 0) {
-    return Response.json({ error: "no claim on file" }, { status: 409 });
+    return Response.json({ error: "no mine on file" }, { status: 409 });
   }
   if (Number(worlds[0].seed) !== parsed.data.seed) {
-    return Response.json({ error: "wrong claim seed" }, { status: 422 });
+    return Response.json({ error: "wrong mine seed" }, { status: 422 });
   }
   if (worlds[0].trip_count !== parsed.data.tripIndex) {
     return Response.json(

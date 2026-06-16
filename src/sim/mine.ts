@@ -139,7 +139,7 @@ export interface MineGear {
    * Dynamite blast radius (Manhattan distance). Absent or 1 is the
    * classic 5-cell plus; each level widens the diamond by one ring.
    * Optional for backward-compat with gear snapshots that predate the
-   * track (read as 1); bought at the outfitter like the other tracks.
+   * track (read as 1); bought at the Upgrades stall like the other tracks.
    */
   blast?: number;
   /**
@@ -160,7 +160,7 @@ export const DEFAULT_GEAR: MineGear = {
   elevatorSpeed: 1,
 };
 
-/** The winch tower's column: the elevator runs down this shaft. */
+/** The elevator's column: the elevator runs down this shaft. */
 export const ELEVATOR_COL = -5;
 /** Rows of rail per purchased segment (one stratum band). */
 export const ELEVATOR_SEGMENT_ROWS = 12;
@@ -315,7 +315,7 @@ export function canDigRock(gear: MineGear, tier: number): boolean {
 }
 
 /**
- * The claim is endless on both axes (REQ-027): columns span all
+ * The mine is endless on both axes (REQ-027): columns span all
  * integers with the village anchored at the origin.
  */
 export const START_COL = 0;
@@ -1489,7 +1489,7 @@ export function elevatorSpeedRows(gear: MineGear): number {
 }
 
 /**
- * The elevator (REQ-028): logged rides along the winch tower's column,
+ * The elevator (REQ-028): logged rides along the elevator's column,
  * a fixed number of rows per ride (see elevatorSpeedRows). Ride-down
  * bores the rail span clear on the way (the crew built the shaft; anything
  * inside was milled, no loot) and stops at the rail bottom; ride-up lifts

@@ -77,7 +77,7 @@ async function applySchema(sql: Sql): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (player_id, seed)
     )`;
-  // The persistent claim (REQ-026/Q-009): one world per player, the
+  // The persistent mine (REQ-026/Q-009): one world per player, the
   // sparse diff checkpointed at each cash-out, trip_count as replay guard.
   await sql`
     CREATE TABLE IF NOT EXISTS mine_worlds (

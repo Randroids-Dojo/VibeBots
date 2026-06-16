@@ -141,7 +141,7 @@ interface JuiceState {
 /** Length of the bounce-off animation when the pick can't cut the rock. */
 const BOUNCE_SECONDS = 0.42;
 
-/** World coordinates ARE render coordinates in the endless claim. */
+/** World coordinates ARE render coordinates in the endless mine. */
 const cellX = (col: number) => col;
 /** Columns rendered to either side of the miner: the widest desktop
  * frustum sees ~8.2, so 9 covers every aspect with glide margin while
@@ -644,8 +644,8 @@ function PorchLamp({ position }: { position: [number, number, number] }) {
   );
 }
 
-/** Winch Tower: timber derrick with a sheave wheel over a drum cabin. */
-function WinchTowerModel({ color }: { color: string }) {
+/** Elevator: timber derrick with a sheave wheel over a drum cabin. */
+function ElevatorModel({ color }: { color: string }) {
   return (
     <>
       <RoundedBox
@@ -675,7 +675,7 @@ function WinchTowerModel({ color }: { color: string }) {
         <boxGeometry args={[0.95, 0.07, 0.07]} />
         <meshStandardMaterial color={TIMBER_DARK} roughness={0.9} flatShading />
       </mesh>
-      {/* Crown platform, sheave wheel, cable, and the winch drum */}
+      {/* Crown platform, pulley wheel, cable, and the cable drum */}
       <mesh position={[0, 3.36, 0]}>
         <boxGeometry args={[0.74, 0.1, 0.4]} />
         <meshStandardMaterial color={TIMBER_DARK} roughness={0.9} flatShading />
@@ -716,8 +716,8 @@ function WinchTowerModel({ color }: { color: string }) {
   );
 }
 
-/** Assay Office: a stone bank with columns and a gold emblem. */
-function AssayOfficeModel({ color }: { color: string }) {
+/** Buyer: a stone bank with columns and a gold emblem. */
+function BuyerModel({ color }: { color: string }) {
   return (
     <>
       <RoundedBox
@@ -881,8 +881,8 @@ function SupplyDepotModel({ color }: { color: string }) {
   );
 }
 
-/** Outfitter: a smithy with a glowing forge window and chimney. */
-function OutfitterModel({ color }: { color: string }) {
+/** Upgrades: a smithy with a glowing forge window and chimney. */
+function UpgradesModel({ color }: { color: string }) {
   return (
     <>
       <RoundedBox
@@ -1057,10 +1057,10 @@ function StallBuilding({
 }) {
   return (
     <group position={[x, -1.5, -0.85]}>
-      {id === "winch" && <WinchTowerModel color={color} />}
-      {id === "assay" && <AssayOfficeModel color={color} />}
+      {id === "elevator" && <ElevatorModel color={color} />}
+      {id === "buyer" && <BuyerModel color={color} />}
       {id === "supply" && <SupplyDepotModel color={color} />}
-      {id === "outfitter" && <OutfitterModel color={color} />}
+      {id === "upgrades" && <UpgradesModel color={color} />}
       {id === "warp" && <WarpPadModel color={color} />}
       {/* Doorstep mat on the boardwalk marks the standing spot */}
       <mesh position={[0, 1.1, 0.9]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -1359,7 +1359,7 @@ function MineScene() {
       // the whole map; gliding the camera through it reads as broken.
       if (Math.abs(targetY - rig.position.y) > 6) rig.position.y = targetY;
       rig.position.y += (targetY - rig.position.y) * Math.min(1, delta * 5);
-      // The endless claim has no edges: the camera follows the miner
+      // The endless mine has no edges: the camera follows the miner
       // laterally everywhere (the old clamp framed a 9-wide world).
       const targetX = cellX(mine.miner.col);
       if (Math.abs(targetX - rig.position.x) > 6) rig.position.x = targetX;

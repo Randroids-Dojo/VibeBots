@@ -213,8 +213,15 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
   },
   {
     track: "blast",
+    // A very high cap (radius grows one ring per level) on a steeply
+    // staggered ladder: the first rings are mid-game, but each ring costs
+    // ~2.6x the last, so the widest blasts run into the millions of vibes
+    // and stay a late-game flex. ~2.6x per tier keeps it superlinear.
     name: "Blast Charge",
-    prices: [250, 1000],
+    prices: [
+      200, 500, 1300, 3500, 9000, 24000, 65000, 175000, 480000, 1300000,
+      3500000, 9500000, 26000000, 70000000,
+    ],
     blurb: "wider dynamite blast, more loot",
   },
 ];

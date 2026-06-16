@@ -6,7 +6,7 @@ import { gearTrackDef, type MineGear, maxGearLevel } from "@/sim/mine";
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  track: z.enum(["pickaxe", "lamp", "cargo", "lantern", "blast"]),
+  track: z.enum(["pickaxe", "lamp", "cargo", "lantern", "warpcoil", "blast"]),
 });
 
 /**
@@ -34,7 +34,8 @@ export async function POST(request: Request): Promise<Response> {
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
   const current = (await sql`
-    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level, blast_level
+    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
+           warpcoil_level, blast_level
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
   const level = current[0]?.[`${track}_level`] ?? 1;
   if (level >= maxGearLevel(track)) {
@@ -70,6 +71,12 @@ export async function POST(request: Request): Promise<Response> {
           SET emeralds = emeralds - ${price}, lantern_level = ${level + 1}
           WHERE id = ${playerId} AND emeralds >= ${price} AND lantern_level = ${level}
           RETURNING emeralds, lantern_level AS level`;
+      case "warpcoil":
+        return sql`
+          UPDATE players
+          SET emeralds = emeralds - ${price}, warpcoil_level = ${level + 1}
+          WHERE id = ${playerId} AND emeralds >= ${price} AND warpcoil_level = ${level}
+          RETURNING emeralds, warpcoil_level AS level`;
       case "blast":
         return sql`
           UPDATE players

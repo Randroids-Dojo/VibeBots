@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-blast-cap-warpcoil" data-date="2026-06-16">
+    <h3>Stagger The Blast Cap And Make Warpcoil Buyable</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/dynamite-loot-collection</code></dd>
+      <dt>PR</dt><dd>#N (pending)</dd>
+      <dt>Changed</dt><dd>user-directed ("a very high cap, but staggering prices that make the higher levels late-game; also implement the other upgrades like Warpcoil"). Blast Charge moved from a 2-tier <code>[250, 1000]</code> array to a 14-tier ladder (<code>200</code> up to <code>70000000</code>, each step ~2.6x): the radius grows one ring per level to a very high cap, but the top rings cost tens of millions of vibes so a screen-clearing blast is an end-game reward. Warpcoil was already a <code>GEAR_TRACKS</code> entry wired through the gear-read and bank routes, but the gear-upgrade route's enum/SELECT/switch omitted it, so buying it 400'd; added the <code>warpcoil</code> branch there so it upgrades on its existing range tiers.</dd>
+      <dt>Verification</dt><dd>em-dash/en-dash grep, <code>tsc --noEmit</code> clean, full Vitest suite (110 passing, including the generic "prices gear tracks superlinearly" check which now spans the 14-tier blast ladder), <code>biome check</code> exit 0. The blast-widens and radius-mapping sim tests still hold (levels 1 and 3 are well under the new cap).</dd>
+      <dt>Assumptions</dt><dd>radius up to 15 (a ~481-cell diamond) is intentionally extreme: it is gated behind 70M vibes, so it is a victory-lap toy, not a mid-game tool. Prices are a first pass on the curve, easy to retune since they are display/economy only (not part of the replay). Warpcoil keeps its existing 4 range tiers (extending <code>WARP_RANGE</code> is a separate design call). No <code>MINE_VERSION</code> bump (reachable levels changed, replay rules did not).</dd>
+      <dt>GDD coverage</dt><dd>appended a Build log entry to <code>docs/gdd/06-mining.html</code>. No coverage-row status flipped.</dd>
+      <dt>Followups</dt><dd>elevator-speed upgrade still to land (user wants non-instant, accelerating rides) as its own slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-blast-upgrade" data-date="2026-06-16">
     <h3>Buy The Blast Charge In The Outfitter With The Other Gear</h3>
     <dl>

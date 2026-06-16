@@ -19,7 +19,6 @@ import {
   type MineState,
   maxEnergy,
   maxGearLevel,
-  type OreId,
   oreDef,
   returnEnergyCost,
   returnLadderNeed,
@@ -28,6 +27,7 @@ import {
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
 import { useMineStore } from "@/state/mine-store";
+import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
 import { type StallDef, stallAt } from "./mine-stalls";
 import { MineTouchControls } from "./mine-touch-controls";
 
@@ -832,6 +832,8 @@ export function MinePanel() {
   // coarse-pointer heuristic). False during SSR; set before paint.
   const [coarsePointer, setCoarsePointer] = useState(false);
   const armedRef = useRef(false);
+  const lastCashOutStateRef = useRef(cashOut.state);
+  const lastShopNoteRef = useRef<string | null>(null);
   // Throttle held-key auto-repeat to the same walk cadence as the
   // thumbstick; deliberate presses (event.repeat false) always fire.
   const lastKeyMoveRef = useRef(0);
@@ -851,6 +853,22 @@ export function MinePanel() {
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
   }, []);
+
+  useEffect(() => {
+    if (lastCashOutStateRef.current === cashOut.state) return;
+    lastCashOutStateRef.current = cashOut.state;
+    if (cashOut.state === "done") playMineSfxEvent("sell");
+    else if (cashOut.state === "error" || cashOut.state === "unavailable") {
+      playMineSfxEvent("deny");
+    }
+  }, [cashOut.state]);
+
+  useEffect(() => {
+    if (!shopNote || shopNote === lastShopNoteRef.current) return;
+    lastShopNoteRef.current = shopNote;
+    const event = mineShopNoteSfxEvent(shopNote);
+    if (event) playMineSfxEvent(event);
+  }, [shopNote]);
 
   // Moving off the column closes any open sheet, so the menu never
   // follows the miner and a return shows the prompt, not the open sheet.

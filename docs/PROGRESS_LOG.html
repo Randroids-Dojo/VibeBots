@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mining-action-sfx" data-date="2026-06-16">
+    <h3>Mining Action SFX</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mining-sfx</code></dd>
+      <dt>PR</dt><dd>#N (pending)</dd>
+      <dt>Changed</dt><dd>user-directed: mining gained synthesized action-specific SFX without adding audio assets or changing the deterministic sim. <code>src/components/mine-sfx.ts</code> now maps <code>lastResult</code> and <code>lastAction</code> into cues for footsteps, dirt/rock/ore/cache strikes and breaks, ore pickup chimes, cache fanfare, gas vents, dynamite blasts, crush and lamp-collapse beats, abandon, recall, ladders, planks, beacon planting, warp, elevator rides, buy, sell, and denial states. <code>src/components/mine-canvas.tsx</code> dispatches sim-result sounds from the existing visual-juice effect; <code>src/components/mine-panel.tsx</code> dispatches commerce sounds from cash-out and shop-note state. <code>src/components/mine-sfx.test.ts</code> pins the event classifier so the mapping stays reviewable without inspecting speaker output.</dd>
+      <dt>Verification</dt><dd>Dependency gate: <code>@randroids-dojo/vibekit</code> latest <code>v0.3.0</code> vs pinned <code>v0.2.0</code> was deferred to dot <code>VibeBots-bump-vibekit-to-ecbad715</code>; rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code> matched the ledger on the final recheck. Ran <code>pnpm install --frozen-lockfile</code> (no lockfile change), <code>pnpm vitest run src/components/mine-sfx.test.ts</code> (5 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code> (passed with existing warnings in <code>src/app/globals.css</code>, <code>src/components/mine-touch-controls.tsx</code>, and <code>src/sim/mine.ts</code>), <code>pnpm test</code> (110 passed), <code>pnpm build</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm check:purity</code>, and <code>pnpm exec playwright test smoke.spec.ts --config /tmp/vibebots-playwright-3001.config.cjs</code> against a clean worktree server on port 3001 (18 passed, 2 storage-gated skips). A normal <code>pnpm test:e2e</code> initially targeted an unrelated Next server already running from <code>/Users/randroid/Documents/Dev/VibeBots</code> on port 3000, so that result was discarded and replaced by the clean-server run.</dd>
+      <dt>Assumptions</dt><dd>Generated WebAudio is the right scope for this slice: no new dependency, no audio asset pipeline, and no sim changes. Commerce cues are keyed off existing shop-note text and cash-out state rather than adding new store fields.</dd>
+      <dt>GDD coverage</dt><dd>REQ-018 flipped to <code>done</code>; <code>docs/gdd/06-mining.html</code> gained a build-log entry; <a href="FOLLOWUPS.html#F-019">F-019</a> resolved.</dd>
+      <dt>Followups</dt><dd>Dependency followup dot: <code>VibeBots-bump-vibekit-to-ecbad715</code>. No new audio followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="vibes-currency-naming" data-date="2026-06-15">
     <h3>Rename The Mining Currency To Vibe-Brainiums (Vibes)</h3>
     <dl>

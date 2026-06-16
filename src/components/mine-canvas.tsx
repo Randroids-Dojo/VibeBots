@@ -9,7 +9,6 @@ import type {
   Group,
   HemisphereLight,
   Mesh,
-  PerspectiveCamera,
   PointLight,
 } from "three/webgpu";
 import { Color } from "three/webgpu";
@@ -26,7 +25,7 @@ import {
   stratumAt,
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
-import { playPickaxeClang } from "./mine-sfx";
+import { playMineResultSfx } from "./mine-sfx";
 import { STALLS, type StallDef } from "./mine-stalls";
 
 const ORE_COLORS: Record<OreId, string> = {
@@ -1245,6 +1244,7 @@ function MineScene() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
   useEffect(() => {
     const j = juice.current;
+    playMineResultSfx(lastResult, lastAction);
     if (lastAction === "left" || lastAction === "dynamite-left") j.facing = -1;
     else if (lastAction === "right" || lastAction === "dynamite-right")
       j.facing = 1;
@@ -1265,7 +1265,6 @@ function MineScene() {
       j.shake = Math.max(j.shake, 0.14);
       // Sparks fly off the rock face back toward the miner.
       spawnClang(j, sx, sy, -dc, dr);
-      playPickaxeClang();
     }
     if (!lastResult?.ok) return;
     const miner = mine.miner;

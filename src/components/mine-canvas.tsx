@@ -140,6 +140,9 @@ interface JuiceState {
 
 /** Length of the bounce-off animation when the pick can't cut the rock. */
 const BOUNCE_SECONDS = 0.42;
+const DYNAMITE_RED = "#b43b32";
+const FUSE_GLOW = "#ffb347";
+const DYNAMITE_WARNING = TEETER_EMISSIVE;
 
 /** World coordinates ARE render coordinates in the endless mine. */
 const cellX = (col: number) => col;
@@ -149,6 +152,85 @@ const cellX = (col: number) => col;
 const VIEW_COLS = 9;
 /** Width of the dressed surface camp strip around the origin. */
 const CAMP_WIDTH = 60;
+
+function DynamiteCharge({ col, row }: { col: number; row: number }) {
+  const bodyRef = useRef<Group>(null);
+  const warningRef = useRef<Mesh>(null);
+  const sparkRef = useRef<Mesh>(null);
+  const lightRef = useRef<PointLight>(null);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 12);
+    if (bodyRef.current) {
+      const scale = 1 + pulse * 0.08;
+      bodyRef.current.scale.setScalar(scale);
+      bodyRef.current.rotation.z = Math.sin(t * 18) * 0.035;
+    }
+    if (warningRef.current) {
+      warningRef.current.scale.setScalar(0.7 + pulse * 0.45);
+      warningRef.current.rotation.z = t * 1.8;
+    }
+    if (sparkRef.current) {
+      const spark = 0.75 + 0.45 * Math.sin(t * 31);
+      sparkRef.current.position.x = 0.2 + Math.sin(t * 9) * 0.035;
+      sparkRef.current.position.y = 0.18 + Math.abs(Math.sin(t * 14)) * 0.08;
+      sparkRef.current.scale.setScalar(spark);
+    }
+    if (lightRef.current) lightRef.current.intensity = 0.8 + pulse * 1.4;
+  });
+  return (
+    <group position={[cellX(col), -row, 0.78]}>
+      <mesh ref={warningRef} position={[0, 0, -0.05]}>
+        <circleGeometry args={[0.44, 18]} />
+        <meshBasicMaterial
+          color={DYNAMITE_WARNING}
+          transparent
+          opacity={0.24}
+          depthWrite={false}
+        />
+      </mesh>
+      <group ref={bodyRef}>
+        {[-0.07, 0.07].map((dy) => (
+          <mesh key={dy} position={[0, dy, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.055, 0.055, 0.48, 8]} />
+            <meshStandardMaterial
+              color={DYNAMITE_RED}
+              emissive={DYNAMITE_RED}
+              emissiveIntensity={0.15}
+              roughness={0.55}
+              flatShading
+            />
+          </mesh>
+        ))}
+        <mesh position={[-0.2, 0, 0.02]}>
+          <boxGeometry args={[0.05, 0.28, 0.05]} />
+          <meshStandardMaterial color="#3a2520" roughness={0.8} flatShading />
+        </mesh>
+        <mesh position={[0.16, 0.14, 0.04]} rotation={[0, 0, 0.45]}>
+          <boxGeometry args={[0.28, 0.03, 0.03]} />
+          <meshStandardMaterial color="#1f1712" roughness={0.9} flatShading />
+        </mesh>
+        <mesh ref={sparkRef} position={[0.22, 0.24, 0.08]}>
+          <octahedronGeometry args={[0.085, 0]} />
+          <meshStandardMaterial
+            color={FUSE_GLOW}
+            emissive={FUSE_GLOW}
+            emissiveIntensity={2.4}
+            flatShading
+          />
+        </mesh>
+      </group>
+      <pointLight
+        ref={lightRef}
+        position={[0.2, 0.2, 0.3]}
+        color={FUSE_GLOW}
+        intensity={1.2}
+        distance={3}
+        decay={1.7}
+      />
+    </group>
+  );
+}
 
 function pushParticle(juice: JuiceState, p: Omit<Particle, "id">): void {
   juice.particles.push({ ...p, id: juice.nextId++ });
@@ -1369,14 +1451,11 @@ function MineScene() {
       // A plain step into open tunnel: treads kick a little dust.
       spawnDust(j, cellX(miner.col), -miner.row);
     }
-    if ((lastResult.blasted ?? 0) > 0 && lastAction?.startsWith("dynamite")) {
-      const dir = lastAction.slice("dynamite-".length);
-      const dc = dir === "left" ? -1 : dir === "right" ? 1 : 0;
-      const dr = dir === "down" ? 1 : dir === "up" ? -1 : 0;
+    if (lastResult.exploded) {
       spawnBurst(
         j,
-        cellX(at.col + dc),
-        -(at.row + dr),
+        cellX(lastResult.exploded.col),
+        -lastResult.exploded.row,
         "#ffb347",
         26 + (lastResult.blasted ?? 0) * 4,
       );
@@ -1867,6 +1946,23 @@ function MineScene() {
         </RoundedBox>,
       );
     }
+  }
+  const charge = mine.pendingDynamite;
+  if (
+    charge &&
+    isVisible(mine, charge.row) &&
+    charge.row >= firstRow &&
+    charge.row <= lastRow &&
+    charge.col >= mine.miner.col - VIEW_COLS &&
+    charge.col <= mine.miner.col + VIEW_COLS
+  ) {
+    blockMeshes.push(
+      <DynamiteCharge
+        key={`dynamite:${charge.col}:${charge.row}`}
+        col={charge.col}
+        row={charge.row}
+      />,
+    );
   }
 
   return (

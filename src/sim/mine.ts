@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 17;
+export const MINE_VERSION = 18;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -549,6 +549,11 @@ export interface MineCell {
   fallen?: boolean;
 }
 
+export interface PendingDynamite {
+  col: number;
+  row: number;
+}
+
 /**
  * Rare robot parts discoverable underground (REQ-007). Deeper bands
  * roll richer tables (REQ-030): the bot-building reward keeps paying
@@ -606,6 +611,8 @@ export interface MineState {
    * regenerates identically from the seed on read.
    */
   cells: Map<string, MineCell>;
+  /** A lit dynamite charge waiting for the miner to step clear. */
+  pendingDynamite?: PendingDynamite;
   miner: MinerState;
 }
 
@@ -890,6 +897,24 @@ function target(
   }
 }
 
+function isPendingDynamiteAt(
+  state: MineState,
+  col: number,
+  row: number,
+): boolean {
+  return (
+    state.pendingDynamite?.col === col && state.pendingDynamite.row === row
+  );
+}
+
+function hasDynamiteGap(state: MineState, charge: PendingDynamite): boolean {
+  return (
+    Math.abs(state.miner.col - charge.col) +
+      Math.abs(state.miner.row - charge.row) >=
+    2
+  );
+}
+
 export type MoveResult =
   | {
       ok: true;
@@ -910,6 +935,10 @@ export type MoveResult =
       dropped?: number;
       /** Parts a dynamite blast cracked out of caches in range. */
       foundParts?: string[];
+      /** A dynamite charge was placed and is waiting for space. */
+      dynamitePlanted?: PendingDynamite;
+      /** Center cell of a delayed dynamite explosion. */
+      exploded?: PendingDynamite;
       /** Ore chunks scooped by walking over a floor drop. */
       pickedUp?: number;
       /** A recall rope ended the trip from below (carry banked). */
@@ -1124,6 +1153,8 @@ function markUnstable(
 export function step(state: MineState, dir: Direction): MoveResult {
   const miner = state.miner;
   const t = target(state, dir);
+  if (isPendingDynamiteAt(state, t.col, t.row))
+    return { ok: false, reason: "blocked" };
   const cell = cellAt(state, t.col, t.row);
   if (!cell) return { ok: false, reason: "edge" };
   if (cell.kind === "rock" && !canDigRock(state.gear, cell.rockTier ?? 1))
@@ -1167,14 +1198,14 @@ export function step(state: MineState, dir: Direction): MoveResult {
           lost,
         };
       }
-      return {
+      return maybeExplodePendingDynamite(state, {
         ok: true,
         dug: null,
         dugOre: null,
         found: null,
         collapsed: false,
         cracked: { kind: struck.kind, remaining },
-      };
+      });
     }
   }
   let laddered = false;
@@ -1289,7 +1320,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   if (miner.row === 0) {
     bank(miner, state.gear);
   }
-  return {
+  return maybeExplodePendingDynamite(state, {
     ok: true,
     dug,
     dugOre,
@@ -1300,7 +1331,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     laddered,
     planked,
     pickedUp,
-  };
+  });
 }
 
 /** The part a cache at (col,row) yields; deterministic from the seed. */
@@ -1331,21 +1362,25 @@ function diamondOffsets(r: number): ReadonlyArray<readonly [number, number]> {
   return out;
 }
 
+interface ExplosionResult {
+  vented?: number;
+  blasted?: number;
+  collected?: number;
+  dropped?: number;
+  foundParts?: string[];
+  exploded: PendingDynamite;
+}
+
 /**
- * Throws dynamite at the adjacent cell in the given direction: a diamond
- * blast (radius from the blast gear) clears dirt, any rock tier, and
- * boulders, and COLLECTS the ore and part-caches it breaks. Ore beyond
- * the cargo hold spills onto the floor to scoop up later; parts ride
- * free. Caught gas chains, but those leave caches be. Costs one dynamite,
- * no energy; the miner stays put behind cover.
+ * Resolves a lit charge once the miner has stepped clear: a diamond blast
+ * clears dirt, any rock tier, and boulders, and collects ore and caches.
+ * Ore beyond the cargo hold spills onto the floor to scoop up later.
  */
-function blast(state: MineState, dir: Direction): MoveResult {
-  if (state.consumables.dynamite <= 0)
-    return { ok: false, reason: "no-dynamite" };
-  const t = target(state, dir);
-  if (t.row < 1) return { ok: false, reason: "edge" };
-  state.consumables.dynamite--;
-  state.used.dynamite++;
+function detonateDynamiteAt(
+  state: MineState,
+  center: PendingDynamite,
+): ExplosionResult {
+  state.pendingDynamite = undefined;
   const miner = state.miner;
   let blasted = 0;
   let vented = 0;
@@ -1354,8 +1389,8 @@ function blast(state: MineState, dir: Direction): MoveResult {
   const foundParts: string[] = [];
   const emptied: Array<{ col: number; row: number }> = [];
   for (const [dc, dr] of diamondOffsets(blastRadius(state.gear))) {
-    const nc = t.col + dc;
-    const nr = t.row + dr;
+    const nc = center.col + dc;
+    const nr = center.row + dr;
     if (nr < 1) continue;
     const cell = cellAt(state, nc, nr);
     if (!cell) continue;
@@ -1395,35 +1430,86 @@ function blast(state: MineState, dir: Direction): MoveResult {
     dropped += spilled;
     if (spilled > 0) cellMut(state, nc, nr).drop = leftover;
   }
+  markUnstable(state, emptied);
+  return {
+    vented: vented > 0 ? vented : undefined,
+    blasted: blasted > 0 ? blasted : undefined,
+    collected: collected > 0 ? collected : undefined,
+    dropped: dropped > 0 ? dropped : undefined,
+    foundParts: foundParts.length > 0 ? foundParts : undefined,
+    exploded: center,
+  };
+}
+
+function maybeExplodePendingDynamite(
+  state: MineState,
+  result: Extract<MoveResult, { ok: true }>,
+): MoveResult {
+  const charge = state.pendingDynamite;
+  if (!charge || result.collapsed || !hasDynamiteGap(state, charge))
+    return result;
+  const explosion = detonateDynamiteAt(state, charge);
+  const vented = (result.vented ?? 0) + (explosion.vented ?? 0);
+  const collected = (result.collected ?? 0) + (explosion.collected ?? 0);
+  const dropped = (result.dropped ?? 0) + (explosion.dropped ?? 0);
+  const foundParts = [
+    ...(result.foundParts ?? []),
+    ...(explosion.foundParts ?? []),
+  ];
+  return {
+    ...result,
+    vented: vented > 0 ? vented : undefined,
+    blasted: explosion.blasted,
+    collected: collected > 0 ? collected : undefined,
+    dropped: dropped > 0 ? dropped : undefined,
+    foundParts: foundParts.length > 0 ? foundParts : undefined,
+    exploded: explosion.exploded,
+  };
+}
+
+/**
+ * Places a lit dynamite charge at the adjacent cell. It explodes after
+ * a later successful action leaves at least one cell of gap between the
+ * miner and the charge.
+ */
+function plantDynamite(state: MineState, dir: Direction): MoveResult {
+  if (state.consumables.dynamite <= 0)
+    return { ok: false, reason: "no-dynamite" };
+  if (state.pendingDynamite) return { ok: false, reason: "blocked" };
+  const t = target(state, dir);
+  if (t.row < 1) return { ok: false, reason: "edge" };
+  state.consumables.dynamite--;
+  state.used.dynamite++;
+  state.pendingDynamite = t;
+  const emptied: Array<{ col: number; row: number }> = [];
   const crushed = tickFalls(state, emptied);
   markUnstable(state, emptied);
-  let collapsed = false;
-  let lost:
-    | { value: number; parts: string[]; col: number; row: number }
-    | undefined;
   if (crushed) {
-    lost = {
-      value: carriedValue(miner),
-      parts: [...miner.carriedParts],
-      col: miner.col,
-      row: miner.row,
+    const lost = {
+      value: carriedValue(state.miner),
+      parts: [...state.miner.carriedParts],
+      col: state.miner.col,
+      row: state.miner.row,
     };
     collapse(state, true);
-    collapsed = true;
+    return {
+      ok: true,
+      dug: null,
+      dugOre: null,
+      found: null,
+      collapsed: true,
+      crushed: true,
+      dynamitePlanted: t,
+      lost,
+    };
   }
   return {
     ok: true,
     dug: null,
     dugOre: null,
     found: null,
-    collapsed,
-    crushed,
-    vented,
-    blasted,
-    collected,
-    dropped,
-    foundParts: foundParts.length > 0 ? foundParts : undefined,
-    lost,
+    collapsed: false,
+    dynamitePlanted: t,
   };
 }
 
@@ -1614,13 +1700,13 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
     case "right":
       return step(state, action);
     case "dynamite-down":
-      return blast(state, "down");
+      return plantDynamite(state, "down");
     case "dynamite-up":
-      return blast(state, "up");
+      return plantDynamite(state, "up");
     case "dynamite-left":
-      return blast(state, "left");
+      return plantDynamite(state, "left");
     case "dynamite-right":
-      return blast(state, "right");
+      return plantDynamite(state, "right");
     case "recall":
       return recall(state);
     case "abandon":
@@ -1657,6 +1743,7 @@ function bank(miner: MinerState, gear: MineGear): void {
  */
 function collapse(state: MineState, recover: boolean): void {
   const miner = state.miner;
+  state.pendingDynamite = undefined;
   miner.carried = {};
   miner.carriedParts = [];
   miner.collapses += 1;

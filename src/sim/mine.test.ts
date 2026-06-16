@@ -785,7 +785,7 @@ describe("mine", () => {
     expect(replayed.diff).toEqual(exportDiff(live));
   });
 
-  it("dynamite clears a plus including hard rock and is replay-counted", () => {
+  it("plants dynamite, then explodes once the miner moves clear", () => {
     const noStick = createMine(53);
     expect(applyAction(noStick, "dynamite-down")).toEqual({
       ok: false,
@@ -801,14 +801,33 @@ describe("mine", () => {
     });
     setCell(state, START_COL, 1, { kind: "rock", rockTier: 3 });
     setCell(state, START_COL, 2, { kind: "ore", ore: "coal" });
-    const result = applyAction(state, "dynamite-down");
+    const planted = applyAction(state, "dynamite-down");
+    expect(planted.ok && planted.dynamitePlanted).toEqual({
+      col: START_COL,
+      row: 1,
+    });
+    expect(planted.ok && (planted.blasted ?? 0)).toBe(0);
+    expect(state.pendingDynamite).toEqual({ col: START_COL, row: 1 });
+    expect(cellAt(state, START_COL, 1)?.kind).toBe("rock");
+
+    const result = applyAction(state, "left");
     expect(result.ok && (result.blasted ?? 0)).toBeGreaterThanOrEqual(2);
+    expect(result.ok && result.exploded).toEqual({ col: START_COL, row: 1 });
     expect(cellAt(state, START_COL, 1)?.kind).toBe("empty");
     expect(cellAt(state, START_COL, 2)?.kind).toBe("empty");
+    expect(state.pendingDynamite).toBeUndefined();
     expect(state.consumables.dynamite).toBe(1);
     expect(state.used.dynamite).toBe(1);
-    // No energy cost: the price was paid in credits.
+    // The surface step resets the lamp at the top after the charge pops.
     expect(state.miner.energy).toBe(LAMP_ENERGY[0]);
+
+    const replayed = replayTrip(
+      53,
+      ["dynamite-down", "left"],
+      DEFAULT_GEAR,
+      stock({ dynamite: 2 }),
+    );
+    expect(replayed.diff).toEqual(exportDiff(state));
   });
 
   it("recall rope banks the carry from any depth", () => {
@@ -939,7 +958,8 @@ describe("mine", () => {
   });
 
   /**
-   * Blast a true gap under the shaft mouth: dynamite-down clears
+   * Blast a true gap under the shaft mouth: dynamite-down plants the
+   * charge at (4,1), the surface step left creates the gap and clears
    * (4,1), (4,2), (3,1), (5,1), leaving (4,2) an empty void with no
    * ladder in it. Rows 1-2 are rock- and hazard-free, so only a rare
    * part-cache could survive the blast; the emptiness asserts guard
@@ -953,12 +973,13 @@ describe("mine", () => {
       plank: 4,
       beacon: 0,
     });
-    applyAction(state, "dynamite-down");
+    expect(applyAction(state, "dynamite-down").ok).toBe(true);
+    const blast = applyAction(state, "left");
+    expect(blast.ok && blast.exploded).toEqual({ col: START_COL, row: 1 });
     expect(cellAt(state, START_COL, 1)?.kind).toBe("empty");
     expect(cellAt(state, START_COL, 2)?.kind).toBe("empty");
     expect(cellAt(state, START_COL - 1, 1)?.kind).toBe("empty");
     step(state, "down");
-    step(state, "left");
     return state;
   }
 
@@ -1082,8 +1103,8 @@ describe("mine", () => {
   it("replays plank trips identically", () => {
     const actions: MineAction[] = [
       "dynamite-down",
-      "down",
       "left",
+      "down",
       "right",
       "left",
       "right",
@@ -1176,10 +1197,14 @@ describe("mine", () => {
     const big = createMine(401, { ...DEFAULT_GEAR, blast: 3 }, cons);
     for (const s of [small, big]) {
       for (let i = 0; i < 3; i++) dig(s, "down");
+      setCell(s, START_COL - 1, 3, { kind: "empty" });
+      setCell(s, START_COL - 1, 4, { kind: "dirt" });
     }
-    const a = applyAction(small, "dynamite-down");
-    const b = applyAction(big, "dynamite-down");
-    expect(a.ok && b.ok).toBe(true);
+    expect(applyAction(small, "dynamite-down").ok).toBe(true);
+    expect(applyAction(big, "dynamite-down").ok).toBe(true);
+    const a = applyAction(small, "left");
+    const b = applyAction(big, "left");
+    expect(a.ok && a.exploded && b.ok && b.exploded).toBeTruthy();
     expect(b.ok && (b.blasted ?? 0)).toBeGreaterThan(
       a.ok ? (a.blasted ?? 0) : 0,
     );

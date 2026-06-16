@@ -41,8 +41,17 @@ describe("mining sfx event mapping", () => {
 
   it("maps consumables and hazards to action-specific cues", () => {
     expect(
-      mineResultSfxEvents({ ...ok, blasted: 4, vented: 2 }, "dynamite-down"),
-    ).toEqual(["dynamite", "gas"]);
+      mineResultSfxEvents(
+        { ...ok, dynamitePlanted: { col: 0, row: 1 } },
+        "dynamite-down",
+      ),
+    ).toEqual([]);
+    expect(
+      mineResultSfxEvents(
+        { ...ok, blasted: 4, vented: 2, exploded: { col: 0, row: 1 } },
+        "left",
+      ),
+    ).toEqual(["step", "dynamite", "gas"]);
 
     expect(mineResultSfxEvents({ ...ok, recalled: true }, "recall")).toEqual([
       "recall",

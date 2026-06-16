@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-dynamite-fuse-juice" data-date="2026-06-16">
+    <h3>Make Dynamite A Visible Lit Charge Before It Explodes</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/dynamite-fuse-juice</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>user-directed: "Tweak dynamite. It should visible show up in the cell where you drop it. With a lit fuse animation. Then, it should flash like the falling rock as the player moves away. It should explode once the player has at least one cell gap between them and the dynamite. The explosion should be a visible effect. It should have a boom SFX as well." Dynamite is now two-step and replay-deterministic: <code>dynamite-*</code> spends one stick and plants <code>pendingDynamite</code> in the adjacent cell without clearing it, then the next successful action that leaves a Manhattan distance of 2 or more detonates the charge. The charge blocks stepping into its cell, renders over solid or empty cells with pulsing red sticks, a falling-rock-colored warning halo, a moving lit fuse spark, and a warm point light, and the delayed result carries <code>exploded</code> so the visible burst and synthesized boom fire at the charge cell instead of at the movement target. <code>MINE_VERSION</code> 17 -&gt; 18.</dd>
+      <dt>Verification</dt><dd>Dependency gate (start and final recheck): <code>@randroids-dojo/vibekit</code> latest <code>v0.3.0</code> vs ledger pin <code>v0.2.0</code> remains deferred to dot <code>VibeBots-bump-vibekit-to-ecbad715</code>; rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code> match. Ran <code>pnpm install --frozen-lockfile</code> (node_modules was absent, no lockfile change), <code>pnpm vitest run src/sim/mine.test.ts src/components/mine-sfx.test.ts</code> (64 passing), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm lint</code> (exit 0 with existing warnings in <code>src/app/globals.css</code> and <code>src/components/mine-touch-controls.tsx</code>), <code>pnpm check:purity</code>, <code>pnpm test</code> (116 passing), <code>pnpm build</code>, and <code>pnpm exec playwright test</code> against a clean production server on port 3008 after rebasing onto <code>origin/main</code> (19 passed, 2 storage-gated skips). A focused visual probe with mocked gear/world responses verified the dynamite button arms, the "Fuse lit. Move away." toast appears, the charge changes canvas pixels, moving away shows "Boom!", the explosion changes canvas pixels again, and console errors stay empty. Re-ran the focused probe after the warning-halo cleanup and again after the rebase with <code>{"chargeChangedPixels":true,"boomChangedPixels":true,"consoleErrors":[]}</code>. Opened <code>http://localhost:3008/mine</code> in the in-app browser for the frontend check.</dd>
+      <dt>Assumptions</dt><dd>"at least one cell gap" maps to Manhattan distance 2 or more on the grid: adjacent is unsafe, one orthogonal step away detonates. The planted charge is transient replay state, not a persisted world-diff cell; replaying the action log reconstructs it, and cash-out still submits only the log plus starting snapshot. Placement itself has no boom; the boom SFX fires on the delayed <code>exploded</code> result.</dd>
+      <dt>GDD coverage</dt><dd>appended a build-log entry to <code>docs/gdd/06-mining.html</code>. No coverage-row status changed: REQ-016 and REQ-018 were already done, and this tightens their feel and presentation.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="app-release-notes-copy" data-date="2026-06-16">
     <h3>Rewrite The Initial All-Users Release Notes</h3>
     <dl>

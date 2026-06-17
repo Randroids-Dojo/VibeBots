@@ -11,6 +11,7 @@ describe("mine camera zoom", () => {
     const base = { ...DEFAULT_GEAR, lantern: 1 };
     const upgraded = { ...DEFAULT_GEAR, lantern: 3 };
 
+    expect(maxMineCameraZoom(base)).toBeGreaterThan(1);
     expect(maxMineCameraZoom(upgraded)).toBeGreaterThan(
       maxMineCameraZoom(base),
     );
@@ -18,13 +19,13 @@ describe("mine camera zoom", () => {
     expect(clampMineCameraZoom(99, upgraded)).toBe(maxMineCameraZoom(upgraded));
   });
 
-  it("renders real mine rows down to the current lantern reach", () => {
-    expect(mineRenderWindow({ ...DEFAULT_GEAR, lantern: 1 }, 1).below).toBe(3);
+  it("renders real mine rows down through the lantern falloff band", () => {
+    expect(mineRenderWindow({ ...DEFAULT_GEAR, lantern: 1 }, 1).below).toBe(5);
     expect(mineRenderWindow({ ...DEFAULT_GEAR, lantern: 2 }, 1.1).below).toBe(
-      5,
+      7,
     );
     expect(mineRenderWindow({ ...DEFAULT_GEAR, lantern: 3 }, 1.3).below).toBe(
-      7,
+      9,
     );
   });
 });

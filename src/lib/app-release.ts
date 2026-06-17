@@ -2,10 +2,35 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.4-lantern-zoom";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.5-auto-bank-upgrades";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.5",
+      date: "2026-06-17",
+      title: "Auto-bank upgrades",
+      intro:
+        "Surface upgrades now settle your haul first, and mine zoom has a darker falloff edge.",
+      changes: [
+        {
+          build,
+          text: "Buying an Upgrades stall item with hauled-up loot now banks that loot before spending.",
+        },
+        {
+          build,
+          text: "The upgraded gear immediately rebuilds the fresh trip, so Lantern zoom and visibility match the upgrade you just bought.",
+        },
+        {
+          build,
+          text: "The Upgrades sheet counts hauled-up vibes toward affordability and labels bank-first purchases.",
+        },
+        {
+          build,
+          text: "Zoom-out reaches slightly past the fully lit Lantern range, with outer rows fading into darkness until you walk closer.",
+        },
+      ],
+    },
     {
       version: "0.1.4",
       date: "2026-06-17",

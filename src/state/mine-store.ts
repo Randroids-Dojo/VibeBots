@@ -117,7 +117,7 @@ export interface MineSessionState {
   move: (action: MineAction) => void;
   loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
-  submitCashOut: () => Promise<void>;
+  submitCashOut: () => Promise<boolean>;
   buyConsumable: (
     item: keyof MineConsumables,
     quantity?: number,
@@ -272,10 +272,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         ) {
           return;
         }
-        // Gear changes the sim. A fresh trip restarts on the snapshot
-        // over the same world; a resumed in-flight trip keeps ITS
-        // snapshot (the owned gear applies on the next trip, exactly
-        // like an Upgrades purchase mid-dig).
+        // Gear changes the sim. A fresh trip restarts on the owned
+        // snapshot over the same world; a resumed in-flight trip keeps
+        // the gear snapshot it was saved with.
         if (get().moves.length > 0) {
           set({ gear });
           return;
@@ -317,7 +316,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         if (res.status === 503) {
           set({ cashOut: { state: "unavailable" } });
-          return;
+          return false;
         }
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -328,13 +327,13 @@ export const useMineStore = create<MineSessionState>((set, get) => {
                 typeof body.error === "string" ? body.error : "cash out failed",
             },
           });
-          return;
+          return false;
         }
         const body = await res.json();
         // The world persists (REQ-026): the next trip resumes the SAME
         // carved mine. Only the trip state is fresh: leftover purchased
         // consumables plus anything bought at the depot since, on the
-        // store gear (a deferred upgrade lands here).
+        // currently owned gear.
         const remaining: MineConsumables = addConsumables(
           carryoverConsumables(get().mine),
           get().bought,
@@ -385,8 +384,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           tick: 0,
           lastResult: null,
         });
+        return true;
       } catch {
         set({ cashOut: { state: "error", message: "cash out failed" } });
+        return false;
       }
     },
 
@@ -439,8 +440,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     buyGearUpgrade: async (track) => {
-      const { cashOut } = get();
+      const { cashOut, mine, moves } = get();
       if (cashOut.state === "pending") return;
+      if (mine.miner.row !== 0) {
+        set({ shopNote: "return to the surface to upgrade" });
+        return;
+      }
+      if (!surfaceOnlyLog(moves)) {
+        const banked = await get().submitCashOut();
+        if (!banked) return;
+      }
       try {
         const res = await fetch("/api/gear/upgrade", {
           method: "POST",
@@ -464,30 +473,27 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const body = await res.json();
         const { gear, consumables, bought, moves, seed: s0, tick } = get();
         const nextGear: MineGear = { ...gear, [track]: body.level };
-        if (surfaceOnlyLog(moves)) {
-          // Gear changes the sim, so the live session only absorbs it
-          // while the log is pure surface walks (replay-identical under
-          // any gear). Otherwise it lands on the next trip.
-          const owned = addConsumables(consumables, bought);
-          const rebuilt = createMine(s0, nextGear, owned, get().tripBaseDiff);
-          for (const m of moves) applyAction(rebuilt, m);
-          set({
-            gear: nextGear,
-            mine: rebuilt,
-            consumables: owned,
-            bought: NO_CONSUMABLES,
-            balance: typeof body.balance === "number" ? body.balance : null,
-            shopNote: `${track} is now level ${body.level}`,
-            tick: tick + 1,
-          });
-        } else {
-          set({
-            gear: nextGear,
-            balance: typeof body.balance === "number" ? body.balance : null,
-            shopNote: `${track} level ${body.level} delivered; it applies on the next trip`,
-            tick: tick + 1,
-          });
-        }
+        const owned = addConsumables(consumables, bought);
+        const baseDiff = get().tripBaseDiff;
+        const rebuilt = createMine(s0, nextGear, owned, baseDiff);
+        for (const m of moves) applyAction(rebuilt, m);
+        saveLocalTrip({
+          seed: s0,
+          tripIndex: get().tripIndex,
+          gear: nextGear,
+          consumables: owned,
+          baseDiff,
+          moves,
+        });
+        set({
+          gear: nextGear,
+          mine: rebuilt,
+          consumables: owned,
+          bought: NO_CONSUMABLES,
+          balance: typeof body.balance === "number" ? body.balance : null,
+          shopNote: `${track} is now level ${body.level}`,
+          tick: tick + 1,
+        });
       } catch {
         set({ shopNote: "upgrade failed" });
       }

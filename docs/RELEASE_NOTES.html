@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.5" data-date="2026-06-17">
+    <h2>0.1.5</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.5</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>21</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Buying a surface gear upgrade now banks hauled-up loot first, then applies the upgraded gear to the fresh trip immediately. The Upgrades sheet counts hauled-up vibes toward affordability and labels those purchases as bank-first.</dd>
+      <dt>Zoom</dt><dd>Zoom-out now reaches slightly past the fully lit Lantern range. The extra rows render real generated mine cells under a dark falloff, so the outer edge is nearly black until the miner walks closer and the same cells brighten.</dd>
+      <dt>Fix</dt><dd>Lantern upgrades no longer appear ignored after a mined trip: once the purchase completes, the active mine and camera cap use the new Lantern level.</dd>
+      <dt>Verification</dt><dd><code>pnpm exec biome check --write</code> on touched source and smoke files, <code>pnpm exec vitest run src/state/mine-store.test.ts src/components/mine-camera.test.ts src/sim/mine.test.ts</code> (75 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (136 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, and Playwright smoke against a fresh production server on port 3022 (22 passed, 2 storage-gated skips), including the 0.1.5 popup, Settings release-note order, and falloff zoom rows.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.4" data-date="2026-06-17">
     <h2>0.1.4</h2>
     <dl>

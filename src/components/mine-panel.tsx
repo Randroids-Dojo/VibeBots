@@ -785,6 +785,8 @@ function StallMenu({
   const miner = mine.miner;
   const banked = miner.bankedCredits;
   const bankedParts = miner.bankedParts.length;
+  const autoBanking = banked > 0 || bankedParts > 0;
+  const upgradeFunds = balance === null ? null : balance + banked;
   const offline = balance === null;
   const beacon = findBeacon(mine);
   // Swipe-to-dismiss: the grab zone follows the finger down, and a far
@@ -1053,7 +1055,10 @@ function StallMenu({
             const maxed = level >= maxGearLevel(def.track);
             const price = maxed ? null : def.prices[level - 1];
             const affordable =
-              price !== null && balance !== null && balance >= price;
+              price !== null &&
+              upgradeFunds !== null &&
+              upgradeFunds >= price &&
+              !cashOutPending;
             return (
               <SheetRow
                 key={def.track}
@@ -1073,6 +1078,7 @@ function StallMenu({
                       disabled={!affordable}
                       style={sheetButtonStyle(affordable)}
                     >
+                      {autoBanking ? "Bank + " : ""}
                       {price} vibes
                     </button>
                   )
@@ -1081,7 +1087,7 @@ function StallMenu({
             );
           })}
           <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            upgrades bought mid-dig apply on the next trip.
+            Upgrades bank any hauled-up loot first, then apply immediately.
           </p>
         </div>
       )}

@@ -14,6 +14,7 @@ import type {
 import { Color } from "three/webgpu";
 import {
   clampMineCameraZoom,
+  MINE_CAMERA_FALLOFF_ROWS,
   mineCameraDistance,
   mineRenderWindow,
 } from "@/components/mine-camera";
@@ -24,6 +25,7 @@ import {
   FALL_DELAY_ACTIONS,
   hitsFor,
   isVisible,
+  lightRadius,
   type MineCell,
   type OreId,
   START_COL,
@@ -162,6 +164,7 @@ const BOUNCE_SECONDS = 0.42;
 const DYNAMITE_RED = "#b43b32";
 const FUSE_GLOW = "#ffb347";
 const DYNAMITE_WARNING = TEETER_EMISSIVE;
+const EDGE_DARKNESS_COLOR = "#02040a";
 
 /** World coordinates ARE render coordinates in the endless mine. */
 const cellX = (col: number) => col;
@@ -1551,6 +1554,7 @@ function MineScene({ zoom }: { zoom: number }) {
   const minerRow = mine.miner.row;
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
+  const litBelow = lightRadius(mine.gear);
   const firstRow = Math.max(0, minerRow - renderWindow.above);
   const lastRow = minerRow + renderWindow.below;
 
@@ -1689,6 +1693,7 @@ function MineScene({ zoom }: { zoom: number }) {
       state.gl.domElement.dataset.camX = rig.position.x.toFixed(2);
       state.gl.domElement.dataset.camZoom = cameraZoom.toFixed(2);
       state.gl.domElement.dataset.renderBelow = String(renderWindow.below);
+      state.gl.domElement.dataset.litBelow = String(litBelow);
       depthT = Math.min(1, Math.max(0, -rig.position.y / DARK_DEPTH));
     }
     // Daylight dies with depth; the lamp takes over as the key light.
@@ -1865,8 +1870,8 @@ function MineScene({ zoom }: { zoom: number }) {
   const blockMeshes = [];
   const tunnelMeshes = [];
   const crackMeshes = [];
+  const darknessMeshes = [];
   for (let row = firstRow; row <= lastRow; row++) {
-    if (!isVisible(mine, row)) continue;
     for (
       let col = mine.miner.col - renderWindow.cols;
       col <= mine.miner.col + renderWindow.cols;
@@ -1877,6 +1882,21 @@ function MineScene({ zoom }: { zoom: number }) {
       const key = `${col}:${row}`;
       const x = cellX(col);
       const y = -row;
+      const beyondLight = Math.max(0, row - (minerRow + litBelow));
+      if (beyondLight > 0) {
+        const fade = Math.min(1, beyondLight / MINE_CAMERA_FALLOFF_ROWS);
+        darknessMeshes.push(
+          <mesh key={`dark:${key}`} position={[x, y, 0.72]}>
+            <planeGeometry args={[1.08, 1.08]} />
+            <meshBasicMaterial
+              color={EDGE_DARKNESS_COLOR}
+              transparent
+              opacity={0.52 + fade * 0.43}
+              depthWrite={false}
+            />
+          </mesh>,
+        );
+      }
       // Damaged blocks wear cracks (REQ-013); the overlay rides above
       // whatever shape the kind renders.
       if (cell.hp !== undefined && cell.kind !== "empty") {
@@ -2256,6 +2276,7 @@ function MineScene({ zoom }: { zoom: number }) {
             </group>
           );
         })()}
+      {darknessMeshes}
       <group ref={particlesRef}>
         {juice.current.particles.map((p) => (
           <mesh key={p.id} position={[p.x, p.y, 0.4]} userData={{ id: p.id }}>

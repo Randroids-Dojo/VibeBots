@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-auto-bank-upgrades" data-date="2026-06-17">
+    <h3>Auto-Bank Before Surface Upgrades</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/auto-bank-before-upgrades</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Surface gear upgrades now settle a mined trip before buying, then rebuild the fresh trip with the upgraded gear immediately. The Upgrades sheet counts hauled-up vibes toward affordability, labels bank-first purchases, and no longer has a hidden "applies next trip" state that made Lantern zoom appear broken. Zoom-out now reaches slightly beyond the fully lit Lantern radius and renders real mine cells under a dark falloff, so the outer rows are nearly black until the miner walks closer. Package version moved to <code>0.1.5</code>; <code>MINE_VERSION</code> stays at <code>21</code> and <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched source and smoke files, <code>pnpm exec vitest run src/state/mine-store.test.ts src/components/mine-camera.test.ts src/sim/mine.test.ts</code> (75 passing), <code>pnpm typecheck</code>, <code>pnpm test</code> (136 passing), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, and <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3022.config.ts</code> against a clean production server on port 3022 (22 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>Upgrades remain surface-only. Auto-bank is a cash-out boundary before the purchase, so replay still uses the trip's original gear snapshot and the fresh trip uses the newly owned gear. The dark falloff rows may be rendered, but the underlying cells still come from <code>cellAt</code> and brighten in place when the miner approaches.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code>, static release notes, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>Added F-023 / <code>VibeBots-rework-the-buyer-bd69b909</code> to find a better long-term purpose for the Buyer now that upgrades can bank automatically.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-lantern-gated-zoom" data-date="2026-06-17">
     <h3>Lantern-Gated Mine Camera Zoom</h3>
     <dl>

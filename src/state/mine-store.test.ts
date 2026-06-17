@@ -1,0 +1,81 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createMine,
+  DEFAULT_GEAR,
+  type MineAction,
+  NO_CONSUMABLES,
+} from "@/sim/mine";
+import { useMineStore } from "./mine-store";
+
+const store = () => useMineStore.getState();
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+
+describe("mine store upgrade flow", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    const local = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn((key: string) => local.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => local.set(key, value)),
+      removeItem: vi.fn((key: string) => local.delete(key)),
+    });
+
+    const mine = createMine(123, DEFAULT_GEAR, NO_CONSUMABLES);
+    mine.miner.bankedCredits = 45;
+    useMineStore.setState({
+      mine,
+      seed: 123,
+      gear: DEFAULT_GEAR,
+      consumables: NO_CONSUMABLES,
+      bought: NO_CONSUMABLES,
+      balance: 10,
+      shopNote: null,
+      tripIndex: 2,
+      tripBaseDiff: [],
+      moves: ["down"] as MineAction[],
+      tick: 0,
+      lastResult: null,
+      lastAction: null,
+      cashOut: { state: "idle" },
+    });
+  });
+
+  it("banks a surfaced trip before buying an upgrade", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          credited: { credits: 45, parts: [], milestoneBonus: 0 },
+          balance: 55,
+          tripIndex: 3,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ track: "lantern", level: 2, balance: 5 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await store().buyGearUpgrade("lantern");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/mine/bank");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).gear.lantern).toBe(1);
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/gear/upgrade");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).track).toBe("lantern");
+
+    expect(store().gear.lantern).toBe(2);
+    expect(store().mine.gear.lantern).toBe(2);
+    expect(store().balance).toBe(5);
+    expect(store().tripIndex).toBe(3);
+    expect(store().shopNote).toBe("lantern is now level 2");
+
+    const lastSaved = vi.mocked(localStorage.setItem).mock.calls.at(-1);
+    expect(lastSaved).toBeTruthy();
+    expect(JSON.parse(lastSaved?.[1] ?? "{}").gear.lantern).toBe(2);
+  });
+});

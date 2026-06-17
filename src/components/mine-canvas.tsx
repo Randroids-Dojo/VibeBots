@@ -12,6 +12,11 @@ import type {
   PointLight,
 } from "three/webgpu";
 import { Color } from "three/webgpu";
+import {
+  clampMineCameraZoom,
+  mineCameraDistance,
+  mineRenderWindow,
+} from "@/components/mine-camera";
 import { createWebGPU } from "@/components/part-visuals";
 import {
   cellAt,
@@ -94,10 +99,6 @@ const TEETER_EMISSIVE = "#d9863a";
 const GAS_COLOR = "#8fa32e";
 const MAGMA_COLOR = "#ff5a2e";
 
-/** Rows rendered above and below the miner. */
-const VIEW_ABOVE = 8;
-const VIEW_BELOW = 6;
-
 /** Depth (in rows) at which the lighting reaches full darkness. */
 const DARK_DEPTH = 14;
 
@@ -164,10 +165,6 @@ const DYNAMITE_WARNING = TEETER_EMISSIVE;
 
 /** World coordinates ARE render coordinates in the endless mine. */
 const cellX = (col: number) => col;
-/** Columns rendered to either side of the miner: the widest desktop
- * frustum sees ~8.2, so 9 covers every aspect with glide margin while
- * keeping the mesh count near the old fixed-width world. */
-const VIEW_COLS = 9;
 /** Width of the dressed surface camp strip around the origin. */
 const CAMP_WIDTH = 60;
 
@@ -1513,7 +1510,7 @@ const SurfaceDressing = memo(function SurfaceDressing() {
   );
 });
 
-function MineScene() {
+function MineScene({ zoom }: { zoom: number }) {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);
@@ -1552,8 +1549,10 @@ function MineScene() {
   const frameMsRef = useRef(16);
 
   const minerRow = mine.miner.row;
-  const firstRow = Math.max(0, minerRow - VIEW_ABOVE);
-  const lastRow = minerRow + VIEW_BELOW;
+  const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
+  const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
+  const firstRow = Math.max(0, minerRow - renderWindow.above);
+  const lastRow = minerRow + renderWindow.below;
 
   // Dig/blast feedback: bursts, shake, swing, and facing keyed to the
   // last sim result.
@@ -1680,10 +1679,16 @@ function MineScene() {
       j.shake = Math.max(0, j.shake - delta * 0.9);
       const sx = rig.position.x + (Math.random() - 0.5) * j.shake;
       const sy = (Math.random() - 0.5) * j.shake;
-      state.camera.position.set(sx, rig.position.y + 1.5 + sy, 13);
+      state.camera.position.set(
+        sx,
+        rig.position.y + 1.5 + sy,
+        mineCameraDistance(cameraZoom),
+      );
       state.camera.lookAt(sx, rig.position.y + sy, 0);
       // Rendered camera pan exposed for motion QA on narrow viewports.
       state.gl.domElement.dataset.camX = rig.position.x.toFixed(2);
+      state.gl.domElement.dataset.camZoom = cameraZoom.toFixed(2);
+      state.gl.domElement.dataset.renderBelow = String(renderWindow.below);
       depthT = Math.min(1, Math.max(0, -rig.position.y / DARK_DEPTH));
     }
     // Daylight dies with depth; the lamp takes over as the key light.
@@ -1863,8 +1868,8 @@ function MineScene() {
   for (let row = firstRow; row <= lastRow; row++) {
     if (!isVisible(mine, row)) continue;
     for (
-      let col = mine.miner.col - VIEW_COLS;
-      col <= mine.miner.col + VIEW_COLS;
+      let col = mine.miner.col - renderWindow.cols;
+      col <= mine.miner.col + renderWindow.cols;
       col++
     ) {
       const cell = cellAt(mine, col, row);
@@ -2182,8 +2187,8 @@ function MineScene() {
     isVisible(mine, charge.row) &&
     charge.row >= firstRow &&
     charge.row <= lastRow &&
-    charge.col >= mine.miner.col - VIEW_COLS &&
-    charge.col <= mine.miner.col + VIEW_COLS
+    charge.col >= mine.miner.col - renderWindow.cols &&
+    charge.col <= mine.miner.col + renderWindow.cols
   ) {
     blockMeshes.push(
       <DynamiteCharge
@@ -2290,14 +2295,14 @@ function MineScene() {
   );
 }
 
-export default function MineCanvas() {
+export default function MineCanvas({ zoom }: { zoom: number }) {
   return (
     <Canvas
       camera={{ position: [0, 1.5, 13], fov: 42 }}
       dpr={[1, 2]}
       gl={createWebGPU}
     >
-      <MineScene />
+      <MineScene zoom={zoom} />
     </Canvas>
   );
 }

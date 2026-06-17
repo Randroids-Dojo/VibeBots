@@ -13,6 +13,17 @@
 
 <main id="entries">
 
+  <article data-version="0.1.4" data-date="2026-06-17">
+    <h2>0.1.4</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.4</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>21</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>The mine camera can zoom with the scroll wheel, two-finger pinch, or a gamepad trigger or shoulder plus D-pad up/down. Zoom-out is capped by the current lantern reach, so upgrading Lantern increases the maximum overview range without revealing beyond what the miner can actually see.</dd>
+      <dt>Rendering</dt><dd>The zoomed-out view renders the same generated mine cells used when the miner gets closer. The top Lantern level now renders its full seven visible rows below the miner instead of being clipped by the old fixed render window.</dd>
+      <dt>Verification</dt><dd><code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and smoke files, focused Vitest for mine camera and mine sim (74 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (135 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, and Playwright smoke against a fresh production server on port 3019 (22 passed, 2 storage-gated skips), including the 0.1.4 popup, Settings release-note order, and wheel zoom capped by starter lantern reach.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.3" data-date="2026-06-17">
     <h2>0.1.3</h2>
     <dl>

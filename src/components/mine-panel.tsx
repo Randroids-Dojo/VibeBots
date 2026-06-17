@@ -2,7 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  clampMineCameraZoom,
+  MINE_CAMERA_STORAGE_KEY,
+  MINE_CAMERA_ZOOM_DEFAULT,
+} from "@/components/mine-camera";
 import type { AppRelease } from "@/lib/app-release-types";
 import {
   CONSUMABLE_PRICES,
@@ -1197,6 +1202,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
+  const [cameraZoom, setCameraZoom] = useState(MINE_CAMERA_ZOOM_DEFAULT);
   // The column whose stall sheet is open. Standing on a stall no longer
   // auto-opens it: a prompt button appears and tapping it sets this.
   // Stepping off clears it, so walking by never pops the menu.
@@ -1207,6 +1213,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const armedRef = useRef(false);
   const lastCashOutStateRef = useRef(cashOut.state);
   const lastShopNoteRef = useRef<string | null>(null);
+  const lastGamepadZoomRef = useRef(0);
   // Throttle held-key auto-repeat to the same walk cadence as the
   // thumbstick; deliberate presses (event.repeat false) always fire.
   const lastKeyMoveRef = useRef(0);
@@ -1217,6 +1224,25 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   };
   void tick;
 
+  const persistCameraZoom = useCallback((zoom: number) => {
+    try {
+      localStorage.setItem(MINE_CAMERA_STORAGE_KEY, String(zoom));
+    } catch {
+      // Private browsing or blocked storage: keep the preference in memory.
+    }
+  }, []);
+
+  const adjustCameraZoom = useCallback(
+    (delta: number) => {
+      setCameraZoom((prev) => {
+        const next = clampMineCameraZoom(prev + delta, gear);
+        persistCameraZoom(next);
+        return next;
+      });
+    },
+    [gear, persistCameraZoom],
+  );
+
   useEffect(() => {
     // The world first (it seeds the mine), then gear (which rebuilds
     // the trip over that world when levels differ).
@@ -1226,6 +1252,51 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(MINE_CAMERA_STORAGE_KEY);
+      if (!raw) return;
+      setCameraZoom(clampMineCameraZoom(Number(raw), gear));
+    } catch {
+      // Storage unavailable: default zoom remains active.
+    }
+  }, [gear]);
+
+  useEffect(() => {
+    setCameraZoom((prev) => {
+      const next = clampMineCameraZoom(prev, gear);
+      if (next !== prev) persistCameraZoom(next);
+      return next;
+    });
+  }, [gear, persistCameraZoom]);
+
+  useEffect(() => {
+    let frame = 0;
+    const pollGamepadZoom = () => {
+      const pads = navigator.getGamepads?.() ?? [];
+      const now = Date.now();
+      for (const pad of pads) {
+        if (!pad) continue;
+        const modifier =
+          pad.buttons[6]?.pressed ||
+          pad.buttons[7]?.pressed ||
+          pad.buttons[4]?.pressed ||
+          pad.buttons[5]?.pressed;
+        if (!modifier) continue;
+        const zoomIn = pad.buttons[12]?.pressed;
+        const zoomOut = pad.buttons[13]?.pressed;
+        if (!zoomIn && !zoomOut) continue;
+        if (now - lastGamepadZoomRef.current < 160) break;
+        lastGamepadZoomRef.current = now;
+        adjustCameraZoom(zoomOut ? 0.05 : -0.05);
+        break;
+      }
+      frame = requestAnimationFrame(pollGamepadZoom);
+    };
+    frame = requestAnimationFrame(pollGamepadZoom);
+    return () => cancelAnimationFrame(frame);
+  }, [adjustCameraZoom]);
 
   useEffect(() => {
     if (lastCashOutStateRef.current === cashOut.state) return;
@@ -1423,8 +1494,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
-      <MineCanvas />
-      <MineTouchControls onDirection={act} />
+      <MineCanvas zoom={cameraZoom} />
+      <MineTouchControls onDirection={act} onZoomChange={adjustCameraZoom} />
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
       <ReleaseNotesPopup

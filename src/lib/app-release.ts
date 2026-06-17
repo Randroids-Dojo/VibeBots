@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.3-robot-battery";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.4-lantern-zoom";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.4",
+      date: "2026-06-17",
+      title: "Lantern-gated mine zoom",
+      intro:
+        "The mine camera can zoom now, and stronger lanterns let you pull back farther.",
+      changes: [
+        {
+          build,
+          text: "Scroll wheel, two-finger pinch, and trigger or shoulder plus D-pad gamepad input adjust the mine camera zoom.",
+        },
+        {
+          build,
+          text: "Zoom-out is capped by the current lantern reach, so higher Lantern upgrades increase the camera's overview range.",
+        },
+        {
+          build,
+          text: "Rows revealed by zoom use the same generated mine cells you see when the miner gets closer.",
+        },
+      ],
+    },
     {
       version: "0.1.3",
       date: "2026-06-17",

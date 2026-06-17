@@ -30,10 +30,15 @@ const AXIS_HYSTERESIS = 1.35;
  */
 export function MineTouchControls({
   onDirection,
+  onZoomChange,
 }: {
   onDirection: (dir: Direction) => void;
+  onZoomChange: (delta: number) => void;
 }) {
   const js = useRef(createJoystick());
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinchDistance = useRef<number | null>(null);
+  const pinching = useRef(false);
   const heldDir = useRef<Direction | null>(null);
   const lastFire = useRef(0);
   const repeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -111,28 +116,75 @@ export function MineTouchControls({
     setStick(null);
   };
 
+  const distanceBetweenPointers = (): number | null => {
+    const values = Array.from(pointers.current.values());
+    if (values.length < 2) return null;
+    const [a, b] = values;
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
+  const endPinch = () => {
+    pinching.current = false;
+    pinchDistance.current = null;
+  };
+
+  const trackPointer = (id: number, x: number, y: number) => {
+    pointers.current.set(id, { x, y });
+  };
+
+  const forgetPointer = (id: number) => {
+    pointers.current.delete(id);
+    if (pointers.current.size < 2) endPinch();
+  };
+
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: pointer-only touch surface; keyboard moves live on the document handler and the dig buttons
     <div
       data-touch-surface
+      onWheel={(e) => {
+        e.preventDefault();
+        onZoomChange(e.deltaY > 0 ? 0.06 : -0.06);
+      }}
       onPointerDown={(e) => {
-        if (js.current.active) return;
         if (e.pointerType === "mouse" && e.button !== 0) return;
         e.currentTarget.setPointerCapture(e.pointerId);
+        trackPointer(e.pointerId, e.clientX, e.clientY);
+        if (pointers.current.size >= 2) {
+          release();
+          pinching.current = true;
+          pinchDistance.current = distanceBetweenPointers();
+          return;
+        }
+        if (js.current.active) return;
         beginJoystick(js.current, e.pointerId, e.clientX, e.clientY);
         updateStickUi();
       }}
       onPointerMove={(e) => {
+        if (pointers.current.has(e.pointerId)) {
+          trackPointer(e.pointerId, e.clientX, e.clientY);
+        }
+        if (pinching.current) {
+          const nextDistance = distanceBetweenPointers();
+          const prevDistance = pinchDistance.current;
+          if (nextDistance !== null && prevDistance !== null) {
+            onZoomChange((prevDistance - nextDistance) / 280);
+          }
+          pinchDistance.current = nextDistance;
+          return;
+        }
         if (!js.current.active || e.pointerId !== js.current.pointerId) return;
         moveJoystick(js.current, e.clientX, e.clientY);
         syncDirection();
         updateStickUi();
       }}
       onPointerUp={(e) => {
+        forgetPointer(e.pointerId);
         if (e.pointerId !== js.current.pointerId) return;
         release();
       }}
-      onPointerCancel={release}
+      onPointerCancel={(e) => {
+        forgetPointer(e.pointerId);
+        release();
+      }}
       style={{
         position: "absolute",
         inset: 0,

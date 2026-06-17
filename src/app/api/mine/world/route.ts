@@ -1,5 +1,5 @@
 import { db, storageConfigured } from "@/server/db";
-import { getOrCreatePlayerId } from "@/server/player";
+import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
 import { refundRailSupportsInDiff, type WorldDiff } from "@/sim/mine";
 
 export const runtime = "nodejs";
@@ -26,16 +26,10 @@ export async function GET(): Promise<Response> {
     trip_count: number;
   }>;
   let diff = (rows[0].diff ?? []) as WorldDiff;
-  const playerRows = (await sql`
-    SELECT elevator_depth, elevator_support_refund_at
-    FROM players
-    WHERE id = ${playerId}`) as Array<{
-    elevator_depth: number;
-    elevator_support_refund_at: string | null;
-  }>;
-  const railDepth = playerRows[0]?.elevator_depth ?? 0;
+  const profile = await getMinePlayerProfile(sql, playerId);
+  const railDepth = profile?.elevator_depth ?? 0;
   let refundedSupports: Partial<Record<"ladder" | "plank", number>> = {};
-  if (railDepth > 0 && !playerRows[0]?.elevator_support_refund_at) {
+  if (railDepth > 0 && !profile?.elevator_support_refund_at) {
     const refund = refundRailSupportsInDiff(diff, 0, railDepth);
     const refundedLadders = refund.refunded.ladder ?? 0;
     const refundedPlanks = refund.refunded.plank ?? 0;

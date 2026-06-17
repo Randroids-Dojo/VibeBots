@@ -1,5 +1,5 @@
 import { db, storageConfigured } from "@/server/db";
-import { getOrCreatePlayerId } from "@/server/player";
+import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
 import {
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
@@ -20,15 +20,13 @@ export async function POST(): Promise<Response> {
   }
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
+  const profile = await getMinePlayerProfile(sql, playerId);
   const rows = (await sql`
-    SELECT p.elevator_depth, w.diff
-    FROM players p
-    LEFT JOIN mine_worlds w ON w.player_id = p.id
-    WHERE p.id = ${playerId}`) as Array<{
-    elevator_depth: number;
+    SELECT diff FROM mine_worlds
+    WHERE player_id = ${playerId}`) as Array<{
     diff: unknown;
   }>;
-  const depth = rows[0]?.elevator_depth ?? 0;
+  const depth = profile?.elevator_depth ?? 0;
   const segment = depth / ELEVATOR_SEGMENT_ROWS + 1;
   const price = elevatorSegmentPrice(segment);
   const nextDepth = depth + ELEVATOR_SEGMENT_ROWS;

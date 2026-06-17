@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
-import { getOrCreatePlayerId } from "@/server/player";
+import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
 import { CONSUMABLE_PRICES } from "@/sim/mine";
 
 export const runtime = "nodejs";
@@ -35,6 +35,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
+  await getMinePlayerProfile(sql, playerId);
   const rows = (await (item === "dynamite"
     ? sql`
         UPDATE players

@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
-import { getOrCreatePlayerId } from "@/server/player";
+import {
+  getMinePlayerProfile,
+  getOrCreatePlayerId,
+  mineGearLevelFromProfile,
+} from "@/server/player";
 import { gearTrackDef, type MineGearTrack, maxGearLevel } from "@/sim/mine";
 
 export const runtime = "nodejs";
@@ -18,18 +22,6 @@ const bodySchema = z.object({
     "fall",
   ]),
 });
-
-/** Track key to its level column. battery still lives in legacy lamp_level. */
-const LEVEL_COLUMN: Record<string, string> = {
-  pickaxe: "pickaxe_level",
-  battery: "lamp_level",
-  cargo: "cargo_level",
-  lantern: "lantern_level",
-  warpcoil: "warpcoil_level",
-  blast: "blast_level",
-  elevatorSpeed: "elevator_speed_level",
-  fall: "fall_level",
-};
 
 /**
  * Buys the next level of a gear track (REQ-013). The spend and the
@@ -57,11 +49,8 @@ export async function POST(request: Request): Promise<Response> {
 
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
-  const current = (await sql`
-    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           warpcoil_level, blast_level, elevator_speed_level, fall_level
-    FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
-  const level = current[0]?.[LEVEL_COLUMN[track]] ?? 1;
+  const profile = await getMinePlayerProfile(sql, playerId);
+  const level = profile ? mineGearLevelFromProfile(profile, track) : 1;
   if (level >= maxGearLevel(track)) {
     return Response.json({ error: "already at max level" }, { status: 422 });
   }

@@ -3,6 +3,7 @@ import {
   getMinePlayerProfile,
   getOrCreatePlayerId,
   mineConsumablesFromProfile,
+  mineGearFromProfile,
 } from "@/server/player";
 
 export const runtime = "nodejs";
@@ -16,17 +17,19 @@ export async function GET(): Promise<Response> {
   const sql = await db();
   const row = await getMinePlayerProfile(sql, playerId);
   return Response.json({
-    gear: {
-      pickaxe: row?.pickaxe_level ?? 1,
-      battery: row?.lamp_level ?? 1,
-      cargo: row?.cargo_level ?? 1,
-      lantern: row?.lantern_level ?? 1,
-      elevator: row?.elevator_depth ?? 0,
-      warpcoil: row?.warpcoil_level ?? 1,
-      blast: row?.blast_level ?? 1,
-      elevatorSpeed: row?.elevator_speed_level ?? 1,
-      fall: row?.fall_level ?? 1,
-    },
+    gear: row
+      ? mineGearFromProfile(row)
+      : {
+          pickaxe: 1,
+          battery: 1,
+          cargo: 1,
+          lantern: 1,
+          elevator: 0,
+          warpcoil: 1,
+          blast: 1,
+          elevatorSpeed: 1,
+          fall: 1,
+        },
     consumables: row
       ? mineConsumablesFromProfile(row)
       : { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },

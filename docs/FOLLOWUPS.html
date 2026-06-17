@@ -79,6 +79,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>ready: provide one server helper that loads mining gear, consumables, wallet balance, and compatibility markers, then migrate route handlers to use it.</dd>
       <dt>PR / Dot reference</dt><dd><code>VibeBots-centralize-mining-player-c6881a51</code></dd>
+      <dt>Resolved</dt><dd>Local mining profile cleanup slice: <code>src/server/player.ts</code> now exposes the normalized mining profile, profile-to-gear mapping, profile-to-consumable mapping, and gear-track level lookup. Gear reads, gear upgrades, Supply Depot purchases, elevator upgrades, mine world load, and bank replay now pass through the shared profile normalization path.</dd>
     </dl>
   </section>
 

@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import {
   LADDER_RECOVERY_FLOOR,
   type MineConsumables,
+  type MineGear,
+  type MineGearTrack,
   PLANK_RECOVERY_FLOOR,
 } from "@/sim/mine";
 import { db } from "./db";
@@ -40,6 +42,7 @@ export interface MinePlayerProfile {
   beacon_count: number;
   emeralds: number;
   support_kit_granted_at: string | null;
+  elevator_support_refund_at: string | null;
 }
 
 function secret(): string {
@@ -128,7 +131,8 @@ export async function getMinePlayerProfile(
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
            warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
            fall_level, dynamite_count, rope_count, ladder_count, plank_count,
-           beacon_count, emeralds, support_kit_granted_at
+           beacon_count, emeralds, support_kit_granted_at,
+           elevator_support_refund_at
     FROM players WHERE id = ${playerId}`) as Array<MinePlayerProfile>;
   return rows[0]
     ? await ensureStartingSupportKit(sql, playerId, rows[0])
@@ -145,4 +149,42 @@ export function mineConsumablesFromProfile(
     plank: row.plank_count,
     beacon: row.beacon_count,
   };
+}
+
+export function mineGearFromProfile(row: MinePlayerProfile): MineGear {
+  return {
+    pickaxe: row.pickaxe_level,
+    battery: row.lamp_level,
+    cargo: row.cargo_level,
+    lantern: row.lantern_level,
+    elevator: row.elevator_depth,
+    warpcoil: row.warpcoil_level,
+    blast: row.blast_level,
+    elevatorSpeed: row.elevator_speed_level,
+    fall: row.fall_level,
+  };
+}
+
+export function mineGearLevelFromProfile(
+  row: MinePlayerProfile,
+  track: MineGearTrack,
+): number {
+  switch (track) {
+    case "pickaxe":
+      return row.pickaxe_level;
+    case "battery":
+      return row.lamp_level;
+    case "cargo":
+      return row.cargo_level;
+    case "lantern":
+      return row.lantern_level;
+    case "warpcoil":
+      return row.warpcoil_level;
+    case "blast":
+      return row.blast_level;
+    case "elevatorSpeed":
+      return row.elevator_speed_level;
+    case "fall":
+      return row.fall_level;
+  }
 }

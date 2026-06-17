@@ -29,8 +29,8 @@ import {
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
 import { useMineStore } from "@/state/mine-store";
-import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
 import { destinationAt } from "./mine-destinations";
+import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
 import { type StallDef, stallAt } from "./mine-stalls";
 import { MineTouchControls } from "./mine-touch-controls";
 
@@ -123,18 +123,31 @@ function storedBuild(key: string): number | null {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
-function releaseNoteTexts(release: AppRelease): string[] {
-  const items = release.changes.map((change) => change.text);
-  return items.length > 0 ? items : ["Fresh build deployed."];
-}
-
-function releaseNoteContent(release: AppRelease): {
+function releaseHistoryContent(release: AppRelease): {
   intro: string | null;
   items: string[];
+  sections: Array<{
+    version: string;
+    date: string;
+    title: string;
+    intro: string | null;
+    items: string[];
+  }>;
 } {
+  const notes = release.notes.length > 0 ? release.notes : [];
   return {
-    intro: release.intro ?? null,
-    items: releaseNoteTexts(release),
+    intro: "Newest first. All shipped notes are kept here.",
+    items: [],
+    sections: notes.map((note) => ({
+      version: note.version,
+      date: note.date,
+      title: note.title,
+      intro: note.intro ?? null,
+      items:
+        note.changes.length > 0
+          ? note.changes.map((change) => change.text)
+          : ["Fresh build deployed."],
+    })),
   };
 }
 
@@ -148,12 +161,19 @@ function ReleaseNotesPopup({
   const [content, setContent] = useState<{
     intro: string | null;
     items: string[];
-  }>({ intro: null, items: [] });
+    sections: Array<{
+      version: string;
+      date: string;
+      title: string;
+      intro: string | null;
+      items: string[];
+    }>;
+  }>({ intro: null, items: [], sections: [] });
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (manualOpenCount <= 0) return;
-    setContent(releaseNoteContent(release));
+    setContent(releaseHistoryContent(release));
     setVisible(true);
   }, [manualOpenCount, release]);
 
@@ -201,6 +221,7 @@ function ReleaseNotesPopup({
     setContent({
       intro: release.intro ?? null,
       items: unseen.length > 0 ? unseen : ["Fresh build deployed."],
+      sections: [],
     });
     setVisible(true);
   }, [release]);
@@ -285,19 +306,94 @@ function ReleaseNotesPopup({
             {content.intro}
           </p>
         )}
-        <ul
-          style={{
-            margin: "0 0 14px",
-            paddingLeft: 18,
-            color: "#cdd6ea",
-            fontSize: "0.88rem",
-            lineHeight: 1.35,
-          }}
-        >
-          {content.items.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
+        {content.sections.length > 0 ? (
+          <section
+            aria-label="Release notes"
+            style={{
+              display: "grid",
+              gap: 12,
+              maxHeight: "min(54vh, 420px)",
+              overflowY: "auto",
+              marginBottom: 14,
+            }}
+          >
+            {content.sections.map((section) => (
+              <article
+                key={section.version}
+                data-release-note={section.version}
+              >
+                <header
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    alignItems: "baseline",
+                    marginBottom: 6,
+                  }}
+                >
+                  <h3
+                    style={{
+                      margin: 0,
+                      color: "#e6e8ee",
+                      fontSize: "0.9rem",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {section.version}: {section.title}
+                  </h3>
+                  <time
+                    style={{
+                      color: "#8b93a7",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {section.date}
+                  </time>
+                </header>
+                {section.intro && (
+                  <p
+                    style={{
+                      margin: "0 0 6px",
+                      color: "#dce5f7",
+                      fontSize: "0.78rem",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {section.intro}
+                  </p>
+                )}
+                <ul
+                  style={{
+                    margin: 0,
+                    paddingLeft: 18,
+                    color: "#cdd6ea",
+                    fontSize: "0.78rem",
+                    lineHeight: 1.32,
+                  }}
+                >
+                  {section.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </section>
+        ) : (
+          <ul
+            style={{
+              margin: "0 0 14px",
+              paddingLeft: 18,
+              color: "#cdd6ea",
+              fontSize: "0.88rem",
+              lineHeight: 1.35,
+            }}
+          >
+            {content.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
         <button
           type="button"
           onClick={dismiss}
@@ -1410,7 +1506,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         >
           <span style={{ fontSize: "1.2rem" }}>{destination.icon}</span>
           <span style={{ color: destination.color }}>{destination.name}</span>
-          <span style={{ opacity: 0.6, fontSize: "0.82rem" }}>Tap to enter</span>
+          <span style={{ opacity: 0.6, fontSize: "0.82rem" }}>
+            Tap to enter
+          </span>
         </button>
       )}
       {stall && openStallCol === miner.col && (

@@ -25,8 +25,8 @@ import {
   stratumAt,
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
-import { playMineResultSfx } from "./mine-sfx";
 import { DESTINATIONS, type DestinationDef } from "./mine-destinations";
+import { playMineResultSfx } from "./mine-sfx";
 import { STALLS, type StallDef } from "./mine-stalls";
 
 const ORE_COLORS: Record<OreId, string> = {
@@ -1313,7 +1313,11 @@ function BattlesModel({ color }: { color: string }) {
         <group key={x} position={[x, 2.0, 0.25]}>
           <mesh position={[0, 0.28, 0]}>
             <cylinderGeometry args={[0.02, 0.02, 0.8, 6]} />
-            <meshStandardMaterial color={WOOD_POST} roughness={0.9} flatShading />
+            <meshStandardMaterial
+              color={WOOD_POST}
+              roughness={0.9}
+              flatShading
+            />
           </mesh>
           <mesh position={[x < 0 ? 0.13 : -0.13, 0.5, 0]}>
             <boxGeometry args={[0.24, 0.16, 0.02]} />

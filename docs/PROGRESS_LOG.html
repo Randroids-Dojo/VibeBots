@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="in-game-release-notes" data-date="2026-06-17">
+    <h3>In-Game Release Updates And Settings Notes</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-backlog-fixes</code></dd>
+      <dt>PR</dt><dd>#N (pending)</dd>
+      <dt>Changed</dt><dd>Updated the in-game release notes surface for 0.1.1. The mine HUD Settings button opens cumulative release notes sorted newest first, with 0.1.1 above the 0.1.0 baseline. New players or players who have not seen the current notice get a 0.1.1 <code>New in VibeBots</code> popup that lists the latest mine movement, ladder, dropped-cargo, cash-out, and VibeKit changes. The popup records the dismissed notice id in local storage and the player-facing notes match <code>docs/RELEASE_NOTES.html</code>.</dd>
+      <dt>Verification</dt><dd><code>pnpm install --frozen-lockfile</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code> (exit 0 with the existing unused-suppression warning in <code>src/components/mine-touch-controls.tsx</code>), <code>pnpm test</code> (119 passed), <code>pnpm build</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, and Playwright smoke against a fresh production server on port 3001 (21 passed, 2 storage-gated tests skipped). The smoke covered the 0.1.1 popup and the manual Settings release notes with 0.1.1 before 0.1.0.</dd>
+      <dt>Assumptions</dt><dd>The Settings panel remains intentionally small until more settings exist. Release notes stay in the existing modal because it already blocks background controls correctly and can be reopened from Settings.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; this is product chrome and release communication.</dd>
+      <dt>Followups</dt><dd>No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-backlog-fixes" data-date="2026-06-17">
     <h3>Mine Backlog Fixes: Falls, Ladders, Locator, And Toast Timeout</h3>
     <dl>

@@ -132,7 +132,10 @@ export function PartsShop() {
               {part.name}
               <span style={{ opacity: 0.5 }}> ({part.category})</span>
               {counts.get(part.id) ? (
-                <span style={{ color: "#54e0c7" }}> x{counts.get(part.id)}</span>
+                <span style={{ color: "#54e0c7" }}>
+                  {" "}
+                  x{counts.get(part.id)}
+                </span>
               ) : null}
             </span>
             <button

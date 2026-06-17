@@ -3,6 +3,14 @@ export interface AppReleaseChange {
   text: string;
 }
 
+export interface AppReleaseNote {
+  version: string;
+  date: string;
+  title: string;
+  intro?: string;
+  changes: AppReleaseChange[];
+}
+
 export interface AppRelease {
   noticeId: string;
   version: string;
@@ -11,4 +19,5 @@ export interface AppRelease {
   showToAll: boolean;
   intro?: string;
   changes: AppReleaseChange[];
+  notes: AppReleaseNote[];
 }

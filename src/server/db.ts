@@ -12,6 +12,15 @@ export function storageConfigured(): boolean {
 
 type Sql = ReturnType<typeof neon>;
 
+/**
+ * Durable marker columns for one-time compatibility paths. Any future
+ * existing-player cleanup should add its player marker here and in schema.
+ */
+export const PLAYER_COMPATIBILITY_MARKERS = [
+  "support_kit_granted_at",
+  "elevator_support_refund_at",
+] as const;
+
 let client: Sql | null = null;
 let schemaReady: Promise<void> | null = null;
 

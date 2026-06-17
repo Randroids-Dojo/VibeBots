@@ -44,6 +44,19 @@
     </dl>
   </article>
 
+  <article data-slice="compatibility-migration-markers" data-date="2026-06-17">
+    <h3>Compatibility Migration Markers</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260617120905-ef1d5c5f</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>Implemented F-027. Added <code>PLAYER_COMPATIBILITY_MARKERS</code> for active one-time player cleanup paths, added a schema guard test that checks registered marker columns are present in lazy schema setup, and documented the marker requirement in <code>docs/WORKING_AGREEMENT.html</code> so future compatibility fixes do not become permanent forgiveness paths.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm exec biome check --write</code> on touched source files, <code>pnpm exec vitest run src/server/db.test.ts src/server/player.test.ts src/app/api/mine/bank/route.test.ts</code> (11 passing), and <code>pnpm typecheck</code>.</dd>
+      <dt>Assumptions</dt><dd>Existing marker coverage is complete for current one-time player cleanup paths: starter support-kit grant and elevator support refund. Future account-level or world-level cleanups should add their marker to the relevant registry before shipping.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-027">F-027</a>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-bank-policy-helpers" data-date="2026-06-17">
     <h3>Mine Bank Policy Helpers</h3>
     <dl>

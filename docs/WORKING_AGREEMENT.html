@@ -123,5 +123,10 @@
   </ul>
 </section>
 
+<section id="compatibility-migrations">
+  <h2>Compatibility Migrations</h2>
+  <p>Any existing-player cleanup or one-time compatibility grant must have a durable marker column. Add player-level markers to <code>PLAYER_COMPATIBILITY_MARKERS</code> in <code>src/server/db.ts</code>, add the matching lazy schema column, and gate the cleanup with <code>WHERE marker IS NULL</code> so temporary forgiveness cannot become a permanent rule.</p>
+</section>
+
 </body>
 </html>

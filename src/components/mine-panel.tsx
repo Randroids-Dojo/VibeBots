@@ -1715,6 +1715,24 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           : baseReturn
             ? `Teleport for ${baseReturn.cost} vibes`
             : "Base visible";
+  const baseReturnConfirmActive = baseReturnConfirm && !baseReturnDisabled;
+  const baseReturnButtonColors = baseReturnDisabled
+    ? {
+        border: "1px solid #343b52",
+        background: "#1b2030",
+        color: "#6f7892",
+      }
+    : baseReturnConfirmActive
+      ? {
+          border: "1px solid #ff6b6b",
+          background: "#4a1f28",
+          color: "#ffd9d9",
+        }
+      : {
+          border: "1px solid #54e0c7",
+          background: "#173033",
+          color: "#54e0c7",
+        };
 
   const handleBaseReturn = async () => {
     if (!baseReturn || baseReturnDisabled) return;
@@ -2005,11 +2023,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                   minHeight: 44,
                   marginTop: 10,
                   borderRadius: 10,
-                  border: baseReturnDisabled
-                    ? "1px solid #343b52"
-                    : "1px solid #54e0c7",
-                  background: baseReturnDisabled ? "#1b2030" : "#173033",
-                  color: baseReturnDisabled ? "#6f7892" : "#54e0c7",
+                  ...baseReturnButtonColors,
                   fontSize: "0.9rem",
                   fontWeight: 800,
                   cursor: baseReturnDisabled ? "not-allowed" : "pointer",

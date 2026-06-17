@@ -2,10 +2,27 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.15-legacy-support-cashout";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.16-base-return-danger-confirm";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.16",
+      date: "2026-06-17",
+      title: "Base return danger confirm",
+      intro:
+        "Paid base return now makes the final confirmation look like the costly action it is.",
+      changes: [
+        {
+          build,
+          text: "The Base return button stays teal for the first Teleport tap, then turns red when it asks for final confirmation.",
+        },
+        {
+          build,
+          text: "The disabled and insufficient-vibes states keep their muted styling, so only the armed paid action reads as destructive.",
+        },
+      ],
+    },
     {
       version: "0.1.15",
       date: "2026-06-17",

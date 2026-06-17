@@ -4,11 +4,14 @@ import {
   BASE_HITS,
   blastRadius,
   canDigRock,
+  canPlacePlank,
   cargoCapacity,
   carriedCount,
   carriedValue,
   carryoverConsumables,
   cellAt,
+  collectAction,
+  collectablePlacements,
   createMine,
   DEFAULT_GEAR,
   type Direction,
@@ -40,6 +43,7 @@ import {
   PLANK_RECOVERY_FLOOR,
   ROCK_DIG_COST,
   ROCK_FREE_ROWS,
+  refundRailLaddersInDiff,
   replayTrip,
   returnEnergyCost,
   returnLadderNeed,
@@ -872,6 +876,82 @@ describe("mine", () => {
     expect(state.used.ladder).toBe(1);
   });
 
+  it("does not place ladders or planks while riding the elevator rail", () => {
+    const gear = { ...DEFAULT_GEAR, elevator: ELEVATOR_SEGMENT_ROWS };
+    const state = createMine(72, gear, stock({ ladder: 2, plank: 2 }));
+    state.miner.col = ELEVATOR_COL;
+    state.miner.row = 1;
+    setCell(state, ELEVATOR_COL, 1, { kind: "empty" });
+    setCell(state, ELEVATOR_COL, 0, { kind: "empty" });
+    expect(applyAction(state, "up")).toEqual({ ok: false, reason: "blocked" });
+    expect(state.used.ladder).toBe(0);
+    expect(applyAction(state, "plank-right")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(state.used.plank).toBe(0);
+  });
+
+  it("collects visible placed ladders and planks back into inventory", () => {
+    const state = createMine(74, DEFAULT_GEAR, stock({ ladder: 2, plank: 2 }));
+    dig(state, "down");
+    dig(state, "down");
+    step(state, "up");
+    state.miner.col = START_COL - 1;
+    state.miner.row = 1;
+    setCell(state, START_COL - 1, 1, { kind: "empty" });
+    setCell(state, START_COL, 1, { kind: "empty" });
+    expect(applyAction(state, "plank-right").ok).toBe(true);
+    expect(state.used.ladder).toBe(1);
+    expect(state.used.plank).toBe(1);
+    const visible = collectablePlacements(state);
+    expect(visible).toEqual(
+      expect.arrayContaining([
+        { type: "ladder", col: START_COL, row: 2 },
+        { type: "plank", col: START_COL, row: 1 },
+      ]),
+    );
+    const result = applyAction(
+      state,
+      collectAction([
+        { type: "ladder", col: START_COL, row: 2 },
+        { type: "plank", col: START_COL, row: 1 },
+      ]),
+    );
+    expect(result.ok && result.supportCollected).toEqual({
+      ladder: 1,
+      plank: 1,
+    });
+    expect(cellAt(state, START_COL, 2)?.ladder).toBeUndefined();
+    expect(cellAt(state, START_COL, 1)?.plank).toBeUndefined();
+    expect(state.consumables.ladder).toBe(2);
+    expect(state.consumables.plank).toBe(2);
+    expect(state.used.ladder).toBe(0);
+    expect(state.used.plank).toBe(0);
+  });
+
+  it("refunds ladders covered by new elevator rail depth", () => {
+    const diff: WorldDiff = [
+      [ELEVATOR_COL, 1, { kind: "empty", ladder: true }],
+      [ELEVATOR_COL, 2, { kind: "empty", ladder: true }],
+      [ELEVATOR_COL - 1, 1, { kind: "empty", ladder: true }],
+      [
+        ELEVATOR_COL,
+        ELEVATOR_SEGMENT_ROWS + 1,
+        { kind: "empty", ladder: true },
+      ],
+    ];
+    const refund = refundRailLaddersInDiff(diff, 0, ELEVATOR_SEGMENT_ROWS);
+    expect(refund.refunded).toBe(2);
+    const next = createMine(76, DEFAULT_GEAR, NO_CONSUMABLES, refund.diff);
+    expect(cellAt(next, ELEVATOR_COL, 1)?.ladder).toBeUndefined();
+    expect(cellAt(next, ELEVATOR_COL, 2)?.ladder).toBeUndefined();
+    expect(cellAt(next, ELEVATOR_COL - 1, 1)?.ladder).toBe(true);
+    expect(cellAt(next, ELEVATOR_COL, ELEVATOR_SEGMENT_ROWS + 1)?.ladder).toBe(
+      true,
+    );
+  });
+
   it("refills ladders and planks up to the floor on death", () => {
     const owned = stock({ ladder: 2, plank: 1 });
     const state = createMine(91, DEFAULT_GEAR, owned);
@@ -966,16 +1046,22 @@ describe("mine", () => {
     return state;
   }
 
-  it("bridges lateral gaps with planks and reuses them", () => {
-    // Standing at (3,1), stepping right into (4,1) crosses the void at
-    // (4,2): no ladder anywhere, so an owned plank goes in.
+  it("places planks explicitly before crossing lateral gaps", () => {
     const state = lateralGapState(4);
     expect(state.used.plank).toBe(0);
-    const cross = step(state, "right");
-    expect(cross.ok && cross.planked).toBe(true);
+    expect(canPlacePlank(state, "right")).toBe(true);
+    const placed = applyAction(state, "plank-right");
+    expect(placed.ok && placed.plankPlaced).toEqual({
+      col: START_COL,
+      row: 1,
+    });
     expect(state.consumables.plank).toBe(PLANK_RECOVERY_FLOOR - 1);
     expect(state.used.plank).toBe(1);
     expect(cellAt(state, START_COL, 1)?.plank).toBe(true);
+    const cross = step(state, "right");
+    expect(cross.ok && !cross.planked).toBe(true);
+    expect(cross.ok && cross.fell).toBeUndefined();
+    expect(state.miner.row).toBe(1);
     // Re-crossing the planked cell is free.
     step(state, "left");
     const recross = step(state, "right");
@@ -992,6 +1078,30 @@ describe("mine", () => {
     expect(state.miner.row).toBe(2);
     expect(state.miner.energy).toBe(energy - MOVE_COST);
     expect(state.used.plank).toBe(0);
+  });
+
+  it("pre-places a plank under a diggable facing cell", () => {
+    const state = createMine(105, DEFAULT_GEAR, stock({ plank: 1 }));
+    state.miner.col = START_COL;
+    state.miner.row = 1;
+    setCell(state, START_COL, 1, { kind: "empty" });
+    setCell(state, START_COL + 1, 1, { kind: "dirt" });
+    setCell(state, START_COL + 1, 2, { kind: "empty" });
+    expect(canPlacePlank(state, "right")).toBe(true);
+    const placed = applyAction(state, "plank-right");
+    expect(placed.ok && placed.plankPlaced).toEqual({
+      col: START_COL + 1,
+      row: 1,
+    });
+    expect(cellAt(state, START_COL + 1, 1)?.plank).toBe(true);
+    expect(state.used.plank).toBe(1);
+    const mined = dig(state, "right");
+    expect(mined.ok).toBe(true);
+    expect(state.miner.col).toBe(START_COL + 1);
+    expect(cellAt(state, START_COL + 1, 1)).toEqual({
+      kind: "empty",
+      plank: true,
+    });
   });
 
   it("allows side digs without planks and drops through the opened gap", () => {
@@ -1139,7 +1249,13 @@ describe("mine", () => {
   });
 
   it("replays plank trips identically", () => {
-    const actions: MineAction[] = ["down", "right", "left", "right"];
+    const actions: MineAction[] = [
+      "down",
+      "plank-right",
+      "right",
+      "left",
+      "right",
+    ];
     const consumables = {
       dynamite: 1,
       rope: 0,

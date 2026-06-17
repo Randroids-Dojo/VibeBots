@@ -2,9 +2,10 @@ import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
 import {
+  isMineAction,
   MAX_TRIP_MOVES,
-  MINE_ACTIONS,
   MINE_VERSION,
+  type MineAction,
   maxGearLevel,
   replayTrip,
   STRATA,
@@ -29,7 +30,10 @@ const bodySchema = z.object({
   seed: z.number().int().min(0).max(4294967295),
   // Replay-protection: must match the stored world's trip counter.
   tripIndex: z.number().int().min(0),
-  moves: z.array(z.enum(MINE_ACTIONS)).min(1).max(MAX_TRIP_MOVES),
+  moves: z
+    .array(z.string().refine(isMineAction, { message: "invalid mine action" }))
+    .min(1)
+    .max(MAX_TRIP_MOVES),
   mineVersion: z.number().int(),
   // The gear snapshot the session was played with (Q-007 default B):
   // replay must match what the player saw, validated against ownership.
@@ -162,7 +166,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const trip = replayTrip(
     parsed.data.seed,
-    parsed.data.moves,
+    parsed.data.moves as MineAction[],
     gear,
     consumables,
     (worlds[0].diff ?? []) as WorldDiff,
@@ -202,7 +206,7 @@ export async function POST(request: Request): Promise<Response> {
           ladder_count = GREATEST(0, ladder_count
             - ${Math.max(0, trip.used.ladder - trip.granted.ladder - trip.recovered.ladder)}),
           plank_count = GREATEST(0, plank_count
-            - ${Math.max(0, trip.used.plank - trip.granted.plank)}),
+            - ${Math.max(0, trip.used.plank - trip.granted.plank - trip.recovered.plank)}),
           beacon_count = GREATEST(0, beacon_count - ${trip.used.beacon})
       WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM world)
       RETURNING emeralds, deepest_depth

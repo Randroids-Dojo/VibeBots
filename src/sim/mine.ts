@@ -526,8 +526,10 @@ export interface MineCell {
   ladder?: boolean;
   /**
    * A deployed plank bridge (REQ-022), only meaningful on empty cells.
-   * Stepping laterally into this cell over a void is free once placed;
-   * a falling boulder smashes it like a ladder.
+   * Stepping laterally into this cell over a void is free once placed.
+   * Planks can also be pre-set on a diggable cell; when that cell is
+   * mined, the bridge remains underfoot. A falling boulder smashes it
+   * like a ladder.
    */
   plank?: boolean;
   /**
@@ -629,14 +631,18 @@ export type WorldDiff = Array<[number, number, MineCell]>;
 const cellKey = (col: number, row: number) => `${col},${row}`;
 
 /** The world diff, sorted for deterministic serialization. */
-export function exportDiff(state: MineState): WorldDiff {
+function exportCells(cells: Map<string, MineCell>): WorldDiff {
   const entries: WorldDiff = [];
-  for (const [key, cell] of state.cells) {
+  for (const [key, cell] of cells) {
     const [col, row] = key.split(",").map(Number);
     entries.push([col, row, { ...cell }]);
   }
   entries.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
   return entries;
+}
+
+export function exportDiff(state: MineState): WorldDiff {
+  return exportCells(state.cells);
 }
 
 function importDiff(diff: WorldDiff | undefined): Map<string, MineCell> {
@@ -647,6 +653,30 @@ function importDiff(diff: WorldDiff | undefined): Map<string, MineCell> {
     }
   }
   return cells;
+}
+
+/**
+ * Buying rail through a carved ladder shaft returns those bought rungs
+ * to stock and removes them from the persistent world diff. The empty
+ * shaft stays carved.
+ */
+export function refundRailLaddersInDiff(
+  diff: WorldDiff,
+  fromDepth: number,
+  toDepth: number,
+): { diff: WorldDiff; refunded: number } {
+  const cells = importDiff(diff);
+  let refunded = 0;
+  for (let row = Math.max(1, fromDepth + 1); row <= toDepth; row++) {
+    const key = cellKey(ELEVATOR_COL, row);
+    const cell = cells.get(key);
+    if (!cell?.ladder) continue;
+    const next = { ...cell };
+    delete next.ladder;
+    cells.set(key, next);
+    refunded++;
+  }
+  return { diff: exportCells(cells), refunded };
 }
 
 /** Max lamp energy for the session's gear. */
@@ -956,12 +986,16 @@ export type MoveResult =
       abandoned?: boolean;
       /** This climb consumed and placed a new ladder (REQ-020). */
       laddered?: boolean;
-      /** This step consumed and placed a new plank bridge (REQ-022). */
+      /** This step consumed and placed a new plank bridge (legacy). */
       planked?: boolean;
       /** Unsupported movement dropped the miner down empty cells. */
       fell?: number;
       /** A planted ladder was recovered into the carried stock. */
       collectedLadder?: boolean;
+      /** This action placed a plank in the facing cell. */
+      plankPlaced?: { col: number; row: number };
+      /** Placed supports picked back up into inventory. */
+      supportCollected?: Partial<Record<"ladder" | "plank", number>>;
       /** The swing damaged but did not break the block (REQ-013). */
       cracked?: { kind: CellKind; remaining: number };
       /** What a collapse/crush cost, for the near-miss reveal (REQ-019). */
@@ -984,18 +1018,14 @@ export type MoveResult =
         | "surface";
     };
 
-/**
- * The full trip action vocabulary (Q-006 default B): plain directions
- * dig and move; dynamite tokens blast toward a direction; recall ends
- * the trip from anywhere, banking the carry. The cash-out log is an
- * array of these tokens.
- */
-export type MineAction =
+type BaseMineAction =
   | Direction
   | "dynamite-down"
   | "dynamite-up"
   | "dynamite-left"
   | "dynamite-right"
+  | "plank-left"
+  | "plank-right"
   | "recall"
   | "abandon"
   | "ride-down"
@@ -1004,6 +1034,19 @@ export type MineAction =
   | "collect-ladder"
   | "warp-home"
   | "warp-down";
+
+export type CollectTarget = {
+  type: "ladder" | "plank";
+  col: number;
+  row: number;
+};
+
+/**
+ * The full trip action vocabulary (Q-006 default B): plain directions
+ * dig and move; dynamite and plank tokens act toward a direction;
+ * collect tokens pick placed traversal supports back up by coordinate.
+ */
+export type MineAction = BaseMineAction | `collect:${string}`;
 
 export const MINE_ACTIONS = [
   "down",
@@ -1014,6 +1057,8 @@ export const MINE_ACTIONS = [
   "dynamite-up",
   "dynamite-left",
   "dynamite-right",
+  "plank-left",
+  "plank-right",
   "recall",
   "abandon",
   "ride-down",
@@ -1022,7 +1067,44 @@ export const MINE_ACTIONS = [
   "collect-ladder",
   "warp-home",
   "warp-down",
-] as const;
+] as const satisfies readonly BaseMineAction[];
+
+const BASE_MINE_ACTIONS: ReadonlySet<string> = new Set(MINE_ACTIONS);
+
+export function collectAction(targets: readonly CollectTarget[]): MineAction {
+  const parts = [...targets]
+    .sort(
+      (a, b) => a.row - b.row || a.col - b.col || a.type.localeCompare(b.type),
+    )
+    .map((target) => `${target.type}:${target.col},${target.row}`);
+  return `collect:${parts.join(";")}`;
+}
+
+function parseCollectAction(action: string): CollectTarget[] | null {
+  if (!action.startsWith("collect:")) return null;
+  const raw = action.slice("collect:".length);
+  if (!raw) return null;
+  const targets: CollectTarget[] = [];
+  const seen = new Set<string>();
+  for (const part of raw.split(";")) {
+    const match = /^(ladder|plank):(-?\d+),(-?\d+)$/.exec(part);
+    if (!match) return null;
+    const type = match[1] as "ladder" | "plank";
+    const col = Number(match[2]);
+    const row = Number(match[3]);
+    if (!Number.isSafeInteger(col) || !Number.isSafeInteger(row) || row < 0)
+      return null;
+    const key = `${type}:${col},${row}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    targets.push({ type, col, row });
+  }
+  return targets;
+}
+
+export function isMineAction(action: string): action is MineAction {
+  return BASE_MINE_ACTIONS.has(action) || parseCollectAction(action) !== null;
+}
 
 /** Blast-destructible kinds (caches are reinforced; jackpots survive). */
 const BLASTABLE: ReadonlySet<CellKind> = new Set([
@@ -1258,23 +1340,16 @@ export function step(state: MineState, dir: Direction): MoveResult {
     if (!here.ladder) {
       if (state.consumables.ladder <= 0)
         return { ok: false, reason: "no-ladder" };
+      if (isOnElevatorRail(state)) return { ok: false, reason: "blocked" };
       state.consumables.ladder--;
       state.used.ladder++;
       here.ladder = true;
       laddered = true;
     }
   }
-  // Lateral steps over a void use a plank bridge when one is available
-  // (REQ-022). Without one, the move is still legal, but gravity drops
-  // the miner through empty cells until something supports them.
-  let needPlank = false;
-  if ((dir === "left" || dir === "right") && t.row >= 1) {
-    const below = cellAt(state, t.col, t.row + 1);
-    const supported = cell.plank || cell.ladder || below?.ladder;
-    if (below?.kind === "empty" && !supported) {
-      needPlank = state.consumables.plank > 0;
-    }
-  }
+  // Lateral steps never auto-spend planks anymore (REQ-022). A placed
+  // plank or ladder support prevents falling; otherwise the move is still
+  // legal and deterministic gravity drops the miner after the move.
 
   let dug: CellKind | null = null;
   let dugOre: OreId | null = null;
@@ -1293,21 +1368,18 @@ export function step(state: MineState, dir: Direction): MoveResult {
       found = rollCachePart(state, t.col, t.row);
       miner.carriedParts.push(found);
     }
-    setCell(state, t.col, t.row, { kind: "empty" });
+    setCell(
+      state,
+      t.col,
+      t.row,
+      cell.plank ? { kind: "empty", plank: true } : { kind: "empty" },
+    );
     emptied.push({ col: t.col, row: t.row });
     // Digging next to a pocket vents it: the burn is lamp heat.
     vented = ventGasAround(state, t.col, t.row, emptied);
   }
 
-  let planked = false;
-  if (needPlank) {
-    // After dig resolution the target is an override empty cell; the
-    // plank lives on it.
-    state.consumables.plank--;
-    state.used.plank++;
-    cellMut(state, t.col, t.row).plank = true;
-    planked = true;
-  }
+  const planked = false;
 
   miner.energy = Math.max(0, miner.energy - cost - vented * GAS_VENT_DRAIN);
   miner.col = t.col;
@@ -1373,6 +1445,127 @@ export function step(state: MineState, dir: Direction): MoveResult {
     planked,
     fell: fell || undefined,
     pickedUp,
+  });
+}
+
+function isOnElevatorRail(state: MineState): boolean {
+  return (
+    state.gear.elevator > 0 &&
+    state.miner.col === ELEVATOR_COL &&
+    state.miner.row >= 0 &&
+    state.miner.row <= state.gear.elevator
+  );
+}
+
+export function canPlacePlank(
+  state: MineState,
+  dir: "left" | "right",
+): boolean {
+  return plankPlacementTarget(state, dir).ok;
+}
+
+type MoveFailureReason = Extract<MoveResult, { ok: false }>["reason"];
+
+function plankPlacementTarget(
+  state: MineState,
+  dir: "left" | "right",
+):
+  | { ok: true; col: number; row: number }
+  | { ok: false; reason: MoveFailureReason } {
+  if (state.consumables.plank <= 0) return { ok: false, reason: "no-plank" };
+  if (isOnElevatorRail(state)) return { ok: false, reason: "blocked" };
+  const t = target(state, dir);
+  if (t.row < 1) return { ok: false, reason: "surface" };
+  const cell = cellAt(state, t.col, t.row);
+  const below = cellAt(state, t.col, t.row + 1);
+  if (!cell || !below) return { ok: false, reason: "edge" };
+  if (cell.ladder || cell.plank || below.kind !== "empty")
+    return { ok: false, reason: "blocked" };
+  if (cell.kind === "boulder" || cell.kind === "gas" || cell.kind === "magma")
+    return { ok: false, reason: "blocked" };
+  return { ok: true, col: t.col, row: t.row };
+}
+
+function finishStationaryAction(
+  state: MineState,
+  base: Extract<MoveResult, { ok: true }>,
+): MoveResult {
+  const emptied: Array<{ col: number; row: number }> = [];
+  const crushed = tickFalls(state, emptied);
+  markUnstable(state, emptied);
+  if (crushed) {
+    const lost = {
+      value: carriedValue(state.miner),
+      parts: [...state.miner.carriedParts],
+      col: state.miner.col,
+      row: state.miner.row,
+    };
+    collapse(state, true);
+    return {
+      ...base,
+      collapsed: true,
+      crushed: true,
+      lost,
+    };
+  }
+  return maybeExplodePendingDynamite(state, base);
+}
+
+function placePlank(state: MineState, dir: "left" | "right"): MoveResult {
+  const placement = plankPlacementTarget(state, dir);
+  if (!placement.ok) return placement;
+  state.consumables.plank--;
+  state.used.plank++;
+  cellMut(state, placement.col, placement.row).plank = true;
+  return finishStationaryAction(state, {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    plankPlaced: { col: placement.col, row: placement.row },
+  });
+}
+
+export function collectablePlacements(state: MineState): CollectTarget[] {
+  const items: CollectTarget[] = [];
+  for (const [key, cell] of state.cells) {
+    if (!cell.ladder && !cell.plank) continue;
+    const [col, row] = key.split(",").map(Number);
+    if (!isVisible(state, row)) continue;
+    if (cell.ladder) items.push({ type: "ladder", col, row });
+    if (cell.plank) items.push({ type: "plank", col, row });
+  }
+  items.sort(
+    (a, b) => a.row - b.row || a.col - b.col || a.type.localeCompare(b.type),
+  );
+  return items;
+}
+
+function collectPlaced(state: MineState, action: MineAction): MoveResult {
+  const targets = parseCollectAction(action);
+  if (!targets || targets.length === 0) return { ok: false, reason: "blocked" };
+  for (const item of targets) {
+    const cell = cellAt(state, item.col, item.row);
+    if (!cell || !isVisible(state, item.row) || !cell[item.type])
+      return { ok: false, reason: "blocked" };
+  }
+  const collected: Partial<Record<"ladder" | "plank", number>> = {};
+  for (const item of targets) {
+    const cell = cellMut(state, item.col, item.row);
+    cell[item.type] = undefined;
+    state.consumables[item.type]++;
+    if (state.used[item.type] > 0) state.used[item.type]--;
+    else state.recovered[item.type]++;
+    collected[item.type] = (collected[item.type] ?? 0) + 1;
+  }
+  return finishStationaryAction(state, {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    supportCollected: collected,
   });
 }
 
@@ -1755,6 +1948,7 @@ function warp(state: MineState, dir: "home" | "down"): MoveResult {
 
 /** Dispatches any logged trip action (Q-006 default B). */
 export function applyAction(state: MineState, action: MineAction): MoveResult {
+  if (action.startsWith("collect:")) return collectPlaced(state, action);
   switch (action) {
     case "down":
     case "up":
@@ -1769,6 +1963,10 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
       return plantDynamite(state, "left");
     case "dynamite-right":
       return plantDynamite(state, "right");
+    case "plank-left":
+      return placePlank(state, "left");
+    case "plank-right":
+      return placePlank(state, "right");
     case "recall":
       return recall(state);
     case "abandon":
@@ -1786,6 +1984,7 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
     case "warp-down":
       return warp(state, "down");
   }
+  return { ok: false, reason: "blocked" };
 }
 
 function bank(miner: MinerState, gear: MineGear): void {

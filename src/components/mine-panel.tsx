@@ -6,10 +6,14 @@ import { useEffect, useRef, useState } from "react";
 import type { AppRelease } from "@/lib/app-release-types";
 import {
   CONSUMABLE_PRICES,
+  type CollectTarget,
+  canPlacePlank,
   cargoCapacity,
   carriedCount,
   carriedValue,
   cellAt,
+  collectAction,
+  collectablePlacements,
   type Direction,
   ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
@@ -76,6 +80,15 @@ const iconButtonStyle: React.CSSProperties = {
   fontSize: "0.95rem",
   pointerEvents: "auto",
 };
+
+function collectTargetKey(target: CollectTarget): string {
+  return `${target.type}:${target.col},${target.row}`;
+}
+
+function collectTargetName(target: CollectTarget): string {
+  const label = target.type === "ladder" ? "Ladder" : "Plank";
+  return `${label} ${target.col},${target.row}`;
+}
 
 /** Banner shown for a few seconds when the miner enters a new stratum. */
 function StratumBanner({ row }: { row: number }) {
@@ -1176,6 +1189,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const router = useRouter();
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
   const [abandonArmed, setAbandonArmed] = useState(false);
+  const [facing, setFacing] = useState<"left" | "right">("right");
+  const [collectMode, setCollectMode] = useState(false);
+  const [collectSelection, setCollectSelection] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
@@ -1267,6 +1283,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
+      if (dir === "left" || dir === "right") setFacing(dir);
       // Held keys auto-repeat far faster than the walk cadence; clamp
       // the repeats so keyboard speed matches the thumbstick.
       if (event.repeat && Date.now() - lastKeyMoveRef.current < KEY_REPEAT_MS) {
@@ -1309,6 +1326,26 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lostPulseSeconds = lostCargo
     ? Math.max(0.45, Math.min(1.6, 0.35 + lostDistance * 0.08))
     : 1;
+  const visibleSupports = collectablePlacements(mine);
+  const visibleSupportKeyList = visibleSupports.map(collectTargetKey).join("|");
+  const selectedSupports = visibleSupports.filter((target) =>
+    collectSelection.includes(collectTargetKey(target)),
+  );
+  const plankEnabled = canPlacePlank(mine, facing);
+  const recoveredSupportCount =
+    lastResult?.ok && lastResult.supportCollected
+      ? (lastResult.supportCollected.ladder ?? 0) +
+        (lastResult.supportCollected.plank ?? 0)
+      : 0;
+
+  useEffect(() => {
+    const visibleSupportKeys = new Set(
+      visibleSupportKeyList ? visibleSupportKeyList.split("|") : [],
+    );
+    setCollectSelection((prev) =>
+      prev.filter((key) => visibleSupportKeys.has(key)),
+    );
+  }, [visibleSupportKeyList]);
 
   // One terse toast, game-style: the chips carry the numbers.
   const statusLine =
@@ -1346,15 +1383,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 ? "Boom!"
                 : lastResult?.ok && lastResult.dynamitePlanted
                   ? "Fuse lit. Move away."
-                  : lastResult?.ok && (lastResult.vented ?? 0) > 0
-                    ? `Gas! ${(lastResult.vented ?? 0) * 8} energy burned.`
-                    : miner.row === 0 &&
-                        (miner.bankedCredits > 0 ||
-                          miner.bankedParts.length > 0)
-                      ? "Sell at the Buyer (gold sign)."
-                      : miner.row === 0 && mine.consumables.ladder === 0
-                        ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
-                        : undefined;
+                  : lastResult?.ok && lastResult.plankPlaced
+                    ? "Plank placed."
+                    : recoveredSupportCount > 0
+                      ? `Recovered ${recoveredSupportCount} support${recoveredSupportCount > 1 ? "s" : ""}.`
+                      : lastResult?.ok && (lastResult.vented ?? 0) > 0
+                        ? `Gas! ${(lastResult.vented ?? 0) * 8} energy burned.`
+                        : miner.row === 0 &&
+                            (miner.bankedCredits > 0 ||
+                              miner.bankedParts.length > 0)
+                          ? "Sell at the Buyer (gold sign)."
+                          : miner.row === 0 && mine.consumables.ladder === 0
+                            ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
+                            : undefined;
   const cashNote =
     cashOut.state === "done"
       ? `Sold for ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Your mine stays.`
@@ -1365,6 +1406,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           : null;
 
   const act = (dir: Direction) => {
+    if (dir === "left" || dir === "right") setFacing(dir);
     if (dynamiteArmed) {
       setDynamiteArmed(false);
       move(`dynamite-${dir}` as MineAction);
@@ -1642,6 +1684,102 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         )}
       </section>
 
+      {collectMode && (
+        <section
+          aria-label="Placed supports"
+          style={{
+            position: "absolute",
+            right: 12,
+            bottom: 130,
+            zIndex: 6,
+            width: "min(330px, calc(100vw - 24px))",
+            maxHeight: "min(42dvh, 300px)",
+            overflowY: "auto",
+            border: "1px solid #26304a",
+            borderRadius: 12,
+            background: "rgba(17, 21, 31, 0.96)",
+            boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42)",
+            padding: 10,
+            pointerEvents: "auto",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              marginBottom: 10,
+            }}
+          >
+            {visibleSupports.length === 0 ? (
+              <span style={{ ...chipStyle, color: "#8b93a7" }}>
+                no visible supports
+              </span>
+            ) : (
+              visibleSupports.map((target) => {
+                const key = collectTargetKey(target);
+                const selected = collectSelection.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() =>
+                      setCollectSelection((prev) =>
+                        prev.includes(key)
+                          ? prev.filter((item) => item !== key)
+                          : [...prev, key],
+                      )
+                    }
+                    style={{
+                      minHeight: 34,
+                      borderRadius: 10,
+                      border: selected
+                        ? "1px solid #54e0c7"
+                        : "1px solid #2c3a5c",
+                      background: selected
+                        ? "rgba(84, 224, 199, 0.16)"
+                        : "rgba(38, 48, 74, 0.55)",
+                      color: selected ? "#54e0c7" : "#cdd6ea",
+                      fontSize: "0.78rem",
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {collectTargetName(target)}
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <button
+            type="button"
+            aria-label="Confirm support collection"
+            disabled={selectedSupports.length === 0}
+            onClick={() => {
+              move(collectAction(selectedSupports));
+              setCollectSelection([]);
+              setCollectMode(false);
+            }}
+            style={{
+              width: "100%",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #54e0c7",
+              background:
+                selectedSupports.length > 0
+                  ? "#172b30"
+                  : "rgba(23, 43, 48, 0.35)",
+              color: selectedSupports.length > 0 ? "#54e0c7" : "#8b93a7",
+              fontWeight: 800,
+              cursor: selectedSupports.length > 0 ? "pointer" : "default",
+            }}
+          >
+            Collect {selectedSupports.length}
+          </button>
+        </section>
+      )}
+
       {/* Consumable cluster: thumb-reach icon buttons. Movement is the
           thumbstick (or WASD/arrows); the D-pad is gone. */}
       <section
@@ -1652,7 +1790,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           bottom: 18,
           display: "flex",
           gap: 8,
+          flexWrap: "wrap",
           alignItems: "center",
+          justifyContent: "flex-end",
+          maxWidth: "calc(100vw - 24px)",
           zIndex: 5,
         }}
       >
@@ -1680,6 +1821,47 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             &#129692;&#8593;
           </button>
         )}
+        <button
+          type="button"
+          aria-label={`Place plank ${facing}`}
+          onClick={() => {
+            setDynamiteArmed(false);
+            move(`plank-${facing}` as MineAction);
+          }}
+          disabled={!plankEnabled}
+          style={{
+            ...iconButtonStyle,
+            opacity: plankEnabled ? 1 : 0.42,
+            cursor: plankEnabled ? "pointer" : "default",
+          }}
+        >
+          &#129717; {facing === "left" ? "\u25C0" : "\u25B6"}
+        </button>
+        <button
+          type="button"
+          aria-label="Collect placed supports"
+          aria-pressed={collectMode}
+          onClick={() => {
+            setDynamiteArmed(false);
+            setCollectMode((open) => !open);
+          }}
+          disabled={!collectMode && visibleSupports.length === 0}
+          style={{
+            ...iconButtonStyle,
+            opacity: collectMode || visibleSupports.length > 0 ? 1 : 0.42,
+            cursor:
+              collectMode || visibleSupports.length > 0 ? "pointer" : "default",
+            ...(collectMode
+              ? {
+                  background: "#172b30",
+                  borderColor: "#54e0c7",
+                  color: "#54e0c7",
+                }
+              : null),
+          }}
+        >
+          &#8635;
+        </button>
         <button
           type="button"
           aria-label={`Dynamite (${mine.consumables.dynamite})`}

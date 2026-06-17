@@ -326,7 +326,7 @@
     },
     {
       "id": "REQ-020",
-      "requirement": "Ascent is ladder-gated: climbing out of a cell consumes and plants a ladder once (then climbs free); trips provision a free bundle and the shop sells more; out of ladders means recall, buy, or lose the carry.",
+      "requirement": "Ascent is ladder-gated: climbing out of a cell consumes and plants a ladder once (then climbs free), placed ladders can be collected back within visible range, and the shop sells more; out of ladders means recall, buy, or lose the carry.",
       "gddRef": "docs/gdd/06-mining.html#ladders",
       "status": "done",
       "implementationRefs": [
@@ -360,7 +360,7 @@
     },
     {
       "id": "REQ-022",
-      "requirement": "Lateral traversal over voids is plank-gated: stepping sideways into a cell with empty space below consumes and places a plank bridge once (free re-crossings, smashed by boulders, surface row exempt); trips provision a free bundle and the shop sells more.",
+      "requirement": "Lateral traversal over voids is plank-gated by an explicit facing-based plank button: placed bridges enable free crossings, can be pre-set under a solid facing cell when below is empty, can be collected back within visible range, and are sold at the shop.",
       "gddRef": "docs/gdd/06-mining.html#ladders",
       "status": "done",
       "implementationRefs": [

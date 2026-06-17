@@ -13,6 +13,7 @@ import {
   type MineState,
   type MoveResult,
   NO_CONSUMABLES,
+  refundRailLaddersInDiff,
   START_COL,
   STARTING_CONSUMABLES,
   type WorldDiff,
@@ -502,26 +503,58 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const body = await res.json();
         const { gear, consumables, bought, moves, seed: s0, tick } = get();
         const nextGear: MineGear = { ...gear, elevator: body.elevator };
+        const fallbackRefund = refundRailLaddersInDiff(
+          get().tripBaseDiff,
+          gear.elevator,
+          body.elevator,
+        );
+        const nextBaseDiff = Array.isArray(body.diff)
+          ? (body.diff as WorldDiff)
+          : fallbackRefund.diff;
+        const refundedLadders =
+          typeof body.refundedLadders === "number"
+            ? body.refundedLadders
+            : fallbackRefund.refunded;
         if (surfaceOnlyLog(moves)) {
           // Same rule as gear: rail applies to the live trip only while
           // the log is pure surface walks (replay-identical).
           const owned = addConsumables(consumables, bought);
-          const rebuilt = createMine(s0, nextGear, owned, get().tripBaseDiff);
+          owned.ladder += refundedLadders;
+          const rebuilt = createMine(s0, nextGear, owned, nextBaseDiff);
           for (const m of moves) applyAction(rebuilt, m);
+          saveLocalTrip({
+            seed: s0,
+            tripIndex: get().tripIndex,
+            gear: nextGear,
+            consumables: owned,
+            baseDiff: nextBaseDiff,
+            moves,
+          });
           set({
             gear: nextGear,
             mine: rebuilt,
             consumables: owned,
             bought: NO_CONSUMABLES,
+            tripBaseDiff: nextBaseDiff,
             balance: typeof body.balance === "number" ? body.balance : null,
-            shopNote: `rail extended to ${body.elevator} deep`,
+            shopNote:
+              refundedLadders > 0
+                ? `rail extended to ${body.elevator} deep; ${refundedLadders} ladders recovered`
+                : `rail extended to ${body.elevator} deep`,
             tick: tick + 1,
           });
         } else {
+          const owned = addConsumables(consumables, bought);
+          owned.ladder += refundedLadders;
           set({
             gear: nextGear,
+            consumables: owned,
+            bought: NO_CONSUMABLES,
             balance: typeof body.balance === "number" ? body.balance : null,
-            shopNote: `rail extended to ${body.elevator} deep; rides start next trip`,
+            shopNote:
+              refundedLadders > 0
+                ? `rail extended to ${body.elevator} deep; ${refundedLadders} ladders recovered`
+                : `rail extended to ${body.elevator} deep; rides start next trip`,
             tick: tick + 1,
           });
         }

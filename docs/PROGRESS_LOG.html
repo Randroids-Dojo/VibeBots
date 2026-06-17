@@ -57,6 +57,19 @@
     </dl>
   </article>
 
+  <article data-slice="mine-consumable-placement-controls" data-date="2026-06-16">
+    <h3>Make Ladder And Plank Placement Explicit And Recoverable</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-consumable-placement</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>User-directed consumable fixes. Ladders and planks can no longer be placed while the miner is riding the elevator rail. Elevator rail purchases now remove saved ladders in the newly covered rail span from the persistent world diff and return them to ladder inventory. Planks no longer auto-deploy during lateral movement: the mine HUD now has a facing-based plank button, disabled when stock is empty or the facing cell has no empty space below it, and it supports pre-placing a plank on a solid facing cell when the cell below is empty so mining that block leaves a bridge underfoot. The new collect mode shows visible placed ladders and planks, lets the player select any of them, and confirms one logged <code>collect:...</code> action that returns selected supports to inventory. <code>MINE_VERSION</code> 18 -&gt; 19.</dd>
+      <dt>Verification</dt><dd>Dependency gate observed <code>@randroids-dojo/vibekit</code> latest <code>v0.3.0</code> vs ledger pin <code>v0.2.0</code>; existing dependency dot remains deferred. Ran <code>pnpm exec biome check --write</code> on touched source files, <code>pnpm test src/sim/mine.test.ts src/components/mine-sfx.test.ts</code> (68 passing), <code>pnpm test</code> (120 passing), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm check:purity</code>, <code>pnpm lint</code> (exit 0 with existing warnings in <code>src/app/globals.css</code> and <code>src/components/mine-touch-controls.tsx</code>), <code>pnpm build</code>, and <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3009.config.ts</code> against a clean production server on port 3009 (21 passed, 2 storage-gated skips). The default <code>pnpm test:e2e</code> first reused stale port 3000 behavior and failed old-route expectations, so it was discarded and rerun on the clean port. In-app browser mobile check at 390x760 verified the wrapped controls and collect panel stay inside the viewport and do not overlap.</dd>
+      <dt>Assumptions</dt><dd>Visible range for collect mode uses the sim's existing lantern row visibility rule. Collecting a support reverses its logged use when possible, so replay and wallet decrement stay aligned. Plank placement is a stationary logged action that can tick falling blocks, matching other explicit consumable actions.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status flipped; REQ-020, REQ-022, and REQ-028 remained done with updated wording in <code>docs/GDD_COVERAGE.json</code>. Updated <code>docs/gdd/06-mining.html</code> traversal and elevator text and appended a build-log entry.</dd>
+      <dt>Followups</dt><dd>none. Dot <code>VibeBots-fix-ladder-and-1c0c122b</code> tracks this slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-dynamite-fuse-juice" data-date="2026-06-16">
     <h3>Make Dynamite A Visible Lit Charge Before It Explodes</h3>
     <dl>

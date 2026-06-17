@@ -191,7 +191,7 @@ export function mineResultSfxEvents(
   }
 
   if (result.laddered) events.push("ladder");
-  if (result.planked) events.push("plank");
+  if (result.planked || result.plankPlaced) events.push("plank");
   if (result.exploded || (result.blasted ?? 0) > 0) events.push("dynamite");
   if ((result.vented ?? 0) > 0) events.push("gas");
   if (result.dugOre) events.push("ore-pickup");

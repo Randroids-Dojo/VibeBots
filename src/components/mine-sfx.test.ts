@@ -67,6 +67,12 @@ describe("mining sfx event mapping", () => {
       "step",
       "ladder",
     ]);
+    expect(
+      mineResultSfxEvents(
+        { ...ok, plankPlaced: { col: 1, row: 2 } },
+        "plank-right",
+      ),
+    ).toEqual(["plank"]);
     expect(mineResultSfxEvents(ok, "place-beacon")).toEqual(["beacon"]);
     expect(mineResultSfxEvents(ok, "warp-home")).toEqual(["warp"]);
     expect(mineResultSfxEvents(ok, "ride-up")).toEqual(["elevator"]);

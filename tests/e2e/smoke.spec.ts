@@ -167,6 +167,12 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: /Recall \(\d+\)/ }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Place plank (left|right)/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Collect placed supports" }),
+  ).toBeVisible();
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
 });
 
@@ -250,7 +256,7 @@ test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022
   await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
-  // Trips pack 4 free planks.
+  // A fresh player starts with the one-time plank gift.
   await expect(status).toHaveAttribute("data-planks", "4");
 
   // Dig a two-deep shaft, climb out one (planting a ladder in the cell

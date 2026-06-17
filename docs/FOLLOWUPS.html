@@ -61,6 +61,47 @@
     </dl>
   </section>
 
+  <section id="F-024" data-f="F-024" data-priority="blocks-release">
+    <h3>F-024: Make mine cash-out use server-owned consumable snapshots</h3>
+    <dl>
+      <dt>Context</dt><dd>The existing-player cash-out bug exposed a fragile boundary: the client submits a consumable snapshot, and the bank route has been validating that snapshot after the fact. Compatibility fixes must not turn client-submitted inventory into payout authority.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>ready: derive the replay consumable stock from normalized server-owned inventory plus explicit one-time compatibility grants, keep the submitted snapshot as an upper-bound check or diagnostic only, and prove fake paid consumables cannot increase payout.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-make-mine-cash-9b782d18</code></dd>
+      <dt>Resolved</dt><dd>Local cash-out authority cleanup slice: <code>/api/mine/bank</code> now replays with server-owned consumables from the normalized player profile. The submitted client snapshot is only an upper-bound ownership check, legacy support-kit top-up is one-time marked, and route tests cover legacy support, paid over-claim rejection, repeated support over-claim rejection, and server-owned replay stock.</dd>
+    </dl>
+  </section>
+
+  <section id="F-025" data-f="F-025" data-priority="blocks-release">
+    <h3>F-025: Centralize mining player inventory normalization</h3>
+    <dl>
+      <dt>Context</dt><dd>Gear, bank, world, and shop routes each encode pieces of the player inventory model. The one-time starter support-kit compatibility path should live in one helper so routes do not drift.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>ready: provide one server helper that loads mining gear, consumables, wallet balance, and compatibility markers, then migrate route handlers to use it.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-centralize-mining-player-c6881a51</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-026" data-f="F-026" data-priority="nice-to-have">
+    <h3>F-026: Extract mine bank route policy helpers</h3>
+    <dl>
+      <dt>Context</dt><dd><code>/api/mine/bank</code> currently combines request validation, replay guard checks, ownership validation, compatibility migration, payout math, world persistence, inventory debit, and part grants. That makes small fixes risky.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>ready: extract tested helpers for ownership checks, replay input building, consumable debit calculation, and response shaping while keeping the atomic SQL write intact.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-extract-mine-bank-90c235c6</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-027" data-f="F-027" data-priority="nice-to-have">
+    <h3>F-027: Require migration markers for compatibility fixes</h3>
+    <dl>
+      <dt>Context</dt><dd>Existing-player cleanup paths, such as elevator support refunds and starter support-kit grants, need durable DB markers. Without a marker, temporary forgiveness can silently become a permanent economy rule.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>ready: audit existing compatibility paths, add explicit marker columns where missing, and document the marker pattern for future mine persistence fixes.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-require-migration-markers-c287b5c1</code></dd>
+    </dl>
+  </section>
+
   <section data-f="F-011" data-priority="nice-to-have">
     <h3>F-011: Server-issued mine seeds and cash-out rate limiting</h3>
     <dl>

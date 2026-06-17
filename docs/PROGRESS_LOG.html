@@ -44,6 +44,19 @@
     </dl>
   </article>
 
+  <article data-slice="mine-cashout-authority-cleanup" data-date="2026-06-17">
+    <h3>Mine Cash-Out Authority Cleanup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260617120905-ef1d5c5f</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>Followup cleanup from the existing-player cash-out bug. Added F-024 through F-027 for mine persistence tech debt, then implemented F-024. <code>/api/mine/bank</code> now derives replay consumables from the normalized server-owned player profile instead of treating the client-submitted consumable snapshot as replay authority; the submitted snapshot remains an upper-bound ownership check. Existing rows that predate the one-time starter support kit get a marked one-time top-up, while fake paid consumables and repeated support over-claims still fail. The gear route now reads the same normalized mining profile helper.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched TypeScript files, <code>pnpm exec vitest run src/app/api/mine/bank/route.test.ts</code> (4 passing), <code>pnpm exec vitest run src/app/api/mine/bank/route.test.ts src/sim/mine.test.ts src/state/mine-store.test.ts</code> (81 passing), <code>pnpm typecheck</code>, <code>pnpm test</code> (148 passing), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and <code>pnpm build</code>.</dd>
+      <dt>Assumptions</dt><dd>Client-submitted consumables are useful as a stale-client guard, not as authority. If a player owns more consumables than the submitted snapshot, replay may use the server-owned stock; if the submitted snapshot over-claims ownership, cash-out is rejected before payout.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>Added and resolved <a href="FOLLOWUPS.html#F-024">F-024</a>. Added <a href="FOLLOWUPS.html#F-025">F-025</a>, <a href="FOLLOWUPS.html#F-026">F-026</a>, and <a href="FOLLOWUPS.html#F-027">F-027</a> for the remaining cleanup work.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-horizontal-visibility" data-date="2026-06-17">
     <h3>Mine Horizontal Visibility</h3>
     <dl>

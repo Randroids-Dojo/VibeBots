@@ -1,6 +1,10 @@
 import { signToken, verifyToken } from "@randroids-dojo/vibekit/server";
 import { cookies } from "next/headers";
-import { LADDER_RECOVERY_FLOOR, PLANK_RECOVERY_FLOOR } from "@/sim/mine";
+import {
+  LADDER_RECOVERY_FLOOR,
+  type MineConsumables,
+  PLANK_RECOVERY_FLOOR,
+} from "@/sim/mine";
 import { db } from "./db";
 
 /**
@@ -11,6 +15,32 @@ import { db } from "./db";
 
 const COOKIE_NAME = "vb_player";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+type Sql = Awaited<ReturnType<typeof db>>;
+
+interface StartingSupportKitRow {
+  ladder_count: number;
+  plank_count: number;
+  support_kit_granted_at: string | null;
+}
+
+export interface MinePlayerProfile {
+  pickaxe_level: number;
+  lamp_level: number;
+  cargo_level: number;
+  lantern_level: number;
+  warpcoil_level: number;
+  elevator_depth: number;
+  blast_level: number;
+  elevator_speed_level: number;
+  fall_level: number;
+  dynamite_count: number;
+  rope_count: number;
+  ladder_count: number;
+  plank_count: number;
+  beacon_count: number;
+  emeralds: number;
+  support_kit_granted_at: string | null;
+}
 
 function secret(): string {
   const value = process.env.AUTH_SECRET;
@@ -43,8 +73,8 @@ export async function getOrCreatePlayerId(): Promise<string> {
   // gift at account creation only, not a per-trip grant: once spent it is
   // bought back at the depot or refilled by dying (see MineState.granted).
   const rows = (await sql`
-    INSERT INTO players (ladder_count, plank_count)
-    VALUES (${LADDER_RECOVERY_FLOOR}, ${PLANK_RECOVERY_FLOOR})
+    INSERT INTO players (ladder_count, plank_count, support_kit_granted_at)
+    VALUES (${LADDER_RECOVERY_FLOOR}, ${PLANK_RECOVERY_FLOOR}, now())
     RETURNING id`) as Array<{
     id: string;
   }>;
@@ -67,4 +97,52 @@ export async function getOrCreatePlayerId(): Promise<string> {
     path: "/",
   });
   return playerId;
+}
+
+/**
+ * Existing rows can predate the one-time support kit. Mark and top them
+ * up once, then future trips validate against the stored inventory.
+ */
+export async function ensureStartingSupportKit<T extends StartingSupportKitRow>(
+  sql: Sql,
+  playerId: string,
+  row: T,
+): Promise<T> {
+  if (row.support_kit_granted_at) return row;
+  const updated = (await sql`
+    UPDATE players
+    SET ladder_count = GREATEST(ladder_count, ${LADDER_RECOVERY_FLOOR}),
+        plank_count = GREATEST(plank_count, ${PLANK_RECOVERY_FLOOR}),
+        support_kit_granted_at = now()
+    WHERE id = ${playerId}
+      AND support_kit_granted_at IS NULL
+    RETURNING ladder_count, plank_count, support_kit_granted_at`) as Array<StartingSupportKitRow>;
+  return updated[0] ? { ...row, ...updated[0] } : row;
+}
+
+export async function getMinePlayerProfile(
+  sql: Sql,
+  playerId: string,
+): Promise<MinePlayerProfile | null> {
+  const rows = (await sql`
+    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
+           warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
+           fall_level, dynamite_count, rope_count, ladder_count, plank_count,
+           beacon_count, emeralds, support_kit_granted_at
+    FROM players WHERE id = ${playerId}`) as Array<MinePlayerProfile>;
+  return rows[0]
+    ? await ensureStartingSupportKit(sql, playerId, rows[0])
+    : null;
+}
+
+export function mineConsumablesFromProfile(
+  row: MinePlayerProfile,
+): MineConsumables {
+  return {
+    dynamite: row.dynamite_count,
+    rope: row.rope_count,
+    ladder: row.ladder_count,
+    plank: row.plank_count,
+    beacon: row.beacon_count,
+  };
 }

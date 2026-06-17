@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
-import { getOrCreatePlayerId } from "@/server/player";
+import {
+  getMinePlayerProfile,
+  getOrCreatePlayerId,
+  mineConsumablesFromProfile,
+} from "@/server/player";
 import {
   isMineAction,
   MAX_TRIP_MOVES,
@@ -54,7 +58,8 @@ const bodySchema = z.object({
       fall: gearLevel("fall").optional(),
     })
     .transform((gear) => normalizeGear(gear)),
-  // Consumables held at session start; spent ones decrement at cash-out.
+  // Client snapshot used as an ownership upper bound. The server derives
+  // replay stock from the normalized player row before crediting payout.
   consumables: z.object({
     dynamite: z.number().int().min(0).max(999),
     rope: z.number().int().min(0).max(999),
@@ -122,13 +127,7 @@ export async function POST(request: Request): Promise<Response> {
 
   // Gear ownership check: claiming better gear than you own is the only
   // way the snapshot could inflate a payout.
-  const owned = (await sql`
-    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
-           fall_level,
-           dynamite_count, rope_count, ladder_count, plank_count,
-           beacon_count
-    FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
+  const ownedRow = await getMinePlayerProfile(sql, playerId);
   const gear = parsed.data.gear;
   // Every track whose level column is `${track}_level` validates the same
   // way; battery still uses the legacy lamp_level storage column.
@@ -140,49 +139,65 @@ export async function POST(request: Request): Promise<Response> {
     ["warpcoil", "warpcoil_level"],
     ["blast", "blast_level"],
   ] as const) {
-    if ((gear[track] ?? 1) > (owned[0]?.[column] ?? 1)) {
+    if ((gear[track] ?? 1) > (ownedRow?.[column] ?? 1)) {
       return Response.json(
         { error: `gear not owned: ${track} level ${gear[track]}` },
         { status: 422 },
       );
     }
   }
-  if (gear.elevator > (owned[0]?.elevator_depth ?? 0)) {
+  if (gear.elevator > (ownedRow?.elevator_depth ?? 0)) {
     return Response.json(
       { error: `rail not owned: depth ${gear.elevator}` },
       { status: 422 },
     );
   }
-  if ((gear.elevatorSpeed ?? 1) > (owned[0]?.elevator_speed_level ?? 1)) {
+  if ((gear.elevatorSpeed ?? 1) > (ownedRow?.elevator_speed_level ?? 1)) {
     return Response.json(
       { error: `gear not owned: elevator speed ${gear.elevatorSpeed}` },
       { status: 422 },
     );
   }
-  if ((gear.fall ?? 1) > (owned[0]?.fall_level ?? 1)) {
+  if ((gear.fall ?? 1) > (ownedRow?.fall_level ?? 1)) {
     return Response.json(
       { error: `gear not owned: fall harness ${gear.fall}` },
       { status: 422 },
     );
   }
-  const consumables = parsed.data.consumables;
+  if (!ownedRow) {
+    return Response.json({ error: "player not found" }, { status: 409 });
+  }
+  const submittedConsumables = parsed.data.consumables;
+  const replayConsumables = mineConsumablesFromProfile(ownedRow);
   if (
-    consumables.dynamite > (owned[0]?.dynamite_count ?? 0) ||
-    consumables.rope > (owned[0]?.rope_count ?? 0) ||
-    consumables.ladder > (owned[0]?.ladder_count ?? 0) ||
-    consumables.plank > (owned[0]?.plank_count ?? 0) ||
-    consumables.beacon > (owned[0]?.beacon_count ?? 0)
+    submittedConsumables.dynamite > replayConsumables.dynamite ||
+    submittedConsumables.rope > replayConsumables.rope ||
+    submittedConsumables.ladder > replayConsumables.ladder ||
+    submittedConsumables.plank > replayConsumables.plank ||
+    submittedConsumables.beacon > replayConsumables.beacon
   ) {
     return Response.json({ error: "consumables not owned" }, { status: 422 });
   }
-
   const trip = replayTrip(
     parsed.data.seed,
     parsed.data.moves as MineAction[],
     gear,
-    consumables,
+    replayConsumables,
     (worlds[0].diff ?? []) as WorldDiff,
   );
+  const chargedConsumables = {
+    dynamite: trip.used.dynamite,
+    rope: trip.used.rope,
+    ladder: Math.max(
+      0,
+      trip.used.ladder - trip.granted.ladder - trip.recovered.ladder,
+    ),
+    plank: Math.max(
+      0,
+      trip.used.plank - trip.granted.plank - trip.recovered.plank,
+    ),
+    beacon: trip.used.beacon,
+  };
   // Zero-bank trips are legitimate now: carving and laddering are
   // world investments worth checkpointing even with an empty hold.
   // One statement = atomic on the neon HTTP driver (no cross-statement
@@ -213,13 +228,11 @@ export async function POST(request: Request): Promise<Response> {
             + ${trip.bankedCredits}
             + (SELECT amount FROM bonus),
           deepest_depth = GREATEST(deepest_depth, ${trip.maxDepth}),
-          dynamite_count = GREATEST(0, dynamite_count - ${trip.used.dynamite}),
-          rope_count = GREATEST(0, rope_count - ${trip.used.rope}),
-          ladder_count = GREATEST(0, ladder_count
-            - ${Math.max(0, trip.used.ladder - trip.granted.ladder - trip.recovered.ladder)}),
-          plank_count = GREATEST(0, plank_count
-            - ${Math.max(0, trip.used.plank - trip.granted.plank - trip.recovered.plank)}),
-          beacon_count = GREATEST(0, beacon_count - ${trip.used.beacon})
+          dynamite_count = GREATEST(0, dynamite_count - ${chargedConsumables.dynamite}),
+          rope_count = GREATEST(0, rope_count - ${chargedConsumables.rope}),
+          ladder_count = GREATEST(0, ladder_count - ${chargedConsumables.ladder}),
+          plank_count = GREATEST(0, plank_count - ${chargedConsumables.plank}),
+          beacon_count = GREATEST(0, beacon_count - ${chargedConsumables.beacon})
       WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM world)
       RETURNING emeralds, deepest_depth
     ), granted AS (

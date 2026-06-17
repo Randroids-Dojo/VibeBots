@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Make mine cash-out use server-owned consumable snapshots</title>
+<meta name="dot-title" content="Make mine cash-out use server-owned consumable snapshots">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-06-17T15:55:20.494270-05:00">
+<meta name="dot-closed-at" content="2026-06-17T16:00:36.408853-05:00">
+<meta name="dot-close-reason" content="Implemented in local cash-out authority cleanup slice. Bank replay now uses server-owned normalized consumables, client snapshots are upper-bound checks, legacy support top-up is one-time marked, and route tests cover the authority boundary.">
+</head>
+<body>
+<article>
+<h1>Make mine cash-out use server-owned consumable snapshots</h1>
+<section id="description">
+Stop treating client-submitted consumable inventory as replay authority. The client may submit its played snapshot for diagnostics, but the server should derive the replay stock from normalized DB inventory plus explicit compatibility grants.
+</section>
+</article>
+</body>
+</html>

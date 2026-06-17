@@ -1,5 +1,9 @@
 import { db, storageConfigured } from "@/server/db";
-import { getOrCreatePlayerId } from "@/server/player";
+import {
+  getMinePlayerProfile,
+  getOrCreatePlayerId,
+  mineConsumablesFromProfile,
+} from "@/server/player";
 
 export const runtime = "nodejs";
 
@@ -10,29 +14,7 @@ export async function GET(): Promise<Response> {
   }
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
-  const rows = (await sql`
-    SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
-           fall_level, dynamite_count, rope_count, ladder_count, plank_count,
-           beacon_count, emeralds
-    FROM players WHERE id = ${playerId}`) as Array<{
-    pickaxe_level: number;
-    lamp_level: number;
-    cargo_level: number;
-    lantern_level: number;
-    dynamite_count: number;
-    rope_count: number;
-    ladder_count: number;
-    plank_count: number;
-    beacon_count: number;
-    elevator_depth: number;
-    warpcoil_level: number;
-    blast_level: number;
-    elevator_speed_level: number;
-    fall_level: number;
-    emeralds: number;
-  }>;
-  const row = rows[0];
+  const row = await getMinePlayerProfile(sql, playerId);
   return Response.json({
     gear: {
       pickaxe: row?.pickaxe_level ?? 1,
@@ -45,13 +27,9 @@ export async function GET(): Promise<Response> {
       elevatorSpeed: row?.elevator_speed_level ?? 1,
       fall: row?.fall_level ?? 1,
     },
-    consumables: {
-      dynamite: row?.dynamite_count ?? 0,
-      rope: row?.rope_count ?? 0,
-      ladder: row?.ladder_count ?? 0,
-      plank: row?.plank_count ?? 0,
-      beacon: row?.beacon_count ?? 0,
-    },
+    consumables: row
+      ? mineConsumablesFromProfile(row)
+      : { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     balance: row?.emeralds ?? 0,
   });
 }

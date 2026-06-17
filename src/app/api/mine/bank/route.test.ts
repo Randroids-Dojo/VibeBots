@@ -3,10 +3,16 @@ import { db, storageConfigured } from "@/server/db";
 import {
   DEFAULT_GEAR,
   MINE_VERSION,
+  type MineConsumables,
   NO_CONSUMABLES,
   STARTING_CONSUMABLES,
 } from "@/sim/mine";
-import { POST } from "./route";
+import {
+  chargeableConsumables,
+  consumableSnapshotExceedsOwned,
+  gearOwnershipError,
+  POST,
+} from "./route";
 
 vi.mock("@/server/db", () => ({
   db: vi.fn(),
@@ -41,7 +47,13 @@ const ownedBase = {
   beacon_count: 0,
   emeralds: 0,
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
+  elevator_support_refund_at: null,
 };
+
+const stock = (overrides: Partial<MineConsumables> = {}): MineConsumables => ({
+  ...NO_CONSUMABLES,
+  ...overrides,
+});
 
 function post(overrides: Record<string, unknown> = {}): Promise<Response> {
   return POST(
@@ -175,5 +187,38 @@ describe("POST /api/mine/bank", () => {
       tripIndex: 1,
     });
     expect(sql).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("mine bank policy helpers", () => {
+  it("flags gear snapshots above owned profile levels", () => {
+    expect(gearOwnershipError({ ...DEFAULT_GEAR, pickaxe: 2 }, ownedBase)).toBe(
+      "gear not owned: pickaxe level 2",
+    );
+    expect(gearOwnershipError(DEFAULT_GEAR, ownedBase)).toBeNull();
+  });
+
+  it("detects submitted consumable snapshots above owned stock", () => {
+    expect(
+      consumableSnapshotExceedsOwned(stock({ rope: 2 }), stock({ rope: 1 })),
+    ).toBe(true);
+    expect(
+      consumableSnapshotExceedsOwned(stock({ rope: 1 }), stock({ rope: 2 })),
+    ).toBe(false);
+  });
+
+  it("charges only paid support stock after grants and recoveries", () => {
+    expect(
+      chargeableConsumables({
+        bankedCredits: 0,
+        bankedParts: [],
+        maxDepth: 0,
+        moves: 0,
+        used: stock({ dynamite: 1, rope: 1, ladder: 7, plank: 5, beacon: 1 }),
+        granted: stock({ ladder: 3, plank: 2 }),
+        recovered: stock({ ladder: 2, plank: 1 }),
+        diff: [],
+      }),
+    ).toEqual(stock({ dynamite: 1, rope: 1, ladder: 2, plank: 2, beacon: 1 }));
   });
 });

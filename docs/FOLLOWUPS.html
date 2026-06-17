@@ -90,6 +90,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>ready: extract tested helpers for ownership checks, replay input building, consumable debit calculation, and response shaping while keeping the atomic SQL write intact.</dd>
       <dt>PR / Dot reference</dt><dd><code>VibeBots-extract-mine-bank-90c235c6</code></dd>
+      <dt>Resolved</dt><dd>Local bank route cleanup slice: <code>src/app/api/mine/bank/route.ts</code> now has named helper functions for gear ownership errors, submitted consumable snapshot bounds checks, and cash-out consumable debit calculation. The atomic persistence SQL remains in the route, and direct route tests cover the extracted policy helpers.</dd>
     </dl>
   </section>
 

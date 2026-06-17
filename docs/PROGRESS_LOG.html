@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-inventory-gating" data-date="2026-06-17">
+    <h3>Workshop Inventory Gating</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/workshop-inventory-gating</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Implemented F-010. Storage-backed Workshop builds now use player inventory as a per-design budget: the core remains free starter gear, every non-core part instance needs one owned copy, and the palette shows remaining available copies after the active design's usage. Buying a part refreshes the Workshop palette immediately. Saving a design rejects unowned parts, and server match verification can enforce inventory for the player's submitted design while keeping CPU opponents and generic deterministic API calls compatible. Storage-less local sessions remain sandbox-unlocked. Package version moved to <code>0.1.2</code>; <code>MINE_VERSION</code> stays at <code>21</code> and <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched TypeScript files, <code>node</code> JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm exec vitest run src/sim/inventory.test.ts src/state/workshop-store.test.ts src/app/api/match/resolve/route.test.ts</code> (16 passing), <code>pnpm typecheck</code>, <code>pnpm test</code> (132 passing), <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm lint</code> (exit 0 with the existing unused-suppression warning in <code>src/components/mine-touch-controls.tsx</code>), <code>pnpm build</code>, and <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3015.config.ts</code> against a clean production server on port 3015 (21 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>Owned parts are a build budget per active design, not a one-time crafting spend. A part removed from the active design becomes available again. Fresh storage-backed players have the free core only; they earn or buy non-core parts before building with them. Storage-less development remains an unlocked sandbox so local smoke tests and demos are still playable without Neon.</dd>
+      <dt>GDD coverage</dt><dd>REQ-008 moved from <code>partial</code> to <code>done</code>. Updated <code>docs/gdd/02-parts-and-connectors.html</code>, <code>docs/gdd/07-economy.html</code>, <code>docs/GDD_COVERAGE.json</code>, <code>docs/FOLLOWUPS.html</code>, <code>docs/RELEASE_NOTES.html</code>, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>Resolved F-010.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-fall-harness" data-date="2026-06-17">
     <h3>Fatal Free Falls And Fall Harness Upgrades</h3>
     <dl>

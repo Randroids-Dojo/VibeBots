@@ -2,10 +2,35 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.1-fall-harness";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.2-workshop-inventory";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.2",
+      date: "2026-06-17",
+      title: "Workshop inventory gates",
+      intro:
+        "This update connects the Workshop to the parts you have earned or bought.",
+      changes: [
+        {
+          build,
+          text: "The Workshop now checks owned part inventory before a part can be added to the active bot.",
+        },
+        {
+          build,
+          text: "The palette shows remaining owned copies after the parts already used in the current design.",
+        },
+        {
+          build,
+          text: "Saved designs are rejected if they use parts the player does not own.",
+        },
+        {
+          build,
+          text: "Server match verification can enforce owned inventory for the player's submitted design.",
+        },
+      ],
+    },
     {
       version: "0.1.1",
       date: "2026-06-17",

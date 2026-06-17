@@ -17,11 +17,11 @@
       <li>Each mine session has a random seed and records every attempted move. Cashing out submits (seed, moves); the server replays, credits emeralds and found parts, and consumes the seed (one credit per player per seed; resubmission is rejected).</li>
       <li>After a cash-out the session restarts with a fresh seed: new mine, new finds.</li>
       <li>The shop sells catalog parts for emeralds at fixed prices; purchases are atomic conditional spends (no negative balances under concurrency). Inventory is per player.</li>
+      <li>The Workshop consumes inventory as a per-design build budget. Cores stay free starter gear, but every non-core part instance needs one owned copy. Removing a part frees that copy inside the active design; saving or server-verifying a design rejects unowned parts.</li>
       <li>Cores are starter gear and are not sold.</li>
     </ul>
     <h3 id="not-yet">What this does NOT cover yet</h3>
     <ul>
-      <li>The workshop does not yet consume inventory (any part is buildable); gating is followup F-010.</li>
       <li>Player-to-player trading, combat reward payout into the same wallet, pricing balance.</li>
     </ul>
   </section>
@@ -29,6 +29,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-06-17">Workshop inventory gating landed (F-010). Storage-backed players can add only owned non-core parts to the active design, with remaining counts shown in the palette after current design usage. Saved designs are rejected if they exceed owned inventory, and server match verification can enforce inventory for the player's submitted design. Storage-less local sessions remain an unlocked sandbox. Files: <code>src/sim/inventory.ts</code>, <code>src/server/part-inventory.ts</code>, <code>src/components/workshop-panel.tsx</code>, <code>src/app/api/designs/route.ts</code>, <code>src/app/api/match/resolve/route.ts</code>, <code>tests/e2e/smoke.spec.ts</code>. Direct push to <code>origin/main</code> requested by user.</li>
       <li data-date="2026-06-11">Server-verified cash-outs (replayTrip over the move log, seed consumed on credit), per-player wallets and part inventory, and the /shop page with atomic purchases. Files: <code>src/sim/mine.ts</code>, <code>src/app/api/mine/bank/route.ts</code>, <code>src/app/api/shop/route.ts</code>, <code>src/app/api/shop/buy/route.ts</code>, <code>src/components/shop-panel.tsx</code>, <code>src/state/mine-store.ts</code>. PR pending.</li>
     </ul>
   </section>

@@ -2,7 +2,7 @@
 
 import { canRedo, canUndo } from "@randroids-dojo/vibekit";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves } from "@/components/design-saves";
 import { SIM_VERSION } from "@/sim/constants";
@@ -11,6 +11,7 @@ import {
   CPU_BRAWLER_DESIGN,
   validateDesign,
 } from "@/sim/design";
+import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
 import { PART_CATALOG } from "@/sim/parts";
 import {
   planAddPart,
@@ -29,6 +30,11 @@ type Verification =
   | { state: "done"; agrees: boolean; hash: string }
   | { state: "error" };
 
+type WorkshopInventory =
+  | { state: "loading" }
+  | { state: "sandbox" }
+  | { state: "ready"; counts: Map<string, number> };
+
 const panelStyle: React.CSSProperties = {
   background: "rgba(17, 21, 31, 0.92)",
   border: "1px solid #26304a",
@@ -45,6 +51,37 @@ export function WorkshopPanel() {
   const [verification, setVerification] = useState<Verification>({
     state: "idle",
   });
+  const [inventory, setInventory] = useState<WorkshopInventory>({
+    state: "loading",
+  });
+
+  const refreshInventory = useCallback(async () => {
+    try {
+      const res = await fetch("/api/shop");
+      if (res.status === 503) {
+        setInventory({ state: "sandbox" });
+        return;
+      }
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        inventory?: Array<{ part_id: string; count: number }>;
+      };
+      setInventory({
+        state: "ready",
+        counts: partInventoryCounts(data.inventory ?? []),
+      });
+    } catch {
+      setInventory({ state: "sandbox" });
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshInventory();
+    window.addEventListener("vibebots:parts-changed", refreshInventory);
+    return () => {
+      window.removeEventListener("vibebots:parts-changed", refreshInventory);
+    };
+  }, [refreshInventory]);
 
   const verifyOnServer = async () => {
     if (!matchup || !endInfo) return;
@@ -53,7 +90,12 @@ export function WorkshopPanel() {
       const res = await fetch("/api/match/resolve", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ designs: matchup, simVersion: SIM_VERSION }),
+        body: JSON.stringify({
+          designs: matchup,
+          simVersion: SIM_VERSION,
+          enforceInventory: inventory.state === "ready",
+          inventoryDesignIndex: 1,
+        }),
       });
       if (!res.ok) {
         setVerification({ state: "error" });
@@ -79,6 +121,7 @@ export function WorkshopPanel() {
   const reset = useWorkshopStore((s) => s.reset);
 
   const validation = validateDesign(design);
+  const usedPartCounts = designPartCounts(design);
   const selectedPart = design.parts.find((p) => p.iid === selectedIid);
   const selectedDef = selectedPart ? PART_CATALOG[selectedPart.partId] : null;
   const selectedRemovable =
@@ -193,7 +236,17 @@ export function WorkshopPanel() {
           {Object.values(PART_CATALOG)
             .filter((p) => p.category !== "core")
             .map((part) => {
-              const free = planAddPart(design, part) !== null;
+              const owned =
+                inventory.state === "ready"
+                  ? (inventory.counts.get(part.id) ?? 0)
+                  : 0;
+              const used = usedPartCounts.get(part.id) ?? 0;
+              const available = Math.max(0, owned - used);
+              const inventoryAllows =
+                inventory.state === "sandbox" ||
+                (inventory.state === "ready" && available > 0);
+              const free =
+                planAddPart(design, part) !== null && inventoryAllows;
               return (
                 <div
                   key={part.id}
@@ -207,11 +260,28 @@ export function WorkshopPanel() {
                   <span style={{ fontSize: "0.85rem" }}>
                     {part.name}
                     <span style={{ opacity: 0.5 }}> ({part.category})</span>
+                    {inventory.state === "ready" ? (
+                      <span
+                        style={{
+                          color: available > 0 ? "#54e0c7" : "#7f879a",
+                        }}
+                      >
+                        {" "}
+                        x{available}
+                      </span>
+                    ) : null}
                   </span>
                   <button
                     type="button"
                     onClick={() => addPart(part.id)}
                     disabled={!free}
+                    title={
+                      inventory.state === "loading"
+                        ? "Checking inventory"
+                        : inventory.state === "ready" && available <= 0
+                          ? "None owned"
+                          : undefined
+                    }
                     style={{
                       cursor: free ? "pointer" : "not-allowed",
                       background: free ? "#26304a" : "#161b28",

@@ -13,6 +13,17 @@
 
 <main id="entries">
 
+  <article data-version="0.1.2" data-date="2026-06-17">
+    <h2>0.1.2</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.2</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>21</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>The Workshop now consumes player inventory as a per-design build budget. Storage-backed players can add only parts they own, the palette shows remaining copies after the active design's usage, and local storage-less development keeps the unlocked sandbox palette.</dd>
+      <dt>Server checks</dt><dd>Saved designs are rejected if they use unowned parts. Server match verification can also enforce inventory for the player's submitted design while leaving CPU opponents and generic deterministic verification compatible.</dd>
+      <dt>Verification</dt><dd><code>pnpm exec biome check --write</code> on touched TypeScript files, <code>node</code> JSON validation for <code>docs/GDD_COVERAGE.json</code>, targeted Vitest for inventory/workshop/match routes (16 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (132 passed), <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm lint</code> (exit 0 with the existing unused-suppression warning in <code>src/components/mine-touch-controls.tsx</code>), <code>pnpm build</code>, and Playwright smoke against a fresh production server on port 3015 (21 passed, 2 storage-gated skips), including the 0.1.2 popup and settings release notes newest-first check.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.1" data-date="2026-06-17">
     <h2>0.1.1</h2>
     <dl>

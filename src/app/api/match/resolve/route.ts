@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { storageConfigured } from "@/server/db";
+import { validatePlayerDesignInventory } from "@/server/part-inventory";
+import { getOrCreatePlayerId } from "@/server/player";
 import { DEFAULT_TIME_LIMIT_TICKS } from "@/sim/combat";
 import { SIM_VERSION } from "@/sim/constants";
 import { botDesignSchema, validateDesign } from "@/sim/design";
@@ -17,6 +20,12 @@ const bodySchema = z.object({
     .min(60)
     .max(DEFAULT_TIME_LIMIT_TICKS)
     .optional(),
+  /**
+   * Workshop verification can ask the server to enforce inventory on the
+   * current player's design. The CPU opponent is not owned by the player.
+   */
+  enforceInventory: z.boolean().optional(),
+  inventoryDesignIndex: z.union([z.literal(0), z.literal(1)]).optional(),
 });
 
 /**
@@ -50,6 +59,30 @@ export async function POST(request: Request): Promise<Response> {
           error: "invalid design",
           design: design.name,
           issues: validation.errors,
+        },
+        { status: 422 },
+      );
+    }
+  }
+  if (parsed.data.enforceInventory) {
+    if (!storageConfigured()) {
+      return Response.json(
+        { error: "storage not configured" },
+        { status: 503 },
+      );
+    }
+    const playerId = await getOrCreatePlayerId();
+    const designIndex = parsed.data.inventoryDesignIndex ?? 0;
+    const inventoryValidation = await validatePlayerDesignInventory(
+      playerId,
+      parsed.data.designs[designIndex],
+    );
+    if (!inventoryValidation.ok) {
+      return Response.json(
+        {
+          error: "design uses unowned parts",
+          design: parsed.data.designs[designIndex].name,
+          issues: inventoryValidation.errors,
         },
         { status: 422 },
       );

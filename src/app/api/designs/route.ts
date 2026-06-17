@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
+import { validatePlayerDesignInventory } from "@/server/part-inventory";
 import { getOrCreatePlayerId } from "@/server/player";
 import { botDesignSchema, validateDesign } from "@/sim/design";
 
@@ -52,6 +53,20 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const playerId = await getOrCreatePlayerId();
+  const inventoryValidation = await validatePlayerDesignInventory(
+    playerId,
+    design,
+  );
+  if (!inventoryValidation.ok) {
+    return Response.json(
+      {
+        error: "design uses unowned parts",
+        issues: inventoryValidation.errors,
+      },
+      { status: 422 },
+    );
+  }
+
   const sql = await db();
   const countRows = (await sql`
     SELECT count(*)::int AS count FROM bot_designs WHERE player_id = ${playerId}`) as Array<{

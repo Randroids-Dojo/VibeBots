@@ -111,11 +111,12 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await expect(page.getByText("My Bot: 1 part", { exact: true })).toBeVisible();
 
   const palette = page.getByLabel("Part palette");
-  await palette
+  const driveWheelAdd = palette
     .locator("div")
     .filter({ hasText: "Drive Wheel" })
-    .getByRole("button", { name: "Add" })
-    .click();
+    .getByRole("button", { name: "Add" });
+  await expect(driveWheelAdd).toBeEnabled();
+  await driveWheelAdd.click();
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
 
   await page.getByRole("button", { name: "Undo" }).click();
@@ -216,16 +217,16 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("cargo overflow, and fall risk");
-  await expect(dialog.locator("li")).toHaveCount(7);
+  await expect(dialog).toContainText("parts you have earned or bought");
+  await expect(dialog.locator("li")).toHaveCount(4);
   await expect(dialog.locator("li").first()).toContainText(
-    "free fall until landing",
+    "checks owned part inventory",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Planks no longer auto-deploy",
+    "remaining owned copies",
   );
-  await expect(dialog.locator("li").nth(4)).toContainText(
-    "full cargo hold no longer blocks digging",
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "Saved designs are rejected",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -246,10 +247,12 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.1");
-  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.0");
-  await expect(notes.first()).toContainText("Fall Harness");
-  await expect(notes.nth(1)).toContainText("Falling rocks");
+  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.2");
+  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.1");
+  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.0");
+  await expect(notes.first()).toContainText("Workshop inventory");
+  await expect(notes.nth(1)).toContainText("Fall Harness");
+  await expect(notes.nth(2)).toContainText("Falling rocks");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });

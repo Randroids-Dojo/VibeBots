@@ -85,6 +85,11 @@ export function PartsShop() {
   const { data, notice } = shop;
   const counts = new Map(data.inventory.map((row) => [row.part_id, row.count]));
 
+  const refreshAndBroadcast = async (noticeText: string | null = null) => {
+    await refresh(noticeText);
+    window.dispatchEvent(new CustomEvent("vibebots:parts-changed"));
+  };
+
   const buy = async (partId: string) => {
     const res = await fetch("/api/shop/buy", {
       method: "POST",
@@ -92,10 +97,10 @@ export function PartsShop() {
       body: JSON.stringify({ partId }),
     });
     if (res.ok) {
-      void refresh("bought!");
+      void refreshAndBroadcast("bought!");
     } else {
       const body = await res.json().catch(() => ({}));
-      void refresh(
+      void refreshAndBroadcast(
         typeof body.error === "string" ? body.error : "purchase failed",
       );
     }

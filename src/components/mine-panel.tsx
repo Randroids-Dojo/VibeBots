@@ -839,6 +839,178 @@ const ITEM_ICONS: Record<string, string> = {
   fall: "\u{1FA82}",
 };
 
+function BuyerPanel({
+  mine,
+  balance,
+}: {
+  mine: MineState;
+  balance: number | null;
+}) {
+  const miner = mine.miner;
+  const carriedOre = carriedCount(miner);
+  const capacity = cargoCapacity(mine.gear);
+  const freeSpace = Math.max(0, capacity - carriedOre);
+  const haulValue = carriedValue(miner);
+  const partCount = miner.carriedParts.length;
+  const deepest = miner.maxDepth;
+  const cargoDef = GEAR_TRACKS.find((track) => track.track === "cargo");
+  const nextCargoPrice =
+    mine.gear.cargo >= maxGearLevel("cargo")
+      ? null
+      : cargoDef?.prices[mine.gear.cargo - 1];
+  const nextDepth =
+    deepest < 50
+      ? 50
+      : deepest < 100
+        ? 100
+        : deepest < 250
+          ? 250
+          : deepest < 500
+            ? 500
+            : 1000;
+  const oreRows = Object.entries(miner.carried)
+    .map(([id, count]) => ({
+      def: oreDef(id as OreId),
+      count: count ?? 0,
+    }))
+    .filter((row) => row.count > 0)
+    .sort((a, b) => b.def.value - a.def.value);
+  const targetRows = [
+    {
+      label: "Current haul",
+      value: haulValue > 0 ? `${haulValue} vibes` : "empty",
+    },
+    {
+      label: "Hold space",
+      value: `${carriedOre}/${capacity} used`,
+    },
+    {
+      label: "Parts found",
+      value: `${partCount}`,
+    },
+    {
+      label: "Next depth mark",
+      value: deepest >= 990 ? "metal cap near row 1000" : `row ${nextDepth}`,
+    },
+  ];
+  if (nextCargoPrice !== null && nextCargoPrice !== undefined) {
+    targetRows.push({
+      label: "Cargo upgrade",
+      value: `${nextCargoPrice} vibes at Upgrades`,
+    });
+  }
+
+  return (
+    <div>
+      <p style={{ margin: "12px 0 8px", fontSize: "0.85rem", opacity: 0.72 }}>
+        Your haul sells automatically as soon as you reach the surface. The
+        Buyer keeps the appraisal visible so you know what this trip is worth.
+      </p>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))",
+          gap: 8,
+          margin: "10px 0",
+        }}
+      >
+        {targetRows.map((row) => (
+          <div
+            key={row.label}
+            style={{
+              background: "rgba(38, 48, 74, 0.46)",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              borderRadius: 10,
+              padding: "8px",
+              minHeight: 66,
+            }}
+          >
+            <span
+              style={{
+                display: "block",
+                fontSize: "0.68rem",
+                color: "#8b93a7",
+                marginBottom: 4,
+              }}
+            >
+              {row.label}
+            </span>
+            <strong
+              style={{
+                display: "block",
+                fontSize: "0.84rem",
+                lineHeight: 1.2,
+              }}
+            >
+              {row.value}
+            </strong>
+          </div>
+        ))}
+      </div>
+      {oreRows.length > 0 ? (
+        <div
+          style={{
+            display: "grid",
+            gap: 6,
+            marginTop: 10,
+          }}
+        >
+          {oreRows.map(({ def, count }) => (
+            <div
+              key={def.id}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: 10,
+                alignItems: "center",
+                background: "rgba(17, 21, 31, 0.6)",
+                border: "1px solid rgba(255, 255, 255, 0.07)",
+                borderRadius: 10,
+                padding: "8px 10px",
+              }}
+            >
+              <span>
+                {def.name} x{count}
+                <small
+                  style={{
+                    display: "block",
+                    color: "#8b93a7",
+                    fontSize: "0.68rem",
+                  }}
+                >
+                  {def.value} vibes each
+                </small>
+              </span>
+              <strong>{def.value * count}</strong>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p style={{ margin: "10px 0 0", fontSize: "0.78rem", opacity: 0.62 }}>
+          No ore in the hold. Deeper rows yield richer stacks, but even old ore
+          types scale up as you push down.
+        </p>
+      )}
+      {freeSpace === 0 && (
+        <p
+          style={{ margin: "10px 0 0", fontSize: "0.75rem", color: "#f5c542" }}
+        >
+          Hold full. Keep digging if you want, overflow ore will drop into the
+          mine for later pickup.
+        </p>
+      )}
+      {balance === null && (
+        <p
+          style={{ margin: "10px 0 0", fontSize: "0.75rem", color: "#f5c542" }}
+        >
+          Ledger offline. The Buyer can appraise the trip, but wallet updates
+          wait until storage is online.
+        </p>
+      )}
+    </div>
+  );
+}
+
 type DepotItem = "dynamite" | "rope" | "ladder" | "plank" | "beacon";
 const DEPOT_BUY_QUANTITIES = [1, 5, 10] as const;
 
@@ -1021,22 +1193,7 @@ function StallMenu({
           the ledger is offline right now; browsing only
         </p>
       )}
-      {stall.id === "buyer" &&
-        (offline ? (
-          <p
-            style={{ margin: "12px 0 2px", fontSize: "0.85rem", opacity: 0.7 }}
-          >
-            haul reaches the surface and sells automatically when the ledger is
-            online.
-          </p>
-        ) : (
-          <p
-            style={{ margin: "12px 0 2px", fontSize: "0.85rem", opacity: 0.7 }}
-          >
-            haul reaches the surface, sells automatically, and goes straight
-            into your wallet.
-          </p>
-        ))}
+      {stall.id === "buyer" && <BuyerPanel mine={mine} balance={balance} />}
       {stall.id === "supply" && (
         <div>
           <fieldset

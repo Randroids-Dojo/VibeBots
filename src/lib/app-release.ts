@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.12-mine-motion-polish";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.13-buyer-appraisal";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.13",
+      date: "2026-06-17",
+      title: "Buyer appraisal",
+      intro:
+        "The Buyer now has a clearer job after surface auto-sell: appraisal and mining goals.",
+      changes: [
+        {
+          build,
+          text: "The Buyer shows current haul value, carried parts, hold space, and next depth target without adding a manual sell button.",
+        },
+        {
+          build,
+          text: "Carried ore is itemized by resource with stack counts and vibe values so the surface haul is easier to understand.",
+        },
+        {
+          build,
+          text: "Auto-sell remains the rule: reaching the surface with a haul puts vibes straight into the wallet.",
+        },
+      ],
+    },
     {
       version: "0.1.12",
       date: "2026-06-17",

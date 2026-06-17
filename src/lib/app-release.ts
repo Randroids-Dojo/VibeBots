@@ -2,10 +2,35 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.6-mine-flow-fixes";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.7-surface-base-return";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.7",
+      date: "2026-06-17",
+      title: "Surface base return",
+      intro:
+        "Walking far past the village now gets a clear route home and an optional paid return.",
+      changes: [
+        {
+          build,
+          text: "When no surface buildings are visible, an animated base indicator points back toward the village.",
+        },
+        {
+          build,
+          text: "Tapping the indicator opens a Base return menu with a distance-scaled vibe cost.",
+        },
+        {
+          build,
+          text: "The return button confirms before spending, disables when the wallet cannot cover the cost, and drops the miner at the shaft center.",
+        },
+        {
+          build,
+          text: "Surface returns and warp jumps now show a teleport burst, with the existing warp sound on paid base returns.",
+        },
+      ],
+    },
     {
       version: "0.1.6",
       date: "2026-06-17",

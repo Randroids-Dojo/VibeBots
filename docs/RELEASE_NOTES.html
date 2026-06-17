@@ -13,6 +13,17 @@
 
 <main id="entries">
 
+  <article data-version="0.1.7" data-date="2026-06-17">
+    <h2>0.1.7</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.7</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>22</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Surface wandering now gets a homeward indicator when every village building is offscreen. Tapping the indicator opens a Base return menu with a small distance-scaled vibe cost, a disabled state for short or offline wallets, and a confirmation tap before spending.</dd>
+      <dt>Effects</dt><dd>A paid base return drops the miner at the shaft center, plays the warp SFX, and shows a teleport burst. Existing warp-pad jumps also show the burst effect.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched files, focused Vitest for the base teleport route, mine store, and mine SFX (11 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (141 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, and Playwright smoke against a fresh production server on port 3032 (24 passed, 2 storage-gated skips), including the paid base return, the 0.1.7 popup, and Settings release-note order.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.6" data-date="2026-06-17">
     <h2>0.1.6</h2>
     <dl>

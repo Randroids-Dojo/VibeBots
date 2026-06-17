@@ -48,6 +48,16 @@ async function enterBuilding(
   await prompt.click();
 }
 
+async function walkUntilBaseIndicator(page: Page) {
+  const indicator = page.getByRole("button", { name: "Base is left" });
+  for (let i = 0; i < 28; i++) {
+    if (await indicator.isVisible().catch(() => false)) break;
+    await pressMineKey(page, "ArrowRight");
+  }
+  await expect(indicator).toBeVisible();
+  return indicator;
+}
+
 /** Swing a lateral direction until the rendered miner crosses targetX. */
 async function digLateral(
   page: Page,
@@ -75,6 +85,7 @@ async function dismissReleaseNotes(page: Page): Promise<void> {
 
 import { SIM_VERSION } from "../../src/sim/constants";
 import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
+import { DEFAULT_GEAR, STARTING_CONSUMABLES } from "../../src/sim/mine";
 
 test("arena page renders a moving match (Rule 10 motion QA)", async ({
   page,
@@ -217,6 +228,79 @@ test("village buildings enter the workshop and arena (REQ-021)", async ({
   await expect(page).toHaveURL(/\/arena$/);
 });
 
+test("surface base indicator offers a paid return", async ({ page }) => {
+  let chargedCost = 0;
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear: DEFAULT_GEAR,
+        consumables: STARTING_CONSUMABLES,
+        balance: 6,
+      },
+    });
+  });
+  await page.route("**/api/mine/base-teleport", async (route) => {
+    const body = route.request().postDataJSON() as { cost: number };
+    chargedCost = body.cost;
+    await route.fulfill({ json: { balance: 6 - body.cost } });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  const canvas = page.locator("canvas");
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(status).toHaveAttribute("data-wallet", "6");
+
+  const indicator = await walkUntilBaseIndicator(page);
+  await expect(indicator).toHaveAttribute("data-base-direction", "left");
+  await indicator.click();
+
+  const menu = page.getByRole("region", { name: "Base return" });
+  await expect(menu).toBeVisible();
+  const teleport = menu.getByRole("button");
+  await expect(teleport).toContainText(/Teleport for \d+ vibes/);
+  await expect(teleport).toBeEnabled();
+  await teleport.click();
+  await expect(teleport).toContainText("Confirm for");
+  await teleport.click();
+
+  await expect(page.locator(".mine-base-teleport-burst")).toBeVisible();
+  await expect
+    .poll(async () =>
+      Math.abs(Number(await canvas.getAttribute("data-miner-x"))),
+    )
+    .toBeLessThan(0.6);
+  await expect(indicator).not.toBeVisible();
+  expect(chargedCost).toBeGreaterThanOrEqual(1);
+  await expect(status).toHaveAttribute("data-wallet", String(6 - chargedCost));
+});
+
+test("surface base return disables when vibes are short", async ({ page }) => {
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear: DEFAULT_GEAR,
+        consumables: STARTING_CONSUMABLES,
+        balance: 0,
+      },
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-wallet", "0");
+
+  const indicator = await walkUntilBaseIndicator(page);
+  await indicator.click();
+
+  const menu = page.getByRole("region", { name: "Base return" });
+  const teleport = menu.getByRole("button");
+  await expect(teleport).toBeDisabled();
+  await expect(teleport).toContainText("Need");
+});
+
 test("mine shows the backfilled release note once to a fresh browser", async ({
   page,
 }) => {
@@ -227,16 +311,14 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Surface banking, elevator travel");
-  await expect(dialog.locator("li")).toHaveCount(5);
+  await expect(dialog).toContainText("Walking far past the village");
+  await expect(dialog.locator("li")).toHaveCount(4);
   await expect(dialog.locator("li").first()).toContainText(
-    "sells it automatically",
+    "animated base indicator",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Elevator rides auto-chain",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("Base return menu");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "hidden behind elevator rails",
+    "confirms before spending",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -257,18 +339,20 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.6");
-  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.5");
-  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.4");
-  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.3");
-  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.2");
-  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.1");
-  await expect(notes.first()).toContainText("Mine flow fixes");
-  await expect(notes.nth(1)).toContainText("Auto-bank upgrades");
-  await expect(notes.nth(2)).toContainText("Lantern-gated mine zoom");
-  await expect(notes.nth(3)).toContainText("Robot battery");
-  await expect(notes.nth(4)).toContainText("Workshop inventory");
-  await expect(notes.nth(5)).toContainText("Fall Harness");
+  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.7");
+  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.6");
+  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.5");
+  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.4");
+  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.3");
+  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.2");
+  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.1");
+  await expect(notes.first()).toContainText("Surface base return");
+  await expect(notes.nth(1)).toContainText("Mine flow fixes");
+  await expect(notes.nth(2)).toContainText("Auto-bank upgrades");
+  await expect(notes.nth(3)).toContainText("Lantern-gated mine zoom");
+  await expect(notes.nth(4)).toContainText("Robot battery");
+  await expect(notes.nth(5)).toContainText("Workshop inventory");
+  await expect(notes.nth(6)).toContainText("Fall Harness");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });

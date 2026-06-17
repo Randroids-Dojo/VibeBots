@@ -124,6 +124,7 @@ export interface MineSessionState {
   ) => Promise<void>;
   buyGearUpgrade: (track: MineGearTrack) => Promise<void>;
   buyElevator: () => Promise<void>;
+  teleportToBase: (cost: number) => Promise<boolean>;
   restart: (seed?: number) => void;
 }
 
@@ -582,6 +583,74 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         }
       } catch {
         set({ shopNote: "purchase failed" });
+      }
+    },
+
+    teleportToBase: async (cost) => {
+      const { cashOut, mine } = get();
+      if (cashOut.state === "pending") return false;
+      if (mine.miner.row !== 0) {
+        set({ shopNote: "return to the surface to teleport" });
+        return false;
+      }
+      if (Math.abs(mine.miner.col - START_COL) > 5000) {
+        set({ shopNote: "teleport path is too far" });
+        return false;
+      }
+      if (!surfaceOnlyLog(get().moves)) {
+        set({ shopNote: "bank your haul before teleporting" });
+        return false;
+      }
+      const price = Math.max(1, Math.min(99, Math.floor(cost)));
+      try {
+        const res = await fetch("/api/mine/base-teleport", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ cost: price }),
+        });
+        if (res.status === 503) {
+          set({ shopNote: "the base beacon is offline; nothing was charged" });
+          return false;
+        }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          set({
+            shopNote:
+              typeof body.error === "string" ? body.error : "teleport failed",
+          });
+          return false;
+        }
+        const body = await res.json();
+        const {
+          seed: s0,
+          gear,
+          consumables,
+          tripBaseDiff,
+          tick,
+          tripIndex,
+        } = get();
+        const rebuilt = createMine(s0, gear, consumables, tripBaseDiff);
+        saveLocalTrip({
+          seed: s0,
+          tripIndex,
+          gear,
+          consumables,
+          baseDiff: tripBaseDiff,
+          moves: [],
+        });
+        set({
+          mine: rebuilt,
+          moves: [],
+          balance: typeof body.balance === "number" ? body.balance : null,
+          shopNote: `teleported to base for ${price} vibes`,
+          tick: tick + 1,
+          lastResult: null,
+          lastAction: null,
+        });
+        return true;
+      } catch {
+        set({ shopNote: "teleport failed" });
+        return false;
       }
     },
 

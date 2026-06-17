@@ -7,6 +7,7 @@ import {
   clampMineCameraZoom,
   MINE_CAMERA_STORAGE_KEY,
   MINE_CAMERA_ZOOM_DEFAULT,
+  mineCameraDistance,
 } from "@/components/mine-camera";
 import type { AppRelease } from "@/lib/app-release-types";
 import {
@@ -35,14 +36,15 @@ import {
   oreDef,
   returnEnergyCost,
   returnLadderNeed,
+  START_COL,
   stratumAt,
   warpRange,
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
 import { useMineStore } from "@/state/mine-store";
-import { destinationAt } from "./mine-destinations";
+import { DESTINATIONS, destinationAt } from "./mine-destinations";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
-import { type StallDef, stallAt } from "./mine-stalls";
+import { STALLS, type StallDef, stallAt } from "./mine-stalls";
 import { MineTouchControls } from "./mine-touch-controls";
 
 const MineCanvas = dynamic(() => import("./mine-canvas"), { ssr: false });
@@ -66,6 +68,50 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
 /** Base gap between directional actions before pickaxe speed bonuses. */
 const BASE_ACTION_CADENCE_MS = 440;
 const MIN_ACTION_CADENCE_MS = 300;
+const MINE_CAMERA_FOV_DEGREES = 42;
+const BASE_BUILDING_COLS = [
+  ...STALLS.map((stall) => stall.col),
+  ...DESTINATIONS.map((destination) => destination.col),
+];
+const BASE_MIN_COL = Math.min(...BASE_BUILDING_COLS);
+const BASE_MAX_COL = Math.max(...BASE_BUILDING_COLS);
+const BASE_CENTER_COL = START_COL;
+
+type ViewportSize = {
+  width: number;
+  height: number;
+};
+
+function baseReturnTarget(
+  minerCol: number,
+  cameraZoom: number,
+  viewport: ViewportSize,
+): {
+  direction: "left" | "right";
+  cost: number;
+  distance: number;
+} | null {
+  const aspect = Math.max(0.5, viewport.width / Math.max(1, viewport.height));
+  const halfWidth =
+    Math.tan((MINE_CAMERA_FOV_DEGREES * Math.PI) / 360) *
+    mineCameraDistance(cameraZoom) *
+    aspect;
+  const left = minerCol - halfWidth;
+  const right = minerCol + halfWidth;
+  if (BASE_MAX_COL >= left && BASE_MIN_COL <= right) return null;
+  const direction = minerCol < BASE_CENTER_COL ? "right" : "left";
+  const distance =
+    minerCol < BASE_MIN_COL
+      ? BASE_MIN_COL - minerCol
+      : minerCol > BASE_MAX_COL
+        ? minerCol - BASE_MAX_COL
+        : Math.abs(minerCol - BASE_CENTER_COL);
+  return {
+    direction,
+    distance,
+    cost: Math.max(1, Math.min(9, Math.ceil(distance / 24))),
+  };
+}
 
 function actionCadenceMs(gear: MineGear): number {
   return Math.max(
@@ -1175,6 +1221,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);
+  const lastAction = useMineStore((s) => s.lastAction);
   const move = useMineStore((s) => s.move);
   const seed = useMineStore((s) => s.seed);
   const tripIndex = useMineStore((s) => s.tripIndex);
@@ -1189,6 +1236,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const buyConsumable = useMineStore((s) => s.buyConsumable);
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
   const buyElevator = useMineStore((s) => s.buyElevator);
+  const teleportToBase = useMineStore((s) => s.teleportToBase);
   const router = useRouter();
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
   const [abandonArmed, setAbandonArmed] = useState(false);
@@ -1202,6 +1250,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [cameraZoom, setCameraZoom] = useState(MINE_CAMERA_ZOOM_DEFAULT);
+  const [viewportSize, setViewportSize] = useState<ViewportSize>({
+    width: 1024,
+    height: 768,
+  });
+  const [baseReturnOpen, setBaseReturnOpen] = useState(false);
+  const [baseReturnConfirm, setBaseReturnConfirm] = useState(false);
+  const [baseReturnPending, setBaseReturnPending] = useState(false);
+  const [teleportBurstKey, setTeleportBurstKey] = useState(0);
   // The column whose stall sheet is open. Standing on a stall no longer
   // auto-opens it: a prompt button appears and tapping it sets this.
   // Stepping off clears it, so walking by never pops the menu.
@@ -1249,6 +1305,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
+  }, []);
+
+  useEffect(() => {
+    const updateViewport = () =>
+      setViewportSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
   useEffect(() => {
@@ -1322,6 +1389,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     if (event) playMineSfxEvent(event);
   }, [shopNote]);
 
+  useEffect(() => {
+    if (
+      lastResult?.ok &&
+      (lastAction === "warp-home" || lastAction === "warp-down")
+    ) {
+      setTeleportBurstKey((key) => key + 1);
+    }
+  }, [lastAction, lastResult]);
+
   const fireDirection = useCallback(
     (dir: Direction) => {
       if (elevatorAutoDir) return;
@@ -1347,6 +1423,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: column is the reset trigger, not read in the body; dropping it would fire once and never re-close
   useEffect(() => {
     setOpenStallCol(null);
+    setBaseReturnOpen(false);
+    setBaseReturnConfirm(false);
   }, [mine.miner.col]);
 
   // The abandon confirm disarms itself; a stray thumb cannot torch a
@@ -1417,6 +1495,42 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       : 0;
   const bankedCredits = miner.bankedCredits;
   const bankedPartsCount = miner.bankedParts.length;
+  const baseReturn =
+    miner.row === 0
+      ? baseReturnTarget(miner.col, cameraZoom, viewportSize)
+      : null;
+  const baseReturnDisabled =
+    !baseReturn ||
+    baseReturnPending ||
+    balance === null ||
+    balance < baseReturn.cost ||
+    cashOut.state === "pending";
+  const baseReturnButtonLabel =
+    balance === null
+      ? "Ledger offline"
+      : baseReturn && balance < baseReturn.cost
+        ? `Need ${baseReturn.cost} vibes`
+        : baseReturnConfirm && baseReturn
+          ? `Confirm for ${baseReturn.cost} vibes`
+          : baseReturn
+            ? `Teleport for ${baseReturn.cost} vibes`
+            : "Base visible";
+
+  const handleBaseReturn = async () => {
+    if (!baseReturn || baseReturnDisabled) return;
+    if (!baseReturnConfirm) {
+      setBaseReturnConfirm(true);
+      return;
+    }
+    setBaseReturnPending(true);
+    const ok = await teleportToBase(baseReturn.cost);
+    setBaseReturnPending(false);
+    if (!ok) return;
+    setBaseReturnOpen(false);
+    setBaseReturnConfirm(false);
+    setTeleportBurstKey((key) => key + 1);
+    playMineSfxEvent("warp");
+  };
 
   useEffect(() => {
     const visibleSupportKeys = new Set(
@@ -1426,6 +1540,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       prev.filter((key) => visibleSupportKeys.has(key)),
     );
   }, [visibleSupportKeyList]);
+
+  useEffect(() => {
+    if (baseReturn) return;
+    setBaseReturnOpen(false);
+    setBaseReturnConfirm(false);
+  }, [baseReturn]);
 
   useEffect(() => {
     if (!elevatorAutoDir) return;
@@ -1561,6 +1681,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       )}
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
+      {teleportBurstKey > 0 && (
+        <div
+          key={teleportBurstKey}
+          className="mine-base-teleport-burst"
+          aria-hidden="true"
+          onAnimationEnd={() => setTeleportBurstKey(0)}
+        >
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+      )}
       <ReleaseNotesPopup
         release={appRelease}
         manualOpenCount={releaseNotesOpenCount}
@@ -1628,8 +1763,62 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           </button>
         </section>
       )}
+      {baseReturn && (
+        <>
+          <button
+            type="button"
+            className={`mine-base-indicator mine-base-indicator-${baseReturn.direction}`}
+            aria-label={`Base is ${baseReturn.direction}`}
+            aria-expanded={baseReturnOpen}
+            data-base-direction={baseReturn.direction}
+            onClick={() => {
+              setBaseReturnOpen((open) => !open);
+              setBaseReturnConfirm(false);
+            }}
+          >
+            <span aria-hidden="true">
+              {baseReturn.direction === "left" ? "\u2190" : "\u2192"}
+            </span>
+            <span aria-hidden="true">⌂</span>
+          </button>
+          {baseReturnOpen && (
+            <section
+              aria-label="Base return"
+              className={`mine-base-return-menu mine-base-return-menu-${baseReturn.direction}`}
+            >
+              <div style={{ fontWeight: 800, color: "#e6e8ee" }}>
+                Base is {baseReturn.distance} cells {baseReturn.direction}
+              </div>
+              <div style={{ fontSize: "0.82rem", color: "#aab2c7" }}>
+                Return to the shaft center on the surface.
+              </div>
+              <button
+                type="button"
+                disabled={baseReturnDisabled}
+                onClick={() => void handleBaseReturn()}
+                style={{
+                  width: "100%",
+                  minHeight: 44,
+                  marginTop: 10,
+                  borderRadius: 10,
+                  border: baseReturnDisabled
+                    ? "1px solid #343b52"
+                    : "1px solid #54e0c7",
+                  background: baseReturnDisabled ? "#1b2030" : "#173033",
+                  color: baseReturnDisabled ? "#6f7892" : "#54e0c7",
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  cursor: baseReturnDisabled ? "not-allowed" : "pointer",
+                }}
+              >
+                {baseReturnPending ? "Teleporting..." : baseReturnButtonLabel}
+              </button>
+            </section>
+          )}
+        </>
+      )}
       {/* Standing on a stall shows a prompt; the menu opens on tap, not
-          on walk-by. Tapping again-after-close needs another tap. */}
+          on walk-by. Tapping again after close needs another tap. */}
       {stall && openStallCol !== miner.col && (
         <button
           type="button"

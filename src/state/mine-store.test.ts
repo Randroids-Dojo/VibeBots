@@ -78,4 +78,36 @@ describe("mine store upgrade flow", () => {
     expect(lastSaved).toBeTruthy();
     expect(JSON.parse(lastSaved?.[1] ?? "{}").gear.lantern).toBe(2);
   });
+
+  it("spends and returns a surface-only trip to the base", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ balance: 8 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const mine = store().mine;
+    mine.miner.col = 36;
+    useMineStore.setState({
+      mine,
+      moves: ["right", "right"] as MineAction[],
+      tick: 2,
+    });
+
+    const ok = await store().teleportToBase(2);
+
+    expect(ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/mine/base-teleport",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ cost: 2 }),
+      }),
+    );
+    expect(store().mine.miner.col).toBe(0);
+    expect(store().moves).toEqual([]);
+    expect(store().balance).toBe(8);
+
+    const lastSaved = vi.mocked(localStorage.setItem).mock.calls.at(-1);
+    expect(lastSaved).toBeTruthy();
+    expect(JSON.parse(lastSaved?.[1] ?? "{}").moves).toEqual([]);
+  });
 });

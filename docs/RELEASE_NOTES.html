@@ -13,6 +13,17 @@
 
 <main id="entries">
 
+  <article data-version="0.1.14" data-date="2026-06-17">
+    <h2>0.1.14</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.14</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>23</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Held thumbstick movement no longer passes through two independent repeat gates. The thumbstick already fires on a fixed interval, so those paced repeats now execute directly instead of occasionally losing a beat to a timestamp guard.</dd>
+      <dt>Controls</dt><dd>Keyboard repeat throttling stays in place for browser-generated repeat events, while touch movement keeps the steady thumbstick cadence during long one-direction walks.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke for the thumbstick cadence, <code>pnpm test</code> (155 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, and full Playwright smoke against a fresh production server on port 3057 (26 passed, 2 storage-gated skips).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.13" data-date="2026-06-17">
     <h2>0.1.13</h2>
     <dl>

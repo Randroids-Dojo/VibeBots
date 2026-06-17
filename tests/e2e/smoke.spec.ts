@@ -369,16 +369,14 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Buyer now has a clearer job");
+  await expect(dialog).toContainText("Held thumbstick movement");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Buyer shows current haul value",
+    "thumbstick's own pacing",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Carried ore is itemized",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("missed-beat pause");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Auto-sell remains the rule",
+    "Keyboard held-repeat throttling",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -399,32 +397,34 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.13");
-  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.12");
-  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.11");
-  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.10");
-  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.9");
-  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.8");
-  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.7");
-  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.6");
-  await expect(notes.nth(8)).toHaveAttribute("data-release-note", "0.1.5");
-  await expect(notes.nth(9)).toHaveAttribute("data-release-note", "0.1.4");
-  await expect(notes.nth(10)).toHaveAttribute("data-release-note", "0.1.3");
-  await expect(notes.nth(11)).toHaveAttribute("data-release-note", "0.1.2");
-  await expect(notes.nth(12)).toHaveAttribute("data-release-note", "0.1.1");
-  await expect(notes.first()).toContainText("Buyer appraisal");
-  await expect(notes.nth(1)).toContainText("Mine motion polish");
-  await expect(notes.nth(2)).toContainText("Horizontal mine visibility");
-  await expect(notes.nth(3)).toContainText("Mine action feel");
-  await expect(notes.nth(4)).toContainText("Base return confirmation");
-  await expect(notes.nth(5)).toContainText("Mine resource stacks");
-  await expect(notes.nth(6)).toContainText("Surface base return");
-  await expect(notes.nth(7)).toContainText("Mine flow fixes");
-  await expect(notes.nth(8)).toContainText("Auto-bank upgrades");
-  await expect(notes.nth(9)).toContainText("Lantern-gated mine zoom");
-  await expect(notes.nth(10)).toContainText("Robot battery");
-  await expect(notes.nth(11)).toContainText("Workshop inventory");
-  await expect(notes.nth(12)).toContainText("Fall Harness");
+  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.14");
+  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.13");
+  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.12");
+  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.11");
+  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.10");
+  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.9");
+  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.8");
+  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.7");
+  await expect(notes.nth(8)).toHaveAttribute("data-release-note", "0.1.6");
+  await expect(notes.nth(9)).toHaveAttribute("data-release-note", "0.1.5");
+  await expect(notes.nth(10)).toHaveAttribute("data-release-note", "0.1.4");
+  await expect(notes.nth(11)).toHaveAttribute("data-release-note", "0.1.3");
+  await expect(notes.nth(12)).toHaveAttribute("data-release-note", "0.1.2");
+  await expect(notes.nth(13)).toHaveAttribute("data-release-note", "0.1.1");
+  await expect(notes.first()).toContainText("Thumbstick cadence");
+  await expect(notes.nth(1)).toContainText("Buyer appraisal");
+  await expect(notes.nth(2)).toContainText("Mine motion polish");
+  await expect(notes.nth(3)).toContainText("Horizontal mine visibility");
+  await expect(notes.nth(4)).toContainText("Mine action feel");
+  await expect(notes.nth(5)).toContainText("Base return confirmation");
+  await expect(notes.nth(6)).toContainText("Mine resource stacks");
+  await expect(notes.nth(7)).toContainText("Surface base return");
+  await expect(notes.nth(8)).toContainText("Mine flow fixes");
+  await expect(notes.nth(9)).toContainText("Auto-bank upgrades");
+  await expect(notes.nth(10)).toContainText("Lantern-gated mine zoom");
+  await expect(notes.nth(11)).toContainText("Robot battery");
+  await expect(notes.nth(12)).toContainText("Workshop inventory");
+  await expect(notes.nth(13)).toContainText("Fall Harness");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });
@@ -528,6 +528,24 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
 
   // Fine-pointer devices keep the keyboard mention in the hint.
   await expect(page.getByText(/drag anywhere to move/)).toContainText("WASD");
+
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-miner-x"), { timeout: 5_000 })
+    .not.toBeNull();
+
+  const initialX = Number(await canvas.getAttribute("data-miner-x"));
+  await page.mouse.move(760, 380);
+  await page.mouse.down();
+  await page.mouse.move(860, 380, { steps: 5 });
+  await expect(page.locator("[data-joystick]")).toBeVisible();
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+      timeout: 1_350,
+    })
+    .toBeGreaterThan(initialX + 4.25);
+  await page.mouse.up();
+  await expect(page.locator("[data-joystick]")).not.toBeVisible();
 
   // Press on open ground right of the panels: the stick appears there.
   await page.mouse.move(900, 380);

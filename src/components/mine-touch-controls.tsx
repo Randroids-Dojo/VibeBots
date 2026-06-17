@@ -78,7 +78,7 @@ export function MineTouchControls({
         onDirection(dir);
         repeatTimer.current = setInterval(() => {
           if (heldDir.current) {
-            onDirection(heldDir.current, { repeat: true });
+            onDirection(heldDir.current);
           }
         }, repeatMs);
       }

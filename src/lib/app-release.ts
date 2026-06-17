@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.13-buyer-appraisal";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.14-thumbstick-cadence";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.14",
+      date: "2026-06-17",
+      title: "Thumbstick cadence",
+      intro:
+        "Held thumbstick movement now keeps a steadier rhythm while walking in one direction.",
+      changes: [
+        {
+          build,
+          text: "Touch repeats now trust the thumbstick's own pacing instead of passing through a second repeat gate.",
+        },
+        {
+          build,
+          text: "The missed-beat pause that could show up during long one-direction walks is removed.",
+        },
+        {
+          build,
+          text: "Keyboard held-repeat throttling stays in place, so browser key repeat cannot spam extra actions.",
+        },
+      ],
+    },
     {
       version: "0.1.13",
       date: "2026-06-17",

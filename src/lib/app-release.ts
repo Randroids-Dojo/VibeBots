@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.11-horizontal-mine-visibility";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.12-mine-motion-polish";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.12",
+      date: "2026-06-17",
+      title: "Mine motion polish",
+      intro:
+        "Mine movement now animates as a smooth fixed step instead of a fast target chase.",
+      changes: [
+        {
+          build,
+          text: "The miner now moves through a short retargetable tween, so repeated inputs do not snap or asymptotically chase the next cell.",
+        },
+        {
+          build,
+          text: "The camera uses the same fixed-step motion shape, keeping the robot framed without the old twitchy catch-up feel.",
+        },
+        {
+          build,
+          text: "Held movement repeats have a little more breathing room, so the visual step settles before the next repeated action.",
+        },
+      ],
+    },
     {
       version: "0.1.11",
       date: "2026-06-17",

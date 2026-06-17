@@ -67,8 +67,8 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
 };
 
 /** Held-input repeat gap before pickaxe speed bonuses. */
-const BASE_ACTION_REPEAT_MS = 160;
-const MIN_ACTION_REPEAT_MS = 95;
+const BASE_ACTION_REPEAT_MS = 270;
+const MIN_ACTION_REPEAT_MS = 220;
 const MINE_CAMERA_FOV_DEGREES = 42;
 const BASE_BUILDING_COLS = [
   ...STALLS.map((stall) => stall.col),

@@ -161,8 +161,20 @@ interface JuiceState {
   lunge: { x: number; y: number; t: number };
 }
 
+interface MotionTrack {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  startedAt: number;
+  duration: number;
+  frames: number;
+}
+
 const PICK_SWING_SECONDS = 0.18;
 const DIG_LUNGE_SECONDS = 0.16;
+const MINER_STEP_SECONDS = 0.26;
+const CAMERA_STEP_SECONDS = 0.28;
 /** Length of the bounce-off animation when the pick can't cut the rock. */
 const BOUNCE_SECONDS = 0.28;
 const DYNAMITE_RED = "#b43b32";
@@ -174,6 +186,60 @@ const EDGE_DARKNESS_COLOR = "#02040a";
 const cellX = (col: number) => col;
 /** Width of the dressed surface camp strip around the origin. */
 const CAMP_WIDTH = 60;
+const easeStep = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+
+function snapMotion(
+  now: number,
+  targetX: number,
+  targetY: number,
+  duration: number,
+): MotionTrack {
+  return {
+    fromX: targetX,
+    fromY: targetY,
+    toX: targetX,
+    toY: targetY,
+    startedAt: now,
+    duration,
+    frames: 0,
+  };
+}
+
+function retargetMotion(
+  track: MotionTrack | null,
+  now: number,
+  currentX: number,
+  currentY: number,
+  targetX: number,
+  targetY: number,
+  duration: number,
+): MotionTrack {
+  if (track && track.toX === targetX && track.toY === targetY) return track;
+  return {
+    fromX: currentX,
+    fromY: currentY,
+    toX: targetX,
+    toY: targetY,
+    startedAt: now,
+    duration,
+    frames: 0,
+  };
+}
+
+function motionProgress(track: MotionTrack, now: number): number {
+  const raw = (now - track.startedAt) / track.duration;
+  return Math.max(0, Math.min(1, raw));
+}
+
+function sampleMotion(track: MotionTrack, now: number): [number, number] {
+  const t = motionProgress(track, now);
+  const eased = easeStep(t);
+  return [
+    track.fromX + (track.toX - track.fromX) * eased,
+    track.fromY + (track.toY - track.fromY) * eased,
+  ];
+}
 
 function DynamiteCharge({ col, row }: { col: number; row: number }) {
   const bodyRef = useRef<Group>(null);
@@ -1540,6 +1606,8 @@ function MineScene({
   // measure that distance.
   const walkPhase = useRef(0);
   const prevMinerPos = useRef<{ x: number; y: number } | null>(null);
+  const cameraMotion = useRef<MotionTrack | null>(null);
+  const minerMotion = useRef<MotionTrack | null>(null);
   const lampRef = useRef<PointLight>(null);
   const ambientRef = useRef<AmbientLight>(null);
   const hemiRef = useRef<HemisphereLight>(null);
@@ -1679,6 +1747,12 @@ function MineScene({
   useFrame((state, delta) => {
     const j = juice.current;
     const t = state.clock.elapsedTime;
+    const resetJump =
+      (lastResult?.ok && lastResult.collapsed) ||
+      lastAction === "abandon" ||
+      lastAction === "recall" ||
+      lastAction === "warp-home" ||
+      lastAction === "warp-down";
     // Camera rig eases down the shaft after the miner, with shake.
     const targetY = -minerRow;
     const rig = rigRef.current;
@@ -1686,15 +1760,33 @@ function MineScene({
     if (rig) {
       // Trip resets (collapse, recall, abandon) move the miner across
       // the whole map; gliding the camera through it reads as broken.
-      if (Math.abs(targetY - rig.position.y) > 6) rig.position.y = targetY;
-      rig.position.y +=
-        (targetY - rig.position.y) * (1 - Math.exp(-delta * 12));
-      // The endless mine has no edges: the camera follows the miner
-      // laterally everywhere (the old clamp framed a 9-wide world).
       const targetX = cellX(mine.miner.col);
-      if (Math.abs(targetX - rig.position.x) > 6) rig.position.x = targetX;
-      rig.position.x +=
-        (targetX - rig.position.x) * (1 - Math.exp(-delta * 12));
+      const cameraJump =
+        resetJump ||
+        Math.hypot(targetX - rig.position.x, targetY - rig.position.y) > 6;
+      if (cameraJump) {
+        cameraMotion.current = snapMotion(
+          t,
+          targetX,
+          targetY,
+          CAMERA_STEP_SECONDS,
+        );
+        rig.position.set(targetX, targetY, 0);
+      } else {
+        cameraMotion.current = retargetMotion(
+          cameraMotion.current,
+          t,
+          rig.position.x,
+          rig.position.y,
+          targetX,
+          targetY,
+          CAMERA_STEP_SECONDS,
+        );
+        if (motionProgress(cameraMotion.current, t) < 1)
+          cameraMotion.current.frames += 1;
+        const [cx, cy] = sampleMotion(cameraMotion.current, t);
+        rig.position.set(cx, cy, 0);
+      }
       j.shake = Math.max(0, j.shake - delta * 0.9);
       const sx = rig.position.x + (Math.random() - 0.5) * j.shake;
       const sy = (Math.random() - 0.5) * j.shake;
@@ -1712,6 +1804,9 @@ function MineScene({
       state.gl.domElement.dataset.renderRadius = String(renderRadius);
       state.gl.domElement.dataset.renderMinCol = String(firstCol);
       state.gl.domElement.dataset.renderMaxCol = String(lastCol);
+      state.gl.domElement.dataset.cameraMotionFrames = String(
+        cameraMotion.current?.frames ?? 0,
+      );
       depthT = Math.min(1, Math.max(0, -rig.position.y / DARK_DEPTH));
     }
     // Daylight dies with depth; the lamp takes over as the key light.
@@ -1738,23 +1833,36 @@ function MineScene({
       const ty = -mine.miner.row;
       // Teleport-scale jumps (trip resets) snap; easing across them
       // would fly the bot up through solid rock for seconds.
-      if (
+      const minerJump =
+        resetJump ||
         !minerPlaced.current ||
         Math.abs(tx - miner.position.x) > 3 ||
-        Math.abs(ty - miner.position.y) > 3
-      ) {
+        Math.abs(ty - miner.position.y) > 6;
+      if (minerJump) {
         minerPlaced.current = true;
+        minerMotion.current = snapMotion(t, tx, ty, MINER_STEP_SECONDS);
         miner.position.set(tx, ty, 0.2);
       } else {
-        const ease = 1 - Math.exp(-delta * 18);
-        miner.position.x += (tx - miner.position.x) * ease;
-        miner.position.y += (ty - miner.position.y) * ease;
+        minerMotion.current = retargetMotion(
+          minerMotion.current,
+          t,
+          miner.position.x,
+          miner.position.y,
+          tx,
+          ty,
+          MINER_STEP_SECONDS,
+        );
+        if (motionProgress(minerMotion.current, t) < 1)
+          minerMotion.current.frames += 1;
+        const [mx, my] = sampleMotion(minerMotion.current, t);
+        miner.position.set(mx, my, 0.2);
       }
       // Rendered position exposed for motion QA (Rule 10): e2e reads these
       // to prove the glide never lifts toward the surface on lateral steps.
       const el = state.gl.domElement;
       el.dataset.minerX = miner.position.x.toFixed(2);
       el.dataset.minerY = miner.position.y.toFixed(2);
+      el.dataset.minerMotionFrames = String(minerMotion.current?.frames ?? 0);
       // Last frame's draw-call count: the budget that phones live by.
       el.dataset.drawCalls = String(state.gl.info.render.calls);
       // Smoothed frame time: a steady low value means no per-step hitches.

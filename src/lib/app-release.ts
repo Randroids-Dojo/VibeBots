@@ -2,10 +2,27 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.18-support-snapshot-cashout";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.19-mine-base-offset";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.19",
+      date: "2026-06-17",
+      title: "Mine base offset",
+      intro:
+        "The mine HUD now shows how far left or right you are from the home shaft.",
+      changes: [
+        {
+          build,
+          text: "The Depth chip now includes a signed Base offset, so left of home shows a negative number and right of home shows a positive number.",
+        },
+        {
+          build,
+          text: "The signed offset is exposed as a stable HUD data attribute for smoke coverage.",
+        },
+      ],
+    },
     {
       version: "0.1.18",
       date: "2026-06-17",

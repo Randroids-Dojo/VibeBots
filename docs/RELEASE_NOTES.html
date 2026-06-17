@@ -13,6 +13,17 @@
 
 <main id="entries">
 
+  <article data-version="0.1.19" data-date="2026-06-17">
+    <h2>0.1.19</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.19</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>23</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Interface</dt><dd>The mine HUD now shows the miner's signed horizontal offset from the home shaft next to Depth. Left of home is negative, right of home is positive, and the home shaft is <code>Base 0</code>.</dd>
+      <dt>Testing</dt><dd>The mine status test surface now exposes <code>data-horizontal-distance</code>, and smoke coverage walks right and left to pin the signed offset.</dd>
+      <dt>Verification</dt><dd><code>pnpm check:dashes</code>; <code>git diff --check</code>; <code>pnpm typecheck</code>; <code>pnpm lint</code>; <code>pnpm test</code> (158 passed); <code>pnpm check:purity</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>pnpm build</code>; <code>pnpm exec playwright test tests/e2e/smoke.spec.ts --config /tmp/vibebots-playwright-3063.config.cjs</code> (27 passed, 2 skipped storage-dependent).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.18" data-date="2026-06-17">
     <h2>0.1.18</h2>
     <dl>

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-base-offset-hud" data-date="2026-06-17">
+    <h3>Mine Base Offset HUD</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-horizontal-distance</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed HUD addition: the mine status chip now shows signed horizontal distance from the home shaft next to current depth. The home shaft reads <code>Base 0</code>, cells left of home read negative, and cells right of home read positive. The status region exposes the same value through <code>data-horizontal-distance</code>. Package version moved to <code>0.1.19</code>; <code>MINE_VERSION</code> stays at <code>23</code> and <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Verification</dt><dd><code>pnpm check:dashes</code>; <code>git diff --check</code>; <code>pnpm typecheck</code>; <code>pnpm lint</code>; <code>pnpm test</code> (158 passed); <code>pnpm check:purity</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>pnpm build</code>; <code>pnpm exec playwright test tests/e2e/smoke.spec.ts --config /tmp/vibebots-playwright-3063.config.cjs</code> (27 passed, 2 skipped storage-dependent).</dd>
+      <dt>Assumptions</dt><dd>"home base" means the shaft center column <code>START_COL</code>, matching Base return behavior and the village anchor.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code> and updated static plus in-game release notes for <code>0.1.19</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="support-snapshot-cashout" data-date="2026-06-17">
     <h3>Support Snapshot Cash-Out</h3>
     <dl>

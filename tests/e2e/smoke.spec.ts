@@ -166,11 +166,19 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   // chip copy can change, the test surface cannot.
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(status).toHaveAttribute("data-horizontal-distance", "0");
   await expect(status).toContainText("Depth 0");
+  await expect(status).toContainText("Base 0");
   await expect(status).toContainText("Topsoil");
   // The wallet is always on the HUD now (exposed for tests; empty when
   // storage is offline, a number otherwise).
   expect(await status.getAttribute("data-wallet")).not.toBeNull();
+
+  await pressMineKey(page, "ArrowRight");
+  await expect(status).toHaveAttribute("data-horizontal-distance", "1");
+  await expect(status).toContainText("Base +1");
+  await pressMineKey(page, "ArrowLeft");
+  await expect(status).toHaveAttribute("data-horizontal-distance", "0");
 
   // Blocks soak multiple swings now (REQ-013); dig through row 1.
   await digTo(page, 1);
@@ -434,17 +442,14 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Older mine trips with stale ladder or plank counts",
+    "The mine HUD now shows how far left or right",
   );
-  await expect(dialog.locator("li")).toHaveCount(3);
+  await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "Server replay now uses the ladder and plank stock",
+    "left of home shows a negative number",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Dynamite, rope, and beacon snapshots",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "production alert logs",
+    "stable HUD data attribute",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -465,42 +470,39 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.18");
-  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.17");
-  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.16");
-  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.15");
-  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.14");
-  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.13");
-  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.12");
-  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.11");
-  await expect(notes.nth(8)).toHaveAttribute("data-release-note", "0.1.10");
-  await expect(notes.nth(9)).toHaveAttribute("data-release-note", "0.1.9");
-  await expect(notes.nth(10)).toHaveAttribute("data-release-note", "0.1.8");
-  await expect(notes.nth(11)).toHaveAttribute("data-release-note", "0.1.7");
-  await expect(notes.nth(12)).toHaveAttribute("data-release-note", "0.1.6");
-  await expect(notes.nth(13)).toHaveAttribute("data-release-note", "0.1.5");
-  await expect(notes.nth(14)).toHaveAttribute("data-release-note", "0.1.4");
-  await expect(notes.nth(15)).toHaveAttribute("data-release-note", "0.1.3");
-  await expect(notes.nth(16)).toHaveAttribute("data-release-note", "0.1.2");
-  await expect(notes.nth(17)).toHaveAttribute("data-release-note", "0.1.1");
-  await expect(notes.first()).toContainText("Support snapshot cash-out fix");
-  await expect(notes.nth(1)).toContainText("Fall death feedback");
-  await expect(notes.nth(2)).toContainText("Base return danger confirm");
-  await expect(notes.nth(3)).toContainText("Legacy support cash-out");
-  await expect(notes.nth(4)).toContainText("Thumbstick cadence");
-  await expect(notes.nth(5)).toContainText("Buyer appraisal");
-  await expect(notes.nth(6)).toContainText("Mine motion polish");
-  await expect(notes.nth(7)).toContainText("Horizontal mine visibility");
-  await expect(notes.nth(8)).toContainText("Mine action feel");
-  await expect(notes.nth(9)).toContainText("Base return confirmation");
-  await expect(notes.nth(10)).toContainText("Mine resource stacks");
-  await expect(notes.nth(11)).toContainText("Surface base return");
-  await expect(notes.nth(12)).toContainText("Mine flow fixes");
-  await expect(notes.nth(13)).toContainText("Auto-bank upgrades");
-  await expect(notes.nth(14)).toContainText("Lantern-gated mine zoom");
-  await expect(notes.nth(15)).toContainText("Robot battery");
-  await expect(notes.nth(16)).toContainText("Workshop inventory");
-  await expect(notes.nth(17)).toContainText("Fall Harness");
+  const expectedReleaseNotes = [
+    ["0.1.19", "Mine base offset"],
+    ["0.1.18", "Support snapshot cash-out fix"],
+    ["0.1.17", "Fall death feedback"],
+    ["0.1.16", "Base return danger confirm"],
+    ["0.1.15", "Legacy support cash-out"],
+    ["0.1.14", "Thumbstick cadence"],
+    ["0.1.13", "Buyer appraisal"],
+    ["0.1.12", "Mine motion polish"],
+    ["0.1.11", "Horizontal mine visibility"],
+    ["0.1.10", "Mine action feel"],
+    ["0.1.9", "Base return confirmation"],
+    ["0.1.8", "Mine resource stacks"],
+    ["0.1.7", "Surface base return"],
+    ["0.1.6", "Mine flow fixes"],
+    ["0.1.5", "Auto-bank upgrades"],
+    ["0.1.4", "Lantern-gated mine zoom"],
+    ["0.1.3", "Robot battery wording"],
+    ["0.1.2", "Workshop inventory gates"],
+    ["0.1.1", "Mine movement, recovery, and fall fixes"],
+    ["0.1.0", "Mining and workshop foundation"],
+  ] as const;
+  await expect(notes).toHaveCount(expectedReleaseNotes.length);
+  for (const [
+    index,
+    [noteVersion, noteTitle],
+  ] of expectedReleaseNotes.entries()) {
+    await expect(notes.nth(index)).toHaveAttribute(
+      "data-release-note",
+      noteVersion,
+    );
+    await expect(notes.nth(index)).toContainText(noteTitle);
+  }
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });

@@ -1687,6 +1687,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const miner = mine.miner;
   const currentCell = cellAt(mine, miner.col, miner.row);
   const stratum = stratumAt(miner.row);
+  const horizontalDistance = miner.col - START_COL;
+  const horizontalDistanceLabel =
+    horizontalDistance > 0 ? `+${horizontalDistance}` : `${horizontalDistance}`;
   const carryValue = carriedValue(miner);
   const climbCost = returnEnergyCost(miner);
   // The climb estimate assumes a cleared shaft; warn with a margin so a
@@ -2152,6 +2155,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       <section
         aria-label="Mine status"
         data-depth={miner.row}
+        data-horizontal-distance={horizontalDistance}
         data-energy={miner.energy.toFixed(1)}
         data-ladders={mine.consumables.ladder}
         data-planks={mine.consumables.plank}
@@ -2185,6 +2189,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <span style={chipStyle}>
             <span style={{ opacity: 0.65 }}>&#9660;</span> Depth {miner.row}{" "}
             <span style={{ opacity: 0.65 }}>{stratum.name}</span>
+            <span style={{ opacity: 0.65 }}> | Base </span>
+            {horizontalDistanceLabel}
           </span>
           <span
             style={{

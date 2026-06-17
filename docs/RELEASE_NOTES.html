@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.15" data-date="2026-06-17">
+    <h2>0.1.15</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.15</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>23</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Long-running mines can now auto-sell surfaced hauls when an old in-flight trip still carries historical ladder or plank starter stock. The compatibility path is capped to the starter support floor and marked after use.</dd>
+      <dt>Security</dt><dd>Paid consumables are still server-owned: dynamite, rope, and beacon overclaims continue to fail before replay. The one-time reconciliation only applies to legacy ladder and plank snapshots.</dd>
+      <dt>Interface</dt><dd>The active mine HUD now says Selling haul and Sold instead of using bank wording during the auto-sell flow.</dd>
+      <dt>Operations</dt><dd>Mine cash-out failures and legacy support reconciliations now emit structured JSON logs with <code>source=vibebots</code>, <code>component=mine.cash_out</code>, stable event names, hashed player identifiers, and <code>alert=true</code> on warning and error events. Operators can alert on <code>mine.cash_out.consumables_not_owned</code>, <code>mine.cash_out.gear_not_owned</code>, <code>mine.cash_out.wrong_mine_seed</code>, and <code>mine.cash_out.legacy_support_reconciled</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and smoke files, focused Vitest for the mine bank route, marker helpers, and monitoring payloads (15 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (159 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, Playwright smoke against a fresh production server on port 3058 (26 passed, 2 storage-gated skips), and source search confirming no active mine HUD copy still uses the old bank-haul wording.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.14" data-date="2026-06-17">
     <h2>0.1.14</h2>
     <dl>

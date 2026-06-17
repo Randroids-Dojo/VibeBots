@@ -2,10 +2,35 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.14-thumbstick-cadence";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.15-legacy-support-cashout";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.15",
+      date: "2026-06-17",
+      title: "Legacy support cash-out",
+      intro:
+        "Long-running mines can now sell surfaced hauls even if an old trip carried historical ladder or plank stock.",
+      changes: [
+        {
+          build,
+          text: "Old in-flight ladder and plank snapshots are reconciled once against the starter support floor instead of blocking auto-sell.",
+        },
+        {
+          build,
+          text: "Dynamite, rope, and beacon stock still validate against server ownership, so paid consumables cannot be faked for extra payout.",
+        },
+        {
+          build,
+          text: "The active mine HUD now says Selling haul and Sold instead of showing bank wording during auto-sell.",
+        },
+        {
+          build,
+          text: "Cash-out failures and legacy support reconciliations now emit structured alert logs for ongoing monitoring.",
+        },
+      ],
+    },
     {
       version: "0.1.14",
       date: "2026-06-17",

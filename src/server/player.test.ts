@@ -24,6 +24,7 @@ const profile: MinePlayerProfile = {
   emeralds: 99,
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
+  legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",
 };
 
 describe("mine player profile helpers", () => {

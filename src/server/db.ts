@@ -19,6 +19,7 @@ type Sql = ReturnType<typeof neon>;
 export const PLAYER_COMPATIBILITY_MARKERS = [
   "support_kit_granted_at",
   "elevator_support_refund_at",
+  "legacy_support_snapshot_reconciled_at",
 ] as const;
 
 let client: Sql | null = null;
@@ -68,6 +69,9 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS support_kit_granted_at timestamptz`;
+  await sql`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS legacy_support_snapshot_reconciled_at timestamptz`;
   // The elevator rail (REQ-028) and teleporter (REQ-029).
   await sql`
     ALTER TABLE players

@@ -1311,7 +1311,7 @@ function StallMenu({
             );
           })}
           <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            Upgrades bank any hauled-up loot first, then apply immediately.
+            Upgrades sell any hauled-up loot first, then apply immediately.
           </p>
         </div>
       )}
@@ -1834,7 +1834,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           : lastResult?.ok && lastResult.collapsed
             ? "Battery drained. Hauled up empty."
             : lastResult?.ok && lastResult.recalled
-              ? "Roped home; carry banked."
+              ? "Roped home; carry sold."
               : lastResult?.ok && lastResult.exploded
                 ? "Boom!"
                 : lastResult?.ok && lastResult.dynamitePlanted
@@ -1851,13 +1851,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                             ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
                             : miner.row === 0 &&
                                 (bankedCredits > 0 || bankedPartsCount > 0)
-                              ? "Banking haul..."
+                              ? cashOut.state === "pending"
+                                ? "Selling haul..."
+                                : undefined
                               : miner.row === 0 && mine.consumables.ladder === 0
                                 ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
                                 : undefined;
   const cashNote =
     cashOut.state === "done"
-      ? `Banked ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Your mine stays.`
+      ? `Sold ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Your mine stays.`
       : cashOut.state === "unavailable"
         ? "Couldn't sell; loot is safe, try again."
         : cashOut.state === "error"

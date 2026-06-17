@@ -33,6 +33,20 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 - `DATABASE_URL` and friends: auto-provisioned by the dedicated Neon Postgres marketplace integration (Rule 11: one backing store per project, never shared). Created as sensitive values, so they are injected at deploy time and do not `vercel env pull` locally; local dev without them degrades to 503 "storage not configured" on persistence routes.
 - `AUTH_SECRET`: HMAC secret for the signed guest cookie (Production + Preview).
 
+## Operations
+
+Mine cash-out monitoring uses structured JSON logs from
+`src/server/monitoring.ts`. Warning and error events include `source`
+(`"vibebots"`), `component` (`"mine.cash_out"`), `alert` (`true`), a stable
+`event` name, and a hashed player identifier. Configure Vercel log drains or
+log-based alerts on these events:
+
+- `mine.cash_out.consumables_not_owned`
+- `mine.cash_out.gear_not_owned`
+- `mine.cash_out.wrong_mine_seed`
+- `mine.cash_out.legacy_support_reconciled`
+- `mine.cash_out.cash_out_failed`
+
 ## Project docs
 
 - `AGENTS.md`: rules for all agentic tools working in this repo

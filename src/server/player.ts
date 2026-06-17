@@ -23,6 +23,7 @@ interface StartingSupportKitRow {
   ladder_count: number;
   plank_count: number;
   support_kit_granted_at: string | null;
+  legacy_support_snapshot_reconciled_at: string | null;
 }
 
 export interface MinePlayerProfile {
@@ -43,6 +44,7 @@ export interface MinePlayerProfile {
   emeralds: number;
   support_kit_granted_at: string | null;
   elevator_support_refund_at: string | null;
+  legacy_support_snapshot_reconciled_at: string | null;
 }
 
 function secret(): string {
@@ -76,8 +78,13 @@ export async function getOrCreatePlayerId(): Promise<string> {
   // gift at account creation only, not a per-trip grant: once spent it is
   // bought back at the depot or refilled by dying (see MineState.granted).
   const rows = (await sql`
-    INSERT INTO players (ladder_count, plank_count, support_kit_granted_at)
-    VALUES (${LADDER_RECOVERY_FLOOR}, ${PLANK_RECOVERY_FLOOR}, now())
+    INSERT INTO players (
+      ladder_count,
+      plank_count,
+      support_kit_granted_at,
+      legacy_support_snapshot_reconciled_at
+    )
+    VALUES (${LADDER_RECOVERY_FLOOR}, ${PLANK_RECOVERY_FLOOR}, now(), now())
     RETURNING id`) as Array<{
     id: string;
   }>;
@@ -116,10 +123,17 @@ export async function ensureStartingSupportKit<T extends StartingSupportKitRow>(
     UPDATE players
     SET ladder_count = GREATEST(ladder_count, ${LADDER_RECOVERY_FLOOR}),
         plank_count = GREATEST(plank_count, ${PLANK_RECOVERY_FLOOR}),
-        support_kit_granted_at = now()
+        support_kit_granted_at = now(),
+        legacy_support_snapshot_reconciled_at = COALESCE(
+          legacy_support_snapshot_reconciled_at,
+          now()
+        )
     WHERE id = ${playerId}
       AND support_kit_granted_at IS NULL
-    RETURNING ladder_count, plank_count, support_kit_granted_at`) as Array<StartingSupportKitRow>;
+    RETURNING ladder_count,
+              plank_count,
+              support_kit_granted_at,
+              legacy_support_snapshot_reconciled_at`) as Array<StartingSupportKitRow>;
   return updated[0] ? { ...row, ...updated[0] } : row;
 }
 
@@ -132,7 +146,7 @@ export async function getMinePlayerProfile(
            warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
            fall_level, dynamite_count, rope_count, ladder_count, plank_count,
            beacon_count, emeralds, support_kit_granted_at,
-           elevator_support_refund_at
+           elevator_support_refund_at, legacy_support_snapshot_reconciled_at
     FROM players WHERE id = ${playerId}`) as Array<MinePlayerProfile>;
   return rows[0]
     ? await ensureStartingSupportKit(sql, playerId, rows[0])

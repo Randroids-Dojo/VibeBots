@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="legacy-support-cashout" data-date="2026-06-17">
+    <h3>Legacy Support Cash-Out</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260617164339-8e71f733</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported long-time-player cash-out fix plus monitoring. <code>/api/mine/bank</code> now separates paid consumable ownership from support compatibility: dynamite, rope, and beacon overclaims still fail, while one legacy ladder or plank snapshot can be reconciled up to the starter support floor before replay. New and starter-kit-upgraded player rows mark <code>legacy_support_snapshot_reconciled_at</code>, and successful legacy replay marks that column so the compatibility path cannot become a permanent grant. The route now emits structured alert logs for cash-out rejects and legacy support reconciliation, using stable event names, hashed player identifiers, and <code>alert=true</code> on warning and error events. The active mine HUD now uses sell language instead of bank language for the auto-sell wait and success states. Package version moved to <code>0.1.15</code>; <code>MINE_VERSION</code> stays at <code>23</code> and <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and smoke files, <code>pnpm exec vitest run src/app/api/mine/bank/route.test.ts src/server/db.test.ts src/server/player.test.ts src/server/monitoring.test.ts</code> (15 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (159 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3058.config.ts</code> against a fresh production server on port 3058 (26 passed, 2 storage-gated skips), and source search confirming no active mine HUD copy still uses the old bank-haul wording.</dd>
+      <dt>Assumptions</dt><dd>Historical ladder and plank snapshots should be rescued only up to the original starter floor. Paid consumables remain fully server-owned.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code> and updated static plus in-game release notes for <code>0.1.15</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="thumbstick-cadence" data-date="2026-06-17">
     <h3>Thumbstick Cadence</h3>
     <dl>

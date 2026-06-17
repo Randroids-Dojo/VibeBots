@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
+import { logMineCashOutEvent } from "@/server/monitoring";
 import {
   getMinePlayerProfile,
   getOrCreatePlayerId,
@@ -8,6 +9,7 @@ import {
 } from "@/server/player";
 import {
   isMineAction,
+  LADDER_RECOVERY_FLOOR,
   MAX_TRIP_MOVES,
   MINE_VERSION,
   type MineAction,
@@ -16,6 +18,7 @@ import {
   type MineGearTrack,
   maxGearLevel,
   normalizeGear,
+  PLANK_RECOVERY_FLOOR,
   replayTrip,
   STRATA,
   type TripResult,
@@ -130,6 +133,39 @@ export function consumableSnapshotExceedsOwned(
   );
 }
 
+export function paidConsumableSnapshotExceedsOwned(
+  submitted: MineConsumables,
+  owned: MineConsumables,
+): boolean {
+  return (
+    submitted.dynamite > owned.dynamite ||
+    submitted.rope > owned.rope ||
+    submitted.beacon > owned.beacon
+  );
+}
+
+export function replayConsumablesForCashOut(
+  submitted: MineConsumables,
+  ownedRow: MinePlayerProfile,
+): { consumables: MineConsumables; usedLegacySupportSnapshot: boolean } {
+  const owned = mineConsumablesFromProfile(ownedRow);
+  if (ownedRow.legacy_support_snapshot_reconciled_at) {
+    return { consumables: owned, usedLegacySupportSnapshot: false };
+  }
+  const ladder = Math.max(
+    owned.ladder,
+    Math.min(submitted.ladder, LADDER_RECOVERY_FLOOR),
+  );
+  const plank = Math.max(
+    owned.plank,
+    Math.min(submitted.plank, PLANK_RECOVERY_FLOOR),
+  );
+  return {
+    consumables: { ...owned, ladder, plank },
+    usedLegacySupportSnapshot: ladder > owned.ladder || plank > owned.plank,
+  };
+}
+
 export function chargeableConsumables(trip: TripResult): MineConsumables {
   return {
     dynamite: trip.used.dynamite,
@@ -168,9 +204,21 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.success) {
     return Response.json({ error: parsed.error.issues }, { status: 400 });
   }
+  const requestLogContext = {
+    tripIndex: parsed.data.tripIndex,
+    moveCount: parsed.data.moves.length,
+    seed: parsed.data.seed,
+  };
   if (parsed.data.mineVersion !== MINE_VERSION) {
     // Generation rules changed under a live session; re-pricing the old
     // log would not match what the player saw.
+    logMineCashOutEvent({
+      code: "mine_version_mismatch",
+      severity: "warn",
+      ...requestLogContext,
+      mineVersion: parsed.data.mineVersion,
+      expectedMineVersion: MINE_VERSION,
+    });
     return Response.json(
       { error: "the mine has shifted since this trip started; start fresh" },
       { status: 409 },
@@ -178,6 +226,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const playerId = await getOrCreatePlayerId();
+  const playerLogContext = { playerId, ...requestLogContext };
   const sql = await db();
 
   // The persistent world checkpoint (REQ-026): the trip replays on top
@@ -190,12 +239,29 @@ export async function POST(request: Request): Promise<Response> {
     trip_count: number;
   }>;
   if (worlds.length === 0) {
+    logMineCashOutEvent({
+      code: "no_mine_on_file",
+      severity: "warn",
+      ...playerLogContext,
+    });
     return Response.json({ error: "no mine on file" }, { status: 409 });
   }
   if (Number(worlds[0].seed) !== parsed.data.seed) {
+    logMineCashOutEvent({
+      code: "wrong_mine_seed",
+      severity: "error",
+      ...playerLogContext,
+      detail: `stored seed ${Number(worlds[0].seed)}`,
+    });
     return Response.json({ error: "wrong mine seed" }, { status: 422 });
   }
   if (worlds[0].trip_count !== parsed.data.tripIndex) {
+    logMineCashOutEvent({
+      code: "trip_already_cashed_out",
+      severity: "warn",
+      ...playerLogContext,
+      worldTripIndex: worlds[0].trip_count,
+    });
     return Response.json(
       { error: "this trip was already cashed out; reload the mine" },
       { status: 409 },
@@ -206,16 +272,55 @@ export async function POST(request: Request): Promise<Response> {
   // way the snapshot could inflate a payout.
   const ownedRow = await getMinePlayerProfile(sql, playerId);
   if (!ownedRow) {
+    logMineCashOutEvent({
+      code: "player_not_found",
+      severity: "error",
+      ...playerLogContext,
+    });
     return Response.json({ error: "player not found" }, { status: 409 });
   }
   const gear = parsed.data.gear;
   const gearError = gearOwnershipError(gear, ownedRow);
   if (gearError) {
+    logMineCashOutEvent({
+      code: "gear_not_owned",
+      severity: "error",
+      ...playerLogContext,
+      detail: gearError,
+      submitted: gear,
+    });
     return Response.json({ error: gearError }, { status: 422 });
   }
   const submittedConsumables = parsed.data.consumables;
-  const replayConsumables = mineConsumablesFromProfile(ownedRow);
+  const ownedConsumables = mineConsumablesFromProfile(ownedRow);
+  if (
+    paidConsumableSnapshotExceedsOwned(submittedConsumables, ownedConsumables)
+  ) {
+    logMineCashOutEvent({
+      code: "consumables_not_owned",
+      severity: "error",
+      ...playerLogContext,
+      detail: "paid consumable overclaim",
+      submitted: submittedConsumables,
+      owned: ownedConsumables,
+    });
+    return Response.json({ error: "consumables not owned" }, { status: 422 });
+  }
+  const replayStock = replayConsumablesForCashOut(
+    submittedConsumables,
+    ownedRow,
+  );
+  const replayConsumables = replayStock.consumables;
   if (consumableSnapshotExceedsOwned(submittedConsumables, replayConsumables)) {
+    logMineCashOutEvent({
+      code: "consumables_not_owned",
+      severity: "error",
+      ...playerLogContext,
+      detail: "support consumable overclaim",
+      submitted: submittedConsumables,
+      owned: ownedConsumables,
+      replay: replayConsumables,
+    });
     return Response.json({ error: "consumables not owned" }, { status: 422 });
   }
   const trip = replayTrip(
@@ -226,6 +331,21 @@ export async function POST(request: Request): Promise<Response> {
     (worlds[0].diff ?? []) as WorldDiff,
   );
   const chargedConsumables = chargeableConsumables(trip);
+  if (replayStock.usedLegacySupportSnapshot) {
+    logMineCashOutEvent({
+      code: "legacy_support_reconciled",
+      severity: "warn",
+      ...playerLogContext,
+      submitted: submittedConsumables,
+      owned: ownedConsumables,
+      replay: replayConsumables,
+      charged: chargedConsumables,
+      credited: {
+        credits: trip.bankedCredits,
+        parts: trip.bankedParts.length,
+      },
+    });
+  }
   // Zero-bank trips are legitimate now: carving and laddering are
   // world investments worth checkpointing even with an empty hold.
   // One statement = atomic on the neon HTTP driver (no cross-statement
@@ -260,7 +380,11 @@ export async function POST(request: Request): Promise<Response> {
           rope_count = GREATEST(0, rope_count - ${chargedConsumables.rope}),
           ladder_count = GREATEST(0, ladder_count - ${chargedConsumables.ladder}),
           plank_count = GREATEST(0, plank_count - ${chargedConsumables.plank}),
-          beacon_count = GREATEST(0, beacon_count - ${chargedConsumables.beacon})
+          beacon_count = GREATEST(0, beacon_count - ${chargedConsumables.beacon}),
+          legacy_support_snapshot_reconciled_at = COALESCE(
+            legacy_support_snapshot_reconciled_at,
+            now()
+          )
       WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM world)
       RETURNING emeralds, deepest_depth
     ), granted AS (
@@ -283,6 +407,13 @@ export async function POST(request: Request): Promise<Response> {
     trip_count: number | null;
   }>;
   if (rows[0]?.emeralds === null || rows[0]?.emeralds === undefined) {
+    logMineCashOutEvent({
+      code: "cash_out_failed",
+      severity: "error",
+      ...playerLogContext,
+      worldTripIndex: worlds[0].trip_count,
+      detail: "atomic update returned no row",
+    });
     return Response.json(
       { error: "this trip was already cashed out" },
       { status: 409 },

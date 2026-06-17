@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, storageConfigured } from "@/server/db";
 import {
   DEFAULT_GEAR,
@@ -12,6 +12,8 @@ import {
   consumableSnapshotExceedsOwned,
   gearOwnershipError,
   POST,
+  paidConsumableSnapshotExceedsOwned,
+  replayConsumablesForCashOut,
 } from "./route";
 
 vi.mock("@/server/db", () => ({
@@ -29,6 +31,8 @@ vi.mock("@/server/player", async (importOriginal) => {
 
 const mockedDb = vi.mocked(db);
 const mockedStorageConfigured = vi.mocked(storageConfigured);
+let warnSpy: ReturnType<typeof vi.spyOn>;
+let errorSpy: ReturnType<typeof vi.spyOn>;
 
 const ownedBase = {
   pickaxe_level: 1,
@@ -48,6 +52,7 @@ const ownedBase = {
   emeralds: 0,
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
+  legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",
 };
 
 const stock = (overrides: Partial<MineConsumables> = {}): MineConsumables => ({
@@ -92,6 +97,7 @@ function mockSql(
           ladder_count: 8,
           plank_count: 4,
           support_kit_granted_at: "2026-06-17T00:00:00.000Z",
+          legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",
         },
       ];
     }
@@ -112,10 +118,21 @@ describe("POST /api/mine/bank", () => {
   beforeEach(() => {
     mockedStorageConfigured.mockReturnValue(true);
     mockedDb.mockReset();
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it("credits legacy support snapshots even when support stock is not owned", async () => {
-    const sql = mockSql({ ...ownedBase, support_kit_granted_at: null });
+    const sql = mockSql({
+      ...ownedBase,
+      support_kit_granted_at: "2026-06-17T00:00:00.000Z",
+      legacy_support_snapshot_reconciled_at: null,
+    });
 
     const res = await post({
       moves: ["down", "down", "down", "down", "up"],
@@ -127,7 +144,20 @@ describe("POST /api/mine/bank", () => {
       balance: 12,
       tripIndex: 1,
     });
-    expect(sql).toHaveBeenCalledTimes(4);
+    expect(sql).toHaveBeenCalledTimes(3);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(String(warnSpy.mock.calls[0][0]));
+    expect(payload).toMatchObject({
+      source: "vibebots",
+      component: "mine.cash_out",
+      event: "mine.cash_out.legacy_support_reconciled",
+      alert: true,
+      severity: "warn",
+      code: "legacy_support_reconciled",
+      tripIndex: 0,
+      moveCount: 5,
+    });
+    expect(String(warnSpy.mock.calls[0][0])).not.toContain("player-1");
   });
 
   it("rejects stale paid consumable snapshots without owned stock", async () => {
@@ -143,14 +173,44 @@ describe("POST /api/mine/bank", () => {
       error: "consumables not owned",
     });
     expect(sql).toHaveBeenCalledTimes(2);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(errorSpy.mock.calls[0][0]))).toMatchObject({
+      source: "vibebots",
+      component: "mine.cash_out",
+      event: "mine.cash_out.consumables_not_owned",
+      alert: true,
+      severity: "error",
+      code: "consumables_not_owned",
+      detail: "paid consumable overclaim",
+      submitted: { dynamite: 1 },
+      owned: { dynamite: 0 },
+    });
   });
 
-  it("rejects repeated free support snapshots after the starter kit marker", async () => {
+  it("rejects repeated free support snapshots after the legacy marker", async () => {
     const sql = mockSql();
 
     const res = await post({
       moves: ["down", "down", "down", "down", "up"],
       consumables: STARTING_CONSUMABLES,
+    });
+
+    expect(res.status).toBe(422);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "consumables not owned",
+    });
+    expect(sql).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects legacy support snapshots above the starter floor", async () => {
+    const sql = mockSql({
+      ...ownedBase,
+      legacy_support_snapshot_reconciled_at: null,
+    });
+
+    const res = await post({
+      moves: ["down", "down", "down", "down", "up"],
+      consumables: { ...STARTING_CONSUMABLES, ladder: 9 },
     });
 
     expect(res.status).toBe(422);
@@ -205,6 +265,39 @@ describe("mine bank policy helpers", () => {
     expect(
       consumableSnapshotExceedsOwned(stock({ rope: 1 }), stock({ rope: 2 })),
     ).toBe(false);
+  });
+
+  it("separates paid consumable ownership from support reconciliation", () => {
+    expect(
+      paidConsumableSnapshotExceedsOwned(
+        stock({ ladder: 8, plank: 4 }),
+        NO_CONSUMABLES,
+      ),
+    ).toBe(false);
+    expect(
+      paidConsumableSnapshotExceedsOwned(
+        stock({ dynamite: 1 }),
+        NO_CONSUMABLES,
+      ),
+    ).toBe(true);
+  });
+
+  it("caps one legacy support snapshot at the starter support floor", () => {
+    expect(
+      replayConsumablesForCashOut(stock({ ladder: 10, plank: 6 }), {
+        ...ownedBase,
+        legacy_support_snapshot_reconciled_at: null,
+      }),
+    ).toEqual({
+      consumables: stock({ ladder: 8, plank: 4 }),
+      usedLegacySupportSnapshot: true,
+    });
+    expect(
+      replayConsumablesForCashOut(stock({ ladder: 8, plank: 4 }), ownedBase),
+    ).toEqual({
+      consumables: NO_CONSUMABLES,
+      usedLegacySupportSnapshot: false,
+    });
   });
 
   it("charges only paid support stock after grants and recoveries", () => {

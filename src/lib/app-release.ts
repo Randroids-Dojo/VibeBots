@@ -2,10 +2,35 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.16-base-return-danger-confirm";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.17-fall-death-presentation";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.17",
+      date: "2026-06-17",
+      title: "Fall death feedback",
+      intro:
+        "Fatal free falls now stay on camera through the drop and impact instead of snapping straight to the surface report.",
+      changes: [
+        {
+          build,
+          text: "The mine camera follows the miner in real time during fatal falls and shows the landing before the trip report appears.",
+        },
+        {
+          build,
+          text: "A new impact burst and fall-death SFX play at the bottom of the drop.",
+        },
+        {
+          build,
+          text: "Fall deaths now say Fell too far instead of incorrectly reporting a boulder crush.",
+        },
+        {
+          build,
+          text: "The sim still uses the same deterministic death recovery and lost-cargo rules; only the result metadata and presentation changed.",
+        },
+      ],
+    },
     {
       version: "0.1.16",
       date: "2026-06-17",

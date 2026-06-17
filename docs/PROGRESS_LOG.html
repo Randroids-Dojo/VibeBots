@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="fall-death-presentation" data-date="2026-06-17">
+    <h3>Fall Death Presentation</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/next-slice-20260617-1712</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported fatal free-fall presentation fix. Fatal falls now expose <code>fallFatal</code> on the deterministic result so the client can distinguish free-fall death from an actual falling-rock crush without changing recovery rules. The mine canvas opens a temporary render window around the landing row, follows the miner and camera through the fall in real time, shows a red impact burst with sparks and stronger shake at the bottom, then releases to the normal hauled-up surface state. The impact plays a dedicated fall-death SFX, and the HUD plus trip report now say <strong>Fell too far</strong> instead of <strong>Crushed by a boulder</strong>. Package version moved to <code>0.1.17</code>; <code>MINE_VERSION</code> stays at <code>23</code> and <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, <code>pnpm exec vitest run src/sim/mine.test.ts src/components/mine-sfx.test.ts</code> (79 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm test</code> (159 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3062.config.ts -g "fatal free fall"</code> (1 passed), <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3062.config.ts -g "release note"</code> (1 passed), and full Playwright smoke against a fresh production server on port 3062 (27 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>The sim should keep reporting legacy-compatible <code>crushed</code> for fall deaths while also exposing <code>fallFatal</code> for presentation. The trip report delay applies only to fall deaths so boulder crush and battery deaths keep their immediate reports.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code> and updated static plus in-game release notes for <code>0.1.17</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="base-return-danger-confirm" data-date="2026-06-17">
     <h3>Base Return Danger Confirm</h3>
     <dl>

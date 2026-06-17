@@ -1190,6 +1190,7 @@ describe("mine", () => {
     expect(result.ok && result.fell).toBe(5);
     expect(result.ok && result.collapsed).toBe(true);
     expect(result.ok && result.crushed).toBe(true);
+    expect(result.ok && result.fallFatal).toBe(true);
     expect(result.ok && result.lost?.value).toBe(2);
     expect(state.miner.row).toBe(0);
     expect(state.miner.col).toBe(START_COL);
@@ -1210,6 +1211,7 @@ describe("mine", () => {
     const dead = step(killed, "right");
     expect(dead.ok && dead.fell).toBe(7);
     expect(dead.ok && dead.collapsed).toBe(true);
+    expect(dead.ok && dead.fallFatal).toBe(true);
   });
 
   it("pre-places a plank under a diggable facing cell", () => {

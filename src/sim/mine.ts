@@ -1120,6 +1120,8 @@ export type MoveResult =
       planked?: boolean;
       /** Unsupported movement dropped the miner down empty cells. */
       fell?: number;
+      /** The unsupported fall exceeded the gear's safe fall distance. */
+      fallFatal?: boolean;
       /** A planted ladder was recovered into the carried stock. */
       collectedLadder?: boolean;
       /** This action placed a plank in the facing cell. */
@@ -1473,6 +1475,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
           collapsed: true,
           crushed: crushedMid || fellTooFarMid,
           fell: fellMid || undefined,
+          fallFatal: fellTooFarMid || undefined,
           lost,
         };
       }
@@ -1589,6 +1592,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       laddered,
       planked,
       fell: fell || undefined,
+      fallFatal: fellTooFar || undefined,
       lost,
     };
   }
@@ -1667,6 +1671,7 @@ function finishStationaryAction(
       collapsed: true,
       crushed: true,
       fell: fell || undefined,
+      fallFatal: fellTooFar || undefined,
       lost,
     };
   }
@@ -1872,6 +1877,7 @@ function maybeExplodePendingDynamite(
       collapsed: true,
       crushed: true,
       fell: totalFell > 0 ? totalFell : undefined,
+      fallFatal: true,
       lost,
     };
   }
@@ -1919,6 +1925,7 @@ function plantDynamite(state: MineState, dir: Direction): MoveResult {
       dynamitePlanted: t,
       lost,
       fell: fell || undefined,
+      fallFatal: fellTooFar || undefined,
     };
   }
   return {

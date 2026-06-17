@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.17" data-date="2026-06-17">
+    <h2>0.1.17</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.17</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>23</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Fatal free falls now stay on camera through the drop and impact instead of snapping straight to the surface report.</dd>
+      <dt>Presentation</dt><dd>The renderer opens a temporary fall window around the landing row, drives the miner and camera from the same fall playback, holds briefly on impact, and then returns to the normal hauled-up surface state.</dd>
+      <dt>Feedback</dt><dd>A red impact burst, spark shower, stronger shake, and fall-death SFX play at the bottom of the drop. The trip report and HUD now say <strong>Fell too far</strong> instead of incorrectly reporting a boulder crush.</dd>
+      <dt>Rules</dt><dd>The deterministic death recovery, lost-cargo handling, and Fall Harness safe-distance rules are unchanged. A new <code>fallFatal</code> result flag only lets the client distinguish a free-fall death from an actual falling-rock crush.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, focused Vitest for the mine sim and SFX mapping (79 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm test</code> (159 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, focused Playwright smoke against a fresh production server on port 3062 for the fatal free fall animation and corrected death report (1 passed), release-note smoke (1 passed), and full Playwright smoke on port 3062 (27 passed, 2 storage-gated skips).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.16" data-date="2026-06-17">
     <h2>0.1.16</h2>
     <dl>

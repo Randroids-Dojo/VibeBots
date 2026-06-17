@@ -560,12 +560,23 @@ function JuiceOverlays() {
   const [fanfare, setFanfare] = useState<string | null>(null);
   const [wreck, setWreck] = useState<{
     crushed: boolean;
+    fallFatal: boolean;
     abandoned: boolean;
     value: number;
     parts: number;
     nearMiss: string | null;
   } | null>(null);
   const nextId = useRef(1);
+  const wreckTimeout = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (wreckTimeout.current != null) {
+        window.clearTimeout(wreckTimeout.current);
+        wreckTimeout.current = null;
+      }
+    };
+  }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
   useEffect(() => {
@@ -594,14 +605,27 @@ function JuiceOverlays() {
       setFanfare(`Cache cracked: ${name}!`);
       setTimeout(() => setFanfare(null), 2800);
     }
+    if (wreckTimeout.current != null) {
+      window.clearTimeout(wreckTimeout.current);
+      wreckTimeout.current = null;
+    }
     if (lastResult.collapsed && lastResult.lost) {
-      setWreck({
+      const nextWreck = {
         crushed: lastResult.crushed ?? false,
+        fallFatal: lastResult.fallFatal ?? false,
         abandoned: lastResult.abandoned ?? false,
         value: lastResult.lost.value,
         parts: lastResult.lost.parts.length,
         nearMiss: nearMissLine(mine, lastResult.lost),
-      });
+      };
+      if (lastResult.fallFatal) {
+        wreckTimeout.current = window.setTimeout(() => {
+          setWreck(nextWreck);
+          wreckTimeout.current = null;
+        }, 850);
+      } else {
+        setWreck(nextWreck);
+      }
     }
   }, [tick]);
 
@@ -699,11 +723,13 @@ function JuiceOverlays() {
             }}
           >
             <p style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>
-              {wreck.crushed
-                ? "Crushed by a boulder"
-                : wreck.abandoned
-                  ? "Abandoned the dig"
-                  : "Battery drained"}
+              {wreck.fallFatal
+                ? "Fell too far"
+                : wreck.crushed
+                  ? "Crushed by a boulder"
+                  : wreck.abandoned
+                    ? "Abandoned the dig"
+                    : "Battery drained"}
             </p>
             <p style={{ margin: "10px 0 0", fontSize: "0.95rem" }}>
               {wreck.value > 0 || wreck.parts > 0
@@ -1845,36 +1871,39 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                         : lastResult.reason === "blocked"
                           ? "No way through."
                           : "Edge of the mine."
-      : lastResult?.ok && lastResult.crushed
-        ? "Crushed! The crew dug you out; the cargo stayed behind."
-        : lastResult?.ok && lastResult.abandoned
-          ? "Abandoned the dig; the carry stayed behind."
-          : lastResult?.ok && lastResult.collapsed
-            ? "Battery drained. Hauled up empty."
-            : lastResult?.ok && lastResult.recalled
-              ? "Roped home; carry sold."
-              : lastResult?.ok && lastResult.exploded
-                ? "Boom!"
-                : lastResult?.ok && lastResult.dynamitePlanted
-                  ? "Fuse lit. Move away."
-                  : lastResult?.ok && lastResult.plankPlaced
-                    ? "Plank placed."
-                    : recoveredSupportCount > 0
-                      ? `Recovered ${recoveredSupportCount} support${recoveredSupportCount > 1 ? "s" : ""}.`
-                      : lastResult?.ok && (lastResult.dropped ?? 0) > 0
-                        ? `${lastResult.dropped} ore dropped.`
-                        : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
-                          ? `Picked up ${lastResult.pickedUp} ore.`
-                          : lastResult?.ok && (lastResult.vented ?? 0) > 0
-                            ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
-                            : miner.row === 0 &&
-                                (bankedCredits > 0 || bankedPartsCount > 0)
-                              ? cashOut.state === "pending"
-                                ? "Selling haul..."
-                                : undefined
-                              : miner.row === 0 && mine.consumables.ladder === 0
-                                ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
-                                : undefined;
+      : lastResult?.ok && lastResult.fallFatal
+        ? "Fell too far. The crew hauled you out; the cargo stayed below."
+        : lastResult?.ok && lastResult.crushed
+          ? "Crushed! The crew dug you out; the cargo stayed behind."
+          : lastResult?.ok && lastResult.abandoned
+            ? "Abandoned the dig; the carry stayed behind."
+            : lastResult?.ok && lastResult.collapsed
+              ? "Battery drained. Hauled up empty."
+              : lastResult?.ok && lastResult.recalled
+                ? "Roped home; carry sold."
+                : lastResult?.ok && lastResult.exploded
+                  ? "Boom!"
+                  : lastResult?.ok && lastResult.dynamitePlanted
+                    ? "Fuse lit. Move away."
+                    : lastResult?.ok && lastResult.plankPlaced
+                      ? "Plank placed."
+                      : recoveredSupportCount > 0
+                        ? `Recovered ${recoveredSupportCount} support${recoveredSupportCount > 1 ? "s" : ""}.`
+                        : lastResult?.ok && (lastResult.dropped ?? 0) > 0
+                          ? `${lastResult.dropped} ore dropped.`
+                          : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
+                            ? `Picked up ${lastResult.pickedUp} ore.`
+                            : lastResult?.ok && (lastResult.vented ?? 0) > 0
+                              ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
+                              : miner.row === 0 &&
+                                  (bankedCredits > 0 || bankedPartsCount > 0)
+                                ? cashOut.state === "pending"
+                                  ? "Selling haul..."
+                                  : undefined
+                                : miner.row === 0 &&
+                                    mine.consumables.ladder === 0
+                                  ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
+                                  : undefined;
   const cashNote =
     cashOut.state === "done"
       ? `Sold ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Your mine stays.`

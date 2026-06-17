@@ -41,6 +41,7 @@ export type MineSfxEvent =
   | "dynamite"
   | "gas"
   | "crush"
+  | "fall-death"
   | "collapse"
   | "abandon"
   | "recall"
@@ -201,7 +202,9 @@ export function mineResultSfxEvents(
   if (action === "warp-down" || action === "warp-home") events.push("warp");
   if (action === "ride-down" || action === "ride-up") events.push("elevator");
   if (result.abandoned) events.push("abandon");
-  else if (result.crushed) events.push("crush");
+  else if (result.fallFatal) {
+    // The renderer plays the death cue at impact, not when the sim resets.
+  } else if (result.crushed) events.push("crush");
   else if (result.collapsed) events.push("collapse");
 
   return events;
@@ -470,6 +473,18 @@ function playDeath(kind: MineSfxEvent): void {
       len: 0.34,
       out,
     });
+  } else if (kind === "fall-death") {
+    tone(ac, {
+      wave: "sawtooth",
+      start: 160,
+      end: 28,
+      gain: 0.32,
+      at: now,
+      len: 0.42,
+      out,
+    });
+    burstNoise(ac, out, now + 0.03, 0.28, 0.26, 180);
+    burstNoise(ac, out, now + 0.12, 0.2, 0.12, 900);
   } else {
     tone(ac, {
       wave: "sawtooth",
@@ -632,7 +647,12 @@ export function playMineSfxEvent(event: MineSfxEvent): void {
     playDynamite();
   } else if (event === "gas") {
     playGas();
-  } else if (event === "crush" || event === "collapse" || event === "abandon") {
+  } else if (
+    event === "crush" ||
+    event === "fall-death" ||
+    event === "collapse" ||
+    event === "abandon"
+  ) {
     playDeath(event);
   } else if (event === "recall") {
     playRecall();

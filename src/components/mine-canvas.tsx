@@ -2,7 +2,14 @@
 
 import { RoundedBox, Text } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { memo, type ReactNode, useEffect, useMemo, useRef } from "react";
+import {
+  memo,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type {
   AmbientLight,
   DirectionalLight,
@@ -36,7 +43,7 @@ import {
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
 import { DESTINATIONS, type DestinationDef } from "./mine-destinations";
-import { playMineResultSfx } from "./mine-sfx";
+import { playMineResultSfx, playMineSfxEvent } from "./mine-sfx";
 import { STALLS, type StallDef } from "./mine-stalls";
 
 const ORE_COLORS: Record<OreId, string> = {
@@ -171,10 +178,25 @@ interface MotionTrack {
   frames: number;
 }
 
+interface FallWindow {
+  key: number;
+  col: number;
+  fromRow: number;
+  toRow: number;
+  fell: number;
+}
+
+interface FallPlayback extends FallWindow {
+  track: MotionTrack | null;
+  impacted: boolean;
+  doneAt: number | null;
+}
+
 const PICK_SWING_SECONDS = 0.18;
 const DIG_LUNGE_SECONDS = 0.16;
 const MINER_STEP_SECONDS = 0.26;
 const CAMERA_STEP_SECONDS = 0.28;
+const FATAL_FALL_HOLD_SECONDS = 0.38;
 /** Length of the bounce-off animation when the pick can't cut the rock. */
 const BOUNCE_SECONDS = 0.28;
 const DYNAMITE_RED = "#b43b32";
@@ -1627,23 +1649,76 @@ function MineScene({
   // Smoothed frame time (ms), exposed for performance QA. A surface walk
   // must not spike this the way the per-step village rebuild used to.
   const frameMsRef = useRef(16);
+  const fallPlayback = useRef<FallPlayback | null>(null);
+  const fallClearTimeout = useRef<number | null>(null);
+  const [fallWindow, setFallWindow] = useState<FallWindow | null>(null);
 
-  const minerRow = mine.miner.row;
+  const displayCol = fallWindow?.col ?? mine.miner.col;
+  const minerRow = fallWindow?.toRow ?? mine.miner.row;
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
   const litBelow = lightRadius(mine.gear);
   const renderRadius = renderWindow.below;
   const renderColRadius = Math.min(renderWindow.cols, renderRadius);
-  const firstCol = mine.miner.col - renderColRadius;
-  const lastCol = mine.miner.col + renderColRadius;
+  const firstCol = displayCol - renderColRadius;
+  const lastCol = displayCol + renderColRadius;
   const firstRow = Math.max(0, minerRow - renderWindow.above);
   const lastRow = minerRow + renderWindow.below;
+
+  useEffect(() => {
+    return () => {
+      if (fallClearTimeout.current != null) {
+        window.clearTimeout(fallClearTimeout.current);
+        fallClearTimeout.current = null;
+      }
+    };
+  }, []);
 
   // Dig/blast feedback: bursts, shake, swing, and facing keyed to the
   // last sim result.
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
   useEffect(() => {
     const j = juice.current;
+    if (fallClearTimeout.current != null) {
+      window.clearTimeout(fallClearTimeout.current);
+      fallClearTimeout.current = null;
+    }
+    if (
+      lastResult?.ok &&
+      lastResult.collapsed &&
+      lastResult.fallFatal &&
+      lastResult.lost &&
+      lastResult.fell
+    ) {
+      const toRow = lastResult.lost.row;
+      const fall: FallPlayback = {
+        key: tick,
+        col: lastResult.lost.col,
+        fromRow: Math.max(0, toRow - lastResult.fell),
+        toRow,
+        fell: lastResult.fell,
+        track: null,
+        impacted: false,
+        doneAt: null,
+      };
+      fallPlayback.current = fall;
+      setFallWindow({
+        key: fall.key,
+        col: fall.col,
+        fromRow: fall.fromRow,
+        toRow: fall.toRow,
+        fell: fall.fell,
+      });
+      const clearMs = Math.min(1600, Math.max(850, 520 + fall.fell * 100));
+      fallClearTimeout.current = window.setTimeout(() => {
+        if (fallPlayback.current?.key === fall.key) fallPlayback.current = null;
+        setFallWindow((prev) => (prev?.key === fall.key ? null : prev));
+        fallClearTimeout.current = null;
+      }, clearMs);
+    } else if (!(lastResult?.ok && lastResult.collapsed)) {
+      fallPlayback.current = null;
+      setFallWindow(null);
+    }
     playMineResultSfx(lastResult, lastAction);
     if (lastAction === "left" || lastAction === "dynamite-left") j.facing = -1;
     else if (lastAction === "right" || lastAction === "dynamite-right")
@@ -1747,24 +1822,61 @@ function MineScene({
   useFrame((state, delta) => {
     const j = juice.current;
     const t = state.clock.elapsedTime;
+    const activeFall = fallPlayback.current;
+    let visualTargetX = cellX(mine.miner.col);
+    let visualTargetY = -mine.miner.row;
+    if (activeFall) {
+      if (!activeFall.track) {
+        const duration = Math.min(1.05, Math.max(0.42, activeFall.fell * 0.11));
+        activeFall.track = {
+          fromX: cellX(activeFall.col),
+          fromY: -activeFall.fromRow,
+          toX: cellX(activeFall.col),
+          toY: -activeFall.toRow,
+          startedAt: t,
+          duration,
+          frames: 0,
+        };
+      }
+      if (motionProgress(activeFall.track, t) < 1) activeFall.track.frames += 1;
+      [visualTargetX, visualTargetY] = sampleMotion(activeFall.track, t);
+      if (motionProgress(activeFall.track, t) >= 1 && !activeFall.impacted) {
+        activeFall.impacted = true;
+        activeFall.doneAt = t + FATAL_FALL_HOLD_SECONDS;
+        const impactX = cellX(activeFall.col);
+        const impactY = -activeFall.toRow;
+        spawnBurst(j, impactX, impactY, "#ff6b6b", 24);
+        spawnSparks(j, impactX, impactY, 12);
+        j.shake = Math.max(j.shake, 0.72);
+        playMineSfxEvent("fall-death");
+      }
+      if (activeFall.doneAt != null && t >= activeFall.doneAt) {
+        const key = activeFall.key;
+        fallPlayback.current = null;
+        setFallWindow((prev) => (prev?.key === key ? null : prev));
+      }
+    }
     const resetJump =
-      (lastResult?.ok && lastResult.collapsed) ||
+      (lastResult?.ok && lastResult.collapsed && !activeFall) ||
       lastAction === "abandon" ||
       lastAction === "recall" ||
       lastAction === "warp-home" ||
       lastAction === "warp-down";
     // Camera rig eases down the shaft after the miner, with shake.
-    const targetY = -minerRow;
+    const targetY = visualTargetY;
     const rig = rigRef.current;
     let depthT = 0;
     if (rig) {
       // Trip resets (collapse, recall, abandon) move the miner across
       // the whole map; gliding the camera through it reads as broken.
-      const targetX = cellX(mine.miner.col);
+      const targetX = visualTargetX;
       const cameraJump =
         resetJump ||
         Math.hypot(targetX - rig.position.x, targetY - rig.position.y) > 6;
-      if (cameraJump) {
+      if (activeFall) {
+        cameraMotion.current = activeFall.track;
+        rig.position.set(targetX, targetY, 0);
+      } else if (cameraJump) {
         cameraMotion.current = snapMotion(
           t,
           targetX,
@@ -1829,16 +1941,20 @@ function MineScene({
     // prop value mid-glide (the old walk-left teleport-to-surface bug).
     const miner = minerRef.current;
     if (miner) {
-      const tx = cellX(mine.miner.col);
-      const ty = -mine.miner.row;
+      const tx = visualTargetX;
+      const ty = visualTargetY;
       // Teleport-scale jumps (trip resets) snap; easing across them
       // would fly the bot up through solid rock for seconds.
       const minerJump =
-        resetJump ||
+        (resetJump && !activeFall) ||
         !minerPlaced.current ||
         Math.abs(tx - miner.position.x) > 3 ||
         Math.abs(ty - miner.position.y) > 6;
-      if (minerJump) {
+      if (activeFall) {
+        minerPlaced.current = true;
+        minerMotion.current = activeFall.track;
+        miner.position.set(tx, ty, 0.2);
+      } else if (minerJump) {
         minerPlaced.current = true;
         minerMotion.current = snapMotion(t, tx, ty, MINER_STEP_SECONDS);
         miner.position.set(tx, ty, 0.2);
@@ -1863,6 +1979,8 @@ function MineScene({
       el.dataset.minerX = miner.position.x.toFixed(2);
       el.dataset.minerY = miner.position.y.toFixed(2);
       el.dataset.minerMotionFrames = String(minerMotion.current?.frames ?? 0);
+      el.dataset.fallVisualActive = activeFall ? "true" : "false";
+      el.dataset.fallVisualImpact = activeFall?.impacted ? "true" : "false";
       // Last frame's draw-call count: the budget that phones live by.
       el.dataset.drawCalls = String(state.gl.info.render.calls);
       // Smoothed frame time: a steady low value means no per-step hitches.
@@ -1881,7 +1999,7 @@ function MineScene({
       // Grounded on the cell floor, with a soft idle hover bob.
       body.position.y = -0.14 + Math.sin(t * 2.4) * 0.018 + j.lunge.y * lk;
       // Lean into the glide while moving between cells.
-      const vx = cellX(mine.miner.col) - miner.position.x;
+      const vx = visualTargetX - miner.position.x;
       body.rotation.z = Math.max(-0.16, Math.min(0.16, -vx * 0.3));
     }
     // Legs: a foot-locked walk cycle. The stride advances by the

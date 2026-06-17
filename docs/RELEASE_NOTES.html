@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Release Notes</title>
+</head>
+<body>
+
+<header>
+  <h1>Release Notes</h1>
+  <p>Newest entries first. Each entry names the package version, the gameplay version changes, and the verification used for release readiness.</p>
+</header>
+
+<main id="entries">
+
+  <article data-version="0.1.1" data-date="2026-06-17">
+    <h2>0.1.1</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.1</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moved from <code>17</code> to <code>18</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Mining movement now settles unsupported miners through empty cells instead of leaving them floating or refusing lateral movement without planks. Planted ladders can be picked back up through a logged <code>collect-ladder</code> action, and recovered ladders are accounted for during server replay. Failed trips record the dropped-cargo location for a proximity-pulsing locator chip. Cash-out messages auto-hide after a short delay.</dd>
+      <dt>Maintenance</dt><dd><code>@randroids-dojo/vibekit</code> is pinned to <code>v0.3.0</code>, with additive upstream helper changes and no required VibeBots code migration.</dd>
+      <dt>Backlog</dt><dd>Closed the mine backlog items for unsupported side digging, ladder pickup, temporary cash-out messages, dropped-cargo location feedback, floating after collapse, and falling through empty cells.</dd>
+      <dt>Verification</dt><dd><code>pnpm lint</code> passed with one existing warning in <code>src/components/mine-touch-controls.tsx</code>. <code>pnpm test</code> passed (119 tests), <code>pnpm typecheck</code> passed, <code>pnpm check:dashes</code> passed, <code>git diff --check</code> passed, <code>pnpm check:purity</code> passed, <code>pnpm build</code> passed, and Playwright smoke passed against a fresh production server on port 3001 (18 passed, 2 storage-gated tests skipped).</dd>
+    </dl>
+  </article>
+
+</main>
+
+</body>
+</html>

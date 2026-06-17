@@ -38,5 +38,6 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 - `AGENTS.md`: rules for all agentic tools working in this repo
 - `docs/gdd/`: the Game Design Document (source of truth for what VibeBots is)
 - `docs/IMPLEMENTATION_PLAN.html`, `docs/WORKING_AGREEMENT.html`: the loop and process contracts
+- `docs/RELEASE_NOTES.html`: versioned release notes
 - `docs/PROGRESS_LOG.html`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.html`, `docs/FOLLOWUPS.html`, `docs/DEPENDENCY_LEDGER.html`: continuity ledgers
 - `.dots/`: task backlog (HTML Dots, `dot-html` CLI)

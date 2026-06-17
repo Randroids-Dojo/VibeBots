@@ -7,6 +7,7 @@ import {
   MINE_VERSION,
   type MineAction,
   maxGearLevel,
+  normalizeGear,
   replayTrip,
   STRATA,
   type WorldDiff,
@@ -18,7 +19,7 @@ export const maxDuration = 60;
 const gearLevel = (
   track:
     | "pickaxe"
-    | "lamp"
+    | "battery"
     | "cargo"
     | "lantern"
     | "warpcoil"
@@ -38,18 +39,21 @@ const bodySchema = z.object({
   mineVersion: z.number().int(),
   // The gear snapshot the session was played with (Q-007 default B):
   // replay must match what the player saw, validated against ownership.
-  gear: z.object({
-    pickaxe: gearLevel("pickaxe"),
-    lamp: gearLevel("lamp"),
-    cargo: gearLevel("cargo"),
-    lantern: gearLevel("lantern"),
-    elevator: z.number().int().min(0).max(100000),
-    warpcoil: gearLevel("warpcoil"),
-    // Optional: gear snapshots that predate these tracks replay as 1.
-    blast: gearLevel("blast").optional(),
-    elevatorSpeed: gearLevel("elevatorSpeed").optional(),
-    fall: gearLevel("fall").optional(),
-  }),
+  gear: z
+    .object({
+      pickaxe: gearLevel("pickaxe"),
+      battery: gearLevel("battery").optional(),
+      lamp: gearLevel("battery").optional(),
+      cargo: gearLevel("cargo"),
+      lantern: gearLevel("lantern"),
+      elevator: z.number().int().min(0).max(100000),
+      warpcoil: gearLevel("warpcoil"),
+      // Optional: gear snapshots that predate these tracks replay as 1.
+      blast: gearLevel("blast").optional(),
+      elevatorSpeed: gearLevel("elevatorSpeed").optional(),
+      fall: gearLevel("fall").optional(),
+    })
+    .transform((gear) => normalizeGear(gear)),
   // Consumables held at session start; spent ones decrement at cash-out.
   consumables: z.object({
     dynamite: z.number().int().min(0).max(999),
@@ -127,17 +131,16 @@ export async function POST(request: Request): Promise<Response> {
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
   const gear = parsed.data.gear;
   // Every track whose level column is `${track}_level` validates the same
-  // way; optional legacy tracks absent from old snapshots read as 1.
-  // elevatorSpeed and fall use non-standard columns, so they stay below.
-  for (const track of [
-    "pickaxe",
-    "lamp",
-    "cargo",
-    "lantern",
-    "warpcoil",
-    "blast",
+  // way; battery still uses the legacy lamp_level storage column.
+  for (const [track, column] of [
+    ["pickaxe", "pickaxe_level"],
+    ["battery", "lamp_level"],
+    ["cargo", "cargo_level"],
+    ["lantern", "lantern_level"],
+    ["warpcoil", "warpcoil_level"],
+    ["blast", "blast_level"],
   ] as const) {
-    if ((gear[track] ?? 1) > (owned[0]?.[`${track}_level`] ?? 1)) {
+    if ((gear[track] ?? 1) > (owned[0]?.[column] ?? 1)) {
       return Response.json(
         { error: `gear not owned: ${track} level ${gear[track]}` },
         { status: 422 },

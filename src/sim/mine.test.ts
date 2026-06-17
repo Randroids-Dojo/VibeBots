@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyAction,
   BASE_HITS,
+  BATTERY_CHARGE,
   blastRadius,
   canDigRock,
   canPlacePlank,
@@ -27,7 +28,6 @@ import {
   HAZARD_FREE_ROWS,
   isVisible,
   LADDER_RECOVERY_FLOOR,
-  LAMP_ENERGY,
   LANTERN_RADIUS,
   LIGHT_RADIUS,
   type MineAction,
@@ -37,6 +37,7 @@ import {
   type MoveResult,
   maxGearLevel,
   NO_CONSUMABLES,
+  normalizeGear,
   ORES,
   oreChanceAt,
   oreDef,
@@ -243,7 +244,7 @@ describe("mine", () => {
     expect(state.miner.row).toBe(1);
     state.miner.carried = { emerald: 2 };
     state.miner.energy = 0.2;
-    // Any successful swing now drains the lamp underground.
+    // Any successful swing now drains the robot battery underground.
     let collapsed = false;
     for (const dir of ["down", "left", "right"] as const) {
       const result = step(state, dir);
@@ -558,15 +559,22 @@ describe("mine", () => {
     expect(cellAt(state, 0, LIGHT_RADIUS + 1)?.kind).toBeDefined();
   });
 
-  it("scales lamp energy and bank refill with the lamp level", () => {
+  it("scales battery charge and bank recharge with the battery level", () => {
     const base = createMine(3);
-    expect(base.miner.energy).toBe(LAMP_ENERGY[0]);
+    expect(base.miner.energy).toBe(BATTERY_CHARGE[0]);
     const owned = stock({ ladder: 8 });
-    const upgraded = createMine(3, { ...DEFAULT_GEAR, lamp: 3 }, owned);
-    expect(upgraded.miner.energy).toBe(LAMP_ENERGY[2]);
+    const upgraded = createMine(3, { ...DEFAULT_GEAR, battery: 3 }, owned);
+    expect(upgraded.miner.energy).toBe(BATTERY_CHARGE[2]);
     dig(upgraded, "down");
     step(upgraded, "up");
-    expect(upgraded.miner.energy).toBe(LAMP_ENERGY[2]);
+    expect(upgraded.miner.energy).toBe(BATTERY_CHARGE[2]);
+  });
+
+  it("normalizes legacy lamp gear snapshots into battery gear", () => {
+    const { battery: _battery, ...legacy } = { ...DEFAULT_GEAR, lamp: 3 };
+    const normalized = normalizeGear(legacy);
+    expect(normalized.battery).toBe(3);
+    expect(createMine(3, normalized).miner.energy).toBe(BATTERY_CHARGE[2]);
   });
 
   it("extends visibility with the lantern level", () => {
@@ -647,14 +655,14 @@ describe("mine", () => {
   it("replays identically with a gear snapshot", () => {
     const gear = {
       pickaxe: 2,
-      lamp: 2,
+      battery: 2,
       cargo: 2,
       lantern: 2,
       elevator: 0,
       warpcoil: 1,
     };
     // A push-your-luck descent: mostly down with lateral sweeps. The
-    // bigger lamp digs further before the collapse, so the snapshot
+    // bigger battery digs further before the collapse, so the snapshot
     // genuinely changes the trip.
     const moves: Direction[] = [];
     for (let i = 0; i < 150; i++) {
@@ -849,8 +857,8 @@ describe("mine", () => {
     expect(state.pendingDynamite).toBeUndefined();
     expect(state.consumables.dynamite).toBe(1);
     expect(state.used.dynamite).toBe(1);
-    // The surface step resets the lamp at the top after the charge pops.
-    expect(state.miner.energy).toBe(LAMP_ENERGY[0]);
+    // The surface step recharges the battery at the top after the charge pops.
+    expect(state.miner.energy).toBe(BATTERY_CHARGE[0]);
 
     const replayed = replayTrip(
       53,
@@ -988,7 +996,7 @@ describe("mine", () => {
     const state = createMine(91, DEFAULT_GEAR, owned);
     expect(state.consumables.ladder).toBe(2);
     expect(state.consumables.plank).toBe(1);
-    // Drop below ground, then swing with a dead lamp: a death (not a
+    // Drop below ground, then swing with a dead battery: a death (not a
     // chosen bail), so the recovery floor tops the stock back up.
     dig(state, "down");
     state.miner.energy = 0;
@@ -1023,7 +1031,7 @@ describe("mine", () => {
     dig(state, "down");
     state.consumables.ladder = 0;
     expect(step(state, "up")).toEqual({ ok: false, reason: "no-ladder" });
-    // Still standing where the refusal happened, lamp untouched by it.
+    // Still standing where the refusal happened, battery untouched by it.
     expect(state.miner.row).toBe(1);
   });
 
@@ -1309,7 +1317,7 @@ describe("mine", () => {
   it("replays an action-driven death and its recovery grant", () => {
     // Free death-rungs only stay free if the server agrees on the grant.
     // Drive a real death from the action log alone (dig straight down with
-    // a top pickaxe so nothing blocks, until the lamp burns out below).
+    // a top pickaxe so nothing blocks, until the battery runs out below).
     const owned = stock({ ladder: 3 });
     const gear = { ...DEFAULT_GEAR, pickaxe: 5 };
     const live = createMine(4, gear, owned);

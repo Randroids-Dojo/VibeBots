@@ -10,9 +10,11 @@ import {
   type MineAction,
   type MineConsumables,
   type MineGear,
+  type MineGearTrack,
   type MineState,
   type MoveResult,
   NO_CONSUMABLES,
+  normalizeGear,
   refundRailLaddersInDiff,
   START_COL,
   STARTING_CONSUMABLES,
@@ -48,7 +50,8 @@ function loadLocalTrip(): SavedTrip | null {
       !Array.isArray(parsed.moves)
     )
       return null;
-    return parsed as SavedTrip;
+    const saved = parsed as SavedTrip;
+    return { ...saved, gear: normalizeGear(saved.gear) };
   } catch {
     return null;
   }
@@ -119,7 +122,7 @@ export interface MineSessionState {
     item: keyof MineConsumables,
     quantity?: number,
   ) => Promise<void>;
-  buyGearUpgrade: (track: keyof MineGear) => Promise<void>;
+  buyGearUpgrade: (track: MineGearTrack) => Promise<void>;
   buyElevator: () => Promise<void>;
   restart: (seed?: number) => void;
 }
@@ -253,7 +256,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const currentCons = get().consumables;
         if (
           gear.pickaxe === current.pickaxe &&
-          gear.lamp === current.lamp &&
+          gear.battery === current.battery &&
           gear.cargo === current.cargo &&
           gear.lantern === current.lantern &&
           gear.elevator === current.elevator &&

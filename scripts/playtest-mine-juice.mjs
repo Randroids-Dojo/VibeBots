@@ -1,6 +1,6 @@
 // Local juice verification (Rule 10: visible pixels move): digs around,
 // proves particle/tween motion via frame diffs, hunts a cache fanfare,
-// and pushes until the lamp dies to capture the wreck reveal.
+// and pushes until the battery drains to capture the wreck reveal.
 import { chromium } from "@playwright/test";
 
 const BASE = process.env.PLAYTEST_BASE ?? "http://localhost:3000";
@@ -40,7 +40,7 @@ try {
   await page.screenshot({ path: `${OUT}/juice-01-dig-burst.png` });
 
   // Wander for loot, floats, and (with luck) a cache fanfare; stop on
-  // the wreck overlay when the lamp dies.
+  // the wreck overlay when the battery drains.
   let sawFanfare = false;
   let sawFloat = false;
   // Row sweeps burn energy reliably: left wall to right wall, then one
@@ -72,7 +72,7 @@ try {
         log(`cache fanfare visible at step ${i}`);
       }
     }
-    const reveal = page.getByText(/The lamp died|Crushed by a boulder/);
+    const reveal = page.getByText(/Battery drained|Crushed by a boulder/);
     if (await reveal.isVisible().catch(() => false)) {
       await page.screenshot({ path: `${OUT}/juice-04-wreck-reveal.png` });
       log(`wreck reveal visible at step ${i}`);

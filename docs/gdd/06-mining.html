@@ -15,8 +15,8 @@
 
     <h3 id="loop">The trip loop (core, unchanged)</h3>
     <ul>
-      <li>Every dig and move costs lamp energy. Banking happens only on the surface, which also refills the lamp.</li>
-      <li>Carried loot is lost on collapse (lamp dead underground); banked loot is safe. The trip-back decision is the core tension.</li>
+      <li>Every dig and move costs robot battery charge. Banking happens only on the surface, which also recharges the miner.</li>
+      <li>Carried loot is lost on collapse (battery drained underground); banked loot is safe. The trip-back decision is the core tension.</li>
       <li>Moving up requires a cleared shaft AND ladders (REQ-020, user-directed change 2026-06-11; supersedes the implicit-ladder rule): climbing out of a cell consumes and plants a ladder there once, after which that cell climbs free for the rest of the trip. There is still no digging upward.</li>
       <li>Light: only rows within lantern radius of the miner render; deeper rows are dark until approached.</li>
       <li>Same seed, same mine, same finds: a trip is a pure function of (seed, gear, action log), and the server replays it to credit cash-outs.</li>
@@ -38,7 +38,7 @@
 
     <h3 id="gear">Gear upgrades (REQ-013, REQ-014)</h3>
     <ul>
-      <li>Persistent per-player tracks bought with credits at the surface shop, superlinear costs (roughly x3 per tier): pickaxe (gates rock tiers, fewer hits), lamp cell (max energy), cargo hold (carry capacity), lantern (light radius), plus specialized tracks such as Warpcoil, Blast Charge, Elevator Speed, and Fall Harness.</li>
+      <li>Persistent per-player tracks bought with credits at the surface shop, superlinear costs (roughly x3 per tier): pickaxe (gates rock tiers, fewer hits), battery cell (max robot charge), cargo hold (carry capacity), lantern (light radius), plus specialized tracks such as Warpcoil, Blast Charge, Elevator Speed, and Fall Harness.</li>
       <li>Carry capacity is the secondary trip cap: a full hold no longer blocks digging, but any ore that does not fit falls to the nearest surface as a floor pile for later pickup, so banking is still the only way to convert the carry safely.</li>
       <li>Gear levels are part of the sim input. A trip is replayed with the gear snapshot taken at session start; the server validates the snapshot against owned gear at cash-out (Q-007).</li>
     </ul>
@@ -47,7 +47,7 @@
     <ul>
       <li>Falling rock (user-directed 2026-06-14: "rocks should fall a few seconds after the dirt beneath them is mined away"; tuned 2026-06-16 to "after two moves instead of one"): any rock or boulder cell whose support is dug out teeters in place, then drops after two player moves, either crushing the miner it lands on (ends the trip like a collapse, carry lost, hauled up) or coming to rest as a path-blocking obstacle. The delay is counted in player actions, not wall-clock time, so the trip stays a pure function of (seed, gear, actions) and the server replay agrees; the escalating tremble is the tell, the hazard-free top rows never drop, and a fallen rock keeps its pickaxe-tier gate where it lands. Falls resolve as discrete grid steps from the action log: no physics engine and no reflex demand, since standing still is always safe.</li>
       <li>Miner free fall (user-directed 2026-06-17): when support disappears or the miner walks into an unsupported empty shaft, the miner falls until landing on a filled cell, ladder, or plank. A base miner survives falls up to 4 cells; a fall of more than 4 cells ends the trip like a falling-rock crush, with carry lost and death-recovery ladder/plank stock applied. The Fall Harness upgrade raises the safe fall distance while staying part of the replayable gear snapshot.</li>
-      <li>Gas pockets: digging adjacent to a gas cell vents it; it detonates in a plus shape, destroying blocks (and their loot) and draining lamp energy. Gas can chain into gas. Reads as a slightly-off block so depth knowledge becomes player skill.</li>
+      <li>Gas pockets: digging adjacent to a gas cell vents it; it detonates in a plus shape, destroying blocks (and their loot) and draining robot battery charge. Gas can chain into gas. Reads as a slightly-off block so depth knowledge becomes player skill.</li>
       <li>Hazard frequency grows with depth; no reflex-based hazards (one-thumb friendly).</li>
     </ul>
 
@@ -60,9 +60,9 @@
 
     <h3 id="ladders">Ladders and planks: traversal aids (REQ-020, REQ-022)</h3>
     <ul>
-      <li>Ladders are bought at the shop (2 cr); trips no longer ship a free bundle (user-directed 2026-06-15). A brand-new player is gifted one starting bundle (8 ladders, 4 planks) at account creation so the first descent works, but it is a one-time gift, never re-granted on selling. After that the one free source is dying in the mine (lamp out or crushed, not giving up): a death tops the ladder stock back up TO 8 so the miner can climb out. Free death-rungs do not bank between trips; only purchased ladders carry over.</li>
+      <li>Ladders are bought at the shop (2 cr); trips no longer ship a free bundle (user-directed 2026-06-15). A brand-new player is gifted one starting bundle (8 ladders, 4 planks) at account creation so the first descent works, but it is a one-time gift, never re-granted on selling. After that the one free source is dying in the mine (battery out or crushed, not giving up): a death tops the ladder stock back up TO 8 so the miner can climb out. Free death-rungs do not bank between trips; only purchased ladders carry over.</li>
       <li>Planted ladders persist in the cell and render in the shaft; standing on one lets the player pick it back up as a logged action, and a visible-range collect selector can also return placed ladders to inventory. A falling boulder smashes any ladder in the cell it lands in. Ladder placement is blocked while riding the elevator rail.</li>
-      <li>Out of ladders below ground, the options are honest: buy more next trip, spend a recall rope now, give up the carry with Abandon, or walk the lamp dry and lose the carry (and get refilled to 8 on the death). The HUD prices the climb home in energy AND ladders, warning when either is short.</li>
+      <li>Out of ladders below ground, the options are honest: buy more next trip, spend a recall rope now, give up the carry with Abandon, or run the robot battery dry and lose the carry (and get refilled to 8 on the death). The HUD prices the climb home in charge AND ladders, warning when either is short.</li>
       <li>Server replay parity: ladder spend is part of the deterministic action log; cash-out decrements the purchased portion (used minus what deaths granted this trip, floored at zero), so death-refilled rungs are never charged.</li>
       <li>Planks (REQ-022, user-directed 2026-06-16; supersedes the auto-place rule from 2026-06-11): planks deploy only from the explicit plank button, in the miner's facing direction. The button is disabled without plank stock, while riding the elevator rail, or when the facing cell and its below cell are both non-empty. If the facing cell is solid but the cell below is empty, the player can pre-place the plank on that solid cell; when that block is mined, the plank remains and the miner walks onto it without falling. Without a support, lateral movement can still enter the cell and then falls through empty cells until supported, or dies if the fall exceeds the current Fall Harness limit. Planks can be collected back into inventory from visible range through the same collect-mode selector as ladders. Planks are bought at the shop (2 cr) with no per-trip freebie; a death refills plank stock up to 4 the same way ladders refill to 8. Boulders smash planks like ladders; the surface walk row is boardwalked (village walking never needs planks). Same death-grant carryover and replay-parity rules as ladders. Ladders count as support (fixed 2026-06-12, user-reported): a ladder in the target cell is held onto and one in the cell below tops out underfoot, so no plank is needed over a laddered shaft.</li>
     </ul>
@@ -73,8 +73,8 @@
       <li>The thumbstick routes through the same action path as the keyboard and buttons, so a primed dynamite throws toward the flicked direction.</li>
       <li>Game text never selects: long-presses and drags must not open the platform copy/share callout. Editable fields (design names) opt back into selection.</li>
       <li>Control copy is pointer-aware (user-directed 2026-06-12): coarse-pointer devices never see keyboard mentions; the onboarding hint reads "drag anywhere to move" on touch and adds the WASD note only on fine pointers.</li>
-      <li>HUD discipline (REQ-024): glanceable chips, not paragraphs. Depth and stratum, an energy bar, hold count, carry and banked value, and the climb cost (energy + ladders, red when short) live in thin chips; action feedback is a single one-line toast; consumables are icon buttons in thumb reach; there is no page header, no D-pad, and no standing help text (a one-shot "drag to move" hint disappears after the first action). Sim numbers ride data attributes so tests never pin chip copy.</li>
-      <li>HUD vibes and climb readout (user-directed 2026-06-16): the spendable vibe wallet is always shown as the leading chip (it used to appear only inside an open stall sheet), and the cryptic combined climb-cost chip (up-arrow, energy bolt, ladder) was removed; the energy bar and the ladder count still carry that information.</li>
+      <li>HUD discipline (REQ-024): glanceable chips, not paragraphs. Depth and stratum, a battery-charge bar, hold count, carry and banked value, and the climb cost (charge + ladders, red when short) live in thin chips; action feedback is a single one-line toast; consumables are icon buttons in thumb reach; there is no page header, no D-pad, and no standing help text (a one-shot "drag to move" hint disappears after the first action). Sim numbers ride data attributes so tests never pin chip copy.</li>
+      <li>HUD vibes and climb readout (user-directed 2026-06-16): the spendable vibe wallet is always shown as the leading chip (it used to appear only inside an open stall sheet), and the cryptic combined climb-cost chip (up-arrow, charge bolt, ladder) was removed; the battery bar and the ladder count still carry that information.</li>
     </ul>
 
     <h3 id="village">The surface village (REQ-021)</h3>
@@ -91,14 +91,14 @@
 
     <h3 id="legibility">Trip-decision legibility (REQ-017)</h3>
     <ul>
-      <li>The HUD shows carried value in credits (the bet on the table) and an estimated return cost in energy for the climb home; the lamp readout warns when energy approaches the return cost (F-012's fix).</li>
+      <li>The HUD shows carried value in credits (the bet on the table) and an estimated return cost in battery charge for the climb home; the battery readout warns when charge approaches the return cost (F-012's fix).</li>
       <li>The collapse rules are stated in-world before the first descent (one line on the surface), not discovered by losing.</li>
     </ul>
 
     <h3 id="feel">Dig feel and fanfare (REQ-018, REQ-019)</h3>
     <ul>
       <li>Render-layer juice, never sim: crack states on multi-hit blocks, debris particles and shake scaled to hardness, tweened miner movement (no teleporting), action-specific SFX, pitch-ramped pickup chimes, slow-mo sting and banner on part-cache finds.</li>
-      <li>Collapse is a drama beat (lamp flicker, dim, "the crew hauls you up"), and every failed trip ends with a near-miss reveal: what you were carrying and the treasure that was almost in reach (the client has the full grid; pure UI).</li>
+      <li>Collapse is a drama beat (battery warning, dim, "the crew hauls you up"), and every failed trip ends with a near-miss reveal: what you were carrying and the treasure that was almost in reach (the client has the full grid; pure UI).</li>
     </ul>
 
     <h3 id="persistent-world">The persistent endless mine (REQ-026, REQ-027)</h3>
@@ -125,7 +125,7 @@
 
     <h3 id="stuck-floor">The no-softlock floor (REQ-031)</h3>
     <ul>
-      <li>A broke miner is never stuck: a new player is gifted a starting ladder/plank bundle (8/4) once, Abandon is always available below ground (free, forfeits only the carry), and dying refills the ladder/plank stock up to 8/4 for free, so a player who runs dry can always surface and recover (user-directed 2026-06-15 moved the recurring free stock from a per-trip grant to a death-recovery, keeping only the one-time starting gift). Being out of money is a setback measured in bought ladders or one dead-lamp refill, never a dead account.</li>
+      <li>A broke miner is never stuck: a new player is gifted a starting ladder/plank bundle (8/4) once, Abandon is always available below ground (free, forfeits only the carry), and dying refills the ladder/plank stock up to 8/4 for free, so a player who runs dry can always surface and recover (user-directed 2026-06-15 moved the recurring free stock from a per-trip grant to a death-recovery, keeping only the one-time starting gift). Being out of money is a setback measured in bought ladders or one dead-battery refill, never a dead account.</li>
       <li>Legibility: the Supply Depot states that ladders and planks cost vibes and that dying refills them, and a zero-ladders surface state surfaces a toast pointing at the depot and the death-refill.</li>
     </ul>
 
@@ -139,6 +139,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-06-17">Robot battery terminology landed (user-directed: the miner is a robot, so the endurance resource should be its battery, not a lamp battery). The former Lamp Cell upgrade is now Battery Cell in the sim track, shop, API payload, HUD, tests, and current spec text. The legacy <code>lamp_level</code> database column remains as storage compatibility, old upgrade requests using <code>lamp</code> still map to Battery Cell, and old saved gear snapshots with <code>lamp</code> still normalize before replay and cash-out. Visual light fixtures still use lamp language. Files: <code>src/sim/mine.ts</code>, <code>src/components/mine-panel.tsx</code>, <code>src/app/api/gear/route.ts</code>, <code>src/app/api/gear/upgrade/route.ts</code>, <code>src/app/api/mine/bank/route.ts</code>, <code>src/state/mine-store.ts</code>, <code>src/sim/mine.test.ts</code>. Direct main push requested by user.</li>
       <li data-date="2026-06-17">Free-fall lethality and Fall Harness upgrade added (user-directed). Unsupported miner movement now falls until the miner lands on a filled cell, ladder, or plank; a base miner survives up to 4 cells, but a fall of more than 4 cells ends the trip like a falling-rock crush with death recovery and lost-cargo handling. The new Fall Harness gear track raises the safe fall distance and is validated through gear reads, upgrades, cash-out replay, and the lazy Neon schema. <code>MINE_VERSION</code> 20 -&gt; 21. Files: <code>src/sim/mine.ts</code>, <code>src/sim/mine.test.ts</code>, <code>src/server/db.ts</code>, <code>src/app/api/gear/route.ts</code>, <code>src/app/api/gear/upgrade/route.ts</code>, <code>src/app/api/mine/bank/route.ts</code>, <code>src/state/mine-store.ts</code>, <code>src/components/mine-panel.tsx</code>. PR pending.</li>
       <li data-date="2026-06-17">Mining backlog fix pass: unsupported lateral movement now falls through empty cells instead of refusing when no plank is available, while available planks still bridge the gap; gravity also settles the miner after support disappears so a collapsed cell below cannot leave them floating. Added a logged <code>collect-ladder</code> action with a HUD pickup button for planted ladders and replay-safe recovered-ladder accounting. Failed trips now remember the dropped-cargo location for a HUD locator chip that pulses faster as the miner gets closer, and cash-out messages auto-hide after a short delay. <code>MINE_VERSION</code> 18 -&gt; 19. Files: <code>src/sim/mine.ts</code>, <code>src/app/api/mine/bank/route.ts</code>, <code>src/components/mine-panel.tsx</code>, <code>src/app/globals.css</code>, <code>src/sim/mine.test.ts</code>, <code>tests/e2e/smoke.spec.ts</code>. Direct main push requested by user.</li>
       <li data-date="2026-06-16">Full cargo overflow now becomes persistent floor loot (user-directed). Digging ore with a full hold no longer refuses the action: the block breaks, ore that fits enters cargo, and overflow falls through empty cells until it reaches the nearest surface or plank. If that support is later dug out, the pile falls again. Walking over a pile fills only available cargo space and leaves the rest behind. The renderer now shows one dropped-resource marker per cell with an <code>xN</code> count label for stacked piles, and dynamite overflow uses the same falling-drop path. <code>MINE_VERSION</code> 19 -&gt; 20. Files: <code>src/sim/mine.ts</code>, <code>src/sim/mine.test.ts</code>, <code>src/components/mine-canvas.tsx</code>, <code>src/components/mine-panel.tsx</code>. PR pending.</li>

@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
-import { gearTrackDef, type MineGear, maxGearLevel } from "@/sim/mine";
+import { gearTrackDef, type MineGearTrack, maxGearLevel } from "@/sim/mine";
 
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
   track: z.enum([
     "pickaxe",
+    "battery",
     "lamp",
     "cargo",
     "lantern",
@@ -18,10 +19,10 @@ const bodySchema = z.object({
   ]),
 });
 
-/** Track key to its level column (elevatorSpeed is not snake-cased by rote). */
+/** Track key to its level column. battery still lives in legacy lamp_level. */
 const LEVEL_COLUMN: Record<string, string> = {
   pickaxe: "pickaxe_level",
-  lamp: "lamp_level",
+  battery: "lamp_level",
   cargo: "cargo_level",
   lantern: "lantern_level",
   warpcoil: "warpcoil_level",
@@ -50,7 +51,9 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.success) {
     return Response.json({ error: parsed.error.issues }, { status: 400 });
   }
-  const track = parsed.data.track as keyof MineGear;
+  const track = (
+    parsed.data.track === "lamp" ? "battery" : parsed.data.track
+  ) as MineGearTrack;
 
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
@@ -74,7 +77,7 @@ export async function POST(request: Request): Promise<Response> {
           SET emeralds = emeralds - ${price}, pickaxe_level = ${level + 1}
           WHERE id = ${playerId} AND emeralds >= ${price} AND pickaxe_level = ${level}
           RETURNING emeralds, pickaxe_level AS level`;
-      case "lamp":
+      case "battery":
         return sql`
           UPDATE players
           SET emeralds = emeralds - ${price}, lamp_level = ${level + 1}

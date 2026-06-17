@@ -22,6 +22,7 @@ import {
   GEAR_TRACKS,
   type MineAction,
   type MineGear,
+  type MineGearTrack,
   type MineState,
   maxEnergy,
   maxGearLevel,
@@ -431,7 +432,7 @@ function ReleaseNotesPopup({
 
 /**
  * Render-layer near-miss search (REQ-019): the best treasure within
- * reach of where the lamp died, from rows the client already generated.
+ * reach of where the robot battery died, from rows the client already generated.
  */
 function nearMissLine(
   mine: MineState,
@@ -470,7 +471,7 @@ function nearMissLine(
   }
   if (!best) return null;
   const what = best.name === "a part cache" ? best.name : `a ${best.name}`;
-  return `${what} sat ${best.dist} block${best.dist > 1 ? "s" : ""} from where the lamp died.`;
+  return `${what} sat ${best.dist} block${best.dist > 1 ? "s" : ""} from where the battery died.`;
 }
 
 interface FloatNote {
@@ -605,7 +606,7 @@ function JuiceOverlays() {
                 ? "Crushed by a boulder"
                 : wreck.abandoned
                   ? "Abandoned the dig"
-                  : "The lamp died"}
+                  : "Battery drained"}
             </p>
             <p style={{ margin: "10px 0 0", fontSize: "0.95rem" }}>
               {wreck.value > 0 || wreck.parts > 0
@@ -732,7 +733,7 @@ const ITEM_ICONS: Record<string, string> = {
   plank: "\u{1FAB5}",
   beacon: "\u{1F4E1}",
   pickaxe: "\u{26CF}\u{FE0F}",
-  lamp: "\u{1F526}",
+  battery: "\u{1F50B}",
   cargo: "\u{1F392}",
   lantern: "\u{1F3EE}",
   warpcoil: "\u{1F300}",
@@ -771,7 +772,7 @@ function StallMenu({
   cashOutPending: boolean;
   onCashOut: () => void;
   onBuyConsumable: (item: DepotItem, quantity: number) => void;
-  onBuyGear: (track: keyof MineGear) => void;
+  onBuyGear: (track: MineGearTrack) => void;
   onBuyElevator: () => void;
   onRide: (dir: "ride-down" | "ride-up" | "warp-down" | "warp-home") => void;
   onClose: () => void;
@@ -1310,7 +1311,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const climbCost = returnEnergyCost(miner);
   // The climb estimate assumes a cleared shaft; warn with a margin so a
   // detour or two does not turn the warning into a lie (REQ-017).
-  const lampLow = miner.row > 0 && miner.energy < climbCost * 1.25 + 2;
+  const batteryLow = miner.row > 0 && miner.energy < climbCost * 1.25 + 2;
   // Ladder budget for the same straight-home climb (REQ-020).
   const laddersNeeded = returnLadderNeed(mine);
   const ladderShort = miner.row > 0 && laddersNeeded > mine.consumables.ladder;
@@ -1377,7 +1378,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         : lastResult?.ok && lastResult.abandoned
           ? "Abandoned the dig; the carry stayed behind."
           : lastResult?.ok && lastResult.collapsed
-            ? "The lamp died. Hauled up empty."
+            ? "Battery drained. Hauled up empty."
             : lastResult?.ok && lastResult.recalled
               ? "Roped home; carry banked."
               : lastResult?.ok && lastResult.exploded
@@ -1393,7 +1394,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                         : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
                           ? `Picked up ${lastResult.pickedUp} ore.`
                           : lastResult?.ok && (lastResult.vented ?? 0) > 0
-                            ? `Gas! ${(lastResult.vented ?? 0) * 8} energy burned.`
+                            ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
                             : miner.row === 0 &&
                                 (miner.bankedCredits > 0 ||
                                   miner.bankedParts.length > 0)
@@ -1629,12 +1630,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 position: "absolute",
                 inset: 0,
                 width: `${Math.max(0, Math.min(100, (miner.energy / maxEnergy(mine.gear)) * 100))}%`,
-                background: lampLow ? "#ff6b6b" : "#54e0c7",
+                background: batteryLow ? "#ff6b6b" : "#54e0c7",
                 opacity: 0.3,
               }}
             />
             <span style={{ position: "relative" }}>
-              &#128294; {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
+              &#128267; {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
             </span>
           </span>
           <span style={chipStyle}>

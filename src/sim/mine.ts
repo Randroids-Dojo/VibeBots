@@ -89,7 +89,7 @@ export function addConsumables(
 /**
  * Death-recovery floor for ladders. Trips no longer ship free ladders:
  * climbing is ladder-gated (REQ-020) and the rungs are bought at the
- * depot. The one free source is dying in the mine (lamp out or crushed,
+ * depot. The one free source is dying in the mine (battery out or crushed,
  * not giving up): a death tops the stock back up TO this floor so the
  * miner can climb out again. Free rungs granted this way do not bank
  * between trips (see carryoverConsumables) and are not charged at
@@ -118,7 +118,7 @@ export const STARTING_CONSUMABLES: MineConsumables = {
   plank: PLANK_RECOVERY_FLOOR,
 };
 
-/** Lamp energy burned per gas pocket vented (heat, not shrapnel). */
+/** Robot battery charge burned per gas pocket vented (heat, not shrapnel). */
 export const GAS_VENT_DRAIN = 8;
 
 /**
@@ -128,7 +128,9 @@ export const GAS_VENT_DRAIN = 8;
  */
 export interface MineGear {
   pickaxe: number;
-  lamp: number;
+  battery: number;
+  /** Legacy saved snapshots used lamp for the robot battery track. */
+  lamp?: number;
   cargo: number;
   lantern: number;
   /** Elevator rail depth in rows (REQ-028); 0 = no rail bought yet. */
@@ -154,9 +156,13 @@ export interface MineGear {
   fall?: number;
 }
 
+export type MineGearSnapshot = Omit<MineGear, "battery"> & {
+  battery?: number;
+};
+
 export const DEFAULT_GEAR: MineGear = {
   pickaxe: 1,
-  lamp: 1,
+  battery: 1,
   cargo: 1,
   lantern: 1,
   elevator: 0,
@@ -176,8 +182,8 @@ export function elevatorSegmentPrice(segment: number): number {
   return Math.round((40 * 2.5 ** (segment - 1)) / 10) * 10;
 }
 
-/** Max lamp energy by lamp level. */
-export const LAMP_ENERGY = [60, 90, 130, 180] as const;
+/** Max robot battery charge by battery-cell level. */
+export const BATTERY_CHARGE = [60, 90, 130, 180] as const;
 /** Visible rows below the miner by lantern level. */
 export const LANTERN_RADIUS = [3, 5, 7] as const;
 /** Ore chunks the hold carries by cargo level (parts ride free). */
@@ -185,8 +191,18 @@ export const CARGO_CAPACITY = [8, 14, 22, 32] as const;
 /** Cells the miner can fall and survive by fall-harness level. */
 export const SAFE_FALL_ROWS = [4, 6, 9, 13, 18] as const;
 
+export type MineGearTrack =
+  | "pickaxe"
+  | "battery"
+  | "cargo"
+  | "lantern"
+  | "warpcoil"
+  | "blast"
+  | "elevatorSpeed"
+  | "fall";
+
 export interface GearTrackDef {
-  track: keyof MineGear;
+  track: MineGearTrack;
   name: string;
   /** prices[i] is the cost to go from level i+1 to level i+2. */
   prices: readonly number[];
@@ -202,10 +218,10 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     blurb: "cuts harder rock tiers",
   },
   {
-    track: "lamp",
-    name: "Lamp Cell",
+    track: "battery",
+    name: "Battery Cell",
     prices: [30, 100, 350],
-    blurb: "more energy per trip",
+    blurb: "more robot charge per trip",
   },
   {
     track: "cargo",
@@ -262,13 +278,13 @@ export function warpRange(gear: MineGear): number {
 /** The village warp pad's column. */
 export const WARP_PAD_COL = 6;
 
-export function gearTrackDef(track: keyof MineGear): GearTrackDef {
+export function gearTrackDef(track: MineGearTrack): GearTrackDef {
   const def = GEAR_TRACKS.find((t) => t.track === track);
   if (!def) throw new Error(`unknown gear track: ${track}`);
   return def;
 }
 
-export function maxGearLevel(track: keyof MineGear): number {
+export function maxGearLevel(track: MineGearTrack): number {
   return gearTrackDef(track).prices.length + 1;
 }
 
@@ -289,7 +305,7 @@ export const BASE_HITS = {
 } as const;
 
 /**
- * Lamp energy per swing. At pickaxe 1 a block's swing total matches
+ * Battery charge per swing. At pickaxe 1 a block's swing total matches
  * the old one-swing dig cost (dirt 4 x 0.25 = 1, rock 5 x 0.4 = 2),
  * so the trip economy is unchanged; caches cost a little more.
  */
@@ -307,7 +323,7 @@ export function hitsFor(kind: CellKind, gear: MineGear): number {
   return Math.max(1, base - (gear.pickaxe - 1));
 }
 
-/** Lamp energy one swing at this kind costs. */
+/** Robot battery charge one swing at this kind costs. */
 export function swingCostFor(kind: CellKind): number {
   return SWING_COST[kind as keyof typeof SWING_COST] ?? MOVE_COST;
 }
@@ -601,7 +617,7 @@ export interface MinerState {
   bankedParts: string[];
   /** Deepest row reached this session (drives milestone bonuses). */
   maxDepth: number;
-  /** Trips that ended underground with a dead lamp (lost cargo). */
+  /** Trips that ended underground with a dead battery (lost cargo). */
   collapses: number;
   /** Last dropped cargo location for the render-layer locator. */
   lostCargo?: { value: number; parts: string[]; col: number; row: number };
@@ -693,9 +709,20 @@ export function refundRailLaddersInDiff(
   return { diff: exportCells(cells), refunded };
 }
 
-/** Max lamp energy for the session's gear. */
+function batteryLevel(gear: MineGearSnapshot): number {
+  return gear.battery ?? gear.lamp ?? 1;
+}
+
+/** Fill the current battery field for legacy gear snapshots. */
+export function normalizeGear(gear: MineGearSnapshot): MineGear {
+  return { ...gear, battery: batteryLevel(gear) };
+}
+
+/** Max robot battery charge for the session's gear. */
 export function maxEnergy(gear: MineGear): number {
-  return LAMP_ENERGY[Math.min(gear.lamp, LAMP_ENERGY.length) - 1];
+  return BATTERY_CHARGE[
+    Math.min(batteryLevel(gear), BATTERY_CHARGE.length) - 1
+  ];
 }
 
 /** Lantern reach for the session's gear. */
@@ -1050,7 +1077,7 @@ export type MoveResult =
       collapsed: boolean;
       /** A falling boulder ended the trip (carry lost). */
       crushed?: boolean;
-      /** Gas pockets vented by this action (lamp energy burned). */
+      /** Gas pockets vented by this action (robot battery charge burned). */
       vented?: number;
       /** Cells destroyed by a dynamite blast. */
       blasted?: number;
@@ -1401,7 +1428,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     return { ok: false, reason: "blocked" };
   // Multi-hit digging (REQ-013): a solid cell soaks swings before it
   // breaks; only the breaking swing moves the miner and yields loot.
-  // Every swing is its own logged action and burns lamp energy, so a
+  // Every swing is its own logged action and burns battery charge, so a
   // dig can still collapse the trip mid-block.
   if (cell.kind !== "empty") {
     const struck = cellMut(state, t.col, t.row);
@@ -1410,7 +1437,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       struck.hp = remaining;
       miner.energy = Math.max(0, miner.energy - swingCostFor(struck.kind));
       // A swing is a full action: teetering blocks count down and drop,
-      // and the lamp can still die mid-block.
+      // and the battery can still run out mid-block.
       const emptiedMid: Array<{ col: number; row: number }> = [];
       const crushedMid = tickFalls(state, emptiedMid);
       settleAfterEmptied(state, emptiedMid);
@@ -1494,7 +1521,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     if (overflowPile) {
       dropped += dropOreToSurface(state, t.col, t.row, overflowPile);
     }
-    // Digging next to a pocket vents it: the burn is lamp heat.
+    // Digging next to a pocket vents it: the burn taxes the robot battery.
     vented = ventGasAround(state, t.col, t.row, emptied);
   }
 
@@ -1748,7 +1775,7 @@ function detonateDynamiteAt(
     const cell = cellAt(state, nc, nr);
     if (!cell) continue;
     if (cell.kind === "gas" || cell.kind === "magma") {
-      // Light it from a distance: chains, but the heat misses the lamp.
+      // Light it from a distance: chains, but the heat misses the miner.
       setCell(state, nc, nr, { kind: "empty" });
       emptied.push({ col: nc, row: nr });
       vented +=
@@ -2130,10 +2157,10 @@ function bank(miner: MinerState, gear: MineGear): void {
   miner.energy = maxEnergy(gear);
 }
 
-/** Lamp dead underground: cargo is lost, the crew hauls you up. */
+/** Battery dead underground: cargo is lost, the crew hauls you up. */
 /**
  * End the trip the hard way: drop the carry, haul up to the surface,
- * refill the lamp. `recover` marks a death (lamp out or crushed) rather
+ * recharge the robot. `recover` marks a death (battery out or crushed) rather
  * than a chosen give-up: a death tops the ladder/plank stock back up to
  * the recovery floor for free so the miner is never stranded, while
  * abandoning grants nothing. Granting is deterministic, so the server

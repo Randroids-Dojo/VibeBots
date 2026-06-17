@@ -13,6 +13,17 @@
 
 <main id="entries">
 
+  <article data-version="0.1.3" data-date="2026-06-17">
+    <h2>0.1.3</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.3</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>21</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>The miner's endurance resource now reads as robot battery charge instead of lamp energy. The former Lamp Cell upgrade is now Battery Cell in the Upgrades stall, mine HUD, gear API, tests, and current mining spec text.</dd>
+      <dt>Compatibility</dt><dd>The existing <code>lamp_level</code> storage column is retained, old upgrade requests using <code>lamp</code> still map to Battery Cell, and legacy saved gear snapshots with <code>lamp</code> are normalized before replay and cash-out validation.</dd>
+      <dt>Verification</dt><dd><code>pnpm exec biome check --write</code> on touched source files, <code>pnpm typecheck</code>, <code>pnpm exec vitest run src/sim/mine.test.ts</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>pnpm test</code>, <code>pnpm lint</code>, and <code>pnpm build</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.2" data-date="2026-06-17">
     <h2>0.1.2</h2>
     <dl>

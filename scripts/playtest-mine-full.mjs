@@ -39,7 +39,7 @@ const energy = async () =>
   Number((await status()).match(/energy\s+([\d.]+)/)?.[1] ?? "0");
 
 async function dismissWreck() {
-  const reveal = page.getByText(/The lamp died|Crushed by a boulder/);
+  const reveal = page.getByText(/Battery drained|Crushed by a boulder/);
   if (await reveal.isVisible().catch(() => false)) {
     await page.mouse.click(640, 700);
     await page.waitForTimeout(300);
@@ -174,7 +174,7 @@ try {
     log("no rope to test");
   }
 
-  // Push the luck until the lamp dies: the wreck reveal should appear.
+  // Push the luck until the battery drains: the wreck reveal should appear.
   let safety = 220;
   while (safety-- > 0) {
     const text = await status();
@@ -185,7 +185,7 @@ try {
       await page.waitForTimeout(60);
       if ((await status()) !== before) break;
     }
-    const reveal = page.getByText(/The lamp died|Crushed by a boulder/);
+    const reveal = page.getByText(/Battery drained|Crushed by a boulder/);
     if (await reveal.isVisible().catch(() => false)) {
       await page.screenshot({ path: `${OUT}/full-04-wreck-reveal.png` });
       log("wreck reveal visible");

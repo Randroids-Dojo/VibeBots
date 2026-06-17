@@ -36,7 +36,7 @@ export async function GET(): Promise<Response> {
   return Response.json({
     gear: {
       pickaxe: row?.pickaxe_level ?? 1,
-      lamp: row?.lamp_level ?? 1,
+      battery: row?.lamp_level ?? 1,
       cargo: row?.cargo_level ?? 1,
       lantern: row?.lantern_level ?? 1,
       elevator: row?.elevator_depth ?? 0,

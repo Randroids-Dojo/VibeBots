@@ -208,7 +208,7 @@
     },
     {
       "id": "REQ-013",
-      "requirement": "Persistent gear tracks are bought with credits and are part of the replayable sim input, including pickaxe gates, lamp energy, cargo, lantern reach, transport, blast, and safe-fall upgrades.",
+      "requirement": "Persistent gear tracks are bought with credits and are part of the replayable sim input, including pickaxe gates, robot battery charge, cargo, lantern reach, transport, blast, and safe-fall upgrades.",
       "gddRef": "docs/gdd/06-mining.html#gear",
       "status": "done",
       "implementationRefs": [
@@ -281,7 +281,7 @@
     },
     {
       "id": "REQ-017",
-      "requirement": "The trip-back decision is informed: the HUD shows carried value and estimated return cost, and warns before the lamp drops below it.",
+      "requirement": "The trip-back decision is informed: the HUD shows carried value and estimated return cost, and warns before the robot battery drops below it.",
       "gddRef": "docs/gdd/06-mining.html#legibility",
       "status": "done",
       "implementationRefs": [

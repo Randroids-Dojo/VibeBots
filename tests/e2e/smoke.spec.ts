@@ -157,7 +157,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   // Climbing out consumes a provisioned ladder (REQ-020).
   await page.keyboard.press("ArrowUp");
   await expect(status).toHaveAttribute("data-depth", "0");
-  // Banking on the surface refills the lamp.
+  // Banking on the surface recharges the robot battery.
   await expect(status).toHaveAttribute("data-energy", "60.0");
 
   // Consumable controls exist even when empty (REQ-016); a scripted
@@ -247,7 +247,7 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.2");
+  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.3");
   await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.1");
   await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.0");
   await expect(notes.first()).toContainText("Workshop inventory");

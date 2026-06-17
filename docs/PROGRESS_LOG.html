@@ -44,6 +44,19 @@
     </dl>
   </article>
 
+  <article data-slice="mine-battery-cell-terminology" data-date="2026-06-17">
+    <h3>Rename The Endurance Upgrade To Robot Battery Cell</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>HEAD detached</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>User-directed terminology fix: the miner is a robot, so the trip clock is now the miner's battery charge rather than a lamp battery. The sim gear field, shop track, API payload, HUD icon, collapse copy, near-miss text, tests, smoke comments, and playtest scripts now use <code>battery</code> / Battery Cell language. The existing database column stays <code>lamp_level</code> as a compatibility detail, old upgrade requests using <code>lamp</code> still map to Battery Cell, and old saved gear snapshots with <code>lamp</code> normalize before replay and cash-out validation. Package version moved to <code>0.1.3</code>, with a new current release-note entry while older notes keep historical terminology.</dd>
+      <dt>Verification</dt><dd>Resolved after rebasing onto latest <code>origin/main</code>. Ran <code>pnpm exec biome check --write</code> on touched source files, <code>pnpm typecheck</code>, <code>pnpm exec vitest run src/sim/mine.test.ts</code> (72 passing), <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>pnpm test</code> (133 passing), <code>pnpm lint</code> (exit 0 with the existing unused-suppression warning in <code>src/components/mine-touch-controls.tsx</code>), <code>pnpm build</code>, and in-app browser smoke against <code>next start -p 3017</code> confirming the popup and Settings history show <code>0.1.3</code> first while old notes keep historical terms.</dd>
+      <dt>Assumptions</dt><dd>The actual headlamp, porch lamps, beacon lamp, and underground light rendering keep lamp language because those are visual light fixtures, not the endurance resource.</dd>
+      <dt>GDD coverage</dt><dd>Updated REQ-013 and REQ-017 wording in <code>docs/GDD_COVERAGE.json</code>. Updated current mining spec text in <code>docs/gdd/06-mining.html</code>, appended a Build log entry, and updated static and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-fall-harness" data-date="2026-06-17">
     <h3>Fatal Free Falls And Fall Harness Upgrades</h3>
     <dl>

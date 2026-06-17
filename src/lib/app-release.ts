@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.2-workshop-inventory";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.3-robot-battery";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.3",
+      date: "2026-06-17",
+      title: "Robot battery wording",
+      intro:
+        "The miner is a robot, so its trip resource now reads as battery charge instead of lamp energy.",
+      changes: [
+        {
+          build,
+          text: "The former Lamp Cell upgrade is now Battery Cell in the Upgrades stall and gear payloads.",
+        },
+        {
+          build,
+          text: "Mine HUD, collapse, gas, and near-miss messages now refer to battery charge for the robot's endurance.",
+        },
+        {
+          build,
+          text: "Older saved gear snapshots and the existing storage column still work through a compatibility layer.",
+        },
+      ],
+    },
     {
       version: "0.1.2",
       date: "2026-06-17",

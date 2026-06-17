@@ -1,6 +1,6 @@
 "use client";
 
-import { RoundedBox } from "@react-three/drei";
+import { RoundedBox, Text } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef } from "react";
 import type {
@@ -19,6 +19,7 @@ import {
   FALL_DELAY_ACTIONS,
   hitsFor,
   isVisible,
+  type MineCell,
   type OreId,
   START_COL,
   STRATA,
@@ -41,6 +42,22 @@ const ORE_COLORS: Record<OreId, string> = {
 
 /** Rare tiers glow so a glimpse at the light's edge reads as treasure. */
 const GLOWING_ORES = new Set<OreId>(["diamond", "core-crystal"]);
+
+function dropPileStats(cell: MineCell): { count: number; ore: OreId | null } {
+  let count = 0;
+  let ore: OreId | null = null;
+  let best = 0;
+  for (const [id, n] of Object.entries(cell.drop ?? {}) as Array<
+    [OreId, number]
+  >) {
+    count += n;
+    if (n > best) {
+      ore = id;
+      best = n;
+    }
+  }
+  return { count, ore };
+}
 
 /** Dirt palette per stratum, in STRATA order (REQ-012: visible descent). */
 const STRATA_DIRT = [
@@ -1934,6 +1951,43 @@ function MineScene() {
                 distance={4}
                 decay={1.6}
               />
+            </group>,
+          );
+        }
+        const drop = dropPileStats(cell);
+        if (drop.count > 0) {
+          const oreColor = drop.ore ? ORE_COLORS[drop.ore] : CACHE_COLOR;
+          tunnelMeshes.push(
+            <group key={`drop:${key}`} position={[x, y - 0.28, 0.18]}>
+              <mesh
+                rotation={[
+                  cellHash(col, row, 41) * 1.2,
+                  cellHash(col, row, 43) * 1.8,
+                  cellHash(col, row, 47) * 1.4,
+                ]}
+              >
+                <octahedronGeometry args={[0.16, 0]} />
+                <meshStandardMaterial
+                  color={oreColor}
+                  emissive={oreColor}
+                  emissiveIntensity={0.25}
+                  roughness={0.55}
+                  flatShading
+                />
+              </mesh>
+              {drop.count > 1 ? (
+                <Text
+                  position={[0.25, 0.14, 0.04]}
+                  fontSize={0.16}
+                  anchorX="center"
+                  anchorY="middle"
+                  color="#f8f1d5"
+                  outlineColor="#101015"
+                  outlineWidth={0.018}
+                >
+                  {`x${drop.count}`}
+                </Text>
+              ) : null}
             </group>,
           );
         }

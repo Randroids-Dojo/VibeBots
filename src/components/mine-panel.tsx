@@ -1387,15 +1387,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                     ? "Plank placed."
                     : recoveredSupportCount > 0
                       ? `Recovered ${recoveredSupportCount} support${recoveredSupportCount > 1 ? "s" : ""}.`
-                      : lastResult?.ok && (lastResult.vented ?? 0) > 0
-                        ? `Gas! ${(lastResult.vented ?? 0) * 8} energy burned.`
-                        : miner.row === 0 &&
-                            (miner.bankedCredits > 0 ||
-                              miner.bankedParts.length > 0)
-                          ? "Sell at the Buyer (gold sign)."
-                          : miner.row === 0 && mine.consumables.ladder === 0
-                            ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
-                            : undefined;
+                      : lastResult?.ok && (lastResult.dropped ?? 0) > 0
+                        ? `${lastResult.dropped} ore dropped.`
+                        : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
+                          ? `Picked up ${lastResult.pickedUp} ore.`
+                          : lastResult?.ok && (lastResult.vented ?? 0) > 0
+                            ? `Gas! ${(lastResult.vented ?? 0) * 8} energy burned.`
+                            : miner.row === 0 &&
+                                (miner.bankedCredits > 0 ||
+                                  miner.bankedParts.length > 0)
+                              ? "Sell at the Buyer (gold sign)."
+                              : miner.row === 0 && mine.consumables.ladder === 0
+                                ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
+                                : undefined;
   const cashNote =
     cashOut.state === "done"
       ? `Sold for ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Your mine stays.`

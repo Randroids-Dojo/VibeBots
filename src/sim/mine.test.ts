@@ -576,15 +576,45 @@ describe("mine", () => {
     expect(isVisible(lit, deepRow)).toBe(true);
   });
 
-  it("refuses ore with a full hold but still digs dirt", () => {
+  it("digs ore with a full hold and drops the overflow on the nearest surface", () => {
     const state = createMine(19);
     state.miner.carried = { coal: cargoCapacity(state.gear) };
     setCell(state, START_COL, 1, { kind: "ore", ore: "coal" });
-    const refused = step(state, "down");
-    expect(refused).toEqual({ ok: false, reason: "hold-full" });
-    setCell(state, START_COL, 1, { kind: "dirt" });
+    setCell(state, START_COL, 2, { kind: "empty" });
+    setCell(state, START_COL, 3, { kind: "dirt" });
     const dug = dig(state, "down");
-    expect(dug.ok && dug.dug).toBe("dirt");
+    expect(dug.ok && dug.dug).toBe("ore");
+    expect(dug.ok && dug.dugOre).toBe(null);
+    expect(dug.ok && dug.dropped).toBe(1);
+    expect(cellAt(state, START_COL, 1)?.drop).toBeUndefined();
+    expect(cellAt(state, START_COL, 2)?.drop).toEqual({ coal: 1 });
+    expect(carriedCount(state.miner)).toBe(cargoCapacity(state.gear));
+  });
+
+  it("drops floor ore again when the surface below it is dug out", () => {
+    const state = createMine(19);
+    state.miner.carried = { coal: cargoCapacity(state.gear) };
+    setCell(state, START_COL, 1, { kind: "ore", ore: "coal" });
+    setCell(state, START_COL, 2, { kind: "empty" });
+    setCell(state, START_COL, 3, { kind: "dirt" });
+    setCell(state, START_COL, 4, { kind: "dirt" });
+    expect(dig(state, "down").ok).toBe(true);
+    expect(step(state, "down").ok).toBe(true);
+    const dugSupport = dig(state, "down");
+    expect(dugSupport.ok && dugSupport.dug).toBe("dirt");
+    expect(cellAt(state, START_COL, 2)?.drop).toBeUndefined();
+    expect(cellAt(state, START_COL, 3)?.drop).toEqual({ coal: 1 });
+  });
+
+  it("partially picks up a floor pile and leaves the remainder", () => {
+    const state = createMine(19);
+    state.miner.carried = { coal: cargoCapacity(state.gear) - 2 };
+    setCell(state, START_COL, 1, { kind: "empty", drop: { coal: 3 } });
+    setCell(state, START_COL, 2, { kind: "dirt" });
+    const picked = step(state, "down");
+    expect(picked.ok && picked.pickedUp).toBe(2);
+    expect(carriedCount(state.miner)).toBe(cargoCapacity(state.gear));
+    expect(cellAt(state, START_COL, 1)?.drop).toEqual({ coal: 1 });
   });
 
   it("tiers rock by depth and gates it on the pickaxe level", () => {

@@ -225,11 +225,12 @@
     },
     {
       "id": "REQ-014",
-      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining.",
+      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining; overflow ore from digs or dynamite falls to floor piles for later partial pickup.",
       "gddRef": "docs/gdd/06-mining.html#gear",
       "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
+        "src/components/mine-canvas.tsx",
         "src/components/mine-panel.tsx"
       ],
       "testRefs": [

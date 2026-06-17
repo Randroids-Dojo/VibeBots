@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 19;
+export const MINE_VERSION = 20;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -541,10 +541,10 @@ export interface MineCell {
   beacon?: boolean;
   /**
    * Ore lying on the floor of an empty cell: chunks that overflowed a
-   * dynamite blast's cargo hold. Scooped up by walking over the cell once
-   * the hold has room (a partial take leaves the rest as a smaller pile).
-   * A falling block buries it like a ladder. Only meaningful on empty
-   * cells; never stored empty.
+   * dig or dynamite blast because the cargo hold was full. Scooped up by
+   * walking over the cell once the hold has room (a partial take leaves
+   * the rest as a smaller pile). A falling block buries it like a ladder.
+   * Only meaningful on empty cells; never stored empty.
    */
   drop?: Partial<Record<OreId, number>>;
   /** A rock that entered the falling-rock hazard system. Render-layer cue. */
@@ -752,6 +752,73 @@ function fillHold(
     }
   }
   return { taken, dropped, leftover };
+}
+
+function orePileCount(
+  pile: Partial<Record<OreId, number>> | undefined,
+): number {
+  let total = 0;
+  if (!pile) return total;
+  for (const count of Object.values(pile)) total += count ?? 0;
+  return total;
+}
+
+function mergeOrePiles(
+  a: Partial<Record<OreId, number>> | undefined,
+  b: Partial<Record<OreId, number>>,
+): Partial<Record<OreId, number>> {
+  const next: Partial<Record<OreId, number>> = { ...a };
+  for (const [id, count] of Object.entries(b) as Array<[OreId, number]>) {
+    if (count <= 0) continue;
+    next[id] = (next[id] ?? 0) + count;
+  }
+  return next;
+}
+
+function dropOreToSurface(
+  state: MineState,
+  col: number,
+  row: number,
+  pile: Partial<Record<OreId, number>>,
+): number {
+  const amount = orePileCount(pile);
+  if (amount <= 0) return 0;
+  let rest = row;
+  while (true) {
+    const here = cellAt(state, col, rest);
+    if (!here) break;
+    if (here.kind !== "empty" || here.plank) break;
+    const below = cellAt(state, col, rest + 1);
+    if (below?.kind !== "empty") break;
+    rest++;
+  }
+  const landing = cellMut(state, col, rest);
+  landing.drop = mergeOrePiles(landing.drop, pile);
+  return amount;
+}
+
+function settleUnsupportedDrops(state: MineState): void {
+  const unsupported: Array<{
+    col: number;
+    row: number;
+    pile: Partial<Record<OreId, number>>;
+  }> = [];
+  for (const [key, cell] of state.cells) {
+    if (!cell.drop || cell.kind !== "empty" || cell.plank) continue;
+    const [col, row] = key.split(",").map(Number);
+    const below = cellAt(state, col, row + 1);
+    if (below?.kind === "empty")
+      unsupported.push({ col, row, pile: cell.drop });
+  }
+  unsupported.sort((a, b) => b.row - a.row || a.col - b.col);
+  for (const { col, row, pile } of unsupported) {
+    const cell = cellAt(state, col, row);
+    if (!cell?.drop || cell.kind !== "empty" || cell.plank) continue;
+    const below = cellAt(state, col, row + 1);
+    if (below?.kind !== "empty") continue;
+    delete cellMut(state, col, row).drop;
+    dropOreToSurface(state, col, row, pile);
+  }
 }
 
 /**
@@ -970,7 +1037,7 @@ export type MoveResult =
       blasted?: number;
       /** Ore chunks a dynamite blast collected into the hold. */
       collected?: number;
-      /** Ore chunks a blast left on the floor because the hold was full. */
+      /** Ore chunks left on the floor because the hold was full. */
       dropped?: number;
       /** Parts a dynamite blast cracked out of caches in range. */
       foundParts?: string[];
@@ -1264,11 +1331,20 @@ function markUnstable(
   }
 }
 
+function settleAfterEmptied(
+  state: MineState,
+  emptied: Array<{ col: number; row: number }>,
+): void {
+  markUnstable(state, emptied);
+  settleUnsupportedDrops(state);
+}
+
 /**
  * Dig toward or move into the adjacent cell. Dirt/ore/cache cells are
  * dug (cost + loot); empty cells are walked into; rock needs the
  * pickaxe tier for its depth (REQ-013) and costs more energy to cut;
- * a full cargo hold refuses ore until it is banked (REQ-014); moving up
+ * a full cargo hold spills dug ore onto the nearest surface (REQ-014);
+ * moving up
  * works only through already-dug cells AND needs a ladder in the cell
  * being climbed from (REQ-020): one is consumed and placed on first
  * climb, then the shaft climbs free until something smashes it.
@@ -1284,8 +1360,6 @@ export function step(state: MineState, dir: Direction): MoveResult {
     return { ok: false, reason: "rock" };
   if (cell.kind === "boulder" || cell.kind === "gas" || cell.kind === "magma")
     return { ok: false, reason: "blocked" };
-  if (cell.kind === "ore" && carriedCount(miner) >= cargoCapacity(state.gear))
-    return { ok: false, reason: "hold-full" };
   if (dir === "up" && cell.kind !== "empty")
     return { ok: false, reason: "blocked" };
   // Multi-hit digging (REQ-013): a solid cell soaks swings before it
@@ -1302,7 +1376,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       // and the lamp can still die mid-block.
       const emptiedMid: Array<{ col: number; row: number }> = [];
       const crushedMid = tickFalls(state, emptiedMid);
-      markUnstable(state, emptiedMid);
+      settleAfterEmptied(state, emptiedMid);
       const fellMid = settleMiner(state);
       if (crushedMid || (miner.row > 0 && miner.energy <= 0)) {
         const lost = {
@@ -1356,13 +1430,22 @@ export function step(state: MineState, dir: Direction): MoveResult {
   let found: string | null = null;
   let cost = MOVE_COST;
   let vented = 0;
+  let dropped = 0;
   const emptied: Array<{ col: number; row: number }> = [];
   if (cell.kind !== "empty") {
     dug = cell.kind;
     cost = swingCostFor(cell.kind);
+    let overflowPile: Partial<Record<OreId, number>> | undefined;
     if (cell.kind === "ore" && cell.ore) {
-      dugOre = cell.ore;
-      miner.carried[cell.ore] = (miner.carried[cell.ore] ?? 0) + 1;
+      const {
+        taken,
+        dropped: spilled,
+        leftover,
+      } = fillHold(state, {
+        [cell.ore]: 1,
+      });
+      if (taken > 0) dugOre = cell.ore;
+      if (spilled > 0) overflowPile = leftover;
     }
     if (cell.kind === "part-cache") {
       found = rollCachePart(state, t.col, t.row);
@@ -1375,6 +1458,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
       cell.plank ? { kind: "empty", plank: true } : { kind: "empty" },
     );
     emptied.push({ col: t.col, row: t.row });
+    if (overflowPile) {
+      dropped += dropOreToSurface(state, t.col, t.row, overflowPile);
+    }
     // Digging next to a pocket vents it: the burn is lamp heat.
     vented = ventGasAround(state, t.col, t.row, emptied);
   }
@@ -1402,7 +1488,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   }
 
   const crushed = tickFalls(state, emptied);
-  markUnstable(state, emptied);
+  settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
 
   let collapsed = false;
@@ -1424,6 +1510,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       collapsed,
       crushed,
       vented,
+      dropped: dropped > 0 ? dropped : undefined,
       laddered,
       planked,
       fell: fell || undefined,
@@ -1441,6 +1528,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     collapsed,
     crushed,
     vented,
+    dropped: dropped > 0 ? dropped : undefined,
     laddered,
     planked,
     fell: fell || undefined,
@@ -1492,7 +1580,7 @@ function finishStationaryAction(
 ): MoveResult {
   const emptied: Array<{ col: number; row: number }> = [];
   const crushed = tickFalls(state, emptied);
-  markUnstable(state, emptied);
+  settleAfterEmptied(state, emptied);
   if (crushed) {
     const lost = {
       value: carriedValue(state.miner),
@@ -1500,7 +1588,7 @@ function finishStationaryAction(
       col: state.miner.col,
       row: state.miner.row,
     };
-    collapse(state, true);
+    collapse(state, true, lost);
     return {
       ...base,
       collapsed: true,
@@ -1658,14 +1746,14 @@ function detonateDynamiteAt(
     setCell(state, nc, nr, { kind: "empty" });
     emptied.push({ col: nc, row: nr });
     blasted++;
-    // Fill the hold from the blast centre outward; the overflow stays on
-    // the now-empty cell as a floor drop.
+    // Fill the hold from the blast centre outward; overflow falls until
+    // it lands on the nearest surface.
     const { taken, dropped: spilled, leftover } = fillHold(state, pile);
     collected += taken;
     dropped += spilled;
-    if (spilled > 0) cellMut(state, nc, nr).drop = leftover;
+    if (spilled > 0) dropOreToSurface(state, nc, nr, leftover);
   }
-  markUnstable(state, emptied);
+  settleAfterEmptied(state, emptied);
   return {
     vented: vented > 0 ? vented : undefined,
     blasted: blasted > 0 ? blasted : undefined,
@@ -1718,7 +1806,7 @@ function plantDynamite(state: MineState, dir: Direction): MoveResult {
   state.pendingDynamite = t;
   const emptied: Array<{ col: number; row: number }> = [];
   const crushed = tickFalls(state, emptied);
-  markUnstable(state, emptied);
+  settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
   if (crushed) {
     const lost = {
@@ -1860,7 +1948,7 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
     miner.row = target;
     if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
     const crushed = tickFalls(state, emptied);
-    markUnstable(state, emptied);
+    settleAfterEmptied(state, emptied);
     if (crushed) {
       const lost = {
         value: carriedValue(miner),

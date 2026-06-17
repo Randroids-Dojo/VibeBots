@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Drop overflow ore when cargo is full</title>
+<meta name="dot-title" content="Drop overflow ore when cargo is full">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-06-16T21:33:28.711252-05:00">
+<meta name="dot-closed-at" content="2026-06-16T21:44:39.950693-05:00">
+<meta name="dot-close-reason" content="Implemented full-cargo overflow drops. Verification: mine vitest 65 passing, full vitest 122 passing, typecheck, lint with existing warnings, purity, build, dash check, diff check, clean-port Playwright 21 passed and 2 storage-gated skips, mobile browser smoke.">
+</head>
+<body>
+<article>
+<h1>Drop overflow ore when cargo is full</h1>
+<section id="description">
+User-requested mining fix: digging should still work with a full cargo hold, overflow ore should fall to the nearest surface, drops should fall again when support below is dug, pickups should take only available cargo, and rendering should show one dropped resource marker per cell with a count indicator.
+</section>
+</article>
+</body>
+</html>

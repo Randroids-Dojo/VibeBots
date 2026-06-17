@@ -297,7 +297,7 @@
     },
     {
       "id": "REQ-018",
-      "requirement": "Digging has render-layer texture: crack states, hardness-scaled particles, tweened movement, pitch-ramped pickups, rare-find fanfare.",
+      "requirement": "Digging has render-layer texture: crack states, hardness-scaled particles, short smooth tweened movement, pitch-ramped pickups, rare-find fanfare.",
       "gddRef": "docs/gdd/06-mining.html#feel",
       "status": "done",
       "implementationRefs": [
@@ -308,7 +308,8 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "src/components/mine-sfx.test.ts"
+        "src/components/mine-sfx.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": [
         "F-016",
@@ -384,7 +385,7 @@
     },
     {
       "id": "REQ-023",
-      "requirement": "Touch-first mine controls: a float-where-you-tap virtual thumbstick (VibeKit virtual-joystick) fires cardinal moves with hold-to-repeat anywhere on the view; game text is unselectable so long-presses never open the platform copy/share UI.",
+      "requirement": "Touch-first mine controls: a float-where-you-tap virtual thumbstick (VibeKit virtual-joystick) fires fresh directions immediately and repeats held cardinal moves anywhere on the view; game text is unselectable so long-presses never open the platform copy/share UI.",
       "gddRef": "docs/gdd/06-mining.html#controls",
       "status": "done",
       "implementationRefs": [

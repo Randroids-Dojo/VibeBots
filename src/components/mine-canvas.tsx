@@ -160,8 +160,10 @@ interface JuiceState {
   lunge: { x: number; y: number; t: number };
 }
 
+const PICK_SWING_SECONDS = 0.18;
+const DIG_LUNGE_SECONDS = 0.16;
 /** Length of the bounce-off animation when the pick can't cut the rock. */
-const BOUNCE_SECONDS = 0.42;
+const BOUNCE_SECONDS = 0.28;
 const DYNAMITE_RED = "#b43b32";
 const FUSE_GLOW = "#ffb347";
 const DYNAMITE_WARNING = TEETER_EMISSIVE;
@@ -1586,7 +1588,7 @@ function MineScene({
       const sy = -(miner.row + dr);
       j.bounce = BOUNCE_SECONDS;
       // Recoil the body AWAY from the rock: the swing rebounds off it.
-      j.lunge = { x: -dc * 0.14, y: dr * 0.12, t: 0.26 };
+      j.lunge = { x: -dc * 0.14, y: dr * 0.12, t: DIG_LUNGE_SECONDS };
       j.shake = Math.max(j.shake, 0.14);
       // Sparks fly off the rock face back toward the miner.
       spawnClang(j, sx, sy, -dc, dr);
@@ -1595,7 +1597,7 @@ function MineScene({
     const miner = mine.miner;
     const at = lastResult.lost ?? { col: miner.col, row: miner.row };
     if (lastResult.cracked) {
-      j.swing = 0.3;
+      j.swing = PICK_SWING_SECONDS;
       const dc = lastAction === "left" ? -1 : lastAction === "right" ? 1 : 0;
       const dr = lastAction === "down" ? 1 : lastAction === "up" ? -1 : 0;
       const sx = cellX(miner.col + dc);
@@ -1611,10 +1613,10 @@ function MineScene({
         3,
       );
       j.shake = Math.max(j.shake, 0.02);
-      j.lunge = { x: dc * 0.16, y: -dr * 0.13, t: 0.22 };
+      j.lunge = { x: dc * 0.16, y: -dr * 0.13, t: DIG_LUNGE_SECONDS };
     }
     if (lastResult.dug) {
-      j.swing = 0.3;
+      j.swing = PICK_SWING_SECONDS;
       const color =
         lastResult.dugOre != null
           ? ORE_COLORS[lastResult.dugOre]
@@ -1641,7 +1643,7 @@ function MineScene({
       // Lunge the body toward the struck cell.
       const ldx = lastAction === "left" ? -1 : lastAction === "right" ? 1 : 0;
       const ldy = lastAction === "down" ? -1 : lastAction === "up" ? 1 : 0;
-      j.lunge = { x: ldx * 0.16, y: ldy * 0.13, t: 0.22 };
+      j.lunge = { x: ldx * 0.16, y: ldy * 0.13, t: DIG_LUNGE_SECONDS };
     } else if (
       lastResult.ok &&
       (lastAction === "left" ||
@@ -1680,12 +1682,14 @@ function MineScene({
       // Trip resets (collapse, recall, abandon) move the miner across
       // the whole map; gliding the camera through it reads as broken.
       if (Math.abs(targetY - rig.position.y) > 6) rig.position.y = targetY;
-      rig.position.y += (targetY - rig.position.y) * Math.min(1, delta * 5);
+      rig.position.y +=
+        (targetY - rig.position.y) * (1 - Math.exp(-delta * 12));
       // The endless mine has no edges: the camera follows the miner
       // laterally everywhere (the old clamp framed a 9-wide world).
       const targetX = cellX(mine.miner.col);
       if (Math.abs(targetX - rig.position.x) > 6) rig.position.x = targetX;
-      rig.position.x += (targetX - rig.position.x) * Math.min(1, delta * 5);
+      rig.position.x +=
+        (targetX - rig.position.x) * (1 - Math.exp(-delta * 12));
       j.shake = Math.max(0, j.shake - delta * 0.9);
       const sx = rig.position.x + (Math.random() - 0.5) * j.shake;
       const sy = (Math.random() - 0.5) * j.shake;
@@ -1734,9 +1738,7 @@ function MineScene({
         minerPlaced.current = true;
         miner.position.set(tx, ty, 0.2);
       } else {
-        // Gentler glide than before: with the halved move cadence the
-        // bot has time to walk between cells instead of snapping.
-        const ease = Math.min(1, delta * 9);
+        const ease = 1 - Math.exp(-delta * 18);
         miner.position.x += (tx - miner.position.x) * ease;
         miner.position.y += (ty - miner.position.y) * ease;
       }
@@ -1758,7 +1760,7 @@ function MineScene({
       body.rotation.y += (targetYaw - body.rotation.y) * Math.min(1, delta * 8);
       // Dig lunge decays over its window; bob hums underneath.
       j.lunge.t = Math.max(0, j.lunge.t - delta);
-      const lk = j.lunge.t / 0.22;
+      const lk = j.lunge.t / DIG_LUNGE_SECONDS;
       body.position.x = j.lunge.x * lk;
       // Grounded on the cell floor, with a soft idle hover bob.
       body.position.y = -0.14 + Math.sin(t * 2.4) * 0.018 + j.lunge.y * lk;
@@ -1807,7 +1809,7 @@ function MineScene({
           arm.rotation.z = Math.sin(p * Math.PI) * 0.85 * (1 - p * 0.6);
         }
       } else {
-        const k = j.swing / 0.3;
+        const k = j.swing / PICK_SWING_SECONDS;
         arm.rotation.z = -2.1 * k * k;
       }
     }

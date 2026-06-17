@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-action-feel" data-date="2026-06-17">
+    <h3>Mine Action Feel</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-smooth-actions</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed movement and mining feel pass. Fresh keyboard presses and new thumbstick directions now execute immediately, while held key and held thumbstick repeats use a shorter pickaxe-scaled cadence. The miner and camera use faster frame-rate-independent easing, and pick swings, lunges, and too-hard bounces are shorter so visible actions settle before the next held repeat. Package version moved to <code>0.1.10</code>; <code>MINE_VERSION</code> stays at <code>23</code> and <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Verification</dt><dd>Rebased onto <code>origin/main</code> commit <code>2db3963</code>, preserving the base-return-confirmation release as <code>0.1.9</code> and moving this release to <code>0.1.10</code>. Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm typecheck</code>, <code>pnpm test</code> (144 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, and <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3041-existing.config.ts</code> against a fresh production server on port 3041 (26 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>Fresh intent should prioritize responsiveness over the old tap-spam guard. Held input still keeps a short repeat cadence so one long press does not fire every browser key repeat or pointer event.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated the mining controls and feel spec, appended a Build log entry in <code>docs/gdd/06-mining.html</code>, and updated static plus in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="base-return-confirm-fix" data-date="2026-06-17">
     <h3>Base Return Confirmation Fix</h3>
     <dl>

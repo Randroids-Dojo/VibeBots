@@ -27,7 +27,7 @@ export function MineTouchControls({
   onZoomChange,
   repeatMs,
 }: {
-  onDirection: (dir: Direction) => void;
+  onDirection: (dir: Direction, options?: { repeat?: boolean }) => void;
   onZoomChange: (delta: number) => void;
   repeatMs: number;
 }) {
@@ -36,7 +36,6 @@ export function MineTouchControls({
   const pinchDistance = useRef<number | null>(null);
   const pinching = useRef(false);
   const heldDir = useRef<Direction | null>(null);
-  const lastFire = useRef(0);
   const repeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [stick, setStick] = useState<{
     originX: number;
@@ -50,11 +49,6 @@ export function MineTouchControls({
       clearInterval(repeatTimer.current);
       repeatTimer.current = null;
     }
-  };
-
-  const fire = (dir: Direction) => {
-    lastFire.current = Date.now();
-    onDirection(dir);
   };
 
   const syncDirection = () => {
@@ -81,10 +75,11 @@ export function MineTouchControls({
       heldDir.current = dir;
       stopRepeat();
       if (dir) {
-        // Rate-clamped even across direction changes.
-        if (Date.now() - lastFire.current >= repeatMs) fire(dir);
+        onDirection(dir);
         repeatTimer.current = setInterval(() => {
-          if (heldDir.current) fire(heldDir.current);
+          if (heldDir.current) {
+            onDirection(heldDir.current, { repeat: true });
+          }
         }, repeatMs);
       }
     }

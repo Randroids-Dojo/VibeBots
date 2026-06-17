@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-const MINE_KEY_CADENCE_MS = 470;
+const MINE_KEY_CADENCE_MS = 190;
 
 async function pressMineKey(
   page: Page,
@@ -365,16 +365,16 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Paid base return");
-  await expect(dialog.locator("li")).toHaveCount(3);
+  await expect(dialog).toContainText("Movement and mining now respond");
+  await expect(dialog.locator("li")).toHaveCount(4);
   await expect(dialog.locator("li").first()).toContainText(
-    "confirmed after touching the mine",
+    "Fresh keyboard presses and new thumbstick directions",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "without forcing a mine checkpoint",
+    "much faster pickaxe-scaled cadence",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "only checks when the miner comes up",
+    "frame-rate-independent easing",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -395,24 +395,26 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.9");
-  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.8");
-  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.7");
-  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.6");
-  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.5");
-  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.4");
-  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.3");
-  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.2");
-  await expect(notes.nth(8)).toHaveAttribute("data-release-note", "0.1.1");
-  await expect(notes.first()).toContainText("Base return confirmation");
-  await expect(notes.nth(1)).toContainText("Mine resource stacks");
-  await expect(notes.nth(2)).toContainText("Surface base return");
-  await expect(notes.nth(3)).toContainText("Mine flow fixes");
-  await expect(notes.nth(4)).toContainText("Auto-bank upgrades");
-  await expect(notes.nth(5)).toContainText("Lantern-gated mine zoom");
-  await expect(notes.nth(6)).toContainText("Robot battery");
-  await expect(notes.nth(7)).toContainText("Workshop inventory");
-  await expect(notes.nth(8)).toContainText("Fall Harness");
+  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.10");
+  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.9");
+  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.8");
+  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.7");
+  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.6");
+  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.5");
+  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.4");
+  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.3");
+  await expect(notes.nth(8)).toHaveAttribute("data-release-note", "0.1.2");
+  await expect(notes.nth(9)).toHaveAttribute("data-release-note", "0.1.1");
+  await expect(notes.first()).toContainText("Mine action feel");
+  await expect(notes.nth(1)).toContainText("Base return confirmation");
+  await expect(notes.nth(2)).toContainText("Mine resource stacks");
+  await expect(notes.nth(3)).toContainText("Surface base return");
+  await expect(notes.nth(4)).toContainText("Mine flow fixes");
+  await expect(notes.nth(5)).toContainText("Auto-bank upgrades");
+  await expect(notes.nth(6)).toContainText("Lantern-gated mine zoom");
+  await expect(notes.nth(7)).toContainText("Robot battery");
+  await expect(notes.nth(8)).toContainText("Workshop inventory");
+  await expect(notes.nth(9)).toContainText("Fall Harness");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });
@@ -439,6 +441,49 @@ test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022
   await pressMineKey(page, "ArrowRight");
   await expect(status).toHaveAttribute("data-ladders", "7");
   await expect(status).toHaveAttribute("data-planks", "4");
+});
+
+test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await expect
+    .poll(async () => canvas.getAttribute("data-miner-x"), { timeout: 5_000 })
+    .not.toBeNull();
+
+  const initialX = Number(await canvas.getAttribute("data-miner-x"));
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+      timeout: 250,
+    })
+    .toBeGreaterThan(initialX + 0.05);
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+      timeout: 600,
+    })
+    .toBeGreaterThan(initialX + 0.85);
+
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+      timeout: 250,
+    })
+    .toBeGreaterThan(initialX + 1.05);
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+      timeout: 600,
+    })
+    .toBeGreaterThan(initialX + 1.85);
+
+  const beforeStrike = await canvas.screenshot();
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(90);
+  const afterStrike = await canvas.screenshot();
+  expect(Buffer.compare(beforeStrike, afterStrike)).not.toBe(0);
 });
 
 test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({

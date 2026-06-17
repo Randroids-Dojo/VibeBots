@@ -2,10 +2,35 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.9-base-return-confirm";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.10-mine-action-feel";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.10",
+      date: "2026-06-17",
+      title: "Mine action feel",
+      intro:
+        "Movement and mining now respond on press, then animate quickly enough to keep up with held input.",
+      changes: [
+        {
+          build,
+          text: "Fresh keyboard presses and new thumbstick directions fire immediately instead of waiting behind the held-repeat cadence.",
+        },
+        {
+          build,
+          text: "Held key and thumbstick repeats now use a much faster pickaxe-scaled cadence, so walking and multi-hit mining feel continuous.",
+        },
+        {
+          build,
+          text: "The miner and camera now glide with faster frame-rate-independent easing, keeping the visible robot close to the sim target.",
+        },
+        {
+          build,
+          text: "Pick swings, lunges, and too-hard bounces are shorter so each strike finishes before the next held repeat.",
+        },
+      ],
+    },
     {
       version: "0.1.9",
       date: "2026-06-17",

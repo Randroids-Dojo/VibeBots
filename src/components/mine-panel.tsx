@@ -66,9 +66,9 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
   d: "right",
 };
 
-/** Base gap between directional actions before pickaxe speed bonuses. */
-const BASE_ACTION_CADENCE_MS = 440;
-const MIN_ACTION_CADENCE_MS = 300;
+/** Held-input repeat gap before pickaxe speed bonuses. */
+const BASE_ACTION_REPEAT_MS = 160;
+const MIN_ACTION_REPEAT_MS = 95;
 const MINE_CAMERA_FOV_DEGREES = 42;
 const BASE_BUILDING_COLS = [
   ...STALLS.map((stall) => stall.col),
@@ -114,10 +114,10 @@ function baseReturnTarget(
   };
 }
 
-function actionCadenceMs(gear: MineGear): number {
+function actionRepeatMs(gear: MineGear): number {
   return Math.max(
-    MIN_ACTION_CADENCE_MS,
-    BASE_ACTION_CADENCE_MS - (gear.pickaxe - 1) * 35,
+    MIN_ACTION_REPEAT_MS,
+    BASE_ACTION_REPEAT_MS - (gear.pickaxe - 1) * 15,
   );
 }
 
@@ -1438,12 +1438,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [lastAction, lastResult]);
 
   const fireDirection = useCallback(
-    (dir: Direction) => {
+    (dir: Direction, options: { repeat?: boolean } = {}) => {
       if (elevatorAutoDir) return;
       const state = useMineStore.getState();
       const now = Date.now();
-      const delay = actionCadenceMs(state.mine.gear);
-      if (now - lastDirectionActionRef.current < delay) return;
+      if (
+        options.repeat &&
+        now - lastDirectionActionRef.current < actionRepeatMs(state.mine.gear)
+      ) {
+        return;
+      }
       lastDirectionActionRef.current = now;
       if (dir === "left" || dir === "right") setFacing(dir);
       if (armedRef.current) {
@@ -1491,7 +1495,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
-      fireDirection(dir);
+      fireDirection(dir, { repeat: event.repeat });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1717,7 +1721,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         <MineTouchControls
           onDirection={act}
           onZoomChange={adjustCameraZoom}
-          repeatMs={actionCadenceMs(mine.gear)}
+          repeatMs={actionRepeatMs(mine.gear)}
         />
       )}
       <StratumBanner row={miner.row} />

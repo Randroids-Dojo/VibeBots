@@ -15,8 +15,8 @@ importers:
         specifier: ^1.1.0
         version: 1.1.0
       '@randroids-dojo/vibekit':
-        specifier: github:Randroids-Dojo/VibeKit#v0.2.0
-        version: https://codeload.github.com/Randroids-Dojo/VibeKit/tar.gz/705fe03ef5a3d18edc9bfc795bdee671e37864bf
+        specifier: github:Randroids-Dojo/VibeKit#v0.3.0
+        version: https://codeload.github.com/Randroids-Dojo/VibeKit/tar.gz/4b1e61de449d78c29ec5234b1fa253aca16d7f52
       '@react-three/drei':
         specifier: ^10.7.7
         version: 10.7.7(@react-three/fiber@9.6.1(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(three@0.184.0))(@types/react@19.2.17)(@types/three@0.184.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(three@0.184.0)
@@ -385,9 +385,9 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@randroids-dojo/vibekit@https://codeload.github.com/Randroids-Dojo/VibeKit/tar.gz/705fe03ef5a3d18edc9bfc795bdee671e37864bf':
-    resolution: {tarball: https://codeload.github.com/Randroids-Dojo/VibeKit/tar.gz/705fe03ef5a3d18edc9bfc795bdee671e37864bf}
-    version: 0.2.0
+  '@randroids-dojo/vibekit@https://codeload.github.com/Randroids-Dojo/VibeKit/tar.gz/4b1e61de449d78c29ec5234b1fa253aca16d7f52':
+    resolution: {tarball: https://codeload.github.com/Randroids-Dojo/VibeKit/tar.gz/4b1e61de449d78c29ec5234b1fa253aca16d7f52}
+    version: 0.3.0
 
   '@react-three/drei@10.7.7':
     resolution: {integrity: sha512-ff+J5iloR0k4tC++QtD/j9u3w5fzfgFAWDtAGQah9pF2B1YgOq/5JxqY0/aVoQG5r3xSZz0cv5tk2YuBob4xEQ==}
@@ -1398,7 +1398,7 @@ snapshots:
     dependencies:
       playwright: 1.60.0
 
-  '@randroids-dojo/vibekit@https://codeload.github.com/Randroids-Dojo/VibeKit/tar.gz/705fe03ef5a3d18edc9bfc795bdee671e37864bf':
+  '@randroids-dojo/vibekit@https://codeload.github.com/Randroids-Dojo/VibeKit/tar.gz/4b1e61de449d78c29ec5234b1fa253aca16d7f52':
     dependencies:
       '@upstash/redis': 1.38.0
       zod: 3.25.76

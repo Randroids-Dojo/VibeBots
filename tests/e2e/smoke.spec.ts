@@ -57,8 +57,11 @@ async function digLateral(
 
 async function dismissReleaseNotes(page: Page): Promise<void> {
   const dialog = page.getByRole("dialog", { name: "New in VibeBots" });
-  if (await dialog.isVisible().catch(() => false)) {
-    await dialog.getByRole("button", { name: "Got it" }).click();
+  const button = dialog.getByRole("button", { name: "Got it" });
+  for (let i = 0; i < 6; i++) {
+    if (!(await dialog.isVisible().catch(() => false))) return;
+    await button.click();
+    await page.waitForTimeout(250);
   }
   await expect(dialog).not.toBeVisible();
 }

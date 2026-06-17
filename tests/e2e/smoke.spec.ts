@@ -21,6 +21,25 @@ async function openStall(page: Page, name: string) {
   return sheet;
 }
 
+/** Walk the surface toward a destination building until its Enter prompt
+ * appears, then tap it. Presses are paced past the glide and the loop
+ * tolerates the odd dropped synthetic key (it stops on the prompt, not a
+ * fixed step count). */
+async function enterBuilding(
+  page: Page,
+  key: "ArrowLeft" | "ArrowRight",
+  name: string,
+): Promise<void> {
+  const prompt = page.getByRole("button", { name: `Enter ${name}` });
+  for (let i = 0; i < 16; i++) {
+    if (await prompt.isVisible().catch(() => false)) break;
+    await page.keyboard.press(key);
+    await page.waitForTimeout(150);
+  }
+  await expect(prompt).toBeVisible();
+  await prompt.click();
+}
+
 /** Swing a lateral direction until the rendered miner crosses targetX. */
 async function digLateral(
   page: Page,
@@ -47,10 +66,10 @@ async function dismissReleaseNotes(page: Page): Promise<void> {
 import { SIM_VERSION } from "../../src/sim/constants";
 import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
 
-test("home page renders a moving match (Rule 10 motion QA)", async ({
+test("arena page renders a moving match (Rule 10 motion QA)", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/arena");
 
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
@@ -59,10 +78,8 @@ test("home page renders a moving match (Rule 10 motion QA)", async ({
   await expect(page.getByText("Brawler", { exact: true })).toBeVisible();
   await expect(page.getByText("Rammer", { exact: true })).toBeVisible();
 
-  // Every page must reach the others (a missing nav link shipped once).
-  const nav = page.getByLabel("Game sections");
-  await expect(nav.getByRole("link", { name: "Workshop" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Mine" })).toBeVisible();
+  // Every entered screen returns to the mine hub (the top nav is gone).
+  await expect(page.getByRole("link", { name: "Back to mine" })).toBeVisible();
 
   const stage = page.locator("[data-sim-tick]");
   await expect
@@ -90,9 +107,7 @@ test("home page renders a moving match (Rule 10 motion QA)", async ({
 test("workshop builds and undoes parts", async ({ page }) => {
   await page.goto("/workshop");
   await expect(page.locator("canvas")).toBeVisible();
-  await expect(
-    page.getByLabel("Game sections").getByRole("link", { name: "Mine" }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to mine" })).toBeVisible();
   await expect(page.getByText("My Bot: 1 part", { exact: true })).toBeVisible();
 
   const palette = page.getByLabel("Part palette");
@@ -118,14 +133,14 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await expect(page.locator("canvas")).toBeVisible();
-  await expect(
-    page.getByLabel("Game sections").getByRole("link", { name: "Arena" }),
-  ).toBeVisible();
   // The HUD exposes the sim numbers as data attributes (REQ-024): the
   // chip copy can change, the test surface cannot.
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
   await expect(status).toContainText("Topsoil");
+  // The wallet is always on the HUD now (exposed for tests; empty when
+  // storage is offline, a number otherwise).
+  expect(await status.getAttribute("data-wallet")).not.toBeNull();
 
   // Blocks soak multiple swings now (REQ-013); dig through row 1.
   await digTo(page, 1);
@@ -153,6 +168,36 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
     page.getByRole("button", { name: /Recall \(\d+\)/ }),
   ).toBeVisible();
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
+});
+
+test("home redirects to the mine hub", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/mine$/);
+});
+
+test("village buildings enter the workshop and arena (REQ-021)", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "0");
+
+  // The Workshop building stands left of the shaft; standing on it offers
+  // an Enter prompt that routes there (not a stall sheet).
+  await enterBuilding(page, "ArrowLeft", "Workshop");
+  await expect(page).toHaveURL(/\/workshop$/);
+  // The workshop returns to the mine hub.
+  await page.getByRole("link", { name: "Back to mine" }).click();
+  await expect(page).toHaveURL(/\/mine$/);
+
+  // The Battles building stands right of the shaft. A fresh load resets the
+  // miner to the shaft so the walk starts from a known spot.
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await enterBuilding(page, "ArrowRight", "Battles");
+  await expect(page).toHaveURL(/\/arena$/);
 });
 
 test("mine shows the backfilled release note once to a fresh browser", async ({
@@ -622,7 +667,7 @@ test("miner stays at depth when walking sideways (lateral teleport regression)",
   expect(maxY).toBeLessThan(-1.5);
 });
 
-test("shop lists parts and balance (needs storage)", async ({
+test("workshop sells parts and shows balance (needs storage)", async ({
   page,
   request,
 }) => {
@@ -632,10 +677,11 @@ test("shop lists parts and balance (needs storage)", async ({
     "storage not configured in this environment",
   );
 
-  await page.goto("/shop");
-  const shop = page.getByLabel("Part shop");
+  // Parts buying lives inside the Workshop now; the standalone /shop is gone.
+  await page.goto("/workshop");
+  const shop = page.getByLabel("Parts shop");
   await expect(shop).toBeVisible();
-  await expect(shop.getByText("balance:")).toBeVisible();
+  await expect(shop.getByText("vibes").first()).toBeVisible();
   await expect(shop.getByText("Drive Wheel")).toBeVisible();
 });
 

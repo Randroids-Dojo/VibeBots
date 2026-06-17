@@ -26,6 +26,7 @@ import {
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
 import { playMineResultSfx } from "./mine-sfx";
+import { DESTINATIONS, type DestinationDef } from "./mine-destinations";
 import { STALLS, type StallDef } from "./mine-stalls";
 
 const ORE_COLORS: Record<OreId, string> = {
@@ -1201,6 +1202,166 @@ function StallBuilding({
   );
 }
 
+/** Workshop: a tin-roofed garage with a roll-up door and a lit bench. */
+function WorkshopModel({ color }: { color: string }) {
+  return (
+    <>
+      <RoundedBox
+        args={[1.6, 1.2, 0.95]}
+        radius={0.05}
+        smoothness={2}
+        position={[0, 1.6, 0]}
+      >
+        <meshStandardMaterial
+          color={METAL}
+          roughness={0.7}
+          metalness={0.3}
+          flatShading
+        />
+      </RoundedBox>
+      {/* Corrugated roof cap */}
+      <mesh position={[0, 2.28, 0]}>
+        <boxGeometry args={[1.78, 0.12, 1.05]} />
+        <meshStandardMaterial
+          color={STONE}
+          roughness={0.6}
+          metalness={0.4}
+          flatShading
+        />
+      </mesh>
+      {/* Roll-up door with a warm interior glow */}
+      <mesh position={[0, 1.34, 0.49]}>
+        <boxGeometry args={[1.0, 0.86, 0.05]} />
+        <meshStandardMaterial
+          color="#2a2f3a"
+          emissive="#7df9ff"
+          emissiveIntensity={0.18}
+          roughness={0.8}
+          flatShading
+        />
+      </mesh>
+      {[-0.24, -0.04, 0.16].map((dy) => (
+        <mesh key={dy} position={[0, 1.34 + dy, 0.52]}>
+          <boxGeometry args={[1.0, 0.03, 0.02]} />
+          <meshStandardMaterial color="#1a1e27" flatShading />
+        </mesh>
+      ))}
+      {/* Lit side window */}
+      <mesh position={[0.62, 1.72, 0.4]}>
+        <boxGeometry args={[0.26, 0.24, 0.04]} />
+        <meshStandardMaterial
+          color="#0d2b26"
+          emissive="#7df9ff"
+          emissiveIntensity={1.1}
+          flatShading
+        />
+      </mesh>
+      {/* A big gear bolted to the facade */}
+      <mesh position={[-0.6, 1.8, 0.46]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.16, 0.05, 6, 10]} />
+        <meshStandardMaterial
+          color={color}
+          metalness={0.5}
+          roughness={0.5}
+          flatShading
+        />
+      </mesh>
+      <PorchLamp position={[0, 1.86, 0.6]} />
+      <SignBoard color={color} position={[0, 2.5, 0.3]} width={0.95} />
+    </>
+  );
+}
+
+/** Battles: a small colosseum drum with banners over a lit floor. */
+function BattlesModel({ color }: { color: string }) {
+  return (
+    <>
+      <mesh position={[0, 1.5, 0]}>
+        <cylinderGeometry args={[0.85, 0.92, 1.0, 16]} />
+        <meshStandardMaterial color={STONE} roughness={0.9} flatShading />
+      </mesh>
+      {/* Rim */}
+      <mesh position={[0, 2.02, 0]}>
+        <torusGeometry args={[0.86, 0.08, 8, 18]} />
+        <meshStandardMaterial color={STONE_LIGHT} roughness={0.8} flatShading />
+      </mesh>
+      {/* Glowing arched entrance */}
+      <mesh position={[0, 1.34, 0.88]}>
+        <boxGeometry args={[0.44, 0.62, 0.1]} />
+        <meshStandardMaterial
+          color="#160b06"
+          emissive="#ff8f3a"
+          emissiveIntensity={0.5}
+          roughness={1}
+          flatShading
+        />
+      </mesh>
+      {/* Crossed swords over the door */}
+      {[0.6, -0.6].map((r) => (
+        <mesh key={r} position={[0, 1.96, 0.9]} rotation={[0, 0, r]}>
+          <boxGeometry args={[0.05, 0.4, 0.03]} />
+          <meshStandardMaterial
+            color={STONE_LIGHT}
+            metalness={0.6}
+            roughness={0.4}
+            flatShading
+          />
+        </mesh>
+      ))}
+      {/* Banner flags */}
+      {[-0.72, 0.72].map((x) => (
+        <group key={x} position={[x, 2.0, 0.25]}>
+          <mesh position={[0, 0.28, 0]}>
+            <cylinderGeometry args={[0.02, 0.02, 0.8, 6]} />
+            <meshStandardMaterial color={WOOD_POST} roughness={0.9} flatShading />
+          </mesh>
+          <mesh position={[x < 0 ? 0.13 : -0.13, 0.5, 0]}>
+            <boxGeometry args={[0.24, 0.16, 0.02]} />
+            <meshStandardMaterial
+              color={color}
+              emissive={color}
+              emissiveIntensity={0.6}
+              flatShading
+            />
+          </mesh>
+        </group>
+      ))}
+      <PorchLamp position={[0, 1.6, 0.95]} />
+      <SignBoard color={color} position={[0, 2.52, 0.4]} width={0.95} />
+    </>
+  );
+}
+
+/** A destination building: walking onto its column shows an Enter prompt
+ * that routes to another screen, instead of opening a stall sheet. */
+function DestinationBuilding({
+  id,
+  x,
+  color,
+}: {
+  id: DestinationDef["id"];
+  x: number;
+  color: string;
+}) {
+  return (
+    <group position={[x, -1.5, -0.85]}>
+      {id === "workshop" && <WorkshopModel color={color} />}
+      {id === "battles" && <BattlesModel color={color} />}
+      {/* Doorstep mat on the boardwalk marks the standing spot */}
+      <mesh position={[0, 1.1, 0.9]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.8, 0.5]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.26}
+          transparent
+          opacity={0.55}
+        />
+      </mesh>
+    </group>
+  );
+}
+
 /** All 46 stars in a single points draw call (phones count draws). */
 function NightStars() {
   const positions = useMemo(() => {
@@ -1257,13 +1418,14 @@ const SurfaceDressing = memo(function SurfaceDressing() {
         <meshStandardMaterial color="#3d5c3a" roughness={1} flatShading />
       </mesh>
       {tufts}
-      {/* Boardwalk fronting the shop row, split around the shaft mouth */}
-      <mesh position={[-3.6, -0.44, -0.05]}>
-        <boxGeometry args={[6.0, 0.05, 0.7]} />
+      {/* Boardwalk fronting the shop row, split around the shaft mouth.
+          Each plank reaches the edge-of-town destination buildings. */}
+      <mesh position={[-4.1, -0.44, -0.05]}>
+        <boxGeometry args={[7.0, 0.05, 0.7]} />
         <meshStandardMaterial color="#6b5638" roughness={0.95} flatShading />
       </mesh>
-      <mesh position={[4.05, -0.44, -0.05]}>
-        <boxGeometry args={[6.9, 0.05, 0.7]} />
+      <mesh position={[4.6, -0.44, -0.05]}>
+        <boxGeometry args={[8.0, 0.05, 0.7]} />
         <meshStandardMaterial color="#6b5638" roughness={0.95} flatShading />
       </mesh>
       {/* Headframe straddling the starting shaft */}
@@ -1297,6 +1459,15 @@ const SurfaceDressing = memo(function SurfaceDressing() {
           id={stall.id}
           x={cellX(stall.col)}
           color={stall.color}
+        />
+      ))}
+      {/* Enter-a-screen destination buildings (Workshop, Battles) */}
+      {DESTINATIONS.map((dest) => (
+        <DestinationBuilding
+          key={dest.id}
+          id={dest.id}
+          x={cellX(dest.col)}
+          color={dest.color}
         />
       ))}
       {/* Lantern posts flanking the headframe */}

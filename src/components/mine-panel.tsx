@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { AppRelease } from "@/lib/app-release-types";
 import {
@@ -29,6 +30,7 @@ import {
 import { PART_CATALOG } from "@/sim/parts";
 import { useMineStore } from "@/state/mine-store";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
+import { destinationAt } from "./mine-destinations";
 import { type StallDef, stallAt } from "./mine-stalls";
 import { MineTouchControls } from "./mine-touch-controls";
 
@@ -1075,6 +1077,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const buyConsumable = useMineStore((s) => s.buyConsumable);
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
   const buyElevator = useMineStore((s) => s.buyElevator);
+  const router = useRouter();
   const [dynamiteArmed, setDynamiteArmedState] = useState(false);
   const [abandonArmed, setAbandonArmed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1188,6 +1191,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // The village (REQ-021): standing on a stall's column opens its menu,
   // unless the player just closed it here (swipe-down or close button).
   const stall = miner.row === 0 ? stallAt(miner.col) : null;
+  // Destination buildings (Workshop, Battles) route to another screen
+  // instead of opening a sheet. The surface is the overworld hub.
+  const destination = miner.row === 0 ? destinationAt(miner.col) : null;
 
   // One terse toast, game-style: the chips carry the numbers.
   const statusLine =
@@ -1357,6 +1363,37 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <span style={{ opacity: 0.6, fontSize: "0.82rem" }}>Tap to open</span>
         </button>
       )}
+      {/* Destination buildings route to another screen on tap. */}
+      {destination && (
+        <button
+          type="button"
+          aria-label={`Enter ${destination.name}`}
+          onClick={() => router.push(destination.href)}
+          style={{
+            position: "absolute",
+            bottom: 92,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 16px",
+            borderRadius: 999,
+            border: `2px solid ${destination.color}`,
+            background: "rgba(17, 21, 31, 0.92)",
+            color: "#e6e8ee",
+            fontWeight: 700,
+            fontSize: "0.95rem",
+            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
+            zIndex: 8,
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span style={{ fontSize: "1.2rem" }}>{destination.icon}</span>
+          <span style={{ color: destination.color }}>{destination.name}</span>
+          <span style={{ opacity: 0.6, fontSize: "0.82rem" }}>Tap to enter</span>
+        </button>
+      )}
       {stall && openStallCol === miner.col && (
         <StallMenu
           stall={stall}
@@ -1385,6 +1422,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         data-ladders={mine.consumables.ladder}
         data-planks={mine.consumables.plank}
         data-banked={miner.bankedCredits}
+        data-wallet={balance ?? ""}
         data-climb-ladders={laddersNeeded}
         style={{
           position: "absolute",
@@ -1407,6 +1445,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             maxWidth: "calc(100% - 250px)",
           }}
         >
+          <span style={{ ...chipStyle, color: "#f5c542", fontWeight: 700 }}>
+            &#129689; {balance === null ? "offline" : `${balance} vibes`}
+          </span>
           <span style={chipStyle}>
             <span style={{ opacity: 0.65 }}>&#9660;</span> {miner.row}{" "}
             <span style={{ opacity: 0.65 }}>{stratum.name}</span>
@@ -1446,16 +1487,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             <span style={{ ...chipStyle, color: "#f5c542" }}>
               &#127974; {miner.bankedCredits} vibes
               {miner.bankedParts.length > 0 && ` +${miner.bankedParts.length}p`}
-            </span>
-          )}
-          {miner.row > 0 && (
-            <span
-              style={{
-                ...chipStyle,
-                color: lampLow || ladderShort ? "#ff6b6b" : "#8b93a7",
-              }}
-            >
-              &#11014; {climbCost.toFixed(1)}&#9889; {laddersNeeded}&#129692;
             </span>
           )}
         </div>

@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 18;
+export const MINE_VERSION = 19;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -587,6 +587,8 @@ export interface MinerState {
   maxDepth: number;
   /** Trips that ended underground with a dead lamp (lost cargo). */
   collapses: number;
+  /** Last dropped cargo location for the render-layer locator. */
+  lostCargo?: { value: number; parts: string[]; col: number; row: number };
 }
 
 export interface MineState {
@@ -604,6 +606,11 @@ export interface MineState {
    * strips the unspent part, so death rungs cost nothing and never bank.
    */
   granted: MineConsumables;
+  /**
+   * Planted consumables recovered from the world during this session.
+   * They offset later use at cash-out but do bank if carried home.
+   */
+  recovered: MineConsumables;
   /**
    * Player mutations over pure generation, keyed "col,row" (Q-010):
    * dug cells, crack damage, ladders, planks, fallen boulders. This
@@ -827,6 +834,7 @@ export function createMine(
     consumables: { ...consumables },
     used: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     granted: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
+    recovered: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     cells: importDiff(diff),
     miner: {
       col: START_COL,
@@ -838,6 +846,7 @@ export function createMine(
       bankedParts: [],
       maxDepth: 0,
       collapses: 0,
+      lostCargo: undefined,
     },
   };
 }
@@ -949,6 +958,10 @@ export type MoveResult =
       laddered?: boolean;
       /** This step consumed and placed a new plank bridge (REQ-022). */
       planked?: boolean;
+      /** Unsupported movement dropped the miner down empty cells. */
+      fell?: number;
+      /** A planted ladder was recovered into the carried stock. */
+      collectedLadder?: boolean;
       /** The swing damaged but did not break the block (REQ-013). */
       cracked?: { kind: CellKind; remaining: number };
       /** What a collapse/crush cost, for the near-miss reveal (REQ-019). */
@@ -988,6 +1001,7 @@ export type MineAction =
   | "ride-down"
   | "ride-up"
   | "place-beacon"
+  | "collect-ladder"
   | "warp-home"
   | "warp-down";
 
@@ -1005,6 +1019,7 @@ export const MINE_ACTIONS = [
   "ride-down",
   "ride-up",
   "place-beacon",
+  "collect-ladder",
   "warp-home",
   "warp-down",
 ] as const;
@@ -1118,6 +1133,32 @@ function tickFalls(
   return crushed;
 }
 
+function isMinerSupported(state: MineState): boolean {
+  const miner = state.miner;
+  if (miner.row === 0) return true;
+  const here = cellAt(state, miner.col, miner.row);
+  const below = cellAt(state, miner.col, miner.row + 1);
+  return !!(
+    here?.ladder ||
+    here?.plank ||
+    below?.ladder ||
+    (below && below.kind !== "empty")
+  );
+}
+
+function settleMiner(state: MineState): number {
+  const miner = state.miner;
+  let fell = 0;
+  while (!isMinerSupported(state)) {
+    const below = cellAt(state, miner.col, miner.row + 1);
+    if (below?.kind !== "empty") break;
+    miner.row++;
+    fell++;
+  }
+  if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
+  return fell;
+}
+
 /**
  * Rock and boulders whose support vanished start a fall countdown
  * (REQ-015): they teeter for FALL_DELAY_ACTIONS actions, then drop.
@@ -1180,6 +1221,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       const emptiedMid: Array<{ col: number; row: number }> = [];
       const crushedMid = tickFalls(state, emptiedMid);
       markUnstable(state, emptiedMid);
+      const fellMid = settleMiner(state);
       if (crushedMid || (miner.row > 0 && miner.energy <= 0)) {
         const lost = {
           value: carriedValue(miner),
@@ -1187,7 +1229,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
           col: miner.col,
           row: miner.row,
         };
-        collapse(state, true);
+        collapse(state, true, lost);
         return {
           ok: true,
           dug: null,
@@ -1195,6 +1237,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
           found: null,
           collapsed: true,
           crushed: crushedMid,
+          fell: fellMid || undefined,
           lost,
         };
       }
@@ -1204,6 +1247,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
         dugOre: null,
         found: null,
         collapsed: false,
+        fell: fellMid || undefined,
         cracked: { kind: struck.kind, remaining },
       });
     }
@@ -1220,20 +1264,15 @@ export function step(state: MineState, dir: Direction): MoveResult {
       laddered = true;
     }
   }
-  // Lateral steps over a void need a plank bridge in the target cell
-  // (REQ-022). The surface walk row is boardwalked; below it, a placed
-  // plank carries every later crossing, and ladders count as support
-  // too: one in the target cell is held onto, one in the cell below
-  // tops out under the miner's feet. Checked before any mutation so a
-  // refusal costs nothing.
+  // Lateral steps over a void use a plank bridge when one is available
+  // (REQ-022). Without one, the move is still legal, but gravity drops
+  // the miner through empty cells until something supports them.
   let needPlank = false;
   if ((dir === "left" || dir === "right") && t.row >= 1) {
     const below = cellAt(state, t.col, t.row + 1);
     const supported = cell.plank || cell.ladder || below?.ladder;
     if (below?.kind === "empty" && !supported) {
-      if (state.consumables.plank <= 0)
-        return { ok: false, reason: "no-plank" };
-      needPlank = true;
+      needPlank = state.consumables.plank > 0;
     }
   }
 
@@ -1292,6 +1331,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
 
   const crushed = tickFalls(state, emptied);
   markUnstable(state, emptied);
+  const fell = settleMiner(state);
 
   let collapsed = false;
   let lost: { value: number; parts: string[]; col: number; row: number };
@@ -1302,7 +1342,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       col: miner.col,
       row: miner.row,
     };
-    collapse(state, true);
+    collapse(state, true, lost);
     collapsed = true;
     return {
       ok: true,
@@ -1314,6 +1354,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       vented,
       laddered,
       planked,
+      fell: fell || undefined,
       lost,
     };
   }
@@ -1330,6 +1371,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     vented,
     laddered,
     planked,
+    fell: fell || undefined,
     pickedUp,
   });
 }
@@ -1484,6 +1526,7 @@ function plantDynamite(state: MineState, dir: Direction): MoveResult {
   const emptied: Array<{ col: number; row: number }> = [];
   const crushed = tickFalls(state, emptied);
   markUnstable(state, emptied);
+  const fell = settleMiner(state);
   if (crushed) {
     const lost = {
       value: carriedValue(state.miner),
@@ -1491,7 +1534,7 @@ function plantDynamite(state: MineState, dir: Direction): MoveResult {
       col: state.miner.col,
       row: state.miner.row,
     };
-    collapse(state, true);
+    collapse(state, true, lost);
     return {
       ok: true,
       dug: null,
@@ -1501,6 +1544,7 @@ function plantDynamite(state: MineState, dir: Direction): MoveResult {
       crushed: true,
       dynamitePlanted: t,
       lost,
+      fell: fell || undefined,
     };
   }
   return {
@@ -1510,6 +1554,24 @@ function plantDynamite(state: MineState, dir: Direction): MoveResult {
     found: null,
     collapsed: false,
     dynamitePlanted: t,
+    fell: fell || undefined,
+  };
+}
+
+function collectLadder(state: MineState): MoveResult {
+  const cell = cellAt(state, state.miner.col, state.miner.row);
+  if (!cell?.ladder) return { ok: false, reason: "blocked" };
+  cellMut(state, state.miner.col, state.miner.row).ladder = undefined;
+  state.consumables.ladder++;
+  if (state.used.ladder > 0) state.used.ladder--;
+  else state.recovered.ladder++;
+  return {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    collectedLadder: true,
   };
 }
 
@@ -1549,7 +1611,7 @@ function abandon(state: MineState): MoveResult {
     row: miner.row,
   };
   // Giving up grants no free recovery stock: only dying refills.
-  collapse(state, false);
+  collapse(state, false, lost);
   return {
     ok: true,
     dug: null,
@@ -1613,7 +1675,7 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
         col: miner.col,
         row: miner.row,
       };
-      collapse(state, true);
+      collapse(state, true, lost);
       return {
         ok: true,
         dug: null,
@@ -1717,6 +1779,8 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
       return rideElevator(state, "up");
     case "place-beacon":
       return placeBeacon(state);
+    case "collect-ladder":
+      return collectLadder(state);
     case "warp-home":
       return warp(state, "home");
     case "warp-down":
@@ -1729,6 +1793,7 @@ function bank(miner: MinerState, gear: MineGear): void {
   miner.bankedParts.push(...miner.carriedParts);
   miner.carried = {};
   miner.carriedParts = [];
+  miner.lostCargo = undefined;
   miner.energy = maxEnergy(gear);
 }
 
@@ -1741,9 +1806,16 @@ function bank(miner: MinerState, gear: MineGear): void {
  * abandoning grants nothing. Granting is deterministic, so the server
  * replay agrees and the cash-out math forgives exactly what was given.
  */
-function collapse(state: MineState, recover: boolean): void {
+function collapse(
+  state: MineState,
+  recover: boolean,
+  lost?: { value: number; parts: string[]; col: number; row: number },
+): void {
   const miner = state.miner;
   state.pendingDynamite = undefined;
+  if (lost && (lost.value > 0 || lost.parts.length > 0)) {
+    miner.lostCargo = { ...lost, parts: [...lost.parts] };
+  }
   miner.carried = {};
   miner.carriedParts = [];
   miner.collapses += 1;
@@ -1785,6 +1857,8 @@ export interface TripResult {
   used: MineConsumables;
   /** Free recovery stock granted by deaths: forgiven at cash-out. */
   granted: MineConsumables;
+  /** World-stock recovered during this trip: forgiven if re-used. */
+  recovered: MineConsumables;
   /** The world after the trip: persisted as the next checkpoint. */
   diff: WorldDiff;
 }
@@ -1814,6 +1888,7 @@ export function replayTrip(
     moves: capped.length,
     used: { ...state.used },
     granted: { ...state.granted },
+    recovered: { ...state.recovered },
     diff: exportDiff(state),
   };
 }

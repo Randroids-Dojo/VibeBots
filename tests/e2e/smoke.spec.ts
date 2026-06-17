@@ -482,13 +482,12 @@ test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   await page.getByLabel("Dismiss trip report").click();
 
   // Reload: the mine must still be carved. Descending the old shaft
-  // is two plain walks (0.5 energy each), not multi-swing digs.
+  // is one paid walk, then gravity settles the miner through empty cells.
   await page.reload();
   await expect(status).toHaveAttribute("data-depth", "0");
   await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
   await expect(status).toHaveAttribute("data-depth", "2");
-  await expect(status).toHaveAttribute("data-energy", "59.0");
+  await expect(status).toHaveAttribute("data-energy", "59.5");
 
   // And a MID-TRIP reload resumes exactly where the trip stood: the
   // in-flight log replays over the trip-start checkpoint, so depth and

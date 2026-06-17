@@ -30,6 +30,7 @@ import {
   type MineAction,
   type MineConsumables,
   type MineState,
+  MOVE_COST,
   type MoveResult,
   maxGearLevel,
   NO_CONSUMABLES,
@@ -763,12 +764,7 @@ describe("mine", () => {
       [c + 3, 7, { kind: "dirt" }],
     ];
     const actions: MineAction[] = [
-      "down",
-      "down",
-      "down",
-      "down",
-      "down",
-      "down", // descend the shaft to row 6
+      "down", // descend the empty shaft to row 6 by gravity
       "right", // undermine the rock (one swing)
       "right", // step clear; countdown ticks
       "right", // countdown hits zero: the rock drops behind the miner
@@ -957,36 +953,23 @@ describe("mine", () => {
     });
   });
 
-  /**
-   * Blast a true gap under the shaft mouth: dynamite-down plants the
-   * charge at (4,1), the surface step left creates the gap and clears
-   * (4,1), (4,2), (3,1), (5,1), leaving (4,2) an empty void with no
-   * ladder in it. Rows 1-2 are rock- and hazard-free, so only a rare
-   * part-cache could survive the blast; the emptiness asserts guard
-   * against picking such a seed.
-   */
-  function blastGap(seed: number) {
-    const state = createMine(seed, DEFAULT_GEAR, {
-      dynamite: 1,
-      rope: 0,
-      ladder: 0,
-      plank: 4,
-      beacon: 0,
-    });
-    expect(applyAction(state, "dynamite-down").ok).toBe(true);
-    const blast = applyAction(state, "left");
-    expect(blast.ok && blast.exploded).toEqual({ col: START_COL, row: 1 });
-    expect(cellAt(state, START_COL, 1)?.kind).toBe("empty");
-    expect(cellAt(state, START_COL, 2)?.kind).toBe("empty");
-    expect(cellAt(state, START_COL - 1, 1)?.kind).toBe("empty");
-    step(state, "down");
+  function lateralGapState(planks: number) {
+    const state = createMine(101, DEFAULT_GEAR, stock({ plank: planks }));
+    const c = START_COL;
+    state.miner.col = c - 1;
+    state.miner.row = 1;
+    setCell(state, c - 1, 1, { kind: "empty" });
+    setCell(state, c - 1, 2, { kind: "dirt" });
+    setCell(state, c, 1, { kind: "empty" });
+    setCell(state, c, 2, { kind: "empty" });
+    setCell(state, c, 3, { kind: "dirt" });
     return state;
   }
 
   it("bridges lateral gaps with planks and reuses them", () => {
-    // Standing at (3,1) after the blast, stepping right into (4,1)
-    // crosses the void at (4,2): no ladder anywhere, so a plank goes in.
-    const state = blastGap(101);
+    // Standing at (3,1), stepping right into (4,1) crosses the void at
+    // (4,2): no ladder anywhere, so an owned plank goes in.
+    const state = lateralGapState(4);
     expect(state.used.plank).toBe(0);
     const cross = step(state, "right");
     expect(cross.ok && cross.planked).toBe(true);
@@ -1000,13 +983,33 @@ describe("mine", () => {
     expect(state.used.plank).toBe(1);
   });
 
-  it("refuses the gap step without planks, costing nothing", () => {
-    const state = blastGap(103);
-    state.consumables.plank = 0;
+  it("falls through a lateral gap instead of refusing without planks", () => {
+    const state = lateralGapState(0);
     const energy = state.miner.energy;
-    expect(step(state, "right")).toEqual({ ok: false, reason: "no-plank" });
-    expect(state.miner.col).toBe(START_COL - 1);
-    expect(state.miner.energy).toBe(energy);
+    const result = step(state, "right");
+    expect(result.ok && result.fell).toBe(1);
+    expect(state.miner.col).toBe(START_COL);
+    expect(state.miner.row).toBe(2);
+    expect(state.miner.energy).toBe(energy - MOVE_COST);
+    expect(state.used.plank).toBe(0);
+  });
+
+  it("allows side digs without planks and drops through the opened gap", () => {
+    const state = createMine(105, { ...DEFAULT_GEAR, pickaxe: 4 }, stock({}));
+    const c = START_COL;
+    state.miner.col = c;
+    state.miner.row = 5;
+    setCell(state, c, 5, { kind: "empty" });
+    setCell(state, c, 6, { kind: "dirt" });
+    setCell(state, c + 1, 5, { kind: "dirt" });
+    setCell(state, c + 1, 6, { kind: "empty" });
+    setCell(state, c + 1, 7, { kind: "dirt" });
+    const result = step(state, "right");
+    expect(result.ok && result.dug).toBe("dirt");
+    expect(result.ok && result.fell).toBe(1);
+    expect(state.miner.col).toBe(c + 1);
+    expect(state.miner.row).toBe(6);
+    expect(state.used.plank).toBe(0);
   });
 
   it("never spends planks where ladders already support the step", () => {
@@ -1042,6 +1045,41 @@ describe("mine", () => {
     const cross = step(state, "right");
     expect(cross.ok && !cross.planked).toBe(true);
     expect(state.used.plank).toBe(0);
+  });
+
+  it("collects a planted ladder back into carried stock", () => {
+    const owned = stock({ ladder: 1 });
+    const state = createMine(87, DEFAULT_GEAR, owned);
+    dig(state, "down");
+    const climb = step(state, "up");
+    expect(climb.ok && climb.laddered).toBe(true);
+    expect(state.consumables.ladder).toBe(0);
+    step(state, "down");
+    const collected = applyAction(state, "collect-ladder");
+    expect(collected.ok && collected.collectedLadder).toBe(true);
+    expect(cellAt(state, START_COL, 1)?.ladder).toBeUndefined();
+    expect(state.consumables.ladder).toBe(1);
+    expect(state.used.ladder).toBe(0);
+    expect(carryoverConsumables(state).ladder).toBe(1);
+  });
+
+  it("recovers old world ladders without charging future reuse", () => {
+    const diff: WorldDiff = [[START_COL, 1, { kind: "empty", ladder: true }]];
+    const state = createMine(88, DEFAULT_GEAR, stock({}), diff);
+    step(state, "down");
+    expect(applyAction(state, "collect-ladder").ok).toBe(true);
+    expect(state.recovered.ladder).toBe(1);
+    step(state, "up");
+    expect(state.used.ladder).toBe(1);
+    const replayed = replayTrip(
+      88,
+      ["down", "collect-ladder", "up"],
+      DEFAULT_GEAR,
+      stock({}),
+      diff,
+    );
+    expect(replayed.used.ladder).toBe(1);
+    expect(replayed.recovered.ladder).toBe(1);
   });
 
   it("abandons the trip from anywhere, forfeiting the carry", () => {
@@ -1101,14 +1139,7 @@ describe("mine", () => {
   });
 
   it("replays plank trips identically", () => {
-    const actions: MineAction[] = [
-      "dynamite-down",
-      "left",
-      "down",
-      "right",
-      "left",
-      "right",
-    ];
+    const actions: MineAction[] = ["down", "right", "left", "right"];
     const consumables = {
       dynamite: 1,
       rope: 0,
@@ -1116,12 +1147,20 @@ describe("mine", () => {
       plank: 4,
       beacon: 0,
     };
-    const state = createMine(109, DEFAULT_GEAR, consumables);
+    const c = START_COL;
+    const diff: WorldDiff = [
+      [c, 1, { kind: "empty" }],
+      [c, 2, { kind: "dirt" }],
+      [c + 1, 1, { kind: "empty" }],
+      [c + 1, 2, { kind: "empty" }],
+      [c + 1, 3, { kind: "dirt" }],
+    ];
+    const state = createMine(109, DEFAULT_GEAR, consumables, diff);
     for (const action of actions) applyAction(state, action);
-    const replayed = replayTrip(109, actions, DEFAULT_GEAR, consumables);
+    const replayed = replayTrip(109, actions, DEFAULT_GEAR, consumables, diff);
     expect(replayed.used.plank).toBe(state.used.plank);
     expect(replayed.used.plank).toBe(1);
-    expect(replayTrip(109, actions, DEFAULT_GEAR, consumables)).toEqual(
+    expect(replayTrip(109, actions, DEFAULT_GEAR, consumables, diff)).toEqual(
       replayed,
     );
   });

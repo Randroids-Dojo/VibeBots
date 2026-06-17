@@ -1082,6 +1082,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [abandonArmed, setAbandonArmed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
+  const [cashNoteVisible, setCashNoteVisible] = useState(false);
   // The column whose stall sheet is open. Standing on a stall no longer
   // auto-opens it: a prompt button appears and tapping it sets this.
   // Stepping off clears it, so walking by never pops the menu.
@@ -1120,6 +1121,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       playMineSfxEvent("deny");
     }
   }, [cashOut.state]);
+
+  useEffect(() => {
+    if (cashOut.state === "idle" || cashOut.state === "pending") {
+      setCashNoteVisible(false);
+      return;
+    }
+    setCashNoteVisible(true);
+    const timer = setTimeout(() => setCashNoteVisible(false), 3600);
+    return () => clearTimeout(timer);
+  }, [cashOut]);
 
   useEffect(() => {
     if (!shopNote || shopNote === lastShopNoteRef.current) return;
@@ -1179,6 +1190,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, []);
 
   const miner = mine.miner;
+  const currentCell = cellAt(mine, miner.col, miner.row);
   const stratum = stratumAt(miner.row);
   const carryValue = carriedValue(miner);
   const climbCost = returnEnergyCost(miner);
@@ -1194,6 +1206,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // Destination buildings (Workshop, Battles) route to another screen
   // instead of opening a sheet. The surface is the overworld hub.
   const destination = miner.row === 0 ? destinationAt(miner.col) : null;
+  const lostCargo = miner.lostCargo;
+  const lostDistance = lostCargo
+    ? Math.abs(lostCargo.col - miner.col) + Math.abs(lostCargo.row - miner.row)
+    : 0;
+  const lostPulseSeconds = lostCargo
+    ? Math.max(0.45, Math.min(1.6, 0.35 + lostDistance * 0.08))
+    : 1;
 
   // One terse toast, game-style: the chips carry the numbers.
   const statusLine =
@@ -1493,7 +1512,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         {statusLine && (
           <span style={{ ...chipStyle, color: "#f5c542" }}>{statusLine}</span>
         )}
-        {cashNote && (
+        {cashNote && cashNoteVisible && (
           <span
             style={{
               ...chipStyle,
@@ -1501,6 +1520,26 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             }}
           >
             {cashNote}
+          </span>
+        )}
+        {lostCargo && (
+          <span
+            className="mine-lost-locator"
+            title={`Dropped cargo locator, ${lostDistance} cells away`}
+            style={{
+              ...chipStyle,
+              color: lostDistance <= 1 ? "#f5c542" : "#ff9f6b",
+              borderColor:
+                lostDistance <= 1
+                  ? "rgba(245, 197, 66, 0.75)"
+                  : "rgba(255, 159, 107, 0.55)",
+              animationDuration: `${lostPulseSeconds}s`,
+            }}
+          >
+            &#128229;{" "}
+            {lostDistance === 0
+              ? "Dropped cargo here"
+              : `Dropped cargo ${lostDistance} cells away`}
           </span>
         )}
       </section>
@@ -1530,6 +1569,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         <span style={{ ...chipStyle, color: "#8b93a7" }}>
           &#129717; {mine.consumables.plank}
         </span>
+        {miner.row >= 1 && currentCell?.ladder && (
+          <button
+            type="button"
+            aria-label="Pick up ladder"
+            onClick={() => {
+              setDynamiteArmed(false);
+              move("collect-ladder");
+            }}
+            style={iconButtonStyle}
+          >
+            &#129692;&#8593;
+          </button>
+        )}
         <button
           type="button"
           aria-label={`Dynamite (${mine.consumables.dynamite})`}

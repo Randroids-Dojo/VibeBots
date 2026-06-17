@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-backlog-fixes" data-date="2026-06-17">
+    <h3>Mine Backlog Fixes: Falls, Ladders, Locator, And Toast Timeout</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-backlog-fixes</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Addressed the active user-reported mining backlog in one coordinated rules slice. Unsupported lateral moves no longer fail just because the player has no planks: if a plank is available it still bridges the target cell, otherwise the miner enters and falls through empty cells until supported. Gravity also runs after supports disappear, so a cell collapsing below the miner cannot leave them floating in midair. Added a logged <code>collect-ladder</code> action and a HUD button on planted ladders so ladders can be picked back up, with server replay accounting forgiving recovered ladder reuse. Failed trips now remember the dropped-cargo location, and the HUD shows a locator chip whose pulse gets faster as the miner gets closer. Cash-out messages such as "Sold for 3 vibes" now auto-hide after a short delay. <code>MINE_VERSION</code> 18 -&gt; 19 because replay movement and action vocabulary changed.</dd>
+      <dt>Verification</dt><dd>Initial feature-branch verification passed with <code>pnpm lint</code> (one existing warning in <code>src/components/mine-touch-controls.tsx</code>), <code>pnpm test</code> (119 tests), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm check:purity</code>, <code>pnpm build</code>, and Playwright smoke against a fresh production server on port 3001 (18 passed, 2 storage-gated tests skipped). Final integrated verification is recorded in the release 0.1.1 entry.</dd>
+      <dt>Assumptions</dt><dd>Falling is an immediate deterministic settlement after a move or support removal, not a timed hazard. Recovered old-world ladders are reusable stock; if re-used later in the same trip they offset the server-side ladder decrement. The dropped-cargo locator points to the last loss but does not yet make lost cargo collectible.</dd>
+      <dt>GDD coverage</dt><dd>No status rows changed; the slice tightens shipped REQ-015, REQ-017, REQ-020, and REQ-022 behavior. <code>docs/gdd/06-mining.html</code> gained a build-log entry.</dd>
+      <dt>Followups</dt><dd>Closes dots <code>VibeBots-mine-allow-side-3d2d6bf2</code>, <code>VibeBots-mine-collect-already-6dd5104e</code>, <code>VibeBots-mine-auto-clear-19e90586</code>, <code>VibeBots-mine-add-pulsing-a22d7f47</code>, <code>VibeBots-mine-make-player-98c9ad79</code>, and <code>VibeBots-mine-fix-floating-087847cf</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-dynamite-fuse-juice" data-date="2026-06-16">
     <h3>Make Dynamite A Visible Lit Charge Before It Explodes</h3>
     <dl>

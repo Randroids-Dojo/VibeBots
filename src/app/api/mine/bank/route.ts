@@ -200,7 +200,7 @@ export async function POST(request: Request): Promise<Response> {
           dynamite_count = GREATEST(0, dynamite_count - ${trip.used.dynamite}),
           rope_count = GREATEST(0, rope_count - ${trip.used.rope}),
           ladder_count = GREATEST(0, ladder_count
-            - ${Math.max(0, trip.used.ladder - trip.granted.ladder)}),
+            - ${Math.max(0, trip.used.ladder - trip.granted.ladder - trip.recovered.ladder)}),
           plank_count = GREATEST(0, plank_count
             - ${Math.max(0, trip.used.plank - trip.granted.plank)}),
           beacon_count = GREATEST(0, beacon_count - ${trip.used.beacon})

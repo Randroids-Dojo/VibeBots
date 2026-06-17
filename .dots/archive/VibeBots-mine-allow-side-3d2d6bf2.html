@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mine: allow side digs without planks when unsupported below</title>
+<meta name="dot-title" content="Mine: allow side digs without planks when unsupported below">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-06-16T10:54:15.258465-05:00">
+<meta name="dot-closed-at" content="2026-06-16T21:29:06.771994-05:00">
+<meta name="dot-close-reason" content="Fixed by fallback gravity on unsupported lateral movement. Verified with sim tests, lint, typecheck, build, and Playwright smoke.">
+</head>
+<body>
+<article>
+<h1>Mine: allow side digs without planks when unsupported below</h1>
+<section id="description">
+Bug: the player cannot dig left or right if they have no planks and the target dirt has no dirt below it. Side digging should still work in that case instead of requiring plank support.
+</section>
+</article>
+</body>
+</html>

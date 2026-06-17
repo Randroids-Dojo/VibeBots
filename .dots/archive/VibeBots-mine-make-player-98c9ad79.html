@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mine: make player fall through empty cells</title>
+<meta name="dot-title" content="Mine: make player fall through empty cells">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-06-16T10:57:53.957847-05:00">
+<meta name="dot-closed-at" content="2026-06-16T21:29:06.786156-05:00">
+<meta name="dot-close-reason" content="Fixed by applying gravity through empty cells instead of letting the miner float. Verified with sim tests, lint, typecheck, build, and Playwright smoke.">
+</head>
+<body>
+<article>
+<h1>Mine: make player fall through empty cells</h1>
+<section id="description">
+Bug: empty cells should not behave like ladders. When the player is over empty space without a ladder or solid support, they should fall down through empty cells until supported.
+</section>
+</article>
+</body>
+</html>

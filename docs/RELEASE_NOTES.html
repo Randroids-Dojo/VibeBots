@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.18" data-date="2026-06-17">
+    <h2>0.1.18</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.18</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>23</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Long-running mine trips with stale ladder or plank snapshots no longer fail cash-out just because the submitted support count is above the stored support count. Server replay uses the server-owned support stock and credits only what that replay can actually sell.</dd>
+      <dt>Security</dt><dd>Dynamite, rope, and beacon overclaims still hard-fail before replay. The relaxed path applies only to ladder and plank snapshot drift, which cannot inflate payout because replay ignores the submitted support count.</dd>
+      <dt>Operations</dt><dd>The fix was traced from Vercel production alert logs showing repeated <code>mine.cash_out.consumables_not_owned</code> events with <code>detail="support consumable overclaim"</code>, where submitted ladder stock was one above owned stock for the same long-running mine.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and smoke files, focused Vitest for the bank route, player profile, DB markers, and monitoring payloads (14 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (158 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and full Playwright smoke on a fresh production server on port 3063 (27 passed, 2 storage-gated skips).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.17" data-date="2026-06-17">
     <h2>0.1.17</h2>
     <dl>

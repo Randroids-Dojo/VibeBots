@@ -433,17 +433,18 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Fatal free falls now stay on camera");
-  await expect(dialog.locator("li")).toHaveCount(4);
+  await expect(dialog).toContainText(
+    "Older mine trips with stale ladder or plank counts",
+  );
+  await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "camera follows the miner",
+    "Server replay now uses the ladder and plank stock",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "impact burst and fall-death SFX",
+    "Dynamite, rope, and beacon snapshots",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("Fell too far");
-  await expect(dialog.locator("li").nth(3)).toContainText(
-    "deterministic death recovery",
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "production alert logs",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -464,40 +465,42 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.17");
-  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.16");
-  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.15");
-  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.14");
-  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.13");
-  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.12");
-  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.11");
-  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.10");
-  await expect(notes.nth(8)).toHaveAttribute("data-release-note", "0.1.9");
-  await expect(notes.nth(9)).toHaveAttribute("data-release-note", "0.1.8");
-  await expect(notes.nth(10)).toHaveAttribute("data-release-note", "0.1.7");
-  await expect(notes.nth(11)).toHaveAttribute("data-release-note", "0.1.6");
-  await expect(notes.nth(12)).toHaveAttribute("data-release-note", "0.1.5");
-  await expect(notes.nth(13)).toHaveAttribute("data-release-note", "0.1.4");
-  await expect(notes.nth(14)).toHaveAttribute("data-release-note", "0.1.3");
-  await expect(notes.nth(15)).toHaveAttribute("data-release-note", "0.1.2");
-  await expect(notes.nth(16)).toHaveAttribute("data-release-note", "0.1.1");
-  await expect(notes.first()).toContainText("Fall death feedback");
-  await expect(notes.nth(1)).toContainText("Base return danger confirm");
-  await expect(notes.nth(2)).toContainText("Legacy support cash-out");
-  await expect(notes.nth(3)).toContainText("Thumbstick cadence");
-  await expect(notes.nth(4)).toContainText("Buyer appraisal");
-  await expect(notes.nth(5)).toContainText("Mine motion polish");
-  await expect(notes.nth(6)).toContainText("Horizontal mine visibility");
-  await expect(notes.nth(7)).toContainText("Mine action feel");
-  await expect(notes.nth(8)).toContainText("Base return confirmation");
-  await expect(notes.nth(9)).toContainText("Mine resource stacks");
-  await expect(notes.nth(10)).toContainText("Surface base return");
-  await expect(notes.nth(11)).toContainText("Mine flow fixes");
-  await expect(notes.nth(12)).toContainText("Auto-bank upgrades");
-  await expect(notes.nth(13)).toContainText("Lantern-gated mine zoom");
-  await expect(notes.nth(14)).toContainText("Robot battery");
-  await expect(notes.nth(15)).toContainText("Workshop inventory");
-  await expect(notes.nth(16)).toContainText("Fall Harness");
+  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.18");
+  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.17");
+  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.16");
+  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.15");
+  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.14");
+  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.13");
+  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.12");
+  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.11");
+  await expect(notes.nth(8)).toHaveAttribute("data-release-note", "0.1.10");
+  await expect(notes.nth(9)).toHaveAttribute("data-release-note", "0.1.9");
+  await expect(notes.nth(10)).toHaveAttribute("data-release-note", "0.1.8");
+  await expect(notes.nth(11)).toHaveAttribute("data-release-note", "0.1.7");
+  await expect(notes.nth(12)).toHaveAttribute("data-release-note", "0.1.6");
+  await expect(notes.nth(13)).toHaveAttribute("data-release-note", "0.1.5");
+  await expect(notes.nth(14)).toHaveAttribute("data-release-note", "0.1.4");
+  await expect(notes.nth(15)).toHaveAttribute("data-release-note", "0.1.3");
+  await expect(notes.nth(16)).toHaveAttribute("data-release-note", "0.1.2");
+  await expect(notes.nth(17)).toHaveAttribute("data-release-note", "0.1.1");
+  await expect(notes.first()).toContainText("Support snapshot cash-out fix");
+  await expect(notes.nth(1)).toContainText("Fall death feedback");
+  await expect(notes.nth(2)).toContainText("Base return danger confirm");
+  await expect(notes.nth(3)).toContainText("Legacy support cash-out");
+  await expect(notes.nth(4)).toContainText("Thumbstick cadence");
+  await expect(notes.nth(5)).toContainText("Buyer appraisal");
+  await expect(notes.nth(6)).toContainText("Mine motion polish");
+  await expect(notes.nth(7)).toContainText("Horizontal mine visibility");
+  await expect(notes.nth(8)).toContainText("Mine action feel");
+  await expect(notes.nth(9)).toContainText("Base return confirmation");
+  await expect(notes.nth(10)).toContainText("Mine resource stacks");
+  await expect(notes.nth(11)).toContainText("Surface base return");
+  await expect(notes.nth(12)).toContainText("Mine flow fixes");
+  await expect(notes.nth(13)).toContainText("Auto-bank upgrades");
+  await expect(notes.nth(14)).toContainText("Lantern-gated mine zoom");
+  await expect(notes.nth(15)).toContainText("Robot battery");
+  await expect(notes.nth(16)).toContainText("Workshop inventory");
+  await expect(notes.nth(17)).toContainText("Fall Harness");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });

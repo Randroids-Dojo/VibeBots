@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.17-fall-death-presentation";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.18-support-snapshot-cashout";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.18",
+      date: "2026-06-17",
+      title: "Support snapshot cash-out fix",
+      intro:
+        "Older mine trips with stale ladder or plank counts can now finish selling at the surface.",
+      changes: [
+        {
+          build,
+          text: "Server replay now uses the ladder and plank stock saved on the player row instead of failing when an old client snapshot is off by a rung.",
+        },
+        {
+          build,
+          text: "Dynamite, rope, and beacon snapshots still hard-fail when they exceed server-owned stock, so paid consumables cannot be faked.",
+        },
+        {
+          build,
+          text: "The fix is based on production alert logs that showed repeated support-only cash-out rejects for one long-running mine.",
+        },
+      ],
+    },
     {
       version: "0.1.17",
       date: "2026-06-17",

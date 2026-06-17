@@ -9,7 +9,6 @@ import {
 } from "@/sim/mine";
 import {
   chargeableConsumables,
-  consumableSnapshotExceedsOwned,
   gearOwnershipError,
   POST,
   paidConsumableSnapshotExceedsOwned,
@@ -187,22 +186,28 @@ describe("POST /api/mine/bank", () => {
     });
   });
 
-  it("rejects repeated free support snapshots after the legacy marker", async () => {
-    const sql = mockSql();
+  it("ignores stale support snapshots after the legacy marker", async () => {
+    const sql = mockSql({
+      ...ownedBase,
+      ladder_count: 13,
+      plank_count: 4,
+    });
 
     const res = await post({
-      moves: ["down", "down", "down", "down", "up"],
-      consumables: STARTING_CONSUMABLES,
+      moves: ["down"],
+      consumables: { ...NO_CONSUMABLES, ladder: 14, plank: 2 },
     });
 
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      error: "consumables not owned",
+      balance: 12,
+      tripIndex: 1,
     });
-    expect(sql).toHaveBeenCalledTimes(2);
+    expect(sql).toHaveBeenCalledTimes(3);
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it("rejects legacy support snapshots above the starter floor", async () => {
+  it("caps legacy support snapshots above the starter floor", async () => {
     const sql = mockSql({
       ...ownedBase,
       legacy_support_snapshot_reconciled_at: null,
@@ -213,11 +218,12 @@ describe("POST /api/mine/bank", () => {
       consumables: { ...STARTING_CONSUMABLES, ladder: 9 },
     });
 
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      error: "consumables not owned",
+      balance: 12,
+      tripIndex: 1,
     });
-    expect(sql).toHaveBeenCalledTimes(2);
+    expect(sql).toHaveBeenCalledTimes(3);
   });
 
   it("replays with server-owned consumables instead of the submitted snapshot", async () => {
@@ -256,15 +262,6 @@ describe("mine bank policy helpers", () => {
       "gear not owned: pickaxe level 2",
     );
     expect(gearOwnershipError(DEFAULT_GEAR, ownedBase)).toBeNull();
-  });
-
-  it("detects submitted consumable snapshots above owned stock", () => {
-    expect(
-      consumableSnapshotExceedsOwned(stock({ rope: 2 }), stock({ rope: 1 })),
-    ).toBe(true);
-    expect(
-      consumableSnapshotExceedsOwned(stock({ rope: 1 }), stock({ rope: 2 })),
-    ).toBe(false);
   });
 
   it("separates paid consumable ownership from support reconciliation", () => {

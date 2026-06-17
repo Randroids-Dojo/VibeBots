@@ -120,19 +120,6 @@ export function gearOwnershipError(
   return null;
 }
 
-export function consumableSnapshotExceedsOwned(
-  submitted: MineConsumables,
-  owned: MineConsumables,
-): boolean {
-  return (
-    submitted.dynamite > owned.dynamite ||
-    submitted.rope > owned.rope ||
-    submitted.ladder > owned.ladder ||
-    submitted.plank > owned.plank ||
-    submitted.beacon > owned.beacon
-  );
-}
-
 export function paidConsumableSnapshotExceedsOwned(
   submitted: MineConsumables,
   owned: MineConsumables,
@@ -311,18 +298,6 @@ export async function POST(request: Request): Promise<Response> {
     ownedRow,
   );
   const replayConsumables = replayStock.consumables;
-  if (consumableSnapshotExceedsOwned(submittedConsumables, replayConsumables)) {
-    logMineCashOutEvent({
-      code: "consumables_not_owned",
-      severity: "error",
-      ...playerLogContext,
-      detail: "support consumable overclaim",
-      submitted: submittedConsumables,
-      owned: ownedConsumables,
-      replay: replayConsumables,
-    });
-    return Response.json({ error: "consumables not owned" }, { status: 422 });
-  }
   const trip = replayTrip(
     parsed.data.seed,
     parsed.data.moves as MineAction[],

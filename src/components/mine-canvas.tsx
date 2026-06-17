@@ -26,6 +26,7 @@ import {
   FALL_DELAY_ACTIONS,
   hitsFor,
   isVisible,
+  lanternDistance,
   lightRadius,
   type MineCell,
   type OreId,
@@ -1563,6 +1564,10 @@ function MineScene({
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
   const litBelow = lightRadius(mine.gear);
+  const renderRadius = renderWindow.below;
+  const renderColRadius = Math.min(renderWindow.cols, renderRadius);
+  const firstCol = mine.miner.col - renderColRadius;
+  const lastCol = mine.miner.col + renderColRadius;
   const firstRow = Math.max(0, minerRow - renderWindow.above);
   const lastRow = minerRow + renderWindow.below;
 
@@ -1704,6 +1709,9 @@ function MineScene({
       state.gl.domElement.dataset.camZoom = cameraZoom.toFixed(2);
       state.gl.domElement.dataset.renderBelow = String(renderWindow.below);
       state.gl.domElement.dataset.litBelow = String(litBelow);
+      state.gl.domElement.dataset.renderRadius = String(renderRadius);
+      state.gl.domElement.dataset.renderMinCol = String(firstCol);
+      state.gl.domElement.dataset.renderMaxCol = String(lastCol);
       depthT = Math.min(1, Math.max(0, -rig.position.y / DARK_DEPTH));
     }
     // Daylight dies with depth; the lamp takes over as the key light.
@@ -1882,17 +1890,15 @@ function MineScene({
   const supportSelectMeshes: ReactNode[] = [];
   const selectedSupportSet = new Set(selectedSupportKeys ?? []);
   for (let row = firstRow; row <= lastRow; row++) {
-    for (
-      let col = mine.miner.col - renderWindow.cols;
-      col <= mine.miner.col + renderWindow.cols;
-      col++
-    ) {
+    for (let col = firstCol; col <= lastCol; col++) {
+      const distanceFromMiner = lanternDistance(mine, col, row);
+      if (distanceFromMiner > renderRadius) continue;
       const cell = cellAt(mine, col, row);
       if (!cell) continue;
       const key = `${col}:${row}`;
       const x = cellX(col);
       const y = -row;
-      const beyondLight = Math.max(0, row - (minerRow + litBelow));
+      const beyondLight = Math.max(0, distanceFromMiner - litBelow);
       if (beyondLight > 0) {
         const fade = Math.min(1, beyondLight / MINE_CAMERA_FALLOFF_ROWS);
         darknessMeshes.push(
@@ -2267,11 +2273,11 @@ function MineScene({
   const charge = mine.pendingDynamite;
   if (
     charge &&
-    isVisible(mine, charge.row) &&
+    isVisible(mine, charge.col, charge.row) &&
     charge.row >= firstRow &&
     charge.row <= lastRow &&
-    charge.col >= mine.miner.col - renderWindow.cols &&
-    charge.col <= mine.miner.col + renderWindow.cols
+    charge.col >= firstCol &&
+    charge.col <= lastCol
   ) {
     blockMeshes.push(
       <DynamiteCharge

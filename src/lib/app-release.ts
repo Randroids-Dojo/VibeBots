@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.10-mine-action-feel";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.11-horizontal-mine-visibility";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.11",
+      date: "2026-06-17",
+      title: "Horizontal mine visibility",
+      intro:
+        "Mine visibility now respects the Lantern range left and right, not just below the miner.",
+      changes: [
+        {
+          build,
+          text: "Lantern visibility now applies left and right as well as downward, so distant horizontal cells stay hidden until you move closer.",
+        },
+        {
+          build,
+          text: "Zoom-out is capped horizontally by the current Lantern reach plus the same short dark falloff band.",
+        },
+        {
+          build,
+          text: "Dark-edge cells still use the same generated mine data that appears when the miner reaches those cells later.",
+        },
+      ],
+    },
     {
       version: "0.1.10",
       date: "2026-06-17",

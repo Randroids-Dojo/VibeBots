@@ -19,7 +19,7 @@ describe("mine camera zoom", () => {
     expect(clampMineCameraZoom(99, upgraded)).toBe(maxMineCameraZoom(upgraded));
   });
 
-  it("renders real mine rows down through the lantern falloff band", () => {
+  it("renders real mine cells through the lantern falloff band", () => {
     expect(mineRenderWindow({ ...DEFAULT_GEAR, lantern: 1 }, 1).below).toBe(5);
     expect(mineRenderWindow({ ...DEFAULT_GEAR, lantern: 2 }, 1.1).below).toBe(
       7,

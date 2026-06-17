@@ -85,7 +85,11 @@ async function dismissReleaseNotes(page: Page): Promise<void> {
 
 import { SIM_VERSION } from "../../src/sim/constants";
 import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
-import { DEFAULT_GEAR, STARTING_CONSUMABLES } from "../../src/sim/mine";
+import {
+  DEFAULT_GEAR,
+  START_COL,
+  STARTING_CONSUMABLES,
+} from "../../src/sim/mine";
 
 test("arena page renders a moving match (Rule 10 motion QA)", async ({
   page,
@@ -365,16 +369,16 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Movement and mining now respond");
-  await expect(dialog.locator("li")).toHaveCount(4);
+  await expect(dialog).toContainText("Mine visibility now respects");
+  await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Fresh keyboard presses and new thumbstick directions",
+    "Lantern visibility now applies left and right",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "much faster pickaxe-scaled cadence",
+    "Zoom-out is capped horizontally",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "frame-rate-independent easing",
+    "Dark-edge cells still use the same generated mine data",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -395,26 +399,28 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.10");
-  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.9");
-  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.8");
-  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.7");
-  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.6");
-  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.5");
-  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.4");
-  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.3");
-  await expect(notes.nth(8)).toHaveAttribute("data-release-note", "0.1.2");
-  await expect(notes.nth(9)).toHaveAttribute("data-release-note", "0.1.1");
-  await expect(notes.first()).toContainText("Mine action feel");
-  await expect(notes.nth(1)).toContainText("Base return confirmation");
-  await expect(notes.nth(2)).toContainText("Mine resource stacks");
-  await expect(notes.nth(3)).toContainText("Surface base return");
-  await expect(notes.nth(4)).toContainText("Mine flow fixes");
-  await expect(notes.nth(5)).toContainText("Auto-bank upgrades");
-  await expect(notes.nth(6)).toContainText("Lantern-gated mine zoom");
-  await expect(notes.nth(7)).toContainText("Robot battery");
-  await expect(notes.nth(8)).toContainText("Workshop inventory");
-  await expect(notes.nth(9)).toContainText("Fall Harness");
+  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.11");
+  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.10");
+  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.9");
+  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.8");
+  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.7");
+  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.6");
+  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.5");
+  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.4");
+  await expect(notes.nth(8)).toHaveAttribute("data-release-note", "0.1.3");
+  await expect(notes.nth(9)).toHaveAttribute("data-release-note", "0.1.2");
+  await expect(notes.nth(10)).toHaveAttribute("data-release-note", "0.1.1");
+  await expect(notes.first()).toContainText("Horizontal mine visibility");
+  await expect(notes.nth(1)).toContainText("Mine action feel");
+  await expect(notes.nth(2)).toContainText("Base return confirmation");
+  await expect(notes.nth(3)).toContainText("Mine resource stacks");
+  await expect(notes.nth(4)).toContainText("Surface base return");
+  await expect(notes.nth(5)).toContainText("Mine flow fixes");
+  await expect(notes.nth(6)).toContainText("Auto-bank upgrades");
+  await expect(notes.nth(7)).toContainText("Lantern-gated mine zoom");
+  await expect(notes.nth(8)).toContainText("Robot battery");
+  await expect(notes.nth(9)).toContainText("Workshop inventory");
+  await expect(notes.nth(10)).toContainText("Fall Harness");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });
@@ -715,6 +721,15 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
     .toBeGreaterThan(startZoom);
   await expect(canvas).toHaveAttribute("data-lit-below", "3");
   await expect(canvas).toHaveAttribute("data-render-below", "5");
+  await expect(canvas).toHaveAttribute("data-render-radius", "5");
+  await expect(canvas).toHaveAttribute(
+    "data-render-min-col",
+    String(START_COL - 5),
+  );
+  await expect(canvas).toHaveAttribute(
+    "data-render-max-col",
+    String(START_COL + 5),
+  );
 });
 
 test("the carved world survives a reload (REQ-026)", async ({ page }) => {

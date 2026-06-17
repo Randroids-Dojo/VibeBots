@@ -1697,7 +1697,7 @@ export function collectablePlacements(state: MineState): CollectTarget[] {
   for (const [key, cell] of state.cells) {
     if (!cell.ladder && !cell.plank) continue;
     const [col, row] = key.split(",").map(Number);
-    if (!isVisible(state, row)) continue;
+    if (!isVisible(state, col, row)) continue;
     if (cell.ladder) items.push({ type: "ladder", col, row });
     if (cell.plank) items.push({ type: "plank", col, row });
   }
@@ -1712,7 +1712,7 @@ function collectPlaced(state: MineState, action: MineAction): MoveResult {
   if (!targets || targets.length === 0) return { ok: false, reason: "blocked" };
   for (const item of targets) {
     const cell = cellAt(state, item.col, item.row);
-    if (!cell || !isVisible(state, item.row) || !cell[item.type])
+    if (!cell || !isVisible(state, item.col, item.row) || !cell[item.type])
       return { ok: false, reason: "blocked" };
   }
   const collected: Partial<Record<"ladder" | "plank", number>> = {};
@@ -2219,9 +2219,21 @@ function grantRecovery(
   state.granted[item] += add;
 }
 
-/** A cell is visible when within lantern reach of the miner's row. */
-export function isVisible(state: MineState, row: number): boolean {
-  return row <= state.miner.row + lightRadius(state.gear);
+/** Grid distance used by the lantern cone below and beside the miner. */
+export function lanternDistance(
+  state: MineState,
+  col: number,
+  row: number,
+): number {
+  return Math.max(
+    Math.abs(col - state.miner.col),
+    Math.max(0, row - state.miner.row),
+  );
+}
+
+/** A cell is visible when within lantern reach of the miner's cell. */
+export function isVisible(state: MineState, col: number, row: number): boolean {
+  return lanternDistance(state, col, row) <= lightRadius(state.gear);
 }
 
 /** Hard cap on submitted move logs (server replay cost control). */

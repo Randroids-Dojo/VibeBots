@@ -30,6 +30,8 @@ import {
   LADDER_RECOVERY_FLOOR,
   LANTERN_RADIUS,
   LIGHT_RADIUS,
+  lanternDistance,
+  lightRadius,
   type MineAction,
   type MineConsumables,
   type MineState,
@@ -603,12 +605,17 @@ describe("mine", () => {
     expect(createMine(3, normalized).miner.energy).toBe(BATTERY_CHARGE[2]);
   });
 
-  it("extends visibility with the lantern level", () => {
+  it("extends visibility with the lantern level in every direction", () => {
     const base = createMine(3);
     const lit = createMine(3, { ...DEFAULT_GEAR, lantern: 3 });
     const deepRow = LANTERN_RADIUS[2];
-    expect(isVisible(base, deepRow)).toBe(false);
-    expect(isVisible(lit, deepRow)).toBe(true);
+    expect(isVisible(base, START_COL, deepRow)).toBe(false);
+    expect(isVisible(lit, START_COL, deepRow)).toBe(true);
+    expect(isVisible(base, START_COL + lightRadius(base.gear) + 1, 0)).toBe(
+      false,
+    );
+    expect(isVisible(lit, START_COL + lightRadius(lit.gear), 0)).toBe(true);
+    expect(lanternDistance(lit, START_COL + 2, lit.miner.row + 3)).toBe(3);
   });
 
   it("digs ore with a full hold and drops the overflow on the nearest surface", () => {

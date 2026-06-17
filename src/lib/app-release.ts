@@ -2,28 +2,36 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.1";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.1-fall-harness";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
       version: "0.1.1",
       date: "2026-06-17",
-      title: "Mine movement and recovery fixes",
+      title: "Mine movement, recovery, and fall fixes",
       intro:
-        "Thanks for the feedback. This update tightens mine movement, recovery, and release visibility.",
+        "Thanks for the feedback. This update tightens mine movement, recovery, cargo overflow, and fall risk.",
       changes: [
         {
           build,
-          text: "Unsupported side moves now fall through empty cells instead of refusing when planks are missing, while available planks still bridge gaps.",
+          text: "Unsupported side moves now free fall until landing. Falls over 4 cells are fatal unless Fall Harness upgrades raise the limit.",
         },
         {
           build,
-          text: "The miner now settles after support disappears, so collapses no longer leave them floating.",
+          text: "Planks no longer auto-deploy. Use the plank button to place one left or right, including under a solid block before mining it.",
         },
         {
           build,
-          text: "Placed ladders can be picked back up and reused with replay-safe accounting.",
+          text: "Collect mode lets you select visible placed ladders and planks, then return them to inventory with replay-safe accounting.",
+        },
+        {
+          build,
+          text: "Elevator rail construction now refunds ladders it replaces, and ladders or planks cannot be placed while riding the rail.",
+        },
+        {
+          build,
+          text: "A full cargo hold no longer blocks digging. Overflow ore falls to the nearest surface, stacks with a count, and can be picked up later.",
         },
         {
           build,
@@ -32,10 +40,6 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         {
           build,
           text: "Cash-out messages such as Sold for 3 vibes now auto-hide after a short delay.",
-        },
-        {
-          build,
-          text: "VibeKit is pinned to v0.3.0.",
         },
       ],
     },

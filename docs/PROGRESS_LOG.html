@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-fall-harness" data-date="2026-06-17">
+    <h3>Fatal Free Falls And Fall Harness Upgrades</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-consumable-placement</code></dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>User-directed mining rule. Unsupported miner movement now free falls until landing on a filled cell, ladder, or plank. A base miner survives falls up to 4 cells; falling more than 4 cells ends the trip like a falling-rock crush, including lost-cargo handling and death-recovery ladder/plank stock. Added the Fall Harness gear track to raise the safe fall distance, wired through gear reads, gear upgrades, cash-out replay validation, lazy Neon schema setup, the Upgrades stall, and the client gear snapshot. Refreshed the in-game and static release notes so 0.1.1 accurately covers explicit plank placement, support collection, cargo overflow drops, ladder refunds, and fatal free falls. <code>MINE_VERSION</code> 20 -&gt; 21.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched source files, <code>pnpm exec vitest run src/sim/mine.test.ts</code> (71 passing), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>pnpm test</code> (128 passing), <code>pnpm build</code>, <code>pnpm lint</code> (exit 0 with existing unused-suppression warning in <code>src/components/mine-touch-controls.tsx</code>), and <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3012.config.ts</code> against a clean production server on port 3012 (21 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>Fall death uses the existing <code>crushed</code> result path so collapse reveal, SFX, and recovery behavior match falling rocks exactly. The safe fall distance is checked per gravity settlement event; level 1 survives 4 cells, then upgrades raise the limit to 6, 9, 13, and 18.</dd>
+      <dt>GDD coverage</dt><dd>Updated REQ-013 and REQ-015 wording in <code>docs/GDD_COVERAGE.json</code>. Updated <code>docs/gdd/06-mining.html</code> gear, hazard, traversal, and build-log text.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="in-game-release-notes" data-date="2026-06-17">
     <h3>In-Game Release Updates And Settings Notes</h3>
     <dl>

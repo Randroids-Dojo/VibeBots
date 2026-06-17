@@ -738,6 +738,7 @@ const ITEM_ICONS: Record<string, string> = {
   warpcoil: "\u{1F300}",
   blast: "\u{1F4A5}",
   elevatorSpeed: "\u{1F6D7}",
+  fall: "\u{1FA82}",
 };
 
 type DepotItem = "dynamite" | "rope" | "ladder" | "plank" | "beacon";

@@ -256,10 +256,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           gear.lamp === current.lamp &&
           gear.cargo === current.cargo &&
           gear.lantern === current.lantern &&
+          gear.elevator === current.elevator &&
+          gear.warpcoil === current.warpcoil &&
+          (gear.blast ?? 1) === (current.blast ?? 1) &&
+          (gear.elevatorSpeed ?? 1) === (current.elevatorSpeed ?? 1) &&
+          (gear.fall ?? 1) === (current.fall ?? 1) &&
           consumables.dynamite === currentCons.dynamite &&
           consumables.rope === currentCons.rope &&
           consumables.ladder === currentCons.ladder &&
-          consumables.plank === currentCons.plank
+          consumables.plank === currentCons.plank &&
+          consumables.beacon === currentCons.beacon
         ) {
           return;
         }

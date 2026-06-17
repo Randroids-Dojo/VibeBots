@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 20;
+export const MINE_VERSION = 21;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -147,6 +147,11 @@ export interface MineGear {
    * Optional/back-compat like blast (absent reads as level 1, two rows).
    */
   elevatorSpeed?: number;
+  /**
+   * Fall harness level: how many unsupported cells the miner can free
+   * fall before the landing kills the trip. Optional for old snapshots.
+   */
+  fall?: number;
 }
 
 export const DEFAULT_GEAR: MineGear = {
@@ -158,6 +163,7 @@ export const DEFAULT_GEAR: MineGear = {
   warpcoil: 1,
   blast: 1,
   elevatorSpeed: 1,
+  fall: 1,
 };
 
 /** The elevator's column: the elevator runs down this shaft. */
@@ -176,6 +182,8 @@ export const LAMP_ENERGY = [60, 90, 130, 180] as const;
 export const LANTERN_RADIUS = [3, 5, 7] as const;
 /** Ore chunks the hold carries by cargo level (parts ride free). */
 export const CARGO_CAPACITY = [8, 14, 22, 32] as const;
+/** Cells the miner can fall and survive by fall-harness level. */
+export const SAFE_FALL_ROWS = [4, 6, 9, 13, 18] as const;
 
 export interface GearTrackDef {
   track: keyof MineGear;
@@ -235,6 +243,12 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     name: "Elevator Speed",
     prices: [80, 200, 500, 1300, 3500, 9000, 24000, 65000],
     blurb: "faster elevator rides (needs a rail)",
+  },
+  {
+    track: "fall",
+    name: "Fall Harness",
+    prices: [90, 250, 700, 2000],
+    blurb: "survive longer free falls",
   },
 ];
 
@@ -692,6 +706,11 @@ export function lightRadius(gear: MineGear): number {
 /** Ore chunks the hold takes for the session's gear. */
 export function cargoCapacity(gear: MineGear): number {
   return CARGO_CAPACITY[Math.min(gear.cargo, CARGO_CAPACITY.length) - 1];
+}
+
+/** Unsupported fall distance the miner can survive before the landing kills. */
+export function safeFallRows(gear: MineGear): number {
+  return SAFE_FALL_ROWS[Math.min(gear.fall ?? 1, SAFE_FALL_ROWS.length) - 1];
 }
 
 /**
@@ -1308,6 +1327,24 @@ function settleMiner(state: MineState): number {
   return fell;
 }
 
+function isFatalMinerFall(state: MineState, fell: number): boolean {
+  return fell > safeFallRows(state.gear);
+}
+
+function minerLostCargo(miner: MinerState): {
+  value: number;
+  parts: string[];
+  col: number;
+  row: number;
+} {
+  return {
+    value: carriedValue(miner),
+    parts: [...miner.carriedParts],
+    col: miner.col,
+    row: miner.row,
+  };
+}
+
 /**
  * Rock and boulders whose support vanished start a fall countdown
  * (REQ-015): they teeter for FALL_DELAY_ACTIONS actions, then drop.
@@ -1378,13 +1415,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
       const crushedMid = tickFalls(state, emptiedMid);
       settleAfterEmptied(state, emptiedMid);
       const fellMid = settleMiner(state);
-      if (crushedMid || (miner.row > 0 && miner.energy <= 0)) {
-        const lost = {
-          value: carriedValue(miner),
-          parts: [...miner.carriedParts],
-          col: miner.col,
-          row: miner.row,
-        };
+      const fellTooFarMid = isFatalMinerFall(state, fellMid);
+      if (crushedMid || fellTooFarMid || (miner.row > 0 && miner.energy <= 0)) {
+        const lost = minerLostCargo(miner);
         collapse(state, true, lost);
         return {
           ok: true,
@@ -1392,7 +1425,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
           dugOre: null,
           found: null,
           collapsed: true,
-          crushed: crushedMid,
+          crushed: crushedMid || fellTooFarMid,
           fell: fellMid || undefined,
           lost,
         };
@@ -1490,16 +1523,12 @@ export function step(state: MineState, dir: Direction): MoveResult {
   const crushed = tickFalls(state, emptied);
   settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
+  const fellTooFar = isFatalMinerFall(state, fell);
 
   let collapsed = false;
   let lost: { value: number; parts: string[]; col: number; row: number };
-  if (crushed || (miner.row > 0 && miner.energy <= 0)) {
-    lost = {
-      value: carriedValue(miner),
-      parts: [...miner.carriedParts],
-      col: miner.col,
-      row: miner.row,
-    };
+  if (crushed || fellTooFar || (miner.row > 0 && miner.energy <= 0)) {
+    lost = minerLostCargo(miner);
     collapse(state, true, lost);
     collapsed = true;
     return {
@@ -1508,7 +1537,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       dugOre,
       found,
       collapsed,
-      crushed,
+      crushed: crushed || fellTooFar,
       vented,
       dropped: dropped > 0 ? dropped : undefined,
       laddered,
@@ -1581,22 +1610,23 @@ function finishStationaryAction(
   const emptied: Array<{ col: number; row: number }> = [];
   const crushed = tickFalls(state, emptied);
   settleAfterEmptied(state, emptied);
-  if (crushed) {
-    const lost = {
-      value: carriedValue(state.miner),
-      parts: [...state.miner.carriedParts],
-      col: state.miner.col,
-      row: state.miner.row,
-    };
+  const fell = settleMiner(state);
+  const fellTooFar = isFatalMinerFall(state, fell);
+  if (crushed || fellTooFar) {
+    const lost = minerLostCargo(state.miner);
     collapse(state, true, lost);
     return {
       ...base,
       collapsed: true,
       crushed: true,
+      fell: fell || undefined,
       lost,
     };
   }
-  return maybeExplodePendingDynamite(state, base);
+  return maybeExplodePendingDynamite(state, {
+    ...base,
+    fell: fell || base.fell,
+  });
 }
 
 function placePlank(state: MineState, dir: "left" | "right"): MoveResult {
@@ -1779,6 +1809,25 @@ function maybeExplodePendingDynamite(
     ...(result.foundParts ?? []),
     ...(explosion.foundParts ?? []),
   ];
+  const fell = settleMiner(state);
+  const totalFell = (result.fell ?? 0) + fell;
+  if (isFatalMinerFall(state, totalFell)) {
+    const lost = minerLostCargo(state.miner);
+    collapse(state, true, lost);
+    return {
+      ...result,
+      vented: vented > 0 ? vented : undefined,
+      blasted: explosion.blasted,
+      collected: collected > 0 ? collected : undefined,
+      dropped: dropped > 0 ? dropped : undefined,
+      foundParts: foundParts.length > 0 ? foundParts : undefined,
+      exploded: explosion.exploded,
+      collapsed: true,
+      crushed: true,
+      fell: totalFell > 0 ? totalFell : undefined,
+      lost,
+    };
+  }
   return {
     ...result,
     vented: vented > 0 ? vented : undefined,
@@ -1787,6 +1836,7 @@ function maybeExplodePendingDynamite(
     dropped: dropped > 0 ? dropped : undefined,
     foundParts: foundParts.length > 0 ? foundParts : undefined,
     exploded: explosion.exploded,
+    fell: totalFell > 0 ? totalFell : undefined,
   };
 }
 
@@ -1808,13 +1858,9 @@ function plantDynamite(state: MineState, dir: Direction): MoveResult {
   const crushed = tickFalls(state, emptied);
   settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
-  if (crushed) {
-    const lost = {
-      value: carriedValue(state.miner),
-      parts: [...state.miner.carriedParts],
-      col: state.miner.col,
-      row: state.miner.row,
-    };
+  const fellTooFar = isFatalMinerFall(state, fell);
+  if (crushed || fellTooFar) {
+    const lost = minerLostCargo(state.miner);
     collapse(state, true, lost);
     return {
       ok: true,
@@ -1846,14 +1892,14 @@ function collectLadder(state: MineState): MoveResult {
   state.consumables.ladder++;
   if (state.used.ladder > 0) state.used.ladder--;
   else state.recovered.ladder++;
-  return {
+  return finishStationaryAction(state, {
     ok: true,
     dug: null,
     dugOre: null,
     found: null,
     collapsed: false,
     collectedLadder: true,
-  };
+  });
 }
 
 /** The recall rope: ends the trip from anywhere, banking the carry. */

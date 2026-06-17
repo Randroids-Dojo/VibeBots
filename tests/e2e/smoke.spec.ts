@@ -216,12 +216,17 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("mine movement, recovery");
-  await expect(dialog.locator("li")).toHaveCount(6);
+  await expect(dialog).toContainText("cargo overflow, and fall risk");
+  await expect(dialog.locator("li")).toHaveCount(7);
   await expect(dialog.locator("li").first()).toContainText(
-    "Unsupported side moves",
+    "free fall until landing",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("Placed ladders");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "Planks no longer auto-deploy",
+  );
+  await expect(dialog.locator("li").nth(4)).toContainText(
+    "full cargo hold no longer blocks digging",
+  );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -243,7 +248,7 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const notes = dialog.locator("[data-release-note]");
   await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.1");
   await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.0");
-  await expect(notes.first()).toContainText("Unsupported side moves");
+  await expect(notes.first()).toContainText("Fall Harness");
   await expect(notes.nth(1)).toContainText("Falling rocks");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -538,13 +543,14 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   await depot.getByRole("button", { name: "x5" }).click();
   await expect(depot).toContainText("Buy 5 for 10 vibes");
 
-  // And on to the Upgrades stall: the four gear tracks.
+  // And on to the Upgrades stall: the gear tracks.
   for (let i = 0; i < 2; i++) {
     await page.keyboard.press("ArrowRight");
   }
   const upgrades = await openStall(page, "Upgrades");
   await expect(upgrades).toContainText("Pickaxe");
   await expect(upgrades).toContainText("Cargo Hold");
+  await expect(upgrades).toContainText("Fall Harness");
 
   // Walking off the stall column closes the menu.
   await page.keyboard.press("ArrowLeft");

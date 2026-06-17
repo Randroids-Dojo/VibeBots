@@ -23,7 +23,8 @@ const gearLevel = (
     | "lantern"
     | "warpcoil"
     | "blast"
-    | "elevatorSpeed",
+    | "elevatorSpeed"
+    | "fall",
 ) => z.number().int().min(1).max(maxGearLevel(track));
 
 const bodySchema = z.object({
@@ -47,6 +48,7 @@ const bodySchema = z.object({
     // Optional: gear snapshots that predate these tracks replay as 1.
     blast: gearLevel("blast").optional(),
     elevatorSpeed: gearLevel("elevatorSpeed").optional(),
+    fall: gearLevel("fall").optional(),
   }),
   // Consumables held at session start; spent ones decrement at cash-out.
   consumables: z.object({
@@ -119,13 +121,14 @@ export async function POST(request: Request): Promise<Response> {
   const owned = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
            warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
+           fall_level,
            dynamite_count, rope_count, ladder_count, plank_count,
            beacon_count
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
   const gear = parsed.data.gear;
   // Every track whose level column is `${track}_level` validates the same
-  // way; blast joins them (absent reads as 1). elevatorSpeed's column is
-  // elevator_speed_level, so it stays a separate check below.
+  // way; optional legacy tracks absent from old snapshots read as 1.
+  // elevatorSpeed and fall use non-standard columns, so they stay below.
   for (const track of [
     "pickaxe",
     "lamp",
@@ -150,6 +153,12 @@ export async function POST(request: Request): Promise<Response> {
   if ((gear.elevatorSpeed ?? 1) > (owned[0]?.elevator_speed_level ?? 1)) {
     return Response.json(
       { error: `gear not owned: elevator speed ${gear.elevatorSpeed}` },
+      { status: 422 },
+    );
+  }
+  if ((gear.fall ?? 1) > (owned[0]?.fall_level ?? 1)) {
+    return Response.json(
+      { error: `gear not owned: fall harness ${gear.fall}` },
       { status: 422 },
     );
   }

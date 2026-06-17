@@ -13,7 +13,7 @@ export async function GET(): Promise<Response> {
   const rows = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
            warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
-           dynamite_count, rope_count, ladder_count, plank_count,
+           fall_level, dynamite_count, rope_count, ladder_count, plank_count,
            beacon_count, emeralds
     FROM players WHERE id = ${playerId}`) as Array<{
     pickaxe_level: number;
@@ -29,6 +29,7 @@ export async function GET(): Promise<Response> {
     warpcoil_level: number;
     blast_level: number;
     elevator_speed_level: number;
+    fall_level: number;
     emeralds: number;
   }>;
   const row = rows[0];
@@ -42,6 +43,7 @@ export async function GET(): Promise<Response> {
       warpcoil: row?.warpcoil_level ?? 1,
       blast: row?.blast_level ?? 1,
       elevatorSpeed: row?.elevator_speed_level ?? 1,
+      fall: row?.fall_level ?? 1,
     },
     consumables: {
       dynamite: row?.dynamite_count ?? 0,

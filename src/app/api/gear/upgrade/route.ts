@@ -14,6 +14,7 @@ const bodySchema = z.object({
     "warpcoil",
     "blast",
     "elevatorSpeed",
+    "fall",
   ]),
 });
 
@@ -26,6 +27,7 @@ const LEVEL_COLUMN: Record<string, string> = {
   warpcoil: "warpcoil_level",
   blast: "blast_level",
   elevatorSpeed: "elevator_speed_level",
+  fall: "fall_level",
 };
 
 /**
@@ -54,7 +56,7 @@ export async function POST(request: Request): Promise<Response> {
   const sql = await db();
   const current = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           warpcoil_level, blast_level, elevator_speed_level
+           warpcoil_level, blast_level, elevator_speed_level, fall_level
     FROM players WHERE id = ${playerId}`) as Array<Record<string, number>>;
   const level = current[0]?.[LEVEL_COLUMN[track]] ?? 1;
   if (level >= maxGearLevel(track)) {
@@ -108,6 +110,12 @@ export async function POST(request: Request): Promise<Response> {
           SET emeralds = emeralds - ${price}, elevator_speed_level = ${level + 1}
           WHERE id = ${playerId} AND emeralds >= ${price} AND elevator_speed_level = ${level}
           RETURNING emeralds, elevator_speed_level AS level`;
+      case "fall":
+        return sql`
+          UPDATE players
+          SET emeralds = emeralds - ${price}, fall_level = ${level + 1}
+          WHERE id = ${playerId} AND emeralds >= ${price} AND fall_level = ${level}
+          RETURNING emeralds, fall_level AS level`;
     }
   })();
   const rows = upgraded as Array<{ emeralds: number; level: number }>;

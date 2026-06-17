@@ -52,6 +52,7 @@ import {
   START_ENERGY,
   STRATA,
   SWING_COST,
+  safeFallRows,
   setCell,
   step,
   strataBonusBetween,
@@ -778,7 +779,7 @@ describe("mine", () => {
 
   it("drops an undermined rock deterministically across a replay", () => {
     const seed = 777;
-    const gear = { ...DEFAULT_GEAR, pickaxe: 4 };
+    const gear = { ...DEFAULT_GEAR, pickaxe: 4, fall: 2 };
     const c = START_COL;
     // Initial world: an empty descent shaft and a rock perched on dirt
     // that the trip will undermine and drop, with a floored escape corridor.
@@ -1108,6 +1109,60 @@ describe("mine", () => {
     expect(state.miner.row).toBe(2);
     expect(state.miner.energy).toBe(energy - MOVE_COST);
     expect(state.used.plank).toBe(0);
+  });
+
+  function lateralDropState(dropCells: number, gear = DEFAULT_GEAR) {
+    const state = createMine(115, gear);
+    const c = START_COL;
+    state.miner.col = c - 1;
+    state.miner.row = 1;
+    state.miner.carried = { coal: 2 };
+    setCell(state, c - 1, 1, { kind: "empty" });
+    setCell(state, c - 1, 2, { kind: "dirt" });
+    for (let row = 1; row <= dropCells + 1; row++) {
+      setCell(state, c, row, { kind: "empty" });
+    }
+    setCell(state, c, dropCells + 2, { kind: "dirt" });
+    return state;
+  }
+
+  it("free falls until landing and survives up to the fall limit", () => {
+    const state = lateralDropState(4);
+    const result = step(state, "right");
+    expect(result.ok && result.fell).toBe(4);
+    expect(result.ok && result.collapsed).toBe(false);
+    expect(state.miner.col).toBe(START_COL);
+    expect(state.miner.row).toBe(5);
+    expect(state.miner.carried.coal).toBe(2);
+  });
+
+  it("dies when a free fall exceeds the fall limit", () => {
+    expect(safeFallRows(DEFAULT_GEAR)).toBe(4);
+    const state = lateralDropState(5);
+    const result = step(state, "right");
+    expect(result.ok && result.fell).toBe(5);
+    expect(result.ok && result.collapsed).toBe(true);
+    expect(result.ok && result.crushed).toBe(true);
+    expect(result.ok && result.lost?.value).toBe(2);
+    expect(state.miner.row).toBe(0);
+    expect(state.miner.col).toBe(START_COL);
+    expect(state.miner.carried).toEqual({});
+    expect(state.consumables.ladder).toBe(LADDER_RECOVERY_FLOOR);
+    expect(state.consumables.plank).toBe(PLANK_RECOVERY_FLOOR);
+  });
+
+  it("fall harness upgrades raise the fatal fall distance", () => {
+    const gear = { ...DEFAULT_GEAR, fall: 2 };
+    expect(safeFallRows(gear)).toBe(6);
+    const survived = lateralDropState(6, gear);
+    const ok = step(survived, "right");
+    expect(ok.ok && ok.collapsed).toBe(false);
+    expect(survived.miner.row).toBe(7);
+
+    const killed = lateralDropState(7, gear);
+    const dead = step(killed, "right");
+    expect(dead.ok && dead.fell).toBe(7);
+    expect(dead.ok && dead.collapsed).toBe(true);
   });
 
   it("pre-places a plank under a diggable facing cell", () => {

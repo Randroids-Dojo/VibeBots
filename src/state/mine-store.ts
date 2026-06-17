@@ -597,10 +597,6 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         set({ shopNote: "teleport path is too far" });
         return false;
       }
-      if (!surfaceOnlyLog(get().moves)) {
-        set({ shopNote: "bank your haul before teleporting" });
-        return false;
-      }
       const price = Math.max(1, Math.min(99, Math.floor(cost)));
       try {
         const res = await fetch("/api/mine/base-teleport", {

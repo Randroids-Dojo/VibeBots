@@ -1309,6 +1309,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastGamepadZoomRef = useRef(0);
   const lastDirectionActionRef = useRef(0);
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
+  const previousMinerRowRef = useRef(mine.miner.row);
   const setDynamiteArmed = (value: boolean | ((prev: boolean) => boolean)) => {
     armedRef.current =
       typeof value === "function" ? value(armedRef.current) : value;
@@ -1602,8 +1603,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [cashOut.state, elevatorAutoDir, mine.gear, miner.col, miner.row, move]);
 
   useEffect(() => {
+    const previousRow = previousMinerRowRef.current;
+    previousMinerRowRef.current = miner.row;
     if (cashOut.state === "pending") return;
-    if (miner.row !== 0) return;
+    if (!(previousRow > 0 && miner.row === 0)) return;
     if (bankedCredits <= 0 && bankedPartsCount <= 0) return;
     const key = `${seed}:${tripIndex}:${movesLength}:${bankedCredits}:${bankedPartsCount}`;
     if (lastAutoCashOutKeyRef.current === key) return;

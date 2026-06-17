@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.8-mine-resource-stacks";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.9-base-return-confirm";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.9",
+      date: "2026-06-17",
+      title: "Base return confirmation",
+      intro:
+        "Paid base return now confirms reliably from the surface without trying to bank again.",
+      changes: [
+        {
+          build,
+          text: "Base return can now be confirmed after touching the mine or returning from below ground.",
+        },
+        {
+          build,
+          text: "The paid return charges vibes and moves the miner to the shaft center without forcing a mine checkpoint.",
+        },
+        {
+          build,
+          text: "Surface auto-sell now only checks when the miner comes up from below ground, not on every surface step.",
+        },
+      ],
+    },
     {
       version: "0.1.8",
       date: "2026-06-17",

@@ -110,4 +110,31 @@ describe("mine store upgrade flow", () => {
     expect(lastSaved).toBeTruthy();
     expect(JSON.parse(lastSaved?.[1] ?? "{}").moves).toEqual([]);
   });
+
+  it("returns a surfaced mining trip to the base without checkpointing", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ balance: 7 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const mine = store().mine;
+    mine.miner.col = 36;
+    mine.miner.row = 0;
+    useMineStore.setState({
+      mine,
+      moves: ["down", "up", "right"] as MineAction[],
+      tick: 3,
+    });
+
+    const ok = await store().teleportToBase(3);
+
+    expect(ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/mine/base-teleport");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ cost: 3 });
+    expect(store().tripIndex).toBe(2);
+    expect(store().mine.miner.col).toBe(0);
+    expect(store().moves).toEqual([]);
+    expect(store().balance).toBe(7);
+    expect(store().shopNote).toBe("teleported to base for 3 vibes");
+  });
 });

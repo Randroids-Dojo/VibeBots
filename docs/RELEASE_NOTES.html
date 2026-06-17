@@ -13,6 +13,17 @@
 
 <main id="entries">
 
+  <article data-version="0.1.9" data-date="2026-06-17">
+    <h2>0.1.9</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.9</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>23</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Paid base return can now be confirmed after touching the mine or returning from below ground. The return charges vibes and moves the miner to the shaft center without forcing a mine checkpoint.</dd>
+      <dt>Auto-sell</dt><dd>Surface auto-sell now checks only on the transition from below ground to the surface, so walking around on the surface no longer keeps probing the sell path.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched TypeScript and smoke files, <code>pnpm typecheck</code>, <code>pnpm test</code> (144 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>pnpm build</code>, and Playwright smoke against a fresh production server on port 3029 (25 passed, 2 storage-gated skips).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.8" data-date="2026-06-17">
     <h2>0.1.8</h2>
     <dl>

@@ -2,10 +2,39 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.7-surface-base-return";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.8-mine-resource-stacks";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.8",
+      date: "2026-06-17",
+      title: "Mine resource stacks",
+      intro:
+        "Depth, plank movement, and mined-resource feedback are clearer while deeper rows keep paying richer stacks.",
+      changes: [
+        {
+          build,
+          text: "The mine HUD now labels the current row as Depth, so the depth number is easier to scan while moving.",
+        },
+        {
+          build,
+          text: "Pressing down while standing on a plank is blocked, so the miner no longer falls through a plank cell.",
+        },
+        {
+          build,
+          text: "Mined ore now pops a short resource-colored label with the material name and exact stack count.",
+        },
+        {
+          build,
+          text: "Older resource tiers remain available as rare trace finds in deeper rows instead of disappearing completely.",
+        },
+        {
+          build,
+          text: "Ore cells now yield larger deterministic stacks as depth increases, scaling rewards toward the 1000-row cap.",
+        },
+      ],
+    },
     {
       version: "0.1.7",
       date: "2026-06-17",

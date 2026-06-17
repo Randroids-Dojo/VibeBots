@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-resource-stacks" data-date="2026-06-17">
+    <h3>Mine Resource Stacks</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260617-120b2c36</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed mining cleanup pass. The mine HUD now labels the current row as Depth, pressing down while standing on a plank is blocked so the miner cannot fall through a plank cell, and mined ore now emits a quick resource-colored floating label with the material name and stack count. Resource progression keeps old ore tiers as rare trace finds after their main band and increases ore stack sizes by depth so deeper rows pay richer deterministic hauls toward the current 1000-row cap. Package version moved to <code>0.1.8</code> and <code>MINE_VERSION</code> moved to <code>23</code>.</dd>
+      <dt>Verification</dt><dd>Rebased onto <code>origin/main</code> commit <code>8aae12e</code> after the surface-base-return release landed, then kept that release as <code>0.1.7</code> and moved this one to <code>0.1.8</code>. Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched TypeScript and smoke files, <code>pnpm typecheck</code>, <code>pnpm test</code> (143 passing), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>pnpm build</code>, and <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3029.config.ts</code> against a fresh production server on port 3029 (24 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>Trace old-tier finds stay intentionally rare after the main band, while stack size is the main way old resources continue to scale with depth.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated the mining spec, appended a Build log entry in <code>docs/gdd/06-mining.html</code>, and updated static plus in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="surface-base-return" data-date="2026-06-17">
     <h3>Surface Base Return</h3>
     <dl>

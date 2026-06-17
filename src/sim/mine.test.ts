@@ -41,6 +41,7 @@ import {
   ORES,
   oreChanceAt,
   oreDef,
+  oreUnitsAt,
   PLANK_RECOVERY_FLOOR,
   ROCK_DIG_COST,
   ROCK_FREE_ROWS,
@@ -138,7 +139,7 @@ describe("mine", () => {
     expect(differences).toBeGreaterThan(10);
   });
 
-  it("keeps every ore inside its depth band", () => {
+  it("keeps ores inside their starting band and leaves trace odds deeper", () => {
     for (const seed of [3, 77, 901]) {
       const state = createMine(seed);
       for (let row = 1; row < 120; row++) {
@@ -147,10 +148,15 @@ describe("mine", () => {
           if (cell?.kind === "ore" && cell.ore) {
             const def = oreDef(cell.ore);
             expect(row).toBeGreaterThanOrEqual(def.minRow);
-            expect(row).toBeLessThanOrEqual(def.maxRow);
           }
         }
       }
+    }
+    for (const ore of ORES) {
+      if (!Number.isFinite(ore.maxRow)) continue;
+      const trace = oreChanceAt(ore, ore.maxRow + 200);
+      expect(trace).toBeGreaterThan(0);
+      expect(trace).toBeLessThan(ore.peakChance);
     }
   });
 
@@ -167,7 +173,7 @@ describe("mine", () => {
     expect(oreChanceAt(silver, silver.minRow - 1)).toBe(0);
     expect(oreChanceAt(silver, silver.peakStart)).toBe(silver.peakChance);
     expect(oreChanceAt(silver, silver.peakEnd)).toBe(silver.peakChance);
-    expect(oreChanceAt(silver, silver.maxRow + 1)).toBe(0);
+    expect(oreChanceAt(silver, silver.maxRow + 1)).toBeGreaterThan(0);
     const fadingIn = oreChanceAt(
       silver,
       Math.floor((silver.minRow + silver.peakStart) / 2),
@@ -215,14 +221,34 @@ describe("mine", () => {
       if (result.ok && result.dug) {
         digs++;
         if (result.dugOre) {
-          oreChunks++;
-          value += oreDef(result.dugOre).value;
+          const count = result.dugOreCount ?? 1;
+          oreChunks += count;
+          value += oreDef(result.dugOre).value * count;
         }
       }
     }
     expect(digs).toBeGreaterThan(0);
     expect(carriedCount(state.miner)).toBe(oreChunks);
     expect(carriedValue(state.miner)).toBe(value);
+  });
+
+  it("scales mined ore unit counts by depth", () => {
+    expect(oreUnitsAt(1)).toBe(1);
+    expect(oreUnitsAt(180)).toBeGreaterThan(oreUnitsAt(40));
+    expect(oreUnitsAt(990)).toBeGreaterThan(oreUnitsAt(180));
+
+    const state = createMine(8);
+    state.miner.col = START_COL;
+    state.miner.row = 179;
+    setCell(state, START_COL, 179, { kind: "empty" });
+    setCell(state, START_COL, 180, { kind: "ore", ore: "copper" });
+    setCell(state, START_COL, 181, { kind: "dirt" });
+    const units = oreUnitsAt(180);
+    const mined = dig(state, "down");
+    expect(mined.ok && mined.dugOre).toBe("copper");
+    expect(mined.ok && mined.dugOreCount).toBe(units);
+    expect(state.miner.carried.copper).toBe(units);
+    expect(carriedValue(state.miner)).toBe(units * oreDef("copper").value);
   });
 
   it("banks carried loot only at the surface and refills energy", () => {
@@ -593,7 +619,8 @@ describe("mine", () => {
     setCell(state, START_COL, 3, { kind: "dirt" });
     const dug = dig(state, "down");
     expect(dug.ok && dug.dug).toBe("ore");
-    expect(dug.ok && dug.dugOre).toBe(null);
+    expect(dug.ok && dug.dugOre).toBe("coal");
+    expect(dug.ok && dug.dugOreCount).toBe(1);
     expect(dug.ok && dug.dropped).toBe(1);
     expect(cellAt(state, START_COL, 1)?.drop).toBeUndefined();
     expect(cellAt(state, START_COL, 2)?.drop).toEqual({ coal: 1 });
@@ -1200,6 +1227,21 @@ describe("mine", () => {
       kind: "empty",
       plank: true,
     });
+  });
+
+  it("blocks digging down while standing on a plank", () => {
+    const state = createMine(106, DEFAULT_GEAR, stock({ plank: 1 }));
+    state.miner.col = START_COL;
+    state.miner.row = 1;
+    setCell(state, START_COL, 1, { kind: "empty", plank: true });
+    setCell(state, START_COL, 2, { kind: "empty" });
+    const energy = state.miner.energy;
+    const blocked = step(state, "down");
+    expect(blocked).toEqual({ ok: false, reason: "blocked" });
+    expect(state.miner.col).toBe(START_COL);
+    expect(state.miner.row).toBe(1);
+    expect(state.miner.energy).toBe(energy);
+    expect(cellAt(state, START_COL, 1)?.plank).toBe(true);
   });
 
   it("allows side digs without planks and drops through the opened gap", () => {

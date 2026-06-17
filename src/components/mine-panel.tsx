@@ -33,6 +33,7 @@ import {
   type MineState,
   maxEnergy,
   maxGearLevel,
+  type OreId,
   oreDef,
   returnEnergyCost,
   returnLadderNeed,
@@ -133,6 +134,16 @@ const chipStyle: React.CSSProperties = {
   lineHeight: 1.3,
   whiteSpace: "nowrap",
   display: "inline-block",
+};
+
+const RESOURCE_FLOAT_COLORS: Record<OreId, string> = {
+  coal: "#8b93a7",
+  copper: "#d28445",
+  silver: "#cdd6ea",
+  emerald: "#54e0c7",
+  ruby: "#ff6b6b",
+  diamond: "#7dd3fc",
+  "core-crystal": "#d58cff",
 };
 
 const iconButtonStyle: React.CSSProperties = {
@@ -537,6 +548,7 @@ interface FloatNote {
   id: number;
   text: string;
   color: string;
+  glow: string;
 }
 
 /** Floating pickup text, cache fanfare, and the collapse reveal. */
@@ -560,10 +572,17 @@ function JuiceOverlays() {
     if (!lastResult?.ok) return;
     if (lastResult.dugOre) {
       const ore = oreDef(lastResult.dugOre);
+      const count = lastResult.dugOreCount ?? 1;
+      const color = RESOURCE_FLOAT_COLORS[lastResult.dugOre] ?? "#54e0c7";
       const id = nextId.current++;
       setFloats((prev) => [
         ...prev.slice(-4),
-        { id, text: `+${ore.value} vibes`, color: "#54e0c7" },
+        {
+          id,
+          text: `${ore.name} x${count}`,
+          color,
+          glow: `0 0 18px ${color}`,
+        },
       ]);
       setTimeout(
         () => setFloats((prev) => prev.filter((f) => f.id !== id)),
@@ -600,11 +619,30 @@ function JuiceOverlays() {
             color: f.color,
             fontWeight: 700,
             fontSize: "1.05rem",
-            textShadow: "0 1px 6px rgba(0,0,0,0.8)",
+            letterSpacing: 0,
+            textShadow: `0 1px 6px rgba(0,0,0,0.8), ${f.glow}`,
             pointerEvents: "none",
-            animation: "mine-float-up 1.25s ease-out forwards",
+            animation: "mine-float-up 0.95s ease-out forwards",
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+            borderRadius: 999,
+            background: "rgba(9, 12, 18, 0.72)",
+            padding: "4px 10px",
+            boxShadow: f.glow,
           }}
         >
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-block",
+              width: 6,
+              height: 6,
+              marginRight: 6,
+              borderRadius: 999,
+              background: f.color,
+              verticalAlign: "middle",
+              boxShadow: f.glow,
+            }}
+          />
           {f.text}
         </div>
       ))}
@@ -1936,7 +1974,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             &#129689; {balance === null ? "offline" : `${balance} vibes`}
           </span>
           <span style={chipStyle}>
-            <span style={{ opacity: 0.65 }}>&#9660;</span> {miner.row}{" "}
+            <span style={{ opacity: 0.65 }}>&#9660;</span> Depth {miner.row}{" "}
             <span style={{ opacity: 0.65 }}>{stratum.name}</span>
           </span>
           <span

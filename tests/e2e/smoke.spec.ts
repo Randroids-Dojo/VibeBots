@@ -159,6 +159,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   // chip copy can change, the test surface cannot.
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(status).toContainText("Depth 0");
   await expect(status).toContainText("Topsoil");
   // The wallet is always on the HUD now (exposed for tests; empty when
   // storage is offline, a number otherwise).
@@ -167,6 +168,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   // Blocks soak multiple swings now (REQ-013); dig through row 1.
   await digTo(page, 1);
   await expect(status).toHaveAttribute("data-depth", "1");
+  await expect(status).toContainText("Depth 1");
   // The block's swing total preserves the old economy: a dirt or ore
   // block costs 1.0 in total (a rare cache costs 1.5).
   const energy = Number(await status.getAttribute("data-energy"));
@@ -311,14 +313,16 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Walking far past the village");
-  await expect(dialog.locator("li")).toHaveCount(4);
+  await expect(dialog).toContainText("Depth, plank movement");
+  await expect(dialog.locator("li")).toHaveCount(5);
   await expect(dialog.locator("li").first()).toContainText(
-    "animated base indicator",
+    "labels the current row as Depth",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("Base return menu");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "standing on a plank is blocked",
+  );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "confirms before spending",
+    "material name and exact stack count",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -339,20 +343,22 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.7");
-  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.6");
-  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.5");
-  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.4");
-  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.3");
-  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.2");
-  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.1");
-  await expect(notes.first()).toContainText("Surface base return");
-  await expect(notes.nth(1)).toContainText("Mine flow fixes");
-  await expect(notes.nth(2)).toContainText("Auto-bank upgrades");
-  await expect(notes.nth(3)).toContainText("Lantern-gated mine zoom");
-  await expect(notes.nth(4)).toContainText("Robot battery");
-  await expect(notes.nth(5)).toContainText("Workshop inventory");
-  await expect(notes.nth(6)).toContainText("Fall Harness");
+  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.8");
+  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.7");
+  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.6");
+  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.5");
+  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.4");
+  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.3");
+  await expect(notes.nth(6)).toHaveAttribute("data-release-note", "0.1.2");
+  await expect(notes.nth(7)).toHaveAttribute("data-release-note", "0.1.1");
+  await expect(notes.first()).toContainText("Mine resource stacks");
+  await expect(notes.nth(1)).toContainText("Surface base return");
+  await expect(notes.nth(2)).toContainText("Mine flow fixes");
+  await expect(notes.nth(3)).toContainText("Auto-bank upgrades");
+  await expect(notes.nth(4)).toContainText("Lantern-gated mine zoom");
+  await expect(notes.nth(5)).toContainText("Robot battery");
+  await expect(notes.nth(6)).toContainText("Workshop inventory");
+  await expect(notes.nth(7)).toContainText("Fall Harness");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });

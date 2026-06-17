@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 22;
+export const MINE_VERSION = 23;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -360,8 +360,8 @@ export const LIGHT_RADIUS = 3;
  * Ore tiers (REQ-011): roughly exponential credit value, rarity inverse
  * to value, each living in a depth band with overlap (trapezoid ramp:
  * fade in from minRow, full strength peakStart..peakEnd, fade out to
- * maxRow). The previous tier stays present one band deeper; the next
- * teases at a band's bottom edge.
+ * maxRow). After the main band, old tiers keep a low trace chance so
+ * deeper rows still contain earlier resources, but as larger stacks.
  */
 export type OreId =
   | "coal"
@@ -468,11 +468,17 @@ export function oreDef(id: OreId): OreDef {
 
 /** Trapezoid band ramp: 0 outside, linear fades, 1 across the peak. */
 export function oreChanceAt(ore: OreDef, row: number): number {
-  if (row < ore.minRow || row > ore.maxRow) return 0;
+  if (row < ore.minRow) return 0;
+  if (row > ore.maxRow) return ore.peakChance * 0.06;
   if (row < ore.peakStart)
     return (ore.peakChance * (row - ore.minRow)) / (ore.peakStart - ore.minRow);
   if (row <= ore.peakEnd) return ore.peakChance;
   return (ore.peakChance * (ore.maxRow - row)) / (ore.maxRow - ore.peakEnd);
+}
+
+/** Ore chunks yielded by one ore cell at this row. */
+export function oreUnitsAt(row: number): number {
+  return Math.min(14, Math.max(1, 1 + Math.floor((row - 1) / 80)));
 }
 
 /**
@@ -1082,6 +1088,8 @@ export type MoveResult =
       dug: CellKind | null;
       /** Set when dug was an ore cell. */
       dugOre: OreId | null;
+      /** Ore chunks mined from the dug ore cell before cargo overflow. */
+      dugOreCount?: number;
       found: string | null;
       collapsed: boolean;
       /** A falling boulder ended the trip (carry lost). */
@@ -1424,6 +1432,8 @@ function settleAfterEmptied(
  */
 export function step(state: MineState, dir: Direction): MoveResult {
   const miner = state.miner;
+  if (dir === "down" && cellAt(state, miner.col, miner.row)?.plank)
+    return { ok: false, reason: "blocked" };
   const t = target(state, dir);
   if (isPendingDynamiteAt(state, t.col, t.row))
     return { ok: false, reason: "blocked" };
@@ -1496,6 +1506,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
 
   let dug: CellKind | null = null;
   let dugOre: OreId | null = null;
+  let dugOreCount: number | undefined;
   let found: string | null = null;
   let cost = MOVE_COST;
   let vented = 0;
@@ -1506,14 +1517,12 @@ export function step(state: MineState, dir: Direction): MoveResult {
     cost = swingCostFor(cell.kind);
     let overflowPile: Partial<Record<OreId, number>> | undefined;
     if (cell.kind === "ore" && cell.ore) {
-      const {
-        taken,
-        dropped: spilled,
-        leftover,
-      } = fillHold(state, {
-        [cell.ore]: 1,
+      const units = oreUnitsAt(t.row);
+      const { dropped: spilled, leftover } = fillHold(state, {
+        [cell.ore]: units,
       });
-      if (taken > 0) dugOre = cell.ore;
+      dugOre = cell.ore;
+      dugOreCount = units;
       if (spilled > 0) overflowPile = leftover;
     }
     if (cell.kind === "part-cache") {
@@ -1571,6 +1580,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       ok: true,
       dug,
       dugOre,
+      dugOreCount,
       found,
       collapsed,
       crushed: crushed || fellTooFar,
@@ -1589,6 +1599,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     ok: true,
     dug,
     dugOre,
+    dugOreCount,
     found,
     collapsed,
     crushed,

@@ -1,5 +1,6 @@
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
+import { refundRailSupportsInDiff, type WorldDiff } from "@/sim/mine";
 
 export const runtime = "nodejs";
 
@@ -24,9 +25,42 @@ export async function GET(): Promise<Response> {
     diff: unknown;
     trip_count: number;
   }>;
+  let diff = (rows[0].diff ?? []) as WorldDiff;
+  const playerRows = (await sql`
+    SELECT elevator_depth, elevator_support_refund_at
+    FROM players
+    WHERE id = ${playerId}`) as Array<{
+    elevator_depth: number;
+    elevator_support_refund_at: string | null;
+  }>;
+  const railDepth = playerRows[0]?.elevator_depth ?? 0;
+  let refundedSupports: Partial<Record<"ladder" | "plank", number>> = {};
+  if (railDepth > 0 && !playerRows[0]?.elevator_support_refund_at) {
+    const refund = refundRailSupportsInDiff(diff, 0, railDepth);
+    const refundedLadders = refund.refunded.ladder ?? 0;
+    const refundedPlanks = refund.refunded.plank ?? 0;
+    const updated = (await sql`
+      UPDATE players
+      SET ladder_count = ladder_count + ${refundedLadders},
+          plank_count = plank_count + ${refundedPlanks},
+          elevator_support_refund_at = now()
+      WHERE id = ${playerId}
+        AND elevator_support_refund_at IS NULL
+      RETURNING id`) as Array<{ id: string }>;
+    if (updated.length > 0) {
+      diff = refund.diff;
+      refundedSupports = refund.refunded;
+      await sql`
+        UPDATE mine_worlds
+        SET diff = ${JSON.stringify(diff)}::jsonb,
+            updated_at = now()
+        WHERE player_id = ${playerId}`;
+    }
+  }
   return Response.json({
     seed: Number(rows[0].seed),
-    diff: rows[0].diff ?? [],
+    diff,
     tripIndex: rows[0].trip_count,
+    refundedSupports,
   });
 }

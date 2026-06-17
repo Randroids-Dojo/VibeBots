@@ -12,12 +12,6 @@ import {
 import { useRef, useState } from "react";
 import type { Direction } from "@/sim/mine";
 
-/** Repeat cadence while the stick is held past the deadzone. Half the
- * old 220ms: a held stick walks at a readable pace, not a sprint. */
-const REPEAT_MS = 440;
-/** Floor between any two fires, including direction changes. The first
- * fire on a fresh press is still immediate, so taps stay responsive. */
-const MIN_FIRE_MS = 200;
 /** A new axis must clearly dominate before the direction switches. */
 const AXIS_HYSTERESIS = 1.35;
 
@@ -31,9 +25,11 @@ const AXIS_HYSTERESIS = 1.35;
 export function MineTouchControls({
   onDirection,
   onZoomChange,
+  repeatMs,
 }: {
   onDirection: (dir: Direction) => void;
   onZoomChange: (delta: number) => void;
+  repeatMs: number;
 }) {
   const js = useRef(createJoystick());
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -86,10 +82,10 @@ export function MineTouchControls({
       stopRepeat();
       if (dir) {
         // Rate-clamped even across direction changes.
-        if (Date.now() - lastFire.current >= MIN_FIRE_MS) fire(dir);
+        if (Date.now() - lastFire.current >= repeatMs) fire(dir);
         repeatTimer.current = setInterval(() => {
           if (heldDir.current) fire(heldDir.current);
-        }, REPEAT_MS);
+        }, repeatMs);
       }
     }
   };

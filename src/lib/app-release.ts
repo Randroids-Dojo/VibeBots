@@ -2,10 +2,39 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.5-auto-bank-upgrades";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.6-mine-flow-fixes";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.6",
+      date: "2026-06-17",
+      title: "Mine flow fixes",
+      intro:
+        "Surface banking, elevator travel, support recovery, and input cadence now match the current mining rules.",
+      changes: [
+        {
+          build,
+          text: "Reaching the surface with a haul now sells it automatically and puts the vibes straight in your wallet.",
+        },
+        {
+          build,
+          text: "Elevator rides auto-chain to the rail bottom or surface, with Elevator Speed upgrades making each automatic step longer and faster.",
+        },
+        {
+          build,
+          text: "Rail construction and a one-time account cleanup now return ladders and planks hidden behind elevator rails.",
+        },
+        {
+          build,
+          text: "Collect mode no longer opens a support list. Tap visible ladder or plank cells to mark them, then confirm the pickup.",
+        },
+        {
+          build,
+          text: "Walking and mining share one cadence for held input and repeated taps, with small speed gains from Pickaxe upgrades.",
+        },
+      ],
+    },
     {
       version: "0.1.5",
       date: "2026-06-17",

@@ -1,12 +1,21 @@
 import { expect, type Page, test } from "@playwright/test";
 
+const MINE_KEY_CADENCE_MS = 470;
+
+async function pressMineKey(
+  page: Page,
+  key: "ArrowDown" | "ArrowUp" | "ArrowLeft" | "ArrowRight",
+): Promise<void> {
+  await page.keyboard.press(key);
+  await page.waitForTimeout(MINE_KEY_CADENCE_MS);
+}
+
 /** Multi-hit digging (REQ-013): swing down until the depth is reached. */
 async function digTo(page: Page, depth: number): Promise<void> {
   const status = page.getByLabel("Mine status");
   for (let i = 0; i < 8 * depth + 8; i++) {
     if (Number(await status.getAttribute("data-depth")) >= depth) return;
-    await page.keyboard.press("ArrowDown");
-    await page.waitForTimeout(60);
+    await pressMineKey(page, "ArrowDown");
   }
 }
 
@@ -33,8 +42,7 @@ async function enterBuilding(
   const prompt = page.getByRole("button", { name: `Enter ${name}` });
   for (let i = 0; i < 16; i++) {
     if (await prompt.isVisible().catch(() => false)) break;
-    await page.keyboard.press(key);
-    await page.waitForTimeout(150);
+    await pressMineKey(page, key);
   }
   await expect(prompt).toBeVisible();
   await prompt.click();
@@ -48,8 +56,7 @@ async function digLateral(
 ): Promise<void> {
   const canvas = page.locator("canvas");
   for (let i = 0; i < 10; i++) {
-    await page.keyboard.press(key);
-    await page.waitForTimeout(150);
+    await pressMineKey(page, key);
     const x = Number(await canvas.getAttribute("data-miner-x"));
     if (key === "ArrowLeft" ? x < pastX : x > pastX) return;
   }
@@ -158,7 +165,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toHaveAttribute("data-climb-ladders", "1");
 
   // Climbing out consumes a provisioned ladder (REQ-020).
-  await page.keyboard.press("ArrowUp");
+  await pressMineKey(page, "ArrowUp");
   await expect(status).toHaveAttribute("data-depth", "0");
   // Banking on the surface recharges the robot battery.
   await expect(status).toHaveAttribute("data-energy", "60.0");
@@ -220,12 +227,17 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("settle your haul first");
-  await expect(dialog.locator("li")).toHaveCount(4);
-  await expect(dialog.locator("li").first()).toContainText("banks that loot");
-  await expect(dialog.locator("li").nth(1)).toContainText("Lantern zoom");
-  await expect(dialog.locator("li").nth(2)).toContainText("bank-first");
-  await expect(dialog.locator("li").nth(3)).toContainText("fading");
+  await expect(dialog).toContainText("Surface banking, elevator travel");
+  await expect(dialog.locator("li")).toHaveCount(5);
+  await expect(dialog.locator("li").first()).toContainText(
+    "sells it automatically",
+  );
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "Elevator rides auto-chain",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "hidden behind elevator rails",
+  );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -245,16 +257,18 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
-  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.5");
-  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.4");
-  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.3");
-  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.2");
-  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.1");
-  await expect(notes.first()).toContainText("Auto-bank upgrades");
-  await expect(notes.nth(1)).toContainText("Lantern-gated mine zoom");
-  await expect(notes.nth(2)).toContainText("Robot battery");
-  await expect(notes.nth(3)).toContainText("Workshop inventory");
-  await expect(notes.nth(4)).toContainText("Fall Harness");
+  await expect(notes.first()).toHaveAttribute("data-release-note", "0.1.6");
+  await expect(notes.nth(1)).toHaveAttribute("data-release-note", "0.1.5");
+  await expect(notes.nth(2)).toHaveAttribute("data-release-note", "0.1.4");
+  await expect(notes.nth(3)).toHaveAttribute("data-release-note", "0.1.3");
+  await expect(notes.nth(4)).toHaveAttribute("data-release-note", "0.1.2");
+  await expect(notes.nth(5)).toHaveAttribute("data-release-note", "0.1.1");
+  await expect(notes.first()).toContainText("Mine flow fixes");
+  await expect(notes.nth(1)).toContainText("Auto-bank upgrades");
+  await expect(notes.nth(2)).toContainText("Lantern-gated mine zoom");
+  await expect(notes.nth(3)).toContainText("Robot battery");
+  await expect(notes.nth(4)).toContainText("Workshop inventory");
+  await expect(notes.nth(5)).toContainText("Fall Harness");
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
 });
@@ -275,10 +289,10 @@ test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022
   // must NOT consume a plank (the reported bug burned one here).
   await digTo(page, 2);
   await expect(status).toHaveAttribute("data-depth", "2");
-  await page.keyboard.press("ArrowUp");
+  await pressMineKey(page, "ArrowUp");
   await expect(status).toHaveAttribute("data-depth", "1");
   await digLateral(page, "ArrowLeft", -0.8);
-  await page.keyboard.press("ArrowRight");
+  await pressMineKey(page, "ArrowRight");
   await expect(status).toHaveAttribute("data-ladders", "7");
   await expect(status).toHaveAttribute("data-planks", "4");
 });
@@ -374,8 +388,7 @@ test.describe("phone viewport", () => {
     await digTo(page, 1);
     await expect(status).toHaveAttribute("data-depth", "1");
     for (let i = 0; i < 18; i++) {
-      await page.keyboard.press("ArrowLeft");
-      await page.waitForTimeout(120);
+      await pressMineKey(page, "ArrowLeft");
       if (Number(await canvas.getAttribute("data-cam-x")) < -1.5) break;
     }
     // The rig pans toward the miner; the bot stays in frame.
@@ -387,7 +400,7 @@ test.describe("phone viewport", () => {
     // And the visible pixels actually changed across the lateral digs
     // (Rule 10): two frames straddling one more lateral dig differ.
     const before = await canvas.screenshot();
-    await page.keyboard.press("ArrowRight");
+    await pressMineKey(page, "ArrowRight");
     await page.waitForTimeout(250);
     const after = await canvas.screenshot();
     expect(Buffer.compare(before, after)).not.toBe(0);
@@ -407,8 +420,7 @@ test.describe("phone viewport", () => {
     // is not asserted here, since CI's software renderer is far slower
     // than any device; data-frame-ms exists for manual perf probing.
     for (let i = 0; i < 8; i++) {
-      await page.keyboard.press("ArrowLeft");
-      await page.waitForTimeout(90);
+      await pressMineKey(page, "ArrowLeft");
     }
     await expect
       .poll(async () => Number(await canvas.getAttribute("data-cam-x")), {
@@ -421,8 +433,7 @@ test.describe("phone viewport", () => {
     );
     // Walking back the other way still tracks, so input never wedged.
     for (let i = 0; i < 10; i++) {
-      await page.keyboard.press("ArrowRight");
-      await page.waitForTimeout(90);
+      await pressMineKey(page, "ArrowRight");
     }
     await expect
       .poll(async () => Number(await canvas.getAttribute("data-cam-x")), {
@@ -440,7 +451,7 @@ test.describe("phone viewport", () => {
     // Stand at the Supply Depot (two columns right of the shaft) and
     // tap the prompt to open the sheet.
     for (let i = 0; i < 2; i++) {
-      await page.keyboard.press("ArrowRight");
+      await pressMineKey(page, "ArrowRight");
     }
     const depot = await openStall(page, "Supply Depot");
     // Let the slide-up entrance (0.28s) settle so the docked baseline
@@ -539,7 +550,7 @@ test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   // is one paid walk, then gravity settles the miner through empty cells.
   await page.reload();
   await expect(status).toHaveAttribute("data-depth", "0");
-  await page.keyboard.press("ArrowDown");
+  await pressMineKey(page, "ArrowDown");
   await expect(status).toHaveAttribute("data-depth", "2");
   await expect(status).toHaveAttribute("data-energy", "59.5");
 
@@ -563,17 +574,17 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   // Walk left from the shaft to the Buyer; the menu does not pop
   // on walk-by, the prompt does, and tapping it opens the menu.
   for (let i = 0; i < 3; i++) {
-    await page.keyboard.press("ArrowLeft");
+    await pressMineKey(page, "ArrowLeft");
   }
   await expect(
     page.getByRole("region", { name: "Buyer", exact: true }),
   ).not.toBeVisible();
   const buyer = await openStall(page, "Buyer");
-  await expect(buyer).toContainText("nothing banked yet");
+  await expect(buyer).toContainText("sells automatically");
 
   // Walk right to the Supply Depot: consumables with prices.
   for (let i = 0; i < 5; i++) {
-    await page.keyboard.press("ArrowRight");
+    await pressMineKey(page, "ArrowRight");
   }
   const depot = await openStall(page, "Supply Depot");
   await expect(depot).toContainText("Ladder");
@@ -584,7 +595,7 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
 
   // And on to the Upgrades stall: the gear tracks.
   for (let i = 0; i < 2; i++) {
-    await page.keyboard.press("ArrowRight");
+    await pressMineKey(page, "ArrowRight");
   }
   const upgrades = await openStall(page, "Upgrades");
   await expect(upgrades).toContainText("Pickaxe");
@@ -592,7 +603,7 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   await expect(upgrades).toContainText("Fall Harness");
 
   // Walking off the stall column closes the menu.
-  await page.keyboard.press("ArrowLeft");
+  await pressMineKey(page, "ArrowLeft");
   await expect(upgrades).not.toBeVisible();
 });
 
@@ -604,7 +615,7 @@ test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
 
   // Stand at the Buyer (three columns left of the shaft).
   for (let i = 0; i < 3; i++) {
-    await page.keyboard.press("ArrowLeft");
+    await pressMineKey(page, "ArrowLeft");
   }
   const prompt = page.getByRole("button", { name: "Open Buyer" });
   const buyer = page.getByRole("region", { name: "Buyer", exact: true });
@@ -635,7 +646,7 @@ test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
 
   // The pad stands six columns right of the shaft.
   for (let i = 0; i < 6; i++) {
-    await page.keyboard.press("ArrowRight");
+    await pressMineKey(page, "ArrowRight");
   }
   const pad = await openStall(page, "Warp Pad");
   await expect(pad).toContainText("no beacon planted");
@@ -655,14 +666,14 @@ test("the elevator sells rail and gates rides on it (REQ-028)", async ({
 
   // The tower stands five columns left of the shaft.
   for (let i = 0; i < 5; i++) {
-    await page.keyboard.press("ArrowLeft");
+    await pressMineKey(page, "ArrowLeft");
   }
   const elevator = await openStall(page, "Elevator");
   await expect(elevator).toContainText("no rail yet");
   await expect(elevator).toContainText("40 vibes");
   // Without rail the ride is disabled; without storage so is the buy.
   await expect(
-    elevator.getByRole("button", { name: /Ride down/ }),
+    elevator.getByRole("button", { name: /Ride down|Auto ride/ }),
   ).toBeDisabled();
 });
 
@@ -701,8 +712,7 @@ test("miner stays at depth when walking sideways (lateral teleport regression)",
   });
 
   for (let i = 0; i < 6; i++) {
-    await page.keyboard.press("ArrowLeft");
-    await page.waitForTimeout(120);
+    await pressMineKey(page, "ArrowLeft");
   }
   // The miner glides one cell left (start col 4 renders at x=0, col 3 at -1)...
   await expect

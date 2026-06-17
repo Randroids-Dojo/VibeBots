@@ -25,7 +25,7 @@ export const STALLS: readonly StallDef[] = [
     col: -3,
     name: "Buyer",
     color: "#f5c542",
-    blurb: "buys your haul for vibes",
+    blurb: "surface haul auto-sells",
   },
   {
     id: "supply",

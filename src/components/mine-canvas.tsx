@@ -2,7 +2,7 @@
 
 import { RoundedBox, Text } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, type ReactNode, useEffect, useMemo, useRef } from "react";
 import type {
   AmbientLight,
   DirectionalLight,
@@ -20,6 +20,7 @@ import {
 } from "@/components/mine-camera";
 import { createWebGPU } from "@/components/part-visuals";
 import {
+  type CollectTarget,
   cellAt,
   ELEVATOR_COL,
   FALL_DELAY_ACTIONS,
@@ -1513,7 +1514,12 @@ const SurfaceDressing = memo(function SurfaceDressing() {
   );
 });
 
-function MineScene({ zoom }: { zoom: number }) {
+function MineScene({
+  zoom,
+  collectMode,
+  selectedSupportKeys,
+  onToggleSupport,
+}: MineCanvasProps) {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);
@@ -1871,6 +1877,8 @@ function MineScene({ zoom }: { zoom: number }) {
   const tunnelMeshes = [];
   const crackMeshes = [];
   const darknessMeshes = [];
+  const supportSelectMeshes: ReactNode[] = [];
+  const selectedSupportSet = new Set(selectedSupportKeys ?? []);
   for (let row = firstRow; row <= lastRow; row++) {
     for (
       let col = mine.miner.col - renderWindow.cols;
@@ -2040,6 +2048,59 @@ function MineScene({ zoom }: { zoom: number }) {
               </mesh>
             </group>,
           );
+        }
+        if (collectMode && onToggleSupport && (cell.ladder || cell.plank)) {
+          const addSupportTarget = (
+            type: "ladder" | "plank",
+            offset: number,
+          ) => {
+            const target: CollectTarget = { type, col, row };
+            const targetKey = `${type}:${col},${row}`;
+            const selected = selectedSupportSet.has(targetKey);
+            supportSelectMeshes.push(
+              // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+              <group
+                key={`support-select:${targetKey}`}
+                position={[x + offset, y, 0.88]}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSupport(target);
+                }}
+              >
+                <mesh>
+                  <circleGeometry args={[0.34, 24]} />
+                  <meshBasicMaterial
+                    color={selected ? "#54e0c7" : "#f5c542"}
+                    transparent
+                    opacity={selected ? 0.35 : 0.18}
+                    depthWrite={false}
+                  />
+                </mesh>
+                <mesh position={[0, 0, 0.01]}>
+                  <circleGeometry args={[0.46, 24]} />
+                  <meshBasicMaterial
+                    color="#54e0c7"
+                    transparent
+                    opacity={0.03}
+                    depthWrite={false}
+                  />
+                </mesh>
+                <Text
+                  position={[0, 0, 0.03]}
+                  fontSize={0.22}
+                  anchorX="center"
+                  anchorY="middle"
+                  color={selected ? "#0b0e14" : "#f8f1d5"}
+                  outlineColor="#101015"
+                  outlineWidth={selected ? 0 : 0.016}
+                >
+                  {selected ? "OK" : type === "ladder" ? "L" : "P"}
+                </Text>
+              </group>,
+            );
+          };
+          if (cell.ladder) addSupportTarget("ladder", cell.plank ? -0.22 : 0);
+          if (cell.plank) addSupportTarget("plank", cell.ladder ? 0.22 : 0);
         }
         continue;
       }
@@ -2234,6 +2295,7 @@ function MineScene({ zoom }: { zoom: number }) {
         </mesh>
       </group>
       {tunnelMeshes}
+      {supportSelectMeshes}
       {blockMeshes}
       {crackMeshes}
       {/* The elevator rail (REQ-028): guides and ties down the bored
@@ -2316,14 +2378,21 @@ function MineScene({ zoom }: { zoom: number }) {
   );
 }
 
-export default function MineCanvas({ zoom }: { zoom: number }) {
+interface MineCanvasProps {
+  zoom: number;
+  collectMode?: boolean;
+  selectedSupportKeys?: readonly string[];
+  onToggleSupport?: (target: CollectTarget) => void;
+}
+
+export default function MineCanvas(props: MineCanvasProps) {
   return (
     <Canvas
       camera={{ position: [0, 1.5, 13], fov: 42 }}
       dpr={[1, 2]}
       gl={createWebGPU}
     >
-      <MineScene zoom={zoom} />
+      <MineScene {...props} />
     </Canvas>
   );
 }

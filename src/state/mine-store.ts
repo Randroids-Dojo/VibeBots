@@ -15,7 +15,7 @@ import {
   type MoveResult,
   NO_CONSUMABLES,
   normalizeGear,
-  refundRailLaddersInDiff,
+  refundRailSupportsInDiff,
   START_COL,
   STARTING_CONSUMABLES,
   type WorldDiff,
@@ -345,8 +345,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           remaining,
           worldDiff,
         );
-        // Selling happens standing at the Buyer; the fresh trip
-        // walks back there instead of teleporting to the shaft.
+        // Banking happens wherever the surface was reached; the fresh
+        // trip walks back there instead of teleporting to the shaft.
         const atCol = get().mine.miner.col;
         const walk: MineAction[] = [];
         for (let c = START_COL; c !== atCol; c += atCol < c ? -1 : 1) {
@@ -518,7 +518,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const body = await res.json();
         const { gear, consumables, bought, moves, seed: s0, tick } = get();
         const nextGear: MineGear = { ...gear, elevator: body.elevator };
-        const fallbackRefund = refundRailLaddersInDiff(
+        const fallbackRefund = refundRailSupportsInDiff(
           get().tripBaseDiff,
           gear.elevator,
           body.elevator,
@@ -526,15 +526,27 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const nextBaseDiff = Array.isArray(body.diff)
           ? (body.diff as WorldDiff)
           : fallbackRefund.diff;
+        const refundedSupports =
+          typeof body.refundedSupports === "object" && body.refundedSupports
+            ? (body.refundedSupports as Partial<
+                Record<"ladder" | "plank", number>
+              >)
+            : fallbackRefund.refunded;
         const refundedLadders =
           typeof body.refundedLadders === "number"
             ? body.refundedLadders
-            : fallbackRefund.refunded;
+            : (refundedSupports.ladder ?? 0);
+        const refundedPlanks = refundedSupports.plank ?? 0;
+        const refundNote =
+          refundedLadders + refundedPlanks > 0
+            ? `; recovered ${refundedLadders} ladders and ${refundedPlanks} planks`
+            : "";
         if (surfaceOnlyLog(moves)) {
           // Same rule as gear: rail applies to the live trip only while
           // the log is pure surface walks (replay-identical).
           const owned = addConsumables(consumables, bought);
           owned.ladder += refundedLadders;
+          owned.plank += refundedPlanks;
           const rebuilt = createMine(s0, nextGear, owned, nextBaseDiff);
           for (const m of moves) applyAction(rebuilt, m);
           saveLocalTrip({
@@ -552,24 +564,19 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             bought: NO_CONSUMABLES,
             tripBaseDiff: nextBaseDiff,
             balance: typeof body.balance === "number" ? body.balance : null,
-            shopNote:
-              refundedLadders > 0
-                ? `rail extended to ${body.elevator} deep; ${refundedLadders} ladders recovered`
-                : `rail extended to ${body.elevator} deep`,
+            shopNote: `rail extended to ${body.elevator} deep${refundNote}`,
             tick: tick + 1,
           });
         } else {
           const owned = addConsumables(consumables, bought);
           owned.ladder += refundedLadders;
+          owned.plank += refundedPlanks;
           set({
             gear: nextGear,
             consumables: owned,
             bought: NO_CONSUMABLES,
             balance: typeof body.balance === "number" ? body.balance : null,
-            shopNote:
-              refundedLadders > 0
-                ? `rail extended to ${body.elevator} deep; ${refundedLadders} ladders recovered`
-                : `rail extended to ${body.elevator} deep; rides start next trip`,
+            shopNote: `rail extended to ${body.elevator} deep${refundNote}; rides start next trip`,
             tick: tick + 1,
           });
         }

@@ -3,7 +3,7 @@ import { getOrCreatePlayerId } from "@/server/player";
 import {
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
-  refundRailLaddersInDiff,
+  refundRailSupportsInDiff,
   type WorldDiff,
 } from "@/sim/mine";
 
@@ -33,20 +33,24 @@ export async function POST(): Promise<Response> {
   const price = elevatorSegmentPrice(segment);
   const nextDepth = depth + ELEVATOR_SEGMENT_ROWS;
   const oldDiff = (rows[0]?.diff ?? []) as WorldDiff;
-  const refund = refundRailLaddersInDiff(oldDiff, depth, nextDepth);
+  const refund = refundRailSupportsInDiff(oldDiff, depth, nextDepth);
+  const refundedLadders = refund.refunded.ladder ?? 0;
+  const refundedPlanks = refund.refunded.plank ?? 0;
 
   const updated = (await sql`
     UPDATE players
     SET emeralds = emeralds - ${price},
         elevator_depth = ${nextDepth},
-        ladder_count = ladder_count + ${refund.refunded}
+        ladder_count = ladder_count + ${refundedLadders},
+        plank_count = plank_count + ${refundedPlanks}
     WHERE id = ${playerId}
       AND emeralds >= ${price}
       AND elevator_depth = ${depth}
-    RETURNING emeralds, elevator_depth, ladder_count`) as Array<{
+    RETURNING emeralds, elevator_depth, ladder_count, plank_count`) as Array<{
     emeralds: number;
     elevator_depth: number;
     ladder_count: number;
+    plank_count: number;
   }>;
   if (updated.length === 0) {
     return Response.json(
@@ -65,7 +69,9 @@ export async function POST(): Promise<Response> {
     elevator: updated[0].elevator_depth,
     balance: updated[0].emeralds,
     diff: refund.diff,
-    refundedLadders: refund.refunded,
+    refundedLadders,
+    refundedSupports: refund.refunded,
     ladders: updated[0].ladder_count,
+    planks: updated[0].plank_count,
   });
 }

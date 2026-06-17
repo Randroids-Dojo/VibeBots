@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.6" data-date="2026-06-17">
+    <h2>0.1.6</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.6</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moved from <code>21</code> to <code>22</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Reaching the surface with a haul now sells it automatically into the wallet. Elevator rides auto-chain to the rail bottom or surface after one ride start, and Elevator Speed upgrades improve both the row distance and cadence of those automatic steps. Collect mode now uses in-world ladder and plank cell taps with visible markers instead of a support list.</dd>
+      <dt>Migration</dt><dd>Rail construction refunds both ladders and planks in the new rail span. Existing players get a one-time world-load cleanup that removes and returns any ladder or plank hidden behind already owned elevator rails.</dd>
+      <dt>Controls</dt><dd>Walking and mining now share one cadence for held input and repeated taps, with small speed gains from Pickaxe upgrades. The old quick press and release bypass no longer outruns the intended action delay.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched files, <code>pnpm typecheck</code>, focused Vitest for mine sim, mine store, and mine camera (75 passed), <code>pnpm test</code> (136 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>pnpm build</code>, and Playwright smoke against a fresh production server on port 3027 (22 passed, 2 storage-gated skips).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.5" data-date="2026-06-17">
     <h2>0.1.5</h2>
     <dl>

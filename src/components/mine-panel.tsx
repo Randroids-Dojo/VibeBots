@@ -23,6 +23,7 @@ import {
   ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
+  elevatorSpeedRows,
   findBeacon,
   GEAR_TRACKS,
   type MineAction,
@@ -62,8 +63,20 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
   d: "right",
 };
 
-/** Min gap between auto-repeated key moves; matches the thumbstick. */
-const KEY_REPEAT_MS = 440;
+/** Base gap between directional actions before pickaxe speed bonuses. */
+const BASE_ACTION_CADENCE_MS = 440;
+const MIN_ACTION_CADENCE_MS = 300;
+
+function actionCadenceMs(gear: MineGear): number {
+  return Math.max(
+    MIN_ACTION_CADENCE_MS,
+    BASE_ACTION_CADENCE_MS - (gear.pickaxe - 1) * 35,
+  );
+}
+
+function elevatorAutoDelayMs(gear: MineGear): number {
+  return Math.max(70, 240 - ((gear.elevatorSpeed ?? 1) - 1) * 20);
+}
 
 const chipStyle: React.CSSProperties = {
   background: "rgba(17, 21, 31, 0.82)",
@@ -89,11 +102,6 @@ const iconButtonStyle: React.CSSProperties = {
 
 function collectTargetKey(target: CollectTarget): string {
   return `${target.type}:${target.col},${target.row}`;
-}
-
-function collectTargetName(target: CollectTarget): string {
-  const label = target.type === "ladder" ? "Ladder" : "Plank";
-  return `${label} ${target.col},${target.row}`;
 }
 
 /** Banner shown for a few seconds when the miner enters a new stratum. */
@@ -762,7 +770,6 @@ function StallMenu({
   balance,
   shopNote,
   cashOutPending,
-  onCashOut,
   onBuyConsumable,
   onBuyGear,
   onBuyElevator,
@@ -775,7 +782,6 @@ function StallMenu({
   balance: number | null;
   shopNote: string | null;
   cashOutPending: boolean;
-  onCashOut: () => void;
   onBuyConsumable: (item: DepotItem, quantity: number) => void;
   onBuyGear: (track: MineGearTrack) => void;
   onBuyElevator: () => void;
@@ -932,42 +938,19 @@ function StallMenu({
         </p>
       )}
       {stall.id === "buyer" &&
-        (banked > 0 || bankedParts > 0 ? (
-          <>
-            <SheetRow
-              icon={"\u{1F4B0}"}
-              name={`${banked} vibes banked`}
-              sub={
-                bankedParts > 0
-                  ? `plus ${bankedParts} part${bankedParts > 1 ? "s" : ""} for the workshop`
-                  : "hauled up and ready to sell"
-              }
-            />
-            <button
-              type="button"
-              onClick={onCashOut}
-              disabled={cashOutPending || offline}
-              style={{
-                ...sheetButtonStyle(!cashOutPending && !offline),
-                width: "100%",
-                marginTop: 12,
-                minHeight: 48,
-                background:
-                  cashOutPending || offline
-                    ? "rgba(58, 47, 16, 0.4)"
-                    : "#3a2f10",
-                borderColor: "#f5c542",
-                color: cashOutPending || offline ? "#8b93a7" : "#f5c542",
-              }}
-            >
-              {cashOutPending ? "Selling..." : "Sell banked loot"}
-            </button>
-          </>
+        (offline ? (
+          <p
+            style={{ margin: "12px 0 2px", fontSize: "0.85rem", opacity: 0.7 }}
+          >
+            haul reaches the surface and sells automatically when the ledger is
+            online.
+          </p>
         ) : (
           <p
             style={{ margin: "12px 0 2px", fontSize: "0.85rem", opacity: 0.7 }}
           >
-            nothing banked yet; haul something up and it banks.
+            haul reaches the surface, sells automatically, and goes straight
+            into your wallet.
           </p>
         ))}
       {stall.id === "supply" && (
@@ -1130,6 +1113,10 @@ function StallMenu({
           <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
             each segment extends the rail {ELEVATOR_SEGMENT_ROWS} rows
           </p>
+          <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+            speed level {gear.elevatorSpeed ?? 1} moves{" "}
+            {elevatorSpeedRows(gear)} rows per automatic step
+          </p>
           <button
             type="button"
             onClick={() => onRide("ride-down")}
@@ -1142,7 +1129,7 @@ function StallMenu({
             }}
           >
             {mine.gear.elevator > 0
-              ? `Ride down (rail to ${mine.gear.elevator})`
+              ? `Auto ride to ${mine.gear.elevator}`
               : "Ride down (no rail)"}
           </button>
         </div>
@@ -1189,6 +1176,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);
   const move = useMineStore((s) => s.move);
+  const seed = useMineStore((s) => s.seed);
+  const tripIndex = useMineStore((s) => s.tripIndex);
+  const movesLength = useMineStore((s) => s.moves.length);
   const cashOut = useMineStore((s) => s.cashOut);
   const submitCashOut = useMineStore((s) => s.submitCashOut);
   const gear = useMineStore((s) => s.gear);
@@ -1205,6 +1195,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [facing, setFacing] = useState<"left" | "right">("right");
   const [collectMode, setCollectMode] = useState(false);
   const [collectSelection, setCollectSelection] = useState<string[]>([]);
+  const [elevatorAutoDir, setElevatorAutoDir] = useState<
+    "ride-down" | "ride-up" | null
+  >(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
@@ -1220,9 +1213,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastCashOutStateRef = useRef(cashOut.state);
   const lastShopNoteRef = useRef<string | null>(null);
   const lastGamepadZoomRef = useRef(0);
-  // Throttle held-key auto-repeat to the same walk cadence as the
-  // thumbstick; deliberate presses (event.repeat false) always fire.
-  const lastKeyMoveRef = useRef(0);
+  const lastDirectionActionRef = useRef(0);
+  const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const setDynamiteArmed = (value: boolean | ((prev: boolean) => boolean)) => {
     armedRef.current =
       typeof value === "function" ? value(armedRef.current) : value;
@@ -1330,6 +1322,26 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     if (event) playMineSfxEvent(event);
   }, [shopNote]);
 
+  const fireDirection = useCallback(
+    (dir: Direction) => {
+      if (elevatorAutoDir) return;
+      const state = useMineStore.getState();
+      const now = Date.now();
+      const delay = actionCadenceMs(state.mine.gear);
+      if (now - lastDirectionActionRef.current < delay) return;
+      lastDirectionActionRef.current = now;
+      if (dir === "left" || dir === "right") setFacing(dir);
+      if (armedRef.current) {
+        armedRef.current = false;
+        setDynamiteArmedState(false);
+        state.move(`dynamite-${dir}` as MineAction);
+      } else {
+        state.move(dir);
+      }
+    },
+    [elevatorAutoDir],
+  );
+
   // Moving off the column closes any open sheet, so the menu never
   // follows the miner and a return shows the prompt, not the open sheet.
   // biome-ignore lint/correctness/useExhaustiveDependencies: column is the reset trigger, not read in the body; dropping it would fire once and never re-close
@@ -1362,24 +1374,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
-      if (dir === "left" || dir === "right") setFacing(dir);
-      // Held keys auto-repeat far faster than the walk cadence; clamp
-      // the repeats so keyboard speed matches the thumbstick.
-      if (event.repeat && Date.now() - lastKeyMoveRef.current < KEY_REPEAT_MS) {
-        return;
-      }
-      lastKeyMoveRef.current = Date.now();
-      if (armedRef.current) {
-        armedRef.current = false;
-        setDynamiteArmedState(false);
-        useMineStore.getState().move(`dynamite-${dir}` as MineAction);
-      } else {
-        useMineStore.getState().move(dir);
-      }
+      fireDirection(dir);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [fireDirection]);
 
   const miner = mine.miner;
   const currentCell = cellAt(mine, miner.col, miner.row);
@@ -1410,12 +1409,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const selectedSupports = visibleSupports.filter((target) =>
     collectSelection.includes(collectTargetKey(target)),
   );
-  const plankEnabled = canPlacePlank(mine, facing);
+  const plankEnabled = !elevatorAutoDir && canPlacePlank(mine, facing);
   const recoveredSupportCount =
     lastResult?.ok && lastResult.supportCollected
       ? (lastResult.supportCollected.ladder ?? 0) +
         (lastResult.supportCollected.plank ?? 0)
       : 0;
+  const bankedCredits = miner.bankedCredits;
+  const bankedPartsCount = miner.bankedParts.length;
 
   useEffect(() => {
     const visibleSupportKeys = new Set(
@@ -1425,6 +1426,60 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       prev.filter((key) => visibleSupportKeys.has(key)),
     );
   }, [visibleSupportKeyList]);
+
+  useEffect(() => {
+    if (!elevatorAutoDir) return;
+    const atEnd =
+      elevatorAutoDir === "ride-down"
+        ? miner.col !== ELEVATOR_COL || miner.row >= mine.gear.elevator
+        : miner.col !== ELEVATOR_COL || miner.row <= 0;
+    if (atEnd || cashOut.state === "pending") {
+      setElevatorAutoDir(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      move(elevatorAutoDir);
+    }, elevatorAutoDelayMs(mine.gear));
+    return () => clearTimeout(timer);
+  }, [cashOut.state, elevatorAutoDir, mine.gear, miner.col, miner.row, move]);
+
+  useEffect(() => {
+    if (cashOut.state === "pending") return;
+    if (miner.row !== 0) return;
+    if (bankedCredits <= 0 && bankedPartsCount <= 0) return;
+    const key = `${seed}:${tripIndex}:${movesLength}:${bankedCredits}:${bankedPartsCount}`;
+    if (lastAutoCashOutKeyRef.current === key) return;
+    lastAutoCashOutKeyRef.current = key;
+    void submitCashOut();
+  }, [
+    bankedCredits,
+    bankedPartsCount,
+    cashOut.state,
+    miner.row,
+    movesLength,
+    seed,
+    submitCashOut,
+    tripIndex,
+  ]);
+
+  const startElevatorRide = (
+    dir: "ride-down" | "ride-up" | "warp-down" | "warp-home",
+  ) => {
+    if (dir === "ride-down" || dir === "ride-up") {
+      setDynamiteArmed(false);
+      setElevatorAutoDir(dir);
+      move(dir);
+      return;
+    }
+    move(dir);
+  };
+
+  const toggleCollectTarget = useCallback((target: CollectTarget) => {
+    const key = collectTargetKey(target);
+    setCollectSelection((prev) =>
+      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key],
+    );
+  }, []);
 
   // One terse toast, game-style: the chips carry the numbers.
   const statusLine =
@@ -1473,35 +1528,37 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                           : lastResult?.ok && (lastResult.vented ?? 0) > 0
                             ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
                             : miner.row === 0 &&
-                                (miner.bankedCredits > 0 ||
-                                  miner.bankedParts.length > 0)
-                              ? "Sell at the Buyer (gold sign)."
+                                (bankedCredits > 0 || bankedPartsCount > 0)
+                              ? "Banking haul..."
                               : miner.row === 0 && mine.consumables.ladder === 0
                                 ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
                                 : undefined;
   const cashNote =
     cashOut.state === "done"
-      ? `Sold for ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Your mine stays.`
+      ? `Banked ${cashOut.credits} vibes${cashOut.milestoneBonus > 0 ? ` +${cashOut.milestoneBonus} depth bonus` : ""}${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Your mine stays.`
       : cashOut.state === "unavailable"
         ? "Couldn't sell; loot is safe, try again."
         : cashOut.state === "error"
           ? cashOut.message
           : null;
 
-  const act = (dir: Direction) => {
-    if (dir === "left" || dir === "right") setFacing(dir);
-    if (dynamiteArmed) {
-      setDynamiteArmed(false);
-      move(`dynamite-${dir}` as MineAction);
-    } else {
-      move(dir);
-    }
-  };
+  const act = fireDirection;
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
-      <MineCanvas zoom={cameraZoom} />
-      <MineTouchControls onDirection={act} onZoomChange={adjustCameraZoom} />
+      <MineCanvas
+        zoom={cameraZoom}
+        collectMode={collectMode}
+        selectedSupportKeys={collectSelection}
+        onToggleSupport={toggleCollectTarget}
+      />
+      {!collectMode && (
+        <MineTouchControls
+          onDirection={act}
+          onZoomChange={adjustCameraZoom}
+          repeatMs={actionCadenceMs(mine.gear)}
+        />
+      )}
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
       <ReleaseNotesPopup
@@ -1644,13 +1701,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           balance={balance}
           shopNote={shopNote}
           cashOutPending={cashOut.state === "pending"}
-          onCashOut={() => void submitCashOut()}
           onBuyConsumable={(item, quantity) =>
             void buyConsumable(item, quantity)
           }
           onBuyGear={(track) => void buyGearUpgrade(track)}
           onBuyElevator={() => void buyElevator()}
-          onRide={(dir) => move(dir)}
+          onRide={startElevatorRide}
           onClose={() => setOpenStallCol(null)}
         />
       )}
@@ -1725,12 +1781,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 ` +${miner.carriedParts.length}p`}
             </span>
           )}
-          {(miner.bankedCredits > 0 || miner.bankedParts.length > 0) && (
-            <span style={{ ...chipStyle, color: "#f5c542" }}>
-              &#127974; {miner.bankedCredits} vibes
-              {miner.bankedParts.length > 0 && ` +${miner.bankedParts.length}p`}
-            </span>
-          )}
         </div>
         {statusLine && (
           <span style={{ ...chipStyle, color: "#f5c542" }}>{statusLine}</span>
@@ -1769,15 +1819,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
       {collectMode && (
         <section
-          aria-label="Placed supports"
+          aria-label="Support collection"
           style={{
             position: "absolute",
             right: 12,
-            bottom: 130,
+            bottom: 82,
             zIndex: 6,
-            width: "min(330px, calc(100vw - 24px))",
-            maxHeight: "min(42dvh, 300px)",
-            overflowY: "auto",
+            width: "min(300px, calc(100vw - 24px))",
             border: "1px solid #26304a",
             borderRadius: 12,
             background: "rgba(17, 21, 31, 0.96)",
@@ -1789,77 +1837,68 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <div
             style={{
               display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
               marginBottom: 10,
             }}
           >
-            {visibleSupports.length === 0 ? (
-              <span style={{ ...chipStyle, color: "#8b93a7" }}>
-                no visible supports
-              </span>
-            ) : (
-              visibleSupports.map((target) => {
-                const key = collectTargetKey(target);
-                const selected = collectSelection.includes(key);
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() =>
-                      setCollectSelection((prev) =>
-                        prev.includes(key)
-                          ? prev.filter((item) => item !== key)
-                          : [...prev, key],
-                      )
-                    }
-                    style={{
-                      minHeight: 34,
-                      borderRadius: 10,
-                      border: selected
-                        ? "1px solid #54e0c7"
-                        : "1px solid #2c3a5c",
-                      background: selected
-                        ? "rgba(84, 224, 199, 0.16)"
-                        : "rgba(38, 48, 74, 0.55)",
-                      color: selected ? "#54e0c7" : "#cdd6ea",
-                      fontSize: "0.78rem",
-                      fontWeight: 800,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {collectTargetName(target)}
-                  </button>
-                );
-              })
-            )}
+            <span style={{ ...chipStyle, color: "#8b93a7" }}>
+              {visibleSupports.length === 0
+                ? "no visible supports"
+                : "tap visible supports"}
+            </span>
+            <span style={{ ...chipStyle, color: "#54e0c7" }}>
+              {selectedSupports.length} selected
+            </span>
           </div>
-          <button
-            type="button"
-            aria-label="Confirm support collection"
-            disabled={selectedSupports.length === 0}
-            onClick={() => {
-              move(collectAction(selectedSupports));
-              setCollectSelection([]);
-              setCollectMode(false);
-            }}
-            style={{
-              width: "100%",
-              minHeight: 40,
-              borderRadius: 10,
-              border: "1px solid #54e0c7",
-              background:
-                selectedSupports.length > 0
-                  ? "#172b30"
-                  : "rgba(23, 43, 48, 0.35)",
-              color: selectedSupports.length > 0 ? "#54e0c7" : "#8b93a7",
-              fontWeight: 800,
-              cursor: selectedSupports.length > 0 ? "pointer" : "default",
-            }}
-          >
-            Collect {selectedSupports.length}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              aria-label="Confirm support collection"
+              disabled={selectedSupports.length === 0}
+              onClick={() => {
+                move(collectAction(selectedSupports));
+                setCollectSelection([]);
+                setCollectMode(false);
+              }}
+              style={{
+                flex: 1,
+                minHeight: 40,
+                borderRadius: 10,
+                border: "1px solid #54e0c7",
+                background:
+                  selectedSupports.length > 0
+                    ? "#172b30"
+                    : "rgba(23, 43, 48, 0.35)",
+                color: selectedSupports.length > 0 ? "#54e0c7" : "#8b93a7",
+                fontWeight: 800,
+                cursor: selectedSupports.length > 0 ? "pointer" : "default",
+              }}
+            >
+              Collect
+            </button>
+            <button
+              type="button"
+              aria-label="Cancel support collection"
+              onClick={() => {
+                setCollectSelection([]);
+                setCollectMode(false);
+              }}
+              style={{
+                minWidth: 78,
+                minHeight: 40,
+                borderRadius: 10,
+                border: "1px solid #2c3a5c",
+                background: "rgba(38, 48, 74, 0.55)",
+                color: "#cdd6ea",
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
         </section>
       )}
 
@@ -1897,8 +1936,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             aria-label="Pick up ladder"
             onClick={() => {
               setDynamiteArmed(false);
-              move("collect-ladder");
+              if (!elevatorAutoDir) move("collect-ladder");
             }}
+            disabled={!!elevatorAutoDir}
             style={iconButtonStyle}
           >
             &#129692;&#8593;
@@ -1949,7 +1989,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           type="button"
           aria-label={`Dynamite (${mine.consumables.dynamite})`}
           onClick={() => setDynamiteArmed((armed) => !armed)}
-          disabled={mine.consumables.dynamite <= 0 && !dynamiteArmed}
+          disabled={
+            !!elevatorAutoDir ||
+            (mine.consumables.dynamite <= 0 && !dynamiteArmed)
+          }
           aria-pressed={dynamiteArmed}
           style={{
             ...iconButtonStyle,
@@ -1969,9 +2012,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-label={`Recall (${mine.consumables.rope})`}
           onClick={() => {
             setDynamiteArmed(false);
-            move("recall");
+            if (!elevatorAutoDir) move("recall");
           }}
-          disabled={mine.consumables.rope <= 0 || miner.row === 0}
+          disabled={
+            !!elevatorAutoDir || mine.consumables.rope <= 0 || miner.row === 0
+          }
           style={iconButtonStyle}
         >
           &#129526; {mine.consumables.rope}
@@ -1980,7 +2025,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <button
             type="button"
             aria-label="Plant warp beacon"
-            onClick={() => move("place-beacon")}
+            onClick={() => {
+              if (!elevatorAutoDir) move("place-beacon");
+            }}
+            disabled={!!elevatorAutoDir}
             style={iconButtonStyle}
           >
             &#128225; {mine.consumables.beacon}
@@ -1996,7 +2044,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               <button
                 type="button"
                 aria-label="Warp home"
-                onClick={() => move("warp-home")}
+                onClick={() => {
+                  if (!elevatorAutoDir) move("warp-home");
+                }}
+                disabled={!!elevatorAutoDir}
                 style={iconButtonStyle}
               >
                 &#127756;
@@ -2010,7 +2061,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             <button
               type="button"
               aria-label="Ride elevator down"
-              onClick={() => move("ride-down")}
+              onClick={() => startElevatorRide("ride-down")}
+              disabled={!!elevatorAutoDir}
               style={iconButtonStyle}
             >
               &#128727;&#11015;&#65039;
@@ -2022,7 +2074,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             <button
               type="button"
               aria-label="Ride elevator up"
-              onClick={() => move("ride-up")}
+              onClick={() => startElevatorRide("ride-up")}
+              disabled={!!elevatorAutoDir}
               style={iconButtonStyle}
             >
               &#128727;&#11014;&#65039;
@@ -2040,7 +2093,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               setAbandonArmed(true);
             }
           }}
-          disabled={miner.row === 0}
+          disabled={!!elevatorAutoDir || miner.row === 0}
           style={{
             ...iconButtonStyle,
             ...(abandonArmed

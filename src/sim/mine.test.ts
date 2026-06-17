@@ -44,7 +44,7 @@ import {
   PLANK_RECOVERY_FLOOR,
   ROCK_DIG_COST,
   ROCK_FREE_ROWS,
-  refundRailLaddersInDiff,
+  refundRailSupportsInDiff,
   replayTrip,
   returnEnergyCost,
   returnLadderNeed,
@@ -382,10 +382,10 @@ describe("mine", () => {
     // Walk to the tower; rides are free and bore the rail span as they go.
     while (state.miner.col > ELEVATOR_COL) step(state, "left");
     const energyAtTower = state.miner.energy;
-    // A ride covers the car's speed in rows (base car = 2), not the whole
-    // rail: it is no longer instant.
+    // A ride covers the car's speed in rows; the UI repeats rides
+    // automatically to the rail end.
     const carRows = elevatorSpeedRows(gear);
-    expect(carRows).toBe(2);
+    expect(carRows).toBe(6);
     const ride = applyAction(state, "ride-down");
     expect(ride.ok).toBe(true);
     expect(state.miner.row).toBe(carRows);
@@ -969,24 +969,29 @@ describe("mine", () => {
     expect(state.used.plank).toBe(0);
   });
 
-  it("refunds ladders covered by new elevator rail depth", () => {
+  it("refunds supports covered by new elevator rail depth", () => {
     const diff: WorldDiff = [
       [ELEVATOR_COL, 1, { kind: "empty", ladder: true }],
       [ELEVATOR_COL, 2, { kind: "empty", ladder: true }],
+      [ELEVATOR_COL, 3, { kind: "empty", plank: true }],
       [ELEVATOR_COL - 1, 1, { kind: "empty", ladder: true }],
       [
         ELEVATOR_COL,
         ELEVATOR_SEGMENT_ROWS + 1,
-        { kind: "empty", ladder: true },
+        { kind: "empty", ladder: true, plank: true },
       ],
     ];
-    const refund = refundRailLaddersInDiff(diff, 0, ELEVATOR_SEGMENT_ROWS);
-    expect(refund.refunded).toBe(2);
+    const refund = refundRailSupportsInDiff(diff, 0, ELEVATOR_SEGMENT_ROWS);
+    expect(refund.refunded).toEqual({ ladder: 2, plank: 1 });
     const next = createMine(76, DEFAULT_GEAR, NO_CONSUMABLES, refund.diff);
     expect(cellAt(next, ELEVATOR_COL, 1)?.ladder).toBeUndefined();
     expect(cellAt(next, ELEVATOR_COL, 2)?.ladder).toBeUndefined();
+    expect(cellAt(next, ELEVATOR_COL, 3)?.plank).toBeUndefined();
     expect(cellAt(next, ELEVATOR_COL - 1, 1)?.ladder).toBe(true);
     expect(cellAt(next, ELEVATOR_COL, ELEVATOR_SEGMENT_ROWS + 1)?.ladder).toBe(
+      true,
+    );
+    expect(cellAt(next, ELEVATOR_COL, ELEVATOR_SEGMENT_ROWS + 1)?.plank).toBe(
       true,
     );
   });
@@ -1459,15 +1464,15 @@ describe("mine", () => {
   });
 
   it("accelerates the elevator car with the speed gear", () => {
-    // Base car is a little faster than stairs (2 rows vs 1 per dig); each
-    // level picks up more rows per ride.
-    expect(elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: 1 })).toBe(2);
-    expect(elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: 2 })).toBe(4);
-    expect(elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: 3 })).toBe(7);
+    // Base car moves several rows per tick now that rides auto-chain;
+    // each level picks up more rows per ride.
+    expect(elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: 1 })).toBe(6);
+    expect(elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: 2 })).toBe(11);
+    expect(elevatorSpeedRows({ ...DEFAULT_GEAR, elevatorSpeed: 3 })).toBe(19);
     // A gear snapshot that predates the track reads as the base car.
     const legacy: Partial<typeof DEFAULT_GEAR> = { ...DEFAULT_GEAR };
     legacy.elevatorSpeed = undefined;
-    expect(elevatorSpeedRows(legacy as typeof DEFAULT_GEAR)).toBe(2);
+    expect(elevatorSpeedRows(legacy as typeof DEFAULT_GEAR)).toBe(6);
     // It strictly accelerates across the whole track.
     let prev = 0;
     for (let lvl = 1; lvl <= maxGearLevel("elevatorSpeed"); lvl++) {

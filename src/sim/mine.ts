@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 21;
+export const MINE_VERSION = 22;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -686,25 +686,34 @@ function importDiff(diff: WorldDiff | undefined): Map<string, MineCell> {
 }
 
 /**
- * Buying rail through a carved ladder shaft returns those bought rungs
+ * Buying rail through a carved support shaft returns those bought aids
  * to stock and removes them from the persistent world diff. The empty
  * shaft stays carved.
  */
-export function refundRailLaddersInDiff(
+export function refundRailSupportsInDiff(
   diff: WorldDiff,
   fromDepth: number,
   toDepth: number,
-): { diff: WorldDiff; refunded: number } {
+): {
+  diff: WorldDiff;
+  refunded: Partial<Record<"ladder" | "plank", number>>;
+} {
   const cells = importDiff(diff);
-  let refunded = 0;
+  const refunded: Partial<Record<"ladder" | "plank", number>> = {};
   for (let row = Math.max(1, fromDepth + 1); row <= toDepth; row++) {
     const key = cellKey(ELEVATOR_COL, row);
     const cell = cells.get(key);
-    if (!cell?.ladder) continue;
+    if (!cell?.ladder && !cell?.plank) continue;
     const next = { ...cell };
-    delete next.ladder;
+    if (next.ladder) {
+      delete next.ladder;
+      refunded.ladder = (refunded.ladder ?? 0) + 1;
+    }
+    if (next.plank) {
+      delete next.plank;
+      refunded.plank = (refunded.plank ?? 0) + 1;
+    }
     cells.set(key, next);
-    refunded++;
   }
   return { diff: exportCells(cells), refunded };
 }
@@ -1982,14 +1991,14 @@ function abandon(state: MineState): MoveResult {
  * 2026-06-16: "I do not want it to be instant. Start a little faster than
  * taking stairs straight down, then upgrade so the speed picks up faster
  * and faster and greater distances"). Stairs move one row per dig, so the
- * base car covers two; each Elevator Speed level accelerates (~1.6x + 1),
- * so a deep rail clears in fewer rides as the gear climbs. Integer and
+ * base car covers six; each Elevator Speed level accelerates (~1.6x + 2),
+ * so a 1000-row rail clears in just a few steps at the top. Integer and
  * transcendental-free so the server replay agrees.
  */
 export function elevatorSpeedRows(gear: MineGear): number {
   const level = Math.max(1, gear.elevatorSpeed ?? 1);
-  let rows = 2;
-  for (let i = 1; i < level; i++) rows = Math.floor(rows * 1.6) + 1;
+  let rows = 6;
+  for (let i = 1; i < level; i++) rows = Math.floor(rows * 1.6) + 2;
   return rows;
 }
 

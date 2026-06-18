@@ -30,7 +30,7 @@ import {
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
   elevatorSpeedRows,
-  findBeacon,
+  findBeacons,
   GEAR_TRACKS,
   type MineAction,
   type MineGear,
@@ -1553,7 +1553,7 @@ function StallMenu({
   onBuyConsumable: (item: DepotItem, quantity: number) => void;
   onBuyGear: (track: MineGearTrack) => void;
   onBuyElevator: () => void;
-  onRide: (dir: "ride-down" | "ride-up" | "warp-down" | "warp-home") => void;
+  onRide: (action: MineAction) => void;
   onClose: () => void;
 }) {
   const miner = mine.miner;
@@ -1562,7 +1562,7 @@ function StallMenu({
   const autoBanking = banked > 0 || bankedParts > 0;
   const upgradeFunds = balance === null ? null : balance + banked;
   const offline = balance === null;
-  const beacon = findBeacon(mine);
+  const beacons = findBeacons(mine);
   // Swipe-to-dismiss: the grab zone follows the finger down, and a far
   // enough pull (or a flick) closes the sheet. A short tug snaps back.
   const [dragY, setDragY] = useState(0);
@@ -1892,27 +1892,66 @@ function StallMenu({
           <SheetRow
             icon={ITEM_ICONS.beacon}
             name={
-              beacon
-                ? `beacon planted at ${beacon.row} deep`
+              beacons.length > 0
+                ? `${beacons.length} beacon${beacons.length > 1 ? "s" : ""} planted`
                 : "no beacon planted; kits at the depot"
             }
             sub={`warpcoil range ${warpRange(mine.gear)} rows (upgrade at the Upgrades stall)`}
           />
-          <button
-            type="button"
-            onClick={() => onRide("warp-down")}
-            disabled={!beacon || beacon.row > warpRange(mine.gear)}
+          <div
             style={{
-              ...sheetButtonStyle(
-                !!beacon && beacon.row <= warpRange(mine.gear),
-              ),
-              width: "100%",
+              display: "grid",
+              gap: 8,
               marginTop: 12,
-              minHeight: 48,
+              maxHeight: 220,
+              overflowY: "auto",
+              paddingRight: 2,
             }}
           >
-            Warp to beacon
-          </button>
+            {beacons.length === 0 ? (
+              <button
+                type="button"
+                disabled
+                style={{
+                  ...sheetButtonStyle(false),
+                  width: "100%",
+                  minHeight: 48,
+                }}
+              >
+                Warp to beacon
+              </button>
+            ) : (
+              beacons.map((beacon, index) => (
+                <button
+                  key={`${beacon.col},${beacon.row}`}
+                  type="button"
+                  onClick={() =>
+                    onRide(
+                      `warp-down:${beacon.col},${beacon.row}` as MineAction,
+                    )
+                  }
+                  disabled={!beacon.inRange}
+                  style={{
+                    ...sheetButtonStyle(beacon.inRange),
+                    width: "100%",
+                    minHeight: 48,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <span>
+                    {index === 0 ? "Newest beacon" : `Beacon ${index + 1}`}
+                  </span>
+                  <span style={{ opacity: 0.78 }}>
+                    row {beacon.row}, col {beacon.col}
+                    {beacon.inRange ? "" : " out of range"}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
       {shopNote && (
@@ -2109,7 +2148,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   useEffect(() => {
     if (
       lastResult?.ok &&
-      (lastAction === "warp-home" || lastAction === "warp-down")
+      (lastAction === "warp-home" || lastAction?.startsWith("warp-down"))
     ) {
       setTeleportBurstKey((key) => key + 1);
     }
@@ -2222,7 +2261,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const salvagedSupportCount =
     lastResult?.ok && lastResult.supportCollected
       ? (lastResult.supportCollected.ladder ?? 0) +
-        (lastResult.supportCollected.plank ?? 0)
+        (lastResult.supportCollected.plank ?? 0) +
+        (lastResult.supportCollected.beacon ?? 0)
       : 0;
   const salvagedSupportValue =
     lastResult?.ok && lastResult.supportSalvageValue
@@ -2344,9 +2384,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     tripIndex,
   ]);
 
-  const startElevatorRide = (
-    dir: "ride-down" | "ride-up" | "warp-down" | "warp-home",
-  ) => {
+  const startElevatorRide = (dir: MineAction) => {
     setDynamiteMenuOpen(false);
     if (dir === "ride-down" || dir === "ride-up") {
       setElevatorAutoDir(dir);
@@ -2404,7 +2442,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                     : lastResult?.ok && lastResult.plankPlaced
                       ? "Plank placed."
                       : salvagedSupportCount > 0
-                        ? `Salvaged ${salvagedSupportCount} support${salvagedSupportCount > 1 ? "s" : ""} for ${salvagedSupportValue} vibes.`
+                        ? `Salvaged ${salvagedSupportCount} pickup${salvagedSupportCount > 1 ? "s" : ""} for ${salvagedSupportValue} vibes.`
                         : lastResult?.ok && (lastResult.dropped ?? 0) > 0
                           ? `${lastResult.dropped} ore dropped.`
                           : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
@@ -2846,7 +2884,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
       {collectMode && (
         <section
-          aria-label="Support salvage"
+          aria-label="Edit pickups"
           style={{
             position: "absolute",
             right: 12,
@@ -2872,8 +2910,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           >
             <span style={{ ...chipStyle, color: "#8b93a7" }}>
               {visibleSupports.length === 0
-                ? "no visible supports"
-                : "tap visible supports"}
+                ? "no visible pickups"
+                : "tap visible pickups"}
             </span>
             <span style={{ ...chipStyle, color: "#54e0c7" }}>
               {selectedSupports.length} selected, {selectedSupportValue} vibes
@@ -2882,7 +2920,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
-              aria-label="Confirm support salvage"
+              aria-label="Confirm edit pickups"
               disabled={selectedSupports.length === 0}
               onClick={() => {
                 move(collectAction(selectedSupports));
@@ -2903,11 +2941,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 cursor: selectedSupports.length > 0 ? "pointer" : "default",
               }}
             >
-              Salvage
+              Pick up
             </button>
             <button
               type="button"
-              aria-label="Cancel support salvage"
+              aria-label="Cancel edit pickups"
               onClick={() => {
                 setCollectSelection([]);
                 setCollectMode(false);
@@ -2989,7 +3027,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         </button>
         <button
           type="button"
-          aria-label="Salvage placed supports"
+          aria-label="Edit placed pickups"
           aria-pressed={collectMode}
           onClick={() => {
             setDynamiteMenuOpen(false);
@@ -3155,12 +3193,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           </button>
         )}
         {(() => {
-          const beacon = findBeacon(mine);
+          const onBeacon = currentCell?.beacon;
           return (
-            beacon &&
-            miner.row === beacon.row &&
-            miner.col === beacon.col &&
-            beacon.row <= warpRange(mine.gear) && (
+            onBeacon &&
+            miner.row <= warpRange(mine.gear) && (
               <button
                 type="button"
                 aria-label="Warp home"

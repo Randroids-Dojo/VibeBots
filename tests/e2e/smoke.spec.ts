@@ -283,7 +283,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
     page.getByRole("button", { name: /Place plank (left|right)/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Salvage placed supports" }),
+    page.getByRole("button", { name: "Edit placed pickups" }),
   ).toBeVisible();
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
 });
@@ -335,7 +335,7 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
   await expect(report).not.toContainText("Crushed by a boulder");
 });
 
-test("support salvage selection outlines selected cells in red", async ({
+test("edit pickup selection outlines selected cells in red", async ({
   page,
 }) => {
   await page.route("**/api/mine/world", async (route) => {
@@ -366,10 +366,10 @@ test("support salvage selection outlines selected cells in red", async ({
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Salvage placed supports" }),
+    page.getByRole("button", { name: "Edit placed pickups" }),
   ).toBeEnabled();
-  await page.getByRole("button", { name: "Salvage placed supports" }).click();
-  const salvage = page.getByRole("region", { name: "Support salvage" });
+  await page.getByRole("button", { name: "Edit placed pickups" }).click();
+  const salvage = page.getByRole("region", { name: "Edit pickups" });
   await expect(salvage).toBeVisible();
   const before = await canvas.screenshot();
   const box = await canvas.boundingBox();
@@ -558,11 +558,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("varied one-line gameplay tips");
+  await expect(dialog).toContainText("multiple placed anchors");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("gameplay-tip set");
-  await expect(dialog.locator("li").nth(1)).toContainText("ladder recovery");
-  await expect(dialog.locator("li").nth(2)).toContainText("zero-ladder runs");
+  await expect(dialog.locator("li").first()).toContainText("multiple beacon");
+  await expect(dialog.locator("li").nth(1)).toContainText("Out-of-range");
+  await expect(dialog.locator("li").nth(2)).toContainText("Edit pickup");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -604,6 +604,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.37", "Multi-beacon warp"],
     ["0.1.36", "Mine surface tips"],
     ["0.1.35", "Mine cash-out diagnostics"],
     ["0.1.34", "Support selection outlines"],
@@ -1166,6 +1167,67 @@ test("deep dropped ore markers do not create a white text card", async ({
     return bright;
   });
   expect(brightPixels).toBeLessThan(800);
+});
+
+test("the warp pad lists beacons newest first (REQ-029)", async ({ page }) => {
+  const mine = createMine(9797, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  setCell(mine, START_COL, 3, {
+    kind: "empty",
+    beacon: true,
+    beaconOrder: 1,
+  });
+  setCell(mine, START_COL + 1, 12, {
+    kind: "empty",
+    beacon: true,
+    beaconOrder: 2,
+  });
+  setCell(mine, START_COL - 2, 70, {
+    kind: "empty",
+    beacon: true,
+    beaconOrder: 3,
+  });
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear: DEFAULT_GEAR,
+        consumables: STARTING_CONSUMABLES,
+        balance: 0,
+      },
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed: 9797,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: [],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  for (let i = 0; i < 6; i++) {
+    await pressMineKey(page, "ArrowRight");
+  }
+  const pad = await openStall(page, "Warp Pad");
+  await expect(pad).toContainText("3 beacons planted");
+  await expect(pad).toContainText("row 70, col -2 out of range");
+  await expect(pad).toContainText("row 12, col 1");
+  await expect(pad).toContainText("row 3, col 0");
+  await expect(
+    pad.getByRole("button", { name: /Newest beacon.*row 70/ }),
+  ).toBeDisabled();
+  await expect(
+    pad.getByRole("button", { name: /Beacon 2.*row 12/ }),
+  ).toBeEnabled();
 });
 
 test("the elevator sells rail and gates rides on it (REQ-028)", async ({

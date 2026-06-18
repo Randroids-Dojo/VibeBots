@@ -81,7 +81,14 @@ describe("mining sfx event mapping", () => {
       ),
     ).toEqual(["plank"]);
     expect(mineResultSfxEvents(ok, "place-beacon")).toEqual(["beacon"]);
+    expect(
+      mineResultSfxEvents(
+        { ...ok, supportCollected: { beacon: 1 } },
+        "collect:beacon:0,1",
+      ),
+    ).toEqual(["beacon"]);
     expect(mineResultSfxEvents(ok, "warp-home")).toEqual(["warp"]);
+    expect(mineResultSfxEvents(ok, "warp-down:1,2")).toEqual(["warp"]);
     expect(mineResultSfxEvents(ok, "ride-up")).toEqual(["elevator"]);
   });
 

@@ -200,8 +200,10 @@ export function mineResultSfxEvents(
   if (result.oreHarvested) events.push("ore-pickup");
   if (result.found) events.push("cache-fanfare");
   if (result.recalled) events.push("recall");
-  if (action === "place-beacon") events.push("beacon");
-  if (action === "warp-down" || action === "warp-home") events.push("warp");
+  if (action === "place-beacon" || result.supportCollected?.beacon)
+    events.push("beacon");
+  if (action?.startsWith("warp-down") || action === "warp-home")
+    events.push("warp");
   if (action === "ride-down" || action === "ride-up") events.push("elevator");
   if (result.abandoned) events.push("abandon");
   else if (result.fallFatal) {

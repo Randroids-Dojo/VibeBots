@@ -2016,7 +2016,7 @@ function MineScene({
       lastAction === "abandon" ||
       lastAction === "recall" ||
       lastAction === "warp-home" ||
-      lastAction === "warp-down";
+      lastAction?.startsWith("warp-down");
     // Camera rig eases down the shaft after the miner, with shake.
     const targetY = visualTargetY;
     const rig = rigRef.current;
@@ -2417,12 +2417,30 @@ function MineScene({
         }
         // The warp beacon (REQ-029): a humming pylon in the dark.
         if (cell.beacon) {
+          const beaconCanSalvage =
+            collectMode && isSupportSalvageTarget(mine, col, row);
+          const beaconSelected =
+            beaconCanSalvage && selectedSupportSet.has(`beacon:${col},${row}`);
+          const toggleBeacon =
+            beaconCanSalvage && onToggleSupport ? onToggleSupport : null;
           tunnelMeshes.push(
-            <group key={`beacon:${key}`} position={[x, y - 0.18, 0.1]}>
+            // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+            <group
+              key={`beacon:${key}`}
+              position={[x, y - 0.18, 0.1]}
+              onClick={
+                toggleBeacon
+                  ? (e) => {
+                      e.stopPropagation();
+                      toggleBeacon({ type: "beacon", col, row });
+                    }
+                  : undefined
+              }
+            >
               <mesh>
                 <cylinderGeometry args={[0.07, 0.12, 0.5, 8]} />
                 <meshStandardMaterial
-                  color="#5a3a78"
+                  color={beaconCanSalvage ? "#8d58b8" : "#5a3a78"}
                   metalness={0.5}
                   roughness={0.4}
                   flatShading
@@ -2444,6 +2462,9 @@ function MineScene({
                 distance={4}
                 decay={1.6}
               />
+              {beaconSelected ? (
+                <SupportSelectionOutline width={0.56} height={0.86} />
+              ) : null}
             </group>,
           );
         }

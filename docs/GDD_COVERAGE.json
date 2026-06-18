@@ -496,7 +496,7 @@
     },
     {
       "id": "REQ-029",
-      "requirement": "Teleporter: beacon-kit consumables plant a movable beacon; a village warp pad warps to and from it while its depth is within the upgradeable warpcoil range track.",
+      "requirement": "Teleporter: beacon-kit consumables plant multiple persistent beacons; a village warp pad lists planted beacons and warps to a selected in-range target, while any in-range beacon can warp home.",
       "gddRef": "docs/gdd/06-mining.html#transport",
       "status": "done",
       "implementationRefs": [

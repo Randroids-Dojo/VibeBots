@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 29;
+export const MINE_VERSION = 30;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -52,7 +52,7 @@ export interface MineConsumables {
   rope: number;
   ladder: number;
   plank: number;
-  /** Warp beacon kits (REQ-029): one active beacon, replanting moves it. */
+  /** Warp beacon kits (REQ-029): placed beacon anchors. */
   beacon: number;
 }
 
@@ -76,7 +76,9 @@ const SUPPORT_SALVAGE_NUMERATOR = 1;
 const SUPPORT_SALVAGE_DENOMINATOR = 2;
 const PLANK_HITS = 3;
 
-export function supportSalvageValue(item: "ladder" | "plank"): number {
+type SalvageablePlacement = "ladder" | "plank" | "beacon";
+
+export function supportSalvageValue(item: SalvageablePlacement): number {
   return Math.max(
     1,
     Math.floor(
@@ -86,7 +88,7 @@ export function supportSalvageValue(item: "ladder" | "plank"): number {
   );
 }
 
-function salvageSupport(state: MineState, item: "ladder" | "plank"): number {
+function salvageSupport(state: MineState, item: SalvageablePlacement): number {
   const value = supportSalvageValue(item);
   state.miner.carriedSalvageCredits += value;
   return value;
@@ -589,8 +591,10 @@ export interface MineCell {
    * deterministic reserve from the ore id and row.
    */
   oreRemaining?: number;
-  /** The active warp beacon stands here (REQ-029); at most one world-wide. */
+  /** A placed warp beacon stands here (REQ-029). */
   beacon?: boolean;
+  /** Placement order for newest-first Warp Pad lists. */
+  beaconOrder?: number;
   /**
    * Ore lying on the floor of an empty cell: chunks that overflowed a
    * dig or dynamite blast because the cargo hold was full. Scooped up by
@@ -1160,8 +1164,8 @@ export type MoveResult =
       collectedLadder?: boolean;
       /** This action placed a plank in the facing cell. */
       plankPlaced?: { col: number; row: number };
-      /** Placed supports salvaged from the world. */
-      supportCollected?: Partial<Record<"ladder" | "plank", number>>;
+      /** Placed supports and beacons salvaged from the world. */
+      supportCollected?: Partial<Record<SalvageablePlacement, number>>;
       /** Vibe value added to carried salvage by support pickup. */
       supportSalvageValue?: number;
       /** The swing damaged but did not break the block (REQ-013). */
@@ -1206,7 +1210,7 @@ type BaseMineAction =
   | "warp-down";
 
 export type CollectTarget = {
-  type: "ladder" | "plank";
+  type: SalvageablePlacement;
   col: number;
   row: number;
 };
@@ -1227,7 +1231,10 @@ export function isSupportSalvageTarget(
  * direction; collect tokens pick placed traversal supports back up by
  * coordinate.
  */
-export type MineAction = BaseMineAction | `collect:${string}`;
+export type MineAction =
+  | BaseMineAction
+  | `collect:${string}`
+  | `warp-down:${number},${number}`;
 
 export const MINE_ACTIONS = [
   "down",
@@ -1268,9 +1275,9 @@ function parseCollectAction(action: string): CollectTarget[] | null {
   const targets: CollectTarget[] = [];
   const seen = new Set<string>();
   for (const part of raw.split(";")) {
-    const match = /^(ladder|plank):(-?\d+),(-?\d+)$/.exec(part);
+    const match = /^(ladder|plank|beacon):(-?\d+),(-?\d+)$/.exec(part);
     if (!match) return null;
-    const type = match[1] as "ladder" | "plank";
+    const type = match[1] as SalvageablePlacement;
     const col = Number(match[2]);
     const row = Number(match[3]);
     if (!Number.isSafeInteger(col) || !Number.isSafeInteger(row) || row < 0)
@@ -1283,8 +1290,24 @@ function parseCollectAction(action: string): CollectTarget[] | null {
   return targets;
 }
 
+function parseWarpDownAction(
+  action: string,
+): { col: number; row: number } | null {
+  const match = /^warp-down:(-?\d+),(-?\d+)$/.exec(action);
+  if (!match) return null;
+  const col = Number(match[1]);
+  const row = Number(match[2]);
+  if (!Number.isSafeInteger(col) || !Number.isSafeInteger(row) || row < 1)
+    return null;
+  return { col, row };
+}
+
 export function isMineAction(action: string): action is MineAction {
-  return BASE_MINE_ACTIONS.has(action) || parseCollectAction(action) !== null;
+  return (
+    BASE_MINE_ACTIONS.has(action) ||
+    parseCollectAction(action) !== null ||
+    parseWarpDownAction(action) !== null
+  );
 }
 
 /** Blast-destructible kinds (caches are reinforced; jackpots survive). */
@@ -1904,12 +1927,13 @@ function breakCurrentPlank(state: MineState): MoveResult {
 export function collectablePlacements(state: MineState): CollectTarget[] {
   const items: CollectTarget[] = [];
   for (const [key, cell] of state.cells) {
-    if (!cell.ladder && !cell.plank) continue;
+    if (!cell.ladder && !cell.plank && !cell.beacon) continue;
     const [col, row] = key.split(",").map(Number);
     if (!isVisible(state, col, row) || !isSupportSalvageTarget(state, col, row))
       continue;
     if (cell.ladder) items.push({ type: "ladder", col, row });
     if (cell.plank) items.push({ type: "plank", col, row });
+    if (cell.beacon) items.push({ type: "beacon", col, row });
   }
   items.sort(
     (a, b) => a.row - b.row || a.col - b.col || a.type.localeCompare(b.type),
@@ -1930,11 +1954,12 @@ function collectPlaced(state: MineState, action: MineAction): MoveResult {
     )
       return { ok: false, reason: "blocked" };
   }
-  const collected: Partial<Record<"ladder" | "plank", number>> = {};
+  const collected: Partial<Record<SalvageablePlacement, number>> = {};
   let salvageValue = 0;
   for (const item of targets) {
     const cell = cellMut(state, item.col, item.row);
     cell[item.type] = undefined;
+    if (item.type === "beacon") cell.beaconOrder = undefined;
     const value = salvageSupport(state, item.type);
     salvageValue += value;
     collected[item.type] = (collected[item.type] ?? 0) + 1;
@@ -2362,23 +2387,54 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
   return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
 }
 
-/** Locate the active beacon in the world diff, if any. */
+export interface PlacedBeacon {
+  col: number;
+  row: number;
+  order: number;
+  inRange: boolean;
+}
+
+function maxBeaconOrder(state: MineState): number {
+  let order = 0;
+  for (const cell of state.cells.values()) {
+    if (
+      cell.beacon &&
+      Number.isSafeInteger(cell.beaconOrder) &&
+      (cell.beaconOrder ?? 0) > order
+    )
+      order = cell.beaconOrder ?? 0;
+  }
+  return order;
+}
+
+/** Locate placed beacons in newest-first order. */
+export function findBeacons(state: MineState): PlacedBeacon[] {
+  const range = warpRange(state.gear);
+  const beacons: PlacedBeacon[] = [];
+  for (const [key, cell] of state.cells) {
+    if (!cell.beacon) continue;
+    const [col, row] = key.split(",").map(Number);
+    const order = Number.isSafeInteger(cell.beaconOrder)
+      ? (cell.beaconOrder ?? 0)
+      : 0;
+    beacons.push({ col, row, order, inRange: row <= range });
+  }
+  beacons.sort((a, b) => b.order - a.order || b.row - a.row || b.col - a.col);
+  return beacons;
+}
+
+/** Locate the newest placed beacon in the world diff, if any. */
 export function findBeacon(
   state: MineState,
 ): { col: number; row: number } | null {
-  for (const [key, cell] of state.cells) {
-    if (cell.beacon) {
-      const [col, row] = key.split(",").map(Number);
-      return { col, row };
-    }
-  }
-  return null;
+  const [beacon] = findBeacons(state);
+  return beacon ? { col: beacon.col, row: beacon.row } : null;
 }
 
 /**
- * The teleporter (REQ-029): a beacon kit plants the one active beacon
- * at the miner's cell; the village warp pad and the beacon exchange
- * the miner freely while the beacon's depth is within warpcoil range.
+ * The teleporter (REQ-029): beacon kits plant persistent anchors in
+ * conquered space. The village warp pad jumps to a chosen beacon, and
+ * any beacon returns the miner home while its depth is within range.
  * All logged, all free of energy: the late game compresses conquered
  * space, never unconquered space.
  */
@@ -2386,42 +2442,60 @@ function placeBeacon(state: MineState): MoveResult {
   const miner = state.miner;
   if (miner.row < 1) return { ok: false, reason: "surface" };
   if (state.consumables.beacon <= 0) return { ok: false, reason: "no-beacon" };
-  const old = findBeacon(state);
-  if (old) {
-    const cell = cellMut(state, old.col, old.row);
-    cell.beacon = undefined;
-  }
+  const cell = cellMut(state, miner.col, miner.row);
+  if (cell.beacon) return { ok: false, reason: "blocked" };
   state.consumables.beacon--;
   state.used.beacon++;
-  cellMut(state, miner.col, miner.row).beacon = true;
+  cell.beacon = true;
+  cell.beaconOrder = maxBeaconOrder(state) + 1;
   return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
 }
 
-function warp(state: MineState, dir: "home" | "down"): MoveResult {
+function warpHome(state: MineState): MoveResult {
   const miner = state.miner;
-  const beacon = findBeacon(state);
-  if (!beacon) return { ok: false, reason: "no-beacon" };
-  if (beacon.row > warpRange(state.gear))
+  const here = cellAt(state, miner.col, miner.row);
+  if (!here?.beacon) return { ok: false, reason: "blocked" };
+  if (miner.row > warpRange(state.gear))
     return { ok: false, reason: "out-of-range" };
-  if (dir === "home") {
-    if (miner.col !== beacon.col || miner.row !== beacon.row)
-      return { ok: false, reason: "blocked" };
-    miner.col = WARP_PAD_COL;
-    miner.row = 0;
-    bank(miner, state.gear);
-    return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
-  }
+  miner.col = WARP_PAD_COL;
+  miner.row = 0;
+  bank(miner, state.gear);
+  return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+}
+
+function warpDown(
+  state: MineState,
+  target: { col: number; row: number },
+): MoveResult {
+  const miner = state.miner;
   if (miner.row !== 0 || miner.col !== WARP_PAD_COL)
     return { ok: false, reason: "blocked" };
-  miner.col = beacon.col;
-  miner.row = beacon.row;
+  const cell = cellAt(state, target.col, target.row);
+  if (!cell?.beacon) return { ok: false, reason: "no-beacon" };
+  if (target.row > warpRange(state.gear))
+    return { ok: false, reason: "out-of-range" };
+  miner.col = target.col;
+  miner.row = target.row;
   if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
   return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+}
+
+function warpToNewestBeacon(state: MineState): MoveResult {
+  const beacons = findBeacons(state);
+  const beacon = beacons.find((candidate) => candidate.inRange);
+  if (!beacon) {
+    return beacons.length > 0
+      ? { ok: false, reason: "out-of-range" }
+      : { ok: false, reason: "no-beacon" };
+  }
+  return warpDown(state, beacon);
 }
 
 /** Dispatches any logged trip action (Q-006 default B). */
 export function applyAction(state: MineState, action: MineAction): MoveResult {
   if (action.startsWith("collect:")) return collectPlaced(state, action);
+  const warpTarget = parseWarpDownAction(action);
+  if (warpTarget) return warpDown(state, warpTarget);
   switch (action) {
     case "down":
     case "up":
@@ -2453,9 +2527,9 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
     case "collect-ladder":
       return collectLadder(state);
     case "warp-home":
-      return warp(state, "home");
+      return warpHome(state);
     case "warp-down":
-      return warp(state, "down");
+      return warpToNewestBeacon(state);
   }
   return { ok: false, reason: "blocked" };
 }

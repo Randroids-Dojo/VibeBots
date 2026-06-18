@@ -26,6 +26,7 @@ import {
   exportDiff,
   FALL_DELAY_ACTIONS,
   findBeacon,
+  findBeacons,
   GAS_VENT_DRAIN,
   GEAR_TRACKS,
   HAZARD_FREE_ROWS,
@@ -65,6 +66,7 @@ import {
   setCell,
   step,
   stratumAt,
+  supportSalvageValue,
   WARP_PAD_COL,
   type WorldDiff,
   warpRange,
@@ -494,8 +496,8 @@ describe("mine", () => {
     expect(elevatorSegmentPrice(4)).toBeGreaterThan(600);
   });
 
-  it("plants one beacon and warps within coil range (REQ-029)", () => {
-    const cons = { ...NO_CONSUMABLES, beacon: 2 };
+  it("plants multiple beacons and warps to a chosen target (REQ-029)", () => {
+    const cons = stock({ beacon: 2 });
     const state = createMine(241, DEFAULT_GEAR, cons);
     expect(applyAction(state, "place-beacon")).toEqual({
       ok: false,
@@ -510,6 +512,7 @@ describe("mine", () => {
     const planted = applyAction(state, "place-beacon");
     expect(planted.ok).toBe(true);
     expect(state.used.beacon).toBe(1);
+    const firstBeacon = { col: START_COL, row: 2 };
     expect(findBeacon(state)).toEqual({ col: START_COL, row: 2 });
     // Warp home banks from the beacon cell; warp down returns to it.
     state.miner.carried = { coal: 1 };
@@ -517,21 +520,36 @@ describe("mine", () => {
     expect(state.miner.row).toBe(0);
     expect(state.miner.col).toBe(WARP_PAD_COL);
     expect(state.miner.bankedCredits).toBe(1);
-    expect(applyAction(state, "warp-down").ok).toBe(true);
+    expect(
+      applyAction(state, `warp-down:${firstBeacon.col},${firstBeacon.row}`),
+    ).toEqual({
+      ok: true,
+      dug: null,
+      dugOre: null,
+      found: null,
+      collapsed: false,
+    });
     expect(state.miner.row).toBe(2);
-    // Replanting moves the single beacon.
+    // Later placements remain alongside older anchors and sort first.
     dig(state, "down");
     expect(applyAction(state, "place-beacon").ok).toBe(true);
     expect(findBeacon(state)).toEqual({ col: START_COL, row: 3 });
+    expect(findBeacons(state).map(({ col, row }) => ({ col, row }))).toEqual([
+      { col: START_COL, row: 3 },
+      { col: START_COL, row: 2 },
+    ]);
     expect(state.consumables.beacon).toBe(0);
     expect(applyAction(state, "place-beacon")).toEqual({
       ok: false,
       reason: "no-beacon",
     });
+    expect(applyAction(state, "warp-home").ok).toBe(true);
+    expect(applyAction(state, "warp-down").ok).toBe(true);
+    expect(state.miner.row).toBe(3);
   });
 
   it("refuses warps past the coil range until upgraded", () => {
-    const cons = { ...NO_CONSUMABLES, beacon: 1 };
+    const cons = stock({ beacon: 1 });
     const state = createMine(251, DEFAULT_GEAR, cons);
     dig(state, "down");
     const beaconCell = findBeacon(state);
@@ -544,7 +562,9 @@ describe("mine", () => {
       setCell(state, planted.col, planted.row, { kind: "empty" });
       setCell(state, planted.col, 100, { kind: "empty", beacon: true });
     }
-    expect(applyAction(state, "warp-home")).toEqual({
+    state.miner.col = WARP_PAD_COL;
+    state.miner.row = 0;
+    expect(applyAction(state, "warp-down")).toEqual({
       ok: false,
       reason: "out-of-range",
     });
@@ -553,7 +573,7 @@ describe("mine", () => {
   });
 
   it("replays beacon trips identically", () => {
-    const cons = { ...NO_CONSUMABLES, beacon: 1 };
+    const cons = stock({ beacon: 2 });
     const actions: MineAction[] = [
       "down",
       "down",
@@ -562,7 +582,10 @@ describe("mine", () => {
       "down",
       "down",
       "place-beacon",
+      "down",
+      "place-beacon",
       "warp-home",
+      `warp-down:${START_COL},6`,
     ];
     const state = createMine(257, DEFAULT_GEAR, cons);
     for (const a of actions) applyAction(state, a);
@@ -570,6 +593,30 @@ describe("mine", () => {
     expect(replayed.used.beacon).toBe(state.used.beacon);
     expect(replayed.diff).toEqual(exportDiff(state));
     expect(replayTrip(257, actions, DEFAULT_GEAR, cons)).toEqual(replayed);
+  });
+
+  it("salvages placed beacons through edit pickup", () => {
+    const state = createMine(258, DEFAULT_GEAR, stock({ beacon: 1 }));
+    dig(state, "down");
+    dig(state, "down");
+    expect(applyAction(state, "place-beacon").ok).toBe(true);
+    const target = findBeacon(state);
+    expect(target).toEqual({ col: START_COL, row: 2 });
+    expect(target).not.toBeNull();
+    if (!target) return;
+    const result = applyAction(
+      state,
+      collectAction([{ type: "beacon", col: target.col, row: target.row }]),
+    );
+    expect(result.ok && result.supportCollected).toEqual({ beacon: 1 });
+    expect(result.ok && result.supportSalvageValue).toBe(
+      supportSalvageValue("beacon"),
+    );
+    expect(cellAt(state, target.col, target.row)?.beacon).toBeUndefined();
+    expect(cellAt(state, target.col, target.row)?.beaconOrder).toBeUndefined();
+    expect(findBeacons(state)).toEqual([]);
+    expect(state.consumables.beacon).toBe(0);
+    expect(state.miner.carriedSalvageCredits).toBe(30);
   });
 
   it("escalates the deep: strata, magma, tier-4 rock, richer caches (REQ-030)", () => {

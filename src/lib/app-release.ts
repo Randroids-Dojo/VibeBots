@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.36-mine-surface-tips";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.37-multi-beacon-warp";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.37",
+      date: "2026-06-18",
+      title: "Multi-beacon warp",
+      intro:
+        "Warp beacons now work as multiple placed anchors instead of one movable target.",
+      changes: [
+        {
+          build,
+          text: "Place multiple beacon kits underground and pick the destination from a newest-first Warp Pad list.",
+        },
+        {
+          build,
+          text: "Out-of-range beacons stay visible in the list but cannot be selected until Warpcoil range catches up.",
+        },
+        {
+          build,
+          text: "Edit pickup mode can now salvage placed beacons for carried vibe value, removing them from the warp list.",
+        },
+      ],
+    },
     {
       version: "0.1.36",
       date: "2026-06-18",

@@ -68,6 +68,8 @@ export interface MinePlayerProfile {
   plank_count: number;
   beacon_count: number;
   emeralds: number;
+  track_xp: number;
+  defense_xp: number;
   support_kit_granted_at: string | null;
   elevator_support_refund_at: string | null;
   legacy_support_snapshot_reconciled_at: string | null;
@@ -333,7 +335,7 @@ export async function getMinePlayerProfile(
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
            warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
            fall_level, dynamite_count, rope_count, ladder_count, plank_count,
-           beacon_count, emeralds, support_kit_granted_at,
+           beacon_count, emeralds, track_xp, defense_xp, support_kit_granted_at,
            elevator_support_refund_at, legacy_support_snapshot_reconciled_at,
            dynamite_tier_unlock_reset_at
     FROM players WHERE id = ${playerId}`) as Array<MinePlayerProfile>;

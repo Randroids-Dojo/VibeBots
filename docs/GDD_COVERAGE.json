@@ -577,6 +577,102 @@
         "src/state/mine-store.test.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-034",
+      "requirement": "A player can clear a large connected underground area, preview one active bunker claim, and stake that footprint inside the persistent mine.",
+      "gddRef": "docs/gdd/08-base-building.html#claim-loop",
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/bunker.ts",
+        "src/server/bunker.ts",
+        "src/app/api/bunker/claim/route.ts",
+        "src/components/mine-panel.tsx",
+        "src/components/mine-canvas.tsx"
+      ],
+      "testRefs": [
+        "src/sim/bunker.test.ts",
+        "src/app/api/bunker/route.test.ts"
+      ],
+      "followupRefs": [
+        "F-029"
+      ]
+    },
+    {
+      "id": "REQ-035",
+      "requirement": "Consumable base parts let the player build a multi-level bunker piece by piece on a cell grid, with inventory spend, removal rules, and part-local durability.",
+      "gddRef": "docs/gdd/08-base-building.html#building-parts",
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/bunker.ts",
+        "src/server/bunker.ts",
+        "src/app/api/bunker/parts/buy/route.ts",
+        "src/app/api/bunker/parts/place/route.ts",
+        "src/app/api/bunker/parts/remove/route.ts",
+        "src/components/mine-panel.tsx"
+      ],
+      "testRefs": [
+        "src/sim/bunker.test.ts"
+      ],
+      "followupRefs": [
+        "F-029"
+      ]
+    },
+    {
+      "id": "REQ-036",
+      "requirement": "The player can trigger a short autonomous bunker-defense event while inside a valid bunker, with higher tiers lasting longer and spawning stronger attacks.",
+      "gddRef": "docs/gdd/08-base-building.html#defense-event",
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/bunker.ts",
+        "src/server/bunker.ts",
+        "src/app/api/bunker/raid/start/route.ts",
+        "src/app/api/bunker/raid/finish/route.ts",
+        "src/state/bunker-store.ts"
+      ],
+      "testRefs": [
+        "src/sim/bunker.test.ts",
+        "src/app/api/bunker/route.test.ts"
+      ],
+      "followupRefs": [
+        "F-029"
+      ]
+    },
+    {
+      "id": "REQ-037",
+      "requirement": "Clankers are autonomous spidery robotic enemies that path through the mine, chew through cells, surround bunker faces, breach base parts, and attack the player.",
+      "gddRef": "docs/gdd/08-base-building.html#clankers",
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/bunker.ts",
+        "src/components/mine-canvas.tsx"
+      ],
+      "testRefs": [
+        "src/sim/bunker.test.ts"
+      ],
+      "followupRefs": [
+        "F-029"
+      ]
+    },
+    {
+      "id": "REQ-038",
+      "requirement": "Surviving bunker attacks grants deterministic defense XP toward overall player level, which gates bot parts, base parts, skins, stamps, consumables, and upgrades.",
+      "gddRef": "docs/gdd/08-base-building.html#rewards-and-level",
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/bunker.ts",
+        "src/server/bunker.ts",
+        "src/server/db.ts",
+        "src/server/player.ts"
+      ],
+      "testRefs": [
+        "src/sim/bunker.test.ts",
+        "src/server/player.test.ts",
+        "src/server/bunker.test.ts"
+      ],
+      "followupRefs": [
+        "F-029"
+      ]
     }
   ]
 }

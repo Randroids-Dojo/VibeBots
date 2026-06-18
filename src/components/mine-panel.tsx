@@ -12,6 +12,12 @@ import {
 import type { PlayerAchievementView } from "@/lib/achievements";
 import type { AppRelease } from "@/lib/app-release-types";
 import {
+  BASE_PART_CATALOG,
+  type BasePartId,
+  type BunkerFootprint,
+  proposedBunkerFootprint,
+} from "@/sim/bunker";
+import {
   CONSUMABLE_PRICES,
   type CollectTarget,
   canPlacePlank,
@@ -49,6 +55,7 @@ import {
   warpRange,
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
+import { useBunkerStore } from "@/state/bunker-store";
 import {
   type SaveSlotSummary,
   type SaveSlotsState,
@@ -1599,6 +1606,7 @@ function StallMenu({
   shopNote,
   cashOutPending,
   onBuyConsumable,
+  onBuyBasePart,
   onBuyGear,
   onBuyElevator,
   onRide,
@@ -1611,6 +1619,7 @@ function StallMenu({
   shopNote: string | null;
   cashOutPending: boolean;
   onBuyConsumable: (item: DepotItem, quantity: number) => void;
+  onBuyBasePart: (partId: BasePartId, quantity: number) => void;
   onBuyGear: (track: MineGearTrack) => void;
   onBuyElevator: () => void;
   onRide: (action: MineAction) => void;
@@ -1836,10 +1845,33 @@ function StallMenu({
               />
             );
           })}
+          {(["wall-panel", "door-panel"] as const).map((partId) => {
+            const def = BASE_PART_CATALOG[partId];
+            const totalPrice = def.price * buyQuantity;
+            const affordable = balance !== null && balance >= totalPrice;
+            return (
+              <SheetRow
+                key={partId}
+                icon={partId === "wall-panel" ? "\u{1F9F1}" : "\u{1F6AA}"}
+                name={def.name}
+                sub="consumable bunker part"
+                badge={`${def.durability} hp`}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => onBuyBasePart(partId, buyQuantity)}
+                    disabled={!affordable}
+                    style={{ ...sheetButtonStyle(affordable), minWidth: 124 }}
+                  >
+                    Buy {buyQuantity} for {totalPrice} vibes
+                  </button>
+                }
+              />
+            );
+          })}
           <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            purchases pack straight into your current trip. Ladders and planks
-            cost vibes now; the only free batch comes from dying in the mine,
-            which refills you to 8 ladders and 4 planks.
+            purchases pack straight into your current trip. Base parts enter the
+            bunker builder inventory.
           </p>
         </div>
       )}
@@ -2023,6 +2055,164 @@ function StallMenu({
   );
 }
 
+function BunkerControlPanel({
+  minerCol,
+  minerRow,
+  preview,
+  selectedPart,
+  onSelectPart,
+  onClaim,
+  onPlace,
+  onRemove,
+  onStartRaid,
+  onFinishRaid,
+}: {
+  minerCol: number;
+  minerRow: number;
+  preview: BunkerFootprint | null;
+  selectedPart: BasePartId;
+  onSelectPart: (partId: BasePartId) => void;
+  onClaim: () => void;
+  onPlace: () => void;
+  onRemove: () => void;
+  onStartRaid: () => void;
+  onFinishRaid: () => void;
+}) {
+  const status = useBunkerStore((s) => s.status);
+  const bunker = useBunkerStore((s) => s.bunker);
+  const inventory = useBunkerStore((s) => s.inventory);
+  const activeRaid = useBunkerStore((s) => s.activeRaid);
+  const player = useBunkerStore((s) => s.player);
+  const note = useBunkerStore((s) => s.note);
+  if (minerRow <= 0) return null;
+  const hasBunker = Boolean(bunker);
+  const canClaim = !hasBunker && status !== "loading" && preview !== null;
+  const canBuild = hasBunker && !activeRaid;
+  return (
+    <section
+      aria-label="Bunker builder"
+      style={{
+        position: "absolute",
+        left: 12,
+        bottom: 94,
+        zIndex: 8,
+        width: "min(360px, calc(100vw - 24px))",
+        border: "1px solid #54e0c7",
+        borderRadius: 12,
+        background: "rgba(14, 20, 28, 0.94)",
+        boxShadow: "0 12px 32px rgba(0, 0, 0, 0.42)",
+        padding: 12,
+        color: "#e6e8ee",
+        pointerEvents: "auto",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <strong style={{ color: "#54e0c7" }}>Bunker</strong>
+        <span style={{ marginLeft: "auto", fontSize: "0.75rem", opacity: 0.7 }}>
+          lv {player?.overallLevel ?? 1}
+        </span>
+      </div>
+      <p style={{ margin: "6px 0 10px", fontSize: "0.78rem", opacity: 0.7 }}>
+        {hasBunker
+          ? `Cell ${minerCol}, ${minerRow}. Place panels on claimed cells.`
+          : "Clear and bank a 7x5 room, then claim it here."}
+      </p>
+      {!hasBunker && (
+        <button
+          type="button"
+          disabled={!canClaim}
+          onClick={onClaim}
+          style={{ ...sheetButtonStyle(canClaim), width: "100%" }}
+        >
+          Claim 7x5 bunker
+        </button>
+      )}
+      {hasBunker && (
+        <>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            {(["wall-panel", "door-panel"] as const).map((partId) => {
+              const active = selectedPart === partId;
+              return (
+                <button
+                  key={partId}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onSelectPart(partId)}
+                  style={{
+                    flex: 1,
+                    minHeight: 38,
+                    borderRadius: 10,
+                    border: active ? "1px solid #54e0c7" : "1px solid #2c3a5c",
+                    background: active
+                      ? "rgba(84, 224, 199, 0.16)"
+                      : "rgba(38, 48, 74, 0.55)",
+                    color: active ? "#54e0c7" : "#cdd6ea",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  {BASE_PART_CATALOG[partId].name} x{inventory[partId]}
+                </button>
+              );
+            })}
+          </div>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
+          >
+            <button
+              type="button"
+              disabled={!canBuild || inventory[selectedPart] <= 0}
+              onClick={onPlace}
+              style={sheetButtonStyle(canBuild && inventory[selectedPart] > 0)}
+            >
+              Place
+            </button>
+            <button
+              type="button"
+              disabled={!canBuild}
+              onClick={onRemove}
+              style={sheetButtonStyle(canBuild)}
+            >
+              Remove
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={activeRaid ? onFinishRaid : onStartRaid}
+            style={{
+              ...sheetButtonStyle(true),
+              width: "100%",
+              marginTop: 8,
+              border: "1px solid #ff6b6b",
+              color: "#ffd9d9",
+              background: "#3a1820",
+            }}
+          >
+            {activeRaid ? "Check raid result" : "Start Clanker raid"}
+          </button>
+          {activeRaid && (
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: "0.74rem",
+                color: "#f5c542",
+              }}
+            >
+              {activeRaid.clankers.length} Clankers attacking for{" "}
+              {activeRaid.durationSeconds} seconds.
+            </p>
+          )}
+        </>
+      )}
+      {note && (
+        <p style={{ margin: "8px 0 0", fontSize: "0.74rem", color: "#f5c542" }}>
+          {note}
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
@@ -2047,6 +2237,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
   const buyElevator = useMineStore((s) => s.buyElevator);
   const teleportToBase = useMineStore((s) => s.teleportToBase);
+  const bunker = useBunkerStore((s) => s.bunker);
+  const activeBunkerRaid = useBunkerStore((s) => s.activeRaid);
+  const loadBunker = useBunkerStore((s) => s.loadBunker);
+  const claimBunker = useBunkerStore((s) => s.claimBunker);
+  const buyBasePart = useBunkerStore((s) => s.buyBasePart);
+  const placeBunkerPart = useBunkerStore((s) => s.placePart);
+  const removeBunkerPart = useBunkerStore((s) => s.removePart);
+  const startBunkerRaid = useBunkerStore((s) => s.startRaid);
+  const finishBunkerRaid = useBunkerStore((s) => s.finishRaid);
   const router = useRouter();
   const [dynamiteMenuOpen, setDynamiteMenuOpen] = useState(false);
   const [selectedDynamiteTier, setSelectedDynamiteTier] =
@@ -2075,6 +2274,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [mineSurfaceTip, setMineSurfaceTip] = useState<string>(
     MINE_SURFACE_TIPS[0],
   );
+  const [selectedBasePart, setSelectedBasePart] =
+    useState<BasePartId>("wall-panel");
   // The column whose stall sheet is open. Standing on a stall no longer
   // auto-opens it: a prompt button appears and tapping it sets this.
   // Stepping off clears it, so walking by never pops the menu.
@@ -2116,8 +2317,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   useEffect(() => {
     // The world first (it seeds the mine), then gear (which rebuilds
     // the trip over that world when levels differ).
-    void loadWorld().then(() => loadGear());
-  }, [loadWorld, loadGear]);
+    void loadWorld().then(() => {
+      void loadGear();
+      void loadBunker();
+    });
+  }, [loadWorld, loadGear, loadBunker]);
 
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
@@ -2368,6 +2572,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           background: "#173033",
           color: "#54e0c7",
         };
+  const bunkerPreview =
+    miner.row > 0 && !bunker
+      ? proposedBunkerFootprint(miner.col, miner.row)
+      : null;
 
   const handleBaseReturn = async () => {
     if (!baseReturn || baseReturnDisabled) return;
@@ -2553,6 +2761,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         collectMode={collectMode}
         selectedSupportKeys={collectSelection}
         dynamitePreviewCells={selectedDynamitePreview}
+        bunkerPreview={bunkerPreview}
+        bunker={bunker}
+        activeBunkerRaid={activeBunkerRaid}
         onToggleSupport={toggleCollectTarget}
       />
       {!collectMode && (
@@ -2815,6 +3026,20 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           </span>
         </button>
       )}
+      <BunkerControlPanel
+        minerCol={miner.col}
+        minerRow={miner.row}
+        preview={bunkerPreview}
+        selectedPart={selectedBasePart}
+        onSelectPart={setSelectedBasePart}
+        onClaim={() => void claimBunker(miner.col, miner.row)}
+        onPlace={() =>
+          void placeBunkerPart(selectedBasePart, miner.col, miner.row)
+        }
+        onRemove={() => void removeBunkerPart(miner.col, miner.row)}
+        onStartRaid={() => void startBunkerRaid()}
+        onFinishRaid={() => void finishBunkerRaid()}
+      />
       {stall && openStallCol === miner.col && (
         <StallMenu
           stall={stall}
@@ -2825,6 +3050,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           cashOutPending={cashOut.state === "pending"}
           onBuyConsumable={(item, quantity) =>
             void buyConsumable(item, quantity)
+          }
+          onBuyBasePart={(partId, quantity) =>
+            void buyBasePart(partId, quantity)
           }
           onBuyGear={(track) => void buyGearUpgrade(track)}
           onBuyElevator={() => void buyElevator()}

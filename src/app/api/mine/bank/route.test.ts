@@ -55,6 +55,8 @@ const ownedBase = {
   plank_count: 0,
   beacon_count: 0,
   emeralds: 0,
+  track_xp: 0,
+  defense_xp: 0,
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
   legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",

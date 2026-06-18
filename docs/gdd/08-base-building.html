@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Base Building and Bunker Defense</title>
+</head>
+<body>
+
+  <h1>Base Building and Bunker Defense</h1>
+  <p data-status="partial">Status: partial</p>
+
+  <section data-role="spec" id="spec">
+    <h2>Spec</h2>
+    <p>Base building is a mining-adjacent game mode that turns a persistent underground claim into a defended home. The first slice starts small: the player clears a large underground area, stakes one bunker claim, places purchased consumable building parts, and triggers a short autonomous Clanker attack that rewards survival. The long-term feature grows into a multi-level bunker builder, repeatable defense-event ladder, and primary path for overall player level.</p>
+
+    <h3 id="claim-loop">Claim loop (REQ-034)</h3>
+    <ul>
+      <li>The player must physically clear a sufficiently large connected underground area before staking a bunker claim.</li>
+      <li>One player has one active bunker claim at first. The claim lives inside that player's persistent mine context.</li>
+      <li>The initial claim is a fixed rectangular footprint. Later versions can support irregular rooms, room tags, and multiple outposts.</li>
+      <li>Claim staking is an explicit action with a preview overlay. Blocked-cell feedback can grow after the first slice.</li>
+    </ul>
+
+    <h3 id="building-parts">Building parts (REQ-035)</h3>
+    <ul>
+      <li>Base parts are consumable inventory items purchased with vibes and later found through mining caches, defense rewards, and level unlocks.</li>
+      <li>The first set proves the loop with Wall Panel and Door Panel. Later sets add floors, hatches, turrets, repair plates, traps, fixtures, and skins.</li>
+      <li>Placement is cell-based. Parts snap to the bunker grid, consume one owned item, and carry local durability.</li>
+      <li>Removing an undamaged part while not under attack returns it to inventory.</li>
+    </ul>
+
+    <h3 id="defense-event">Defense event (REQ-036)</h3>
+    <ul>
+      <li>The player can trigger a bunker defense event from a valid claimed bunker.</li>
+      <li>The first attack lasts roughly 3 minutes. Higher tiers later extend toward 5 minutes and spawn stronger or more numerous enemies.</li>
+      <li>The event is autonomous once started. Clankers path toward the bunker, chew through blockers, surround the perimeter, breach base parts, and eventually attack the player in the full feature.</li>
+      <li>The first implementation resolves the layout deterministically server-side. Later slices add live enemy movement inside the mine scene.</li>
+    </ul>
+
+    <h3 id="clankers">Clankers (REQ-037)</h3>
+    <ul>
+      <li>Clankers are autonomous little spidery robots that walk the mine grid, crawl through tunnels, chew through cells, and coordinate around bunker faces.</li>
+      <li>They should read differently from combat bots: low to the ground, many-legged, noisy, industrial, and pressure-driven.</li>
+      <li>Strength scales through health, chew rate, move cadence, armor, special role, spawn count, and event duration.</li>
+    </ul>
+
+    <h3 id="rewards-and-level">Rewards and player level (REQ-038)</h3>
+    <ul>
+      <li>Surviving a triggered defense event grants defense XP toward overall player level, plus vibes and later deterministic unlock progress.</li>
+      <li>The overall player level is a global progression gate for robot parts, base parts, skins, stamps, consumables, and upgrades.</li>
+      <li>Death during an attack grants no win reward. Later versions may add consolation stamps or repair discounts.</li>
+    </ul>
+
+    <h3 id="growth-plan">Growth plan</h3>
+    <ol>
+      <li><strong>Prototype claim:</strong> detect a cleared underground rectangle, preview the claim, stake one bunker, and persist the footprint.</li>
+      <li><strong>Prototype builder:</strong> sell a tiny base-parts kit, place and remove blocks on the bunker grid, and show durability.</li>
+      <li><strong>Prototype raid:</strong> spawn simple Clankers outside the claim, path toward the bunker, chew blockers, and run a short survival timer.</li>
+      <li><strong>Reward ladder:</strong> add defense XP, player level, tier selection, and level gates for first base parts and bot parts.</li>
+      <li><strong>Full bunker feature:</strong> add multi-level layouts, doors, hatches, turrets, repairs, traps, specialist Clankers, base skins, stamps, and production-quality playtest evidence.</li>
+    </ol>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-06-18">Implemented the first vertical slice: fixed 7x5 underground claim, Wall Panel and Door Panel inventory, bunker builder controls, mine overlay, tier-one Clanker raid start and finish routes, defense XP rewards, and overall player level. Files: <code>src/sim/bunker.ts</code>, <code>src/server/bunker.ts</code>, <code>src/app/api/bunker/**</code>, <code>src/state/bunker-store.ts</code>, <code>src/components/mine-panel.tsx</code>, <code>src/components/mine-canvas.tsx</code>. Package <code>0.1.38</code>. PR pending.</li>
+      <li data-date="2026-06-18">Design pass for the base-building and bunker-defense mode: underground claim staking, consumable base parts, multi-level bunker construction, autonomous Clanker attacks, survival rewards, overall player level, and a staged growth plan. Files: <code>docs/gdd/08-base-building.html</code>, <code>docs/gdd/index.html</code>, <code>docs/GDD_COVERAGE.json</code>, <code>docs/OPEN_QUESTIONS.html</code>, <code>docs/FOLLOWUPS.html</code>. PR pending.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

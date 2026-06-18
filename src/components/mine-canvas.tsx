@@ -19,6 +19,11 @@ import {
   mineRenderWindow,
 } from "@/components/mine-camera";
 import { createWebGPU } from "@/components/part-visuals";
+import type {
+  BunkerFootprint,
+  BunkerRaidSnapshot,
+  BunkerState,
+} from "@/sim/bunker";
 import {
   type CollectTarget,
   cellAt,
@@ -240,6 +245,117 @@ const SUPPORT_SELECT_RED = "#ff3b30";
 
 /** World coordinates ARE render coordinates in the endless mine. */
 const cellX = (col: number) => col;
+
+function BunkerOverlay({
+  preview,
+  bunker,
+  activeRaid,
+}: {
+  preview?: BunkerFootprint | null;
+  bunker?: BunkerState | null;
+  activeRaid?: BunkerRaidSnapshot | null;
+}) {
+  const footprint = bunker?.footprint ?? preview;
+  if (!footprint) return null;
+  const cells = [];
+  for (let row = footprint.row; row < footprint.row + footprint.height; row++) {
+    for (
+      let col = footprint.col;
+      col < footprint.col + footprint.width;
+      col++
+    ) {
+      const perimeter =
+        col === footprint.col ||
+        col === footprint.col + footprint.width - 1 ||
+        row === footprint.row ||
+        row === footprint.row + footprint.height - 1;
+      cells.push(
+        <mesh
+          key={`bunker-cell:${col}:${row}`}
+          position={[cellX(col), -row, 0.78]}
+        >
+          <planeGeometry args={[0.94, 0.94]} />
+          <meshBasicMaterial
+            color={bunker ? (perimeter ? "#54e0c7" : "#2b8a78") : "#f5c542"}
+            transparent
+            opacity={bunker ? (perimeter ? 0.18 : 0.08) : 0.16}
+            depthWrite={false}
+          />
+        </mesh>,
+      );
+    }
+  }
+  const parts =
+    bunker?.parts.map((part) => (
+      <RoundedBox
+        key={`bunker-part:${part.col}:${part.row}`}
+        args={[0.86, 0.86, 0.28]}
+        radius={0.04}
+        smoothness={1}
+        position={[cellX(part.col), -part.row, 0.52]}
+      >
+        <meshStandardMaterial
+          color={part.partId === "door-panel" ? "#d6a54d" : "#4fd4bf"}
+          roughness={0.62}
+          metalness={0.25}
+          flatShading
+        />
+      </RoundedBox>
+    )) ?? [];
+  const clankers =
+    activeRaid?.clankers.map((clanker) => (
+      <group
+        key={clanker.id}
+        position={[cellX(clanker.col), -clanker.row, 0.72]}
+        scale={0.75}
+      >
+        <mesh>
+          <sphereGeometry args={[0.18, 8, 6]} />
+          <meshStandardMaterial
+            color="#ff6b6b"
+            emissive="#ff2e2e"
+            emissiveIntensity={0.45}
+            roughness={0.5}
+            flatShading
+          />
+        </mesh>
+        {[-0.22, 0.22].map((x) => (
+          <mesh
+            key={x}
+            position={[x, -0.03, 0]}
+            rotation={[0, 0, x > 0 ? -0.7 : 0.7]}
+          >
+            <boxGeometry args={[0.34, 0.035, 0.035]} />
+            <meshStandardMaterial
+              color="#8d98aa"
+              roughness={0.55}
+              flatShading
+            />
+          </mesh>
+        ))}
+      </group>
+    )) ?? [];
+  return (
+    <>
+      {cells}
+      {bunker && (
+        <mesh position={[cellX(bunker.core.col), -bunker.core.row, 0.62]}>
+          <octahedronGeometry args={[0.28, 0]} />
+          <meshStandardMaterial
+            color="#c084fc"
+            emissive="#8b5cf6"
+            emissiveIntensity={0.7}
+            roughness={0.35}
+            flatShading
+          />
+        </mesh>
+      )}
+      {parts}
+      {clankers}
+    </>
+  );
+}
+
 /** Width of the dressed surface camp strip around the origin. */
 const CAMP_WIDTH = 60;
 const easeStep = (t: number) =>
@@ -1756,6 +1872,9 @@ function MineScene({
   collectMode,
   selectedSupportKeys,
   dynamitePreviewCells,
+  bunkerPreview,
+  bunker,
+  activeBunkerRaid,
   onToggleSupport,
 }: MineCanvasProps) {
   const tick = useMineStore((s) => s.tick);
@@ -2800,6 +2919,11 @@ function MineScene({
         })()}
       {darknessMeshes}
       {supportSelectionMeshes}
+      <BunkerOverlay
+        preview={bunkerPreview}
+        bunker={bunker}
+        activeRaid={activeBunkerRaid}
+      />
       <group ref={particlesRef}>
         {juice.current.particles.map((p) => (
           <mesh key={p.id} position={[p.x, p.y, 0.4]} userData={{ id: p.id }}>
@@ -2844,6 +2968,9 @@ interface MineCanvasProps {
   collectMode?: boolean;
   selectedSupportKeys?: readonly string[];
   dynamitePreviewCells?: readonly MineCoord[];
+  bunkerPreview?: BunkerFootprint | null;
+  bunker?: BunkerState | null;
+  activeBunkerRaid?: BunkerRaidSnapshot | null;
   onToggleSupport?: (target: CollectTarget) => void;
 }
 

@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.38-resource-sale-copy";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.39-bunker-vertical-slice";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.39",
+      date: "2026-06-18",
+      title: "Bunker vertical slice",
+      intro:
+        "The mine now has the first bunker claim, building, and Clanker defense loop.",
+      changes: [
+        {
+          build,
+          text: "Clear and bank an underground room, then stake a 7x5 bunker footprint from the in-mine builder panel.",
+        },
+        {
+          build,
+          text: "Buy wall and door panels at the Supply Depot, place or remove them one cell at a time, and see the bunker overlay in the mine.",
+        },
+        {
+          build,
+          text: "Trigger a tier-one Clanker raid, let the server resolve the 180 second defense, then claim vibes and defense XP if the layout survives.",
+        },
+      ],
+    },
     {
       version: "0.1.38",
       date: "2026-06-18",

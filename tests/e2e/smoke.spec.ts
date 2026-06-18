@@ -288,6 +288,81 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
 });
 
+test("mine bunker builder starts a Clanker raid", async ({ page }) => {
+  const bunkerView = {
+    bunker: {
+      footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+      core: { col: START_COL, row: 3, durability: 160 },
+      parts: [
+        {
+          partId: "wall-panel",
+          col: START_COL - 3,
+          row: 1,
+          durability: 90,
+        },
+      ],
+    },
+    inventory: { "wall-panel": 4, "door-panel": 1 },
+    activeRaid: null,
+    player: { balance: 120, trackXp: 40, defenseXp: 60, overallLevel: 2 },
+  };
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(bunkerView),
+    });
+  });
+  await page.route("**/api/bunker/raid/start", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...bunkerView,
+        activeRaid: {
+          raidId: "raid-smoke",
+          tier: 1,
+          durationSeconds: 180,
+          clankers: [
+            {
+              id: "clanker-1",
+              col: START_COL - 6,
+              row: 1,
+              targetCol: START_COL - 3,
+              targetRow: 1,
+            },
+          ],
+          totalPartDurability: 90,
+          incomingDamage: 40,
+          breached: false,
+          survived: true,
+          reward: { vibes: 30, defenseXp: 60 },
+        },
+        raid: {
+          raidId: "raid-smoke",
+          tier: 1,
+          durationSeconds: 180,
+          clankers: [],
+          totalPartDurability: 90,
+          incomingDamage: 40,
+          breached: false,
+          survived: true,
+          reward: { vibes: 30, defenseXp: 60 },
+        },
+      }),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  const builder = page.getByRole("region", { name: "Bunker builder" });
+  await expect(builder).toBeVisible();
+  await expect(builder).toContainText("Wall Panel x4");
+  await builder.getByRole("button", { name: "Start Clanker raid" }).click();
+  await expect(builder).toContainText("Clankers attacking for 180 seconds");
+});
+
 test("fatal free fall stays on camera until impact", async ({ page }) => {
   await page.route("**/api/mine/world", async (route) => {
     await route.fulfill({ status: 503, body: "{}" });
@@ -558,13 +633,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("bag as resources");
+  await expect(dialog).toContainText("first bunker claim");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("carried resources");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "resources were sold",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText("wallet vibes");
+  await expect(dialog.locator("li").first()).toContainText("7x5 bunker");
+  await expect(dialog.locator("li").nth(1)).toContainText("wall and door");
+  await expect(dialog.locator("li").nth(2)).toContainText("Clanker raid");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -606,6 +679,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.39", "Bunker vertical slice"],
     ["0.1.38", "Resource sale copy"],
     ["0.1.37", "Multi-beacon warp"],
     ["0.1.36", "Mine surface tips"],

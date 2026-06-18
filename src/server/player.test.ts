@@ -23,6 +23,8 @@ const profile: MinePlayerProfile = {
   plank_count: 4,
   beacon_count: 5,
   emeralds: 99,
+  track_xp: 20,
+  defense_xp: 30,
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
   legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",

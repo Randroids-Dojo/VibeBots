@@ -50,6 +50,9 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS deepest_depth integer NOT NULL DEFAULT 0`;
+  await sql`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS defense_xp integer NOT NULL DEFAULT 0`;
   // Gear tracks (REQ-013); levels start at 1.
   await sql`
     ALTER TABLE players
@@ -96,6 +99,33 @@ async function applySchema(sql: Sql): Promise<void> {
       part_id text NOT NULL,
       count integer NOT NULL DEFAULT 0,
       PRIMARY KEY (player_id, part_id)
+    )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS player_base_parts (
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      part_id text NOT NULL,
+      count integer NOT NULL DEFAULT 0,
+      PRIMARY KEY (player_id, part_id)
+    )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS bunkers (
+      player_id uuid PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+      footprint jsonb NOT NULL,
+      core jsonb NOT NULL,
+      parts jsonb NOT NULL DEFAULT '[]'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS bunker_raids (
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      raid_id text NOT NULL,
+      tier integer NOT NULL,
+      snapshot jsonb NOT NULL,
+      started_at timestamptz NOT NULL DEFAULT now(),
+      duration_seconds integer NOT NULL,
+      result jsonb,
+      rewarded_at timestamptz,
+      PRIMARY KEY (player_id, raid_id)
     )`;
   await sql`
     CREATE TABLE IF NOT EXISTS mine_runs (

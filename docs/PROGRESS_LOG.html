@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="base-building-vertical-slice" data-date="2026-06-18">
+    <h3>Base Building Vertical Slice</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/base-building-gdd</code>, rebased onto current <code>origin/main</code> after the resource sale copy, multi-beacon warp, mine surface tips, cash-out diagnostics, and support selection outline slices landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>First vertical slice of the bunker mode. Players can claim a fixed 7x5 cleared underground footprint, buy Wall Panel and Door Panel base parts, place or remove those consumable parts cell by cell, and start a tier-one Clanker raid that resolves server-side after a 180 second defense window. Surviving awards vibes and defense XP, and overall player level now combines track XP and defense XP. Package version moved to <code>0.1.39</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. After rebasing over the resource sale copy slice, ran <code>pnpm exec biome check --write</code> on touched source, test, package, release, and doc files; focused Vitest for bunker sim, bunker server, bunker route, player profile, and mine bank route coverage (27 passed); <code>pnpm typecheck</code>; <code>pnpm test</code> (206 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check</code>; <code>git diff --cached --check</code>; <code>pnpm build</code>; and <code>PLAYWRIGHT_BASE_URL=http://localhost:3104 pnpm exec playwright test tests/e2e/smoke.spec.ts -g "mine bunker builder starts a Clanker raid|mine shows the latest release note once to a fresh browser"</code> against a clean production server on port 3104 (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the first slice uses one active bunker, a fixed rectangular footprint, two consumable part types, deterministic server-side raid resolution, and a single tier-one Clanker attack. Multi-level interiors, active combat inside the bunker, repairs, turrets, and level-gated catalogs remain followups.</dd>
+      <dt>GDD coverage</dt><dd>Added <code>docs/gdd/08-base-building.html</code>, added <code>REQ-034</code> through <code>REQ-038</code> in <code>docs/GDD_COVERAGE.json</code>, and appended Build log entries for the shipped vertical slice.</dd>
+      <dt>Followups</dt><dd>Resolved <code>F-028</code> and added <code>F-029</code> for the full bunker-defense expansion.</dd>
+    </dl>
+  </article>
+
   <article data-slice="resource-sale-copy" data-date="2026-06-18">
     <h3>Resource Sale Copy</h3>
     <dl>

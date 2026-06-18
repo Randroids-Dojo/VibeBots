@@ -30,6 +30,7 @@ import {
   findBeacons,
   GAS_VENT_DRAIN,
   GEAR_TRACKS,
+  gearTrackDef,
   HAZARD_FREE_ROWS,
   isVisible,
   LADDER_RECOVERY_FLOOR,
@@ -1722,6 +1723,10 @@ describe("mine", () => {
       }
       expect(maxGearLevel(trackDef.track)).toBe(trackDef.prices.length + 1);
     }
+  });
+
+  it("prices blast charge unlocks against the current mining economy", () => {
+    expect(gearTrackDef("blast").prices).toEqual([300, 1000, 4000]);
   });
 
   it("maps blast gear to capped dynamite tiers", () => {

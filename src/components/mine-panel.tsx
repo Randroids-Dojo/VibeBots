@@ -108,7 +108,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: dynamite chips rich ore reserves and still scoops what it breaks into your hold.",
   "Tip: falling rocks wait two moves after their support is mined.",
   "Tip: the Buyer shows haul value before auto-sell at the surface.",
-  "Tip: upgrades apply to the next clean trip after your current haul sells.",
+  "Tip: Blast Charge unlocks stronger dynamite tiers at the Upgrades stall.",
   "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
 ] as const;
 const BASE_BUILDING_COLS = [

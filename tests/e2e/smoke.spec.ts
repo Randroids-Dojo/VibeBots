@@ -667,15 +667,13 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("claim tool underground");
+  await expect(dialog).toContainText("current mining economy");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "claim panel automatically",
+    "300, 1000, and 4000 vibes",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Bunker claim HUD button",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText("Cancel claim");
+  await expect(dialog.locator("li").nth(1)).toContainText("reachable goals");
+  await expect(dialog.locator("li").nth(2)).toContainText("late premium");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -717,6 +715,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.43", "Blast Charge prices"],
     ["0.1.42", "Explicit bunker claim"],
     ["0.1.41", "Beacon names"],
     ["0.1.40", "Save slot deletion"],

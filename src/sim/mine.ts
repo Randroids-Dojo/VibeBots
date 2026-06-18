@@ -270,7 +270,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
   {
     track: "blast",
     name: "Blast Charge",
-    prices: [10000, 100000, 1000000],
+    prices: [300, 1000, 4000],
     blurb: "unlock stronger dynamite shapes",
   },
   {

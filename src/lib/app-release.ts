@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.42-explicit-bunker-claim";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.43-blast-charge-prices";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.43",
+      date: "2026-06-18",
+      title: "Blast Charge prices",
+      intro:
+        "Blast Charge unlocks are now priced for the current mining economy.",
+      changes: [
+        {
+          build,
+          text: "The three Blast Charge unlocks now cost 300, 1000, and 4000 vibes.",
+        },
+        {
+          build,
+          text: "Tier 2 and tier 3 dynamite are now reachable goals instead of placeholder-priced upgrades.",
+        },
+        {
+          build,
+          text: "The lamp-radius tier remains a late premium purchase, and mine tips now point players to Blast Charge for stronger dynamite.",
+        },
+      ],
+    },
     {
       version: "0.1.42",
       date: "2026-06-18",

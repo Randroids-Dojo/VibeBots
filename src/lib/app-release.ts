@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.39-bunker-vertical-slice";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.40-save-slot-delete";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.40",
+      date: "2026-06-18",
+      title: "Save slot deletion",
+      intro:
+        "The Load game menu can now permanently delete an existing save slot.",
+      changes: [
+        {
+          build,
+          text: "Each existing save slot now has a separate Delete button beside Load.",
+        },
+        {
+          build,
+          text: "Deleting a save requires a second confirmation after a red destructive-action warning.",
+        },
+        {
+          build,
+          text: "A deleted slot clears its local trip checkpoint and removes that slot's mine, upgrades, stamps, purchases, parts, bots, bunker, wallet, and checkpoint data so it starts fresh next time.",
+        },
+      ],
+    },
     {
       version: "0.1.39",
       date: "2026-06-18",

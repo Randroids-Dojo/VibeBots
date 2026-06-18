@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="save-slot-deletion" data-date="2026-06-18">
+    <h3>Save Slot Deletion</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/delete-save-slot</code>, branched from current <code>origin/main</code> and rebased over the resource sale copy and base-building slices.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-directed save management slice. The Load game dialog now separates Load and Delete actions for each slot, disables deletion for empty slots, and requires a second click after a red destructive-action warning before deleting an existing save. The <code>/api/save-slots</code> route now accepts confirmed <code>DELETE</code> requests, removes the slot's player row with cascading server data for mines, upgrades, stamps, purchases, bot parts, bot designs, bunker parts, bunker layouts, raids, wallet, and checkpoints, clears the slot from the signed save-slot cookie, and returns refreshed summaries. The mine store autosaves before the server call and clears the deleted slot's local trip checkpoint after success. Package version moved to <code>0.1.40</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. After rebasing over the resource sale copy and base-building slices, ran <code>pnpm exec biome check --write</code> on touched source, test, package, release, and coverage files; focused Vitest for save-slot route, mine store, and player helpers (23 passed); <code>pnpm typecheck</code>; <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; conflict-marker search; <code>git diff --check</code>; <code>pnpm test</code> (209 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm build</code>; and <code>PLAYWRIGHT_BASE_URL=http://localhost:3107 pnpm exec playwright test tests/e2e/smoke.spec.ts -g "mine shows the latest release note once to a fresh browser|save slot deletion requires"</code> against a clean production server on port 3107 (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: deleting the active slot leaves that slot selected with no player mapping, then reloads the mine so the next world request creates a fresh tenant for that same slot. Mine surface tips were reviewed for the package bump; no tip changed because this is save-management UI rather than a mine rule, economy, control, hazard, shop, or recovery change.</dd>
+      <dt>GDD coverage</dt><dd>REQ-033 stays done with updated deletion wording and new test refs. Updated <code>docs/GDD_COVERAGE.json</code>, <code>docs/gdd/06-mining.html</code>, static release notes, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="base-building-vertical-slice" data-date="2026-06-18">
     <h3>Base Building Vertical Slice</h3>
     <dl>

@@ -51,6 +51,7 @@ export type SaveSlotsState =
   | { state: "loading"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
   | { state: "ready"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
   | { state: "switching"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
+  | { state: "deleting"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
   | { state: "unavailable"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
   | {
       state: "error";
@@ -122,6 +123,18 @@ function saveLocalTrip(slot: SaveSlotId, trip: SavedTrip): void {
   } catch {
     // Storage full or blocked: the trip still lives in memory.
   }
+}
+
+function removeLocalTrip(slot: SaveSlotId): void {
+  try {
+    localStorage.removeItem(localTripKey(slot));
+  } catch {
+    // Storage blocked: the server-side save is still deleted.
+  }
+}
+
+function deleteSaveSlotConfirmation(slot: SaveSlotId): string {
+  return `DELETE SLOT ${slot}`;
 }
 
 function saveSlotSummariesFromResponse(value: unknown): {
@@ -245,6 +258,7 @@ export interface MineSessionState {
   loadGear: () => Promise<void>;
   loadSaveSlots: () => Promise<void>;
   switchSaveSlot: (slot: SaveSlotId) => Promise<boolean>;
+  deleteSaveSlot: (slot: SaveSlotId) => Promise<boolean>;
   saveCurrentTrip: () => void;
   submitCashOut: () => Promise<boolean>;
   buyConsumable: (
@@ -578,6 +592,77 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             activeSlot: get().activeSlot,
             slots: current.slots,
             message: "load failed",
+          },
+        });
+        return false;
+      }
+    },
+
+    deleteSaveSlot: async (slot) => {
+      persistCurrentTrip();
+      const current = get().saveSlots;
+      set({
+        saveSlots: {
+          state: "deleting",
+          activeSlot: get().activeSlot,
+          slots: current.slots,
+        },
+      });
+      try {
+        const res = await fetch("/api/save-slots", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            slot,
+            confirm: deleteSaveSlotConfirmation(slot),
+          }),
+        });
+        if (!res.ok) {
+          if (res.status === 503) {
+            set({
+              saveSlots: {
+                state: "unavailable",
+                activeSlot: get().activeSlot,
+                slots: current.slots,
+              },
+            });
+            return false;
+          }
+          set({
+            saveSlots: {
+              state: "error",
+              activeSlot: get().activeSlot,
+              slots: current.slots,
+              message: "delete failed",
+            },
+          });
+          return false;
+        }
+        const parsed = saveSlotSummariesFromResponse(await res.json());
+        if (!parsed) {
+          set({
+            saveSlots: {
+              state: "error",
+              activeSlot: get().activeSlot,
+              slots: current.slots,
+              message: "could not read saves",
+            },
+          });
+          return false;
+        }
+        removeLocalTrip(slot);
+        set({
+          activeSlot: parsed.activeSlot,
+          saveSlots: { state: "ready", ...parsed },
+        });
+        return true;
+      } catch {
+        set({
+          saveSlots: {
+            state: "error",
+            activeSlot: get().activeSlot,
+            slots: current.slots,
+            message: "delete failed",
           },
         });
         return false;

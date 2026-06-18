@@ -562,7 +562,7 @@
     },
     {
       "id": "REQ-033",
-      "requirement": "Each device has three save slots, with existing progress migrated into Slot 1 and new slots starting as fresh player tenants with separate worlds, upgrades, stamps, purchases, parts, and saved bots.",
+      "requirement": "Each device has three save slots, with existing progress migrated into Slot 1, new slots starting as fresh player tenants, and existing slots deletable only through a destructive double confirmation.",
       "gddRef": "docs/gdd/06-mining.html#save-slots",
       "status": "done",
       "implementationRefs": [
@@ -574,7 +574,8 @@
       "testRefs": [
         "src/server/player.test.ts",
         "src/app/api/save-slots/route.test.ts",
-        "src/state/mine-store.test.ts"
+        "src/state/mine-store.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
     },

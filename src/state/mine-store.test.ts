@@ -427,4 +427,78 @@ describe("mine store upgrade flow", () => {
     );
     expect(store().saveSlots.state).toBe("ready");
   });
+
+  it("flushes the current slot and removes the deleted slot checkpoint", async () => {
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-2",
+      JSON.stringify({
+        seed: 456,
+        tripIndex: 1,
+        gear: DEFAULT_GEAR,
+        consumables: NO_CONSUMABLES,
+        baseDiff: [],
+        moves: ["down"] as MineAction[],
+      }),
+    );
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        activeSlot: 1,
+        slots: [
+          {
+            slot: 1,
+            active: true,
+            exists: true,
+            createdAt: "2026-06-18T00:00:00.000Z",
+            balance: 10,
+            deepestDepth: 3,
+            partsOwned: 1,
+            designs: 1,
+            stamps: 2,
+          },
+          {
+            slot: 2,
+            active: false,
+            exists: false,
+            createdAt: null,
+            balance: 0,
+            deepestDepth: 0,
+            partsOwned: 0,
+            designs: 0,
+            stamps: 0,
+          },
+          {
+            slot: 3,
+            active: false,
+            exists: false,
+            createdAt: null,
+            balance: 0,
+            deepestDepth: 0,
+            partsOwned: 0,
+            designs: 0,
+            stamps: 0,
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().deleteSaveSlot(2);
+
+    expect(ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/save-slots",
+      expect.objectContaining({
+        method: "DELETE",
+        body: JSON.stringify({ slot: 2, confirm: "DELETE SLOT 2" }),
+      }),
+    );
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+      expect.any(String),
+    );
+    expect(localStorage.removeItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-2",
+    );
+    expect(store().saveSlots.state).toBe("ready");
+  });
 });

@@ -881,21 +881,33 @@ function SaveSlotsPopup({
   onClose,
   onRefresh,
   onLoad,
+  onDelete,
 }: {
   open: boolean;
   state: SaveSlotsState;
   onClose: () => void;
   onRefresh: () => void;
   onLoad: (slot: 1 | 2 | 3) => Promise<boolean>;
+  onDelete: (slot: 1 | 2 | 3) => Promise<boolean>;
 }) {
   const [pendingSlot, setPendingSlot] = useState<1 | 2 | 3 | null>(null);
+  const [deleteConfirmSlot, setDeleteConfirmSlot] = useState<1 | 2 | 3 | null>(
+    null,
+  );
+  const [pendingDeleteSlot, setPendingDeleteSlot] = useState<1 | 2 | 3 | null>(
+    null,
+  );
 
   useEffect(() => {
     if (open) onRefresh();
   }, [open, onRefresh]);
 
   useEffect(() => {
-    if (!open) setPendingSlot(null);
+    if (!open) {
+      setPendingSlot(null);
+      setDeleteConfirmSlot(null);
+      setPendingDeleteSlot(null);
+    }
   }, [open]);
 
   if (!open) return null;
@@ -914,7 +926,10 @@ function SaveSlotsPopup({
           designs: 0,
           stamps: 0,
         }));
-  const busy = state.state === "loading" || state.state === "switching";
+  const busy =
+    state.state === "loading" ||
+    state.state === "switching" ||
+    state.state === "deleting";
   const status =
     state.state === "unavailable"
       ? "Save slots need server storage."
@@ -924,7 +939,9 @@ function SaveSlotsPopup({
           ? "Loading saves..."
           : state.state === "switching"
             ? "Loading slot..."
-            : null;
+            : state.state === "deleting"
+              ? "Deleting slot..."
+              : null;
 
   return (
     <div
@@ -997,41 +1014,50 @@ function SaveSlotsPopup({
         <div style={{ display: "grid", gap: 8 }}>
           {slots.map((summary) => {
             const pending = pendingSlot === summary.slot;
-            const disabled =
+            const deleting = pendingDeleteSlot === summary.slot;
+            const confirmingDelete = deleteConfirmSlot === summary.slot;
+            const loadDisabled =
               busy ||
               pendingSlot !== null ||
+              pendingDeleteSlot !== null ||
               summary.active ||
               state.state === "unavailable";
+            const deleteDisabled =
+              busy ||
+              pendingSlot !== null ||
+              pendingDeleteSlot !== null ||
+              !summary.exists ||
+              state.state === "unavailable";
             return (
-              <button
-                type="button"
+              <fieldset
                 key={summary.slot}
-                disabled={disabled}
-                aria-pressed={summary.active}
-                onClick={async () => {
-                  setPendingSlot(summary.slot);
-                  const loaded = await onLoad(summary.slot);
-                  if (loaded) window.location.assign("/mine");
-                  setPendingSlot(null);
-                }}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr auto",
+                  gridTemplateColumns: "1fr",
                   gap: 10,
-                  alignItems: "center",
                   minHeight: 58,
                   borderRadius: 10,
                   border: summary.active
                     ? "1px solid #54e0c7"
                     : "1px solid #344061",
                   background: summary.active ? "#172b30" : "#171d2b",
-                  color: disabled && !summary.active ? "#778198" : "#e6e8ee",
-                  cursor: disabled ? "not-allowed" : "pointer",
+                  margin: 0,
                   padding: "10px 12px",
-                  textAlign: "left",
                 }}
               >
-                <span>
+                <legend
+                  style={{
+                    position: "absolute",
+                    width: 1,
+                    height: 1,
+                    overflow: "hidden",
+                    clip: "rect(0 0 0 0)",
+                  }}
+                >
+                  Slot {summary.slot}
+                  {summary.active ? " current" : ""}
+                </legend>
+                <div>
                   <strong style={{ display: "block", marginBottom: 3 }}>
                     Slot {summary.slot}
                     {summary.active ? " (current)" : ""}
@@ -1039,17 +1065,89 @@ function SaveSlotsPopup({
                   <span style={{ color: "#9aa6c4", fontSize: "0.82rem" }}>
                     {slotMeta(summary)}
                   </span>
-                </span>
-                <span
-                  style={{
-                    color: summary.active ? "#54e0c7" : "#f5c542",
-                    fontWeight: 800,
-                    fontSize: "0.86rem",
-                  }}
-                >
-                  {summary.active ? "Loaded" : pending ? "Loading" : "Load"}
-                </span>
-              </button>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <button
+                    type="button"
+                    disabled={loadDisabled}
+                    aria-pressed={summary.active}
+                    onClick={async () => {
+                      setDeleteConfirmSlot(null);
+                      setPendingSlot(summary.slot);
+                      const loaded = await onLoad(summary.slot);
+                      if (loaded) window.location.assign("/mine");
+                      setPendingSlot(null);
+                    }}
+                    style={{
+                      minWidth: 78,
+                      minHeight: 40,
+                      flex: "1 1 104px",
+                      borderRadius: 10,
+                      border: "1px solid #425273",
+                      background: summary.active ? "#173635" : "#202a40",
+                      color:
+                        loadDisabled && !summary.active ? "#778198" : "#e6e8ee",
+                      cursor: loadDisabled ? "not-allowed" : "pointer",
+                      fontWeight: 800,
+                    }}
+                  >
+                    {summary.active ? "Loaded" : pending ? "Loading" : "Load"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleteDisabled}
+                    onClick={async () => {
+                      if (!confirmingDelete) {
+                        setDeleteConfirmSlot(summary.slot);
+                        return;
+                      }
+                      setPendingDeleteSlot(summary.slot);
+                      const deleted = await onDelete(summary.slot);
+                      if (deleted && summary.active)
+                        window.location.assign("/mine");
+                      setPendingDeleteSlot(null);
+                      setDeleteConfirmSlot(null);
+                    }}
+                    style={{
+                      minWidth: confirmingDelete ? 176 : 78,
+                      minHeight: 40,
+                      flex: confirmingDelete ? "2 1 176px" : "1 1 104px",
+                      borderRadius: 10,
+                      border: "1px solid #8f2630",
+                      background: confirmingDelete ? "#651923" : "#321b22",
+                      color: deleteDisabled ? "#80636a" : "#ffd7d7",
+                      cursor: deleteDisabled ? "not-allowed" : "pointer",
+                      fontWeight: 900,
+                    }}
+                  >
+                    {deleting
+                      ? "Deleting"
+                      : confirmingDelete
+                        ? `Delete Slot ${summary.slot} Forever`
+                        : "Delete"}
+                  </button>
+                </div>
+                {confirmingDelete && (
+                  <p
+                    style={{
+                      margin: 0,
+                      padding: "9px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #ff5c70",
+                      background: "#3d1018",
+                      color: "#ff9aa8",
+                      fontWeight: 900,
+                      letterSpacing: 0,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Destructive action: this permanently deletes Slot{" "}
+                    {summary.slot}. The mine, upgrades, stamps, purchases, bot
+                    parts, constructed bots, wallet, and checkpoints cannot be
+                    restored.
+                  </p>
+                )}
+              </fieldset>
             );
           })}
         </div>
@@ -2230,6 +2328,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const saveSlots = useMineStore((s) => s.saveSlots);
   const loadSaveSlots = useMineStore((s) => s.loadSaveSlots);
   const switchSaveSlot = useMineStore((s) => s.switchSaveSlot);
+  const deleteSaveSlot = useMineStore((s) => s.deleteSaveSlot);
   const saveCurrentTrip = useMineStore((s) => s.saveCurrentTrip);
   const balance = useMineStore((s) => s.balance);
   const shopNote = useMineStore((s) => s.shopNote);
@@ -2805,6 +2904,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onClose={() => setSaveSlotsOpen(false)}
         onRefresh={loadSaveSlots}
         onLoad={switchSaveSlot}
+        onDelete={deleteSaveSlot}
       />
       <button
         type="button"

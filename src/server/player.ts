@@ -234,6 +234,27 @@ export async function switchActiveSaveSlot(
   return { playerId: nextSession.slots[key], session: nextSession };
 }
 
+export async function deleteSaveSlot(
+  slot: SaveSlotId,
+): Promise<SaveSlotSession> {
+  const normalized = await readSaveSlotSession();
+  const session = normalized?.session ?? { activeSlot: 1, slots: {} };
+  const key = saveSlotKey(slot);
+  const playerId = session.slots[key];
+  const nextSlots = { ...session.slots };
+  delete nextSlots[key];
+  const nextSession: SaveSlotSession = {
+    activeSlot: session.activeSlot,
+    slots: nextSlots,
+  };
+  if (playerId) {
+    const sql = await db();
+    await sql`DELETE FROM players WHERE id = ${playerId}`;
+  }
+  await writeSaveSlotSession(nextSession);
+  return nextSession;
+}
+
 export async function saveSlotSummaries(
   sql: Sql,
   session: SaveSlotSession,

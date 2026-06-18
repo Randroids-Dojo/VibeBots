@@ -633,11 +633,13 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("first bunker claim");
+  await expect(dialog).toContainText("permanently delete");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("7x5 bunker");
-  await expect(dialog.locator("li").nth(1)).toContainText("wall and door");
-  await expect(dialog.locator("li").nth(2)).toContainText("Clanker raid");
+  await expect(dialog.locator("li").first()).toContainText("Delete button");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "red destructive-action warning",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText("starts fresh");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -679,6 +681,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.40", "Save slot deletion"],
     ["0.1.39", "Bunker vertical slice"],
     ["0.1.38", "Resource sale copy"],
     ["0.1.37", "Multi-beacon warp"],
@@ -703,6 +706,126 @@ test("mine shows the latest release note once to a fresh browser", async ({
   }
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
+});
+
+test("save slot deletion requires a destructive double confirmation", async ({
+  page,
+}) => {
+  let deleteRequests = 0;
+  await page.route("**/api/save-slots", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET") {
+      await route.fulfill({
+        json: {
+          activeSlot: 1,
+          slots: [
+            {
+              slot: 1,
+              active: true,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 12,
+              deepestDepth: 5,
+              partsOwned: 2,
+              designs: 1,
+              stamps: 3,
+            },
+            {
+              slot: 2,
+              active: false,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 4,
+              deepestDepth: 2,
+              partsOwned: 1,
+              designs: 1,
+              stamps: 1,
+            },
+            {
+              slot: 3,
+              active: false,
+              exists: false,
+              createdAt: null,
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+          ],
+        },
+      });
+      return;
+    }
+    if (request.method() === "DELETE") {
+      deleteRequests++;
+      expect(request.postDataJSON()).toEqual({
+        slot: 2,
+        confirm: "DELETE SLOT 2",
+      });
+      await route.fulfill({
+        json: {
+          activeSlot: 1,
+          slots: [
+            {
+              slot: 1,
+              active: true,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 12,
+              deepestDepth: 5,
+              partsOwned: 2,
+              designs: 1,
+              stamps: 3,
+            },
+            {
+              slot: 2,
+              active: false,
+              exists: false,
+              createdAt: null,
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+            {
+              slot: 3,
+              active: false,
+              exists: false,
+              createdAt: null,
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+          ],
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await page.getByRole("button", { name: "Open settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await expect(settings).toBeVisible();
+  await settings.getByRole("button", { name: "Load game" }).click();
+  const saveSlots = page.getByRole("dialog", { name: "Load Save Slot" });
+  await expect(saveSlots).toBeVisible();
+
+  const slotTwo = saveSlots.getByRole("group", { name: "Slot 2" });
+  await slotTwo.getByRole("button", { name: "Delete" }).click();
+  expect(deleteRequests).toBe(0);
+  await expect(slotTwo).toContainText("Destructive action");
+  await expect(slotTwo).toContainText("cannot be restored");
+
+  await slotTwo.getByRole("button", { name: "Delete Slot 2 Forever" }).click();
+  await expect(slotTwo).toContainText("New game");
+  expect(deleteRequests).toBe(1);
 });
 
 test("mine shows one of the surface game tips", async ({ page }) => {

@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.46-clanker-pathing";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.47-bunker-claim-alignment";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.47",
+      date: "2026-06-18",
+      title: "Bunker claim alignment",
+      intro:
+        "Bunker claims now place the miner on the bottom-center cell of the new base.",
+      changes: [
+        {
+          build,
+          text: "The 7x5 claim preview now aligns from the miner's current cell instead of centering around the miner.",
+        },
+        {
+          build,
+          text: "When the claim is placed, the miner's cell is the bottom row halfway between the left and right sides.",
+        },
+        {
+          build,
+          text: "The server uses the same footprint helper as the preview, so claim validation and saved bunker placement now match the visible overlay.",
+        },
+      ],
+    },
     {
       version: "0.1.46",
       date: "2026-06-18",

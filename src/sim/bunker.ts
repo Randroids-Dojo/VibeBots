@@ -271,12 +271,12 @@ export function canBuyBasePart(
 }
 
 export function proposedBunkerFootprint(
-  centerCol: number,
-  centerRow: number,
+  minerCol: number,
+  minerRow: number,
 ): BunkerFootprint {
   return {
-    col: centerCol - Math.floor(BUNKER_CLAIM_WIDTH / 2),
-    row: centerRow - Math.floor(BUNKER_CLAIM_HEIGHT / 2),
+    col: minerCol - Math.floor(BUNKER_CLAIM_WIDTH / 2),
+    row: minerRow - BUNKER_CLAIM_HEIGHT + 1,
     width: BUNKER_CLAIM_WIDTH,
     height: BUNKER_CLAIM_HEIGHT,
   };

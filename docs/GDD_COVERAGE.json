@@ -582,7 +582,7 @@
     },
     {
       "id": "REQ-034",
-      "requirement": "A player can clear a large connected underground area, preview one active bunker claim, and stake that footprint inside the persistent mine.",
+      "requirement": "A player can clear a large connected underground area, preview one active bunker claim, and stake that footprint inside the persistent mine with the miner standing on the bottom-center claim cell.",
       "gddRef": "docs/gdd/08-base-building.html#claim-loop",
       "status": "partial",
       "implementationRefs": [

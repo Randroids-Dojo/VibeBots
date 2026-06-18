@@ -733,15 +733,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Bunker raids now spawn and move Clankers",
+    "Bunker claims now place the miner on the bottom-center cell",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "open approach cell",
+    "aligns from the miner's current cell",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("saved mine world");
+  await expect(dialog.locator("li").nth(1)).toContainText("bottom row halfway");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "spread their targets",
+    "same footprint helper",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -780,6 +780,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.47", "Bunker claim alignment"],
     ["0.1.46", "Clanker pathing"],
     ["0.1.45", "Hardware Store"],
     ["0.1.44", "Player level two"],

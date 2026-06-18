@@ -22,13 +22,16 @@ import {
 const openTerrain = (): BunkerRaidTerrainKind => "empty";
 
 describe("bunker vertical slice sim", () => {
-  it("proposes a fixed underground footprint around the miner", () => {
-    expect(proposedBunkerFootprint(10, 8)).toEqual({
+  it("proposes a fixed underground footprint with the miner bottom-center", () => {
+    const footprint = proposedBunkerFootprint(10, 8);
+    expect(footprint).toEqual({
       col: 7,
-      row: 6,
+      row: 4,
       width: BUNKER_CLAIM_WIDTH,
       height: BUNKER_CLAIM_HEIGHT,
     });
+    expect(footprint.col + Math.floor(footprint.width / 2)).toBe(10);
+    expect(footprint.row + footprint.height - 1).toBe(8);
   });
 
   it("places and removes consumable wall panels", () => {
@@ -93,7 +96,9 @@ describe("bunker vertical slice sim", () => {
     ).toBe(true);
     expect(
       raid.clankers.map((clanker) => `${clanker.col},${clanker.row}`),
-    ).toEqual(["-2,2", "10,2", "-3,2", "11,2", "-4,2", "12,2"]);
+    ).toEqual(
+      [-2, 10, -3, 11, -4, 12].map((col) => `${col},${base.footprint.row - 1}`),
+    );
     expect(raid.survived).toBe(true);
     expect(raid.reward).toEqual({ vibes: 30, defenseXp: 60 });
   });

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-claim-alignment" data-date="2026-06-18">
+    <h3>Bunker Claim Alignment</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/base-claim-alignment</code>, renamed from the fresh <code>origin/main</code> worktree branch.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported bunker placement fix. The fixed <code>7x5</code> claim footprint now aligns from the miner's current cell instead of spawning around the player: when placed, the miner is on the bottom row halfway between the left and right sides. The client preview and server claim validation already share <code>proposedBunkerFootprint</code>, so updating that helper makes both paths agree. Package version moved to <code>0.1.47</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, test, package, release, and coverage files, focused Vitest for bunker sim coverage (14 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (232 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3128</code> for explicit bunker claim mode and latest release notes (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the requested halfway point uses the existing odd-width <code>7x5</code> footprint, so the miner's column is exactly <code>footprint.col + 3</code> and the miner's row is exactly <code>footprint.row + 4</code>. Mine surface tips were reviewed and no tip change was needed because this is a placement alignment fix, not a new player-facing rule to teach on the surface.</dd>
+      <dt>GDD coverage</dt><dd>REQ-034 stays partial with updated bottom-center placement wording. Updated <code>docs/gdd/08-base-building.html</code>, <code>docs/GDD_COVERAGE.json</code>, static release notes, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="clanker-base-pathing" data-date="2026-06-18">
     <h3>Clanker Base Pathing</h3>
     <dl>

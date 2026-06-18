@@ -93,6 +93,28 @@ describe("mine store upgrade flow", () => {
     );
   });
 
+  it("shows a reload instruction for stale mine-version cash-outs", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: "the mine has shifted since this trip started; start fresh",
+          code: "mine_version_mismatch",
+          expectedMineVersion: 29,
+        },
+        409,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await store().submitCashOut();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(store().cashOut).toEqual({
+      state: "error",
+      message: "Mine updated. Reload this page, then sell again.",
+    });
+  });
+
   it("spends and returns a surface-only trip to the base", async () => {
     const fetchMock = vi
       .fn()

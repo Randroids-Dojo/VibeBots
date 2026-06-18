@@ -5,12 +5,16 @@ type MonitoringSeverity = "info" | "warn" | "error";
 export interface MineCashOutMonitoringEvent {
   code:
     | "cash_out_failed"
+    | "cash_out_succeeded"
     | "consumables_not_owned"
     | "gear_not_owned"
+    | "invalid_json_body"
     | "legacy_support_reconciled"
     | "mine_version_mismatch"
     | "no_mine_on_file"
     | "player_not_found"
+    | "request_validation_failed"
+    | "storage_not_configured"
     | "trip_already_cashed_out"
     | "wrong_mine_seed";
   severity: MonitoringSeverity;
@@ -26,6 +30,9 @@ export interface MineCashOutMonitoringEvent {
   replay?: unknown;
   charged?: unknown;
   credited?: unknown;
+  remaining?: unknown;
+  request?: unknown;
+  issues?: unknown;
   detail?: string;
 }
 

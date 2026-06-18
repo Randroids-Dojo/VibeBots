@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.34-support-selection";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.35-cashout-diagnostics";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.35",
+      date: "2026-06-18",
+      title: "Mine cash-out diagnostics",
+      intro:
+        "Cash-out failures now produce structured traces before they become hard-to-debug sell errors.",
+      changes: [
+        {
+          build,
+          text: "Invalid JSON and request-shape failures now log safe request summaries with mine version, move count, gear levels, and consumable counts.",
+        },
+        {
+          build,
+          text: "Version, ownership, replay, and persistence failures include hashed player context whenever an existing player cookie is present, and stale mine trips now ask players to reload.",
+        },
+        {
+          build,
+          text: "Successful sells now write info-grade cash-out traces with credited value, charged consumables, and remaining stock.",
+        },
+      ],
+    },
     {
       version: "0.1.34",
       date: "2026-06-18",

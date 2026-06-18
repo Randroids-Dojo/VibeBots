@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-cashout-diagnostics" data-date="2026-06-18">
+    <h3>Mine Cash-Out Diagnostics</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-cashout-diagnostics</code>, rebased onto current <code>origin/main</code> after the device save slots and support selection outline slices landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Added comprehensive structured monitoring around <code>/api/mine/bank</code>. Invalid JSON, request validation failures, storage outages, mine-version mismatches, ownership failures, replay conflicts, atomic persistence misses, legacy support reconciliation, and successful cash-outs now flow through the same <code>mine.cash_out</code> JSON log surface. Request-shape failures include safe diagnostics such as mine version, move count, gear levels, and consumable counts, while parsed player-bound events include a hashed player id when the existing cookie is available. Mine-version mismatch responses now include a stable code, and the client tells players to reload and sell again when an old bundle tries to cash out a stale trip. Package version moved to <code>0.1.35</code>; <code>MINE_VERSION</code> stays at <code>29</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>After rebasing over the device save slots and support selection outline slices, ran <code>pnpm exec biome check --write</code> on touched source, test, release, smoke, package, README, and doc files; focused Vitest for mine bank route, monitoring, and mine store coverage (24 passed); <code>pnpm typecheck</code>; <code>pnpm test</code> (196 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm build</code>; <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; conflict-marker search; and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: successful cash-outs are info-grade traces with <code>alert=false</code>, while every warning and error remains alert-grade. The logs include counts and summaries only, not raw move logs, cookies, request bodies, or raw player ids.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated operations documentation, static and in-game release notes, and appended a Build log entry to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="support-selection-outline" data-date="2026-06-18">
     <h3>Support Selection Outline</h3>
     <dl>

@@ -558,17 +558,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("clear red outlines");
+  await expect(dialog).toContainText("structured traces");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "bright red full-cell outline",
+    "request-shape failures",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "whole eligible cell is now tappable",
+    "hashed player context",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "cell outline is the main multi-select signal",
-  );
+  await expect(dialog.locator("li").nth(2)).toContainText("Successful sells");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -610,6 +608,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.35", "Mine cash-out diagnostics"],
     ["0.1.34", "Support selection outlines"],
     ["0.1.33", "Save slots"],
     ["0.1.32", "Partial ore mining"],

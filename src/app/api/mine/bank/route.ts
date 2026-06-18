@@ -3,6 +3,7 @@ import { applyAchievementProgress } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
 import { logMineCashOutEvent } from "@/server/monitoring";
 import {
+  currentPlayerId,
   getMinePlayerProfile,
   getOrCreatePlayerId,
   type MinePlayerProfile,
@@ -30,6 +31,25 @@ export const maxDuration = 60;
 
 const DB_INT_MAX = 2_147_483_647;
 const consumableCount = z.number().int().min(0).max(DB_INT_MAX);
+const GEAR_LOG_FIELDS = [
+  "pickaxe",
+  "battery",
+  "lamp",
+  "cargo",
+  "lantern",
+  "elevator",
+  "warpcoil",
+  "blast",
+  "elevatorSpeed",
+  "fall",
+] as const;
+const CONSUMABLE_LOG_FIELDS = [
+  "dynamite",
+  "rope",
+  "ladder",
+  "plank",
+  "beacon",
+] as const;
 
 const gearLevel = (
   track:
@@ -79,6 +99,78 @@ const bodySchema = z.object({
     beacon: consumableCount,
   }),
 });
+
+function valueKind(value: unknown): string {
+  if (Array.isArray(value)) return "array";
+  if (value === null) return "null";
+  return typeof value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function fieldSummary(
+  value: unknown,
+  fields: readonly string[],
+): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined;
+  const summary: Record<string, unknown> = {};
+  for (const field of fields) {
+    if (!(field in value)) continue;
+    const fieldValue = value[field];
+    summary[field] =
+      typeof fieldValue === "number" && Number.isFinite(fieldValue)
+        ? fieldValue
+        : { type: valueKind(fieldValue) };
+  }
+  return summary;
+}
+
+function cashOutRequestSummary(body: unknown): Record<string, unknown> {
+  if (!isRecord(body)) {
+    return { bodyType: valueKind(body) };
+  }
+  return {
+    bodyType: "object",
+    seed: finiteNumber(body.seed),
+    seedType: valueKind(body.seed),
+    tripIndex: finiteNumber(body.tripIndex),
+    tripIndexType: valueKind(body.tripIndex),
+    mineVersion: finiteNumber(body.mineVersion),
+    mineVersionType: valueKind(body.mineVersion),
+    moveCount: Array.isArray(body.moves) ? body.moves.length : undefined,
+    movesType: valueKind(body.moves),
+    gear: fieldSummary(body.gear, GEAR_LOG_FIELDS),
+    consumables: fieldSummary(body.consumables, CONSUMABLE_LOG_FIELDS),
+  };
+}
+
+function validationIssueSummary(error: z.ZodError): Array<{
+  path: string;
+  code: string;
+  message: string;
+}> {
+  return error.issues.slice(0, 12).map((issue) => ({
+    path: issue.path.map(String).join(".") || "(root)",
+    code: issue.code,
+    message: issue.message,
+  }));
+}
+
+async function currentPlayerIdForLog(): Promise<string | undefined> {
+  try {
+    return (await currentPlayerId()) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const PROFILE_LEVEL_KEYS = [
   ["pickaxe", "pickaxe_level"],
@@ -194,22 +286,45 @@ function achievementProgressForTrip(
  */
 export async function POST(request: Request): Promise<Response> {
   if (!storageConfigured()) {
+    logMineCashOutEvent({
+      code: "storage_not_configured",
+      severity: "error",
+      detail: "persistent storage is not configured",
+    });
     return Response.json({ error: "storage not configured" }, { status: 503 });
   }
   let body: unknown;
   try {
     body = await request.json();
   } catch {
+    logMineCashOutEvent({
+      code: "invalid_json_body",
+      severity: "warn",
+      playerId: await currentPlayerIdForLog(),
+      detail: "request body could not be parsed as JSON",
+    });
     return Response.json({ error: "invalid JSON body" }, { status: 400 });
   }
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
+    logMineCashOutEvent({
+      code: "request_validation_failed",
+      severity: "warn",
+      playerId: await currentPlayerIdForLog(),
+      request: cashOutRequestSummary(body),
+      issues: validationIssueSummary(parsed.error),
+    });
     return Response.json({ error: parsed.error.issues }, { status: 400 });
   }
+  const existingPlayerId = await currentPlayerIdForLog();
   const requestLogContext = {
     tripIndex: parsed.data.tripIndex,
     moveCount: parsed.data.moves.length,
     seed: parsed.data.seed,
+  };
+  const requestPlayerLogContext = {
+    playerId: existingPlayerId,
+    ...requestLogContext,
   };
   if (parsed.data.mineVersion !== MINE_VERSION) {
     // Generation rules changed under a live session; re-pricing the old
@@ -217,17 +332,21 @@ export async function POST(request: Request): Promise<Response> {
     logMineCashOutEvent({
       code: "mine_version_mismatch",
       severity: "warn",
-      ...requestLogContext,
+      ...requestPlayerLogContext,
       mineVersion: parsed.data.mineVersion,
       expectedMineVersion: MINE_VERSION,
     });
     return Response.json(
-      { error: "the mine has shifted since this trip started; start fresh" },
+      {
+        error: "the mine has shifted since this trip started; start fresh",
+        code: "mine_version_mismatch",
+        expectedMineVersion: MINE_VERSION,
+      },
       { status: 409 },
     );
   }
 
-  const playerId = await getOrCreatePlayerId();
+  const playerId = existingPlayerId ?? (await getOrCreatePlayerId());
   const playerLogContext = { playerId, ...requestLogContext };
   const sql = await db();
 
@@ -424,6 +543,29 @@ export async function POST(request: Request): Promise<Response> {
       }),
     );
   }
+  const remainingConsumables = {
+    dynamite: rows[0].dynamite_count ?? 0,
+    rope: rows[0].rope_count ?? 0,
+    ladder: rows[0].ladder_count ?? 0,
+    plank: rows[0].plank_count ?? 0,
+    beacon: rows[0].beacon_count ?? 0,
+  };
+  logMineCashOutEvent({
+    code: "cash_out_succeeded",
+    severity: "info",
+    ...playerLogContext,
+    mineVersion: parsed.data.mineVersion,
+    submitted: submittedConsumables,
+    owned: ownedConsumables,
+    replay: replayConsumables,
+    charged: chargedConsumables,
+    credited: {
+      credits: trip.bankedCredits,
+      parts: trip.bankedParts.length,
+    },
+    remaining: remainingConsumables,
+    worldTripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
+  });
   return Response.json({
     credited: {
       credits: trip.bankedCredits,
@@ -433,12 +575,6 @@ export async function POST(request: Request): Promise<Response> {
     balance: rows[0].emeralds,
     deepestDepth: rows[0].deepest_depth,
     tripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
-    consumables: {
-      dynamite: rows[0].dynamite_count ?? 0,
-      rope: rows[0].rope_count ?? 0,
-      ladder: rows[0].ladder_count ?? 0,
-      plank: rows[0].plank_count ?? 0,
-      beacon: rows[0].beacon_count ?? 0,
-    },
+    consumables: remainingConsumables,
   });
 }

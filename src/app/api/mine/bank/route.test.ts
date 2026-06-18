@@ -28,6 +28,7 @@ vi.mock("@/server/player", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/player")>();
   return {
     ...actual,
+    currentPlayerId: vi.fn(async () => "player-1"),
     getOrCreatePlayerId: vi.fn(async () => "player-1"),
   };
 });
@@ -36,6 +37,7 @@ const mockedDb = vi.mocked(db);
 const mockedStorageConfigured = vi.mocked(storageConfigured);
 let warnSpy: ReturnType<typeof vi.spyOn>;
 let errorSpy: ReturnType<typeof vi.spyOn>;
+let infoSpy: ReturnType<typeof vi.spyOn>;
 
 const ownedBase = {
   pickaxe_level: 1,
@@ -129,11 +131,114 @@ describe("POST /api/mine/bank", () => {
     mockedDb.mockReset();
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
   afterEach(() => {
     warnSpy.mockRestore();
     errorSpy.mockRestore();
+    infoSpy.mockRestore();
+  });
+
+  it("logs invalid JSON bodies before auth-bound route work", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/mine/bank", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{",
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "invalid JSON body",
+    });
+    expect(mockedDb).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(String(warnSpy.mock.calls[0][0]));
+    expect(payload).toMatchObject({
+      source: "vibebots",
+      component: "mine.cash_out",
+      event: "mine.cash_out.invalid_json_body",
+      alert: true,
+      severity: "warn",
+      code: "invalid_json_body",
+      detail: "request body could not be parsed as JSON",
+    });
+    expect(String(warnSpy.mock.calls[0][0])).not.toContain("player-1");
+  });
+
+  it("logs request-shape failures with safe cash-out context", async () => {
+    const res = await post({
+      moves: [],
+      mineVersion: "29",
+      gear: { ...DEFAULT_GEAR, pickaxe: 99 },
+      consumables: { ...STARTING_CONSUMABLES, rope: "22" },
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockedDb).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const raw = String(warnSpy.mock.calls[0][0]);
+    const payload = JSON.parse(raw);
+    expect(payload).toMatchObject({
+      source: "vibebots",
+      component: "mine.cash_out",
+      event: "mine.cash_out.request_validation_failed",
+      alert: true,
+      severity: "warn",
+      code: "request_validation_failed",
+      request: {
+        bodyType: "object",
+        seed: 123,
+        tripIndex: 0,
+        mineVersionType: "string",
+        moveCount: 0,
+        movesType: "array",
+        gear: { pickaxe: 99 },
+        consumables: { rope: { type: "string" } },
+      },
+    });
+    expect(payload.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "moves" }),
+        expect.objectContaining({ path: "mineVersion" }),
+        expect.objectContaining({ path: "gear.pickaxe" }),
+        expect.objectContaining({ path: "consumables.rope" }),
+      ]),
+    );
+    expect(raw).not.toContain("player-1");
+    expect(raw).not.toContain("down");
+  });
+
+  it("logs mine-version mismatches with hashed existing player context", async () => {
+    const res = await post({ mineVersion: MINE_VERSION - 1 });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "the mine has shifted since this trip started; start fresh",
+      code: "mine_version_mismatch",
+      expectedMineVersion: MINE_VERSION,
+    });
+    expect(mockedDb).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const raw = String(warnSpy.mock.calls[0][0]);
+    const payload = JSON.parse(raw);
+    expect(payload).toMatchObject({
+      source: "vibebots",
+      component: "mine.cash_out",
+      event: "mine.cash_out.mine_version_mismatch",
+      alert: true,
+      severity: "warn",
+      code: "mine_version_mismatch",
+      tripIndex: 0,
+      moveCount: 1,
+      seed: 123,
+      mineVersion: MINE_VERSION - 1,
+      expectedMineVersion: MINE_VERSION,
+    });
+    expect(payload.player).toBeTruthy();
+    expect(raw).not.toContain("player-1");
   });
 
   it("credits legacy support snapshots even when support stock is not owned", async () => {
@@ -303,6 +408,31 @@ describe("POST /api/mine/bank", () => {
     });
     expect(sql).toHaveBeenCalledTimes(3);
     expect(errorSpy).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledTimes(1);
+    const successPayload = JSON.parse(String(infoSpy.mock.calls[0][0]));
+    expect(successPayload).toMatchObject({
+      source: "vibebots",
+      component: "mine.cash_out",
+      event: "mine.cash_out.cash_out_succeeded",
+      alert: false,
+      severity: "info",
+      code: "cash_out_succeeded",
+      tripIndex: 0,
+      moveCount: 1,
+      seed: 2155004236,
+      mineVersion: MINE_VERSION,
+      charged: stock(),
+      credited: { credits: 0, parts: 0 },
+      remaining: stock({
+        dynamite: 34,
+        rope: 22,
+        ladder: 1018,
+        plank: 206,
+        beacon: 22,
+      }),
+      worldTripIndex: 1,
+    });
+    expect(String(infoSpy.mock.calls[0][0])).not.toContain("player-1");
   });
 });
 

@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.35" data-date="2026-06-18">
+    <h2>0.1.35</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.35</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>29</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mine cash-out failures now emit structured diagnostics for every failure stage, including request-shape failures that used to show up only as bare HTTP 400s.</dd>
+      <dt>Operations</dt><dd>Invalid JSON and request validation failures log safe summaries with mine version, move count, gear levels, and consumable counts. Parsed failures include hashed player context when an existing player cookie is available, and stale mine-version trips now return a stable code.</dd>
+      <dt>Interface</dt><dd>When an old in-flight mine was started under a previous mine version, the client now asks the player to reload the page and sell again instead of showing a vague cash-out failure.</dd>
+      <dt>Tracing</dt><dd>Successful sells now emit info-grade traces with credited value, charged consumables, and remaining stock, so operators can correlate recovery without alerting on normal cash-outs.</dd>
+      <dt>Verification</dt><dd>After rebasing over the support selection outline slice, ran focused formatting, focused Vitest for the mine bank route, monitoring, and mine store coverage (24 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (196 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm build</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, conflict-marker search, and <code>git diff --check</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.34" data-date="2026-06-18">
     <h2>0.1.34</h2>
     <dl>

@@ -35,4 +35,40 @@ describe("mine cash-out monitoring", () => {
 
     spy.mockRestore();
   });
+
+  it("writes info JSON without alerting for successful cash-outs", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logMineCashOutEvent({
+      code: "cash_out_succeeded",
+      severity: "info",
+      playerId: "player-1",
+      tripIndex: 82,
+      moveCount: 12,
+      seed: 2155004236,
+      mineVersion: 29,
+      credited: { credits: 4, parts: 0 },
+      remaining: { ladder: 1342, plank: 226 },
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const raw = String(spy.mock.calls[0][0]);
+    expect(raw).not.toContain("player-1");
+    expect(JSON.parse(raw)).toMatchObject({
+      source: "vibebots",
+      component: "mine.cash_out",
+      event: "mine.cash_out.cash_out_succeeded",
+      alert: false,
+      severity: "info",
+      code: "cash_out_succeeded",
+      tripIndex: 82,
+      moveCount: 12,
+      seed: 2155004236,
+      mineVersion: 29,
+      credited: { credits: 4, parts: 0 },
+      remaining: { ladder: 1342, plank: 226 },
+    });
+
+    spy.mockRestore();
+  });
 });

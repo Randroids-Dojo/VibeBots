@@ -38,14 +38,26 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 Mine cash-out monitoring uses structured JSON logs from
 `src/server/monitoring.ts`. Warning and error events include `source`
 (`"vibebots"`), `component` (`"mine.cash_out"`), `alert` (`true`), a stable
-`event` name, and a hashed player identifier. Configure Vercel log drains or
-log-based alerts on these events:
+`event` name, safe request context, and a hashed player identifier when an
+existing player cookie is available. Configure Vercel log drains or log-based
+alerts on these events:
 
+- `mine.cash_out.invalid_json_body`
+- `mine.cash_out.request_validation_failed`
+- `mine.cash_out.storage_not_configured`
 - `mine.cash_out.consumables_not_owned`
 - `mine.cash_out.gear_not_owned`
+- `mine.cash_out.mine_version_mismatch`
+- `mine.cash_out.no_mine_on_file`
+- `mine.cash_out.player_not_found`
+- `mine.cash_out.trip_already_cashed_out`
 - `mine.cash_out.wrong_mine_seed`
 - `mine.cash_out.legacy_support_reconciled`
 - `mine.cash_out.cash_out_failed`
+
+Successful sells emit `mine.cash_out.cash_out_succeeded` with `alert=false`.
+Use it to correlate a player hash, seed, trip index, credited value, charged
+consumables, and remaining stock without paging on normal traffic.
 
 For a known affected long-running player whose client support snapshot drifted,
 repair stored support stock explicitly instead of adding runtime replay

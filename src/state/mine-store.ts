@@ -175,6 +175,17 @@ function consumablesFromResponse(value: unknown): MineConsumables | null {
   };
 }
 
+function cashOutErrorMessage(body: unknown): string {
+  if (body && typeof body === "object") {
+    const record = body as Record<string, unknown>;
+    if (record.code === "mine_version_mismatch") {
+      return "Mine updated. Reload this page, then sell again.";
+    }
+    if (typeof record.error === "string") return record.error;
+  }
+  return "cash out failed";
+}
+
 /**
  * Mining session state. The MineState object is mutated in place by the
  * pure sim logic; `tick` bumps on every action so React subscribers
@@ -599,8 +610,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           set({
             cashOut: {
               state: "error",
-              message:
-                typeof body.error === "string" ? body.error : "cash out failed",
+              message: cashOutErrorMessage(body),
             },
           });
           return false;

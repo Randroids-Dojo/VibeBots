@@ -16,6 +16,9 @@ import {
   createMine,
   DEFAULT_GEAR,
   type Direction,
+  dynamiteBlastCells,
+  dynamitePreviewCells,
+  dynamiteTier,
   ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
@@ -902,7 +905,7 @@ describe("mine", () => {
 
   it("plants dynamite, then explodes once the miner moves clear", () => {
     const noStick = createMine(53);
-    expect(applyAction(noStick, "dynamite-down")).toEqual({
+    expect(applyAction(noStick, "dynamite-1")).toEqual({
       ok: false,
       reason: "no-dynamite",
     });
@@ -915,21 +918,24 @@ describe("mine", () => {
       beacon: 0,
     });
     setCell(state, START_COL, 1, { kind: "rock", rockTier: 3 });
-    setCell(state, START_COL, 2, { kind: "ore", ore: "coal" });
-    const planted = applyAction(state, "dynamite-down");
+    const planted = applyAction(state, "dynamite-1");
     expect(planted.ok && planted.dynamitePlanted).toEqual({
       col: START_COL,
-      row: 1,
+      row: 0,
+      tier: 1,
     });
     expect(planted.ok && (planted.blasted ?? 0)).toBe(0);
-    expect(state.pendingDynamite).toEqual({ col: START_COL, row: 1 });
+    expect(state.pendingDynamite).toEqual({ col: START_COL, row: 0, tier: 1 });
     expect(cellAt(state, START_COL, 1)?.kind).toBe("rock");
 
     const result = applyAction(state, "left");
-    expect(result.ok && (result.blasted ?? 0)).toBeGreaterThanOrEqual(2);
-    expect(result.ok && result.exploded).toEqual({ col: START_COL, row: 1 });
+    expect(result.ok && (result.blasted ?? 0)).toBeGreaterThanOrEqual(1);
+    expect(result.ok && result.exploded).toEqual({
+      col: START_COL,
+      row: 0,
+      tier: 1,
+    });
     expect(cellAt(state, START_COL, 1)?.kind).toBe("empty");
-    expect(cellAt(state, START_COL, 2)?.kind).toBe("empty");
     expect(state.pendingDynamite).toBeUndefined();
     expect(state.consumables.dynamite).toBe(1);
     expect(state.used.dynamite).toBe(1);
@@ -938,7 +944,7 @@ describe("mine", () => {
 
     const replayed = replayTrip(
       53,
-      ["dynamite-down", "left"],
+      ["dynamite-1", "left"],
       DEFAULT_GEAR,
       stock({ dynamite: 2 }),
     );
@@ -1551,7 +1557,7 @@ describe("mine", () => {
     for (let i = 0; i < 60; i++) {
       const action: MineAction =
         i === 20
-          ? "dynamite-down"
+          ? "dynamite-1"
           : i === 50
             ? "recall"
             : i % 7 === 3
@@ -1577,34 +1583,68 @@ describe("mine", () => {
     }
   });
 
-  it("maps the blast gear level to the diamond radius", () => {
+  it("maps blast gear to capped dynamite tiers", () => {
     expect(blastRadius({ ...DEFAULT_GEAR, blast: 1 })).toBe(1);
     expect(blastRadius({ ...DEFAULT_GEAR, blast: 3 })).toBe(3);
-    // A gear snapshot that predates the track reads as radius 1.
+    expect(dynamiteTier({ blast: 14 })).toBe(4);
+    // A gear snapshot that predates the track reads as tier 1.
     const legacy: Partial<typeof DEFAULT_GEAR> = { ...DEFAULT_GEAR };
     legacy.blast = undefined;
-    expect(blastRadius(legacy as typeof DEFAULT_GEAR)).toBe(1);
+    expect(dynamiteTier(legacy as typeof DEFAULT_GEAR)).toBe(1);
   });
 
-  it("widens the dynamite blast with the blast gear", () => {
-    // Same seed and dig path, only the blast gear differs: the wider
-    // charge clears strictly more solid cells from the same spot.
-    const cons = stock({ dynamite: 1 });
-    const small = createMine(401, { ...DEFAULT_GEAR, blast: 1 }, cons);
-    const big = createMine(401, { ...DEFAULT_GEAR, blast: 3 }, cons);
-    for (const s of [small, big]) {
-      for (let i = 0; i < 3; i++) dig(s, "down");
-      setCell(s, START_COL - 1, 3, { kind: "empty" });
-      setCell(s, START_COL - 1, 4, { kind: "dirt" });
-    }
-    expect(applyAction(small, "dynamite-down").ok).toBe(true);
-    expect(applyAction(big, "dynamite-down").ok).toBe(true);
-    const a = applyAction(small, "left");
-    const b = applyAction(big, "left");
-    expect(a.ok && a.exploded && b.ok && b.exploded).toBeTruthy();
-    expect(b.ok && (b.blasted ?? 0)).toBeGreaterThan(
-      a.ok ? (a.blasted ?? 0) : 0,
+  it("uses fixed dynamite tier footprints", () => {
+    const state = createMine(401, { ...DEFAULT_GEAR, blast: 4 });
+    expect(dynamiteBlastCells(state, { col: 0, row: 10 }, 1)).toEqual([
+      { col: 0, row: 10 },
+      { col: 0, row: 9 },
+      { col: -1, row: 10 },
+      { col: 1, row: 10 },
+      { col: 0, row: 11 },
+    ]);
+    expect(dynamiteBlastCells(state, { col: 0, row: 10 }, 2)).toEqual([
+      { col: 0, row: 10 },
+      { col: 0, row: 9 },
+      { col: 0, row: 8 },
+      { col: -1, row: 10 },
+      { col: -2, row: 10 },
+      { col: 1, row: 10 },
+      { col: 2, row: 10 },
+      { col: 0, row: 11 },
+      { col: 0, row: 12 },
+      { col: 0, row: 13 },
+    ]);
+    expect(dynamiteBlastCells(state, { col: 0, row: 10 }, 3)).toHaveLength(9);
+    expect(dynamiteBlastCells(state, { col: 0, row: 10 }, 4)).toHaveLength(
+      (lightRadius(state.gear) * 2 + 1) ** 2,
     );
+  });
+
+  it("previews and detonates the selected dynamite tier", () => {
+    const cons = stock({ dynamite: 1 });
+    const state = createMine(401, { ...DEFAULT_GEAR, blast: 3 }, cons);
+    setCell(state, START_COL - 1, 1, { kind: "dirt" });
+    setCell(state, START_COL, 1, { kind: "rock", rockTier: 3 });
+    setCell(state, START_COL + 1, 1, { kind: "ore", ore: "coal" });
+    expect(dynamitePreviewCells(state, 3)).toEqual([
+      { col: -1, row: 1 },
+      { col: 0, row: 1 },
+      { col: 1, row: 1 },
+    ]);
+    expect(applyAction(state, "dynamite-4")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(applyAction(state, "dynamite-3").ok).toBe(true);
+    const result = applyAction(state, "left");
+    expect(result.ok && result.exploded).toEqual({
+      col: START_COL,
+      row: 0,
+      tier: 3,
+    });
+    expect(cellAt(state, START_COL - 1, 1)?.kind).toBe("empty");
+    expect(cellAt(state, START_COL, 1)?.kind).toBe("empty");
+    expect(cellAt(state, START_COL + 1, 1)?.kind).toBe("empty");
   });
 
   it("accelerates the elevator car with the speed gear", () => {

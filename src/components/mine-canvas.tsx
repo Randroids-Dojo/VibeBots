@@ -30,6 +30,7 @@ import {
   lanternDistance,
   lightRadius,
   type MineCell,
+  type MineCoord,
   type OreId,
   START_COL,
   STRATA,
@@ -1652,6 +1653,7 @@ function MineScene({
   zoom,
   collectMode,
   selectedSupportKeys,
+  dynamitePreviewCells,
   onToggleSupport,
 }: MineCanvasProps) {
   const tick = useMineStore((s) => s.tick);
@@ -1763,9 +1765,8 @@ function MineScene({
       setFallWindow(null);
     }
     playMineResultSfx(lastResult, lastAction);
-    if (lastAction === "left" || lastAction === "dynamite-left") j.facing = -1;
-    else if (lastAction === "right" || lastAction === "dynamite-right")
-      j.facing = 1;
+    if (lastAction === "left") j.facing = -1;
+    else if (lastAction === "right") j.facing = 1;
     else if (lastAction != null) j.facing = 0;
     // The starter pick glancing off rock it can't cut (REQ "too hard"):
     // a real swing that bounces back, a thud, a body recoil, and a cold
@@ -2165,6 +2166,9 @@ function MineScene({
   const crackMeshes = [];
   const darknessMeshes = [];
   const selectedSupportSet = new Set(selectedSupportKeys ?? []);
+  const dynamitePreviewSet = new Set(
+    (dynamitePreviewCells ?? []).map((coord) => `${coord.col}:${coord.row}`),
+  );
   for (let row = firstRow; row <= lastRow; row++) {
     for (let col = firstCol; col <= lastCol; col++) {
       const distanceFromMiner = lanternDistance(mine, col, row);
@@ -2174,6 +2178,19 @@ function MineScene({
       const key = `${col}:${row}`;
       const x = cellX(col);
       const y = -row;
+      if (dynamitePreviewSet.has(key)) {
+        crackMeshes.push(
+          <mesh key={`dynamite-preview:${key}`} position={[x, y, 0.86]}>
+            <planeGeometry args={[1.1, 1.1]} />
+            <meshBasicMaterial
+              color="#ffe08a"
+              transparent
+              opacity={0.34}
+              depthWrite={false}
+            />
+          </mesh>,
+        );
+      }
       const beyondLight = Math.max(0, distanceFromMiner - litBelow);
       if (beyondLight > 0) {
         const fade = Math.min(1, beyondLight / MINE_CAMERA_FALLOFF_ROWS);
@@ -2662,6 +2679,7 @@ interface MineCanvasProps {
   zoom: number;
   collectMode?: boolean;
   selectedSupportKeys?: readonly string[];
+  dynamitePreviewCells?: readonly MineCoord[];
   onToggleSupport?: (target: CollectTarget) => void;
 }
 

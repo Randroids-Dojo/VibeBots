@@ -56,6 +56,7 @@ const ownedBase = {
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
   legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",
+  dynamite_tier_unlock_reset_at: "2026-06-18T00:00:00.000Z",
 };
 
 const stock = (overrides: Partial<MineConsumables> = {}): MineConsumables => ({
@@ -172,7 +173,7 @@ describe("POST /api/mine/bank", () => {
     const sql = mockSql();
 
     const res = await post({
-      moves: ["dynamite-down"],
+      moves: ["dynamite-1"],
       consumables: { ...STARTING_CONSUMABLES, dynamite: 1 },
     });
 

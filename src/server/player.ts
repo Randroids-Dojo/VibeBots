@@ -1,6 +1,7 @@
 import { signToken, verifyToken } from "@randroids-dojo/vibekit/server";
 import { cookies } from "next/headers";
 import {
+  dynamiteTier,
   LADDER_RECOVERY_FLOOR,
   type MineConsumables,
   type MineGear,
@@ -45,6 +46,7 @@ export interface MinePlayerProfile {
   support_kit_granted_at: string | null;
   elevator_support_refund_at: string | null;
   legacy_support_snapshot_reconciled_at: string | null;
+  dynamite_tier_unlock_reset_at: string | null;
 }
 
 function secret(): string {
@@ -82,9 +84,10 @@ export async function getOrCreatePlayerId(): Promise<string> {
       ladder_count,
       plank_count,
       support_kit_granted_at,
-      legacy_support_snapshot_reconciled_at
+      legacy_support_snapshot_reconciled_at,
+      dynamite_tier_unlock_reset_at
     )
-    VALUES (${LADDER_RECOVERY_FLOOR}, ${PLANK_RECOVERY_FLOOR}, now(), now())
+    VALUES (${LADDER_RECOVERY_FLOOR}, ${PLANK_RECOVERY_FLOOR}, now(), now(), now())
     RETURNING id`) as Array<{
     id: string;
   }>;
@@ -146,7 +149,8 @@ export async function getMinePlayerProfile(
            warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
            fall_level, dynamite_count, rope_count, ladder_count, plank_count,
            beacon_count, emeralds, support_kit_granted_at,
-           elevator_support_refund_at, legacy_support_snapshot_reconciled_at
+           elevator_support_refund_at, legacy_support_snapshot_reconciled_at,
+           dynamite_tier_unlock_reset_at
     FROM players WHERE id = ${playerId}`) as Array<MinePlayerProfile>;
   return rows[0]
     ? await ensureStartingSupportKit(sql, playerId, rows[0])
@@ -173,7 +177,7 @@ export function mineGearFromProfile(row: MinePlayerProfile): MineGear {
     lantern: row.lantern_level,
     elevator: row.elevator_depth,
     warpcoil: row.warpcoil_level,
-    blast: row.blast_level,
+    blast: dynamiteTier({ blast: row.blast_level }),
     elevatorSpeed: row.elevator_speed_level,
     fall: row.fall_level,
   };

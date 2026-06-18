@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.28-mining-stamp-book";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.29-dynamite-tiers";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.29",
+      date: "2026-06-18",
+      title: "Dynamite tiers",
+      intro:
+        "Dynamite is now selected from four blast shapes with a live mine-cell preview before deployment.",
+      changes: [
+        {
+          build,
+          text: "The dynamite HUD opens a tier selector, previews the cells that would be destroyed, and deploys only after the check button is pressed.",
+        },
+        {
+          build,
+          text: "Locked tiers remain visible in the selector with helper text pointing to the Upgrades stall.",
+        },
+        {
+          build,
+          text: "Blast Charge is now a one-time unlock ladder for stronger dynamite tiers, with old radius-upgrade purchases reset.",
+        },
+      ],
+    },
     {
       version: "0.1.28",
       date: "2026-06-18",

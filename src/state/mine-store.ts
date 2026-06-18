@@ -6,6 +6,7 @@ import {
   createMine,
   DEFAULT_GEAR,
   exportDiff,
+  isMineAction,
   MINE_VERSION,
   type MineAction,
   type MineConsumables,
@@ -51,6 +52,13 @@ function loadLocalTrip(): SavedTrip | null {
     )
       return null;
     const saved = parsed as SavedTrip;
+    if (
+      !saved.moves.every(
+        (move) => typeof move === "string" && isMineAction(move),
+      )
+    ) {
+      return null;
+    }
     return { ...saved, gear: normalizeGear(saved.gear) };
   } catch {
     return null;

@@ -20,6 +20,7 @@ export const PLAYER_COMPATIBILITY_MARKERS = [
   "support_kit_granted_at",
   "elevator_support_refund_at",
   "legacy_support_snapshot_reconciled_at",
+  "dynamite_tier_unlock_reset_at",
 ] as const;
 
 let client: Sql | null = null;
@@ -72,6 +73,14 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS legacy_support_snapshot_reconciled_at timestamptz`;
+  await sql`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS dynamite_tier_unlock_reset_at timestamptz`;
+  await sql`
+    UPDATE players
+    SET blast_level = 1,
+        dynamite_tier_unlock_reset_at = now()
+    WHERE dynamite_tier_unlock_reset_at IS NULL`;
   // The elevator rail (REQ-028) and teleporter (REQ-029).
   await sql`
     ALTER TABLE players

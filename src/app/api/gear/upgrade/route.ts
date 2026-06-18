@@ -94,7 +94,12 @@ export async function POST(request: Request): Promise<Response> {
       case "blast":
         return sql`
           UPDATE players
-          SET emeralds = emeralds - ${price}, blast_level = ${level + 1}
+          SET emeralds = emeralds - ${price},
+              blast_level = ${level + 1},
+              dynamite_tier_unlock_reset_at = COALESCE(
+                dynamite_tier_unlock_reset_at,
+                now()
+              )
           WHERE id = ${playerId} AND emeralds >= ${price} AND blast_level = ${level}
           RETURNING emeralds, blast_level AS level`;
       case "elevatorSpeed":

@@ -25,6 +25,7 @@ const profile: MinePlayerProfile = {
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
   legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",
+  dynamite_tier_unlock_reset_at: "2026-06-18T00:00:00.000Z",
 };
 
 describe("mine player profile helpers", () => {
@@ -36,7 +37,7 @@ describe("mine player profile helpers", () => {
       lantern: 5,
       elevator: 120,
       warpcoil: 6,
-      blast: 7,
+      blast: 4,
       elevatorSpeed: 8,
       fall: 9,
     });

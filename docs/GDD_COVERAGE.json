@@ -284,10 +284,12 @@
         "src/app/api/mine/bank/route.ts",
         "src/components/shop-panel.tsx",
         "src/components/mine-panel.tsx",
+        "src/components/mine-canvas.tsx",
         "src/state/mine-store.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": [
         "F-015"

@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 27;
+export const MINE_VERSION = 28;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -158,10 +158,8 @@ export interface MineGear {
   /** Warpcoil level (REQ-029): indexes WARP_RANGE. */
   warpcoil: number;
   /**
-   * Dynamite blast radius (Manhattan distance). Absent or 1 is the
-   * classic 5-cell plus; each level widens the diamond by one ring.
-   * Optional for backward-compat with gear snapshots that predate the
-   * track (read as 1); bought at the Upgrades stall like the other tracks.
+   * Highest unlocked dynamite tier. Absent or 1 is the base plus charge.
+   * Higher tiers are one-time unlocks, not a radius upgrade ladder.
    */
   blast?: number;
   /**
@@ -263,16 +261,9 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
   },
   {
     track: "blast",
-    // A very high cap (radius grows one ring per level) on a steeply
-    // staggered ladder: the first rings are mid-game, but each ring costs
-    // ~2.6x the last, so the widest blasts run into the millions of vibes
-    // and stay a late-game flex. ~2.6x per tier keeps it superlinear.
     name: "Blast Charge",
-    prices: [
-      200, 500, 1300, 3500, 9000, 24000, 65000, 175000, 480000, 1300000,
-      3500000, 9500000, 26000000, 70000000,
-    ],
-    blurb: "wider dynamite blast, more loot",
+    prices: [10000, 100000, 1000000],
+    blurb: "unlock stronger dynamite shapes",
   },
   {
     track: "elevatorSpeed",
@@ -588,6 +579,7 @@ export interface MineCell {
 export interface PendingDynamite {
   col: number;
   row: number;
+  tier: DynamiteTier;
 }
 
 /**
@@ -723,9 +715,20 @@ function batteryLevel(gear: MineGearSnapshot): number {
   return gear.battery ?? gear.lamp ?? 1;
 }
 
+export type DynamiteTier = 1 | 2 | 3 | 4;
+
+export const DYNAMITE_TIERS = [1, 2, 3, 4] as const;
+
+export function dynamiteTier(gear: Pick<MineGear, "blast">): DynamiteTier {
+  const level = Math.floor(gear.blast ?? 1);
+  if (level <= 1) return 1;
+  if (level >= 4) return 4;
+  return level as DynamiteTier;
+}
+
 /** Fill the current battery field for legacy gear snapshots. */
 export function normalizeGear(gear: MineGearSnapshot): MineGear {
-  return { ...gear, battery: batteryLevel(gear) };
+  return { ...gear, battery: batteryLevel(gear), blast: dynamiteTier(gear) };
 }
 
 /** Max robot battery charge for the session's gear. */
@@ -750,12 +753,9 @@ export function safeFallRows(gear: MineGear): number {
   return SAFE_FALL_ROWS[Math.min(gear.fall ?? 1, SAFE_FALL_ROWS.length) - 1];
 }
 
-/**
- * Dynamite blast radius in cells (Manhattan distance). Level 1 (or
- * unset) is the classic 5-cell plus; each blast-gear level adds a ring.
- */
+/** Back-compat helper for older callers that only need the unlocked tier. */
 export function blastRadius(gear: MineGear): number {
-  return Math.max(1, gear.blast ?? 1);
+  return dynamiteTier(gear);
 }
 
 /** Credit value of everything currently carried (the bet on the table). */
@@ -1073,7 +1073,7 @@ function hasDynamiteGap(state: MineState, charge: PendingDynamite): boolean {
   return (
     Math.abs(state.miner.col - charge.col) +
       Math.abs(state.miner.row - charge.row) >=
-    2
+    1
   );
 }
 
@@ -1151,10 +1151,10 @@ export type MoveResult =
 
 type BaseMineAction =
   | Direction
-  | "dynamite-down"
-  | "dynamite-up"
-  | "dynamite-left"
-  | "dynamite-right"
+  | "dynamite-1"
+  | "dynamite-2"
+  | "dynamite-3"
+  | "dynamite-4"
   | "plank-left"
   | "plank-right"
   | "recall"
@@ -1184,8 +1184,9 @@ export function isSupportSalvageTarget(
 
 /**
  * The full trip action vocabulary (Q-006 default B): plain directions
- * dig and move; dynamite and plank tokens act toward a direction;
- * collect tokens pick placed traversal supports back up by coordinate.
+ * dig and move; dynamite tokens select a tier; plank tokens act toward a
+ * direction; collect tokens pick placed traversal supports back up by
+ * coordinate.
  */
 export type MineAction = BaseMineAction | `collect:${string}`;
 
@@ -1194,10 +1195,10 @@ export const MINE_ACTIONS = [
   "up",
   "left",
   "right",
-  "dynamite-down",
-  "dynamite-up",
-  "dynamite-left",
-  "dynamite-right",
+  "dynamite-1",
+  "dynamite-2",
+  "dynamite-3",
+  "dynamite-4",
   "plank-left",
   "plank-right",
   "recall",
@@ -1838,25 +1839,87 @@ function rollCachePart(state: MineState, col: number, row: number): string {
   return table[Math.floor(pick * table.length)];
 }
 
-/**
- * Cell offsets within Manhattan distance r of the blast centre, ordered
- * centre-out (ring ascending) then by (dr, dc). The order is frozen: the
- * hold fills along it, so changing it would change which ore overflows
- * to the floor. r=1 yields the classic 5-cell plus; r=2 -> 13, r=3 -> 25.
- */
-function diamondOffsets(r: number): ReadonlyArray<readonly [number, number]> {
-  const out: Array<[number, number]> = [];
-  for (let ring = 0; ring <= r; ring++) {
-    const ringCells: Array<[number, number]> = [];
-    for (let dr = -ring; dr <= ring; dr++) {
-      const dc = ring - Math.abs(dr);
-      ringCells.push([dc, dr]);
-      if (dc !== 0) ringCells.push([-dc, dr]);
+export interface MineCoord {
+  col: number;
+  row: number;
+}
+
+const DYNAMITE_TIER_OFFSETS: Record<
+  Exclude<DynamiteTier, 4>,
+  ReadonlyArray<readonly [number, number]>
+> = {
+  1: [
+    [0, 0],
+    [0, -1],
+    [-1, 0],
+    [1, 0],
+    [0, 1],
+  ],
+  2: [
+    [0, 0],
+    [0, -1],
+    [0, -2],
+    [-1, 0],
+    [-2, 0],
+    [1, 0],
+    [2, 0],
+    [0, 1],
+    [0, 2],
+    [0, 3],
+  ],
+  3: [
+    [-1, -1],
+    [0, -1],
+    [1, -1],
+    [-1, 0],
+    [0, 0],
+    [1, 0],
+    [-1, 1],
+    [0, 1],
+    [1, 1],
+  ],
+};
+
+export function dynamiteBlastCells(
+  state: MineState,
+  center: MineCoord,
+  tier: DynamiteTier,
+): MineCoord[] {
+  if (tier === 4) {
+    const radius = lightRadius(state.gear);
+    const cells: MineCoord[] = [];
+    for (let row = center.row - radius; row <= center.row + radius; row++) {
+      if (row < 1) continue;
+      for (let col = center.col - radius; col <= center.col + radius; col++) {
+        if (
+          Math.max(Math.abs(col - center.col), Math.abs(row - center.row)) <=
+          radius
+        ) {
+          cells.push({ col, row });
+        }
+      }
     }
-    ringCells.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
-    out.push(...ringCells);
+    return cells;
   }
-  return out;
+  return DYNAMITE_TIER_OFFSETS[tier]
+    .map(([dc, dr]) => ({ col: center.col + dc, row: center.row + dr }))
+    .filter((cell) => cell.row >= 1);
+}
+
+export function dynamitePreviewCells(
+  state: MineState,
+  tier: DynamiteTier,
+): MineCoord[] {
+  return dynamiteBlastCells(state, state.miner, tier).filter((coord) => {
+    const cell = cellAt(state, coord.col, coord.row);
+    return Boolean(
+      cell &&
+        (BLASTABLE.has(cell.kind) ||
+          cell.kind === "part-cache" ||
+          cell.kind === "gas" ||
+          cell.kind === "magma"),
+    );
+  });
 }
 
 interface ExplosionResult {
@@ -1869,8 +1932,9 @@ interface ExplosionResult {
 }
 
 /**
- * Resolves a lit charge once the miner has stepped clear: a diamond blast
- * clears dirt, any rock tier, and boulders, and collects ore and caches.
+ * Resolves a lit charge once the miner has stepped clear. The selected tier
+ * controls the blast shape; it clears dirt, any rock tier, and boulders, and
+ * collects ore and caches.
  * Ore beyond the cargo hold spills onto the floor to scoop up later.
  */
 function detonateDynamiteAt(
@@ -1885,10 +1949,9 @@ function detonateDynamiteAt(
   let dropped = 0;
   const foundParts: string[] = [];
   const emptied: Array<{ col: number; row: number }> = [];
-  for (const [dc, dr] of diamondOffsets(blastRadius(state.gear))) {
-    const nc = center.col + dc;
-    const nr = center.row + dr;
-    if (nr < 1) continue;
+  for (const coord of dynamiteBlastCells(state, center, center.tier)) {
+    const nc = coord.col;
+    const nr = coord.row;
     const cell = cellAt(state, nc, nr);
     if (!cell) continue;
     if (cell.kind === "gas" || cell.kind === "magma") {
@@ -1986,16 +2049,15 @@ function maybeExplodePendingDynamite(
 }
 
 /**
- * Places a lit dynamite charge at the adjacent cell. It explodes after
- * a later successful action leaves at least one cell of gap between the
- * miner and the charge.
+ * Places a lit dynamite charge at the miner's current cell. It explodes after
+ * a later successful action moves the miner off the charge.
  */
-function plantDynamite(state: MineState, dir: Direction): MoveResult {
+function plantDynamite(state: MineState, tier: DynamiteTier): MoveResult {
   if (state.consumables.dynamite <= 0)
     return { ok: false, reason: "no-dynamite" };
+  if (tier > dynamiteTier(state.gear)) return { ok: false, reason: "blocked" };
   if (state.pendingDynamite) return { ok: false, reason: "blocked" };
-  const t = target(state, dir);
-  if (t.row < 1) return { ok: false, reason: "edge" };
+  const t = { col: state.miner.col, row: state.miner.row, tier };
   state.consumables.dynamite--;
   state.used.dynamite++;
   state.pendingDynamite = t;
@@ -2235,14 +2297,14 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
     case "left":
     case "right":
       return step(state, action);
-    case "dynamite-down":
-      return plantDynamite(state, "down");
-    case "dynamite-up":
-      return plantDynamite(state, "up");
-    case "dynamite-left":
-      return plantDynamite(state, "left");
-    case "dynamite-right":
-      return plantDynamite(state, "right");
+    case "dynamite-1":
+      return plantDynamite(state, 1);
+    case "dynamite-2":
+      return plantDynamite(state, 2);
+    case "dynamite-3":
+      return plantDynamite(state, 3);
+    case "dynamite-4":
+      return plantDynamite(state, 4);
     case "plank-left":
       return placePlank(state, "left");
     case "plank-right":

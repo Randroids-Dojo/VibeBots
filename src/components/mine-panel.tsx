@@ -22,6 +22,10 @@ import {
   collectAction,
   collectablePlacements,
   type Direction,
+  DYNAMITE_TIERS,
+  type DynamiteTier,
+  dynamitePreviewCells,
+  dynamiteTier,
   ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
@@ -70,6 +74,18 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
 };
 
 const MINE_CAMERA_FOV_DEGREES = 42;
+const DYNAMITE_TIER_LABELS: Record<DynamiteTier, string> = {
+  1: "Pulse",
+  2: "Bore",
+  3: "Block",
+  4: "Lamp wipe",
+};
+const DYNAMITE_TIER_BLURBS: Record<DynamiteTier, string> = {
+  1: "1 cell up, down, left, and right",
+  2: "2 up, 2 left, 2 right, 3 down",
+  3: "3 by 3 square around the miner",
+  4: "clears blastable cells inside lamp range",
+};
 const BASE_BUILDING_COLS = [
   ...STALLS.map((stall) => stall.col),
   ...DESTINATIONS.map((destination) => destination.col),
@@ -1512,7 +1528,7 @@ function StallMenu({
           </fieldset>
           {(
             [
-              ["dynamite", "Dynamite", "blasts a plus through anything"],
+              ["dynamite", "Dynamite", "fuels your selected blast tier"],
               ["rope", "Recall Rope", "bank the carry from anywhere"],
               ["ladder", "Ladder", "climbs one cell, stays planted"],
               ["plank", "Plank", "bridges one gap, stays planted"],
@@ -1567,7 +1583,7 @@ function StallMenu({
                 icon={ITEM_ICONS[def.track] ?? "\u{2699}\u{FE0F}"}
                 name={def.name}
                 sub={def.blurb}
-                badge={`lv ${level}`}
+                badge={def.track === "blast" ? `tier ${level}` : `lv ${level}`}
                 action={
                   maxed ? (
                     <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>
@@ -1711,7 +1727,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const buyElevator = useMineStore((s) => s.buyElevator);
   const teleportToBase = useMineStore((s) => s.teleportToBase);
   const router = useRouter();
-  const [dynamiteArmed, setDynamiteArmedState] = useState(false);
+  const [dynamiteMenuOpen, setDynamiteMenuOpen] = useState(false);
+  const [selectedDynamiteTier, setSelectedDynamiteTier] =
+    useState<DynamiteTier>(1);
   const [abandonArmed, setAbandonArmed] = useState(false);
   const [facing, setFacing] = useState<"left" | "right">("right");
   const [collectMode, setCollectMode] = useState(false);
@@ -1739,18 +1757,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // Touch players never see keyboard copy (matches the renderer's
   // coarse-pointer heuristic). False during SSR; set before paint.
   const [coarsePointer, setCoarsePointer] = useState(false);
-  const armedRef = useRef(false);
   const lastCashOutStateRef = useRef(cashOut.state);
   const lastShopNoteRef = useRef<string | null>(null);
   const lastGamepadZoomRef = useRef(0);
   const lastDirectionActionRef = useRef(0);
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const previousMinerRowRef = useRef(mine.miner.row);
-  const setDynamiteArmed = (value: boolean | ((prev: boolean) => boolean)) => {
-    armedRef.current =
-      typeof value === "function" ? value(armedRef.current) : value;
-    setDynamiteArmedState(armedRef.current);
-  };
   void tick;
 
   const persistCameraZoom = useCallback((zoom: number) => {
@@ -1886,13 +1898,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       }
       lastDirectionActionRef.current = now;
       if (dir === "left" || dir === "right") setFacing(dir);
-      if (armedRef.current) {
-        armedRef.current = false;
-        setDynamiteArmedState(false);
-        state.move(`dynamite-${dir}` as MineAction);
-      } else {
-        state.move(dir);
-      }
+      state.move(dir);
     },
     [elevatorAutoDir],
   );
@@ -2111,8 +2117,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const startElevatorRide = (
     dir: "ride-down" | "ride-up" | "warp-down" | "warp-home",
   ) => {
+    setDynamiteMenuOpen(false);
     if (dir === "ride-down" || dir === "ride-up") {
-      setDynamiteArmed(false);
       setElevatorAutoDir(dir);
       move(dir);
       return;
@@ -2194,6 +2200,24 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           : null;
 
   const act = fireDirection;
+  const unlockedDynamiteTier = dynamiteTier(mine.gear);
+  const selectedDynamiteLocked = selectedDynamiteTier > unlockedDynamiteTier;
+  const selectedDynamitePreview = dynamiteMenuOpen
+    ? dynamitePreviewCells(mine, selectedDynamiteTier)
+    : [];
+  const canConfirmDynamite =
+    dynamiteMenuOpen &&
+    !selectedDynamiteLocked &&
+    mine.consumables.dynamite > 0 &&
+    !elevatorAutoDir &&
+    !mine.pendingDynamite;
+  const dynamiteHelperText = selectedDynamiteLocked
+    ? "Locked. Buy this dynamite tier at the Upgrades stall."
+    : mine.consumables.dynamite <= 0
+      ? "No dynamite packed. Buy sticks at the Supply Depot."
+      : mine.pendingDynamite
+        ? "One fuse is already lit."
+        : null;
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
@@ -2201,6 +2225,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         zoom={cameraZoom}
         collectMode={collectMode}
         selectedSupportKeys={collectSelection}
+        dynamitePreviewCells={selectedDynamitePreview}
         onToggleSupport={toggleCollectTarget}
       />
       {!collectMode && (
@@ -2679,7 +2704,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             type="button"
             aria-label="Salvage ladder"
             onClick={() => {
-              setDynamiteArmed(false);
+              setDynamiteMenuOpen(false);
               if (!elevatorAutoDir) move("collect-ladder");
             }}
             disabled={!!elevatorAutoDir}
@@ -2692,7 +2717,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           type="button"
           aria-label={`Place plank ${facing}`}
           onClick={() => {
-            setDynamiteArmed(false);
+            setDynamiteMenuOpen(false);
             move(`plank-${facing}` as MineAction);
           }}
           disabled={!plankEnabled}
@@ -2709,7 +2734,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-label="Salvage placed supports"
           aria-pressed={collectMode}
           onClick={() => {
-            setDynamiteArmed(false);
+            setDynamiteMenuOpen(false);
             setCollectMode((open) => !open);
           }}
           disabled={!collectMode && visibleSupports.length === 0}
@@ -2729,33 +2754,126 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         >
           &#8635;
         </button>
-        <button
-          type="button"
-          aria-label={`Dynamite (${mine.consumables.dynamite})`}
-          onClick={() => setDynamiteArmed((armed) => !armed)}
-          disabled={
-            !!elevatorAutoDir ||
-            (mine.consumables.dynamite <= 0 && !dynamiteArmed)
-          }
-          aria-pressed={dynamiteArmed}
-          style={{
-            ...iconButtonStyle,
-            ...(dynamiteArmed
-              ? {
-                  background: "#7a2c2c",
-                  borderColor: "#ff6b6b",
-                  boxShadow: "0 0 12px rgba(255, 107, 107, 0.5)",
-                }
-              : null),
-          }}
-        >
-          &#129512; {mine.consumables.dynamite}
-        </button>
+        <div style={{ position: "relative", pointerEvents: "auto" }}>
+          <button
+            type="button"
+            aria-label={`Dynamite ${DYNAMITE_TIER_LABELS[selectedDynamiteTier]} (${mine.consumables.dynamite})`}
+            onClick={() => setDynamiteMenuOpen((open) => !open)}
+            disabled={!!elevatorAutoDir}
+            aria-pressed={dynamiteMenuOpen}
+            style={{
+              ...iconButtonStyle,
+              ...(dynamiteMenuOpen
+                ? {
+                    background: "#3a2430",
+                    borderColor: "#ffb347",
+                    boxShadow: "0 0 12px rgba(255, 179, 71, 0.42)",
+                  }
+                : null),
+            }}
+          >
+            &#129512; {mine.consumables.dynamite} &#9662;
+          </button>
+          {dynamiteMenuOpen && (
+            <div
+              role="menu"
+              aria-label="Dynamite tiers"
+              style={{
+                position: "absolute",
+                right: 0,
+                bottom: 54,
+                width: 260,
+                padding: 10,
+                borderRadius: 12,
+                border: "1px solid #34415f",
+                background: "rgba(10, 13, 20, 0.96)",
+                color: "#e6e8ee",
+                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 6,
+                }}
+              >
+                {DYNAMITE_TIERS.map((tier) => {
+                  const selected = tier === selectedDynamiteTier;
+                  const locked = tier > unlockedDynamiteTier;
+                  return (
+                    <button
+                      key={tier}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={selected}
+                      onClick={() => setSelectedDynamiteTier(tier)}
+                      style={{
+                        border: selected
+                          ? "1px solid #ffb347"
+                          : "1px solid #2c3a5c",
+                        background: selected
+                          ? "rgba(255, 179, 71, 0.16)"
+                          : "rgba(38, 48, 74, 0.55)",
+                        color: locked ? "#8b93a7" : "#f5efe3",
+                        borderRadius: 8,
+                        padding: "8px 6px",
+                        textAlign: "left",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                      }}
+                    >
+                      T{tier} {DYNAMITE_TIER_LABELS[tier]}
+                      {locked ? " lock" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+              <p
+                style={{
+                  margin: "8px 0 10px",
+                  fontSize: "0.72rem",
+                  opacity: 0.78,
+                }}
+              >
+                {DYNAMITE_TIER_BLURBS[selectedDynamiteTier]}
+              </p>
+              {dynamiteHelperText && (
+                <p
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: "0.72rem",
+                    color: "#ffcf7a",
+                  }}
+                >
+                  {dynamiteHelperText}
+                </p>
+              )}
+              <button
+                type="button"
+                aria-label={`Deploy tier ${selectedDynamiteTier} dynamite`}
+                disabled={!canConfirmDynamite}
+                onClick={() => {
+                  if (!canConfirmDynamite) return;
+                  setDynamiteMenuOpen(false);
+                  move(`dynamite-${selectedDynamiteTier}` as MineAction);
+                }}
+                style={{
+                  ...sheetButtonStyle(canConfirmDynamite),
+                  width: "100%",
+                  minHeight: 36,
+                }}
+              >
+                &#10003; Deploy
+              </button>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           aria-label={`Recall (${mine.consumables.rope})`}
           onClick={() => {
-            setDynamiteArmed(false);
+            setDynamiteMenuOpen(false);
             if (!elevatorAutoDir) move("recall");
           }}
           disabled={
@@ -2827,7 +2945,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onClick={() => {
             if (abandonArmed) {
               setAbandonArmed(false);
-              setDynamiteArmed(false);
+              setDynamiteMenuOpen(false);
               move("abandon");
             } else {
               setAbandonArmed(true);

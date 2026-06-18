@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.24" data-date="2026-06-18">
+    <h2>0.1.24</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.24</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>25</code>. <code>SIM_VERSION</code> moves from <code>2</code> to <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Battle bots now run a deterministic target-scoring brain instead of only steering at the opposing core. Each bot scores enemy parts by category, remaining health, structural importance, exposure, reachability, weapon danger, and its own weapon fit.</dd>
+      <dt>Behavior</dt><dd>Weaponed bots aim so their weapon side reaches the selected target. Out-weaponed or damaged bots can take safer flank approaches and target mobility. The brain retargets on a short deterministic cadence with hysteresis so bots can exploit weak points without flickering between equal choices.</dd>
+      <dt>Compatibility</dt><dd>Official match requests using older sim versions are rejected as stale because match outcomes changed.</dd>
+      <dt>Verification</dt><dd>Ran focused and full verification after rebasing onto the latest <code>origin/main</code>. Full command list is recorded in the progress log for this slice.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.23" data-date="2026-06-18">
     <h2>0.1.23</h2>
     <dl>

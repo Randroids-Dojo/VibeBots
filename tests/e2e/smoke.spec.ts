@@ -468,16 +468,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("merge duplicate robot parts");
-  await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "spend another owned copy",
-  );
+  await expect(dialog).toContainText("pick weak points");
+  await expect(dialog.locator("li")).toHaveCount(4);
+  await expect(dialog.locator("li").first()).toContainText("score enemy parts");
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "gain combat durability",
+    "line up their weapon side",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "menus do not overlap",
+    "safer flank approaches",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -499,6 +497,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.24", "Smarter battle targeting"],
     ["0.1.23", "Workshop part merging"],
     ["0.1.22", "Elevator rail controls"],
     ["0.1.21", "Support stock repair"],
@@ -1211,7 +1210,7 @@ test("sim verify API returns a stable deterministic hash", async ({
   expect(first.ok()).toBeTruthy();
   const a = await first.json();
   expect(a.hash).toMatch(/^[0-9a-f]{16}$/);
-  expect(a.simVersion).toBe(2);
+  expect(a.simVersion).toBe(SIM_VERSION);
 
   const second = await request.get("/api/sim/verify?seed=42&steps=300");
   const b = await second.json();

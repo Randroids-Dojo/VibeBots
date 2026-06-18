@@ -171,6 +171,23 @@
 <aside id="resolved">
   <h2>Resolved</h2>
 
+  <section data-q="Q-014" data-status="resolved">
+    <h3>Q-014: Should battle behavior be inferred, configurable, or hybrid?</h3>
+    <dl>
+      <dt>Context</dt><dd>The smart battle AI slice needed to decide whether the first implementation should infer tactics from construction, add explicit behavior controls, or reserve both paths.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Fully inferred from bot stats and construction.</li>
+          <li>Player-configurable behavior controls now.</li>
+          <li>Hybrid later: infer behavior now, then expose tactic preferences once the combat loop has enough surface area.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>C. Inference gives better fights immediately without saved-design schema churn, and the internal brain state leaves a clean path for future tactic controls.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>2026-06-17: user selected hybrid later. The shipped slice infers tactics from construction and stats; no workshop tactic UI or schema change landed.</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-005" data-status="resolved">
     <h3>Q-005: Currency naming vs emerald the ore</h3>
     <dl>

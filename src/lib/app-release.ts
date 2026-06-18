@@ -2,10 +2,35 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.23-workshop-merge-mobile-layout";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.24-smart-battle-ai";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.24",
+      date: "2026-06-18",
+      title: "Smarter battle targeting",
+      intro:
+        "Battle bots now pick weak points instead of only driving at the enemy core.",
+      changes: [
+        {
+          build,
+          text: "Bots score enemy parts by category, remaining health, structural importance, exposure, reachability, and weapon danger.",
+        },
+        {
+          build,
+          text: "Weaponed bots line up their weapon side with the chosen target instead of treating every hit as a center ram.",
+        },
+        {
+          build,
+          text: "Out-weaponed or damaged bots try safer flank approaches and can switch to mobility kills.",
+        },
+        {
+          build,
+          text: "The deterministic match version moved to SIM_VERSION 3, so official results reject older sim-version requests.",
+        },
+      ],
+    },
     {
       version: "0.1.23",
       date: "2026-06-18",

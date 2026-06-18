@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="smart-battle-ai" data-date="2026-06-18">
+    <h3>Smart Battle AI</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/smart-battle-ai</code> rebased onto <code>origin/main</code> after workshop merge and mobile layout landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Implemented the construction-aware battle brain. Combat bots now cache part categories, child maps, subtree sizes, and per-bot brain state, then rank opponent parts by category, health, bridge value, exposure, reachability, weapon danger, and self weapon fit. The controller retargets on a deterministic cadence with hysteresis, lines up usable weapons with the chosen target, flanks when out-weaponed or mobility-damaged, and falls back to mobility kills when needed. <code>SIM_VERSION</code> moved from <code>2</code> to <code>3</code>, and package version moved to <code>0.1.24</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, <code>pnpm exec vitest run src/sim/combat.test.ts</code> (14 passed), <code>pnpm test</code> (165 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>pnpm build</code>, and <code>pnpm exec playwright test --config /tmp/vibebots-playwright-3070.config.ts</code> against a clean production server on port 3070 (29 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>The first smart-AI slice infers tactics from construction and match state. Player-configurable behavior remains a future hybrid layer, per Q-014, so no saved-design schema or Workshop tactic UI changed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status flipped. Updated <code>docs/gdd/03-combat-damage-and-disable.html</code>, <code>docs/gdd/05-test-arena.html</code>, <code>docs/OPEN_QUESTIONS.html</code>, <code>docs/FOLLOWUPS.html</code>, <code>docs/RELEASE_NOTES.html</code>, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>Resolved F-007 by requiring the default stock exhibition to destroy at least one Brawler part before match end.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-merge-mobile-layout" data-date="2026-06-18">
     <h3>Workshop Merge And Mobile Layout</h3>
     <dl>

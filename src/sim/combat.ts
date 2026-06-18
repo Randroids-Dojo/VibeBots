@@ -44,6 +44,9 @@ export const SCORE_DRAW_EPSILON = 1;
 export const BACKOFF_TRIGGER_RANGE = 0.95;
 export const BACKOFF_TICKS = 60;
 export const BACKOFF_SPEED_FACTOR = 0.8;
+export const RETARGET_INTERVAL_TICKS = 15;
+export const TARGET_HYSTERESIS = 8;
+export const FLANK_DISTANCE = 0.7;
 
 /** Default match length: 60 seconds of sim time (REQ-005). */
 export const DEFAULT_TIME_LIMIT_TICKS = 3600;
@@ -72,6 +75,22 @@ export interface PartCombatState {
   destroyed: boolean;
 }
 
+export interface CombatBrainState {
+  targetIid: string | null;
+  targetScore: number;
+  retargetAtTick: number;
+  backoffUntilTick: number;
+}
+
+export interface TargetCandidate {
+  iid: string;
+  score: number;
+  category: PartDef["category"];
+  healthRatio: number;
+  subtreeSize: number;
+  distance: number;
+}
+
 export interface CombatBot {
   design: BotDesign;
   assembled: AssembledBot;
@@ -81,14 +100,21 @@ export interface CombatBot {
   coreBody: RigidBody;
   /** Instance ids of mobility-category parts, from the match's catalog. */
   mobilityIids: ReadonlySet<string>;
+  /** Instance ids of weapon-category parts, from the match's catalog. */
+  weaponIids: ReadonlySet<string>;
+  /** Part definitions by instance id, cached so the brain never searches. */
+  partDefs: ReadonlyMap<string, PartDef>;
   /** Child instance id -> parent instance id, from the design tree. */
   parentIid: ReadonlyMap<string, string>;
+  /** Parent instance id -> sorted child instance ids, from the design tree. */
+  childIids: ReadonlyMap<string, readonly string[]>;
+  /** Number of attached design nodes rooted at this part. */
+  subtreeSizes: ReadonlyMap<string, number>;
   /** Score accumulators for timeout judgment. */
   damageDealt: number;
   damageTaken: number;
   pressureTicks: number;
-  /** Ram-cycle controller state: charging when 0, else back off until tick. */
-  backoffUntilTick: number;
+  brain: CombatBrainState;
 }
 
 export interface MatchScore {
@@ -152,9 +178,47 @@ function makeCombatBot(
       .filter((p) => catalog[p.partId].category === "mobility")
       .map((p) => p.iid),
   );
+  const weaponIids = new Set(
+    design.parts
+      .filter((p) => catalog[p.partId].category === "weapon")
+      .map((p) => p.iid),
+  );
+  const partDefs = new Map(
+    design.parts.map((p) => [p.iid, catalog[p.partId]] as const),
+  );
   const parentIid = new Map(
     design.connections.map((c) => [c.childIid, c.parentIid]),
   );
+  const mutableChildren = new Map<string, string[]>();
+  for (const part of design.parts) {
+    mutableChildren.set(part.iid, []);
+  }
+  for (const conn of design.connections) {
+    const children = mutableChildren.get(conn.parentIid) ?? [];
+    children.push(conn.childIid);
+    mutableChildren.set(conn.parentIid, children);
+  }
+  const childIids = new Map<string, readonly string[]>();
+  for (const [iid, children] of mutableChildren) {
+    childIids.set(
+      iid,
+      children.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+    );
+  }
+  const subtreeSizes = new Map<string, number>();
+  const countSubtree = (iid: string): number => {
+    const cached = subtreeSizes.get(iid);
+    if (cached !== undefined) return cached;
+    let total = 1;
+    for (const child of childIids.get(iid) ?? []) {
+      total += countSubtree(child);
+    }
+    subtreeSizes.set(iid, total);
+    return total;
+  };
+  for (const part of design.parts) {
+    countSubtree(part.iid);
+  }
   return {
     design,
     assembled,
@@ -162,11 +226,20 @@ function makeCombatBot(
     disabled: false,
     coreBody,
     mobilityIids,
+    weaponIids,
+    partDefs,
     parentIid,
+    childIids,
+    subtreeSizes,
     damageDealt: 0,
     damageTaken: 0,
     pressureTicks: 0,
-    backoffUntilTick: 0,
+    brain: {
+      targetIid: null,
+      targetScore: 0,
+      retargetAtTick: 0,
+      backoffUntilTick: 0,
+    },
   };
 }
 
@@ -241,64 +314,6 @@ function bodyPlusZ(body: RigidBody): { x: number; z: number } {
 const STEER_GAIN = 2;
 const MAX_STEER = 0.9;
 
-/**
- * The controller: weapon-first differential drive with ram cycles.
- * Steers toward the enemy (cross product of facing and to-enemy in the
- * ground plane), charges, backs off briefly after closing in, charges
- * again. Repeated impacts are what make physical combat read as combat:
- * a constant push just wedges the bots below the damage threshold.
- * Deterministic: tick and sim state only, arithmetic only.
- */
-function runControllers(match: MatchState): void {
-  const cores = match.bots.map((bot) => bot.coreBody.translation());
-  const gap = vec3Distance(cores[0], cores[1]);
-  match.bots.forEach((bot, index) => {
-    if (bot.disabled) {
-      setDriveVelocity(bot.assembled, 0);
-      return;
-    }
-    if (bot.backoffUntilTick === 0 && gap < BACKOFF_TRIGGER_RANGE) {
-      bot.backoffUntilTick = match.tick + BACKOFF_TICKS;
-    } else if (
-      bot.backoffUntilTick !== 0 &&
-      match.tick >= bot.backoffUntilTick
-    ) {
-      bot.backoffUntilTick = 0;
-    }
-
-    const me = cores[index];
-    const enemy = cores[1 - index];
-    const toLen = Math.sqrt((enemy.x - me.x) ** 2 + (enemy.z - me.z) ** 2) || 1;
-    const tx = (enemy.x - me.x) / toLen;
-    const tz = (enemy.z - me.z) / toLen;
-    // The bot's front (weapon side) is local -z.
-    const plusZ = bodyPlusZ(bot.coreBody);
-    const fLen = Math.sqrt(plusZ.x ** 2 + plusZ.z ** 2) || 1;
-    const fx = -plusZ.x / fLen;
-    const fz = -plusZ.z / fLen;
-    const aligned = fx * tx + fz * tz;
-    const cross = fx * tz - fz * tx;
-    // Enemy behind: commit to a full turn (cross alone is zero directly
-    // astern, the pursuit singularity). Tie-break is deterministic.
-    const steer =
-      aligned < -0.2
-        ? cross >= 0
-          ? MAX_STEER
-          : -MAX_STEER
-        : Math.max(-MAX_STEER, Math.min(MAX_STEER, STEER_GAIN * cross));
-
-    if (bot.backoffUntilTick !== 0) {
-      // Reverse straight back to set up the next ram.
-      setDriveVelocity(bot.assembled, DRIVE_SPEED * BACKOFF_SPEED_FACTOR, 0);
-    } else {
-      // Negative motor velocity drives the front (local -z) forward;
-      // throttle down while turning hard so the turn actually happens.
-      const throttle = aligned < -0.2 ? 0.45 : 1;
-      setDriveVelocity(bot.assembled, -DRIVE_SPEED * throttle, steer);
-    }
-  });
-}
-
 /** A part contributes only while its whole chain to the core is intact. */
 function attachedToCore(bot: CombatBot, iid: string): boolean {
   let current = iid;
@@ -309,6 +324,291 @@ function attachedToCore(bot: CombatBot, iid: string): boolean {
     current = parent;
   }
   return !bot.parts.get(bot.assembled.rootIid)?.destroyed;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function groundDistance(a: Vec3, b: Vec3): number {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.z - b.z) ** 2);
+}
+
+function partPosition(bot: CombatBot, iid: string): Vec3 | null {
+  const body = bot.assembled.bodies.get(iid);
+  if (!body) return null;
+  return body.translation();
+}
+
+function intactAttachedIids(
+  bot: CombatBot,
+  iids: ReadonlySet<string>,
+): string[] {
+  return bot.design.parts
+    .map((p) => p.iid)
+    .filter(
+      (iid) =>
+        iids.has(iid) &&
+        !bot.parts.get(iid)?.destroyed &&
+        attachedToCore(bot, iid),
+    );
+}
+
+function mobilityRatio(bot: CombatBot): number {
+  if (bot.mobilityIids.size === 0) return 1;
+  return (
+    intactAttachedIids(bot, bot.mobilityIids).length / bot.mobilityIids.size
+  );
+}
+
+function hasUsableWeapon(bot: CombatBot): boolean {
+  return intactAttachedIids(bot, bot.weaponIids).length > 0;
+}
+
+function firstUsableWeaponPosition(bot: CombatBot): Vec3 | null {
+  const weapons = intactAttachedIids(bot, bot.weaponIids);
+  return weapons.length > 0 ? partPosition(bot, weapons[0]) : null;
+}
+
+function stableSide(index: number, iid: string): number {
+  let hash = index === 0 ? 17 : 31;
+  for (let i = 0; i < iid.length; i++) {
+    hash = Math.imul(hash ^ iid.charCodeAt(i), 16777619);
+  }
+  return (hash & 1) === 0 ? -1 : 1;
+}
+
+function categoryTargetValue(category: PartDef["category"]): number {
+  switch (category) {
+    case "core":
+      return 90;
+    case "weapon":
+      return 72;
+    case "mobility":
+      return 68;
+    case "structure":
+      return 30;
+  }
+}
+
+export function rankTargetCandidates(
+  match: MatchState,
+  botIndex: 0 | 1,
+): TargetCandidate[] {
+  const bot = match.bots[botIndex];
+  const enemy = match.bots[1 - botIndex];
+  const botCore = bot.coreBody.translation();
+  const enemyCore = enemy.coreBody.translation();
+  const enemyHasWeapon = hasUsableWeapon(enemy);
+  const botHasWeapon = hasUsableWeapon(bot);
+  const candidates: TargetCandidate[] = [];
+
+  for (const part of enemy.design.parts) {
+    const state = enemy.parts.get(part.iid);
+    const def = enemy.partDefs.get(part.iid);
+    const position = partPosition(enemy, part.iid);
+    if (!state || !def || !position) continue;
+    if (state.destroyed || !attachedToCore(enemy, part.iid)) continue;
+
+    const healthRatio =
+      state.maxHealth > 0 ? clamp(state.health / state.maxHealth, 0, 1) : 0;
+    const subtreeSize = enemy.subtreeSizes.get(part.iid) ?? 1;
+    const distance = groundDistance(botCore, position);
+    const fromEnemyCore = groundDistance(enemyCore, position);
+    const reachScore = clamp(24 - distance * 3, 0, 24);
+    const exposedScore = clamp(fromEnemyCore * 16, 0, 18);
+    const weaknessScore = (1 - healthRatio) * 42;
+    const bridgeScore =
+      part.iid === enemy.assembled.rootIid
+        ? 0
+        : clamp((subtreeSize - 1) * 12, 0, 36);
+    const leafScore =
+      (enemy.childIids.get(part.iid)?.length ?? 0) === 0 ? 6 : 0;
+    const selfFit =
+      botHasWeapon && (def.category === "core" || def.category === "weapon")
+        ? 12
+        : !botHasWeapon && def.category === "mobility"
+          ? 16
+          : 0;
+    const dangerScore =
+      enemyHasWeapon && def.category === "weapon"
+        ? 18
+        : enemyHasWeapon && def.category === "mobility"
+          ? 8
+          : 0;
+    const score =
+      categoryTargetValue(def.category) +
+      weaknessScore +
+      bridgeScore +
+      exposedScore +
+      reachScore +
+      leafScore +
+      selfFit +
+      dangerScore;
+
+    candidates.push({
+      iid: part.iid,
+      score,
+      category: def.category,
+      healthRatio,
+      subtreeSize,
+      distance,
+    });
+  }
+
+  return candidates.sort((a, b) => {
+    const scoreDelta = b.score - a.score;
+    if (scoreDelta !== 0) return scoreDelta;
+    if (a.iid < b.iid) return -1;
+    if (a.iid > b.iid) return 1;
+    return 0;
+  });
+}
+
+function chooseTarget(
+  match: MatchState,
+  botIndex: 0 | 1,
+): TargetCandidate | null {
+  const bot = match.bots[botIndex];
+  const enemy = match.bots[1 - botIndex];
+  const currentIid = bot.brain.targetIid;
+  const currentState =
+    currentIid === null ? undefined : enemy.parts.get(currentIid);
+  const currentValid =
+    currentIid !== null &&
+    currentState !== undefined &&
+    !currentState.destroyed &&
+    attachedToCore(enemy, currentIid);
+  if (
+    currentValid &&
+    currentIid !== null &&
+    match.tick < bot.brain.retargetAtTick
+  ) {
+    const currentDef = enemy.partDefs.get(currentIid);
+    if (currentDef) {
+      return {
+        iid: currentIid,
+        score: bot.brain.targetScore,
+        category: currentDef.category,
+        healthRatio:
+          currentState.maxHealth > 0
+            ? clamp(currentState.health / currentState.maxHealth, 0, 1)
+            : 0,
+        subtreeSize: enemy.subtreeSizes.get(currentIid) ?? 1,
+        distance: groundDistance(
+          bot.coreBody.translation(),
+          partPosition(enemy, currentIid) ?? enemy.coreBody.translation(),
+        ),
+      };
+    }
+  }
+
+  const ranked = rankTargetCandidates(match, botIndex);
+  const best = ranked[0] ?? null;
+  if (!best) {
+    bot.brain.targetIid = null;
+    bot.brain.targetScore = 0;
+    bot.brain.retargetAtTick = match.tick + RETARGET_INTERVAL_TICKS;
+    return null;
+  }
+  const current = bot.brain.targetIid
+    ? ranked.find((candidate) => candidate.iid === bot.brain.targetIid)
+    : undefined;
+  const selected =
+    current && current.score + TARGET_HYSTERESIS >= best.score ? current : best;
+  bot.brain.targetIid = selected.iid;
+  bot.brain.targetScore = selected.score;
+  bot.brain.retargetAtTick = match.tick + RETARGET_INTERVAL_TICKS;
+  return selected;
+}
+
+/**
+ * The controller: deterministic target scoring plus differential drive.
+ * Each bot selects the opponent part that best converts its current build
+ * into damage: weakened weapons, exposed mobility, bridge structures, and
+ * cores all compete by score. The drive intent then aims the bot so its own
+ * weapon offset reaches that target, or flanks if it is out-weaponed.
+ */
+function runControllers(match: MatchState): void {
+  match.bots.forEach((bot, rawIndex) => {
+    const index = rawIndex as 0 | 1;
+    if (bot.disabled) {
+      setDriveVelocity(bot.assembled, 0);
+      return;
+    }
+    const enemy = match.bots[1 - index];
+    const target = chooseTarget(match, index);
+    const me = bot.coreBody.translation();
+    const enemyCore = enemy.coreBody.translation();
+    const targetPos =
+      target === null
+        ? enemyCore
+        : (partPosition(enemy, target.iid) ?? enemyCore);
+    const targetDistance = groundDistance(me, targetPos);
+    const botHasWeapon = hasUsableWeapon(bot);
+    const enemyHasWeapon = hasUsableWeapon(enemy);
+    const mobility = mobilityRatio(bot);
+
+    if (
+      bot.brain.backoffUntilTick === 0 &&
+      targetDistance < BACKOFF_TRIGGER_RANGE
+    ) {
+      bot.brain.backoffUntilTick = match.tick + BACKOFF_TICKS;
+    } else if (
+      bot.brain.backoffUntilTick !== 0 &&
+      match.tick >= bot.brain.backoffUntilTick
+    ) {
+      bot.brain.backoffUntilTick = 0;
+    }
+
+    let aimX = targetPos.x;
+    let aimZ = targetPos.z;
+    const weaponPos = firstUsableWeaponPosition(bot);
+    if (botHasWeapon && weaponPos) {
+      aimX += (me.x - weaponPos.x) * 0.9;
+      aimZ += (me.z - weaponPos.z) * 0.9;
+    }
+    if (enemyHasWeapon && (!botHasWeapon || mobility < 0.75)) {
+      const enemyPlusZ = bodyPlusZ(enemy.coreBody);
+      const enemyFrontLen =
+        Math.sqrt(enemyPlusZ.x ** 2 + enemyPlusZ.z ** 2) || 1;
+      const enemyFrontX = -enemyPlusZ.x / enemyFrontLen;
+      const enemyFrontZ = -enemyPlusZ.z / enemyFrontLen;
+      const side = stableSide(index, target?.iid ?? enemy.assembled.rootIid);
+      aimX += -enemyFrontZ * FLANK_DISTANCE * side - enemyFrontX * 0.3;
+      aimZ += enemyFrontX * FLANK_DISTANCE * side - enemyFrontZ * 0.3;
+    }
+
+    const toLen = Math.sqrt((aimX - me.x) ** 2 + (aimZ - me.z) ** 2) || 1;
+    const tx = (aimX - me.x) / toLen;
+    const tz = (aimZ - me.z) / toLen;
+    const plusZ = bodyPlusZ(bot.coreBody);
+    const fLen = Math.sqrt(plusZ.x ** 2 + plusZ.z ** 2) || 1;
+    // The bot's front and weapon side is local -z.
+    const fx = -plusZ.x / fLen;
+    const fz = -plusZ.z / fLen;
+    const aligned = fx * tx + fz * tz;
+    const cross = fx * tz - fz * tx;
+    const steer =
+      aligned < -0.2
+        ? cross >= 0
+          ? MAX_STEER
+          : -MAX_STEER
+        : clamp(STEER_GAIN * cross, -MAX_STEER, MAX_STEER);
+
+    if (bot.brain.backoffUntilTick !== 0) {
+      setDriveVelocity(bot.assembled, DRIVE_SPEED * BACKOFF_SPEED_FACTOR, 0);
+      return;
+    }
+
+    const turnThrottle = aligned < -0.2 ? 0.45 : 1 - Math.abs(steer) * 0.35;
+    const damageThrottle = 0.72 + mobility * 0.28;
+    setDriveVelocity(
+      bot.assembled,
+      -DRIVE_SPEED * clamp(turnThrottle * damageThrottle, 0.35, 1),
+      steer,
+    );
+  });
 }
 
 function processDeaths(match: MatchState): void {

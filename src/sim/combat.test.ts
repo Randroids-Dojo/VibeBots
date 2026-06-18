@@ -8,9 +8,10 @@ import {
   freeMatch,
   type MatchOptions,
   type MatchState,
+  rankTargetCandidates,
   stepMatch,
 } from "./combat";
-import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "./design";
+import { type BotDesign, CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "./design";
 import { fnv1a64 } from "./hash";
 import { vec3Distance } from "./parts";
 
@@ -41,6 +42,43 @@ function coreDistance(match: MatchState): number {
   const [a, b] = match.bots.map((bot) => bot.coreBody.translation());
   return vec3Distance(a, b);
 }
+
+const BRIDGE_BOT_DESIGN: BotDesign = {
+  name: "Bridge Bot",
+  parts: [
+    { iid: "core", partId: "core-cube" },
+    { iid: "wheel-l", partId: "drive-wheel" },
+    { iid: "wheel-r", partId: "drive-wheel" },
+    { iid: "bridge", partId: "cross-frame" },
+    { iid: "head", partId: "sensor-head" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "wheel-l",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "wheel-r",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "top",
+      childIid: "bridge",
+      childConnector: "bottom",
+    },
+    {
+      parentIid: "bridge",
+      parentConnector: "top",
+      childIid: "head",
+      childConnector: "neck",
+    },
+  ],
+};
 
 describe("autonomous combat", () => {
   it("drives the bots into each other and deals contact damage", async () => {
@@ -234,7 +272,53 @@ describe("autonomous combat", () => {
         expect(status.scores[0].healthRemaining).toBeLessThan(
           status.scores[0].healthTotal * 0.8,
         );
+        expect(status.scores[0].partsRemaining).toBeLessThan(
+          status.scores[0].partCount,
+        );
       }
+    } finally {
+      freeMatch(match);
+      world.free();
+    }
+  });
+
+  it("targets a nearly destroyed weapon before a healthy core", async () => {
+    const world = await createArenaWorld();
+    const match = createMatch(world, [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN]);
+    try {
+      damagePart(match, 1, "spike", 145);
+      const [target] = rankTargetCandidates(match, 0);
+      expect(target.iid).toBe("spike");
+      expect(target.category).toBe("weapon");
+    } finally {
+      freeMatch(match);
+      world.free();
+    }
+  });
+
+  it("values bridge structures above the leaf parts they detach", async () => {
+    const world = await createArenaWorld();
+    const match = createMatch(world, [TEST_BOT_DESIGN, BRIDGE_BOT_DESIGN]);
+    try {
+      const candidates = rankTargetCandidates(match, 0);
+      const bridgeIndex = candidates.findIndex((c) => c.iid === "bridge");
+      const headIndex = candidates.findIndex((c) => c.iid === "head");
+      expect(bridgeIndex).toBeGreaterThanOrEqual(0);
+      expect(headIndex).toBeGreaterThanOrEqual(0);
+      expect(bridgeIndex).toBeLessThan(headIndex);
+    } finally {
+      freeMatch(match);
+      world.free();
+    }
+  });
+
+  it("stores the selected weakness in the deterministic brain state", async () => {
+    const world = await createArenaWorld();
+    const match = createMatch(world, [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN]);
+    try {
+      damagePart(match, 1, "spike", 145);
+      stepMatch(match);
+      expect(match.bots[0].brain.targetIid).toBe("spike");
     } finally {
       freeMatch(match);
       world.free();

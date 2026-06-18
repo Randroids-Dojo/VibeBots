@@ -21,17 +21,10 @@ type ShopState =
   | { state: "ready"; data: ShopData; notice: string | null };
 
 const panelStyle: React.CSSProperties = {
-  position: "fixed",
-  top: 70,
-  right: 20,
-  width: 270,
-  maxHeight: "calc(100dvh - 90px)",
-  overflowY: "auto",
   background: "rgba(17, 21, 31, 0.92)",
   border: "1px solid #26304a",
   borderRadius: 10,
   padding: 16,
-  zIndex: 10,
 };
 
 const buyButtonStyle = (affordable: boolean): React.CSSProperties => ({
@@ -74,7 +67,11 @@ export function PartsShop() {
   if (shop.state === "loading") return null;
   if (shop.state === "unavailable") {
     return (
-      <aside style={panelStyle} aria-label="Parts shop">
+      <aside
+        className="parts-shop-panel"
+        style={panelStyle}
+        aria-label="Parts shop"
+      >
         <p style={{ margin: 0, opacity: 0.7, fontSize: "0.85rem" }}>
           Buying parts needs storage; it is not configured in this environment.
         </p>
@@ -107,7 +104,11 @@ export function PartsShop() {
   };
 
   return (
-    <aside style={panelStyle} aria-label="Parts shop">
+    <aside
+      className="parts-shop-panel"
+      style={panelStyle}
+      aria-label="Parts shop"
+    >
       <p style={{ margin: "0 0 12px", fontSize: "0.95rem" }}>
         <span style={{ color: "#f5c542", fontWeight: 700 }}>
           {data.emeralds} vibes

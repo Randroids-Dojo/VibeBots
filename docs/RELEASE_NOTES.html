@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.23" data-date="2026-06-18">
+    <h2>0.1.23</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.23</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>25</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>The Workshop now exposes duplicate part merging. Selecting a non-core part shows a Merge selected action that spends another owned copy on that part, raises its level, and increases combat durability up to level 3.</dd>
+      <dt>Rules</dt><dd>Each merge level consumes one owned copy in the active design budget. Merged parts keep the same connectors, shape, mass, and power draw, so the upgrade strengthens survivability without changing attachment validity or movement layout.</dd>
+      <dt>Interface</dt><dd>The selected-part line now shows merge level and effective durability. Portrait phone layouts stack the build controls above the parts shop in one column, preventing the previous overlapping side panels.</dd>
+      <dt>Verification</dt><dd>After rebasing onto the latest <code>origin/main</code>, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source and smoke files, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm typecheck</code>, <code>pnpm test</code> (162 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, focused Playwright smoke against a fresh production server on port 3068 for workshop merge, portrait panel stacking, and release notes (3 passed), and full Playwright smoke on port 3068 (29 passed, 2 storage-gated skips).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.22" data-date="2026-06-17">
     <h2>0.1.22</h2>
     <dl>

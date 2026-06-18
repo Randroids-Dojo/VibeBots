@@ -5,7 +5,7 @@ import type {
 } from "@dimforge/rapier3d-deterministic-compat";
 import RAPIER from "@dimforge/rapier3d-deterministic-compat";
 import { type AssembledBot, assembleBot, setDriveVelocity } from "./assembly";
-import type { BotDesign } from "./design";
+import { type BotDesign, partInstanceDurability } from "./design";
 import { PART_CATALOG, type PartDef, type Vec3, vec3Distance } from "./parts";
 
 /**
@@ -134,7 +134,7 @@ function makeCombatBot(
   const assembled = assembleBot(world, design, origin, catalog);
   const parts = new Map<string, PartCombatState>();
   for (const instance of design.parts) {
-    const durability = catalog[instance.partId].durability;
+    const durability = partInstanceDurability(instance, catalog);
     parts.set(instance.iid, {
       health: durability,
       maxHealth: durability,

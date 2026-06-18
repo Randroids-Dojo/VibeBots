@@ -10,6 +10,16 @@ describe("inventory validation", () => {
     expect(counts.get("ram-spike")).toBe(1);
   });
 
+  it("counts merged part levels as extra owned copies", () => {
+    const counts = designPartCounts({
+      ...TEST_BOT_DESIGN,
+      parts: TEST_BOT_DESIGN.parts.map((part) =>
+        part.iid === "spike" ? { ...part, mergeLevel: 3 } : part,
+      ),
+    });
+    expect(counts.get("ram-spike")).toBe(3);
+  });
+
   it("accepts designs covered by owned inventory", () => {
     const result = validateDesignInventory(TEST_BOT_DESIGN, [
       { part_id: "drive-wheel", count: 2 },

@@ -8,7 +8,13 @@ import {
   undoHistory,
 } from "@randroids-dojo/vibekit";
 import { create } from "zustand";
-import { type BotDesign, type Orientation, validateDesign } from "@/sim/design";
+import {
+  type BotDesign,
+  MAX_PART_MERGE_LEVEL,
+  type Orientation,
+  partMergeLevel,
+  validateDesign,
+} from "@/sim/design";
 import { PART_CATALOG, type PartDef } from "@/sim/parts";
 
 /**
@@ -139,6 +145,29 @@ export function planRotateSelected(
   return null;
 }
 
+export function planMergeSelectedPart(
+  design: BotDesign,
+  selectedIid: string | null,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): BotDesign | null {
+  if (!selectedIid) return null;
+  const selected = design.parts.find((p) => p.iid === selectedIid);
+  if (!selected) return null;
+  const def = catalog[selected.partId];
+  if (!def || def.category === "core") return null;
+  const currentLevel = partMergeLevel(selected);
+  if (currentLevel >= MAX_PART_MERGE_LEVEL) return null;
+  const next: BotDesign = {
+    ...design,
+    parts: design.parts.map((part) =>
+      part.iid === selectedIid
+        ? { ...part, mergeLevel: currentLevel + 1 }
+        : part,
+    ),
+  };
+  return validateDesign(next, catalog).ok ? next : null;
+}
+
 function nextIid(design: BotDesign, partId: string): string {
   let n = 1;
   while (design.parts.some((p) => p.iid === `${partId}-${n}`)) n += 1;
@@ -151,6 +180,7 @@ export interface WorkshopState {
   selectedIid: string | null;
   addPart: (partId: string) => void;
   removeSelected: () => void;
+  mergeSelectedPart: () => void;
   rotateSelected: () => void;
   setName: (name: string) => void;
   loadDesign: (design: BotDesign) => void;
@@ -196,6 +226,13 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       connections: design.connections.filter((c) => c.childIid !== selectedIid),
     };
     set({ ...withDesign(pushHistory(history, next)), selectedIid: null });
+  },
+
+  mergeSelectedPart: () => {
+    const { history, design, selectedIid } = get();
+    const next = planMergeSelectedPart(design, selectedIid);
+    if (!next) return;
+    set({ ...withDesign(pushHistory(history, next)) });
   },
 
   rotateSelected: () => {

@@ -178,6 +178,25 @@ describe("autonomous combat", () => {
     }
   });
 
+  it("uses merged part durability for combat health", async () => {
+    const world = await createArenaWorld();
+    const upgraded = {
+      ...TEST_BOT_DESIGN,
+      parts: TEST_BOT_DESIGN.parts.map((part) =>
+        part.iid === "wheel-l" ? { ...part, mergeLevel: 3 } : part,
+      ),
+    };
+    const match = createMatch(world, [upgraded, TEST_BOT_DESIGN]);
+    try {
+      const wheel = match.bots[0].parts.get("wheel-l");
+      expect(wheel?.maxHealth).toBe(160);
+      expect(damagePart(match, 0, "wheel-l", 9999)).toBe(160);
+    } finally {
+      freeMatch(match);
+      world.free();
+    }
+  });
+
   it("reports disable as the end reason with scores attached", async () => {
     const { match, cleanup } = await newMatch();
     try {

@@ -148,7 +148,11 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await expect(driveWheelAdd).toBeEnabled();
   await driveWheelAdd.click();
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  await page.getByRole("button", { name: "Merge selected" }).click();
+  await expect(page.getByText("level 2")).toBeVisible();
 
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("My Bot: 1 part", { exact: true })).toBeVisible();
 
@@ -158,6 +162,27 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await expect(page.getByText("Brawler", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Back to build" }).click();
   await expect(page.getByLabel("Part palette")).toBeVisible();
+});
+
+test("workshop panels stack on portrait phones", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/workshop");
+  const controls = page.getByLabel("Workshop build controls");
+  const shop = page.getByLabel("Parts shop");
+  await expect(controls).toBeVisible();
+  await expect(shop).toBeVisible();
+
+  const controlsBox = await controls.boundingBox();
+  const shopBox = await shop.boundingBox();
+  expect(controlsBox).not.toBeNull();
+  expect(shopBox).not.toBeNull();
+  if (!controlsBox || !shopBox) return;
+
+  expect(controlsBox.x).toBeGreaterThanOrEqual(0);
+  expect(shopBox.x).toBeGreaterThanOrEqual(0);
+  expect(controlsBox.x + controlsBox.width).toBeLessThanOrEqual(390);
+  expect(shopBox.x + shopBox.width).toBeLessThanOrEqual(390);
+  expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(shopBox.y + 1);
 });
 
 test("mine digs and tracks depth and energy", async ({ page }) => {
@@ -443,14 +468,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("step onto it");
+  await expect(dialog).toContainText("merge duplicate robot parts");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "controls match the world you can see",
+    "spend another owned copy",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("owned rail floor");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "gain combat durability",
+  );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "mined paths stay predictable",
+    "menus do not overlap",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -472,6 +499,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.23", "Workshop part merging"],
     ["0.1.22", "Elevator rail controls"],
     ["0.1.21", "Support stock repair"],
     ["0.1.20", "Superseded elevator experiment"],

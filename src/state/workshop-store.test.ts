@@ -4,6 +4,7 @@ import { DRIVE_WHEEL, PART_CATALOG } from "@/sim/parts";
 import {
   findFreeConnectors,
   planAddPart,
+  planMergeSelectedPart,
   STARTER_DESIGN,
   useWorkshopStore,
 } from "./workshop-store";
@@ -80,6 +81,31 @@ describe("workshop store", () => {
     store().undo();
     conn = store().design.connections.find((c) => c.childIid === headIid);
     expect(conn?.orientation).toBe(90);
+  });
+
+  it("merges selected duplicate parts into stronger levels with undo", () => {
+    store().addPart("ram-spike");
+    const spikeIid = store().selectedIid;
+    expect(spikeIid).not.toBeNull();
+
+    store().mergeSelectedPart();
+    let spike = store().design.parts.find((p) => p.iid === spikeIid);
+    expect(spike?.mergeLevel).toBe(2);
+
+    store().mergeSelectedPart();
+    spike = store().design.parts.find((p) => p.iid === spikeIid);
+    expect(spike?.mergeLevel).toBe(3);
+    expect(planMergeSelectedPart(store().design, spikeIid)).toBeNull();
+
+    store().undo();
+    spike = store().design.parts.find((p) => p.iid === spikeIid);
+    expect(spike?.mergeLevel).toBe(2);
+  });
+
+  it("never merges the core part", () => {
+    store().select("core");
+    store().mergeSelectedPart();
+    expect(store().design.parts[0].mergeLevel).toBeUndefined();
   });
 
   it("refuses to rotate axle-mounted parts", () => {

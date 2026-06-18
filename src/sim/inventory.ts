@@ -1,4 +1,4 @@
-import type { BotDesign } from "./design";
+import { type BotDesign, partMergeLevel } from "./design";
 import { PART_CATALOG, type PartDef } from "./parts";
 
 export interface PartInventoryRow {
@@ -24,7 +24,10 @@ export function designPartCounts(
   for (const instance of design.parts) {
     const part = catalog[instance.partId];
     if (!part || part.category === "core") continue;
-    counts.set(instance.partId, (counts.get(instance.partId) ?? 0) + 1);
+    counts.set(
+      instance.partId,
+      (counts.get(instance.partId) ?? 0) + partMergeLevel(instance),
+    );
   }
   return counts;
 }

@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.22-elevator-rail-floors";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.23-workshop-merge-mobile-layout";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.23",
+      date: "2026-06-18",
+      title: "Workshop part merging",
+      intro:
+        "The Workshop now lets you merge duplicate robot parts into a stronger selected part, and portrait phone screens stack the Workshop panels cleanly.",
+      changes: [
+        {
+          build,
+          text: "Select a non-core part in the Workshop and use Merge selected to spend another owned copy on that part.",
+        },
+        {
+          build,
+          text: "Merged parts gain combat durability at level 2 and level 3 while keeping their mass, power, connectors, and shape unchanged.",
+        },
+        {
+          build,
+          text: "On portrait phones, the build controls and parts shop now stack into one column so the menus do not overlap.",
+        },
+      ],
+    },
     {
       version: "0.1.22",
       date: "2026-06-17",

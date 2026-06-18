@@ -9,12 +9,15 @@ import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
   CPU_BRAWLER_DESIGN,
+  partInstanceDurability,
+  partMergeLevel,
   validateDesign,
 } from "@/sim/design";
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
 import { PART_CATALOG } from "@/sim/parts";
 import {
   planAddPart,
+  planMergeSelectedPart,
   planRotateSelected,
   useWorkshopStore,
 } from "@/state/workshop-store";
@@ -115,6 +118,7 @@ export function WorkshopPanel() {
   const history = useWorkshopStore((s) => s.history);
   const addPart = useWorkshopStore((s) => s.addPart);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
+  const mergeSelectedPart = useWorkshopStore((s) => s.mergeSelectedPart);
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
   const undo = useWorkshopStore((s) => s.undo);
   const redo = useWorkshopStore((s) => s.redo);
@@ -124,11 +128,30 @@ export function WorkshopPanel() {
   const usedPartCounts = designPartCounts(design);
   const selectedPart = design.parts.find((p) => p.iid === selectedIid);
   const selectedDef = selectedPart ? PART_CATALOG[selectedPart.partId] : null;
+  const selectedMergeLevel = selectedPart ? partMergeLevel(selectedPart) : 1;
+  const selectedDurability =
+    selectedPart && selectedDef ? partInstanceDurability(selectedPart) : null;
   const selectedRemovable =
     selectedDef &&
     selectedDef.category !== "core" &&
     selectedIid !== null &&
     !design.connections.some((c) => c.parentIid === selectedIid);
+  const selectedMergePlan = planMergeSelectedPart(design, selectedIid);
+  const selectedUsed = selectedPart
+    ? (usedPartCounts.get(selectedPart.partId) ?? 0)
+    : 0;
+  const selectedOwned =
+    inventory.state === "ready" && selectedPart
+      ? (inventory.counts.get(selectedPart.partId) ?? 0)
+      : 0;
+  const selectedAvailableAfterUse =
+    selectedPart && inventory.state === "ready"
+      ? Math.max(0, selectedOwned - selectedUsed)
+      : 0;
+  const mergeInventoryAllows =
+    inventory.state === "sandbox" ||
+    (inventory.state === "ready" && selectedAvailableAfterUse > 0);
+  const mergeEnabled = selectedMergePlan !== null && mergeInventoryAllows;
 
   if (matchup) {
     return (
@@ -217,19 +240,12 @@ export function WorkshopPanel() {
   }
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
+    <div className="workshop-stage">
       <WorkshopCanvas />
 
       <aside
-        style={{
-          position: "absolute",
-          top: 70,
-          left: 20,
-          width: 250,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
+        className="workshop-build-panels"
+        aria-label="Workshop build controls"
       >
         <section style={panelStyle} aria-label="Part palette">
           <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>Parts</h2>
@@ -343,6 +359,25 @@ export function WorkshopPanel() {
             </button>
             <button
               type="button"
+              onClick={mergeSelectedPart}
+              disabled={!mergeEnabled}
+              title={
+                selectedIid === null
+                  ? "select a part in the scene"
+                  : selectedMergePlan === null
+                    ? "selected part cannot merge"
+                    : inventory.state === "loading"
+                      ? "Checking inventory"
+                      : inventory.state === "ready" &&
+                          selectedAvailableAfterUse <= 0
+                        ? "Needs another owned copy"
+                        : undefined
+              }
+            >
+              Merge selected
+            </button>
+            <button
+              type="button"
               onClick={rotateSelected}
               disabled={planRotateSelected(design, selectedIid) === null}
               title="quarter-turn the selected part around its mount"
@@ -376,7 +411,8 @@ export function WorkshopPanel() {
           </div>
           {selectedDef && (
             <p style={{ margin: "8px 0 0", fontSize: "0.8rem", opacity: 0.75 }}>
-              selected: {selectedDef.name} ({selectedIid}), durability{" "}
+              selected: {selectedDef.name} ({selectedIid}), level{" "}
+              {selectedMergeLevel}, durability {selectedDurability}/
               {selectedDef.durability}
             </p>
           )}

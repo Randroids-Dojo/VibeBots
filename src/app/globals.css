@@ -29,6 +29,54 @@ a {
   touch-action: manipulation;
 }
 
+.workshop-stage {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+}
+
+.workshop-build-panels {
+  position: absolute;
+  top: 70px;
+  left: 20px;
+  z-index: 10;
+  display: flex;
+  width: 250px;
+  max-height: calc(100dvh - 90px);
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.parts-shop-panel {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  z-index: 10;
+  width: 270px;
+  max-height: calc(100dvh - 90px);
+  overflow-y: auto;
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+  .workshop-build-panels {
+    position: fixed;
+    top: 64px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(58dvh - 72px);
+  }
+
+  .parts-shop-panel {
+    top: 58dvh;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(42dvh - 16px);
+  }
+}
+
 /* Mine juice (REQ-018): floating pickup text and fanfare entrances. */
 @keyframes mine-float-up {
   from {

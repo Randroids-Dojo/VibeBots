@@ -39,6 +39,9 @@
     </ol>
     <p>Validation returns design stats (part count, total mass from shape volume times density, power draw and supply) that the workshop UI will surface. Storage-backed workshop builds also pass an inventory budget: the core is free, while each non-core part instance needs one owned copy.</p>
 
+    <h3 id="duplicate-merging">Duplicate part merging</h3>
+    <p>Owned duplicate non-core parts can be merged into a selected part instance in the Workshop. Each merge level consumes one owned copy in the active design budget, caps at level 3, and increases combat durability while leaving connectors, mass, power, shape, and placement unchanged. Removing or undoing the design frees those copies back to the active build budget.</p>
+
     <h3 id="not-yet">What this does NOT cover yet</h3>
     <ul>
       <li>Oriented attachment: parts currently attach with identity rotation at connector offsets (90-degree connector orientation steps are followup F-006).</li>
@@ -50,6 +53,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-06-18">Duplicate part merging became user-facing in the Workshop. Non-core part instances can carry an optional merge level, the selected-part action raises that level to a cap of 3, and combat durability scales from the effective level while layout, connectors, mass, and power stay unchanged. Portrait Workshop panels now stack on phone screens. Files: <code>src/sim/design.ts</code>, <code>src/sim/combat.ts</code>, <code>src/state/workshop-store.ts</code>, <code>src/components/workshop-panel.tsx</code>, <code>src/app/globals.css</code>, <code>tests/e2e/smoke.spec.ts</code>. Direct push to <code>origin/main</code> requested by user.</li>
       <li data-date="2026-06-10">Oriented attachment (F-006) and silhouette parts (REQ-003): rigid connections carry yaw quarter-turns (exact quaternions composed down the tree in the shared layout; fixed joints pin the same relative rotation; axle connections stay unoriented by validity rule). New parts: Cross Frame (six rigid connectors for wide and tall builds) and Sensor Head (character-like silhouettes). Workshop gained a Rotate control. Files: <code>src/sim/layout.ts</code>, <code>src/sim/design.ts</code>, <code>src/sim/assembly.ts</code>, <code>src/sim/parts.ts</code>, <code>src/state/workshop-store.ts</code>. PR pending.</li>
       <li data-date="2026-06-10">Workshop v1 (REQ-002 made user-facing): /workshop page with a 3D connector-snapped preview (shared pure layout in <code>src/sim/layout.ts</code>, also used by assembly so what you build is what fights), part palette with free-connector gating, live validity and stats panel, click-to-select with leaf removal, undo/redo via VibeKit editor history in a zustand store. Files: <code>src/app/workshop/page.tsx</code>, <code>src/components/workshop-panel.tsx</code>, <code>src/components/workshop-canvas.tsx</code>, <code>src/components/part-visuals.tsx</code>, <code>src/state/workshop-store.ts</code>, <code>src/sim/layout.ts</code>. PR pending.</li>
       <li data-date="2026-06-10">Second stock design <code>CPU_BRAWLER_DESIGN</code> (core, two wheels, top plate): identical mirror bots take perfectly symmetric damage and always draw, so stock matchups must be asymmetric. Drive wheel radius reduced to 0.34 so wheels stop eating every frontal contact. Files: <code>src/sim/design.ts</code>, <code>src/sim/parts.ts</code>. PR pending.</li>

@@ -9,10 +9,19 @@ import { PART_CATALOG, type PartDef, partMass } from "./parts";
  * workshop UI and the server both call it.
  */
 
+export const MIN_PART_MERGE_LEVEL = 1;
+export const MAX_PART_MERGE_LEVEL = 3;
+
 export const partInstanceSchema = z.object({
   /** Instance id, unique within the design. */
   iid: z.string().min(1),
   partId: z.string().min(1),
+  mergeLevel: z
+    .number()
+    .int()
+    .min(MIN_PART_MERGE_LEVEL)
+    .max(MAX_PART_MERGE_LEVEL)
+    .optional(),
 });
 export type PartInstance = z.infer<typeof partInstanceSchema>;
 
@@ -60,6 +69,24 @@ function resolvePart(
   catalog: Record<string, PartDef>,
 ): PartDef | undefined {
   return catalog[instance.partId];
+}
+
+export function partMergeLevel(
+  instance: Pick<PartInstance, "mergeLevel">,
+): number {
+  const raw = Math.floor(instance.mergeLevel ?? MIN_PART_MERGE_LEVEL);
+  if (raw < MIN_PART_MERGE_LEVEL) return MIN_PART_MERGE_LEVEL;
+  if (raw > MAX_PART_MERGE_LEVEL) return MAX_PART_MERGE_LEVEL;
+  return raw;
+}
+
+export function partInstanceDurability(
+  instance: PartInstance,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): number {
+  const part = resolvePart(instance, catalog);
+  if (!part) return 0;
+  return (part.durability * (partMergeLevel(instance) + 1)) / 2;
 }
 
 export function validateDesign(

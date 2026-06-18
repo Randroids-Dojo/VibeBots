@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-06-17",
+  "updatedAt": "2026-06-18",
   "rows": [
     {
       "id": "REQ-001",
@@ -25,13 +25,17 @@
         "src/sim/parts.ts",
         "src/sim/design.ts",
         "src/sim/assembly.ts",
+        "src/sim/combat.ts",
         "src/sim/layout.ts",
+        "src/sim/inventory.ts",
         "src/state/workshop-store.ts",
-        "src/app/workshop/page.tsx"
+        "src/app/workshop/page.tsx",
+        "src/app/globals.css"
       ],
       "testRefs": [
         "src/sim/design.test.ts",
         "src/sim/assembly.test.ts",
+        "src/sim/combat.test.ts",
         "src/state/workshop-store.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],
@@ -127,12 +131,17 @@
         "src/app/api/designs/route.ts",
         "src/app/api/match/resolve/route.ts",
         "src/components/workshop-panel.tsx",
+        "src/sim/design.ts",
+        "src/sim/combat.ts",
         "src/sim/inventory.ts",
+        "src/state/workshop-store.ts",
         "src/server/part-inventory.ts",
         "src/sim/mine.ts"
       ],
       "testRefs": [
         "src/sim/inventory.test.ts",
+        "src/sim/combat.test.ts",
+        "src/state/workshop-store.test.ts",
         "src/sim/mine.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],

@@ -4,6 +4,7 @@ import {
   mineConsumablesFromProfile,
   mineGearFromProfile,
   mineGearLevelFromProfile,
+  normalizeSaveSlotSessionPayload,
 } from "./player";
 
 const profile: MinePlayerProfile = {
@@ -57,5 +58,37 @@ describe("mine player profile helpers", () => {
     expect(mineGearLevelFromProfile(profile, "battery")).toBe(3);
     expect(mineGearLevelFromProfile(profile, "elevatorSpeed")).toBe(8);
     expect(mineGearLevelFromProfile(profile, "fall")).toBe(9);
+  });
+
+  it("normalizes a legacy player cookie into slot 1", () => {
+    expect(normalizeSaveSlotSessionPayload({ playerId: "player-1" })).toEqual({
+      migrated: true,
+      session: {
+        activeSlot: 1,
+        slots: { "1": "player-1" },
+      },
+    });
+  });
+
+  it("keeps a three-slot cookie shape", () => {
+    expect(
+      normalizeSaveSlotSessionPayload({
+        activeSlot: 2,
+        slots: { "1": "player-1", "2": "player-2", extra: "ignored" },
+      }),
+    ).toEqual({
+      migrated: false,
+      session: {
+        activeSlot: 2,
+        slots: { "1": "player-1", "2": "player-2" },
+      },
+    });
+  });
+
+  it("rejects invalid slot cookie payloads", () => {
+    expect(normalizeSaveSlotSessionPayload({ activeSlot: 4, slots: {} })).toBe(
+      null,
+    );
+    expect(normalizeSaveSlotSessionPayload({ activeSlot: 1 })).toBe(null);
   });
 });

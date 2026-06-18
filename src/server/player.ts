@@ -19,6 +19,31 @@ import { db } from "./db";
 const COOKIE_NAME = "vb_player";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 type Sql = Awaited<ReturnType<typeof db>>;
+export const SAVE_SLOT_IDS = [1, 2, 3] as const;
+export type SaveSlotId = (typeof SAVE_SLOT_IDS)[number];
+type SaveSlotKey = `${SaveSlotId}`;
+
+export interface SaveSlotSession {
+  activeSlot: SaveSlotId;
+  slots: Partial<Record<SaveSlotKey, string>>;
+}
+
+export interface SaveSlotSummary {
+  slot: SaveSlotId;
+  active: boolean;
+  exists: boolean;
+  createdAt: string | null;
+  balance: number;
+  deepestDepth: number;
+  partsOwned: number;
+  designs: number;
+  stamps: number;
+}
+
+export interface NormalizedSaveSlotSession {
+  session: SaveSlotSession;
+  migrated: boolean;
+}
 
 interface StartingSupportKitRow {
   ladder_count: number;
@@ -55,26 +80,77 @@ function secret(): string {
   return value;
 }
 
-/** Player id from a valid cookie, else null. Never creates rows. */
-export async function currentPlayerId(): Promise<string | null> {
+function saveSlotKey(slot: SaveSlotId): SaveSlotKey {
+  return String(slot) as SaveSlotKey;
+}
+
+function validSaveSlot(value: unknown): SaveSlotId | null {
+  return SAVE_SLOT_IDS.find((slot) => slot === value) ?? null;
+}
+
+export function normalizeSaveSlotSessionPayload(
+  payload: unknown,
+): NormalizedSaveSlotSession | null {
+  if (!payload || typeof payload !== "object") return null;
+  const raw = payload as {
+    playerId?: unknown;
+    activeSlot?: unknown;
+    slots?: unknown;
+  };
+  if (typeof raw.playerId === "string") {
+    return {
+      migrated: true,
+      session: {
+        activeSlot: 1,
+        slots: { "1": raw.playerId },
+      },
+    };
+  }
+  const activeSlot = validSaveSlot(raw.activeSlot);
+  if (!activeSlot || !raw.slots || typeof raw.slots !== "object") {
+    return null;
+  }
+  const slots: SaveSlotSession["slots"] = {};
+  const rawSlots = raw.slots as Record<string, unknown>;
+  for (const slot of SAVE_SLOT_IDS) {
+    const key = saveSlotKey(slot);
+    if (typeof rawSlots[key] === "string") slots[key] = rawSlots[key];
+  }
+  return {
+    migrated: false,
+    session: { activeSlot, slots },
+  };
+}
+
+async function readSaveSlotSession(): Promise<NormalizedSaveSlotSession | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE_NAME)?.value;
   if (!token) return null;
-  const payload = verifyToken(token, secret()) as {
-    playerId?: unknown;
-  } | null;
-  if (!payload || typeof payload.playerId !== "string") return null;
-  return payload.playerId;
+  const payload = verifyToken(token, secret());
+  return normalizeSaveSlotSessionPayload(payload);
 }
 
-/**
- * Player id, creating the player row and setting the cookie on first
- * contact. Call only from route handlers (cookie writes).
- */
-export async function getOrCreatePlayerId(): Promise<string> {
-  const existing = await currentPlayerId();
-  if (existing) return existing;
-  const sql = await db();
+async function writeSaveSlotSession(session: SaveSlotSession): Promise<void> {
+  const jar = await cookies();
+  jar.set(COOKIE_NAME, signToken(session, secret()), {
+    httpOnly: true,
+    secure: true,
+    // The game runs embedded in a cross-site iframe (VibeCoded.games loads
+    // vibe-bots.vercel.app). A SameSite=Lax cookie is excluded from every
+    // request whose frame ancestry is cross-site, so the player id never
+    // returns and each call mints a fresh player: cash-out then hits "no
+    // mine on file". SameSite=None + Partitioned (CHIPS) keeps the cookie
+    // flowing, partitioned per top-level site, which browsers that block
+    // unpartitioned third-party cookies still accept. Each embedding host
+    // gets its own guest slots, which is fine for device-local saves.
+    sameSite: "none",
+    partitioned: true,
+    maxAge: COOKIE_MAX_AGE_SECONDS,
+    path: "/",
+  });
+}
+
+async function createPlayer(sql: Sql): Promise<string> {
   // One-time starting kit: a fresh player begins with the basic ladder and
   // plank bundle so the first descent works without a shop visit. It is a
   // gift at account creation only, not a per-trip grant: once spent it is
@@ -91,25 +167,134 @@ export async function getOrCreatePlayerId(): Promise<string> {
     RETURNING id`) as Array<{
     id: string;
   }>;
-  const playerId = rows[0].id;
-  const jar = await cookies();
-  jar.set(COOKIE_NAME, signToken({ playerId }, secret()), {
-    httpOnly: true,
-    secure: true,
-    // The game runs embedded in a cross-site iframe (VibeCoded.games loads
-    // vibe-bots.vercel.app). A SameSite=Lax cookie is excluded from every
-    // request whose frame ancestry is cross-site, so the player id never
-    // returns and each call mints a fresh player: cash-out then hits "no
-    // mine on file". SameSite=None + Partitioned (CHIPS) keeps the cookie
-    // flowing, partitioned per top-level site, which browsers that block
-    // unpartitioned third-party cookies still accept. Each embedding host
-    // gets its own guest mine, which is fine for guest-first identity.
-    sameSite: "none",
-    partitioned: true,
-    maxAge: COOKIE_MAX_AGE_SECONDS,
-    path: "/",
-  });
+  return rows[0].id;
+}
+
+/** Player id from a valid cookie, else null. Never creates rows. */
+export async function currentPlayerId(): Promise<string | null> {
+  const normalized = await readSaveSlotSession();
+  if (!normalized) return null;
+  return (
+    normalized.session.slots[saveSlotKey(normalized.session.activeSlot)] ?? null
+  );
+}
+
+export async function currentSaveSlotSession(): Promise<SaveSlotSession | null> {
+  return (await readSaveSlotSession())?.session ?? null;
+}
+
+/**
+ * Player id, creating the player row and setting the cookie on first
+ * contact. Call only from route handlers (cookie writes).
+ */
+export async function getOrCreateActiveSaveSlot(): Promise<{
+  playerId: string;
+  session: SaveSlotSession;
+}> {
+  const normalized = await readSaveSlotSession();
+  const session = normalized?.session ?? { activeSlot: 1, slots: {} };
+  const activeKey = saveSlotKey(session.activeSlot);
+  const existing = session.slots[activeKey];
+  if (existing) {
+    if (normalized?.migrated) await writeSaveSlotSession(session);
+    return { playerId: existing, session };
+  }
+  const sql = await db();
+  const playerId = await createPlayer(sql);
+  const nextSession = {
+    activeSlot: session.activeSlot,
+    slots: { ...session.slots, [activeKey]: playerId },
+  };
+  await writeSaveSlotSession(nextSession);
+  return { playerId, session: nextSession };
+}
+
+export async function getOrCreatePlayerId(): Promise<string> {
+  const { playerId } = await getOrCreateActiveSaveSlot();
   return playerId;
+}
+
+export async function switchActiveSaveSlot(
+  slot: SaveSlotId,
+): Promise<{ playerId: string; session: SaveSlotSession }> {
+  const normalized = await readSaveSlotSession();
+  const session = normalized?.session ?? { activeSlot: slot, slots: {} };
+  const nextSession: SaveSlotSession = {
+    activeSlot: slot,
+    slots: { ...session.slots },
+  };
+  const key = saveSlotKey(slot);
+  if (!nextSession.slots[key]) {
+    const sql = await db();
+    nextSession.slots[key] = await createPlayer(sql);
+  }
+  await writeSaveSlotSession(nextSession);
+  return { playerId: nextSession.slots[key], session: nextSession };
+}
+
+export async function saveSlotSummaries(
+  sql: Sql,
+  session: SaveSlotSession,
+): Promise<SaveSlotSummary[]> {
+  const summaries: SaveSlotSummary[] = [];
+  for (const slot of SAVE_SLOT_IDS) {
+    const playerId = session.slots[saveSlotKey(slot)];
+    if (!playerId) {
+      summaries.push({
+        slot,
+        active: session.activeSlot === slot,
+        exists: false,
+        createdAt: null,
+        balance: 0,
+        deepestDepth: 0,
+        partsOwned: 0,
+        designs: 0,
+        stamps: 0,
+      });
+      continue;
+    }
+    const rows = (await sql`
+      SELECT p.created_at,
+             p.emeralds,
+             p.deepest_depth,
+             COALESCE((
+               SELECT SUM(pp.count)::int
+               FROM player_parts pp
+               WHERE pp.player_id = p.id
+             ), 0)::int AS parts_owned,
+             (
+               SELECT COUNT(*)::int
+               FROM bot_designs bd
+               WHERE bd.player_id = p.id
+             ) AS designs,
+             (
+               SELECT COUNT(*)::int
+               FROM player_achievements pa
+               WHERE pa.player_id = p.id
+             ) AS stamps
+      FROM players p
+      WHERE p.id = ${playerId}`) as Array<{
+      created_at: string;
+      emeralds: number;
+      deepest_depth: number;
+      parts_owned: number;
+      designs: number;
+      stamps: number;
+    }>;
+    const row = rows[0];
+    summaries.push({
+      slot,
+      active: session.activeSlot === slot,
+      exists: Boolean(row),
+      createdAt: row?.created_at ?? null,
+      balance: row?.emeralds ?? 0,
+      deepestDepth: row?.deepest_depth ?? 0,
+      partsOwned: row?.parts_owned ?? 0,
+      designs: row?.designs ?? 0,
+      stamps: row?.stamps ?? 0,
+    });
+  }
+  return summaries;
 }
 
 /**

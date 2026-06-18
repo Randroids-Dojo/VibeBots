@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.33" data-date="2026-06-18">
+    <h2>0.1.33</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.33</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>29</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Every device now has three save slots from the mine settings menu. Existing progress migrates into Slot 1, and Slots 2 and 3 start as fresh saves with their own player rows.</dd>
+      <dt>Persistence</dt><dd>Each slot has its own mine world, wallet, upgrades, consumables, stamps, bought parts, saved bot designs, and local in-flight trip checkpoint. Switching slots saves the current checkpoint first, then reloads the mine into the selected slot.</dd>
+      <dt>Compatibility</dt><dd>The old single-player guest cookie is accepted and rewritten as Slot 1 the first time a route needs the active player. The old local trip key also migrates into Slot 1 without copying data into empty slots.</dd>
+      <dt>Interface</dt><dd>The pause menu adds Load game. Opening it shows all three slots, marks the current slot, and can create a fresh tenant for an empty slot.</dd>
+      <dt>Verification</dt><dd>Full verification is recorded in the progress log for this slice.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.32" data-date="2026-06-18">
     <h2>0.1.32</h2>
     <dl>

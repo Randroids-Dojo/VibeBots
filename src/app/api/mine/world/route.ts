@@ -1,5 +1,8 @@
 import { db, storageConfigured } from "@/server/db";
-import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
+import {
+  getMinePlayerProfile,
+  getOrCreateActiveSaveSlot,
+} from "@/server/player";
 import { refundRailSupportsInDiff, type WorldDiff } from "@/sim/mine";
 
 export const runtime = "nodejs";
@@ -13,7 +16,7 @@ export async function GET(): Promise<Response> {
   if (!storageConfigured()) {
     return Response.json({ error: "storage not configured" }, { status: 503 });
   }
-  const playerId = await getOrCreatePlayerId();
+  const { playerId, session } = await getOrCreateActiveSaveSlot();
   const sql = await db();
   const seed = Math.floor(Math.random() * 4294967296);
   const rows = (await sql`
@@ -55,6 +58,7 @@ export async function GET(): Promise<Response> {
     seed: Number(rows[0].seed),
     diff,
     tripIndex: rows[0].trip_count,
+    activeSlot: session.activeSlot,
     refundedSupports,
   });
 }

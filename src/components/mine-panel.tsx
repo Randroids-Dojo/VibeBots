@@ -48,7 +48,11 @@ import {
   warpRange,
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
-import { useMineStore } from "@/state/mine-store";
+import {
+  type SaveSlotSummary,
+  type SaveSlotsState,
+  useMineStore,
+} from "@/state/mine-store";
 import { DESTINATIONS, destinationAt } from "./mine-destinations";
 import { actionRepeatMs } from "./mine-pacing";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
@@ -519,9 +523,11 @@ const ACHIEVEMENT_CATEGORY_LABELS: Record<string, string> = {
 function StampBookPopup({
   open,
   onClose,
+  onBeforeLoad,
 }: {
   open: boolean;
   onClose: () => void;
+  onBeforeLoad: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [offline, setOffline] = useState(false);
@@ -533,6 +539,7 @@ function StampBookPopup({
     let cancelled = false;
     setLoading(true);
     setError(null);
+    onBeforeLoad();
     fetch("/api/achievements")
       .then(async (res) => {
         if (!res.ok) throw new Error("stamp book unavailable");
@@ -557,7 +564,7 @@ function StampBookPopup({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, onBeforeLoad]);
 
   if (!open) return null;
 
@@ -763,6 +770,200 @@ function StampBookPopup({
             </section>
           );
         })}
+      </section>
+    </div>
+  );
+}
+
+function slotMeta(summary: SaveSlotSummary): string {
+  if (!summary.exists) return "New game";
+  return [
+    `${summary.balance} vibes`,
+    `depth ${summary.deepestDepth}`,
+    `${summary.partsOwned} parts`,
+    `${summary.designs} bots`,
+    `${summary.stamps} stamps`,
+  ].join(" | ");
+}
+
+function SaveSlotsPopup({
+  open,
+  state,
+  onClose,
+  onRefresh,
+  onLoad,
+}: {
+  open: boolean;
+  state: SaveSlotsState;
+  onClose: () => void;
+  onRefresh: () => void;
+  onLoad: (slot: 1 | 2 | 3) => Promise<boolean>;
+}) {
+  const [pendingSlot, setPendingSlot] = useState<1 | 2 | 3 | null>(null);
+
+  useEffect(() => {
+    if (open) onRefresh();
+  }, [open, onRefresh]);
+
+  useEffect(() => {
+    if (!open) setPendingSlot(null);
+  }, [open]);
+
+  if (!open) return null;
+
+  const slots =
+    state.slots.length > 0
+      ? state.slots
+      : ([1, 2, 3] as const).map((slot) => ({
+          slot,
+          active: state.activeSlot === slot,
+          exists: false,
+          createdAt: null,
+          balance: 0,
+          deepestDepth: 0,
+          partsOwned: 0,
+          designs: 0,
+          stamps: 0,
+        }));
+  const busy = state.state === "loading" || state.state === "switching";
+  const status =
+    state.state === "unavailable"
+      ? "Save slots need server storage."
+      : state.state === "error"
+        ? state.message
+        : state.state === "loading"
+          ? "Loading saves..."
+          : state.state === "switching"
+            ? "Loading slot..."
+            : null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="save-slots-title"
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 34,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        background: "rgba(3, 6, 12, 0.72)",
+        pointerEvents: "auto",
+      }}
+    >
+      <section
+        style={{
+          width: "min(520px, 100%)",
+          maxHeight: "calc(100dvh - 48px)",
+          overflowY: "auto",
+          borderRadius: 12,
+          border: "1px solid #384564",
+          background: "rgba(16, 20, 31, 0.98)",
+          boxShadow: "0 18px 60px rgba(0, 0, 0, 0.58)",
+          color: "#e6e8ee",
+          padding: 18,
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <h2
+              id="save-slots-title"
+              style={{ margin: 0, fontSize: "1.25rem" }}
+            >
+              Load Save Slot
+            </h2>
+            {status && (
+              <p style={{ margin: "6px 0 0", color: "#f5c542" }}>{status}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            aria-label="Close Load Save Slot"
+            onClick={onClose}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              border: "1px solid #384564",
+              background: "#182033",
+              color: "#e6e8ee",
+              fontSize: "1rem",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            X
+          </button>
+        </header>
+        <div style={{ display: "grid", gap: 8 }}>
+          {slots.map((summary) => {
+            const pending = pendingSlot === summary.slot;
+            const disabled =
+              busy ||
+              pendingSlot !== null ||
+              summary.active ||
+              state.state === "unavailable";
+            return (
+              <button
+                type="button"
+                key={summary.slot}
+                disabled={disabled}
+                aria-pressed={summary.active}
+                onClick={async () => {
+                  setPendingSlot(summary.slot);
+                  const loaded = await onLoad(summary.slot);
+                  if (loaded) window.location.assign("/mine");
+                  setPendingSlot(null);
+                }}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto",
+                  gap: 10,
+                  alignItems: "center",
+                  minHeight: 58,
+                  borderRadius: 10,
+                  border: summary.active
+                    ? "1px solid #54e0c7"
+                    : "1px solid #344061",
+                  background: summary.active ? "#172b30" : "#171d2b",
+                  color: disabled && !summary.active ? "#778198" : "#e6e8ee",
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  padding: "10px 12px",
+                  textAlign: "left",
+                }}
+              >
+                <span>
+                  <strong style={{ display: "block", marginBottom: 3 }}>
+                    Slot {summary.slot}
+                    {summary.active ? " (current)" : ""}
+                  </strong>
+                  <span style={{ color: "#9aa6c4", fontSize: "0.82rem" }}>
+                    {slotMeta(summary)}
+                  </span>
+                </span>
+                <span
+                  style={{
+                    color: summary.active ? "#54e0c7" : "#f5c542",
+                    fontWeight: 800,
+                    fontSize: "0.86rem",
+                  }}
+                >
+                  {summary.active ? "Loaded" : pending ? "Loading" : "Load"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </section>
     </div>
   );
@@ -1721,6 +1922,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const gear = useMineStore((s) => s.gear);
   const loadGear = useMineStore((s) => s.loadGear);
   const loadWorld = useMineStore((s) => s.loadWorld);
+  const saveSlots = useMineStore((s) => s.saveSlots);
+  const loadSaveSlots = useMineStore((s) => s.loadSaveSlots);
+  const switchSaveSlot = useMineStore((s) => s.switchSaveSlot);
+  const saveCurrentTrip = useMineStore((s) => s.saveCurrentTrip);
   const balance = useMineStore((s) => s.balance);
   const shopNote = useMineStore((s) => s.shopNote);
   const buyConsumable = useMineStore((s) => s.buyConsumable);
@@ -1740,6 +1945,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   >(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stampBookOpen, setStampBookOpen] = useState(false);
+  const [saveSlotsOpen, setSaveSlotsOpen] = useState(false);
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [cameraZoom, setCameraZoom] = useState(MINE_CAMERA_ZOOM_DEFAULT);
@@ -2260,6 +2466,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       <StampBookPopup
         open={stampBookOpen}
         onClose={() => setStampBookOpen(false)}
+        onBeforeLoad={saveCurrentTrip}
+      />
+      <SaveSlotsPopup
+        open={saveSlotsOpen}
+        state={saveSlots}
+        onClose={() => setSaveSlotsOpen(false)}
+        onRefresh={loadSaveSlots}
+        onLoad={switchSaveSlot}
       />
       <button
         type="button"
@@ -2322,6 +2536,27 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             }}
           >
             Stamp Book
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen(false);
+              setSaveSlotsOpen(true);
+            }}
+            style={{
+              width: "100%",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #cdd6ea",
+              background: "#20283a",
+              color: "#e6e8ee",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              marginBottom: 8,
+            }}
+          >
+            Load game
           </button>
           <button
             type="button"

@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.32-partial-ore-mining";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.33-save-slots";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.33",
+      date: "2026-06-18",
+      title: "Save slots",
+      intro:
+        "The mine pause menu now lets this device keep three separate saves.",
+      changes: [
+        {
+          build,
+          text: "Open settings from the mine and choose Load game to switch between three save slots.",
+        },
+        {
+          build,
+          text: "Existing progress moves into Slot 1 automatically, while new slots start as brand new saves.",
+        },
+        {
+          build,
+          text: "Each slot keeps its own mine, upgrades, stamps, purchases, parts, saved bots, and in-flight trip checkpoint.",
+        },
+      ],
+    },
     {
       version: "0.1.32",
       date: "2026-06-18",

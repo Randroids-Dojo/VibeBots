@@ -48,6 +48,9 @@ describe("mine store upgrade flow", () => {
       lastResult: null,
       lastAction: null,
       cashOut: { state: "idle" },
+      activeSlot: 1,
+      saveSlots: { state: "unknown", activeSlot: 1, slots: [] },
+      worldLoaded: true,
     });
   });
 
@@ -147,5 +150,223 @@ describe("mine store upgrade flow", () => {
     expect(store().moves).toEqual([]);
     expect(store().balance).toBe(7);
     expect(store().shopNote).toBe("teleported to base for 3 vibes");
+  });
+
+  it("migrates the legacy local trip into slot 1", async () => {
+    const saved = {
+      seed: 555,
+      tripIndex: 4,
+      gear: DEFAULT_GEAR,
+      consumables: stock({ ladder: 1 }),
+      baseDiff: [],
+      moves: ["down"] as MineAction[],
+    };
+    localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(saved));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          seed: 555,
+          tripIndex: 4,
+          diff: [],
+          activeSlot: 1,
+        }),
+      ),
+    );
+
+    await store().loadWorld();
+
+    expect(store().activeSlot).toBe(1);
+    expect(store().moves).toEqual(["down"]);
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify(saved),
+    );
+    expect(localStorage.removeItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2",
+    );
+  });
+
+  it("does not overwrite a legacy local trip before the slot world loads", () => {
+    const saved = {
+      seed: 555,
+      tripIndex: 4,
+      gear: DEFAULT_GEAR,
+      consumables: stock({ ladder: 1 }),
+      baseDiff: [],
+      moves: ["down"] as MineAction[],
+    };
+    localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(saved));
+    vi.mocked(localStorage.setItem).mockClear();
+    useMineStore.setState({ worldLoaded: false });
+
+    store().saveCurrentTrip();
+
+    expect(localStorage.setItem).not.toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+      expect.any(String),
+    );
+    expect(localStorage.getItem("vibebots-mine-trip-v2")).toBe(
+      JSON.stringify(saved),
+    );
+  });
+
+  it("loads the active slot's local trip only", async () => {
+    const slotOne = {
+      seed: 111,
+      tripIndex: 1,
+      gear: DEFAULT_GEAR,
+      consumables: NO_CONSUMABLES,
+      baseDiff: [],
+      moves: ["left"] as MineAction[],
+    };
+    const slotTwo = {
+      seed: 222,
+      tripIndex: 2,
+      gear: DEFAULT_GEAR,
+      consumables: stock({ plank: 2 }),
+      baseDiff: [],
+      moves: ["down", "right"] as MineAction[],
+    };
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify(slotOne),
+    );
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-2",
+      JSON.stringify(slotTwo),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          seed: 222,
+          tripIndex: 2,
+          diff: [],
+          activeSlot: 2,
+        }),
+      ),
+    );
+
+    await store().loadWorld();
+
+    expect(store().activeSlot).toBe(2);
+    expect(store().seed).toBe(222);
+    expect(store().moves).toEqual(["down", "right"]);
+    expect(store().consumables).toEqual(stock({ plank: 2 }));
+  });
+
+  it("flushes the current slot before switching save slots", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        activeSlot: 2,
+        slots: [
+          {
+            slot: 1,
+            active: false,
+            exists: true,
+            createdAt: "2026-06-18T00:00:00.000Z",
+            balance: 10,
+            deepestDepth: 3,
+            partsOwned: 1,
+            designs: 1,
+            stamps: 2,
+          },
+          {
+            slot: 2,
+            active: true,
+            exists: true,
+            createdAt: "2026-06-18T00:00:00.000Z",
+            balance: 0,
+            deepestDepth: 0,
+            partsOwned: 0,
+            designs: 0,
+            stamps: 0,
+          },
+          {
+            slot: 3,
+            active: false,
+            exists: false,
+            createdAt: null,
+            balance: 0,
+            deepestDepth: 0,
+            partsOwned: 0,
+            designs: 0,
+            stamps: 0,
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().switchSaveSlot(2);
+
+    expect(ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/save-slots",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ slot: 2 }),
+      }),
+    );
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+      expect.any(String),
+    );
+    expect(store().activeSlot).toBe(2);
+    expect(store().saveSlots.state).toBe("ready");
+  });
+
+  it("flushes the current slot before loading save slot summaries", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        activeSlot: 1,
+        slots: [
+          {
+            slot: 1,
+            active: true,
+            exists: true,
+            createdAt: "2026-06-18T00:00:00.000Z",
+            balance: 10,
+            deepestDepth: 3,
+            partsOwned: 1,
+            designs: 1,
+            stamps: 2,
+          },
+          {
+            slot: 2,
+            active: false,
+            exists: false,
+            createdAt: null,
+            balance: 0,
+            deepestDepth: 0,
+            partsOwned: 0,
+            designs: 0,
+            stamps: 0,
+          },
+          {
+            slot: 3,
+            active: false,
+            exists: false,
+            createdAt: null,
+            balance: 0,
+            deepestDepth: 0,
+            partsOwned: 0,
+            designs: 0,
+            stamps: 0,
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await store().loadSaveSlots();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/save-slots");
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+      expect.any(String),
+    );
+    expect(store().saveSlots.state).toBe("ready");
   });
 });

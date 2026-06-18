@@ -28,7 +28,35 @@ import {
  * mid-trip state on reload, carry included. The server's diff only
  * advances at cash-out, so this is what keeps un-sold carving alive.
  */
-const LOCAL_TRIP_KEY = "vibebots-mine-trip-v2";
+const LEGACY_LOCAL_TRIP_KEY = "vibebots-mine-trip-v2";
+const LOCAL_TRIP_SLOT_PREFIX = "vibebots-mine-trip-v2-slot-";
+const SAVE_SLOT_IDS = [1, 2, 3] as const;
+type SaveSlotId = (typeof SAVE_SLOT_IDS)[number];
+
+export interface SaveSlotSummary {
+  slot: SaveSlotId;
+  active: boolean;
+  exists: boolean;
+  createdAt: string | null;
+  balance: number;
+  deepestDepth: number;
+  partsOwned: number;
+  designs: number;
+  stamps: number;
+}
+
+export type SaveSlotsState =
+  | { state: "unknown"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
+  | { state: "loading"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
+  | { state: "ready"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
+  | { state: "switching"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
+  | { state: "unavailable"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
+  | {
+      state: "error";
+      activeSlot: SaveSlotId;
+      slots: SaveSlotSummary[];
+      message: string;
+    };
 
 interface SavedTrip {
   seed: number;
@@ -39,9 +67,31 @@ interface SavedTrip {
   moves: MineAction[];
 }
 
-function loadLocalTrip(): SavedTrip | null {
+function validSaveSlot(value: unknown): SaveSlotId | null {
+  return SAVE_SLOT_IDS.find((slot) => slot === value) ?? null;
+}
+
+function localTripKey(slot: SaveSlotId): string {
+  return `${LOCAL_TRIP_SLOT_PREFIX}${slot}`;
+}
+
+function migrateLegacyTripToSlotOne(): void {
   try {
-    const raw = localStorage.getItem(LOCAL_TRIP_KEY);
+    const raw = localStorage.getItem(LEGACY_LOCAL_TRIP_KEY);
+    if (!raw) return;
+    if (!localStorage.getItem(localTripKey(1))) {
+      localStorage.setItem(localTripKey(1), raw);
+    }
+    localStorage.removeItem(LEGACY_LOCAL_TRIP_KEY);
+  } catch {
+    // Storage full or blocked: leave the trip wherever the browser keeps it.
+  }
+}
+
+function loadLocalTrip(slot: SaveSlotId): SavedTrip | null {
+  try {
+    if (slot === 1) migrateLegacyTripToSlotOne();
+    const raw = localStorage.getItem(localTripKey(slot));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (
@@ -65,12 +115,43 @@ function loadLocalTrip(): SavedTrip | null {
   }
 }
 
-function saveLocalTrip(trip: SavedTrip): void {
+function saveLocalTrip(slot: SaveSlotId, trip: SavedTrip): void {
   try {
-    localStorage.setItem(LOCAL_TRIP_KEY, JSON.stringify(trip));
+    localStorage.setItem(localTripKey(slot), JSON.stringify(trip));
   } catch {
     // Storage full or blocked: the trip still lives in memory.
   }
+}
+
+function saveSlotSummariesFromResponse(value: unknown): {
+  activeSlot: SaveSlotId;
+  slots: SaveSlotSummary[];
+} | null {
+  if (!value || typeof value !== "object") return null;
+  const body = value as { activeSlot?: unknown; slots?: unknown };
+  const activeSlot = validSaveSlot(body.activeSlot);
+  if (!activeSlot || !Array.isArray(body.slots)) return null;
+  const slots = body.slots.flatMap((candidate): SaveSlotSummary[] => {
+    if (!candidate || typeof candidate !== "object") return [];
+    const raw = candidate as Partial<Record<keyof SaveSlotSummary, unknown>>;
+    const slot = validSaveSlot(raw.slot);
+    if (!slot) return [];
+    return [
+      {
+        slot,
+        active: raw.active === true,
+        exists: raw.exists === true,
+        createdAt: typeof raw.createdAt === "string" ? raw.createdAt : null,
+        balance: typeof raw.balance === "number" ? raw.balance : 0,
+        deepestDepth:
+          typeof raw.deepestDepth === "number" ? raw.deepestDepth : 0,
+        partsOwned: typeof raw.partsOwned === "number" ? raw.partsOwned : 0,
+        designs: typeof raw.designs === "number" ? raw.designs : 0,
+        stamps: typeof raw.stamps === "number" ? raw.stamps : 0,
+      },
+    ];
+  });
+  return { activeSlot, slots };
 }
 
 function consumablesFromResponse(value: unknown): MineConsumables | null {
@@ -143,9 +224,15 @@ export interface MineSessionState {
   lastResult: MoveResult | null;
   lastAction: MineAction | null;
   cashOut: CashOutState;
+  activeSlot: SaveSlotId;
+  saveSlots: SaveSlotsState;
+  worldLoaded: boolean;
   move: (action: MineAction) => void;
   loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
+  loadSaveSlots: () => Promise<void>;
+  switchSaveSlot: (slot: SaveSlotId) => Promise<boolean>;
+  saveCurrentTrip: () => void;
   submitCashOut: () => Promise<boolean>;
   buyConsumable: (
     item: keyof MineConsumables,
@@ -164,6 +251,23 @@ function surfaceOnlyLog(moves: MineAction[]): boolean {
 
 export const useMineStore = create<MineSessionState>((set, get) => {
   const seed = randomSeed();
+  const initialSlots: SaveSlotsState = {
+    state: "unknown",
+    activeSlot: 1,
+    slots: [],
+  };
+  const persistCurrentTrip = () => {
+    const st = get();
+    if (!st.worldLoaded) return;
+    saveLocalTrip(st.activeSlot, {
+      seed: st.seed,
+      tripIndex: st.tripIndex,
+      gear: st.mine.gear,
+      consumables: st.consumables,
+      baseDiff: st.tripBaseDiff,
+      moves: [...st.moves],
+    });
+  };
   return {
     mine: createMine(seed),
     seed,
@@ -179,6 +283,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     lastResult: null,
     lastAction: null,
     cashOut: { state: "idle" },
+    activeSlot: 1,
+    saveSlots: initialSlots,
+    worldLoaded: false,
+
+    saveCurrentTrip: persistCurrentTrip,
 
     move: (action) => {
       const { mine, tick, moves, cashOut } = get();
@@ -192,15 +301,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // Persist the in-flight trip so a reload resumes mid-trip,
       // carry and carving intact.
       if (result.ok) {
-        const st = get();
-        saveLocalTrip({
-          seed: st.seed,
-          tripIndex: st.tripIndex,
-          gear: mine.gear,
-          consumables: st.consumables,
-          baseDiff: st.tripBaseDiff,
-          moves,
-        });
+        persistCurrentTrip();
       }
     },
 
@@ -208,8 +309,13 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // Server checkpoint first (storage configured); the locally saved
       // in-flight trip resumes on top of it when it matches; guests run
       // entirely from the local trip; a fresh browser starts pristine.
-      const saved = loadLocalTrip();
-      const resume = (seed: number, tripIndex: number, baseDiff: WorldDiff) => {
+      const resume = (
+        slot: SaveSlotId,
+        seed: number,
+        tripIndex: number,
+        baseDiff: WorldDiff,
+      ) => {
+        const saved = loadLocalTrip(slot);
         if (
           saved &&
           saved.seed === seed &&
@@ -224,6 +330,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           );
           for (const a of saved.moves) applyAction(resumed, a);
           set({
+            activeSlot: slot,
+            worldLoaded: true,
             seed,
             tripIndex,
             tripBaseDiff: baseDiff,
@@ -238,6 +346,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         }
         const { gear, consumables } = get();
         set({
+          activeSlot: slot,
+          worldLoaded: true,
           seed,
           tripIndex,
           tripBaseDiff: baseDiff,
@@ -251,16 +361,20 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const res = await fetch("/api/mine/world");
         if (res.ok) {
           const body = await res.json();
-          resume(body.seed, body.tripIndex ?? 0, body.diff ?? []);
+          const slot = validSaveSlot(body.activeSlot) ?? 1;
+          resume(slot, body.seed, body.tripIndex ?? 0, body.diff ?? []);
           return;
         }
       } catch {
         // offline: fall through to local
       }
-      if (saved) resume(saved.seed, saved.tripIndex, saved.baseDiff);
+      const slot = get().activeSlot;
+      const saved = loadLocalTrip(slot);
+      if (saved) resume(slot, saved.seed, saved.tripIndex, saved.baseDiff);
     },
 
     loadGear: async () => {
+      persistCurrentTrip();
       try {
         const res = await fetch("/api/gear");
         if (!res.ok) {
@@ -270,9 +384,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           if (res.status === 503 && get().moves.length === 0) {
             const { seed: s, gear: g, tripBaseDiff } = get();
             set({
+              worldLoaded: true,
               consumables: STARTING_CONSUMABLES,
               mine: createMine(s, g, STARTING_CONSUMABLES, tripBaseDiff),
             });
+            persistCurrentTrip();
           }
           return;
         }
@@ -321,12 +437,142 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           tick: 0,
           lastResult: null,
         });
+        persistCurrentTrip();
       } catch {
         // offline/local: defaults stay
       }
     },
 
+    loadSaveSlots: async () => {
+      persistCurrentTrip();
+      const current = get().saveSlots;
+      set({
+        saveSlots: {
+          state: "loading",
+          activeSlot: current.activeSlot,
+          slots: current.slots,
+        },
+      });
+      try {
+        const res = await fetch("/api/save-slots");
+        if (res.status === 503) {
+          set({
+            saveSlots: {
+              state: "unavailable",
+              activeSlot: get().activeSlot,
+              slots: [],
+            },
+          });
+          return;
+        }
+        if (!res.ok) {
+          set({
+            saveSlots: {
+              state: "error",
+              activeSlot: get().activeSlot,
+              slots: current.slots,
+              message: "could not load saves",
+            },
+          });
+          return;
+        }
+        const parsed = saveSlotSummariesFromResponse(await res.json());
+        if (!parsed) {
+          set({
+            saveSlots: {
+              state: "error",
+              activeSlot: get().activeSlot,
+              slots: current.slots,
+              message: "could not read saves",
+            },
+          });
+          return;
+        }
+        set({
+          activeSlot: parsed.activeSlot,
+          saveSlots: { state: "ready", ...parsed },
+        });
+      } catch {
+        set({
+          saveSlots: {
+            state: "error",
+            activeSlot: get().activeSlot,
+            slots: current.slots,
+            message: "could not load saves",
+          },
+        });
+      }
+    },
+
+    switchSaveSlot: async (slot) => {
+      persistCurrentTrip();
+      const current = get().saveSlots;
+      set({
+        saveSlots: {
+          state: "switching",
+          activeSlot: get().activeSlot,
+          slots: current.slots,
+        },
+      });
+      try {
+        const res = await fetch("/api/save-slots", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ slot }),
+        });
+        if (!res.ok) {
+          if (res.status === 503) {
+            set({
+              saveSlots: {
+                state: "unavailable",
+                activeSlot: get().activeSlot,
+                slots: current.slots,
+              },
+            });
+            return false;
+          }
+          set({
+            saveSlots: {
+              state: "error",
+              activeSlot: get().activeSlot,
+              slots: current.slots,
+              message: "load failed",
+            },
+          });
+          return false;
+        }
+        const parsed = saveSlotSummariesFromResponse(await res.json());
+        if (!parsed) {
+          set({
+            saveSlots: {
+              state: "error",
+              activeSlot: get().activeSlot,
+              slots: current.slots,
+              message: "could not read saves",
+            },
+          });
+          return false;
+        }
+        set({
+          activeSlot: parsed.activeSlot,
+          saveSlots: { state: "ready", ...parsed },
+        });
+        return true;
+      } catch {
+        set({
+          saveSlots: {
+            state: "error",
+            activeSlot: get().activeSlot,
+            slots: current.slots,
+            message: "load failed",
+          },
+        });
+        return false;
+      }
+    },
+
     submitCashOut: async () => {
+      persistCurrentTrip();
       const { seed: currentSeed, moves, mine, consumables, tripIndex } = get();
       set({ cashOut: { state: "pending" } });
       try {
@@ -386,7 +632,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           typeof body.tripIndex === "number"
             ? body.tripIndex
             : get().tripIndex + 1;
-        saveLocalTrip({
+        saveLocalTrip(get().activeSlot, {
           seed: currentSeed,
           tripIndex: nextTripIndex,
           gear: get().gear,
@@ -422,6 +668,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     buyConsumable: async (item, quantity = 1) => {
       const { cashOut } = get();
       if (cashOut.state === "pending") return;
+      persistCurrentTrip();
       const count = Math.max(1, Math.floor(quantity));
       try {
         const res = await fetch("/api/consumables/buy", {
@@ -462,6 +709,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           shopNote: `+${count} ${item} packed (${body.count} owned)`,
           tick: tick + 1,
         });
+        persistCurrentTrip();
       } catch {
         set({ shopNote: "purchase failed" });
       }
@@ -470,6 +718,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     buyGearUpgrade: async (track) => {
       const { cashOut, mine, moves } = get();
       if (cashOut.state === "pending") return;
+      persistCurrentTrip();
       if (mine.miner.row !== 0) {
         set({ shopNote: "return to the surface to upgrade" });
         return;
@@ -505,7 +754,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const baseDiff = get().tripBaseDiff;
         const rebuilt = createMine(s0, nextGear, owned, baseDiff);
         for (const m of moves) applyAction(rebuilt, m);
-        saveLocalTrip({
+        saveLocalTrip(get().activeSlot, {
           seed: s0,
           tripIndex: get().tripIndex,
           gear: nextGear,
@@ -529,6 +778,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
 
     buyElevator: async () => {
       if (get().cashOut.state === "pending") return;
+      persistCurrentTrip();
       try {
         const res = await fetch("/api/elevator/upgrade", { method: "POST" });
         if (res.status === 503) {
@@ -577,7 +827,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           owned.plank += refundedPlanks;
           const rebuilt = createMine(s0, nextGear, owned, nextBaseDiff);
           for (const m of moves) applyAction(rebuilt, m);
-          saveLocalTrip({
+          saveLocalTrip(get().activeSlot, {
             seed: s0,
             tripIndex: get().tripIndex,
             gear: nextGear,
@@ -607,6 +857,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             shopNote: `rail extended to ${body.elevator} deep${refundNote}; rides start next trip`,
             tick: tick + 1,
           });
+          persistCurrentTrip();
         }
       } catch {
         set({ shopNote: "purchase failed" });
@@ -616,6 +867,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     teleportToBase: async (cost) => {
       const { cashOut, mine } = get();
       if (cashOut.state === "pending") return false;
+      persistCurrentTrip();
       if (mine.miner.row !== 0) {
         set({ shopNote: "return to the surface to teleport" });
         return false;
@@ -653,7 +905,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           tripIndex,
         } = get();
         const rebuilt = createMine(s0, gear, consumables, tripBaseDiff);
-        saveLocalTrip({
+        saveLocalTrip(get().activeSlot, {
           seed: s0,
           tripIndex,
           gear,
@@ -685,7 +937,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const owned = addConsumables(consumables, bought);
       const seed = seedOverride ?? worldSeed;
       const diff = seedOverride === undefined ? exportDiff(mine) : [];
-      saveLocalTrip({
+      saveLocalTrip(get().activeSlot, {
         seed,
         tripIndex: get().tripIndex,
         gear: get().gear,
@@ -694,6 +946,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         moves: [],
       });
       set({
+        worldLoaded: true,
         mine: createMine(seed, get().gear, owned, diff),
         seed,
         tripBaseDiff: diff,

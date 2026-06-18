@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="device-save-slots" data-date="2026-06-18">
+    <h3>Device Save Slots</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>cleanup/save-slots-on-main</code>, replayed onto current <code>origin/main</code> after the partial ore mining, mine drop marker, and large support cash-out slices landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed save slot slice. The signed guest cookie now supports three device-local slots while accepting the legacy one-player cookie shape and migrating it into Slot 1. Empty slots lazily create fresh player rows, so the mine world, upgrades, stamps, purchases, parts, saved bot designs, consumables, and wallet all reset independently. The mine store now uses slot-specific local trip checkpoints, flushes the current trip before server calls and slot loads, and the pause menu adds Load game with a three-slot dialog. Package version moved to <code>0.1.33</code>; <code>MINE_VERSION</code> stays at <code>29</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Post-cleanup verification: <code>pnpm exec vitest run src/server/player.test.ts src/state/mine-store.test.ts src/app/api/save-slots/route.test.ts</code> (18 passed); <code>pnpm typecheck</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>pnpm test</code> (191 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; <code>git diff --check</code>; <code>git diff --cached --check</code>; <code>pnpm build</code>; targeted Playwright release-note smoke against a clean production server on port 3098 (1 passed); and full Playwright smoke against the same server (30 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>Save slots are device-local. Slot 1 migration is a cookie and local-trip compatibility migration, not a database copy. Switching slots reloads <code>/mine</code> after the server switches the active slot to clear client-only state.</dd>
+      <dt>GDD coverage</dt><dd>Added <code>REQ-033</code> in <code>docs/GDD_COVERAGE.json</code>, updated <code>docs/gdd/06-mining.html</code> with device save slot rules, and appended a Build log entry.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="partial-ore-mining" data-date="2026-06-18">
     <h3>Partial Ore Mining</h3>
     <dl>

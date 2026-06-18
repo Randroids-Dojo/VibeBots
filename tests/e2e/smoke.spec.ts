@@ -472,11 +472,13 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Ore deposits");
+  await expect(dialog).toContainText("three separate saves");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("Every ore strike");
-  await expect(dialog.locator("li").nth(1)).toContainText("Rich deposits");
-  await expect(dialog.locator("li").nth(2)).toContainText("Dynamite");
+  await expect(dialog.locator("li").first()).toContainText("Load game");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "Slot 1 automatically",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText("own mine");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -502,11 +504,23 @@ test("mine shows the latest release note once to a fresh browser", async ({
 
   await page.getByRole("button", { name: "Open settings" }).click();
   await expect(settings).toBeVisible();
+  await settings.getByRole("button", { name: "Load game" }).click();
+  const saveSlots = page.getByRole("dialog", { name: "Load Save Slot" });
+  await expect(saveSlots).toBeVisible();
+  await expect(saveSlots).toContainText("Slot 1");
+  await expect(saveSlots).toContainText("Slot 2");
+  await expect(saveSlots).toContainText("Slot 3");
+  await saveSlots.getByRole("button", { name: "Close Load Save Slot" }).click();
+  await expect(saveSlots).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await expect(settings).toBeVisible();
   await settings.getByRole("button", { name: "Release notes" }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.33", "Save slots"],
     ["0.1.32", "Partial ore mining"],
     ["0.1.31", "Mine drop markers"],
     ["0.1.30", "Large support cash-out"],

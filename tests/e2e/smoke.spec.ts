@@ -84,6 +84,15 @@ async function dismissReleaseNotes(page: Page): Promise<void> {
   await expect(dialog).not.toBeVisible();
 }
 
+async function openSettings(page: Page) {
+  const settings = page.getByRole("region", { name: "Settings" });
+  if (!(await settings.isVisible().catch(() => false))) {
+    await page.getByRole("button", { name: "Open settings" }).click();
+  }
+  await expect(settings).toBeVisible();
+  return settings;
+}
+
 async function countCanvasRedPixels(
   page: Page,
   image: Buffer,
@@ -719,9 +728,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await page.reload();
   await expect(dialog).not.toBeVisible();
 
-  await page.getByRole("button", { name: "Open settings" }).click();
-  const settings = page.getByRole("region", { name: "Settings" });
-  await expect(settings).toBeVisible();
+  const settings = await openSettings(page);
   await settings.getByRole("button", { name: "Stamp Book" }).click();
   const stampBook = page.getByRole("dialog", { name: "Stamp Book" });
   await expect(stampBook).toBeVisible();
@@ -730,8 +737,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await stampBook.getByRole("button", { name: "Close Stamp Book" }).click();
   await expect(stampBook).not.toBeVisible();
 
-  await page.getByRole("button", { name: "Open settings" }).click();
-  await expect(settings).toBeVisible();
+  await openSettings(page);
   await settings.getByRole("button", { name: "Load game" }).click();
   const saveSlots = page.getByRole("dialog", { name: "Load Save Slot" });
   await expect(saveSlots).toBeVisible();
@@ -741,8 +747,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await saveSlots.getByRole("button", { name: "Close Load Save Slot" }).click();
   await expect(saveSlots).not.toBeVisible();
 
-  await page.getByRole("button", { name: "Open settings" }).click();
-  await expect(settings).toBeVisible();
+  await openSettings(page);
   await settings.getByRole("button", { name: "Release notes" }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();

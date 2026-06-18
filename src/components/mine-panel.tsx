@@ -21,7 +21,6 @@ import {
   collectAction,
   collectablePlacements,
   type Direction,
-  ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
   elevatorSpeedRows,
@@ -1717,6 +1716,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     collectSelection.includes(collectTargetKey(target)),
   );
   const plankEnabled = !elevatorAutoDir && canPlacePlank(mine, facing);
+  const elevatorAvailable =
+    mine.gear.elevator > 0 && miner.row >= 0 && miner.row <= mine.gear.elevator;
+  const canRideElevatorDown =
+    elevatorAvailable && miner.row < mine.gear.elevator;
+  const canRideElevatorUp = elevatorAvailable && miner.row > 0;
   const recoveredSupportCount =
     lastResult?.ok && lastResult.supportCollected
       ? (lastResult.supportCollected.ladder ?? 0) +
@@ -1798,8 +1802,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     if (!elevatorAutoDir) return;
     const atEnd =
       elevatorAutoDir === "ride-down"
-        ? miner.col !== ELEVATOR_COL || miner.row >= mine.gear.elevator
-        : miner.col !== ELEVATOR_COL || miner.row <= 0;
+        ? miner.row >= mine.gear.elevator
+        : miner.row <= 0;
     if (atEnd || cashOut.state === "pending") {
       setElevatorAutoDir(null);
       return;
@@ -1808,7 +1812,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       move(elevatorAutoDir);
     }, elevatorAutoDelayMs(mine.gear));
     return () => clearTimeout(timer);
-  }, [cashOut.state, elevatorAutoDir, mine.gear, miner.col, miner.row, move]);
+  }, [cashOut.state, elevatorAutoDir, mine.gear, miner.row, move]);
 
   useEffect(() => {
     const previousRow = previousMinerRowRef.current;
@@ -2497,32 +2501,28 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             )
           );
         })()}
-        {miner.col === ELEVATOR_COL &&
-          miner.row >= 1 &&
-          miner.row < mine.gear.elevator && (
-            <button
-              type="button"
-              aria-label="Ride elevator down"
-              onClick={() => startElevatorRide("ride-down")}
-              disabled={!!elevatorAutoDir}
-              style={iconButtonStyle}
-            >
-              &#128727;&#11015;&#65039;
-            </button>
-          )}
-        {miner.col === ELEVATOR_COL &&
-          miner.row >= 1 &&
-          miner.row <= mine.gear.elevator && (
-            <button
-              type="button"
-              aria-label="Ride elevator up"
-              onClick={() => startElevatorRide("ride-up")}
-              disabled={!!elevatorAutoDir}
-              style={iconButtonStyle}
-            >
-              &#128727;&#11014;&#65039;
-            </button>
-          )}
+        {canRideElevatorDown && (
+          <button
+            type="button"
+            aria-label="Ride elevator down"
+            onClick={() => startElevatorRide("ride-down")}
+            disabled={!!elevatorAutoDir}
+            style={iconButtonStyle}
+          >
+            &#128727;&#11015;&#65039;
+          </button>
+        )}
+        {canRideElevatorUp && (
+          <button
+            type="button"
+            aria-label="Ride elevator up"
+            onClick={() => startElevatorRide("ride-up")}
+            disabled={!!elevatorAutoDir}
+            style={iconButtonStyle}
+          >
+            &#128727;&#11014;&#65039;
+          </button>
+        )}
         <button
           type="button"
           aria-label="Abandon trip"

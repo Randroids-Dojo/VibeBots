@@ -402,14 +402,10 @@ describe("mine", () => {
     const rail = ELEVATOR_SEGMENT_ROWS;
     const gear = { ...DEFAULT_GEAR, elevator: rail };
     const state = createMine(229, gear);
-    // Riding from anywhere but the tower column is refused.
-    expect(applyAction(state, "ride-down")).toEqual({
-      ok: false,
-      reason: "blocked",
-    });
-    // Walk to the tower; rides are free and bore the rail span as they go.
-    while (state.miner.col > ELEVATOR_COL) step(state, "left");
-    const energyAtTower = state.miner.energy;
+    const startCol = state.miner.col;
+    const energyBeforeRide = state.miner.energy;
+    expect(startCol).not.toBe(ELEVATOR_COL);
+    // Rides are free and bore the current lift path as they go.
     // A ride covers the car's speed in rows; the UI repeats rides
     // automatically to the rail end.
     const carRows = elevatorSpeedRows(gear);
@@ -417,10 +413,10 @@ describe("mine", () => {
     const ride = applyAction(state, "ride-down");
     expect(ride.ok).toBe(true);
     expect(state.miner.row).toBe(carRows);
-    expect(state.miner.col).toBe(ELEVATOR_COL);
-    expect(state.miner.energy).toBe(energyAtTower);
+    expect(state.miner.col).toBe(startCol);
+    expect(state.miner.energy).toBe(energyBeforeRide);
     for (let r = 1; r <= carRows; r++) {
-      expect(cellAt(state, ELEVATOR_COL, r)?.kind).toBe("empty");
+      expect(cellAt(state, startCol, r)?.kind).toBe("empty");
     }
     // Keep riding to the bottom; it stops there and never overshoots.
     let guard = 0;
@@ -432,19 +428,20 @@ describe("mine", () => {
       reason: "blocked",
     });
     for (let r = 1; r <= rail; r++) {
-      expect(cellAt(state, ELEVATOR_COL, r)?.kind).toBe("empty");
+      expect(cellAt(state, startCol, r)?.kind).toBe("empty");
     }
-    // Ride back up: free, banks only when the car lands at the surface.
+    // Ride back up from another column: free, banks only at the surface.
     state.miner.carried = { coal: 2 };
+    state.miner.col = startCol + 3;
     applyAction(state, "ride-up");
     expect(state.miner.row).toBeGreaterThan(0);
+    expect(state.miner.col).toBe(startCol + 3);
     expect(state.miner.bankedCredits).toBe(0);
     guard = 0;
     while (state.miner.row > 0 && guard++ < 50) applyAction(state, "ride-up");
     expect(state.miner.row).toBe(0);
+    expect(state.miner.col).toBe(startCol + 3);
     expect(state.miner.bankedCredits).toBe(2);
-    // Off-rail ride-up is refused.
-    step(state, "right");
     expect(applyAction(state, "ride-up")).toEqual({
       ok: false,
       reason: "blocked",

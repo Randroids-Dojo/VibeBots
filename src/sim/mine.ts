@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 23;
+export const MINE_VERSION = 24;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -2021,11 +2021,11 @@ export function elevatorSpeedRows(gear: MineGear): number {
 }
 
 /**
- * The elevator (REQ-028): logged rides along the elevator's column,
+ * The elevator (REQ-028): logged rides from the miner's current column,
  * a fixed number of rows per ride (see elevatorSpeedRows). Ride-down
- * bores the rail span clear on the way (the crew built the shaft; anything
- * inside was milled, no loot) and stops at the rail bottom; ride-up lifts
- * toward the surface and banks the carry once it lands. No energy: the
+ * bores the travel span clear on the way (the crew built the lift path;
+ * anything inside was milled, no loot) and stops at the owned depth; ride-up
+ * lifts toward the surface and banks the carry once it lands. No energy: the
  * rail is the investment paying out. Ride again to keep travelling.
  */
 function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
@@ -2033,16 +2033,17 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
   const rail = state.gear.elevator;
   if (rail <= 0) return { ok: false, reason: "no-elevator" };
   const step = elevatorSpeedRows(state.gear);
+  const liftCol = miner.col;
   if (dir === "down") {
-    if (miner.col !== ELEVATOR_COL || miner.row >= rail)
+    if (miner.row < 0 || miner.row >= rail)
       return { ok: false, reason: "blocked" };
     const target = Math.min(rail, miner.row + step);
     const emptied: Array<{ col: number; row: number }> = [];
     for (let r = miner.row + 1; r <= target; r++) {
-      const cell = cellAt(state, ELEVATOR_COL, r);
+      const cell = cellAt(state, liftCol, r);
       if (cell && cell.kind !== "empty") {
-        setCell(state, ELEVATOR_COL, r, { kind: "empty" });
-        emptied.push({ col: ELEVATOR_COL, row: r });
+        setCell(state, liftCol, r, { kind: "empty" });
+        emptied.push({ col: liftCol, row: r });
       }
     }
     miner.row = target;
@@ -2069,7 +2070,7 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
     }
     return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
   }
-  if (miner.col !== ELEVATOR_COL || miner.row < 1 || miner.row > rail)
+  if (miner.row < 1 || miner.row > rail)
     return { ok: false, reason: "blocked" };
   miner.row = Math.max(0, miner.row - step);
   // Banking happens topside: a partial ride up just travels.

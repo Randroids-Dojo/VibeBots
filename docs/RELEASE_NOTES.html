@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.20" data-date="2026-06-17">
+    <h2>0.1.20</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.20</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moved from <code>23</code> to <code>24</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Elevator controls now work from the miner's current column anywhere from the surface through the owned elevator depth. Players no longer need to walk back to the tower column just to ride.</dd>
+      <dt>Interface</dt><dd>The down button appears when the miner can descend within owned elevator depth, and the up button appears once the miner is below the surface in that depth. Auto-rides now continue until the owned depth or surface without canceling because the miner is away from the tower.</dd>
+      <dt>Rules</dt><dd>Ride-down clears the current lift path as it travels, keeps the miner in that column, and still stops at the owned elevator depth. Ride-up keeps the same column and sells the haul when it reaches the surface.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, focused Vitest for the mine sim (74 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm test</code> (158 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, focused Playwright smoke against a fresh production server on port 3064 for release notes plus anywhere elevator controls (2 passed), and full Playwright smoke on port 3064 (28 passed, 2 storage-gated skips).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.19" data-date="2026-06-17">
     <h2>0.1.19</h2>
     <dl>

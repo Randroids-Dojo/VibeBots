@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.19-mine-base-offset";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.20-anywhere-elevator";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.20",
+      date: "2026-06-17",
+      title: "Anywhere elevator controls",
+      intro:
+        "Your elevator is now easier to use while exploring because it works from your current column instead of only at the tower.",
+      changes: [
+        {
+          build,
+          text: "The elevator down button appears anywhere from the surface through your owned elevator depth, so you can start descending from wherever you are.",
+        },
+        {
+          build,
+          text: "The elevator up button appears once you are below the surface within owned elevator depth, making the ride home available without walking back to the tower column.",
+        },
+        {
+          build,
+          text: "Rides keep you in your current column, clear that lift path as you travel, and still sell your haul when you reach the surface.",
+        },
+      ],
+    },
     {
       version: "0.1.19",
       date: "2026-06-17",

@@ -88,6 +88,7 @@ import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
 import {
   createMine,
   DEFAULT_GEAR,
+  ELEVATOR_SEGMENT_ROWS,
   exportDiff,
   START_COL,
   STARTING_CONSUMABLES,
@@ -431,7 +432,7 @@ test("surface base return disables when vibes are short", async ({ page }) => {
   await expect(teleport).toContainText("Need");
 });
 
-test("mine shows the backfilled release note once to a fresh browser", async ({
+test("mine shows the latest release note once to a fresh browser", async ({
   page,
 }) => {
   await page.goto("/mine");
@@ -441,15 +442,16 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText(
-    "The mine HUD now shows how far left or right",
-  );
-  await expect(dialog.locator("li")).toHaveCount(2);
+  await expect(dialog).toContainText("works from your current column");
+  await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "left of home shows a negative number",
+    "start descending from wherever you are",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "stable HUD data attribute",
+    "without walking back to the tower column",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "clear that lift path",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -471,6 +473,7 @@ test("mine shows the backfilled release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.20", "Anywhere elevator controls"],
     ["0.1.19", "Mine base offset"],
     ["0.1.18", "Support snapshot cash-out fix"],
     ["0.1.17", "Fall death feedback"],
@@ -998,6 +1001,58 @@ test("the elevator sells rail and gates rides on it (REQ-028)", async ({
   await expect(
     elevator.getByRole("button", { name: /Ride down|Auto ride/ }),
   ).toBeDisabled();
+});
+
+test("elevator controls work away from the tower column", async ({ page }) => {
+  const gear = { ...DEFAULT_GEAR, elevator: ELEVATOR_SEGMENT_ROWS };
+  const mine = createMine(9292, gear, STARTING_CONSUMABLES);
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        balance: 0,
+      },
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed: 9292,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: [],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  const canvas = page.locator("canvas");
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(canvas).toHaveAttribute("data-miner-x", "0.00");
+
+  const rideDown = page.getByRole("button", { name: "Ride elevator down" });
+  await expect(rideDown).toBeVisible();
+  await rideDown.click();
+
+  await expect
+    .poll(async () => Number(await status.getAttribute("data-depth")), {
+      timeout: 5_000,
+    })
+    .toBe(ELEVATOR_SEGMENT_ROWS);
+  await expect(canvas).toHaveAttribute("data-miner-x", "0.00");
+
+  const rideUp = page.getByRole("button", { name: "Ride elevator up" });
+  await expect(rideUp).toBeVisible();
+  await expect(rideUp).toBeEnabled();
 });
 
 test("miner stays at depth when walking sideways (lateral teleport regression)", async ({

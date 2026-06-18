@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="support-stock-repair" data-date="2026-06-17">
+    <h3>Support Stock Repair</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260617200207-28360031</code></dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>Final server-authority fix for the long-time-player stale support cash-out bug. Removed the runtime support replay repair approach in favor of explicit data repair for known affected rows. <code>/api/mine/bank</code> still replays with server-owned stock and still hard-fails paid consumable overclaims. Successful bank responses now include authoritative server consumables, and the mine store saves those counts into the next local trip so stale support stock does not persist after a repair. Added <code>pnpm ops:repair-support</code>, a dry-run-first command that can raise only <code>ladder_count</code> and <code>plank_count</code> for a known player hash or id. Package version moved to <code>0.1.21</code>; <code>MINE_VERSION</code> stays at <code>24</code> and <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm install</code>, <code>pnpm exec biome check --write</code> on touched source, release, smoke, and ops files, <code>node --check scripts/repair-mine-support-stock.mjs</code>, <code>pnpm ops:repair-support -- --help</code>, <code>pnpm exec vitest run src/app/api/mine/bank/route.test.ts src/state/mine-store.test.ts src/server/player.test.ts src/server/db.test.ts src/server/monitoring.test.ts</code> (17 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm test</code> (158 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Known affected players should be fixed with an explicit ladder/plank stock correction based on alert-log evidence. Runtime replay should remain simple and server-owned.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code> and updated static plus in-game release notes for <code>0.1.21</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="anywhere-elevator-controls" data-date="2026-06-17">
     <h3>Anywhere Elevator Controls</h3>
     <dl>

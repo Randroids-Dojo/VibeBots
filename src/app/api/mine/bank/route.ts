@@ -361,7 +361,8 @@ export async function POST(request: Request): Promise<Response> {
             now()
           )
       WHERE id = ${playerId} AND EXISTS (SELECT 1 FROM world)
-      RETURNING emeralds, deepest_depth
+      RETURNING emeralds, deepest_depth, dynamite_count, rope_count,
+        ladder_count, plank_count, beacon_count
     ), granted AS (
       INSERT INTO player_parts (player_id, part_id, count)
       SELECT ${playerId}, value, count(*)::int
@@ -374,10 +375,20 @@ export async function POST(request: Request): Promise<Response> {
     SELECT
       (SELECT emeralds FROM upd) AS emeralds,
       (SELECT deepest_depth FROM upd) AS deepest_depth,
+      (SELECT dynamite_count FROM upd) AS dynamite_count,
+      (SELECT rope_count FROM upd) AS rope_count,
+      (SELECT ladder_count FROM upd) AS ladder_count,
+      (SELECT plank_count FROM upd) AS plank_count,
+      (SELECT beacon_count FROM upd) AS beacon_count,
       (SELECT amount FROM bonus) AS bonus,
       (SELECT trip_count FROM world) AS trip_count`) as Array<{
     emeralds: number | null;
     deepest_depth: number | null;
+    dynamite_count: number | null;
+    rope_count: number | null;
+    ladder_count: number | null;
+    plank_count: number | null;
+    beacon_count: number | null;
     bonus: number | null;
     trip_count: number | null;
   }>;
@@ -403,5 +414,12 @@ export async function POST(request: Request): Promise<Response> {
     balance: rows[0].emeralds,
     deepestDepth: rows[0].deepest_depth,
     tripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
+    consumables: {
+      dynamite: rows[0].dynamite_count ?? 0,
+      rope: rows[0].rope_count ?? 0,
+      ladder: rows[0].ladder_count ?? 0,
+      plank: rows[0].plank_count ?? 0,
+      beacon: rows[0].beacon_count ?? 0,
+    },
   });
 }

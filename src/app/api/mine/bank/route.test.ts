@@ -104,6 +104,11 @@ function mockSql(
       {
         emeralds: 12,
         deepest_depth: 1,
+        dynamite_count: owned.dynamite_count ?? 0,
+        rope_count: owned.rope_count ?? 0,
+        ladder_count: owned.ladder_count ?? 0,
+        plank_count: owned.plank_count ?? 0,
+        beacon_count: owned.beacon_count ?? 0,
         bonus: 0,
         trip_count: 1,
       },
@@ -250,6 +255,7 @@ describe("POST /api/mine/bank", () => {
     await expect(res.json()).resolves.toMatchObject({
       credited: { credits: 1 },
       balance: 12,
+      consumables: stock({ rope: 1 }),
       tripIndex: 1,
     });
     expect(sql).toHaveBeenCalledTimes(3);

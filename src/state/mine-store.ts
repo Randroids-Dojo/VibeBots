@@ -65,6 +65,27 @@ function saveLocalTrip(trip: SavedTrip): void {
   }
 }
 
+function consumablesFromResponse(value: unknown): MineConsumables | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<Record<keyof MineConsumables, unknown>>;
+  if (
+    typeof candidate.dynamite !== "number" ||
+    typeof candidate.rope !== "number" ||
+    typeof candidate.ladder !== "number" ||
+    typeof candidate.plank !== "number" ||
+    typeof candidate.beacon !== "number"
+  ) {
+    return null;
+  }
+  return {
+    dynamite: candidate.dynamite,
+    rope: candidate.rope,
+    ladder: candidate.ladder,
+    plank: candidate.plank,
+    beacon: candidate.beacon,
+  };
+}
+
 /**
  * Mining session state. The MineState object is mutated in place by the
  * pure sim logic; `tick` bumps on every action so React subscribers
@@ -332,13 +353,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         }
         const body = await res.json();
         // The world persists (REQ-026): the next trip resumes the SAME
-        // carved mine. Only the trip state is fresh: leftover purchased
-        // consumables plus anything bought at the depot since, on the
-        // currently owned gear.
-        const remaining: MineConsumables = addConsumables(
-          carryoverConsumables(get().mine),
-          get().bought,
-        );
+        // carved mine. Server-owned stock wins after cash-out so stale
+        // local support snapshots cannot leak into the next trip.
+        const remaining: MineConsumables =
+          consumablesFromResponse(body.consumables) ??
+          addConsumables(carryoverConsumables(get().mine), get().bought);
         const worldDiff = exportDiff(get().mine);
         const nextMine = createMine(
           currentSeed,

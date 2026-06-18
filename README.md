@@ -47,6 +47,19 @@ log-based alerts on these events:
 - `mine.cash_out.legacy_support_reconciled`
 - `mine.cash_out.cash_out_failed`
 
+For a known affected long-running player whose client support snapshot drifted,
+repair stored support stock explicitly instead of adding runtime replay
+exceptions:
+
+```sh
+pnpm ops:repair-support -- --player-hash <log-player-hash> --ladder <count> --plank <count>
+pnpm ops:repair-support -- --player-hash <log-player-hash> --ladder <count> --plank <count> --apply
+```
+
+The command dry-runs by default and only raises `ladder_count` and
+`plank_count`. It never changes vibes, resources, gear, paid consumables, mine
+worlds, or trip counters.
+
 ## Project docs
 
 - `AGENTS.md`: rules for all agentic tools working in this repo

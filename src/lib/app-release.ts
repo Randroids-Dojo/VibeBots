@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-17-0.1.20-anywhere-elevator";
+const RELEASE_NOTICE_ID = "2026-06-17-0.1.21-support-stock-repair";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.21",
+      date: "2026-06-17",
+      title: "Support stock repair",
+      intro:
+        "Affected long-running accounts can have support stock corrected without adding hidden cash-out rules.",
+      changes: [
+        {
+          build,
+          text: "Successful cash-out now returns authoritative consumable counts so the browser stops carrying stale ladder or plank stock into the next trip.",
+        },
+        {
+          build,
+          text: "A dry-run-first repair command can raise ladder and plank stock for a known affected player without touching vibes, resources, paid consumables, gear, or trip state.",
+        },
+        {
+          build,
+          text: "Cash-out replay stays simple: server-owned stock is still authoritative, and dynamite, rope, and beacon overclaims still fail before replay.",
+        },
+      ],
+    },
     {
       version: "0.1.20",
       date: "2026-06-17",

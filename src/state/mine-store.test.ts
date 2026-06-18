@@ -3,6 +3,7 @@ import {
   createMine,
   DEFAULT_GEAR,
   type MineAction,
+  type MineConsumables,
   NO_CONSUMABLES,
 } from "@/sim/mine";
 import { useMineStore } from "./mine-store";
@@ -14,6 +15,11 @@ const jsonResponse = (body: unknown, status = 200) =>
     status,
     headers: { "content-type": "application/json" },
   });
+
+const stock = (overrides: Partial<MineConsumables> = {}): MineConsumables => ({
+  ...NO_CONSUMABLES,
+  ...overrides,
+});
 
 describe("mine store upgrade flow", () => {
   beforeEach(() => {
@@ -53,6 +59,7 @@ describe("mine store upgrade flow", () => {
           credited: { credits: 45, parts: [], milestoneBonus: 0 },
           balance: 55,
           tripIndex: 3,
+          consumables: stock({ ladder: 2, plank: 1 }),
         }),
       )
       .mockResolvedValueOnce(
@@ -72,11 +79,15 @@ describe("mine store upgrade flow", () => {
     expect(store().mine.gear.lantern).toBe(2);
     expect(store().balance).toBe(5);
     expect(store().tripIndex).toBe(3);
+    expect(store().consumables).toEqual(stock({ ladder: 2, plank: 1 }));
     expect(store().shopNote).toBe("lantern is now level 2");
 
     const lastSaved = vi.mocked(localStorage.setItem).mock.calls.at(-1);
     expect(lastSaved).toBeTruthy();
     expect(JSON.parse(lastSaved?.[1] ?? "{}").gear.lantern).toBe(2);
+    expect(JSON.parse(lastSaved?.[1] ?? "{}").consumables).toEqual(
+      stock({ ladder: 2, plank: 1 }),
+    );
   });
 
   it("spends and returns a surface-only trip to the base", async () => {

@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.21" data-date="2026-06-17">
+    <h2>0.1.21</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.21</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>24</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
+      <dt>Highlights</dt><dd>Known affected long-running players can now be repaired with an explicit ladder/plank stock update instead of a hidden runtime replay exception.</dd>
+      <dt>Rules</dt><dd>Cash-out replay stays simple and server-owned stock remains authoritative. Successful cash-out responses now return authoritative consumable counts so the browser clears stale ladder or plank stock before the next trip.</dd>
+      <dt>Security</dt><dd>Dynamite, rope, and beacon overclaims still hard-fail before replay. The repair command only raises <code>ladder_count</code> and <code>plank_count</code> for a known player hash or id, and never touches vibes, resources, gear, paid consumables, mine worlds, or trip counters.</dd>
+      <dt>Operations</dt><dd>Added <code>pnpm ops:repair-support</code>, which dry-runs by default and requires explicit target ladder and plank counts plus <code>--apply</code> before updating the database.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm install</code>, <code>pnpm exec biome check --write</code> on touched source, release, smoke, and ops files, <code>node --check scripts/repair-mine-support-stock.mjs</code>, <code>pnpm ops:repair-support -- --help</code>, <code>pnpm exec vitest run src/app/api/mine/bank/route.test.ts src/state/mine-store.test.ts src/server/player.test.ts src/server/db.test.ts src/server/monitoring.test.ts</code> (17 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm test</code> (158 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and <code>git diff --check</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.20" data-date="2026-06-17">
     <h2>0.1.20</h2>
     <dl>

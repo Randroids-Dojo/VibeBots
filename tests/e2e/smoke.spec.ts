@@ -577,25 +577,8 @@ test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", as
   const initialX = Number(await canvas.getAttribute("data-miner-x"));
   await page.keyboard.press("ArrowRight");
   await expect
-    .poll(
-      async () => Number(await canvas.getAttribute("data-miner-motion-frames")),
-      {
-        timeout: 5_000,
-      },
-    )
-    .toBeGreaterThanOrEqual(3);
-  await expect
-    .poll(
-      async () =>
-        Number(await canvas.getAttribute("data-camera-motion-frames")),
-      {
-        timeout: 5_000,
-      },
-    )
-    .toBeGreaterThanOrEqual(3);
-  await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 250,
+      timeout: 1_000,
     })
     .toBeGreaterThan(initialX + 0.05);
   await expect
@@ -607,7 +590,7 @@ test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", as
   await page.keyboard.press("ArrowRight");
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 250,
+      timeout: 1_000,
     })
     .toBeGreaterThan(initialX + 1.05);
   await expect

@@ -232,6 +232,23 @@ VibeReview (skill `randroid:vibereview`) is the qualitative-gate evidence pipeli
 
 ---
 
+## RULE 13: Game tips are versioned copy
+
+The mine surface tips in `src/components/mine-panel.tsx` are player-facing release copy, not throwaway helper text.
+
+For every package version bump or app release note update:
+
+- Review the full tip rotation.
+- Remove tips that are stale, misleading, redundant, or too narrow for the current build.
+- Update any tip affected by the release, especially mechanics, economy, controls, upgrades, hazards, shops, and recovery rules.
+- Add a concise new tip when the release changes a player-facing mine rule that players may need to remember.
+- Keep tips one-line and action-oriented. Do not turn them into tutorials or patch notes.
+- Record the tip review in the slice's progress-log entry, even when no tip text changed.
+
+If a version bump does not touch mining, still do the review and record that tips were checked with no changes needed.
+
+---
+
 ## Quick pre-commit checklist
 
 1. No em-dashes. Run `grep -rnP '[\x{2014}\x{2013}]' .` (checks for U+2014 em-dash and U+2013 en-dash). Must return nothing.

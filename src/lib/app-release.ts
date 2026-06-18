@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.35-cashout-diagnostics";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.36-mine-surface-tips";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.36",
+      date: "2026-06-18",
+      title: "Mine surface tips",
+      intro:
+        "The mine surface now shows varied one-line gameplay tips instead of repeating the same ladder reminder.",
+      changes: [
+        {
+          build,
+          text: "The surface HUD now picks from a small gameplay-tip set when the mine panel opens.",
+        },
+        {
+          build,
+          text: "Tips cover partial ore reserves, ladder recovery, dynamite harvesting, falling-rock timing, Buyer appraisal, and upgrade timing.",
+        },
+        {
+          build,
+          text: "The old ladder reminder remains in the rotation, so zero-ladder runs still point at Recall, Abandon, and the Supply Depot.",
+        },
+      ],
+    },
     {
       version: "0.1.35",
       date: "2026-06-18",

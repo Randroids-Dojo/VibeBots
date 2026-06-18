@@ -77,6 +77,13 @@
     <li>For in-world mine labels, prefer mesh markers, icons, controlled sprite atlases, or DOM overlays anchored outside the canvas. If exact in-canvas text is unavoidable, add a mobile or narrow-viewport smoke test that samples canvas pixels for white-card artifacts.</li>
     <li>When debugging a white square that follows the player, inspect in-scene text, sprite, and texture atlas paths before changing lights or materials.</li>
   </ul>
+  <p>Versioned game-tip hygiene:</p>
+  <ul>
+    <li>Every package version bump or app release-note update must include a review of the mine surface tip rotation in <code>src/components/mine-panel.tsx</code>.</li>
+    <li>Update, add, or remove tips when the release changes player-facing mine mechanics, economy, controls, upgrades, hazards, shops, or recovery rules.</li>
+    <li>Keep tips short, actionable, and current. They are not patch notes, tutorials, or a dumping ground for every feature.</li>
+    <li>Record the tip review in the progress-log verification or assumptions for the slice, including when no tip changes were needed.</li>
+  </ul>
   <p>Minimum for dependency-upgrade slices (<code>chore(deps): bump &lt;dep&gt; from &lt;from&gt; to &lt;to&gt;</code>):</p>
   <ul>
     <li>All of the above for code changes.</li>

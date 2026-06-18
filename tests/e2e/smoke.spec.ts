@@ -558,15 +558,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("structured traces");
+  await expect(dialog).toContainText("varied one-line gameplay tips");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "request-shape failures",
-  );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "hashed player context",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText("Successful sells");
+  await expect(dialog.locator("li").first()).toContainText("gameplay-tip set");
+  await expect(dialog.locator("li").nth(1)).toContainText("ladder recovery");
+  await expect(dialog.locator("li").nth(2)).toContainText("zero-ladder runs");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -608,6 +604,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.36", "Mine surface tips"],
     ["0.1.35", "Mine cash-out diagnostics"],
     ["0.1.34", "Support selection outlines"],
     ["0.1.33", "Save slots"],
@@ -658,6 +655,19 @@ test("mine shows the latest release note once to a fresh browser", async ({
   }
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
+});
+
+test("mine shows one of the surface game tips", async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0.58;
+  });
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+
+  const status = page.getByLabel("Mine status");
+  await expect(status).toContainText(
+    "Tip: the Buyer shows haul value before auto-sell at the surface.",
+  );
 });
 
 test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022)", async ({

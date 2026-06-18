@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-surface-tips" data-date="2026-06-18">
+    <h3>Mine Surface Tips</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-tip-rotation</code>, rebased onto current <code>origin/main</code> after the support selection outline and mine cash-out diagnostics slices landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed mine HUD polish and process cleanup. The surface status line now picks one gameplay tip from a short rotation on panel mount instead of only showing the old ladder-depot reminder. The rotation includes tips for partial ore reserves, ladder recovery, dynamite harvesting, falling rocks, Buyer appraisal, upgrade timing, and zero-ladder recovery. Added <code>AGENTS.md</code>, working-agreement, and mining-GDD guidance requiring every package version bump to review, update, and clean up tips. Reviewed the rotation against the support selection outline and cash-out diagnostics releases; no extra tip was needed for those non-rule changes. Package version moved to <code>0.1.36</code>; <code>MINE_VERSION</code> stays at <code>29</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. After rebasing over the support selection outline and mine cash-out diagnostics slices, ran <code>pnpm exec biome check --write</code> on touched source, test, and package files; conflict-marker search; <code>pnpm typecheck</code>; <code>pnpm test</code> (196 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check --cached</code>; <code>git diff --check</code>; <code>pnpm build</code>; and <code>PLAYWRIGHT_BASE_URL=http://localhost:3090 pnpm exec playwright test tests/e2e/smoke.spec.ts -g "mine shows the latest release note once|mine shows one of the surface game tips"</code> against a clean production server on port 3090 (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: tips are display-only, selected once when the mine panel mounts, and do not rotate while the player is trying to read the one-line status chip.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated static and in-game release notes, documented the tip-review rule, and appended Build log entries to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-cashout-diagnostics" data-date="2026-06-18">
     <h3>Mine Cash-Out Diagnostics</h3>
     <dl>

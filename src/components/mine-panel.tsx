@@ -90,6 +90,15 @@ const DYNAMITE_TIER_BLURBS: Record<DynamiteTier, string> = {
   3: "3 by 3 square around the miner",
   4: "clears blastable cells inside lamp range",
 };
+const MINE_SURFACE_TIPS = [
+  "Tip: rich ore pays on every hit, but the deposit clears only when its reserve runs dry.",
+  "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
+  "Tip: dynamite chips rich ore reserves and still scoops what it breaks into your hold.",
+  "Tip: falling rocks wait two moves after their support is mined.",
+  "Tip: the Buyer shows haul value before auto-sell at the surface.",
+  "Tip: upgrades apply to the next clean trip after your current haul sells.",
+  "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
+] as const;
 const BASE_BUILDING_COLS = [
   ...STALLS.map((stall) => stall.col),
   ...DESTINATIONS.map((destination) => destination.col),
@@ -136,6 +145,13 @@ function baseReturnTarget(
 
 function elevatorAutoDelayMs(gear: MineGear): number {
   return Math.max(70, 240 - ((gear.elevatorSpeed ?? 1) - 1) * 20);
+}
+
+function randomMineSurfaceTip(): string {
+  return (
+    MINE_SURFACE_TIPS[Math.floor(Math.random() * MINE_SURFACE_TIPS.length)] ??
+    MINE_SURFACE_TIPS[0]
+  );
 }
 
 const chipStyle: React.CSSProperties = {
@@ -1957,6 +1973,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [baseReturnConfirm, setBaseReturnConfirm] = useState(false);
   const [baseReturnPending, setBaseReturnPending] = useState(false);
   const [teleportBurstKey, setTeleportBurstKey] = useState(0);
+  const [mineSurfaceTip, setMineSurfaceTip] = useState<string>(
+    MINE_SURFACE_TIPS[0],
+  );
   // The column whose stall sheet is open. Standing on a stall no longer
   // auto-opens it: a prompt button appears and tapping it sets this.
   // Stepping off clears it, so walking by never pops the menu.
@@ -1971,6 +1990,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const previousMinerRowRef = useRef(mine.miner.row);
   void tick;
+
+  useEffect(() => {
+    setMineSurfaceTip(randomMineSurfaceTip());
+  }, []);
 
   const persistCameraZoom = useCallback((zoom: number) => {
     try {
@@ -2393,9 +2416,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                                 ? cashOut.state === "pending"
                                   ? "Selling haul..."
                                   : undefined
-                                : miner.row === 0 &&
-                                    mine.consumables.ladder === 0
-                                  ? "Out of ladders? Buy more at the depot, or a cave-in refills you to 8."
+                                : miner.row === 0
+                                  ? mineSurfaceTip
                                   : undefined;
   const cashNote =
     cashOut.state === "done"

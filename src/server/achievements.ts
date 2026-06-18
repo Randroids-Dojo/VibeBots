@@ -1,0 +1,168 @@
+import {
+  type AchievementSnapshot,
+  type AchievementStats,
+  achievementIdsUnlockedBy,
+  buildAchievementViews,
+  mergeAchievementStats,
+  normalizeAchievementStats,
+  type PlayerAchievementView,
+} from "@/lib/achievements";
+import type { db } from "./db";
+
+type Sql = Awaited<ReturnType<typeof db>>;
+
+interface PlayerAchievementRow {
+  achievement_id: string;
+  unlocked_at: string | Date;
+}
+
+interface PlayerAchievementStatsRow {
+  stats: unknown;
+}
+
+interface AchievementProfileRow {
+  deepest_depth: number;
+  emeralds: number;
+  pickaxe_level: number;
+  lamp_level: number;
+  cargo_level: number;
+  lantern_level: number;
+  blast_level: number;
+  warpcoil_level: number;
+  elevator_depth: number;
+  elevator_speed_level: number;
+  parts_owned: number;
+}
+
+function statsFromUnknown(value: unknown): AchievementStats {
+  if (!value || typeof value !== "object") return normalizeAchievementStats({});
+  const partial = value as Partial<Record<keyof AchievementStats, unknown>>;
+  const numeric: Partial<AchievementStats> = {};
+  for (const key of Object.keys(normalizeAchievementStats({})) as Array<
+    keyof AchievementStats
+  >) {
+    const valueForKey = partial[key];
+    if (typeof valueForKey === "number") numeric[key] = valueForKey;
+  }
+  return normalizeAchievementStats(numeric);
+}
+
+async function readAchievementStats(
+  sql: Sql,
+  playerId: string,
+): Promise<AchievementStats> {
+  const rows = (await sql`
+    SELECT stats FROM player_achievement_stats
+    WHERE player_id = ${playerId}`) as Array<PlayerAchievementStatsRow>;
+  return statsFromUnknown(rows[0]?.stats);
+}
+
+async function writeAchievementStats(
+  sql: Sql,
+  playerId: string,
+  stats: AchievementStats,
+): Promise<void> {
+  await sql`
+    INSERT INTO player_achievement_stats (player_id, stats, updated_at)
+    VALUES (${playerId}, ${JSON.stringify(stats)}::jsonb, now())
+    ON CONFLICT (player_id)
+    DO UPDATE SET stats = EXCLUDED.stats, updated_at = now()`;
+}
+
+async function achievementSnapshot(
+  sql: Sql,
+  playerId: string,
+  stats: AchievementStats,
+): Promise<AchievementSnapshot> {
+  const rows = (await sql`
+    SELECT p.deepest_depth,
+           p.emeralds,
+           p.pickaxe_level,
+           p.lamp_level,
+           p.cargo_level,
+           p.lantern_level,
+           p.blast_level,
+           p.warpcoil_level,
+           p.elevator_depth,
+           p.elevator_speed_level,
+           COALESCE(SUM(pp.count), 0)::int AS parts_owned
+    FROM players p
+    LEFT JOIN player_parts pp ON pp.player_id = p.id
+    WHERE p.id = ${playerId}
+    GROUP BY p.id`) as Array<AchievementProfileRow>;
+  const row = rows[0];
+  const retroStats = normalizeAchievementStats({
+    ...stats,
+    sales: Math.max(
+      stats.sales,
+      row && (row.emeralds > 0 || row.parts_owned > 0) ? 1 : 0,
+    ),
+    partsBanked: Math.max(stats.partsBanked, row?.parts_owned ?? 0),
+  });
+  return {
+    deepestDepth: row?.deepest_depth ?? 0,
+    pickaxeLevel: row?.pickaxe_level ?? 1,
+    batteryLevel: row?.lamp_level ?? 1,
+    cargoLevel: row?.cargo_level ?? 1,
+    lanternLevel: row?.lantern_level ?? 1,
+    blastLevel: row?.blast_level ?? 1,
+    warpcoilLevel: row?.warpcoil_level ?? 1,
+    elevatorDepth: row?.elevator_depth ?? 0,
+    elevatorSpeedLevel: row?.elevator_speed_level ?? 1,
+    stats: retroStats,
+  };
+}
+
+async function unlockedMap(
+  sql: Sql,
+  playerId: string,
+): Promise<Map<string, string>> {
+  const rows = (await sql`
+    SELECT achievement_id, unlocked_at
+    FROM player_achievements
+    WHERE player_id = ${playerId}`) as Array<PlayerAchievementRow>;
+  return new Map(
+    rows.map((row) => [
+      row.achievement_id,
+      row.unlocked_at instanceof Date
+        ? row.unlocked_at.toISOString()
+        : String(row.unlocked_at),
+    ]),
+  );
+}
+
+async function unlockAchievements(
+  sql: Sql,
+  playerId: string,
+  ids: readonly string[],
+): Promise<void> {
+  for (const id of ids) {
+    await sql`
+      INSERT INTO player_achievements (player_id, achievement_id, metadata)
+      VALUES (${playerId}, ${id}, '{}'::jsonb)
+      ON CONFLICT (player_id, achievement_id) DO NOTHING`;
+  }
+}
+
+export async function refreshPlayerAchievements(
+  sql: Sql,
+  playerId: string,
+): Promise<PlayerAchievementView[]> {
+  const stats = await readAchievementStats(sql, playerId);
+  const snapshot = await achievementSnapshot(sql, playerId, stats);
+  await unlockAchievements(sql, playerId, achievementIdsUnlockedBy(snapshot));
+  return buildAchievementViews(snapshot, await unlockedMap(sql, playerId));
+}
+
+export async function applyAchievementProgress(
+  sql: Sql,
+  playerId: string,
+  patch: Partial<AchievementStats>,
+): Promise<void> {
+  const stats = mergeAchievementStats(
+    await readAchievementStats(sql, playerId),
+    patch,
+  );
+  await writeAchievementStats(sql, playerId, stats);
+  await refreshPlayerAchievements(sql, playerId);
+}

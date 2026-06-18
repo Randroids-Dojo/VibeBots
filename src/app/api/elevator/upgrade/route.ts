@@ -1,3 +1,4 @@
+import { refreshPlayerAchievements } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
 import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
 import {
@@ -62,6 +63,11 @@ export async function POST(): Promise<Response> {
       SET diff = ${JSON.stringify(refund.diff)}::jsonb,
           updated_at = now()
       WHERE player_id = ${playerId}`;
+  }
+  try {
+    await refreshPlayerAchievements(sql, playerId);
+  } catch {
+    // Stamps are cosmetic and must never block a successful rail buy.
   }
   return Response.json({
     elevator: updated[0].elevator_depth,

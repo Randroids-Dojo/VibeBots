@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { applyAchievementProgress } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
 import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
 import { CONSUMABLE_PRICES } from "@/sim/mine";
@@ -70,6 +71,11 @@ export async function POST(request: Request): Promise<Response> {
   }>;
   if (rows.length === 0) {
     return Response.json({ error: "not enough vibes" }, { status: 409 });
+  }
+  try {
+    await applyAchievementProgress(sql, playerId, { depotPurchases: quantity });
+  } catch {
+    // Stamps are cosmetic and must never block a successful depot purchase.
   }
   return Response.json({
     item,

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mining-stamp-book" data-date="2026-06-18">
+    <h3>Mining Stamp Book</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mining-stamp-book</code>, rebased onto <code>origin/main</code> after progression pacing landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed economy and achievement slice. Depth milestones no longer add bonus vibes during cash-out, so the wallet is driven by hauled loot and support salvage. A cosmetic Stamp Book now lives in the pause menu with visible locked stamps, progress bars, and mining-first categories for Depth, Haul, Tools, and Survival. Existing player records backfill stamps where durable data already proves progress, including deepest depth, gear levels, elevator rail depth, wallet history, and owned parts. Package version moved to <code>0.1.28</code>; <code>MINE_VERSION</code> stays at <code>27</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. After rebasing onto <code>origin/main</code>, ran <code>pnpm exec biome check --write</code> on touched source, test, package, and coverage files; <code>pnpm exec vitest run src/lib/achievements.test.ts src/app/api/achievements/route.test.ts src/app/api/mine/bank/route.test.ts src/sim/mine.test.ts src/components/mine-pacing.test.ts</code> (94 passed); <code>pnpm typecheck</code>; <code>pnpm test</code> (176 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check</code>; <code>pnpm build</code>; and full Playwright smoke against a clean production server on port 3079 (29 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: achievements are cosmetic only for this slice. Action counters start from recorded play after the system lands unless existing durable fields prove them, and existing depth-bonus vibes are not clawed back.</dd>
+      <dt>GDD coverage</dt><dd>Updated <code>REQ-012</code>, <code>REQ-030</code>, and <code>REQ-031</code> language in <code>docs/GDD_COVERAGE.json</code>, added <code>REQ-032</code> for the Stamp Book, updated <code>docs/gdd/06-mining.html</code>, and appended a Build log entry.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-progression-pacing" data-date="2026-06-18">
     <h3>Mine Progression Pacing</h3>
     <dl>

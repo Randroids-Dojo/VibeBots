@@ -457,11 +457,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("start slower");
+  await expect(dialog).toContainText("Stamp Book");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("calmer cadence");
-  await expect(dialog.locator("li").nth(1)).toContainText("Mining progression");
-  await expect(dialog.locator("li").nth(2)).toContainText("step animation");
+  await expect(dialog.locator("li").first()).toContainText("Depth bonuses");
+  await expect(dialog.locator("li").nth(1)).toContainText("pause menu");
+  await expect(dialog.locator("li").nth(2)).toContainText("Existing records");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -477,11 +477,22 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await page.getByRole("button", { name: "Open settings" }).click();
   const settings = page.getByRole("region", { name: "Settings" });
   await expect(settings).toBeVisible();
+  await settings.getByRole("button", { name: "Stamp Book" }).click();
+  const stampBook = page.getByRole("dialog", { name: "Stamp Book" });
+  await expect(stampBook).toBeVisible();
+  await expect(stampBook).toContainText("First Chip");
+  await expect(stampBook).toContainText("Clay Boots");
+  await stampBook.getByRole("button", { name: "Close Stamp Book" }).click();
+  await expect(stampBook).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await expect(settings).toBeVisible();
   await settings.getByRole("button", { name: "Release notes" }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.28", "Mining stamp book"],
     ["0.1.27", "Mine progression pacing"],
     ["0.1.26", "Mine falling rocks"],
     ["0.1.25", "Support salvage"],

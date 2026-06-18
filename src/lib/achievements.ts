@@ -1,0 +1,442 @@
+export type AchievementCategory = "depth" | "haul" | "tools" | "survival";
+
+export interface AchievementDefinition {
+  id: string;
+  category: AchievementCategory;
+  title: string;
+  description: string;
+  stamp: string;
+  metric: AchievementMetric;
+  target: number;
+}
+
+export type AchievementMetric =
+  | "deepestDepth"
+  | "sales"
+  | "maxTripVibes"
+  | "partsBanked"
+  | "depotPurchases"
+  | "pickaxeLevel"
+  | "batteryLevel"
+  | "cargoLevel"
+  | "lanternLevel"
+  | "blastLevel"
+  | "warpcoilLevel"
+  | "elevatorDepth"
+  | "elevatorSpeedLevel"
+  | "laddersPlaced"
+  | "planksPlaced"
+  | "recallsWithLoot"
+  | "recoveries"
+  | "beaconsPlanted"
+  | "elevatorRides";
+
+export interface AchievementStats {
+  sales: number;
+  maxTripVibes: number;
+  partsBanked: number;
+  depotPurchases: number;
+  laddersPlaced: number;
+  planksPlaced: number;
+  recallsWithLoot: number;
+  recoveries: number;
+  beaconsPlanted: number;
+  elevatorRides: number;
+}
+
+export interface AchievementSnapshot {
+  deepestDepth: number;
+  pickaxeLevel: number;
+  batteryLevel: number;
+  cargoLevel: number;
+  lanternLevel: number;
+  blastLevel: number;
+  warpcoilLevel: number;
+  elevatorDepth: number;
+  elevatorSpeedLevel: number;
+  stats: AchievementStats;
+}
+
+export interface AchievementProgress {
+  current: number;
+  target: number;
+  label: string;
+}
+
+export interface PlayerAchievementView extends AchievementDefinition {
+  unlocked: boolean;
+  unlockedAt: string | null;
+  progress: AchievementProgress;
+}
+
+export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
+  sales: 0,
+  maxTripVibes: 0,
+  partsBanked: 0,
+  depotPurchases: 0,
+  laddersPlaced: 0,
+  planksPlaced: 0,
+  recallsWithLoot: 0,
+  recoveries: 0,
+  beaconsPlanted: 0,
+  elevatorRides: 0,
+};
+
+export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
+  {
+    id: "depth-first-chip",
+    category: "depth",
+    title: "First Chip",
+    description: "Reach depth 1.",
+    stamp: "D1",
+    metric: "deepestDepth",
+    target: 1,
+  },
+  {
+    id: "depth-clay-boots",
+    category: "depth",
+    title: "Clay Boots",
+    description: "Reach Clay Beds at depth 12.",
+    stamp: "D12",
+    metric: "deepestDepth",
+    target: 12,
+  },
+  {
+    id: "depth-granite-nerves",
+    category: "depth",
+    title: "Granite Nerves",
+    description: "Reach Old Granite at depth 24.",
+    stamp: "D24",
+    metric: "deepestDepth",
+    target: 24,
+  },
+  {
+    id: "depth-glow-guide",
+    category: "depth",
+    title: "Glow Guide",
+    description: "Reach Glow Caverns at depth 36.",
+    stamp: "D36",
+    metric: "deepestDepth",
+    target: 36,
+  },
+  {
+    id: "depth-magma-hello",
+    category: "depth",
+    title: "Magma Hello",
+    description: "Reach Magma Verge at depth 48.",
+    stamp: "D48",
+    metric: "deepestDepth",
+    target: 48,
+  },
+  {
+    id: "depth-ashfall-claim",
+    category: "depth",
+    title: "Ashfall Claim",
+    description: "Reach Ashfall Galleries at depth 64.",
+    stamp: "D64",
+    metric: "deepestDepth",
+    target: 64,
+  },
+  {
+    id: "depth-black-seam",
+    category: "depth",
+    title: "Black Seam",
+    description: "Reach The Black Seam at depth 84.",
+    stamp: "D84",
+    metric: "deepestDepth",
+    target: 84,
+  },
+  {
+    id: "depth-echo-vault",
+    category: "depth",
+    title: "Echo Vault Visitor",
+    description: "Reach Echo Vaults at depth 110.",
+    stamp: "D110",
+    metric: "deepestDepth",
+    target: 110,
+  },
+  {
+    id: "depth-core-approach",
+    category: "depth",
+    title: "Core Approach",
+    description: "Reach Core Approach at depth 140.",
+    stamp: "D140",
+    metric: "deepestDepth",
+    target: 140,
+  },
+  {
+    id: "haul-first-sale",
+    category: "haul",
+    title: "First Sale",
+    description: "Sell any banked loot.",
+    stamp: "H1",
+    metric: "sales",
+    target: 1,
+  },
+  {
+    id: "haul-clean-pocket",
+    category: "haul",
+    title: "Clean Pocket",
+    description: "Sell 25 vibes in one trip.",
+    stamp: "H25",
+    metric: "maxTripVibes",
+    target: 25,
+  },
+  {
+    id: "haul-heavy-hold",
+    category: "haul",
+    title: "Heavy Hold",
+    description: "Sell 100 vibes in one trip.",
+    stamp: "H100",
+    metric: "maxTripVibes",
+    target: 100,
+  },
+  {
+    id: "haul-big-haul",
+    category: "haul",
+    title: "Big Haul",
+    description: "Sell 500 vibes in one trip.",
+    stamp: "H500",
+    metric: "maxTripVibes",
+    target: 500,
+  },
+  {
+    id: "haul-cache-cracked",
+    category: "haul",
+    title: "Cache Cracked",
+    description: "Bank one mine part.",
+    stamp: "P1",
+    metric: "partsBanked",
+    target: 1,
+  },
+  {
+    id: "haul-parts-prospector",
+    category: "haul",
+    title: "Parts Prospector",
+    description: "Bank 5 mine parts total.",
+    stamp: "P5",
+    metric: "partsBanked",
+    target: 5,
+  },
+  {
+    id: "tool-depot-regular",
+    category: "tools",
+    title: "Depot Regular",
+    description: "Buy any consumable.",
+    stamp: "T1",
+    metric: "depotPurchases",
+    target: 1,
+  },
+  {
+    id: "tool-better-pick",
+    category: "tools",
+    title: "Better Pick",
+    description: "Own Pickaxe level 2.",
+    stamp: "PK2",
+    metric: "pickaxeLevel",
+    target: 2,
+  },
+  {
+    id: "tool-battery-upgrade",
+    category: "tools",
+    title: "Battery Upgrade",
+    description: "Own Battery Cell level 2.",
+    stamp: "BC2",
+    metric: "batteryLevel",
+    target: 2,
+  },
+  {
+    id: "tool-roomy-hold",
+    category: "tools",
+    title: "Roomy Hold",
+    description: "Own Cargo Hold level 2.",
+    stamp: "CG2",
+    metric: "cargoLevel",
+    target: 2,
+  },
+  {
+    id: "tool-long-beam",
+    category: "tools",
+    title: "Long Beam",
+    description: "Own Lantern level 2.",
+    stamp: "LN2",
+    metric: "lanternLevel",
+    target: 2,
+  },
+  {
+    id: "tool-blast-ring",
+    category: "tools",
+    title: "Blast Ring",
+    description: "Own Blast Charge level 2.",
+    stamp: "BL2",
+    metric: "blastLevel",
+    target: 2,
+  },
+  {
+    id: "tool-warp-ready",
+    category: "tools",
+    title: "Warp Ready",
+    description: "Own Warpcoil level 2.",
+    stamp: "WP2",
+    metric: "warpcoilLevel",
+    target: 2,
+  },
+  {
+    id: "tool-winch-builder",
+    category: "tools",
+    title: "Winch Builder",
+    description: "Buy the first elevator rail segment.",
+    stamp: "EL1",
+    metric: "elevatorDepth",
+    target: 12,
+  },
+  {
+    id: "tool-fast-car",
+    category: "tools",
+    title: "Fast Car",
+    description: "Own Elevator Speed level 2.",
+    stamp: "ES2",
+    metric: "elevatorSpeedLevel",
+    target: 2,
+  },
+  {
+    id: "survival-ladder-home",
+    category: "survival",
+    title: "Ladder Home",
+    description: "Place 10 ladders lifetime.",
+    stamp: "L10",
+    metric: "laddersPlaced",
+    target: 10,
+  },
+  {
+    id: "survival-bridge-builder",
+    category: "survival",
+    title: "Bridge Builder",
+    description: "Place 5 planks lifetime.",
+    stamp: "BR5",
+    metric: "planksPlaced",
+    target: 5,
+  },
+  {
+    id: "survival-rope-save",
+    category: "survival",
+    title: "Rope Save",
+    description: "Recall home with loot.",
+    stamp: "RP",
+    metric: "recallsWithLoot",
+    target: 1,
+  },
+  {
+    id: "survival-close-call",
+    category: "survival",
+    title: "Close Call",
+    description: "Recover from a cave-in or crush.",
+    stamp: "CC",
+    metric: "recoveries",
+    target: 1,
+  },
+  {
+    id: "survival-beacon-planted",
+    category: "survival",
+    title: "Beacon Planted",
+    description: "Plant a beacon.",
+    stamp: "BP",
+    metric: "beaconsPlanted",
+    target: 1,
+  },
+  {
+    id: "survival-ride-rail",
+    category: "survival",
+    title: "Ride the Rail",
+    description: "Ride the elevator from underground.",
+    stamp: "RR",
+    metric: "elevatorRides",
+    target: 1,
+  },
+];
+
+export function normalizeAchievementStats(
+  value: Partial<AchievementStats> | null | undefined,
+): AchievementStats {
+  return { ...DEFAULT_ACHIEVEMENT_STATS, ...(value ?? {}) };
+}
+
+export function mergeAchievementStats(
+  current: AchievementStats,
+  patch: Partial<AchievementStats>,
+): AchievementStats {
+  return {
+    ...current,
+    sales: current.sales + (patch.sales ?? 0),
+    maxTripVibes: Math.max(current.maxTripVibes, patch.maxTripVibes ?? 0),
+    partsBanked: current.partsBanked + (patch.partsBanked ?? 0),
+    depotPurchases: current.depotPurchases + (patch.depotPurchases ?? 0),
+    laddersPlaced: current.laddersPlaced + (patch.laddersPlaced ?? 0),
+    planksPlaced: current.planksPlaced + (patch.planksPlaced ?? 0),
+    recallsWithLoot: current.recallsWithLoot + (patch.recallsWithLoot ?? 0),
+    recoveries: current.recoveries + (patch.recoveries ?? 0),
+    beaconsPlanted: current.beaconsPlanted + (patch.beaconsPlanted ?? 0),
+    elevatorRides: current.elevatorRides + (patch.elevatorRides ?? 0),
+  };
+}
+
+export function achievementMetricValue(
+  snapshot: AchievementSnapshot,
+  metric: AchievementMetric,
+): number {
+  switch (metric) {
+    case "deepestDepth":
+      return snapshot.deepestDepth;
+    case "pickaxeLevel":
+      return snapshot.pickaxeLevel;
+    case "batteryLevel":
+      return snapshot.batteryLevel;
+    case "cargoLevel":
+      return snapshot.cargoLevel;
+    case "lanternLevel":
+      return snapshot.lanternLevel;
+    case "blastLevel":
+      return snapshot.blastLevel;
+    case "warpcoilLevel":
+      return snapshot.warpcoilLevel;
+    case "elevatorDepth":
+      return snapshot.elevatorDepth;
+    case "elevatorSpeedLevel":
+      return snapshot.elevatorSpeedLevel;
+    default:
+      return snapshot.stats[metric];
+  }
+}
+
+export function achievementProgress(
+  definition: AchievementDefinition,
+  snapshot: AchievementSnapshot,
+): AchievementProgress {
+  const current = achievementMetricValue(snapshot, definition.metric);
+  return {
+    current,
+    target: definition.target,
+    label: `${Math.min(current, definition.target)}/${definition.target}`,
+  };
+}
+
+export function achievementIdsUnlockedBy(
+  snapshot: AchievementSnapshot,
+): string[] {
+  return ACHIEVEMENT_DEFINITIONS.filter(
+    (definition) =>
+      achievementMetricValue(snapshot, definition.metric) >= definition.target,
+  ).map((definition) => definition.id);
+}
+
+export function buildAchievementViews(
+  snapshot: AchievementSnapshot,
+  unlocked: ReadonlyMap<string, string>,
+): PlayerAchievementView[] {
+  return ACHIEVEMENT_DEFINITIONS.map((definition) => ({
+    ...definition,
+    unlocked: unlocked.has(definition.id),
+    unlockedAt: unlocked.get(definition.id) ?? null,
+    progress: achievementProgress(definition, snapshot),
+  }));
+}

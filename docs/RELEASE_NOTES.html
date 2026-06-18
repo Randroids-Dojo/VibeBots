@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.28" data-date="2026-06-18">
+    <h2>0.1.28</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.28</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>27</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Depth progress now fills a cosmetic mining Stamp Book instead of paying extra vibes at cash-out. The economy is cleaner because wallet growth comes from hauled loot and support salvage, not surprise milestone payouts.</dd>
+      <dt>Interface</dt><dd>The pause menu now opens a Stamp Book that shows all mining stamps, including locked stamps and progress. The first stamp set covers Depth, Haul, Tools, and Survival.</dd>
+      <dt>Rules</dt><dd>Stamps are cosmetic only and do not grant vibes, parts, consumables, gear, or combat power. Existing records can fill stamps where the server already has durable proof, such as deepest depth, gear levels, elevator rail depth, wallet history, and owned parts. Old vibes already earned are not clawed back.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, test, package, and coverage files; focused Vitest for achievements, achievement API, mine bank, mine sim, and mine pacing (94 passed); <code>pnpm typecheck</code>; <code>pnpm test</code> (176 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check</code>; <code>pnpm build</code>; and full Playwright smoke against a clean production server on port 3079 (29 passed, 2 storage-gated skips).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.27" data-date="2026-06-18">
     <h2>0.1.27</h2>
     <dl>

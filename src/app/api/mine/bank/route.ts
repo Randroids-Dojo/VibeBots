@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { applyAchievementProgress } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
 import { logMineCashOutEvent } from "@/server/monitoring";
 import {
@@ -20,7 +21,6 @@ import {
   normalizeGear,
   PLANK_RECOVERY_FLOOR,
   replayTrip,
-  STRATA,
   type TripResult,
   type WorldDiff,
 } from "@/sim/mine";
@@ -163,13 +163,31 @@ export function chargeableConsumables(trip: TripResult): MineConsumables {
   };
 }
 
+function achievementProgressForTrip(
+  trip: TripResult,
+  actions: readonly MineAction[],
+) {
+  const soldLoot = trip.bankedCredits > 0 || trip.bankedParts.length > 0;
+  return {
+    sales: soldLoot ? 1 : 0,
+    maxTripVibes: trip.bankedCredits,
+    partsBanked: trip.bankedParts.length,
+    laddersPlaced: trip.used.ladder,
+    planksPlaced: trip.used.plank,
+    recallsWithLoot: actions.includes("recall") && soldLoot ? 1 : 0,
+    recoveries: trip.granted.ladder > 0 || trip.granted.plank > 0 ? 1 : 0,
+    beaconsPlanted: trip.used.beacon,
+    elevatorRides: actions.filter(
+      (action) => action === "ride-down" || action === "ride-up",
+    ).length,
+  };
+}
+
 /**
  * Cash out a mining session. The mine is a pure function of (seed,
  * moves), so the server replays the submitted log and credits exactly
- * what an honest client banked, plus first-reach stratum bonuses
- * against the player's persistent deepest-depth record (REQ-012); each
- * seed is creditable once per player (the unique key), so a log cannot
- * be resubmitted.
+ * what an honest client banked. The deepest-depth record still advances
+ * for stamp progress, but it no longer pays bonus vibes.
  */
 export async function POST(request: Request): Promise<Response> {
   if (!storageConfigured()) {
@@ -318,14 +336,10 @@ export async function POST(request: Request): Promise<Response> {
   // Zero-bank trips are legitimate now: carving and laddering are
   // world investments worth checkpointing even with an empty hold.
   // One statement = atomic on the neon HTTP driver (no cross-statement
-  // transactions): consume the seed, compute the first-reach stratum
-  // bonus against the stored record, credit the wallet, advance the
-  // record, and grant the parts together, or not at all. STRATA rides
-  // in as jsonb so the sim table and the SQL can never drift.
+  // transactions): consume the seed, credit the wallet, advance the
+  // depth record, and grant the parts together, or not at all.
   const rows = (await sql`
-    WITH prev AS (
-      SELECT deepest_depth FROM players WHERE id = ${playerId}
-    ), world AS (
+    WITH world AS (
       UPDATE mine_worlds
       SET diff = ${JSON.stringify(trip.diff)}::jsonb,
           trip_count = trip_count + 1,
@@ -333,17 +347,9 @@ export async function POST(request: Request): Promise<Response> {
       WHERE player_id = ${playerId}
         AND trip_count = ${parsed.data.tripIndex}
       RETURNING trip_count
-    ), bonus AS (
-      SELECT COALESCE(SUM((s ->> 'firstReachBonus')::int), 0)::int AS amount
-      FROM prev, jsonb_array_elements(${JSON.stringify(STRATA)}::jsonb) AS s
-      WHERE EXISTS (SELECT 1 FROM world)
-        AND (s ->> 'startRow')::int > prev.deepest_depth
-        AND (s ->> 'startRow')::int <= ${trip.maxDepth}
     ), upd AS (
       UPDATE players
-      SET emeralds = emeralds
-            + ${trip.bankedCredits}
-            + (SELECT amount FROM bonus),
+      SET emeralds = emeralds + ${trip.bankedCredits},
           deepest_depth = GREATEST(deepest_depth, ${trip.maxDepth}),
           dynamite_count = GREATEST(0, dynamite_count - ${chargedConsumables.dynamite}),
           rope_count = GREATEST(0, rope_count - ${chargedConsumables.rope}),
@@ -374,7 +380,6 @@ export async function POST(request: Request): Promise<Response> {
       (SELECT ladder_count FROM upd) AS ladder_count,
       (SELECT plank_count FROM upd) AS plank_count,
       (SELECT beacon_count FROM upd) AS beacon_count,
-      (SELECT amount FROM bonus) AS bonus,
       (SELECT trip_count FROM world) AS trip_count`) as Array<{
     emeralds: number | null;
     deepest_depth: number | null;
@@ -383,7 +388,6 @@ export async function POST(request: Request): Promise<Response> {
     ladder_count: number | null;
     plank_count: number | null;
     beacon_count: number | null;
-    bonus: number | null;
     trip_count: number | null;
   }>;
   if (rows[0]?.emeralds === null || rows[0]?.emeralds === undefined) {
@@ -399,11 +403,29 @@ export async function POST(request: Request): Promise<Response> {
       { status: 409 },
     );
   }
+  try {
+    await applyAchievementProgress(
+      sql,
+      playerId,
+      achievementProgressForTrip(trip, parsed.data.moves as MineAction[]),
+    );
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        source: "vibebots",
+        component: "achievements",
+        event: "achievements.progress_failed",
+        code: "achievement_progress_failed",
+        severity: "warn",
+        detail: error instanceof Error ? error.message : "unknown error",
+      }),
+    );
+  }
   return Response.json({
     credited: {
       credits: trip.bankedCredits,
       parts: trip.bankedParts,
-      milestoneBonus: rows[0].bonus ?? 0,
+      milestoneBonus: 0,
     },
     balance: rows[0].emeralds,
     deepestDepth: rows[0].deepest_depth,

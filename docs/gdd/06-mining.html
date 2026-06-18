@@ -25,9 +25,16 @@
     <h3 id="ores">Ore tiers and strata (REQ-011, REQ-012)</h3>
     <ul>
       <li>Seven ore tiers with roughly exponential credit value and rarity inverse to value: coal 1, copper 3, silver 8, emerald 20, ruby 50, diamond 125, core crystal 320. Each tier lives in a depth band with overlap, so the previous tier stays present one band deeper and the next tier teases at a band's bottom edge. Past its main band, an older tier can still appear as a trace find; deeper ore cells yield larger deterministic stacks so old materials stay useful instead of disappearing.</li>
-      <li>Named strata roughly every 12 rows (Topsoil, Clay Beds, Old Granite, Glow Caverns, Magma Verge, ...), each with its own dirt palette so descent is visible without reading the HUD. Reaching a stratum for the first time in a trip shows a banner; the first time ever, it pays a one-time milestone bonus credited at banking (deterministic from max depth reached).</li>
+      <li>Named strata roughly every 12 rows (Topsoil, Clay Beds, Old Granite, Glow Caverns, Magma Verge, ...), each with its own dirt palette so descent is visible without reading the HUD. Reaching a stratum for the first time in a trip shows a banner, and deepest-depth progress fills cosmetic Stamp Book goals instead of adding bonus vibes.</li>
       <li>The wallet currency is "Vibe-Brainiums" ("vibes" for short, user-directed 2026-06-15); ores convert to vibes when banked (Q-005 resolved). The DB column stays <code>players.emeralds</code> as an implementation detail. Banked part caches still grant robot parts (REQ-007).</li>
       <li>A persistent deepest-depth record lives on the player profile.</li>
+    </ul>
+
+    <h3 id="stamp-book">Stamp Book achievements (REQ-032)</h3>
+    <ul>
+      <li>The pause menu includes a Stamp Book that shows the full mining achievement catalog, including locked stamps and progress. The first collection is mining-first and grouped into Depth, Haul, Tools, and Survival pages.</li>
+      <li>Stamps are cosmetic only. They do not grant vibes, consumables, parts, gear, luck, or combat power. The purpose is long-term pride and clearer goals without changing the mine economy.</li>
+      <li>Existing records backfill progress where the server already has durable data, such as deepest depth, gear levels, elevator rail depth, wallet history, and owned parts. Action counters begin from recorded gameplay after the system lands unless an existing profile field can safely prove them.</li>
     </ul>
 
     <h3 id="hardness">Hardness and pickaxe gates (REQ-013)</h3>
@@ -121,7 +128,7 @@
 
     <h3 id="deep-dangers">Deeper dangers and richer rewards (REQ-030)</h3>
     <ul>
-      <li>Strata continue past the Magma Verge (Ashfall Galleries, the Black Seam, Echo Vaults, Core Approach, ...), each with palettes, first-reach bonuses, and a new pressure: magma pockets (vent like gas but burn triple), rock tier 4+ gating pickaxe 5+, denser hazard rolls.</li>
+      <li>Strata continue past the Magma Verge (Ashfall Galleries, the Black Seam, Echo Vaults, Core Approach, ...), each with palettes, Stamp Book goals, and a new pressure: magma pockets (vent like gas but burn triple), rock tier 4+ gating pickaxe 5+, denser hazard rolls.</li>
       <li>Part caches scale with depth: deeper bands roll from richer part tables, so the bot-building reward track (REQ-007) keeps paying the deeper you push.</li>
     </ul>
 
@@ -133,7 +140,7 @@
 
     <h3 id="not-yet">What this does NOT cover yet</h3>
     <ul>
-      <li>Smelt combos (consecutive matching ores multiply value), surface accrual between trips, collections/museum screen, disguised hazard blocks beyond gas, server-issued seeds (F-011).</li>
+      <li>Smelt combos (consecutive matching ores multiply value), surface accrual between trips, non-mining collections, disguised hazard blocks beyond gas, server-issued seeds (F-011).</li>
       <li>Music and authored audio assets stay outside scope for now; mining action SFX are synthesized in the client.</li>
     </ul>
   </section>
@@ -141,6 +148,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-06-18">Mining Stamp Book landed (user-directed). Depth milestones no longer pay bonus vibes at cash-out, keeping the economy tied to hauled loot and support salvage. The pause menu now opens a cosmetic Stamp Book with visible locked stamps, progress bars, and mining-first categories for Depth, Haul, Tools, and Survival. Existing player records backfill stamps where durable profile data already exists, including deepest depth, gear levels, elevator rail depth, wallet history, and owned parts. Package version <code>0.1.28</code>. Files: <code>src/lib/achievements.ts</code>, <code>src/server/achievements.ts</code>, <code>src/app/api/achievements/route.ts</code>, <code>src/app/api/mine/bank/route.ts</code>, <code>src/components/mine-panel.tsx</code>, <code>src/server/db.ts</code>.</li>
       <li data-date="2026-06-18">Progression-scaled mine pacing landed after the recent movement speed felt too fast. Held keyboard and thumbstick actions now start slower and tighten with core mine gear progression (Pickaxe, Battery Cell, Cargo Hold, Lantern, and Fall Harness), and the miner's visible step duration follows the same curve. This is input and presentation pacing only, so <code>MINE_VERSION</code> stays at <code>27</code> and <code>SIM_VERSION</code> stays at <code>3</code>. Package version <code>0.1.27</code>. Files: <code>src/components/mine-pacing.ts</code>, <code>src/components/mine-pacing.test.ts</code>, <code>src/components/mine-panel.tsx</code>, <code>src/components/mine-canvas.tsx</code>, <code>src/lib/app-release.ts</code>, <code>docs/RELEASE_NOTES.html</code>, <code>tests/e2e/smoke.spec.ts</code>.</li>
       <li data-date="2026-06-18">Falling-rock cleanup landed (user-directed). Teetering rocks and boulders can now be mined before they drop, landed falling boulders can be mined afterward, and fallen rocks use the rock tier for their current row rather than the row where they started falling. <code>MINE_VERSION</code> 26 -&gt; 27. Package version <code>0.1.26</code>. Files: <code>src/sim/mine.ts</code>, <code>src/sim/mine.test.ts</code>, <code>src/lib/app-release.ts</code>, <code>tests/e2e/smoke.spec.ts</code>.</li>
       <li data-date="2026-06-18">Support salvage and collect-mode art landed (user-directed). Only visible ladders and planks in the miner's adjacent 3x3 salvage range now brighten in salvage mode, and selected supports use a simple red outline instead of floating circles or text labels. Salvaging a ladder or plank removes it from the world and adds partial carried vibe value instead of returning the consumable to inventory. Planks can also be broken by repeated down hits with the pickaxe while standing on them, with the final hit adding the same partial salvage value. <code>MINE_VERSION</code> 25 -&gt; 26. Package version <code>0.1.25</code>. Files: <code>src/sim/mine.ts</code>, <code>src/components/mine-canvas.tsx</code>, <code>src/components/mine-panel.tsx</code>, <code>src/components/mine-sfx.ts</code>, <code>src/app/api/mine/bank/route.ts</code>, <code>src/lib/app-release.ts</code>, <code>src/sim/mine.test.ts</code>, <code>tests/e2e/smoke.spec.ts</code>.</li>

@@ -501,29 +501,22 @@ export function oreUnitsAt(row: number): number {
   return Math.min(14, Math.max(1, 1 + Math.floor((row - 1) / 80)));
 }
 
-/**
- * Named strata (REQ-012): every band has its own look, and crossing
- * into a stratum for the first time ever pays a one-time bonus credited
- * at banking. The server computes the bonus against the player's
- * persistent deepest-depth record.
- */
+/** Named strata (REQ-012): every band has its own look and stamp goal. */
 export interface Stratum {
   name: string;
   startRow: number;
-  /** One-time credit bonus the first time a player ever reaches it. */
-  firstReachBonus: number;
 }
 
 export const STRATA: readonly Stratum[] = [
-  { name: "Topsoil", startRow: 0, firstReachBonus: 0 },
-  { name: "Clay Beds", startRow: 12, firstReachBonus: 15 },
-  { name: "Old Granite", startRow: 24, firstReachBonus: 40 },
-  { name: "Glow Caverns", startRow: 36, firstReachBonus: 100 },
-  { name: "Magma Verge", startRow: 48, firstReachBonus: 250 },
-  { name: "Ashfall Galleries", startRow: 64, firstReachBonus: 500 },
-  { name: "The Black Seam", startRow: 84, firstReachBonus: 1000 },
-  { name: "Echo Vaults", startRow: 110, firstReachBonus: 1800 },
-  { name: "Core Approach", startRow: 140, firstReachBonus: 3000 },
+  { name: "Topsoil", startRow: 0 },
+  { name: "Clay Beds", startRow: 12 },
+  { name: "Old Granite", startRow: 24 },
+  { name: "Glow Caverns", startRow: 36 },
+  { name: "Magma Verge", startRow: 48 },
+  { name: "Ashfall Galleries", startRow: 64 },
+  { name: "The Black Seam", startRow: 84 },
+  { name: "Echo Vaults", startRow: 110 },
+  { name: "Core Approach", startRow: 140 },
 ];
 
 export function stratumAt(row: number): Stratum {
@@ -532,23 +525,6 @@ export function stratumAt(row: number): Stratum {
     if (row >= stratum.startRow) current = stratum;
   }
   return current;
-}
-
-/**
- * Total first-reach bonus for strata first crossed when the deepest
- * record moves from prevDeepest to newDeepest. Pure helper shared by
- * the cash-out route (server-side, against the stored record).
- */
-export function strataBonusBetween(
-  prevDeepest: number,
-  newDeepest: number,
-): number {
-  let total = 0;
-  for (const stratum of STRATA) {
-    if (stratum.startRow > prevDeepest && stratum.startRow <= newDeepest)
-      total += stratum.firstReachBonus;
-  }
-  return total;
 }
 
 export type CellKind =
@@ -645,7 +621,7 @@ export interface MinerState {
   carriedParts: string[];
   bankedCredits: number;
   bankedParts: string[];
-  /** Deepest row reached this session (drives milestone bonuses). */
+  /** Deepest row reached this session, used for profile records and stamps. */
   maxDepth: number;
   /** Trips that ended underground with a dead battery (lost cargo). */
   collapses: number;
@@ -2367,7 +2343,7 @@ export const MAX_TRIP_MOVES = 5000;
 export interface TripResult {
   bankedCredits: number;
   bankedParts: string[];
-  /** Deepest row reached (drives the milestone bonus server-side). */
+  /** Deepest row reached for the persisted profile record. */
   maxDepth: number;
   moves: number;
   /** Consumables spent (server decrements at cash-out). */

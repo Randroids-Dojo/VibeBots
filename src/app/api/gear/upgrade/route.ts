@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { refreshPlayerAchievements } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
 import {
   getMinePlayerProfile,
@@ -116,6 +117,11 @@ export async function POST(request: Request): Promise<Response> {
       { error: "not enough vibes (or already upgraded)" },
       { status: 409 },
     );
+  }
+  try {
+    await refreshPlayerAchievements(sql, playerId);
+  } catch {
+    // Stamps are cosmetic and must never block a successful upgrade.
   }
   return Response.json({
     track,

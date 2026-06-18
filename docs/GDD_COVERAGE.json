@@ -198,18 +198,23 @@
     },
     {
       "id": "REQ-012",
-      "requirement": "Named strata with distinct palettes mark descent, pay first-reach milestone bonuses, and a deepest-depth record persists on the profile.",
+      "requirement": "Named strata with distinct palettes mark descent, feed cosmetic Stamp Book goals, and a deepest-depth record persists on the profile.",
       "gddRef": "docs/gdd/06-mining.html#ores",
       "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/app/api/mine/bank/route.ts",
+        "src/app/api/achievements/route.ts",
+        "src/lib/achievements.ts",
+        "src/server/achievements.ts",
         "src/components/mine-panel.tsx",
         "src/components/mine-canvas.tsx",
         "src/server/db.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/lib/achievements.test.ts",
+        "src/app/api/achievements/route.test.ts"
       ],
       "followupRefs": [
         "F-017"
@@ -508,7 +513,7 @@
     },
     {
       "id": "REQ-030",
-      "requirement": "Depth keeps escalating: new strata past the Magma Verge with first-reach bonuses, magma pockets, rock tier 4+, denser hazards, and depth-scaled part-cache tables.",
+      "requirement": "Depth keeps escalating: new strata past the Magma Verge with Stamp Book goals, magma pockets, rock tier 4+, denser hazards, and depth-scaled part-cache tables.",
       "gddRef": "docs/gdd/06-mining.html#deep-dangers",
       "status": "done",
       "implementationRefs": [
@@ -522,7 +527,7 @@
     },
     {
       "id": "REQ-031",
-      "requirement": "No softlock: free per-descent consumable provisions, provision-reachable shallow ore, and Abandon guarantee a broke miner recovers in one shallow trip; the depot and a zero-wallet toast say so.",
+      "requirement": "Recovery floor: starting support gift, Abandon, death-refill ladders and planks, and plain depot copy keep a broke miner able to recover.",
       "gddRef": "docs/gdd/06-mining.html#stuck-floor",
       "status": "done",
       "implementationRefs": [
@@ -531,6 +536,25 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-032",
+      "requirement": "The pause menu exposes a cosmetic mining Stamp Book with visible locked achievements, progress, and retroactive collection where durable player records prove it.",
+      "gddRef": "docs/gdd/06-mining.html#stamp-book",
+      "status": "done",
+      "implementationRefs": [
+        "src/lib/achievements.ts",
+        "src/server/achievements.ts",
+        "src/app/api/achievements/route.ts",
+        "src/components/mine-panel.tsx",
+        "src/server/db.ts"
+      ],
+      "testRefs": [
+        "src/lib/achievements.test.ts",
+        "src/app/api/achievements/route.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
     }

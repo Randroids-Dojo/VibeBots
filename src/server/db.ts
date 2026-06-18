@@ -117,6 +117,20 @@ async function applySchema(sql: Sql): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE (player_id, name)
     )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS player_achievements (
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      achievement_id text NOT NULL,
+      unlocked_at timestamptz NOT NULL DEFAULT now(),
+      metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+      PRIMARY KEY (player_id, achievement_id)
+    )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS player_achievement_stats (
+      player_id uuid PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+      stats jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`;
 }
 
 /** The shared SQL client, with the schema guaranteed applied. */

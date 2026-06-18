@@ -20,6 +20,10 @@ vi.mock("@/server/db", () => ({
   storageConfigured: vi.fn(() => true),
 }));
 
+vi.mock("@/server/achievements", () => ({
+  applyAchievementProgress: vi.fn(async () => {}),
+}));
+
 vi.mock("@/server/player", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/player")>();
   return {

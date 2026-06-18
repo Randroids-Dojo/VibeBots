@@ -59,7 +59,6 @@ import {
   safeFallRows,
   setCell,
   step,
-  strataBonusBetween,
   stratumAt,
   WARP_PAD_COL,
   type WorldDiff,
@@ -195,20 +194,15 @@ describe("mine", () => {
     }
   });
 
-  it("names strata by row and sums first-reach bonuses between records", () => {
+  it("names strata by row without granting bonus vibes", () => {
     expect(stratumAt(0).name).toBe("Topsoil");
     expect(stratumAt(11).name).toBe("Topsoil");
     expect(stratumAt(12).name).toBe("Clay Beds");
     expect(stratumAt(48).name).toBe("Magma Verge");
     expect(stratumAt(500).name).toBe("Core Approach");
-    // From a fresh record to row 30: Clay Beds (15) + Old Granite (40).
-    expect(strataBonusBetween(0, 30)).toBe(15 + 40);
-    // Already past Clay Beds: only Old Granite pays.
-    expect(strataBonusBetween(15, 30)).toBe(40);
-    // No new stratum, no bonus.
-    expect(strataBonusBetween(30, 35)).toBe(0);
-    const everything = STRATA.reduce((sum, s) => sum + s.firstReachBonus, 0);
-    expect(strataBonusBetween(0, 10_000)).toBe(everything);
+    expect(STRATA.map((stratum) => stratum.startRow)).toEqual([
+      0, 12, 24, 36, 48, 64, 84, 110, 140,
+    ]);
   });
 
   it("digs dirt, collects ore by tier, and refuses rock", () => {
@@ -560,12 +554,11 @@ describe("mine", () => {
   });
 
   it("escalates the deep: strata, magma, tier-4 rock, richer caches (REQ-030)", () => {
-    // Strata extend past the Magma Verge with growing bonuses.
+    // Strata extend past the Magma Verge as stamp goals.
     expect(stratumAt(70).name).toBe("Ashfall Galleries");
     expect(stratumAt(90).name).toBe("The Black Seam");
     expect(stratumAt(120).name).toBe("Echo Vaults");
     expect(stratumAt(200).name).toBe("Core Approach");
-    expect(strataBonusBetween(48, 140)).toBe(500 + 1000 + 1800 + 3000);
     // Rock tier 4 gates on pickaxe 5.
     expect(rockTierAt(95)).toBe(4);
     expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 4 }, 4)).toBe(false);

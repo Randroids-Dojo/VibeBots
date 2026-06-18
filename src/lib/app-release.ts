@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.27-mine-progression-pacing";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.28-mining-stamp-book";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.28",
+      date: "2026-06-18",
+      title: "Mining stamp book",
+      intro:
+        "Depth progress now fills a cosmetic Stamp Book instead of paying extra vibes.",
+      changes: [
+        {
+          build,
+          text: "Depth bonuses no longer add surprise vibes at cash-out, keeping the mine economy tied to the loot you actually carry home.",
+        },
+        {
+          build,
+          text: "The pause menu now opens a Stamp Book with every mining achievement visible, including locked stamps and progress.",
+        },
+        {
+          build,
+          text: "Existing records can fill stamps where the game already knows the history, such as deepest depth, gear levels, and elevator rail progress.",
+        },
+      ],
+    },
     {
       version: "0.1.27",
       date: "2026-06-18",

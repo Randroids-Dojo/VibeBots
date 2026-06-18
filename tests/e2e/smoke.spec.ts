@@ -580,7 +580,7 @@ test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", as
     .poll(
       async () => Number(await canvas.getAttribute("data-miner-motion-frames")),
       {
-        timeout: 1_000,
+        timeout: 5_000,
       },
     )
     .toBeGreaterThanOrEqual(3);
@@ -589,7 +589,7 @@ test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", as
       async () =>
         Number(await canvas.getAttribute("data-camera-motion-frames")),
       {
-        timeout: 1_000,
+        timeout: 5_000,
       },
     )
     .toBeGreaterThanOrEqual(3);

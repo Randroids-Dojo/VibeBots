@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="clanker-base-pathing" data-date="2026-06-18">
+    <h3>Clanker Base Pathing</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/clanker-base-pathing</code>, renamed from the fresh <code>origin/main</code> worktree branch.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-reported bunker raid fix. Clankers now spawn on open bunker approach cells instead of dirt, ore, or part-cache cells, plan routes against the saved mine world, prefer existing open cells, chew through dirt or ore only when that route wins, reserve planned paths so later Clankers spread to cleaner openings, and animate along those paths while a raid is active. Package version moved to <code>0.1.46</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, test, package, release, and coverage files, focused Vitest for bunker sim, server, and API route coverage (24 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (232 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3124</code> for bunker raid start, latest release notes, and surface tips (3 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this slice keeps raids deterministic and grid-planned, treats empty cells as preferred route cells, treats dirt and ore as chewable route cells, avoids rock, boulder, gas, magma, and part-cache cells, and leaves player damage or live death during raids for the broader bunker-defense followup. Mine surface tips were reviewed and gained a Clanker route-shaping tip.</dd>
+      <dt>GDD coverage</dt><dd>REQ-037 stays partial with updated pathing, server world-read, canvas movement, and test refs. Updated <code>docs/gdd/08-base-building.html</code>, <code>docs/GDD_COVERAGE.json</code>, static release notes, in-game release notes, and mine surface tips.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hardware-store-base-shop" data-date="2026-06-18">
     <h3>Hardware Store Base Shop</h3>
     <dl>

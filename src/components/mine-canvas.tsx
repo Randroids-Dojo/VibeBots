@@ -248,6 +248,82 @@ const SUPPORT_SELECT_RED = "#ff3b30";
 /** World coordinates ARE render coordinates in the endless mine. */
 const cellX = (col: number) => col;
 
+function ClankerMesh({
+  clanker,
+  raid,
+}: {
+  clanker: BunkerRaidSnapshot["clankers"][number];
+  raid: BunkerRaidSnapshot;
+}) {
+  const groupRef = useRef<Group>(null);
+  const localStartRef = useRef<number | null>(null);
+  useFrame((state) => {
+    const group = groupRef.current;
+    if (!group) return;
+    const path =
+      clanker.path && clanker.path.length > 0
+        ? clanker.path
+        : [{ col: clanker.col, row: clanker.row }];
+    if (path.length === 1) {
+      group.position.set(cellX(path[0].col), -path[0].row, 0.72);
+      return;
+    }
+    let elapsedSeconds = 0;
+    if (raid.startedAtMs !== undefined) {
+      elapsedSeconds = Math.max(0, (Date.now() - raid.startedAtMs) / 1000);
+    } else {
+      localStartRef.current ??= state.clock.elapsedTime;
+      elapsedSeconds = state.clock.elapsedTime - localStartRef.current;
+    }
+    const travelSeconds = Math.min(
+      raid.durationSeconds * 0.78,
+      Math.max(3, (path.length - 1) * 0.7),
+    );
+    const progress =
+      travelSeconds <= 0
+        ? path.length - 1
+        : Math.min(
+            path.length - 1,
+            (elapsedSeconds / travelSeconds) * (path.length - 1),
+          );
+    const segment = Math.min(path.length - 2, Math.floor(progress));
+    const t = progress - segment;
+    const from = path[segment];
+    const to = path[segment + 1];
+    const x = from.col + (to.col - from.col) * t;
+    const y = from.row + (to.row - from.row) * t;
+    group.position.set(cellX(x), -y, 0.72);
+  });
+  return (
+    <group
+      ref={groupRef}
+      position={[cellX(clanker.col), -clanker.row, 0.72]}
+      scale={0.75}
+    >
+      <mesh>
+        <sphereGeometry args={[0.18, 8, 6]} />
+        <meshStandardMaterial
+          color="#ff6b6b"
+          emissive="#ff2e2e"
+          emissiveIntensity={0.45}
+          roughness={0.5}
+          flatShading
+        />
+      </mesh>
+      {[-0.22, 0.22].map((x) => (
+        <mesh
+          key={x}
+          position={[x, -0.03, 0]}
+          rotation={[0, 0, x > 0 ? -0.7 : 0.7]}
+        >
+          <boxGeometry args={[0.34, 0.035, 0.035]} />
+          <meshStandardMaterial color="#8d98aa" roughness={0.55} flatShading />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function BunkerOverlay({
   preview,
   bunker,
@@ -363,36 +439,7 @@ function BunkerOverlay({
     }) ?? [];
   const clankers =
     activeRaid?.clankers.map((clanker) => (
-      <group
-        key={clanker.id}
-        position={[cellX(clanker.col), -clanker.row, 0.72]}
-        scale={0.75}
-      >
-        <mesh>
-          <sphereGeometry args={[0.18, 8, 6]} />
-          <meshStandardMaterial
-            color="#ff6b6b"
-            emissive="#ff2e2e"
-            emissiveIntensity={0.45}
-            roughness={0.5}
-            flatShading
-          />
-        </mesh>
-        {[-0.22, 0.22].map((x) => (
-          <mesh
-            key={x}
-            position={[x, -0.03, 0]}
-            rotation={[0, 0, x > 0 ? -0.7 : 0.7]}
-          >
-            <boxGeometry args={[0.34, 0.035, 0.035]} />
-            <meshStandardMaterial
-              color="#8d98aa"
-              roughness={0.55}
-              flatShading
-            />
-          </mesh>
-        ))}
-      </group>
+      <ClankerMesh key={clanker.id} clanker={clanker} raid={activeRaid} />
     )) ?? [];
   return (
     <>

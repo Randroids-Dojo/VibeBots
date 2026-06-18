@@ -116,6 +116,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Blast Charge unlocks stronger dynamite tiers at the Upgrades stall.",
   "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
   "Tip: survived bunker defenses add XP toward Level 2 and a third beacon slot.",
+  "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
 ] as const;
 const BASE_BUILDING_COLS = [
   ...STALLS.map((stall) => stall.col),

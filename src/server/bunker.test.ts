@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyAchievementProgress } from "./achievements";
-import { buyBasePart, finishBunkerRaid } from "./bunker";
+import { buyBasePart, finishBunkerRaid, startBunkerRaid } from "./bunker";
 
 function makeBuySql({
   trackXp = 0,
@@ -154,6 +154,54 @@ describe("bunker server helpers", () => {
     expect(applyAchievementProgress).toHaveBeenCalledWith(sql, "player-1", {
       bunkerRaidsSurvived: 1,
     });
+  });
+
+  it("starts raids with clanker paths from the saved mine world", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-18T00:00:00.000Z"));
+    const footprint = { col: 7, row: 6, width: 7, height: 5 };
+    const diff = [
+      [4, 5, { kind: "empty" }],
+      [5, 5, { kind: "empty" }],
+      [6, 5, { kind: "empty" }],
+      [7, 5, { kind: "empty" }],
+    ];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 100, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, core, parts")) {
+        return [
+          { footprint, core: { col: 10, row: 8, durability: 160 }, parts: [] },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("SELECT started_at")) return [];
+      if (query.includes("SELECT seed, diff")) return [{ seed: 123, diff }];
+      if (query.includes("UPDATE bunkers")) return [];
+      if (query.includes("INSERT INTO bunker_raids")) return [];
+      if (query.includes("INSERT INTO player_base_parts")) return [];
+      return [];
+    });
+
+    const result = await startBunkerRaid(sql as never, "player-1", 1);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.raid.clankers[0]).toMatchObject({
+      col: 4,
+      row: 5,
+      targetRow: 6,
+    });
+    expect(result.raid.clankers[0].path).toEqual([
+      { col: 4, row: 5 },
+      { col: 5, row: 5 },
+      { col: 6, row: 5 },
+      { col: 7, row: 5 },
+      { col: 7, row: 6 },
+    ]);
   });
 
   it("rejects Basic Turret buys below player level 2 before spending", async () => {

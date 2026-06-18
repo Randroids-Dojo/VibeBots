@@ -652,10 +652,12 @@
       "status": "partial",
       "implementationRefs": [
         "src/sim/bunker.ts",
+        "src/server/bunker.ts",
         "src/components/mine-canvas.tsx"
       ],
       "testRefs": [
-        "src/sim/bunker.test.ts"
+        "src/sim/bunker.test.ts",
+        "src/server/bunker.test.ts"
       ],
       "followupRefs": [
         "F-029"

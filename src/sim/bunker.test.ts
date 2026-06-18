@@ -4,6 +4,7 @@ import {
   BASE_PART_CATALOG,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
+  type BunkerRaidTerrainKind,
   basePartOwnedLimit,
   canBuyBasePart,
   createBunker,
@@ -17,6 +18,8 @@ import {
   resolveBunkerRaid,
   STARTER_BASE_PART_INVENTORY,
 } from "./bunker";
+
+const openTerrain = (): BunkerRaidTerrainKind => "empty";
 
 describe("bunker vertical slice sim", () => {
   it("proposes a fixed underground footprint around the miner", () => {
@@ -83,8 +86,112 @@ describe("bunker vertical slice sim", () => {
     const raid = resolveBunkerRaid(bunker, 1, "test-raid");
     expect(raid.durationSeconds).toBe(180);
     expect(raid.clankers).toHaveLength(6);
+    expect(
+      raid.clankers.every((clanker) => {
+        return clanker.row === base.footprint.row - 1;
+      }),
+    ).toBe(true);
+    expect(
+      raid.clankers.map((clanker) => `${clanker.col},${clanker.row}`),
+    ).toEqual(["-2,2", "10,2", "-3,2", "11,2", "-4,2", "12,2"]);
     expect(raid.survived).toBe(true);
     expect(raid.reward).toEqual({ vibes: 30, defenseXp: 60 });
+  });
+
+  it("plans clanker paths through open cells before chewing dirt", () => {
+    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const firstSpawn = {
+      col: base.footprint.col - 3,
+      row: base.footprint.row - 1,
+    };
+    const open = new Set<string>();
+    for (let col = firstSpawn.col; col <= base.footprint.col; col++) {
+      open.add(`${col},${firstSpawn.row}`);
+    }
+    open.add(`${base.footprint.col},${base.footprint.row}`);
+
+    const raid = resolveBunkerRaid(base, 1, "open-raid", {
+      terrainAt: (col, row) => (open.has(`${col},${row}`) ? "empty" : "dirt"),
+    });
+
+    expect(raid.clankers[0].path).toEqual([
+      { col: firstSpawn.col, row: firstSpawn.row },
+      { col: firstSpawn.col + 1, row: firstSpawn.row },
+      { col: firstSpawn.col + 2, row: firstSpawn.row },
+      { col: firstSpawn.col + 3, row: firstSpawn.row },
+      { col: base.footprint.col, row: base.footprint.row },
+    ]);
+  });
+
+  it("never spawns clankers inside occupied generated cells", () => {
+    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const blocked = new Map<string, BunkerRaidTerrainKind>([
+      [`${base.footprint.col - 3},${base.footprint.row - 1}`, "dirt"],
+      [`${base.footprint.col - 4},${base.footprint.row - 1}`, "ore"],
+      [`${base.footprint.col - 5},${base.footprint.row - 1}`, "part-cache"],
+    ]);
+
+    const raid = resolveBunkerRaid(base, 1, "blocked-spawn-raid", {
+      terrainAt: (col, row) => {
+        if (row === 0) return "empty";
+        return blocked.get(`${col},${row}`) ?? "dirt";
+      },
+    });
+
+    expect(raid.clankers[0].row).toBe(0);
+    expect(raid.clankers[0].path?.[0]).toEqual({
+      col: base.footprint.col - 3,
+      row: 0,
+    });
+  });
+
+  it("chews a short ore cell route when it beats a long open detour", () => {
+    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const placed = placeBasePart(
+      base,
+      { ...STARTER_BASE_PART_INVENTORY, "wall-panel": 1 },
+      "wall-panel",
+      base.footprint.col,
+      base.footprint.row,
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const oreKey = `${base.footprint.col - 1},${base.footprint.row - 1}`;
+    const openKeys = new Set<string>([
+      `${base.footprint.col - 3},${base.footprint.row - 1}`,
+      `${base.footprint.col - 2},${base.footprint.row - 1}`,
+      `${base.footprint.col},${base.footprint.row - 1}`,
+      oreKey,
+    ]);
+
+    const raid = resolveBunkerRaid(placed.bunker, 1, "ore-raid", {
+      terrainAt: (col, row) => {
+        const key = `${col},${row}`;
+        if (key === oreKey) return "ore";
+        return openKeys.has(key) ? "empty" : "rock";
+      },
+    });
+
+    expect(raid.clankers[0].targetCol).toBe(base.footprint.col);
+    expect(raid.clankers[0].targetRow).toBe(base.footprint.row);
+    expect(raid.clankers[0].path).toContainEqual({
+      col: base.footprint.col - 1,
+      row: base.footprint.row - 1,
+    });
+  });
+
+  it("spreads clanker targets instead of stacking every route", () => {
+    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const raid = resolveBunkerRaid(base, 1, "spread-raid", {
+      terrainAt: openTerrain,
+    });
+
+    const targetKeys = new Set(
+      raid.clankers.map(
+        (clanker) => `${clanker.targetCol},${clanker.targetRow}`,
+      ),
+    );
+    expect(targetKeys.size).toBeGreaterThan(3);
   });
 
   it("lets Basic Turrets autofire with limited ammo during raids", () => {

@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.45-hardware-store";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.46-clanker-pathing";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.46",
+      date: "2026-06-18",
+      title: "Clanker pathing",
+      intro:
+        "Bunker raids now spawn and move Clankers more cleanly around the base.",
+      changes: [
+        {
+          build,
+          text: "Clankers now spawn on an open approach cell above the bunker instead of inside dirt, ore, or part-cache cells.",
+        },
+        {
+          build,
+          text: "Raid planning now reads the saved mine world, prefers existing open cells, and only chews through dirt or ore when that route is better.",
+        },
+        {
+          build,
+          text: "Clankers spread their targets and animate along their planned paths so they do not all stack in the same cell.",
+        },
+      ],
+    },
     {
       version: "0.1.45",
       date: "2026-06-18",

@@ -347,13 +347,21 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
           raidId: "raid-smoke",
           tier: 1,
           durationSeconds: 180,
+          startedAtMs: Date.now(),
           clankers: [
             {
               id: "clanker-1",
               col: START_COL - 6,
-              row: 1,
+              row: 0,
               targetCol: START_COL - 3,
               targetRow: 1,
+              path: [
+                { col: START_COL - 6, row: 0 },
+                { col: START_COL - 5, row: 0 },
+                { col: START_COL - 4, row: 0 },
+                { col: START_COL - 3, row: 0 },
+                { col: START_COL - 3, row: 1 },
+              ],
             },
           ],
           turretShots: 0,
@@ -370,6 +378,7 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
           raidId: "raid-smoke",
           tier: 1,
           durationSeconds: 180,
+          startedAtMs: Date.now(),
           clankers: [],
           turretShots: 0,
           turretDamage: 0,
@@ -723,14 +732,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("first bunker stock");
+  await expect(dialog).toContainText(
+    "Bunker raids now spawn and move Clankers",
+  );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Panel, Door, Floor Spikes, and the level 2 Basic Turret",
+    "open approach cell",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("mine consumables");
+  await expect(dialog.locator("li").nth(1)).toContainText("saved mine world");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "cap at one owned or deployed",
+    "spread their targets",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -769,6 +780,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.46", "Clanker pathing"],
     ["0.1.45", "Hardware Store"],
     ["0.1.44", "Player level two"],
     ["0.1.43", "Blast Charge prices"],
@@ -923,14 +935,14 @@ test("save slot deletion requires a destructive double confirmation", async ({
 
 test("mine shows one of the surface game tips", async ({ page }) => {
   await page.addInitScript(() => {
-    Math.random = () => 0.58;
+    Math.random = () => 0.94;
   });
   await page.goto("/mine");
   await dismissReleaseNotes(page);
 
   const status = page.getByLabel("Mine status");
   await expect(status).toContainText(
-    "Tip: the Hardware Store sells level 1 bunker parts for your base.",
+    "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
   );
 });
 

@@ -411,8 +411,28 @@ export async function startBunkerRaid(
       };
     }
   }
-  const raidId = `raid-${Date.now().toString(36)}`;
-  const raid = resolveBunkerRaid(view.bunker, tier, raidId);
+  const startedAtMs = Date.now();
+  const worlds = (await sql`
+    SELECT seed, diff
+    FROM mine_worlds
+    WHERE player_id = ${playerId}`) as Array<{
+    seed: string | number;
+    diff: unknown;
+  }>;
+  const world = worlds[0];
+  const diff = Array.isArray(world?.diff) ? (world.diff as WorldDiff) : [];
+  const mine =
+    world === undefined
+      ? null
+      : createMine(Number(world.seed), DEFAULT_GEAR, NO_CONSUMABLES, diff);
+  const raidId = `raid-${startedAtMs.toString(36)}`;
+  const raid = resolveBunkerRaid(view.bunker, tier, raidId, {
+    startedAtMs,
+    terrainAt:
+      mine === null
+        ? undefined
+        : (col, row) => cellAt(mine, col, row)?.kind ?? "empty",
+  });
   const wornBunker = applyBunkerRaidWear(view.bunker, raid);
   await sql`
     UPDATE bunkers

@@ -119,12 +119,14 @@ export interface ClankerState {
   row: number;
   targetCol: number;
   targetRow: number;
+  path?: Array<{ col: number; row: number }>;
 }
 
 export interface BunkerRaidSnapshot {
   raidId: string;
   tier: number;
   durationSeconds: number;
+  startedAtMs?: number;
   clankers: ClankerState[];
   turretShots: number;
   turretDamage: number;
@@ -138,6 +140,21 @@ export interface BunkerRaidSnapshot {
     vibes: number;
     defenseXp: number;
   };
+}
+
+export type BunkerRaidTerrainKind =
+  | "empty"
+  | "dirt"
+  | "ore"
+  | "part-cache"
+  | "rock"
+  | "boulder"
+  | "gas"
+  | "magma";
+
+export interface BunkerRaidPathingOptions {
+  startedAtMs?: number;
+  terrainAt?: (col: number, row: number) => BunkerRaidTerrainKind;
 }
 
 export interface BunkerRaidRewardReport {
@@ -393,29 +410,247 @@ function perimeterTargets(footprint: BunkerFootprint): Array<{
   );
 }
 
+const coordKey = (col: number, row: number) => `${col},${row}`;
+
+function terrainCost(kind: BunkerRaidTerrainKind): number {
+  if (kind === "empty") return 1;
+  if (kind === "dirt" || kind === "ore") return 8;
+  return Number.POSITIVE_INFINITY;
+}
+
+function findPartAt(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+): PlacedBasePart | undefined {
+  return bunker.parts.find((part) => part.col === col && part.row === row);
+}
+
+function bunkerCellCost(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  target: { col: number; row: number },
+): number {
+  if (bunker.core.col === col && bunker.core.row === row) {
+    return target.col === col && target.row === row
+      ? 12
+      : Number.POSITIVE_INFINITY;
+  }
+  const part = findPartAt(bunker, col, row);
+  if (!part) return 1;
+  const def = BASE_PART_CATALOG[part.partId];
+  if (!def.blocksClankers) return 1;
+  return target.col === col && target.row === row
+    ? 10
+    : Number.POSITIVE_INFINITY;
+}
+
+function candidateTargets(
+  bunker: BunkerState,
+): Array<{ col: number; row: number }> {
+  const targets = perimeterTargets(bunker.footprint);
+  const blockingParts = bunker.parts
+    .filter((part) => BASE_PART_CATALOG[part.partId].blocksClankers)
+    .filter((part) =>
+      isBunkerPerimeterCell(bunker.footprint, part.col, part.row),
+    )
+    .map((part) => ({ col: part.col, row: part.row }));
+  return [...blockingParts, ...targets, bunker.core];
+}
+
+function chooseClankerSpawn(
+  bunker: BunkerState,
+  index: number,
+  options: BunkerRaidPathingOptions,
+  reservations: Set<string>,
+): { col: number; row: number } {
+  const sideIndex = Math.floor(index / 2);
+  const left = index % 2 === 0;
+  const idealCol = left
+    ? bunker.footprint.col - 3 - sideIndex
+    : bunker.footprint.col + bunker.footprint.width + 2 + sideIndex;
+  const idealRow = Math.max(0, bunker.footprint.row - 1);
+  const candidates: Array<{ col: number; row: number; score: number }> = [];
+  const maxRowLift = idealRow;
+  const maxSideStep = 6 + sideIndex;
+  for (let rowLift = 0; rowLift <= maxRowLift; rowLift++) {
+    const row = idealRow - rowLift;
+    for (let sideStep = 0; sideStep <= maxSideStep; sideStep++) {
+      const col = idealCol + (left ? -sideStep : sideStep);
+      if (containsBunkerCell(bunker.footprint, col, row)) continue;
+      if ((options.terrainAt?.(col, row) ?? "empty") !== "empty") continue;
+      const reservationPenalty = reservations.has(coordKey(col, row)) ? 100 : 0;
+      candidates.push({
+        col,
+        row,
+        score: rowLift * 3 + sideStep + reservationPenalty,
+      });
+    }
+  }
+  candidates.sort((a, b) => {
+    return a.score - b.score || a.row - b.row || a.col - b.col;
+  });
+  return candidates[0] ?? { col: idealCol, row: 0 };
+}
+
+function routeToTarget(
+  bunker: BunkerState,
+  start: { col: number; row: number },
+  target: { col: number; row: number },
+  options: BunkerRaidPathingOptions,
+  reservations: Map<string, number>,
+): { path: Array<{ col: number; row: number }>; score: number } | null {
+  const margin = 10 + Math.max(bunker.footprint.width, bunker.footprint.height);
+  const minCol = bunker.footprint.col - margin;
+  const maxCol = bunker.footprint.col + bunker.footprint.width + margin;
+  const minRow = Math.max(0, bunker.footprint.row - margin);
+  const maxRow = bunker.footprint.row + bunker.footprint.height + margin;
+  const startKey = coordKey(start.col, start.row);
+  const targetKey = coordKey(target.col, target.row);
+  const costs = new Map<string, number>([[startKey, 0]]);
+  const parents = new Map<string, string>();
+  const open = [startKey];
+
+  while (open.length > 0) {
+    open.sort((a, b) => {
+      const costDiff = (costs.get(a) ?? 0) - (costs.get(b) ?? 0);
+      return costDiff || a.localeCompare(b);
+    });
+    const currentKey = open.shift();
+    if (!currentKey) break;
+    if (currentKey === targetKey) break;
+    const [col, row] = currentKey.split(",").map(Number);
+    for (const next of [
+      { col: col + 1, row },
+      { col: col - 1, row },
+      { col, row: row + 1 },
+      { col, row: row - 1 },
+    ]) {
+      if (
+        next.col < minCol ||
+        next.col > maxCol ||
+        next.row < minRow ||
+        next.row > maxRow
+      ) {
+        continue;
+      }
+      let stepCost = terrainCost(
+        options.terrainAt?.(next.col, next.row) ?? "empty",
+      );
+      if (containsBunkerCell(bunker.footprint, next.col, next.row)) {
+        stepCost = bunkerCellCost(bunker, next.col, next.row, target);
+      }
+      if (!Number.isFinite(stepCost)) continue;
+      const reservationPenalty =
+        (reservations.get(coordKey(next.col, next.row)) ?? 0) * 6;
+      const nextCost =
+        (costs.get(currentKey) ?? 0) + stepCost + reservationPenalty;
+      const key = coordKey(next.col, next.row);
+      if (nextCost >= (costs.get(key) ?? Number.POSITIVE_INFINITY)) continue;
+      costs.set(key, nextCost);
+      parents.set(key, currentKey);
+      if (!open.includes(key)) open.push(key);
+    }
+  }
+
+  const score = costs.get(targetKey);
+  if (score === undefined) return null;
+  const path: Array<{ col: number; row: number }> = [];
+  let current = targetKey;
+  while (current) {
+    const [col, row] = current.split(",").map(Number);
+    path.unshift({ col, row });
+    if (current === startKey) break;
+    const parent = parents.get(current);
+    if (!parent) return null;
+    current = parent;
+  }
+  return { path, score };
+}
+
+function planClankerRoute(
+  bunker: BunkerState,
+  start: { col: number; row: number },
+  targets: Array<{ col: number; row: number }>,
+  options: BunkerRaidPathingOptions,
+  reservations: Map<string, number>,
+): {
+  target: { col: number; row: number };
+  path: Array<{ col: number; row: number }>;
+} {
+  let best: {
+    target: { col: number; row: number };
+    path: Array<{ col: number; row: number }>;
+    score: number;
+  } | null = null;
+  for (const target of targets) {
+    const route = routeToTarget(bunker, start, target, options, reservations);
+    if (!route) continue;
+    const finalPenalty =
+      (reservations.get(coordKey(target.col, target.row)) ?? 0) * 20;
+    const part = findPartAt(bunker, target.col, target.row);
+    const targetPriority =
+      part && BASE_PART_CATALOG[part.partId].blocksClankers
+        ? 0
+        : bunker.core.col === target.col && bunker.core.row === target.row
+          ? 16
+          : 12;
+    const score = route.score + finalPenalty + targetPriority;
+    if (
+      !best ||
+      score < best.score ||
+      (score === best.score &&
+        (target.row < best.target.row ||
+          (target.row === best.target.row && target.col < best.target.col)))
+    ) {
+      best = { target, path: route.path, score };
+    }
+  }
+  if (best) return { target: best.target, path: best.path };
+  return { target: bunker.core, path: [start, bunker.core] };
+}
+
+function reservePath(
+  reservations: Map<string, number>,
+  path: Array<{ col: number; row: number }>,
+): void {
+  for (const cell of path) {
+    const key = coordKey(cell.col, cell.row);
+    reservations.set(key, (reservations.get(key) ?? 0) + 1);
+  }
+}
+
 export function resolveBunkerRaid(
   bunker: BunkerState,
   tier: number,
   raidId = "raid-1",
+  options: BunkerRaidPathingOptions = {},
 ): BunkerRaidSnapshot {
   const normalizedTier = Math.max(1, Math.floor(tier));
-  const targets = perimeterTargets(bunker.footprint);
+  const targets = candidateTargets(bunker);
   const clankerCount = 4 + normalizedTier * 2;
   const clankers: ClankerState[] = [];
+  const reservations = new Map<string, number>();
+  const spawnReservations = new Set<string>();
   for (let i = 0; i < clankerCount; i++) {
-    const target = targets[i % targets.length] ?? bunker.core;
+    const start = chooseClankerSpawn(bunker, i, options, spawnReservations);
+    spawnReservations.add(coordKey(start.col, start.row));
+    const route = planClankerRoute(
+      bunker,
+      start,
+      targets,
+      options,
+      reservations,
+    );
+    reservePath(reservations, route.path);
     clankers.push({
       id: `${raidId}-clanker-${i + 1}`,
-      col:
-        i % 2 === 0
-          ? bunker.footprint.col - 3 - Math.floor(i / 2)
-          : bunker.footprint.col +
-            bunker.footprint.width +
-            2 +
-            Math.floor(i / 2),
-      row: target.row,
-      targetCol: target.col,
-      targetRow: target.row,
+      col: start.col,
+      row: start.row,
+      targetCol: route.target.col,
+      targetRow: route.target.row,
+      path: route.path,
     });
   }
   const totalPartDurability = bunker.parts.reduce((sum, part) => {
@@ -445,6 +680,7 @@ export function resolveBunkerRaid(
     raidId,
     tier: normalizedTier,
     durationSeconds: BUNKER_RAID_DURATION_SECONDS,
+    startedAtMs: options.startedAtMs,
     clankers,
     turretShots,
     turretDamage,

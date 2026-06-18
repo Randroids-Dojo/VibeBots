@@ -22,6 +22,7 @@ describe("mining sfx event mapping", () => {
           ...ok,
           dug: "ore",
           dugOre: "ruby",
+          oreHarvested: { ore: "ruby", units: 1, remaining: 0 },
         },
         "down",
       ),

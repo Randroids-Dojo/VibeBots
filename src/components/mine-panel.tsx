@@ -849,10 +849,11 @@ function JuiceOverlays() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
   useEffect(() => {
     if (!lastResult?.ok) return;
-    if (lastResult.dugOre) {
-      const ore = oreDef(lastResult.dugOre);
-      const count = lastResult.dugOreCount ?? 1;
-      const color = RESOURCE_FLOAT_COLORS[lastResult.dugOre] ?? "#54e0c7";
+    if (lastResult.oreHarvested) {
+      const ore = oreDef(lastResult.oreHarvested.ore);
+      const count = lastResult.oreHarvested.units;
+      const color =
+        RESOURCE_FLOAT_COLORS[lastResult.oreHarvested.ore] ?? "#54e0c7";
       const id = nextId.current++;
       setFloats((prev) => [
         ...prev.slice(-4),

@@ -258,7 +258,7 @@ describe("POST /api/mine/bank", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      credited: { credits: 1 },
+      credited: { credits: 4 },
       balance: 12,
       consumables: stock({ rope: 1 }),
       tripIndex: 1,

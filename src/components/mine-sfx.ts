@@ -197,7 +197,7 @@ export function mineResultSfxEvents(
     events.push("plank");
   if (result.exploded || (result.blasted ?? 0) > 0) events.push("dynamite");
   if ((result.vented ?? 0) > 0) events.push("gas");
-  if (result.dugOre) events.push("ore-pickup");
+  if (result.oreHarvested) events.push("ore-pickup");
   if (result.found) events.push("cache-fanfare");
   if (result.recalled) events.push("recall");
   if (action === "place-beacon") events.push("beacon");

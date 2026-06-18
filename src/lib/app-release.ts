@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.31-mine-drop-markers";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.32-partial-ore-mining";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.32",
+      date: "2026-06-18",
+      title: "Partial ore mining",
+      intro:
+        "Ore deposits now pay small resource units on every hit and take longer to fully clear.",
+      changes: [
+        {
+          build,
+          text: "Every ore strike now adds a small amount of that resource immediately instead of waiting for the final break swing.",
+        },
+        {
+          build,
+          text: "Rich deposits such as diamond and core crystal hold larger reserves, so they take many hits before the cell clears.",
+        },
+        {
+          build,
+          text: "Dynamite now harvests part of rich ore deposits instead of deleting a high-value cell in one blast.",
+        },
+      ],
+    },
     {
       version: "0.1.31",
       date: "2026-06-18",

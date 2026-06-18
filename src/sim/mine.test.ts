@@ -44,8 +44,10 @@ import {
   NO_CONSUMABLES,
   normalizeGear,
   ORES,
+  oreCellValueAt,
   oreChanceAt,
   oreDef,
+  oreReserveAt,
   oreUnitsAt,
   PLANK_RECOVERY_FLOOR,
   ROCK_DIG_COST,
@@ -71,7 +73,7 @@ import {
 /** Swing at a direction until the block breaks (or the action ends). */
 function dig(state: MineState, dir: Direction): MoveResult {
   let res = step(state, dir);
-  for (let i = 0; i < 8 && res.ok && res.cracked; i++) res = step(state, dir);
+  for (let i = 0; i < 40 && res.ok && res.cracked; i++) res = step(state, dir);
   return res;
 }
 
@@ -93,12 +95,12 @@ describe("mine", () => {
     const broke = step(state, "down");
     expect(broke.ok && broke.dug !== null).toBe(true);
     expect(state.miner.row).toBe(1);
-    // Block totals match the old single-swing economy (dirt/ore = 1.0,
-    // so depth 1 always costs exactly 1 energy at pickaxe 1)...
+    // Dirt block totals still match the old single-swing economy, so
+    // depth 1 costs exactly 1 energy at pickaxe 1.
     if (broke.ok && broke.dug === "dirt") {
       expect(state.miner.energy).toBeCloseTo(START_ENERGY - 1, 5);
     }
-    // ...and a better pickaxe needs fewer swings.
+    // A better pickaxe needs fewer swings.
     const strong = createMine(137, { ...DEFAULT_GEAR, pickaxe: 3 });
     const first = step(strong, "down");
     expect(first.ok && (first.cracked?.remaining ?? 0)).toBeLessThanOrEqual(2);
@@ -164,12 +166,11 @@ describe("mine", () => {
     }
   });
 
-  it("scales ore value roughly exponentially across tiers", () => {
-    for (let i = 1; i < ORES.length; i++) {
-      const ratio = ORES[i].value / ORES[i - 1].value;
-      expect(ratio).toBeGreaterThanOrEqual(2);
-      expect(ratio).toBeLessThanOrEqual(5);
-    }
+  it("keeps total ore cell value on the intended tier curve", () => {
+    const row = 1;
+    expect(ORES.map((ore) => oreCellValueAt(ore.id, row))).toEqual([
+      4, 5, 8, 20, 52, 126, 320,
+    ]);
   });
 
   it("ramps ore chance as a trapezoid over the band", () => {
@@ -217,13 +218,11 @@ describe("mine", () => {
     for (let i = 0; i < 40 && state.miner.energy > 0; i++) {
       const dir = directions[i % directions.length];
       const result = step(state, dir);
-      if (result.ok && result.dug) {
-        digs++;
-        if (result.dugOre) {
-          const count = result.dugOreCount ?? 1;
-          oreChunks += count;
-          value += oreDef(result.dugOre).value * count;
-        }
+      if (result.ok && (result.dug || result.cracked)) digs++;
+      if (result.ok && result.oreHarvested) {
+        oreChunks += result.oreHarvested.units;
+        value +=
+          oreDef(result.oreHarvested.ore).value * result.oreHarvested.units;
       }
     }
     expect(digs).toBeGreaterThan(0);
@@ -231,23 +230,38 @@ describe("mine", () => {
     expect(carriedValue(state.miner)).toBe(value);
   });
 
-  it("scales mined ore unit counts by depth", () => {
+  it("collects one ore unit per hit and clears after the reserve is depleted", () => {
     expect(oreUnitsAt(1)).toBe(1);
     expect(oreUnitsAt(180)).toBeGreaterThan(oreUnitsAt(40));
     expect(oreUnitsAt(990)).toBeGreaterThan(oreUnitsAt(180));
+    expect(oreReserveAt("diamond", 48)).toBe(21);
+    expect(oreReserveAt("core-crystal", 64)).toBe(32);
 
-    const state = createMine(8);
+    const state = createMine(8, { ...DEFAULT_GEAR, cargo: 4 });
     state.miner.col = START_COL;
     state.miner.row = 179;
     setCell(state, START_COL, 179, { kind: "empty" });
     setCell(state, START_COL, 180, { kind: "ore", ore: "copper" });
     setCell(state, START_COL, 181, { kind: "dirt" });
-    const units = oreUnitsAt(180);
-    const mined = dig(state, "down");
+    const reserve = oreReserveAt("copper", 180);
+    const first = step(state, "down");
+    expect(first.ok && first.dug).toBe(null);
+    expect(first.ok && first.oreHarvested).toEqual({
+      ore: "copper",
+      units: 1,
+      remaining: reserve - 1,
+    });
+    expect(state.miner.row).toBe(179);
+    expect(cellAt(state, START_COL, 180)?.oreRemaining).toBe(reserve - 1);
+
+    let mined = first;
+    for (let i = 1; i < reserve; i++) mined = step(state, "down");
     expect(mined.ok && mined.dugOre).toBe("copper");
-    expect(mined.ok && mined.dugOreCount).toBe(units);
-    expect(state.miner.carried.copper).toBe(units);
-    expect(carriedValue(state.miner)).toBe(units * oreDef("copper").value);
+    expect(mined.ok && mined.dugOreCount).toBe(1);
+    expect(mined.ok && mined.oreHarvested?.remaining).toBe(0);
+    expect(state.miner.row).toBe(180);
+    expect(state.miner.carried.copper).toBe(reserve);
+    expect(carriedValue(state.miner)).toBe(reserve * oreDef("copper").value);
   });
 
   it("banks carried loot only at the surface and refills energy", () => {
@@ -259,7 +273,9 @@ describe("mine", () => {
     expect(up.ok).toBe(true);
     expect(state.miner.row).toBe(0);
     expect(carriedCount(state.miner)).toBe(0);
-    expect(state.miner.bankedCredits).toBe(2 * 8 + 3 * 1);
+    expect(state.miner.bankedCredits).toBe(
+      2 * oreDef("silver").value + 3 * oreDef("coal").value,
+    );
     expect(state.miner.energy).toBe(START_ENERGY);
   });
 
@@ -631,9 +647,15 @@ describe("mine", () => {
     expect(dug.ok && dug.dug).toBe("ore");
     expect(dug.ok && dug.dugOre).toBe("coal");
     expect(dug.ok && dug.dugOreCount).toBe(1);
+    expect(dug.ok && dug.oreHarvested).toEqual({
+      ore: "coal",
+      units: 1,
+      dropped: 1,
+      remaining: 0,
+    });
     expect(dug.ok && dug.dropped).toBe(1);
     expect(cellAt(state, START_COL, 1)?.drop).toBeUndefined();
-    expect(cellAt(state, START_COL, 2)?.drop).toEqual({ coal: 1 });
+    expect(cellAt(state, START_COL, 2)?.drop).toEqual({ coal: 4 });
     expect(carriedCount(state.miner)).toBe(cargoCapacity(state.gear));
   });
 
@@ -649,7 +671,7 @@ describe("mine", () => {
     const dugSupport = dig(state, "down");
     expect(dugSupport.ok && dugSupport.dug).toBe("dirt");
     expect(cellAt(state, START_COL, 2)?.drop).toBeUndefined();
-    expect(cellAt(state, START_COL, 3)?.drop).toEqual({ coal: 1 });
+    expect(cellAt(state, START_COL, 3)?.drop).toEqual({ coal: 4 });
   });
 
   it("partially picks up a floor pile and leaves the remainder", () => {
@@ -951,6 +973,39 @@ describe("mine", () => {
     expect(replayed.diff).toEqual(exportDiff(state));
   });
 
+  it("dynamite harvests part of a rich ore reserve instead of clearing it", () => {
+    const state = createMine(54, DEFAULT_GEAR, stock({ dynamite: 1 }));
+    state.miner.col = START_COL;
+    state.miner.row = 63;
+    setCell(state, START_COL, 63, { kind: "empty" });
+    setCell(state, START_COL - 1, 63, { kind: "empty" });
+    setCell(state, START_COL - 1, 64, { kind: "dirt" });
+    setCell(state, START_COL, 64, {
+      kind: "ore",
+      ore: "core-crystal",
+    });
+    const planted = applyAction(state, "dynamite-1");
+    expect(planted.ok && planted.dynamitePlanted).toEqual({
+      col: START_COL,
+      row: 63,
+      tier: 1,
+    });
+
+    const exploded = applyAction(state, "left");
+    expect(exploded.ok && exploded.exploded).toEqual({
+      col: START_COL,
+      row: 63,
+      tier: 1,
+    });
+    expect(exploded.ok && exploded.collected).toBe(8);
+    expect(cellAt(state, START_COL, 64)).toMatchObject({
+      kind: "ore",
+      ore: "core-crystal",
+      oreRemaining: 24,
+    });
+    expect(state.miner.carried["core-crystal"]).toBe(8);
+  });
+
   it("recall rope banks the carry from any depth", () => {
     const state = createMine(59, DEFAULT_GEAR, {
       dynamite: 0,
@@ -969,7 +1024,7 @@ describe("mine", () => {
     const result = applyAction(state, "recall");
     expect(result.ok && result.recalled).toBe(true);
     expect(state.miner.row).toBe(0);
-    expect(state.miner.bankedCredits).toBe(24);
+    expect(state.miner.bankedCredits).toBe(3 * oreDef("silver").value);
     expect(state.used.rope).toBe(1);
     expect(applyAction(state, "recall")).toEqual({
       ok: false,
@@ -1451,7 +1506,7 @@ describe("mine", () => {
     state.miner.carried = { silver: 2 };
     const result = applyAction(state, "abandon");
     expect(result.ok && result.abandoned && result.collapsed).toBe(true);
-    expect(result.ok && result.lost?.value).toBe(16);
+    expect(result.ok && result.lost?.value).toBe(2 * oreDef("silver").value);
     expect(state.miner.row).toBe(0);
     expect(carriedCount(state.miner)).toBe(0);
     expect(state.miner.bankedCredits).toBe(0);

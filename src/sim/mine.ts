@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 28;
+export const MINE_VERSION = 29;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -386,7 +386,7 @@ export type OreId =
 export interface OreDef {
   id: OreId;
   name: string;
-  /** Credits paid when banked (Q-005: display currency is credits). */
+  /** Credits paid for one mined unit when banked. */
   value: number;
   minRow: number;
   peakStart: number;
@@ -410,7 +410,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "copper",
     name: "Copper",
-    value: 3,
+    value: 1,
     minRow: 4,
     peakStart: 8,
     peakEnd: 20,
@@ -420,7 +420,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "silver",
     name: "Silver",
-    value: 8,
+    value: 1,
     minRow: 14,
     peakStart: 20,
     peakEnd: 34,
@@ -430,7 +430,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "emerald",
     name: "Emerald",
-    value: 20,
+    value: 2,
     minRow: 24,
     peakStart: 32,
     peakEnd: 46,
@@ -440,7 +440,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "ruby",
     name: "Ruby",
-    value: 50,
+    value: 4,
     minRow: 36,
     peakStart: 44,
     peakEnd: 58,
@@ -450,7 +450,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "diamond",
     name: "Diamond",
-    value: 125,
+    value: 6,
     minRow: 48,
     peakStart: 58,
     peakEnd: 76,
@@ -460,7 +460,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "core-crystal",
     name: "Core Crystal",
-    value: 320,
+    value: 10,
     minRow: 64,
     peakStart: 80,
     peakEnd: Number.POSITIVE_INFINITY,
@@ -471,10 +471,32 @@ export const ORES: readonly OreDef[] = [
 
 const ORE_BY_ID = new Map(ORES.map((ore) => [ore.id, ore]));
 
+const ORE_BASE_RESERVES: Record<OreId, number> = {
+  coal: 4,
+  copper: 5,
+  silver: 8,
+  emerald: 10,
+  ruby: 13,
+  diamond: 21,
+  "core-crystal": 32,
+};
+
 export function oreDef(id: OreId): OreDef {
   const def = ORE_BY_ID.get(id);
   if (!def) throw new Error(`unknown ore: ${id}`);
   return def;
+}
+
+export function oreBaseReserve(id: OreId): number {
+  return ORE_BASE_RESERVES[id];
+}
+
+export function oreReserveAt(id: OreId, row: number): number {
+  return oreBaseReserve(id) * oreUnitsAt(row);
+}
+
+export function oreCellValueAt(id: OreId, row: number): number {
+  return oreReserveAt(id, row) * oreDef(id).value;
 }
 
 /** Trapezoid band ramp: 0 outside, linear fades, 1 across the peak. */
@@ -562,6 +584,11 @@ export interface MineCell {
    * full health for its kind and the digger's pickaxe.
    */
   hp?: number;
+  /**
+   * Ore units still locked in this cell. Unset ore cells infer their full
+   * deterministic reserve from the ore id and row.
+   */
+  oreRemaining?: number;
   /** The active warp beacon stands here (REQ-029); at most one world-wide. */
   beacon?: boolean;
   /**
@@ -569,7 +596,8 @@ export interface MineCell {
    * dig or dynamite blast because the cargo hold was full. Scooped up by
    * walking over the cell once the hold has room (a partial take leaves
    * the rest as a smaller pile). A falling block buries it like a ladder.
-   * Only meaningful on empty cells; never stored empty.
+   * Usually lives on empty cells; a partially mined ore cell can also hold
+   * overflow until the deposit opens and the pile settles normally.
    */
   drop?: Partial<Record<OreId, number>>;
   /** A rock that entered the falling-rock hazard system. Render-layer cue. */
@@ -756,6 +784,10 @@ export function safeFallRows(gear: MineGear): number {
 /** Back-compat helper for older callers that only need the unlocked tier. */
 export function blastRadius(gear: MineGear): number {
   return dynamiteTier(gear);
+}
+
+function dynamiteOreHarvestUnits(tier: DynamiteTier): number {
+  return 8 * tier;
 }
 
 /** Credit value of everything currently carried (the bet on the table). */
@@ -1083,8 +1115,15 @@ export type MoveResult =
       dug: CellKind | null;
       /** Set when dug was an ore cell. */
       dugOre: OreId | null;
-      /** Ore chunks mined from the dug ore cell before cargo overflow. */
+      /** Ore units mined on the final cell-clearing swing. */
       dugOreCount?: number;
+      /** Ore units mined by this swing before cargo overflow. */
+      oreHarvested?: {
+        ore: OreId;
+        units: number;
+        dropped?: number;
+        remaining: number;
+      };
       found: string | null;
       collapsed: boolean;
       /** A falling boulder ended the trip (carry lost). */
@@ -1479,6 +1518,85 @@ export function step(state: MineState, dir: Direction): MoveResult {
     return { ok: false, reason: "blocked" };
   if (dir === "up" && cell.kind !== "empty")
     return { ok: false, reason: "blocked" };
+  if (cell.kind === "ore" && cell.ore) {
+    const ore = cell.ore;
+    const struck = cellMut(state, t.col, t.row);
+    const current = struck.oreRemaining ?? oreReserveAt(ore, t.row);
+    const remaining = current - 1;
+    const { dropped: spilled, leftover } = fillHold(state, { [ore]: 1 });
+    const dropped = spilled;
+    const emptied: Array<{ col: number; row: number }> = [];
+    if (remaining > 0) {
+      struck.oreRemaining = remaining;
+      delete struck.hp;
+      if (spilled > 0) struck.drop = mergeOrePiles(struck.drop, leftover);
+    } else {
+      const emptyCell: MineCell = cell.plank
+        ? { kind: "empty", plank: true }
+        : { kind: "empty" };
+      const preservedDrop = mergeOrePiles(struck.drop, leftover);
+      if (orePileCount(preservedDrop) > 0) emptyCell.drop = preservedDrop;
+      setCell(state, t.col, t.row, emptyCell);
+      emptied.push({ col: t.col, row: t.row });
+    }
+    const vented =
+      remaining <= 0 ? ventGasAround(state, t.col, t.row, emptied) : 0;
+    miner.energy = Math.max(
+      0,
+      miner.energy - swingCostFor("ore") - vented * GAS_VENT_DRAIN,
+    );
+    if (remaining <= 0) {
+      miner.col = t.col;
+      miner.row = t.row;
+      if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
+    }
+    const crushed = tickFalls(state, emptied);
+    settleAfterEmptied(state, emptied);
+    const fell = settleMiner(state);
+    const fellTooFar = isFatalMinerFall(state, fell);
+    const oreHarvested = {
+      ore,
+      units: 1,
+      dropped: dropped > 0 ? dropped : undefined,
+      remaining: Math.max(0, remaining),
+    };
+    if (crushed || fellTooFar || (miner.row > 0 && miner.energy <= 0)) {
+      const lost = minerLostCargo(miner);
+      collapse(state, true, lost);
+      return {
+        ok: true,
+        dug: remaining <= 0 ? "ore" : null,
+        dugOre: remaining <= 0 ? ore : null,
+        dugOreCount: remaining <= 0 ? 1 : undefined,
+        oreHarvested,
+        found: null,
+        collapsed: true,
+        crushed: crushed || fellTooFar,
+        vented,
+        dropped: dropped > 0 ? dropped : undefined,
+        fell: fell || undefined,
+        fallFatal: fellTooFar || undefined,
+        lost,
+      };
+    }
+    return maybeExplodePendingDynamite(state, {
+      ok: true,
+      dug: remaining <= 0 ? "ore" : null,
+      dugOre: remaining <= 0 ? ore : null,
+      dugOreCount: remaining <= 0 ? 1 : undefined,
+      oreHarvested,
+      found: null,
+      collapsed: false,
+      crushed,
+      vented,
+      dropped: dropped > 0 ? dropped : undefined,
+      fell: fell || undefined,
+      cracked:
+        remaining > 0
+          ? { kind: "ore", remaining: Math.max(0, remaining) }
+          : undefined,
+    });
+  }
   // Multi-hit digging (REQ-013): a solid cell soaks swings before it
   // breaks; only the breaking swing moves the miner and yields loot.
   // Every swing is its own logged action and burns battery charge, so a
@@ -1978,10 +2096,23 @@ function detonateDynamiteAt(
     // Re-collect any pile already on the cell too, so re-blasting a drop
     // is a valid way to scoop it once the hold has room.
     const pile: Partial<Record<OreId, number>> = { ...cell.drop };
-    if (cell.kind === "ore" && cell.ore)
-      pile[cell.ore] = (pile[cell.ore] ?? 0) + 1;
-    setCell(state, nc, nr, { kind: "empty" });
-    emptied.push({ col: nc, row: nr });
+    if (cell.kind === "ore" && cell.ore) {
+      const current = cell.oreRemaining ?? oreReserveAt(cell.ore, nr);
+      const mined = Math.min(current, dynamiteOreHarvestUnits(center.tier));
+      pile[cell.ore] = (pile[cell.ore] ?? 0) + mined;
+      if (mined < current) {
+        const oreCell = cellMut(state, nc, nr);
+        oreCell.oreRemaining = current - mined;
+        delete oreCell.hp;
+        delete oreCell.drop;
+      } else {
+        setCell(state, nc, nr, { kind: "empty" });
+        emptied.push({ col: nc, row: nr });
+      }
+    } else {
+      setCell(state, nc, nr, { kind: "empty" });
+      emptied.push({ col: nc, row: nr });
+    }
     blasted++;
     // Fill the hold from the blast centre outward; overflow falls until
     // it lands on the nearest surface.

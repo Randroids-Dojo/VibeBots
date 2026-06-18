@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="partial-ore-mining" data-date="2026-06-18">
+    <h3>Partial Ore Mining</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/partial-ore-mining</code>, rebased onto <code>origin/main</code> before implementation and again after the large support cash-out and mine drop marker fixes landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed economy slice. Ore deposits now pay one small resource unit on every hit and clear only when their deterministic reserve reaches zero. Unit values are lower while tier reserves preserve approximate total cell value, so diamond and core crystal take many hits to finish. Dynamite now harvests part of rich ore reserves instead of clearing every high-value deposit in one blast. Cleaned up Playwright configuration so clean-port smoke runs can target <code>PLAYWRIGHT_BASE_URL</code> without reusing stale port 3000 servers. Package version moved to <code>0.1.32</code>; <code>MINE_VERSION</code> moved from <code>28</code> to <code>29</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, test, package, release, smoke, and coverage files; focused Vitest for mine sim, mine SFX, and mine bank route coverage (94 passed); <code>pnpm typecheck</code>; <code>pnpm test</code> (179 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check</code>; <code>git diff --cached --check</code>; <code>pnpm build</code>; a direct clean-port production browser smoke on port 3087 that verified release <code>0.1.32.134</code>, release note id <code>2026-06-18-0.1.32-partial-ore-mining</code>, the cumulative release-note list, and mine canvas motion; and <code>PLAYWRIGHT_BASE_URL=http://localhost:3087 pnpm exec playwright test tests/e2e/smoke.spec.ts -g "mine shows the latest release note once to a fresh browser"</code> (1 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default chosen by user: preserve each ore cell's approximate total value while spreading that value across smaller per-hit units. Integer vibes remain the wallet unit, so coal and copper use larger reserves rather than sub-vibe units.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>REQ-011</code>, <code>REQ-013</code>, and <code>REQ-014</code> wording in <code>docs/GDD_COVERAGE.json</code>, updated <code>docs/gdd/06-mining.html</code> and <code>docs/gdd/07-economy.html</code>, and appended Build log entries.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-drop-markers" data-date="2026-06-18">
     <h3>Mine Drop Markers</h3>
     <dl>

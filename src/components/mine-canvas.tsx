@@ -32,6 +32,7 @@ import {
   type MineCell,
   type MineCoord,
   type OreId,
+  oreReserveAt,
   START_COL,
   STRATA,
   stratumAt,
@@ -1836,9 +1837,11 @@ function MineScene({
         j,
         sx,
         sy,
-        lastResult.cracked.kind === "rock"
-          ? ROCK_COLORS[0]
-          : dirtColorAt(miner.row + dr),
+        lastResult.oreHarvested
+          ? ORE_COLORS[lastResult.oreHarvested.ore]
+          : lastResult.cracked.kind === "rock"
+            ? ROCK_COLORS[0]
+            : dirtColorAt(miner.row + dr),
         3,
       );
       j.shake = Math.max(j.shake, 0.02);
@@ -2245,8 +2248,19 @@ function MineScene({
       }
       // Damaged blocks wear cracks (REQ-013); the overlay rides above
       // whatever shape the kind renders.
-      if (cell.hp !== undefined && cell.kind !== "empty") {
-        const damage = 1 - cell.hp / hitsFor(cell.kind, mine.gear);
+      const oreDamage =
+        cell.kind === "ore" && cell.ore && cell.oreRemaining !== undefined
+          ? 1 - cell.oreRemaining / oreReserveAt(cell.ore, row)
+          : null;
+      if (
+        oreDamage !== null ||
+        (cell.hp !== undefined && cell.kind !== "empty")
+      ) {
+        const damage =
+          oreDamage ??
+          1 -
+            (cell.hp ?? hitsFor(cell.kind, mine.gear)) /
+              hitsFor(cell.kind, mine.gear);
         crackMeshes.push(
           <group key={`crack:${key}`} position={[x, y, 0]}>
             <CrackMarks col={col} row={row} damage={damage} />

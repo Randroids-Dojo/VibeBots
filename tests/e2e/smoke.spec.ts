@@ -472,11 +472,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Dropped cargo piles");
+  await expect(dialog).toContainText("Ore deposits");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("3D markers");
-  await expect(dialog.locator("li").nth(1)).toContainText("drei text");
-  await expect(dialog.locator("li").nth(2)).toContainText("planted beacon");
+  await expect(dialog.locator("li").first()).toContainText("Every ore strike");
+  await expect(dialog.locator("li").nth(1)).toContainText("Rich deposits");
+  await expect(dialog.locator("li").nth(2)).toContainText("Dynamite");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -507,6 +507,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.32", "Partial ore mining"],
     ["0.1.31", "Mine drop markers"],
     ["0.1.30", "Large support cash-out"],
     ["0.1.29", "Dynamite tiers"],

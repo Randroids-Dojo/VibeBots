@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.32" data-date="2026-06-18">
+    <h2>0.1.32</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.32</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moved from <code>28</code> to <code>29</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Ore deposits now pay small resource units on every hit. Valuable resources take many hits to fully collect and clear, so a rich cell becomes a visible project instead of a one-swing payout.</dd>
+      <dt>Rules</dt><dd>Ore unit values are smaller, but each deposit has a tier-specific reserve sized to keep total cell value near the previous economy. Coal, copper, silver, emerald, ruby, diamond, and core crystal all use the partial-hit rule.</dd>
+      <dt>Dynamite</dt><dd>Dynamite tiers still scoop ore into the hold, but rich deposits are partially harvested first. Low-remaining deposits clear; high-remaining deposits stay in the world with reduced reserve.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran focused Vitest for mine sim, mine SFX, and mine bank route coverage (94 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (179 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, a clean-port production browser smoke on port 3087 that verified release <code>0.1.32.134</code>, release note id <code>2026-06-18-0.1.32-partial-ore-mining</code>, the cumulative release-note list, and mine canvas motion, plus the Playwright release-note smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3087</code> (1 passed).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.31" data-date="2026-06-18">
     <h2>0.1.31</h2>
     <dl>

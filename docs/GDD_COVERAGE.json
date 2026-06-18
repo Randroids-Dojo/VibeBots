@@ -182,7 +182,7 @@
     },
     {
       "id": "REQ-011",
-      "requirement": "The mine has multiple ore tiers with exponential credit value, rarity inverse to value, and overlapping depth bands.",
+      "requirement": "The mine has multiple ore tiers with exponential total cell value, rarity inverse to value, overlapping depth bands, and per-hit partial ore rewards.",
       "gddRef": "docs/gdd/06-mining.html#ores",
       "status": "done",
       "implementationRefs": [
@@ -222,7 +222,7 @@
     },
     {
       "id": "REQ-013",
-      "requirement": "Persistent gear tracks are bought with credits and are part of the replayable sim input, including pickaxe gates, robot battery charge, cargo, lantern reach, transport, blast, and safe-fall upgrades.",
+      "requirement": "Persistent gear tracks are bought with credits and are part of the replayable sim input, including pickaxe gates, robot battery charge, cargo, lantern reach, transport, blast, safe-fall upgrades, and ore reserve depletion.",
       "gddRef": "docs/gdd/06-mining.html#gear",
       "status": "done",
       "implementationRefs": [
@@ -243,7 +243,7 @@
     },
     {
       "id": "REQ-014",
-      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining; overflow ore from digs or dynamite falls to floor piles for later partial pickup.",
+      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining; overflow ore from completed digs or dynamite harvests falls to floor piles for later partial pickup.",
       "gddRef": "docs/gdd/06-mining.html#gear",
       "status": "done",
       "implementationRefs": [

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="resource-sale-copy" data-date="2026-06-18">
+    <h3>Resource Sale Copy</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/worktree-20260618-114725</code>, rebased onto current <code>origin/main</code> after the mine surface tips and multi-beacon warp slices landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported economy-language fix. The mine HUD now shows the underground bag as resources, support scrap, and parts instead of presenting carried resources as vibes before sale. The deterministic mine replay records the most recent surfaced haul breakdown, <code>/api/mine/bank</code> returns that itemized sale data, and the cash-out toast now says which resources were sold and how many vibes they paid in total. Failure copy now says the bag stayed below. Package version moved to <code>0.1.38</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran focused Vitest for mine sim, mine bank route, and mine store coverage (103 passed), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, conflict-marker search, <code>git diff --check</code>, <code>pnpm test</code> (198 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm build</code>, and targeted Playwright release-note smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3105</code> (1 passed).</dd>
+      <dt>Assumptions</dt><dd>No pricing, inventory, persistence, mine generation, or combat sim behavior changed. Vibes remain the wallet currency; resources and scrap are sold for vibes only at surface sale or recall sale.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code>, <code>docs/gdd/07-economy.html</code>, <code>docs/GDD_COVERAGE.json</code>, static release notes, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="multi-beacon-warp" data-date="2026-06-18">
     <h3>Multi Beacon Warp</h3>
     <dl>

@@ -115,6 +115,42 @@ describe("mine store upgrade flow", () => {
     });
   });
 
+  it("keeps the sold resource breakdown on successful cash-out", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        credited: {
+          credits: 45,
+          parts: [],
+          milestoneBonus: 0,
+          soldHaul: {
+            ores: { coal: 3, silver: 2 },
+            salvageCredits: 0,
+            totalVibes: 45,
+          },
+        },
+        balance: 55,
+        tripIndex: 3,
+        consumables: stock(),
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await store().submitCashOut();
+
+    expect(store().cashOut).toEqual({
+      state: "done",
+      credits: 45,
+      parts: [],
+      milestoneBonus: 0,
+      balance: 55,
+      soldHaul: {
+        ores: { coal: 3, silver: 2 },
+        salvageCredits: 0,
+        totalVibes: 45,
+      },
+    });
+  });
+
   it("spends and returns a surface-only trip to the base", async () => {
     const fetchMock = vi
       .fn()

@@ -452,6 +452,7 @@ export async function POST(request: Request): Promise<Response> {
       credited: {
         credits: trip.bankedCredits,
         parts: trip.bankedParts.length,
+        soldHaul: trip.soldHaul,
       },
     });
   }
@@ -562,6 +563,7 @@ export async function POST(request: Request): Promise<Response> {
     credited: {
       credits: trip.bankedCredits,
       parts: trip.bankedParts.length,
+      soldHaul: trip.soldHaul,
     },
     remaining: remainingConsumables,
     worldTripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
@@ -571,6 +573,7 @@ export async function POST(request: Request): Promise<Response> {
       credits: trip.bankedCredits,
       parts: trip.bankedParts,
       milestoneBonus: 0,
+      soldHaul: trip.soldHaul,
     },
     balance: rows[0].emeralds,
     deepestDepth: rows[0].deepest_depth,

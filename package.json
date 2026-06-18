@@ -1,6 +1,6 @@
 {
   "name": "vibebots",
-  "version": "0.1.37",
+  "version": "0.1.38",
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "engines": {

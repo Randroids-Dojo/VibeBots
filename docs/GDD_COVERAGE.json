@@ -297,7 +297,7 @@
     },
     {
       "id": "REQ-017",
-      "requirement": "The trip-back decision is informed: the HUD shows carried value and estimated return cost, and warns before the robot battery drops below it.",
+      "requirement": "The trip-back decision is informed: the HUD shows carried bag contents, the Buyer and surface sale feedback explain vibe value, estimated return cost is visible, and the robot battery warns before it drops below that return cost.",
       "gddRef": "docs/gdd/06-mining.html#legibility",
       "status": "done",
       "implementationRefs": [

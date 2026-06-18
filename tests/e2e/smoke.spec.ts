@@ -558,11 +558,13 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("multiple placed anchors");
+  await expect(dialog).toContainText("bag as resources");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("multiple beacon");
-  await expect(dialog.locator("li").nth(1)).toContainText("Out-of-range");
-  await expect(dialog.locator("li").nth(2)).toContainText("Edit pickup");
+  await expect(dialog.locator("li").first()).toContainText("carried resources");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "resources were sold",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText("wallet vibes");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -604,6 +606,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.38", "Resource sale copy"],
     ["0.1.37", "Multi-beacon warp"],
     ["0.1.36", "Mine surface tips"],
     ["0.1.35", "Mine cash-out diagnostics"],

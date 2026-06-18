@@ -278,6 +278,11 @@ describe("mine", () => {
     expect(state.miner.bankedCredits).toBe(
       2 * oreDef("silver").value + 3 * oreDef("coal").value,
     );
+    expect(state.miner.lastSoldHaul).toEqual({
+      ores: { silver: 2, coal: 3 },
+      salvageCredits: 0,
+      totalVibes: 2 * oreDef("silver").value + 3 * oreDef("coal").value,
+    });
     expect(state.miner.energy).toBe(START_ENERGY);
   });
 

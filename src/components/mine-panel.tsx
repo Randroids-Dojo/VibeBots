@@ -42,6 +42,7 @@ import {
   oreDef,
   returnEnergyCost,
   returnLadderNeed,
+  type SoldHaul,
   START_COL,
   stratumAt,
   supportSalvageValue,
@@ -174,6 +175,71 @@ const RESOURCE_FLOAT_COLORS: Record<OreId, string> = {
   diamond: "#7dd3fc",
   "core-crystal": "#d58cff",
 };
+
+function oreBagRows(carried: Partial<Record<OreId, number>>): Array<{
+  id: OreId;
+  name: string;
+  count: number;
+  value: number;
+}> {
+  return Object.entries(carried)
+    .map(([id, count]) => {
+      const def = oreDef(id as OreId);
+      return {
+        id: id as OreId,
+        name: def.name,
+        count: count ?? 0,
+        value: def.value,
+      };
+    })
+    .filter((row) => row.count > 0)
+    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+}
+
+function compactResourceList(
+  rows: Array<{ name: string; count: number }>,
+  limit = 2,
+): string {
+  const shown = rows.slice(0, limit).map((row) => `${row.name} x${row.count}`);
+  const extra = rows.length - shown.length;
+  return extra > 0 ? `${shown.join(", ")} +${extra} more` : shown.join(", ");
+}
+
+function bagSummary(miner: MineState["miner"]): {
+  label: string;
+  title: string;
+} | null {
+  const rows = oreBagRows(miner.carried);
+  const parts = miner.carriedParts.length;
+  const hasScrap = miner.carriedSalvageCredits > 0;
+  if (rows.length === 0 && parts === 0 && !hasScrap) return null;
+  const labelParts: string[] = [];
+  if (rows.length > 0) labelParts.push(compactResourceList(rows));
+  if (hasScrap) labelParts.push("support scrap");
+  if (parts > 0) labelParts.push(`${parts} part${parts > 1 ? "s" : ""}`);
+  const total = carriedValue(miner);
+  return {
+    label: `Bag: ${labelParts.join(" + ")}`,
+    title: `Bag contents. Resources sell for ${total} vibes at the surface.`,
+  };
+}
+
+function soldHaulLine(
+  haul: SoldHaul | undefined,
+  credits: number,
+  parts: string[],
+): string {
+  const rows = haul ? oreBagRows(haul.ores) : [];
+  const soldParts: string[] = [];
+  if (rows.length > 0) soldParts.push(compactResourceList(rows, 4));
+  if ((haul?.salvageCredits ?? 0) > 0) soldParts.push("support scrap");
+  const sold = soldParts.length > 0 ? soldParts.join(", ") : "no resources";
+  const found =
+    parts.length > 0
+      ? ` Found ${parts.length} part${parts.length > 1 ? "s" : ""}.`
+      : "";
+  return `Sold ${sold} for ${credits} vibes total.${found} Your mine stays.`;
+}
 
 const iconButtonStyle: React.CSSProperties = {
   background: "rgba(17, 21, 31, 0.88)",
@@ -1219,7 +1285,7 @@ function JuiceOverlays() {
             </p>
             <p style={{ margin: "10px 0 0", fontSize: "0.95rem" }}>
               {wreck.value > 0 || wreck.parts > 0
-                ? `The cargo stayed below: ${wreck.value} vibes${wreck.parts > 0 ? ` and ${wreck.parts} part${wreck.parts > 1 ? "s" : ""}` : ""}.`
+                ? `The bag stayed below: resources worth ${wreck.value} vibes${wreck.parts > 0 ? ` and ${wreck.parts} part${wreck.parts > 1 ? "s" : ""}` : ""}.`
                 : "At least the hold was empty."}
             </p>
             {wreck.nearMiss && (
@@ -1380,13 +1446,7 @@ function BuyerPanel({
           : deepest < 500
             ? 500
             : 1000;
-  const oreRows = Object.entries(miner.carried)
-    .map(([id, count]) => ({
-      def: oreDef(id as OreId),
-      count: count ?? 0,
-    }))
-    .filter((row) => row.count > 0)
-    .sort((a, b) => b.def.value - a.def.value);
+  const oreRows = oreBagRows(miner.carried);
   const targetRows = [
     {
       label: "Current haul",
@@ -1467,9 +1527,9 @@ function BuyerPanel({
             marginTop: 10,
           }}
         >
-          {oreRows.map(({ def, count }) => (
+          {oreRows.map(({ id, name, count, value }) => (
             <div
-              key={def.id}
+              key={id}
               style={{
                 display: "grid",
                 gridTemplateColumns: "1fr auto",
@@ -1482,7 +1542,7 @@ function BuyerPanel({
               }}
             >
               <span>
-                {def.name} x{count}
+                {name} x{count}
                 <small
                   style={{
                     display: "block",
@@ -1490,10 +1550,10 @@ function BuyerPanel({
                     fontSize: "0.68rem",
                   }}
                 >
-                  {def.value} vibes each
+                  {value} vibes each
                 </small>
               </span>
-              <strong>{def.value * count}</strong>
+              <strong>{value * count}</strong>
             </div>
           ))}
         </div>
@@ -2218,7 +2278,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const horizontalDistance = miner.col - START_COL;
   const horizontalDistanceLabel =
     horizontalDistance > 0 ? `+${horizontalDistance}` : `${horizontalDistance}`;
-  const carryValue = carriedValue(miner);
+  const currentBagSummary = bagSummary(miner);
   const climbCost = returnEnergyCost(miner);
   // The climb estimate assumes a cleared shaft; warn with a margin so a
   // detour or two does not turn the warning into a lie (REQ-017).
@@ -2430,11 +2490,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         : lastResult?.ok && lastResult.crushed
           ? "Crushed! The crew dug you out; the cargo stayed behind."
           : lastResult?.ok && lastResult.abandoned
-            ? "Abandoned the dig; the carry stayed behind."
+            ? "Abandoned the dig; the bag stayed behind."
             : lastResult?.ok && lastResult.collapsed
               ? "Battery drained. Hauled up empty."
               : lastResult?.ok && lastResult.recalled
-                ? "Roped home; carry sold."
+                ? "Roped home; resources sold."
                 : lastResult?.ok && lastResult.exploded
                   ? "Boom!"
                   : lastResult?.ok && lastResult.dynamitePlanted
@@ -2442,7 +2502,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                     : lastResult?.ok && lastResult.plankPlaced
                       ? "Plank placed."
                       : salvagedSupportCount > 0
-                        ? `Salvaged ${salvagedSupportCount} pickup${salvagedSupportCount > 1 ? "s" : ""} for ${salvagedSupportValue} vibes.`
+                        ? `Salvaged ${salvagedSupportCount} pickup${salvagedSupportCount > 1 ? "s" : ""}. Scrap sells for ${salvagedSupportValue} vibes at surface.`
                         : lastResult?.ok && (lastResult.dropped ?? 0) > 0
                           ? `${lastResult.dropped} ore dropped.`
                           : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
@@ -2459,7 +2519,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                                   : undefined;
   const cashNote =
     cashOut.state === "done"
-      ? `Sold ${cashOut.credits} vibes${cashOut.parts.length > 0 ? ` +${cashOut.parts.length} parts` : ""}. Your mine stays.`
+      ? soldHaulLine(cashOut.soldHaul, cashOut.credits, cashOut.parts)
       : cashOut.state === "unavailable"
         ? "Couldn't sell; loot is safe, try again."
         : cashOut.state === "error"
@@ -2839,11 +2899,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <span style={chipStyle}>
             &#127890; {carriedCount(miner)}/{cargoCapacity(mine.gear)}
           </span>
-          {(carryValue > 0 || miner.carriedParts.length > 0) && (
-            <span style={{ ...chipStyle, color: "#f5c542" }}>
-              &#128176; {carryValue} vibes
-              {miner.carriedParts.length > 0 &&
-                ` +${miner.carriedParts.length}p`}
+          {currentBagSummary && (
+            <span
+              title={currentBagSummary.title}
+              style={{ ...chipStyle, color: "#f5c542" }}
+            >
+              &#127890; {currentBagSummary.label}
             </span>
           )}
         </div>
@@ -2914,7 +2975,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 : "tap visible pickups"}
             </span>
             <span style={{ ...chipStyle, color: "#54e0c7" }}>
-              {selectedSupports.length} selected, {selectedSupportValue} vibes
+              {`${selectedSupports.length} selected, scrap value: ${selectedSupportValue}`}
             </span>
           </div>
           <div style={{ display: "flex", gap: 8 }}>

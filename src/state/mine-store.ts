@@ -17,6 +17,7 @@ import {
   NO_CONSUMABLES,
   normalizeGear,
   refundRailSupportsInDiff,
+  type SoldHaul,
   START_COL,
   STARTING_CONSUMABLES,
   type WorldDiff,
@@ -211,6 +212,7 @@ export type CashOutState =
       parts: string[];
       milestoneBonus: number;
       balance: number;
+      soldHaul?: SoldHaul;
     }
   | { state: "unavailable" }
   | { state: "error"; message: string };
@@ -658,6 +660,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             parts: body.credited.parts,
             milestoneBonus: body.credited.milestoneBonus ?? 0,
             balance: body.balance,
+            soldHaul: body.credited.soldHaul,
           },
           balance: typeof body.balance === "number" ? body.balance : null,
           consumables: remaining,

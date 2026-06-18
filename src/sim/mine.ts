@@ -645,12 +645,20 @@ export interface MinerState {
   carriedParts: string[];
   bankedCredits: number;
   bankedParts: string[];
+  /** Most recent surfaced haul before it was converted into wallet value. */
+  lastSoldHaul?: SoldHaul;
   /** Deepest row reached this session, used for profile records and stamps. */
   maxDepth: number;
   /** Trips that ended underground with a dead battery (lost cargo). */
   collapses: number;
   /** Last dropped cargo location for the render-layer locator. */
   lostCargo?: { value: number; parts: string[]; col: number; row: number };
+}
+
+export interface SoldHaul {
+  ores: Partial<Record<OreId, number>>;
+  salvageCredits: number;
+  totalVibes: number;
 }
 
 export interface MineState {
@@ -1033,6 +1041,7 @@ export function createMine(
       carriedParts: [],
       bankedCredits: 0,
       bankedParts: [],
+      lastSoldHaul: undefined,
       maxDepth: 0,
       collapses: 0,
       lostCargo: undefined,
@@ -2535,7 +2544,13 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
 }
 
 function bank(miner: MinerState, gear: MineGear): void {
-  miner.bankedCredits += carriedValue(miner);
+  const totalVibes = carriedValue(miner);
+  miner.lastSoldHaul = {
+    ores: { ...miner.carried },
+    salvageCredits: miner.carriedSalvageCredits,
+    totalVibes,
+  };
+  miner.bankedCredits += totalVibes;
   miner.bankedParts.push(...miner.carriedParts);
   miner.carried = {};
   miner.carriedSalvageCredits = 0;
@@ -2566,6 +2581,7 @@ function collapse(
   miner.carried = {};
   miner.carriedSalvageCredits = 0;
   miner.carriedParts = [];
+  miner.lastSoldHaul = undefined;
   miner.collapses += 1;
   miner.col = START_COL;
   miner.row = 0;
@@ -2610,6 +2626,7 @@ export const MAX_TRIP_MOVES = 5000;
 export interface TripResult {
   bankedCredits: number;
   bankedParts: string[];
+  soldHaul?: SoldHaul;
   /** Deepest row reached for the persisted profile record. */
   maxDepth: number;
   moves: number;
@@ -2642,6 +2659,13 @@ export function replayTrip(
   return {
     bankedCredits: state.miner.bankedCredits,
     bankedParts: [...state.miner.bankedParts],
+    soldHaul: state.miner.lastSoldHaul
+      ? {
+          ores: { ...state.miner.lastSoldHaul.ores },
+          salvageCredits: state.miner.lastSoldHaul.salvageCredits,
+          totalVibes: state.miner.lastSoldHaul.totalVibes,
+        }
+      : undefined,
     maxDepth: state.miner.maxDepth,
     moves: capped.length,
     used: { ...state.used },

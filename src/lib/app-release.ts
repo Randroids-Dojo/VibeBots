@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.37-multi-beacon-warp";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.38-resource-sale-copy";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.38",
+      date: "2026-06-18",
+      title: "Resource sale copy",
+      intro:
+        "The mine now treats the bag as resources and vibes as currency everywhere in the cash-out flow.",
+      changes: [
+        {
+          build,
+          text: "The HUD bag chip now lists carried resources such as Coal x2 instead of showing the bag as vibes while underground.",
+        },
+        {
+          build,
+          text: "Surface cash-out text now says which resources were sold and how many vibes they paid in total.",
+        },
+        {
+          build,
+          text: "Failure and salvage feedback now distinguishes resources, scrap, parts, and wallet vibes more clearly.",
+        },
+      ],
+    },
     {
       version: "0.1.37",
       date: "2026-06-18",

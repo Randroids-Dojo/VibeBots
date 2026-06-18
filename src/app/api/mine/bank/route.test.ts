@@ -362,12 +362,21 @@ describe("POST /api/mine/bank", () => {
     });
 
     expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({
+    const body = await res.json();
+    expect(body).toMatchObject({
       credited: { credits: 4 },
       balance: 12,
       consumables: stock({ rope: 1 }),
       tripIndex: 1,
     });
+    expect(body.credited.soldHaul).toMatchObject({
+      totalVibes: 4,
+      salvageCredits: 0,
+    });
+    const soldOres = body.credited.soldHaul.ores as Record<string, number>;
+    expect(
+      Object.values(soldOres).reduce((sum, count) => sum + count, 0),
+    ).toBeGreaterThan(0);
     expect(sql).toHaveBeenCalledTimes(3);
   });
 

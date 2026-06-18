@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="release-note-smoke-trim" data-date="2026-06-18">
+    <h3>Release Note Smoke Trim</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/clanker-base-pathing</code>, followup cleanup after the direct <code>main</code> push and rebase onto current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Deep review cleanup for the release-note smoke test. The test now focuses on the latest release note appearing once, dismissal persistence, and the top release-note ordering from Settings. Unrelated Stamp Book and Load game checks were removed from that test because those flows already have focused coverage and were making the full CI E2E suite hit the per-test timeout.</dd>
+      <dt>Verification</dt><dd>Ran focused release-note Playwright smoke on <code>PORT=3124</code> (1 passed) and full local Playwright smoke on <code>PORT=3124</code> (36 passed, 2 storage-gated skipped). Earlier source verification for the clanker pathing slice passed <code>pnpm typecheck</code>, <code>pnpm test</code> (232 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and <code>pnpm build</code>.</dd>
+      <dt>Assumptions</dt><dd>No gameplay, release-note content, package version, mine version, or sim version changed in this cleanup. The release notes remain accurate after the current <code>0.1.47</code> top release note.</dd>
+      <dt>GDD coverage</dt><dd>No coverage row changed.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-claim-alignment" data-date="2026-06-18">
     <h3>Bunker Claim Alignment</h3>
     <dl>

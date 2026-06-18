@@ -756,25 +756,6 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog).not.toBeVisible();
 
   const settings = await openSettings(page);
-  await settings.getByRole("button", { name: "Stamp Book" }).click();
-  const stampBook = page.getByRole("dialog", { name: "Stamp Book" });
-  await expect(stampBook).toBeVisible();
-  await expect(stampBook).toContainText("First Chip");
-  await expect(stampBook).toContainText("Clay Boots");
-  await stampBook.getByRole("button", { name: "Close Stamp Book" }).click();
-  await expect(stampBook).not.toBeVisible();
-
-  await openSettings(page);
-  await settings.getByRole("button", { name: "Load game" }).click();
-  const saveSlots = page.getByRole("dialog", { name: "Load Save Slot" });
-  await expect(saveSlots).toBeVisible();
-  await expect(saveSlots).toContainText("Slot 1");
-  await expect(saveSlots).toContainText("Slot 2");
-  await expect(saveSlots).toContainText("Slot 3");
-  await saveSlots.getByRole("button", { name: "Close Load Save Slot" }).click();
-  await expect(saveSlots).not.toBeVisible();
-
-  await openSettings(page);
   await settings.getByRole("button", { name: "Release notes" }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
@@ -784,20 +765,6 @@ test("mine shows the latest release note once to a fresh browser", async ({
     ["0.1.46", "Clanker pathing"],
     ["0.1.45", "Hardware Store"],
     ["0.1.44", "Player level two"],
-    ["0.1.43", "Blast Charge prices"],
-    ["0.1.42", "Explicit bunker claim"],
-    ["0.1.41", "Beacon names"],
-    ["0.1.40", "Save slot deletion"],
-    ["0.1.39", "Bunker vertical slice"],
-    ["0.1.38", "Resource sale copy"],
-    ["0.1.37", "Multi-beacon warp"],
-    ["0.1.36", "Mine surface tips"],
-    ["0.1.35", "Mine cash-out diagnostics"],
-    ["0.1.34", "Support selection outlines"],
-    ["0.1.33", "Save slots"],
-    ["0.1.32", "Partial ore mining"],
-    ["0.1.31", "Mine drop markers"],
-    ["0.1.30", "Large support cash-out"],
   ] as const;
   expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
   for (const [

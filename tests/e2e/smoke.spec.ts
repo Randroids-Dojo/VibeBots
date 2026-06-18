@@ -88,6 +88,7 @@ import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
 import {
   createMine,
   DEFAULT_GEAR,
+  ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
   exportDiff,
   START_COL,
@@ -442,16 +443,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("works from your current column");
+  await expect(dialog).toContainText("step onto it");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "start descending from wherever you are",
+    "controls match the world you can see",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "without walking back to the tower column",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("owned rail floor");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "clear that lift path",
+    "mined paths stay predictable",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -473,8 +472,9 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.22", "Elevator rail controls"],
     ["0.1.21", "Support stock repair"],
-    ["0.1.20", "Anywhere elevator controls"],
+    ["0.1.20", "Superseded elevator experiment"],
     ["0.1.19", "Mine base offset"],
     ["0.1.18", "Support snapshot cash-out fix"],
     ["0.1.17", "Fall death feedback"],
@@ -1004,7 +1004,7 @@ test("the elevator sells rail and gates rides on it (REQ-028)", async ({
   ).toBeDisabled();
 });
 
-test("elevator controls work away from the tower column", async ({ page }) => {
+test("elevator controls work from any elevator floor", async ({ page }) => {
   const gear = { ...DEFAULT_GEAR, elevator: ELEVATOR_SEGMENT_ROWS };
   const mine = createMine(9292, gear, STARTING_CONSUMABLES);
   await page.route("**/api/mine/world", async (route) => {
@@ -1039,6 +1039,14 @@ test("elevator controls work away from the tower column", async ({ page }) => {
   const canvas = page.locator("canvas");
   await expect(status).toHaveAttribute("data-depth", "0");
   await expect(canvas).toHaveAttribute("data-miner-x", "0.00");
+  await expect(
+    page.getByRole("button", { name: "Ride elevator down" }),
+  ).not.toBeVisible();
+
+  for (let i = 0; i < Math.abs(ELEVATOR_COL - START_COL); i++) {
+    await pressMineKey(page, "ArrowLeft");
+  }
+  await expect(canvas).toHaveAttribute("data-miner-x", "-5.00");
 
   const rideDown = page.getByRole("button", { name: "Ride elevator down" });
   await expect(rideDown).toBeVisible();
@@ -1049,7 +1057,7 @@ test("elevator controls work away from the tower column", async ({ page }) => {
       timeout: 5_000,
     })
     .toBe(ELEVATOR_SEGMENT_ROWS);
-  await expect(canvas).toHaveAttribute("data-miner-x", "0.00");
+  await expect(canvas).toHaveAttribute("data-miner-x", "-5.00");
 
   const rideUp = page.getByRole("button", { name: "Ride elevator up" });
   await expect(rideUp).toBeVisible();

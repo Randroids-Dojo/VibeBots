@@ -21,6 +21,7 @@ import {
   collectAction,
   collectablePlacements,
   type Direction,
+  ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
   elevatorSpeedRows,
@@ -1716,8 +1717,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     collectSelection.includes(collectTargetKey(target)),
   );
   const plankEnabled = !elevatorAutoDir && canPlacePlank(mine, facing);
+  const minerOnElevatorRail = miner.col === ELEVATOR_COL;
   const elevatorAvailable =
-    mine.gear.elevator > 0 && miner.row >= 0 && miner.row <= mine.gear.elevator;
+    mine.gear.elevator > 0 &&
+    minerOnElevatorRail &&
+    miner.row >= 0 &&
+    miner.row <= mine.gear.elevator;
   const canRideElevatorDown =
     elevatorAvailable && miner.row < mine.gear.elevator;
   const canRideElevatorUp = elevatorAvailable && miner.row > 0;
@@ -1802,8 +1807,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     if (!elevatorAutoDir) return;
     const atEnd =
       elevatorAutoDir === "ride-down"
-        ? miner.row >= mine.gear.elevator
-        : miner.row <= 0;
+        ? !minerOnElevatorRail || miner.row >= mine.gear.elevator
+        : !minerOnElevatorRail || miner.row <= 0;
     if (atEnd || cashOut.state === "pending") {
       setElevatorAutoDir(null);
       return;
@@ -1812,7 +1817,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       move(elevatorAutoDir);
     }, elevatorAutoDelayMs(mine.gear));
     return () => clearTimeout(timer);
-  }, [cashOut.state, elevatorAutoDir, mine.gear, miner.row, move]);
+  }, [
+    cashOut.state,
+    elevatorAutoDir,
+    mine.gear,
+    miner.row,
+    minerOnElevatorRail,
+    move,
+  ]);
 
   useEffect(() => {
     const previousRow = previousMinerRowRef.current;

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="support-salvage-art" data-date="2026-06-18">
+    <h3>Support Salvage Art</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/next-slice-20260617-232353</code>, fetched and rebased onto <code>origin/main</code> before implementation, then refreshed again against the latest <code>origin/main</code> during review before the direct-main commit.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-reported collect-mode art and economy fix. Salvage mode no longer draws floating yellow circles or text labels over ladders and planks, removing the mobile white-box artifact. Only support meshes in the miner's adjacent 3x3 salvage range brighten and accept selection, and selected supports get a simple red outline. Support pickup now removes the ladder or plank and adds partial carried vibe value instead of returning a full consumable. Planks can also be broken for the same partial salvage after repeated down hits with the pickaxe. Package version moved to <code>0.1.25</code>; <code>MINE_VERSION</code> moved from <code>25</code> to <code>26</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>After rebasing onto the latest <code>origin/main</code>, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, smoke, and doc files, focused Vitest for mine sim, bank route, and mine SFX (90 passed), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm test</code> (167 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm build</code>, and targeted Playwright smoke on a clean port for the mine HUD salvage control plus latest release-note popup and cumulative settings list (2 passed). An attempted default-port smoke was discarded because an older local server was already listening on port 3000 and served stale markup.</dd>
+      <dt>Assumptions</dt><dd>Support salvage returns half of the depot cost rounded down with a minimum of 1 vibe, and that value stays carried-risk loot until surfaced or recalled.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code> support salvage rules and appended a Build log entry.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="smart-battle-ai" data-date="2026-06-18">
     <h3>Smart Battle AI</h3>
     <dl>

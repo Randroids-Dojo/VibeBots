@@ -157,14 +157,8 @@ export function chargeableConsumables(trip: TripResult): MineConsumables {
   return {
     dynamite: trip.used.dynamite,
     rope: trip.used.rope,
-    ladder: Math.max(
-      0,
-      trip.used.ladder - trip.granted.ladder - trip.recovered.ladder,
-    ),
-    plank: Math.max(
-      0,
-      trip.used.plank - trip.granted.plank - trip.recovered.plank,
-    ),
+    ladder: Math.max(0, trip.used.ladder - trip.granted.ladder),
+    plank: Math.max(0, trip.used.plank - trip.granted.plank),
     beacon: trip.used.beacon,
   };
 }

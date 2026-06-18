@@ -972,7 +972,7 @@ describe("mine", () => {
     expect(state.used.plank).toBe(0);
   });
 
-  it("collects visible placed ladders and planks back into inventory", () => {
+  it("salvages visible placed ladders and planks for partial value", () => {
     const state = createMine(74, DEFAULT_GEAR, stock({ ladder: 2, plank: 2 }));
     dig(state, "down");
     dig(state, "down");
@@ -1002,12 +1002,34 @@ describe("mine", () => {
       ladder: 1,
       plank: 1,
     });
+    expect(result.ok && result.supportSalvageValue).toBe(2);
     expect(cellAt(state, START_COL, 2)?.ladder).toBeUndefined();
     expect(cellAt(state, START_COL, 1)?.plank).toBeUndefined();
-    expect(state.consumables.ladder).toBe(2);
-    expect(state.consumables.plank).toBe(2);
-    expect(state.used.ladder).toBe(0);
-    expect(state.used.plank).toBe(0);
+    expect(state.consumables.ladder).toBe(1);
+    expect(state.consumables.plank).toBe(1);
+    expect(state.used.ladder).toBe(1);
+    expect(state.used.plank).toBe(1);
+    expect(state.miner.carriedSalvageCredits).toBe(2);
+  });
+
+  it("salvages only supports in the miner's adjacent 3x3 range", () => {
+    const state = createMine(75, DEFAULT_GEAR, stock({}));
+    state.miner.col = START_COL;
+    state.miner.row = 2;
+    setCell(state, START_COL, 2, { kind: "empty" });
+    setCell(state, START_COL + 1, 2, { kind: "empty", ladder: true });
+    setCell(state, START_COL + 2, 2, { kind: "empty", plank: true });
+
+    expect(collectablePlacements(state)).toEqual([
+      { type: "ladder", col: START_COL + 1, row: 2 },
+    ]);
+    expect(
+      applyAction(
+        state,
+        collectAction([{ type: "plank", col: START_COL + 2, row: 2 }]),
+      ),
+    ).toEqual({ ok: false, reason: "blocked" });
+    expect(cellAt(state, START_COL + 2, 2)?.plank).toBe(true);
   });
 
   it("refunds supports covered by new elevator rail depth", () => {
@@ -1245,19 +1267,20 @@ describe("mine", () => {
     });
   });
 
-  it("blocks digging down while standing on a plank", () => {
+  it("damages a plank before digging down through it", () => {
     const state = createMine(106, DEFAULT_GEAR, stock({ plank: 1 }));
     state.miner.col = START_COL;
     state.miner.row = 1;
     setCell(state, START_COL, 1, { kind: "empty", plank: true });
     setCell(state, START_COL, 2, { kind: "empty" });
     const energy = state.miner.energy;
-    const blocked = step(state, "down");
-    expect(blocked).toEqual({ ok: false, reason: "blocked" });
+    const hit = step(state, "down");
+    expect(hit.ok && hit.plankCracked?.remaining).toBe(2);
     expect(state.miner.col).toBe(START_COL);
     expect(state.miner.row).toBe(1);
-    expect(state.miner.energy).toBe(energy);
+    expect(state.miner.energy).toBe(energy - 0.5);
     expect(cellAt(state, START_COL, 1)?.plank).toBe(true);
+    expect(cellAt(state, START_COL, 2)?.kind).toBe("empty");
   });
 
   it("allows side digs without planks and drops through the opened gap", () => {
@@ -1313,7 +1336,7 @@ describe("mine", () => {
     expect(state.used.plank).toBe(0);
   });
 
-  it("collects a planted ladder back into carried stock", () => {
+  it("salvages a planted ladder instead of returning carried stock", () => {
     const owned = stock({ ladder: 1 });
     const state = createMine(87, DEFAULT_GEAR, owned);
     dig(state, "down");
@@ -1323,29 +1346,57 @@ describe("mine", () => {
     step(state, "down");
     const collected = applyAction(state, "collect-ladder");
     expect(collected.ok && collected.collectedLadder).toBe(true);
+    expect(collected.ok && collected.supportSalvageValue).toBe(1);
     expect(cellAt(state, START_COL, 1)?.ladder).toBeUndefined();
-    expect(state.consumables.ladder).toBe(1);
-    expect(state.used.ladder).toBe(0);
-    expect(carryoverConsumables(state).ladder).toBe(1);
+    expect(state.consumables.ladder).toBe(0);
+    expect(state.used.ladder).toBe(1);
+    expect(state.miner.carriedSalvageCredits).toBe(1);
+    expect(carryoverConsumables(state).ladder).toBe(0);
   });
 
-  it("recovers old world ladders without charging future reuse", () => {
+  it("salvages old world ladders without granting future reuse", () => {
     const diff: WorldDiff = [[START_COL, 1, { kind: "empty", ladder: true }]];
-    const state = createMine(88, DEFAULT_GEAR, stock({}), diff);
+    const state = createMine(88, DEFAULT_GEAR, stock({ rope: 1 }), diff);
     step(state, "down");
     expect(applyAction(state, "collect-ladder").ok).toBe(true);
-    expect(state.recovered.ladder).toBe(1);
-    step(state, "up");
-    expect(state.used.ladder).toBe(1);
+    expect(state.consumables.ladder).toBe(0);
+    expect(state.miner.carriedSalvageCredits).toBe(1);
+    expect(applyAction(state, "up")).toEqual({
+      ok: false,
+      reason: "no-ladder",
+    });
+    applyAction(state, "recall");
+    expect(state.miner.bankedCredits).toBe(1);
     const replayed = replayTrip(
       88,
-      ["down", "collect-ladder", "up"],
+      ["down", "collect-ladder", "up", "recall"],
       DEFAULT_GEAR,
-      stock({}),
+      stock({ rope: 1 }),
       diff,
     );
-    expect(replayed.used.ladder).toBe(1);
-    expect(replayed.recovered.ladder).toBe(1);
+    expect(replayed.bankedCredits).toBe(1);
+    expect(replayed.used.ladder).toBe(0);
+  });
+
+  it("breaks the current plank after repeated down hits and salvages partial value", () => {
+    const state = lateralGapState(1);
+    expect(applyAction(state, "plank-right").ok).toBe(true);
+    expect(step(state, "right").ok).toBe(true);
+    expect(state.consumables.plank).toBe(0);
+    expect(state.used.plank).toBe(1);
+    const hit1 = applyAction(state, "down");
+    expect(hit1.ok && hit1.plankCracked?.remaining).toBe(2);
+    expect(cellAt(state, START_COL, 1)?.plank).toBe(true);
+    const hit2 = applyAction(state, "down");
+    expect(hit2.ok && hit2.plankCracked?.remaining).toBe(1);
+    expect(cellAt(state, START_COL, 1)?.plank).toBe(true);
+    const result = applyAction(state, "down");
+    expect(result.ok && result.supportCollected).toEqual({ plank: 1 });
+    expect(result.ok && result.supportSalvageValue).toBe(1);
+    expect(cellAt(state, START_COL, 1)?.plank).toBeUndefined();
+    expect(state.consumables.plank).toBe(0);
+    expect(state.used.plank).toBe(1);
+    expect(state.miner.carriedSalvageCredits).toBe(1);
   });
 
   it("abandons the trip from anywhere, forfeiting the carry", () => {

@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.25" data-date="2026-06-18">
+    <h2>0.1.25</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.25</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moved from <code>25</code> to <code>26</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Support cleanup now salvages ladders and planks for partial carried vibe value instead of refunding full consumables.</dd>
+      <dt>Interface</dt><dd>Only ladders and planks in the miner's adjacent 3x3 salvage range brighten while salvage mode is active. Selected supports use a simple red outline around the support itself, with no floating yellow circles or text labels.</dd>
+      <dt>Rules</dt><dd>Salvage value is carried like ore, so it must still be surfaced or recalled to become wallet vibes. Pickup actions are rejected for stale targets or supports outside the adjacent 3x3 range. Planks can also be broken for the same partial salvage after repeated down hits with the pickaxe.</dd>
+      <dt>Fixes</dt><dd>Removed the floating <code>L</code>, <code>P</code>, and <code>OK</code> labels that could render as white boxes on mobile.</dd>
+      <dt>Verification</dt><dd>After rebasing onto the latest <code>origin/main</code>, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, smoke, and doc files, focused Vitest for mine sim, bank route, and mine SFX (90 passed), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm test</code> (167 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm build</code>, and targeted Playwright smoke on a clean port for the mine HUD salvage control plus latest release-note popup and cumulative settings list (2 passed). An attempted default-port smoke was discarded because an older local server was already listening on port 3000 and served stale markup.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.24" data-date="2026-06-18">
     <h2>0.1.24</h2>
     <dl>

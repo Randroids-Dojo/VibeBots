@@ -39,6 +39,7 @@ import {
   returnLadderNeed,
   START_COL,
   stratumAt,
+  supportSalvageValue,
   warpRange,
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
@@ -1716,6 +1717,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const selectedSupports = visibleSupports.filter((target) =>
     collectSelection.includes(collectTargetKey(target)),
   );
+  const selectedSupportValue = selectedSupports.reduce(
+    (sum, target) => sum + supportSalvageValue(target.type),
+    0,
+  );
   const plankEnabled = !elevatorAutoDir && canPlacePlank(mine, facing);
   const minerOnElevatorRail = miner.col === ELEVATOR_COL;
   const elevatorAvailable =
@@ -1726,10 +1731,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const canRideElevatorDown =
     elevatorAvailable && miner.row < mine.gear.elevator;
   const canRideElevatorUp = elevatorAvailable && miner.row > 0;
-  const recoveredSupportCount =
+  const salvagedSupportCount =
     lastResult?.ok && lastResult.supportCollected
       ? (lastResult.supportCollected.ladder ?? 0) +
         (lastResult.supportCollected.plank ?? 0)
+      : 0;
+  const salvagedSupportValue =
+    lastResult?.ok && lastResult.supportSalvageValue
+      ? lastResult.supportSalvageValue
       : 0;
   const bankedCredits = miner.bankedCredits;
   const bankedPartsCount = miner.bankedParts.length;
@@ -1906,8 +1915,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                     ? "Fuse lit. Move away."
                     : lastResult?.ok && lastResult.plankPlaced
                       ? "Plank placed."
-                      : recoveredSupportCount > 0
-                        ? `Recovered ${recoveredSupportCount} support${recoveredSupportCount > 1 ? "s" : ""}.`
+                      : salvagedSupportCount > 0
+                        ? `Salvaged ${salvagedSupportCount} support${salvagedSupportCount > 1 ? "s" : ""} for ${salvagedSupportValue} vibes.`
                         : lastResult?.ok && (lastResult.dropped ?? 0) > 0
                           ? `${lastResult.dropped} ore dropped.`
                           : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
@@ -2277,7 +2286,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
       {collectMode && (
         <section
-          aria-label="Support collection"
+          aria-label="Support salvage"
           style={{
             position: "absolute",
             right: 12,
@@ -2307,13 +2316,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 : "tap visible supports"}
             </span>
             <span style={{ ...chipStyle, color: "#54e0c7" }}>
-              {selectedSupports.length} selected
+              {selectedSupports.length} selected, {selectedSupportValue} vibes
             </span>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
-              aria-label="Confirm support collection"
+              aria-label="Confirm support salvage"
               disabled={selectedSupports.length === 0}
               onClick={() => {
                 move(collectAction(selectedSupports));
@@ -2334,11 +2343,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 cursor: selectedSupports.length > 0 ? "pointer" : "default",
               }}
             >
-              Collect
+              Salvage
             </button>
             <button
               type="button"
-              aria-label="Cancel support collection"
+              aria-label="Cancel support salvage"
               onClick={() => {
                 setCollectSelection([]);
                 setCollectMode(false);
@@ -2391,7 +2400,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         {miner.row >= 1 && currentCell?.ladder && (
           <button
             type="button"
-            aria-label="Pick up ladder"
+            aria-label="Salvage ladder"
             onClick={() => {
               setDynamiteArmed(false);
               if (!elevatorAutoDir) move("collect-ladder");
@@ -2420,7 +2429,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         </button>
         <button
           type="button"
-          aria-label="Collect placed supports"
+          aria-label="Salvage placed supports"
           aria-pressed={collectMode}
           onClick={() => {
             setDynamiteArmed(false);

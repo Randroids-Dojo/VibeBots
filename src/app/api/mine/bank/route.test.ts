@@ -303,7 +303,7 @@ describe("mine bank policy helpers", () => {
     });
   });
 
-  it("charges only paid support stock after grants and recoveries", () => {
+  it("charges only paid support stock after death grants", () => {
     expect(
       chargeableConsumables({
         bankedCredits: 0,
@@ -312,9 +312,8 @@ describe("mine bank policy helpers", () => {
         moves: 0,
         used: stock({ dynamite: 1, rope: 1, ladder: 7, plank: 5, beacon: 1 }),
         granted: stock({ ladder: 3, plank: 2 }),
-        recovered: stock({ ladder: 2, plank: 1 }),
         diff: [],
       }),
-    ).toEqual(stock({ dynamite: 1, rope: 1, ladder: 2, plank: 2, beacon: 1 }));
+    ).toEqual(stock({ dynamite: 1, rope: 1, ladder: 4, plank: 3, beacon: 1 }));
   });
 });

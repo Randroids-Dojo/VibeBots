@@ -2,14 +2,7 @@
 
 import { RoundedBox, Text } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import {
-  memo,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AmbientLight,
   DirectionalLight,
@@ -32,6 +25,7 @@ import {
   ELEVATOR_COL,
   FALL_DELAY_ACTIONS,
   hitsFor,
+  isSupportSalvageTarget,
   isVisible,
   lanternDistance,
   lightRadius,
@@ -203,6 +197,7 @@ const DYNAMITE_RED = "#b43b32";
 const FUSE_GLOW = "#ffb347";
 const DYNAMITE_WARNING = TEETER_EMISSIVE;
 const EDGE_DARKNESS_COLOR = "#02040a";
+const SUPPORT_SELECT_RED = "#ff3b30";
 
 /** World coordinates ARE render coordinates in the endless mine. */
 const cellX = (col: number) => col;
@@ -226,6 +221,54 @@ function snapMotion(
     duration,
     frames: 0,
   };
+}
+
+function SupportSelectionOutline({
+  width,
+  height,
+  z = 0.14,
+}: {
+  width: number;
+  height: number;
+  z?: number;
+}) {
+  const bar = 0.045;
+  return (
+    <group position={[0, 0, z]}>
+      <mesh position={[0, height / 2, 0]}>
+        <boxGeometry args={[width, bar, bar]} />
+        <meshBasicMaterial
+          color={SUPPORT_SELECT_RED}
+          toneMapped={false}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh position={[0, -height / 2, 0]}>
+        <boxGeometry args={[width, bar, bar]} />
+        <meshBasicMaterial
+          color={SUPPORT_SELECT_RED}
+          toneMapped={false}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh position={[-width / 2, 0, 0]}>
+        <boxGeometry args={[bar, height, bar]} />
+        <meshBasicMaterial
+          color={SUPPORT_SELECT_RED}
+          toneMapped={false}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh position={[width / 2, 0, 0]}>
+        <boxGeometry args={[bar, height, bar]} />
+        <meshBasicMaterial
+          color={SUPPORT_SELECT_RED}
+          toneMapped={false}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  );
 }
 
 function retargetMotion(
@@ -1763,6 +1806,13 @@ function MineScene({
       j.shake = Math.max(j.shake, 0.02);
       j.lunge = { x: dc * 0.16, y: -dr * 0.13, t: DIG_LUNGE_SECONDS };
     }
+    if (lastResult.plankCracked) {
+      j.swing = PICK_SWING_SECONDS;
+      spawnSparks(j, cellX(miner.col), -miner.row - 0.42, 4);
+      spawnBurst(j, cellX(miner.col), -miner.row - 0.42, "#e4ad5b", 3);
+      j.shake = Math.max(j.shake, 0.02);
+      j.lunge = { x: 0, y: -0.13, t: DIG_LUNGE_SECONDS };
+    }
     if (lastResult.dug) {
       j.swing = PICK_SWING_SECONDS;
       const color =
@@ -2113,7 +2163,6 @@ function MineScene({
   const tunnelMeshes = [];
   const crackMeshes = [];
   const darknessMeshes = [];
-  const supportSelectMeshes: ReactNode[] = [];
   const selectedSupportSet = new Set(selectedSupportKeys ?? []);
   for (let row = firstRow; row <= lastRow; row++) {
     for (let col = firstCol; col <= lastCol; col++) {
@@ -2164,13 +2213,33 @@ function MineScene({
         }
         // A planted ladder (REQ-020): rails and rungs against the wall.
         if (cell.ladder) {
+          const ladderCanSalvage =
+            collectMode && isSupportSalvageTarget(mine, col, row);
+          const ladderSelected =
+            ladderCanSalvage && selectedSupportSet.has(`ladder:${col},${row}`);
+          const toggleLadder =
+            ladderCanSalvage && onToggleSupport ? onToggleSupport : null;
           tunnelMeshes.push(
-            <group key={`ladder:${key}`} position={[x, y, -0.28]}>
+            // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+            <group
+              key={`ladder:${key}`}
+              position={[x, y, -0.28]}
+              onClick={
+                toggleLadder
+                  ? (e) => {
+                      e.stopPropagation();
+                      toggleLadder({ type: "ladder", col, row });
+                    }
+                  : undefined
+              }
+            >
               {[-0.16, 0.16].map((rx) => (
                 <mesh key={rx} position={[rx, 0, 0]}>
                   <boxGeometry args={[0.05, 1, 0.05]} />
                   <meshStandardMaterial
-                    color="#a87b3e"
+                    color={ladderCanSalvage ? "#d9a052" : "#a87b3e"}
+                    emissive={ladderCanSalvage ? "#5a3411" : "#000000"}
+                    emissiveIntensity={ladderCanSalvage ? 0.16 : 0}
                     roughness={0.85}
                     flatShading
                   />
@@ -2180,12 +2249,17 @@ function MineScene({
                 <mesh key={ry} position={[0, ry, 0]}>
                   <boxGeometry args={[0.36, 0.05, 0.05]} />
                   <meshStandardMaterial
-                    color="#c99a55"
+                    color={ladderCanSalvage ? "#ffd078" : "#c99a55"}
+                    emissive={ladderCanSalvage ? "#5a3411" : "#000000"}
+                    emissiveIntensity={ladderCanSalvage ? 0.18 : 0}
                     roughness={0.85}
                     flatShading
                   />
                 </mesh>
               ))}
+              {ladderSelected ? (
+                <SupportSelectionOutline width={0.54} height={1.08} />
+              ) : null}
             </group>,
           );
         }
@@ -2260,13 +2334,33 @@ function MineScene({
         }
         // A plank bridge (REQ-022): boards spanning the cell floor.
         if (cell.plank) {
+          const plankCanSalvage =
+            collectMode && isSupportSalvageTarget(mine, col, row);
+          const plankSelected =
+            plankCanSalvage && selectedSupportSet.has(`plank:${col},${row}`);
+          const togglePlank =
+            plankCanSalvage && onToggleSupport ? onToggleSupport : null;
           tunnelMeshes.push(
-            <group key={`plank:${key}`} position={[x, y - 0.42, 0.05]}>
+            // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+            <group
+              key={`plank:${key}`}
+              position={[x, y - 0.42, 0.05]}
+              onClick={
+                togglePlank
+                  ? (e) => {
+                      e.stopPropagation();
+                      togglePlank({ type: "plank", col, row });
+                    }
+                  : undefined
+              }
+            >
               {[-0.14, 0.14].map((pz) => (
                 <mesh key={pz} position={[0, 0, pz]}>
                   <boxGeometry args={[0.98, 0.07, 0.22]} />
                   <meshStandardMaterial
-                    color="#b58a4a"
+                    color={plankCanSalvage ? "#e4ad5b" : "#b58a4a"}
+                    emissive={plankCanSalvage ? "#4a2d10" : "#000000"}
+                    emissiveIntensity={plankCanSalvage ? 0.14 : 0}
                     roughness={0.85}
                     flatShading
                   />
@@ -2275,66 +2369,18 @@ function MineScene({
               <mesh position={[0, -0.05, 0]}>
                 <boxGeometry args={[0.2, 0.06, 0.56]} />
                 <meshStandardMaterial
-                  color="#8a6536"
+                  color={plankCanSalvage ? "#ba8240" : "#8a6536"}
+                  emissive={plankCanSalvage ? "#4a2d10" : "#000000"}
+                  emissiveIntensity={plankCanSalvage ? 0.12 : 0}
                   roughness={0.9}
                   flatShading
                 />
               </mesh>
+              {plankSelected ? (
+                <SupportSelectionOutline width={1.08} height={0.44} z={0.34} />
+              ) : null}
             </group>,
           );
-        }
-        if (collectMode && onToggleSupport && (cell.ladder || cell.plank)) {
-          const addSupportTarget = (
-            type: "ladder" | "plank",
-            offset: number,
-          ) => {
-            const target: CollectTarget = { type, col, row };
-            const targetKey = `${type}:${col},${row}`;
-            const selected = selectedSupportSet.has(targetKey);
-            supportSelectMeshes.push(
-              // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
-              <group
-                key={`support-select:${targetKey}`}
-                position={[x + offset, y, 0.88]}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleSupport(target);
-                }}
-              >
-                <mesh>
-                  <circleGeometry args={[0.34, 24]} />
-                  <meshBasicMaterial
-                    color={selected ? "#54e0c7" : "#f5c542"}
-                    transparent
-                    opacity={selected ? 0.35 : 0.18}
-                    depthWrite={false}
-                  />
-                </mesh>
-                <mesh position={[0, 0, 0.01]}>
-                  <circleGeometry args={[0.46, 24]} />
-                  <meshBasicMaterial
-                    color="#54e0c7"
-                    transparent
-                    opacity={0.03}
-                    depthWrite={false}
-                  />
-                </mesh>
-                <Text
-                  position={[0, 0, 0.03]}
-                  fontSize={0.22}
-                  anchorX="center"
-                  anchorY="middle"
-                  color={selected ? "#0b0e14" : "#f8f1d5"}
-                  outlineColor="#101015"
-                  outlineWidth={selected ? 0 : 0.016}
-                >
-                  {selected ? "OK" : type === "ladder" ? "L" : "P"}
-                </Text>
-              </group>,
-            );
-          };
-          if (cell.ladder) addSupportTarget("ladder", cell.plank ? -0.22 : 0);
-          if (cell.plank) addSupportTarget("plank", cell.ladder ? 0.22 : 0);
         }
         continue;
       }
@@ -2529,7 +2575,6 @@ function MineScene({
         </mesh>
       </group>
       {tunnelMeshes}
-      {supportSelectMeshes}
       {blockMeshes}
       {crackMeshes}
       {/* The elevator rail (REQ-028): guides and ties down the bored

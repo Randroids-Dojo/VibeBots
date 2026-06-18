@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.24-smart-battle-ai";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.25-support-salvage";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.25",
+      date: "2026-06-18",
+      title: "Support salvage",
+      intro:
+        "Support cleanup now salvages ladders and planks for partial vibes instead of refunding full consumables.",
+      changes: [
+        {
+          build,
+          text: "Only ladders and planks in the miner's adjacent 3x3 salvage range brighten, so nearby targets are easier to pick out in the mine.",
+        },
+        {
+          build,
+          text: "Selected supports now use a simple red outline instead of yellow circles or floating text labels.",
+        },
+        {
+          build,
+          text: "Salvaged supports now add carried partial vibe value. Planks can also be broken for salvage after repeated pickaxe hits.",
+        },
+      ],
+    },
     {
       version: "0.1.24",
       date: "2026-06-18",

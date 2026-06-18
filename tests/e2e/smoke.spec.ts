@@ -238,7 +238,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
     page.getByRole("button", { name: /Place plank (left|right)/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Collect placed supports" }),
+    page.getByRole("button", { name: "Salvage placed supports" }),
   ).toBeVisible();
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
 });
@@ -469,14 +469,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("pick weak points");
-  await expect(dialog.locator("li")).toHaveCount(4);
-  await expect(dialog.locator("li").first()).toContainText("score enemy parts");
+  await expect(dialog).toContainText("partial vibes");
+  await expect(dialog.locator("li")).toHaveCount(3);
+  await expect(dialog.locator("li").first()).toContainText(
+    "easier to pick out in the mine",
+  );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "line up their weapon side",
+    "floating text labels",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "safer flank approaches",
+    "repeated pickaxe hits",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -498,6 +500,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.25", "Support salvage"],
     ["0.1.24", "Smarter battle targeting"],
     ["0.1.23", "Workshop part merging"],
     ["0.1.22", "Elevator rail controls"],

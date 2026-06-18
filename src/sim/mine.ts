@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 25;
+export const MINE_VERSION = 26;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -71,6 +71,26 @@ export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
   plank: 2,
   beacon: 60,
 };
+
+const SUPPORT_SALVAGE_NUMERATOR = 1;
+const SUPPORT_SALVAGE_DENOMINATOR = 2;
+const PLANK_HITS = 3;
+
+export function supportSalvageValue(item: "ladder" | "plank"): number {
+  return Math.max(
+    1,
+    Math.floor(
+      (CONSUMABLE_PRICES[item] * SUPPORT_SALVAGE_NUMERATOR) /
+        SUPPORT_SALVAGE_DENOMINATOR,
+    ),
+  );
+}
+
+function salvageSupport(state: MineState, item: "ladder" | "plank"): number {
+  const value = supportSalvageValue(item);
+  state.miner.carriedSalvageCredits += value;
+  return value;
+}
 
 /** Per-key sum, shared by the store's carryover and purchase merges. */
 export function addConsumables(
@@ -568,6 +588,8 @@ export interface MineCell {
    * like a ladder.
    */
   plank?: boolean;
+  /** Remaining pickaxe hits before a placed plank breaks for salvage. */
+  plankHp?: number;
   /**
    * Swings remaining before this block breaks (REQ-013). Unset means
    * full health for its kind and the digger's pickaxe.
@@ -618,6 +640,8 @@ export interface MinerState {
   energy: number;
   /** Carried ore counts by id; lost on collapse, banked on the surface. */
   carried: Partial<Record<OreId, number>>;
+  /** Salvage value from picked-up supports, lost like ore until surfaced. */
+  carriedSalvageCredits: number;
   carriedParts: string[];
   bankedCredits: number;
   bankedParts: string[];
@@ -644,11 +668,6 @@ export interface MineState {
    * strips the unspent part, so death rungs cost nothing and never bank.
    */
   granted: MineConsumables;
-  /**
-   * Planted consumables recovered from the world during this session.
-   * They offset later use at cash-out but do bank if carried home.
-   */
-  recovered: MineConsumables;
   /**
    * Player mutations over pure generation, keyed "col,row" (Q-010):
    * dug cells, crack damage, ladders, planks, fallen boulders. This
@@ -765,7 +784,7 @@ export function blastRadius(gear: MineGear): number {
 
 /** Credit value of everything currently carried (the bet on the table). */
 export function carriedValue(miner: MinerState): number {
-  let total = 0;
+  let total = miner.carriedSalvageCredits;
   for (const [id, count] of Object.entries(miner.carried)) {
     total += oreDef(id as OreId).value * (count ?? 0);
   }
@@ -992,13 +1011,13 @@ export function createMine(
     consumables: { ...consumables },
     used: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     granted: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
-    recovered: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     cells: importDiff(diff),
     miner: {
       col: START_COL,
       row: 0,
       energy: maxEnergy(gear),
       carried: {},
+      carriedSalvageCredits: 0,
       carriedParts: [],
       bankedCredits: 0,
       bankedParts: [],
@@ -1122,14 +1141,18 @@ export type MoveResult =
       fell?: number;
       /** The unsupported fall exceeded the gear's safe fall distance. */
       fallFatal?: boolean;
-      /** A planted ladder was recovered into the carried stock. */
+      /** A planted ladder was salvaged from the current cell. */
       collectedLadder?: boolean;
       /** This action placed a plank in the facing cell. */
       plankPlaced?: { col: number; row: number };
-      /** Placed supports picked back up into inventory. */
+      /** Placed supports salvaged from the world. */
       supportCollected?: Partial<Record<"ladder" | "plank", number>>;
+      /** Vibe value added to carried salvage by support pickup. */
+      supportSalvageValue?: number;
       /** The swing damaged but did not break the block (REQ-013). */
       cracked?: { kind: CellKind; remaining: number };
+      /** The swing damaged but did not break a placed plank. */
+      plankCracked?: { remaining: number };
       /** What a collapse/crush cost, for the near-miss reveal (REQ-019). */
       lost?: { value: number; parts: string[]; col: number; row: number };
     }
@@ -1172,6 +1195,16 @@ export type CollectTarget = {
   col: number;
   row: number;
 };
+
+export function isSupportSalvageTarget(
+  state: MineState,
+  col: number,
+  row: number,
+): boolean {
+  return (
+    Math.abs(col - state.miner.col) <= 1 && Math.abs(row - state.miner.row) <= 1
+  );
+}
 
 /**
  * The full trip action vocabulary (Q-006 default B): plain directions
@@ -1435,7 +1468,7 @@ function settleAfterEmptied(
 export function step(state: MineState, dir: Direction): MoveResult {
   const miner = state.miner;
   if (dir === "down" && cellAt(state, miner.col, miner.row)?.plank)
-    return { ok: false, reason: "blocked" };
+    return breakCurrentPlank(state);
   const t = target(state, dir);
   if (isPendingDynamiteAt(state, t.col, t.row))
     return { ok: false, reason: "blocked" };
@@ -1697,12 +1730,65 @@ function placePlank(state: MineState, dir: "left" | "right"): MoveResult {
   });
 }
 
+function breakCurrentPlank(state: MineState): MoveResult {
+  const miner = state.miner;
+  const cell = cellAt(state, miner.col, miner.row);
+  if (!cell?.plank) return { ok: false, reason: "blocked" };
+  miner.energy = Math.max(0, miner.energy - MOVE_COST);
+  const current = cellMut(state, miner.col, miner.row);
+  const remaining = (current.plankHp ?? PLANK_HITS) - 1;
+  if (remaining > 0) {
+    current.plankHp = remaining;
+    const base = {
+      ok: true,
+      dug: null,
+      dugOre: null,
+      found: null,
+      collapsed: false,
+      plankCracked: { remaining },
+    } satisfies Extract<MoveResult, { ok: true }>;
+    if (miner.row > 0 && miner.energy <= 0) {
+      const lost = minerLostCargo(miner);
+      collapse(state, true, lost);
+      return {
+        ...base,
+        collapsed: true,
+        lost,
+      };
+    }
+    return finishStationaryAction(state, base);
+  }
+  current.plank = undefined;
+  current.plankHp = undefined;
+  const salvageValue = salvageSupport(state, "plank");
+  const base = {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    supportCollected: { plank: 1 },
+    supportSalvageValue: salvageValue,
+  } satisfies Extract<MoveResult, { ok: true }>;
+  if (miner.row > 0 && miner.energy <= 0) {
+    const lost = minerLostCargo(miner);
+    collapse(state, true, lost);
+    return {
+      ...base,
+      collapsed: true,
+      lost,
+    };
+  }
+  return finishStationaryAction(state, base);
+}
+
 export function collectablePlacements(state: MineState): CollectTarget[] {
   const items: CollectTarget[] = [];
   for (const [key, cell] of state.cells) {
     if (!cell.ladder && !cell.plank) continue;
     const [col, row] = key.split(",").map(Number);
-    if (!isVisible(state, col, row)) continue;
+    if (!isVisible(state, col, row) || !isSupportSalvageTarget(state, col, row))
+      continue;
     if (cell.ladder) items.push({ type: "ladder", col, row });
     if (cell.plank) items.push({ type: "plank", col, row });
   }
@@ -1717,16 +1803,21 @@ function collectPlaced(state: MineState, action: MineAction): MoveResult {
   if (!targets || targets.length === 0) return { ok: false, reason: "blocked" };
   for (const item of targets) {
     const cell = cellAt(state, item.col, item.row);
-    if (!cell || !isVisible(state, item.col, item.row) || !cell[item.type])
+    if (
+      !cell ||
+      !isVisible(state, item.col, item.row) ||
+      !isSupportSalvageTarget(state, item.col, item.row) ||
+      !cell[item.type]
+    )
       return { ok: false, reason: "blocked" };
   }
   const collected: Partial<Record<"ladder" | "plank", number>> = {};
+  let salvageValue = 0;
   for (const item of targets) {
     const cell = cellMut(state, item.col, item.row);
     cell[item.type] = undefined;
-    state.consumables[item.type]++;
-    if (state.used[item.type] > 0) state.used[item.type]--;
-    else state.recovered[item.type]++;
+    const value = salvageSupport(state, item.type);
+    salvageValue += value;
     collected[item.type] = (collected[item.type] ?? 0) + 1;
   }
   return finishStationaryAction(state, {
@@ -1736,6 +1827,7 @@ function collectPlaced(state: MineState, action: MineAction): MoveResult {
     found: null,
     collapsed: false,
     supportCollected: collected,
+    supportSalvageValue: salvageValue,
   });
 }
 
@@ -1943,9 +2035,7 @@ function collectLadder(state: MineState): MoveResult {
   const cell = cellAt(state, state.miner.col, state.miner.row);
   if (!cell?.ladder) return { ok: false, reason: "blocked" };
   cellMut(state, state.miner.col, state.miner.row).ladder = undefined;
-  state.consumables.ladder++;
-  if (state.used.ladder > 0) state.used.ladder--;
-  else state.recovered.ladder++;
+  const salvageValue = salvageSupport(state, "ladder");
   return finishStationaryAction(state, {
     ok: true,
     dug: null,
@@ -1953,6 +2043,8 @@ function collectLadder(state: MineState): MoveResult {
     found: null,
     collapsed: false,
     collectedLadder: true,
+    supportCollected: { ladder: 1 },
+    supportSalvageValue: salvageValue,
   });
 }
 
@@ -2179,6 +2271,7 @@ function bank(miner: MinerState, gear: MineGear): void {
   miner.bankedCredits += carriedValue(miner);
   miner.bankedParts.push(...miner.carriedParts);
   miner.carried = {};
+  miner.carriedSalvageCredits = 0;
   miner.carriedParts = [];
   miner.lostCargo = undefined;
   miner.energy = maxEnergy(gear);
@@ -2204,6 +2297,7 @@ function collapse(
     miner.lostCargo = { ...lost, parts: [...lost.parts] };
   }
   miner.carried = {};
+  miner.carriedSalvageCredits = 0;
   miner.carriedParts = [];
   miner.collapses += 1;
   miner.col = START_COL;
@@ -2256,8 +2350,6 @@ export interface TripResult {
   used: MineConsumables;
   /** Free recovery stock granted by deaths: forgiven at cash-out. */
   granted: MineConsumables;
-  /** World-stock recovered during this trip: forgiven if re-used. */
-  recovered: MineConsumables;
   /** The world after the trip: persisted as the next checkpoint. */
   diff: WorldDiff;
 }
@@ -2287,7 +2379,6 @@ export function replayTrip(
     moves: capped.length,
     used: { ...state.used },
     granted: { ...state.granted },
-    recovered: { ...state.recovered },
     diff: exportDiff(state),
   };
 }

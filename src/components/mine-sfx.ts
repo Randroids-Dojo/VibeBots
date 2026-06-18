@@ -182,17 +182,19 @@ export function mineResultSfxEvents(
 
   const events: MineSfxEvent[] = [];
   if (result.cracked) events.push(strikeEvent(result.cracked.kind));
+  if (result.plankCracked) events.push("plank");
   if (result.dug) {
     if (result.dugOre) events.push(`dig-ore-${result.dugOre}`);
     else if (result.dug === "rock") events.push("dig-rock");
     else if (result.dug === "part-cache") events.push("dig-cache");
     else events.push("dig-dirt");
-  } else if (isPlainMove(action) && !result.cracked) {
+  } else if (isPlainMove(action) && !result.cracked && !result.plankCracked) {
     events.push("step");
   }
 
   if (result.laddered) events.push("ladder");
-  if (result.planked || result.plankPlaced) events.push("plank");
+  if (result.planked || result.plankPlaced || result.supportCollected?.plank)
+    events.push("plank");
   if (result.exploded || (result.blasted ?? 0) > 0) events.push("dynamite");
   if ((result.vented ?? 0) > 0) events.push("gas");
   if (result.dugOre) events.push("ore-pickup");

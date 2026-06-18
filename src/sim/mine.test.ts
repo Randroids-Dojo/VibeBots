@@ -865,6 +865,48 @@ describe("mine", () => {
     expect(replayed.diff).toEqual(exportDiff(live));
   });
 
+  it("mines falling rocks before and after they drop with the row pickaxe gate", () => {
+    const c = START_COL;
+    const beforeDrop = createMine(109, { ...DEFAULT_GEAR, pickaxe: 5 });
+    beforeDrop.miner.col = c;
+    beforeDrop.miner.row = 6;
+    setCell(beforeDrop, c, 6, { kind: "empty" });
+    setCell(beforeDrop, c + 1, 6, {
+      kind: "boulder",
+      fallIn: FALL_DELAY_ACTIONS,
+    });
+    setCell(beforeDrop, c + 1, 7, { kind: "dirt" });
+
+    const minedBeforeDrop = step(beforeDrop, "right");
+    expect(minedBeforeDrop.ok && minedBeforeDrop.dug).toBe("rock");
+    expect(beforeDrop.miner.col).toBe(c + 1);
+    expect(cellAt(beforeDrop, c + 1, 6)?.kind).toBe("empty");
+
+    const weakFallen = createMine(110, { ...DEFAULT_GEAR, pickaxe: 2 });
+    weakFallen.miner.col = c;
+    weakFallen.miner.row = 24;
+    setCell(weakFallen, c, 24, { kind: "empty" });
+    setCell(weakFallen, c + 1, 24, {
+      kind: "rock",
+      rockTier: 1,
+      fallen: true,
+    });
+    setCell(weakFallen, c + 1, 25, { kind: "dirt" });
+    expect(step(weakFallen, "right")).toEqual({ ok: false, reason: "rock" });
+
+    const afterDrop = createMine(111, { ...DEFAULT_GEAR, pickaxe: 5 });
+    afterDrop.miner.col = c;
+    afterDrop.miner.row = 30;
+    setCell(afterDrop, c, 30, { kind: "empty" });
+    setCell(afterDrop, c + 1, 30, { kind: "boulder", fallen: true });
+    setCell(afterDrop, c + 1, 31, { kind: "dirt" });
+
+    const minedAfterDrop = dig(afterDrop, "right");
+    expect(minedAfterDrop.ok && minedAfterDrop.dug).toBe("rock");
+    expect(afterDrop.miner.col).toBe(c + 1);
+    expect(cellAt(afterDrop, c + 1, 30)?.kind).toBe("empty");
+  });
+
   it("plants dynamite, then explodes once the miner moves clear", () => {
     const noStick = createMine(53);
     expect(applyAction(noStick, "dynamite-down")).toEqual({

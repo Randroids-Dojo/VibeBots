@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 26;
+export const MINE_VERSION = 27;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -1370,11 +1370,11 @@ function tickFalls(
     }
     setCell(state, col, row, { kind: "empty" });
     emptied.push({ col, row });
-    // The block relocates intact: a rock keeps its tier gate, a boulder
-    // stays a boulder. The teeter resets and crack damage is shaken off.
+    // The block relocates intact. The teeter resets and crack damage is
+    // shaken off, while the current row defines the pickaxe gate.
     const placed: MineCell = { kind: cell.kind };
-    if (cell.rockTier !== undefined) placed.rockTier = cell.rockTier;
-    if (cell.kind === "rock") placed.fallen = true;
+    if (cell.kind === "rock") placed.rockTier = rockTierAt(rest);
+    if (cell.kind === "rock" || cell.kind === "boulder") placed.fallen = true;
     setCell(state, col, rest, placed);
   }
   return crushed;
@@ -1447,6 +1447,23 @@ function markUnstable(
   }
 }
 
+function isFallingRock(cell: MineCell): boolean {
+  return (
+    (cell.kind === "rock" || cell.kind === "boulder") &&
+    (cell.fallIn !== undefined || cell.fallen === true)
+  );
+}
+
+function rockTierForDig(cell: MineCell, row: number): number {
+  return isFallingRock(cell)
+    ? rockTierAt(row)
+    : (cell.rockTier ?? rockTierAt(row));
+}
+
+function digKindFor(cell: MineCell): CellKind {
+  return isFallingRock(cell) ? "rock" : cell.kind;
+}
+
 function settleAfterEmptied(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
@@ -1474,9 +1491,14 @@ export function step(state: MineState, dir: Direction): MoveResult {
     return { ok: false, reason: "blocked" };
   const cell = cellAt(state, t.col, t.row);
   if (!cell) return { ok: false, reason: "edge" };
-  if (cell.kind === "rock" && !canDigRock(state.gear, cell.rockTier ?? 1))
+  const isRockLike = cell.kind === "rock" || isFallingRock(cell);
+  if (isRockLike && !canDigRock(state.gear, rockTierForDig(cell, t.row)))
     return { ok: false, reason: "rock" };
-  if (cell.kind === "boulder" || cell.kind === "gas" || cell.kind === "magma")
+  if (
+    (cell.kind === "boulder" && !isFallingRock(cell)) ||
+    cell.kind === "gas" ||
+    cell.kind === "magma"
+  )
     return { ok: false, reason: "blocked" };
   if (dir === "up" && cell.kind !== "empty")
     return { ok: false, reason: "blocked" };
@@ -1486,10 +1508,11 @@ export function step(state: MineState, dir: Direction): MoveResult {
   // dig can still collapse the trip mid-block.
   if (cell.kind !== "empty") {
     const struck = cellMut(state, t.col, t.row);
-    const remaining = (struck.hp ?? hitsFor(struck.kind, state.gear)) - 1;
+    const kindForDig = digKindFor(struck);
+    const remaining = (struck.hp ?? hitsFor(kindForDig, state.gear)) - 1;
     if (remaining > 0) {
       struck.hp = remaining;
-      miner.energy = Math.max(0, miner.energy - swingCostFor(struck.kind));
+      miner.energy = Math.max(0, miner.energy - swingCostFor(kindForDig));
       // A swing is a full action: teetering blocks count down and drop,
       // and the battery can still run out mid-block.
       const emptiedMid: Array<{ col: number; row: number }> = [];
@@ -1519,7 +1542,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
         found: null,
         collapsed: false,
         fell: fellMid || undefined,
-        cracked: { kind: struck.kind, remaining },
+        cracked: { kind: kindForDig, remaining },
       });
     }
   }
@@ -1549,8 +1572,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
   let dropped = 0;
   const emptied: Array<{ col: number; row: number }> = [];
   if (cell.kind !== "empty") {
-    dug = cell.kind;
-    cost = swingCostFor(cell.kind);
+    const kindForDig = digKindFor(cell);
+    dug = kindForDig;
+    cost = swingCostFor(kindForDig);
     let overflowPile: Partial<Record<OreId, number>> | undefined;
     if (cell.kind === "ore" && cell.ore) {
       const units = oreUnitsAt(t.row);

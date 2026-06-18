@@ -457,17 +457,13 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("partial vibes");
+  await expect(dialog).toContainText("diggable obstacles");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "easier to pick out in the mine",
-  );
+  await expect(dialog.locator("li").first()).toContainText("teetering rock");
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "floating text labels",
+    "landed falling boulder",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "repeated pickaxe hits",
-  );
+  await expect(dialog.locator("li").nth(2)).toContainText("deeper landing");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -488,6 +484,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.26", "Mine falling rocks"],
     ["0.1.25", "Support salvage"],
     ["0.1.24", "Smarter battle targeting"],
     ["0.1.23", "Workshop part merging"],

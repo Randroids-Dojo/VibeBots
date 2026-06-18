@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.25-support-salvage";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.26-falling-rock-mining";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.26",
+      date: "2026-06-18",
+      title: "Mine falling rocks",
+      intro:
+        "Falling rocks are now diggable obstacles when your pickaxe is strong enough for their current depth.",
+      changes: [
+        {
+          build,
+          text: "A teetering rock or boulder can be mined before it drops if the current row's rock tier is within your pickaxe level.",
+        },
+        {
+          build,
+          text: "A landed falling boulder can be mined afterward instead of becoming a permanent blocked path.",
+        },
+        {
+          build,
+          text: "Fallen rocks use the tier for the row they occupy, so a deeper landing still asks for the deeper pickaxe upgrade.",
+        },
+      ],
+    },
     {
       version: "0.1.25",
       date: "2026-06-18",

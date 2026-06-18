@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="player-level-two-rewards" data-date="2026-06-18">
+    <h3>Player Level Two Rewards</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/player-level-2-rewards</code>, rebased onto current <code>origin/main</code> after the explicit bunker claim and Blast Charge price slices landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>First player-level progression slice for bunker defense. Survived Clanker defenses now grant defense XP toward a Level 2 cap, the bunker HUD shows player level progress and the active beacon cap, finished battle alerts show XP, vibes, level-up rewards, and the first-defense stamp, and the Supply Depot raises the owned beacon cap from 2 to 3 after Level 2. Package version moved to <code>0.1.44</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, test, package, release, and coverage files; <code>pnpm typecheck</code>; focused Vitest for bunker sim, bunker server, bunker route, and consumable purchase route coverage (15 passed); <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check --cached</code>; <code>git diff --check</code>; <code>pnpm test</code> (218 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm build</code>; and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3112</code> for the bunker HUD, explicit claim flow, and latest release note (3 passed). Review cleanup removed a dead beacon-limit export, fixed the base-building build log to package <code>0.1.44</code>, and made atomic beacon-cap races return the same level-aware cap error as the precheck.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the first level cap is Level 2, Level 2 requires 100 defense XP from survived bunker raids, and the only Level 2 reward in this slice is raising total owned beacon capacity from 2 to 3. Mine surface tips were reviewed and gained a bunker-defense XP tip because this release changes mine progression and beacon capacity.</dd>
+      <dt>GDD coverage</dt><dd>REQ-038 stays partial with expanded level-progress, reward-report, and beacon-cap implementation and test refs. Updated <code>docs/GDD_COVERAGE.json</code>, <code>docs/gdd/08-base-building.html</code>, static release notes, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="blast-charge-price-tuning" data-date="2026-06-18">
     <h3>Blast Charge Price Tuning</h3>
     <dl>

@@ -33,7 +33,12 @@ const view = {
     balance: 12,
     trackXp: 80,
     defenseXp: 20,
-    overallLevel: 2,
+    overallLevel: 1,
+    levelCap: 2,
+    progressXp: 20,
+    neededXp: 80,
+    nextLevelXp: 100,
+    beaconLimit: 2,
   },
 };
 

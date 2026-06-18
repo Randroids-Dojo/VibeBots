@@ -29,7 +29,8 @@ export type AchievementMetric =
   | "recallsWithLoot"
   | "recoveries"
   | "beaconsPlanted"
-  | "elevatorRides";
+  | "elevatorRides"
+  | "bunkerRaidsSurvived";
 
 export interface AchievementStats {
   sales: number;
@@ -42,6 +43,7 @@ export interface AchievementStats {
   recoveries: number;
   beaconsPlanted: number;
   elevatorRides: number;
+  bunkerRaidsSurvived: number;
 }
 
 export interface AchievementSnapshot {
@@ -80,6 +82,7 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   recoveries: 0,
   beaconsPlanted: 0,
   elevatorRides: 0,
+  bunkerRaidsSurvived: 0,
 };
 
 export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
@@ -353,6 +356,15 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     metric: "elevatorRides",
     target: 1,
   },
+  {
+    id: "survival-first-defense",
+    category: "survival",
+    title: "First Defense",
+    description: "Survive a Clanker attack on your bunker.",
+    stamp: "BD",
+    metric: "bunkerRaidsSurvived",
+    target: 1,
+  },
 ];
 
 export function normalizeAchievementStats(
@@ -377,6 +389,8 @@ export function mergeAchievementStats(
     recoveries: current.recoveries + (patch.recoveries ?? 0),
     beaconsPlanted: current.beaconsPlanted + (patch.beaconsPlanted ?? 0),
     elevatorRides: current.elevatorRides + (patch.elevatorRides ?? 0),
+    bunkerRaidsSurvived:
+      current.bunkerRaidsSurvived + (patch.bunkerRaidsSurvived ?? 0),
   };
 }
 

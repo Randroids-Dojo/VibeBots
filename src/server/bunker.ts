@@ -2,14 +2,17 @@ import {
   BASE_PART_CATALOG,
   type BasePartId,
   type BasePartInventory,
+  BUNKER_RAID_COOLDOWN_HOURS,
   BUNKER_RAID_DURATION_SECONDS,
   type BunkerFootprint,
+  type BunkerRaidRewardReport,
   type BunkerRaidSnapshot,
   type BunkerState,
   createBunker,
   EMPTY_BASE_PART_INVENTORY,
   overallPlayerLevel,
   placeBasePart,
+  playerLevelProgress,
   proposedBunkerFootprint,
   removeBasePart,
   resolveBunkerRaid,
@@ -22,6 +25,7 @@ import {
   NO_CONSUMABLES,
   type WorldDiff,
 } from "@/sim/mine";
+import { applyAchievementProgress } from "./achievements";
 import type { db } from "./db";
 
 type Sql = Awaited<ReturnType<typeof db>>;
@@ -35,6 +39,11 @@ export interface BunkerView {
     trackXp: number;
     defenseXp: number;
     overallLevel: number;
+    levelCap: number;
+    progressXp: number;
+    neededXp: number;
+    nextLevelXp: number | null;
+    beaconLimit: number;
   };
 }
 
@@ -138,6 +147,7 @@ export async function loadBunkerView(
     track_xp: 0,
     defense_xp: 0,
   };
+  const progress = playerLevelProgress(player.defense_xp);
   return {
     bunker: parseBunkerState(bunkerRows[0] ?? null),
     inventory: await ensureStarterBaseParts(sql, playerId),
@@ -150,6 +160,11 @@ export async function loadBunkerView(
       trackXp: player.track_xp,
       defenseXp: player.defense_xp,
       overallLevel: overallPlayerLevel(player.track_xp, player.defense_xp),
+      levelCap: progress.cap,
+      progressXp: progress.progressXp,
+      neededXp: progress.neededXp,
+      nextLevelXp: progress.nextLevelXp,
+      beaconLimit: progress.beaconLimit,
     },
   };
 }
@@ -315,6 +330,26 @@ export async function startBunkerRaid(
     return { ok: false, status: 409, error: "claim a bunker first" };
   if (view.activeRaid)
     return { ok: false, status: 409, error: "raid already active" };
+  const recentRows = (await sql`
+    SELECT started_at
+    FROM bunker_raids
+    WHERE player_id = ${playerId}
+    ORDER BY started_at DESC
+    LIMIT 1`) as Array<{ started_at: string | Date }>;
+  const lastStartedAt = recentRows[0]?.started_at;
+  if (lastStartedAt) {
+    const cooldownMs = BUNKER_RAID_COOLDOWN_HOURS * 60 * 60 * 1000;
+    const availableAt = new Date(lastStartedAt).getTime() + cooldownMs;
+    const remainingMs = availableAt - Date.now();
+    if (remainingMs > 0) {
+      const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+      return {
+        ok: false,
+        status: 409,
+        error: `raid cooldown active: ${remainingHours}h remaining`,
+      };
+    }
+  }
   const raidId = `raid-${Date.now().toString(36)}`;
   const raid = resolveBunkerRaid(view.bunker, tier, raidId);
   await sql`
@@ -338,7 +373,12 @@ export async function startBunkerRaid(
 export async function finishBunkerRaid(
   sql: Sql,
   playerId: string,
-): Promise<BunkerOperationResult<{ raid: BunkerRaidSnapshot }>> {
+): Promise<
+  BunkerOperationResult<{
+    raid: BunkerRaidSnapshot;
+    reward: BunkerRaidRewardReport;
+  }>
+> {
   const rows = (await sql`
     SELECT raid_id, snapshot, started_at, duration_seconds
     FROM bunker_raids
@@ -371,12 +411,58 @@ export async function finishBunkerRaid(
   if (rewarded.length === 0) {
     return { ok: false, status: 409, error: "raid already finished" };
   }
+  const beforeRows = (await sql`
+    SELECT track_xp, defense_xp
+    FROM players
+    WHERE id = ${playerId}`) as Array<{
+    track_xp: number;
+    defense_xp: number;
+  }>;
+  const before = beforeRows[0] ?? { track_xp: 0, defense_xp: 0 };
+  const beforeProgress = playerLevelProgress(before.defense_xp);
+  let defenseXpAfter = before.defense_xp;
+  let stampAwarded = false;
   if (raid.survived) {
-    await sql`
+    const firstDefenseRows = (await sql`
+      SELECT achievement_id
+      FROM player_achievements
+      WHERE player_id = ${playerId}
+        AND achievement_id = 'survival-first-defense'
+      LIMIT 1`) as Array<{ achievement_id: string }>;
+    const firstDefenseAlreadyUnlocked = firstDefenseRows.length > 0;
+    const playerRows = (await sql`
       UPDATE players
       SET emeralds = emeralds + ${raid.reward.vibes},
           defense_xp = defense_xp + ${raid.reward.defenseXp}
-      WHERE id = ${playerId}`;
+      WHERE id = ${playerId}
+      RETURNING defense_xp`) as Array<{ defense_xp: number }>;
+    defenseXpAfter = playerRows[0]?.defense_xp ?? defenseXpAfter;
+    try {
+      await applyAchievementProgress(sql, playerId, {
+        bunkerRaidsSurvived: 1,
+      });
+      stampAwarded = !firstDefenseAlreadyUnlocked;
+    } catch {
+      stampAwarded = false;
+    }
   }
-  return { ok: true, view: await loadBunkerView(sql, playerId), raid };
+  const afterProgress = playerLevelProgress(defenseXpAfter);
+  return {
+    ok: true,
+    view: await loadBunkerView(sql, playerId),
+    raid,
+    reward: {
+      survived: raid.survived,
+      vibesGained: raid.reward.vibes,
+      xpGained: raid.reward.defenseXp,
+      defenseXpBefore: before.defense_xp,
+      defenseXpAfter,
+      levelBefore: beforeProgress.level,
+      levelAfter: afterProgress.level,
+      leveledUp: afterProgress.level > beforeProgress.level,
+      beaconLimitBefore: beforeProgress.beaconLimit,
+      beaconLimitAfter: afterProgress.beaconLimit,
+      stampAwarded,
+    },
+  };
 }

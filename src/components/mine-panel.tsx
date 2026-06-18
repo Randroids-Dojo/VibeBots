@@ -15,6 +15,7 @@ import {
   BASE_PART_CATALOG,
   type BasePartId,
   type BunkerFootprint,
+  DEFENSE_XP_PER_LEVEL,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
 import {
@@ -110,6 +111,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: the Buyer shows haul value before auto-sell at the surface.",
   "Tip: Blast Charge unlocks stronger dynamite tiers at the Upgrades stall.",
   "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
+  "Tip: survived bunker defenses add XP toward Level 2 and a third beacon slot.",
 ] as const;
 const BASE_BUILDING_COLS = [
   ...STALLS.map((stall) => stall.col),
@@ -1705,6 +1707,7 @@ function StallMenu({
   mine,
   gear,
   balance,
+  beaconLimit,
   shopNote,
   cashOutPending,
   onBuyConsumable,
@@ -1718,6 +1721,7 @@ function StallMenu({
   mine: MineState;
   gear: MineGear;
   balance: number | null;
+  beaconLimit: number;
   shopNote: string | null;
   cashOutPending: boolean;
   onBuyConsumable: (item: DepotItem, quantity: number) => void;
@@ -1735,7 +1739,7 @@ function StallMenu({
   const offline = balance === null;
   const beacons = findBeacons(mine);
   const beaconTotal = mine.consumables.beacon + beacons.length;
-  const beaconRoom = Math.max(0, MAX_BEACONS - beaconTotal);
+  const beaconRoom = Math.max(0, beaconLimit - beaconTotal);
   // Swipe-to-dismiss: the grab zone follows the finger down, and a far
   // enough pull (or a flick) closes the sheet. A short tug snaps back.
   const [dragY, setDragY] = useState(0);
@@ -1939,7 +1943,7 @@ function StallMenu({
                 : null;
             const actionLabel =
               item === "beacon" && !beaconAllowed
-                ? `Limit ${MAX_BEACONS} total`
+                ? `Limit ${beaconLimit} total`
                 : `Buy ${buyQuantity} for ${totalPrice} vibes`;
             const rowSub =
               item === "beacon" && !beaconAllowed
@@ -2279,11 +2283,24 @@ function BunkerControlPanel({
   const inventory = useBunkerStore((s) => s.inventory);
   const activeRaid = useBunkerStore((s) => s.activeRaid);
   const player = useBunkerStore((s) => s.player);
+  const lastReward = useBunkerStore((s) => s.lastRaidReward);
   const note = useBunkerStore((s) => s.note);
   if (minerRow <= 0) return null;
   const hasBunker = Boolean(bunker);
   const canClaim = !hasBunker && status !== "loading" && preview !== null;
   const canBuild = hasBunker && !activeRaid;
+  const levelProgressMax =
+    player?.nextLevelXp === null
+      ? DEFENSE_XP_PER_LEVEL
+      : (player?.progressXp ?? 0) + (player?.neededXp ?? DEFENSE_XP_PER_LEVEL);
+  const levelProgressValue =
+    player?.nextLevelXp === null
+      ? DEFENSE_XP_PER_LEVEL
+      : (player?.progressXp ?? 0);
+  const levelProgressPercent =
+    levelProgressMax > 0
+      ? Math.min(100, (levelProgressValue / levelProgressMax) * 100)
+      : 0;
   if (!hasBunker && !claimMode) {
     return (
       <button
@@ -2340,6 +2357,93 @@ function BunkerControlPanel({
           ? `Cell ${minerCol}, ${minerRow}. Place panels on claimed cells.`
           : "Clear and bank a 7x5 room, then claim it here."}
       </p>
+      {player && (
+        <fieldset
+          aria-label="Player level progress"
+          style={{
+            border: "1px solid rgba(84, 224, 199, 0.34)",
+            borderRadius: 10,
+            background: "rgba(84, 224, 199, 0.08)",
+            padding: 8,
+            marginBottom: 10,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              fontSize: "0.76rem",
+              fontWeight: 800,
+            }}
+          >
+            <span>
+              Player level {player.overallLevel}/{player.levelCap}
+            </span>
+            <span style={{ color: "#f5c542" }}>
+              Beacon cap {player.beaconLimit}
+            </span>
+          </div>
+          <div
+            aria-hidden
+            style={{
+              height: 6,
+              borderRadius: 999,
+              background: "rgba(255, 255, 255, 0.12)",
+              margin: "7px 0 5px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${levelProgressPercent}%`,
+                height: "100%",
+                background: "#54e0c7",
+              }}
+            />
+          </div>
+          <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.76 }}>
+            {player.nextLevelXp === null
+              ? `Defense XP ${player.defenseXp}. Level cap reached.`
+              : `Defense XP ${levelProgressValue}/${levelProgressMax}. ${player.neededXp} XP to level ${player.overallLevel + 1}.`}
+          </p>
+        </fieldset>
+      )}
+      {lastReward && (
+        <div
+          role="alert"
+          aria-label="Bunker battle result"
+          style={{
+            border: lastReward.survived
+              ? "1px solid rgba(84, 224, 199, 0.42)"
+              : "1px solid rgba(255, 107, 107, 0.5)",
+            borderRadius: 10,
+            background: lastReward.survived
+              ? "rgba(84, 224, 199, 0.1)"
+              : "rgba(255, 107, 107, 0.11)",
+            padding: 8,
+            marginBottom: 10,
+            fontSize: "0.74rem",
+          }}
+        >
+          <strong style={{ display: "block", marginBottom: 4 }}>
+            {lastReward.survived ? "Defense survived" : "Defense failed"}
+          </strong>
+          {lastReward.survived ? (
+            <span>
+              +{lastReward.xpGained} defense XP, +{lastReward.vibesGained}{" "}
+              vibes.
+              {lastReward.leveledUp
+                ? ` Level ${lastReward.levelAfter} reached. Reward: beacon cap ${lastReward.beaconLimitAfter}.`
+                : ""}
+              {lastReward.stampAwarded ? " First Defense stamp earned." : ""}
+            </span>
+          ) : (
+            <span>No defense XP gained.</span>
+          )}
+        </div>
+      )}
       {!hasBunker && (
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
@@ -2480,6 +2584,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const teleportToBase = useMineStore((s) => s.teleportToBase);
   const bunker = useBunkerStore((s) => s.bunker);
   const activeBunkerRaid = useBunkerStore((s) => s.activeRaid);
+  const bunkerPlayer = useBunkerStore((s) => s.player);
   const loadBunker = useBunkerStore((s) => s.loadBunker);
   const claimBunker = useBunkerStore((s) => s.claimBunker);
   const buyBasePart = useBunkerStore((s) => s.buyBasePart);
@@ -3296,6 +3401,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           mine={mine}
           gear={gear}
           balance={balance}
+          beaconLimit={bunkerPlayer?.beaconLimit ?? MAX_BEACONS}
           shopNote={shopNote}
           cashOutPending={cashOut.state === "pending"}
           onBuyConsumable={(item, quantity) =>

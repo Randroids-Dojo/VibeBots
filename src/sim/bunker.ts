@@ -1,7 +1,11 @@
 export const BUNKER_CLAIM_WIDTH = 7;
 export const BUNKER_CLAIM_HEIGHT = 5;
 export const BUNKER_RAID_DURATION_SECONDS = 180;
+export const BUNKER_RAID_COOLDOWN_HOURS = 4;
 export const DEFENSE_XP_PER_LEVEL = 100;
+export const PLAYER_LEVEL_CAP = 2;
+export const LEVEL_ONE_BEACON_LIMIT = 2;
+export const LEVEL_TWO_BEACON_LIMIT = 3;
 
 export type BasePartId = "wall-panel" | "door-panel";
 
@@ -91,10 +95,52 @@ export interface BunkerRaidSnapshot {
   };
 }
 
+export interface BunkerRaidRewardReport {
+  survived: boolean;
+  vibesGained: number;
+  xpGained: number;
+  defenseXpBefore: number;
+  defenseXpAfter: number;
+  levelBefore: number;
+  levelAfter: number;
+  leveledUp: boolean;
+  beaconLimitBefore: number;
+  beaconLimitAfter: number;
+  stampAwarded: boolean;
+}
+
+export interface PlayerLevelProgress {
+  level: number;
+  currentXp: number;
+  cap: number;
+  nextLevelXp: number | null;
+  progressXp: number;
+  neededXp: number;
+  beaconLimit: number;
+}
+
 export function overallPlayerLevel(trackXp: number, defenseXp: number): number {
-  return (
-    1 + Math.floor(Math.max(0, trackXp + defenseXp) / DEFENSE_XP_PER_LEVEL)
-  );
+  void trackXp;
+  return playerLevelProgress(defenseXp).level;
+}
+
+export function playerLevelProgress(defenseXp: number): PlayerLevelProgress {
+  const currentXp = Math.max(0, Math.floor(defenseXp));
+  const uncappedLevel = 1 + Math.floor(currentXp / DEFENSE_XP_PER_LEVEL);
+  const level = Math.min(PLAYER_LEVEL_CAP, uncappedLevel);
+  const capped = level >= PLAYER_LEVEL_CAP;
+  const nextLevelXp = capped ? null : level * DEFENSE_XP_PER_LEVEL;
+  return {
+    level,
+    currentXp,
+    cap: PLAYER_LEVEL_CAP,
+    nextLevelXp,
+    progressXp: capped
+      ? DEFENSE_XP_PER_LEVEL
+      : currentXp - (level - 1) * DEFENSE_XP_PER_LEVEL,
+    neededXp: capped ? 0 : Math.max(0, (nextLevelXp ?? 0) - currentXp),
+    beaconLimit: level >= 2 ? LEVEL_TWO_BEACON_LIMIT : LEVEL_ONE_BEACON_LIMIT,
+  };
 }
 
 export function addBasePartInventory(

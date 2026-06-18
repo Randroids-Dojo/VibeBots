@@ -6,6 +6,7 @@ import {
   createBunker,
   overallPlayerLevel,
   placeBasePart,
+  playerLevelProgress,
   proposedBunkerFootprint,
   removeBasePart,
   resolveBunkerRaid,
@@ -83,7 +84,26 @@ describe("bunker vertical slice sim", () => {
 
   it("combines track XP and defense XP into overall level", () => {
     expect(overallPlayerLevel(90, 0)).toBe(1);
-    expect(overallPlayerLevel(90, 10)).toBe(2);
-    expect(overallPlayerLevel(120, 180)).toBe(4);
+    expect(overallPlayerLevel(90, 99)).toBe(1);
+    expect(overallPlayerLevel(90, 100)).toBe(2);
+    expect(overallPlayerLevel(120, 180)).toBe(2);
+  });
+
+  it("caps player level at two and raises the beacon limit at level two", () => {
+    expect(playerLevelProgress(0)).toMatchObject({
+      level: 1,
+      cap: 2,
+      progressXp: 0,
+      neededXp: 100,
+      beaconLimit: 2,
+    });
+    expect(playerLevelProgress(100)).toMatchObject({
+      level: 2,
+      cap: 2,
+      progressXp: 100,
+      neededXp: 0,
+      nextLevelXp: null,
+      beaconLimit: 3,
+    });
   });
 });

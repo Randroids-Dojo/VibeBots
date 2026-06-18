@@ -304,7 +304,17 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
     },
     inventory: { "wall-panel": 4, "door-panel": 1 },
     activeRaid: null,
-    player: { balance: 120, trackXp: 40, defenseXp: 60, overallLevel: 2 },
+    player: {
+      balance: 120,
+      trackXp: 40,
+      defenseXp: 120,
+      overallLevel: 2,
+      levelCap: 2,
+      progressXp: 100,
+      neededXp: 0,
+      nextLevelXp: null,
+      beaconLimit: 3,
+    },
   };
   await page.route("**/api/bunker", async (route) => {
     await route.fulfill({
@@ -358,6 +368,12 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await digTo(page, 1);
   const builder = page.getByRole("region", { name: "Bunker builder" });
   await expect(builder).toBeVisible();
+  await expect(builder.getByLabel("Player level progress")).toContainText(
+    "Player level 2/2",
+  );
+  await expect(builder.getByLabel("Player level progress")).toContainText(
+    "Beacon cap 3",
+  );
   await expect(builder).toContainText("Wall Panel x4");
   await builder.getByRole("button", { name: "Start Clanker raid" }).click();
   await expect(builder).toContainText("Clankers attacking for 180 seconds");
@@ -374,7 +390,17 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
         bunker: null,
         inventory: { "wall-panel": 4, "door-panel": 1 },
         activeRaid: null,
-        player: { balance: 120, trackXp: 0, defenseXp: 0, overallLevel: 1 },
+        player: {
+          balance: 120,
+          trackXp: 0,
+          defenseXp: 0,
+          overallLevel: 1,
+          levelCap: 2,
+          progressXp: 0,
+          neededXp: 100,
+          nextLevelXp: 100,
+          beaconLimit: 2,
+        },
       }),
     });
   });
@@ -387,6 +413,9 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
   await expect(builder).not.toBeVisible();
   await page.getByRole("button", { name: "Start bunker claim" }).click();
   await expect(builder).toBeVisible();
+  await expect(builder.getByLabel("Player level progress")).toContainText(
+    "Player level 1/2",
+  );
   await expect(
     builder.getByRole("button", { name: "Claim 7x5 bunker" }),
   ).toBeVisible();
@@ -667,13 +696,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("current mining economy");
+  await expect(dialog).toContainText("player level progress");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "300, 1000, and 4000 vibes",
+    "defense XP progress",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("reachable goals");
-  await expect(dialog.locator("li").nth(2)).toContainText("late premium");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "owned beacon cap from 2 to 3",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "first-defense stamp",
+  );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -715,6 +748,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.44", "Player level two"],
     ["0.1.43", "Blast Charge prices"],
     ["0.1.42", "Explicit bunker claim"],
     ["0.1.41", "Beacon names"],

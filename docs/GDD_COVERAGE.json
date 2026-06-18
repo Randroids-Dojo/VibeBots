@@ -665,13 +665,18 @@
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
+        "src/app/api/consumables/buy/route.ts",
+        "src/components/mine-panel.tsx",
+        "src/state/bunker-store.ts",
         "src/server/db.ts",
         "src/server/player.ts"
       ],
       "testRefs": [
         "src/sim/bunker.test.ts",
+        "src/app/api/consumables/buy/route.test.ts",
         "src/server/player.test.ts",
-        "src/server/bunker.test.ts"
+        "src/server/bunker.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": [
         "F-029"

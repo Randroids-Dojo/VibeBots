@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.43-blast-charge-prices";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.44-player-level-two";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.44",
+      date: "2026-06-18",
+      title: "Player level two",
+      intro:
+        "Surviving bunker defenses now advances player level progress up to Level 2.",
+      changes: [
+        {
+          build,
+          text: "The bunker HUD shows player level, defense XP progress, and the current beacon cap.",
+        },
+        {
+          build,
+          text: "Surviving enough Clanker raids reaches Level 2 and raises the owned beacon cap from 2 to 3.",
+        },
+        {
+          build,
+          text: "Battle results now report defense XP gained, level-up rewards, vibes, and the first-defense stamp.",
+        },
+      ],
+    },
     {
       version: "0.1.43",
       date: "2026-06-18",

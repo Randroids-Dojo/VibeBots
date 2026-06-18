@@ -2,10 +2,10 @@ import { z } from "zod";
 import { applyAchievementProgress } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
 import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
+import { playerLevelProgress } from "@/sim/bunker";
 import {
   CONSUMABLE_PRICES,
   countPlacedBeaconsInDiff,
-  MAX_BEACONS,
   type WorldDiff,
 } from "@/sim/mine";
 
@@ -15,6 +15,23 @@ const bodySchema = z.object({
   item: z.enum(["dynamite", "rope", "ladder", "plank", "beacon"]),
   quantity: z.number().int().min(1).max(99).optional().default(1),
 });
+
+function beaconLimitResponse(
+  level: number,
+  beaconLimit: number,
+  ownedTotal: number,
+): Response {
+  return Response.json(
+    {
+      error: `beacon limit reached: level ${level} allows ${beaconLimit} total`,
+      code: "beacon_limit",
+      level,
+      beaconLimit,
+      ownedTotal,
+    },
+    { status: 409 },
+  );
+}
 
 /**
  * Buys consumables (REQ-016). One conditional statement: the spend
@@ -38,7 +55,8 @@ export async function POST(request: Request): Promise<Response> {
   const item = parsed.data.item;
   const quantity = parsed.data.quantity;
   const price = CONSUMABLE_PRICES[item] * quantity;
-  let beaconSlotsAvailable = MAX_BEACONS;
+  let beaconSlotsAvailable = 0;
+  let beaconLimitState: { level: number; beaconLimit: number } | null = null;
 
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
@@ -50,13 +68,15 @@ export async function POST(request: Request): Promise<Response> {
     const placed = countPlacedBeaconsInDiff(
       (worlds[0]?.diff ?? []) as WorldDiff,
     );
+    const progress = playerLevelProgress(profile?.defense_xp ?? 0);
     const owned = (profile?.beacon_count ?? 0) + placed;
-    beaconSlotsAvailable = Math.max(0, MAX_BEACONS - placed);
-    if (owned + quantity > MAX_BEACONS) {
-      return Response.json(
-        { error: `beacon limit ${MAX_BEACONS} total` },
-        { status: 409 },
-      );
+    beaconSlotsAvailable = Math.max(0, progress.beaconLimit - placed);
+    beaconLimitState = {
+      level: progress.level,
+      beaconLimit: progress.beaconLimit,
+    };
+    if (owned + quantity > progress.beaconLimit) {
+      return beaconLimitResponse(progress.level, progress.beaconLimit, owned);
     }
   }
   const rows = (await (item === "dynamite"
@@ -93,6 +113,17 @@ export async function POST(request: Request): Promise<Response> {
     count: number;
   }>;
   if (rows.length === 0) {
+    if (
+      item === "beacon" &&
+      beaconLimitState &&
+      (profile?.emeralds ?? 0) >= price
+    ) {
+      return beaconLimitResponse(
+        beaconLimitState.level,
+        beaconLimitState.beaconLimit,
+        beaconLimitState.beaconLimit,
+      );
+    }
     return Response.json({ error: "not enough vibes" }, { status: 409 });
   }
   try {

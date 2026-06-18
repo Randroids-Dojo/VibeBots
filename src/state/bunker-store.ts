@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   type BasePartId,
   type BasePartInventory,
+  type BunkerRaidRewardReport,
   type BunkerRaidSnapshot,
   type BunkerState,
   EMPTY_BASE_PART_INVENTORY,
@@ -12,6 +13,11 @@ export interface BunkerPlayerProgress {
   trackXp: number;
   defenseXp: number;
   overallLevel: number;
+  levelCap: number;
+  progressXp: number;
+  neededXp: number;
+  nextLevelXp: number | null;
+  beaconLimit: number;
 }
 
 interface BunkerResponse {
@@ -19,6 +25,8 @@ interface BunkerResponse {
   inventory: BasePartInventory;
   activeRaid: BunkerRaidSnapshot | null;
   player: BunkerPlayerProgress;
+  raid?: BunkerRaidSnapshot;
+  reward?: BunkerRaidRewardReport;
 }
 
 type BunkerStoreStatus = "idle" | "loading" | "ready" | "unavailable" | "error";
@@ -29,6 +37,7 @@ export interface BunkerStoreState {
   inventory: BasePartInventory;
   activeRaid: BunkerRaidSnapshot | null;
   player: BunkerPlayerProgress | null;
+  lastRaidReward: BunkerRaidRewardReport | null;
   note: string | null;
   loadBunker: () => Promise<void>;
   claimBunker: (col: number, row: number) => Promise<void>;
@@ -49,6 +58,7 @@ function applyResponse(
     inventory: body.inventory,
     activeRaid: body.activeRaid,
     player: body.player,
+    lastRaidReward: body.reward ?? null,
     note: null,
   });
 }
@@ -97,6 +107,7 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
   inventory: { ...EMPTY_BASE_PART_INVENTORY },
   activeRaid: null,
   player: null,
+  lastRaidReward: null,
   note: null,
 
   loadBunker: async () => {

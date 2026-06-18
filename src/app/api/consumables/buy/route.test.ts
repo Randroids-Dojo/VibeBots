@@ -33,13 +33,14 @@ function buy(item: string, quantity = 1): Promise<Response> {
   );
 }
 
-function mockSql(diff: WorldDiff = []) {
+function mockSql(diff: WorldDiff = [], boughtBeaconCount: number | null = 2) {
   const sql = vi.fn(async () => {
     const calls = sql.mock.calls as unknown as Array<[TemplateStringsArray]>;
     const query = calls[calls.length - 1]?.[0]?.join(" ") ?? "";
     if (query.includes("SELECT diff FROM mine_worlds")) return [{ diff }];
     if (query.includes("beacon_count = beacon_count")) {
-      return [{ emeralds: 40, count: 2 }];
+      if (boughtBeaconCount === null) return [];
+      return [{ emeralds: 40, count: boughtBeaconCount }];
     }
     return [{ emeralds: 40, count: 1 }];
   });
@@ -54,6 +55,7 @@ describe("POST /api/consumables/buy", () => {
     mockedPlayerId.mockResolvedValue("player-1");
     mockedProfile.mockResolvedValue({
       beacon_count: 0,
+      defense_xp: 0,
       emeralds: 200,
     } as never);
   });
@@ -62,6 +64,7 @@ describe("POST /api/consumables/buy", () => {
     mockSql();
     mockedProfile.mockResolvedValue({
       beacon_count: 2,
+      defense_xp: 0,
       emeralds: 200,
     } as never);
 
@@ -69,7 +72,11 @@ describe("POST /api/consumables/buy", () => {
 
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toEqual({
-      error: "beacon limit 2 total",
+      error: "beacon limit reached: level 1 allows 2 total",
+      code: "beacon_limit",
+      level: 1,
+      beaconLimit: 2,
+      ownedTotal: 2,
     });
   });
 
@@ -77,6 +84,7 @@ describe("POST /api/consumables/buy", () => {
     mockSql([[0, 4, { kind: "empty", beacon: true }]]);
     mockedProfile.mockResolvedValue({
       beacon_count: 1,
+      defense_xp: 0,
       emeralds: 200,
     } as never);
 
@@ -84,7 +92,11 @@ describe("POST /api/consumables/buy", () => {
 
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toEqual({
-      error: "beacon limit 2 total",
+      error: "beacon limit reached: level 1 allows 2 total",
+      code: "beacon_limit",
+      level: 1,
+      beaconLimit: 2,
+      ownedTotal: 2,
     });
   });
 
@@ -92,6 +104,7 @@ describe("POST /api/consumables/buy", () => {
     const sql = mockSql();
     mockedProfile.mockResolvedValue({
       beacon_count: 1,
+      defense_xp: 0,
       emeralds: 200,
     } as never);
 
@@ -105,5 +118,45 @@ describe("POST /api/consumables/buy", () => {
       balance: 40,
     });
     expect(sql).toHaveBeenCalled();
+  });
+
+  it("allows the third total beacon at player level two", async () => {
+    const sql = mockSql([], 3);
+    mockedProfile.mockResolvedValue({
+      beacon_count: 2,
+      defense_xp: 100,
+      emeralds: 200,
+    } as never);
+
+    const res = await buy("beacon");
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      item: "beacon",
+      quantity: 1,
+      count: 3,
+      balance: 40,
+    });
+    expect(sql).toHaveBeenCalled();
+  });
+
+  it("returns the level-aware beacon cap error when the atomic update loses capacity", async () => {
+    mockSql([], null);
+    mockedProfile.mockResolvedValue({
+      beacon_count: 2,
+      defense_xp: 100,
+      emeralds: 200,
+    } as never);
+
+    const res = await buy("beacon");
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "beacon limit reached: level 2 allows 3 total",
+      code: "beacon_limit",
+      level: 2,
+      beaconLimit: 3,
+      ownedTotal: 3,
+    });
   });
 });

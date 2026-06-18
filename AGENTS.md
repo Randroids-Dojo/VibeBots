@@ -173,6 +173,13 @@ When adding auto-scrolling, credits, animated overlays, portals, or modal UI:
 - Preserve normal keyboard activation on focused buttons and form controls.
 - Expose toggle state with `aria-pressed` or equivalent accessible state.
 
+When adding text-like labels to a three/R3F canvas, especially the mine canvas:
+
+- Normal DOM text in HUDs, menus, dialogs, sheets, and overlays is allowed and preferred for exact words and numbers.
+- Do not use runtime 3D text renderers such as `@react-three/drei` `Text` or troika text inside the mine canvas without explicit approval. Mobile WebGL/WebGPU fallback paths can render failed glyph atlas quads as white squares.
+- Prefer mesh markers, icons, controlled sprite atlases, or DOM overlays anchored outside the canvas. If exact in-world text is unavoidable, document why, add a mobile or narrow-viewport smoke test, and sample canvas pixels for white-card artifacts.
+- When investigating a white square or card that follows the player, search first for in-scene text, sprite, or texture atlas paths before tuning lights or materials.
+
 ---
 
 ## RULE 11: One backing store per project

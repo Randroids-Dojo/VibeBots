@@ -472,17 +472,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("sell normally");
+  await expect(dialog).toContainText("Dropped cargo piles");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "high owned consumable counts",
-  );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Server-owned inventory",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "large saved ladder and plank stock",
-  );
+  await expect(dialog.locator("li").first()).toContainText("3D markers");
+  await expect(dialog.locator("li").nth(1)).toContainText("drei text");
+  await expect(dialog.locator("li").nth(2)).toContainText("planted beacon");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -513,6 +507,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.31", "Mine drop markers"],
     ["0.1.30", "Large support cash-out"],
     ["0.1.29", "Dynamite tiers"],
     ["0.1.28", "Mining stamp book"],
@@ -1015,6 +1010,77 @@ test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
   await expect(
     pad.getByRole("button", { name: "Warp to beacon" }),
   ).toBeDisabled();
+});
+
+test("deep dropped ore markers do not create a white text card", async ({
+  page,
+}) => {
+  const gear = {
+    ...DEFAULT_GEAR,
+    pickaxe: 5,
+    battery: 5,
+    cargo: 5,
+    lantern: 4,
+    warpcoil: 4,
+  };
+  const consumables = { ...STARTING_CONSUMABLES, beacon: 0 };
+  const trip = {
+    seed: 12345,
+    tripIndex: 0,
+    gear,
+    consumables,
+    baseDiff: [
+      [0, 665, { kind: "empty", beacon: true, drop: { coal: 12 } }],
+      [1, 665, { kind: "rock", rockTier: 3, fallen: true }],
+      [1, 664, { kind: "rock", rockTier: 3, fallen: true }],
+      [0, 666, { kind: "rock", rockTier: 3, fallen: true }],
+      [-1, 665, { kind: "empty" }],
+      [0, 664, { kind: "empty" }],
+    ],
+    moves: ["right", "right", "right", "right", "right", "right", "warp-down"],
+  };
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.addInitScript((savedTrip) => {
+    localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(savedTrip));
+  }, trip);
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "665");
+
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForTimeout(300);
+  await expect(canvas).toHaveAttribute("data-miner-x", "-1.00");
+  const brightPixels = await canvas.evaluate((node) => {
+    const source = node as HTMLCanvasElement;
+    const sample = document.createElement("canvas");
+    sample.width = source.width;
+    sample.height = source.height;
+    const ctx = sample.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return Number.POSITIVE_INFINITY;
+    ctx.drawImage(source, 0, 0);
+    const data = ctx.getImageData(0, 0, sample.width, sample.height).data;
+    let bright = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (
+        data[i] > 245 &&
+        data[i + 1] > 245 &&
+        data[i + 2] > 245 &&
+        data[i + 3] > 180
+      ) {
+        bright++;
+      }
+    }
+    return bright;
+  });
+  expect(brightPixels).toBeLessThan(800);
 });
 
 test("the elevator sells rail and gates rides on it (REQ-028)", async ({

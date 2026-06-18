@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.30-large-support-cashout";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.31-mine-drop-markers";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.31",
+      date: "2026-06-18",
+      title: "Mine drop markers",
+      intro:
+        "Dropped cargo piles now avoid the in-scene text path that could render as white cards on mobile.",
+      changes: [
+        {
+          build,
+          text: "Ore pile counts now render as small 3D markers instead of font glyphs inside the mine canvas.",
+        },
+        {
+          build,
+          text: "The mine scene no longer imports the drei text renderer for dropped cargo, matching the earlier edit-mode artifact fix.",
+        },
+        {
+          build,
+          text: "A deep saved-trip smoke test covers the planted beacon plus dropped ore pile case from the report.",
+        },
+      ],
+    },
     {
       version: "0.1.30",
       date: "2026-06-18",

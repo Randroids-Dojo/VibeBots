@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.31" data-date="2026-06-18">
+    <h2>0.1.31</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.31</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>28</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Dropped cargo piles no longer use in-scene text glyphs for their count marker, avoiding the mobile white square artifact seen near deep planted warp beacons.</dd>
+      <dt>Interface</dt><dd>Ore pile counts now render as small 3D markers capped to a readable cluster. This keeps the mine canvas on mesh geometry instead of the same fragile text path that previously caused white squares in edit-mode collect labels.</dd>
+      <dt>Stability</dt><dd>A deep saved-trip smoke test now covers a planted beacon beside a multi-item dropped ore pile, and the project docs now require safer non-font paths for future in-world mine labels.</dd>
+      <dt>Verification</dt><dd>Full verification is recorded in the progress log for this slice.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.30" data-date="2026-06-18">
     <h2>0.1.30</h2>
     <dl>

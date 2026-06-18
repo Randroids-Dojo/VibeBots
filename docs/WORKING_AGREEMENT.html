@@ -70,6 +70,13 @@
     <li>Build command before opening or merging PRs that affect runtime code.</li>
     <li>Smoke test (Playwright or equivalent) when UI routes, API routes, routing, or core flows are touched.</li>
   </ul>
+  <p>Canvas text and atlas safety:</p>
+  <ul>
+    <li>Normal DOM text is the preferred path for exact labels, counts, menus, dialogs, and HUD copy.</li>
+    <li>Do not add runtime 3D text renderers such as <code>@react-three/drei</code> <code>Text</code> or troika text inside the mine canvas without explicit approval. Mobile renderer fallback paths have shown failed glyph atlas quads as white squares.</li>
+    <li>For in-world mine labels, prefer mesh markers, icons, controlled sprite atlases, or DOM overlays anchored outside the canvas. If exact in-canvas text is unavoidable, add a mobile or narrow-viewport smoke test that samples canvas pixels for white-card artifacts.</li>
+    <li>When debugging a white square that follows the player, inspect in-scene text, sprite, and texture atlas paths before changing lights or materials.</li>
+  </ul>
   <p>Minimum for dependency-upgrade slices (<code>chore(deps): bump &lt;dep&gt; from &lt;from&gt; to &lt;to&gt;</code>):</p>
   <ul>
     <li>All of the above for code changes.</li>

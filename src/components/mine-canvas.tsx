@@ -1,6 +1,6 @@
 "use client";
 
-import { RoundedBox, Text } from "@react-three/drei";
+import { RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -69,6 +69,43 @@ function dropPileStats(cell: MineCell): { count: number; ore: OreId | null } {
     }
   }
   return { count, ore };
+}
+
+const DROP_MARKER_POSITIONS = [
+  [0.24, 0.13, 0.05],
+  [0.36, 0.11, 0.04],
+  [0.3, 0.22, 0.06],
+  [0.43, 0.2, 0.05],
+  [0.22, 0.25, 0.04],
+] as const;
+
+function DropPileMarkers({
+  extraCount,
+  color,
+}: {
+  extraCount: number;
+  color: string;
+}) {
+  const markerCount = Math.min(DROP_MARKER_POSITIONS.length, extraCount);
+  const markers = DROP_MARKER_POSITIONS.slice(0, markerCount).map(
+    (position, i) => (
+      <mesh
+        key={`${position[0]}:${position[1]}:${position[2]}`}
+        position={[position[0], position[1], position[2]]}
+        scale={i === 0 ? 1.05 : 0.9}
+      >
+        <octahedronGeometry args={[0.045, 0]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.18}
+          roughness={0.52}
+          flatShading
+        />
+      </mesh>
+    ),
+  );
+  return <>{markers}</>;
 }
 
 /** Dirt palette per stratum, in STRATA order (REQ-012: visible descent). */
@@ -2335,17 +2372,7 @@ function MineScene({
                 />
               </mesh>
               {drop.count > 1 ? (
-                <Text
-                  position={[0.25, 0.14, 0.04]}
-                  fontSize={0.16}
-                  anchorX="center"
-                  anchorY="middle"
-                  color="#f8f1d5"
-                  outlineColor="#101015"
-                  outlineWidth={0.018}
-                >
-                  {`x${drop.count}`}
-                </Text>
+                <DropPileMarkers extraCount={drop.count - 1} color={oreColor} />
               ) : null}
             </group>,
           );

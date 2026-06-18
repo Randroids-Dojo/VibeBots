@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-drop-markers" data-date="2026-06-18">
+    <h3>Mine Drop Markers</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/fallen-rock-white-shard</code></dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported mobile mine rendering fix. The root cause matched the earlier edit-mode collect-label issue: a remaining <code>@react-three/drei</code> text glyph path inside the mine canvas. Dropped cargo piles now use small 3D markers for extra items instead of rendering an <code>xN</code> text label, so deep beacon scenes do not depend on mobile font-atlas rendering. Added a deep saved-trip smoke test with a planted beacon and multi-item dropped ore pile at depth 665, then sampled canvas pixels for a white follower artifact. Updated <code>AGENTS.md</code>, <code>docs/WORKING_AGREEMENT.html</code>, and <code>docs/gdd/06-mining.html</code> to require safer text paths for future mine-canvas labels. Package version moved to <code>0.1.31</code>; <code>MINE_VERSION</code> stays at <code>28</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>After rebasing onto latest <code>origin/main</code> with the dynamite tier and large support cash-out slices, ran <code>pnpm exec biome check --write</code> on touched source, test, release, package, and doc files; <code>pnpm check:dashes</code>; <code>git diff --cached --check</code>; <code>pnpm lint</code>; <code>pnpm test</code> (178 passed); <code>pnpm check:purity</code>; <code>pnpm typecheck</code>; <code>pnpm build</code>; and focused Playwright smoke for release notes plus deep dropped ore markers against a fresh production server on port 3086 (2 passed).</dd>
+      <dt>Assumptions</dt><dd>The screenshot most likely showed the dropped ore pile count label failing as a white glyph quad after a beacon placement, not cave lighting. Because the artifact is render-only and not a sim-state issue, replay versions stay unchanged.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code> and updated static plus in-game release notes for <code>0.1.31</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="large-support-cashout" data-date="2026-06-18">
     <h3>Large Support Cash-Out</h3>
     <dl>

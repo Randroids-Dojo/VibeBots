@@ -37,6 +37,7 @@ import {
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
 import { DESTINATIONS, type DestinationDef } from "./mine-destinations";
+import { minerStepSeconds } from "./mine-pacing";
 import { playMineResultSfx, playMineSfxEvent } from "./mine-sfx";
 import { STALLS, type StallDef } from "./mine-stalls";
 
@@ -188,7 +189,6 @@ interface FallPlayback extends FallWindow {
 
 const PICK_SWING_SECONDS = 0.18;
 const DIG_LUNGE_SECONDS = 0.16;
-const MINER_STEP_SECONDS = 0.26;
 const CAMERA_STEP_SECONDS = 0.28;
 const FATAL_FALL_HOLD_SECONDS = 0.38;
 /** Length of the bounce-off animation when the pick can't cut the rock. */
@@ -1993,6 +1993,7 @@ function MineScene({
     if (miner) {
       const tx = visualTargetX;
       const ty = visualTargetY;
+      const stepSeconds = minerStepSeconds(mine.gear);
       // Teleport-scale jumps (trip resets) snap; easing across them
       // would fly the bot up through solid rock for seconds.
       const minerJump =
@@ -2006,7 +2007,7 @@ function MineScene({
         miner.position.set(tx, ty, 0.2);
       } else if (minerJump) {
         minerPlaced.current = true;
-        minerMotion.current = snapMotion(t, tx, ty, MINER_STEP_SECONDS);
+        minerMotion.current = snapMotion(t, tx, ty, stepSeconds);
         miner.position.set(tx, ty, 0.2);
       } else {
         minerMotion.current = retargetMotion(
@@ -2016,7 +2017,7 @@ function MineScene({
           miner.position.y,
           tx,
           ty,
-          MINER_STEP_SECONDS,
+          stepSeconds,
         );
         if (motionProgress(minerMotion.current, t) < 1)
           minerMotion.current.frames += 1;

@@ -1,0 +1,46 @@
+import { type MineGear, maxGearLevel } from "@/sim/mine";
+
+export const START_ACTION_REPEAT_MS = 620;
+export const MAXED_ACTION_REPEAT_MS = 420;
+export const START_MINER_STEP_SECONDS = 0.42;
+export const MAXED_MINER_STEP_SECONDS = 0.28;
+
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, n));
+}
+
+function gearProgress(gear: MineGear): number {
+  const current =
+    gear.pickaxe -
+    1 +
+    (gear.battery - 1) +
+    (gear.cargo - 1) +
+    (gear.lantern - 1) +
+    ((gear.fall ?? 1) - 1);
+  const max =
+    maxGearLevel("pickaxe") -
+    1 +
+    (maxGearLevel("battery") - 1) +
+    (maxGearLevel("cargo") - 1) +
+    (maxGearLevel("lantern") - 1) +
+    (maxGearLevel("fall") - 1);
+  return clamp01(current / max);
+}
+
+function scaled(start: number, end: number, progress: number): number {
+  return start + (end - start) * progress;
+}
+
+export function actionRepeatMs(gear: MineGear): number {
+  return Math.round(
+    scaled(START_ACTION_REPEAT_MS, MAXED_ACTION_REPEAT_MS, gearProgress(gear)),
+  );
+}
+
+export function minerStepSeconds(gear: MineGear): number {
+  return scaled(
+    START_MINER_STEP_SECONDS,
+    MAXED_MINER_STEP_SECONDS,
+    gearProgress(gear),
+  );
+}

@@ -45,6 +45,7 @@ import {
 import { PART_CATALOG } from "@/sim/parts";
 import { useMineStore } from "@/state/mine-store";
 import { DESTINATIONS, destinationAt } from "./mine-destinations";
+import { actionRepeatMs } from "./mine-pacing";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
 import { STALLS, type StallDef, stallAt } from "./mine-stalls";
 import { MineTouchControls } from "./mine-touch-controls";
@@ -67,9 +68,6 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
   d: "right",
 };
 
-/** Held-input repeat gap before pickaxe speed bonuses. */
-const BASE_ACTION_REPEAT_MS = 270;
-const MIN_ACTION_REPEAT_MS = 220;
 const MINE_CAMERA_FOV_DEGREES = 42;
 const BASE_BUILDING_COLS = [
   ...STALLS.map((stall) => stall.col),
@@ -113,13 +111,6 @@ function baseReturnTarget(
     distance,
     cost: Math.max(1, Math.min(9, Math.ceil(distance / 24))),
   };
-}
-
-function actionRepeatMs(gear: MineGear): number {
-  return Math.max(
-    MIN_ACTION_REPEAT_MS,
-    BASE_ACTION_REPEAT_MS - (gear.pickaxe - 1) * 15,
-  );
 }
 
 function elevatorAutoDelayMs(gear: MineGear): number {

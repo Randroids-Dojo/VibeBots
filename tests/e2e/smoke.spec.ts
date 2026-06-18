@@ -457,13 +457,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("diggable obstacles");
+  await expect(dialog).toContainText("start slower");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("teetering rock");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "landed falling boulder",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText("deeper landing");
+  await expect(dialog.locator("li").first()).toContainText("calmer cadence");
+  await expect(dialog.locator("li").nth(1)).toContainText("Mining progression");
+  await expect(dialog.locator("li").nth(2)).toContainText("step animation");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -484,6 +482,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.27", "Mine progression pacing"],
     ["0.1.26", "Mine falling rocks"],
     ["0.1.25", "Support salvage"],
     ["0.1.24", "Smarter battle targeting"],
@@ -622,7 +621,7 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
   await expect(page.locator("[data-joystick]")).toBeVisible();
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 1_350,
+      timeout: 3_500,
     })
     .toBeGreaterThan(initialX + 4.25);
   await page.mouse.up();

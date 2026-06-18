@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.26-falling-rock-mining";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.27-mine-progression-pacing";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.27",
+      date: "2026-06-18",
+      title: "Mine progression pacing",
+      intro:
+        "Held mining and movement now start slower and ramp with mining progression.",
+      changes: [
+        {
+          build,
+          text: "Held keyboard and thumbstick actions now begin at a calmer cadence instead of the recent fast-repeat pace.",
+        },
+        {
+          build,
+          text: "Mining progression across Pickaxe, Battery Cell, Cargo Hold, Lantern, and Fall Harness gradually tightens the held-action cadence as the miner improves.",
+        },
+        {
+          build,
+          text: "The miner's visible step animation follows the same progression curve, so early movement reads slower while upgraded runs still feel responsive.",
+        },
+      ],
+    },
     {
       version: "0.1.26",
       date: "2026-06-18",

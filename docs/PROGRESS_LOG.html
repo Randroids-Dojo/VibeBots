@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-progression-pacing" data-date="2026-06-18">
+    <h3>Mine Progression Pacing</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-progression-pacing</code>, rebased onto <code>origin/main</code> before direct-main commit.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed pacing cleanup. Held keyboard and thumbstick actions now start slower and scale down with core mine gear progression instead of using the recent fast cadence immediately. The miner's visible step duration uses the same curve, so early mining and movement read slower while upgraded miners still tighten up. Package version moved to <code>0.1.27</code>; <code>MINE_VERSION</code> stays at <code>27</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, release, smoke, doc, and package files; <code>pnpm exec vitest run src/components/mine-pacing.test.ts</code> (3 passed); <code>pnpm typecheck</code>; <code>pnpm test</code> (171 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check</code>; <code>pnpm build</code>; targeted Playwright smoke for release notes, mine motion, and thumbstick pacing; and full Playwright smoke against a clean production server on port 3078 (29 passed, 2 storage-gated skips). Port 3000 was occupied by a separate local Node server and was not used.</dd>
+      <dt>Assumptions</dt><dd>Progression scaling uses existing gear only, not a new speed stat. Pickaxe, Battery Cell, Cargo Hold, Lantern, and Fall Harness drive the general held-action and visual-step curve because this is presentation and input pacing, not a new replay rule.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated static and in-game release notes and appended a Build log entry to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-falling-rock-pickaxe" data-date="2026-06-18">
     <h3>Mine Falling Rock Pickaxe</h3>
     <dl>

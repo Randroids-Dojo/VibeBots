@@ -20,10 +20,12 @@ import {
 } from "@/components/mine-camera";
 import { createWebGPU } from "@/components/part-visuals";
 import type {
+  BasePartId,
   BunkerFootprint,
   BunkerRaidSnapshot,
   BunkerState,
 } from "@/sim/bunker";
+import { BASE_PART_CATALOG } from "@/sim/bunker";
 import {
   type CollectTarget,
   cellAt,
@@ -286,22 +288,79 @@ function BunkerOverlay({
     }
   }
   const parts =
-    bunker?.parts.map((part) => (
-      <RoundedBox
-        key={`bunker-part:${part.col}:${part.row}`}
-        args={[0.86, 0.86, 0.28]}
-        radius={0.04}
-        smoothness={1}
-        position={[cellX(part.col), -part.row, 0.52]}
-      >
-        <meshStandardMaterial
-          color={part.partId === "door-panel" ? "#d6a54d" : "#4fd4bf"}
-          roughness={0.62}
-          metalness={0.25}
-          flatShading
-        />
-      </RoundedBox>
-    )) ?? [];
+    bunker?.parts.map((part) => {
+      if (part.partId === "floor-spikes") {
+        const maxDurability = BASE_PART_CATALOG["floor-spikes"].durability;
+        const ratio = Math.max(
+          0.15,
+          Math.min(1, part.durability / maxDurability),
+        );
+        const spikeHeight = 0.32 * ratio;
+        return (
+          <group
+            key={`bunker-part:${part.col}:${part.row}`}
+            position={[cellX(part.col), -part.row, 0.48]}
+          >
+            <RoundedBox
+              args={[0.82, 0.82, 0.08]}
+              radius={0.03}
+              smoothness={1}
+              position={[0, 0, -0.04]}
+            >
+              <meshStandardMaterial
+                color={ratio > 0.5 ? "#384153" : "#2a2d35"}
+                roughness={0.72}
+                metalness={0.25}
+                flatShading
+              />
+            </RoundedBox>
+            {[
+              [-0.22, -0.18],
+              [0.22, -0.18],
+              [0, 0.12],
+            ].map(([x, y]) => (
+              <mesh
+                key={`spike:${x}:${y}`}
+                position={[x, y, 0.04 + spikeHeight * 0.5]}
+                rotation={[Math.PI / 2, 0, 0]}
+              >
+                <coneGeometry args={[0.08 * ratio, spikeHeight, 5]} />
+                <meshStandardMaterial
+                  color={ratio > 0.5 ? "#c9d1dd" : "#7b8290"}
+                  emissive={ratio > 0.5 ? "#3b82f6" : "#000000"}
+                  emissiveIntensity={0.08 * ratio}
+                  roughness={0.5}
+                  metalness={0.35}
+                  flatShading
+                />
+              </mesh>
+            ))}
+          </group>
+        );
+      }
+      const colors: Record<BasePartId, string> = {
+        "wall-panel": "#4fd4bf",
+        "door-panel": "#d6a54d",
+        "basic-turret": "#8aa4ff",
+        "floor-spikes": "#c9d1dd",
+      };
+      return (
+        <RoundedBox
+          key={`bunker-part:${part.col}:${part.row}`}
+          args={[0.86, 0.86, 0.28]}
+          radius={0.04}
+          smoothness={1}
+          position={[cellX(part.col), -part.row, 0.52]}
+        >
+          <meshStandardMaterial
+            color={colors[part.partId]}
+            roughness={0.62}
+            metalness={0.25}
+            flatShading
+          />
+        </RoundedBox>
+      );
+    }) ?? [];
   const clankers =
     activeRaid?.clankers.map((clanker) => (
       <group
@@ -1212,8 +1271,8 @@ function ElevatorModel({ color }: { color: string }) {
   );
 }
 
-/** Buyer: a stone bank with columns and a gold emblem. */
-function BuyerModel({ color }: { color: string }) {
+/** Hardware Store: a stone shop with columns and a gold emblem. */
+function HardwareStoreModel({ color }: { color: string }) {
   return (
     <>
       <RoundedBox
@@ -1554,7 +1613,7 @@ function StallBuilding({
   return (
     <group position={[x, -1.5, -0.85]}>
       {id === "elevator" && <ElevatorModel color={color} />}
-      {id === "buyer" && <BuyerModel color={color} />}
+      {id === "buyer" && <HardwareStoreModel color={color} />}
       {id === "supply" && <SupplyDepotModel color={color} />}
       {id === "upgrades" && <UpgradesModel color={color} />}
       {id === "warp" && <WarpPadModel color={color} />}

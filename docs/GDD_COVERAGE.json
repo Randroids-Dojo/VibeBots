@@ -297,7 +297,7 @@
     },
     {
       "id": "REQ-017",
-      "requirement": "The trip-back decision is informed: the HUD shows carried bag contents, the Buyer and surface sale feedback explain vibe value, estimated return cost is visible, and the robot battery warns before it drops below that return cost.",
+      "requirement": "The trip-back decision is informed: the HUD shows carried bag contents, surface sale feedback explains vibe value, estimated return cost is visible, and the robot battery warns before it drops below that return cost.",
       "gddRef": "docs/gdd/06-mining.html#legibility",
       "status": "done",
       "implementationRefs": [
@@ -366,7 +366,7 @@
     },
     {
       "id": "REQ-021",
-      "requirement": "A surface village: walkable shop stalls on the surface row (Assay Office sells banked loot, Supply Depot sells consumables, Outfitter sells gear) with proximity menus; purchases enter the live session per Q-008's re-provision rule; offscreen base return points back to the village and offers a paid return to the shaft center.",
+      "requirement": "A surface village: walkable shop stalls on the surface row (Hardware Store sells level-gated base stock, Supply Depot sells mine consumables, Outfitter sells gear) with proximity menus; purchases enter the live session per Q-008's re-provision rule; offscreen base return points back to the village and offers a paid return to the shaft center.",
       "gddRef": "docs/gdd/06-mining.html#village",
       "status": "done",
       "implementationRefs": [
@@ -612,10 +612,14 @@
         "src/app/api/bunker/parts/buy/route.ts",
         "src/app/api/bunker/parts/place/route.ts",
         "src/app/api/bunker/parts/remove/route.ts",
-        "src/components/mine-panel.tsx"
+        "src/components/mine-panel.tsx",
+        "src/components/mine-stalls.ts",
+        "src/components/mine-canvas.tsx"
       ],
       "testRefs": [
-        "src/sim/bunker.test.ts"
+        "src/sim/bunker.test.ts",
+        "src/app/api/bunker/route.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": [
         "F-029"

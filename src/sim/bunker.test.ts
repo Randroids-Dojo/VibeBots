@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyBunkerRaidWear,
   BASE_PART_CATALOG,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
+  basePartOwnedLimit,
+  canBuyBasePart,
   createBunker,
+  FLOOR_SPIKES_DAMAGE,
+  FLOOR_SPIKES_DURABILITY,
   overallPlayerLevel,
   placeBasePart,
   playerLevelProgress,
@@ -80,6 +85,151 @@ describe("bunker vertical slice sim", () => {
     expect(raid.clankers).toHaveLength(6);
     expect(raid.survived).toBe(true);
     expect(raid.reward).toEqual({ vibes: 30, defenseXp: 60 });
+  });
+
+  it("lets Basic Turrets autofire with limited ammo during raids", () => {
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const placed = placeBasePart(
+      base,
+      { ...STARTER_BASE_PART_INVENTORY, "basic-turret": 1 },
+      "basic-turret",
+      base.footprint.col,
+      base.footprint.row,
+    );
+
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+
+    const raid = resolveBunkerRaid(placed.bunker, 1, "turret-raid");
+
+    expect(raid.turretShots).toBe(3);
+    expect(raid.turretDamage).toBe(54);
+    expect(raid.incomingDamage).toBe(102);
+
+    const worn = applyBunkerRaidWear(placed.bunker, raid);
+    expect(worn.parts).toEqual([
+      {
+        partId: "basic-turret",
+        col: base.footprint.col,
+        row: base.footprint.row,
+        durability: 2,
+      },
+    ]);
+  });
+
+  it("damages Clankers with Floor Spikes and wears them down", () => {
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const placed = placeBasePart(
+      base,
+      { ...STARTER_BASE_PART_INVENTORY, "floor-spikes": 1 },
+      "floor-spikes",
+      base.footprint.col,
+      base.footprint.row,
+    );
+
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+
+    const raid = resolveBunkerRaid(placed.bunker, 1, "spike-raid");
+
+    expect(raid.spikeTriggers).toBe(1);
+    expect(raid.spikeDamage).toBe(FLOOR_SPIKES_DAMAGE);
+    expect(raid.incomingDamage).toBe(140);
+
+    const worn = applyBunkerRaidWear(placed.bunker, raid);
+    expect(worn.parts).toEqual([
+      {
+        partId: "floor-spikes",
+        col: base.footprint.col,
+        row: base.footprint.row,
+        durability: FLOOR_SPIKES_DURABILITY - 1,
+      },
+    ]);
+  });
+
+  it("removes Floor Spikes when their durability reaches zero", () => {
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const bunker = {
+      ...base,
+      parts: [
+        {
+          partId: "floor-spikes" as const,
+          col: base.footprint.col,
+          row: base.footprint.row,
+          durability: 1,
+        },
+      ],
+    };
+
+    const worn = applyBunkerRaidWear(bunker, {
+      clankers: [],
+      spikeTriggers: 1,
+      turretShots: 0,
+    });
+
+    expect(worn.parts).toEqual([]);
+  });
+
+  it("removes Basic Turrets when enough Clankers survive the autofire", () => {
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const bunker = {
+      ...base,
+      parts: [
+        {
+          partId: "basic-turret" as const,
+          col: base.footprint.col,
+          row: base.footprint.row,
+          durability: 2,
+        },
+      ],
+    };
+
+    const worn = applyBunkerRaidWear(bunker, {
+      clankers: [
+        { id: "c1", col: 1, row: 1, targetCol: 2, targetRow: 1 },
+        { id: "c2", col: 1, row: 2, targetCol: 2, targetRow: 2 },
+        { id: "c3", col: 1, row: 3, targetCol: 2, targetRow: 3 },
+      ],
+      spikeTriggers: 0,
+      turretShots: 1,
+    });
+
+    expect(worn.parts).toEqual([]);
+  });
+
+  it("gates turret and spike purchases by level and owned limits", () => {
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+
+    expect(BASE_PART_CATALOG["basic-turret"].price).toBe(
+      BASE_PART_CATALOG["floor-spikes"].price * 10,
+    );
+    expect(BASE_PART_CATALOG["basic-turret"].durability).toBe(5);
+    expect(basePartOwnedLimit("floor-spikes", 1)).toBe(4);
+    expect(basePartOwnedLimit("floor-spikes", 2)).toBe(6);
+    expect(basePartOwnedLimit("basic-turret", 1)).toBe(0);
+    expect(basePartOwnedLimit("basic-turret", 2)).toBe(1);
+
+    expect(
+      canBuyBasePart("basic-turret", 1, null, STARTER_BASE_PART_INVENTORY, 1),
+    ).toEqual({ ok: false, reason: "level", minLevel: 2 });
+    expect(
+      canBuyBasePart(
+        "floor-spikes",
+        1,
+        base,
+        { ...STARTER_BASE_PART_INVENTORY, "floor-spikes": 4 },
+        1,
+      ),
+    ).toEqual({ ok: false, reason: "limit", limit: 4 });
+    expect(
+      canBuyBasePart(
+        "floor-spikes",
+        2,
+        base,
+        { ...STARTER_BASE_PART_INVENTORY, "floor-spikes": 5 },
+        1,
+      ),
+    ).toEqual({ ok: true });
   });
 
   it("combines track XP and defense XP into overall level", () => {

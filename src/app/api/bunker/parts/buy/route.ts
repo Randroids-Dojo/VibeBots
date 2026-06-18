@@ -2,11 +2,12 @@ import { z } from "zod";
 import { buyBasePart } from "@/server/bunker";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
+import { BASE_PART_IDS } from "@/sim/bunker";
 
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  partId: z.enum(["wall-panel", "door-panel"]),
+  partId: z.enum(BASE_PART_IDS),
   quantity: z.number().int().min(1).max(99).optional().default(1),
 });
 

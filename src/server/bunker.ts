@@ -1,5 +1,7 @@
 import {
+  applyBunkerRaidWear,
   BASE_PART_CATALOG,
+  BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
   BUNKER_RAID_COOLDOWN_HOURS,
@@ -8,6 +10,8 @@ import {
   type BunkerRaidRewardReport,
   type BunkerRaidSnapshot,
   type BunkerState,
+  basePartOwnedLimit,
+  canBuyBasePart,
   createBunker,
   EMPTY_BASE_PART_INVENTORY,
   overallPlayerLevel,
@@ -52,7 +56,7 @@ type BunkerOperationResult<T extends object = object> =
   | { ok: false; status: number; error: string };
 
 function isBasePartId(value: string): value is BasePartId {
-  return value === "wall-panel" || value === "door-panel";
+  return BASE_PART_IDS.includes(value as BasePartId);
 }
 
 function parseBasePartInventory(
@@ -238,14 +242,71 @@ export async function buyBasePart(
   quantity: number,
 ): Promise<BunkerOperationResult> {
   const count = Math.max(1, Math.min(99, Math.floor(quantity)));
+  const view = await loadBunkerView(sql, playerId);
+  const allowed = canBuyBasePart(
+    partId,
+    view.player.overallLevel,
+    view.bunker,
+    view.inventory,
+    count,
+  );
+  if (!allowed.ok) {
+    if (allowed.reason === "level") {
+      return {
+        ok: false,
+        status: 409,
+        error: `requires player level ${allowed.minLevel ?? 1}`,
+      };
+    }
+    return {
+      ok: false,
+      status: 409,
+      error: `stock limit ${allowed.limit ?? 0} reached`,
+    };
+  }
   const price = BASE_PART_CATALOG[partId].price * count;
-  const rows = (await sql`
-    UPDATE players
-    SET emeralds = emeralds - ${price}
-    WHERE id = ${playerId}
-      AND emeralds >= ${price}
-    RETURNING id`) as Array<{ id: string }>;
+  const limit = basePartOwnedLimit(partId, view.player.overallLevel);
+  const deployedCount =
+    view.bunker?.parts.filter((part) => part.partId === partId).length ?? 0;
+  const inventoryAllowance = Number.isFinite(limit)
+    ? Math.max(0, limit - deployedCount)
+    : null;
+  const rows =
+    inventoryAllowance === null
+      ? ((await sql`
+          UPDATE players
+          SET emeralds = emeralds - ${price}
+          WHERE id = ${playerId}
+            AND emeralds >= ${price}
+          RETURNING id`) as Array<{ id: string }>)
+      : ((await sql`
+          UPDATE players
+          SET emeralds = emeralds - ${price}
+          WHERE id = ${playerId}
+            AND emeralds >= ${price}
+            AND (
+              SELECT COALESCE(SUM(count), 0)
+              FROM player_base_parts
+              WHERE player_id = ${playerId}
+                AND part_id = ${partId}
+            ) + ${count} <= ${inventoryAllowance}
+          RETURNING id`) as Array<{ id: string }>);
   if (rows.length === 0) {
+    const latest = await loadBunkerView(sql, playerId);
+    const latestAllowed = canBuyBasePart(
+      partId,
+      latest.player.overallLevel,
+      latest.bunker,
+      latest.inventory,
+      count,
+    );
+    if (!latestAllowed.ok && latestAllowed.reason === "limit") {
+      return {
+        ok: false,
+        status: 409,
+        error: `stock limit ${latestAllowed.limit ?? 0} reached`,
+      };
+    }
     return { ok: false, status: 409, error: "not enough vibes" };
   }
   await sql`
@@ -352,6 +413,12 @@ export async function startBunkerRaid(
   }
   const raidId = `raid-${Date.now().toString(36)}`;
   const raid = resolveBunkerRaid(view.bunker, tier, raidId);
+  const wornBunker = applyBunkerRaidWear(view.bunker, raid);
+  await sql`
+    UPDATE bunkers
+    SET parts = ${JSON.stringify(wornBunker.parts)}::jsonb,
+        updated_at = now()
+    WHERE player_id = ${playerId}`;
   await sql`
     INSERT INTO bunker_raids (
       player_id,

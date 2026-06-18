@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.44-player-level-two";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.45-hardware-store";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.45",
+      date: "2026-06-18",
+      title: "Hardware Store",
+      intro: "The Hardware Store now sells the first bunker stock.",
+      changes: [
+        {
+          build,
+          text: "The Hardware Store sells Panel, Door, Floor Spikes, and the level 2 Basic Turret.",
+        },
+        {
+          build,
+          text: "Supply Depot is focused back on mine consumables: dynamite, recall rope, ladders, planks, and warp beacons.",
+        },
+        {
+          build,
+          text: "Basic Turrets cost 160 vibes, cap at one owned or deployed, and break after 5 surviving-Clanker hits. Floor Spikes cap at 4 total at level 1 and 6 total from level 2.",
+        },
+      ],
+    },
     {
       version: "0.1.44",
       date: "2026-06-18",

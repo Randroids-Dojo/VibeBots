@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { loadBunkerView, startBunkerRaid } from "@/server/bunker";
+import { buyBasePart, loadBunkerView, startBunkerRaid } from "@/server/bunker";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
+import { POST as buyPartPost } from "./parts/buy/route";
 import { POST as startRaidPost } from "./raid/start/route";
 import { GET } from "./route";
 
@@ -15,6 +16,7 @@ vi.mock("@/server/player", () => ({
 }));
 
 vi.mock("@/server/bunker", () => ({
+  buyBasePart: vi.fn(),
   loadBunkerView: vi.fn(),
   startBunkerRaid: vi.fn(),
 }));
@@ -22,12 +24,18 @@ vi.mock("@/server/bunker", () => ({
 const mockedDb = vi.mocked(db);
 const mockedStorageConfigured = vi.mocked(storageConfigured);
 const mockedPlayer = vi.mocked(getOrCreatePlayerId);
+const mockedBuy = vi.mocked(buyBasePart);
 const mockedLoad = vi.mocked(loadBunkerView);
 const mockedStart = vi.mocked(startBunkerRaid);
 
 const view = {
   bunker: null,
-  inventory: { "wall-panel": 4, "door-panel": 1 },
+  inventory: {
+    "wall-panel": 4,
+    "door-panel": 1,
+    "basic-turret": 0,
+    "floor-spikes": 0,
+  },
   activeRaid: null,
   player: {
     balance: 12,
@@ -47,6 +55,7 @@ describe("bunker API routes", () => {
     mockedStorageConfigured.mockReturnValue(true);
     mockedDb.mockResolvedValue(vi.fn() as never);
     mockedPlayer.mockResolvedValue("player-1");
+    mockedBuy.mockResolvedValue({ ok: true, view });
     mockedLoad.mockResolvedValue(view);
     mockedStart.mockResolvedValue({
       ok: true,
@@ -56,6 +65,10 @@ describe("bunker API routes", () => {
         tier: 1,
         durationSeconds: 180,
         clankers: [],
+        turretShots: 0,
+        turretDamage: 0,
+        spikeTriggers: 0,
+        spikeDamage: 0,
         totalPartDurability: 0,
         incomingDamage: 0,
         breached: false,
@@ -101,6 +114,44 @@ describe("bunker API routes", () => {
     expect(mockedStart).toHaveBeenCalledWith(
       expect.any(Function),
       "player-1",
+      1,
+    );
+  });
+
+  it("accepts Basic Turret base part purchases", async () => {
+    const res = await buyPartPost(
+      new Request("http://localhost/api/bunker/parts/buy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ partId: "basic-turret", quantity: 2 }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual(view);
+    expect(mockedBuy).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      "basic-turret",
+      2,
+    );
+  });
+
+  it("accepts Floor Spikes base part purchases", async () => {
+    const res = await buyPartPost(
+      new Request("http://localhost/api/bunker/parts/buy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ partId: "floor-spikes", quantity: 1 }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual(view);
+    expect(mockedBuy).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      "floor-spikes",
       1,
     );
   });

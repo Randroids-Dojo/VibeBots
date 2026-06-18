@@ -6,31 +6,68 @@ export const DEFENSE_XP_PER_LEVEL = 100;
 export const PLAYER_LEVEL_CAP = 2;
 export const LEVEL_ONE_BEACON_LIMIT = 2;
 export const LEVEL_TWO_BEACON_LIMIT = 3;
+export const BASIC_TURRET_AMMO = 3;
+export const BASIC_TURRET_DAMAGE = 18;
+export const FLOOR_SPIKES_DURABILITY = 3;
+export const FLOOR_SPIKES_DAMAGE = 16;
+export const BASIC_TURRET_MIN_LEVEL = 2;
+export const BASIC_TURRET_OWNED_LIMIT = 1;
+export const FLOOR_SPIKES_LEVEL_ONE_LIMIT = 4;
+export const FLOOR_SPIKES_LEVEL_TWO_LIMIT = 6;
 
-export type BasePartId = "wall-panel" | "door-panel";
+export const BASE_PART_IDS = [
+  "wall-panel",
+  "door-panel",
+  "basic-turret",
+  "floor-spikes",
+] as const;
+export type BasePartId = (typeof BASE_PART_IDS)[number];
 
 export interface BasePartDef {
   id: BasePartId;
   name: string;
+  blurb: string;
   price: number;
   durability: number;
   blocksClankers: boolean;
+  ammo?: number;
+  stepDamage?: number;
 }
 
 export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
   "wall-panel": {
     id: "wall-panel",
-    name: "Wall Panel",
+    name: "Panel",
+    blurb: "cheap filler for bunker rooms",
     price: 6,
     durability: 90,
     blocksClankers: true,
   },
   "door-panel": {
     id: "door-panel",
-    name: "Door Panel",
+    name: "Door",
+    blurb: "basic entry blocker",
     price: 10,
     durability: 60,
     blocksClankers: true,
+  },
+  "basic-turret": {
+    id: "basic-turret",
+    name: "Basic Turret",
+    blurb: "autofires at Clankers",
+    price: 160,
+    durability: 5,
+    blocksClankers: false,
+    ammo: BASIC_TURRET_AMMO,
+  },
+  "floor-spikes": {
+    id: "floor-spikes",
+    name: "Floor Spikes",
+    blurb: "damages Clankers that step over it",
+    price: 16,
+    durability: FLOOR_SPIKES_DURABILITY,
+    blocksClankers: false,
+    stepDamage: FLOOR_SPIKES_DAMAGE,
   },
 };
 
@@ -39,11 +76,15 @@ export type BasePartInventory = Record<BasePartId, number>;
 export const EMPTY_BASE_PART_INVENTORY: BasePartInventory = {
   "wall-panel": 0,
   "door-panel": 0,
+  "basic-turret": 0,
+  "floor-spikes": 0,
 };
 
 export const STARTER_BASE_PART_INVENTORY: BasePartInventory = {
   "wall-panel": 4,
   "door-panel": 1,
+  "basic-turret": 0,
+  "floor-spikes": 0,
 };
 
 export interface BunkerFootprint {
@@ -85,6 +126,10 @@ export interface BunkerRaidSnapshot {
   tier: number;
   durationSeconds: number;
   clankers: ClankerState[];
+  turretShots: number;
+  turretDamage: number;
+  spikeTriggers: number;
+  spikeDamage: number;
   totalPartDurability: number;
   incomingDamage: number;
   breached: boolean;
@@ -152,6 +197,60 @@ export function addBasePartInventory(
     ...inventory,
     [partId]: Math.max(0, inventory[partId] + count),
   };
+}
+
+export function basePartMinimumLevel(partId: BasePartId): number {
+  return partId === "basic-turret" ? BASIC_TURRET_MIN_LEVEL : 1;
+}
+
+export function basePartOwnedLimit(
+  partId: BasePartId,
+  playerLevel: number,
+): number {
+  if (partId === "basic-turret") {
+    return playerLevel >= BASIC_TURRET_MIN_LEVEL ? BASIC_TURRET_OWNED_LIMIT : 0;
+  }
+  if (partId === "floor-spikes") {
+    return playerLevel >= 2
+      ? FLOOR_SPIKES_LEVEL_TWO_LIMIT
+      : FLOOR_SPIKES_LEVEL_ONE_LIMIT;
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+export function basePartOwnedCount(
+  partId: BasePartId,
+  bunker: BunkerState | null,
+  inventory: BasePartInventory,
+): number {
+  const deployed =
+    bunker?.parts.filter((part) => part.partId === partId).length ?? 0;
+  return (inventory[partId] ?? 0) + deployed;
+}
+
+export function canBuyBasePart(
+  partId: BasePartId,
+  playerLevel: number,
+  bunker: BunkerState | null,
+  inventory: BasePartInventory,
+  quantity: number,
+):
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "level" | "limit";
+      minLevel?: number;
+      limit?: number;
+    } {
+  const minLevel = basePartMinimumLevel(partId);
+  if (playerLevel < minLevel) {
+    return { ok: false, reason: "level", minLevel };
+  }
+  const limit = basePartOwnedLimit(partId, playerLevel);
+  if (basePartOwnedCount(partId, bunker, inventory) + quantity > limit) {
+    return { ok: false, reason: "limit", limit };
+  }
+  return { ok: true };
 }
 
 export function proposedBunkerFootprint(
@@ -320,9 +419,25 @@ export function resolveBunkerRaid(
     });
   }
   const totalPartDurability = bunker.parts.reduce((sum, part) => {
+    const def = BASE_PART_CATALOG[part.partId];
+    if (!def.blocksClankers) return sum;
     return sum + Math.max(0, part.durability);
   }, 0);
-  const incomingDamage = clankerCount * (18 + normalizedTier * 8);
+  const turretAmmo = bunker.parts.reduce((sum, part) => {
+    if (part.partId !== "basic-turret") return sum;
+    return sum + (BASE_PART_CATALOG["basic-turret"].ammo ?? 0);
+  }, 0);
+  const turretShots = Math.min(clankerCount, turretAmmo);
+  const turretDamage = turretShots * BASIC_TURRET_DAMAGE;
+  const liveSpikeCount = bunker.parts.filter(
+    (part) => part.partId === "floor-spikes" && part.durability > 0,
+  ).length;
+  const spikeTriggers = Math.min(clankerCount, liveSpikeCount);
+  const spikeDamage = spikeTriggers * FLOOR_SPIKES_DAMAGE;
+  const incomingDamage = Math.max(
+    0,
+    clankerCount * (18 + normalizedTier * 8) - turretDamage - spikeDamage,
+  );
   const breached =
     incomingDamage >= totalPartDurability + bunker.core.durability;
   const survived = !breached;
@@ -331,6 +446,10 @@ export function resolveBunkerRaid(
     tier: normalizedTier,
     durationSeconds: BUNKER_RAID_DURATION_SECONDS,
     clankers,
+    turretShots,
+    turretDamage,
+    spikeTriggers,
+    spikeDamage,
     totalPartDurability,
     incomingDamage,
     breached,
@@ -341,5 +460,39 @@ export function resolveBunkerRaid(
           defenseXp: 40 + normalizedTier * 20,
         }
       : { vibes: 0, defenseXp: 0 },
+  };
+}
+
+export function applyBunkerRaidWear(
+  bunker: BunkerState,
+  raid: Pick<BunkerRaidSnapshot, "clankers" | "spikeTriggers" | "turretShots">,
+): BunkerState {
+  let remainingSpikeSteps = raid.spikeTriggers;
+  let remainingTurretHits = Math.max(
+    0,
+    raid.clankers.length - raid.turretShots,
+  );
+  return {
+    ...bunker,
+    parts: bunker.parts
+      .flatMap((part) => {
+        if (part.partId !== "floor-spikes" || remainingSpikeSteps <= 0) {
+          return [part];
+        }
+        remainingSpikeSteps--;
+        const nextDurability = Math.max(0, part.durability - 1);
+        if (nextDurability <= 0) return [];
+        return [{ ...part, durability: nextDurability }];
+      })
+      .flatMap((part) => {
+        if (part.partId !== "basic-turret" || remainingTurretHits <= 0) {
+          return [part];
+        }
+        const damage = Math.min(part.durability, remainingTurretHits);
+        remainingTurretHits -= damage;
+        const nextDurability = Math.max(0, part.durability - damage);
+        if (nextDurability <= 0) return [];
+        return [{ ...part, durability: nextDurability }];
+      }),
   };
 }

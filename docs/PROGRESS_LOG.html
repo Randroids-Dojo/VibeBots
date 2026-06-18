@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="hardware-store-base-shop" data-date="2026-06-18">
+    <h3>Hardware Store Base Shop</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/buyer-base-shop</code>, rebased onto current <code>origin/main</code> after the player level two rewards slice landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed shop rework. The left surface shop is now named <code>Hardware Store</code> and sells the first base catalog: <code>Panel</code>, <code>Door</code>, <code>Floor Spikes</code>, and the level 2 <code>Basic Turret</code>. The Supply Depot is focused back on mine consumables only. Basic Turrets cost 160 vibes, have 5 durability, are capped at one owned or deployed, and lose one durability for each surviving-Clanker hit. Floor Spikes damage Clankers during raids, lose one durability per triggered step, persist that decay immediately, break after three steps, cap at 4 total at level 1, and cap at 6 total from level 2. Package version moved to <code>0.1.45</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched files, focused Vitest for bunker sim, bunker API, and server helpers (19 passed after rebasing over player level two rewards), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm test</code> (227 passed), <code>git diff --check</code>, <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3119</code> for release notes, Hardware Store and Depot menus, the surface tip, and bunker raid controls (4 passed). In-app browser verification on port 3119 confirmed the Hardware Store shows the level 2 turret lock, level 1 Floor Spikes cap, and turret wear text while the Supply Depot no longer shows base stock.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep the existing persisted base-part IDs for compatibility, but use the simple player-facing names Panel and Door. Basic Turret is a simple level 2 bunker part with three raid shots, one owned or deployed cap, and 5 durability. Floor Spikes are a simple trap with three durability steps and owned plus deployed caps rather than live mine projectiles or per-frame Clanker pathing.</dd>
+      <dt>GDD coverage</dt><dd>REQ-035 stays partial with updated Hardware Store catalog, turret level gate, owned plus deployed caps, turret wear, spike trap wear, route test, and smoke refs. Updated <code>docs/gdd/08-base-building.html</code>, <code>docs/gdd/07-economy.html</code>, <code>docs/GDD_COVERAGE.json</code>, static release notes, in-game release notes, and mine surface tips.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="player-level-two-rewards" data-date="2026-06-18">
     <h3>Player Level Two Rewards</h3>
     <dl>

@@ -311,7 +311,12 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
         },
       ],
     },
-    inventory: { "wall-panel": 4, "door-panel": 1 },
+    inventory: {
+      "wall-panel": 4,
+      "door-panel": 1,
+      "basic-turret": 0,
+      "floor-spikes": 0,
+    },
     activeRaid: null,
     player: {
       balance: 120,
@@ -351,6 +356,10 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
               targetRow: 1,
             },
           ],
+          turretShots: 0,
+          turretDamage: 0,
+          spikeTriggers: 0,
+          spikeDamage: 0,
           totalPartDurability: 90,
           incomingDamage: 40,
           breached: false,
@@ -362,6 +371,10 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
           tier: 1,
           durationSeconds: 180,
           clankers: [],
+          turretShots: 0,
+          turretDamage: 0,
+          spikeTriggers: 0,
+          spikeDamage: 0,
           totalPartDurability: 90,
           incomingDamage: 40,
           breached: false,
@@ -383,7 +396,7 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await expect(builder.getByLabel("Player level progress")).toContainText(
     "Beacon cap 3",
   );
-  await expect(builder).toContainText("Wall Panel x4");
+  await expect(builder).toContainText("Panel x4");
   await builder.getByRole("button", { name: "Start Clanker raid" }).click();
   await expect(builder).toContainText("Clankers attacking for 180 seconds");
 });
@@ -397,7 +410,12 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
       contentType: "application/json",
       body: JSON.stringify({
         bunker: null,
-        inventory: { "wall-panel": 4, "door-panel": 1 },
+        inventory: {
+          "wall-panel": 4,
+          "door-panel": 1,
+          "basic-turret": 0,
+          "floor-spikes": 0,
+        },
         activeRaid: null,
         player: {
           balance: 120,
@@ -705,16 +723,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("player level progress");
+  await expect(dialog).toContainText("first bunker stock");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "defense XP progress",
+    "Panel, Door, Floor Spikes, and the level 2 Basic Turret",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "owned beacon cap from 2 to 3",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("mine consumables");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "first-defense stamp",
+    "cap at one owned or deployed",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -753,6 +769,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.45", "Hardware Store"],
     ["0.1.44", "Player level two"],
     ["0.1.43", "Blast Charge prices"],
     ["0.1.42", "Explicit bunker claim"],
@@ -913,7 +930,7 @@ test("mine shows one of the surface game tips", async ({ page }) => {
 
   const status = page.getByLabel("Mine status");
   await expect(status).toContainText(
-    "Tip: the Buyer shows haul value before auto-sell at the surface.",
+    "Tip: the Hardware Store sells level 1 bunker parts for your base.",
   );
 });
 
@@ -1287,18 +1304,24 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
 
-  // Walk left from the shaft to the Buyer; the menu does not pop
+  // Walk left from the shaft to the Hardware Store; the menu does not pop
   // on walk-by, the prompt does, and tapping it opens the menu.
   for (let i = 0; i < 3; i++) {
     await pressMineKey(page, "ArrowLeft");
   }
   await expect(
-    page.getByRole("region", { name: "Buyer", exact: true }),
+    page.getByRole("region", { name: "Hardware Store", exact: true }),
   ).not.toBeVisible();
-  const buyer = await openStall(page, "Buyer");
-  await expect(buyer).toContainText("Current haul");
-  await expect(buyer).toContainText("Next depth mark");
-  await expect(buyer).toContainText("sells automatically");
+  const buyer = await openStall(page, "Hardware Store");
+  await expect(buyer).toContainText("Panel");
+  await expect(buyer).toContainText("Door");
+  await expect(buyer).toContainText("Basic Turret");
+  await expect(buyer).toContainText("Requires level 2");
+  await expect(buyer).toContainText("3 shots per raid");
+  await expect(buyer).toContainText("Breaks after 5 Clanker hits");
+  await expect(buyer).toContainText("Floor Spikes");
+  await expect(buyer).toContainText("Breaks after 3 steps");
+  await expect(buyer).toContainText("Limit 4 at your level");
 
   // Walk right to the Supply Depot: consumables with prices.
   for (let i = 0; i < 5; i++) {
@@ -1308,6 +1331,8 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   await expect(depot).toContainText("Ladder");
   await expect(depot).toContainText("have");
   await expect(depot).toContainText("Buy 1 for 2 vibes");
+  await expect(depot).not.toContainText("Basic Turret");
+  await expect(depot).not.toContainText("Floor Spikes");
   await depot.getByRole("button", { name: "x5" }).click();
   await expect(depot).toContainText("Buy 5 for 10 vibes");
 
@@ -1331,12 +1356,15 @@ test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
 
-  // Stand at the Buyer (three columns left of the shaft).
+  // Stand at the Hardware Store (three columns left of the shaft).
   for (let i = 0; i < 3; i++) {
     await pressMineKey(page, "ArrowLeft");
   }
-  const prompt = page.getByRole("button", { name: "Open Buyer" });
-  const buyer = page.getByRole("region", { name: "Buyer", exact: true });
+  const prompt = page.getByRole("button", { name: "Open Hardware Store" });
+  const buyer = page.getByRole("region", {
+    name: "Hardware Store",
+    exact: true,
+  });
   await expect(prompt).toBeVisible();
   await expect(buyer).not.toBeVisible();
 

@@ -13,8 +13,12 @@ import type { PlayerAchievementView } from "@/lib/achievements";
 import type { AppRelease } from "@/lib/app-release-types";
 import {
   BASE_PART_CATALOG,
+  BASE_PART_IDS,
   type BasePartId,
   type BunkerFootprint,
+  basePartMinimumLevel,
+  basePartOwnedCount,
+  basePartOwnedLimit,
   DEFENSE_XP_PER_LEVEL,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
@@ -108,7 +112,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
   "Tip: dynamite chips rich ore reserves and still scoops what it breaks into your hold.",
   "Tip: falling rocks wait two moves after their support is mined.",
-  "Tip: the Buyer shows haul value before auto-sell at the surface.",
+  "Tip: the Hardware Store sells level 1 bunker parts for your base.",
   "Tip: Blast Charge unlocks stronger dynamite tiers at the Upgrades stall.",
   "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
   "Tip: survived bunker defenses add XP toward Level 2 and a third beacon slot.",
@@ -1528,169 +1532,152 @@ const ITEM_ICONS: Record<string, string> = {
   fall: "\u{1FA82}",
 };
 
-function BuyerPanel({
-  mine,
+const BASE_PART_ICONS: Record<BasePartId, string> = {
+  "wall-panel": "\u{1F9F1}",
+  "door-panel": "\u{1F6AA}",
+  "basic-turret": "\u{1F6E1}\u{FE0F}",
+  "floor-spikes": "\u{1F53A}",
+};
+
+function HardwareStorePanel({
   balance,
+  buyQuantity,
+  setBuyQuantity,
+  onBuyBasePart,
 }: {
-  mine: MineState;
   balance: number | null;
+  buyQuantity: number;
+  setBuyQuantity: (quantity: number) => void;
+  onBuyBasePart: (partId: BasePartId, quantity: number) => void;
 }) {
-  const miner = mine.miner;
-  const carriedOre = carriedCount(miner);
-  const capacity = cargoCapacity(mine.gear);
-  const freeSpace = Math.max(0, capacity - carriedOre);
-  const haulValue = carriedValue(miner);
-  const partCount = miner.carriedParts.length;
-  const deepest = miner.maxDepth;
-  const cargoDef = GEAR_TRACKS.find((track) => track.track === "cargo");
-  const nextCargoPrice =
-    mine.gear.cargo >= maxGearLevel("cargo")
-      ? null
-      : cargoDef?.prices[mine.gear.cargo - 1];
-  const nextDepth =
-    deepest < 50
-      ? 50
-      : deepest < 100
-        ? 100
-        : deepest < 250
-          ? 250
-          : deepest < 500
-            ? 500
-            : 1000;
-  const oreRows = oreBagRows(miner.carried);
-  const targetRows = [
-    {
-      label: "Current haul",
-      value: haulValue > 0 ? `${haulValue} vibes` : "empty",
-    },
-    {
-      label: "Hold space",
-      value: `${carriedOre}/${capacity} used`,
-    },
-    {
-      label: "Parts found",
-      value: `${partCount}`,
-    },
-    {
-      label: "Next depth mark",
-      value: deepest >= 990 ? "metal cap near row 1000" : `row ${nextDepth}`,
-    },
-  ];
-  if (nextCargoPrice !== null && nextCargoPrice !== undefined) {
-    targetRows.push({
-      label: "Cargo upgrade",
-      value: `${nextCargoPrice} vibes at Upgrades`,
-    });
-  }
+  const inventory = useBunkerStore((s) => s.inventory);
+  const bunker = useBunkerStore((s) => s.bunker);
+  const player = useBunkerStore((s) => s.player);
+  const bunkerStatus = useBunkerStore((s) => s.status);
+  const playerLevel = player?.overallLevel ?? 1;
 
   return (
     <div>
       <p style={{ margin: "12px 0 8px", fontSize: "0.85rem", opacity: 0.72 }}>
-        Your haul sells automatically as soon as you reach the surface. The
-        Buyer keeps the appraisal visible so you know what this trip is worth.
+        Base stock unlocks by player level. Parts are consumed when placed in
+        the bunker builder.
       </p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))",
-          gap: 8,
-          margin: "10px 0",
-        }}
-      >
-        {targetRows.map((row) => (
-          <div
-            key={row.label}
-            style={{
-              background: "rgba(38, 48, 74, 0.46)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: 10,
-              padding: "8px",
-              minHeight: 66,
-            }}
-          >
-            <span
-              style={{
-                display: "block",
-                fontSize: "0.68rem",
-                color: "#8b93a7",
-                marginBottom: 4,
-              }}
-            >
-              {row.label}
-            </span>
-            <strong
-              style={{
-                display: "block",
-                fontSize: "0.84rem",
-                lineHeight: 1.2,
-              }}
-            >
-              {row.value}
-            </strong>
-          </div>
-        ))}
-      </div>
-      {oreRows.length > 0 ? (
-        <div
-          style={{
-            display: "grid",
-            gap: 6,
-            marginTop: 10,
-          }}
-        >
-          {oreRows.map(({ id, name, count, value }) => (
-            <div
-              key={id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto",
-                gap: 10,
-                alignItems: "center",
-                background: "rgba(17, 21, 31, 0.6)",
-                border: "1px solid rgba(255, 255, 255, 0.07)",
-                borderRadius: 10,
-                padding: "8px 10px",
-              }}
-            >
-              <span>
-                {name} x{count}
-                <small
-                  style={{
-                    display: "block",
-                    color: "#8b93a7",
-                    fontSize: "0.68rem",
-                  }}
-                >
-                  {value} vibes each
-                </small>
-              </span>
-              <strong>{value * count}</strong>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p style={{ margin: "10px 0 0", fontSize: "0.78rem", opacity: 0.62 }}>
-          No ore in the hold. Deeper rows yield richer stacks, but even old ore
-          types scale up as you push down.
-        </p>
-      )}
-      {freeSpace === 0 && (
+      <QuantityPicker value={buyQuantity} onChange={setBuyQuantity} />
+      {BASE_PART_IDS.map((partId) => {
+        const def = BASE_PART_CATALOG[partId];
+        const totalPrice = def.price * buyQuantity;
+        const affordable = balance !== null && balance >= totalPrice;
+        const minLevel = basePartMinimumLevel(partId);
+        const levelLocked = playerLevel < minLevel;
+        const ownedCount = basePartOwnedCount(partId, bunker, inventory);
+        const ownedLimit = basePartOwnedLimit(partId, playerLevel);
+        const capped = ownedCount + buyQuantity > ownedLimit;
+        const hasLimit = Number.isFinite(ownedLimit);
+        const detail =
+          partId === "basic-turret"
+            ? `${def.blurb}. Level ${minLevel}. ${def.ammo ?? 0} shots per raid. Breaks after ${def.durability} Clanker hits.`
+            : partId === "floor-spikes"
+              ? `${def.blurb}. Breaks after ${def.durability} steps. Limit ${ownedLimit} at your level.`
+              : def.blurb;
+        const canBuy = affordable && !levelLocked && !capped;
+        const buttonLabel = levelLocked
+          ? `Requires level ${minLevel}`
+          : capped
+            ? `Limit ${ownedLimit}`
+            : `Buy ${buyQuantity} for ${totalPrice} vibes`;
+        return (
+          <SheetRow
+            key={partId}
+            icon={BASE_PART_ICONS[partId]}
+            name={def.name}
+            sub={detail}
+            badge={
+              hasLimit
+                ? `have ${ownedCount} / ${ownedLimit}`
+                : `have ${inventory[partId] ?? 0}`
+            }
+            action={
+              <button
+                type="button"
+                onClick={() => onBuyBasePart(partId, buyQuantity)}
+                disabled={!canBuy}
+                style={{ ...sheetButtonStyle(canBuy), minWidth: 124 }}
+              >
+                {buttonLabel}
+              </button>
+            }
+          />
+        );
+      })}
+      <p style={{ margin: "10px 0 0", fontSize: "0.72rem", opacity: 0.58 }}>
+        Basic Turrets unlock at level 2 and are capped at one total owned or
+        deployed. Floor Spikes are capped at 4 total at level 1 and 6 total from
+        level 2.
+      </p>
+      {bunkerStatus === "unavailable" && (
         <p
           style={{ margin: "10px 0 0", fontSize: "0.75rem", color: "#f5c542" }}
         >
-          Hold full. Keep digging if you want, overflow ore will drop into the
-          mine for later pickup.
+          Bunker ledger offline. Base stock can be browsed, but purchases wait
+          until storage is online.
         </p>
       )}
       {balance === null && (
         <p
           style={{ margin: "10px 0 0", fontSize: "0.75rem", color: "#f5c542" }}
         >
-          Ledger offline. The Buyer can appraise the trip, but wallet updates
-          wait until storage is online.
+          Wallet ledger offline. The Hardware Store can show the catalog, but
+          purchases wait until storage is online.
         </p>
       )}
     </div>
+  );
+}
+
+function QuantityPicker({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (quantity: number) => void;
+}) {
+  return (
+    <fieldset
+      aria-label="Buy quantity"
+      style={{
+        display: "flex",
+        gap: 8,
+        margin: "10px 0 6px",
+        padding: 0,
+        border: 0,
+      }}
+    >
+      {DEPOT_BUY_QUANTITIES.map((quantity) => {
+        const active = value === quantity;
+        return (
+          <button
+            key={quantity}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(quantity)}
+            style={{
+              border: active ? "1px solid #54e0c7" : "1px solid #2c3a5c",
+              background: active
+                ? "rgba(84, 224, 199, 0.16)"
+                : "rgba(38, 48, 74, 0.55)",
+              color: active ? "#54e0c7" : "#cdd6ea",
+              borderRadius: 10,
+              minWidth: 48,
+              minHeight: 34,
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            x{quantity}
+          </button>
+        );
+      })}
+    </fieldset>
   );
 }
 
@@ -1883,45 +1870,17 @@ function StallMenu({
           the ledger is offline right now; browsing only
         </p>
       )}
-      {stall.id === "buyer" && <BuyerPanel mine={mine} balance={balance} />}
+      {stall.id === "buyer" && (
+        <HardwareStorePanel
+          balance={balance}
+          buyQuantity={buyQuantity}
+          setBuyQuantity={setBuyQuantity}
+          onBuyBasePart={onBuyBasePart}
+        />
+      )}
       {stall.id === "supply" && (
         <div>
-          <fieldset
-            aria-label="Buy quantity"
-            style={{
-              display: "flex",
-              gap: 8,
-              margin: "10px 0 6px",
-              padding: 0,
-              border: 0,
-            }}
-          >
-            {DEPOT_BUY_QUANTITIES.map((quantity) => {
-              const active = buyQuantity === quantity;
-              return (
-                <button
-                  key={quantity}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setBuyQuantity(quantity)}
-                  style={{
-                    border: active ? "1px solid #54e0c7" : "1px solid #2c3a5c",
-                    background: active
-                      ? "rgba(84, 224, 199, 0.16)"
-                      : "rgba(38, 48, 74, 0.55)",
-                    color: active ? "#54e0c7" : "#cdd6ea",
-                    borderRadius: 10,
-                    minWidth: 48,
-                    minHeight: 34,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                >
-                  x{quantity}
-                </button>
-              );
-            })}
-          </fieldset>
+          <QuantityPicker value={buyQuantity} onChange={setBuyQuantity} />
           {(
             [
               ["dynamite", "Dynamite", "fuels your selected blast tier"],
@@ -1969,33 +1928,8 @@ function StallMenu({
               />
             );
           })}
-          {(["wall-panel", "door-panel"] as const).map((partId) => {
-            const def = BASE_PART_CATALOG[partId];
-            const totalPrice = def.price * buyQuantity;
-            const affordable = balance !== null && balance >= totalPrice;
-            return (
-              <SheetRow
-                key={partId}
-                icon={partId === "wall-panel" ? "\u{1F9F1}" : "\u{1F6AA}"}
-                name={def.name}
-                sub="consumable bunker part"
-                badge={`${def.durability} hp`}
-                action={
-                  <button
-                    type="button"
-                    onClick={() => onBuyBasePart(partId, buyQuantity)}
-                    disabled={!affordable}
-                    style={{ ...sheetButtonStyle(affordable), minWidth: 124 }}
-                  >
-                    Buy {buyQuantity} for {totalPrice} vibes
-                  </button>
-                }
-              />
-            );
-          })}
           <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            purchases pack straight into your current trip. Base parts enter the
-            bunker builder inventory.
+            purchases pack straight into your current trip.
           </p>
         </div>
       )}
@@ -2474,7 +2408,7 @@ function BunkerControlPanel({
       {hasBunker && (
         <>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            {(["wall-panel", "door-panel"] as const).map((partId) => {
+            {BASE_PART_IDS.map((partId) => {
               const active = selectedPart === partId;
               return (
                 <button

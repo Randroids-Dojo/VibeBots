@@ -1,6 +1,39 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyAchievementProgress } from "./achievements";
-import { finishBunkerRaid } from "./bunker";
+import { buyBasePart, finishBunkerRaid } from "./bunker";
+
+function makeBuySql({
+  trackXp = 0,
+  defenseXp = 0,
+  inventoryRows = [],
+  parts = [],
+}: {
+  trackXp?: number;
+  defenseXp?: number;
+  inventoryRows?: Array<{ part_id: string; count: number }>;
+  parts?: unknown[];
+}) {
+  return vi.fn(async (strings: TemplateStringsArray) => {
+    const query = strings.join(" ");
+    if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+      return [{ emeralds: 200, track_xp: trackXp, defense_xp: defenseXp }];
+    }
+    if (query.includes("SELECT footprint, core, parts")) {
+      return [
+        {
+          footprint: { col: 1, row: 1, width: 7, height: 5 },
+          core: { col: 4, row: 3, durability: 160 },
+          parts,
+        },
+      ];
+    }
+    if (query.includes("SELECT snapshot")) return [];
+    if (query.includes("SELECT part_id, count")) return inventoryRows;
+    if (query.includes("UPDATE players")) return [{ id: "player-1" }];
+    if (query.includes("INSERT INTO player_base_parts")) return [];
+    return [];
+  });
+}
 
 vi.mock("./achievements", () => ({
   applyAchievementProgress: vi.fn(async () => {}),
@@ -28,6 +61,10 @@ describe("bunker server helpers", () => {
               tier: 1,
               durationSeconds: 180,
               clankers: [],
+              turretShots: 0,
+              turretDamage: 0,
+              spikeTriggers: 0,
+              spikeDamage: 0,
               totalPartDurability: 180,
               incomingDamage: 100,
               breached: false,
@@ -69,6 +106,10 @@ describe("bunker server helpers", () => {
               tier: 1,
               durationSeconds: 180,
               clankers: [],
+              turretShots: 0,
+              turretDamage: 0,
+              spikeTriggers: 0,
+              spikeDamage: 0,
               totalPartDurability: 180,
               incomingDamage: 100,
               breached: false,
@@ -113,5 +154,52 @@ describe("bunker server helpers", () => {
     expect(applyAchievementProgress).toHaveBeenCalledWith(sql, "player-1", {
       bunkerRaidsSurvived: 1,
     });
+  });
+
+  it("rejects Basic Turret buys below player level 2 before spending", async () => {
+    const sql = makeBuySql({});
+
+    const result = await buyBasePart(
+      sql as never,
+      "player-1",
+      "basic-turret",
+      1,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: "requires player level 2",
+    });
+    expect(
+      sql.mock.calls.some(([strings]) =>
+        strings.join(" ").includes("UPDATE players"),
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects Basic Turret buys when one is already owned", async () => {
+    const sql = makeBuySql({
+      defenseXp: 100,
+      inventoryRows: [{ part_id: "basic-turret", count: 1 }],
+    });
+
+    const result = await buyBasePart(
+      sql as never,
+      "player-1",
+      "basic-turret",
+      1,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: "stock limit 1 reached",
+    });
+    expect(
+      sql.mock.calls.some(([strings]) =>
+        strings.join(" ").includes("UPDATE players"),
+      ),
+    ).toBe(false);
   });
 });

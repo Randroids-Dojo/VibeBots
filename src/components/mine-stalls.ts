@@ -23,16 +23,16 @@ export const STALLS: readonly StallDef[] = [
   {
     id: "buyer",
     col: -3,
-    name: "Buyer",
+    name: "Hardware Store",
     color: "#f5c542",
-    blurb: "haul appraisal and auto-sell rules",
+    blurb: "base parts, traps, and turret stock",
   },
   {
     id: "supply",
     col: 2,
     name: "Supply Depot",
     color: "#ff9f43",
-    blurb: "dynamite, rope, and ladder bundles",
+    blurb: "mine consumables for the current trip",
   },
   {
     id: "upgrades",

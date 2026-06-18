@@ -472,13 +472,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("four blast shapes");
+  await expect(dialog).toContainText("sell normally");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("tier selector");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Locked tiers remain visible",
+  await expect(dialog.locator("li").first()).toContainText(
+    "high owned consumable counts",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("one-time unlock");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "Server-owned inventory",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "large saved ladder and plank stock",
+  );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -509,6 +513,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.30", "Large support cash-out"],
     ["0.1.29", "Dynamite tiers"],
     ["0.1.28", "Mining stamp book"],
     ["0.1.27", "Mine progression pacing"],

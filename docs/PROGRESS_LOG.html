@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="large-support-cashout" data-date="2026-06-18">
+    <h3>Large Support Cash-Out</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/large-support-cashout</code>, fast-forwarded to <code>origin/main</code> before implementation and rebased over the latest direct-main slices during review.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Production-log root-cause fix for a long-running 9,968-vibe miner. Recent bank route request logs showed repeated HTTP 400 responses after successful cash-outs, with no structured cash-out payload because request validation failed before auth. The matching player row had legitimate stored stock above the old request cap (<code>ladder_count = 1018</code>, <code>plank_count = 206</code>), so <code>/api/mine/bank</code> now validates submitted consumable snapshots up to the database integer range. Replay and payout remain server-owned, and paid consumable overclaims still fail before payout. Package version moved to <code>0.1.30</code>; <code>MINE_VERSION</code> stays at <code>28</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, smoke, doc, and package files, <code>pnpm exec vitest run src/app/api/mine/bank/route.test.ts</code> (10 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (178 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm build</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Large owned support stock is legitimate for long-running players and should not be blocked by request-shape validation. The server-owned replay path remains the anti-cheat boundary.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated static and in-game release notes and appended a Build log entry to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="dynamite-tier-unlocks" data-date="2026-06-18">
     <h3>Dynamite Tier Unlocks</h3>
     <dl>

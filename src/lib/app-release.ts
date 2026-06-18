@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.29-dynamite-tiers";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.30-large-support-cashout";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.30",
+      date: "2026-06-18",
+      title: "Large support cash-out",
+      intro:
+        "Long-running miners with very large ladder or plank stock can sell normally again.",
+      changes: [
+        {
+          build,
+          text: "Cash-out now accepts legitimate high owned consumable counts from long-running accounts instead of rejecting them at request validation.",
+        },
+        {
+          build,
+          text: "Server-owned inventory remains authoritative for replay, so fake paid consumable claims still fail before payout.",
+        },
+        {
+          build,
+          text: "This targets large saved ladder and plank stock from long-running mines without changing replay rules or payout math.",
+        },
+      ],
+    },
     {
       version: "0.1.29",
       date: "2026-06-18",

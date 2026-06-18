@@ -28,6 +28,9 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const DB_INT_MAX = 2_147_483_647;
+const consumableCount = z.number().int().min(0).max(DB_INT_MAX);
+
 const gearLevel = (
   track:
     | "pickaxe"
@@ -69,11 +72,11 @@ const bodySchema = z.object({
   // Client snapshot used as an ownership upper bound. The server derives
   // replay stock from the normalized player row before crediting payout.
   consumables: z.object({
-    dynamite: z.number().int().min(0).max(999),
-    rope: z.number().int().min(0).max(999),
-    ladder: z.number().int().min(0).max(999),
-    plank: z.number().int().min(0).max(999),
-    beacon: z.number().int().min(0).max(999),
+    dynamite: consumableCount,
+    rope: consumableCount,
+    ladder: consumableCount,
+    plank: consumableCount,
+    beacon: consumableCount,
   }),
 });
 

@@ -265,6 +265,45 @@ describe("POST /api/mine/bank", () => {
     });
     expect(sql).toHaveBeenCalledTimes(3);
   });
+
+  it("accepts large legitimate support stock from long-running players", async () => {
+    const owned = {
+      ...ownedBase,
+      dynamite_count: 34,
+      rope_count: 22,
+      ladder_count: 1018,
+      plank_count: 206,
+      beacon_count: 22,
+    };
+    const sql = mockSql(owned, { seed: 2155004236 });
+
+    const res = await post({
+      seed: 2155004236,
+      moves: ["down"],
+      consumables: stock({
+        dynamite: 34,
+        rope: 22,
+        ladder: 1018,
+        plank: 206,
+        beacon: 22,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      balance: 12,
+      consumables: stock({
+        dynamite: 34,
+        rope: 22,
+        ladder: 1018,
+        plank: 206,
+        beacon: 22,
+      }),
+      tripIndex: 1,
+    });
+    expect(sql).toHaveBeenCalledTimes(3);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("mine bank policy helpers", () => {

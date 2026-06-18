@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.30" data-date="2026-06-18">
+    <h2>0.1.30</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.30</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>28</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Long-running miners with very large legitimate ladder or plank stock can auto-sell again when they return to the surface.</dd>
+      <dt>Fixes</dt><dd>Cash-out request validation now accepts consumable snapshots up to the database integer range instead of rejecting stored counts above 999 before the route can identify the player.</dd>
+      <dt>Security</dt><dd>Server-owned inventory still drives replay and payout. Fake dynamite, recall rope, or beacon claims continue to fail before payout.</dd>
+      <dt>Verification</dt><dd>Full verification is recorded in the progress log for this slice.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.29" data-date="2026-06-18">
     <h2>0.1.29</h2>
     <dl>

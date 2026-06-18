@@ -633,13 +633,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("permanently delete");
+  await expect(dialog).toContainText("two-anchor cap");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("Delete button");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "red destructive-action warning",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText("starts fresh");
+  await expect(dialog.locator("li").first()).toContainText("two total beacons");
+  await expect(dialog.locator("li").nth(1)).toContainText("renamed");
+  await expect(dialog.locator("li").nth(2)).toContainText("collect deployed");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -681,6 +679,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.41", "Beacon names"],
     ["0.1.40", "Save slot deletion"],
     ["0.1.39", "Bunker vertical slice"],
     ["0.1.38", "Resource sale copy"],
@@ -1376,15 +1375,10 @@ test("the warp pad lists beacons newest first (REQ-029)", async ({ page }) => {
     beacon: true,
     beaconOrder: 1,
   });
-  setCell(mine, START_COL + 1, 12, {
-    kind: "empty",
-    beacon: true,
-    beaconOrder: 2,
-  });
   setCell(mine, START_COL - 2, 70, {
     kind: "empty",
     beacon: true,
-    beaconOrder: 3,
+    beaconOrder: 2,
   });
   await page.route("**/api/mine/world", async (route) => {
     await route.fulfill({ status: 503, body: "{}" });
@@ -1418,16 +1412,16 @@ test("the warp pad lists beacons newest first (REQ-029)", async ({ page }) => {
     await pressMineKey(page, "ArrowRight");
   }
   const pad = await openStall(page, "Warp Pad");
-  await expect(pad).toContainText("3 beacons planted");
+  await expect(pad).toContainText("2 beacons planted");
   await expect(pad).toContainText("row 70, col -2 out of range");
-  await expect(pad).toContainText("row 12, col 1");
   await expect(pad).toContainText("row 3, col 0");
   await expect(
-    pad.getByRole("button", { name: /Newest beacon.*row 70/ }),
+    pad.getByRole("button", { name: "Warp" }).first(),
   ).toBeDisabled();
-  await expect(
-    pad.getByRole("button", { name: /Beacon 2.*row 12/ }),
-  ).toBeEnabled();
+  await expect(pad.getByRole("button", { name: "Warp" }).nth(1)).toBeEnabled();
+  await pad.getByLabel("Rename Newest beacon").fill("Deep Door");
+  await pad.getByRole("button", { name: "Rename" }).first().click();
+  await expect(pad).toContainText("Deep Door");
 });
 
 test("the elevator sells rail and gates rides on it (REQ-028)", async ({

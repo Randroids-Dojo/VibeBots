@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.40-save-slot-delete";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.41-beacon-names";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.41",
+      date: "2026-06-18",
+      title: "Beacon names",
+      intro:
+        "Warp beacons now have a clear two-anchor cap and custom short names in the Warp Pad.",
+      changes: [
+        {
+          build,
+          text: "Beacon ownership is capped at two total beacons, counting both packed kits and planted anchors.",
+        },
+        {
+          build,
+          text: "Each deployed beacon row in the Warp Pad can be renamed with short custom text.",
+        },
+        {
+          build,
+          text: "Saved beacon names replay with the mine action log, and capped buyers are reminded they can collect deployed beacons for scrap.",
+        },
+      ],
+    },
     {
       version: "0.1.40",
       date: "2026-06-18",

@@ -75,6 +75,8 @@ export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
 const SUPPORT_SALVAGE_NUMERATOR = 1;
 const SUPPORT_SALVAGE_DENOMINATOR = 2;
 const PLANK_HITS = 3;
+export const MAX_BEACONS = 2;
+export const BEACON_LABEL_MAX_LENGTH = 12;
 
 type SalvageablePlacement = "ladder" | "plank" | "beacon";
 
@@ -92,6 +94,10 @@ function salvageSupport(state: MineState, item: SalvageablePlacement): number {
   const value = supportSalvageValue(item);
   state.miner.carriedSalvageCredits += value;
   return value;
+}
+
+export function normalizeBeaconLabel(label: string): string {
+  return label.replace(/\s+/g, " ").trim().slice(0, BEACON_LABEL_MAX_LENGTH);
 }
 
 /** Per-key sum, shared by the store's carryover and purchase merges. */
@@ -595,6 +601,8 @@ export interface MineCell {
   beacon?: boolean;
   /** Placement order for newest-first Warp Pad lists. */
   beaconOrder?: number;
+  /** Optional short name shown in the Warp Pad list. */
+  beaconLabel?: string;
   /**
    * Ore lying on the floor of an empty cell: chunks that overflowed a
    * dig or dynamite blast because the cargo hold was full. Scooped up by
@@ -1243,7 +1251,8 @@ export function isSupportSalvageTarget(
 export type MineAction =
   | BaseMineAction
   | `collect:${string}`
-  | `warp-down:${number},${number}`;
+  | `warp-down:${number},${number}`
+  | `rename-beacon:${number},${number},${string}`;
 
 export const MINE_ACTIONS = [
   "down",
@@ -1311,11 +1320,41 @@ function parseWarpDownAction(
   return { col, row };
 }
 
+function parseRenameBeaconAction(
+  action: string,
+): { col: number; row: number; label: string } | null {
+  const match = /^rename-beacon:(-?\d+),(-?\d+),(.*)$/.exec(action);
+  if (!match) return null;
+  const col = Number(match[1]);
+  const row = Number(match[2]);
+  if (!Number.isSafeInteger(col) || !Number.isSafeInteger(row) || row < 1)
+    return null;
+  try {
+    return {
+      col,
+      row,
+      label: normalizeBeaconLabel(decodeURIComponent(match[3] ?? "")),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function renameBeaconAction(
+  target: { col: number; row: number },
+  label: string,
+): MineAction {
+  return `rename-beacon:${target.col},${target.row},${encodeURIComponent(
+    normalizeBeaconLabel(label),
+  )}`;
+}
+
 export function isMineAction(action: string): action is MineAction {
   return (
     BASE_MINE_ACTIONS.has(action) ||
     parseCollectAction(action) !== null ||
-    parseWarpDownAction(action) !== null
+    parseWarpDownAction(action) !== null ||
+    parseRenameBeaconAction(action) !== null
   );
 }
 
@@ -1968,7 +2007,10 @@ function collectPlaced(state: MineState, action: MineAction): MoveResult {
   for (const item of targets) {
     const cell = cellMut(state, item.col, item.row);
     cell[item.type] = undefined;
-    if (item.type === "beacon") cell.beaconOrder = undefined;
+    if (item.type === "beacon") {
+      cell.beaconOrder = undefined;
+      cell.beaconLabel = undefined;
+    }
     const value = salvageSupport(state, item.type);
     salvageValue += value;
     collected[item.type] = (collected[item.type] ?? 0) + 1;
@@ -2401,6 +2443,15 @@ export interface PlacedBeacon {
   row: number;
   order: number;
   inRange: boolean;
+  label: string | null;
+}
+
+export function countPlacedBeaconsInDiff(diff: WorldDiff | undefined): number {
+  let count = 0;
+  for (const [, , cell] of diff ?? []) {
+    if (cell.beacon) count++;
+  }
+  return count;
 }
 
 function maxBeaconOrder(state: MineState): number {
@@ -2426,7 +2477,16 @@ export function findBeacons(state: MineState): PlacedBeacon[] {
     const order = Number.isSafeInteger(cell.beaconOrder)
       ? (cell.beaconOrder ?? 0)
       : 0;
-    beacons.push({ col, row, order, inRange: row <= range });
+    beacons.push({
+      col,
+      row,
+      order,
+      inRange: row <= range,
+      label:
+        typeof cell.beaconLabel === "string"
+          ? normalizeBeaconLabel(cell.beaconLabel) || null
+          : null,
+    });
   }
   beacons.sort((a, b) => b.order - a.order || b.row - a.row || b.col - a.col);
   return beacons;
@@ -2500,11 +2560,28 @@ function warpToNewestBeacon(state: MineState): MoveResult {
   return warpDown(state, beacon);
 }
 
+function renameBeacon(
+  state: MineState,
+  target: { col: number; row: number; label: string },
+): MoveResult {
+  const miner = state.miner;
+  if (miner.row !== 0 || miner.col !== WARP_PAD_COL)
+    return { ok: false, reason: "blocked" };
+  if (!cellAt(state, target.col, target.row)?.beacon)
+    return { ok: false, reason: "no-beacon" };
+  const cell = cellMut(state, target.col, target.row);
+  const label = normalizeBeaconLabel(target.label);
+  cell.beaconLabel = label || undefined;
+  return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+}
+
 /** Dispatches any logged trip action (Q-006 default B). */
 export function applyAction(state: MineState, action: MineAction): MoveResult {
   if (action.startsWith("collect:")) return collectPlaced(state, action);
   const warpTarget = parseWarpDownAction(action);
   if (warpTarget) return warpDown(state, warpTarget);
+  const renameTarget = parseRenameBeaconAction(action);
+  if (renameTarget) return renameBeacon(state, renameTarget);
   switch (action) {
     case "down":
     case "up":

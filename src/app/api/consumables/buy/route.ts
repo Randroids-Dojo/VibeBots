@@ -2,7 +2,12 @@ import { z } from "zod";
 import { applyAchievementProgress } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
 import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
-import { CONSUMABLE_PRICES } from "@/sim/mine";
+import {
+  CONSUMABLE_PRICES,
+  countPlacedBeaconsInDiff,
+  MAX_BEACONS,
+  type WorldDiff,
+} from "@/sim/mine";
 
 export const runtime = "nodejs";
 
@@ -33,10 +38,27 @@ export async function POST(request: Request): Promise<Response> {
   const item = parsed.data.item;
   const quantity = parsed.data.quantity;
   const price = CONSUMABLE_PRICES[item] * quantity;
+  let beaconSlotsAvailable = MAX_BEACONS;
 
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
-  await getMinePlayerProfile(sql, playerId);
+  const profile = await getMinePlayerProfile(sql, playerId);
+  if (item === "beacon") {
+    const worlds = (await sql`
+      SELECT diff FROM mine_worlds
+      WHERE player_id = ${playerId}`) as Array<{ diff: unknown }>;
+    const placed = countPlacedBeaconsInDiff(
+      (worlds[0]?.diff ?? []) as WorldDiff,
+    );
+    const owned = (profile?.beacon_count ?? 0) + placed;
+    beaconSlotsAvailable = Math.max(0, MAX_BEACONS - placed);
+    if (owned + quantity > MAX_BEACONS) {
+      return Response.json(
+        { error: `beacon limit ${MAX_BEACONS} total` },
+        { status: 409 },
+      );
+    }
+  }
   const rows = (await (item === "dynamite"
     ? sql`
         UPDATE players
@@ -65,6 +87,7 @@ export async function POST(request: Request): Promise<Response> {
         UPDATE players
         SET emeralds = emeralds - ${price}, beacon_count = beacon_count + ${quantity}
         WHERE id = ${playerId} AND emeralds >= ${price}
+          AND beacon_count + ${quantity} <= ${beaconSlotsAvailable}
         RETURNING emeralds, beacon_count AS count`)) as Array<{
     emeralds: number;
     count: number;

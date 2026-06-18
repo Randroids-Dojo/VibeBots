@@ -18,6 +18,7 @@ import {
   proposedBunkerFootprint,
 } from "@/sim/bunker";
 import {
+  BEACON_LABEL_MAX_LENGTH,
   CONSUMABLE_PRICES,
   type CollectTarget,
   canPlacePlank,
@@ -38,14 +39,17 @@ import {
   elevatorSpeedRows,
   findBeacons,
   GEAR_TRACKS,
+  MAX_BEACONS,
   type MineAction,
   type MineGear,
   type MineGearTrack,
   type MineState,
   maxEnergy,
   maxGearLevel,
+  normalizeBeaconLabel,
   type OreId,
   oreDef,
+  renameBeaconAction,
   returnEnergyCost,
   returnLadderNeed,
   type SoldHaul,
@@ -1730,11 +1734,14 @@ function StallMenu({
   const upgradeFunds = balance === null ? null : balance + banked;
   const offline = balance === null;
   const beacons = findBeacons(mine);
+  const beaconTotal = mine.consumables.beacon + beacons.length;
+  const beaconRoom = Math.max(0, MAX_BEACONS - beaconTotal);
   // Swipe-to-dismiss: the grab zone follows the finger down, and a far
   // enough pull (or a flick) closes the sheet. A short tug snaps back.
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [buyQuantity, setBuyQuantity] = useState(1);
+  const [beaconDrafts, setBeaconDrafts] = useState<Record<string, string>>({});
   const dragStart = useRef<number | null>(null);
   const dismiss = () => {
     setDragY(0);
@@ -1922,14 +1929,29 @@ function StallMenu({
           ).map(([item, name, blurb]) => {
             const price = CONSUMABLE_PRICES[item];
             const totalPrice = price * buyQuantity;
-            const affordable = balance !== null && balance >= totalPrice;
+            const beaconAllowed =
+              item !== "beacon" || buyQuantity <= beaconRoom;
+            const affordable =
+              balance !== null && balance >= totalPrice && beaconAllowed;
+            const beaconBadge =
+              item === "beacon"
+                ? `${mine.consumables.beacon} packed, ${beacons.length} planted`
+                : null;
+            const actionLabel =
+              item === "beacon" && !beaconAllowed
+                ? `Limit ${MAX_BEACONS} total`
+                : `Buy ${buyQuantity} for ${totalPrice} vibes`;
+            const rowSub =
+              item === "beacon" && !beaconAllowed
+                ? "At the cap. If a beacon is deployed, collect it in edit pickup mode for scraps to free a slot."
+                : blurb;
             return (
               <SheetRow
                 key={item}
                 icon={ITEM_ICONS[item]}
                 name={name}
-                sub={blurb}
-                badge={`have ${mine.consumables[item]}`}
+                sub={rowSub}
+                badge={beaconBadge ?? `have ${mine.consumables[item]}`}
                 action={
                   <button
                     type="button"
@@ -1937,7 +1959,7 @@ function StallMenu({
                     disabled={!affordable}
                     style={{ ...sheetButtonStyle(affordable), minWidth: 124 }}
                   >
-                    Buy {buyQuantity} for {totalPrice} vibes
+                    {actionLabel}
                   </button>
                 }
               />
@@ -2111,35 +2133,105 @@ function StallMenu({
                 Warp to beacon
               </button>
             ) : (
-              beacons.map((beacon, index) => (
-                <button
-                  key={`${beacon.col},${beacon.row}`}
-                  type="button"
-                  onClick={() =>
-                    onRide(
-                      `warp-down:${beacon.col},${beacon.row}` as MineAction,
-                    )
-                  }
-                  disabled={!beacon.inRange}
-                  style={{
-                    ...sheetButtonStyle(beacon.inRange),
-                    width: "100%",
-                    minHeight: 48,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <span>
-                    {index === 0 ? "Newest beacon" : `Beacon ${index + 1}`}
-                  </span>
-                  <span style={{ opacity: 0.78 }}>
-                    row {beacon.row}, col {beacon.col}
-                    {beacon.inRange ? "" : " out of range"}
-                  </span>
-                </button>
-              ))
+              beacons.map((beacon, index) => {
+                const draftKey = `${beacon.col},${beacon.row}`;
+                const fallbackName =
+                  index === 0 ? "Newest beacon" : `Beacon ${index + 1}`;
+                const displayName = beacon.label ?? fallbackName;
+                const draft = beaconDrafts[draftKey] ?? beacon.label ?? "";
+                const cleanedDraft = normalizeBeaconLabel(draft);
+                const renameReady = cleanedDraft !== (beacon.label ?? "");
+                return (
+                  <div
+                    key={draftKey}
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      padding: 10,
+                      border: "1px solid rgba(84, 224, 199, 0.18)",
+                      borderRadius: 12,
+                      background: "rgba(17, 21, 31, 0.45)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <span style={{ fontWeight: 800 }}>{displayName}</span>
+                      <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
+                        row {beacon.row}, col {beacon.col}
+                        {beacon.inRange ? "" : " out of range"}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                        gap: 8,
+                        alignItems: "center",
+                      }}
+                    >
+                      <input
+                        aria-label={`Rename ${fallbackName}`}
+                        maxLength={BEACON_LABEL_MAX_LENGTH}
+                        value={draft}
+                        placeholder={fallbackName}
+                        onChange={(event) =>
+                          setBeaconDrafts((current) => ({
+                            ...current,
+                            [draftKey]: event.target.value,
+                          }))
+                        }
+                        style={{
+                          width: "100%",
+                          minWidth: 0,
+                          height: 38,
+                          borderRadius: 10,
+                          border: "1px solid #2c3a5c",
+                          background: "rgba(12, 15, 23, 0.86)",
+                          color: "#e6e8ee",
+                          padding: "0 10px",
+                          fontWeight: 700,
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onRide(renameBeaconAction(beacon, cleanedDraft))
+                        }
+                        disabled={!renameReady}
+                        style={{
+                          ...sheetButtonStyle(renameReady),
+                          minWidth: 64,
+                          minHeight: 38,
+                        }}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onRide(
+                            `warp-down:${beacon.col},${beacon.row}` as MineAction,
+                          )
+                        }
+                        disabled={!beacon.inRange}
+                        style={{
+                          ...sheetButtonStyle(beacon.inRange),
+                          minWidth: 60,
+                          minHeight: 38,
+                        }}
+                      >
+                        Warp
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

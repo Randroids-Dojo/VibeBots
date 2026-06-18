@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="beacon-cap-names" data-date="2026-06-18">
+    <h3>Beacon Cap Names</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/beacon-cap-rename</code>, rebased onto current <code>origin/main</code> after the resource sale copy, bunker vertical slice, and save slot deletion slices landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed followup to the warp beacon redesign. Beacon purchases now enforce a two-beacon total across packed kits and planted anchors, with the server counting stored kits plus placed anchors from the persisted mine diff and guarding the SQL update against concurrent over-purchase. The Supply Depot disables over-cap beacon buys and reminds capped players that deployed beacons can be collected in edit pickup mode for scraps to free a slot. The Warp Pad now lets each deployed beacon save a short custom name through a replayed rename action stored on the beacon cell. Package version moved to <code>0.1.41</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. After rebasing over the save slot deletion slice, ran <code>pnpm exec biome check --write</code> on touched source, test, package, release, and doc files; JSON validation for <code>docs/GDD_COVERAGE.json</code>; conflict-marker search; <code>git diff --check</code>; <code>pnpm check:dashes</code>; focused Vitest for mine sim and consumable purchase route coverage (84 passed); <code>pnpm typecheck</code>; <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm test</code> (213 passed); <code>pnpm build</code>; and full Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3108</code> (35 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: beacon labels are limited to 12 trimmed characters, an empty label clears the custom name, and renaming is available from the surface Warp Pad even when the beacon is out of range.</dd>
+      <dt>GDD coverage</dt><dd>REQ-029 stays done with updated cap and label behavior. Updated <code>docs/gdd/06-mining.html</code>, <code>docs/GDD_COVERAGE.json</code>, static release notes, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="save-slot-deletion" data-date="2026-06-18">
     <h3>Save Slot Deletion</h3>
     <dl>

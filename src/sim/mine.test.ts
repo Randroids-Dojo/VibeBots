@@ -13,6 +13,7 @@ import {
   cellAt,
   collectAction,
   collectablePlacements,
+  countPlacedBeaconsInDiff,
   createMine,
   DEFAULT_GEAR,
   type Direction,
@@ -43,6 +44,7 @@ import {
   type MoveResult,
   maxGearLevel,
   NO_CONSUMABLES,
+  normalizeBeaconLabel,
   normalizeGear,
   ORES,
   oreCellValueAt,
@@ -54,6 +56,7 @@ import {
   ROCK_DIG_COST,
   ROCK_FREE_ROWS,
   refundRailSupportsInDiff,
+  renameBeaconAction,
   replayTrip,
   returnEnergyCost,
   returnLadderNeed,
@@ -553,6 +556,26 @@ describe("mine", () => {
     expect(state.miner.row).toBe(3);
   });
 
+  it("renames placed beacons through replayed Warp Pad actions", () => {
+    const cons = stock({ beacon: 1 });
+    const state = createMine(246, DEFAULT_GEAR, cons);
+    dig(state, "down");
+    dig(state, "down");
+    expect(applyAction(state, "place-beacon").ok).toBe(true);
+    expect(applyAction(state, "warp-home").ok).toBe(true);
+    const action = renameBeaconAction(
+      { col: START_COL, row: 2 },
+      "  Core   Door  ",
+    );
+    expect(action).toBe("rename-beacon:0,2,Core%20Door");
+    expect(applyAction(state, action).ok).toBe(true);
+    expect(findBeacons(state)[0]?.label).toBe("Core Door");
+    expect(normalizeBeaconLabel("123456789012345")).toBe("123456789012");
+    const clear = renameBeaconAction({ col: START_COL, row: 2 }, "   ");
+    expect(applyAction(state, clear).ok).toBe(true);
+    expect(findBeacons(state)[0]?.label).toBeNull();
+  });
+
   it("refuses warps past the coil range until upgraded", () => {
     const cons = stock({ beacon: 1 });
     const state = createMine(251, DEFAULT_GEAR, cons);
@@ -590,13 +613,22 @@ describe("mine", () => {
       "down",
       "place-beacon",
       "warp-home",
-      `warp-down:${START_COL},6`,
     ];
     const state = createMine(257, DEFAULT_GEAR, cons);
     for (const a of actions) applyAction(state, a);
+    const target = findBeacons(state)[0];
+    expect(target).toBeDefined();
+    if (!target) return;
+    const rename = renameBeaconAction(target, "Deep Gate");
+    actions.push(rename, `warp-down:${target.col},${target.row}`);
+    applyAction(state, rename);
+    applyAction(state, `warp-down:${target.col},${target.row}`);
     const replayed = replayTrip(257, actions, DEFAULT_GEAR, cons);
     expect(replayed.used.beacon).toBe(state.used.beacon);
     expect(replayed.diff).toEqual(exportDiff(state));
+    expect(
+      findBeacons(state).find((beacon) => beacon.row === target.row)?.label,
+    ).toBe("Deep Gate");
     expect(replayTrip(257, actions, DEFAULT_GEAR, cons)).toEqual(replayed);
   });
 
@@ -619,7 +651,9 @@ describe("mine", () => {
     );
     expect(cellAt(state, target.col, target.row)?.beacon).toBeUndefined();
     expect(cellAt(state, target.col, target.row)?.beaconOrder).toBeUndefined();
+    expect(cellAt(state, target.col, target.row)?.beaconLabel).toBeUndefined();
     expect(findBeacons(state)).toEqual([]);
+    expect(countPlacedBeaconsInDiff(exportDiff(state))).toBe(0);
     expect(state.consumables.beacon).toBe(0);
     expect(state.miner.carriedSalvageCredits).toBe(30);
   });

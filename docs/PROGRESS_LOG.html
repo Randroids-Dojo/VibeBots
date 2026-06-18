@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="support-selection-outline" data-date="2026-06-18">
+    <h3>Support Selection Outline</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-support-selection-outline-remote</code>, replayed onto live remote <code>main</code> after the device save slots slice landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported collect-mode fix. Salvage mode now gives each eligible ladder and plank a full-cell tap target, and every selected support cell renders a bright red full-cell outline above the darkness layer. The old ladder and plank mesh highlights remain as secondary feedback. Package version moved to <code>0.1.34</code>; <code>MINE_VERSION</code> stays at <code>29</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Before transplanting onto live remote main, ran support-selection checks including focused Playwright on port 3084 and an in-app browser check with no console errors. On the final live-remote branch, ran <code>pnpm exec biome check --write</code> on touched source, test, release source, and package files, <code>pnpm typecheck</code>, <code>pnpm test</code> (191 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3099</code> for support salvage red selected-cell outlines and the latest release note (2 passed).</dd>
+      <dt>Assumptions</dt><dd>No sim or economy rule changed. This is a render and hit-target correction for the existing adjacent 3x3 support salvage rule.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="device-save-slots" data-date="2026-06-18">
     <h3>Device Save Slots</h3>
     <dl>

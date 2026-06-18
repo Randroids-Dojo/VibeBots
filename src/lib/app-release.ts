@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.33-save-slots";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.34-support-selection";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.34",
+      date: "2026-06-18",
+      title: "Support selection outlines",
+      intro:
+        "Support salvage selections now show clear red outlines around the selected cells.",
+      changes: [
+        {
+          build,
+          text: "Selected ladder and plank cells now get a bright red full-cell outline in salvage mode.",
+        },
+        {
+          build,
+          text: "The whole eligible cell is now tappable, so selecting thin ladder and plank meshes is less fragile.",
+        },
+        {
+          build,
+          text: "The support itself still brightens as secondary feedback, but the cell outline is the main multi-select signal.",
+        },
+      ],
+    },
     {
       version: "0.1.33",
       date: "2026-06-18",

@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.34" data-date="2026-06-18">
+    <h2>0.1.34</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.34</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>29</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Support salvage multi-select is now visually clear: selected ladder and plank cells render a bright red full-cell outline above the mine darkness layer.</dd>
+      <dt>Interface</dt><dd>The whole eligible cell is now tappable in salvage mode, so selection no longer depends on hitting the thin ladder or plank mesh. The support mesh still brightens as secondary feedback.</dd>
+      <dt>Rules</dt><dd>No sim, economy, inventory, or replay rule changed. This is a render and hit-target correction for the existing adjacent 3x3 support salvage rule.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Final live-remote verification: <code>pnpm typecheck</code>, <code>pnpm test</code> (191 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3099</code> for support salvage red selected-cell outlines and the latest release note (2 passed).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.33" data-date="2026-06-18">
     <h2>0.1.33</h2>
     <dl>

@@ -274,39 +274,103 @@ function SupportSelectionOutline({
   const bar = 0.045;
   return (
     <group position={[0, 0, z]}>
-      <mesh position={[0, height / 2, 0]}>
-        <boxGeometry args={[width, bar, bar]} />
-        <meshBasicMaterial
-          color={SUPPORT_SELECT_RED}
-          toneMapped={false}
-          depthWrite={false}
-        />
-      </mesh>
-      <mesh position={[0, -height / 2, 0]}>
-        <boxGeometry args={[width, bar, bar]} />
-        <meshBasicMaterial
-          color={SUPPORT_SELECT_RED}
-          toneMapped={false}
-          depthWrite={false}
-        />
-      </mesh>
-      <mesh position={[-width / 2, 0, 0]}>
-        <boxGeometry args={[bar, height, bar]} />
-        <meshBasicMaterial
-          color={SUPPORT_SELECT_RED}
-          toneMapped={false}
-          depthWrite={false}
-        />
-      </mesh>
-      <mesh position={[width / 2, 0, 0]}>
-        <boxGeometry args={[bar, height, bar]} />
-        <meshBasicMaterial
-          color={SUPPORT_SELECT_RED}
-          toneMapped={false}
-          depthWrite={false}
-        />
-      </mesh>
+      <SelectionOutlineBars
+        width={width}
+        height={height}
+        bar={bar}
+        renderOrder={0}
+        depthTest
+      />
     </group>
+  );
+}
+
+function SelectionOutlineBars({
+  width,
+  height,
+  bar,
+  renderOrder,
+  depthTest,
+}: {
+  width: number;
+  height: number;
+  bar: number;
+  renderOrder: number;
+  depthTest: boolean;
+}) {
+  const bars = [
+    { position: [0, height / 2, 0], args: [width, bar, bar] },
+    { position: [0, -height / 2, 0], args: [width, bar, bar] },
+    { position: [-width / 2, 0, 0], args: [bar, height, bar] },
+    { position: [width / 2, 0, 0], args: [bar, height, bar] },
+  ] as const;
+  return (
+    <>
+      {bars.map(({ position, args }) => (
+        <mesh
+          key={position.join(":")}
+          position={position}
+          renderOrder={renderOrder}
+        >
+          <boxGeometry args={args} />
+          <meshBasicMaterial
+            color={SUPPORT_SELECT_RED}
+            toneMapped={false}
+            depthWrite={false}
+            depthTest={depthTest}
+          />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+function SelectedSupportCellOutline({
+  col,
+  row,
+}: {
+  col: number;
+  row: number;
+}) {
+  return (
+    <group position={[cellX(col), -row, 1.02]}>
+      <SelectionOutlineBars
+        width={1.1}
+        height={1.1}
+        bar={0.065}
+        renderOrder={20}
+        depthTest={false}
+      />
+    </group>
+  );
+}
+
+function SupportCellHitTarget({
+  target,
+  onToggleSupport,
+}: {
+  target: CollectTarget;
+  onToggleSupport: (target: CollectTarget) => void;
+}) {
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+    <mesh
+      position={[cellX(target.col), -target.row, 1.04]}
+      renderOrder={19}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggleSupport(target);
+      }}
+    >
+      <planeGeometry args={[1.08, 1.08]} />
+      <meshBasicMaterial
+        color={SUPPORT_SELECT_RED}
+        transparent
+        opacity={0}
+        depthWrite={false}
+        depthTest={false}
+      />
+    </mesh>
   );
 }
 
@@ -2205,6 +2269,7 @@ function MineScene({
   const tunnelMeshes = [];
   const crackMeshes = [];
   const darknessMeshes = [];
+  const supportSelectionMeshes = [];
   const selectedSupportSet = new Set(selectedSupportKeys ?? []);
   const dynamitePreviewSet = new Set(
     (dynamitePreviewCells ?? []).map((coord) => `${coord.col}:${coord.row}`),
@@ -2288,6 +2353,24 @@ function MineScene({
             ladderCanSalvage && selectedSupportSet.has(`ladder:${col},${row}`);
           const toggleLadder =
             ladderCanSalvage && onToggleSupport ? onToggleSupport : null;
+          if (toggleLadder) {
+            supportSelectionMeshes.push(
+              <SupportCellHitTarget
+                key={`support-hit:ladder:${key}`}
+                target={{ type: "ladder", col, row }}
+                onToggleSupport={toggleLadder}
+              />,
+            );
+          }
+          if (ladderSelected) {
+            supportSelectionMeshes.push(
+              <SelectedSupportCellOutline
+                key={`selected-cell:ladder:${key}`}
+                col={col}
+                row={row}
+              />,
+            );
+          }
           tunnelMeshes.push(
             // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
             <group
@@ -2399,6 +2482,24 @@ function MineScene({
             plankCanSalvage && selectedSupportSet.has(`plank:${col},${row}`);
           const togglePlank =
             plankCanSalvage && onToggleSupport ? onToggleSupport : null;
+          if (togglePlank) {
+            supportSelectionMeshes.push(
+              <SupportCellHitTarget
+                key={`support-hit:plank:${key}`}
+                target={{ type: "plank", col, row }}
+                onToggleSupport={togglePlank}
+              />,
+            );
+          }
+          if (plankSelected) {
+            supportSelectionMeshes.push(
+              <SelectedSupportCellOutline
+                key={`selected-cell:plank:${key}`}
+                col={col}
+                row={row}
+              />,
+            );
+          }
           tunnelMeshes.push(
             // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
             <group
@@ -2677,6 +2778,7 @@ function MineScene({
           );
         })()}
       {darknessMeshes}
+      {supportSelectionMeshes}
       <group ref={particlesRef}>
         {juice.current.particles.map((p) => (
           <mesh key={p.id} position={[p.x, p.y, 0.4]} userData={{ id: p.id }}>

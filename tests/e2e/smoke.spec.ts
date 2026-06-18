@@ -84,6 +84,36 @@ async function dismissReleaseNotes(page: Page): Promise<void> {
   await expect(dialog).not.toBeVisible();
 }
 
+async function countCanvasRedPixels(
+  page: Page,
+  image: Buffer,
+): Promise<number> {
+  return page.evaluate(async (base64) => {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("canvas screenshot decode failed"));
+      img.src = `data:image/png;base64,${base64}`;
+    });
+    const scratch = document.createElement("canvas");
+    scratch.width = img.width;
+    scratch.height = img.height;
+    const ctx = scratch.getContext("2d");
+    if (!ctx) return 0;
+    ctx.drawImage(img, 0, 0);
+    const pixels = ctx.getImageData(0, 0, scratch.width, scratch.height).data;
+    let count = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i];
+      const g = pixels[i + 1];
+      const b = pixels[i + 2];
+      const a = pixels[i + 3];
+      if (r > 210 && g < 90 && b < 90 && a > 180) count++;
+    }
+    return count;
+  }, image.toString("base64"));
+}
+
 import { SIM_VERSION } from "../../src/sim/constants";
 import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
 import {
@@ -305,6 +335,62 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
   await expect(report).not.toContainText("Crushed by a boulder");
 });
 
+test("support salvage selection outlines selected cells in red", async ({
+  page,
+}) => {
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  const mine = createMine(7171, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  setCell(mine, START_COL, 1, { kind: "empty", ladder: true });
+  setCell(mine, START_COL + 1, 1, { kind: "empty", plank: true });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed: 7171,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: [],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Salvage placed supports" }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Salvage placed supports" }).click();
+  const salvage = page.getByRole("region", { name: "Support salvage" });
+  await expect(salvage).toBeVisible();
+  const before = await canvas.screenshot();
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+
+  await canvas.click({
+    position: { x: box.width / 2, y: box.height / 2 + 75 },
+  });
+  await expect(salvage).toContainText("1 selected");
+  await canvas.click({
+    position: { x: box.width / 2 + 54, y: box.height / 2 + 105 },
+  });
+  await expect(salvage).toContainText("2 selected");
+
+  const after = await canvas.screenshot();
+  expect(await countCanvasRedPixels(page, after)).toBeGreaterThan(
+    (await countCanvasRedPixels(page, before)) + 80,
+  );
+});
+
 test("home redirects to the mine hub", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/mine$/);
@@ -472,13 +558,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("three separate saves");
+  await expect(dialog).toContainText("clear red outlines");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("Load game");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Slot 1 automatically",
+  await expect(dialog.locator("li").first()).toContainText(
+    "bright red full-cell outline",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("own mine");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "whole eligible cell is now tappable",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "cell outline is the main multi-select signal",
+  );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -520,6 +610,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const expectedReleaseNotes = [
+    ["0.1.34", "Support selection outlines"],
     ["0.1.33", "Save slots"],
     ["0.1.32", "Partial ore mining"],
     ["0.1.31", "Mine drop markers"],

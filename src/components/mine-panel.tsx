@@ -2248,9 +2248,12 @@ function StallMenu({
 function BunkerControlPanel({
   minerCol,
   minerRow,
+  claimMode,
   preview,
   selectedPart,
   onSelectPart,
+  onStartClaim,
+  onCancelClaim,
   onClaim,
   onPlace,
   onRemove,
@@ -2259,9 +2262,12 @@ function BunkerControlPanel({
 }: {
   minerCol: number;
   minerRow: number;
+  claimMode: boolean;
   preview: BunkerFootprint | null;
   selectedPart: BasePartId;
   onSelectPart: (partId: BasePartId) => void;
+  onStartClaim: () => void;
+  onCancelClaim: () => void;
   onClaim: () => void;
   onPlace: () => void;
   onRemove: () => void;
@@ -2278,6 +2284,33 @@ function BunkerControlPanel({
   const hasBunker = Boolean(bunker);
   const canClaim = !hasBunker && status !== "loading" && preview !== null;
   const canBuild = hasBunker && !activeRaid;
+  if (!hasBunker && !claimMode) {
+    return (
+      <button
+        type="button"
+        aria-label="Start bunker claim"
+        onClick={onStartClaim}
+        style={{
+          position: "absolute",
+          left: 12,
+          bottom: 94,
+          zIndex: 8,
+          minHeight: 42,
+          borderRadius: 999,
+          border: "1px solid #54e0c7",
+          background: "rgba(14, 20, 28, 0.94)",
+          boxShadow: "0 8px 22px rgba(0, 0, 0, 0.36)",
+          color: "#54e0c7",
+          fontWeight: 800,
+          padding: "0 14px",
+          pointerEvents: "auto",
+          cursor: "pointer",
+        }}
+      >
+        Bunker claim
+      </button>
+    );
+  }
   return (
     <section
       aria-label="Bunker builder"
@@ -2308,14 +2341,31 @@ function BunkerControlPanel({
           : "Clear and bank a 7x5 room, then claim it here."}
       </p>
       {!hasBunker && (
-        <button
-          type="button"
-          disabled={!canClaim}
-          onClick={onClaim}
-          style={{ ...sheetButtonStyle(canClaim), width: "100%" }}
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
         >
-          Claim 7x5 bunker
-        </button>
+          <button
+            type="button"
+            disabled={!canClaim}
+            onClick={onClaim}
+            style={{ ...sheetButtonStyle(canClaim), width: "100%" }}
+          >
+            Claim 7x5 bunker
+          </button>
+          <button
+            type="button"
+            onClick={onCancelClaim}
+            style={{
+              ...sheetButtonStyle(true),
+              width: "100%",
+              border: "1px solid #5b6680",
+              background: "#20283a",
+              color: "#cdd6ea",
+            }}
+          >
+            Cancel claim
+          </button>
+        </div>
       )}
       {hasBunker && (
         <>
@@ -2465,6 +2515,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [mineSurfaceTip, setMineSurfaceTip] = useState<string>(
     MINE_SURFACE_TIPS[0],
   );
+  const [bunkerClaimMode, setBunkerClaimMode] = useState(false);
   const [selectedBasePart, setSelectedBasePart] =
     useState<BasePartId>("wall-panel");
   // The column whose stall sheet is open. Standing on a stall no longer
@@ -2764,7 +2815,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           color: "#54e0c7",
         };
   const bunkerPreview =
-    miner.row > 0 && !bunker
+    miner.row > 0 && !bunker && bunkerClaimMode
       ? proposedBunkerFootprint(miner.col, miner.row)
       : null;
 
@@ -2798,6 +2849,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBaseReturnOpen(false);
     setBaseReturnConfirm(false);
   }, [baseReturn]);
+
+  useEffect(() => {
+    if (bunker || miner.row <= 0) setBunkerClaimMode(false);
+  }, [bunker, miner.row]);
 
   useEffect(() => {
     if (!elevatorAutoDir) return;
@@ -3221,9 +3276,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       <BunkerControlPanel
         minerCol={miner.col}
         minerRow={miner.row}
+        claimMode={bunkerClaimMode}
         preview={bunkerPreview}
         selectedPart={selectedBasePart}
         onSelectPart={setSelectedBasePart}
+        onStartClaim={() => setBunkerClaimMode(true)}
+        onCancelClaim={() => setBunkerClaimMode(false)}
         onClaim={() => void claimBunker(miner.col, miner.row)}
         onPlace={() =>
           void placeBunkerPart(selectedBasePart, miner.col, miner.row)

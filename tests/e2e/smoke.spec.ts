@@ -363,6 +363,40 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await expect(builder).toContainText("Clankers attacking for 180 seconds");
 });
 
+test("mine requires an explicit bunker claim mode before showing the claim panel", async ({
+  page,
+}) => {
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: null,
+        inventory: { "wall-panel": 4, "door-panel": 1 },
+        activeRaid: null,
+        player: { balance: 120, trackXp: 0, defenseXp: 0, overallLevel: 1 },
+      }),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+
+  const builder = page.getByRole("region", { name: "Bunker builder" });
+  await expect(builder).not.toBeVisible();
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  await expect(builder).toBeVisible();
+  await expect(
+    builder.getByRole("button", { name: "Claim 7x5 bunker" }),
+  ).toBeVisible();
+  await builder.getByRole("button", { name: "Cancel claim" }).click();
+  await expect(builder).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Start bunker claim" }),
+  ).toBeVisible();
+});
+
 test("fatal free fall stays on camera until impact", async ({ page }) => {
   await page.route("**/api/mine/world", async (route) => {
     await route.fulfill({ status: 503, body: "{}" });
@@ -633,11 +667,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("two-anchor cap");
+  await expect(dialog).toContainText("claim tool underground");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("two total beacons");
-  await expect(dialog.locator("li").nth(1)).toContainText("renamed");
-  await expect(dialog.locator("li").nth(2)).toContainText("collect deployed");
+  await expect(dialog.locator("li").first()).toContainText(
+    "claim panel automatically",
+  );
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "Bunker claim HUD button",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText("Cancel claim");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -679,6 +717,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.42", "Explicit bunker claim"],
     ["0.1.41", "Beacon names"],
     ["0.1.40", "Save slot deletion"],
     ["0.1.39", "Bunker vertical slice"],

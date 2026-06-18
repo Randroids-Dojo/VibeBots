@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.41-beacon-names";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.42-explicit-bunker-claim";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.42",
+      date: "2026-06-18",
+      title: "Explicit bunker claim",
+      intro:
+        "Bunker claiming now starts only when the player chooses the claim tool underground.",
+      changes: [
+        {
+          build,
+          text: "Going underground no longer opens the full bunker claim panel automatically.",
+        },
+        {
+          build,
+          text: "A compact Bunker claim HUD button starts the claim preview when the player is ready.",
+        },
+        {
+          build,
+          text: "Claim mode now has a Cancel claim action that hides the preview without changing the mine.",
+        },
+      ],
+    },
     {
       version: "0.1.41",
       date: "2026-06-18",

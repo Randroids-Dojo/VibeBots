@@ -594,7 +594,8 @@
       ],
       "testRefs": [
         "src/sim/bunker.test.ts",
-        "src/app/api/bunker/route.test.ts"
+        "src/app/api/bunker/route.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": [
         "F-029"

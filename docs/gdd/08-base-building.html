@@ -64,6 +64,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-06-18">Fixed bunker claim entry so going underground no longer opens the full claim panel or 7x5 preview automatically. Players now press a compact Bunker claim HUD button to enter claim mode, and Cancel claim exits the preview without changing the mine. Files: <code>src/components/mine-panel.tsx</code>, <code>tests/e2e/smoke.spec.ts</code>. Package <code>0.1.42</code>.</li>
       <li data-date="2026-06-18">Implemented the first vertical slice: fixed 7x5 underground claim, Wall Panel and Door Panel inventory, bunker builder controls, mine overlay, tier-one Clanker raid start and finish routes, defense XP rewards, and overall player level. Files: <code>src/sim/bunker.ts</code>, <code>src/server/bunker.ts</code>, <code>src/app/api/bunker/**</code>, <code>src/state/bunker-store.ts</code>, <code>src/components/mine-panel.tsx</code>, <code>src/components/mine-canvas.tsx</code>. Package <code>0.1.38</code>. PR pending.</li>
       <li data-date="2026-06-18">Design pass for the base-building and bunker-defense mode: underground claim staking, consumable base parts, multi-level bunker construction, autonomous Clanker attacks, survival rewards, overall player level, and a staged growth plan. Files: <code>docs/gdd/08-base-building.html</code>, <code>docs/gdd/index.html</code>, <code>docs/GDD_COVERAGE.json</code>, <code>docs/OPEN_QUESTIONS.html</code>, <code>docs/FOLLOWUPS.html</code>. PR pending.</li>
     </ul>

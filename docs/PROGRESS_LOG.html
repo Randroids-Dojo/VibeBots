@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="explicit-bunker-claim" data-date="2026-06-18">
+    <h3>Explicit Bunker Claim</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/explicit-bunker-claim</code>, rebased onto current <code>origin/main</code> after the beacon cap and names slice landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported base-building entry fix. Going underground no longer opens the full bunker claim panel or 7x5 claim preview automatically. Players now press a compact <code>Bunker claim</code> HUD button to enter claim mode, use the existing claim preview and placement button there, or press <code>Cancel claim</code> to return to the compact HUD without changing the mine. Package version moved to <code>0.1.42</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write package.json src/components/mine-panel.tsx src/lib/app-release.ts tests/e2e/smoke.spec.ts docs/GDD_COVERAGE.json</code>; <code>pnpm typecheck</code>; focused Vitest for bunker sim, bunker route, and bunker server coverage (8 passed); <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check</code>; <code>pnpm lint</code>; <code>pnpm build</code>; and <code>PLAYWRIGHT_BASE_URL=http://localhost:3109 pnpm exec playwright test tests/e2e/smoke.spec.ts -g "mine requires an explicit bunker claim mode before showing the claim panel|mine shows the latest release note once to a fresh browser"</code> against a clean production server on port 3109 (2 passed). After rebasing over the beacon cap and names slice, reran <code>pnpm typecheck</code>, focused bunker Vitest (8 passed), <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm lint</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3110</code> (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: a player can only enter bunker claim mode while underground and before owning a bunker, and leaving the underground mine or completing the claim clears the pending claim mode.</dd>
+      <dt>GDD coverage</dt><dd>REQ-034 stays partial with updated smoke coverage. Updated <code>docs/GDD_COVERAGE.json</code>, <code>docs/gdd/08-base-building.html</code>, static release notes, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="beacon-cap-names" data-date="2026-06-18">
     <h3>Beacon Cap Names</h3>
     <dl>

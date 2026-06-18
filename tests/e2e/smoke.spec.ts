@@ -75,6 +75,7 @@ async function digLateral(
 async function dismissReleaseNotes(page: Page): Promise<void> {
   const dialog = page.getByRole("dialog", { name: "New in VibeBots" });
   const button = dialog.getByRole("button", { name: "Got it" });
+  await dialog.waitFor({ state: "visible", timeout: 2_000 }).catch(() => {});
   for (let i = 0; i < 6; i++) {
     if (!(await dialog.isVisible().catch(() => false))) return;
     await button.click();
@@ -901,6 +902,7 @@ test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   // Reload: the mine must still be carved. Descending the old shaft
   // is one paid walk, then gravity settles the miner through empty cells.
   await page.reload();
+  await dismissReleaseNotes(page);
   await expect(status).toHaveAttribute("data-depth", "0");
   await pressMineKey(page, "ArrowDown");
   await expect(status).toHaveAttribute("data-depth", "2");
@@ -911,6 +913,7 @@ test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   // energy come back identical (carry included).
   const energyBefore = await status.getAttribute("data-energy");
   await page.reload();
+  await dismissReleaseNotes(page);
   await expect(status).toHaveAttribute("data-depth", "2");
   await expect(status).toHaveAttribute("data-energy", energyBefore ?? "");
 });

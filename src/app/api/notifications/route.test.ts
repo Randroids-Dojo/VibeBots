@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.61-ladder-gravity",
+      releaseNoticeId: "2026-06-19-0.1.62-refresh-availability",
       releaseSummary:
-        "Ladder gravity: Placed ladders now fall when their bottom support is mined away or salvaged.",
+        "Refresh availability guard: Refresh prompts now wait until the new mine page is ready.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.61-ladder-gravity",
+      releaseNoticeId: "2026-06-19-0.1.62-refresh-availability",
       attempted: 2,
       sent: 1,
       expired: 1,

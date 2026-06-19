@@ -93,6 +93,29 @@ async function openSettings(page: Page) {
   return settings;
 }
 
+async function speedUpVersionRefreshChecks(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const realSetTimeout = window.setTimeout;
+    const realSetInterval = window.setInterval;
+    window.setTimeout = ((...args: Parameters<typeof window.setTimeout>) => {
+      const [handler, timeout, ...rest] = args;
+      return realSetTimeout(
+        handler,
+        timeout === 30_000 ? 20 : timeout,
+        ...rest,
+      );
+    }) as typeof window.setTimeout;
+    window.setInterval = ((...args: Parameters<typeof window.setInterval>) => {
+      const [handler, timeout, ...rest] = args;
+      return realSetInterval(
+        handler,
+        timeout === 60_000 ? 20 : timeout,
+        ...rest,
+      );
+    }) as typeof window.setInterval;
+  });
+}
+
 async function installGamepadBackControl(page: Page): Promise<void> {
   await page.addInitScript(() => {
     let backPressed = false;
@@ -803,12 +826,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Placed ladders now fall when their bottom support is mined away or salvaged.",
+    "Refresh prompts now wait until the new mine page is ready.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("slides down");
-  await expect(dialog.locator("li").nth(1)).toContainText("Stacked ladders");
-  await expect(dialog.locator("li").nth(2)).toContainText("landing dust");
+  await expect(dialog.locator("li").first()).toContainText(
+    "cache-busted page document",
+  );
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "matches the page they would load",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "release-note dismissal state",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -827,6 +856,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.62", "Refresh availability guard"],
     ["0.1.61", "Ladder gravity"],
     ["0.1.60", "Dismissible windows"],
     ["0.1.59", "Bunker claim HUD"],
@@ -863,35 +893,44 @@ test("mine shows the latest release note once to a fresh browser", async ({
 test("mine prompts to refresh when the deployed version changes", async ({
   page,
 }) => {
+  await speedUpVersionRefreshChecks(page);
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.60-dismissible-windows",
+      "2026-06-19-0.1.62-refresh-availability",
     );
-    const realSetTimeout = window.setTimeout;
-    const realSetInterval = window.setInterval;
-    window.setTimeout = ((...args: Parameters<typeof window.setTimeout>) => {
-      const [handler, timeout, ...rest] = args;
-      return realSetTimeout(
-        handler,
-        timeout === 30_000 ? 20 : timeout,
-        ...rest,
-      );
-    }) as typeof window.setTimeout;
-    window.setInterval = ((...args: Parameters<typeof window.setInterval>) => {
-      const [handler, timeout, ...rest] = args;
-      return realSetInterval(
-        handler,
-        timeout === 60_000 ? 20 : timeout,
-        ...rest,
-      );
-    }) as typeof window.setInterval;
   });
   await page.route("**/api/version", async (route) => {
     await route.fulfill({ json: { version: "999.0.0-test" } });
   });
+  await page.route("**/mine?vibebots_version_probe=*", async (route) => {
+    await route.fulfill({
+      contentType: "text/html",
+      body: '<span hidden data-vibebots-app-version="999.0.0-test"></span>',
+    });
+  });
+  await page.route("**/mine?vibebots_refresh=999.0.0-test", async (route) => {
+    await route.fulfill({
+      contentType: "text/html",
+      body: `<!doctype html>
+        <html>
+          <body>
+            <script>
+              document.body.setAttribute(
+                "data-dismissed-release-note",
+                localStorage.getItem("vibebots-release-notes-dismissed-id") ?? ""
+              );
+            </script>
+          </body>
+        </html>`,
+    });
+  });
 
   await page.goto("/mine");
+  const dismissedBeforeRefresh = await page.evaluate(() =>
+    localStorage.getItem("vibebots-release-notes-dismissed-id"),
+  );
+  expect(dismissedBeforeRefresh).toBeTruthy();
 
   const prompt = page.getByRole("dialog", {
     name: "New version available",
@@ -904,7 +943,61 @@ test("mine prompts to refresh when the deployed version changes", async ({
     "data-version-refresh-prompt",
     "999.0.0-test",
   );
-  await expect(prompt.getByRole("button", { name: "Refresh" })).toBeVisible();
+  await prompt.getByRole("button", { name: "Refresh" }).click();
+  await page.waitForURL("**/mine?vibebots_refresh=999.0.0-test");
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-dismissed-release-note",
+    dismissedBeforeRefresh ?? "",
+  );
+});
+
+test("mine waits to show refresh prompt until the new page is refreshable", async ({
+  page,
+}) => {
+  await speedUpVersionRefreshChecks(page);
+  await page.route("**/api/version", async (route) => {
+    await route.fulfill({ json: { version: "999.0.0-test" } });
+  });
+  await page.route("**/mine?vibebots_version_probe=*", async (route) => {
+    await route.fulfill({
+      contentType: "text/html",
+      body: '<span hidden data-vibebots-app-version="0.1.59.old"></span>',
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await page.waitForTimeout(120);
+
+  await expect(
+    page.getByRole("dialog", { name: "New version available" }),
+  ).not.toBeVisible();
+});
+
+test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
+  await speedUpVersionRefreshChecks(page);
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "vibebots-release-notes-dismissed-id",
+      "2026-06-19-0.1.62-refresh-availability",
+    );
+  });
+  await page.route("**/api/version", async (route) => {
+    await route.fulfill({ json: { version: "999.0.2-test" } });
+  });
+  await page.route("**/mine?vibebots_version_probe=*", async (route) => {
+    await route.fulfill({
+      contentType: "text/html",
+      body: '<span hidden data-vibebots-app-version="999.0.2-test"></span>',
+    });
+  });
+
+  await page.goto("/mine");
+
+  const prompt = page.getByRole("dialog", {
+    name: "New version available",
+  });
+  await expect(prompt).toBeVisible();
   await page.mouse.click(8, 8);
   await expect(prompt).not.toBeVisible();
 });

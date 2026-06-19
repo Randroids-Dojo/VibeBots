@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.62" data-date="2026-06-19">
+    <h2>0.1.62</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.62</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>35</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>The new-version prompt now waits until the refreshed mine page is actually available.</dd>
+      <dt>Interface</dt><dd>The mine still checks <code>/api/version</code>, but it now confirms the cache-busted <code>/mine</code> document carries that same app version before showing the <strong>New version available</strong> prompt.</dd>
+      <dt>Release notes</dt><dd>The <strong>Refresh</strong> button navigates to a fresh page URL without writing the release-note dismissal key, so a newly loaded release note alert remains controlled only by its own <strong>Got it</strong> action.</dd>
+      <dt>Verification</dt><dd>Focused Playwright coverage now proves both the early-alert guard and the refresh-button release-note storage behavior. Final release checks are recorded in the progress log for this slice.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.61" data-date="2026-06-19">
     <h2>0.1.61</h2>
     <dl>

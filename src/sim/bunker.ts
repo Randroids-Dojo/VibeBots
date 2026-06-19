@@ -17,6 +17,8 @@ export const FLOOR_SPIKES_LEVEL_TWO_LIMIT = 6;
 
 export const BASE_PART_IDS = [
   "wall-panel",
+  "floor-panel",
+  "roof-panel",
   "door-panel",
   "basic-turret",
   "floor-spikes",
@@ -37,10 +39,26 @@ export interface BasePartDef {
 export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
   "wall-panel": {
     id: "wall-panel",
-    name: "Panel",
-    blurb: "cheap filler for bunker rooms",
+    name: "Wall",
+    blurb: "starter side wall for small bunker rooms",
     price: 6,
     durability: 90,
+    blocksClankers: true,
+  },
+  "floor-panel": {
+    id: "floor-panel",
+    name: "Floor",
+    blurb: "walkable room floor plate",
+    price: 5,
+    durability: 70,
+    blocksClankers: true,
+  },
+  "roof-panel": {
+    id: "roof-panel",
+    name: "Roof",
+    blurb: "overhead room cap",
+    price: 5,
+    durability: 70,
     blocksClankers: true,
   },
   "door-panel": {
@@ -75,13 +93,17 @@ export type BasePartInventory = Record<BasePartId, number>;
 
 export const EMPTY_BASE_PART_INVENTORY: BasePartInventory = {
   "wall-panel": 0,
+  "floor-panel": 0,
+  "roof-panel": 0,
   "door-panel": 0,
   "basic-turret": 0,
   "floor-spikes": 0,
 };
 
 export const STARTER_BASE_PART_INVENTORY: BasePartInventory = {
-  "wall-panel": 4,
+  "wall-panel": 2,
+  "floor-panel": 3,
+  "roof-panel": 3,
   "door-panel": 1,
   "basic-turret": 0,
   "floor-spikes": 0,

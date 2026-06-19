@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.47-bunker-claim-alignment";
+const RELEASE_NOTICE_ID = "2026-06-18-0.1.48-starter-base-parts";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.48",
+      date: "2026-06-18",
+      title: "Starter base parts",
+      intro:
+        "Bunker claims now stay visual, while new claims get a real starter build kit.",
+      changes: [
+        {
+          build,
+          text: "Claiming a bunker no longer presents the 7x5 claim as placed base boxes. The claim is a non-colliding outline.",
+        },
+        {
+          build,
+          text: "New claims now start with 2 walls, 3 floors, 3 roofs, and 1 door so players can build a small 3x1 starter base. Older starter inventories receive missing floor and roof rows once.",
+        },
+        {
+          build,
+          text: "The Hardware Store and bunker builder now name the actual Wall, Floor, Roof, Door, Floor Spikes, and Basic Turret parts.",
+        },
+      ],
+    },
     {
       version: "0.1.47",
       date: "2026-06-18",

@@ -335,33 +335,46 @@ function BunkerOverlay({
 }) {
   const footprint = bunker?.footprint ?? preview;
   if (!footprint) return null;
-  const cells = [];
-  for (let row = footprint.row; row < footprint.row + footprint.height; row++) {
-    for (
-      let col = footprint.col;
-      col < footprint.col + footprint.width;
-      col++
-    ) {
-      const perimeter =
-        col === footprint.col ||
-        col === footprint.col + footprint.width - 1 ||
-        row === footprint.row ||
-        row === footprint.row + footprint.height - 1;
-      cells.push(
-        <mesh
-          key={`bunker-cell:${col}:${row}`}
-          position={[cellX(col), -row, 0.78]}
-        >
-          <planeGeometry args={[0.94, 0.94]} />
-          <meshBasicMaterial
-            color={bunker ? (perimeter ? "#54e0c7" : "#2b8a78") : "#f5c542"}
-            transparent
-            opacity={bunker ? (perimeter ? 0.18 : 0.08) : 0.16}
-            depthWrite={false}
-          />
-        </mesh>,
-      );
-    }
+  const outlineColor = bunker ? "#54e0c7" : "#f5c542";
+  const outlineOpacity = bunker ? 0.5 : 0.42;
+  const lines = [];
+  const left = footprint.col - 0.5;
+  const right = footprint.col + footprint.width - 0.5;
+  const top = -footprint.row + 0.5;
+  const bottom = -(footprint.row + footprint.height - 1) - 0.5;
+  for (let i = 0; i <= footprint.width; i++) {
+    const col = footprint.col + i - 0.5;
+    lines.push(
+      <mesh
+        key={`bunker-vline:${i}`}
+        position={[cellX(col), (top + bottom) / 2, 0.78]}
+      >
+        <planeGeometry args={[0.035, Math.abs(top - bottom)]} />
+        <meshBasicMaterial
+          color={outlineColor}
+          transparent
+          opacity={i === 0 || i === footprint.width ? outlineOpacity : 0.16}
+          depthWrite={false}
+        />
+      </mesh>,
+    );
+  }
+  for (let i = 0; i <= footprint.height; i++) {
+    const row = footprint.row + i - 0.5;
+    lines.push(
+      <mesh
+        key={`bunker-hline:${i}`}
+        position={[cellX((left + right) / 2), -row, 0.78]}
+      >
+        <planeGeometry args={[Math.abs(right - left), 0.035]} />
+        <meshBasicMaterial
+          color={outlineColor}
+          transparent
+          opacity={i === 0 || i === footprint.height ? outlineOpacity : 0.16}
+          depthWrite={false}
+        />
+      </mesh>,
+    );
   }
   const parts =
     bunker?.parts.map((part) => {
@@ -416,6 +429,8 @@ function BunkerOverlay({
       }
       const colors: Record<BasePartId, string> = {
         "wall-panel": "#4fd4bf",
+        "floor-panel": "#78909c",
+        "roof-panel": "#6d5f8f",
         "door-panel": "#d6a54d",
         "basic-turret": "#8aa4ff",
         "floor-spikes": "#c9d1dd",
@@ -443,7 +458,7 @@ function BunkerOverlay({
     )) ?? [];
   return (
     <>
-      {cells}
+      {lines}
       {bunker && (
         <mesh position={[cellX(bunker.core.col), -bunker.core.row, 0.62]}>
           <octahedronGeometry args={[0.28, 0]} />

@@ -34,7 +34,18 @@ describe("bunker vertical slice sim", () => {
     expect(footprint.row + footprint.height - 1).toBe(8);
   });
 
-  it("places and removes consumable wall panels", () => {
+  it("starts new claims with enough parts for a 3x1 starter base", () => {
+    expect(STARTER_BASE_PART_INVENTORY).toMatchObject({
+      "wall-panel": 2,
+      "floor-panel": 3,
+      "roof-panel": 3,
+      "door-panel": 1,
+      "basic-turret": 0,
+      "floor-spikes": 0,
+    });
+  });
+
+  it("places and removes consumable wall parts", () => {
     const bunker = createBunker(proposedBunkerFootprint(10, 8));
     const placed = placeBasePart(
       bunker,
@@ -46,7 +57,7 @@ describe("bunker vertical slice sim", () => {
 
     expect(placed.ok).toBe(true);
     if (!placed.ok) return;
-    expect(placed.inventory["wall-panel"]).toBe(3);
+    expect(placed.inventory["wall-panel"]).toBe(1);
     expect(placed.bunker.parts).toEqual([
       {
         partId: "wall-panel",
@@ -64,7 +75,7 @@ describe("bunker vertical slice sim", () => {
     );
     expect(removed.ok).toBe(true);
     if (!removed.ok) return;
-    expect(removed.inventory["wall-panel"]).toBe(4);
+    expect(removed.inventory["wall-panel"]).toBe(2);
     expect(removed.bunker.parts).toHaveLength(0);
   });
 

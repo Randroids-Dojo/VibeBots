@@ -1535,6 +1535,8 @@ const ITEM_ICONS: Record<string, string> = {
 
 const BASE_PART_ICONS: Record<BasePartId, string> = {
   "wall-panel": "\u{1F9F1}",
+  "floor-panel": "\u{25A3}",
+  "roof-panel": "\u{2302}",
   "door-panel": "\u{1F6AA}",
   "basic-turret": "\u{1F6E1}\u{FE0F}",
   "floor-spikes": "\u{1F53A}",
@@ -1613,7 +1615,7 @@ function HardwareStorePanel({
       <p style={{ margin: "10px 0 0", fontSize: "0.72rem", opacity: 0.58 }}>
         Basic Turrets unlock at level 2 and are capped at one total owned or
         deployed. Floor Spikes are capped at 4 total at level 1 and 6 total from
-        level 2.
+        level 2. New claims start with 2 walls, 3 floors, 3 roofs, and 1 door.
       </p>
       {bunkerStatus === "unavailable" && (
         <p
@@ -2289,8 +2291,8 @@ function BunkerControlPanel({
       </div>
       <p style={{ margin: "6px 0 10px", fontSize: "0.78rem", opacity: 0.7 }}>
         {hasBunker
-          ? `Cell ${minerCol}, ${minerRow}. Place panels on claimed cells.`
-          : "Clear and bank a 7x5 room, then claim it here."}
+          ? `Cell ${minerCol}, ${minerRow}. Place parts on claimed cells. The outline has no collision.`
+          : "Clear and bank a 7x5 claim. The outline is only a guide."}
       </p>
       {player && (
         <fieldset
@@ -2408,7 +2410,14 @@ function BunkerControlPanel({
       )}
       {hasBunker && (
         <>
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: 8,
+              marginBottom: 10,
+            }}
+          >
             {BASE_PART_IDS.map((partId) => {
               const active = selectedPart === partId;
               return (
@@ -2418,8 +2427,7 @@ function BunkerControlPanel({
                   aria-pressed={active}
                   onClick={() => onSelectPart(partId)}
                   style={{
-                    flex: 1,
-                    minHeight: 38,
+                    minHeight: 42,
                     borderRadius: 10,
                     border: active ? "1px solid #54e0c7" : "1px solid #2c3a5c",
                     background: active
@@ -2427,6 +2435,7 @@ function BunkerControlPanel({
                       : "rgba(38, 48, 74, 0.55)",
                     color: active ? "#54e0c7" : "#cdd6ea",
                     fontWeight: 800,
+                    fontSize: "0.76rem",
                     cursor: "pointer",
                   }}
                 >

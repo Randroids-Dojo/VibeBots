@@ -31,7 +31,9 @@ const mockedStart = vi.mocked(startBunkerRaid);
 const view = {
   bunker: null,
   inventory: {
-    "wall-panel": 4,
+    "wall-panel": 2,
+    "floor-panel": 3,
+    "roof-panel": 3,
     "door-panel": 1,
     "basic-turret": 0,
     "floor-spikes": 0,

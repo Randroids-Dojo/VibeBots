@@ -312,7 +312,9 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
       ],
     },
     inventory: {
-      "wall-panel": 4,
+      "wall-panel": 2,
+      "floor-panel": 3,
+      "roof-panel": 3,
       "door-panel": 1,
       "basic-turret": 0,
       "floor-spikes": 0,
@@ -405,7 +407,9 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await expect(builder.getByLabel("Player level progress")).toContainText(
     "Beacon cap 3",
   );
-  await expect(builder).toContainText("Panel x4");
+  await expect(builder).toContainText("Wall x2");
+  await expect(builder).toContainText("Floor x3");
+  await expect(builder).toContainText("Roof x3");
   await builder.getByRole("button", { name: "Start Clanker raid" }).click();
   await expect(builder).toContainText("Clankers attacking for 180 seconds");
 });
@@ -420,7 +424,9 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
       body: JSON.stringify({
         bunker: null,
         inventory: {
-          "wall-panel": 4,
+          "wall-panel": 2,
+          "floor-panel": 3,
+          "roof-panel": 3,
           "door-panel": 1,
           "basic-turret": 0,
           "floor-spikes": 0,
@@ -732,16 +738,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText(
-    "Bunker claims now place the miner on the bottom-center cell",
-  );
+  await expect(dialog).toContainText("Bunker claims now stay visual");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "aligns from the miner's current cell",
+    "non-colliding outline",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("bottom row halfway");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "2 walls, 3 floors, 3 roofs, and 1 door",
+  );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "same footprint helper",
+    "Wall, Floor, Roof, Door",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -761,6 +767,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.48", "Starter base parts"],
     ["0.1.47", "Bunker claim alignment"],
     ["0.1.46", "Clanker pathing"],
     ["0.1.45", "Hardware Store"],
@@ -1293,7 +1300,9 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
     page.getByRole("region", { name: "Hardware Store", exact: true }),
   ).not.toBeVisible();
   const buyer = await openStall(page, "Hardware Store");
-  await expect(buyer).toContainText("Panel");
+  await expect(buyer).toContainText("Wall");
+  await expect(buyer).toContainText("Floor");
+  await expect(buyer).toContainText("Roof");
   await expect(buyer).toContainText("Door");
   await expect(buyer).toContainText("Basic Turret");
   await expect(buyer).toContainText("Requires level 2");

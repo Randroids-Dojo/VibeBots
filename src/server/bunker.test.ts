@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyAchievementProgress } from "./achievements";
-import { buyBasePart, finishBunkerRaid, startBunkerRaid } from "./bunker";
+import {
+  buyBasePart,
+  finishBunkerRaid,
+  loadBunkerView,
+  startBunkerRaid,
+} from "./bunker";
 
 function makeBuySql({
   trackXp = 0,
@@ -154,6 +159,44 @@ describe("bunker server helpers", () => {
     expect(applyAchievementProgress).toHaveBeenCalledWith(sql, "player-1", {
       bunkerRaidsSurvived: 1,
     });
+  });
+
+  it("adds missing starter base parts once for existing base inventories", async () => {
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ..._values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, core, parts")) return [];
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) {
+          return [
+            { part_id: "wall-panel", count: 1 },
+            { part_id: "door-panel", count: 1 },
+          ];
+        }
+        if (query.includes("INSERT INTO player_base_parts")) return [];
+        return [];
+      },
+    );
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.inventory).toMatchObject({
+      "wall-panel": 1,
+      "floor-panel": 3,
+      "roof-panel": 3,
+      "door-panel": 1,
+      "basic-turret": 0,
+      "floor-spikes": 0,
+    });
+    const insertedParts = sql.mock.calls
+      .filter(([strings]) =>
+        strings.join(" ").includes("INSERT INTO player_base_parts"),
+      )
+      .map((call) => call[2]);
+    expect(insertedParts).toEqual(["floor-panel", "roof-panel"]);
   });
 
   it("starts raids with clanker paths from the saved mine world", async () => {

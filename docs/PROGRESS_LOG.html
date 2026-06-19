@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="starter-base-parts" data-date="2026-06-18">
+    <h3>Starter Base Parts</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260618-e8feac21</code>, rebased onto current <code>origin/main</code> before implementation.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-directed bunker claim fix. The fixed <code>7x5</code> claim now renders as a non-colliding outline instead of filled claim boxes, and the UI states the outline is only a guide. The base catalog now names real starter parts: <code>Wall</code>, <code>Floor</code>, <code>Roof</code>, <code>Door</code>, <code>Floor Spikes</code>, and <code>Basic Turret</code>. New starter base inventory grants <code>2</code> walls, <code>3</code> floors, <code>3</code> roofs, and <code>1</code> door, enough to build a small <code>3x1</code> starter room within the claim. Existing base inventories with old starter rows get missing starter floor and roof rows once, without refilling spent parts. Package version moved to <code>0.1.48</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, test, package, and release files, focused Vitest for bunker sim, server, and route coverage (26 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (234 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3132</code> for bunker builder, explicit claim mode, latest release notes, and Hardware Store catalog (4 passed). In-app Browser verification on <code>http://127.0.0.1:3132/mine</code> confirmed the 0.1.48 release text, claim-mode guide copy, canvas initialization, and underground claim controls.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: a <code>3x1</code> starter base maps to 3 floor cells, 3 roof cells, 2 side wall cells, and 1 door cell in the current cell-grid builder. Mine surface tips were reviewed and no tip change was needed because this changes the bunker builder starter kit and release note, not mining trip controls or mine progression advice.</dd>
+      <dt>GDD coverage</dt><dd>REQ-034 and REQ-035 stay partial with corrected visualization-only claim wording and starter base inventory behavior. Updated <code>docs/gdd/08-base-building.html</code>, <code>docs/gdd/06-mining.html</code>, static release notes, and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="release-note-smoke-trim" data-date="2026-06-18">
     <h3>Release Note Smoke Trim</h3>
     <dl>

@@ -110,7 +110,18 @@ async function ensureStarterBaseParts(
     part_id: string;
     count: number;
   }>;
-  if (rows.length > 0) return parseBasePartInventory(rows);
+  if (rows.length > 0) {
+    const inventory = parseBasePartInventory(rows);
+    const ownedPartIds = new Set(rows.map((row) => row.part_id));
+    for (const [partId, count] of Object.entries(STARTER_BASE_PART_INVENTORY)) {
+      if (count <= 0 || ownedPartIds.has(partId)) continue;
+      await sql`
+        INSERT INTO player_base_parts (player_id, part_id, count)
+        VALUES (${playerId}, ${partId}, ${count})`;
+      inventory[partId as BasePartId] = count;
+    }
+    return inventory;
+  }
   for (const [partId, count] of Object.entries(STARTER_BASE_PART_INVENTORY)) {
     await sql`
       INSERT INTO player_base_parts (player_id, part_id, count)
@@ -220,7 +231,7 @@ export async function claimBunker(
     ? (worlds[0].diff as WorldDiff)
     : [];
   if (!footprintIsCleared(Number(worlds[0].seed), diff, footprint)) {
-    return { ok: false, status: 409, error: "clear the full 7x5 room first" };
+    return { ok: false, status: 409, error: "clear the full 7x5 claim first" };
   }
   const bunker = createBunker(footprint);
   await ensureStarterBaseParts(sql, playerId);

@@ -18,13 +18,14 @@
       <li>The player must physically clear a sufficiently large connected underground area before staking a bunker claim.</li>
       <li>One player has one active bunker claim at first. The claim lives inside that player's persistent mine context.</li>
       <li>The initial claim is a fixed rectangular footprint aligned from the miner's current cell: the miner stands on the bottom row at the horizontal midpoint when the bunker is placed. Later versions can support irregular rooms, room tags, and multiple outposts.</li>
-      <li>Claim staking is an explicit action with a preview overlay. Blocked-cell feedback can grow after the first slice.</li>
+      <li>Claim staking is an explicit action with a preview overlay. The overlay is visualization only: it does not spawn a 7x5 layout of placed boxes and has no collision. The claim outline can be shown while the player is inside the claim.</li>
     </ul>
 
     <h3 id="building-parts">Building parts (REQ-035)</h3>
     <ul>
       <li>Base parts are consumable inventory items purchased with vibes and later found through mining caches, defense rewards, and level unlocks.</li>
-      <li>The first Hardware Store catalog proves the loop with Panel, Door, Floor Spikes, and the level 2 Basic Turret. Later sets add floors, hatches, stronger turrets, repair plates, traps, fixtures, and skins.</li>
+      <li>The first Hardware Store catalog proves the loop with Wall, Floor, Roof, Door, Floor Spikes, and the level 2 Basic Turret. Later sets add hatches, stronger turrets, repair plates, traps, fixtures, and skins.</li>
+      <li>New bunker claims grant enough real starter parts to build a small 3x1 starter base inside the claim: 2 walls, 3 floors, 3 roofs, and 1 door. There is no generic box building part.</li>
       <li>Basic Turrets unlock at player level 2, cost 160 vibes, and cap at one total owned or deployed. Surviving Clankers wear turret durability by one hit each, and the turret breaks when its fixed durability reaches zero.</li>
       <li>Floor Spikes are consumable trap parts. Each raid step trigger damages one Clanker, lowers spike durability, and removes the spike once its fixed durability reaches zero.</li>
       <li>Floor Spikes cap at 4 total owned or deployed at level 1 and 6 total owned or deployed from level 2.</li>
@@ -68,6 +69,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-06-18">Changed bunker claims so the fixed 7x5 footprint remains a non-colliding visualization instead of reading as a spawned box layout. New starter base inventory now grants 2 walls, 3 floors, 3 roofs, and 1 door for a small 3x1 room, and the Hardware Store plus builder label the actual parts. Files: <code>src/sim/bunker.ts</code>, <code>src/components/mine-canvas.tsx</code>, <code>src/components/mine-panel.tsx</code>, <code>src/sim/bunker.test.ts</code>, <code>tests/e2e/smoke.spec.ts</code>. Package <code>0.1.48</code>.</li>
       <li data-date="2026-06-18">Fixed bunker claim placement so the fixed 7x5 footprint aligns from the miner's current cell instead of centering around the miner. When placed, the miner is on the bottom row halfway between the left and right sides, and the preview plus server validation share the same helper. Files: <code>src/sim/bunker.ts</code>, <code>src/sim/bunker.test.ts</code>. Package <code>0.1.47</code>.</li>
       <li data-date="2026-06-18">Fixed Clanker raid pathing so attackers spawn on open bunker approach cells instead of dirt, ore, or part-cache cells, read the saved mine world before choosing routes, prefer open cells, chew dirt or ore only when the route is better, spread away from already reserved routes, and visibly animate along their planned paths during active raids. Files: <code>src/sim/bunker.ts</code>, <code>src/server/bunker.ts</code>, <code>src/components/mine-canvas.tsx</code>, <code>src/components/mine-panel.tsx</code>, <code>src/sim/bunker.test.ts</code>. Package <code>0.1.46</code>.</li>
       <li data-date="2026-06-18">Reworked the left surface shop into the Hardware Store. It now sells Panel, Door, Floor Spikes, and the level 2 Basic Turret for the bunker builder, while the Supply Depot stays focused on mine consumables. Basic Turrets contribute three automatic shots during deterministic Clanker raids, cost 160 vibes, cap at one owned or deployed, and lose durability to surviving-Clanker hits. Floor Spikes damage Clankers while decaying over three raid steps, cap at 4 total at level 1, and cap at 6 total from level 2. Files: <code>src/sim/bunker.ts</code>, <code>src/server/bunker.ts</code>, <code>src/app/api/bunker/parts/buy/route.ts</code>, <code>src/components/mine-panel.tsx</code>, <code>src/components/mine-stalls.ts</code>, <code>src/components/mine-canvas.tsx</code>. Package <code>0.1.45</code>.</li>

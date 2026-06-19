@@ -1411,6 +1411,114 @@ describe("mine", () => {
     expect(state.miner.lostCargo).toBeUndefined();
   });
 
+  it("drops a recoverable bag when its support cell is mined away", () => {
+    const state = createMine(94);
+    const col = START_COL + 2;
+    setCell(state, col, 1, {
+      kind: "empty",
+      bag: {
+        ores: { coal: 1 },
+        salvageCredits: 2,
+        parts: ["drive-wheel"],
+      },
+    });
+    setCell(state, col, 2, { kind: "dirt" });
+    setCell(state, col, 3, { kind: "empty" });
+    setCell(state, col, 4, { kind: "dirt" });
+    state.miner.col = START_COL - 2;
+    state.miner.row = 2;
+    setCell(state, START_COL - 2, 2, { kind: "empty" });
+    setCell(state, START_COL - 2, 3, { kind: "dirt" });
+    setCell(state, START_COL - 3, 2, { kind: "empty" });
+    setCell(state, START_COL - 3, 3, { kind: "dirt" });
+    state.pendingDynamite = { col, row: 2, tier: 1 };
+    state.miner.lostCargo = {
+      value: 3,
+      parts: ["drive-wheel"],
+      col,
+      row: 1,
+    };
+
+    const blasted = applyAction(state, "left");
+    expect(blasted.ok && blasted.exploded).toEqual({ col, row: 2, tier: 1 });
+    expect(cellAt(state, col, 1)?.bag).toBeUndefined();
+    expect(cellAt(state, col, 3)?.bag).toEqual({
+      ores: { coal: 1 },
+      salvageCredits: 2,
+      parts: ["drive-wheel"],
+    });
+    expect(state.miner.lostCargo).toEqual({
+      value: 3,
+      parts: ["drive-wheel"],
+      col,
+      row: 3,
+    });
+  });
+
+  it("drops a recoverable bag when the ladder supporting it is picked up", () => {
+    const state = createMine(95);
+    const col = START_COL;
+    state.miner.col = col + 1;
+    state.miner.row = 2;
+    setCell(state, col + 1, 2, { kind: "empty" });
+    setCell(state, col + 1, 3, { kind: "dirt" });
+    setCell(state, col, 1, {
+      kind: "empty",
+      bag: {
+        ores: { copper: 2 },
+        salvageCredits: 0,
+        parts: [],
+      },
+    });
+    setCell(state, col, 2, { kind: "empty", ladder: true });
+    setCell(state, col, 3, { kind: "empty" });
+    setCell(state, col, 4, { kind: "dirt" });
+
+    const collected = applyAction(
+      state,
+      collectAction([{ type: "ladder", col, row: 2 }]),
+    );
+    expect(collected.ok && collected.supportCollected).toEqual({ ladder: 1 });
+    expect(cellAt(state, col, 1)?.bag).toBeUndefined();
+    expect(cellAt(state, col, 3)?.bag).toEqual({
+      ores: { copper: 2 },
+      salvageCredits: 0,
+      parts: [],
+    });
+  });
+
+  it("drops a recoverable bag when its plank support is picked up", () => {
+    const state = createMine(96);
+    const col = START_COL;
+    state.miner.col = col + 1;
+    state.miner.row = 1;
+    setCell(state, col + 1, 1, { kind: "empty" });
+    setCell(state, col + 1, 2, { kind: "dirt" });
+    setCell(state, col, 1, {
+      kind: "empty",
+      plank: true,
+      bag: {
+        ores: { silver: 1 },
+        salvageCredits: 1,
+        parts: [],
+      },
+    });
+    setCell(state, col, 2, { kind: "empty" });
+    setCell(state, col, 3, { kind: "dirt" });
+
+    const collected = applyAction(
+      state,
+      collectAction([{ type: "plank", col, row: 1 }]),
+    );
+    expect(collected.ok && collected.supportCollected).toEqual({ plank: 1 });
+    expect(cellAt(state, col, 1)?.bag).toBeUndefined();
+    expect(cellAt(state, col, 2)?.bag).toEqual({
+      ores: { silver: 1 },
+      salvageCredits: 1,
+      parts: [],
+    });
+  });
+
   it("grants no free stock when the miner gives up", () => {
     const owned = stock({ ladder: 2, plank: 1 });
     const state = createMine(93, DEFAULT_GEAR, owned);

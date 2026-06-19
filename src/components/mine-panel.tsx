@@ -115,6 +115,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
   "Tip: dynamite chips rich ore reserves and still scoops what it breaks into your hold.",
   "Tip: falling rocks wait two moves after their support is mined.",
+  "Tip: dropped bags fall if you mine or pick up the support under them.",
   "Tip: the Hardware Store sells level 1 bunker parts for your base.",
   "Tip: Blast Charge unlocks stronger dynamite tiers at the Upgrades stall.",
   "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",

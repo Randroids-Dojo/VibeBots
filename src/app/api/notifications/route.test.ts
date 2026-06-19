@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.57-bag-grid",
+      releaseNoticeId: "2026-06-19-0.1.58-dropped-bag-gravity",
       releaseSummary:
-        "Bag grid: The mine HUD now keeps one simple bag capacity chip.",
+        "Dropped bag gravity: Recoverable bags now fall when their support is removed.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.57-bag-grid",
+      releaseNoticeId: "2026-06-19-0.1.58-dropped-bag-gravity",
       attempted: 2,
       sent: 1,
       expired: 1,

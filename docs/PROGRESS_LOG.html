@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="dropped-bag-gravity" data-date="2026-06-19">
+    <h3>Dropped Bag Gravity</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260619-085131</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased over <code>0.1.57</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported mine recovery fix. Dropped recoverable bags now fall when the cell supporting them is mined away, or when a ladder or plank support is picked up. The lost-cargo locator follows the bag to its new resting cell, mine surface tips mention the support rule, package version moved to <code>0.1.58</code>, and <code>MINE_VERSION</code> moved from <code>33</code> to <code>34</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and release-test files, focused mine Vitest (89 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (249 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, and <code>pnpm build</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: a bag uses one consistent support rule with stable empty cells, planks in the bag cell, ladders below the bag, and solid cells below it all acting as support. Mine surface tips were reviewed and gained a dropped-bag support tip because the release changes a recovery rule players can plan around.</dd>
+      <dt>GDD coverage</dt><dd>REQ-006 stays done with updated recoverable-bag wording and a build-log entry in <code>docs/gdd/06-mining.html</code>. Updated static and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bag-grid-hud" data-date="2026-06-19">
     <h3>Bag Grid HUD</h3>
     <dl>

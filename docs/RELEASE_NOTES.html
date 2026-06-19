@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.58" data-date="2026-06-19">
+    <h2>0.1.58</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.58</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>33</code> to <code>34</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Dropped recoverable bags now obey support changes in the mine.</dd>
+      <dt>Rules</dt><dd>When the cell below a dropped bag is mined away, the bag falls down the shaft until it lands on the next stable cell. If a ladder or plank that was supporting a bag is picked up, the bag drops through that opening too.</dd>
+      <dt>Interface</dt><dd>The lost-cargo locator follows the bag to its new resting cell, so recovery still points at the actual pouch location.</dd>
+      <dt>Verification</dt><dd>Focused mine sim coverage was added for mined support removal, ladder pickup support removal, and plank pickup support removal.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.57" data-date="2026-06-19">
     <h2>0.1.57</h2>
     <dl>

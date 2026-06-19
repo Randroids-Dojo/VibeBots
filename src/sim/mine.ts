@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 33;
+export const MINE_VERSION = 34;
 export const MINE_BOTTOM_ROW = 1000;
 
 /**
@@ -975,6 +975,26 @@ function dropBagAt(
       };
 }
 
+function dropBagToSurface(
+  state: MineState,
+  col: number,
+  row: number,
+  bag: DroppedBag,
+): MineCoord {
+  let rest = row;
+  while (true) {
+    const here = cellAt(state, col, rest);
+    if (!here) break;
+    if (here.kind !== "empty" || here.plank) break;
+    const below = cellAt(state, col, rest + 1);
+    if (below?.kind !== "empty" || below?.ladder) break;
+    rest++;
+  }
+  const landing = { col, row: rest };
+  dropBagAt(state, landing, bag);
+  return landing;
+}
+
 function dropOreToSurface(
   state: MineState,
   col: number,
@@ -1048,27 +1068,69 @@ function pickupAtMiner(state: MineState): {
   return { pickedUp, pickedUpBag };
 }
 
+function isOrePileSupported(
+  state: MineState,
+  col: number,
+  row: number,
+  cell: MineCell,
+): boolean {
+  if (cell.plank) return true;
+  return cellAt(state, col, row + 1)?.kind !== "empty";
+}
+
+function isDroppedBagSupported(
+  state: MineState,
+  col: number,
+  row: number,
+  cell: MineCell,
+): boolean {
+  if (cell.plank) return true;
+  const below = cellAt(state, col, row + 1);
+  return !!below && (below.kind !== "empty" || below.ladder === true);
+}
+
 function settleUnsupportedDrops(state: MineState): void {
   const unsupported: Array<{
     col: number;
     row: number;
-    pile: Partial<Record<OreId, number>>;
   }> = [];
   for (const [key, cell] of state.cells) {
-    if (!cell.drop || cell.kind !== "empty" || cell.plank) continue;
+    if ((!cell.drop && !cell.bag) || cell.kind !== "empty") continue;
     const [col, row] = key.split(",").map(Number);
-    const below = cellAt(state, col, row + 1);
-    if (below?.kind === "empty")
-      unsupported.push({ col, row, pile: cell.drop });
+    const dropUnsupported =
+      cell.drop !== undefined && !isOrePileSupported(state, col, row, cell);
+    const bagUnsupported =
+      cell.bag !== undefined && !isDroppedBagSupported(state, col, row, cell);
+    if (dropUnsupported || bagUnsupported) unsupported.push({ col, row });
   }
   unsupported.sort((a, b) => b.row - a.row || a.col - b.col);
-  for (const { col, row, pile } of unsupported) {
+  for (const { col, row } of unsupported) {
     const cell = cellAt(state, col, row);
-    if (!cell?.drop || cell.kind !== "empty" || cell.plank) continue;
-    const below = cellAt(state, col, row + 1);
-    if (below?.kind !== "empty") continue;
-    delete cellMut(state, col, row).drop;
-    dropOreToSurface(state, col, row, pile);
+    if (!cell || (!cell.drop && !cell.bag) || cell.kind !== "empty") continue;
+    const dropUnsupported =
+      cell.drop !== undefined && !isOrePileSupported(state, col, row, cell);
+    const bagUnsupported =
+      cell.bag !== undefined && !isDroppedBagSupported(state, col, row, cell);
+    if (!dropUnsupported && !bagUnsupported) continue;
+    const source = cellMut(state, col, row);
+    const pile = dropUnsupported ? source.drop : undefined;
+    const bag = bagUnsupported ? source.bag : undefined;
+    if (dropUnsupported) delete source.drop;
+    if (bagUnsupported) delete source.bag;
+    if (pile) dropOreToSurface(state, col, row, pile);
+    if (bag) {
+      const landing = dropBagToSurface(state, col, row, bag);
+      if (
+        state.miner.lostCargo?.col === col &&
+        state.miner.lostCargo.row === row
+      ) {
+        state.miner.lostCargo = {
+          ...state.miner.lostCargo,
+          col: landing.col,
+          row: landing.row,
+        };
+      }
+    }
   }
 }
 

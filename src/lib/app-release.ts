@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.57-bag-grid";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.58-dropped-bag-gravity";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.58",
+      date: "2026-06-19",
+      title: "Dropped bag gravity",
+      intro: "Recoverable bags now fall when their support is removed.",
+      changes: [
+        {
+          build,
+          text: "A dropped bag resting above a mined-out cell now falls to the next stable cell instead of hanging in midair.",
+        },
+        {
+          build,
+          text: "Picking up a ladder or plank that was holding a bag also lets the bag drop through the opened shaft.",
+        },
+        {
+          build,
+          text: "The lost-cargo locator follows the bag to its new resting cell so recovery still points to the right place.",
+        },
+      ],
+    },
     {
       version: "0.1.57",
       date: "2026-06-19",

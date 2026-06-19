@@ -13,15 +13,40 @@
 
 <main id="entries">
 
-  <article data-version="0.1.65" data-date="2026-06-19">
-    <h2>0.1.65</h2>
+  <article data-version="0.1.67" data-date="2026-06-19">
+    <h2>0.1.67</h2>
     <dl>
-      <dt>Package version</dt><dd><code>0.1.65</code></dd>
+      <dt>Package version</dt><dd><code>0.1.67</code></dd>
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>35</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
       <dt>Highlights</dt><dd>Release notes now match the Settings feedback entry point and current push setup.</dd>
       <dt>Notifications</dt><dd>The native alert summary now uses the corrected release wording for subscribed Android and installed iPhone or iPad players.</dd>
       <dt>History</dt><dd>The release history keeps feedback, native alerts, and Vercel push setup notes in current deployment order.</dd>
       <dt>Verification</dt><dd>Focused notification and release-note tests cover the updated notice id and summary.</dd>
+    </dl>
+  </article>
+
+  <article data-version="0.1.66" data-date="2026-06-19">
+    <h2>0.1.66</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.66</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>35</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>The open bag can now drop selected ore slots to make room.</dd>
+      <dt>Controls</dt><dd>Tapping carried ore cells marks one or more chunks, and <strong>Drop selected</strong> leaves those chunks on the miner's current underground cell.</dd>
+      <dt>Rules</dt><dd>Manual drops merge with existing floor piles. If the player later walks over a combined pile, pickup prioritizes older floor ore before reclaiming chunks just dropped from the bag.</dd>
+      <dt>Pickup guard</dt><dd>Dropping from an open bag does not auto-pick floor ore from the same cell, so opening the bag while standing on a pile stays predictable until the player moves away and back.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks bag-drop merging, no same-cell auto-pickup, deferred pickup priority, and later deferred pickup after moving away and back. Focused bag smoke coverage checks selecting a cell, enabling <strong>Drop selected</strong>, and the visible capacity update.</dd>
+    </dl>
+  </article>
+
+  <article data-version="0.1.65" data-date="2026-06-19">
+    <h2>0.1.65</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.65</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>35</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>The open bag window now reads as a mine-worn tool satchel.</dd>
+      <dt>Interface</dt><dd>The bag dialog keeps the existing capacity grid, outside-tap close, Escape close, and gamepad cancel behavior, but now has a soft satchel shell with a handle, latches, stitched rim, folded center, and two organized halves.</dd>
+      <dt>Inventory</dt><dd>The lid summarizes ore pockets, support scrap, and carried parts while the tray keeps every carried ore unit and every empty capacity slot visible in the scrollable grid.</dd>
+      <dt>Verification</dt><dd>Focused bag smoke coverage verifies the satchel variant, both halves, capacity attributes, visible ore cells, empty slots, scroll overflow, outside-tap close, and gamepad cancel close. Final checks are recorded in the progress log for this slice.</dd>
     </dl>
   </article>
 

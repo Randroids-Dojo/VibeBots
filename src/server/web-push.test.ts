@@ -11,11 +11,12 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.63.123",
+  version: "0.1.67.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-19-0.1.63-native-release-alerts",
-  intro: "Native release alerts now dispatch automatically.",
+  noticeId: "2026-06-19-0.1.67-release-note-accuracy",
+  intro:
+    "Release notes now match the Settings feedback entry point and current push setup.",
   changes: [
     {
       build: 123,
@@ -24,10 +25,11 @@ const release: AppRelease = {
   ],
   notes: [
     {
-      version: "0.1.63",
+      version: "0.1.67",
       date: "2026-06-19",
-      title: "Native release alerts",
-      intro: "New releases now send the native OS alert automatically.",
+      title: "Release note accuracy",
+      intro:
+        "Release notes now match the Settings feedback entry point and current push setup.",
       changes: [
         {
           build: 123,
@@ -132,7 +134,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Native release alerts"),
+      expect.stringContaining("Release note accuracy"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

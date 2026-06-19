@@ -46,6 +46,7 @@ import {
   type Direction,
   DYNAMITE_TIERS,
   type DynamiteTier,
+  dropOreAction,
   dynamitePreviewCells,
   dynamiteTier,
   ELEVATOR_COL,
@@ -422,6 +423,20 @@ function oreBagCells(carried: Partial<Record<OreId, number>>): OreBagCell[] {
     }
   }
   return cells;
+}
+
+function selectedOrePileFromBagCells(
+  cells: readonly OreBagCell[],
+  selectedKeys: ReadonlySet<string>,
+): { count: number; pile: Partial<Record<OreId, number>> } {
+  const pile: Partial<Record<OreId, number>> = {};
+  let count = 0;
+  for (const cell of cells) {
+    if (!selectedKeys.has(cell.key)) continue;
+    count++;
+    pile[cell.id] = (pile[cell.id] ?? 0) + 1;
+  }
+  return { count, pile };
 }
 
 function compactResourceList(
@@ -3708,6 +3723,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [cameraZoom, setCameraZoom] = useState(MINE_CAMERA_ZOOM_DEFAULT);
   const [bagPanelOpen, setBagPanelOpen] = useState(false);
+  const [selectedBagCells, setSelectedBagCells] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [viewportSize, setViewportSize] = useState<ViewportSize>({
     width: 1024,
     height: 768,
@@ -3965,6 +3983,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const bagCapacity = cargoCapacity(mine.gear);
   const carriedOreCount = carriedCount(miner);
   const bagCells = oreBagCells(miner.carried);
+  const bagCellKeyList = bagCells.map((cell) => cell.key).join("|");
+  const selectedBagDrop = selectedOrePileFromBagCells(
+    bagCells,
+    selectedBagCells,
+  );
+  const selectedBagCount = selectedBagDrop.count;
+  const canDropSelectedBagCells = miner.row > 0 && selectedBagCount > 0;
   const emptyBagSlots = Math.max(0, bagCapacity - bagCells.length);
   const emptyBagCellKeys = Array.from(
     { length: emptyBagSlots },
@@ -4091,6 +4116,25 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [visibleSupportKeyList]);
 
   useEffect(() => {
+    if (bagPanelOpen) return;
+    setSelectedBagCells((prev) => (prev.size === 0 ? prev : new Set()));
+  }, [bagPanelOpen]);
+
+  useEffect(() => {
+    const validBagKeys = new Set(
+      bagCellKeyList ? bagCellKeyList.split("|") : [],
+    );
+    setSelectedBagCells((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set<string>();
+      for (const key of prev) {
+        if (validBagKeys.has(key)) next.add(key);
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [bagCellKeyList]);
+
+  useEffect(() => {
     if (baseReturn) return;
     setBaseReturnOpen(false);
     setBaseReturnConfirm(false);
@@ -4166,6 +4210,33 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     );
   }, []);
 
+  const toggleBagCell = useCallback((key: string) => {
+    setSelectedBagCells((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const clearBagSelection = useCallback(() => {
+    setSelectedBagCells((prev) => (prev.size === 0 ? prev : new Set()));
+  }, []);
+
+  const dropSelectedBagCells = useCallback(() => {
+    if (miner.row < 1 || selectedBagCells.size === 0) return;
+    const currentBagCells = oreBagCells(
+      useMineStore.getState().mine.miner.carried,
+    );
+    const currentBagDrop = selectedOrePileFromBagCells(
+      currentBagCells,
+      selectedBagCells,
+    );
+    if (currentBagDrop.count <= 0) return;
+    move(dropOreAction(currentBagDrop.pile));
+    setSelectedBagCells(new Set());
+  }, [miner.row, move, selectedBagCells]);
+
   // One terse toast, game-style: the chips carry the numbers.
   const statusLine =
     lastResult && !lastResult.ok
@@ -4208,22 +4279,25 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                       ? "Plank placed."
                       : salvagedSupportCount > 0
                         ? `Salvaged ${salvagedSupportCount} pickup${salvagedSupportCount > 1 ? "s" : ""}. Scrap sells for ${salvagedSupportValue} vibes at surface.`
-                        : lastResult?.ok && (lastResult.dropped ?? 0) > 0
-                          ? `${lastResult.dropped} ore dropped.`
-                          : lastResult?.ok && lastResult.pickedUpBag
-                            ? `Recovered bag: ${lastResult.pickedUpBag.value} vibes${lastResult.pickedUpBag.parts > 0 ? ` and ${lastResult.pickedUpBag.parts} part${lastResult.pickedUpBag.parts > 1 ? "s" : ""}` : ""}.`
-                            : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
-                              ? `Picked up ${lastResult.pickedUp} ore.`
-                              : lastResult?.ok && (lastResult.vented ?? 0) > 0
-                                ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
-                                : miner.row === 0 &&
-                                    (bankedCredits > 0 || bankedPartsCount > 0)
-                                  ? cashOut.state === "pending"
-                                    ? "Selling haul..."
-                                    : undefined
-                                  : miner.row === 0
-                                    ? mineSurfaceTip
-                                    : undefined;
+                        : lastResult?.ok && (lastResult.droppedFromBag ?? 0) > 0
+                          ? `Dropped ${lastResult.droppedFromBag} ore from bag.`
+                          : lastResult?.ok && (lastResult.dropped ?? 0) > 0
+                            ? `${lastResult.dropped} ore dropped.`
+                            : lastResult?.ok && lastResult.pickedUpBag
+                              ? `Recovered bag: ${lastResult.pickedUpBag.value} vibes${lastResult.pickedUpBag.parts > 0 ? ` and ${lastResult.pickedUpBag.parts} part${lastResult.pickedUpBag.parts > 1 ? "s" : ""}` : ""}.`
+                              : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
+                                ? `Picked up ${lastResult.pickedUp} ore.`
+                                : lastResult?.ok && (lastResult.vented ?? 0) > 0
+                                  ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
+                                  : miner.row === 0 &&
+                                      (bankedCredits > 0 ||
+                                        bankedPartsCount > 0)
+                                    ? cashOut.state === "pending"
+                                      ? "Selling haul..."
+                                      : undefined
+                                    : miner.row === 0
+                                      ? mineSurfaceTip
+                                      : undefined;
   const cashNote =
     cashOut.state === "done"
       ? soldHaulLine(cashOut.soldHaul, cashOut.credits, cashOut.parts)
@@ -4730,186 +4804,137 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       </section>
 
       {bagPanelOpen && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 36,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 14,
-            background: "rgba(5, 7, 12, 0.38)",
-            pointerEvents: "auto",
-          }}
-        >
+        <div className="mine-bag-overlay">
           <button
             type="button"
             aria-label="Close bag"
             onClick={() => setBagPanelOpen(false)}
-            style={{
-              position: "absolute",
-              inset: 0,
-              border: 0,
-              background: "transparent",
-              cursor: "default",
-            }}
+            className="mine-bag-backdrop"
           />
           <section
             id="mine-bag-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="mine-bag-title"
+            data-bag-variant="tool-satchel"
             data-bag-capacity={bagCapacity}
             data-bag-filled={carriedOreCount}
-            style={{
-              width: "min(460px, calc(100vw - 28px))",
-              maxHeight: "min(620px, calc(100dvh - 108px))",
-              display: "flex",
-              flexDirection: "column",
-              border: "1px solid rgba(245, 197, 66, 0.62)",
-              borderRadius: 12,
-              background: "rgba(17, 21, 31, 0.97)",
-              boxShadow: "0 18px 60px rgba(0, 0, 0, 0.58)",
-              color: "#e6e8ee",
-              overflow: "hidden",
-              position: "relative",
-            }}
+            className="mine-bag-satchel"
           >
-            <header
-              style={{
-                flex: "0 0 auto",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                padding: "12px 14px 10px",
-                borderBottom: "1px solid rgba(38, 48, 74, 0.9)",
-              }}
-            >
-              <div>
-                <h2
-                  id="mine-bag-title"
-                  style={{
-                    margin: 0,
-                    color: "#f5c542",
-                    fontSize: "1rem",
-                    letterSpacing: 0,
-                  }}
-                >
-                  Bag {carriedOreCount}/{bagCapacity}
-                </h2>
-                <p
-                  style={{
-                    margin: "3px 0 0",
-                    color: "#aab2c7",
-                    fontSize: "0.78rem",
-                    lineHeight: 1.35,
-                  }}
-                >
-                  {bagDetails}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close bag"
-                onClick={() => setBagPanelOpen(false)}
-                style={{
-                  width: 36,
-                  height: 36,
-                  flex: "0 0 auto",
-                  borderRadius: 10,
-                  border: "1px solid #26304a",
-                  background: "#20283a",
-                  color: "#e6e8ee",
-                  fontSize: "1rem",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                }}
-              >
-                x
-              </button>
-            </header>
+            <div className="mine-bag-handle" aria-hidden="true" />
             <div
-              data-bag-scroll="true"
-              style={{
-                flex: "1 1 auto",
-                overflowY: "auto",
-                overscrollBehavior: "contain",
-                padding: 14,
-              }}
-            >
-              <ol
-                aria-label="Bag cells"
-                data-bag-cells="true"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(44px, 1fr))",
-                  gap: 7,
-                  listStyle: "none",
-                  margin: 0,
-                  padding: 0,
-                }}
-              >
-                {bagCells.map((cell) => (
-                  <li
-                    key={cell.key}
-                    title={cell.name}
-                    data-ore={cell.id}
-                    style={{
-                      aspectRatio: "1 / 1",
-                      border: `2px solid ${cell.color}`,
-                      borderRadius: 8,
-                      background: `${cell.color}24`,
-                      color: cell.color,
-                      display: "grid",
-                      placeItems: "center",
-                      fontSize: "0.74rem",
-                      fontWeight: 900,
-                      textShadow: "0 1px 1px rgba(0, 0, 0, 0.6)",
-                    }}
+              className="mine-bag-latch mine-bag-latch-left"
+              aria-hidden="true"
+            />
+            <div
+              className="mine-bag-latch mine-bag-latch-right"
+              aria-hidden="true"
+            />
+            <div className="mine-bag-shell">
+              <header className="mine-bag-lid" data-bag-lid="true">
+                <div className="mine-bag-title-row">
+                  <div>
+                    <h2 id="mine-bag-title" className="mine-bag-title">
+                      Bag {carriedOreCount}/{bagCapacity}
+                    </h2>
+                    <p className="mine-bag-summary">{bagDetails}</p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Close bag"
+                    onClick={() => setBagPanelOpen(false)}
+                    className="mine-bag-close"
                   >
-                    {cell.label}
-                  </li>
-                ))}
-                {emptyBagCellKeys.map((key) => (
-                  <li
-                    key={key}
-                    data-empty-cell="true"
-                    style={{
-                      aspectRatio: "1 / 1",
-                      border: "1px solid rgba(170, 178, 199, 0.32)",
-                      borderRadius: 8,
-                      background: "rgba(12, 16, 26, 0.62)",
-                    }}
-                  />
-                ))}
-              </ol>
-              {(miner.carriedSalvageCredits > 0 ||
-                miner.carriedParts.length > 0) && (
-                <div
-                  style={{
-                    marginTop: 14,
-                    paddingTop: 10,
-                    borderTop: "1px solid rgba(38, 48, 74, 0.9)",
-                    color: "#aab2c7",
-                    fontSize: "0.82rem",
-                    lineHeight: 1.45,
-                  }}
-                >
-                  {miner.carriedSalvageCredits > 0 && (
-                    <div>
-                      Support scrap: {miner.carriedSalvageCredits} vibes
-                    </div>
-                  )}
-                  {miner.carriedParts.length > 0 && (
-                    <div>
-                      Parts: {miner.carriedParts.length}
-                      {miner.carriedParts.length === 1 ? " part" : " parts"}
-                    </div>
-                  )}
+                    x
+                  </button>
                 </div>
-              )}
+                <div className="mine-bag-lid-pockets">
+                  <div className="mine-bag-pocket">
+                    <span>Ore pockets</span>
+                    <strong>
+                      {carriedOreCount}/{bagCapacity}
+                    </strong>
+                  </div>
+                  <div className="mine-bag-pocket">
+                    <span>Scrap</span>
+                    <strong>{miner.carriedSalvageCredits} vibes</strong>
+                  </div>
+                  <div className="mine-bag-pocket">
+                    <span>Parts</span>
+                    <strong>
+                      {miner.carriedParts.length}
+                      {miner.carriedParts.length === 1 ? " part" : " parts"}
+                    </strong>
+                  </div>
+                </div>
+              </header>
+              <div className="mine-bag-fold" aria-hidden="true" />
+              <div className="mine-bag-tray" data-bag-tray="true">
+                <div
+                  className="mine-bag-drop-controls"
+                  data-bag-drop-controls="true"
+                >
+                  <button
+                    type="button"
+                    className="mine-bag-drop-button"
+                    disabled={!canDropSelectedBagCells}
+                    onClick={dropSelectedBagCells}
+                  >
+                    Drop selected
+                    {selectedBagCount > 0 ? ` (${selectedBagCount})` : ""}
+                  </button>
+                  <button
+                    type="button"
+                    className="mine-bag-clear-button"
+                    disabled={selectedBagCount === 0}
+                    onClick={clearBagSelection}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div data-bag-scroll="true" className="mine-bag-scroll">
+                  <ol
+                    aria-label="Bag cells"
+                    data-bag-cells="true"
+                    className="mine-bag-cells"
+                  >
+                    {bagCells.map((cell) => {
+                      const selected = selectedBagCells.has(cell.key);
+                      return (
+                        <li
+                          key={cell.key}
+                          title={cell.name}
+                          data-ore={cell.id}
+                          data-selected={selected ? "true" : "false"}
+                          className="mine-bag-cell mine-bag-cell-filled"
+                          style={{
+                            borderColor: cell.color,
+                            background: `${cell.color}24`,
+                            color: cell.color,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="mine-bag-cell-button"
+                            aria-pressed={selected}
+                            aria-label={`${selected ? "Unselect" : "Select"} ${cell.name} for dropping`}
+                            onClick={() => toggleBagCell(cell.key)}
+                          >
+                            {cell.label}
+                          </button>
+                        </li>
+                      );
+                    })}
+                    {emptyBagCellKeys.map((key) => (
+                      <li
+                        key={key}
+                        data-empty-cell="true"
+                        className="mine-bag-cell mine-bag-cell-empty"
+                      />
+                    ))}
+                  </ol>
+                </div>
+              </div>
             </div>
           </section>
         </div>

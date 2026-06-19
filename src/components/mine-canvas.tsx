@@ -116,6 +116,43 @@ function DropPileMarkers({
   return <>{markers}</>;
 }
 
+function DroppedBagMarker() {
+  return (
+    <>
+      <mesh scale={[1.08, 0.82, 0.74]}>
+        <sphereGeometry args={[0.22, 12, 8]} />
+        <meshStandardMaterial
+          color="#8f5a2d"
+          emissive="#3a2110"
+          emissiveIntensity={0.18}
+          roughness={0.72}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[0, 0.16, 0]} scale={[0.7, 0.35, 0.38]}>
+        <sphereGeometry args={[0.13, 10, 6]} />
+        <meshStandardMaterial
+          color="#c09046"
+          emissive="#5f3515"
+          emissiveIntensity={0.22}
+          roughness={0.6}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[0, 0.02, 0.16]}>
+        <boxGeometry args={[0.12, 0.06, 0.04]} />
+        <meshStandardMaterial
+          color="#f5c542"
+          emissive="#f5c542"
+          emissiveIntensity={0.45}
+          roughness={0.4}
+        />
+      </mesh>
+      <pointLight color="#f5c542" intensity={0.45} distance={1.6} decay={1.8} />
+    </>
+  );
+}
+
 /** Dirt palette per stratum, in STRATA order (REQ-012: visible descent). */
 const STRATA_DIRT = [
   "#7a5a3a",
@@ -2507,6 +2544,7 @@ function MineScene({
     (FALL_DELAY_ACTIONS - fallIn + 1) / FALL_DELAY_ACTIONS;
   const blockMeshes = [];
   const tunnelMeshes = [];
+  const cargoMeshes = [];
   const crackMeshes = [];
   const darknessMeshes = [];
   const supportSelectionMeshes = [];
@@ -2523,6 +2561,22 @@ function MineScene({
       const key = `${col}:${row}`;
       const x = cellX(col);
       const y = -row;
+      if (cell.bag) {
+        const bagOnBlock = cell.kind !== "empty";
+        cargoMeshes.push(
+          <group
+            key={`bag:${key}`}
+            position={[
+              x,
+              y + (bagOnBlock ? 0.18 : -0.28),
+              bagOnBlock ? 0.92 : 0.28,
+            ]}
+            rotation={[0, cellHash(col, row, 67) * 0.35 - 0.18, 0]}
+          >
+            <DroppedBagMarker />
+          </group>,
+        );
+      }
       if (dynamitePreviewSet.has(key)) {
         crackMeshes.push(
           <mesh key={`dynamite-preview:${key}`} position={[x, y, 0.86]}>
@@ -2998,6 +3052,7 @@ function MineScene({
       {tunnelMeshes}
       {blockMeshes}
       {crackMeshes}
+      {cargoMeshes}
       {/* The elevator rail (REQ-028): guides and ties down the bored
           shaft, rendered for the visible span of the bought rail. */}
       {mine.gear.elevator > 0 &&

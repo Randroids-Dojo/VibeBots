@@ -31,7 +31,7 @@ function cellRandom(
  * same finds: mining rewards stay verifiable like everything else.
  *
  * Core tension: every action costs energy. Banking happens only on the
- * surface; running dry underground loses everything you carry.
+ * surface; running dry underground drops the carried bag where you fell.
  */
 
 /**
@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 31;
+export const MINE_VERSION = 32;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -643,8 +643,19 @@ export interface MineCell {
    * overflow until the deposit opens and the pile settles normally.
    */
   drop?: Partial<Record<OreId, number>>;
+  /**
+   * The miner's carried bag after a collapse or abandoned dig. Walking
+   * over the cell scoops it back into the miner's current haul.
+   */
+  bag?: DroppedBag;
   /** A rock that entered the falling-rock hazard system. Render-layer cue. */
   fallen?: boolean;
+}
+
+export interface DroppedBag {
+  ores: Partial<Record<OreId, number>>;
+  salvageCredits: number;
+  parts: string[];
 }
 
 export interface PendingDynamite {
@@ -677,7 +688,7 @@ export interface MinerState {
   col: number;
   row: number; // 0 = surface walk row; digging starts at row 1
   energy: number;
-  /** Carried ore counts by id; lost on collapse, banked on the surface. */
+  /** Carried ore counts by id; dropped on collapse, banked on the surface. */
   carried: Partial<Record<OreId, number>>;
   /** Salvage value from picked-up supports, lost like ore until surfaced. */
   carriedSalvageCredits: number;
@@ -688,7 +699,7 @@ export interface MinerState {
   lastSoldHaul?: SoldHaul;
   /** Deepest row reached this session, used for profile records and stamps. */
   maxDepth: number;
-  /** Trips that ended underground with a dead battery (lost cargo). */
+  /** Trips that ended underground with a dead battery or hazard death. */
   collapses: number;
   /** Last dropped cargo location for the render-layer locator. */
   lostCargo?: { value: number; parts: string[]; col: number; row: number };
@@ -914,6 +925,52 @@ function mergeOrePiles(
   return next;
 }
 
+function bagValue(bag: DroppedBag): number {
+  let total = bag.salvageCredits;
+  for (const [id, count] of Object.entries(bag.ores) as Array<
+    [OreId, number]
+  >) {
+    total += oreDef(id).value * count;
+  }
+  return total;
+}
+
+function bagHasContents(bag: DroppedBag): boolean {
+  return (
+    orePileCount(bag.ores) > 0 || bag.salvageCredits > 0 || bag.parts.length > 0
+  );
+}
+
+function droppedBagFromMiner(miner: MinerState): DroppedBag | undefined {
+  const bag: DroppedBag = {
+    ores: { ...miner.carried },
+    salvageCredits: miner.carriedSalvageCredits,
+    parts: [...miner.carriedParts],
+  };
+  return bagHasContents(bag) ? bag : undefined;
+}
+
+function dropBagAt(
+  state: MineState,
+  location: MineCoord,
+  bag: DroppedBag | undefined,
+): void {
+  if (!bag || location.row < 1) return;
+  const cell = cellMut(state, location.col, location.row);
+  const existing = cell.bag;
+  cell.bag = existing
+    ? {
+        ores: mergeOrePiles(existing.ores, bag.ores),
+        salvageCredits: existing.salvageCredits + bag.salvageCredits,
+        parts: [...existing.parts, ...bag.parts],
+      }
+    : {
+        ores: { ...bag.ores },
+        salvageCredits: bag.salvageCredits,
+        parts: [...bag.parts],
+      };
+}
+
 function dropOreToSurface(
   state: MineState,
   col: number,
@@ -934,6 +991,57 @@ function dropOreToSurface(
   const landing = cellMut(state, col, rest);
   landing.drop = mergeOrePiles(landing.drop, pile);
   return amount;
+}
+
+function pickupAtMiner(state: MineState): {
+  pickedUp?: number;
+  pickedUpBag?: { value: number; parts: number };
+} {
+  const miner = state.miner;
+  if (miner.row < 1) return {};
+  const here = state.cells.get(cellKey(miner.col, miner.row));
+  let pickedUp: number | undefined;
+  let pickedUpBag: { value: number; parts: number } | undefined;
+  if (here?.drop) {
+    const { taken, dropped, leftover } = fillHold(state, here.drop);
+    if (dropped > 0) here.drop = leftover;
+    else delete here.drop;
+    if (taken > 0) pickedUp = taken;
+  }
+  if (here?.bag) {
+    const startingBag = here.bag;
+    const startingValue = bagValue(startingBag);
+    const startingParts = startingBag.parts.length;
+    const {
+      taken,
+      dropped: leftoverCount,
+      leftover,
+    } = fillHold(state, startingBag.ores);
+    if (startingBag.salvageCredits > 0) {
+      miner.carriedSalvageCredits += startingBag.salvageCredits;
+    }
+    if (startingParts > 0) miner.carriedParts.push(...startingBag.parts);
+    const leftoverBag: DroppedBag = {
+      ores: leftover,
+      salvageCredits: 0,
+      parts: [],
+    };
+    if (leftoverCount > 0) here.bag = leftoverBag;
+    else delete here.bag;
+    if (taken > 0) pickedUp = (pickedUp ?? 0) + taken;
+    const recoveredValue = startingValue - bagValue(leftoverBag);
+    if (recoveredValue > 0 || startingParts > 0) {
+      pickedUpBag = { value: recoveredValue, parts: startingParts };
+    }
+    if (
+      !here.bag &&
+      miner.lostCargo?.col === miner.col &&
+      miner.lostCargo.row === miner.row
+    ) {
+      miner.lostCargo = undefined;
+    }
+  }
+  return { pickedUp, pickedUpBag };
 }
 
 function settleUnsupportedDrops(state: MineState): void {
@@ -1198,6 +1306,8 @@ export type MoveResult =
       exploded?: PendingDynamite;
       /** Ore chunks scooped by walking over a floor drop. */
       pickedUp?: number;
+      /** Dropped bag contents scooped by walking over the collapse cell. */
+      pickedUpBag?: { value: number; parts: number };
       /** A recall rope ended the trip from below (carry banked). */
       recalled?: boolean;
       /** The trip was voluntarily abandoned (carry forfeited). */
@@ -1456,22 +1566,23 @@ function ventGasAround(
 
 /**
  * Advances every teetering block's countdown by one action; any that
- * reach zero drop until they rest on something solid (REQ-015). Returns
- * true when a dropping block passed through or landed on the miner (the
- * crew digs you out, the carry stays under the rubble). Bottom-up per
- * column so stacked blocks settle onto each other deterministically.
+ * reach zero drop until they rest on something solid (REQ-015). The result
+ * carries the resting cell when a dropping block passed through or landed on
+ * the miner, so the dropped bag can sit on top of the fallen block.
+ * Bottom-up per column keeps stacked blocks deterministic.
  */
 function tickFalls(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
-): boolean {
+): { crushed: boolean; crushRest?: MineCoord } {
   const miner = state.miner;
   let crushed = false;
+  let crushRest: MineCoord | undefined;
   // Only override cells teeter (pristine cells never do), so the scan is
   // bounded by the teeter count. Decrement every countdown; the ones
   // that reach zero fall this action. Sort bottom-up, then by column, so
   // stacked blocks settle deterministically regardless of insertion order.
-  const dropping: Array<{ col: number; row: number; cell: MineCell }> = [];
+  const dropping: Array<MineCoord & { cell: MineCell }> = [];
   for (const [key, cell] of state.cells) {
     if (cell.fallIn === undefined) continue;
     cell.fallIn -= 1;
@@ -1482,11 +1593,12 @@ function tickFalls(
   dropping.sort((a, b) => b.row - a.row || a.col - b.col);
   for (const { col, row, cell } of dropping) {
     let rest = row;
+    let crushedByThisBlock = false;
     while (true) {
       const below = cellAt(state, col, rest + 1);
       if (below?.kind !== "empty") break;
       rest++;
-      if (miner.col === col && miner.row === rest) crushed = true;
+      if (miner.col === col && miner.row === rest) crushedByThisBlock = true;
     }
     setCell(state, col, row, { kind: "empty" });
     emptied.push({ col, row });
@@ -1496,8 +1608,12 @@ function tickFalls(
     if (cell.kind === "rock") placed.rockTier = rockTierAt(rest);
     if (cell.kind === "rock" || cell.kind === "boulder") placed.fallen = true;
     setCell(state, col, rest, placed);
+    if (crushedByThisBlock) {
+      crushed = true;
+      crushRest ??= { col, row: rest };
+    }
   }
-  return crushed;
+  return { crushed, crushRest };
 }
 
 function isMinerSupported(state: MineState): boolean {
@@ -1530,17 +1646,21 @@ function isFatalMinerFall(state: MineState, fell: number): boolean {
   return fell > safeFallRows(state.gear);
 }
 
-function minerLostCargo(miner: MinerState): {
+function minerLostCargo(
+  miner: MinerState,
+  location: MineCoord = miner,
+): {
   value: number;
   parts: string[];
   col: number;
   row: number;
 } {
+  const bag = droppedBagFromMiner(miner);
   return {
-    value: carriedValue(miner),
-    parts: [...miner.carriedParts],
-    col: miner.col,
-    row: miner.row,
+    value: bag ? bagValue(bag) : 0,
+    parts: bag ? [...bag.parts] : [],
+    col: location.col,
+    row: location.row,
   };
 }
 
@@ -1658,7 +1778,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       miner.row = t.row;
       if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
     }
-    const crushed = tickFalls(state, emptied);
+    const fallTick = tickFalls(state, emptied);
     const fallingRockTriggered = settleAfterEmptied(state, emptied);
     const fell = settleMiner(state);
     const fellTooFar = isFatalMinerFall(state, fell);
@@ -1668,8 +1788,12 @@ export function step(state: MineState, dir: Direction): MoveResult {
       dropped: dropped > 0 ? dropped : undefined,
       remaining: Math.max(0, remaining),
     };
-    if (crushed || fellTooFar || (miner.row > 0 && miner.energy <= 0)) {
-      const lost = minerLostCargo(miner);
+    if (
+      fallTick.crushed ||
+      fellTooFar ||
+      (miner.row > 0 && miner.energy <= 0)
+    ) {
+      const lost = minerLostCargo(miner, fallTick.crushRest);
       collapse(state, true, lost);
       return {
         ok: true,
@@ -1679,7 +1803,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
         oreHarvested,
         found: null,
         collapsed: true,
-        crushed: crushed || fellTooFar,
+        crushed: fallTick.crushed || fellTooFar,
         fallingRockTriggered: fallingRockTriggered || undefined,
         vented,
         dropped: dropped > 0 ? dropped : undefined,
@@ -1696,7 +1820,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       oreHarvested,
       found: null,
       collapsed: false,
-      crushed,
+      crushed: fallTick.crushed,
       fallingRockTriggered: fallingRockTriggered || undefined,
       vented,
       dropped: dropped > 0 ? dropped : undefined,
@@ -1721,12 +1845,16 @@ export function step(state: MineState, dir: Direction): MoveResult {
       // A swing is a full action: teetering blocks count down and drop,
       // and the battery can still run out mid-block.
       const emptiedMid: Array<{ col: number; row: number }> = [];
-      const crushedMid = tickFalls(state, emptiedMid);
+      const fallTickMid = tickFalls(state, emptiedMid);
       const fallingRockTriggeredMid = settleAfterEmptied(state, emptiedMid);
       const fellMid = settleMiner(state);
       const fellTooFarMid = isFatalMinerFall(state, fellMid);
-      if (crushedMid || fellTooFarMid || (miner.row > 0 && miner.energy <= 0)) {
-        const lost = minerLostCargo(miner);
+      if (
+        fallTickMid.crushed ||
+        fellTooFarMid ||
+        (miner.row > 0 && miner.energy <= 0)
+      ) {
+        const lost = minerLostCargo(miner, fallTickMid.crushRest);
         collapse(state, true, lost);
         return {
           ok: true,
@@ -1734,7 +1862,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
           dugOre: null,
           found: null,
           collapsed: true,
-          crushed: crushedMid || fellTooFarMid,
+          crushed: fallTickMid.crushed || fellTooFarMid,
           fallingRockTriggered: fallingRockTriggeredMid || undefined,
           fell: fellMid || undefined,
           fallFatal: fellTooFarMid || undefined,
@@ -1817,30 +1945,16 @@ export function step(state: MineState, dir: Direction): MoveResult {
   miner.row = t.row;
   if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
 
-  // Walk-over pickup: scoop a floor drop on the entered cell into the
-  // hold, ore up to the cap (a partial take leaves the rest as a smaller
-  // pile). Only stored cells can hold a drop, so a miss never materializes
-  // a pristine cell.
-  let pickedUp: number | undefined;
-  if (miner.row >= 1) {
-    const here = state.cells.get(cellKey(t.col, t.row));
-    if (here?.drop) {
-      const { taken, dropped, leftover } = fillHold(state, here.drop);
-      if (dropped > 0) here.drop = leftover;
-      else delete here.drop;
-      if (taken > 0) pickedUp = taken;
-    }
-  }
-
-  const crushed = tickFalls(state, emptied);
+  const fallTick = tickFalls(state, emptied);
   const fallingRockTriggered = settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
   const fellTooFar = isFatalMinerFall(state, fell);
+  const { pickedUp, pickedUpBag } = pickupAtMiner(state);
 
   let collapsed = false;
   let lost: { value: number; parts: string[]; col: number; row: number };
-  if (crushed || fellTooFar || (miner.row > 0 && miner.energy <= 0)) {
-    lost = minerLostCargo(miner);
+  if (fallTick.crushed || fellTooFar || (miner.row > 0 && miner.energy <= 0)) {
+    lost = minerLostCargo(miner, fallTick.crushRest);
     collapse(state, true, lost);
     collapsed = true;
     return {
@@ -1850,7 +1964,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       dugOreCount,
       found,
       collapsed,
-      crushed: crushed || fellTooFar,
+      crushed: fallTick.crushed || fellTooFar,
       fallingRockTriggered: fallingRockTriggered || undefined,
       vented,
       dropped: dropped > 0 ? dropped : undefined,
@@ -1871,7 +1985,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     dugOreCount,
     found,
     collapsed,
-    crushed,
+    crushed: fallTick.crushed,
     fallingRockTriggered: fallingRockTriggered || undefined,
     vented,
     dropped: dropped > 0 ? dropped : undefined,
@@ -1879,6 +1993,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     planked,
     fell: fell || undefined,
     pickedUp,
+    pickedUpBag,
   });
 }
 
@@ -1925,12 +2040,12 @@ function finishStationaryAction(
   base: Extract<MoveResult, { ok: true }>,
 ): MoveResult {
   const emptied: Array<{ col: number; row: number }> = [];
-  const crushed = tickFalls(state, emptied);
+  const fallTick = tickFalls(state, emptied);
   const fallingRockTriggered = settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
   const fellTooFar = isFatalMinerFall(state, fell);
-  if (crushed || fellTooFar) {
-    const lost = minerLostCargo(state.miner);
+  if (fallTick.crushed || fellTooFar) {
+    const lost = minerLostCargo(state.miner, fallTick.crushRest);
     collapse(state, true, lost);
     return {
       ...base,
@@ -2326,12 +2441,12 @@ function plantDynamite(state: MineState, tier: DynamiteTier): MoveResult {
   state.used.dynamite++;
   state.pendingDynamite = t;
   const emptied: Array<{ col: number; row: number }> = [];
-  const crushed = tickFalls(state, emptied);
+  const fallTick = tickFalls(state, emptied);
   const fallingRockTriggered = settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
   const fellTooFar = isFatalMinerFall(state, fell);
-  if (crushed || fellTooFar) {
-    const lost = minerLostCargo(state.miner);
+  if (fallTick.crushed || fellTooFar) {
+    const lost = minerLostCargo(state.miner, fallTick.crushRest);
     collapse(state, true, lost);
     return {
       ok: true,
@@ -2467,15 +2582,10 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
     }
     miner.row = target;
     if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
-    const crushed = tickFalls(state, emptied);
+    const fallTick = tickFalls(state, emptied);
     const fallingRockTriggered = settleAfterEmptied(state, emptied);
-    if (crushed) {
-      const lost = {
-        value: carriedValue(miner),
-        parts: [...miner.carriedParts],
-        col: miner.col,
-        row: miner.row,
-      };
+    if (fallTick.crushed) {
+      const lost = minerLostCargo(miner, fallTick.crushRest);
       collapse(state, true, lost);
       return {
         ok: true,
@@ -2703,7 +2813,7 @@ function bank(miner: MinerState, gear: MineGear): void {
   miner.energy = maxEnergy(gear);
 }
 
-/** Battery dead underground: cargo is lost, the crew hauls you up. */
+/** Battery dead underground: cargo drops, and the crew hauls you up. */
 /**
  * End the trip the hard way: drop the carry, haul up to the surface,
  * recharge the robot. `recover` marks a death (battery out or crushed) rather
@@ -2719,6 +2829,7 @@ function collapse(
 ): void {
   const miner = state.miner;
   state.pendingDynamite = undefined;
+  dropBagAt(state, lost ?? miner, droppedBagFromMiner(miner));
   if (lost && (lost.value > 0 || lost.parts.length > 0)) {
     miner.lostCargo = { ...lost, parts: [...lost.parts] };
   }

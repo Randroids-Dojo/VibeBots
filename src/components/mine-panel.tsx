@@ -3536,18 +3536,20 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                         ? `Salvaged ${salvagedSupportCount} pickup${salvagedSupportCount > 1 ? "s" : ""}. Scrap sells for ${salvagedSupportValue} vibes at surface.`
                         : lastResult?.ok && (lastResult.dropped ?? 0) > 0
                           ? `${lastResult.dropped} ore dropped.`
-                          : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
-                            ? `Picked up ${lastResult.pickedUp} ore.`
-                            : lastResult?.ok && (lastResult.vented ?? 0) > 0
-                              ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
-                              : miner.row === 0 &&
-                                  (bankedCredits > 0 || bankedPartsCount > 0)
-                                ? cashOut.state === "pending"
-                                  ? "Selling haul..."
-                                  : undefined
-                                : miner.row === 0
-                                  ? mineSurfaceTip
-                                  : undefined;
+                          : lastResult?.ok && lastResult.pickedUpBag
+                            ? `Recovered bag: ${lastResult.pickedUpBag.value} vibes${lastResult.pickedUpBag.parts > 0 ? ` and ${lastResult.pickedUpBag.parts} part${lastResult.pickedUpBag.parts > 1 ? "s" : ""}` : ""}.`
+                            : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
+                              ? `Picked up ${lastResult.pickedUp} ore.`
+                              : lastResult?.ok && (lastResult.vented ?? 0) > 0
+                                ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
+                                : miner.row === 0 &&
+                                    (bankedCredits > 0 || bankedPartsCount > 0)
+                                  ? cashOut.state === "pending"
+                                    ? "Selling haul..."
+                                    : undefined
+                                  : miner.row === 0
+                                    ? mineSurfaceTip
+                                    : undefined;
   const cashNote =
     cashOut.state === "done"
       ? soldHaulLine(cashOut.soldHaul, cashOut.credits, cashOut.parts)

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="death-bag-recovery" data-date="2026-06-19">
+    <h3>Death Bag Recovery</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/death-bag-empty-battery</code>, rebased onto current <code>origin/main</code> after the progressive mine balance slice landed.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-reported mine recovery fix. Empty-battery deaths, crushes, fatal falls, and Abandon now serialize the carried bag into the mine cell before hauling the miner back to the surface. Falling-rock crushes place that bag on the fallen rock's final rest cell so it renders above the rubble instead of behind it. Walking over the bag restores carried resources, support scrap, and parts, partially leaving ore behind if the hold is full. The mine canvas renders dropped bags as pouch markers without runtime text, the HUD confirms recovery, package version moved to <code>0.1.54</code>, and <code>MINE_VERSION</code> moved from <code>31</code> to <code>32</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code> before and after the slice. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched files, focused mine Vitest (85 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (244 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3166</code> for latest release notes, mine canvas flow, and dropped-marker artifact coverage (3 passed). Browser live verification on <code>http://127.0.0.1:3166/mine</code> confirmed the release dialog with the falling-rock bag bullet, dismiss flow, full-viewport mine canvas, and no console errors.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: death and Abandon use one consistent recoverable-bag rule, while recovery still respects cargo capacity for ore. Mine surface tips were reviewed and kept unchanged because the existing ladder-recovery and return-decision tips still apply.</dd>
+      <dt>GDD coverage</dt><dd>REQ-006 stays done with updated recoverable-bag wording and a build-log entry in <code>docs/gdd/06-mining.html</code>. Updated static and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="progressive-mine-balance" data-date="2026-06-19">
     <h3>Progressive Mine Balance</h3>
     <dl>

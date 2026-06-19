@@ -2,10 +2,35 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.53-mine-balance-pass";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.54-death-bag-recovery";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.54",
+      date: "2026-06-19",
+      title: "Death bag recovery",
+      intro:
+        "Empty-battery deaths now leave a visible bag where the miner fell.",
+      changes: [
+        {
+          build,
+          text: "A collapse or abandoned dig with cargo now drops a recoverable bag into the persistent mine world.",
+        },
+        {
+          build,
+          text: "Walking over the bag on the next descent restores its carried resources, support scrap, and parts.",
+        },
+        {
+          build,
+          text: "Falling-rock deaths attach the bag to the fallen rock's rest cell so the pouch stays visible on top of the rubble.",
+        },
+        {
+          build,
+          text: "Dropped bags render as pouch markers in the mine scene and clear the locator once recovered.",
+        },
+      ],
+    },
     {
       version: "0.1.53",
       date: "2026-06-19",

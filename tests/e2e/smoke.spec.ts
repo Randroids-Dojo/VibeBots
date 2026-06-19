@@ -738,19 +738,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText(
-    "Depth rewards and upgrade prices now scale cleanly toward row 1,000.",
-  );
-  await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "Ore reserves now grow in authored depth steps",
-  );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Upgrade prices were retuned",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "Elevator rail pricing now stays bounded",
-  );
+  await expect(dialog).toContainText("Empty-battery deaths");
+  await expect(dialog.locator("li")).toHaveCount(4);
+  await expect(dialog.locator("li").first()).toContainText("recoverable bag");
+  await expect(dialog.locator("li").nth(1)).toContainText("next descent");
+  await expect(dialog.locator("li").nth(2)).toContainText("fallen rock");
+  await expect(dialog.locator("li").nth(3)).toContainText("pouch markers");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -769,11 +762,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.54", "Death bag recovery"],
     ["0.1.53", "Mine balance pass"],
     ["0.1.52", "Safari notification setup"],
     ["0.1.51", "Update alerts"],
     ["0.1.50", "Falling rock alert"],
-    ["0.1.49", "Mine tip wrap"],
   ] as const;
   expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
   for (const [

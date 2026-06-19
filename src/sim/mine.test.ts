@@ -928,6 +928,50 @@ describe("mine", () => {
     expect(state.miner.collapses).toBe(1);
   });
 
+  it("drops crush cargo on the fallen rock rest cell", () => {
+    const state = createMine(48);
+    const c = START_COL;
+    state.miner.row = 6;
+    state.miner.col = c;
+    setCell(state, c, 6, { kind: "empty" });
+    setCell(state, c + 1, 5, { kind: "rock", rockTier: 1 });
+    setCell(state, c + 1, 6, { kind: "dirt", plank: true });
+    setCell(state, c + 1, 7, { kind: "empty" });
+    setCell(state, c + 1, 8, { kind: "empty" });
+    setCell(state, c + 1, 9, { kind: "dirt" });
+    setCell(state, c + 2, 6, { kind: "dirt" });
+    state.miner.carried = { coal: 2 };
+    state.miner.carriedSalvageCredits = 4;
+    state.miner.carriedParts = ["drive-wheel"];
+
+    const dug = dig(state, "right");
+    expect(dug.ok).toBe(true);
+    expect(state.miner.col).toBe(c + 1);
+    expect(state.miner.row).toBe(6);
+    expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS);
+
+    expect(step(state, "right").ok).toBe(true);
+    const fatal = step(state, "right");
+    expect(fatal.ok && fatal.crushed).toBe(true);
+    expect(fatal.ok && fatal.lost).toEqual({
+      value: 6,
+      parts: ["drive-wheel"],
+      col: c + 1,
+      row: 8,
+    });
+    expect(cellAt(state, c + 1, 6)?.bag).toBeUndefined();
+    expect(cellAt(state, c + 1, 8)).toMatchObject({
+      kind: "rock",
+      fallen: true,
+      bag: {
+        ores: { coal: 2 },
+        salvageCredits: 4,
+        parts: ["drive-wheel"],
+      },
+    });
+    expect(state.miner.row).toBe(0);
+  });
+
   it("never drops rock in the hazard-free top rows", () => {
     const state = createMine(103, { ...DEFAULT_GEAR, pickaxe: 4 });
     const c = START_COL;
@@ -1278,6 +1322,47 @@ describe("mine", () => {
     // Unspent free rungs do not bank: only the purchased stock survives.
     expect(carryoverConsumables(state).ladder).toBe(2);
     expect(carryoverConsumables(state).plank).toBe(1);
+  });
+
+  it("drops a recoverable bag on battery death", () => {
+    const state = createMine(91);
+    setCell(state, START_COL, 1, { kind: "empty" });
+    setCell(state, START_COL, 2, { kind: "empty" });
+    setCell(state, START_COL, 3, { kind: "dirt" });
+    expect(step(state, "down").ok).toBe(true);
+    state.miner.carried = { coal: 2 };
+    state.miner.carriedSalvageCredits = 3;
+    state.miner.carriedParts = ["drive-wheel"];
+    state.miner.energy = 0;
+
+    const death = step(state, "down");
+    expect(death.ok && death.collapsed).toBe(true);
+    expect(death.ok && death.lost).toEqual({
+      value: 5,
+      parts: ["drive-wheel"],
+      col: START_COL,
+      row: 2,
+    });
+    expect(state.miner.row).toBe(0);
+    expect(state.miner.carried).toEqual({});
+    expect(state.miner.carriedSalvageCredits).toBe(0);
+    expect(state.miner.carriedParts).toEqual([]);
+    expect(cellAt(state, START_COL, 2)?.bag).toEqual({
+      ores: { coal: 2 },
+      salvageCredits: 3,
+      parts: ["drive-wheel"],
+    });
+
+    const recovered = step(state, "down");
+    expect(recovered.ok && recovered.pickedUpBag).toEqual({
+      value: 5,
+      parts: 1,
+    });
+    expect(cellAt(state, START_COL, 2)?.bag).toBeUndefined();
+    expect(state.miner.carried).toEqual({ coal: 2 });
+    expect(state.miner.carriedSalvageCredits).toBe(3);
+    expect(state.miner.carriedParts).toEqual(["drive-wheel"]);
+    expect(state.miner.lostCargo).toBeUndefined();
   });
 
   it("grants no free stock when the miner gives up", () => {

@@ -134,6 +134,27 @@ When the user asks for a fresh worktree, create it from the latest fetched `orig
 3. Run `pnpm install --frozen-lockfile` before type-checks or tests in a fresh worktree, because `node_modules` is ignored.
 4. If production Web Push env vars need setup or rotation, use `pnpm ops:setup-push-env -- --production-only`. The script passes values through stdin, suppresses Vercel CLI secret diagnostics, and avoids printing generated values.
 
+### Post-merge and direct-main CI monitoring
+
+CI and deploy monitoring after merges or direct pushes is part of the slice, not an optional status check. Treat slow, stale, or confusing monitoring as a process bug to improve.
+
+Required flow after any merge or direct push to `main`:
+
+1. Record the exact pushed sha, then verify `git ls-remote origin refs/heads/main` matches it.
+2. If `origin/main` moves while monitoring, fetch immediately and check whether the pushed sha is still contained in `origin/main`. Report both facts separately: the pushed commit status and the current remote head status.
+3. Track GitHub Actions by run id and head sha, not by branch name alone. Branch queries can silently switch to a newer push.
+4. Track Vercel by commit sha and production endpoint version. Do not call production current until `/api/version` reports the expected sha.
+5. Use bounded polling with timestamps. Prefer a short loop that prints status, conclusion, head sha, and run URL. Avoid long noisy `gh run watch` output unless it is actively useful.
+6. If `gh` auth fails, stop the failed loop and switch to the public GitHub REST endpoints when the repo is public. Do not keep retrying the same broken command.
+7. When a run is slow, inspect the jobs endpoint to identify the active step. If logs are unavailable until completion, say that explicitly and keep polling the run conclusion.
+8. Before final response, verify the latest `origin/main` head, whether the shipped commit is contained in it, Vercel status for the latest head, production `/api/version`, notification config when relevant, and CI conclusion for the pushed sha. If `origin/main` advanced after the push, also verify the latest head's CI or state clearly that it is still running.
+
+Continuous improvement requirement:
+
+- If CI monitoring takes unusual time, auth breaks, branch status shifts underfoot, production reports an older sha, or the final status is confusing, root cause the monitoring problem before closing the task.
+- Document the prevention in `AGENTS.md` when it is a reusable workflow rule, or in the slice progress log when it is a one-off incident.
+- Keep the closeout short, but include enough exact evidence that the next agent can resume without rediscovering which sha, run id, or deploy was being watched.
+
 ---
 
 ## RULE 6: Destructive and shared-system actions

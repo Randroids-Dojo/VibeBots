@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-18-0.1.48-starter-base-parts";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.49-mine-tip-wrap";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.49",
+      date: "2026-06-19",
+      title: "Mine tip wrap",
+      intro: "Long mine tips now stay inside narrow phone screens.",
+      changes: [
+        {
+          build,
+          text: "Surface tips now wrap inside the mine HUD instead of clipping off the right edge on phone-width screens.",
+        },
+        {
+          build,
+          text: "Other HUD chips keep their compact single-line layout.",
+        },
+        {
+          build,
+          text: "Tip copy and mine rules are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.48",
       date: "2026-06-18",

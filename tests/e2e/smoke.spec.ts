@@ -738,16 +738,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Bunker claims now stay visual");
+  await expect(dialog).toContainText("Long mine tips now stay inside");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "non-colliding outline",
+    "wrap inside the mine HUD",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "2 walls, 3 floors, 3 roofs, and 1 door",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("single-line");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Wall, Floor, Roof, Door",
+    "Tip copy and mine rules are unchanged.",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -767,11 +765,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.49", "Mine tip wrap"],
     ["0.1.48", "Starter base parts"],
     ["0.1.47", "Bunker claim alignment"],
     ["0.1.46", "Clanker pathing"],
     ["0.1.45", "Hardware Store"],
-    ["0.1.44", "Player level two"],
   ] as const;
   expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
   for (const [
@@ -909,16 +907,25 @@ test("save slot deletion requires a destructive double confirmation", async ({
 });
 
 test("mine shows one of the surface game tips", async ({ page }) => {
+  await page.setViewportSize({ width: 575, height: 1280 });
   await page.addInitScript(() => {
-    Math.random = () => 0.94;
+    Math.random = () => 0;
   });
   await page.goto("/mine");
   await dismissReleaseNotes(page);
 
   const status = page.getByLabel("Mine status");
   await expect(status).toContainText(
-    "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
+    "Tip: rich ore pays on every hit, but the deposit clears only when its reserve runs dry.",
   );
+  const longTip = page.getByText(
+    "Tip: rich ore pays on every hit, but the deposit clears only when its reserve runs dry.",
+    { exact: true },
+  );
+  const box = await longTip.boundingBox();
+  expect(box).not.toBeNull();
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);
+  expect(box?.height ?? 0).toBeGreaterThan(22);
 });
 
 test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022)", async ({

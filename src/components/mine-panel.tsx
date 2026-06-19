@@ -184,6 +184,14 @@ const chipStyle: React.CSSProperties = {
   display: "inline-block",
 };
 
+const statusChipStyle: React.CSSProperties = {
+  ...chipStyle,
+  boxSizing: "border-box",
+  maxWidth: "min(560px, calc(100vw - 24px))",
+  whiteSpace: "normal",
+  overflowWrap: "break-word",
+};
+
 const RESOURCE_FLOAT_COLORS: Record<OreId, string> = {
   coal: "#8b93a7",
   copper: "#d28445",
@@ -3437,7 +3445,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           )}
         </div>
         {statusLine && (
-          <span style={{ ...chipStyle, color: "#f5c542" }}>{statusLine}</span>
+          <span style={{ ...statusChipStyle, color: "#f5c542" }}>
+            {statusLine}
+          </span>
         )}
         {cashNote && cashNoteVisible && (
           <span

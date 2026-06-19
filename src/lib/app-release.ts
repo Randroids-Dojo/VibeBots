@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.56-version-refresh-prompt";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.57-bag-grid";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.57",
+      date: "2026-06-19",
+      title: "Bag grid",
+      intro: "The mine HUD now keeps one simple bag capacity chip.",
+      changes: [
+        {
+          build,
+          text: "The HUD shows one bag chip with current ore count and capacity instead of a separate contents chip.",
+        },
+        {
+          build,
+          text: "Tapping the bag opens a scrollable cell grid for upgraded bags, where capacity is shown as slots and each carried ore chunk fills one cell.",
+        },
+        {
+          build,
+          text: "Tap outside the bag, press Escape, or use gamepad cancel/back to return to mining.",
+        },
+      ],
+    },
     {
       version: "0.1.56",
       date: "2026-06-19",

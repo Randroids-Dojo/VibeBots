@@ -29,7 +29,6 @@ import {
   canPlacePlank,
   cargoCapacity,
   carriedCount,
-  carriedValue,
   cellAt,
   collectAction,
   collectablePlacements,
@@ -281,6 +280,24 @@ const RESOURCE_FLOAT_COLORS: Record<OreId, string> = {
   "core-crystal": "#d58cff",
 };
 
+const ORE_CELL_LABELS: Record<OreId, string> = {
+  coal: "Co",
+  copper: "Cu",
+  silver: "Ag",
+  emerald: "Em",
+  ruby: "Ru",
+  diamond: "Di",
+  "core-crystal": "Cr",
+};
+
+type OreBagCell = {
+  id: OreId;
+  key: string;
+  name: string;
+  label: string;
+  color: string;
+};
+
 function oreBagRows(carried: Partial<Record<OreId, number>>): Array<{
   id: OreId;
   name: string;
@@ -301,6 +318,22 @@ function oreBagRows(carried: Partial<Record<OreId, number>>): Array<{
     .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
 }
 
+function oreBagCells(carried: Partial<Record<OreId, number>>): OreBagCell[] {
+  const cells: OreBagCell[] = [];
+  for (const row of oreBagRows(carried)) {
+    for (let index = 0; index < row.count; index++) {
+      cells.push({
+        id: row.id,
+        key: `${row.id}-${index}`,
+        name: row.name,
+        label: ORE_CELL_LABELS[row.id],
+        color: RESOURCE_FLOAT_COLORS[row.id],
+      });
+    }
+  }
+  return cells;
+}
+
 function compactResourceList(
   rows: Array<{ name: string; count: number }>,
   limit = 2,
@@ -310,23 +343,16 @@ function compactResourceList(
   return extra > 0 ? `${shown.join(", ")} +${extra} more` : shown.join(", ");
 }
 
-function bagSummary(miner: MineState["miner"]): {
-  label: string;
-  title: string;
-} | null {
+function bagDetailSummary(miner: MineState["miner"]): string {
   const rows = oreBagRows(miner.carried);
   const parts = miner.carriedParts.length;
   const hasScrap = miner.carriedSalvageCredits > 0;
-  if (rows.length === 0 && parts === 0 && !hasScrap) return null;
+  if (rows.length === 0 && parts === 0 && !hasScrap) return "No ore carried.";
   const labelParts: string[] = [];
   if (rows.length > 0) labelParts.push(compactResourceList(rows));
   if (hasScrap) labelParts.push("support scrap");
   if (parts > 0) labelParts.push(`${parts} part${parts > 1 ? "s" : ""}`);
-  const total = carriedValue(miner);
-  return {
-    label: `Bag: ${labelParts.join(" + ")}`,
-    title: `Bag contents. Resources sell for ${total} vibes at the surface.`,
-  };
+  return labelParts.join(" + ");
 }
 
 function soldHaulLine(
@@ -3081,6 +3107,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [releaseNotesVisible, setReleaseNotesVisible] = useState(false);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [cameraZoom, setCameraZoom] = useState(MINE_CAMERA_ZOOM_DEFAULT);
+  const [bagPanelOpen, setBagPanelOpen] = useState(false);
   const [viewportSize, setViewportSize] = useState<ViewportSize>({
     width: 1024,
     height: 768,
@@ -3105,6 +3132,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastCashOutStateRef = useRef(cashOut.state);
   const lastShopNoteRef = useRef<string | null>(null);
   const lastGamepadZoomRef = useRef(0);
+  const lastGamepadBagCloseRef = useRef(false);
   const lastDirectionActionRef = useRef(0);
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const previousMinerRowRef = useRef(mine.miner.row);
@@ -3201,6 +3229,38 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     frame = requestAnimationFrame(pollGamepadZoom);
     return () => cancelAnimationFrame(frame);
   }, [adjustCameraZoom]);
+
+  useEffect(() => {
+    if (!bagPanelOpen) {
+      lastGamepadBagCloseRef.current = false;
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setBagPanelOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    let frame = 0;
+    const pollGamepadClose = () => {
+      const pads = navigator.getGamepads?.() ?? [];
+      const closePressed = pads.some(
+        (pad) =>
+          Boolean(pad?.buttons[1]?.pressed) ||
+          Boolean(pad?.buttons[8]?.pressed),
+      );
+      if (closePressed && !lastGamepadBagCloseRef.current) {
+        setBagPanelOpen(false);
+      }
+      lastGamepadBagCloseRef.current = closePressed;
+      frame = requestAnimationFrame(pollGamepadClose);
+    };
+    frame = requestAnimationFrame(pollGamepadClose);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      cancelAnimationFrame(frame);
+    };
+  }, [bagPanelOpen]);
 
   useEffect(() => {
     if (lastCashOutStateRef.current === cashOut.state) return;
@@ -3301,7 +3361,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const horizontalDistance = miner.col - START_COL;
   const horizontalDistanceLabel =
     horizontalDistance > 0 ? `+${horizontalDistance}` : `${horizontalDistance}`;
-  const currentBagSummary = bagSummary(miner);
+  const bagCapacity = cargoCapacity(mine.gear);
+  const carriedOreCount = carriedCount(miner);
+  const bagCells = oreBagCells(miner.carried);
+  const emptyBagSlots = Math.max(0, bagCapacity - bagCells.length);
+  const emptyBagCellKeys = Array.from(
+    { length: emptyBagSlots },
+    (_, index) => `empty-${bagCells.length + index}`,
+  );
+  const bagDetails = bagDetailSummary(miner);
   const climbCost = returnEnergyCost(miner);
   // The climb estimate assumes a cleared shaft; warn with a margin so a
   // detour or two does not turn the warning into a lie (REQ-017).
@@ -3958,17 +4026,23 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               &#128267; {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
             </span>
           </span>
-          <span style={chipStyle}>
-            &#127890; {carriedCount(miner)}/{cargoCapacity(mine.gear)}
-          </span>
-          {currentBagSummary && (
-            <span
-              title={currentBagSummary.title}
-              style={{ ...chipStyle, color: "#f5c542" }}
-            >
-              &#127890; {currentBagSummary.label}
-            </span>
-          )}
+          <button
+            type="button"
+            aria-label="Open bag"
+            aria-controls="mine-bag-panel"
+            aria-expanded={bagPanelOpen}
+            title={`Open bag. Ore capacity ${carriedOreCount}/${bagCapacity}.`}
+            onClick={() => setBagPanelOpen(true)}
+            style={{
+              ...chipStyle,
+              color: "#f5c542",
+              pointerEvents: "auto",
+              cursor: "pointer",
+              fontWeight: 800,
+            }}
+          >
+            &#127890; {carriedOreCount}/{bagCapacity}
+          </button>
         </div>
         {statusLine && (
           <span style={{ ...statusChipStyle, color: "#f5c542" }}>
@@ -4006,6 +4080,192 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           </span>
         )}
       </section>
+
+      {bagPanelOpen && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 36,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 14,
+            background: "rgba(5, 7, 12, 0.38)",
+            pointerEvents: "auto",
+          }}
+        >
+          <button
+            type="button"
+            aria-label="Close bag"
+            onClick={() => setBagPanelOpen(false)}
+            style={{
+              position: "absolute",
+              inset: 0,
+              border: 0,
+              background: "transparent",
+              cursor: "default",
+            }}
+          />
+          <section
+            id="mine-bag-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mine-bag-title"
+            data-bag-capacity={bagCapacity}
+            data-bag-filled={carriedOreCount}
+            style={{
+              width: "min(460px, calc(100vw - 28px))",
+              maxHeight: "min(620px, calc(100dvh - 108px))",
+              display: "flex",
+              flexDirection: "column",
+              border: "1px solid rgba(245, 197, 66, 0.62)",
+              borderRadius: 12,
+              background: "rgba(17, 21, 31, 0.97)",
+              boxShadow: "0 18px 60px rgba(0, 0, 0, 0.58)",
+              color: "#e6e8ee",
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
+            <header
+              style={{
+                flex: "0 0 auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                padding: "12px 14px 10px",
+                borderBottom: "1px solid rgba(38, 48, 74, 0.9)",
+              }}
+            >
+              <div>
+                <h2
+                  id="mine-bag-title"
+                  style={{
+                    margin: 0,
+                    color: "#f5c542",
+                    fontSize: "1rem",
+                    letterSpacing: 0,
+                  }}
+                >
+                  Bag {carriedOreCount}/{bagCapacity}
+                </h2>
+                <p
+                  style={{
+                    margin: "3px 0 0",
+                    color: "#aab2c7",
+                    fontSize: "0.78rem",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {bagDetails}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close bag"
+                onClick={() => setBagPanelOpen(false)}
+                style={{
+                  width: 36,
+                  height: 36,
+                  flex: "0 0 auto",
+                  borderRadius: 10,
+                  border: "1px solid #26304a",
+                  background: "#20283a",
+                  color: "#e6e8ee",
+                  fontSize: "1rem",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                x
+              </button>
+            </header>
+            <div
+              data-bag-scroll="true"
+              style={{
+                flex: "1 1 auto",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+                padding: 14,
+              }}
+            >
+              <ol
+                aria-label="Bag cells"
+                data-bag-cells="true"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(44px, 1fr))",
+                  gap: 7,
+                  listStyle: "none",
+                  margin: 0,
+                  padding: 0,
+                }}
+              >
+                {bagCells.map((cell) => (
+                  <li
+                    key={cell.key}
+                    title={cell.name}
+                    data-ore={cell.id}
+                    style={{
+                      aspectRatio: "1 / 1",
+                      border: `2px solid ${cell.color}`,
+                      borderRadius: 8,
+                      background: `${cell.color}24`,
+                      color: cell.color,
+                      display: "grid",
+                      placeItems: "center",
+                      fontSize: "0.74rem",
+                      fontWeight: 900,
+                      textShadow: "0 1px 1px rgba(0, 0, 0, 0.6)",
+                    }}
+                  >
+                    {cell.label}
+                  </li>
+                ))}
+                {emptyBagCellKeys.map((key) => (
+                  <li
+                    key={key}
+                    data-empty-cell="true"
+                    style={{
+                      aspectRatio: "1 / 1",
+                      border: "1px solid rgba(170, 178, 199, 0.32)",
+                      borderRadius: 8,
+                      background: "rgba(12, 16, 26, 0.62)",
+                    }}
+                  />
+                ))}
+              </ol>
+              {(miner.carriedSalvageCredits > 0 ||
+                miner.carriedParts.length > 0) && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    paddingTop: 10,
+                    borderTop: "1px solid rgba(38, 48, 74, 0.9)",
+                    color: "#aab2c7",
+                    fontSize: "0.82rem",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {miner.carriedSalvageCredits > 0 && (
+                    <div>
+                      Support scrap: {miner.carriedSalvageCredits} vibes
+                    </div>
+                  )}
+                  {miner.carriedParts.length > 0 && (
+                    <div>
+                      Parts: {miner.carriedParts.length}
+                      {miner.carriedParts.length === 1 ? " part" : " parts"}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       {collectMode && (
         <section

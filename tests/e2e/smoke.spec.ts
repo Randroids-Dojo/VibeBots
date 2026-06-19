@@ -738,14 +738,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("VibeBots now offers a refresh button");
-  await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "checks the deployed app version",
+  await expect(dialog).toContainText(
+    "The mine HUD now keeps one simple bag capacity chip.",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("Refresh button");
+  await expect(dialog.locator("li")).toHaveCount(3);
+  await expect(dialog.locator("li").first()).toContainText("one bag chip");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "scrollable cell grid",
+  );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "same app release version",
+    "gamepad cancel/back",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -765,11 +767,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.57", "Bag grid"],
     ["0.1.56", "Version refresh prompt"],
     ["0.1.55", "Mine metal floor"],
     ["0.1.54", "Death bag recovery"],
     ["0.1.53", "Mine balance pass"],
-    ["0.1.52", "Safari notification setup"],
   ] as const;
   expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
   for (const [
@@ -951,6 +953,105 @@ test("mine falling-rock alert can be dismissed or permanently hidden", async ({
   await dismissReleaseNotes(page);
   await pressMineKey(page, "ArrowRight");
   await expect(alert).not.toBeVisible();
+});
+
+test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 360 });
+  const gear = { ...DEFAULT_GEAR, battery: 4, cargo: 4 };
+  const mine = createMine(8181, gear, STARTING_CONSUMABLES);
+  setCell(mine, START_COL, 1, {
+    kind: "empty",
+    drop: { coal: 5, diamond: 2 },
+  });
+
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+      let cancelPressed = false;
+      Object.defineProperty(navigator, "getGamepads", {
+        configurable: true,
+        value: () => [
+          {
+            buttons: Array.from({ length: 17 }, (_, index) => ({
+              pressed: index === 1 && cancelPressed,
+              touched: index === 1 && cancelPressed,
+              value: index === 1 && cancelPressed ? 1 : 0,
+            })),
+          },
+        ],
+      });
+      Object.defineProperty(window, "__setBagCancelPressed", {
+        configurable: true,
+        value: (pressed: boolean) => {
+          cancelPressed = pressed;
+        },
+      });
+    },
+    {
+      seed: 8181,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "1",
+  );
+
+  const bagButton = page.getByRole("button", { name: "Open bag" });
+  await expect(bagButton).toBeVisible();
+  await expect(bagButton).toContainText("7/32");
+  await expect(page.getByLabel("Mine status").getByText("Coal x5")).toHaveCount(
+    0,
+  );
+
+  await bagButton.click();
+  const dialog = page.getByRole("dialog", { name: "Bag 7/32" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute("data-bag-capacity", "32");
+  await expect(dialog).toHaveAttribute("data-bag-filled", "7");
+  await expect(dialog.locator("[data-ore='coal']")).toHaveCount(5);
+  await expect(dialog.locator("[data-ore='diamond']")).toHaveCount(2);
+  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(25);
+  const scrollState = await dialog
+    .locator("[data-bag-scroll='true']")
+    .evaluate((node) => {
+      const element = node as HTMLElement;
+      return {
+        clientHeight: element.clientHeight,
+        overflowY: window.getComputedStyle(element).overflowY,
+        scrollHeight: element.scrollHeight,
+      };
+    });
+  expect(scrollState.overflowY).toBe("auto");
+  expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
+
+  await page.mouse.click(8, 8);
+  await expect(dialog).not.toBeVisible();
+
+  await bagButton.click();
+  await expect(dialog).toBeVisible();
+  await page.evaluate(() => {
+    const setter = (
+      window as unknown as Window & {
+        __setBagCancelPressed: (pressed: boolean) => void;
+      }
+    ).__setBagCancelPressed;
+    setter(true);
+  });
+  await expect(dialog).not.toBeVisible();
 });
 
 test("save slot deletion requires a destructive double confirmation", async ({

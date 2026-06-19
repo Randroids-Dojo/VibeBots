@@ -738,12 +738,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Empty-battery deaths");
-  await expect(dialog.locator("li")).toHaveCount(4);
-  await expect(dialog.locator("li").first()).toContainText("recoverable bag");
-  await expect(dialog.locator("li").nth(1)).toContainText("next descent");
-  await expect(dialog.locator("li").nth(2)).toContainText("fallen rock");
-  await expect(dialog.locator("li").nth(3)).toContainText("pouch markers");
+  await expect(dialog).toContainText(
+    "Row 1000 is now the hard bottom of the mine.",
+  );
+  await expect(dialog.locator("li")).toHaveCount(3);
+  await expect(dialog.locator("li").first()).toContainText(
+    "impenetrable metal",
+  );
+  await expect(dialog.locator("li").nth(1)).toContainText("elevator");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "Older saved world diffs",
+  );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -762,6 +767,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.55", "Mine metal floor"],
     ["0.1.54", "Death bag recovery"],
     ["0.1.53", "Mine balance pass"],
     ["0.1.52", "Safari notification setup"],

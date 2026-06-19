@@ -39,6 +39,7 @@ import {
   lanternDistance,
   lightRadius,
   MINE_BALANCE_MAX_ROW,
+  MINE_BOTTOM_ROW,
   type MineAction,
   type MineConsumables,
   type MineState,
@@ -150,6 +151,51 @@ describe("mine", () => {
       }
     }
     expect(differences).toBeGreaterThan(10);
+  });
+
+  it("fills row 1000 with impenetrable metal cells", () => {
+    const state = createMine(42, {
+      ...DEFAULT_GEAR,
+      elevator: MINE_BOTTOM_ROW + 200,
+      elevatorSpeed: 10,
+    });
+
+    expect(cellAt(state, -100, MINE_BOTTOM_ROW)?.kind).toBe("metal");
+    expect(cellAt(state, 0, MINE_BOTTOM_ROW)?.kind).toBe("metal");
+    expect(cellAt(state, 100, MINE_BOTTOM_ROW)?.kind).toBe("metal");
+    expect(cellAt(state, 0, MINE_BOTTOM_ROW + 1)).toBe(null);
+
+    const fromOldDiff = createMine(42, DEFAULT_GEAR, NO_CONSUMABLES, [
+      [0, MINE_BOTTOM_ROW, { kind: "empty", beacon: true }],
+    ]);
+    expect(cellAt(fromOldDiff, 0, MINE_BOTTOM_ROW)?.kind).toBe("metal");
+    expect(countPlacedBeaconsInDiff(exportDiff(fromOldDiff))).toBe(0);
+
+    state.miner.row = MINE_BOTTOM_ROW - 1;
+    setCell(state, state.miner.col, state.miner.row, { kind: "empty" });
+    expect(step(state, "down")).toEqual({ ok: false, reason: "blocked" });
+    expect(state.miner.row).toBe(MINE_BOTTOM_ROW - 1);
+
+    expect(
+      dynamiteBlastCells(
+        state,
+        { col: state.miner.col, row: MINE_BOTTOM_ROW - 1 },
+        1,
+      ).some((coord) => coord.row >= MINE_BOTTOM_ROW),
+    ).toBe(false);
+
+    const lift = createMine(42, {
+      ...DEFAULT_GEAR,
+      elevator: MINE_BOTTOM_ROW + 200,
+      elevatorSpeed: 10,
+    });
+    lift.miner.col = ELEVATOR_COL;
+    for (let i = 0; i < 200; i++) applyAction(lift, "ride-down");
+    expect(lift.miner.row).toBe(MINE_BOTTOM_ROW - 1);
+    expect(applyAction(lift, "ride-down")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
   });
 
   it("keeps ores inside their starting band and leaves trace odds deeper", () => {

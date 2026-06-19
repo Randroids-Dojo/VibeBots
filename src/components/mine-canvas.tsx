@@ -183,6 +183,7 @@ const ROCK_COLORS = ["#555e6e", "#46506a", "#3b3550"];
 const CACHE_COLOR = "#f5c542";
 const BOULDER_COLOR = "#8a7f70";
 const BOULDER_WOBBLE_COLOR = "#b59f82";
+const METAL_COLOR = "#9aa4b2";
 /** Warm warning glow on a rock or boulder that is about to drop. */
 const TEETER_EMISSIVE = "#d9863a";
 const GAS_COLOR = "#8fa32e";
@@ -2993,6 +2994,27 @@ function MineScene({
               emissive={GAS_COLOR}
               emissiveIntensity={0.12}
               roughness={0.7}
+              flatShading
+            />
+          </RoundedBox>,
+        );
+        continue;
+      }
+      if (cell.kind === "metal") {
+        blockMeshes.push(
+          <RoundedBox
+            key={key}
+            args={[0.98, 0.98, 1.02]}
+            radius={0.04}
+            smoothness={1}
+            position={[x, y, 0]}
+          >
+            <meshStandardMaterial
+              color={variedColor(METAL_COLOR, col, row)}
+              emissive="#101820"
+              emissiveIntensity={0.14}
+              roughness={0.28}
+              metalness={0.85}
               flatShading
             />
           </RoundedBox>,

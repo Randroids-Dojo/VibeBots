@@ -39,7 +39,8 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 32;
+export const MINE_VERSION = 33;
+export const MINE_BOTTOM_ROW = 1000;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -587,6 +588,7 @@ export type CellKind =
   | "boulder"
   | "gas"
   | "magma"
+  | "metal"
   | "empty";
 
 export interface MineCell {
@@ -748,6 +750,7 @@ function exportCells(cells: Map<string, MineCell>): WorldDiff {
   const entries: WorldDiff = [];
   for (const [key, cell] of cells) {
     const [col, row] = key.split(",").map(Number);
+    if (row >= MINE_BOTTOM_ROW) continue;
     entries.push([col, row, { ...cell }]);
   }
   entries.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
@@ -762,6 +765,7 @@ function importDiff(diff: WorldDiff | undefined): Map<string, MineCell> {
   const cells = new Map<string, MineCell>();
   if (diff) {
     for (const [col, row, cell] of diff) {
+      if (row >= MINE_BOTTOM_ROW) continue;
       cells.set(cellKey(col, row), { ...cell });
     }
   }
@@ -1160,6 +1164,7 @@ function cacheChance(row: number): number {
 /** Pristine cell for coordinates the player never touched. */
 function generatedCell(seed: number, col: number, row: number): MineCell {
   if (row === 0) return { kind: "empty" };
+  if (row === MINE_BOTTOM_ROW) return { kind: "metal" };
   return rollCell(seed, row, col);
 }
 
@@ -1206,6 +1211,8 @@ export function cellAt(
   row: number,
 ): MineCell | null {
   if (row < 0) return null;
+  if (row > MINE_BOTTOM_ROW) return null;
+  if (row === MINE_BOTTOM_ROW) return { kind: "metal" };
   return (
     state.cells.get(cellKey(col, row)) ?? generatedCell(state.seed, col, row)
   );
@@ -1213,6 +1220,7 @@ export function cellAt(
 
 /** Materialize a cell into the diff and return the stored object. */
 function cellMut(state: MineState, col: number, row: number): MineCell {
+  if (row >= MINE_BOTTOM_ROW) return { kind: "metal" };
   const key = cellKey(col, row);
   let cell = state.cells.get(key);
   if (!cell) {
@@ -1229,6 +1237,7 @@ export function setCell(
   row: number,
   cell: MineCell,
 ): void {
+  if (row >= MINE_BOTTOM_ROW) return;
   state.cells.set(cellKey(col, row), cell);
 }
 
@@ -1458,7 +1467,12 @@ function parseWarpDownAction(
   if (!match) return null;
   const col = Number(match[1]);
   const row = Number(match[2]);
-  if (!Number.isSafeInteger(col) || !Number.isSafeInteger(row) || row < 1)
+  if (
+    !Number.isSafeInteger(col) ||
+    !Number.isSafeInteger(row) ||
+    row < 1 ||
+    row >= MINE_BOTTOM_ROW
+  )
     return null;
   return { col, row };
 }
@@ -1470,7 +1484,12 @@ function parseRenameBeaconAction(
   if (!match) return null;
   const col = Number(match[1]);
   const row = Number(match[2]);
-  if (!Number.isSafeInteger(col) || !Number.isSafeInteger(row) || row < 1)
+  if (
+    !Number.isSafeInteger(col) ||
+    !Number.isSafeInteger(row) ||
+    row < 1 ||
+    row >= MINE_BOTTOM_ROW
+  )
     return null;
   try {
     return {
@@ -1550,7 +1569,7 @@ function ventGasAround(
     ] as const) {
       const nc = g.col + dc;
       const nr = g.row + dr;
-      if (nr < 1) continue;
+      if (nr < 1 || nr >= MINE_BOTTOM_ROW) continue;
       const n = cellAt(state, nc, nr);
       if (!n) continue;
       if (n.kind === "gas" || n.kind === "magma")
@@ -1739,6 +1758,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   if (isRockLike && !canDigRock(state.gear, rockTierForDig(cell, t.row)))
     return { ok: false, reason: "rock" };
   if (
+    cell.kind === "metal" ||
     (cell.kind === "boulder" && !isFallingRock(cell)) ||
     cell.kind === "gas" ||
     cell.kind === "magma"
@@ -1998,11 +2018,12 @@ export function step(state: MineState, dir: Direction): MoveResult {
 }
 
 function isOnElevatorRail(state: MineState): boolean {
+  const rail = Math.min(state.gear.elevator, MINE_BOTTOM_ROW - 1);
   return (
-    state.gear.elevator > 0 &&
+    rail > 0 &&
     state.miner.col === ELEVATOR_COL &&
     state.miner.row >= 0 &&
-    state.miner.row <= state.gear.elevator
+    state.miner.row <= rail
   );
 }
 
@@ -2026,6 +2047,7 @@ function plankPlacementTarget(
   const t = target(state, dir);
   if (t.row < 1) return { ok: false, reason: "surface" };
   const cell = cellAt(state, t.col, t.row);
+  if (cell?.kind === "metal") return { ok: false, reason: "blocked" };
   const below = cellAt(state, t.col, t.row + 1);
   if (!cell || !below) return { ok: false, reason: "edge" };
   if (cell.ladder || cell.plank || below.kind !== "empty")
@@ -2245,7 +2267,7 @@ export function dynamiteBlastCells(
     const radius = lightRadius(state.gear);
     const cells: MineCoord[] = [];
     for (let row = center.row - radius; row <= center.row + radius; row++) {
-      if (row < 1) continue;
+      if (row < 1 || row >= MINE_BOTTOM_ROW) continue;
       for (let col = center.col - radius; col <= center.col + radius; col++) {
         if (
           Math.max(Math.abs(col - center.col), Math.abs(row - center.row)) <=
@@ -2259,7 +2281,7 @@ export function dynamiteBlastCells(
   }
   return DYNAMITE_TIER_OFFSETS[tier]
     .map(([dc, dr]) => ({ col: center.col + dc, row: center.row + dr }))
-    .filter((cell) => cell.row >= 1);
+    .filter((cell) => cell.row >= 1 && cell.row < MINE_BOTTOM_ROW);
 }
 
 export function dynamitePreviewCells(
@@ -2565,7 +2587,7 @@ export function elevatorSpeedRows(gear: MineGear): number {
  */
 function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
   const miner = state.miner;
-  const rail = state.gear.elevator;
+  const rail = Math.min(state.gear.elevator, MINE_BOTTOM_ROW - 1);
   if (rail <= 0) return { ok: false, reason: "no-elevator" };
   const step = elevatorSpeedRows(state.gear);
   if (dir === "down") {
@@ -2625,7 +2647,8 @@ export interface PlacedBeacon {
 
 export function countPlacedBeaconsInDiff(diff: WorldDiff | undefined): number {
   let count = 0;
-  for (const [, , cell] of diff ?? []) {
+  for (const [, row, cell] of diff ?? []) {
+    if (row >= MINE_BOTTOM_ROW) continue;
     if (cell.beacon) count++;
   }
   return count;
@@ -2651,6 +2674,7 @@ export function findBeacons(state: MineState): PlacedBeacon[] {
   for (const [key, cell] of state.cells) {
     if (!cell.beacon) continue;
     const [col, row] = key.split(",").map(Number);
+    if (row >= MINE_BOTTOM_ROW) continue;
     const order = Number.isSafeInteger(cell.beaconOrder)
       ? (cell.beaconOrder ?? 0)
       : 0;
@@ -2687,6 +2711,7 @@ export function findBeacon(
 function placeBeacon(state: MineState): MoveResult {
   const miner = state.miner;
   if (miner.row < 1) return { ok: false, reason: "surface" };
+  if (miner.row >= MINE_BOTTOM_ROW) return { ok: false, reason: "blocked" };
   if (state.consumables.beacon <= 0) return { ok: false, reason: "no-beacon" };
   const cell = cellMut(state, miner.col, miner.row);
   if (cell.beacon) return { ok: false, reason: "blocked" };
@@ -2716,6 +2741,7 @@ function warpDown(
   const miner = state.miner;
   if (miner.row !== 0 || miner.col !== WARP_PAD_COL)
     return { ok: false, reason: "blocked" };
+  if (target.row >= MINE_BOTTOM_ROW) return { ok: false, reason: "blocked" };
   const cell = cellAt(state, target.col, target.row);
   if (!cell?.beacon) return { ok: false, reason: "no-beacon" };
   if (target.row > warpRange(state.gear))

@@ -172,7 +172,8 @@ export type BunkerRaidTerrainKind =
   | "rock"
   | "boulder"
   | "gas"
-  | "magma";
+  | "magma"
+  | "metal";
 
 export interface BunkerRaidPathingOptions {
   startedAtMs?: number;

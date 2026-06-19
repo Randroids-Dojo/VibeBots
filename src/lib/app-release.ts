@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.54-death-bag-recovery";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.55-mine-metal-floor";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.55",
+      date: "2026-06-19",
+      title: "Mine metal floor",
+      intro: "Row 1000 is now the hard bottom of the mine.",
+      changes: [
+        {
+          build,
+          text: "Every cell on row 1000 now generates as impenetrable metal across the full mine width.",
+        },
+        {
+          build,
+          text: "The miner cannot dig, blast, step, fall, warp, or ride an elevator through the metal floor.",
+        },
+        {
+          build,
+          text: "Older saved world diffs cannot overwrite the metal row, and server replay now rejects old mine-version trips.",
+        },
+      ],
+    },
     {
       version: "0.1.54",
       date: "2026-06-19",

@@ -463,7 +463,7 @@
     },
     {
       "id": "REQ-027",
-      "requirement": "The mine is endless on both axes: pure per-cell generation over all integer columns and rows, sparse overrides for mutations, village anchored at the origin.",
+      "requirement": "The mine is horizontally endless and vertically bounded: pure per-cell generation over all columns and rows 0-999, sparse overrides for mutations, village anchored at the origin, and row 1000 is an impenetrable metal barrier.",
       "gddRef": "docs/gdd/06-mining.html#persistent-world",
       "status": "done",
       "implementationRefs": [

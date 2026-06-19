@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-metal-floor" data-date="2026-06-19">
+    <h3>Mine Metal Floor</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260619-003505</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased over <code>0.1.54</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported mine depth-cap fix. Row <code>1000</code> now generates as an impenetrable metal boundary across every column, older world diffs cannot overwrite that boundary, and cells deeper than the boundary read as outside the mine. The miner cannot dig, step, fall, ride the elevator, or warp through the metal floor; dynamite and gas chains also exclude it. The mine renderer gives metal cells a distinct metallic block material, bunker raid terrain treats metal as blocked, package version moved to <code>0.1.55</code>, and <code>MINE_VERSION</code> moved from <code>32</code> to <code>33</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched files, focused row-1000 Vitest (1 passed), full <code>src/sim/mine.test.ts</code> (86 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (245 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3168</code> for the latest release note (1 passed).</dd>
+      <dt>Assumptions</dt><dd>User clarification overrides the old vertical-endless wording: the mine remains horizontally unbounded, and rows <code>0</code> through <code>999</code> are playable while row <code>1000</code> is the hard stop.</dd>
+      <dt>GDD coverage</dt><dd>Updated <code>docs/gdd/06-mining.html</code> and <code>docs/GDD_COVERAGE.json</code> for REQ-027 to replace the old vertical-endless contract with the row-1000 metal floor.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="death-bag-recovery" data-date="2026-06-19">
     <h3>Death Bag Recovery</h3>
     <dl>

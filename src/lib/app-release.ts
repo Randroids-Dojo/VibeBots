@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.67-release-note-accuracy";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.68-ladder-removal-edit-mode";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.68",
+      date: "2026-06-19",
+      title: "Ladder removal cleanup",
+      intro: "Ladders now use the same edit pickup flow as other supports.",
+      changes: [
+        {
+          build,
+          text: "The dedicated ladder removal button is gone from the mine HUD.",
+        },
+        {
+          build,
+          text: "Use Edit placed pickups to select planted ladders, then confirm Pick up to remove them.",
+        },
+        {
+          build,
+          text: "Plank placement, ladder physics, support salvage value, and replay rules are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.67",
       date: "2026-06-19",

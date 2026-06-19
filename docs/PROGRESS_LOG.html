@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="ladder-removal-edit-mode" data-date="2026-06-19">
+    <h3>Ladder Removal Edit Mode</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/fresh-main-20260619-172918-844b20be</code>, created from current <code>origin/main</code> in a fresh worktree before implementation.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed mine HUD cleanup. Removed the dedicated <strong>Salvage ladder</strong> button that appeared while standing on a planted ladder. Players now remove planted ladders through the existing <strong>Edit placed pickups</strong> mode, the same selection flow used for visible supports. Package version moved to <code>0.1.68</code>; mine rules, action logs, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched code, docs, release, and test files, focused notification/version/Web Push Vitest (12 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with <code>PORT=3221 pnpm exec playwright test tests/e2e/smoke.spec.ts -g "latest release note|edit pickup|standing on a ladder"</code> (3 passed), <code>pnpm test</code> (263 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, and full Playwright smoke with <code>PORT=3222 pnpm exec playwright test</code> (45 passed, 2 storage-gated skipped).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as a player-facing HUD cleanup, so it gets a package bump and release note even though sim versions are unchanged. Mine surface tips were reviewed and kept unchanged because the existing unsupported-ladder and edit-pickup guidance still applies.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, release-notification expectations, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="release-note-accuracy" data-date="2026-06-19">
     <h3>Release Note Accuracy</h3>
     <dl>

@@ -658,6 +658,50 @@ test("edit pickup selection outlines selected cells in red", async ({
   );
 });
 
+test("standing on a ladder uses edit pickups for removal", async ({ page }) => {
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  const mine = createMine(7172, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  setCell(mine, START_COL, 1, { kind: "empty", ladder: true });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed: 7172,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "1",
+  );
+  await expect(
+    page.getByRole("button", { name: "Salvage ladder" }),
+  ).toHaveCount(0);
+
+  const editPickups = page.getByRole("button", {
+    name: "Edit placed pickups",
+  });
+  await expect(editPickups).toBeEnabled();
+  await editPickups.click();
+  await expect(
+    page.getByRole("region", { name: "Edit pickups" }),
+  ).toBeVisible();
+});
+
 test("home redirects to the mine hub", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/mine$/);
@@ -826,17 +870,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Release notes now match the Settings feedback entry point and current push setup.",
+    "Ladders now use the same edit pickup flow as other supports.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "place to send feedback",
+    "dedicated ladder removal button is gone",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "subscribed Android and installed iPhone or iPad players",
+    "Use Edit placed pickups",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Vercel push setup notes",
+    "replay rules are unchanged",
   );
 
   await page.mouse.click(8, 8);
@@ -856,6 +900,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.68", "Ladder removal cleanup"],
     ["0.1.67", "Release note accuracy"],
     ["0.1.66", "Bag drop controls"],
     ["0.1.65", "Tool satchel bag"],
@@ -902,7 +947,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.67-release-note-accuracy",
+      "2026-06-19-0.1.68-ladder-removal-edit-mode",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -984,7 +1029,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.67-release-note-accuracy",
+      "2026-06-19-0.1.68-ladder-removal-edit-mode",
     );
   });
   await page.route("**/api/version", async (route) => {

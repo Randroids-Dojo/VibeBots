@@ -11,12 +11,11 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.67.123",
+  version: "0.1.68.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-19-0.1.67-release-note-accuracy",
-  intro:
-    "Release notes now match the Settings feedback entry point and current push setup.",
+  noticeId: "2026-06-19-0.1.68-ladder-removal-edit-mode",
+  intro: "Ladders now use the same edit pickup flow as other supports.",
   changes: [
     {
       build: 123,
@@ -25,15 +24,14 @@ const release: AppRelease = {
   ],
   notes: [
     {
-      version: "0.1.67",
+      version: "0.1.68",
       date: "2026-06-19",
-      title: "Release note accuracy",
-      intro:
-        "Release notes now match the Settings feedback entry point and current push setup.",
+      title: "Ladder removal cleanup",
+      intro: "Ladders now use the same edit pickup flow as other supports.",
       changes: [
         {
           build: 123,
-          text: "The server claims each release notice id before sending.",
+          text: "The dedicated ladder removal button is gone from the mine HUD.",
         },
       ],
     },
@@ -134,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Release note accuracy"),
+      expect.stringContaining("Ladder removal cleanup"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

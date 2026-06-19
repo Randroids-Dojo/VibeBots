@@ -5053,20 +5053,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         <span style={{ ...chipStyle, color: "#8b93a7" }}>
           &#129717; {mine.consumables.plank}
         </span>
-        {miner.row >= 1 && currentCell?.ladder && (
-          <button
-            type="button"
-            aria-label="Salvage ladder"
-            onClick={() => {
-              setDynamiteMenuOpen(false);
-              if (!elevatorAutoDir) move("collect-ladder");
-            }}
-            disabled={!!elevatorAutoDir}
-            style={iconButtonStyle}
-          >
-            &#129692;&#8593;
-          </button>
-        )}
         <button
           type="button"
           aria-label={`Place plank ${facing}`}

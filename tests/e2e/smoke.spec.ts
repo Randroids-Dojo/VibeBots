@@ -93,6 +93,49 @@ async function openSettings(page: Page) {
   return settings;
 }
 
+async function installGamepadBackControl(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    let backPressed = false;
+    Object.defineProperty(navigator, "getGamepads", {
+      configurable: true,
+      value: () => [
+        {
+          buttons: Array.from({ length: 17 }, (_, index) => ({
+            pressed: (index === 1 || index === 8) && backPressed,
+            touched: (index === 1 || index === 8) && backPressed,
+            value: (index === 1 || index === 8) && backPressed ? 1 : 0,
+          })),
+        },
+      ],
+    });
+    Object.defineProperty(window, "__setGamepadBackPressed", {
+      configurable: true,
+      value: (pressed: boolean) => {
+        backPressed = pressed;
+      },
+    });
+  });
+}
+
+async function pressGamepadBack(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (
+      window as unknown as Window & {
+        __setGamepadBackPressed: (pressed: boolean) => void;
+      }
+    ).__setGamepadBackPressed(true);
+  });
+  await page.waitForTimeout(80);
+  await page.evaluate(() => {
+    (
+      window as unknown as Window & {
+        __setGamepadBackPressed: (pressed: boolean) => void;
+      }
+    ).__setGamepadBackPressed(false);
+  });
+  await page.waitForTimeout(80);
+}
+
 async function countCanvasRedPixels(
   page: Page,
   image: Buffer,
@@ -417,6 +460,7 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
 test("mine requires an explicit bunker claim mode before showing the claim panel", async ({
   page,
 }) => {
+  await installGamepadBackControl(page);
   await page.route("**/api/bunker", async (route) => {
     await route.fulfill({
       status: 200,
@@ -471,6 +515,16 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
   await expect(
     builder.getByRole("button", { name: "Claim 7x5 bunker" }),
   ).toBeVisible();
+  await pressGamepadBack(page);
+  await expect(builder).not.toBeVisible();
+  await expect(claimButton).toBeVisible();
+  await claimButton.click();
+  await expect(builder).toBeVisible();
+  await page.mouse.click(8, 8);
+  await expect(builder).not.toBeVisible();
+  await expect(claimButton).toBeVisible();
+  await claimButton.click();
+  await expect(builder).toBeVisible();
   await builder.getByRole("button", { name: "Cancel claim" }).click();
   await expect(builder).not.toBeVisible();
   await expect(
@@ -749,20 +803,20 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "The bunker claim button now stays clear of the lower mine HUD.",
+    "Mine alert windows now close from outside taps, Escape, and gamepad back.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Bunker claim button higher",
+    "outside-tap dismissal",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "lower action controls",
+    "Escape and gamepad cancel/back",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "button position before opening",
+    "compact Bunker button",
   );
 
-  await dialog.getByRole("button", { name: "Got it" }).click();
+  await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
   expect(
     await page.evaluate(() =>
@@ -779,6 +833,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.60", "Dismissible windows"],
     ["0.1.59", "Bunker claim HUD"],
     ["0.1.58", "Dropped bag gravity"],
     ["0.1.57", "Bag grid"],
@@ -814,6 +869,10 @@ test("mine prompts to refresh when the deployed version changes", async ({
   page,
 }) => {
   await page.addInitScript(() => {
+    localStorage.setItem(
+      "vibebots-release-notes-dismissed-id",
+      "2026-06-19-0.1.60-dismissible-windows",
+    );
     const realSetTimeout = window.setTimeout;
     const realSetInterval = window.setInterval;
     window.setTimeout = ((...args: Parameters<typeof window.setTimeout>) => {
@@ -838,7 +897,6 @@ test("mine prompts to refresh when the deployed version changes", async ({
   });
 
   await page.goto("/mine");
-  await dismissReleaseNotes(page);
 
   const prompt = page.getByRole("dialog", {
     name: "New version available",
@@ -852,6 +910,8 @@ test("mine prompts to refresh when the deployed version changes", async ({
     "999.0.0-test",
   );
   await expect(prompt.getByRole("button", { name: "Refresh" })).toBeVisible();
+  await page.mouse.click(8, 8);
+  await expect(prompt).not.toBeVisible();
 });
 
 test("mine asks mobile Safari users to add the Home Screen app for alerts", async ({
@@ -880,6 +940,11 @@ test("mine asks mobile Safari users to add the Home Screen app for alerts", asyn
     "Safari does not let websites open that sheet automatically.",
   );
 
+  await page.mouse.click(8, 8);
+  await expect(dialog).not.toBeVisible();
+
+  await page.reload();
+  await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Ok" }).click();
   await expect(dialog).not.toBeVisible();
 
@@ -901,6 +966,7 @@ test("mine asks mobile Safari users to add the Home Screen app for alerts", asyn
 test("mine falling-rock alert can be dismissed or permanently hidden", async ({
   page,
 }) => {
+  await installGamepadBackControl(page);
   const gear = { ...DEFAULT_GEAR, pickaxe: 4, fall: 5 };
   const mine = createMine(8080, gear, STARTING_CONSUMABLES);
   const c = START_COL;
@@ -947,7 +1013,7 @@ test("mine falling-rock alert can be dismissed or permanently hidden", async ({
   await expect(alert).toContainText(
     "The miner must avoid being under the rock in the next 2 turns.",
   );
-  await alert.getByRole("button", { name: "Ok" }).click();
+  await pressGamepadBack(page);
   await expect(alert).not.toBeVisible();
 
   await pressMineKey(page, "ArrowRight");
@@ -1174,6 +1240,11 @@ test("save slot deletion requires a destructive double confirmation", async ({
   await expect(settings).toBeVisible();
   await settings.getByRole("button", { name: "Load game" }).click();
   const saveSlots = page.getByRole("dialog", { name: "Load Save Slot" });
+  await expect(saveSlots).toBeVisible();
+  await page.mouse.click(8, 8);
+  await expect(saveSlots).not.toBeVisible();
+  const settingsAgain = await openSettings(page);
+  await settingsAgain.getByRole("button", { name: "Load game" }).click();
   await expect(saveSlots).toBeVisible();
 
   const slotTwo = saveSlots.getByRole("group", { name: "Slot 2" });

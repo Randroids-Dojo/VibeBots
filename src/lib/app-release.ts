@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.59-bunker-claim-hud";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.60-dismissible-windows";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.60",
+      date: "2026-06-19",
+      title: "Dismissible windows",
+      intro:
+        "Mine alert windows now close from outside taps, Escape, and gamepad back.",
+      changes: [
+        {
+          build,
+          text: "Release notes, falling-rock warnings, Home Screen prompts, save slots, stamp book, and bag windows now share outside-tap dismissal.",
+        },
+        {
+          build,
+          text: "Escape and gamepad cancel/back now dismiss alert windows, including the bunker claim panel.",
+        },
+        {
+          build,
+          text: "The bunker builder can collapse back to a compact Bunker button so the mine view is easy to recover.",
+        },
+      ],
+    },
     {
       version: "0.1.59",
       date: "2026-06-19",

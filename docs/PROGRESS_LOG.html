@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="dismissible-alert-windows" data-date="2026-06-19">
+    <h3>Dismissible Alert Windows</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260619-135324</code>, created from current <code>origin/main</code> in a fresh worktree before implementation.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-directed UI rule. Mine alert windows now share outside click or tap, Escape, and gamepad cancel/back dismissal. Release notes, falling-rock warnings, the iOS Home Screen prompt, Stamp Book, Save Slots, bag grid, and version refresh prompt all follow the rule. The bunker claim and builder panel now collapse back to a compact Bunker button when dismissed. Package version moved to <code>0.1.60</code>; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and tests, <code>pnpm typecheck</code>, focused notification and version Vitest (8 passed), <code>pnpm build</code>, focused Playwright smoke against <code>PORT=3194</code> for release notes, version refresh, iOS prompt, falling-rock alert, bag grid, save slots, and bunker claim dismissal (7 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and <code>pnpm test</code> (249 passed). In-app Browser verification on <code>http://localhost:3195/mine</code> confirmed the release dialog backdrop dismissal, the bunker claim panel outside-tap collapse back to its compact button, and zero console errors.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: destructive confirmation steps can remain inside a larger dismissible window, but the containing window must support outside, Escape, and gamepad cancel/back dismissal. Mine surface tips were reviewed and kept unchanged because this is UI window behavior, not a mining rule, economy change, hazard, shop, upgrade, or recovery change.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code>, <code>docs/gdd/08-base-building.html</code>, <code>docs/WORKING_AGREEMENT.html</code>, static release notes, in-game release notes, notification release-summary expectations, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-claim-hud-position" data-date="2026-06-19">
     <h3>Bunker Claim HUD Position</h3>
     <dl>

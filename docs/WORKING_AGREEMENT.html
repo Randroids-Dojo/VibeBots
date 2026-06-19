@@ -77,6 +77,12 @@
     <li>For in-world mine labels, prefer mesh markers, icons, controlled sprite atlases, or DOM overlays anchored outside the canvas. If exact in-canvas text is unavoidable, add a mobile or narrow-viewport smoke test that samples canvas pixels for white-card artifacts.</li>
     <li>When debugging a white square that follows the player, inspect in-scene text, sprite, and texture atlas paths before changing lights or materials.</li>
   </ul>
+  <p>Window dismissal rule:</p>
+  <ul>
+    <li>Every new alert window, modal dialog, blocking prompt, or floating gameplay panel must be dismissible by clicking or tapping outside its visual bounds unless it is a destructive confirmation already inside a larger dismissible window.</li>
+    <li>Every new alert window, modal dialog, blocking prompt, or floating gameplay panel must also close on Escape and gamepad cancel/back.</li>
+    <li>Focused UI smoke coverage should exercise at least one pointer-outside dismissal path and one keyboard or gamepad dismissal path for new window patterns.</li>
+  </ul>
   <p>Versioned game-tip hygiene:</p>
   <ul>
     <li>Every package version bump or app release-note update must include a review of the mine surface tip rotation in <code>src/components/mine-panel.tsx</code>.</li>

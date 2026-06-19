@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const POLL_INTERVAL_MS = 60_000;
 const INITIAL_DELAY_MS = 30_000;
@@ -23,6 +23,14 @@ export function VersionRefreshPrompt({
   currentVersion: string;
 }) {
   const [staleVersion, setStaleVersion] = useState<string | null>(null);
+  const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
+  const gamepadDismissPressedRef = useRef(false);
+  const dismiss = useCallback(() => {
+    setStaleVersion((version) => {
+      if (version) setDismissedVersion(version);
+      return null;
+    });
+  }, []);
 
   useEffect(() => {
     if (!currentVersion || currentVersion === "dev") return;
@@ -35,7 +43,12 @@ export function VersionRefreshPrompt({
         const res = await fetch("/api/version", { cache: "no-store" });
         if (!res.ok) return;
         const version = versionFromPayload(await res.json());
-        if (!version || version === "dev" || version === currentVersion) {
+        if (
+          !version ||
+          version === "dev" ||
+          version === currentVersion ||
+          version === dismissedVersion
+        ) {
           return;
         }
         if (!cancelled) setStaleVersion(version);
@@ -54,39 +67,75 @@ export function VersionRefreshPrompt({
       clearTimeout(initial);
       if (interval) clearInterval(interval);
     };
-  }, [currentVersion]);
+  }, [currentVersion, dismissedVersion]);
+
+  useEffect(() => {
+    if (!staleVersion) {
+      gamepadDismissPressedRef.current = false;
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      dismiss();
+    };
+    window.addEventListener("keydown", onKey);
+    let frame = 0;
+    const pollGamepadDismiss = () => {
+      const pads = navigator.getGamepads?.() ?? [];
+      const dismissPressed = pads.some(
+        (pad) =>
+          Boolean(pad?.buttons[1]?.pressed) ||
+          Boolean(pad?.buttons[8]?.pressed),
+      );
+      if (dismissPressed && !gamepadDismissPressedRef.current) dismiss();
+      gamepadDismissPressedRef.current = dismissPressed;
+      frame = requestAnimationFrame(pollGamepadDismiss);
+    };
+    frame = requestAnimationFrame(pollGamepadDismiss);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      cancelAnimationFrame(frame);
+    };
+  }, [dismiss, staleVersion]);
 
   if (!staleVersion) return null;
 
   return (
     <div
       role="dialog"
+      aria-modal="true"
       aria-labelledby="version-refresh-title"
       aria-describedby="version-refresh-description"
       aria-live="polite"
       data-version-refresh-prompt={staleVersion}
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) dismiss();
+      }}
       style={{
         position: "fixed",
-        top: 12,
-        left: "50%",
+        inset: 0,
         zIndex: 80,
-        width: "min(92vw, 420px)",
-        transform: "translateX(-50%)",
-        border: "1px solid #54e0c7",
-        borderRadius: 8,
-        background: "rgba(17, 21, 31, 0.97)",
-        boxShadow: "0 16px 42px rgba(0, 0, 0, 0.42)",
-        color: "#e6e8ee",
-        padding: "12px 14px",
         pointerEvents: "auto",
       }}
     >
-      <div
+      <section
         style={{
+          position: "absolute",
+          top: 12,
+          left: "50%",
+          width: "min(92vw, 420px)",
+          transform: "translateX(-50%)",
           display: "grid",
           gridTemplateColumns: "1fr auto",
           alignItems: "center",
           gap: 12,
+          border: "1px solid #54e0c7",
+          borderRadius: 8,
+          background: "rgba(17, 21, 31, 0.97)",
+          boxShadow: "0 16px 42px rgba(0, 0, 0, 0.42)",
+          color: "#e6e8ee",
+          padding: "12px 14px",
         }}
       >
         <div>
@@ -130,7 +179,7 @@ export function VersionRefreshPrompt({
         >
           Refresh
         </button>
-      </div>
+      </section>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const POLL_INTERVAL_MS = 60_000;
 const INITIAL_DELAY_MS = 30_000;
+const APP_VERSION_MARKER = /data-vibebots-app-version="([^"]+)"/;
 
 function versionFromPayload(payload: unknown): string | null {
   if (
@@ -15,6 +16,31 @@ function versionFromPayload(payload: unknown): string | null {
     return payload.version;
   }
   return null;
+}
+
+function versionFromDocument(html: string): string | null {
+  return APP_VERSION_MARKER.exec(html)?.[1] ?? null;
+}
+
+function cacheBustedMineUrl(paramName: string, value: string): URL {
+  const url = new URL(window.location.href);
+  url.searchParams.set(paramName, value);
+  return url;
+}
+
+async function refreshableVersion(): Promise<string | null> {
+  const url = cacheBustedMineUrl("vibebots_version_probe", String(Date.now()));
+  const res = await fetch(url.toString(), {
+    cache: "no-store",
+    headers: {
+      accept: "text/html",
+      "x-vibebots-version-probe": "1",
+    },
+  });
+  if (!res.ok) return null;
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("text/html")) return null;
+  return versionFromDocument(await res.text());
 }
 
 export function VersionRefreshPrompt({
@@ -51,6 +77,8 @@ export function VersionRefreshPrompt({
         ) {
           return;
         }
+        const documentVersion = await refreshableVersion();
+        if (documentVersion !== version) return;
         if (!cancelled) setStaleVersion(version);
       } catch {
         return;
@@ -164,7 +192,11 @@ export function VersionRefreshPrompt({
         </div>
         <button
           type="button"
-          onClick={() => window.location.reload()}
+          onClick={() => {
+            window.location.assign(
+              cacheBustedMineUrl("vibebots_refresh", staleVersion).toString(),
+            );
+          }}
           style={{
             minHeight: 38,
             borderRadius: 8,

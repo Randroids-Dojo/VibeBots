@@ -2,12 +2,12 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.61-native-release-alerts";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.63-native-release-alerts";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.61",
+      version: "0.1.63",
       date: "2026-06-19",
       title: "Native release alerts",
       intro:
@@ -24,6 +24,47 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         {
           build,
           text: "The manual admin dispatch route remains available as an operations fallback.",
+        },
+      ],
+    },
+    {
+      version: "0.1.62",
+      date: "2026-06-19",
+      title: "Refresh availability guard",
+      intro: "Refresh prompts now wait until the new mine page is ready.",
+      changes: [
+        {
+          build,
+          text: "The mine now checks a cache-busted page document before showing the New version available prompt.",
+        },
+        {
+          build,
+          text: "Players only see the Refresh button once the version returned by /api/version matches the page they would load.",
+        },
+        {
+          build,
+          text: "The Refresh button navigates to a fresh page URL without touching the release-note dismissal state.",
+        },
+      ],
+    },
+    {
+      version: "0.1.61",
+      date: "2026-06-19",
+      title: "Ladder gravity",
+      intro:
+        "Placed ladders now fall when their bottom support is mined away or salvaged.",
+      changes: [
+        {
+          build,
+          text: "A ladder hanging over an empty shaft now slides down until it lands on solid ground or another ladder.",
+        },
+        {
+          build,
+          text: "Stacked ladders settle bottom-up from the changed support, so whole vertical chains move together without scanning the full mine.",
+        },
+        {
+          build,
+          text: "Fallen ladders kick up a small wood-chip trail and landing dust so the change reads in motion.",
         },
       ],
     },

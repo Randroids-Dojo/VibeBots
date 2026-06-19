@@ -110,7 +110,7 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.61-native-release-alerts",
+      releaseNoticeId: "2026-06-19-0.1.63-native-release-alerts",
       releaseSummary:
         "Native release alerts: New releases now send native OS alerts automatically after deployment.",
     });
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.61-native-release-alerts",
+      releaseNoticeId: "2026-06-19-0.1.63-native-release-alerts",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -858,6 +858,44 @@ function spawnDust(juice: JuiceState, x: number, y: number): void {
   }
 }
 
+function spawnLadderFall(
+  juice: JuiceState,
+  x: number,
+  fromY: number,
+  toY: number,
+): void {
+  const distance = Math.max(1, Math.abs(toY - fromY));
+  const chips = Math.min(10, 4 + Math.floor(distance * 2));
+  for (let i = 0; i < chips; i++) {
+    const ratio = chips <= 1 ? 1 : i / (chips - 1);
+    pushParticle(juice, {
+      kind: "debris",
+      x: x + (Math.random() - 0.5) * 0.34,
+      y: fromY + (toY - fromY) * ratio + (Math.random() - 0.5) * 0.2,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: Math.random() * 1.2 + 0.15,
+      gravity: 7.5,
+      size: 0.07 + Math.random() * 0.05,
+      color: i % 3 === 0 ? "#f0c36b" : "#c88a3d",
+      life: 0.28 + Math.random() * 0.22,
+    });
+  }
+  const dust = Math.min(5, 2 + Math.floor(distance));
+  for (let i = 0; i < dust; i++) {
+    pushParticle(juice, {
+      kind: "dust",
+      x: x + (Math.random() - 0.5) * 0.46,
+      y: toY - 0.34 + Math.random() * 0.12,
+      vx: (Math.random() - 0.5) * 0.9,
+      vy: Math.random() * 0.7 + 0.15,
+      gravity: 1.1,
+      size: 0.08 + Math.random() * 0.05,
+      color: "#806a4e",
+      life: 0.45 + Math.random() * 0.35,
+    });
+  }
+}
+
 /** Crystals jutting from an ore cell, sized and angled per cell hash. */
 function OreCrystals({
   col,
@@ -2248,6 +2286,16 @@ function MineScene({
     if ((lastResult.vented ?? 0) > 0) {
       spawnBurst(j, cellX(at.col), -at.row, GAS_COLOR, 16);
       j.shake = Math.max(j.shake, 0.25);
+    }
+    if (lastResult.ladderFalls?.length) {
+      const visibleFalls = lastResult.ladderFalls.slice(0, 14);
+      for (const fall of visibleFalls) {
+        spawnLadderFall(j, cellX(fall.to.col), -fall.from.row, -fall.to.row);
+      }
+      j.shake = Math.max(
+        j.shake,
+        Math.min(0.18, 0.055 + visibleFalls.length * 0.014),
+      );
     }
     if (lastResult.crushed) j.shake = Math.max(j.shake, 0.5);
   }, [tick]);

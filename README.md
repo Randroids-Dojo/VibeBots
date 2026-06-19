@@ -34,7 +34,7 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 - `AUTH_SECRET`: HMAC secret for the signed guest cookie (Production + Preview).
 - `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`: Web Push keys for native browser release notifications. Generate them with `pnpm exec web-push generate-vapid-keys`, set both values on the Vercel project, and keep the private key secret.
 - `WEB_PUSH_CONTACT_EMAIL`: optional contact email for the Web Push VAPID subject. Defaults to `support@randroid.dev`.
-- `NOTIFICATION_ADMIN_TOKEN`: bearer token required by `POST /api/notifications/release`, which dispatches the current release summary once to each enabled subscription.
+- `NOTIFICATION_ADMIN_TOKEN`: bearer token required by `POST /api/notifications/release`, the manual fallback for dispatching the current release summary to enabled subscriptions. Normal release dispatch is triggered idempotently by the no-store `/api/version` check when storage and Web Push keys are configured.
 
 ## Operations
 

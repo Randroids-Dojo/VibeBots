@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.60-dismissible-windows";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.61-native-release-alerts";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.61",
+      date: "2026-06-19",
+      title: "Native release alerts",
+      intro:
+        "New releases now send native OS alerts automatically after deployment.",
+      changes: [
+        {
+          build,
+          text: "The version check now claims each release notice id and sends the one-line release summary to enabled Web Push subscriptions.",
+        },
+        {
+          build,
+          text: "Android launchers and installed iPhone or iPad Home Screen apps use the same service worker notification path.",
+        },
+        {
+          build,
+          text: "The manual admin dispatch route remains available as an operations fallback.",
+        },
+      ],
+    },
     {
       version: "0.1.60",
       date: "2026-06-19",

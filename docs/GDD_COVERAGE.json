@@ -712,6 +712,7 @@
       "testRefs": [
         "src/app/api/notifications/route.test.ts",
         "src/app/api/version/route.test.ts",
+        "src/server/web-push.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []

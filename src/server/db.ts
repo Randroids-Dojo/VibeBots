@@ -185,6 +185,19 @@ async function applySchema(sql: Sql): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS release_push_dispatches (
+      notice_id text PRIMARY KEY,
+      release_version text NOT NULL,
+      status text NOT NULL DEFAULT 'sending',
+      attempted integer NOT NULL DEFAULT 0,
+      sent integer NOT NULL DEFAULT 0,
+      expired integer NOT NULL DEFAULT 0,
+      failed integer NOT NULL DEFAULT 0,
+      started_at timestamptz NOT NULL DEFAULT now(),
+      finished_at timestamptz,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`;
 }
 
 /** The shared SQL client, with the schema guaranteed applied. */

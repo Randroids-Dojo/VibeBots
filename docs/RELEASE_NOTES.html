@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.61" data-date="2026-06-19">
+    <h2>0.1.61</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.61</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>34</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Enabled release notifications now send native OS alerts automatically after deployment.</dd>
+      <dt>Platform</dt><dd>The no-store <code>/api/version</code> route now claims the current release notice id in Neon and dispatches its one-line summary to enabled Web Push subscriptions when storage and VAPID keys are configured. Android launcher installs and installed iPhone or iPad Home Screen apps use the same service worker notification handler.</dd>
+      <dt>Operations</dt><dd>The release push ledger prevents duplicate automatic fanout for the same notice id. The admin <code>POST /api/notifications/release</code> route remains available as a manual fallback, and stale endpoints are still disabled on push-service 404 or 410 responses.</dd>
+      <dt>Verification</dt><dd>Focused release-notification and version-route tests cover configured auto dispatch, duplicate-claim suppression, service worker payload generation, and the current notification summary. Final checks are recorded in the progress log for this slice.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.60" data-date="2026-06-19">
     <h2>0.1.60</h2>
     <dl>

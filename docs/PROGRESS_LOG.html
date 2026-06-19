@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="native-release-notifications" data-date="2026-06-19">
+    <h3>Native Release Notifications</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/native-release-notifications</code>, renamed from the fresh worktree branch and rebased onto current <code>origin/main</code> before implementation.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-directed release notification hardening. Enabled Web Push subscriptions now receive native OS release alerts automatically from the no-store <code>/api/version</code> path when storage and VAPID keys are configured. The server claims each release notice id in a new <code>release_push_dispatches</code> ledger before fanout, sends the same short release summary used by in-game release notes, suppresses duplicate automatic sends, and keeps the admin release route as a manual fallback. Package version moved to <code>0.1.61</code>; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and test files, focused notification and version Vitest (13 passed), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm test</code> (253 passed), <code>pnpm lint</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm build</code>, focused Playwright smoke against <code>http://127.0.0.1:3201</code> for latest release notes, version refresh, and iOS Home Screen notification guidance (3 passed), <code>pnpm check:purity</code>, and full Playwright smoke against <code>http://127.0.0.1:3201</code> (40 passed, 2 storage-gated skipped). In-app Browser verification on <code>http://127.0.0.1:3201/mine</code> confirmed the <code>0.1.61</code> release dialog, release notice id <code>2026-06-19-0.1.61-native-release-alerts</code>, Settings availability, and zero console errors.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: trigger automatic release fanout from the existing no-store app version check instead of changing CI/CD config, because this repo requires explicit approval before CI/CD edits and the app already polls that route after deployment. Mine surface tips were reviewed and kept unchanged because this is app-shell release communication, not a mining rule, economy path, control, upgrade, hazard, shop, or recovery change.</dd>
+      <dt>GDD coverage</dt><dd>REQ-039 stays done with explicit automatic fanout and dispatch-ledger implementation refs. Updated <code>docs/gdd/09-notifications.html</code>, <code>docs/GDD_COVERAGE.json</code>, static release notes, in-game release notes, notification release-summary expectations, and README operations copy.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="dismissible-alert-windows" data-date="2026-06-19">
     <h3>Dismissible Alert Windows</h3>
     <dl>

@@ -803,17 +803,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Mine alert windows now close from outside taps, Escape, and gamepad back.",
+    "New releases now send native OS alerts automatically after deployment.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "outside-tap dismissal",
+    "sends the one-line release summary",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Escape and gamepad cancel/back",
+    "Android launchers and installed iPhone or iPad Home Screen apps",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "compact Bunker button",
+    "manual admin dispatch route",
   );
 
   await page.mouse.click(8, 8);
@@ -833,6 +833,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.61", "Native release alerts"],
     ["0.1.60", "Dismissible windows"],
     ["0.1.59", "Bunker claim HUD"],
     ["0.1.58", "Dropped bag gravity"],
@@ -871,7 +872,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.60-dismissible-windows",
+      "2026-06-19-0.1.61-native-release-alerts",
     );
     const realSetTimeout = window.setTimeout;
     const realSetInterval = window.setInterval;

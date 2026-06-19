@@ -17,6 +17,10 @@ export interface ReleasePushResult {
   failed: number;
 }
 
+export interface ReleasePushDispatchResult extends ReleasePushResult {
+  dispatched: boolean;
+}
+
 export function webPushPublicKey(): string | null {
   return process.env.VAPID_PUBLIC_KEY ?? null;
 }
@@ -142,6 +146,70 @@ export async function releasePushTargets(
   return rows;
 }
 
+async function claimReleasePushDispatch(
+  sql: Sql,
+  release: AppRelease,
+): Promise<boolean> {
+  const inserted = (await sql`
+    INSERT INTO release_push_dispatches (
+      notice_id,
+      release_version,
+      status,
+      started_at,
+      updated_at
+    )
+    VALUES (
+      ${release.noticeId},
+      ${release.version},
+      'sending',
+      now(),
+      now()
+    )
+    ON CONFLICT DO NOTHING
+    RETURNING notice_id`) as { notice_id: string }[];
+  if (inserted.length > 0) return true;
+
+  const retried = (await sql`
+    UPDATE release_push_dispatches
+    SET status = 'sending',
+        started_at = now(),
+        updated_at = now()
+    WHERE notice_id = ${release.noticeId}
+      AND status IN ('failed', 'partial')
+      AND updated_at < now() - interval '15 minutes'
+    RETURNING notice_id`) as { notice_id: string }[];
+  return retried.length > 0;
+}
+
+async function finishReleasePushDispatch(
+  sql: Sql,
+  release: AppRelease,
+  result: ReleasePushResult,
+): Promise<void> {
+  await sql`
+    UPDATE release_push_dispatches
+    SET status = ${result.failed > 0 ? "partial" : "sent"},
+        attempted = ${result.attempted},
+        sent = ${result.sent},
+        expired = ${result.expired},
+        failed = ${result.failed},
+        finished_at = now(),
+        updated_at = now()
+    WHERE notice_id = ${release.noticeId}`;
+}
+
+async function failReleasePushDispatch(
+  sql: Sql,
+  release: AppRelease,
+): Promise<void> {
+  await sql`
+    UPDATE release_push_dispatches
+    SET status = 'failed',
+        failed = failed + 1,
+        updated_at = now()
+    WHERE notice_id = ${release.noticeId}`;
+}
+
 function toWebPushSubscription(row: StoredPushSubscription): PushSubscription {
   return {
     endpoint: row.endpoint,
@@ -188,4 +256,28 @@ export async function sendReleasePushNotifications(
     }
   }
   return result;
+}
+
+export async function dispatchReleasePushOnce(
+  sql: Sql,
+  release: AppRelease,
+): Promise<ReleasePushDispatchResult> {
+  const claimed = await claimReleasePushDispatch(sql, release);
+  if (!claimed) {
+    return {
+      dispatched: false,
+      attempted: 0,
+      sent: 0,
+      expired: 0,
+      failed: 0,
+    };
+  }
+  try {
+    const result = await sendReleasePushNotifications(sql, release);
+    await finishReleasePushDispatch(sql, release, result);
+    return { dispatched: true, ...result };
+  } catch (error) {
+    await failReleasePushDispatch(sql, release);
+    throw error;
+  }
 }

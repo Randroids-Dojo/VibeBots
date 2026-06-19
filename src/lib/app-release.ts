@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.63-native-release-alerts";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.64-feedback";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.64",
+      date: "2026-06-19",
+      title: "Feedback window",
+      intro:
+        "The pause menu now has feedback, and ladder gravity asks for a quick reaction.",
+      changes: [
+        {
+          build,
+          text: "Settings now opens a Feedback window with common categories, a comment box, and an optional email field.",
+        },
+        {
+          build,
+          text: "When mining support makes ladders fall, a mechanic-specific prompt appears after the fall animation settles.",
+        },
+        {
+          build,
+          text: "Submitted feedback saves to player_feedback with the active player id, context, contact email, and a reviewed flag for later CLI review.",
+        },
+      ],
+    },
     {
       version: "0.1.63",
       date: "2026-06-19",

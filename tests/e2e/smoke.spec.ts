@@ -826,18 +826,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "New releases now send native OS alerts automatically after deployment.",
+    "The pause menu now has feedback, and ladder gravity asks for a quick reaction.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "sends the one-line release summary",
-  );
+  await expect(dialog.locator("li").first()).toContainText("common categories");
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Android launchers and installed iPhone or iPad Home Screen apps",
+    "fall animation settles",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "manual admin dispatch route",
-  );
+  await expect(dialog.locator("li").nth(2)).toContainText("player_feedback");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -856,6 +852,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.64", "Feedback window"],
     ["0.1.63", "Native release alerts"],
     ["0.1.62", "Refresh availability guard"],
     ["0.1.61", "Ladder gravity"],
@@ -898,7 +895,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.63-native-release-alerts",
+      "2026-06-19-0.1.64-feedback",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -980,7 +977,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.62-refresh-availability",
+      "2026-06-19-0.1.64-feedback",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1121,6 +1118,141 @@ test("mine falling-rock alert can be dismissed or permanently hidden", async ({
   await dismissReleaseNotes(page);
   await pressMineKey(page, "ArrowRight");
   await expect(alert).not.toBeVisible();
+});
+
+test("mine feedback form submits from settings and closes with gamepad back", async ({
+  page,
+}) => {
+  await installGamepadBackControl(page);
+  let feedbackBody: unknown = null;
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/feedback", async (route) => {
+    feedbackBody = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ saved: true }),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const settings = await openSettings(page);
+  await settings.getByRole("button", { name: "Feedback" }).click();
+  const dialog = page.getByRole("dialog", { name: "Feedback" });
+  await expect(dialog).toBeVisible();
+  await dialog.locator("select").selectOption("balance");
+  await dialog.getByLabel("Comment").fill("The new support rule feels fair.");
+  await dialog.getByLabel("Email (optional)").fill("miner@example.test");
+  await dialog.getByRole("button", { name: "Submit feedback" }).click();
+  await expect(dialog.getByRole("status")).toContainText("Feedback saved.");
+  expect(feedbackBody).toMatchObject({
+    category: "balance",
+    comment: "The new support rule feels fair.",
+    email: "miner@example.test",
+    context: {
+      source: "pause",
+      mineVersion: 35,
+    },
+  });
+
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const settingsAgain = await openSettings(page);
+  await settingsAgain.getByRole("button", { name: "Feedback" }).click();
+  await expect(dialog).toBeVisible();
+  await pressGamepadBack(page);
+  await expect(dialog).not.toBeVisible();
+});
+
+test("ladder gravity prompt opens mechanic feedback after the fall settles", async ({
+  page,
+}) => {
+  const gear = { ...DEFAULT_GEAR, pickaxe: 4, fall: 5 };
+  const mine = createMine(8282, gear, STARTING_CONSUMABLES);
+  const c = START_COL;
+  mine.miner.col = c;
+  mine.miner.row = 2;
+  setCell(mine, c, 2, { kind: "empty" });
+  setCell(mine, c, 3, { kind: "dirt" });
+  setCell(mine, c + 1, 1, { kind: "empty", ladder: true });
+  setCell(mine, c + 1, 2, { kind: "dirt" });
+  setCell(mine, c + 1, 3, { kind: "empty" });
+  setCell(mine, c + 1, 4, { kind: "dirt" });
+  let feedbackBody: unknown = null;
+
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/feedback", async (route) => {
+    feedbackBody = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ saved: true }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed: 8282,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "2",
+  );
+  await pressMineKey(page, "ArrowRight");
+
+  const prompt = page.getByRole("dialog", {
+    name: "Ladders can fall now",
+  });
+  await expect(prompt).toBeVisible({ timeout: 3_000 });
+  await expect(prompt.getByRole("button", { name: "Ok" })).toBeVisible();
+  await expect(
+    prompt.getByRole("button", { name: "Give Feedback Now" }),
+  ).toBeVisible();
+  await expect(
+    prompt.getByRole("button", { name: "Never Show Again" }),
+  ).toBeVisible();
+
+  await prompt.getByRole("button", { name: "Give Feedback Now" }).click();
+  const dialog = page.getByRole("dialog", { name: "Feedback" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Ladder gravity mechanic");
+  await dialog.getByLabel("Comment").fill("The slide made the shaft clearer.");
+  await dialog.getByRole("button", { name: "Submit feedback" }).click();
+  await expect(dialog.getByRole("status")).toContainText("Feedback saved.");
+  expect(feedbackBody).toMatchObject({
+    category: "confusing",
+    comment: "The slide made the shaft clearer.",
+    email: "",
+    context: {
+      source: "ladder-gravity",
+      prompt: "ladder-fall-after-mining-support",
+      mineVersion: 35,
+      depth: 2,
+      column: 1,
+    },
+  });
 });
 
 test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {

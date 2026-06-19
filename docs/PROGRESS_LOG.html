@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="feedback-window" data-date="2026-06-19">
+    <h3>Feedback Window</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260619155625</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased over <code>0.1.63</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed feedback mechanism. Settings now opens a Feedback dialog with common categories from <code>src/lib/feedback.ts</code>, a comment field, and an optional email field. Ladder gravity now shows a mechanic-specific prompt after ladder-fall animation settle time with <strong>Ok</strong>, <strong>Give Feedback Now</strong>, and <strong>Never Show Again</strong>. <strong>Give Feedback Now</strong> opens the same Feedback dialog with ladder context. New <code>/api/feedback</code> route saves rows in <code>player_feedback</code> with active player id, category, comment, optional contact email, context JSON, user agent, and <code>reviewed=false</code>. Package version moved to <code>0.1.64</code>; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> stay unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched files, focused feedback and notification Vitest (11 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PORT=3203</code> for latest release notes, Settings feedback, gamepad dismissal, and ladder-gravity prompt feedback (3 passed), and in-app Browser verification against <code>http://127.0.0.1:3202/mine</code> for release dialog, Settings feedback layout, text entry, email entry, inner dialog bounds, and zero console errors. After rebasing over <code>0.1.63</code>, repeated focused feedback, notification, version, and Web Push Vitest (16 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PORT=3204</code> (3 passed), <code>pnpm test</code> (261 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: feedback is tied to the active guest save-slot player, and <code>reviewed</code> is a database boolean rather than an in-game control because review will happen manually through future CLI work. Mine surface tips were reviewed and kept unchanged because this adds a feedback surface for an existing ladder rule rather than changing mining advice.</dd>
+      <dt>GDD coverage</dt><dd>Added REQ-040 as done in <code>docs/GDD_COVERAGE.json</code> and updated <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, notification release-summary expectations, route tests, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="native-release-notifications" data-date="2026-06-19">
     <h3>Native Release Notifications</h3>
     <dl>

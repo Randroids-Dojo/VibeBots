@@ -198,6 +198,21 @@ async function applySchema(sql: Sql): Promise<void> {
       finished_at timestamptz,
       updated_at timestamptz NOT NULL DEFAULT now()
     )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS player_feedback (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      category text NOT NULL,
+      comment text NOT NULL DEFAULT '',
+      contact_email text,
+      context jsonb NOT NULL DEFAULT '{}'::jsonb,
+      user_agent text NOT NULL DEFAULT '',
+      reviewed boolean NOT NULL DEFAULT false,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS player_feedback_reviewed_created_at_idx
+    ON player_feedback (reviewed, created_at DESC)`;
 }
 
 /** The shared SQL client, with the schema guaranteed applied. */

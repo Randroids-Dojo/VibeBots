@@ -19,6 +19,10 @@ import {
 import type { PlayerAchievementView } from "@/lib/achievements";
 import type { AppRelease } from "@/lib/app-release-types";
 import {
+  FEEDBACK_CATEGORY_OPTIONS,
+  type FeedbackCategory,
+} from "@/lib/feedback";
+import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
   type BasePartId,
@@ -51,6 +55,7 @@ import {
   findBeacons,
   GEAR_TRACKS,
   MAX_BEACONS,
+  MINE_VERSION,
   type MineAction,
   type MineGear,
   type MineGearTrack,
@@ -90,6 +95,8 @@ const RELEASE_DISMISSED_KEY = "vibebots-release-notes-dismissed-id";
 const RELEASE_PENDING_FROM_BUILD_KEY = "vibebots-release-notes-from-build";
 const FALLING_ROCK_ALERT_DISMISSED_KEY =
   "vibebots-falling-rock-alert-dismissed";
+const LADDER_GRAVITY_FEEDBACK_NEVER_KEY =
+  "vibebots-ladder-gravity-feedback-never";
 const IOS_HOME_SCREEN_PROMPT_NEVER_KEY =
   "vibebots-ios-home-screen-prompt-never";
 
@@ -216,6 +223,13 @@ type NotificationUiState =
   | "denied"
   | "saving"
   | "error";
+
+type FeedbackSource = "pause" | "ladder-gravity";
+
+interface FeedbackContext {
+  source: FeedbackSource;
+  prompt?: string;
+}
 
 function isIosDevice(): boolean {
   const platform = navigator.platform;
@@ -923,6 +937,463 @@ function FallingRockHazardAlert() {
             }}
           >
             Never Show Again
+          </button>
+        </div>
+      </section>
+    </DismissibleDialogFrame>
+  );
+}
+
+function LadderGravityFeedbackPrompt({
+  appVersion,
+  onFeedbackNow,
+}: {
+  appVersion: string;
+  onFeedbackNow: () => void;
+}) {
+  const lastResult = useMineStore((s) => s.lastResult);
+  const [visible, setVisible] = useState(false);
+  const [suppressedForSession, setSuppressedForSession] = useState(false);
+
+  useEffect(() => {
+    if (!lastResult?.ok || !lastResult.ladderFalls?.length) return;
+    if (suppressedForSession) return;
+    try {
+      if (localStorage.getItem(LADDER_GRAVITY_FEEDBACK_NEVER_KEY) === "true") {
+        return;
+      }
+    } catch {
+      // Storage blocked: keep the prompt session-scoped.
+    }
+    const timer = setTimeout(() => setVisible(true), 1100);
+    return () => clearTimeout(timer);
+  }, [lastResult, suppressedForSession]);
+
+  if (!visible) return null;
+
+  const dismiss = () => setVisible(false);
+  const neverShowAgain = () => {
+    try {
+      localStorage.setItem(LADDER_GRAVITY_FEEDBACK_NEVER_KEY, "true");
+    } catch {
+      setSuppressedForSession(true);
+    }
+    setVisible(false);
+  };
+  const feedbackNow = () => {
+    setVisible(false);
+    onFeedbackNow();
+  };
+
+  return (
+    <DismissibleDialogFrame
+      onDismiss={dismiss}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ladder-gravity-feedback-title"
+      data-app-version={appVersion}
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 35,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 18,
+        background: "rgba(5, 8, 13, 0.62)",
+        pointerEvents: "auto",
+      }}
+    >
+      <section
+        style={{
+          width: "min(92vw, 390px)",
+          border: "1px solid #f0c36b",
+          borderRadius: 12,
+          background: "rgba(17, 21, 31, 0.98)",
+          boxShadow: "0 18px 54px rgba(0, 0, 0, 0.54)",
+          color: "#e6e8ee",
+          padding: "16px 18px",
+        }}
+      >
+        <h2
+          id="ladder-gravity-feedback-title"
+          style={{
+            margin: 0,
+            color: "#f0c36b",
+            fontSize: "1.02rem",
+            lineHeight: 1.2,
+          }}
+        >
+          Ladders can fall now
+        </h2>
+        <p
+          style={{
+            margin: "10px 0 14px",
+            color: "#dce5f7",
+            fontSize: "0.92rem",
+            lineHeight: 1.4,
+          }}
+        >
+          A ladder you unsupported just slid down the shaft. How does this new
+          mechanic feel?
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={dismiss}
+            style={{
+              flex: "1 1 64px",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #54e0c7",
+              background: "#173033",
+              color: "#54e0c7",
+              fontSize: "0.88rem",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Ok
+          </button>
+          <button
+            type="button"
+            onClick={feedbackNow}
+            style={{
+              flex: "1 1 138px",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #f5c542",
+              background: "#2d2616",
+              color: "#f5c542",
+              fontSize: "0.88rem",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Give Feedback Now
+          </button>
+          <button
+            type="button"
+            onClick={neverShowAgain}
+            style={{
+              flex: "1 1 148px",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #384564",
+              background: "#20283a",
+              color: "#e6e8ee",
+              fontSize: "0.88rem",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Never Show Again
+          </button>
+        </div>
+      </section>
+    </DismissibleDialogFrame>
+  );
+}
+
+function FeedbackDialog({
+  open,
+  context,
+  appVersion,
+  onClose,
+}: {
+  open: boolean;
+  context: FeedbackContext;
+  appVersion: string;
+  onClose: () => void;
+}) {
+  const mine = useMineStore((s) => s.mine);
+  const [category, setCategory] = useState<FeedbackCategory>(
+    context.source === "ladder-gravity" ? "confusing" : "bug",
+  );
+  const [comment, setComment] = useState("");
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setCategory(context.source === "ladder-gravity" ? "confusing" : "bug");
+    setComment("");
+    setEmail("");
+    setState("idle");
+    setMessage(null);
+  }, [open, context.source]);
+
+  if (!open) return null;
+
+  const close = () => {
+    if (state === "saving") return;
+    onClose();
+  };
+
+  const submit = async () => {
+    if (state === "saving") return;
+    setState("saving");
+    setMessage(null);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          category,
+          comment,
+          email,
+          context: {
+            source: context.source,
+            prompt: context.prompt,
+            appVersion,
+            mineVersion: MINE_VERSION,
+            depth: mine.miner.row,
+            column: mine.miner.col,
+          },
+        }),
+      });
+      if (!res.ok) throw new Error("feedback unavailable");
+      setState("saved");
+      setMessage("Feedback saved. Thank you.");
+    } catch {
+      setState("error");
+      setMessage("Could not save feedback. Try again later.");
+    }
+  };
+
+  return (
+    <DismissibleDialogFrame
+      active={state !== "saving"}
+      onDismiss={close}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="feedback-title"
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 38,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        background: "rgba(3, 6, 12, 0.72)",
+        pointerEvents: "auto",
+      }}
+    >
+      <section
+        style={{
+          width: "min(520px, 100%)",
+          maxHeight: "calc(100dvh - 42px)",
+          overflowY: "auto",
+          borderRadius: 12,
+          border: "1px solid #54e0c7",
+          background: "rgba(16, 20, 31, 0.98)",
+          boxShadow: "0 18px 60px rgba(0, 0, 0, 0.58)",
+          color: "#e6e8ee",
+          padding: 18,
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <h2 id="feedback-title" style={{ margin: 0, fontSize: "1.18rem" }}>
+              Feedback
+            </h2>
+            {context.source === "ladder-gravity" && (
+              <p style={{ margin: "6px 0 0", color: "#f5c542" }}>
+                Ladder gravity mechanic
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            aria-label="Close feedback"
+            disabled={state === "saving"}
+            onClick={close}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              border: "1px solid #384564",
+              background: "#182033",
+              color: "#e6e8ee",
+              fontSize: "1rem",
+              fontWeight: 900,
+              cursor: state === "saving" ? "progress" : "pointer",
+            }}
+          >
+            X
+          </button>
+        </header>
+        <label
+          style={{
+            display: "grid",
+            gap: 6,
+            marginTop: 10,
+            color: "#cdd6ea",
+            fontSize: "0.84rem",
+            fontWeight: 800,
+          }}
+        >
+          Common feedback
+          <select
+            value={category}
+            onChange={(event) =>
+              setCategory(event.target.value as FeedbackCategory)
+            }
+            disabled={state === "saving" || state === "saved"}
+            style={{
+              width: "100%",
+              minHeight: 44,
+              borderRadius: 10,
+              border: "1px solid #384564",
+              background: "#121827",
+              color: "#e6e8ee",
+              fontSize: "1rem",
+              padding: "0 10px",
+            }}
+          >
+            {FEEDBACK_CATEGORY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label
+          style={{
+            display: "grid",
+            gap: 6,
+            marginTop: 12,
+            color: "#cdd6ea",
+            fontSize: "0.84rem",
+            fontWeight: 800,
+          }}
+        >
+          Comment
+          <textarea
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            disabled={state === "saving" || state === "saved"}
+            maxLength={2000}
+            rows={5}
+            style={{
+              width: "100%",
+              minHeight: 124,
+              resize: "vertical",
+              borderRadius: 10,
+              border: "1px solid #384564",
+              background: "#121827",
+              color: "#e6e8ee",
+              fontSize: "1rem",
+              lineHeight: 1.4,
+              padding: 10,
+              userSelect: "text",
+              WebkitUserSelect: "text",
+            }}
+          />
+        </label>
+        <label
+          style={{
+            display: "grid",
+            gap: 6,
+            marginTop: 12,
+            color: "#cdd6ea",
+            fontSize: "0.84rem",
+            fontWeight: 800,
+          }}
+        >
+          Email (optional)
+          <input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            disabled={state === "saving" || state === "saved"}
+            style={{
+              width: "100%",
+              minHeight: 44,
+              borderRadius: 10,
+              border: "1px solid #384564",
+              background: "#121827",
+              color: "#e6e8ee",
+              fontSize: "1rem",
+              padding: "0 10px",
+              userSelect: "text",
+              WebkitUserSelect: "text",
+            }}
+          />
+        </label>
+        {message && (
+          <p
+            role="status"
+            style={{
+              margin: "12px 0 0",
+              color: state === "error" ? "#ff8a8a" : "#54e0c7",
+              fontSize: "0.88rem",
+              fontWeight: 800,
+            }}
+          >
+            {message}
+          </p>
+        )}
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            marginTop: 16,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={state === "saving" || state === "saved"}
+            style={{
+              flex: "1 1 160px",
+              minHeight: 44,
+              borderRadius: 10,
+              border: "1px solid #54e0c7",
+              background: "#173033",
+              color: "#54e0c7",
+              fontSize: "0.94rem",
+              fontWeight: 900,
+              cursor:
+                state === "saving" || state === "saved"
+                  ? "not-allowed"
+                  : "pointer",
+              opacity: state === "saving" || state === "saved" ? 0.72 : 1,
+            }}
+          >
+            {state === "saving" ? "Saving..." : "Submit feedback"}
+          </button>
+          <button
+            type="button"
+            onClick={close}
+            disabled={state === "saving"}
+            style={{
+              flex: "1 1 100px",
+              minHeight: 44,
+              borderRadius: 10,
+              border: "1px solid #384564",
+              background: "#20283a",
+              color: "#e6e8ee",
+              fontSize: "0.94rem",
+              fontWeight: 800,
+              cursor: state === "saving" ? "progress" : "pointer",
+            }}
+          >
+            Close
           </button>
         </div>
       </section>
@@ -3228,6 +3699,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stampBookOpen, setStampBookOpen] = useState(false);
   const [saveSlotsOpen, setSaveSlotsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackContext, setFeedbackContext] = useState<FeedbackContext>({
+    source: "pause",
+  });
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
   const [releaseNotesVisible, setReleaseNotesVisible] = useState(false);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
@@ -3679,6 +4154,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     move(dir);
   };
 
+  const openFeedback = useCallback((context: FeedbackContext) => {
+    setFeedbackContext(context);
+    setFeedbackOpen(true);
+  }, []);
+
   const toggleCollectTarget = useCallback((target: CollectTarget) => {
     const key = collectTargetKey(target);
     setCollectSelection((prev) =>
@@ -3816,6 +4296,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       />
       <IosHomeScreenPrompt disabled={releaseNotesVisible} />
       <FallingRockHazardAlert />
+      <LadderGravityFeedbackPrompt
+        appVersion={appRelease.version}
+        onFeedbackNow={() =>
+          openFeedback({
+            source: "ladder-gravity",
+            prompt: "ladder-fall-after-mining-support",
+          })
+        }
+      />
+      <FeedbackDialog
+        open={feedbackOpen}
+        context={feedbackContext}
+        appVersion={appRelease.version}
+        onClose={() => setFeedbackOpen(false)}
+      />
       <StampBookPopup
         open={stampBookOpen}
         onClose={() => setStampBookOpen(false)}
@@ -3931,6 +4426,27 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             }}
           >
             Release notes
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen(false);
+              openFeedback({ source: "pause" });
+            }}
+            style={{
+              width: "100%",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #f0c36b",
+              background: "#2d2616",
+              color: "#f0c36b",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              marginTop: 8,
+            }}
+          >
+            Feedback
           </button>
           <ReleaseNotificationControl />
         </section>

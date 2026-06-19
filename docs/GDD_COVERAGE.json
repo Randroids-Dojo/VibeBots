@@ -716,6 +716,23 @@
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-040",
+      "requirement": "Players can submit feedback from the mine pause menu, and ladder-gravity feedback can be requested after ladder settling animations, with stored rows linked to the active player and a reviewed flag for later operator review.",
+      "gddRef": "docs/gdd/06-mining.html#controls",
+      "status": "done",
+      "implementationRefs": [
+        "src/lib/feedback.ts",
+        "src/components/mine-panel.tsx",
+        "src/app/api/feedback/route.ts",
+        "src/server/db.ts"
+      ],
+      "testRefs": [
+        "src/app/api/feedback/route.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": []
     }
   ]
 }

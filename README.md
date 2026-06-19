@@ -32,6 +32,9 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 
 - `DATABASE_URL` and friends: auto-provisioned by the dedicated Neon Postgres marketplace integration (Rule 11: one backing store per project, never shared). Created as sensitive values, so they are injected at deploy time and do not `vercel env pull` locally; local dev without them degrades to 503 "storage not configured" on persistence routes.
 - `AUTH_SECRET`: HMAC secret for the signed guest cookie (Production + Preview).
+- `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`: Web Push keys for native browser release notifications. Generate them with `pnpm exec web-push generate-vapid-keys`, set both values on the Vercel project, and keep the private key secret.
+- `WEB_PUSH_CONTACT_EMAIL`: optional contact email for the Web Push VAPID subject. Defaults to `support@randroid.dev`.
+- `NOTIFICATION_ADMIN_TOKEN`: bearer token required by `POST /api/notifications/release`, which dispatches the current release summary once to each enabled subscription.
 
 ## Operations
 

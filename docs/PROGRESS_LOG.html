@@ -31,6 +31,32 @@
 
 <main id="entries">
 
+  <article data-slice="ios-home-screen-notification-prompt" data-date="2026-06-19">
+    <h3>iOS Home Screen Notification Prompt</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260618231209-04b5528e</code>, continuing the fresh worktree branch created from current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed mobile Safari notification setup. The mine now detects mobile Safari outside standalone Home Screen mode and shows a native-style alert explaining that notifications need the installed Home Screen app. <code>Ok</code> dismisses the alert for the current page session, while <code>Never show again</code> persists the dismissal in local storage. Safari receives manual Share to Add to Home Screen guidance because Safari cannot open that sheet from page JavaScript. Review cleanup removed a dead install-prompt listener from the Safari-only alert, added PNG install icons for Home Screen and notification surfaces, and made admin release dispatch return <code>503</code> when Web Push keys are missing. Package version moved to <code>0.1.52</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. After rebasing over the <code>0.1.50</code> falling-rock alert slice, ran <code>pnpm exec biome check --write</code> on touched source, tests, package metadata, and coverage JSON; <code>pnpm typecheck</code>; <code>pnpm test</code> (241 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; JSON validation for <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check</code>; <code>pnpm build</code>; and targeted Playwright smoke against a fresh local production server for latest release notes, the mobile Safari Home Screen reminder, and the falling-rock alert (3 passed). Browser-plugin visual verification confirmed the mobile Safari reminder at <code>390x844</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: <code>Ok</code> is a current page-session dismissal so the reminder can appear again later, while <code>Never show again</code> is the durable opt-out. Recommended default: Safari receives manual Add to Home Screen guidance because WebKit documents the Home Screen requirement for iOS Web Push but does not provide a page API for opening the install sheet.</dd>
+      <dt>GDD coverage</dt><dd>Updated <code>docs/gdd/09-notifications.html</code>, static release notes, in-game release notes, and focused Playwright smoke coverage for the mobile Safari reminder.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="release-notifications" data-date="2026-06-19">
+    <h3>Release Notifications</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260618231209-04b5528e</code>, created from current <code>origin/main</code> in a fresh worktree before implementation.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed native browser notification system. The mine Settings menu now has an update-alert opt-in that asks for permission only after a player tap, registers <code>public/sw.js</code>, saves Web Push subscriptions to the new <code>web_push_subscriptions</code> table, and shows blocked, unsupported, missing-key, or iPhone and iPad install-required states. The app now ships a standalone web app manifest and icon for Home Screen installs. <code>/api/notifications/config</code> exposes the public VAPID key and current one-line release summary, <code>/api/notifications/subscription</code> stores or disables subscriptions, and admin-only <code>POST /api/notifications/release</code> sends the current release summary once per enabled subscription. Package version moved to <code>0.1.51</code>; <code>MINE_VERSION</code> stays at <code>30</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Added <code>web-push</code> and <code>@types/web-push</code>, rebased over the <code>0.1.49</code> mine-tip wrapping slice, then ran focused notification route tests (6 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (240 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3150</code> for latest release notes plus notification Settings state (1 passed). In-app Browser verification on <code>http://127.0.0.1:3150/mine</code> confirmed the <code>0.1.50</code> release dialog and the disabled local notification control with missing-key copy.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: release notifications use the existing release notice id for idempotency and the first release note title plus intro for the one-line native summary. Recommended default: production dispatch is an admin-token route so the release process can call it after deploy without exposing push fanout to players. Mine surface tips were reviewed and no tip change was needed because this adds an app Settings and release communication system, not a mining rule, control, hazard, economy path, or upgrade.</dd>
+      <dt>GDD coverage</dt><dd>Added <code>docs/gdd/09-notifications.html</code>, linked it from the GDD index, and marked new REQ-039 done in <code>docs/GDD_COVERAGE.json</code>. Updated static and in-game release notes for <code>0.1.51</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="falling-rock-alert" data-date="2026-06-19">
     <h3>Falling Rock Alert</h3>
     <dl>

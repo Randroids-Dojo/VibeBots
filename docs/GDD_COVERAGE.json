@@ -687,6 +687,31 @@
       "followupRefs": [
         "F-029"
       ]
+    },
+    {
+      "id": "REQ-039",
+      "requirement": "Players can opt into native browser notifications for one-line release summaries, with Web Push subscriptions, a mobile Safari Home Screen reminder, an installable iPhone and iPad web app path, and one send per release notice id.",
+      "gddRef": "docs/gdd/09-notifications.html#spec",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/mine-panel.tsx",
+        "src/server/web-push.ts",
+        "src/server/db.ts",
+        "src/app/api/notifications/config/route.ts",
+        "src/app/api/notifications/subscription/route.ts",
+        "src/app/api/notifications/release/route.ts",
+        "src/app/manifest.ts",
+        "public/sw.js",
+        "public/icon.svg",
+        "public/icon-192.png",
+        "public/icon-512.png",
+        "public/apple-touch-icon.png"
+      ],
+      "testRefs": [
+        "src/app/api/notifications/route.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": []
     }
   ]
 }

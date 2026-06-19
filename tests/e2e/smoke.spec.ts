@@ -738,18 +738,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText(
-    "The mine now teaches the falling-rock danger",
-  );
+  await expect(dialog).toContainText("Mobile Safari players");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "first starts a falling-rock countdown",
+    "Home Screen reminder",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "avoid being under the rock",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("Never show again");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Never Show Again stores the browser preference",
+    "cannot open the install sheet",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -769,11 +765,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.52", "Safari notification setup"],
+    ["0.1.51", "Update alerts"],
     ["0.1.50", "Falling rock alert"],
     ["0.1.49", "Mine tip wrap"],
     ["0.1.48", "Starter base parts"],
-    ["0.1.47", "Bunker claim alignment"],
-    ["0.1.46", "Clanker pathing"],
   ] as const;
   expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
   for (const [
@@ -788,6 +784,59 @@ test("mine shows the latest release note once to a fresh browser", async ({
   }
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
+
+  const settingsAgain = await openSettings(page);
+  await expect(settingsAgain.getByLabel("Update alerts")).toBeVisible();
+  await expect(
+    settingsAgain.getByRole("button", { name: "Enable update alerts" }),
+  ).toBeDisabled();
+  await expect(settingsAgain).toContainText(
+    "Notification keys are not set on this deploy.",
+  );
+});
+
+test("mine asks mobile Safari users to add the Home Screen app for alerts", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    isMobile: true,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+
+  const dialog = page.getByRole("dialog", {
+    name: "Add VibeBots to Home Screen",
+  });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(
+    "Mobile Safari needs the Home Screen app before notifications can work.",
+  );
+  await expect(dialog).toContainText(
+    "Safari does not let websites open that sheet automatically.",
+  );
+
+  await dialog.getByRole("button", { name: "Ok" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  await page.reload();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Never show again" }).click();
+  await expect(dialog).not.toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("vibebots-ios-home-screen-prompt-never"),
+    ),
+  ).toBe("1");
+
+  await page.reload();
+  await expect(dialog).not.toBeVisible();
+  await context.close();
 });
 
 test("mine falling-rock alert can be dismissed or permanently hidden", async ({

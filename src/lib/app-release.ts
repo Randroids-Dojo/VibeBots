@@ -2,10 +2,52 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.50-falling-rock-alert";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.52-ios-home-screen-prompt";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.52",
+      date: "2026-06-19",
+      title: "Safari notification setup",
+      intro:
+        "Mobile Safari players now get a Home Screen reminder before enabling notifications.",
+      changes: [
+        {
+          build,
+          text: "Mobile Safari now shows a Home Screen reminder for notifications when VibeBots is opened outside the installed app.",
+        },
+        {
+          build,
+          text: "Players can tap Ok to dismiss the reminder for the current page session or Never show again to keep it hidden.",
+        },
+        {
+          build,
+          text: "Safari cannot open the install sheet from page JavaScript, so the alert gives manual Share to Add to Home Screen guidance and the install metadata now includes PNG app icons.",
+        },
+      ],
+    },
+    {
+      version: "0.1.51",
+      date: "2026-06-19",
+      title: "Update alerts",
+      intro:
+        "Players can opt into native browser alerts for one-line version summaries.",
+      changes: [
+        {
+          build,
+          text: "The Settings menu now has an update-alerts opt-in that uses the browser's native notification prompt from a tap.",
+        },
+        {
+          build,
+          text: "Android Chrome can subscribe from the browser, while iPhone and iPad players are guided to install the Home Screen web app first.",
+        },
+        {
+          build,
+          text: "A server dispatch route can send each new release summary once to every enabled Web Push subscription.",
+        },
+      ],
+    },
     {
       version: "0.1.50",
       date: "2026-06-19",

@@ -84,6 +84,8 @@ const RELEASE_DISMISSED_KEY = "vibebots-release-notes-dismissed-id";
 const RELEASE_PENDING_FROM_BUILD_KEY = "vibebots-release-notes-from-build";
 const FALLING_ROCK_ALERT_DISMISSED_KEY =
   "vibebots-falling-rock-alert-dismissed";
+const IOS_HOME_SCREEN_PROMPT_NEVER_KEY =
+  "vibebots-ios-home-screen-prompt-never";
 
 const KEY_DIRECTIONS: Record<string, Direction> = {
   ArrowDown: "down",
@@ -120,6 +122,80 @@ const MINE_SURFACE_TIPS = [
   "Tip: survived bunker defenses add XP toward Level 2 and a third beacon slot.",
   "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
 ] as const;
+
+interface NotificationConfig {
+  configured: boolean;
+  vapidPublicKey: string | null;
+  releaseNoticeId: string;
+  releaseSummary: string;
+}
+
+type NotificationUiState =
+  | "checking"
+  | "unsupported"
+  | "ios-install"
+  | "unconfigured"
+  | "default"
+  | "enabled"
+  | "denied"
+  | "saving"
+  | "error";
+
+function isIosDevice(): boolean {
+  const platform = navigator.platform;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function isStandaloneWebApp(): boolean {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    ("standalone" in navigator &&
+      (navigator as Navigator & { standalone?: boolean }).standalone === true)
+  );
+}
+
+function isMobileSafari(): boolean {
+  const userAgent = navigator.userAgent;
+  return (
+    isIosDevice() &&
+    /Safari/.test(userAgent) &&
+    !/(CriOS|FxiOS|EdgiOS|OPiOS)/.test(userAgent)
+  );
+}
+
+function notificationPlatform(): string {
+  if (isIosDevice()) return "ios";
+  if (/Android/.test(navigator.userAgent)) return "android";
+  return "desktop";
+}
+
+function pushApiSupported(): boolean {
+  return (
+    "Notification" in window &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window
+  );
+}
+
+function base64UrlToUint8Array(value: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const base64 = `${value}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(base64);
+  const output = new Uint8Array(new ArrayBuffer(raw.length));
+  for (let i = 0; i < raw.length; i++) {
+    output[i] = raw.charCodeAt(i);
+  }
+  return output;
+}
+
+async function loadNotificationConfig(): Promise<NotificationConfig> {
+  const res = await fetch("/api/notifications/config", { cache: "no-store" });
+  if (!res.ok) throw new Error("notification config unavailable");
+  return res.json() as Promise<NotificationConfig>;
+}
 const BASE_BUILDING_COLS = [
   ...STALLS.map((stall) => stall.col),
   ...DESTINATIONS.map((destination) => destination.col),
@@ -361,9 +437,11 @@ function releaseHistoryContent(release: AppRelease): {
 function ReleaseNotesPopup({
   release,
   manualOpenCount,
+  onVisibleChange,
 }: {
   release: AppRelease;
   manualOpenCount: number;
+  onVisibleChange?: (visible: boolean) => void;
 }) {
   const [content, setContent] = useState<{
     intro: string | null;
@@ -377,6 +455,10 @@ function ReleaseNotesPopup({
     }>;
   }>({ intro: null, items: [], sections: [] });
   const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    onVisibleChange?.(visible);
+  }, [onVisibleChange, visible]);
 
   useEffect(() => {
     if (manualOpenCount <= 0) return;
@@ -740,6 +822,320 @@ function FallingRockHazardAlert() {
         </div>
       </section>
     </div>
+  );
+}
+
+function IosHomeScreenPrompt({ disabled }: { disabled: boolean }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (disabled) {
+      setVisible(false);
+      return;
+    }
+    if (localStorage.getItem(IOS_HOME_SCREEN_PROMPT_NEVER_KEY) === "1") {
+      return;
+    }
+    if (!isMobileSafari() || isStandaloneWebApp()) {
+      return;
+    }
+    setVisible(true);
+  }, [disabled]);
+
+  if (!visible) return null;
+
+  const dismiss = () => {
+    setVisible(false);
+  };
+
+  const dismissForever = () => {
+    localStorage.setItem(IOS_HOME_SCREEN_PROMPT_NEVER_KEY, "1");
+    setVisible(false);
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ios-home-screen-prompt-title"
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 29,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 18,
+        background: "rgba(5, 8, 13, 0.5)",
+        pointerEvents: "auto",
+      }}
+    >
+      <section
+        style={{
+          width: "min(92vw, 350px)",
+          border: "1px solid #f5c542",
+          borderRadius: 12,
+          background: "rgba(17, 21, 31, 0.97)",
+          boxShadow: "0 18px 54px rgba(0, 0, 0, 0.52)",
+          color: "#e6e8ee",
+          padding: "16px 18px",
+        }}
+      >
+        <h2
+          id="ios-home-screen-prompt-title"
+          style={{
+            margin: "0 0 8px",
+            color: "#f5c542",
+            fontSize: "1rem",
+            lineHeight: 1.2,
+          }}
+        >
+          Add VibeBots to Home Screen
+        </h2>
+        <p
+          style={{
+            margin: "0 0 10px",
+            color: "#dce5f7",
+            fontSize: "0.88rem",
+            lineHeight: 1.35,
+          }}
+        >
+          Mobile Safari needs the Home Screen app before notifications can work.
+          Tap Share, then Add to Home Screen.
+        </p>
+        <p
+          style={{
+            margin: "0 0 14px",
+            color: "#aab3c8",
+            fontSize: "0.76rem",
+            lineHeight: 1.3,
+          }}
+        >
+          Safari does not let websites open that sheet automatically.
+        </p>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr",
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            onClick={dismiss}
+            style={{
+              width: "100%",
+              minHeight: 42,
+              borderRadius: 10,
+              border: "1px solid #f5c542",
+              background: "#2d2616",
+              color: "#f5c542",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Ok
+          </button>
+          <button
+            type="button"
+            onClick={dismissForever}
+            style={{
+              width: "100%",
+              minHeight: 42,
+              borderRadius: 10,
+              border: "1px solid #8b93a7",
+              background: "#20283a",
+              color: "#e6e8ee",
+              fontSize: "0.86rem",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Never show again
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ReleaseNotificationControl() {
+  const [uiState, setUiState] = useState<NotificationUiState>("checking");
+  const [summary, setSummary] = useState("");
+
+  const refresh = useCallback(async () => {
+    if (!pushApiSupported()) {
+      setUiState("unsupported");
+      return;
+    }
+    if (isIosDevice() && !isStandaloneWebApp()) {
+      setUiState("ios-install");
+      return;
+    }
+    const config = await loadNotificationConfig();
+    setSummary(config.releaseSummary);
+    if (!config.configured || !config.vapidPublicKey) {
+      setUiState("unconfigured");
+      return;
+    }
+    if (Notification.permission === "denied") {
+      setUiState("denied");
+      return;
+    }
+    if (Notification.permission !== "granted") {
+      setUiState("default");
+      return;
+    }
+    const registration = await navigator.serviceWorker.register("/sw.js");
+    const subscription = await registration.pushManager.getSubscription();
+    setUiState(subscription ? "enabled" : "default");
+  }, []);
+
+  useEffect(() => {
+    refresh().catch(() => setUiState("error"));
+  }, [refresh]);
+
+  const enable = async () => {
+    setUiState("saving");
+    try {
+      const config = await loadNotificationConfig();
+      setSummary(config.releaseSummary);
+      if (!config.configured || !config.vapidPublicKey) {
+        setUiState("unconfigured");
+        return;
+      }
+      if (Notification.permission !== "granted") {
+        const permission = await Notification.requestPermission();
+        if (permission === "denied") {
+          setUiState("denied");
+          return;
+        }
+        if (permission !== "granted") {
+          setUiState("default");
+          return;
+        }
+      }
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const ready = await navigator.serviceWorker.ready;
+      const existing = await ready.pushManager.getSubscription();
+      const subscription =
+        existing ??
+        (await ready.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: base64UrlToUint8Array(config.vapidPublicKey),
+        }));
+      const res = await fetch("/api/notifications/subscription", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          subscription: subscription.toJSON(),
+          platform: notificationPlatform(),
+        }),
+      });
+      if (!res.ok) throw new Error("subscription save failed");
+      await registration.update();
+      setUiState("enabled");
+    } catch {
+      setUiState("error");
+    }
+  };
+
+  const disable = async () => {
+    setUiState("saving");
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await fetch("/api/notifications/subscription", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+        });
+        await subscription.unsubscribe();
+      }
+      setUiState(Notification.permission === "granted" ? "default" : "denied");
+    } catch {
+      setUiState("error");
+    }
+  };
+
+  const label =
+    uiState === "enabled"
+      ? "Update alerts on"
+      : uiState === "saving"
+        ? "Saving alerts"
+        : "Enable update alerts";
+  const note =
+    uiState === "ios-install"
+      ? "On iPhone or iPad, add VibeBots to Home Screen and open it there."
+      : uiState === "unsupported"
+        ? "Notifications are not available in this browser."
+        : uiState === "unconfigured"
+          ? "Notification keys are not set on this deploy."
+          : uiState === "denied"
+            ? "Notifications are blocked in browser settings."
+            : uiState === "enabled"
+              ? "You will get one-line release summaries."
+              : uiState === "error"
+                ? "Could not save notification settings."
+                : summary || "Get one-line release summaries.";
+
+  return (
+    <section
+      aria-label="Update alerts"
+      style={{
+        display: "grid",
+        gap: 6,
+        marginTop: 8,
+      }}
+    >
+      <button
+        type="button"
+        disabled={
+          uiState === "checking" ||
+          uiState === "saving" ||
+          uiState === "unsupported" ||
+          uiState === "ios-install" ||
+          uiState === "unconfigured" ||
+          uiState === "denied"
+        }
+        onClick={uiState === "enabled" ? disable : enable}
+        style={{
+          width: "100%",
+          minHeight: 40,
+          borderRadius: 10,
+          border: "1px solid #cdd6ea",
+          background: uiState === "enabled" ? "#21301f" : "#20283a",
+          color: uiState === "enabled" ? "#8ee06f" : "#e6e8ee",
+          fontSize: "0.86rem",
+          fontWeight: 800,
+          cursor:
+            uiState === "checking" || uiState === "saving"
+              ? "progress"
+              : "pointer",
+          opacity:
+            uiState === "unsupported" ||
+            uiState === "ios-install" ||
+            uiState === "unconfigured" ||
+            uiState === "denied"
+              ? 0.68
+              : 1,
+        }}
+      >
+        {label}
+      </button>
+      <p
+        style={{
+          margin: 0,
+          color: "#aab3c8",
+          fontSize: "0.72rem",
+          lineHeight: 1.25,
+        }}
+      >
+        {note}
+      </p>
+    </section>
   );
 }
 
@@ -2681,6 +3077,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [stampBookOpen, setStampBookOpen] = useState(false);
   const [saveSlotsOpen, setSaveSlotsOpen] = useState(false);
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
+  const [releaseNotesVisible, setReleaseNotesVisible] = useState(false);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [cameraZoom, setCameraZoom] = useState(MINE_CAMERA_ZOOM_DEFAULT);
   const [viewportSize, setViewportSize] = useState<ViewportSize>({
@@ -3218,7 +3615,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       <ReleaseNotesPopup
         release={appRelease}
         manualOpenCount={releaseNotesOpenCount}
+        onVisibleChange={setReleaseNotesVisible}
       />
+      <IosHomeScreenPrompt disabled={releaseNotesVisible} />
       <FallingRockHazardAlert />
       <StampBookPopup
         open={stampBookOpen}
@@ -3265,7 +3664,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             top: 108,
             right: 14,
             zIndex: 7,
-            width: 210,
+            width: 238,
             border: "1px solid #26304a",
             borderRadius: 12,
             background: "rgba(17, 21, 31, 0.96)",
@@ -3336,6 +3735,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           >
             Release notes
           </button>
+          <ReleaseNotificationControl />
         </section>
       )}
       {baseReturn && (

@@ -13,6 +13,32 @@
 
 <main id="entries">
 
+  <article data-version="0.1.52" data-date="2026-06-19">
+    <h2>0.1.52</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.52</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>30</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mobile Safari players now get a Home Screen reminder before enabling notifications.</dd>
+      <dt>Interface</dt><dd>When VibeBots is opened in mobile Safari outside the installed Home Screen app, the mine shows an alert explaining that notifications need the Home Screen app. Players can choose <code>Ok</code> for the current page session or <code>Never show again</code> to keep the reminder hidden.</dd>
+      <dt>Compatibility</dt><dd>Safari does not expose a page JavaScript API that can open the Add to Home Screen sheet. Mobile Safari therefore gets manual Share to Add to Home Screen guidance, and install metadata now includes PNG icons for Home Screen and notification surfaces.</dd>
+      <dt>Operations</dt><dd>The admin release-dispatch route now returns a clean <code>503</code> when Web Push keys are missing instead of attempting a send without VAPID configuration.</dd>
+      <dt>Verification</dt><dd>After rebasing over the <code>0.1.50</code> falling-rock alert slice, local verification passed: <code>pnpm typecheck</code>, <code>pnpm test</code> (241 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and targeted Playwright smoke against a fresh local production server for latest release notes, the mobile Safari Home Screen reminder, and the falling-rock alert (3 passed). Browser-plugin visual verification confirmed the mobile Safari reminder at <code>390x844</code>.</dd>
+    </dl>
+  </article>
+
+  <article data-version="0.1.51" data-date="2026-06-19">
+    <h2>0.1.51</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.51</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>30</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Players can opt into native browser notifications for one-line release summaries.</dd>
+      <dt>Interface</dt><dd>The mine Settings menu adds an update-alerts control. It uses the native browser prompt from a user tap, shows blocked or unavailable states, and explains the iPhone and iPad Home Screen requirement when needed.</dd>
+      <dt>Platform</dt><dd>Android Chrome can subscribe through the normal Web Push path. iPhone and iPad Safari can subscribe from the installed Home Screen web app. The app now ships a manifest, icon, and service worker for that installable path.</dd>
+      <dt>Operations</dt><dd><code>POST /api/notifications/release</code> requires <code>NOTIFICATION_ADMIN_TOKEN</code> and dispatches the current release summary once to each enabled Web Push subscription. Stale endpoints are disabled after push-service 404 or 410 responses.</dd>
+      <dt>Verification</dt><dd>Focused verification is recorded in the progress log for this slice.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.50" data-date="2026-06-19">
     <h2>0.1.50</h2>
     <dl>

@@ -170,6 +170,21 @@ async function applySchema(sql: Sql): Promise<void> {
       stats jsonb NOT NULL DEFAULT '{}'::jsonb,
       updated_at timestamptz NOT NULL DEFAULT now()
     )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS web_push_subscriptions (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      endpoint text NOT NULL UNIQUE,
+      p256dh text NOT NULL,
+      auth text NOT NULL,
+      platform text NOT NULL DEFAULT 'unknown',
+      user_agent text NOT NULL DEFAULT '',
+      enabled boolean NOT NULL DEFAULT true,
+      last_release_notice_id text,
+      last_sent_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`;
 }
 
 /** The shared SQL client, with the schema guaranteed applied. */

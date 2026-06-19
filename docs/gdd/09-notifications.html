@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Notifications</title>
+</head>
+<body>
+
+  <h1>Notifications</h1>
+  <p data-status="done">Status: done</p>
+
+  <section data-role="spec" id="spec">
+    <h2>Spec</h2>
+    <p>Players may opt into native browser notifications for release updates. The first notification type is a one-line version summary sent after a new VibeBots release is deployed.</p>
+    <ul>
+      <li>Notification permission is requested only after a direct player tap. Browsers must never see an automatic prompt on page load.</li>
+      <li>Subscriptions use standards based Web Push with VAPID keys and a service worker. Each release notice id is sent once per enabled subscription.</li>
+      <li>Android Chrome can subscribe from the browser when Web Push is available.</li>
+      <li>iPhone and iPad Safari can subscribe only after the player installs VibeBots as a Home Screen web app and opens that installed app. The Settings menu must guide this state instead of showing a broken prompt.</li>
+      <li>Mobile Safari outside Home Screen mode should also get a dismissible Home Screen reminder before notifications are available. <code>Ok</code> is a current page-session dismissal; <code>Never show again</code> is a durable local opt-out.</li>
+      <li>Release notification copy is sourced from the same release metadata that powers the in-game release notes, so app popups and native alerts stay aligned.</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-06-19">Mobile Safari Home Screen reminder landed. The mine detects mobile Safari outside standalone web app mode, shows an alert with <code>Ok</code> and <code>Never show again</code>, persists the durable opt-out in local storage, and keeps release notes from stacking with the alert. Safari shows manual Share to Add to Home Screen guidance because it cannot open the install sheet from page JavaScript. Review cleanup removed a dead install-prompt listener from the Safari-only alert and added PNG install icons for Home Screen and notification surfaces. Files: <code>src/components/mine-panel.tsx</code>, <code>src/lib/app-release.ts</code>, <code>src/app/manifest.ts</code>, <code>public/icon-192.png</code>, <code>public/icon-512.png</code>, <code>public/apple-touch-icon.png</code>, <code>tests/e2e/smoke.spec.ts</code>. Direct push to <code>origin/main</code> requested by user.</li>
+      <li data-date="2026-06-19">Native browser release notifications landed. The app now has an installable manifest, service worker, VAPID-backed subscription routes, an admin release-dispatch route, and a Settings opt-in that handles Android Chrome, installed iPhone and iPad web apps, unsupported browsers, and missing deploy keys. Files: <code>src/components/mine-panel.tsx</code>, <code>src/server/web-push.ts</code>, <code>src/app/api/notifications/*</code>, <code>src/app/manifest.ts</code>, <code>public/sw.js</code>, <code>public/icon.svg</code>, <code>tests/e2e/smoke.spec.ts</code>. Direct push to <code>origin/main</code> requested by user.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

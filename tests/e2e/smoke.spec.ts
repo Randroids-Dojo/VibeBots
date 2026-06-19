@@ -803,18 +803,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Mine alert windows now close from outside taps, Escape, and gamepad back.",
+    "Placed ladders now fall when their bottom support is mined away or salvaged.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "outside-tap dismissal",
-  );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Escape and gamepad cancel/back",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "compact Bunker button",
-  );
+  await expect(dialog.locator("li").first()).toContainText("slides down");
+  await expect(dialog.locator("li").nth(1)).toContainText("Stacked ladders");
+  await expect(dialog.locator("li").nth(2)).toContainText("landing dust");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -833,6 +827,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.61", "Ladder gravity"],
     ["0.1.60", "Dismissible windows"],
     ["0.1.59", "Bunker claim HUD"],
     ["0.1.58", "Dropped bag gravity"],

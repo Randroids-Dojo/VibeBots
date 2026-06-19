@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.61" data-date="2026-06-19">
+    <h2>0.1.61</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.61</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>34</code> to <code>35</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Placed ladders now obey support changes in the mine.</dd>
+      <dt>Rules</dt><dd>When the cell below a ladder is mined away or the lower ladder in a chain is salvaged, unsupported ladders fall down the opened shaft until they land on solid ground or another ladder. Stacked ladders settle bottom-up from the changed support so the whole chain moves together and replay remains deterministic.</dd>
+      <dt>Interface</dt><dd>The mine surface tips now mention that unsupported ladders slide down shafts, and fallen ladders get a short wood-chip trail plus landing dust.</dd>
+      <dt>Verification</dt><dd>Focused mine sim coverage was added for mined-away ladder support, stacked ladder settling, salvage-triggered chain settling, and deterministic replay of the settled world diff.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.60" data-date="2026-06-19">
     <h2>0.1.60</h2>
     <dl>

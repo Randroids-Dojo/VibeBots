@@ -1519,6 +1519,92 @@ describe("mine", () => {
     });
   });
 
+  it("drops a ladder when its bottom support is mined away", () => {
+    const state = createMine(97, { ...DEFAULT_GEAR, pickaxe: 4 });
+    const col = START_COL;
+    state.miner.col = col;
+    state.miner.row = 2;
+    setCell(state, col, 2, { kind: "empty" });
+    setCell(state, col, 3, { kind: "dirt" });
+    setCell(state, col + 1, 1, { kind: "empty", ladder: true });
+    setCell(state, col + 1, 2, { kind: "dirt" });
+    setCell(state, col + 1, 3, { kind: "empty" });
+    setCell(state, col + 1, 4, { kind: "dirt" });
+
+    const result = step(state, "right");
+
+    expect(result.ok && result.dug).toBe("dirt");
+    expect(result.ok && result.ladderFalls).toEqual([
+      { from: { col: col + 1, row: 1 }, to: { col: col + 1, row: 3 } },
+    ]);
+    expect(cellAt(state, col + 1, 1)?.ladder).toBeUndefined();
+    expect(cellAt(state, col + 1, 3)?.ladder).toBe(true);
+    expect(state.miner.col).toBe(col + 1);
+    expect(state.miner.row).toBe(2);
+  });
+
+  it("settles stacked unsupported ladders bottom-up", () => {
+    const state = createMine(98, { ...DEFAULT_GEAR, pickaxe: 4 });
+    const col = START_COL;
+    state.miner.col = col;
+    state.miner.row = 3;
+    setCell(state, col, 3, { kind: "empty" });
+    setCell(state, col, 4, { kind: "dirt" });
+    setCell(state, col + 1, 1, { kind: "empty", ladder: true });
+    setCell(state, col + 1, 2, { kind: "empty", ladder: true });
+    setCell(state, col + 1, 3, { kind: "dirt" });
+    setCell(state, col + 1, 4, { kind: "empty" });
+    setCell(state, col + 1, 5, { kind: "dirt" });
+
+    const result = step(state, "right");
+
+    expect(result.ok && result.dug).toBe("dirt");
+    expect(result.ok && result.ladderFalls).toEqual([
+      { from: { col: col + 1, row: 2 }, to: { col: col + 1, row: 4 } },
+      { from: { col: col + 1, row: 1 }, to: { col: col + 1, row: 3 } },
+    ]);
+    expect(cellAt(state, col + 1, 1)?.ladder).toBeUndefined();
+    expect(cellAt(state, col + 1, 2)?.ladder).toBeUndefined();
+    expect(cellAt(state, col + 1, 3)?.ladder).toBe(true);
+    expect(cellAt(state, col + 1, 4)?.ladder).toBe(true);
+    const sameSetup = createMine(98, { ...DEFAULT_GEAR, pickaxe: 4 });
+    sameSetup.miner.col = col;
+    sameSetup.miner.row = 3;
+    setCell(sameSetup, col, 3, { kind: "empty" });
+    setCell(sameSetup, col, 4, { kind: "dirt" });
+    setCell(sameSetup, col + 1, 1, { kind: "empty", ladder: true });
+    setCell(sameSetup, col + 1, 2, { kind: "empty", ladder: true });
+    setCell(sameSetup, col + 1, 3, { kind: "dirt" });
+    setCell(sameSetup, col + 1, 4, { kind: "empty" });
+    setCell(sameSetup, col + 1, 5, { kind: "dirt" });
+    expect(step(sameSetup, "right").ok).toBe(true);
+    expect(exportDiff(sameSetup)).toEqual(exportDiff(state));
+  });
+
+  it("settles a ladder chain when its bottom ladder is salvaged", () => {
+    const state = createMine(99);
+    const col = START_COL;
+    state.miner.col = col;
+    state.miner.row = 3;
+    setCell(state, col, 1, { kind: "empty", ladder: true });
+    setCell(state, col, 2, { kind: "empty", ladder: true });
+    setCell(state, col, 3, { kind: "empty", ladder: true });
+    setCell(state, col, 4, { kind: "empty" });
+    setCell(state, col, 5, { kind: "dirt" });
+
+    const result = applyAction(state, "collect-ladder");
+
+    expect(result.ok && result.collectedLadder).toBe(true);
+    expect(result.ok && result.ladderFalls).toEqual([
+      { from: { col, row: 2 }, to: { col, row: 4 } },
+      { from: { col, row: 1 }, to: { col, row: 3 } },
+    ]);
+    expect(cellAt(state, col, 1)?.ladder).toBeUndefined();
+    expect(cellAt(state, col, 2)?.ladder).toBeUndefined();
+    expect(cellAt(state, col, 3)?.ladder).toBe(true);
+    expect(cellAt(state, col, 4)?.ladder).toBe(true);
+  });
+
   it("grants no free stock when the miner gives up", () => {
     const owned = stock({ ladder: 2, plank: 1 });
     const state = createMine(93, DEFAULT_GEAR, owned);
@@ -1558,21 +1644,21 @@ describe("mine", () => {
     const state = createMine(83, DEFAULT_GEAR, owned);
     // No free provision at the start: the stock is what was bought.
     expect(state.consumables.ladder).toBe(3);
-    // Spend two purchased ladders climbing out and back.
+    // The first ladder drops with the opened shaft and can be reused.
     dig(state, "down");
     dig(state, "down");
     step(state, "up");
     step(state, "down");
     dig(state, "down");
     step(state, "up");
-    expect(state.used.ladder).toBe(2);
+    expect(state.used.ladder).toBe(1);
     // Nothing was granted (no death), so the leftover purchased stock banks.
-    expect(carryoverConsumables(state).ladder).toBe(1);
+    expect(carryoverConsumables(state).ladder).toBe(2);
     expect(carryoverConsumables(createMine(83)).ladder).toBe(0);
     expect(carryoverConsumables(state)).toEqual({
       dynamite: 0,
       rope: 0,
-      ladder: 1,
+      ladder: 2,
       plank: 0,
       beacon: 0,
     });

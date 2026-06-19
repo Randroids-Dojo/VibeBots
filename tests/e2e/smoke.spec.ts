@@ -197,6 +197,7 @@ import {
   ELEVATOR_COL,
   ELEVATOR_SEGMENT_ROWS,
   exportDiff,
+  MINE_VERSION,
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
@@ -1250,7 +1251,7 @@ test("mine feedback form submits from settings and closes with gamepad back", as
     email: "miner@example.test",
     context: {
       source: "pause",
-      mineVersion: 35,
+      mineVersion: MINE_VERSION,
     },
   });
 
@@ -1341,7 +1342,7 @@ test("ladder gravity prompt opens mechanic feedback after the fall settles", asy
     context: {
       source: "ladder-gravity",
       prompt: "ladder-fall-after-mining-support",
-      mineVersion: 35,
+      mineVersion: MINE_VERSION,
       depth: 2,
       column: 1,
     },
@@ -2243,7 +2244,7 @@ test("the warp pad lists beacons newest first (REQ-029)", async ({ page }) => {
     await pressMineKey(page, "ArrowRight");
   }
   const pad = await openStall(page, "Warp Pad");
-  await expect(pad).toContainText("2 beacons planted");
+  await expect(pad).toContainText("2 destinations online");
   await expect(pad).toContainText("row 70, col -2 out of range");
   await expect(pad).toContainText("row 3, col 0");
   await expect(

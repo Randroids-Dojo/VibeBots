@@ -826,14 +826,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "The pause menu now has feedback, and ladder gravity asks for a quick reaction.",
+    "The open bag can now drop selected ore slots to make room.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("common categories");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "fall animation settles",
+  await expect(dialog.locator("li").first()).toContainText(
+    "current underground cell",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("player_feedback");
+  await expect(dialog.locator("li").nth(1)).toContainText("Manual drops merge");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "never auto-picks floor ore",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -852,6 +854,8 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.66", "Bag drop controls"],
+    ["0.1.65", "Tool satchel bag"],
     ["0.1.64", "Feedback window"],
     ["0.1.63", "Native release alerts"],
     ["0.1.62", "Refresh availability guard"],
@@ -895,7 +899,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.64-feedback",
+      "2026-06-19-0.1.66-bag-drop-controls",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1318,13 +1322,32 @@ test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {
   );
 
   await bagButton.click();
-  const dialog = page.getByRole("dialog", { name: "Bag 7/32" });
-  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Bag 7/32" })).toBeVisible();
+  const dialog = page.locator("#mine-bag-panel");
+  await expect(dialog).toHaveAttribute("data-bag-variant", "tool-satchel");
   await expect(dialog).toHaveAttribute("data-bag-capacity", "32");
   await expect(dialog).toHaveAttribute("data-bag-filled", "7");
+  await expect(dialog.locator("[data-bag-lid='true']")).toBeVisible();
+  await expect(dialog.locator("[data-bag-tray='true']")).toBeVisible();
+  await expect(dialog.getByText("Ore pockets", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Scrap", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Parts", { exact: true })).toBeVisible();
   await expect(dialog.locator("[data-ore='coal']")).toHaveCount(5);
   await expect(dialog.locator("[data-ore='diamond']")).toHaveCount(2);
   await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(25);
+  const dropButton = dialog.getByRole("button", { name: "Drop selected" });
+  await expect(dropButton).toBeDisabled();
+  await dialog
+    .locator("[data-ore='coal']")
+    .first()
+    .getByRole("button", { name: "Select Coal for dropping" })
+    .click();
+  await expect(dropButton).toContainText("1");
+  await expect(dropButton).toBeEnabled();
+  await dropButton.click();
+  await expect(dialog).toHaveAttribute("data-bag-filled", "6");
+  await expect(dialog.locator("[data-ore='coal']")).toHaveCount(4);
+  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(26);
   const scrollState = await dialog
     .locator("[data-bag-scroll='true']")
     .evaluate((node) => {

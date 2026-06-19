@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.64-feedback",
+      releaseNoticeId: "2026-06-19-0.1.66-bag-drop-controls",
       releaseSummary:
-        "Feedback window: The pause menu now has feedback, and ladder gravity asks for a quick reaction.",
+        "Bag drop controls: The open bag can now drop selected ore slots to make room.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.64-feedback",
+      releaseNoticeId: "2026-06-19-0.1.66-bag-drop-controls",
       attempted: 2,
       sent: 1,
       expired: 1,

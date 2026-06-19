@@ -646,6 +646,12 @@ export interface MineCell {
    */
   drop?: Partial<Record<OreId, number>>;
   /**
+   * Subset of `drop` that the player manually dropped from the bag.
+   * Walk-over pickup takes the rest of the pile first so a player can
+   * make room without immediately reclaiming the same chunks.
+   */
+  dropDeferred?: Partial<Record<OreId, number>>;
+  /**
    * The miner's carried bag after a collapse or abandoned dig. Walking
    * over the cell scoops it back into the miner's current haul.
    */
@@ -908,6 +914,43 @@ function fillHold(
   return { taken, dropped, leftover };
 }
 
+function subtractOrePiles(
+  pile: Partial<Record<OreId, number>> | undefined,
+  subtract: Partial<Record<OreId, number>> | undefined,
+): Partial<Record<OreId, number>> {
+  const next: Partial<Record<OreId, number>> = {};
+  if (!pile) return next;
+  for (const [id, count] of Object.entries(pile) as Array<[OreId, number]>) {
+    const kept = Math.max(0, count - (subtract?.[id] ?? 0));
+    if (kept > 0) next[id] = kept;
+  }
+  return next;
+}
+
+function intersectOrePiles(
+  pile: Partial<Record<OreId, number>> | undefined,
+  limit: Partial<Record<OreId, number>> | undefined,
+): Partial<Record<OreId, number>> {
+  const next: Partial<Record<OreId, number>> = {};
+  if (!pile || !limit) return next;
+  for (const [id, count] of Object.entries(pile) as Array<[OreId, number]>) {
+    const kept = Math.min(count, limit[id] ?? 0);
+    if (kept > 0) next[id] = kept;
+  }
+  return next;
+}
+
+function cleanOrePile(
+  pile: Partial<Record<OreId, number>> | undefined,
+): Partial<Record<OreId, number>> | undefined {
+  if (!pile) return undefined;
+  const next: Partial<Record<OreId, number>> = {};
+  for (const [id, count] of Object.entries(pile) as Array<[OreId, number]>) {
+    if (count > 0) next[id] = count;
+  }
+  return orePileCount(next) > 0 ? next : undefined;
+}
+
 function orePileCount(
   pile: Partial<Record<OreId, number>> | undefined,
 ): number {
@@ -927,6 +970,36 @@ function mergeOrePiles(
     next[id] = (next[id] ?? 0) + count;
   }
   return next;
+}
+
+function fillHoldFromCellDrop(
+  state: MineState,
+  cell: MineCell,
+): {
+  taken: number;
+  dropped: number;
+  leftover: Partial<Record<OreId, number>>;
+  deferredLeftover?: Partial<Record<OreId, number>>;
+} {
+  const deferred = cleanOrePile(
+    intersectOrePiles(cell.drop, cell.dropDeferred),
+  );
+  if (!deferred) return fillHold(state, cell.drop ?? {});
+  const immediate = subtractOrePiles(cell.drop, deferred);
+  const immediateResult = fillHold(state, immediate);
+  const deferredResult = fillHold(state, deferred);
+  const leftover = mergeOrePiles(
+    immediateResult.leftover,
+    deferredResult.leftover,
+  );
+  return {
+    taken: immediateResult.taken + deferredResult.taken,
+    dropped: immediateResult.dropped + deferredResult.dropped,
+    leftover,
+    deferredLeftover: cleanOrePile(
+      intersectOrePiles(deferredResult.leftover, deferred),
+    ),
+  };
 }
 
 function bagValue(bag: DroppedBag): number {
@@ -1000,6 +1073,7 @@ function dropOreToSurface(
   col: number,
   row: number,
   pile: Partial<Record<OreId, number>>,
+  deferred?: Partial<Record<OreId, number>>,
 ): number {
   const amount = orePileCount(pile);
   if (amount <= 0) return 0;
@@ -1014,6 +1088,10 @@ function dropOreToSurface(
   }
   const landing = cellMut(state, col, rest);
   landing.drop = mergeOrePiles(landing.drop, pile);
+  const cleanDeferred = cleanOrePile(deferred);
+  if (cleanDeferred) {
+    landing.dropDeferred = mergeOrePiles(landing.dropDeferred, cleanDeferred);
+  }
   return amount;
 }
 
@@ -1027,9 +1105,14 @@ function pickupAtMiner(state: MineState): {
   let pickedUp: number | undefined;
   let pickedUpBag: { value: number; parts: number } | undefined;
   if (here?.drop) {
-    const { taken, dropped, leftover } = fillHold(state, here.drop);
+    const { taken, dropped, leftover, deferredLeftover } = fillHoldFromCellDrop(
+      state,
+      here,
+    );
     if (dropped > 0) here.drop = leftover;
     else delete here.drop;
+    if (deferredLeftover) here.dropDeferred = deferredLeftover;
+    else delete here.dropDeferred;
     if (taken > 0) pickedUp = taken;
   }
   if (here?.bag) {
@@ -1114,10 +1197,12 @@ function settleUnsupportedDrops(state: MineState): void {
     if (!dropUnsupported && !bagUnsupported) continue;
     const source = cellMut(state, col, row);
     const pile = dropUnsupported ? source.drop : undefined;
+    const deferred = dropUnsupported ? source.dropDeferred : undefined;
     const bag = bagUnsupported ? source.bag : undefined;
     if (dropUnsupported) delete source.drop;
+    if (dropUnsupported) delete source.dropDeferred;
     if (bagUnsupported) delete source.bag;
-    if (pile) dropOreToSurface(state, col, row, pile);
+    if (pile) dropOreToSurface(state, col, row, pile, deferred);
     if (bag) {
       const landing = dropBagToSurface(state, col, row, bag);
       if (
@@ -1447,6 +1532,8 @@ export type MoveResult =
       pickedUp?: number;
       /** Dropped bag contents scooped by walking over the collapse cell. */
       pickedUpBag?: { value: number; parts: number };
+      /** Ore chunks manually dropped from the carried bag. */
+      droppedFromBag?: number;
       /** A recall rope ended the trip from below (carry banked). */
       recalled?: boolean;
       /** The trip was voluntarily abandoned (carry forfeited). */
@@ -1533,6 +1620,7 @@ export function isSupportSalvageTarget(
 export type MineAction =
   | BaseMineAction
   | `collect:${string}`
+  | `drop:${string}`
   | `warp-down:${number},${number}`
   | `rename-beacon:${number},${number},${string}`;
 
@@ -1590,6 +1678,23 @@ function parseCollectAction(action: string): CollectTarget[] | null {
   return targets;
 }
 
+function parseDropOreAction(
+  action: string,
+): Partial<Record<OreId, number>> | null {
+  if (!action.startsWith("drop:")) return null;
+  const raw = action.slice("drop:".length);
+  if (!raw) return null;
+  const pile: Partial<Record<OreId, number>> = {};
+  for (const part of raw.split(";")) {
+    const [id, countText] = part.split(":");
+    if (!id || !countText || !ORE_BY_ID.has(id as OreId)) return null;
+    const count = Number(countText);
+    if (!Number.isSafeInteger(count) || count <= 0) return null;
+    pile[id as OreId] = (pile[id as OreId] ?? 0) + count;
+  }
+  return orePileCount(pile) > 0 ? pile : null;
+}
+
 function parseWarpDownAction(
   action: string,
 ): { col: number; row: number } | null {
@@ -1641,10 +1746,24 @@ export function renameBeaconAction(
   )}`;
 }
 
+export function dropOreAction(
+  pile: Partial<Record<OreId, number>>,
+): MineAction {
+  const parts = ORES.map((ore) => {
+    const count = pile[ore.id] ?? 0;
+    return count > 0 ? `${ore.id}:${count}` : "";
+  }).filter(Boolean);
+  if (parts.length === 0) {
+    throw new Error("dropOreAction requires at least one ore");
+  }
+  return `drop:${parts.join(";")}`;
+}
+
 export function isMineAction(action: string): action is MineAction {
   return (
     BASE_MINE_ACTIONS.has(action) ||
     parseCollectAction(action) !== null ||
+    parseDropOreAction(action) !== null ||
     parseWarpDownAction(action) !== null ||
     parseRenameBeaconAction(action) !== null
   );
@@ -2951,9 +3070,44 @@ function renameBeacon(
   return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
 }
 
+function dropOreFromBag(
+  state: MineState,
+  pile: Partial<Record<OreId, number>>,
+): MoveResult {
+  const miner = state.miner;
+  if (miner.row < 1) return { ok: false, reason: "surface" };
+  const dropped: Partial<Record<OreId, number>> = {};
+  for (const ore of ORES) {
+    const requested = pile[ore.id] ?? 0;
+    if (requested <= 0) continue;
+    const carried = miner.carried[ore.id] ?? 0;
+    const count = Math.min(carried, requested);
+    if (count <= 0) continue;
+    const remaining = carried - count;
+    if (remaining > 0) miner.carried[ore.id] = remaining;
+    else delete miner.carried[ore.id];
+    dropped[ore.id] = count;
+  }
+  const amount = orePileCount(dropped);
+  if (amount <= 0) return { ok: false, reason: "blocked" };
+  const cell = cellMut(state, miner.col, miner.row);
+  cell.drop = mergeOrePiles(cell.drop, dropped);
+  cell.dropDeferred = mergeOrePiles(cell.dropDeferred, dropped);
+  return {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    droppedFromBag: amount,
+  };
+}
+
 /** Dispatches any logged trip action (Q-006 default B). */
 export function applyAction(state: MineState, action: MineAction): MoveResult {
   if (action.startsWith("collect:")) return collectPlaced(state, action);
+  const droppedOre = parseDropOreAction(action);
+  if (droppedOre) return dropOreFromBag(state, droppedOre);
   const warpTarget = parseWarpDownAction(action);
   if (warpTarget) return warpDown(state, warpTarget);
   const renameTarget = parseRenameBeaconAction(action);

@@ -31,6 +31,32 @@
 
 <main id="entries">
 
+  <article data-slice="bag-drop-controls" data-date="2026-06-19">
+    <h3>Bag Drop Controls</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/codex-20260619-162312</code>, created from current <code>origin/main</code> in a fresh worktree before implementation.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-directed bag utility. The open bag now lets players select one or more carried ore cells and use <strong>Drop selected</strong> to leave those chunks on the current underground cell. The sim logs this as a deterministic <code>drop:</code> action, merges manual drops with existing floor piles, deprioritizes just-dropped chunks behind older floor ore on future walk-over pickup, and avoids same-cell auto-pickup until the player moves away and back. Package version moved to <code>0.1.66</code>; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched source, release, package, and smoke files, focused mine sim, version, notification, and Web Push Vitest (106 passed), <code>pnpm typecheck</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3215</code> for latest release notes plus the bag grid (2 passed), in-app Browser verification on <code>http://127.0.0.1:3212/mine</code> for the <code>0.1.66</code> release copy, bag drop controls, and zero console errors, <code>pnpm test</code> (263 passed), <code>pnpm lint</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and <code>git diff --cached --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: dropping is underground-only because the surface already auto-sells carried haul and should not create floor ore piles in the village row.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, notification release-summary expectations, sim tests, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="tool-satchel-bag" data-date="2026-06-19">
+    <h3>Tool Satchel Bag</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/codex-20260619-162312</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased over <code>0.1.64</code>.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-directed bag window polish. The open bag now reads as a mine-worn tool satchel with a handle, latches, stitched rim, folded center, and two organized halves. The lid summarizes ore pockets, support scrap, and parts, while the tray preserves the existing scrollable capacity grid for carried ore and empty slots. Package version moved to <code>0.1.65</code>; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, package, and smoke files, focused notification, version, and Web Push Vitest (12 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (261 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3210</code> for latest release notes plus the bag grid (2 passed). In-app Browser verification on <code>http://127.0.0.1:3210/mine</code> confirmed the <code>0.1.65</code> release dialog, the tool-satchel bag variant, visible lid and tray, starter empty slots, and zero console errors.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep ore cells as the capacity source of truth, because the GDD requires a visual capacity grid. Support scrap and parts stay summarized in the lid because they do not consume ore capacity.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, notification release-summary expectations, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="feedback-window" data-date="2026-06-19">
     <h3>Feedback Window</h3>
     <dl>

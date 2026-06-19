@@ -2,10 +2,50 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.64-feedback";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.66-bag-drop-controls";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.66",
+      date: "2026-06-19",
+      title: "Bag drop controls",
+      intro: "The open bag can now drop selected ore slots to make room.",
+      changes: [
+        {
+          build,
+          text: "Tap one or more ore cells in the open bag, then use Drop selected to leave those chunks on the current underground cell.",
+        },
+        {
+          build,
+          text: "Manual drops merge with existing floor piles, and walk-over pickup takes older floor ore before reclaiming chunks you just dropped.",
+        },
+        {
+          build,
+          text: "Dropping from the open bag never auto-picks floor ore from the same cell, so standing on a pile stays predictable until you move away and back.",
+        },
+      ],
+    },
+    {
+      version: "0.1.65",
+      date: "2026-06-19",
+      title: "Tool satchel bag",
+      intro: "The open bag now looks like a mine-worn tool satchel.",
+      changes: [
+        {
+          build,
+          text: "The bag window now opens as a soft satchel with a handle, latches, stitched rim, and folded center.",
+        },
+        {
+          build,
+          text: "The lid summarizes ore pockets, scrap, and parts while the tray keeps the capacity grid.",
+        },
+        {
+          build,
+          text: "Every carried ore unit and every empty capacity slot stays visible in the scrollable tray.",
+        },
+      ],
+    },
     {
       version: "0.1.64",
       date: "2026-06-19",

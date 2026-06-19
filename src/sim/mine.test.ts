@@ -17,6 +17,7 @@ import {
   createMine,
   DEFAULT_GEAR,
   type Direction,
+  dropOreAction,
   dynamiteBlastCells,
   dynamitePreviewCells,
   dynamiteTier,
@@ -826,6 +827,61 @@ describe("mine", () => {
     expect(picked.ok && picked.pickedUp).toBe(2);
     expect(carriedCount(state.miner)).toBe(cargoCapacity(state.gear));
     expect(cellAt(state, START_COL, 1)?.drop).toEqual({ coal: 1 });
+  });
+
+  it("drops carried ore into the current cell without auto-picking floor ore", () => {
+    const state = createMine(191);
+    state.miner.row = 1;
+    state.miner.carried = { coal: 1, copper: 2 };
+    setCell(state, START_COL, 1, {
+      kind: "empty",
+      drop: { copper: 3 },
+    });
+
+    const dropped = applyAction(state, dropOreAction({ coal: 1, copper: 1 }));
+
+    expect(dropped.ok && dropped.droppedFromBag).toBe(2);
+    expect(state.miner.carried).toEqual({ copper: 1 });
+    expect(cellAt(state, START_COL, 1)?.drop).toEqual({
+      coal: 1,
+      copper: 4,
+    });
+    expect(cellAt(state, START_COL, 1)?.dropDeferred).toEqual({
+      coal: 1,
+      copper: 1,
+    });
+  });
+
+  it("collects existing floor ore before ore the player just dropped", () => {
+    const state = createMine(192);
+    const capacity = cargoCapacity(state.gear);
+    state.miner.col = START_COL - 1;
+    state.miner.row = 1;
+    state.miner.carried = { diamond: capacity - 1 };
+    setCell(state, START_COL - 1, 1, { kind: "empty" });
+    setCell(state, START_COL - 1, 2, { kind: "dirt" });
+    setCell(state, START_COL, 1, {
+      kind: "empty",
+      drop: { coal: 1, copper: 1 },
+      dropDeferred: { copper: 1 },
+    });
+    setCell(state, START_COL, 2, { kind: "dirt" });
+
+    const firstPickup = step(state, "right");
+
+    expect(firstPickup.ok && firstPickup.pickedUp).toBe(1);
+    expect(state.miner.carried).toEqual({ diamond: capacity - 1, coal: 1 });
+    expect(cellAt(state, START_COL, 1)?.drop).toEqual({ copper: 1 });
+    expect(cellAt(state, START_COL, 1)?.dropDeferred).toEqual({ copper: 1 });
+
+    state.miner.carried = {};
+    expect(step(state, "left").ok).toBe(true);
+    const secondPickup = step(state, "right");
+
+    expect(secondPickup.ok && secondPickup.pickedUp).toBe(1);
+    expect(state.miner.carried).toEqual({ copper: 1 });
+    expect(cellAt(state, START_COL, 1)?.drop).toBeUndefined();
+    expect(cellAt(state, START_COL, 1)?.dropDeferred).toBeUndefined();
   });
 
   it("tiers rock by depth and gates it on the pickaxe level", () => {

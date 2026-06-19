@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.69-installed-refresh";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.70-biome-portals";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.70",
+      date: "2026-06-19",
+      title: "Biome portal beacons",
+      intro:
+        "Winter and high-tech mine regions now have surface portals to base.",
+      changes: [
+        {
+          build,
+          text: "The winter band spans columns -100 through -50 with snow dirt, icy rocks, and cold ore variants.",
+        },
+        {
+          build,
+          text: "The high-tech band spans columns 100 through 150 with circuit terrain and minable gadget resources.",
+        },
+        {
+          build,
+          text: "Activating a biome surface beacon makes it a free portal to base and a Warp Pad destination, and far surface tiles keep the right grass, snow, or metal top layer.",
+        },
+      ],
+    },
     {
       version: "0.1.69",
       date: "2026-06-19",

@@ -870,17 +870,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Installed mine apps now notice stale builds almost immediately.",
+    "Winter and high-tech mine regions now have surface portals to base.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "as soon as the app opens",
+    "winter band spans columns -100 through -50",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "regains focus or visibility",
+    "high-tech band spans columns 100 through 150",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "renders dynamically",
+    "free portal to base",
   );
 
   await page.mouse.click(8, 8);
@@ -900,6 +900,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.70", "Biome portal beacons"],
     ["0.1.69", "Installed app refresh"],
     ["0.1.68", "Ladder removal cleanup"],
     ["0.1.67", "Release note accuracy"],
@@ -948,7 +949,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.69-installed-refresh",
+      "2026-06-19-0.1.70-biome-portals",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1069,7 +1070,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.69-installed-refresh",
+      "2026-06-19-0.1.70-biome-portals",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2080,6 +2081,51 @@ test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
   await expect(
     pad.getByRole("button", { name: "Warp to beacon" }),
   ).toBeDisabled();
+});
+
+test("biome portal beacons activate and appear at the Warp Pad", async ({
+  page,
+}) => {
+  const trip = {
+    seed: 20260619,
+    tripIndex: 0,
+    gear: DEFAULT_GEAR,
+    consumables: STARTING_CONSUMABLES,
+    baseDiff: [],
+    moves: Array.from({ length: 75 }, () => "left"),
+  };
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.addInitScript((savedTrip) => {
+    localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(savedTrip));
+  }, trip);
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "0");
+
+  const activate = page.getByRole("button", {
+    name: "Activate Winter Beacon",
+  });
+  await expect(activate).toBeVisible();
+  const canvas = page.locator("canvas");
+  const before = await canvas.screenshot();
+  await activate.click();
+  const portal = page.getByRole("region", { name: "Winter Beacon portal" });
+  await expect(portal).toBeVisible();
+  const after = await canvas.screenshot();
+  expect(Buffer.compare(before, after)).not.toBe(0);
+
+  await portal.getByRole("button", { name: "Base" }).click();
+  await expect(status).toHaveAttribute("data-depth", "0");
+  for (let i = 0; i < 6; i++) await pressMineKey(page, "ArrowRight");
+  const pad = await openStall(page, "Warp Pad");
+  await expect(pad).toContainText("Winter Beacon");
+  await expect(pad).toContainText("portals are free");
 });
 
 test("deep dropped ore markers do not create a white text card", async ({

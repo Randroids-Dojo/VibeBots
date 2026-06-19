@@ -496,7 +496,7 @@
     },
     {
       "id": "REQ-029",
-      "requirement": "Teleporter: beacon-kit consumables plant up to two persistent named beacons; a village warp pad lists planted beacons and warps to a selected in-range target, while any in-range beacon can warp home.",
+      "requirement": "Teleporter: beacon-kit consumables plant up to two persistent named beacons; a village warp pad lists planted beacons and activated biome portal beacons, while any in-range beacon or active biome portal can warp home.",
       "gddRef": "docs/gdd/06-mining.html#transport",
       "status": "done",
       "implementationRefs": [

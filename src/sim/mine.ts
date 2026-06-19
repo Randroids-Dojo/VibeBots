@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 35;
+export const MINE_VERSION = 36;
 export const MINE_BOTTOM_ROW = 1000;
 
 /**
@@ -311,6 +311,77 @@ export function warpRange(gear: MineGear): number {
 /** The village warp pad's column. */
 export const WARP_PAD_COL = 6;
 
+export type MineBiomeId = "default" | "winter" | "highTech";
+
+export interface BiomeBand {
+  id: Exclude<MineBiomeId, "default">;
+  name: string;
+  minCol: number;
+  maxCol: number;
+}
+
+export const BIOME_BANDS: readonly BiomeBand[] = [
+  { id: "winter", name: "Winter Expanse", minCol: -100, maxCol: -50 },
+  { id: "highTech", name: "Circuit Sprawl", minCol: 100, maxCol: 150 },
+];
+
+export function biomeAt(col: number): MineBiomeId {
+  for (const band of BIOME_BANDS) {
+    if (col >= band.minCol && col <= band.maxCol) return band.id;
+  }
+  return "default";
+}
+
+export type PortalBeaconId = "winter" | "highTech";
+export type PortalTargetId = PortalBeaconId | "base";
+
+export interface BiomePortalDef {
+  id: PortalBeaconId;
+  biome: Exclude<MineBiomeId, "default">;
+  name: string;
+  col: number;
+  row: 0;
+  color: string;
+  blurb: string;
+}
+
+export const BIOME_PORTALS: readonly BiomePortalDef[] = [
+  {
+    id: "winter",
+    biome: "winter",
+    name: "Winter Beacon",
+    col: -75,
+    row: 0,
+    color: "#9ee7ff",
+    blurb: "snowfield gate",
+  },
+  {
+    id: "highTech",
+    biome: "highTech",
+    name: "High-Tech Beacon",
+    col: 125,
+    row: 0,
+    color: "#65ffb8",
+    blurb: "high-tech gate",
+  },
+] as const;
+
+export function portalDef(id: PortalBeaconId): BiomePortalDef {
+  const def = BIOME_PORTALS.find((portal) => portal.id === id);
+  if (!def) throw new Error(`unknown portal: ${id}`);
+  return def;
+}
+
+export function authoredPortalAt(
+  col: number,
+  row: number,
+): BiomePortalDef | null {
+  return (
+    BIOME_PORTALS.find((portal) => portal.col === col && portal.row === row) ??
+    null
+  );
+}
+
 export function gearTrackDef(track: MineGearTrack): GearTrackDef {
   const def = GEAR_TRACKS.find((t) => t.track === track);
   if (!def) throw new Error(`unknown gear track: ${track}`);
@@ -403,13 +474,28 @@ export type OreId =
   | "emerald"
   | "ruby"
   | "diamond"
-  | "core-crystal";
+  | "core-crystal"
+  | "frozen-coal"
+  | "frost-copper"
+  | "rime-silver"
+  | "aurora-emerald"
+  | "glacier-ruby"
+  | "blue-diamond"
+  | "permafrost-core"
+  | "brass-knob"
+  | "wire-spool"
+  | "logic-chip"
+  | "micro-monitor"
+  | "keyboard-matrix"
+  | "servo-motor"
+  | "quantum-core";
 
 export interface OreDef {
   id: OreId;
   name: string;
-  /** Credits paid for one mined unit when banked. */
+  /** Vibes paid for one mined unit when banked. */
   value: number;
+  biome: MineBiomeId;
   minRow: number;
   peakStart: number;
   peakEnd: number;
@@ -423,6 +509,7 @@ export const ORES: readonly OreDef[] = [
     id: "coal",
     name: "Coal",
     value: 1,
+    biome: "default",
     minRow: 1,
     peakStart: 2,
     peakEnd: 12,
@@ -433,6 +520,7 @@ export const ORES: readonly OreDef[] = [
     id: "copper",
     name: "Copper",
     value: 1,
+    biome: "default",
     minRow: 4,
     peakStart: 8,
     peakEnd: 20,
@@ -443,6 +531,7 @@ export const ORES: readonly OreDef[] = [
     id: "silver",
     name: "Silver",
     value: 1,
+    biome: "default",
     minRow: 14,
     peakStart: 20,
     peakEnd: 34,
@@ -453,6 +542,7 @@ export const ORES: readonly OreDef[] = [
     id: "emerald",
     name: "Emerald",
     value: 2,
+    biome: "default",
     minRow: 24,
     peakStart: 32,
     peakEnd: 46,
@@ -463,6 +553,7 @@ export const ORES: readonly OreDef[] = [
     id: "ruby",
     name: "Ruby",
     value: 4,
+    biome: "default",
     minRow: 36,
     peakStart: 44,
     peakEnd: 58,
@@ -473,6 +564,7 @@ export const ORES: readonly OreDef[] = [
     id: "diamond",
     name: "Diamond",
     value: 6,
+    biome: "default",
     minRow: 48,
     peakStart: 58,
     peakEnd: 76,
@@ -483,15 +575,204 @@ export const ORES: readonly OreDef[] = [
     id: "core-crystal",
     name: "Core Crystal",
     value: 10,
+    biome: "default",
     minRow: 64,
     peakStart: 80,
     peakEnd: Number.POSITIVE_INFINITY,
     maxRow: Number.POSITIVE_INFINITY,
     peakChance: 0.025,
   },
+  {
+    id: "frozen-coal",
+    name: "Frozen Coal",
+    value: 1,
+    biome: "winter",
+    minRow: 1,
+    peakStart: 2,
+    peakEnd: 12,
+    maxRow: 24,
+    peakChance: 0.09,
+  },
+  {
+    id: "frost-copper",
+    name: "Frost Copper",
+    value: 1,
+    biome: "winter",
+    minRow: 4,
+    peakStart: 8,
+    peakEnd: 20,
+    maxRow: 30,
+    peakChance: 0.07,
+  },
+  {
+    id: "rime-silver",
+    name: "Rime Silver",
+    value: 2,
+    biome: "winter",
+    minRow: 14,
+    peakStart: 20,
+    peakEnd: 34,
+    maxRow: 44,
+    peakChance: 0.055,
+  },
+  {
+    id: "aurora-emerald",
+    name: "Aurora Emerald",
+    value: 2,
+    biome: "winter",
+    minRow: 24,
+    peakStart: 32,
+    peakEnd: 46,
+    maxRow: 58,
+    peakChance: 0.05,
+  },
+  {
+    id: "glacier-ruby",
+    name: "Glacier Ruby",
+    value: 5,
+    biome: "winter",
+    minRow: 36,
+    peakStart: 44,
+    peakEnd: 58,
+    maxRow: 72,
+    peakChance: 0.035,
+  },
+  {
+    id: "blue-diamond",
+    name: "Blue Diamond",
+    value: 7,
+    biome: "winter",
+    minRow: 48,
+    peakStart: 58,
+    peakEnd: 76,
+    maxRow: 92,
+    peakChance: 0.026,
+  },
+  {
+    id: "permafrost-core",
+    name: "Permafrost Core",
+    value: 11,
+    biome: "winter",
+    minRow: 64,
+    peakStart: 80,
+    peakEnd: Number.POSITIVE_INFINITY,
+    maxRow: Number.POSITIVE_INFINITY,
+    peakChance: 0.022,
+  },
+  {
+    id: "brass-knob",
+    name: "Brass Knob",
+    value: 1,
+    biome: "highTech",
+    minRow: 1,
+    peakStart: 2,
+    peakEnd: 12,
+    maxRow: 24,
+    peakChance: 0.09,
+  },
+  {
+    id: "wire-spool",
+    name: "Wire Spool",
+    value: 1,
+    biome: "highTech",
+    minRow: 4,
+    peakStart: 8,
+    peakEnd: 20,
+    maxRow: 30,
+    peakChance: 0.07,
+  },
+  {
+    id: "logic-chip",
+    name: "Logic Chip",
+    value: 2,
+    biome: "highTech",
+    minRow: 14,
+    peakStart: 20,
+    peakEnd: 34,
+    maxRow: 44,
+    peakChance: 0.055,
+  },
+  {
+    id: "micro-monitor",
+    name: "Micro Monitor",
+    value: 3,
+    biome: "highTech",
+    minRow: 24,
+    peakStart: 32,
+    peakEnd: 46,
+    maxRow: 58,
+    peakChance: 0.045,
+  },
+  {
+    id: "keyboard-matrix",
+    name: "Keyboard Matrix",
+    value: 5,
+    biome: "highTech",
+    minRow: 36,
+    peakStart: 44,
+    peakEnd: 58,
+    maxRow: 72,
+    peakChance: 0.036,
+  },
+  {
+    id: "servo-motor",
+    name: "Servo Motor",
+    value: 7,
+    biome: "highTech",
+    minRow: 48,
+    peakStart: 58,
+    peakEnd: 76,
+    maxRow: 92,
+    peakChance: 0.026,
+  },
+  {
+    id: "quantum-core",
+    name: "Quantum Core",
+    value: 12,
+    biome: "highTech",
+    minRow: 64,
+    peakStart: 80,
+    peakEnd: Number.POSITIVE_INFINITY,
+    maxRow: Number.POSITIVE_INFINITY,
+    peakChance: 0.021,
+  },
 ];
 
 const ORE_BY_ID = new Map(ORES.map((ore) => [ore.id, ore]));
+
+const ORE_IDS_BY_BIOME: Record<MineBiomeId, readonly OreId[]> = {
+  default: [
+    "coal",
+    "copper",
+    "silver",
+    "emerald",
+    "ruby",
+    "diamond",
+    "core-crystal",
+  ],
+  winter: [
+    "frozen-coal",
+    "frost-copper",
+    "rime-silver",
+    "aurora-emerald",
+    "glacier-ruby",
+    "blue-diamond",
+    "permafrost-core",
+  ],
+  highTech: [
+    "brass-knob",
+    "wire-spool",
+    "logic-chip",
+    "micro-monitor",
+    "keyboard-matrix",
+    "servo-motor",
+    "quantum-core",
+  ],
+};
+
+export function oreIdsForBiome(biome: MineBiomeId): readonly OreId[] {
+  return ORE_IDS_BY_BIOME[biome];
+}
 
 const ORE_BASE_RESERVES: Record<OreId, number> = {
   coal: 4,
@@ -501,6 +782,20 @@ const ORE_BASE_RESERVES: Record<OreId, number> = {
   ruby: 12,
   diamond: 18,
   "core-crystal": 28,
+  "frozen-coal": 4,
+  "frost-copper": 5,
+  "rime-silver": 6,
+  "aurora-emerald": 9,
+  "glacier-ruby": 11,
+  "blue-diamond": 17,
+  "permafrost-core": 27,
+  "brass-knob": 4,
+  "wire-spool": 5,
+  "logic-chip": 6,
+  "micro-monitor": 8,
+  "keyboard-matrix": 11,
+  "servo-motor": 16,
+  "quantum-core": 26,
 };
 
 export function oreDef(id: OreId): OreDef {
@@ -636,6 +931,9 @@ export interface MineCell {
   beaconOrder?: number;
   /** Optional short name shown in the Warp Pad list. */
   beaconLabel?: string;
+  /** Active authored surface portal, separate from bought warp beacons. */
+  portal?: PortalBeaconId;
+  portalActive?: boolean;
   /**
    * Ore lying on the floor of an empty cell: chunks that overflowed a
    * dig or dynamite blast because the cargo hold was full. Scooped up by
@@ -1342,6 +1640,7 @@ export const HAZARD_FREE_ROWS = 4;
 export const FALL_DELAY_ACTIONS = 2;
 
 function rollCell(seed: number, row: number, col: number): MineCell {
+  const biome = biomeAt(col);
   // Depth scaling: rock, treasure, and hazards all grow with depth.
   const rockChance =
     row <= ROCK_FREE_ROWS ? 0 : Math.min(0.05 + row * 0.012, 0.35);
@@ -1355,7 +1654,8 @@ function rollCell(seed: number, row: number, col: number): MineCell {
   const roll = cellRandom(seed, row, col, 0);
   if (roll < cacheChance(row)) return { kind: "part-cache" };
   let threshold = cacheChance(row);
-  for (const ore of ORES) {
+  for (const id of oreIdsForBiome(biome)) {
+    const ore = oreDef(id);
     threshold += oreChanceAt(ore, row);
     if (roll < threshold) return { kind: "ore", ore: ore.id };
   }
@@ -1621,6 +1921,8 @@ export type MineAction =
   | BaseMineAction
   | `collect:${string}`
   | `drop:${string}`
+  | `activate-portal:${PortalBeaconId}`
+  | `portal-warp:${PortalTargetId}`
   | `warp-down:${number},${number}`
   | `rename-beacon:${number},${number},${string}`;
 
@@ -1695,6 +1997,24 @@ function parseDropOreAction(
   return orePileCount(pile) > 0 ? pile : null;
 }
 
+function parseActivatePortalAction(action: string): PortalBeaconId | null {
+  const match = /^activate-portal:(winter|highTech)$/.exec(action);
+  return match ? (match[1] as PortalBeaconId) : null;
+}
+
+function parsePortalWarpAction(action: string): PortalTargetId | null {
+  const match = /^portal-warp:(base|winter|highTech)$/.exec(action);
+  return match ? (match[1] as PortalTargetId) : null;
+}
+
+export function activatePortalAction(id: PortalBeaconId): MineAction {
+  return `activate-portal:${id}`;
+}
+
+export function portalWarpAction(target: PortalTargetId): MineAction {
+  return `portal-warp:${target}`;
+}
+
 function parseWarpDownAction(
   action: string,
 ): { col: number; row: number } | null {
@@ -1764,6 +2084,8 @@ export function isMineAction(action: string): action is MineAction {
     BASE_MINE_ACTIONS.has(action) ||
     parseCollectAction(action) !== null ||
     parseDropOreAction(action) !== null ||
+    parseActivatePortalAction(action) !== null ||
+    parsePortalWarpAction(action) !== null ||
     parseWarpDownAction(action) !== null ||
     parseRenameBeaconAction(action) !== null
   );
@@ -2937,6 +3259,10 @@ export interface PlacedBeacon {
   label: string | null;
 }
 
+export interface PlacedPortalBeacon extends BiomePortalDef {
+  active: boolean;
+}
+
 export function countPlacedBeaconsInDiff(diff: WorldDiff | undefined): number {
   let count = 0;
   for (const [, row, cell] of diff ?? []) {
@@ -2993,6 +3319,29 @@ export function findBeacon(
   return beacon ? { col: beacon.col, row: beacon.row } : null;
 }
 
+export function isPortalActive(state: MineState, id: PortalBeaconId): boolean {
+  const portal = portalDef(id);
+  const cell = cellAt(state, portal.col, portal.row);
+  return cell?.portal === id && cell.portalActive === true;
+}
+
+export function findPortalBeacons(state: MineState): PlacedPortalBeacon[] {
+  return BIOME_PORTALS.map((portal) => ({
+    ...portal,
+    active: isPortalActive(state, portal.id),
+  }));
+}
+
+export function activePortalAt(
+  state: MineState,
+  col: number,
+  row: number,
+): PlacedPortalBeacon | null {
+  const portal = authoredPortalAt(col, row);
+  if (!portal || !isPortalActive(state, portal.id)) return null;
+  return { ...portal, active: true };
+}
+
 /**
  * The teleporter (REQ-029): beacon kits plant persistent anchors in
  * conquered space. The village warp pad jumps to a chosen beacon, and
@@ -3011,6 +3360,44 @@ function placeBeacon(state: MineState): MoveResult {
   state.used.beacon++;
   cell.beacon = true;
   cell.beaconOrder = maxBeaconOrder(state) + 1;
+  return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+}
+
+function activatePortal(state: MineState, id: PortalBeaconId): MoveResult {
+  const portal = portalDef(id);
+  const miner = state.miner;
+  if (miner.row !== portal.row || miner.col !== portal.col)
+    return { ok: false, reason: "blocked" };
+  const cell = cellMut(state, portal.col, portal.row);
+  cell.kind = "empty";
+  cell.portal = id;
+  cell.portalActive = true;
+  return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+}
+
+function canUsePortalNetwork(state: MineState): boolean {
+  const miner = state.miner;
+  if (miner.row !== 0) return false;
+  return (
+    miner.col === WARP_PAD_COL ||
+    activePortalAt(state, miner.col, miner.row) !== null
+  );
+}
+
+function portalWarp(state: MineState, target: PortalTargetId): MoveResult {
+  const miner = state.miner;
+  if (!canUsePortalNetwork(state)) return { ok: false, reason: "blocked" };
+  if (target === "base") {
+    miner.col = START_COL;
+    miner.row = 0;
+    bank(miner, state.gear);
+    return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+  }
+  const portal = portalDef(target);
+  if (!isPortalActive(state, target)) return { ok: false, reason: "no-beacon" };
+  miner.col = portal.col;
+  miner.row = portal.row;
+  bank(miner, state.gear);
   return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
 }
 
@@ -3108,6 +3495,10 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
   if (action.startsWith("collect:")) return collectPlaced(state, action);
   const droppedOre = parseDropOreAction(action);
   if (droppedOre) return dropOreFromBag(state, droppedOre);
+  const portalActivation = parseActivatePortalAction(action);
+  if (portalActivation) return activatePortal(state, portalActivation);
+  const portalTarget = parsePortalWarpAction(action);
+  if (portalTarget) return portalWarp(state, portalTarget);
   const warpTarget = parseWarpDownAction(action);
   if (warpTarget) return warpDown(state, warpTarget);
   const renameTarget = parseRenameBeaconAction(action);

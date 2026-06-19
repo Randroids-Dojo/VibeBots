@@ -34,6 +34,9 @@ import {
   proposedBunkerFootprint,
 } from "@/sim/bunker";
 import {
+  activatePortalAction,
+  activePortalAt,
+  authoredPortalAt,
   BEACON_LABEL_MAX_LENGTH,
   CONSUMABLE_PRICES,
   type CollectTarget,
@@ -54,6 +57,7 @@ import {
   elevatorSegmentPrice,
   elevatorSpeedRows,
   findBeacons,
+  findPortalBeacons,
   GEAR_TRACKS,
   MAX_BEACONS,
   MINE_VERSION,
@@ -66,6 +70,7 @@ import {
   normalizeBeaconLabel,
   type OreId,
   oreDef,
+  portalWarpAction,
   renameBeaconAction,
   returnEnergyCost,
   returnLadderNeed,
@@ -205,6 +210,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: survived bunker defenses add XP toward Level 2 and a third beacon slot.",
   "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
   "Tip: row 1,000 takes rail, Warpcoil, cargo, and battery upgrades together.",
+  "Tip: surface beacons in distant biomes unlock free portals back to base.",
 ] as const;
 
 interface NotificationConfig {
@@ -369,6 +375,20 @@ const RESOURCE_FLOAT_COLORS: Record<OreId, string> = {
   ruby: "#ff6b6b",
   diamond: "#7dd3fc",
   "core-crystal": "#d58cff",
+  "frozen-coal": "#8ea5bd",
+  "frost-copper": "#bddde8",
+  "rime-silver": "#e6f8ff",
+  "aurora-emerald": "#7fffd4",
+  "glacier-ruby": "#ff7fb0",
+  "blue-diamond": "#9ee7ff",
+  "permafrost-core": "#d6f8ff",
+  "brass-knob": "#d8a24a",
+  "wire-spool": "#ff7a45",
+  "logic-chip": "#5df2a4",
+  "micro-monitor": "#7aa8ff",
+  "keyboard-matrix": "#e6e8ee",
+  "servo-motor": "#a2b0c7",
+  "quantum-core": "#65ffb8",
 };
 
 const ORE_CELL_LABELS: Record<OreId, string> = {
@@ -379,6 +399,20 @@ const ORE_CELL_LABELS: Record<OreId, string> = {
   ruby: "Ru",
   diamond: "Di",
   "core-crystal": "Cr",
+  "frozen-coal": "Fc",
+  "frost-copper": "Fp",
+  "rime-silver": "Rs",
+  "aurora-emerald": "Ae",
+  "glacier-ruby": "Gr",
+  "blue-diamond": "Bd",
+  "permafrost-core": "Pc",
+  "brass-knob": "Bk",
+  "wire-spool": "Ws",
+  "logic-chip": "Lc",
+  "micro-monitor": "Mm",
+  "keyboard-matrix": "Km",
+  "servo-motor": "Sm",
+  "quantum-core": "Qc",
 };
 
 type OreBagCell = {
@@ -2848,6 +2882,8 @@ function StallMenu({
   const upgradeFunds = balance === null ? null : balance + banked;
   const offline = balance === null;
   const beacons = findBeacons(mine);
+  const portals = findPortalBeacons(mine).filter((portal) => portal.active);
+  const warpDestinationCount = beacons.length + portals.length;
   const beaconTotal = mine.consumables.beacon + beacons.length;
   const beaconRoom = Math.max(0, beaconLimit - beaconTotal);
   // Swipe-to-dismiss: the grab zone follows the finger down, and a far
@@ -3165,11 +3201,11 @@ function StallMenu({
           <SheetRow
             icon={ITEM_ICONS.beacon}
             name={
-              beacons.length > 0
-                ? `${beacons.length} beacon${beacons.length > 1 ? "s" : ""} planted`
+              warpDestinationCount > 0
+                ? `${warpDestinationCount} destination${warpDestinationCount > 1 ? "s" : ""} online`
                 : "no beacon planted; kits at the depot"
             }
-            sub={`warpcoil range ${warpRange(mine.gear)} rows (upgrade at the Upgrades stall)`}
+            sub={`portals are free; planted beacons use warpcoil range ${warpRange(mine.gear)} rows`}
           />
           <div
             style={{
@@ -3181,7 +3217,7 @@ function StallMenu({
               paddingRight: 2,
             }}
           >
-            {beacons.length === 0 ? (
+            {warpDestinationCount === 0 ? (
               <button
                 type="button"
                 disabled
@@ -3194,22 +3230,15 @@ function StallMenu({
                 Warp to beacon
               </button>
             ) : (
-              beacons.map((beacon, index) => {
-                const draftKey = `${beacon.col},${beacon.row}`;
-                const fallbackName =
-                  index === 0 ? "Newest beacon" : `Beacon ${index + 1}`;
-                const displayName = beacon.label ?? fallbackName;
-                const draft = beaconDrafts[draftKey] ?? beacon.label ?? "";
-                const cleanedDraft = normalizeBeaconLabel(draft);
-                const renameReady = cleanedDraft !== (beacon.label ?? "");
-                return (
+              <>
+                {portals.map((portal) => (
                   <div
-                    key={draftKey}
+                    key={`portal:${portal.id}`}
                     style={{
                       display: "grid",
                       gap: 8,
                       padding: 10,
-                      border: "1px solid rgba(84, 224, 199, 0.18)",
+                      border: `1px solid ${portal.color}`,
                       borderRadius: 12,
                       background: "rgba(17, 21, 31, 0.45)",
                     }}
@@ -3222,77 +3251,124 @@ function StallMenu({
                         gap: 12,
                       }}
                     >
-                      <span style={{ fontWeight: 800 }}>{displayName}</span>
+                      <span style={{ fontWeight: 800 }}>{portal.name}</span>
                       <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
-                        row {beacon.row}, col {beacon.col}
-                        {beacon.inRange ? "" : " out of range"}
+                        col {portal.col}
                       </span>
                     </div>
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => onRide(portalWarpAction(portal.id))}
                       style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) auto auto",
-                        gap: 8,
-                        alignItems: "center",
+                        ...sheetButtonStyle(true),
+                        width: "100%",
+                        minHeight: 38,
                       }}
                     >
-                      <input
-                        aria-label={`Rename ${fallbackName}`}
-                        maxLength={BEACON_LABEL_MAX_LENGTH}
-                        value={draft}
-                        placeholder={fallbackName}
-                        onChange={(event) =>
-                          setBeaconDrafts((current) => ({
-                            ...current,
-                            [draftKey]: event.target.value,
-                          }))
-                        }
-                        style={{
-                          width: "100%",
-                          minWidth: 0,
-                          height: 38,
-                          borderRadius: 10,
-                          border: "1px solid #2c3a5c",
-                          background: "rgba(12, 15, 23, 0.86)",
-                          color: "#e6e8ee",
-                          padding: "0 10px",
-                          fontWeight: 700,
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onRide(renameBeaconAction(beacon, cleanedDraft))
-                        }
-                        disabled={!renameReady}
-                        style={{
-                          ...sheetButtonStyle(renameReady),
-                          minWidth: 64,
-                          minHeight: 38,
-                        }}
-                      >
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onRide(
-                            `warp-down:${beacon.col},${beacon.row}` as MineAction,
-                          )
-                        }
-                        disabled={!beacon.inRange}
-                        style={{
-                          ...sheetButtonStyle(beacon.inRange),
-                          minWidth: 60,
-                          minHeight: 38,
-                        }}
-                      >
-                        Warp
-                      </button>
-                    </div>
+                      Portal
+                    </button>
                   </div>
-                );
-              })
+                ))}
+                {beacons.map((beacon, index) => {
+                  const draftKey = `${beacon.col},${beacon.row}`;
+                  const fallbackName =
+                    index === 0 ? "Newest beacon" : `Beacon ${index + 1}`;
+                  const displayName = beacon.label ?? fallbackName;
+                  const draft = beaconDrafts[draftKey] ?? beacon.label ?? "";
+                  const cleanedDraft = normalizeBeaconLabel(draft);
+                  const renameReady = cleanedDraft !== (beacon.label ?? "");
+                  return (
+                    <div
+                      key={draftKey}
+                      style={{
+                        display: "grid",
+                        gap: 8,
+                        padding: 10,
+                        border: "1px solid rgba(84, 224, 199, 0.18)",
+                        borderRadius: 12,
+                        background: "rgba(17, 21, 31, 0.45)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                        }}
+                      >
+                        <span style={{ fontWeight: 800 }}>{displayName}</span>
+                        <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
+                          row {beacon.row}, col {beacon.col}
+                          {beacon.inRange ? "" : " out of range"}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                          gap: 8,
+                          alignItems: "center",
+                        }}
+                      >
+                        <input
+                          aria-label={`Rename ${fallbackName}`}
+                          maxLength={BEACON_LABEL_MAX_LENGTH}
+                          value={draft}
+                          placeholder={fallbackName}
+                          onChange={(event) =>
+                            setBeaconDrafts((current) => ({
+                              ...current,
+                              [draftKey]: event.target.value,
+                            }))
+                          }
+                          style={{
+                            width: "100%",
+                            minWidth: 0,
+                            height: 38,
+                            borderRadius: 10,
+                            border: "1px solid #2c3a5c",
+                            background: "rgba(12, 15, 23, 0.86)",
+                            color: "#e6e8ee",
+                            padding: "0 10px",
+                            fontWeight: 700,
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onRide(renameBeaconAction(beacon, cleanedDraft))
+                          }
+                          disabled={!renameReady}
+                          style={{
+                            ...sheetButtonStyle(renameReady),
+                            minWidth: 64,
+                            minHeight: 38,
+                          }}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onRide(
+                              `warp-down:${beacon.col},${beacon.row}` as MineAction,
+                            )
+                          }
+                          disabled={!beacon.inRange}
+                          style={{
+                            ...sheetButtonStyle(beacon.inRange),
+                            minWidth: 60,
+                            minHeight: 38,
+                          }}
+                        >
+                          Warp
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
             )}
           </div>
         </div>
@@ -3910,7 +3986,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   useEffect(() => {
     if (
       lastResult?.ok &&
-      (lastAction === "warp-home" || lastAction?.startsWith("warp-down"))
+      (lastAction === "warp-home" ||
+        lastAction?.startsWith("warp-down") ||
+        lastAction?.startsWith("portal-warp"))
     ) {
       setTeleportBurstKey((key) => key + 1);
     }
@@ -4009,6 +4087,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // Destination buildings (Workshop, Battles) route to another screen
   // instead of opening a sheet. The surface is the overworld hub.
   const destination = miner.row === 0 ? destinationAt(miner.col) : null;
+  const portalHere =
+    miner.row === 0 ? authoredPortalAt(miner.col, miner.row) : null;
+  const activePortalHere =
+    miner.row === 0 ? activePortalAt(mine, miner.col, miner.row) : null;
+  const otherActivePortals = activePortalHere
+    ? findPortalBeacons(mine).filter(
+        (portal) => portal.active && portal.id !== activePortalHere.id,
+      )
+    : [];
   const lostCargo = miner.lostCargo;
   const lostDistance = lostCargo
     ? Math.abs(lostCargo.col - miner.col) + Math.abs(lostCargo.row - miner.row)
@@ -4639,6 +4726,86 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             Tap to enter
           </span>
         </button>
+      )}
+      {portalHere && !activePortalHere && (
+        <button
+          type="button"
+          aria-label={`Activate ${portalHere.name}`}
+          onClick={() => move(activatePortalAction(portalHere.id))}
+          style={{
+            position: "absolute",
+            bottom: 92,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 16px",
+            borderRadius: 999,
+            border: `2px solid ${portalHere.color}`,
+            background: "rgba(17, 21, 31, 0.92)",
+            color: "#e6e8ee",
+            fontWeight: 700,
+            fontSize: "0.95rem",
+            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
+            zIndex: 8,
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span style={{ fontSize: "1.2rem" }}>&#128225;</span>
+          <span style={{ color: portalHere.color }}>{portalHere.name}</span>
+          <span style={{ opacity: 0.6, fontSize: "0.82rem" }}>
+            Tap to activate
+          </span>
+        </button>
+      )}
+      {activePortalHere && (
+        <section
+          aria-label={`${activePortalHere.name} portal`}
+          style={{
+            position: "absolute",
+            bottom: 92,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "grid",
+            gridAutoFlow: "column",
+            gap: 8,
+            alignItems: "center",
+            padding: "8px",
+            borderRadius: 999,
+            border: `2px solid ${activePortalHere.color}`,
+            background: "rgba(17, 21, 31, 0.94)",
+            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
+            zIndex: 8,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => move(portalWarpAction("base"))}
+            style={{
+              ...sheetButtonStyle(true),
+              minHeight: 36,
+              borderRadius: 999,
+            }}
+          >
+            Base
+          </button>
+          {otherActivePortals.map((portal) => (
+            <button
+              key={portal.id}
+              type="button"
+              onClick={() => move(portalWarpAction(portal.id))}
+              style={{
+                ...sheetButtonStyle(true),
+                minHeight: 36,
+                borderRadius: 999,
+                borderColor: portal.color,
+              }}
+            >
+              {portal.name}
+            </button>
+          ))}
+        </section>
       )}
       <BunkerControlPanel
         minerCol={miner.col}

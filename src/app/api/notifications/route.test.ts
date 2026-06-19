@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.69-installed-refresh",
+      releaseNoticeId: "2026-06-19-0.1.70-biome-portals",
       releaseSummary:
-        "Installed app refresh: Installed mine apps now notice stale builds almost immediately.",
+        "Biome portal beacons: Winter and high-tech mine regions now have surface portals to base.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.69-installed-refresh",
+      releaseNoticeId: "2026-06-19-0.1.70-biome-portals",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -11,27 +11,28 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.69.123",
+  version: "0.1.70.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-19-0.1.69-installed-refresh",
-  intro: "Installed mine apps now notice stale builds almost immediately.",
+  noticeId: "2026-06-19-0.1.70-biome-portals",
+  intro: "Winter and high-tech mine regions now have surface portals to base.",
   changes: [
     {
       build: 123,
-      text: "Release alerts are now sent from the version check path.",
+      text: "Biome surface beacons now connect to the portal network.",
     },
   ],
   notes: [
     {
-      version: "0.1.69",
+      version: "0.1.70",
       date: "2026-06-19",
-      title: "Installed app refresh",
-      intro: "Installed mine apps now notice stale builds almost immediately.",
+      title: "Biome portal beacons",
+      intro:
+        "Winter and high-tech mine regions now have surface portals to base.",
       changes: [
         {
           build: 123,
-          text: "The mine checks for a newer build as soon as the app opens.",
+          text: "Biome surface beacons now connect to the portal network.",
         },
       ],
     },
@@ -132,7 +133,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Installed app refresh"),
+      expect.stringContaining("Biome portal beacons"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

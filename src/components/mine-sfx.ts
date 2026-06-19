@@ -63,6 +63,20 @@ const ORE_PITCH: Record<OreId, number> = {
   ruby: 1.48,
   diamond: 1.7,
   "core-crystal": 2.0,
+  "frozen-coal": 0.74,
+  "frost-copper": 0.92,
+  "rime-silver": 1.12,
+  "aurora-emerald": 1.3,
+  "glacier-ruby": 1.5,
+  "blue-diamond": 1.74,
+  "permafrost-core": 2.04,
+  "brass-knob": 0.78,
+  "wire-spool": 0.95,
+  "logic-chip": 1.16,
+  "micro-monitor": 1.34,
+  "keyboard-matrix": 1.52,
+  "servo-motor": 1.76,
+  "quantum-core": 2.08,
 };
 
 function clean(nodes: AudioNode[], delayMs: number): void {
@@ -202,7 +216,11 @@ export function mineResultSfxEvents(
   if (result.recalled) events.push("recall");
   if (action === "place-beacon" || result.supportCollected?.beacon)
     events.push("beacon");
-  if (action?.startsWith("warp-down") || action === "warp-home")
+  if (
+    action?.startsWith("warp-down") ||
+    action === "warp-home" ||
+    action?.startsWith("portal-warp")
+  )
     events.push("warp");
   if (action === "ride-down" || action === "ride-up") events.push("elevator");
   if (result.abandoned) events.push("abandon");

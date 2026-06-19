@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  activatePortalAction,
   applyAction,
   BASE_HITS,
   BATTERY_CHARGE,
+  biomeAt,
   blastRadius,
   canDigRock,
   canPlacePlank,
@@ -29,6 +31,7 @@ import {
   FALL_DELAY_ACTIONS,
   findBeacon,
   findBeacons,
+  findPortalBeacons,
   GAS_VENT_DRAIN,
   GEAR_TRACKS,
   gearTrackDef,
@@ -54,9 +57,11 @@ import {
   oreCellValueAt,
   oreChanceAt,
   oreDef,
+  oreIdsForBiome,
   oreReserveAt,
   oreUnitsAt,
   PLANK_RECOVERY_FLOOR,
+  portalWarpAction,
   ROCK_DIG_COST,
   ROCK_FREE_ROWS,
   refundRailSupportsInDiff,
@@ -222,10 +227,50 @@ describe("mine", () => {
 
   it("keeps total ore cell value on the intended tier curve", () => {
     const row = 1;
-    expect(ORES.map((ore) => oreCellValueAt(ore.id, row))).toEqual([
-      4, 5, 7, 18, 48, 108, 280,
-    ]);
+    expect(
+      ORES.filter((ore) => ore.biome === "default").map((ore) =>
+        oreCellValueAt(ore.id, row),
+      ),
+    ).toEqual([4, 5, 7, 18, 48, 108, 280]);
     expect(oreCellValueAt("core-crystal", MINE_BALANCE_MAX_ROW)).toBe(3360);
+  });
+
+  it("maps horizontal biome bands and ore pools by column", () => {
+    expect(biomeAt(-101)).toBe("default");
+    expect(biomeAt(-100)).toBe("winter");
+    expect(biomeAt(-75)).toBe("winter");
+    expect(biomeAt(-50)).toBe("winter");
+    expect(biomeAt(-49)).toBe("default");
+    expect(biomeAt(99)).toBe("default");
+    expect(biomeAt(100)).toBe("highTech");
+    expect(biomeAt(125)).toBe("highTech");
+    expect(biomeAt(150)).toBe("highTech");
+    expect(biomeAt(151)).toBe("default");
+    expect(oreIdsForBiome("winter")).toContain("aurora-emerald");
+    expect(oreIdsForBiome("highTech")).toContain("keyboard-matrix");
+  });
+
+  it("uses biome-only ore ids inside biome columns", () => {
+    const state = createMine(912);
+    for (const [col, biome] of [
+      [-75, "winter"],
+      [125, "highTech"],
+    ] as const) {
+      let checked = 0;
+      for (let row = 1; row < 220; row++) {
+        const cell = cellAt(state, col, row);
+        if (cell?.kind !== "ore" || !cell.ore) continue;
+        expect(oreDef(cell.ore).biome).toBe(biome);
+        checked++;
+      }
+      expect(checked).toBeGreaterThan(0);
+    }
+    for (let row = 1; row < 220; row++) {
+      const cell = cellAt(state, 0, row);
+      if (cell?.kind === "ore" && cell.ore) {
+        expect(oreDef(cell.ore).biome).toBe("default");
+      }
+    }
   });
 
   it("ramps ore chance as a trapezoid over the band", () => {
@@ -612,6 +657,62 @@ describe("mine", () => {
     expect(applyAction(state, "warp-home").ok).toBe(true);
     expect(applyAction(state, "warp-down").ok).toBe(true);
     expect(state.miner.row).toBe(3);
+  });
+
+  it("activates authored biome portals and travels for free", () => {
+    const state = createMine(330);
+    expect(findPortalBeacons(state).map((portal) => portal.active)).toEqual([
+      false,
+      false,
+    ]);
+    state.miner.col = -75;
+    expect(applyAction(state, activatePortalAction("winter")).ok).toBe(true);
+    expect(findPortalBeacons(state)[0]?.active).toBe(true);
+    expect(countPlacedBeaconsInDiff(exportDiff(state))).toBe(0);
+    expect(applyAction(state, portalWarpAction("highTech"))).toEqual({
+      ok: false,
+      reason: "no-beacon",
+    });
+
+    state.miner.col = 125;
+    expect(applyAction(state, activatePortalAction("highTech")).ok).toBe(true);
+    expect(applyAction(state, portalWarpAction("winter")).ok).toBe(true);
+    expect(state.miner.col).toBe(-75);
+    expect(state.used.beacon).toBe(0);
+    expect(applyAction(state, portalWarpAction("base")).ok).toBe(true);
+    expect(state.miner.col).toBe(START_COL);
+    expect(state.miner.row).toBe(0);
+
+    const restored = createMine(
+      330,
+      DEFAULT_GEAR,
+      NO_CONSUMABLES,
+      exportDiff(state),
+    );
+    expect(findPortalBeacons(restored).map((portal) => portal.active)).toEqual([
+      true,
+      true,
+    ]);
+  });
+
+  it("replays portal trips identically", () => {
+    const actions: MineAction[] = [
+      "left",
+      "left",
+      ...Array.from({ length: 73 }, () => "left" as const),
+      activatePortalAction("winter"),
+      portalWarpAction("base"),
+      ...Array.from({ length: 125 }, () => "right" as const),
+      activatePortalAction("highTech"),
+      portalWarpAction("winter"),
+    ];
+    const a = replayTrip(331, actions, DEFAULT_GEAR, NO_CONSUMABLES);
+    const b = replayTrip(331, actions, DEFAULT_GEAR, NO_CONSUMABLES);
+    expect(a.diff).toEqual(b.diff);
+    const live = createMine(331);
+    for (const action of actions) applyAction(live, action);
+    expect(live.miner.col).toBe(-75);
+    expect(live.miner.row).toBe(0);
   });
 
   it("renames placed beacons through replayed Warp Pad actions", () => {

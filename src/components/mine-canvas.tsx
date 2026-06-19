@@ -27,17 +27,21 @@ import type {
 } from "@/sim/bunker";
 import { BASE_PART_CATALOG } from "@/sim/bunker";
 import {
+  biomeAt,
   type CollectTarget,
   cellAt,
   ELEVATOR_COL,
   FALL_DELAY_ACTIONS,
+  findPortalBeacons,
   hitsFor,
   isSupportSalvageTarget,
   isVisible,
   lanternDistance,
   lightRadius,
+  type MineBiomeId,
   type MineCell,
   type MineCoord,
+  type MineState,
   type OreId,
   oreReserveAt,
   START_COL,
@@ -58,10 +62,31 @@ const ORE_COLORS: Record<OreId, string> = {
   ruby: "#e03358",
   diamond: "#8fe9f2",
   "core-crystal": "#b04df0",
+  "frozen-coal": "#3d4f66",
+  "frost-copper": "#b7d2dc",
+  "rime-silver": "#e4f7ff",
+  "aurora-emerald": "#7fffd4",
+  "glacier-ruby": "#ff7fb0",
+  "blue-diamond": "#9ee7ff",
+  "permafrost-core": "#d6f8ff",
+  "brass-knob": "#d8a24a",
+  "wire-spool": "#ff7a45",
+  "logic-chip": "#5df2a4",
+  "micro-monitor": "#7aa8ff",
+  "keyboard-matrix": "#e6e8ee",
+  "servo-motor": "#a2b0c7",
+  "quantum-core": "#65ffb8",
 };
 
 /** Rare tiers glow so a glimpse at the light's edge reads as treasure. */
-const GLOWING_ORES = new Set<OreId>(["diamond", "core-crystal"]);
+const GLOWING_ORES = new Set<OreId>([
+  "diamond",
+  "core-crystal",
+  "blue-diamond",
+  "permafrost-core",
+  "micro-monitor",
+  "quantum-core",
+]);
 
 function dropPileStats(cell: MineCell): { count: number; ore: OreId | null } {
   let count = 0;
@@ -180,6 +205,8 @@ const STRATA_BG = [
 
 /** Rock darkens by tier so the hard gates read at a glance. */
 const ROCK_COLORS = ["#555e6e", "#46506a", "#3b3550"];
+const WINTER_ROCK_COLORS = ["#9fb5c8", "#7f9fb8", "#637f9a"];
+const TECH_ROCK_COLORS = ["#23483e", "#253f58", "#2b3568"];
 const CACHE_COLOR = "#f5c542";
 const BOULDER_COLOR = "#8a7f70";
 const BOULDER_WOBBLE_COLOR = "#b59f82";
@@ -195,6 +222,43 @@ const DARK_DEPTH = 14;
 function dirtColorAt(row: number): string {
   const index = STRATA.indexOf(stratumAt(row));
   return STRATA_DIRT[Math.min(index, STRATA_DIRT.length - 1)];
+}
+
+function biomeDirtColorAt(col: number, row: number): string {
+  const biome = biomeAt(col);
+  if (biome === "winter") {
+    const band = ["#dcecf3", "#c9dbe5", "#b6ccd8", "#9eb7c6"];
+    return band[Math.min(Math.floor(row / 24), band.length - 1)];
+  }
+  if (biome === "highTech") {
+    const band = ["#193a32", "#143742", "#202e4d", "#24305b"];
+    return band[Math.min(Math.floor(row / 28), band.length - 1)];
+  }
+  return dirtColorAt(row);
+}
+
+function rockColorsForBiome(biome: MineBiomeId): readonly string[] {
+  if (biome === "winter") return WINTER_ROCK_COLORS;
+  if (biome === "highTech") return TECH_ROCK_COLORS;
+  return ROCK_COLORS;
+}
+
+function tunnelColorForBiome(biome: MineBiomeId): string {
+  if (biome === "winter") return "#152532";
+  if (biome === "highTech") return "#071f1b";
+  return "#15120e";
+}
+
+function surfaceColorForBiome(biome: MineBiomeId): string {
+  if (biome === "winter") return "#d7edf6";
+  if (biome === "highTech") return "#1f4f46";
+  return "#3d5c3a";
+}
+
+function surfaceTrimColorForBiome(biome: MineBiomeId): string {
+  if (biome === "winter") return "#eefbff";
+  if (biome === "highTech") return "#5ff0a8";
+  return "#4f7a4a";
 }
 
 /**
@@ -646,6 +710,125 @@ function SupportCellHitTarget({
         depthTest={false}
       />
     </mesh>
+  );
+}
+
+function PortalBeaconModel({
+  color,
+  active,
+}: {
+  color: string;
+  active: boolean;
+}) {
+  return (
+    <group>
+      <mesh position={[0, -0.12, 0]}>
+        <cylinderGeometry args={[0.13, 0.2, 0.54, 8]} />
+        <meshStandardMaterial
+          color={active ? color : "#44505c"}
+          metalness={0.55}
+          roughness={0.32}
+          emissive={active ? color : "#000000"}
+          emissiveIntensity={active ? 0.22 : 0}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[0, 0.23, 0]}>
+        <torusGeometry args={[0.24, 0.035, 8, 18]} />
+        <meshStandardMaterial
+          color={color}
+          metalness={0.35}
+          roughness={0.28}
+          emissive={active ? color : "#000000"}
+          emissiveIntensity={active ? 0.95 : 0.18}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[0, 0.23, 0]}>
+        <octahedronGeometry args={[0.11, 0]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={active ? 1.9 : 0.45}
+          flatShading
+        />
+      </mesh>
+      {active && (
+        <pointLight
+          position={[0, 0.28, 0.4]}
+          color={color}
+          intensity={1.5}
+          distance={4.5}
+          decay={1.7}
+        />
+      )}
+    </group>
+  );
+}
+
+function SurfaceSkin({
+  firstCol,
+  lastCol,
+  mine,
+}: {
+  firstCol: number;
+  lastCol: number;
+  mine: MineState;
+}) {
+  const tiles = [];
+  for (let col = firstCol - 1; col <= lastCol + 1; col++) {
+    const biome = biomeAt(col);
+    const x = cellX(col);
+    tiles.push(
+      <group key={col} position={[x, 0, -0.36]}>
+        <mesh position={[0, -0.47, 0]}>
+          <boxGeometry args={[1.02, 0.08, 0.9]} />
+          <meshStandardMaterial
+            color={variedColor(surfaceColorForBiome(biome), col, 0)}
+            roughness={biome === "highTech" ? 0.45 : 1}
+            metalness={biome === "highTech" ? 0.45 : 0}
+            flatShading
+          />
+        </mesh>
+        <mesh position={[0, -0.4, 0.1]}>
+          <boxGeometry args={[0.94, 0.045, 0.34]} />
+          <meshStandardMaterial
+            color={surfaceTrimColorForBiome(biome)}
+            roughness={0.9}
+            metalness={biome === "highTech" ? 0.3 : 0}
+            emissive={biome === "highTech" ? "#0b4a36" : "#000000"}
+            emissiveIntensity={biome === "highTech" ? 0.25 : 0}
+            flatShading
+          />
+        </mesh>
+        {biome === "default" && Math.abs(col - 0.5) > 8 && (
+          <mesh
+            position={[
+              (cellHash(col, 11, 2) - 0.5) * 0.46,
+              -0.32,
+              (cellHash(col, 13, 2) - 0.5) * 0.4,
+            ]}
+            rotation={[0, cellHash(col, 17, 2) * 3, 0]}
+          >
+            <coneGeometry args={[0.055, 0.16, 5]} />
+            <meshStandardMaterial color="#4f7a4a" roughness={1} flatShading />
+          </mesh>
+        )}
+      </group>,
+    );
+  }
+  const portals = findPortalBeacons(mine).filter(
+    (portal) => portal.col >= firstCol - 2 && portal.col <= lastCol + 2,
+  );
+  return (
+    <group>
+      {tiles}
+      {portals.map((portal) => (
+        <group key={portal.id} position={[cellX(portal.col), -0.14, 0.55]}>
+          <PortalBeaconModel color={portal.color} active={portal.active} />
+        </group>
+      ))}
+    </group>
   );
 }
 
@@ -2210,8 +2393,11 @@ function MineScene({
       j.swing = PICK_SWING_SECONDS;
       const dc = lastAction === "left" ? -1 : lastAction === "right" ? 1 : 0;
       const dr = lastAction === "down" ? 1 : lastAction === "up" ? -1 : 0;
-      const sx = cellX(miner.col + dc);
-      const sy = -(miner.row + dr);
+      const targetCol = miner.col + dc;
+      const targetRow = miner.row + dr;
+      const targetBiome = biomeAt(targetCol);
+      const sx = cellX(targetCol);
+      const sy = -targetRow;
       spawnSparks(j, sx, sy, 4);
       spawnBurst(
         j,
@@ -2220,8 +2406,8 @@ function MineScene({
         lastResult.oreHarvested
           ? ORE_COLORS[lastResult.oreHarvested.ore]
           : lastResult.cracked.kind === "rock"
-            ? ROCK_COLORS[0]
-            : dirtColorAt(miner.row + dr),
+            ? rockColorsForBiome(targetBiome)[0]
+            : biomeDirtColorAt(targetCol, targetRow),
         3,
       );
       j.shake = Math.max(j.shake, 0.02);
@@ -2240,10 +2426,10 @@ function MineScene({
         lastResult.dugOre != null
           ? ORE_COLORS[lastResult.dugOre]
           : lastResult.dug === "rock"
-            ? ROCK_COLORS[0]
+            ? rockColorsForBiome(biomeAt(at.col))[0]
             : lastResult.dug === "part-cache"
               ? CACHE_COLOR
-              : dirtColorAt(at.row);
+              : biomeDirtColorAt(at.col, at.row);
       spawnBurst(
         j,
         cellX(at.col),
@@ -2284,7 +2470,14 @@ function MineScene({
       j.shake = Math.max(j.shake, 0.35);
     }
     if ((lastResult.vented ?? 0) > 0) {
-      spawnBurst(j, cellX(at.col), -at.row, GAS_COLOR, 16);
+      const biome = biomeAt(at.col);
+      const ventColor =
+        biome === "winter"
+          ? "#9ee7ff"
+          : biome === "highTech"
+            ? "#65ffb8"
+            : GAS_COLOR;
+      spawnBurst(j, cellX(at.col), -at.row, ventColor, 16);
       j.shake = Math.max(j.shake, 0.25);
     }
     if (lastResult.ladderFalls?.length) {
@@ -2342,7 +2535,8 @@ function MineScene({
       lastAction === "abandon" ||
       lastAction === "recall" ||
       lastAction === "warp-home" ||
-      lastAction?.startsWith("warp-down");
+      lastAction?.startsWith("warp-down") ||
+      lastAction?.startsWith("portal-warp");
     // Camera rig eases down the shaft after the miner, with shake.
     const targetY = visualTargetY;
     const rig = rigRef.current;
@@ -2610,6 +2804,7 @@ function MineScene({
       const key = `${col}:${row}`;
       const x = cellX(col);
       const y = -row;
+      const biome = biomeAt(col);
       if (cell.bag) {
         const bagOnBlock = cell.kind !== "empty";
         cargoMeshes.push(
@@ -2682,7 +2877,7 @@ function MineScene({
             <mesh key={key} position={[x, y, -0.42]}>
               <boxGeometry args={[1, 1, 0.12]} />
               <meshStandardMaterial
-                color={variedColor("#15120e", col, row)}
+                color={variedColor(tunnelColorForBiome(biome), col, row)}
                 roughness={1}
               />
             </mesh>,
@@ -2915,7 +3110,7 @@ function MineScene({
           <group key={key} position={[x, y, 0]}>
             <RoundedBox args={[0.94, 0.94, 0.94]} radius={0.07} smoothness={2}>
               <meshStandardMaterial
-                color={variedColor(dirtColorAt(row), col, row)}
+                color={variedColor(biomeDirtColorAt(col, row), col, row)}
                 roughness={0.95}
                 flatShading
               />
@@ -2926,7 +3121,8 @@ function MineScene({
         continue;
       }
       if (cell.kind === "rock") {
-        const tier = Math.min((cell.rockTier ?? 1) - 1, ROCK_COLORS.length - 1);
+        const rockColors = rockColorsForBiome(biome);
+        const tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
         const teeter = cell.fallIn;
         const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
         if (teeter !== undefined || cell.fallen) {
@@ -2958,7 +3154,7 @@ function MineScene({
           >
             <dodecahedronGeometry args={[0.62, 0]} />
             <meshStandardMaterial
-              color={variedColor(ROCK_COLORS[tier], col, row)}
+              color={variedColor(rockColors[tier], col, row)}
               emissive={teeter !== undefined ? TEETER_EMISSIVE : "#000000"}
               emissiveIntensity={
                 teeter !== undefined ? 0.15 + 0.5 * urgency : 0
@@ -2986,7 +3182,17 @@ function MineScene({
             <icosahedronGeometry args={[0.56, 0]} />
             <meshStandardMaterial
               color={
-                teeter !== undefined ? BOULDER_WOBBLE_COLOR : BOULDER_COLOR
+                biome === "winter"
+                  ? teeter !== undefined
+                    ? "#c8e6f0"
+                    : "#9fb5c8"
+                  : biome === "highTech"
+                    ? teeter !== undefined
+                      ? "#65ffb8"
+                      : "#3d625b"
+                    : teeter !== undefined
+                      ? BOULDER_WOBBLE_COLOR
+                      : BOULDER_COLOR
               }
               emissive={teeter !== undefined ? TEETER_EMISSIVE : "#000000"}
               emissiveIntensity={teeter !== undefined ? 0.2 + 0.5 * urgency : 0}
@@ -3015,9 +3221,23 @@ function MineScene({
             position={[x, y, 0]}
           >
             <meshStandardMaterial
-              color={variedColor("#5a2418", col, row)}
-              emissive={MAGMA_COLOR}
-              emissiveIntensity={0.55}
+              color={variedColor(
+                biome === "winter"
+                  ? "#335568"
+                  : biome === "highTech"
+                    ? "#122f28"
+                    : "#5a2418",
+                col,
+                row,
+              )}
+              emissive={
+                biome === "winter"
+                  ? "#9ee7ff"
+                  : biome === "highTech"
+                    ? "#65ffb8"
+                    : MAGMA_COLOR
+              }
+              emissiveIntensity={biome === "default" ? 0.55 : 0.42}
               roughness={0.6}
               flatShading
             />
@@ -3035,11 +3255,23 @@ function MineScene({
             position={[x, y, 0]}
           >
             <meshStandardMaterial
-              color={variedColor(dirtColorAt(row), col, row).lerp(
-                new Color(GAS_COLOR),
+              color={variedColor(biomeDirtColorAt(col, row), col, row).lerp(
+                new Color(
+                  biome === "winter"
+                    ? "#9ee7ff"
+                    : biome === "highTech"
+                      ? "#65ffb8"
+                      : GAS_COLOR,
+                ),
                 0.45,
               )}
-              emissive={GAS_COLOR}
+              emissive={
+                biome === "winter"
+                  ? "#9ee7ff"
+                  : biome === "highTech"
+                    ? "#65ffb8"
+                    : GAS_COLOR
+              }
               emissiveIntensity={0.12}
               roughness={0.7}
               flatShading
@@ -3079,7 +3311,7 @@ function MineScene({
           position={[x, y, 0]}
         >
           <meshStandardMaterial
-            color={variedColor(dirtColorAt(row), col, row)}
+            color={variedColor(biomeDirtColorAt(col, row), col, row)}
             roughness={0.95}
             flatShading
           />
@@ -3193,6 +3425,7 @@ function MineScene({
         <boxGeometry args={[CAMP_WIDTH, 1.04, 0.12]} />
         <meshStandardMaterial color="#10130d" roughness={1} />
       </mesh>
+      <SurfaceSkin firstCol={firstCol} lastCol={lastCol} mine={mine} />
       <SurfaceDressing />
       {/* The miner bot. No position prop: useFrame owns the transform. */}
       <group ref={minerRef}>

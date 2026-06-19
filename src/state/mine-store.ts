@@ -273,7 +273,13 @@ export interface MineSessionState {
 
 /** Every logged action so far is a surface walk (left/right on row 0). */
 function surfaceOnlyLog(moves: MineAction[]): boolean {
-  return moves.every((m) => m === "left" || m === "right");
+  return moves.every(
+    (m) =>
+      m === "left" ||
+      m === "right" ||
+      m.startsWith("activate-portal:") ||
+      m.startsWith("portal-warp:"),
+  );
 }
 
 export const useMineStore = create<MineSessionState>((set, get) => {

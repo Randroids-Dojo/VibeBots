@@ -1149,6 +1149,8 @@ export type MoveResult =
       collapsed: boolean;
       /** A falling boulder ended the trip (carry lost). */
       crushed?: boolean;
+      /** This action started at least one falling-rock countdown. */
+      fallingRockTriggered?: boolean;
       /** Gas pockets vented by this action (robot battery charge burned). */
       vented?: number;
       /** Cells destroyed by a dynamite blast. */
@@ -1521,7 +1523,8 @@ function minerLostCargo(miner: MinerState): {
 function markUnstable(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
-): void {
+): boolean {
+  let triggered = false;
   for (const { col, row } of emptied) {
     const blockRow = row - 1;
     if (blockRow <= HAZARD_FREE_ROWS) continue;
@@ -1530,8 +1533,10 @@ function markUnstable(
     if (above.fallIn !== undefined) continue;
     if (cellAt(state, col, row)?.kind === "empty") {
       cellMut(state, col, blockRow).fallIn = FALL_DELAY_ACTIONS;
+      triggered = true;
     }
   }
+  return triggered;
 }
 
 function isFallingRock(cell: MineCell): boolean {
@@ -1554,9 +1559,10 @@ function digKindFor(cell: MineCell): CellKind {
 function settleAfterEmptied(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
-): void {
-  markUnstable(state, emptied);
+): boolean {
+  const fallingRockTriggered = markUnstable(state, emptied);
   settleUnsupportedDrops(state);
+  return fallingRockTriggered;
 }
 
 /**
@@ -1622,7 +1628,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
     }
     const crushed = tickFalls(state, emptied);
-    settleAfterEmptied(state, emptied);
+    const fallingRockTriggered = settleAfterEmptied(state, emptied);
     const fell = settleMiner(state);
     const fellTooFar = isFatalMinerFall(state, fell);
     const oreHarvested = {
@@ -1643,6 +1649,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
         found: null,
         collapsed: true,
         crushed: crushed || fellTooFar,
+        fallingRockTriggered: fallingRockTriggered || undefined,
         vented,
         dropped: dropped > 0 ? dropped : undefined,
         fell: fell || undefined,
@@ -1659,6 +1666,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       found: null,
       collapsed: false,
       crushed,
+      fallingRockTriggered: fallingRockTriggered || undefined,
       vented,
       dropped: dropped > 0 ? dropped : undefined,
       fell: fell || undefined,
@@ -1683,7 +1691,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       // and the battery can still run out mid-block.
       const emptiedMid: Array<{ col: number; row: number }> = [];
       const crushedMid = tickFalls(state, emptiedMid);
-      settleAfterEmptied(state, emptiedMid);
+      const fallingRockTriggeredMid = settleAfterEmptied(state, emptiedMid);
       const fellMid = settleMiner(state);
       const fellTooFarMid = isFatalMinerFall(state, fellMid);
       if (crushedMid || fellTooFarMid || (miner.row > 0 && miner.energy <= 0)) {
@@ -1696,6 +1704,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
           found: null,
           collapsed: true,
           crushed: crushedMid || fellTooFarMid,
+          fallingRockTriggered: fallingRockTriggeredMid || undefined,
           fell: fellMid || undefined,
           fallFatal: fellTooFarMid || undefined,
           lost,
@@ -1707,6 +1716,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
         dugOre: null,
         found: null,
         collapsed: false,
+        fallingRockTriggered: fallingRockTriggeredMid || undefined,
         fell: fellMid || undefined,
         cracked: { kind: kindForDig, remaining },
       });
@@ -1792,7 +1802,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   }
 
   const crushed = tickFalls(state, emptied);
-  settleAfterEmptied(state, emptied);
+  const fallingRockTriggered = settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
   const fellTooFar = isFatalMinerFall(state, fell);
 
@@ -1810,6 +1820,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       found,
       collapsed,
       crushed: crushed || fellTooFar,
+      fallingRockTriggered: fallingRockTriggered || undefined,
       vented,
       dropped: dropped > 0 ? dropped : undefined,
       laddered,
@@ -1830,6 +1841,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     found,
     collapsed,
     crushed,
+    fallingRockTriggered: fallingRockTriggered || undefined,
     vented,
     dropped: dropped > 0 ? dropped : undefined,
     laddered,
@@ -1883,7 +1895,7 @@ function finishStationaryAction(
 ): MoveResult {
   const emptied: Array<{ col: number; row: number }> = [];
   const crushed = tickFalls(state, emptied);
-  settleAfterEmptied(state, emptied);
+  const fallingRockTriggered = settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
   const fellTooFar = isFatalMinerFall(state, fell);
   if (crushed || fellTooFar) {
@@ -1893,6 +1905,8 @@ function finishStationaryAction(
       ...base,
       collapsed: true,
       crushed: true,
+      fallingRockTriggered:
+        base.fallingRockTriggered || fallingRockTriggered || undefined,
       fell: fell || undefined,
       fallFatal: fellTooFar || undefined,
       lost,
@@ -1900,6 +1914,8 @@ function finishStationaryAction(
   }
   return maybeExplodePendingDynamite(state, {
     ...base,
+    fallingRockTriggered:
+      base.fallingRockTriggered || fallingRockTriggered || undefined,
     fell: fell || base.fell,
   });
 }
@@ -2122,6 +2138,7 @@ interface ExplosionResult {
   collected?: number;
   dropped?: number;
   foundParts?: string[];
+  fallingRockTriggered?: boolean;
   exploded: PendingDynamite;
 }
 
@@ -2197,13 +2214,14 @@ function detonateDynamiteAt(
     dropped += spilled;
     if (spilled > 0) dropOreToSurface(state, nc, nr, leftover);
   }
-  settleAfterEmptied(state, emptied);
+  const fallingRockTriggered = settleAfterEmptied(state, emptied);
   return {
     vented: vented > 0 ? vented : undefined,
     blasted: blasted > 0 ? blasted : undefined,
     collected: collected > 0 ? collected : undefined,
     dropped: dropped > 0 ? dropped : undefined,
     foundParts: foundParts.length > 0 ? foundParts : undefined,
+    fallingRockTriggered: fallingRockTriggered || undefined,
     exploded: center,
   };
 }
@@ -2238,6 +2256,10 @@ function maybeExplodePendingDynamite(
       exploded: explosion.exploded,
       collapsed: true,
       crushed: true,
+      fallingRockTriggered:
+        result.fallingRockTriggered || explosion.fallingRockTriggered
+          ? true
+          : undefined,
       fell: totalFell > 0 ? totalFell : undefined,
       fallFatal: true,
       lost,
@@ -2251,6 +2273,10 @@ function maybeExplodePendingDynamite(
     dropped: dropped > 0 ? dropped : undefined,
     foundParts: foundParts.length > 0 ? foundParts : undefined,
     exploded: explosion.exploded,
+    fallingRockTriggered:
+      result.fallingRockTriggered || explosion.fallingRockTriggered
+        ? true
+        : undefined,
     fell: totalFell > 0 ? totalFell : undefined,
   };
 }
@@ -2270,7 +2296,7 @@ function plantDynamite(state: MineState, tier: DynamiteTier): MoveResult {
   state.pendingDynamite = t;
   const emptied: Array<{ col: number; row: number }> = [];
   const crushed = tickFalls(state, emptied);
-  settleAfterEmptied(state, emptied);
+  const fallingRockTriggered = settleAfterEmptied(state, emptied);
   const fell = settleMiner(state);
   const fellTooFar = isFatalMinerFall(state, fell);
   if (crushed || fellTooFar) {
@@ -2283,6 +2309,7 @@ function plantDynamite(state: MineState, tier: DynamiteTier): MoveResult {
       found: null,
       collapsed: true,
       crushed: true,
+      fallingRockTriggered: fallingRockTriggered || undefined,
       dynamitePlanted: t,
       lost,
       fell: fell || undefined,
@@ -2295,6 +2322,7 @@ function plantDynamite(state: MineState, tier: DynamiteTier): MoveResult {
     dugOre: null,
     found: null,
     collapsed: false,
+    fallingRockTriggered: fallingRockTriggered || undefined,
     dynamitePlanted: t,
     fell: fell || undefined,
   };
@@ -2409,7 +2437,7 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
     miner.row = target;
     if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
     const crushed = tickFalls(state, emptied);
-    settleAfterEmptied(state, emptied);
+    const fallingRockTriggered = settleAfterEmptied(state, emptied);
     if (crushed) {
       const lost = {
         value: carriedValue(miner),
@@ -2425,10 +2453,18 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
         found: null,
         collapsed: true,
         crushed: true,
+        fallingRockTriggered: fallingRockTriggered || undefined,
         lost,
       };
     }
-    return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+    return {
+      ok: true,
+      dug: null,
+      dugOre: null,
+      found: null,
+      collapsed: false,
+      fallingRockTriggered: fallingRockTriggered || undefined,
+    };
   }
   if (miner.col !== ELEVATOR_COL || miner.row < 1 || miner.row > rail)
     return { ok: false, reason: "blocked" };

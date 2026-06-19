@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.49-mine-tip-wrap";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.50-falling-rock-alert";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.50",
+      date: "2026-06-19",
+      title: "Falling rock alert",
+      intro:
+        "The mine now teaches the falling-rock danger at the moment it starts.",
+      changes: [
+        {
+          build,
+          text: "A warning dialog appears when an action first starts a falling-rock countdown.",
+        },
+        {
+          build,
+          text: "The warning explains that the miner must avoid being under the rock in the next 2 turns.",
+        },
+        {
+          build,
+          text: "Ok dismisses the current warning, while Never Show Again stores the browser preference and hides future falling-rock alerts.",
+        },
+      ],
+    },
     {
       version: "0.1.49",
       date: "2026-06-19",

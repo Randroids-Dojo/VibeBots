@@ -875,13 +875,18 @@ describe("mine", () => {
     // Dig out the support: the boulder above starts its countdown.
     const dug = dig(state, "right");
     expect(dug.ok).toBe(true);
+    expect(dug.ok && dug.fallingRockTriggered).toBe(true);
     expect(state.miner.col).toBe(c + 1);
     expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS);
     // Step clear; the countdown ticks one per action with no early drop.
-    expect(step(state, "right").ok).toBe(true); // -> c+2
+    const stepClear = step(state, "right"); // -> c+2
+    expect(stepClear.ok).toBe(true);
+    expect(stepClear.ok && stepClear.fallingRockTriggered).toBeUndefined();
     expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS - 1);
     expect(cellAt(state, c + 1, 5)?.kind).toBe("boulder"); // still perched
-    expect(step(state, "right").ok).toBe(true); // -> c+3: the countdown hits zero
+    const stepDrop = step(state, "right"); // -> c+3: the countdown hits zero
+    expect(stepDrop.ok).toBe(true);
+    expect(stepDrop.ok && stepDrop.fallingRockTriggered).toBeUndefined();
     // The boulder fell into the vacated support cell and rests there.
     expect(cellAt(state, c + 1, 5)?.kind).toBe("empty");
     expect(cellAt(state, c + 1, 6)?.kind).toBe("boulder");
@@ -925,6 +930,7 @@ describe("mine", () => {
     setCell(state, c + 1, HAZARD_FREE_ROWS + 2, { kind: "dirt" }); // floor
     const dug = dig(state, "right"); // undermine the gentle-top rock
     expect(dug.ok).toBe(true);
+    expect(dug.ok && dug.fallingRockTriggered).toBeUndefined();
     // Inside the gentle top the rock never starts a countdown, so it
     // never falls: the first lesson stays safe.
     expect(cellAt(state, c + 1, HAZARD_FREE_ROWS)?.fallIn).toBeUndefined();

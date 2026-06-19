@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="falling-rock-alert" data-date="2026-06-19">
+    <h3>Falling Rock Alert</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260618-231524-4a4f38a2</code>, rebased onto current <code>origin/main</code> before implementation.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-directed falling-rock teaching slice. Mine actions now report when they newly start a falling-rock countdown, and the mine UI opens a blocking dialog that says the miner must avoid being under the rock in the next <code>2</code> turns. <strong>Ok</strong> dismisses only the current warning, while <strong>Never Show Again</strong> stores a browser-local preference that suppresses future falling-rock alerts. Falling-rock timing, damage, replay state, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged. Package version moved to <code>0.1.50</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, drei <code>10.7.7</code>, and <code>@types/three</code> <code>0.184.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write src/sim/mine.ts src/sim/mine.test.ts src/components/mine-panel.tsx src/lib/app-release.ts tests/e2e/smoke.spec.ts package.json</code>, focused falling-rock Vitest, <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke for release notes and the falling-rock alert (2 passed), <code>pnpm test</code> (234 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and full <code>pnpm test:e2e</code> (37 passed, 2 storage-gated skips). In-app Browser verification on <code>http://127.0.0.1:3144/mine</code> confirmed the <code>0.1.50</code> release dialog and mine HUD render.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: "triggers a falling rock hazard" means an action newly starts a falling-rock countdown, not when an already triggered rock lands. The never-show choice is browser-local because existing mine notices use local browser storage. Mine surface tips were reviewed and kept unchanged because the existing falling-rock timing tip remains accurate.</dd>
+      <dt>GDD coverage</dt><dd>No coverage row changed. Updated static and in-game release notes, and appended a build-log entry to <code>docs/gdd/06-mining.html</code> for the falling-rock alert.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-tip-wrap" data-date="2026-06-19">
     <h3>Mine Tip Wrap</h3>
     <dl>

@@ -82,6 +82,8 @@ const RELEASE_LAST_PLAYED_KEY = "vibebots-last-played-app-version";
 const RELEASE_LAST_PLAYED_BUILD_KEY = "vibebots-last-played-app-build";
 const RELEASE_DISMISSED_KEY = "vibebots-release-notes-dismissed-id";
 const RELEASE_PENDING_FROM_BUILD_KEY = "vibebots-release-notes-from-build";
+const FALLING_ROCK_ALERT_DISMISSED_KEY =
+  "vibebots-falling-rock-alert-dismissed";
 
 const KEY_DIRECTIONS: Record<string, Direction> = {
   ArrowDown: "down",
@@ -616,6 +618,126 @@ function ReleaseNotesPopup({
         >
           Got it
         </button>
+      </section>
+    </div>
+  );
+}
+
+function FallingRockHazardAlert() {
+  const lastResult = useMineStore((s) => s.lastResult);
+  const [visible, setVisible] = useState(false);
+  const [suppressedForSession, setSuppressedForSession] = useState(false);
+
+  useEffect(() => {
+    if (!lastResult?.ok || !lastResult.fallingRockTriggered) return;
+    if (suppressedForSession) return;
+    try {
+      if (localStorage.getItem(FALLING_ROCK_ALERT_DISMISSED_KEY) === "true") {
+        return;
+      }
+    } catch {
+      // Storage blocked: keep showing until this session suppresses it.
+    }
+    setVisible(true);
+  }, [lastResult, suppressedForSession]);
+
+  if (!visible) return null;
+
+  const dismiss = () => setVisible(false);
+  const neverShowAgain = () => {
+    try {
+      localStorage.setItem(FALLING_ROCK_ALERT_DISMISSED_KEY, "true");
+    } catch {
+      setSuppressedForSession(true);
+    }
+    setVisible(false);
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="falling-rock-alert-title"
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 34,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 18,
+        background: "rgba(5, 8, 13, 0.6)",
+        pointerEvents: "auto",
+      }}
+    >
+      <section
+        style={{
+          width: "min(92vw, 360px)",
+          border: "1px solid #f5c542",
+          borderRadius: 12,
+          background: "rgba(17, 21, 31, 0.97)",
+          boxShadow: "0 18px 54px rgba(0, 0, 0, 0.52)",
+          color: "#e6e8ee",
+          padding: "16px 18px",
+        }}
+      >
+        <h2
+          id="falling-rock-alert-title"
+          style={{
+            margin: 0,
+            color: "#f5c542",
+            fontSize: "1.02rem",
+            lineHeight: 1.2,
+          }}
+        >
+          Falling rock
+        </h2>
+        <p
+          style={{
+            margin: "10px 0 14px",
+            color: "#dce5f7",
+            fontSize: "0.92rem",
+            lineHeight: 1.4,
+          }}
+        >
+          The miner must avoid being under the rock in the next 2 turns.
+        </p>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={dismiss}
+            style={{
+              flex: "1 1 88px",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #54e0c7",
+              background: "#173033",
+              color: "#54e0c7",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Ok
+          </button>
+          <button
+            type="button"
+            onClick={neverShowAgain}
+            style={{
+              flex: "1 1 150px",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #384564",
+              background: "#20283a",
+              color: "#e6e8ee",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Never Show Again
+          </button>
+        </div>
       </section>
     </div>
   );
@@ -3097,6 +3219,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         release={appRelease}
         manualOpenCount={releaseNotesOpenCount}
       />
+      <FallingRockHazardAlert />
       <StampBookPopup
         open={stampBookOpen}
         onClose={() => setStampBookOpen(false)}

@@ -738,14 +738,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Long mine tips now stay inside");
+  await expect(dialog).toContainText(
+    "The mine now teaches the falling-rock danger",
+  );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "wrap inside the mine HUD",
+    "first starts a falling-rock countdown",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("single-line");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "avoid being under the rock",
+  );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Tip copy and mine rules are unchanged.",
+    "Never Show Again stores the browser preference",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -765,11 +769,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.50", "Falling rock alert"],
     ["0.1.49", "Mine tip wrap"],
     ["0.1.48", "Starter base parts"],
     ["0.1.47", "Bunker claim alignment"],
     ["0.1.46", "Clanker pathing"],
-    ["0.1.45", "Hardware Store"],
   ] as const;
   expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
   for (const [
@@ -784,6 +788,76 @@ test("mine shows the latest release note once to a fresh browser", async ({
   }
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
+});
+
+test("mine falling-rock alert can be dismissed or permanently hidden", async ({
+  page,
+}) => {
+  const gear = { ...DEFAULT_GEAR, pickaxe: 4, fall: 5 };
+  const mine = createMine(8080, gear, STARTING_CONSUMABLES);
+  const c = START_COL;
+  for (let row = 1; row <= 6; row++) {
+    setCell(mine, c, row, { kind: "empty" });
+  }
+  setCell(mine, c, 7, { kind: "dirt" });
+  for (let dc = 1; dc <= 3; dc++) {
+    setCell(mine, c + dc, 5, { kind: "rock", rockTier: 1 });
+    setCell(mine, c + dc, 6, { kind: "dirt" });
+    setCell(mine, c + dc, 7, { kind: "dirt" });
+  }
+
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed: 8080,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "6",
+  );
+
+  await pressMineKey(page, "ArrowRight");
+  const alert = page.getByRole("dialog", { name: "Falling rock" });
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText(
+    "The miner must avoid being under the rock in the next 2 turns.",
+  );
+  await alert.getByRole("button", { name: "Ok" }).click();
+  await expect(alert).not.toBeVisible();
+
+  await pressMineKey(page, "ArrowRight");
+  await expect(alert).toBeVisible();
+  await alert.getByRole("button", { name: "Never Show Again" }).click();
+  await expect(alert).not.toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        localStorage.getItem("vibebots-falling-rock-alert-dismissed"),
+      ),
+    )
+    .toBe("true");
+
+  await page.reload();
+  await dismissReleaseNotes(page);
+  await pressMineKey(page, "ArrowRight");
+  await expect(alert).not.toBeVisible();
 });
 
 test("save slot deletion requires a destructive double confirmation", async ({

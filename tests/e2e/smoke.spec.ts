@@ -739,16 +739,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "The mine HUD now keeps one simple bag capacity chip.",
+    "Recoverable bags now fall when their support is removed.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("one bag chip");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "scrollable cell grid",
+  await expect(dialog.locator("li").first()).toContainText(
+    "falls to the next stable cell",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "gamepad cancel/back",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("ladder or plank");
+  await expect(dialog.locator("li").nth(2)).toContainText("lost-cargo locator");
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -767,6 +765,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.58", "Dropped bag gravity"],
     ["0.1.57", "Bag grid"],
     ["0.1.56", "Version refresh prompt"],
     ["0.1.55", "Mine metal floor"],

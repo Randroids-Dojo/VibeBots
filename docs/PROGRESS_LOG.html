@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-claim-hud-position" data-date="2026-06-19">
+    <h3>Bunker Claim HUD Position</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-claim-hud-position</code>, created from current <code>origin/main</code> in a fresh worktree before implementation.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported HUD cleanup. The compact underground <strong>Bunker claim</strong> button now sits higher on the left side of the mine so it stays clear of the lower action controls. The explicit claim-mode flow, bunker claim rules, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged. Package version moved to <code>0.1.59</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release-test, and package files, <code>pnpm typecheck</code>, <code>pnpm test</code> (249 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PORT=3185</code> for latest release notes plus explicit bunker claim mode (2 passed). In-app Browser verification on <code>http://127.0.0.1:3186/mine</code> confirmed the <code>0.1.59</code> release dialog and measured the Bunker claim button at <code>y=524-566</code> while lower dig controls sat at <code>y=656-702</code>, with no overlap.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: move only the compact pre-claim entry button, because the larger builder panel appears after the player intentionally enters claim mode and carries its own controls.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, notification release-summary expectations, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="dropped-bag-gravity" data-date="2026-06-19">
     <h3>Dropped Bag Gravity</h3>
     <dl>

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.58-dropped-bag-gravity",
+      releaseNoticeId: "2026-06-19-0.1.59-bunker-claim-hud",
       releaseSummary:
-        "Dropped bag gravity: Recoverable bags now fall when their support is removed.",
+        "Bunker claim HUD: The bunker claim button now stays clear of the lower mine HUD.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.58-dropped-bag-gravity",
+      releaseNoticeId: "2026-06-19-0.1.59-bunker-claim-hud",
       attempted: 2,
       sent: 1,
       expired: 1,

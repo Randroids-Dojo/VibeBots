@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.58-dropped-bag-gravity";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.59-bunker-claim-hud";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.59",
+      date: "2026-06-19",
+      title: "Bunker claim HUD",
+      intro: "The bunker claim button now stays clear of the lower mine HUD.",
+      changes: [
+        {
+          build,
+          text: "Underground players without a bunker now see the compact Bunker claim button higher on the left side of the mine.",
+        },
+        {
+          build,
+          text: "The button no longer crowds the lower action controls, while the explicit claim-mode flow stays unchanged.",
+        },
+        {
+          build,
+          text: "The bunker claim smoke test now measures the button position before opening the builder panel.",
+        },
+      ],
+    },
     {
       version: "0.1.58",
       date: "2026-06-19",

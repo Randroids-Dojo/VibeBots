@@ -2801,7 +2801,7 @@ function BunkerControlPanel({
         style={{
           position: "absolute",
           left: 12,
-          bottom: 94,
+          bottom: 154,
           zIndex: 8,
           minHeight: 42,
           borderRadius: 999,

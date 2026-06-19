@@ -453,7 +453,17 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
 
   const builder = page.getByRole("region", { name: "Bunker builder" });
   await expect(builder).not.toBeVisible();
-  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  const claimButton = page.getByRole("button", { name: "Start bunker claim" });
+  await expect(claimButton).toBeVisible();
+  const claimButtonBox = await claimButton.boundingBox();
+  const viewport = page.viewportSize();
+  if (!claimButtonBox || !viewport) {
+    throw new Error("claim button position could not be measured");
+  }
+  expect(claimButtonBox.y + claimButtonBox.height).toBeLessThan(
+    viewport.height - 128,
+  );
+  await claimButton.click();
   await expect(builder).toBeVisible();
   await expect(builder.getByLabel("Player level progress")).toContainText(
     "Player level 1/2",
@@ -739,14 +749,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Recoverable bags now fall when their support is removed.",
+    "The bunker claim button now stays clear of the lower mine HUD.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "falls to the next stable cell",
+    "Bunker claim button higher",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("ladder or plank");
-  await expect(dialog.locator("li").nth(2)).toContainText("lost-cargo locator");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "lower action controls",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "button position before opening",
+  );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();
@@ -765,12 +779,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.59", "Bunker claim HUD"],
     ["0.1.58", "Dropped bag gravity"],
     ["0.1.57", "Bag grid"],
     ["0.1.56", "Version refresh prompt"],
     ["0.1.55", "Mine metal floor"],
     ["0.1.54", "Death bag recovery"],
-    ["0.1.53", "Mine balance pass"],
   ] as const;
   expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
   for (const [

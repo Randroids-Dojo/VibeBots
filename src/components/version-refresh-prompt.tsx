@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const POLL_INTERVAL_MS = 60_000;
-const INITIAL_DELAY_MS = 30_000;
 const APP_VERSION_MARKER = /data-vibebots-app-version="([^"]+)"/;
 
 function versionFromPayload(payload: unknown): string | null {
@@ -62,9 +61,12 @@ export function VersionRefreshPrompt({
     if (!currentVersion || currentVersion === "dev") return;
 
     let cancelled = false;
+    let checking = false;
     let interval: ReturnType<typeof setInterval> | null = null;
 
     async function checkVersion() {
+      if (checking) return;
+      checking = true;
       try {
         const res = await fetch("/api/version", { cache: "no-store" });
         if (!res.ok) return;
@@ -82,18 +84,25 @@ export function VersionRefreshPrompt({
         if (!cancelled) setStaleVersion(version);
       } catch {
         return;
+      } finally {
+        checking = false;
       }
     }
 
-    const initial = setTimeout(() => {
-      void checkVersion();
-      interval = setInterval(() => void checkVersion(), POLL_INTERVAL_MS);
-    }, INITIAL_DELAY_MS);
+    function checkWhenVisible() {
+      if (document.visibilityState === "visible") void checkVersion();
+    }
+
+    checkWhenVisible();
+    interval = setInterval(() => void checkVersion(), POLL_INTERVAL_MS);
+    window.addEventListener("focus", checkWhenVisible);
+    document.addEventListener("visibilitychange", checkWhenVisible);
 
     return () => {
       cancelled = true;
-      clearTimeout(initial);
       if (interval) clearInterval(interval);
+      window.removeEventListener("focus", checkWhenVisible);
+      document.removeEventListener("visibilitychange", checkWhenVisible);
     };
   }, [currentVersion, dismissedVersion]);
 

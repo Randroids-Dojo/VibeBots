@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="installed-app-refresh" data-date="2026-06-19">
+    <h3>Installed App Refresh</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260619155625</code>, rebased over current <code>origin/main</code> after <code>0.1.68</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported installed-app stale shell fix. The mine refresh prompt now checks for a newer build as soon as the app opens, checks again when the installed app regains focus or visibility, keeps the existing one-minute background poll, and prevents overlapping version checks. The <code>/mine</code> route now renders dynamically with no revalidation so refreshed app shells are not reused as static pages. Package version moved to <code>0.1.69</code>; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> stay unchanged.</dd>
+      <dt>Verification</dt><dd>After rebasing over <code>0.1.68</code>, ran focused notification, version, and Web Push Vitest (12 passed), <code>pnpm typecheck</code>, <code>pnpm build</code> confirming <code>/mine</code> is dynamic, focused Playwright smoke against <code>PORT=3223</code> for latest release notes, immediate refresh prompt, refreshability guard, installed-app foreground recheck, and outside-tap dismissal (5 passed), <code>pnpm test</code> (263 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and <code>git diff --check</code>. The dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep the once-per-minute background poll for already-open browser tabs, but make installed-app reopen and foreground return the fast paths because those are the stale-shell cases players notice.</dd>
+      <dt>GDD coverage</dt><dd>REQ-039 stays done. Updated <code>docs/gdd/09-notifications.html</code>, static release notes, in-game release notes, notification release-summary expectations, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ladder-removal-edit-mode" data-date="2026-06-19">
     <h3>Ladder Removal Edit Mode</h3>
     <dl>

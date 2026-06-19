@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.68-ladder-removal-edit-mode",
+      releaseNoticeId: "2026-06-19-0.1.69-installed-refresh",
       releaseSummary:
-        "Ladder removal cleanup: Ladders now use the same edit pickup flow as other supports.",
+        "Installed app refresh: Installed mine apps now notice stale builds almost immediately.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.68-ladder-removal-edit-mode",
+      releaseNoticeId: "2026-06-19-0.1.69-installed-refresh",
       attempted: 2,
       sent: 1,
       expired: 1,

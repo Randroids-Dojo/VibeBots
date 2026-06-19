@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.68-ladder-removal-edit-mode";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.69-installed-refresh";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.69",
+      date: "2026-06-19",
+      title: "Installed app refresh",
+      intro: "Installed mine apps now notice stale builds almost immediately.",
+      changes: [
+        {
+          build,
+          text: "The mine checks for a newer build as soon as the app opens instead of waiting thirty seconds.",
+        },
+        {
+          build,
+          text: "Returning to an installed app now rechecks the current build when the window regains focus or visibility.",
+        },
+        {
+          build,
+          text: "The mine route now renders dynamically so refreshed app shells are not reused as static pages.",
+        },
+      ],
+    },
     {
       version: "0.1.68",
       date: "2026-06-19",

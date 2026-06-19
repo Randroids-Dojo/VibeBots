@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.69" data-date="2026-06-19">
+    <h2>0.1.69</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.69</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>35</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Installed mine apps now notice stale builds almost immediately after opening.</dd>
+      <dt>Refresh checks</dt><dd>The mine checks for a newer build as soon as the app opens, then checks again when the installed app regains focus or visibility. Already open browser tabs keep the existing once-per-minute background poll.</dd>
+      <dt>Route freshness</dt><dd>The <code>/mine</code> route now renders dynamically with no revalidation, so refreshed app shells are not reused as static pages.</dd>
+      <dt>Verification</dt><dd>Focused Playwright coverage checks the immediate stale-build prompt, the refreshability guard, foreground return checks, outside-tap dismissal, and latest release-note ordering.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.68" data-date="2026-06-19">
     <h2>0.1.68</h2>
     <dl>

@@ -2,6 +2,9 @@ import { MinePanel } from "@/components/mine-panel";
 import { VersionRefreshPrompt } from "@/components/version-refresh-prompt";
 import { getAppRelease } from "@/lib/app-release";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function MinePage() {
   const appRelease = getAppRelease();
   return (

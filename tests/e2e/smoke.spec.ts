@@ -870,17 +870,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Ladders now use the same edit pickup flow as other supports.",
+    "Installed mine apps now notice stale builds almost immediately.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "dedicated ladder removal button is gone",
+    "as soon as the app opens",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Use Edit placed pickups",
+    "regains focus or visibility",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "replay rules are unchanged",
+    "renders dynamically",
   );
 
   await page.mouse.click(8, 8);
@@ -900,6 +900,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.69", "Installed app refresh"],
     ["0.1.68", "Ladder removal cleanup"],
     ["0.1.67", "Release note accuracy"],
     ["0.1.66", "Bag drop controls"],
@@ -947,7 +948,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.68-ladder-removal-edit-mode",
+      "2026-06-19-0.1.69-installed-refresh",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1024,12 +1025,51 @@ test("mine waits to show refresh prompt until the new page is refreshable", asyn
   ).not.toBeVisible();
 });
 
+test("mine rechecks stale installed app shells when the app returns to foreground", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(
+    page.getByRole("dialog", { name: "New version available" }),
+  ).not.toBeVisible();
+
+  const version = "999.0.1-test";
+  await page.route("**/api/version", async (route) => {
+    await route.fulfill({ json: { version } });
+  });
+  await page.route("**/mine?vibebots_version_probe=*", async (route) => {
+    await route.fulfill({
+      contentType: "text/html",
+      body: `<span hidden data-vibebots-app-version="${version}"></span>`,
+    });
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+    window.dispatchEvent(new Event("focus"));
+  });
+
+  await expect(
+    page.getByRole("dialog", { name: "New version available" }),
+  ).toBeVisible();
+});
+
 test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await speedUpVersionRefreshChecks(page);
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.68-ladder-removal-edit-mode",
+      "2026-06-19-0.1.69-installed-refresh",
     );
   });
   await page.route("**/api/version", async (route) => {

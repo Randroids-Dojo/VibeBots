@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.64-feedback",
+      releaseNoticeId: "2026-06-19-0.1.65-release-note-accuracy",
       releaseSummary:
-        "Feedback window: The pause menu now has feedback, and ladder gravity asks for a quick reaction.",
+        "Release note accuracy: Release notes now match the Settings feedback entry point and current push setup.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.64-feedback",
+      releaseNoticeId: "2026-06-19-0.1.65-release-note-accuracy",
       attempted: 2,
       sent: 1,
       expired: 1,

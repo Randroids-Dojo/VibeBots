@@ -2,16 +2,37 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.64-feedback";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.65-release-note-accuracy";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.65",
+      date: "2026-06-19",
+      title: "Release note accuracy",
+      intro:
+        "Release notes now match the Settings feedback entry point and current push setup.",
+      changes: [
+        {
+          build,
+          text: "The latest feedback release copy now names Settings as the place to send feedback.",
+        },
+        {
+          build,
+          text: "The native alert summary now uses the corrected release wording for subscribed Android and installed iPhone or iPad players.",
+        },
+        {
+          build,
+          text: "The release history keeps feedback, native alerts, and Vercel push setup notes in current deployment order.",
+        },
+      ],
+    },
     {
       version: "0.1.64",
       date: "2026-06-19",
       title: "Feedback window",
       intro:
-        "The pause menu now has feedback, and ladder gravity asks for a quick reaction.",
+        "Settings now has feedback, and ladder gravity asks for a quick reaction.",
       changes: [
         {
           build,

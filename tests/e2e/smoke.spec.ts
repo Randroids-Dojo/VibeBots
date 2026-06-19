@@ -826,14 +826,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "The pause menu now has feedback, and ladder gravity asks for a quick reaction.",
+    "Release notes now match the Settings feedback entry point and current push setup.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("common categories");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "fall animation settles",
+  await expect(dialog.locator("li").first()).toContainText(
+    "place to send feedback",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("player_feedback");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "subscribed Android and installed iPhone or iPad players",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "Vercel push setup notes",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -852,6 +856,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.65", "Release note accuracy"],
     ["0.1.64", "Feedback window"],
     ["0.1.63", "Native release alerts"],
     ["0.1.62", "Refresh availability guard"],
@@ -895,7 +900,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.64-feedback",
+      "2026-06-19-0.1.65-release-note-accuracy",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -977,7 +982,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.64-feedback",
+      "2026-06-19-0.1.65-release-note-accuracy",
     );
   });
   await page.route("**/api/version", async (route) => {

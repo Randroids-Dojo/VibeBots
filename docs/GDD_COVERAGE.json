@@ -690,7 +690,7 @@
     },
     {
       "id": "REQ-039",
-      "requirement": "Players can opt into native browser notifications for one-line release summaries, with Web Push subscriptions, a mobile Safari Home Screen reminder, an installable iPhone and iPad web app path, and one send per release notice id.",
+      "requirement": "Players can opt into native browser notifications for one-line release summaries, get a mobile Safari Home Screen reminder, install the iPhone and iPad web app path, receive one send per release notice id, and refresh when a newer deployed version is detected.",
       "gddRef": "docs/gdd/09-notifications.html#spec",
       "status": "done",
       "implementationRefs": [
@@ -700,6 +700,8 @@
         "src/app/api/notifications/config/route.ts",
         "src/app/api/notifications/subscription/route.ts",
         "src/app/api/notifications/release/route.ts",
+        "src/app/api/version/route.ts",
+        "src/components/version-refresh-prompt.tsx",
         "src/app/manifest.ts",
         "public/sw.js",
         "public/icon.svg",
@@ -709,6 +711,7 @@
       ],
       "testRefs": [
         "src/app/api/notifications/route.test.ts",
+        "src/app/api/version/route.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []

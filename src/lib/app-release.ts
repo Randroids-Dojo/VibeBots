@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.55-mine-metal-floor";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.56-version-refresh-prompt";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.56",
+      date: "2026-06-19",
+      title: "Version refresh prompt",
+      intro:
+        "VibeBots now offers a refresh button when a newer build is deployed.",
+      changes: [
+        {
+          build,
+          text: "The mine checks the deployed app version after the page has been open and keeps checking once per minute.",
+        },
+        {
+          build,
+          text: "When the server reports a newer build, a compact prompt appears above the game with a Refresh button.",
+        },
+        {
+          build,
+          text: "The check uses the same app release version that powers release notes and update alerts.",
+        },
+      ],
+    },
     {
       version: "0.1.55",
       date: "2026-06-19",

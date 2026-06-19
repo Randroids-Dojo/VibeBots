@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.55-mine-metal-floor",
+      releaseNoticeId: "2026-06-19-0.1.56-version-refresh-prompt",
       releaseSummary:
-        "Mine metal floor: Row 1000 is now the hard bottom of the mine.",
+        "Version refresh prompt: VibeBots now offers a refresh button when a newer build is deployed.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.55-mine-metal-floor",
+      releaseNoticeId: "2026-06-19-0.1.56-version-refresh-prompt",
       attempted: 2,
       sent: 1,
       expired: 1,

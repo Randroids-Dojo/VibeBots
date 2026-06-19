@@ -738,16 +738,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText(
-    "Row 1000 is now the hard bottom of the mine.",
-  );
+  await expect(dialog).toContainText("VibeBots now offers a refresh button");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "impenetrable metal",
+    "checks the deployed app version",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("elevator");
+  await expect(dialog.locator("li").nth(1)).toContainText("Refresh button");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Older saved world diffs",
+    "same app release version",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -767,12 +765,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.56", "Version refresh prompt"],
     ["0.1.55", "Mine metal floor"],
     ["0.1.54", "Death bag recovery"],
     ["0.1.53", "Mine balance pass"],
     ["0.1.52", "Safari notification setup"],
-    ["0.1.51", "Update alerts"],
-    ["0.1.50", "Falling rock alert"],
   ] as const;
   expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
   for (const [
@@ -796,6 +793,50 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(settingsAgain).toContainText(
     "Notification keys are not set on this deploy.",
   );
+});
+
+test("mine prompts to refresh when the deployed version changes", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const realSetTimeout = window.setTimeout;
+    const realSetInterval = window.setInterval;
+    window.setTimeout = ((...args: Parameters<typeof window.setTimeout>) => {
+      const [handler, timeout, ...rest] = args;
+      return realSetTimeout(
+        handler,
+        timeout === 30_000 ? 20 : timeout,
+        ...rest,
+      );
+    }) as typeof window.setTimeout;
+    window.setInterval = ((...args: Parameters<typeof window.setInterval>) => {
+      const [handler, timeout, ...rest] = args;
+      return realSetInterval(
+        handler,
+        timeout === 60_000 ? 20 : timeout,
+        ...rest,
+      );
+    }) as typeof window.setInterval;
+  });
+  await page.route("**/api/version", async (route) => {
+    await route.fulfill({ json: { version: "999.0.0-test" } });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+
+  const prompt = page.getByRole("dialog", {
+    name: "New version available",
+  });
+  await expect(prompt).toBeVisible();
+  await expect(prompt).toContainText(
+    "Refresh to load the latest VibeBots build.",
+  );
+  await expect(prompt).toHaveAttribute(
+    "data-version-refresh-prompt",
+    "999.0.0-test",
+  );
+  await expect(prompt.getByRole("button", { name: "Refresh" })).toBeVisible();
 });
 
 test("mine asks mobile Safari users to add the Home Screen app for alerts", async ({

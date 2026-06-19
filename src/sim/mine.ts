@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 30;
+export const MINE_VERSION = 31;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -203,9 +203,22 @@ export const ELEVATOR_COL = -5;
 /** Rows of rail per purchased segment (one stratum band). */
 export const ELEVATOR_SEGMENT_ROWS = 12;
 
-/** Price of the nth rail segment (1-based): superlinear per stratum. */
+/** Target row for the current authored long-form mine economy. */
+export const MINE_BALANCE_MAX_ROW = 1000;
+
+const EARLY_ELEVATOR_SEGMENT_PRICES = [45, 80, 130, 200, 300] as const;
+
+/**
+ * Price of the nth rail segment (1-based). Rail remains a major
+ * investment, but it must be finite through the row-1000 transport goal.
+ */
 export function elevatorSegmentPrice(segment: number): number {
-  return Math.round((40 * 2.5 ** (segment - 1)) / 10) * 10;
+  if (segment <= 0) return 0;
+  if (segment <= EARLY_ELEVATOR_SEGMENT_PRICES.length)
+    return EARLY_ELEVATOR_SEGMENT_PRICES[segment - 1];
+  if (segment <= 12) return 380 + (segment - 6) * 70;
+  if (segment <= 34) return 900 + (segment - 13) * 115;
+  return 2800 + (segment - 35) * 105;
 }
 
 /** Max robot battery charge by battery-cell level. */
@@ -240,49 +253,49 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
   {
     track: "pickaxe",
     name: "Pickaxe",
-    prices: [40, 150, 500, 1500],
+    prices: [45, 140, 420, 1200],
     blurb: "cuts harder rock tiers",
   },
   {
     track: "battery",
     name: "Battery Cell",
-    prices: [30, 100, 350],
+    prices: [35, 110, 340],
     blurb: "more robot charge per trip",
   },
   {
     track: "cargo",
     name: "Cargo Hold",
-    prices: [25, 80, 300],
+    prices: [30, 90, 280],
     blurb: "carry more ore per trip",
   },
   {
     track: "lantern",
     name: "Lantern",
-    prices: [50, 200],
+    prices: [55, 180],
     blurb: "see deeper ahead",
   },
   {
     track: "warpcoil",
     name: "Warpcoil",
-    prices: [120, 400, 1200],
+    prices: [180, 700, 2600],
     blurb: "longer beacon warp range",
   },
   {
     track: "blast",
     name: "Blast Charge",
-    prices: [300, 1000, 4000],
+    prices: [250, 800, 2500],
     blurb: "unlock stronger dynamite shapes",
   },
   {
     track: "elevatorSpeed",
     name: "Elevator Speed",
-    prices: [80, 200, 500, 1300, 3500, 9000, 24000, 65000],
+    prices: [100, 260, 680, 1750, 4500, 11000, 26000, 62000],
     blurb: "faster elevator rides (needs a rail)",
   },
   {
     track: "fall",
     name: "Fall Harness",
-    prices: [90, 250, 700, 2000],
+    prices: [80, 220, 620, 1700],
     blurb: "survive longer free falls",
   },
 ];
@@ -482,11 +495,11 @@ const ORE_BY_ID = new Map(ORES.map((ore) => [ore.id, ore]));
 const ORE_BASE_RESERVES: Record<OreId, number> = {
   coal: 4,
   copper: 5,
-  silver: 8,
-  emerald: 10,
-  ruby: 13,
-  diamond: 21,
-  "core-crystal": 32,
+  silver: 7,
+  emerald: 9,
+  ruby: 12,
+  diamond: 18,
+  "core-crystal": 28,
 };
 
 export function oreDef(id: OreId): OreDef {
@@ -517,9 +530,22 @@ export function oreChanceAt(ore: OreDef, row: number): number {
   return (ore.peakChance * (ore.maxRow - row)) / (ore.maxRow - ore.peakEnd);
 }
 
+const ORE_UNIT_STEPS: ReadonlyArray<{ minRow: number; units: number }> = [
+  { minRow: 1000, units: 12 },
+  { minRow: 760, units: 10 },
+  { minRow: 580, units: 8 },
+  { minRow: 420, units: 6 },
+  { minRow: 280, units: 4 },
+  { minRow: 160, units: 3 },
+  { minRow: 80, units: 2 },
+];
+
 /** Ore chunks yielded by one ore cell at this row. */
 export function oreUnitsAt(row: number): number {
-  return Math.min(14, Math.max(1, 1 + Math.floor((row - 1) / 80)));
+  for (const step of ORE_UNIT_STEPS) {
+    if (row >= step.minRow) return step.units;
+  }
+  return 1;
 }
 
 /** Named strata (REQ-012): every band has its own look and stamp goal. */
@@ -538,6 +564,11 @@ export const STRATA: readonly Stratum[] = [
   { name: "The Black Seam", startRow: 84 },
   { name: "Echo Vaults", startRow: 110 },
   { name: "Core Approach", startRow: 140 },
+  { name: "Crystal Foundry", startRow: 220 },
+  { name: "Pressure Cathedral", startRow: 340 },
+  { name: "Ion Mantle", startRow: 500 },
+  { name: "Sunken Circuit", startRow: 680 },
+  { name: "Depth 1000 Gate", startRow: 880 },
 ];
 
 export function stratumAt(row: number): Stratum {

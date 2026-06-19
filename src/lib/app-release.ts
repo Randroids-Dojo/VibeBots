@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.52-ios-home-screen-prompt";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.53-mine-balance-pass";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.53",
+      date: "2026-06-19",
+      title: "Mine balance pass",
+      intro:
+        "Depth rewards and upgrade prices now scale cleanly toward row 1,000.",
+      changes: [
+        {
+          build,
+          text: "Ore reserves now grow in authored depth steps through row 1,000, keeping deep finds valuable without runaway cell payouts.",
+        },
+        {
+          build,
+          text: "Upgrade prices were retuned so early gear is reachable, mid-depth gear takes focused runs, and late transport remains a finite goal.",
+        },
+        {
+          build,
+          text: "Elevator rail pricing now stays bounded through the row 1,000 target instead of exploding past practical play.",
+        },
+      ],
+    },
     {
       version: "0.1.52",
       date: "2026-06-19",

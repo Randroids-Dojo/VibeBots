@@ -121,6 +121,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
   "Tip: survived bunker defenses add XP toward Level 2 and a third beacon slot.",
   "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
+  "Tip: row 1,000 takes rail, Warpcoil, cargo, and battery upgrades together.",
 ] as const;
 
 interface NotificationConfig {

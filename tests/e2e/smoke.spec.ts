@@ -738,14 +738,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Mobile Safari players");
+  await expect(dialog).toContainText(
+    "Depth rewards and upgrade prices now scale cleanly toward row 1,000.",
+  );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Home Screen reminder",
+    "Ore reserves now grow in authored depth steps",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("Never show again");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "Upgrade prices were retuned",
+  );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "cannot open the install sheet",
+    "Elevator rail pricing now stays bounded",
   );
 
   await dialog.getByRole("button", { name: "Got it" }).click();
@@ -765,11 +769,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.53", "Mine balance pass"],
     ["0.1.52", "Safari notification setup"],
     ["0.1.51", "Update alerts"],
     ["0.1.50", "Falling rock alert"],
     ["0.1.49", "Mine tip wrap"],
-    ["0.1.48", "Starter base parts"],
   ] as const;
   expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
   for (const [

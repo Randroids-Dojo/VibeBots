@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="progressive-mine-balance" data-date="2026-06-19">
+    <h3>Progressive Mine Balance</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/20260619-002400</code>, rebased onto current <code>origin/main</code> before implementation.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed balance pass for the row <code>1,000</code> mining goal. Ore reserves now use authored depth steps through row <code>1,000</code>, deeper strata add long-range landmarks, gear prices were retuned as one table, and elevator rail segment prices are bounded instead of becoming unreachable under the old exponential curve. Package version moved to <code>0.1.53</code>; <code>MINE_VERSION</code> moved from <code>30</code> to <code>31</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, focused mine Vitest (83 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (242 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3164</code> for the latest release note (1 passed). In-app Browser verification on <code>http://127.0.0.1:3163/mine</code> confirmed the <code>0.1.53</code> release dialog and no console errors.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the current authored long-form mine target is row <code>1,000</code>, matching top Warpcoil range, so upgrade and rail pricing should make that depth expensive but finite instead of open-ended exponential.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, and focused sim tests for resource values and pricing.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ios-home-screen-notification-prompt" data-date="2026-06-19">
     <h3>iOS Home Screen Notification Prompt</h3>
     <dl>

@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.53" data-date="2026-06-19">
+    <h2>0.1.53</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.53</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>30</code> to <code>31</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mining rewards and upgrade prices now scale toward the row <code>1,000</code> transport goal with a smoother progression curve.</dd>
+      <dt>Rules</dt><dd>Ore reserves now grow in authored depth steps through row <code>1,000</code>. Deep ore is still worth chasing, but rich cells no longer jump as sharply as the old linear reserve curve.</dd>
+      <dt>Progression</dt><dd>Pickaxe, Battery Cell, Cargo Hold, Lantern, Warpcoil, Blast Charge, Elevator Speed, and Fall Harness prices were retuned together. Early upgrades are still reachable, mid-depth upgrades ask for focused runs, and row <code>1,000</code> transport remains a late finite goal.</dd>
+      <dt>Transport</dt><dd>Elevator rail segment pricing is now progressive and bounded through row <code>1,000</code> instead of using the old exponential curve that became unreachable long before the target depth.</dd>
+      <dt>Verification</dt><dd>Focused verification is recorded in the progress log for this slice.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.52" data-date="2026-06-19">
     <h2>0.1.52</h2>
     <dl>

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.52-ios-home-screen-prompt",
+      releaseNoticeId: "2026-06-19-0.1.53-mine-balance-pass",
       releaseSummary:
-        "Safari notification setup: Mobile Safari players now get a Home Screen reminder before enabling notifications.",
+        "Mine balance pass: Depth rewards and upgrade prices now scale cleanly toward row 1,000.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.52-ios-home-screen-prompt",
+      releaseNoticeId: "2026-06-19-0.1.53-mine-balance-pass",
       attempted: 2,
       sent: 1,
       expired: 1,

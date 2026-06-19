@@ -38,6 +38,7 @@ import {
   LIGHT_RADIUS,
   lanternDistance,
   lightRadius,
+  MINE_BALANCE_MAX_ROW,
   type MineAction,
   type MineConsumables,
   type MineState,
@@ -175,8 +176,9 @@ describe("mine", () => {
   it("keeps total ore cell value on the intended tier curve", () => {
     const row = 1;
     expect(ORES.map((ore) => oreCellValueAt(ore.id, row))).toEqual([
-      4, 5, 8, 20, 52, 126, 320,
+      4, 5, 7, 18, 48, 108, 280,
     ]);
+    expect(oreCellValueAt("core-crystal", MINE_BALANCE_MAX_ROW)).toBe(3360);
   });
 
   it("ramps ore chance as a trapezoid over the band", () => {
@@ -209,9 +211,10 @@ describe("mine", () => {
     expect(stratumAt(11).name).toBe("Topsoil");
     expect(stratumAt(12).name).toBe("Clay Beds");
     expect(stratumAt(48).name).toBe("Magma Verge");
-    expect(stratumAt(500).name).toBe("Core Approach");
+    expect(stratumAt(500).name).toBe("Ion Mantle");
+    expect(stratumAt(MINE_BALANCE_MAX_ROW).name).toBe("Depth 1000 Gate");
     expect(STRATA.map((stratum) => stratum.startRow)).toEqual([
-      0, 12, 24, 36, 48, 64, 84, 110, 140,
+      0, 12, 24, 36, 48, 64, 84, 110, 140, 220, 340, 500, 680, 880,
     ]);
   });
 
@@ -238,10 +241,11 @@ describe("mine", () => {
 
   it("collects one ore unit per hit and clears after the reserve is depleted", () => {
     expect(oreUnitsAt(1)).toBe(1);
-    expect(oreUnitsAt(180)).toBeGreaterThan(oreUnitsAt(40));
-    expect(oreUnitsAt(990)).toBeGreaterThan(oreUnitsAt(180));
-    expect(oreReserveAt("diamond", 48)).toBe(21);
-    expect(oreReserveAt("core-crystal", 64)).toBe(32);
+    expect(oreUnitsAt(80)).toBe(2);
+    expect(oreUnitsAt(420)).toBe(6);
+    expect(oreUnitsAt(MINE_BALANCE_MAX_ROW)).toBe(12);
+    expect(oreReserveAt("diamond", 48)).toBe(18);
+    expect(oreReserveAt("core-crystal", 64)).toBe(28);
 
     const state = createMine(8, { ...DEFAULT_GEAR, cargo: 4 });
     state.miner.col = START_COL;
@@ -498,11 +502,17 @@ describe("mine", () => {
     expect(replayTrip(233, actions, gear)).toEqual(replayed);
   });
 
-  it("prices rail segments superlinearly", () => {
-    expect(elevatorSegmentPrice(1)).toBe(40);
-    expect(elevatorSegmentPrice(2)).toBe(100);
-    expect(elevatorSegmentPrice(3)).toBe(250);
-    expect(elevatorSegmentPrice(4)).toBeGreaterThan(600);
+  it("prices rail segments progressively through the row-1000 goal", () => {
+    expect(elevatorSegmentPrice(1)).toBe(45);
+    expect(elevatorSegmentPrice(2)).toBe(80);
+    expect(elevatorSegmentPrice(3)).toBe(130);
+    expect(elevatorSegmentPrice(12)).toBe(800);
+    expect(elevatorSegmentPrice(34)).toBe(3315);
+    expect(
+      elevatorSegmentPrice(
+        Math.ceil(MINE_BALANCE_MAX_ROW / ELEVATOR_SEGMENT_ROWS),
+      ),
+    ).toBe(7945);
   });
 
   it("plants multiple beacons and warps to a chosen target (REQ-029)", () => {
@@ -1094,7 +1104,7 @@ describe("mine", () => {
     expect(cellAt(state, START_COL, 64)).toMatchObject({
       kind: "ore",
       ore: "core-crystal",
-      oreRemaining: 24,
+      oreRemaining: 20,
     });
     expect(state.miner.carried["core-crystal"]).toBe(8);
   });
@@ -1731,8 +1741,23 @@ describe("mine", () => {
     }
   });
 
+  it("pins the upgrade price table to the progressive mine economy", () => {
+    expect(
+      Object.fromEntries(GEAR_TRACKS.map((def) => [def.track, def.prices])),
+    ).toEqual({
+      pickaxe: [45, 140, 420, 1200],
+      battery: [35, 110, 340],
+      cargo: [30, 90, 280],
+      lantern: [55, 180],
+      warpcoil: [180, 700, 2600],
+      blast: [250, 800, 2500],
+      elevatorSpeed: [100, 260, 680, 1750, 4500, 11000, 26000, 62000],
+      fall: [80, 220, 620, 1700],
+    });
+  });
+
   it("prices blast charge unlocks against the current mining economy", () => {
-    expect(gearTrackDef("blast").prices).toEqual([300, 1000, 4000]);
+    expect(gearTrackDef("blast").prices).toEqual([250, 800, 2500]);
   });
 
   it("maps blast gear to capped dynamite tiers", () => {

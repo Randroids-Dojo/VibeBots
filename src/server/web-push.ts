@@ -175,7 +175,7 @@ async function claimReleasePushDispatch(
         started_at = now(),
         updated_at = now()
     WHERE notice_id = ${release.noticeId}
-      AND status IN ('failed', 'partial')
+      AND status IN ('failed', 'partial', 'sending')
       AND updated_at < now() - interval '15 minutes'
     RETURNING notice_id`) as { notice_id: string }[];
   return retried.length > 0;

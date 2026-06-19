@@ -44,7 +44,13 @@ interface SqlCall {
   values: unknown[];
 }
 
-function makeSql({ claimed }: { claimed: boolean }): {
+function makeSql({
+  claimed,
+  reclaimed = false,
+}: {
+  claimed: boolean;
+  reclaimed?: boolean;
+}): {
   calls: SqlCall[];
   sql: never;
 } {
@@ -57,6 +63,12 @@ function makeSql({ claimed }: { claimed: boolean }): {
     calls.push({ query, values });
     if (query.includes("INSERT INTO release_push_dispatches")) {
       return claimed ? [{ notice_id: release.noticeId }] : [];
+    }
+    if (
+      query.includes("UPDATE release_push_dispatches") &&
+      query.includes("status IN ('failed', 'partial', 'sending')")
+    ) {
+      return reclaimed ? [{ notice_id: release.noticeId }] : [];
     }
     if (query.includes("SELECT endpoint, p256dh, auth")) {
       return [
@@ -128,6 +140,26 @@ describe("release web push dispatch", () => {
     expect(
       calls.some((call) =>
         call.query.includes("UPDATE release_push_dispatches"),
+      ),
+    ).toBe(true);
+  });
+
+  it("recovers a stale sending release dispatch claim", async () => {
+    const { calls, sql } = makeSql({ claimed: false, reclaimed: true });
+
+    const result = await dispatchReleasePushOnce(sql, release);
+
+    expect(result).toEqual({
+      dispatched: true,
+      attempted: 1,
+      sent: 1,
+      expired: 0,
+      failed: 0,
+    });
+    expect(webpush.sendNotification).toHaveBeenCalledTimes(1);
+    expect(
+      calls.some((call) =>
+        call.query.includes("status IN ('failed', 'partial', 'sending')"),
       ),
     ).toBe(true);
   });

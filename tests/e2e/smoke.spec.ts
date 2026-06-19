@@ -1666,7 +1666,7 @@ test("the elevator sells rail and gates rides on it (REQ-028)", async ({
   }
   const elevator = await openStall(page, "Elevator");
   await expect(elevator).toContainText("no rail yet");
-  await expect(elevator).toContainText("40 vibes");
+  await expect(elevator).toContainText("45 vibes");
   // Without rail the ride is disabled; without storage so is the buy.
   await expect(
     elevator.getByRole("button", { name: /Ride down|Auto ride/ }),

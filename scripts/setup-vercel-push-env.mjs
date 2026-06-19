@@ -37,18 +37,9 @@ function removeEnv(name, targetArgs) {
 }
 
 function addEnv(name, value, targetArgs, { sensitive }) {
-  const args = [
-    "env",
-    "add",
-    name,
-    ...targetArgs,
-    "--yes",
-    "--force",
-    "--value",
-    value,
-  ];
+  const args = ["env", "add", name, ...targetArgs, "--yes", "--force"];
   if (sensitive) args.push("--sensitive");
-  const result = runVercel(args);
+  const result = runVercel(args, `${value}\n`);
   if (result.status !== 0) {
     throw new Error(`Failed to set ${name} for ${targetArgs.join(" ")}.`);
   }

@@ -32,7 +32,7 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 
 - `DATABASE_URL` and friends: auto-provisioned by the dedicated Neon Postgres marketplace integration (Rule 11: one backing store per project, never shared). Created as sensitive values, so they are injected at deploy time and do not `vercel env pull` locally; local dev without them degrades to 503 "storage not configured" on persistence routes.
 - `AUTH_SECRET`: HMAC secret for the signed guest cookie (Production + Preview).
-- `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`: Web Push keys for native browser release notifications. Generate them with `pnpm exec web-push generate-vapid-keys`, set both values on the Vercel project, and keep the private key secret.
+- `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`: Web Push keys for native browser release notifications. Generate and store them with `pnpm ops:setup-push-env -- --production-only`; keep the private key secret.
 - `WEB_PUSH_CONTACT_EMAIL`: optional contact email for the Web Push VAPID subject. Defaults to `support@randroid.dev`.
 - `NOTIFICATION_ADMIN_TOKEN`: bearer token required by `POST /api/notifications/release`, the manual fallback for dispatching the current release summary to enabled subscriptions. Normal release dispatch is triggered idempotently by the no-store `/api/version` check when storage and Web Push keys are configured.
 
@@ -43,7 +43,7 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 Fresh worktrees need the ignored Vercel project link before using Vercel env commands:
 
 ```bash
-ln -s /Users/randroid/Documents/Dev/VibeBots/.vercel .vercel
+ln -sfn /Users/randroid/Documents/Dev/VibeBots/.vercel .vercel
 # or, when that source is unavailable:
 vercel link --yes --project vibe-bots
 ```
@@ -57,7 +57,7 @@ pnpm ops:setup-push-env -- --production-only
 vercel redeploy <latest-production-deployment-url> --target production
 ```
 
-The helper intentionally suppresses Vercel CLI diagnostics because failed non-interactive `vercel env add --value ...` commands can echo the attempted value in their suggested next command. After redeploy, verify without printing keys:
+The helper passes values through stdin and suppresses Vercel CLI diagnostics so generated secrets do not appear in argv or command output. After redeploy, verify without printing keys:
 
 ```bash
 node -e "fetch('https://vibe-bots.vercel.app/api/notifications/config').then(r=>r.json()).then(j=>console.log({configured:j.configured, hasVapidPublicKey: Boolean(j.vapidPublicKey), releaseNoticeId:j.releaseNoticeId}))"

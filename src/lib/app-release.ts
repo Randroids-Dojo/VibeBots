@@ -15,7 +15,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       changes: [
         {
           build,
-          text: "The version check now claims each release notice id and sends the one-line release summary to enabled Web Push subscriptions.",
+          text: "The version check now claims each release notice id, recovers stale in-flight claims, and sends the one-line release summary to enabled Web Push subscriptions.",
         },
         {
           build,
@@ -23,7 +23,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "The manual admin dispatch route remains available as an operations fallback.",
+          text: "The Vercel setup helper rotates notification secrets, and the manual admin dispatch route remains available as an operations fallback.",
         },
       ],
     },

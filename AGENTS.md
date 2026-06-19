@@ -125,6 +125,15 @@ Do not stop at planning. Do not stop after opening a PR. Do not stop after merge
 
 Never mark work complete with failing tests, unresolved actionable review comments, a bot review still in flight after the latest push, red CI, or a broken deploy.
 
+### Fresh worktree bootstrap
+
+When the user asks for a fresh worktree, create it from the latest fetched `origin/main`, then make ignored operational metadata available before doing repo work:
+
+1. Link the Vercel project in the new worktree. Prefer `ln -s /Users/randroid/Documents/Dev/VibeBots/.vercel .vercel` when that source exists. Otherwise run `vercel link --yes --project vibe-bots`.
+2. Do not copy or symlink `.env`, `.env.local`, or other secret-bearing env files.
+3. Run `pnpm install --frozen-lockfile` before type-checks or tests in a fresh worktree, because `node_modules` is ignored.
+4. If production Web Push env vars need setup or rotation, use `pnpm ops:setup-push-env -- --production-only`. The script suppresses Vercel CLI secret diagnostics and avoids printing generated values.
+
 ---
 
 ## RULE 6: Destructive and shared-system actions

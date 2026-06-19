@@ -38,6 +38,33 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 
 ## Operations
 
+### Native release notifications
+
+Fresh worktrees need the ignored Vercel project link before using Vercel env commands:
+
+```bash
+ln -s /Users/randroid/Documents/Dev/VibeBots/.vercel .vercel
+# or, when that source is unavailable:
+vercel link --yes --project vibe-bots
+```
+
+Do not copy `.env` files between worktrees. They may contain secrets and are not needed for production env setup.
+
+To generate and store a fresh production VAPID pair plus the admin fallback token without printing secret values:
+
+```bash
+pnpm ops:setup-push-env -- --production-only
+vercel redeploy <latest-production-deployment-url> --target production
+```
+
+The helper intentionally suppresses Vercel CLI diagnostics because failed non-interactive `vercel env add --value ...` commands can echo the attempted value in their suggested next command. After redeploy, verify without printing keys:
+
+```bash
+node -e "fetch('https://vibe-bots.vercel.app/api/notifications/config').then(r=>r.json()).then(j=>console.log({configured:j.configured, hasVapidPublicKey: Boolean(j.vapidPublicKey), releaseNoticeId:j.releaseNoticeId}))"
+```
+
+Expected result: `configured: true`, `hasVapidPublicKey: true`.
+
 Mine cash-out monitoring uses structured JSON logs from
 `src/server/monitoring.ts`. Warning and error events include `source`
 (`"vibebots"`), `component` (`"mine.cash_out"`), `alert` (`true`), a stable

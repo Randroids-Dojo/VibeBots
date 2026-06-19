@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "check:dashes": "bash scripts/check-dashes.sh",
     "check:purity": "bash scripts/check-sim-purity.sh",
-    "ops:repair-support": "node scripts/repair-mine-support-stock.mjs"
+    "ops:repair-support": "node scripts/repair-mine-support-stock.mjs",
+    "ops:setup-push-env": "node scripts/setup-vercel-push-env.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-deterministic-compat": "0.19.3",

@@ -198,7 +198,7 @@ function DismissibleDialogFrame({
   );
 }
 const MINE_SURFACE_TIPS = [
-  "Tip: rich ore pays on every hit, but the deposit clears only when its reserve runs dry.",
+  "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
   "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
   "Tip: dynamite chips rich ore reserves and still scoops what it breaks into your hold.",
   "Tip: falling rocks wait two moves after their support is mined.",

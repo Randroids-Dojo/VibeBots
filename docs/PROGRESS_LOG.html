@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-ore-yields" data-date="2026-06-19">
+    <h3>Mine Ore Yields</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/mine-ore-yields</code>, created from current <code>origin/main</code> in a fresh worktree before implementation.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-directed mine economy tuning. Ore values now rise meaningfully by tier, so copper and silver no longer pay the same as coal and deeper ore tiers are worth a clear push. Normal pickaxe ore swings now use deterministic yield bursts that can pay zero, one, or multiple chunks based on ore tier, depth reserve scale, and Pickaxe level. Every swing still costs battery. Dry hits spend one reserve tick, while multi-chunk bursts spend matching reserve, so better Pickaxes feel more rewarding without bypassing cargo limits or turning one cell into a whole upgrade. Package version moved to <code>0.1.71</code>; <code>MINE_VERSION</code> moves from <code>36</code> to <code>37</code>; <code>SIM_VERSION</code> stays unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched source, test, release, and package files, focused mine/version/notification/Web Push Vitest (110 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (267 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3236</code> for latest release notes and surface game tips (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: dry ore swings still drain one reserve tick so a zero-yield hit cannot repeat forever, and Pickaxe yield improvement stays modest because Pickaxe already improves swing cadence and rock access. Mine surface tips were updated because the old "pays on every hit" advice became stale.</dd>
+      <dt>GDD coverage</dt><dd>REQ-011 stays done with updated ore value and swing-yield wording. Updated <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, notification release-summary expectations, sim tests, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="biome-portal-beacons" data-date="2026-06-19">
     <h3>Biome Portal Beacons</h3>
     <dl>

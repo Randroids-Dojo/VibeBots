@@ -46,6 +46,7 @@ import {
   MINE_BOTTOM_ROW,
   type MineAction,
   type MineConsumables,
+  type MineGear,
   type MineState,
   MOVE_COST,
   type MoveResult,
@@ -54,11 +55,13 @@ import {
   normalizeBeaconLabel,
   normalizeGear,
   ORES,
+  type OreId,
   oreCellValueAt,
   oreChanceAt,
   oreDef,
   oreIdsForBiome,
   oreReserveAt,
+  oreSwingYield,
   oreUnitsAt,
   PLANK_RECOVERY_FLOOR,
   portalWarpAction,
@@ -94,6 +97,23 @@ function dig(state: MineState, dir: Direction): MoveResult {
 /** A consumable snapshot with only the named counts set (rest zero). */
 function stock(over: Partial<MineConsumables>): MineConsumables {
   return { ...NO_CONSUMABLES, ...over };
+}
+
+function expectedOreYield(
+  seed: number,
+  gear: Pick<MineGear, "pickaxe">,
+  ore: OreId,
+  row: number,
+  col: number,
+): number {
+  let remaining = oreReserveAt(ore, row);
+  let total = 0;
+  while (remaining > 0) {
+    const units = oreSwingYield(seed, gear, ore, row, col, remaining);
+    total += units;
+    remaining -= Math.max(1, units);
+  }
+  return total;
 }
 
 describe("mine", () => {
@@ -231,8 +251,8 @@ describe("mine", () => {
       ORES.filter((ore) => ore.biome === "default").map((ore) =>
         oreCellValueAt(ore.id, row),
       ),
-    ).toEqual([4, 5, 7, 18, 48, 108, 280]);
-    expect(oreCellValueAt("core-crystal", MINE_BALANCE_MAX_ROW)).toBe(3360);
+    ).toEqual([4, 10, 21, 45, 96, 216, 560]);
+    expect(oreCellValueAt("core-crystal", MINE_BALANCE_MAX_ROW)).toBe(6720);
   });
 
   it("maps horizontal biome bands and ore pools by column", () => {
@@ -331,13 +351,44 @@ describe("mine", () => {
     expect(carriedValue(state.miner)).toBe(value);
   });
 
-  it("collects one ore unit per hit and clears after the reserve is depleted", () => {
+  it("varies ore chunks per swing and clears after the reserve is depleted", () => {
     expect(oreUnitsAt(1)).toBe(1);
     expect(oreUnitsAt(80)).toBe(2);
     expect(oreUnitsAt(420)).toBe(6);
     expect(oreUnitsAt(MINE_BALANCE_MAX_ROW)).toBe(12);
     expect(oreReserveAt("diamond", 48)).toBe(18);
     expect(oreReserveAt("core-crystal", 64)).toBe(28);
+    expect(oreDef("copper").value).toBeGreaterThan(oreDef("coal").value);
+    expect(oreDef("silver").value).toBeGreaterThan(oreDef("copper").value);
+
+    let foundDrySwing = false;
+    let weakYield = 0;
+    let strongYield = 0;
+    for (let col = -10; col <= 10; col++) {
+      const row = 180;
+      const reserve = oreReserveAt("copper", row);
+      weakYield += expectedOreYield(8, DEFAULT_GEAR, "copper", row, col);
+      strongYield += expectedOreYield(
+        8,
+        { ...DEFAULT_GEAR, pickaxe: 5 },
+        "copper",
+        row,
+        col,
+      );
+      for (let current = reserve; current > 1; current--) {
+        const weak = oreSwingYield(
+          8,
+          DEFAULT_GEAR,
+          "copper",
+          row,
+          col,
+          current,
+        );
+        if (weak === 0) foundDrySwing = true;
+      }
+    }
+    expect(foundDrySwing).toBe(true);
+    expect(strongYield).toBeGreaterThan(weakYield);
 
     const state = createMine(8, { ...DEFAULT_GEAR, cargo: 4 });
     state.miner.col = START_COL;
@@ -348,22 +399,55 @@ describe("mine", () => {
     const reserve = oreReserveAt("copper", 180);
     const first = step(state, "down");
     expect(first.ok && first.dug).toBe(null);
-    expect(first.ok && first.oreHarvested).toEqual({
-      ore: "copper",
-      units: 1,
-      remaining: reserve - 1,
-    });
+    const expectedFirstYield = oreSwingYield(
+      8,
+      state.gear,
+      "copper",
+      180,
+      START_COL,
+      reserve,
+    );
+    expect(first.ok && first.oreHarvested).toEqual(
+      expectedFirstYield > 0
+        ? {
+            ore: "copper",
+            units: expectedFirstYield,
+            dropped:
+              expectedFirstYield > cargoCapacity(state.gear)
+                ? expectedFirstYield - cargoCapacity(state.gear)
+                : undefined,
+            remaining: reserve - Math.max(1, expectedFirstYield),
+          }
+        : undefined,
+    );
     expect(state.miner.row).toBe(179);
-    expect(cellAt(state, START_COL, 180)?.oreRemaining).toBe(reserve - 1);
+    expect(cellAt(state, START_COL, 180)?.oreRemaining).toBe(
+      reserve - Math.max(1, expectedFirstYield),
+    );
 
     let mined = first;
-    for (let i = 1; i < reserve; i++) mined = step(state, "down");
-    expect(mined.ok && mined.dugOre).toBe("copper");
-    expect(mined.ok && mined.dugOreCount).toBe(1);
-    expect(mined.ok && mined.oreHarvested?.remaining).toBe(0);
+    for (
+      let guard = 0;
+      guard < reserve && cellAt(state, START_COL, 180)?.kind === "ore";
+      guard++
+    ) {
+      mined = step(state, "down");
+    }
+    expect(mined.ok).toBe(true);
+    if (!mined.ok) throw new Error("ore did not clear");
+    expect(mined.dugOre).toBe("copper");
+    expect(mined.dugOreCount).toBeGreaterThan(0);
+    expect(mined.oreHarvested?.remaining).toBe(0);
     expect(state.miner.row).toBe(180);
-    expect(state.miner.carried.copper).toBe(reserve);
-    expect(carriedValue(state.miner)).toBe(reserve * oreDef("copper").value);
+    const carried = state.miner.carried.copper ?? 0;
+    const dropped =
+      cellAt(state, START_COL, 180)?.drop?.copper ??
+      cellAt(state, START_COL, 181)?.drop?.copper ??
+      0;
+    expect(carried + dropped).toBe(
+      expectedOreYield(8, state.gear, "copper", 180, START_COL),
+    );
+    expect(carriedValue(state.miner)).toBe(carried * oreDef("copper").value);
   });
 
   it("banks carried loot only at the surface and refills energy", () => {
@@ -888,6 +972,13 @@ describe("mine", () => {
     setCell(state, START_COL, 1, { kind: "ore", ore: "coal" });
     setCell(state, START_COL, 2, { kind: "empty" });
     setCell(state, START_COL, 3, { kind: "dirt" });
+    const expectedOverflow = expectedOreYield(
+      19,
+      state.gear,
+      "coal",
+      1,
+      START_COL,
+    );
     const dug = dig(state, "down");
     expect(dug.ok && dug.dug).toBe("ore");
     expect(dug.ok && dug.dugOre).toBe("coal");
@@ -900,7 +991,9 @@ describe("mine", () => {
     });
     expect(dug.ok && dug.dropped).toBe(1);
     expect(cellAt(state, START_COL, 1)?.drop).toBeUndefined();
-    expect(cellAt(state, START_COL, 2)?.drop).toEqual({ coal: 4 });
+    expect(cellAt(state, START_COL, 2)?.drop).toEqual({
+      coal: expectedOverflow,
+    });
     expect(carriedCount(state.miner)).toBe(cargoCapacity(state.gear));
   });
 
@@ -911,12 +1004,21 @@ describe("mine", () => {
     setCell(state, START_COL, 2, { kind: "empty" });
     setCell(state, START_COL, 3, { kind: "dirt" });
     setCell(state, START_COL, 4, { kind: "dirt" });
+    const expectedOverflow = expectedOreYield(
+      19,
+      state.gear,
+      "coal",
+      1,
+      START_COL,
+    );
     expect(dig(state, "down").ok).toBe(true);
     expect(step(state, "down").ok).toBe(true);
     const dugSupport = dig(state, "down");
     expect(dugSupport.ok && dugSupport.dug).toBe("dirt");
     expect(cellAt(state, START_COL, 2)?.drop).toBeUndefined();
-    expect(cellAt(state, START_COL, 3)?.drop).toEqual({ coal: 4 });
+    expect(cellAt(state, START_COL, 3)?.drop).toEqual({
+      coal: expectedOverflow,
+    });
   });
 
   it("partially picks up a floor pile and leaves the remainder", () => {

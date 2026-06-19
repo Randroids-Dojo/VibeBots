@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.70-biome-portals";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.71-ore-yields";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.71",
+      date: "2026-06-19",
+      title: "Ore yield tuning",
+      intro: "Deeper ore and better pickaxes now pay more satisfyingly.",
+      changes: [
+        {
+          build,
+          text: "Copper, silver, and later ore tiers now sell for more vibes than shallow coal, with biome resources following the same curve.",
+        },
+        {
+          build,
+          text: "Ore swings now roll deterministic yield bursts: some strikes chip nothing loose, while others pop multiple chunks into the bag.",
+        },
+        {
+          build,
+          text: "Better Pickaxe levels modestly improve ore burst odds and caps without changing cargo limits or making one cell pay for a whole upgrade.",
+        },
+      ],
+    },
     {
       version: "0.1.70",
       date: "2026-06-19",

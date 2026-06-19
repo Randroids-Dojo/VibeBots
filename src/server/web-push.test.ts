@@ -11,11 +11,11 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.70.123",
+  version: "0.1.71.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-19-0.1.70-biome-portals",
-  intro: "Winter and high-tech mine regions now have surface portals to base.",
+  noticeId: "2026-06-19-0.1.71-ore-yields",
+  intro: "Deeper ore and better pickaxes now pay more satisfyingly.",
   changes: [
     {
       build: 123,
@@ -24,11 +24,10 @@ const release: AppRelease = {
   ],
   notes: [
     {
-      version: "0.1.70",
+      version: "0.1.71",
       date: "2026-06-19",
-      title: "Biome portal beacons",
-      intro:
-        "Winter and high-tech mine regions now have surface portals to base.",
+      title: "Ore yield tuning",
+      intro: "Deeper ore and better pickaxes now pay more satisfyingly.",
       changes: [
         {
           build: 123,
@@ -133,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Biome portal beacons"),
+      expect.stringContaining("Ore yield tuning"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

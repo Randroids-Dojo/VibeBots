@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 36;
+export const MINE_VERSION = 37;
 export const MINE_BOTTOM_ROW = 1000;
 
 /**
@@ -519,7 +519,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "copper",
     name: "Copper",
-    value: 1,
+    value: 2,
     biome: "default",
     minRow: 4,
     peakStart: 8,
@@ -530,7 +530,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "silver",
     name: "Silver",
-    value: 1,
+    value: 3,
     biome: "default",
     minRow: 14,
     peakStart: 20,
@@ -541,7 +541,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "emerald",
     name: "Emerald",
-    value: 2,
+    value: 5,
     biome: "default",
     minRow: 24,
     peakStart: 32,
@@ -552,7 +552,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "ruby",
     name: "Ruby",
-    value: 4,
+    value: 8,
     biome: "default",
     minRow: 36,
     peakStart: 44,
@@ -563,7 +563,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "diamond",
     name: "Diamond",
-    value: 6,
+    value: 12,
     biome: "default",
     minRow: 48,
     peakStart: 58,
@@ -574,7 +574,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "core-crystal",
     name: "Core Crystal",
-    value: 10,
+    value: 20,
     biome: "default",
     minRow: 64,
     peakStart: 80,
@@ -596,7 +596,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "frost-copper",
     name: "Frost Copper",
-    value: 1,
+    value: 2,
     biome: "winter",
     minRow: 4,
     peakStart: 8,
@@ -607,7 +607,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "rime-silver",
     name: "Rime Silver",
-    value: 2,
+    value: 3,
     biome: "winter",
     minRow: 14,
     peakStart: 20,
@@ -618,7 +618,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "aurora-emerald",
     name: "Aurora Emerald",
-    value: 2,
+    value: 5,
     biome: "winter",
     minRow: 24,
     peakStart: 32,
@@ -629,7 +629,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "glacier-ruby",
     name: "Glacier Ruby",
-    value: 5,
+    value: 9,
     biome: "winter",
     minRow: 36,
     peakStart: 44,
@@ -640,7 +640,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "blue-diamond",
     name: "Blue Diamond",
-    value: 7,
+    value: 13,
     biome: "winter",
     minRow: 48,
     peakStart: 58,
@@ -651,7 +651,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "permafrost-core",
     name: "Permafrost Core",
-    value: 11,
+    value: 22,
     biome: "winter",
     minRow: 64,
     peakStart: 80,
@@ -673,7 +673,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "wire-spool",
     name: "Wire Spool",
-    value: 1,
+    value: 2,
     biome: "highTech",
     minRow: 4,
     peakStart: 8,
@@ -684,7 +684,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "logic-chip",
     name: "Logic Chip",
-    value: 2,
+    value: 3,
     biome: "highTech",
     minRow: 14,
     peakStart: 20,
@@ -695,7 +695,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "micro-monitor",
     name: "Micro Monitor",
-    value: 3,
+    value: 5,
     biome: "highTech",
     minRow: 24,
     peakStart: 32,
@@ -706,7 +706,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "keyboard-matrix",
     name: "Keyboard Matrix",
-    value: 5,
+    value: 9,
     biome: "highTech",
     minRow: 36,
     peakStart: 44,
@@ -717,7 +717,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "servo-motor",
     name: "Servo Motor",
-    value: 7,
+    value: 13,
     biome: "highTech",
     minRow: 48,
     peakStart: 58,
@@ -728,7 +728,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "quantum-core",
     name: "Quantum Core",
-    value: 12,
+    value: 24,
     biome: "highTech",
     minRow: 64,
     peakStart: 80,
@@ -774,6 +774,12 @@ export function oreIdsForBiome(biome: MineBiomeId): readonly OreId[] {
   return ORE_IDS_BY_BIOME[biome];
 }
 
+function oreValueTier(id: OreId): number {
+  const ids = oreIdsForBiome(oreDef(id).biome);
+  const tier = ids.indexOf(id);
+  return tier >= 0 ? tier : 0;
+}
+
 const ORE_BASE_RESERVES: Record<OreId, number> = {
   coal: 4,
   copper: 5,
@@ -814,6 +820,53 @@ export function oreReserveAt(id: OreId, row: number): number {
 
 export function oreCellValueAt(id: OreId, row: number): number {
   return oreReserveAt(id, row) * oreDef(id).value;
+}
+
+export function oreSwingYield(
+  seed: number,
+  gear: Pick<MineGear, "pickaxe">,
+  id: OreId,
+  row: number,
+  col: number,
+  remainingBeforeSwing: number,
+): number {
+  const reserve = oreReserveAt(id, row);
+  const swingIndex = Math.max(0, reserve - remainingBeforeSwing);
+  const tier = oreValueTier(id);
+  const depthBonus = oreUnitsAt(row) - 1;
+  const pickaxeBonus = Math.max(0, gear.pickaxe - 1);
+  const richness = tier + depthBonus + pickaxeBonus;
+  const missChance = Math.max(0.06, 0.22 - richness * 0.012);
+  const rollSalt = 0x4f524500 ^ Math.imul(swingIndex + 1, 0x9e3779b1);
+  if (
+    remainingBeforeSwing > 1 &&
+    cellRandom(seed, row, col, rollSalt) < missChance
+  ) {
+    return 0;
+  }
+
+  const maxBurst = Math.min(
+    remainingBeforeSwing,
+    1 + Math.floor((tier + 1) / 2) + Math.floor(depthBonus / 2) + pickaxeBonus,
+  );
+  let units = 1;
+  for (let bonus = 0; units < maxBurst; bonus++) {
+    const chance = Math.max(
+      0.07,
+      0.32 +
+        tier * 0.025 +
+        depthBonus * 0.018 +
+        pickaxeBonus * 0.02 -
+        bonus * 0.13,
+    );
+    const salt =
+      0x5949454c ^
+      Math.imul(swingIndex + 1, 0x85ebca6b) ^
+      Math.imul(bonus + 1, 0xc2b2ae35);
+    if (cellRandom(seed, row, col, salt) >= chance) break;
+    units++;
+  }
+  return units;
 }
 
 /** Trapezoid band ramp: 0 outside, linear fades, 1 across the peak. */
@@ -2346,8 +2399,20 @@ export function step(state: MineState, dir: Direction): MoveResult {
     const ore = cell.ore;
     const struck = cellMut(state, t.col, t.row);
     const current = struck.oreRemaining ?? oreReserveAt(ore, t.row);
-    const remaining = current - 1;
-    const { dropped: spilled, leftover } = fillHold(state, { [ore]: 1 });
+    const units = oreSwingYield(
+      state.seed,
+      state.gear,
+      ore,
+      t.row,
+      t.col,
+      current,
+    );
+    const spent = Math.max(1, units);
+    const remaining = current - spent;
+    const { dropped: spilled, leftover } =
+      units > 0
+        ? fillHold(state, { [ore]: units })
+        : { dropped: 0, leftover: {} };
     const dropped = spilled;
     const emptied: Array<{ col: number; row: number }> = [];
     if (remaining > 0) {
@@ -2380,7 +2445,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     const fellTooFar = isFatalMinerFall(state, fell);
     const oreHarvested = {
       ore,
-      units: 1,
+      units,
       dropped: dropped > 0 ? dropped : undefined,
       remaining: Math.max(0, remaining),
     };
@@ -2395,8 +2460,8 @@ export function step(state: MineState, dir: Direction): MoveResult {
         ok: true,
         dug: remaining <= 0 ? "ore" : null,
         dugOre: remaining <= 0 ? ore : null,
-        dugOreCount: remaining <= 0 ? 1 : undefined,
-        oreHarvested,
+        dugOreCount: remaining <= 0 ? units : undefined,
+        oreHarvested: units > 0 ? oreHarvested : undefined,
         found: null,
         collapsed: true,
         crushed: fallTick.crushed || fellTooFar,
@@ -2413,8 +2478,8 @@ export function step(state: MineState, dir: Direction): MoveResult {
       ok: true,
       dug: remaining <= 0 ? "ore" : null,
       dugOre: remaining <= 0 ? ore : null,
-      dugOreCount: remaining <= 0 ? 1 : undefined,
-      oreHarvested,
+      dugOreCount: remaining <= 0 ? units : undefined,
+      oreHarvested: units > 0 ? oreHarvested : undefined,
       found: null,
       collapsed: false,
       crushed: fallTick.crushed,

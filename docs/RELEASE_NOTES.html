@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.71" data-date="2026-06-19">
+    <h2>0.1.71</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.71</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>36</code> to <code>37</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Deeper ores and stronger pickaxes now make mining payouts feel richer.</dd>
+      <dt>Ore values</dt><dd>Copper, silver, emerald, ruby, diamond, and core-tier resources now sell on a rising vibe curve instead of clustering around the same shallow payout.</dd>
+      <dt>Swing yields</dt><dd>Ore hits now roll deterministic yield bursts. A swing can chip nothing loose, pop one chunk, or pop multiple chunks based on ore tier, depth, and Pickaxe level.</dd>
+      <dt>Balance</dt><dd>Every swing still costs battery. Dry ore hits spend one reserve tick, while multi-chunk bursts spend matching reserve, so better Pickaxes improve average yield without bypassing cargo limits.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks rising ore values, dry ore swings, stronger Pickaxe yield improvement, reserve depletion, overflow, and replay-safe deterministic payouts.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.70" data-date="2026-06-19">
     <h2>0.1.70</h2>
     <dl>

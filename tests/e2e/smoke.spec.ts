@@ -871,17 +871,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Winter and high-tech mine regions now have surface portals to base.",
+    "Deeper ore and better pickaxes now pay more satisfyingly.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "winter band spans columns -100 through -50",
+    "Copper, silver, and later ore tiers",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "high-tech band spans columns 100 through 150",
+    "deterministic yield bursts",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "free portal to base",
+    "Better Pickaxe levels",
   );
 
   await page.mouse.click(8, 8);
@@ -901,6 +901,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.71", "Ore yield tuning"],
     ["0.1.70", "Biome portal beacons"],
     ["0.1.69", "Installed app refresh"],
     ["0.1.68", "Ladder removal cleanup"],
@@ -950,7 +951,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.70-biome-portals",
+      "2026-06-19-0.1.71-ore-yields",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1071,7 +1072,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.70-biome-portals",
+      "2026-06-19-0.1.71-ore-yields",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1602,10 +1603,10 @@ test("mine shows one of the surface game tips", async ({ page }) => {
 
   const status = page.getByLabel("Mine status");
   await expect(status).toContainText(
-    "Tip: rich ore pays on every hit, but the deposit clears only when its reserve runs dry.",
+    "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
   );
   const longTip = page.getByText(
-    "Tip: rich ore pays on every hit, but the deposit clears only when its reserve runs dry.",
+    "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
     { exact: true },
   );
   const box = await longTip.boundingBox();

@@ -68,7 +68,16 @@
     <li>Relevant unit tests.</li>
     <li>Full test suite when shared logic, storage, schemas, or core systems are touched.</li>
     <li>Build command before opening or merging PRs that affect runtime code.</li>
-    <li>Smoke test (Playwright or equivalent) when UI routes, API routes, routing, or core flows are touched.</li>
+    <li>Critical smoke test (Playwright or equivalent) when UI routes, API routes, routing, or core flows are touched.</li>
+    <li>Full smoke test when shared UI shell behavior, cross-route storage state, release-note infrastructure, Playwright harness behavior, or another broad surface changes.</li>
+  </ul>
+  <p>CI policy:</p>
+  <ul>
+    <li>The push and PR gate is parallel CI: quality, type-check, unit tests, build, and sharded critical E2E.</li>
+    <li>The full Playwright smoke suite runs on schedule and manual dispatch. It is not required for every push unless the touched surface warrants it.</li>
+    <li>Older CI runs on the same branch or pull request are cancelled when a newer run starts.</li>
+    <li>When <code>origin/main</code> advances during closeout, verify whether the pushed commit is an ancestor of the new remote tip. If it is, follow the newest tip's checks and stop waiting on superseded runs.</li>
+    <li>The detailed policy lives in <code>docs/CI_WORKFLOW.html</code>.</li>
   </ul>
   <p>Canvas text and atlas safety:</p>
   <ul>
@@ -115,9 +124,9 @@
   <h2>Merge And Deploy</h2>
   <ul>
     <li>Merge only through PRs.</li>
-    <li>Wait for CI, preview deploy, and bot review after the latest push.</li>
+    <li>Wait for the required parallel CI gate, preview deploy, and bot review after the latest push.</li>
     <li>After merge, pull <code>main</code>.</li>
-    <li>Verify main commit status.</li>
+    <li>Verify main commit status for the current remote tip.</li>
     <li>Verify production deploy status.</li>
     <li>Smoke test production with an HTTP check at minimum. Use deeper browser smoke when UI behavior changed.</li>
   </ul>

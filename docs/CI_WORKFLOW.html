@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>CI Workflow</title>
+</head>
+<body>
+
+<header>
+  <h1>CI Workflow</h1>
+  <p>This document records the VibeBots CI policy for fast parallel development without reducing the release bar.</p>
+</header>
+
+<main>
+  <section id="principles">
+    <h2>Principles</h2>
+    <ul>
+      <li>Cancel superseded work. A newer push to the same branch or pull request cancels older CI for that ref.</li>
+      <li>Run independent gates in parallel. Dash, purity, whitespace, lint, type-check, unit tests, build, and smoke should not wait behind each other unless they depend on the same artifact.</li>
+      <li>Keep every push covered by a small critical smoke set.</li>
+      <li>Run the full Playwright smoke matrix on a schedule and by manual dispatch, and run it locally when a risky slice touches broad UI behavior.</li>
+      <li>Track the latest remote tip. If a pushed commit is included in a newer <code>origin/main</code> tip, stop waiting on superseded runs and verify the current tip instead.</li>
+    </ul>
+  </section>
+
+  <section id="required-push-gates">
+    <h2>Required Push Gates</h2>
+    <p>For pushes to <code>main</code> and pull requests, the required gate is the parallel CI set:</p>
+    <ul>
+      <li><code>quality</code>: dash check, sim purity, whitespace check, and Biome lint.</li>
+      <li><code>typecheck</code>: Next route type generation and TypeScript.</li>
+      <li><code>unit</code>: Vitest unit and route tests.</li>
+      <li><code>build</code>: production Next build.</li>
+      <li><code>e2e-critical</code>: sharded Playwright smoke over the critical routes.</li>
+    </ul>
+    <p>The critical smoke set lives in <code>package.json</code> as <code>pnpm test:e2e:critical</code>. It covers latest release notes, save-slot load refresh, bunker raid builder flow, fatal fall camera behavior, and mine action motion.</p>
+  </section>
+
+  <section id="full-smoke">
+    <h2>Full Smoke</h2>
+    <p>The full Playwright smoke suite still exists as <code>pnpm test:e2e</code>. CI runs it in four shards for nightly scheduled runs and manual <code>workflow_dispatch</code> runs with <code>full_e2e</code> enabled.</p>
+    <p>Run the full suite locally or through manual dispatch before merging work that changes shared UI shell behavior, cross-route storage state, release-note infrastructure, Playwright harness behavior, or other broad surfaces where the critical set is too narrow.</p>
+  </section>
+
+  <section id="local-commands">
+    <h2>Local Commands</h2>
+    <ul>
+      <li><code>pnpm check:dashes</code></li>
+      <li><code>pnpm check:purity</code></li>
+      <li><code>git diff --check</code></li>
+      <li><code>pnpm typecheck</code></li>
+      <li><code>pnpm test</code></li>
+      <li><code>pnpm lint</code></li>
+      <li><code>pnpm build</code></li>
+      <li><code>pnpm test:e2e:critical --project=chromium</code></li>
+    </ul>
+  </section>
+
+  <section id="agent-behavior">
+    <h2>Agent Behavior</h2>
+    <ul>
+      <li>After a direct push to <code>main</code>, fetch <code>origin/main</code> and verify the pushed commit is still in the current remote history.</li>
+      <li>If the remote tip advances and still contains the pushed commit, follow the newest remote tip's checks, not the older superseded run.</li>
+      <li>If a newer remote tip does not contain the pushed commit, stop and reconcile before claiming the work shipped.</li>
+      <li>Do not wait on cancelled, superseded, or older in-progress runs once a newer verified remote tip contains the commit being closed out.</li>
+    </ul>
+  </section>
+</main>
+
+</body>
+</html>

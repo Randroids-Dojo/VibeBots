@@ -15,6 +15,7 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:critical": "playwright test --grep \"mine shows the latest release note|loading a save slot refreshes|mine bunker builder starts a Clanker raid|fatal free fall stays on camera|mine actions begin immediately\"",
     "check:dashes": "bash scripts/check-dashes.sh",
     "check:purity": "bash scripts/check-sim-purity.sh",
     "ops:repair-support": "node scripts/repair-mine-support-stock.mjs",

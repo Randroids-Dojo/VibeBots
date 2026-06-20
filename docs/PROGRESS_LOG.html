@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="parallel-ci-critical-smoke" data-date="2026-06-20">
+    <h3>Parallel CI And Critical Smoke</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/fresh-20260619-224305</code>, fast-forwarded to current <code>origin/main</code> before editing.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>CI now cancels superseded branch work, runs quality, type-check, unit tests, build, and critical Playwright smoke shards in parallel, and keeps the full Playwright smoke suite for scheduled and manual workflow runs. Added <code>pnpm test:e2e:critical</code>, <code>docs/CI_WORKFLOW.html</code>, and updated project rules so agents follow the newest remote tip when their shipped commit is included in later <code>main</code> history. Package version, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> stay unchanged because this is process and verification infrastructure only.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>node</code> package JSON validation, Ruby YAML validation for <code>.github/workflows/ci.yml</code>, <code>pnpm exec biome check --write package.json</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm check:purity</code>, <code>pnpm lint</code>, <code>pnpm typecheck</code>, <code>pnpm test</code> (309 passed), <code>pnpm build</code>, <code>pnpm test:e2e:critical --project=chromium</code> (5 passed), <code>pnpm test:e2e:critical --project=chromium --fully-parallel --shard=1/2</code> (3 passed), and <code>pnpm test:e2e:critical --project=chromium --fully-parallel --shard=2/2</code> (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: use critical smoke as the every-push gate and full smoke for schedule, manual dispatch, and broad-risk slices, so quality is preserved without serializing normal development on the entire Playwright suite.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="release-note-save-line-scope" data-date="2026-06-20">
     <h3>Release Note Save Line Scope</h3>
     <dl>

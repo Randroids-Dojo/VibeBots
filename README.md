@@ -21,6 +21,7 @@ pnpm test             # unit tests (incl. sim determinism)
 pnpm typecheck        # next typegen + tsc --noEmit
 pnpm lint             # biome ci
 pnpm build            # production build
+pnpm test:e2e:critical # critical Playwright smoke for every CI push
 pnpm test:e2e         # playwright smoke (builds must exist: run pnpm build first)
 pnpm check:dashes     # AGENTS.md Rule 1 (no em/en-dashes)
 pnpm check:purity     # src/sim determinism contract
@@ -138,6 +139,7 @@ designs, or saved bots.
 - `AGENTS.md`: rules for all agentic tools working in this repo
 - `docs/gdd/`: the Game Design Document (source of truth for what VibeBots is)
 - `docs/IMPLEMENTATION_PLAN.html`, `docs/WORKING_AGREEMENT.html`: the loop and process contracts
+- `docs/CI_WORKFLOW.html`: parallel CI, critical smoke, full smoke, and superseded-run policy
 - `docs/RELEASE_NOTES.html`: versioned release notes
 - `docs/PROGRESS_LOG.html`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.html`, `docs/FOLLOWUPS.html`, `docs/DEPENDENCY_LEDGER.html`: continuity ledgers
 - `.dots/`: task backlog (HTML Dots, `dot-html` CLI)

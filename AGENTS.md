@@ -38,6 +38,7 @@ Before each implementation slice, read:
 - `docs/FOLLOWUPS.html`
 - `docs/GDD_COVERAGE.json`
 - `docs/DEPENDENCY_LEDGER.html` (and run the Dependency Upgrade Gate from `docs/IMPLEMENTATION_PLAN.html`)
+- `docs/CI_WORKFLOW.html` when touching CI, verification policy, release process, or monitoring behavior
 - `docs/PLAYTEST.html` and `docs/FUN_FACTOR_AUDIT.html` when coverage is >=80% done
 - the current task backlog (HTML Dots via `dot-html`, stored under `.dots/`)
 
@@ -114,16 +115,16 @@ For every slice:
 10. Open a PR.
 11. Inspect all PR review comments, including inline and threaded comments from CodeRabbit or other review bots.
 12. Fix actionable review comments, reply in-thread when the platform supports it, resolve threads when resolved.
-13. After every push to the PR branch, wait for any configured bot reviewer to finish its review pass. The wait is settled only when all required checks are green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later. Re-inspect reviews and review threads after the settled wait.
-14. Wait for CI and the preview deploy to pass.
+13. After every push to the PR branch, wait for any configured bot reviewer to finish its review pass. The wait is settled only when the required parallel CI gate from `docs/CI_WORKFLOW.html` is green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later. Re-inspect reviews and review threads after the settled wait.
+14. Wait for the required parallel CI gate and the preview deploy to pass. Run the full Playwright smoke suite locally or by manual dispatch when the touched surface warrants it.
 15. Merge only when green, review feedback is handled, bot review has settled, and the preview deploy is healthy.
-16. Pull `main`, verify main CI and production deploy, smoke test production.
+16. Pull `main`, verify the current remote tip's required parallel CI gate and production deploy, smoke test production.
 17. Close the completed backlog item with the PR number and verification.
 18. Immediately start the next slice.
 
 Do not stop at planning. Do not stop after opening a PR. Do not stop after merge. If blocked, log the blocker, update the backlog item, move to the next unblocked slice.
 
-Never mark work complete with failing tests, unresolved actionable review comments, a bot review still in flight after the latest push, red CI, or a broken deploy.
+Never mark work complete with failing tests, unresolved actionable review comments, a bot review still in flight after the latest push, a red required parallel CI gate on the current remote tip, or a broken deploy.
 
 ### Fresh worktree bootstrap
 
@@ -141,13 +142,19 @@ CI and deploy monitoring after merges or direct pushes is part of the slice, not
 Required flow after any merge or direct push to `main`:
 
 1. Record the exact pushed sha, then verify `git ls-remote origin refs/heads/main` matches it.
-2. If `origin/main` moves while monitoring, fetch immediately and check whether the pushed sha is still contained in `origin/main`. Report both facts separately: the pushed commit status and the current remote head status.
+2. If `origin/main` moves while monitoring, fetch immediately and check whether the pushed sha is still contained in `origin/main`. If it is contained, stop waiting on cancelled or superseded runs for older heads and verify the newest remote tip's required parallel CI gate instead. If it is not contained, reconcile before claiming the work shipped. Report both facts separately: the pushed commit status and the current remote head status.
 3. Track GitHub Actions by run id and head sha, not by branch name alone. Branch queries can silently switch to a newer push.
 4. Track Vercel by commit sha and production endpoint version. Do not call production current until `/api/version` reports the expected sha.
 5. Use bounded polling with timestamps. Prefer a short loop that prints status, conclusion, head sha, and run URL. Avoid long noisy `gh run watch` output unless it is actively useful.
 6. If `gh` auth fails, stop the failed loop and switch to the public GitHub REST endpoints when the repo is public. Do not keep retrying the same broken command.
 7. When a run is slow, inspect the jobs endpoint to identify the active step. If logs are unavailable until completion, say that explicitly and keep polling the run conclusion.
-8. Before final response, verify the latest `origin/main` head, whether the shipped commit is contained in it, Vercel status for the latest head, production `/api/version`, notification config when relevant, and CI conclusion for the pushed sha. If `origin/main` advanced after the push, also verify the latest head's CI or state clearly that it is still running.
+8. Before final response, verify the latest `origin/main` head, whether the shipped commit is contained in it, Vercel status for the latest head, production `/api/version`, notification config when relevant, and CI conclusion for the pushed sha or its superseding current-tip run. If `origin/main` advanced after the push, also verify the latest head's CI or state clearly that it is still running.
+
+CI speed policy:
+
+- Required CI is the parallel gate in `docs/CI_WORKFLOW.html`: quality, typecheck, unit tests, build, and sharded critical Playwright smoke.
+- The full Playwright smoke matrix runs on schedule and manual dispatch. Run it locally or by manual dispatch for broad-risk slices that change shared UI shell behavior, cross-route storage state, release-note infrastructure, Playwright harness behavior, or equivalent surfaces.
+- Do not block normal closeout on cancelled, superseded, or older in-progress workflow runs once the current `origin/main` tip contains the shipped commit and its required parallel gate is green.
 
 Continuous improvement requirement:
 

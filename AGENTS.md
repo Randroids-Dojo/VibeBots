@@ -192,6 +192,14 @@ Prior approval for one destructive action is not approval for all of them. Ask e
 - New API routes must have at least one route-handler test plus one smoke test.
 - Do not mark a task complete with failing tests.
 
+### Local test isolation
+
+- Local testing must not interrupt or attach to another agent's running server, browser, or test process.
+- Do not kill processes on occupied ports unless you started that exact process in the current turn and can identify its session.
+- Prefer fresh worktrees and isolated ports for every local server, Playwright run, smoke test, and preview check.
+- The Playwright config chooses an isolated per-worktree port by default and refuses to reuse an existing local server. If you need to target a server manually, set `PLAYWRIGHT_BASE_URL` to a server you started for this run.
+- Use `PLAYWRIGHT_PORT` for an explicit isolated port. Avoid shared defaults like `3000`, `3001`, or another agent's logged port.
+
 ## RULE 10: Motion and overlay QA
 
 When adding auto-scrolling, credits, animated overlays, portals, or modal UI:

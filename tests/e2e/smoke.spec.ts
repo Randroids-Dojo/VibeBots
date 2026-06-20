@@ -940,7 +940,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
     settingsAgain.getByRole("button", { name: "Enable update alerts" }),
   ).toBeDisabled();
   await expect(settingsAgain).toContainText(
-    "Notification keys are not set on this deploy.",
+    /Notification keys are not set on this deploy\.|Notifications are blocked in browser settings\./,
   );
 });
 

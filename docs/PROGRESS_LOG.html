@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="release-notice-save-reminder" data-date="2026-06-20">
+    <h3>Release Notice Save Reminder</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-8a8eba9c</code>, fast-forwarded to current <code>origin/main</code> after the death camera release landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Kept the current top release notification aligned with the user-requested recovery copy. The <code>0.1.86</code> notice ID now refreshes to <code>2026-06-20-0.1.86-death-cam-save-reminder</code>, and the in-game release intro, Web Push summary, and static release notes include <q>Mason, load your first save now.</q> Death camera release details remain intact. Package version, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> stay unchanged.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm exec biome check --write src/lib/app-release.ts src/lib/app-release.test.ts src/app/api/notifications/route.test.ts tests/e2e/smoke.spec.ts</code>, focused app-release and notification Vitest (9 passed), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm lint</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm build</code>, <code>pnpm test</code> (294 passed), and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3334</code> for the latest release note (1 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: change the notice ID for this copy fix so players who already dismissed the death camera note can still see the corrected save recovery reminder.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="death-cam-populated-cells" data-date="2026-06-20">
     <h3>Death Cam Populated Cells</h3>
     <dl>

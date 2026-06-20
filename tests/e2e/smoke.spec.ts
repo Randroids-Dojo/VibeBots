@@ -1099,6 +1099,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
+  await expect(dialog).toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
     "Death animations now stay inside the real mine view.",
   );
@@ -1195,7 +1196,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.86-death-cam",
+      "2026-06-20-0.1.86-death-cam-save-reminder",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1316,7 +1317,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.86-death-cam",
+      "2026-06-20-0.1.86-death-cam-save-reminder",
     );
   });
   await page.route("**/api/version", async (route) => {

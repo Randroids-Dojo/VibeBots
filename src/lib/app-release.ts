@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.86-death-cam";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.86-death-cam-save-reminder";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
@@ -10,7 +10,8 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       version: "0.1.86",
       date: "2026-06-20",
       title: "Death cam fix",
-      intro: "Death animations now stay inside the real mine view.",
+      intro:
+        "Mason, load your first save now. Death animations now stay inside the real mine view.",
       changes: [
         {
           build,

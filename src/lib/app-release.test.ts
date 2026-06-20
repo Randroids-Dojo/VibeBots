@@ -2,15 +2,16 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest death cam note complete", () => {
+  it("keeps the latest death cam note complete with the save reminder", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.86-death-cam");
+    expect(release.noticeId).toBe("2026-06-20-0.1.86-death-cam-save-reminder");
     expect(latestNote).toMatchObject({
       version: "0.1.86",
       title: "Death cam fix",
-      intro: "Death animations now stay inside the real mine view.",
+      intro:
+        "Mason, load your first save now. Death animations now stay inside the real mine view.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "Fatal falls and falling-rock crushes keep rendering the populated underground cells around the death.",

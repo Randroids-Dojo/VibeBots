@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.75-mine-performance-samples";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.76-surface-tip-rotation";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.76",
+      date: "2026-06-20",
+      title: "Surface tip rotation",
+      intro: "Surface tips now rotate while you are topside.",
+      changes: [
+        {
+          build,
+          text: "The mine surface tip slot now refreshes about every 15 seconds while the miner is on the surface.",
+        },
+        {
+          build,
+          text: "Some rotation slots intentionally stay empty so the HUD gets quiet moments instead of always showing advice.",
+        },
+        {
+          build,
+          text: "The tip copy stays current and no mine rules, replay behavior, or gameplay versions changed.",
+        },
+      ],
+    },
     {
       version: "0.1.75",
       date: "2026-06-20",

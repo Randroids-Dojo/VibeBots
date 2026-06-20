@@ -953,14 +953,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "The mine now collects lightweight frame samples from real play.",
+    "Surface tips now rotate while you are topside.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "browser frame intervals",
+    "about every 15 seconds",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("renderer mode");
-  await expect(dialog.locator("li").nth(2)).toContainText("active player save");
+  await expect(dialog.locator("li").nth(1)).toContainText("quiet moments");
+  await expect(dialog.locator("li").nth(2)).toContainText("no mine rules");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -979,6 +979,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.76", "Surface tip rotation"],
     ["0.1.75", "Mine performance samples"],
     ["0.1.74", "Stale trip recovery"],
     ["0.1.73", "Falling rock crush"],
@@ -1033,7 +1034,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.75-mine-performance-samples",
+      "2026-06-20-0.1.76-surface-tip-rotation",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1154,7 +1155,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.75-mine-performance-samples",
+      "2026-06-20-0.1.76-surface-tip-rotation",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1678,10 +1679,31 @@ test("save slot deletion requires a destructive double confirmation", async ({
   expect(deleteRequests).toBe(1);
 });
 
-test("mine shows one of the surface game tips", async ({ page }) => {
+test("mine rotates surface game tips and sometimes leaves the slot empty", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 575, height: 1280 });
   await page.addInitScript(() => {
     Math.random = () => 0;
+    const intervalRandomValues = [0, 0.9];
+    const realSetInterval = window.setInterval;
+    window.setInterval = ((...args: Parameters<typeof window.setInterval>) => {
+      const [handler, timeout, ...rest] = args;
+      if (timeout !== 15_000) return realSetInterval(handler, timeout, ...rest);
+      return realSetInterval(
+        () => {
+          const previousRandom = Math.random;
+          Math.random = () => intervalRandomValues.shift() ?? 0.9;
+          try {
+            if (typeof handler === "function") handler();
+          } finally {
+            Math.random = previousRandom;
+          }
+        },
+        1000,
+        ...rest,
+      );
+    }) as typeof window.setInterval;
   });
   await page.goto("/mine");
   await dismissReleaseNotes(page);
@@ -1698,6 +1720,10 @@ test("mine shows one of the surface game tips", async ({ page }) => {
   expect(box).not.toBeNull();
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);
   expect(box?.height ?? 0).toBeGreaterThan(22);
+  await expect(status).toContainText(
+    "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
+  );
+  await expect(status).not.toContainText("Tip:");
 });
 
 test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022)", async ({
@@ -1978,7 +2004,7 @@ test.describe("phone viewport", () => {
       w.__vibebotsPerfMinSendIntervalMs = 0;
       localStorage.setItem(
         "vibebots-release-notes-dismissed-id",
-        "2026-06-20-0.1.75-mine-performance-samples",
+        "2026-06-20-0.1.76-surface-tip-rotation",
       );
     });
 

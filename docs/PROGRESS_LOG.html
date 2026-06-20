@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="surface-tip-rotation" data-date="2026-06-20">
+    <h3>Surface Tip Rotation</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260619-204434</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased over <code>1592b5f</code> after remote main moved.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed mine HUD behavior. Surface tips now rotate about every 15 seconds while the miner is topside, and the rotation includes quiet slots that intentionally show no tip. Package version moved to <code>0.1.76</code>; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> stay unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code> before and after the rebase. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, docs, and smoke files, focused notification Vitest (7 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PORT=3273</code> for latest release notes and surface tip rotation (2 passed), in-app Browser verification against <code>http://localhost:3274/mine</code> for the <code>0.1.76</code> mine page, visible canvas, real-interval empty tip slot, and zero console errors, <code>pnpm test</code> (276 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep the existing tip copy and only change rotation behavior, because no mine rule, economy path, control, upgrade, hazard, shop, or recovery rule changed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated the build log in <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-performance-samples" data-date="2026-06-20">
     <h3>Mine Performance Samples</h3>
     <dl>

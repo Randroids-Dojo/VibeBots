@@ -213,6 +213,12 @@ const MINE_SURFACE_TIPS = [
   "Tip: row 1,000 takes rail, Warpcoil, cargo, and battery upgrades together.",
   "Tip: surface beacons in distant biomes unlock free portals back to base.",
 ] as const;
+const MINE_SURFACE_TIP_EMPTY_SLOTS = 3;
+const MINE_SURFACE_TIP_ROTATION_MS = 15_000;
+const MINE_SURFACE_TIP_CHOICES: readonly (string | null)[] = [
+  ...MINE_SURFACE_TIPS,
+  ...Array.from({ length: MINE_SURFACE_TIP_EMPTY_SLOTS }, () => null),
+];
 
 interface NotificationConfig {
   configured: boolean;
@@ -342,11 +348,10 @@ function elevatorAutoDelayMs(gear: MineGear): number {
   return Math.max(70, 240 - ((gear.elevatorSpeed ?? 1) - 1) * 20);
 }
 
-function randomMineSurfaceTip(): string {
-  return (
-    MINE_SURFACE_TIPS[Math.floor(Math.random() * MINE_SURFACE_TIPS.length)] ??
-    MINE_SURFACE_TIPS[0]
-  );
+function randomMineSurfaceTip(current: string | null): string | null {
+  const options = MINE_SURFACE_TIP_CHOICES.filter((tip) => tip !== current);
+  const slot = options[Math.floor(Math.random() * options.length)];
+  return slot ?? null;
 }
 
 const chipStyle: React.CSSProperties = {
@@ -3814,9 +3819,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [baseReturnConfirm, setBaseReturnConfirm] = useState(false);
   const [baseReturnPending, setBaseReturnPending] = useState(false);
   const [teleportBurstKey, setTeleportBurstKey] = useState(0);
-  const [mineSurfaceTip, setMineSurfaceTip] = useState<string>(
-    MINE_SURFACE_TIPS[0],
-  );
+  const [mineSurfaceTip, setMineSurfaceTip] = useState<string | null>(null);
+  const mineSurfaceTipRef = useRef<string | null>(null);
   const [bunkerClaimMode, setBunkerClaimMode] = useState(false);
   const [bunkerPanelOpen, setBunkerPanelOpen] = useState(true);
   const [selectedBasePart, setSelectedBasePart] =
@@ -3838,8 +3842,18 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   void tick;
 
   useEffect(() => {
-    setMineSurfaceTip(randomMineSurfaceTip());
-  }, []);
+    if (mine.miner.row !== 0) return;
+    const rotateMineSurfaceTip = () => {
+      const next = randomMineSurfaceTip(mineSurfaceTipRef.current);
+      mineSurfaceTipRef.current = next;
+      setMineSurfaceTip(next);
+    };
+    rotateMineSurfaceTip();
+    const timer = window.setInterval(() => {
+      rotateMineSurfaceTip();
+    }, MINE_SURFACE_TIP_ROTATION_MS);
+    return () => window.clearInterval(timer);
+  }, [mine.miner.row]);
 
   const persistCameraZoom = useCallback((zoom: number) => {
     try {

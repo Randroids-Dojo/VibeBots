@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="tactical-shop-buttons" data-date="2026-06-20">
+    <h3>Tactical Shop Buttons</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/worktree-20260620-140637</code>, created in a fresh worktree from current <code>origin/main</code> before implementation, then rebased over the upstream scrap panel text-bounds release after remote main moved.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Made mine purchases feel more tactical and committed. Supply Depot rows now show best-use labels, projected owned stock, projected vibes after purchase, and stronger affordable-row treatment. Upgrade rows now show best-use labels, next-level impact copy, projected balance, and a hold-to-buy button that fills before committing. Shop feedback now adds supported vibration patterns for press, success, and deny moments while respecting reduced-motion preferences. Package version moved to <code>0.1.114</code>; <code>MINE_VERSION</code> stays at <code>47</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched files, focused Vitest for release notes, notifications, and version routes (40 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3501 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|surface village stalls open|upgrade buys require a completed hold" --project=chromium</code> (3 passed), <code>pnpm test</code> (346 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and <code>git diff --cached --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as a shop UI and feedback slice only, so no gameplay-version or sim-version bump is needed. Recommended default: require hold-to-buy for permanent gear upgrades only, while consumables keep tap purchase because quantity selection already provides commitment friction.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, and added focused smoke coverage for depot projections and upgrade hold-to-buy behavior.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="scrap-panel-text-bounds" data-date="2026-06-20">
     <h3>Scrap Panel Text Bounds</h3>
     <dl>

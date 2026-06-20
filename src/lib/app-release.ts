@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.113-scrap-panel-text-bounds";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.114-tactical-shop-buttons";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.114",
+      date: "2026-06-20",
+      title: "Tactical shop buttons",
+      intro: "Depot and upgrade buys now feel more deliberate.",
+      changes: [
+        {
+          build,
+          text: "Supply Depot rows now show what each item is best for, projected stock, and vibes left after the selected quantity.",
+        },
+        {
+          build,
+          text: "Upgrades now show the next tactical impact and require a completed hold before buying.",
+        },
+        {
+          build,
+          text: "Shop buttons add stronger visual feedback plus supported mobile vibration for press, success, and deny moments.",
+        },
+      ],
+    },
     {
       version: "0.1.113",
       date: "2026-06-20",

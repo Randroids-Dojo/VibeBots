@@ -1402,16 +1402,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Scrap mode text now stays inside the phone panel.",
+    "Depot and upgrade buys now feel more deliberate.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "wraps long status chips",
+    "Supply Depot rows now show what each item is best for",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "selected scrap value",
+    "Upgrades now show the next tactical impact",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("horizontal bounds");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "Shop buttons add stronger visual feedback",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1430,6 +1432,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.114", "Tactical shop buttons"],
     ["0.1.113", "Scrap panel text bounds"],
     ["0.1.112", "Scrap language"],
     ["0.1.111", "Hardware Store copy"],
@@ -3177,6 +3180,8 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   await expect(depot).toContainText("supplies for digging deeper");
   await expect(depot).toContainText("Ladder");
   await expect(depot).toContainText("have");
+  await expect(depot).toContainText("best for safe returns");
+  await expect(depot).toContainText("stock 8 to 9");
   await expect(depot).toContainText("Buy 1 for 2 vibes");
   await expect(depot).not.toContainText("current trip");
   await expect(depot).not.toContainText("purchases pack");
@@ -3197,6 +3202,93 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   // Walking off the stall column closes the menu.
   await pressMineKey(page, "ArrowLeft");
   await expect(upgrades).not.toBeVisible();
+});
+
+test("upgrade buys require a completed hold", async ({ page }) => {
+  let upgradeRequests = 0;
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "vibrate", {
+      configurable: true,
+      value: (pattern: VibratePattern) => {
+        const target = window as Window & {
+          __vibebotsVibrations?: VibratePattern[];
+        };
+        target.__vibebotsVibrations ??= [];
+        target.__vibebotsVibrations.push(pattern);
+        return true;
+      },
+    });
+  });
+  const mine = createMine(7193, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      json: { seed: 7193, diff: exportDiff(mine), tripIndex: 0 },
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear: DEFAULT_GEAR,
+        consumables: STARTING_CONSUMABLES,
+        balance: 120,
+        playerLevel: 1,
+        deepestDepth: 0,
+      },
+    });
+  });
+  await page.route("**/api/gear/upgrade", async (route) => {
+    upgradeRequests++;
+    await route.fulfill({
+      json: { track: "pickaxe", level: 2, balance: 75 },
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await walkToStallPrompt(page, "ArrowRight", "Upgrades");
+  const upgrades = await openStall(page, "Upgrades");
+  await expect(upgrades).toContainText("best for break gates");
+  await expect(upgrades).toContainText("fewer hits and tougher rock");
+  await expect(upgrades).toContainText("75 vibes after");
+
+  const buyPickaxe = upgrades.getByRole("button", {
+    name: "Hold to buy Pickaxe for 45 vibes",
+  });
+  await expect(buyPickaxe).toBeEnabled();
+  await buyPickaxe.focus();
+  await page.keyboard.down("Enter");
+  await page.waitForTimeout(180);
+  await page.keyboard.up("Enter");
+  await page.waitForTimeout(650);
+  expect(upgradeRequests).toBe(0);
+  await expect(page.getByText("pickaxe is now level 2")).toHaveCount(0);
+
+  const activeUpgrades = (await upgrades.isVisible().catch(() => false))
+    ? upgrades
+    : await openStall(page, "Upgrades");
+  const activeBuyPickaxe = activeUpgrades.getByRole("button", {
+    name: "Hold to buy Pickaxe for 45 vibes",
+  });
+  await activeBuyPickaxe.focus();
+  await page.keyboard.down("Enter");
+  await page.waitForTimeout(820);
+  await page.keyboard.up("Enter");
+  await expect.poll(() => upgradeRequests).toBe(1);
+  await expect(activeUpgrades).toContainText("pickaxe is now level 2");
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-wallet",
+    "75",
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const target = window as Window & {
+          __vibebotsVibrations?: VibratePattern[];
+        };
+        return target.__vibebotsVibrations?.length ?? 0;
+      }),
+    )
+    .toBeGreaterThanOrEqual(3);
 });
 
 test("a stall opens on tap and closes back to the prompt", async ({ page }) => {

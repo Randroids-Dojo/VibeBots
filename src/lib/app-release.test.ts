@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest scrap panel text bounds note complete", () => {
+  it("keeps the latest tactical shop buttons note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.113-scrap-panel-text-bounds");
+    expect(release.noticeId).toBe("2026-06-20-0.1.114-tactical-shop-buttons");
     expect(latestNote).toMatchObject({
+      version: "0.1.114",
+      title: "Tactical shop buttons",
+      intro: "Depot and upgrade buys now feel more deliberate.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Supply Depot rows now show what each item is best for, projected stock, and vibes left after the selected quantity.",
+      "Upgrades now show the next tactical impact and require a completed hold before buying.",
+      "Shop buttons add stronger visual feedback plus supported mobile vibration for press, success, and deny moments.",
+    ]);
+  });
+
+  it("keeps the archived scrap panel text bounds note complete", () => {
+    const release = getAppRelease();
+    const panelNote = release.notes.find((note) => note.version === "0.1.113");
+
+    expect(panelNote).toMatchObject({
       version: "0.1.113",
       title: "Scrap panel text bounds",
       intro: "Scrap mode text now stays inside the phone panel.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(panelNote?.changes.map((change) => change.text)).toEqual([
       "The Scrap mode header now wraps long status chips instead of letting them spill outside the panel.",
       "The selected scrap value stays readable on narrow phone screens.",
       "Focused smoke coverage now checks the panel and its children stay inside horizontal bounds.",

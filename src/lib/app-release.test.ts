@@ -2,18 +2,34 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine death report note complete", () => {
+  it("keeps the latest Hardware Store copy note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.110-mine-death-report");
+    expect(release.noticeId).toBe("2026-06-20-0.1.111-hardware-store-copy");
     expect(latestNote).toMatchObject({
+      version: "0.1.111",
+      title: "Hardware Store copy",
+      intro: "The Hardware Store sheet now stays focused on items.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The extra Hardware Store intro and footer helper paragraphs were removed.",
+      "Buy buttons remain the source for prices, level locks, and stock limits.",
+      "Item rows still describe each base part without repeating shop-wide rules.",
+    ]);
+  });
+
+  it("keeps the archived mine death report note complete", () => {
+    const release = getAppRelease();
+    const deathNote = release.notes.find((note) => note.version === "0.1.110");
+
+    expect(deathNote).toMatchObject({
       version: "0.1.110",
       title: "Mine death report",
       intro:
         "Crush reports now stay on the impact scene and use the right cause.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(deathNote?.changes.map((change) => change.text)).toEqual([
       "Falling-rock death reports now keep the underground impact cells visible through the report instead of flashing back to an empty reset frame.",
       "Near-miss copy now says where the rock fell instead of saying the robot battery died.",
       "Focused smoke coverage checks the report frame for populated cells, camera depth, and cause-specific copy.",

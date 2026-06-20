@@ -3078,10 +3078,6 @@ function HardwareStorePanel({
 
   return (
     <div>
-      <p style={{ margin: "12px 0 8px", fontSize: "0.85rem", opacity: 0.72 }}>
-        Base stock unlocks by player level. Parts are consumed when placed in
-        the bunker builder.
-      </p>
       <QuantityPicker value={buyQuantity} onChange={setBuyQuantity} />
       {BASE_PART_IDS.map((partId) => {
         const def = BASE_PART_CATALOG[partId];
@@ -3129,11 +3125,6 @@ function HardwareStorePanel({
           />
         );
       })}
-      <p style={{ margin: "10px 0 0", fontSize: "0.72rem", opacity: 0.58 }}>
-        Basic Turrets unlock at level 2 and are capped at one total owned or
-        deployed. Floor Spikes are capped at 4 total at level 1 and 6 total from
-        level 2. New claims start with 2 walls, 3 floors, 3 roofs, and 1 door.
-      </p>
       {bunkerStatus === "unavailable" && (
         <p
           style={{ margin: "10px 0 0", fontSize: "0.75rem", color: "#f5c542" }}

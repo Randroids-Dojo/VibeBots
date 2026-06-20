@@ -34,6 +34,19 @@ async function openStall(page: Page, name: string) {
   return sheet;
 }
 
+async function walkToStallPrompt(
+  page: Page,
+  key: "ArrowLeft" | "ArrowRight",
+  name: string,
+): Promise<void> {
+  const prompt = page.getByRole("button", { name: `Open ${name}` });
+  for (let i = 0; i < 20; i++) {
+    if (await prompt.isVisible().catch(() => false)) return;
+    await pressMineKey(page, key);
+  }
+  await expect(prompt).toBeVisible();
+}
+
 async function expectSurfacePromptBottomClearance(
   page: Page,
   name: string,
@@ -1351,16 +1364,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Crush reports now stay on the impact scene and use the right cause.",
+    "The Hardware Store sheet now stays focused on items.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "underground impact cells visible",
+    "helper paragraphs were removed",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "where the rock fell",
+  await expect(dialog.locator("li").nth(1)).toContainText("level locks");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "without repeating shop-wide rules",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("populated cells");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1379,6 +1392,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.111", "Hardware Store copy"],
     ["0.1.110", "Mine death report"],
     ["0.1.109", "Mine refresh viewport lock"],
     ["0.1.108", "Mine warning visuals"],
@@ -1512,7 +1526,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.110-mine-death-report",
+      "2026-06-20-0.1.111-hardware-store-copy",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1622,7 +1636,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.110-mine-death-report",
+      "2026-06-20-0.1.111-hardware-store-copy",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -3098,9 +3112,7 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
 
   // Walk left from the shaft to the Hardware Store; the menu does not pop
   // on walk-by, the prompt does, and tapping it opens the menu.
-  for (let i = 0; i < 3; i++) {
-    await pressMineKey(page, "ArrowLeft");
-  }
+  await walkToStallPrompt(page, "ArrowLeft", "Hardware Store");
   await expect(
     page.getByRole("region", { name: "Hardware Store", exact: true }),
   ).not.toBeVisible();
@@ -3116,11 +3128,11 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   await expect(buyer).toContainText("Floor Spikes");
   await expect(buyer).toContainText("Breaks after 3 steps");
   await expect(buyer).toContainText("Limit 4 at your level");
+  await expect(buyer).not.toContainText("Base stock unlocks by player level");
+  await expect(buyer).not.toContainText("New claims start with");
 
   // Walk right to the Supply Depot: consumables with prices.
-  for (let i = 0; i < 5; i++) {
-    await pressMineKey(page, "ArrowRight");
-  }
+  await walkToStallPrompt(page, "ArrowRight", "Supply Depot");
   const depot = await openStall(page, "Supply Depot");
   await expect(depot).toContainText("supplies for digging deeper");
   await expect(depot).toContainText("Ladder");
@@ -3134,9 +3146,7 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   await expect(depot).toContainText("Buy 5 for 10 vibes");
 
   // And on to the Upgrades stall: the gear tracks.
-  for (let i = 0; i < 2; i++) {
-    await pressMineKey(page, "ArrowRight");
-  }
+  await walkToStallPrompt(page, "ArrowRight", "Upgrades");
   const upgrades = await openStall(page, "Upgrades");
   await expect(upgrades).toContainText("Pickaxe");
   await expect(upgrades).toContainText("Cargo Hold");

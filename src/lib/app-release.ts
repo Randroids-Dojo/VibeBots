@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.110-mine-death-report";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.111-hardware-store-copy";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.111",
+      date: "2026-06-20",
+      title: "Hardware Store copy",
+      intro: "The Hardware Store sheet now stays focused on items.",
+      changes: [
+        {
+          build,
+          text: "The extra Hardware Store intro and footer helper paragraphs were removed.",
+        },
+        {
+          build,
+          text: "Buy buttons remain the source for prices, level locks, and stock limits.",
+        },
+        {
+          build,
+          text: "Item rows still describe each base part without repeating shop-wide rules.",
+        },
+      ],
+    },
     {
       version: "0.1.110",
       date: "2026-06-20",

@@ -11,28 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.110.123",
+  version: "0.1.111.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.110-mine-death-report",
-  intro: "Crush reports now stay on the impact scene and use the right cause.",
+  noticeId: "2026-06-20-0.1.111-hardware-store-copy",
+  intro: "The Hardware Store sheet now stays focused on items.",
   changes: [
     {
       build: 123,
-      text: "The report stays on the impact scene.",
+      text: "The extra Hardware Store intro and footer helper paragraphs were removed.",
     },
   ],
   notes: [
     {
-      version: "0.1.110",
+      version: "0.1.111",
       date: "2026-06-20",
-      title: "Mine death report",
-      intro:
-        "Crush reports now stay on the impact scene and use the right cause.",
+      title: "Hardware Store copy",
+      intro: "The Hardware Store sheet now stays focused on items.",
       changes: [
         {
           build: 123,
-          text: "The report stays on the impact scene.",
+          text: "The extra Hardware Store intro and footer helper paragraphs were removed.",
         },
       ],
     },
@@ -133,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Mine death report"),
+      expect.stringContaining("Hardware Store copy"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

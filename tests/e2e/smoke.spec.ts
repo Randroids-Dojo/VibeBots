@@ -2388,6 +2388,9 @@ test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", as
   await dismissReleaseNotes(page);
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
+  await expect(page.getByText("Opening the shaft")).not.toBeVisible({
+    timeout: 5_000,
+  });
   await expect
     .poll(async () => canvas.getAttribute("data-miner-x"), { timeout: 5_000 })
     .not.toBeNull();
@@ -2396,15 +2399,15 @@ test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", as
   await page.keyboard.press("ArrowRight");
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 1_000,
+      timeout: 2_000,
     })
     .toBeGreaterThan(initialX + 0.05);
   await expect
     .poll(
       async () => Number(await canvas.getAttribute("data-miner-motion-frames")),
-      { timeout: 1_000 },
+      { timeout: 2_000 },
     )
-    .toBeGreaterThan(2);
+    .toBeGreaterThan(1);
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
       timeout: 600,

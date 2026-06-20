@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.104-mine-input-cadence";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.105-battle-camera";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.105",
+      date: "2026-06-20",
+      title: "Battle camera",
+      intro: "Battle mode now keeps both bots in the shot.",
+      changes: [
+        {
+          build,
+          text: "The arena camera now follows the live midpoint between the bots instead of staying fixed.",
+        },
+        {
+          build,
+          text: "The camera backs up as bots spread apart, then eases closer as they clash.",
+        },
+        {
+          build,
+          text: "Smoke coverage now checks that both bots stay framed while the match moves.",
+        },
+      ],
+    },
     {
       version: "0.1.104",
       date: "2026-06-20",

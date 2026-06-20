@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.103.123",
+  version: "0.1.105.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.103-mine-load-fallback",
-  intro: "Bad network loads now show the mine is trying to recover.",
+  noticeId: "2026-06-20-0.1.105-battle-camera",
+  intro: "Battle mode now keeps both bots in the shot.",
   changes: [
     {
       build: 123,
-      text: "The mine shows a loader and retry when loading fails.",
+      text: "The arena camera follows both bots.",
     },
   ],
   notes: [
     {
-      version: "0.1.103",
+      version: "0.1.105",
       date: "2026-06-20",
-      title: "Mine load fallback",
-      intro: "Bad network loads now show the mine is trying to recover.",
+      title: "Battle camera",
+      intro: "Battle mode now keeps both bots in the shot.",
       changes: [
         {
           build: 123,
-          text: "The mine shows a loader and retry when loading fails.",
+          text: "The arena camera follows both bots.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Mine load fallback"),
+      expect.stringContaining("Battle camera"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

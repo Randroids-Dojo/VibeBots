@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine input cadence note complete", () => {
+  it("keeps the latest battle camera note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.104-mine-input-cadence");
+    expect(release.noticeId).toBe("2026-06-20-0.1.105-battle-camera");
     expect(latestNote).toMatchObject({
+      version: "0.1.105",
+      title: "Battle camera",
+      intro: "Battle mode now keeps both bots in the shot.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The arena camera now follows the live midpoint between the bots instead of staying fixed.",
+      "The camera backs up as bots spread apart, then eases closer as they clash.",
+      "Smoke coverage now checks that both bots stay framed while the match moves.",
+    ]);
+  });
+
+  it("keeps the archived mine input cadence note complete", () => {
+    const release = getAppRelease();
+    const cadenceNote = release.notes.find(
+      (note) => note.version === "0.1.104",
+    );
+
+    expect(cadenceNote).toMatchObject({
       version: "0.1.104",
       title: "Mine input cadence",
       intro: "Holding movement now keeps pace with rapid taps.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(cadenceNote?.changes.map((change) => change.text)).toEqual([
       "Keyboard and thumbstick movement now share one cadence, so holding a direction is no slower than repeated taps or swipes.",
       "Rapid tap-release bursts wait for the same next legal action time as held input, closing the swipe-spam shortcut.",
       "The miner glide now fills more of each legal action interval, making movement look smoother without changing replay, save, or sim versions.",

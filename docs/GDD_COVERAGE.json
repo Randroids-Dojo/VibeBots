@@ -159,9 +159,11 @@
       "status": "partial",
       "implementationRefs": [
         "src/components/workshop-panel.tsx",
+        "src/components/arena-camera.ts",
         "src/components/arena-canvas.tsx"
       ],
       "testRefs": [
+        "src/components/arena-camera.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []

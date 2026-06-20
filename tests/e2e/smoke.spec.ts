@@ -247,8 +247,20 @@ test("arena page renders a moving match (Rule 10 motion QA)", async ({
       timeout: 15_000,
     })
     .toBeGreaterThan(0);
+  await expect(stage).toHaveAttribute("data-camera-mode", "cinematic-follow");
+  await expect
+    .poll(async () => await stage.getAttribute("data-bots-in-frame"), {
+      timeout: 15_000,
+    })
+    .toBe("true");
 
   const tickBefore = Number(await stage.getAttribute("data-sim-tick"));
+  const cameraBefore = await stage.evaluate((el) => ({
+    distance: Number(el.getAttribute("data-camera-distance")),
+    screenX: Number(el.getAttribute("data-bot0-screen-x")),
+    targetX: Number(el.getAttribute("data-camera-target-x")),
+    targetZ: Number(el.getAttribute("data-camera-target-z")),
+  }));
   const shotBefore = await canvas.screenshot();
 
   await page.waitForTimeout(700);
@@ -261,6 +273,19 @@ test("arena page renders a moving match (Rule 10 motion QA)", async ({
 
   // The sim tick must advance and the visible pixels must actually change.
   expect(tickAfter).toBeGreaterThan(tickBefore);
+  const cameraAfter = await stage.evaluate((el) => ({
+    distance: Number(el.getAttribute("data-camera-distance")),
+    screenX: Number(el.getAttribute("data-bot0-screen-x")),
+    targetX: Number(el.getAttribute("data-camera-target-x")),
+    targetZ: Number(el.getAttribute("data-camera-target-z")),
+  }));
+  const cameraDelta =
+    Math.abs(cameraAfter.distance - cameraBefore.distance) +
+    Math.abs(cameraAfter.screenX - cameraBefore.screenX) +
+    Math.abs(cameraAfter.targetX - cameraBefore.targetX) +
+    Math.abs(cameraAfter.targetZ - cameraBefore.targetZ);
+  expect(cameraDelta).toBeGreaterThan(0.01);
+  expect(await stage.getAttribute("data-bots-in-frame")).toBe("true");
   expect(Buffer.compare(shotBefore, shotAfter)).not.toBe(0);
 });
 
@@ -1191,17 +1216,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Holding movement now keeps pace with rapid taps.",
+    "Battle mode now keeps both bots in the shot.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "no slower than repeated taps or swipes",
+    "live midpoint between the bots",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "swipe-spam shortcut",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("backs up");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "without changing replay, save, or sim versions",
+    "both bots stay framed",
   );
 
   await page.mouse.click(8, 8);
@@ -1221,6 +1244,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.105", "Battle camera"],
     ["0.1.104", "Mine input cadence"],
     ["0.1.103", "Mine load fallback"],
     ["0.1.102", "Falling rock chains"],
@@ -1348,7 +1372,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.104-mine-input-cadence",
+      "2026-06-20-0.1.105-battle-camera",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1469,7 +1493,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.104-mine-input-cadence",
+      "2026-06-20-0.1.105-battle-camera",
     );
   });
   await page.route("**/api/version", async (route) => {

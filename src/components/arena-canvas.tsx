@@ -15,6 +15,15 @@ import {
   Vector3,
 } from "three/webgpu";
 import {
+  type ArenaCameraBounds,
+  arenaCameraBoundsCenter,
+  arenaCameraBoundsReady,
+  arenaCameraFrameForBounds,
+  emptyArenaCameraBounds,
+  includeArenaCameraBounds,
+  includeArenaCameraPoint,
+} from "@/components/arena-camera";
+import {
   createWebGPU,
   partGeometry,
   shapeRotation,
@@ -47,6 +56,8 @@ const EXHIBITION_DESIGNS: [BotDesign, BotDesign] = [
   CPU_BRAWLER_DESIGN,
   TEST_BOT_DESIGN,
 ];
+const ARENA_CAMERA_SMOOTHING = 3.2;
+const ARENA_CAMERA_PART_PADDING = 1.2;
 
 interface ArenaRun {
   match: MatchState;
@@ -134,6 +145,8 @@ interface PartView {
   currRot: Quaternion;
 }
 
+type MatchBot = MatchState["bots"][number];
+
 function newPartView(): PartView {
   return {
     prevPos: new Vector3(),
@@ -141,6 +154,32 @@ function newPartView(): PartView {
     prevRot: new Quaternion(),
     currRot: new Quaternion(),
   };
+}
+
+function includeBotPartBounds(
+  bounds: ArenaCameraBounds,
+  bot: MatchBot,
+  botIndex: 0 | 1,
+  groups: Map<string, Group | null>,
+  includeDestroyed: boolean,
+): number {
+  let count = 0;
+  for (const iid of bot.assembled.bodies.keys()) {
+    const group = groups.get(`${botIndex}:${iid}`);
+    if (!group) continue;
+    if (!includeDestroyed && (bot.parts.get(iid)?.destroyed ?? false)) {
+      continue;
+    }
+    includeArenaCameraPoint(
+      bounds,
+      group.position.x,
+      group.position.y,
+      group.position.z,
+      ARENA_CAMERA_PART_PADDING,
+    );
+    count += 1;
+  }
+  return count;
 }
 
 export interface MatchEndInfo {
@@ -170,6 +209,12 @@ function ArenaScene({
   const viewsRef = useRef(new Map<string, PartView>());
   const groupRefs = useRef(new Map<string, Group | null>());
   const materialRefs = useRef(new Map<string, MeshStandardMaterial | null>());
+  const desiredCameraPositionRef = useRef(new Vector3(8, 5, 10));
+  const desiredCameraLookAtRef = useRef(new Vector3(0, 1, 0));
+  const projectedBotRef = useRef<[Vector3, Vector3]>([
+    new Vector3(),
+    new Vector3(),
+  ]);
 
   const syncViews = useCallback((match: MatchState, hard: boolean) => {
     for (const [index, bot] of match.bots.entries()) {
@@ -210,7 +255,7 @@ function ArenaScene({
     };
   }, [syncViews, onHud, designs]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const run = runRef.current;
     if (!run) return;
     const match = run.match;
@@ -247,6 +292,78 @@ function ArenaScene({
             destroyed ? BOT_COLORS_DESTROYED[index] : BOT_COLORS[index],
           );
         }
+      }
+    }
+
+    const allBounds = emptyArenaCameraBounds();
+    const botCenters: [{ x: number; z: number }, { x: number; z: number }] = [
+      { x: 0, z: 0 },
+      { x: 0, z: 0 },
+    ];
+    let framedBots = 0;
+    for (const [index, bot] of match.bots.entries()) {
+      const botIndex = index as 0 | 1;
+      const botBounds = emptyArenaCameraBounds();
+      const visibleParts = includeBotPartBounds(
+        botBounds,
+        bot,
+        botIndex,
+        groupRefs.current,
+        false,
+      );
+      if (visibleParts === 0) {
+        includeBotPartBounds(botBounds, bot, botIndex, groupRefs.current, true);
+      }
+      if (!arenaCameraBoundsReady(botBounds)) continue;
+      includeArenaCameraBounds(allBounds, botBounds);
+      const center = arenaCameraBoundsCenter(botBounds);
+      botCenters[botIndex] = {
+        x: center.x,
+        z: center.z,
+      };
+      framedBots += 1;
+    }
+
+    if (framedBots === 2 && arenaCameraBoundsReady(allBounds)) {
+      const frame = arenaCameraFrameForBounds(allBounds, botCenters);
+      desiredCameraLookAtRef.current.set(
+        frame.targetX,
+        frame.targetY,
+        frame.targetZ,
+      );
+      desiredCameraPositionRef.current.set(
+        frame.targetX + Math.sin(frame.yaw) * frame.distance,
+        frame.targetY + frame.height,
+        frame.targetZ + Math.cos(frame.yaw) * frame.distance,
+      );
+      const blend = 1 - Math.exp(-delta * ARENA_CAMERA_SMOOTHING);
+      state.camera.position.lerp(desiredCameraPositionRef.current, blend);
+      state.camera.lookAt(desiredCameraLookAtRef.current);
+      state.camera.updateMatrixWorld();
+
+      const bot0 = projectedBotRef.current[0].set(
+        botCenters[0].x,
+        frame.targetY,
+        botCenters[0].z,
+      );
+      const bot1 = projectedBotRef.current[1].set(
+        botCenters[1].x,
+        frame.targetY,
+        botCenters[1].z,
+      );
+      bot0.project(state.camera);
+      bot1.project(state.camera);
+      const bot0InFrame = Math.abs(bot0.x) <= 0.88 && Math.abs(bot0.y) <= 0.82;
+      const bot1InFrame = Math.abs(bot1.x) <= 0.88 && Math.abs(bot1.y) <= 0.82;
+      const stage = stageRef.current;
+      if (stage) {
+        stage.dataset.cameraMode = "cinematic-follow";
+        stage.dataset.cameraTargetX = frame.targetX.toFixed(2);
+        stage.dataset.cameraTargetZ = frame.targetZ.toFixed(2);
+        stage.dataset.cameraDistance = frame.distance.toFixed(2);
+        stage.dataset.bot0ScreenX = bot0.x.toFixed(3);
+        stage.dataset.bot1ScreenX = bot1.x.toFixed(3);
+        stage.dataset.botsInFrame = String(bot0InFrame && bot1InFrame);
       }
     }
 

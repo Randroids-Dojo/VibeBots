@@ -148,7 +148,7 @@ jobs:
         run: pnpm exec playwright install chromium --with-deps
 
       - name: Critical E2E smoke tests
-        run: pnpm test:e2e:critical --project=chromium --fully-parallel --shard=${{ matrix.shard }}
+        run: pnpm test:e2e:critical --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
 
       - name: Upload Playwright report
         if: failure()
@@ -201,7 +201,7 @@ jobs:
         run: pnpm exec playwright install chromium --with-deps
 
       - name: Full E2E smoke tests
-        run: pnpm test:e2e --project=chromium --fully-parallel --shard=${{ matrix.shard }}
+        run: pnpm test:e2e --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
 
       - name: Upload Playwright report
         if: failure()

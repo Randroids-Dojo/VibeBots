@@ -34,6 +34,7 @@
       <li><code>e2e-critical</code>: sharded Playwright smoke over the critical routes.</li>
     </ul>
     <p>The critical smoke set lives in <code>package.json</code> as <code>pnpm test:e2e:critical</code>. It covers latest release notes, save-slot load refresh, bunker raid builder flow, fatal fall camera behavior, and mine action motion.</p>
+    <p>E2E shards use Playwright's test-level sharding with one worker per shard. The parallelism comes from separate CI jobs, which keeps canvas-heavy mine tests from competing inside a single runner.</p>
   </section>
 
   <section id="full-smoke">

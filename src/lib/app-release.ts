@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.101-depot-copy-cleanup";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.102-falling-rock-chains";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.102",
+      date: "2026-06-20",
+      title: "Falling rock chains",
+      intro: "Stacked falling rocks now drop as one column.",
+      changes: [
+        {
+          build,
+          text: "Mining the support under a vertical rock or boulder stack now starts the countdown on the whole chain.",
+        },
+        {
+          build,
+          text: "When the countdown ends, every warned block falls together instead of waiting for one rock per delay cycle.",
+        },
+        {
+          build,
+          text: "The mine gameplay version moved to 47 so cash-out replay rejects older chain-settling rules.",
+        },
+      ],
+    },
     {
       version: "0.1.101",
       date: "2026-06-20",

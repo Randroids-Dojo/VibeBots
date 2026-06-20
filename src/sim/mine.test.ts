@@ -1374,6 +1374,95 @@ describe("mine", () => {
     expect(cellAt(state, c + 1, 6)?.kind).toBe("boulder");
   });
 
+  it("drops a falling rock chain together when its support is mined away", () => {
+    const state = createMine(4301, { ...DEFAULT_GEAR, pickaxe: 4 });
+    const c = START_COL;
+    state.miner.row = 8;
+    state.miner.col = c;
+    setCell(state, c, 8, { kind: "empty" });
+    setCell(state, c, 9, { kind: "dirt" });
+    setCell(state, c + 1, 5, { kind: "rock", rockTier: 1 });
+    setCell(state, c + 1, 6, { kind: "rock", rockTier: 1 });
+    setCell(state, c + 1, 7, { kind: "boulder" });
+    setCell(state, c + 1, 8, { kind: "dirt" });
+    setCell(state, c + 1, 9, { kind: "empty" });
+    setCell(state, c + 1, 10, { kind: "empty" });
+    setCell(state, c + 1, 11, { kind: "dirt" });
+    for (let dc = 2; dc <= 4; dc++) {
+      setCell(state, c + dc, 8, { kind: "empty" });
+      setCell(state, c + dc, 9, { kind: "dirt" });
+    }
+
+    const dug = step(state, "right");
+
+    expect(dug.ok && dug.fallingRockWarnings).toEqual([
+      { col: c + 1, row: 7 },
+      { col: c + 1, row: 6 },
+      { col: c + 1, row: 5 },
+    ]);
+    expect(cellAt(state, c + 1, 7)?.fallIn).toBe(FALL_DELAY_ACTIONS);
+    expect(cellAt(state, c + 1, 6)?.fallIn).toBe(FALL_DELAY_ACTIONS);
+    expect(cellAt(state, c + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS);
+
+    expect(step(state, "right").ok).toBe(true);
+    const dropped = step(state, "right");
+
+    expect(dropped.ok && dropped.fallingRockTriggered).toBeUndefined();
+    for (const row of [5, 6, 7]) {
+      expect(cellAt(state, c + 1, row)?.kind).toBe("empty");
+    }
+    expect(cellAt(state, c + 1, 8)).toMatchObject({
+      kind: "rock",
+      fallen: true,
+    });
+    expect(cellAt(state, c + 1, 9)).toMatchObject({
+      kind: "rock",
+      fallen: true,
+    });
+    expect(cellAt(state, c + 1, 10)).toMatchObject({
+      kind: "boulder",
+      fallen: true,
+    });
+  });
+
+  it("replays a falling rock chain deterministically", () => {
+    const seed = 4302;
+    const gear = { ...DEFAULT_GEAR, pickaxe: 4, fall: 5 };
+    const c = START_COL;
+    const diff: WorldDiff = [
+      [c, 1, { kind: "empty" }],
+      [c, 2, { kind: "empty" }],
+      [c, 3, { kind: "empty" }],
+      [c, 4, { kind: "empty" }],
+      [c, 5, { kind: "empty" }],
+      [c, 6, { kind: "empty" }],
+      [c, 7, { kind: "empty" }],
+      [c, 8, { kind: "empty" }],
+      [c, 9, { kind: "dirt" }],
+      [c + 1, 5, { kind: "rock", rockTier: 1 }],
+      [c + 1, 6, { kind: "rock", rockTier: 1 }],
+      [c + 1, 7, { kind: "boulder" }],
+      [c + 1, 8, { kind: "dirt" }],
+      [c + 1, 9, { kind: "empty" }],
+      [c + 1, 10, { kind: "empty" }],
+      [c + 1, 11, { kind: "dirt" }],
+      [c + 2, 8, { kind: "empty" }],
+      [c + 2, 9, { kind: "dirt" }],
+      [c + 3, 8, { kind: "empty" }],
+      [c + 3, 9, { kind: "dirt" }],
+    ];
+    const actions: MineAction[] = ["down", "right", "right", "right"];
+    const live = createMine(seed, gear, NO_CONSUMABLES, diff);
+    for (const action of actions) applyAction(live, action);
+
+    expect(cellAt(live, c + 1, 8)?.fallen).toBe(true);
+    expect(cellAt(live, c + 1, 9)?.fallen).toBe(true);
+    expect(cellAt(live, c + 1, 10)?.fallen).toBe(true);
+
+    const replayed = replayTrip(seed, actions, gear, NO_CONSUMABLES, diff);
+    expect(replayed.diff).toEqual(exportDiff(live));
+  });
+
   it("mines the overhead cell without climbing and warns on a falling rock", () => {
     const state = createMine(431, { ...DEFAULT_GEAR, pickaxe: 4 });
     const c = START_COL;

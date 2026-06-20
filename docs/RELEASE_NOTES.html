@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.102" data-date="2026-06-20">
+    <h2>0.1.102</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.102</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>46</code> to <code>47</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Stacked falling rocks now drop as one column.</dd>
+      <dt>Rules</dt><dd>Mining the support under a vertical rock or boulder stack now starts the falling-rock countdown on the whole chain, and when the countdown ends every warned block falls together instead of waiting for one rock per delay cycle.</dd>
+      <dt>Replay</dt><dd>The gameplay version moved to <code>47</code> so cash-out replay rejects older chain-settling rules.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Focused mine sim coverage checks chain warning, grouped landing, and deterministic replay. Full local verification passed with focused Vitest, type-check, lint, unit, purity, dash, JSON, diff, build, focused release-note smoke, and critical smoke checks.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.101" data-date="2026-06-20">
     <h2>0.1.101</h2>
     <dl>

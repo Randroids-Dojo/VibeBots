@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.101-depot-copy-cleanup",
+      releaseNoticeId: "2026-06-20-0.1.102-falling-rock-chains",
       releaseSummary:
-        "Depot copy cleanup: The Supply Depot sheet is simpler and drops trip wording.",
+        "Falling rock chains: Stacked falling rocks now drop as one column.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.101-depot-copy-cleanup",
+      releaseNoticeId: "2026-06-20-0.1.102-falling-rock-chains",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest depot copy cleanup note complete", () => {
+  it("keeps the latest falling rock chains note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.101-depot-copy-cleanup");
+    expect(release.noticeId).toBe("2026-06-20-0.1.102-falling-rock-chains");
     expect(latestNote).toMatchObject({
+      version: "0.1.102",
+      title: "Falling rock chains",
+      intro: "Stacked falling rocks now drop as one column.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Mining the support under a vertical rock or boulder stack now starts the countdown on the whole chain.",
+      "When the countdown ends, every warned block falls together instead of waiting for one rock per delay cycle.",
+      "The mine gameplay version moved to 47 so cash-out replay rejects older chain-settling rules.",
+    ]);
+  });
+
+  it("keeps the archived depot copy cleanup note complete", () => {
+    const release = getAppRelease();
+    const depotNote = release.notes.find((note) => note.version === "0.1.101");
+
+    expect(depotNote).toMatchObject({
       version: "0.1.101",
       title: "Depot copy cleanup",
       intro: "The Supply Depot sheet is simpler and drops trip wording.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(depotNote?.changes.map((change) => change.text)).toEqual([
       "The Supply Depot subtitle now says it carries supplies for digging deeper.",
       "The extra footer under the consumable list was removed, leaving only the buy quantity and item rows.",
       "The ladder and plank surface tip now says to stock up before heading deeper, without talking about trips.",

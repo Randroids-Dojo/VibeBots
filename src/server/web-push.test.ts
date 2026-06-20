@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.101.123",
+  version: "0.1.102.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.101-depot-copy-cleanup",
-  intro: "The Supply Depot sheet is simpler and drops trip wording.",
+  noticeId: "2026-06-20-0.1.102-falling-rock-chains",
+  intro: "Stacked falling rocks now drop as one column.",
   changes: [
     {
       build: 123,
-      text: "The Supply Depot sheet drops trip wording.",
+      text: "Stacked rocks drop together.",
     },
   ],
   notes: [
     {
-      version: "0.1.101",
+      version: "0.1.102",
       date: "2026-06-20",
-      title: "Depot copy cleanup",
-      intro: "The Supply Depot sheet is simpler and drops trip wording.",
+      title: "Falling rock chains",
+      intro: "Stacked falling rocks now drop as one column.",
       changes: [
         {
           build: 123,
-          text: "The Supply Depot sheet drops trip wording.",
+          text: "Stacked rocks drop together.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Depot copy cleanup"),
+      expect.stringContaining("Falling rock chains"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

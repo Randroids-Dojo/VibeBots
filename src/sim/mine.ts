@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 46;
+export const MINE_VERSION = 47;
 export const MINE_BOTTOM_ROW = 1000;
 export const BAG_STACK_LIMIT = 5;
 
@@ -2358,19 +2358,22 @@ function tickFalls(
   // that reach zero fall this action. Sort bottom-up, then by column, so
   // stacked blocks settle deterministically regardless of insertion order.
   const dropping: Array<MineCoord & { cell: MineCell }> = [];
+  const droppingKeys = new Set<string>();
   for (const [key, cell] of state.cells) {
     if (cell.fallIn === undefined) continue;
     cell.fallIn -= 1;
     if (cell.fallIn > 0) continue;
     const [col, row] = key.split(",").map(Number);
     dropping.push({ col, row, cell });
+    droppingKeys.add(key);
   }
   dropping.sort((a, b) => b.row - a.row || a.col - b.col);
   for (const { col, row, cell } of dropping) {
     let rest = row;
     while (true) {
       const below = cellAt(state, col, rest + 1);
-      if (below?.kind !== "empty") break;
+      const belowKey = cellKey(col, rest + 1);
+      if (below?.kind !== "empty" && !droppingKeys.has(belowKey)) break;
       rest++;
     }
     const crushedByThisBlock =
@@ -2452,14 +2455,14 @@ function markUnstable(
 ): MineCoord[] {
   const warnings: MineCoord[] = [];
   for (const { col, row } of emptied) {
-    const blockRow = row - 1;
-    if (blockRow <= HAZARD_FREE_ROWS) continue;
-    const above = cellAt(state, col, blockRow);
-    if (!above || (above.kind !== "rock" && above.kind !== "boulder")) continue;
-    if (above.fallIn !== undefined) continue;
-    if (cellAt(state, col, row)?.kind === "empty") {
-      cellMut(state, col, blockRow).fallIn = FALL_DELAY_ACTIONS;
-      warnings.push({ col, row: blockRow });
+    if (cellAt(state, col, row)?.kind !== "empty") continue;
+    for (let blockRow = row - 1; blockRow > HAZARD_FREE_ROWS; blockRow--) {
+      const above = cellAt(state, col, blockRow);
+      if (!above || (above.kind !== "rock" && above.kind !== "boulder")) break;
+      if (above.fallIn === undefined) {
+        cellMut(state, col, blockRow).fallIn = FALL_DELAY_ACTIONS;
+        warnings.push({ col, row: blockRow });
+      }
     }
   }
   return warnings;

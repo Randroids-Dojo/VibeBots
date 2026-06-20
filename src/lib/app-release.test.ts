@@ -2,17 +2,37 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest jump button placement note complete", () => {
+  it("keeps the latest underground bunker claims note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.119-jump-button-placement");
+    expect(release.noticeId).toBe(
+      "2026-06-20-0.1.120-underground-bunker-claims",
+    );
     expect(latestNote).toMatchObject({
+      version: "0.1.120",
+      title: "Underground bunker claims",
+      intro: "Clear rooms can become bunkers before surfacing.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The bunker builder now checks the live underground cells, so a clear room can be claimed without first cashing out.",
+      "The builder now uses compact Place, Remove, and Move modes, with canvas cell targeting and restored drag movement across the claimed space.",
+      "Cash-out replays the mine at the claimed move, saves the bunker and cleared cells together, and unlocks raids after the claim is banked.",
+    ]);
+  });
+
+  it("keeps the archived jump button placement note complete", () => {
+    const release = getAppRelease();
+    const jumpButtonNote = release.notes.find(
+      (note) => note.version === "0.1.119",
+    );
+
+    expect(jumpButtonNote).toMatchObject({
       version: "0.1.119",
       title: "Jump button placement",
       intro: "Jump now sits on the middle right and leaves movement clear.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(jumpButtonNote?.changes.map((change) => change.text)).toEqual([
       "The Jump button moved to the middle-right edge of the mine instead of the bottom controls.",
       "The bottom dig-control strip no longer catches pointer input in empty space, so drag movement stays clear.",
       "Smoke coverage now checks the larger Jump button placement, bottom-control non-overlap, and bottom-center hit target.",

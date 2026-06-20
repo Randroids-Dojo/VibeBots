@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.119-jump-button-placement";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.120-underground-bunker-claims";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.120",
+      date: "2026-06-20",
+      title: "Underground bunker claims",
+      intro: "Clear rooms can become bunkers before surfacing.",
+      changes: [
+        {
+          build,
+          text: "The bunker builder now checks the live underground cells, so a clear room can be claimed without first cashing out.",
+        },
+        {
+          build,
+          text: "The builder now uses compact Place, Remove, and Move modes, with canvas cell targeting and restored drag movement across the claimed space.",
+        },
+        {
+          build,
+          text: "Cash-out replays the mine at the claimed move, saves the bunker and cleared cells together, and unlocks raids after the claim is banked.",
+        },
+      ],
+    },
     {
       version: "0.1.119",
       date: "2026-06-20",

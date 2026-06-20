@@ -11,28 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.118.123",
+  version: "0.1.120.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.118-visual-viewport-refresh",
-  intro: "Installed Android refreshes now anchor to the visible mine screen.",
+  noticeId: "2026-06-20-0.1.120-underground-bunker-claims",
+  intro: "Clear rooms can become bunkers before surfacing.",
   changes: [
     {
       build: 123,
-      text: "The mine shell now uses the visual viewport when available, so standalone Android refreshes do not anchor controls to a stale layout viewport.",
+      text: "The builder now uses compact Place, Remove, and Move modes, with canvas cell targeting and restored drag movement across the claimed space.",
     },
   ],
   notes: [
     {
-      version: "0.1.118",
+      version: "0.1.120",
       date: "2026-06-20",
-      title: "Visual viewport refresh",
-      intro:
-        "Installed Android refreshes now anchor to the visible mine screen.",
+      title: "Underground bunker claims",
+      intro: "Clear rooms can become bunkers before surfacing.",
       changes: [
         {
           build: 123,
-          text: "The mine shell now uses the visual viewport when available, so standalone Android refreshes do not anchor controls to a stale layout viewport.",
+          text: "The builder now uses compact Place, Remove, and Move modes, with canvas cell targeting and restored drag movement across the claimed space.",
         },
       ],
     },
@@ -133,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Visual viewport refresh"),
+      expect.stringContaining("Underground bunker claims"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

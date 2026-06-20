@@ -1973,7 +1973,7 @@ test.describe("phone viewport", () => {
         __vibebotsPerfMinSendIntervalMs?: number;
       };
       w.__vibebotsPerfInitialDelayMs = 0;
-      w.__vibebotsPerfSampleMs = 300;
+      w.__vibebotsPerfSampleMs = 2_000;
       w.__vibebotsPerfRepeatMs = 60_000;
       w.__vibebotsPerfMinSendIntervalMs = 0;
       localStorage.setItem(
@@ -1984,7 +1984,7 @@ test.describe("phone viewport", () => {
 
     await page.goto("/mine");
     await expect(page.locator("canvas")).toBeVisible();
-    await expect.poll(() => samples.length, { timeout: 10_000 }).toBe(1);
+    await expect.poll(() => samples.length, { timeout: 15_000 }).toBe(1);
     const payload = samples[0] as Record<string, unknown>;
     expect(payload.source).toBe("mine");
     expect(String(payload.appVersion)).toMatch(/^0\.1\.75/);

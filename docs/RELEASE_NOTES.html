@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.74" data-date="2026-06-20">
+    <h2>0.1.74</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.74</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>38</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Old in-flight mine trips now restore the original save cleanly after mine-rule updates.</dd>
+      <dt>Save recovery</dt><dd>Local in-flight trip checkpoints now store the mine gameplay version. If that version no longer matches the current rules, the client clears only the stale trip checkpoint and reloads the durable server save.</dd>
+      <dt>Production repair</dt><dd>The affected long-time player from the June 19 logs was repaired by advancing their guarded mine replay counter from trip <code>51</code> to <code>52</code>, leaving the durable mine diff, gear, wallet, inventory, achievements, parts, designs, and saved bots unchanged.</dd>
+      <dt>Operations</dt><dd>A dry-run-first repair command can advance a stale mine replay counter by player hash, expected seed, and expected trip index when logs prove the exact stale checkpoint.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched all watched pins. Focused store coverage checks versionless checkpoint cleanup, mine-version-mismatch recovery, and current-version checkpoint persistence. Full local verification passed with typecheck, lint, unit tests, sim-purity, dash, diff, production build, and full Playwright smoke on a fresh build with 49 passed and 2 storage-gated skips.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.73" data-date="2026-06-20">
     <h2>0.1.73</h2>
     <dl>

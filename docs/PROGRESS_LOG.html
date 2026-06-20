@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="stale-trip-recovery" data-date="2026-06-20">
+    <h3>Stale Trip Recovery</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/stale-mine-version-recovery</code>, rebased onto current <code>origin/main</code> before direct main push.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported long-time save recovery incident. Production logs showed player hash <code>c4964eb44eee8e8e</code> could load save slots and the mine world, but repeatedly failed cash-out with <code>mine.cash_out.mine_version_mismatch</code> because a local version 35 in-flight trip was being replayed against current mine rules. Local trip checkpoints now store <code>MINE_VERSION</code>, versionless or mismatched checkpoints are cleared on load, and a cash-out version mismatch removes the stale checkpoint and reloads the durable server save. Added <code>pnpm ops:repair-stale-trip</code> for guarded replay-counter repairs by player hash, expected seed, and expected trip index. Package version moved to <code>0.1.74</code>; <code>MINE_VERSION</code> stays at <code>38</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Production repair dry run matched player hash <code>c4964eb44eee8e8e</code>, seed <code>2149710290</code>, and trip index <code>51</code>; applied guarded update advanced only <code>mine_worlds.trip_count</code> to <code>52</code>; confirmation dry run against trip <code>51</code> reported <code>changed: false</code>. Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran focused mine-store/version/notification/Web Push Vitest (24 passed), JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm typecheck</code>, <code>pnpm test</code> (270 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>node --check scripts/repair-stale-mine-trip.mjs</code>, <code>pnpm build</code>, and full Playwright smoke against a fresh build on <code>PORT=3248</code> (49 passed, 2 storage-gated skips).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat version-mismatched in-flight trips as disposable local checkpoints because the durable server mine world, gear, wallet, inventory, achievements, parts, designs, and saved bots are the source of truth.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated <code>docs/gdd/06-mining.html</code>, <code>docs/RELEASE_NOTES.html</code>, <code>src/lib/app-release.ts</code>, focused mine-store coverage, E2E saved-trip fixtures, and operations docs.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="falling-rock-crush" data-date="2026-06-20">
     <h3>Falling Rock Crush</h3>
     <dl>

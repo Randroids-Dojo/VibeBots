@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createMine,
   DEFAULT_GEAR,
+  MINE_VERSION,
   type MineAction,
   type MineConsumables,
   NO_CONSUMABLES,
@@ -93,25 +94,48 @@ describe("mine store upgrade flow", () => {
     );
   });
 
-  it("shows a reload instruction for stale mine-version cash-outs", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      jsonResponse(
-        {
-          error: "the mine has shifted since this trip started; start fresh",
-          code: "mine_version_mismatch",
-          expectedMineVersion: 29,
-        },
-        409,
-      ),
-    );
+  it("clears stale local trips after mine-version cash-out rejects", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: "the mine has shifted since this trip started; start fresh",
+            code: "mine_version_mismatch",
+            expectedMineVersion: MINE_VERSION,
+          },
+          409,
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          seed: 321,
+          tripIndex: 7,
+          diff: [],
+          activeSlot: 1,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          gear: DEFAULT_GEAR,
+          consumables: stock({ ladder: 4 }),
+          balance: 12,
+        }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     await store().submitCashOut();
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(localStorage.removeItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+    );
+    expect(store().seed).toBe(321);
+    expect(store().tripIndex).toBe(7);
+    expect(store().moves).toEqual([]);
     expect(store().cashOut).toEqual({
       state: "error",
-      message: "Mine updated. Reload this page, then sell again.",
+      message: "Mine updated. Your save is restored; start a fresh trip.",
     });
   });
 
@@ -212,6 +236,7 @@ describe("mine store upgrade flow", () => {
 
   it("migrates the legacy local trip into slot 1", async () => {
     const saved = {
+      mineVersion: MINE_VERSION,
       seed: 555,
       tripIndex: 4,
       gear: DEFAULT_GEAR,
@@ -247,6 +272,7 @@ describe("mine store upgrade flow", () => {
 
   it("does not overwrite a legacy local trip before the slot world loads", () => {
     const saved = {
+      mineVersion: MINE_VERSION,
       seed: 555,
       tripIndex: 4,
       gear: DEFAULT_GEAR,
@@ -271,6 +297,7 @@ describe("mine store upgrade flow", () => {
 
   it("loads the active slot's local trip only", async () => {
     const slotOne = {
+      mineVersion: MINE_VERSION,
       seed: 111,
       tripIndex: 1,
       gear: DEFAULT_GEAR,
@@ -279,6 +306,7 @@ describe("mine store upgrade flow", () => {
       moves: ["left"] as MineAction[],
     };
     const slotTwo = {
+      mineVersion: MINE_VERSION,
       seed: 222,
       tripIndex: 2,
       gear: DEFAULT_GEAR,
@@ -432,6 +460,7 @@ describe("mine store upgrade flow", () => {
     localStorage.setItem(
       "vibebots-mine-trip-v2-slot-2",
       JSON.stringify({
+        mineVersion: MINE_VERSION,
         seed: 456,
         tripIndex: 1,
         gear: DEFAULT_GEAR,
@@ -500,5 +529,38 @@ describe("mine store upgrade flow", () => {
       "vibebots-mine-trip-v2-slot-2",
     );
     expect(store().saveSlots.state).toBe("ready");
+  });
+
+  it("drops versionless local trips and restores the server save", async () => {
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify({
+        seed: 555,
+        tripIndex: 4,
+        gear: DEFAULT_GEAR,
+        consumables: stock({ ladder: 1 }),
+        baseDiff: [],
+        moves: ["down"] as MineAction[],
+      }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          seed: 555,
+          tripIndex: 4,
+          diff: [],
+          activeSlot: 1,
+        }),
+      ),
+    );
+
+    await store().loadWorld();
+
+    expect(localStorage.removeItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+    );
+    expect(store().moves).toEqual([]);
+    expect(store().tripIndex).toBe(4);
   });
 });

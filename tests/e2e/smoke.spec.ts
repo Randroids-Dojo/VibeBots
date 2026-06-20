@@ -581,6 +581,7 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
     },
     {
       seed: 6161,
+      mineVersion: MINE_VERSION,
       tripIndex: 0,
       gear: DEFAULT_GEAR,
       consumables: STARTING_CONSUMABLES,
@@ -638,6 +639,7 @@ test("falling-rock crush stays on camera before the report", async ({
     },
     {
       seed: 6262,
+      mineVersion: MINE_VERSION,
       tripIndex: 0,
       gear,
       consumables: STARTING_CONSUMABLES,
@@ -699,6 +701,7 @@ test("edit pickup selection outlines selected cells in red", async ({
     },
     {
       seed: 7171,
+      mineVersion: MINE_VERSION,
       tripIndex: 0,
       gear: DEFAULT_GEAR,
       consumables: STARTING_CONSUMABLES,
@@ -752,6 +755,7 @@ test("standing on a ladder uses edit pickups for removal", async ({ page }) => {
     },
     {
       seed: 7172,
+      mineVersion: MINE_VERSION,
       tripIndex: 0,
       gear: DEFAULT_GEAR,
       consumables: STARTING_CONSUMABLES,
@@ -949,14 +953,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Falling rocks now always crush miners caught under them.",
+    "Old in-flight mine trips now restore the original save cleanly.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "every covered cell",
+    "gameplay version beside each local in-flight trip checkpoint",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("camera underground");
-  await expect(dialog.locator("li").nth(2)).toContainText("visibly flattens");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "clears only that stale checkpoint",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "production repair advanced one affected player's replay counter",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -975,6 +983,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.74", "Stale trip recovery"],
     ["0.1.73", "Falling rock crush"],
     ["0.1.72", "Plank side buttons"],
     ["0.1.71", "Ore yield tuning"],
@@ -1027,7 +1036,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.73-falling-rock-crush",
+      "2026-06-20-0.1.74-stale-trip-recovery",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1148,7 +1157,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.73-falling-rock-crush",
+      "2026-06-20-0.1.74-stale-trip-recovery",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1249,6 +1258,7 @@ test("mine falling-rock alert can be dismissed or permanently hidden", async ({
     },
     {
       seed: 8080,
+      mineVersion: MINE_VERSION,
       tripIndex: 0,
       gear,
       consumables: STARTING_CONSUMABLES,
@@ -1377,6 +1387,7 @@ test("ladder gravity prompt opens mechanic feedback after the fall settles", asy
     },
     {
       seed: 8282,
+      mineVersion: MINE_VERSION,
       tripIndex: 0,
       gear,
       consumables: STARTING_CONSUMABLES,
@@ -1466,6 +1477,7 @@ test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {
     },
     {
       seed: 8181,
+      mineVersion: MINE_VERSION,
       tripIndex: 0,
       gear,
       consumables: STARTING_CONSUMABLES,
@@ -2195,6 +2207,7 @@ test("biome portal beacons activate and appear at the Warp Pad", async ({
 }) => {
   const trip = {
     seed: 20260619,
+    mineVersion: MINE_VERSION,
     tripIndex: 0,
     gear: DEFAULT_GEAR,
     consumables: STARTING_CONSUMABLES,
@@ -2249,6 +2262,7 @@ test("deep dropped ore markers do not create a white text card", async ({
   const consumables = { ...STARTING_CONSUMABLES, beacon: 0 };
   const trip = {
     seed: 12345,
+    mineVersion: MINE_VERSION,
     tripIndex: 0,
     gear,
     consumables,
@@ -2336,6 +2350,7 @@ test("the warp pad lists beacons newest first (REQ-029)", async ({ page }) => {
     },
     {
       seed: 9797,
+      mineVersion: MINE_VERSION,
       tripIndex: 0,
       gear: DEFAULT_GEAR,
       consumables: STARTING_CONSUMABLES,
@@ -2404,6 +2419,7 @@ test("elevator controls work from any elevator floor", async ({ page }) => {
     },
     {
       seed: 9292,
+      mineVersion: MINE_VERSION,
       tripIndex: 0,
       gear,
       consumables: STARTING_CONSUMABLES,

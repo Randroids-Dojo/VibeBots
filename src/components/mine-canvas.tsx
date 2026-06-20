@@ -400,7 +400,7 @@ const PICK_SWING_SECONDS = 0.18;
 const DIG_LUNGE_SECONDS = 0.16;
 const CAMERA_STEP_SECONDS = 0.28;
 const FATAL_FALL_HOLD_SECONDS = 0.38;
-const CRUSH_HOLD_SECONDS = 0.95;
+const CRUSH_HOLD_SECONDS = 3.6;
 /** Length of the bounce-off animation when the pick can't cut the rock. */
 const BOUNCE_SECONDS = 0.28;
 const DYNAMITE_RED = "#b43b32";
@@ -2571,7 +2571,7 @@ function MineScene({
       const clearMs =
         activePlayback.kind === "fall"
           ? Math.min(1600, Math.max(850, 520 + activePlayback.fell * 100))
-          : 1600;
+          : 4300;
       fallClearTimeout.current = window.setTimeout(() => {
         if (fallPlayback.current?.key === activePlayback.key)
           fallPlayback.current = null;

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-death-report" data-date="2026-06-20">
+    <h3>Mine Death Report</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/fresh-main-20260620-111205</code>, created in a fresh worktree from current <code>origin/main</code>, then rebased over the mine refresh layout, stall sheet drag, mine warning visuals, and mine refresh viewport lock releases after remote main moved.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported falling-rock death report fix. Crush near-miss copy now says where the rock fell instead of where the battery died, the report title now says falling rock instead of boulder, and crush playback keeps the underground impact render window alive through the trip report so the report does not appear over a transient empty or reset frame. Package version moved to <code>0.1.110</code>; <code>MINE_VERSION</code> stays at <code>47</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, smoke, release, test, package, and doc files, focused app-release, notification, version, and Web Push Vitest (39 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_PORT=3494</code> for falling-rock crush and latest release notes (2 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, and <code>git diff --cached --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as presentation and copy only, so no mine gameplay-version or sim-version bump is needed. Mine surface tips were reviewed and kept unchanged because this changes death report feedback, not player rules, controls, shops, hazards, upgrades, or recovery mechanics.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, and tightened focused falling-rock smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-refresh-viewport-lock" data-date="2026-06-20">
     <h3>Mine Refresh Viewport Lock</h3>
     <dl>

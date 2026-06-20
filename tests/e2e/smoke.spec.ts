@@ -931,7 +931,7 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
   const report = page.getByRole("button", { name: "Dismiss trip report" });
   await expect(report).toBeVisible({ timeout: 15_000 });
   await expect(report).toContainText("Fell too far");
-  await expect(report).not.toContainText("Crushed by a boulder");
+  await expect(report).not.toContainText("Crushed by falling rock");
 });
 
 test("mine shows the needed pickaxe level on gated rock hits", async ({
@@ -992,6 +992,7 @@ test("falling-rock crush stays on camera before the report", async ({
   setCell(mine, c + 1, 7, { kind: "dirt" });
   setCell(mine, c + 1, 8, { kind: "dirt" });
   setCell(mine, c + 1, 9, { kind: "dirt" });
+  setCell(mine, c + 4, 9, { kind: "part-cache" });
   await page.addInitScript(
     (trip) => {
       localStorage.setItem("vibebots-falling-rock-alert-dismissed", "true");
@@ -1013,21 +1014,32 @@ test("falling-rock crush stays on camera before the report", async ({
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
 
+  const status = page.getByLabel("Mine status");
   await pressMineKey(page, "ArrowRight");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+      timeout: 5_000,
+    })
+    .toBeGreaterThan(0.5);
   await pressMineKey(page, "ArrowDown");
+  await expect
+    .poll(async () => status.getAttribute("data-depth"), { timeout: 5_000 })
+    .toBe("7");
   const beforeCrushShot = await canvas.screenshot();
-  await pressMineKey(page, "ArrowDown");
   let firstActiveFrame: { camY: number; minerY: number } | null = null;
-  for (let i = 0; i < 120; i++) {
-    const active = await canvas.getAttribute("data-fall-visual-active");
-    if (active === "true") {
-      firstActiveFrame = {
-        camY: Number(await canvas.getAttribute("data-cam-y")),
-        minerY: Number(await canvas.getAttribute("data-miner-y")),
-      };
-      break;
+  for (let attempt = 0; attempt < 4 && !firstActiveFrame; attempt++) {
+    await pressMineKey(page, "ArrowDown");
+    for (let i = 0; i < 60; i++) {
+      const active = await canvas.getAttribute("data-fall-visual-active");
+      if (active === "true") {
+        firstActiveFrame = {
+          camY: Number(await canvas.getAttribute("data-cam-y")),
+          minerY: Number(await canvas.getAttribute("data-miner-y")),
+        };
+        break;
+      }
+      await page.waitForTimeout(16);
     }
-    await page.waitForTimeout(16);
   }
   expect(firstActiveFrame).not.toBeNull();
   expect(firstActiveFrame?.camY).toBeLessThan(-7);
@@ -1058,7 +1070,14 @@ test("falling-rock crush stays on camera before the report", async ({
 
   const report = page.getByRole("button", { name: "Dismiss trip report" });
   await expect(report).toBeVisible({ timeout: 15_000 });
-  await expect(report).toContainText("Crushed by a boulder");
+  await expect(report).toContainText("Crushed by falling rock");
+  await expect(report).toContainText("where the rock fell");
+  await expect(report).not.toContainText("battery died");
+  await expect(canvas).toHaveAttribute("data-fall-visual-active", "true");
+  expect(Number(await canvas.getAttribute("data-cam-y"))).toBeLessThan(-7);
+  expect(
+    Number(await canvas.getAttribute("data-rendered-cell-count")),
+  ).toBeGreaterThan(20);
 });
 
 test("edit pickup selection outlines selected cells in red", async ({
@@ -1332,16 +1351,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Refresh now keeps the whole mine page pinned in place.",
+    "Crush reports now stay on the impact scene and use the right cause.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "locks the document and body scroll",
+    "underground impact cells visible",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("resets scroll");
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "Settings, zoom, and dig controls",
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "where the rock fell",
   );
+  await expect(dialog.locator("li").nth(2)).toContainText("populated cells");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1360,6 +1379,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.110", "Mine death report"],
     ["0.1.109", "Mine refresh viewport lock"],
     ["0.1.108", "Mine warning visuals"],
     ["0.1.107", "Sheet drag dismiss"],
@@ -1492,7 +1512,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.109-mine-refresh-viewport-lock",
+      "2026-06-20-0.1.110-mine-death-report",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1602,7 +1622,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.109-mine-refresh-viewport-lock",
+      "2026-06-20-0.1.110-mine-death-report",
     );
   });
   await page.route("**/api/version", async (route) => {

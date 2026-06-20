@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.109-mine-refresh-viewport-lock";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.110-mine-death-report";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.110",
+      date: "2026-06-20",
+      title: "Mine death report",
+      intro:
+        "Crush reports now stay on the impact scene and use the right cause.",
+      changes: [
+        {
+          build,
+          text: "Falling-rock death reports now keep the underground impact cells visible through the report instead of flashing back to an empty reset frame.",
+        },
+        {
+          build,
+          text: "Near-miss copy now says where the rock fell instead of saying the robot battery died.",
+        },
+        {
+          build,
+          text: "Focused smoke coverage checks the report frame for populated cells, camera depth, and cause-specific copy.",
+        },
+      ],
+    },
     {
       version: "0.1.109",
       date: "2026-06-20",

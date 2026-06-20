@@ -2,19 +2,36 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine refresh viewport lock note complete", () => {
+  it("keeps the latest mine death report note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-06-20-0.1.109-mine-refresh-viewport-lock",
-    );
+    expect(release.noticeId).toBe("2026-06-20-0.1.110-mine-death-report");
     expect(latestNote).toMatchObject({
+      version: "0.1.110",
+      title: "Mine death report",
+      intro:
+        "Crush reports now stay on the impact scene and use the right cause.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Falling-rock death reports now keep the underground impact cells visible through the report instead of flashing back to an empty reset frame.",
+      "Near-miss copy now says where the rock fell instead of saying the robot battery died.",
+      "Focused smoke coverage checks the report frame for populated cells, camera depth, and cause-specific copy.",
+    ]);
+  });
+
+  it("keeps the archived mine refresh viewport lock note complete", () => {
+    const release = getAppRelease();
+    const viewportNote = release.notes.find(
+      (note) => note.version === "0.1.109",
+    );
+
+    expect(viewportNote).toMatchObject({
       version: "0.1.109",
       title: "Mine refresh viewport lock",
       intro: "Refresh now keeps the whole mine page pinned in place.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(viewportNote?.changes.map((change) => change.text)).toEqual([
       "The mine now locks the document and body scroll while mounted, so mobile refresh restoration cannot push HUD controls down.",
       "The new-version Refresh button resets scroll and replaces the current page with a cache-busted mine URL.",
       "Smoke coverage now checks the document lock plus Settings, zoom, and dig controls after the refresh path loads.",

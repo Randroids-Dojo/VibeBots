@@ -2662,11 +2662,12 @@ function SaveSlotsPopup({
 
 /**
  * Render-layer near-miss search (REQ-019): the best treasure within
- * reach of where the robot battery died, from rows the client already generated.
+ * reach of the collapse point, from rows the client already generated.
  */
 function nearMissLine(
   mine: MineState,
   at: { col: number; row: number },
+  cause: "battery" | "crush" | "fall" | "abandon",
 ): string | null {
   let best: { name: string; value: number; dist: number } | null = null;
   const lo = Math.max(1, at.row - 6);
@@ -2701,7 +2702,15 @@ function nearMissLine(
   }
   if (!best) return null;
   const what = best.name === "a part cache" ? best.name : `a ${best.name}`;
-  return `${what} sat ${best.dist} block${best.dist > 1 ? "s" : ""} from where the battery died.`;
+  const place =
+    cause === "crush"
+      ? "where the rock fell"
+      : cause === "fall"
+        ? "where the fall ended"
+        : cause === "abandon"
+          ? "where the bag dropped"
+          : "where the battery died";
+  return `${what} sat ${best.dist} block${best.dist > 1 ? "s" : ""} from ${place}.`;
 }
 
 interface FloatNote {
@@ -2777,7 +2786,17 @@ function JuiceOverlays() {
         abandoned: lastResult.abandoned ?? false,
         value: lastResult.lost.value,
         parts: lastResult.lost.parts.length,
-        nearMiss: nearMissLine(mine, lastResult.lost),
+        nearMiss: nearMissLine(
+          mine,
+          lastResult.lost,
+          lastResult.crushed
+            ? "crush"
+            : lastResult.fallFatal
+              ? "fall"
+              : lastResult.abandoned
+                ? "abandon"
+                : "battery",
+        ),
       };
       if (lastResult.fallFatal || lastResult.crushed) {
         wreckTimeout.current = window.setTimeout(
@@ -2890,7 +2909,7 @@ function JuiceOverlays() {
               {wreck.fallFatal
                 ? "Fell too far"
                 : wreck.crushed
-                  ? "Crushed by a boulder"
+                  ? "Crushed by falling rock"
                   : wreck.abandoned
                     ? "Abandoned the dig"
                     : "Battery drained"}

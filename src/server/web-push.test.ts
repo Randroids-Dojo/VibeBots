@@ -11,27 +11,28 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.109.123",
+  version: "0.1.110.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.109-mine-refresh-viewport-lock",
-  intro: "Refresh now keeps the whole mine page pinned in place.",
+  noticeId: "2026-06-20-0.1.110-mine-death-report",
+  intro: "Crush reports now stay on the impact scene and use the right cause.",
   changes: [
     {
       build: 123,
-      text: "The mine page stays pinned after refresh.",
+      text: "The report stays on the impact scene.",
     },
   ],
   notes: [
     {
-      version: "0.1.109",
+      version: "0.1.110",
       date: "2026-06-20",
-      title: "Mine refresh viewport lock",
-      intro: "Refresh now keeps the whole mine page pinned in place.",
+      title: "Mine death report",
+      intro:
+        "Crush reports now stay on the impact scene and use the right cause.",
       changes: [
         {
           build: 123,
-          text: "The mine page stays pinned after refresh.",
+          text: "The report stays on the impact scene.",
         },
       ],
     },
@@ -132,7 +133,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Mine refresh viewport lock"),
+      expect.stringContaining("Mine death report"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

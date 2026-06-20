@@ -64,6 +64,7 @@
       <li>If the remote tip advances and still contains the pushed commit, follow the newest remote tip's checks, not the older superseded run.</li>
       <li>If a newer remote tip does not contain the pushed commit, stop and reconcile before claiming the work shipped.</li>
       <li>Do not wait on cancelled, superseded, or older in-progress runs once a newer verified remote tip contains the commit being closed out.</li>
+      <li>Do not point the standard Playwright suite at protected production Vercel URLs with <code>PLAYWRIGHT_BASE_URL</code>. Use local or CI Playwright for app behavior, and use GitHub deployment status plus Vercel metadata for production deploy readiness.</li>
     </ul>
   </section>
 </main>

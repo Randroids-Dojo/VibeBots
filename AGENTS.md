@@ -144,11 +144,11 @@ Required flow after any merge or direct push to `main`:
 1. Record the exact pushed sha, then verify `git ls-remote origin refs/heads/main` matches it.
 2. If `origin/main` moves while monitoring, fetch immediately and check whether the pushed sha is still contained in `origin/main`. If it is contained, stop waiting on cancelled or superseded runs for older heads and verify the newest remote tip's required parallel CI gate instead. If it is not contained, reconcile before claiming the work shipped. Report both facts separately: the pushed commit status and the current remote head status.
 3. Track GitHub Actions by run id and head sha, not by branch name alone. Branch queries can silently switch to a newer push.
-4. Track Vercel by commit sha and production endpoint version. Do not call production current until `/api/version` reports the expected sha.
+4. Track Vercel by commit sha through GitHub deployment status and Vercel CLI metadata. Do not use unauthenticated `curl`, `fetch`, or headless Playwright against production Vercel URLs as a deploy-readiness gate; protected targets can return a Vercel login or security checkpoint before the app. Use local or CI Playwright for app smoke coverage, and use a real authenticated browser context only when a slice explicitly needs production playtest evidence.
 5. Use bounded polling with timestamps. Prefer a short loop that prints status, conclusion, head sha, and run URL. Avoid long noisy `gh run watch` output unless it is actively useful.
 6. If `gh` auth fails, stop the failed loop and switch to the public GitHub REST endpoints when the repo is public. Do not keep retrying the same broken command.
 7. When a run is slow, inspect the jobs endpoint to identify the active step. If logs are unavailable until completion, say that explicitly and keep polling the run conclusion.
-8. Before final response, verify the latest `origin/main` head, whether the shipped commit is contained in it, Vercel status for the latest head, production `/api/version`, notification config when relevant, and CI conclusion for the pushed sha or its superseding current-tip run. If `origin/main` advanced after the push, also verify the latest head's CI or state clearly that it is still running.
+8. Before final response, verify the latest `origin/main` head, whether the shipped commit is contained in it, Vercel deployment status for the latest head, production aliases from deployment metadata, notification config when relevant, and CI conclusion for the pushed sha or its superseding current-tip run. If `origin/main` advanced after the push, also verify the latest head's CI or state clearly that it is still running.
 
 CI speed policy:
 
@@ -271,7 +271,7 @@ VibeReview (skill `randroid:vibereview`) is the qualitative-gate evidence pipeli
 ### Scripted playtest drivers
 
 - Verify moves against HUD numbers (energy always drops on a real action, depth is exact), never against full status-text diffs; render lag desyncs text comparisons.
-- Production sits behind Vercel bot protection. Use a real browser context with `waitForSelector` and a generous timeout for the app shell; do not hammer `curl` at the page (it triggers the security checkpoint for the whole IP and blocks headless runs too; it cools down after a few quiet minutes). For deploy-readiness checks, poll the Vercel API for the commit sha instead of scraping HTML.
+- Production sits behind Vercel bot protection. Do not point the standard Playwright test suite at production with `PLAYWRIGHT_BASE_URL`; it creates a fresh unauthenticated context and may only prove that Vercel showed a login page. Use a real authenticated browser context with `waitForSelector` and a generous timeout for the app shell when a slice explicitly needs production playtest evidence. Do not hammer `curl` at the page, because it can trigger the security checkpoint for the whole IP and block headless runs too. For deploy-readiness checks, poll Vercel or GitHub deployment metadata for the commit sha instead of scraping HTML.
 - Prove motion per Rule 10 with consecutive-frame screenshot diffs after an input.
 - Assert the presence of UI controls a slice claims to add (a scripted edit once shipped without its buttons; only an instrumented production run caught it). Pin such controls in the Playwright smoke afterward.
 

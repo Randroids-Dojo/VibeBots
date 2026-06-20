@@ -39,6 +39,21 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 
 ## Operations
 
+### Production verification
+
+Production Vercel URLs can be protected by Vercel authentication or bot checks before the request reaches VibeBots. A fresh headless Playwright context, `curl`, or plain `fetch` may see a Vercel login or security checkpoint instead of the app.
+
+For normal closeout, verify production readiness with GitHub deployment status and Vercel CLI or API metadata tied to the pushed commit sha:
+
+```bash
+gh api -X GET repos/Randroids-Dojo/VibeBots/deployments -f sha=<sha>
+gh api repos/Randroids-Dojo/VibeBots/deployments/<deployment-id>/statuses
+vercel inspect <deployment-url>
+vercel ls vibe-bots
+```
+
+Use local `next start`, preview CI, or GitHub Actions for Playwright app smoke coverage. Only automate production UI when the slice explicitly needs production playtest evidence, and use an authenticated real browser context for that run.
+
 ### Native release notifications
 
 Fresh worktrees need the ignored Vercel project link before using Vercel env commands:

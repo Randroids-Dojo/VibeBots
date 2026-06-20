@@ -99,6 +99,13 @@
     <li>Keep tips short, actionable, and current. They are not patch notes, tutorials, or a dumping ground for every feature.</li>
     <li>Record the tip review in the progress-log verification or assumptions for the slice, including when no tip changes were needed.</li>
   </ul>
+  <p>Protected production verification:</p>
+  <ul>
+    <li>Production Vercel URLs may show a Vercel login or security checkpoint before the app in unauthenticated automation. That is a platform gate, not a VibeBots UI state.</li>
+    <li>Do not run the standard Playwright suite against production with <code>PLAYWRIGHT_BASE_URL</code>. The standard suite uses a fresh browser context and can spend the whole run testing Vercel protection instead of the app.</li>
+    <li>Use local <code>next start</code>, preview CI, or the GitHub Actions critical smoke gate for Playwright evidence. For deploy readiness, use GitHub deployment status and Vercel CLI or API metadata tied to the commit sha.</li>
+    <li>Only run browser automation against production when the slice explicitly needs production playtest evidence, and then use an authenticated real browser context rather than a fresh headless context.</li>
+  </ul>
   <p>Minimum for dependency-upgrade slices (<code>chore(deps): bump &lt;dep&gt; from &lt;from&gt; to &lt;to&gt;</code>):</p>
   <ul>
     <li>All of the above for code changes.</li>
@@ -127,8 +134,8 @@
     <li>Wait for the required parallel CI gate, preview deploy, and bot review after the latest push.</li>
     <li>After merge, pull <code>main</code>.</li>
     <li>Verify main commit status for the current remote tip.</li>
-    <li>Verify production deploy status.</li>
-    <li>Smoke test production with an HTTP check at minimum. Use deeper browser smoke when UI behavior changed.</li>
+    <li>Verify production deploy status and aliases through GitHub deployment status plus Vercel CLI or API metadata.</li>
+    <li>Do not use unauthenticated HTTP checks or fresh headless Playwright as the default production smoke path on protected Vercel deployments. Use local or CI Playwright for app behavior, and reserve authenticated real-browser production playtests for slices that explicitly need them.</li>
   </ul>
 </section>
 

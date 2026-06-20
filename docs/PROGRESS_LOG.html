@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="protected-production-verification" data-date="2026-06-20">
+    <h3>Protected Production Verification</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/pickaxe-energy-cost</code> follow-up docs on current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Root-caused the repeated production Playwright failure. The failed run never reached VibeBots: Playwright's accessibility tree showed Vercel's login page, because the standard suite uses a fresh unauthenticated browser context against a protected Vercel deployment URL. Updated <code>AGENTS.md</code>, <code>docs/WORKING_AGREEMENT.html</code>, <code>docs/CI_WORKFLOW.html</code>, and <code>README.md</code> so production deploy readiness uses GitHub deployment status and Vercel CLI or API metadata tied to the commit sha, while Playwright app behavior stays on local or CI targets unless a slice explicitly needs an authenticated real-browser production playtest. Static and in-game release notes were reviewed against <code>package.json</code>, <code>src/lib/app-release.ts</code>, and <code>docs/RELEASE_NOTES.html</code>; no new player-facing release note was needed for this process-only documentation change.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, focused release-note, notification, version, and Web Push Vitest (23 passed), and a package-version-to-static-release-note consistency check.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: protected Vercel production should not be a standard headless Playwright target, because a login or security checkpoint proves only the platform gate, not app behavior.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="cargo-hold-rebalance" data-date="2026-06-20">
     <h3>Cargo Hold Rebalance</h3>
     <dl>

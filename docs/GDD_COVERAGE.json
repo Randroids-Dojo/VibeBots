@@ -725,12 +725,14 @@
         "src/app/api/notifications/release/route.ts",
         "src/app/api/version/route.ts",
         "src/components/version-refresh-prompt.tsx",
+        "src/lib/app-release.ts",
         "src/app/manifest.ts",
         "public/sw.js",
         "public/icon.svg",
         "public/icon-192.png",
         "public/icon-512.png",
-        "public/apple-touch-icon.png"
+        "public/apple-touch-icon.png",
+        "docs/RELEASE_NOTES.html"
       ],
       "testRefs": [
         "src/app/api/notifications/route.test.ts",

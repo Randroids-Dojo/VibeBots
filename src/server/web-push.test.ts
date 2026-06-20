@@ -15,8 +15,7 @@ const release: AppRelease = {
   build: 123,
   ref: "test-ref",
   noticeId: "2026-06-20-0.1.91-zoom-under-settings",
-  intro:
-    "Mason, load your first save now. Mine zoom controls now sit under Settings.",
+  intro: "Mine zoom controls now sit under Settings.",
   changes: [
     {
       build: 123,
@@ -28,8 +27,7 @@ const release: AppRelease = {
       version: "0.1.91",
       date: "2026-06-20",
       title: "Zoom placement fix",
-      intro:
-        "Mason, load your first save now. Mine zoom controls now sit under Settings.",
+      intro: "Mine zoom controls now sit under Settings.",
       changes: [
         {
           build: 123,

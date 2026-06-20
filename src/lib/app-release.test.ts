@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest zoom placement note complete with the save reminder", () => {
+  it("keeps the latest zoom placement note scoped to zoom placement", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
@@ -10,9 +10,9 @@ describe("app release notes", () => {
     expect(latestNote).toMatchObject({
       version: "0.1.91",
       title: "Zoom placement fix",
-      intro:
-        "Mason, load your first save now. Mine zoom controls now sit under Settings.",
+      intro: "Mine zoom controls now sit under Settings.",
     });
+    expect(latestNote?.intro).not.toContain("Mason, load your first save now.");
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "Zoom in and zoom out now sit directly under the cog icon instead of floating over the mine view.",
       "The Settings panel opens below the zoom dock, so the controls do not cover each other.",
@@ -20,7 +20,7 @@ describe("app release notes", () => {
     ]);
   });
 
-  it("keeps the archived save slot safety note complete", () => {
+  it("keeps the archived save slot safety note scoped to Start versus Load", () => {
     const release = getAppRelease();
     const saveSlotNote = release.notes.find(
       (note) => note.version === "0.1.90",
@@ -29,9 +29,11 @@ describe("app release notes", () => {
     expect(saveSlotNote).toMatchObject({
       version: "0.1.90",
       title: "Save slot start safety",
-      intro:
-        "Mason, load your first save now. Empty slots now have an explicit Start path.",
+      intro: "Empty slots now have an explicit Start path.",
     });
+    expect(saveSlotNote?.intro).not.toContain(
+      "Mason, load your first save now.",
+    );
     expect(saveSlotNote?.changes.map((change) => change.text)).toEqual([
       "Production logs and a read-only database check found two active saved players, confirmed the long-term save still exists, and showed fresh default rows from Load game attempts.",
       "Existing saves still use Load, while empty slots now show Start and the server refuses to create an empty slot unless the client explicitly asks to start one.",
@@ -55,7 +57,7 @@ describe("app release notes", () => {
     ]);
   });
 
-  it("keeps the archived death cam flash note complete with the save reminder", () => {
+  it("keeps the archived death cam flash note scoped to death playback", () => {
     const release = getAppRelease();
     const deathCamNote = release.notes.find(
       (note) => note.version === "0.1.88",
@@ -64,9 +66,11 @@ describe("app release notes", () => {
     expect(deathCamNote).toMatchObject({
       version: "0.1.88",
       title: "Death cam flash fix",
-      intro:
-        "Mason, load your first save now. Death animations now keep the mine filled from the first frame.",
+      intro: "Death animations now keep the mine filled from the first frame.",
     });
+    expect(deathCamNote?.intro).not.toContain(
+      "Mason, load your first save now.",
+    );
     expect(deathCamNote?.changes.map((change) => change.text)).toEqual([
       "Fatal falls and falling-rock crushes now prepare the death camera before the browser paints the next frame.",
       "The camera no longer gets one frame ahead of the populated underground cell window, removing the brief void flash.",
@@ -74,20 +78,56 @@ describe("app release notes", () => {
     ]);
   });
 
-  it("keeps the archived zoom note complete with the save reminder", () => {
+  it("keeps the archived zoom note scoped to camera controls", () => {
     const release = getAppRelease();
     const zoomNote = release.notes.find((note) => note.version === "0.1.87");
 
     expect(zoomNote).toMatchObject({
       version: "0.1.87",
       title: "Mine zoom buttons",
-      intro:
-        "Mason, load your first save now. The mine HUD now has direct zoom controls.",
+      intro: "The mine HUD now has direct zoom controls.",
     });
+    expect(zoomNote?.intro).not.toContain("Mason, load your first save now.");
     expect(zoomNote?.changes.map((change) => change.text)).toEqual([
       "The HUD now has on-screen zoom in and zoom out buttons in a clear camera dock for mouse, touch, and gamepad players who want direct camera control.",
       "Zoom out still caps at the active Lantern range, and each Lantern upgrade opens a meaningfully wider camera limit.",
       "The miner headlamp now scales with Lantern range so lit cells stay readable while the outer two-cell border keeps its dark falloff.",
+    ]);
+  });
+
+  it("keeps the archived death cam note scoped to death playback", () => {
+    const release = getAppRelease();
+    const deathCamNote = release.notes.find(
+      (note) => note.version === "0.1.86",
+    );
+
+    expect(deathCamNote).toMatchObject({
+      title: "Death cam fix",
+      intro: "Death animations now stay inside the real mine view.",
+    });
+    expect(deathCamNote?.intro).not.toContain(
+      "Mason, load your first save now.",
+    );
+    expect(deathCamNote?.changes.map((change) => change.text)).toEqual([
+      "Fatal falls and falling-rock crushes keep rendering the populated underground cells around the death.",
+      "The trip report still waits until the fall or crush impact finishes, but the camera no longer shows a sudden empty void.",
+      "Mine rules, recovery, and replay behavior are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived save slot note complete with the save reminder", () => {
+    const release = getAppRelease();
+    const saveSlotNote = release.notes.find(
+      (note) => note.version === "0.1.85",
+    );
+
+    expect(saveSlotNote).toMatchObject({
+      title: "Save slot refresh",
+      intro: "Mason, load your first save now.",
+    });
+    expect(saveSlotNote?.changes.map((change) => change.text)).toEqual([
+      "After the server accepts a Load game slot switch, the client now reloads the mine world and gear for that slot before returning to the mine.",
+      "This prevents a previously open save from staying visible after choosing another saved slot.",
     ]);
   });
 

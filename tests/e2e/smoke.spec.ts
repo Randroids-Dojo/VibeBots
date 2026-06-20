@@ -1099,6 +1099,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
+  await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
     "Mine zoom controls now sit under Settings.",
   );

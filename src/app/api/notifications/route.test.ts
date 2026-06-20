@@ -112,7 +112,7 @@ describe("notification API routes", () => {
       vapidPublicKey: "public-key",
       releaseNoticeId: "2026-06-20-0.1.91-zoom-under-settings",
       releaseSummary:
-        "Zoom placement fix: Mason, load your first save now. Mine zoom controls now sit under Settings.",
+        "Zoom placement fix: Mine zoom controls now sit under Settings.",
     });
   });
 

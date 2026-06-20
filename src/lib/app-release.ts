@@ -10,8 +10,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       version: "0.1.91",
       date: "2026-06-20",
       title: "Zoom placement fix",
-      intro:
-        "Mason, load your first save now. Mine zoom controls now sit under Settings.",
+      intro: "Mine zoom controls now sit under Settings.",
       changes: [
         {
           build,
@@ -31,8 +30,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       version: "0.1.90",
       date: "2026-06-20",
       title: "Save slot start safety",
-      intro:
-        "Mason, load your first save now. Empty slots now have an explicit Start path.",
+      intro: "Empty slots now have an explicit Start path.",
       changes: [
         {
           build,
@@ -72,8 +70,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       version: "0.1.88",
       date: "2026-06-20",
       title: "Death cam flash fix",
-      intro:
-        "Mason, load your first save now. Death animations now keep the mine filled from the first frame.",
+      intro: "Death animations now keep the mine filled from the first frame.",
       changes: [
         {
           build,
@@ -93,8 +90,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       version: "0.1.87",
       date: "2026-06-20",
       title: "Mine zoom buttons",
-      intro:
-        "Mason, load your first save now. The mine HUD now has direct zoom controls.",
+      intro: "The mine HUD now has direct zoom controls.",
       changes: [
         {
           build,
@@ -114,8 +110,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       version: "0.1.86",
       date: "2026-06-20",
       title: "Death cam fix",
-      intro:
-        "Mason, load your first save now. Death animations now stay inside the real mine view.",
+      intro: "Death animations now stay inside the real mine view.",
       changes: [
         {
           build,

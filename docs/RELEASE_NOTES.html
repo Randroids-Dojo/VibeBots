@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.75" data-date="2026-06-20">
+    <h2>0.1.75</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.75</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>38</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>The mine now collects lightweight frame samples from real play so old-device glitches can be diagnosed with data.</dd>
+      <dt>Client sampling</dt><dd>After the canvas has rendered, the client samples browser frame intervals, draw calls, renderer mode, viewport size, device pixel ratio, CPU and memory hints, app version, and mine version. The default browser limit is one compact sample per hour.</dd>
+      <dt>Persistence</dt><dd><code>/api/performance</code> validates samples and stores them in <code>player_performance_samples</code> with the active player save and user agent for later review.</dd>
+      <dt>Verification</dt><dd>Focused route and metric tests cover sample validation, insert shape, invalid payload rejection, storage-disabled behavior, and frame percentile summaries. Focused smoke coverage confirms the mine posts a sample when the sampler is shortened for test.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.74" data-date="2026-06-20">
     <h2>0.1.74</h2>
     <dl>

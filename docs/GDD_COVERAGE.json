@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-06-19",
+  "updatedAt": "2026-06-20",
   "rows": [
     {
       "id": "REQ-001",
@@ -730,6 +730,26 @@
       ],
       "testRefs": [
         "src/app/api/feedback/route.test.ts",
+        "tests/e2e/smoke.spec.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-041",
+      "requirement": "The mine collects lightweight real-session performance samples so old-device glitches and low frame rates can be diagnosed by version, renderer, viewport, hardware hints, draw calls, and frame-time percentiles.",
+      "gddRef": "docs/gdd/06-mining.html#controls",
+      "status": "done",
+      "implementationRefs": [
+        "src/components/mine-performance-sampling.ts",
+        "src/components/mine-panel.tsx",
+        "src/components/part-visuals.tsx",
+        "src/lib/performance-metrics.ts",
+        "src/app/api/performance/route.ts",
+        "src/server/db.ts"
+      ],
+      "testRefs": [
+        "src/lib/performance-metrics.test.ts",
+        "src/app/api/performance/route.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []

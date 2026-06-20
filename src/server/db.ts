@@ -213,6 +213,39 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     CREATE INDEX IF NOT EXISTS player_feedback_reviewed_created_at_idx
     ON player_feedback (reviewed, created_at DESC)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS player_performance_samples (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      source text NOT NULL,
+      app_version text NOT NULL,
+      app_build integer,
+      mine_version integer NOT NULL,
+      duration_ms integer NOT NULL,
+      frame_count integer NOT NULL,
+      avg_frame_ms real NOT NULL,
+      p50_frame_ms real NOT NULL,
+      p95_frame_ms real NOT NULL,
+      max_frame_ms real NOT NULL,
+      long_frame_count integer NOT NULL,
+      draw_calls_avg real,
+      draw_calls_max integer,
+      viewport_width integer NOT NULL,
+      viewport_height integer NOT NULL,
+      device_pixel_ratio real NOT NULL,
+      hardware_concurrency integer,
+      device_memory_gb real,
+      renderer text,
+      visibility_state text,
+      user_agent text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS player_performance_samples_created_at_idx
+    ON player_performance_samples (created_at DESC)`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS player_performance_samples_p95_idx
+    ON player_performance_samples (p95_frame_ms DESC, created_at DESC)`;
 }
 
 /** The shared SQL client, with the schema guaranteed applied. */

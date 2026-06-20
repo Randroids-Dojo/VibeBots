@@ -89,6 +89,7 @@ import {
 } from "@/state/mine-store";
 import { DESTINATIONS, destinationAt } from "./mine-destinations";
 import { actionRepeatMs } from "./mine-pacing";
+import { useMinePerformanceSampling } from "./mine-performance-sampling";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
 import { STALLS, type StallDef, stallAt } from "./mine-stalls";
 import { MineTouchControls } from "./mine-touch-controls";
@@ -105,7 +106,6 @@ const LADDER_GRAVITY_FEEDBACK_NEVER_KEY =
   "vibebots-ladder-gravity-feedback-never";
 const IOS_HOME_SCREEN_PROMPT_NEVER_KEY =
   "vibebots-ios-home-screen-prompt-never";
-
 const KEY_DIRECTIONS: Record<string, Direction> = {
   ArrowDown: "down",
   ArrowUp: "up",
@@ -197,6 +197,7 @@ function DismissibleDialogFrame({
     </div>
   );
 }
+
 const MINE_SURFACE_TIPS = [
   "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
   "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
@@ -3745,6 +3746,7 @@ function BunkerControlPanel({
 }
 
 export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
+  useMinePerformanceSampling(appRelease);
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);

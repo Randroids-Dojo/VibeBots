@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-performance-samples" data-date="2026-06-20">
+    <h3>Mine Performance Samples</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/vibebots-20260619-200145</code>, rebased onto current <code>origin/main</code> before implementation after <code>0.1.74</code> landed.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-reported old-laptop glitch investigation support. The new <code>src/components/mine-performance-sampling.ts</code> hook samples real browser frame intervals after the canvas has rendered, collects frame percentiles, long-frame count, draw calls, renderer mode, viewport size, device pixel ratio, CPU and memory hints, app version, and mine version, then posts a compact payload to the new <code>/api/performance</code> route. The server validates and stores those rows in <code>player_performance_samples</code> with active player context and user agent for later operator review. Package version moved to <code>0.1.75</code>; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> stay unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and smoke files, focused performance, db, and notification Vitest (15 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3256</code> for latest release notes and compact performance samples (2 passed), in-app Browser verification against <code>http://127.0.0.1:3256/mine</code> for release copy, visible canvas, renderer metadata, frame metrics, draw-call metrics, and zero console errors, <code>pnpm test</code> (276 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: collect one passive sample per browser hour by default, with no visible UI and no deterministic sim inputs changed. Mine surface tips were reviewed and kept unchanged because this adds diagnostics, not a mine rule, economy path, control, upgrade, hazard, shop, or recovery change.</dd>
+      <dt>GDD coverage</dt><dd>Added REQ-041 as done in <code>docs/GDD_COVERAGE.json</code> and updated the build log in <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="stale-trip-recovery" data-date="2026-06-20">
     <h3>Stale Trip Recovery</h3>
     <dl>

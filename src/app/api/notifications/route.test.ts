@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.74-stale-trip-recovery",
+      releaseNoticeId: "2026-06-20-0.1.75-mine-performance-samples",
       releaseSummary:
-        "Stale trip recovery: Old in-flight mine trips now restore the original save cleanly.",
+        "Mine performance samples: The mine now collects lightweight frame samples from real play.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.74-stale-trip-recovery",
+      releaseNoticeId: "2026-06-20-0.1.75-mine-performance-samples",
       attempted: 2,
       sent: 1,
       expired: 1,

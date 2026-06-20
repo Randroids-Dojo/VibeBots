@@ -42,6 +42,13 @@ export async function createWebGPU(glProps: unknown): Promise<WebGPURenderer> {
   const coarsePointer =
     typeof window !== "undefined" &&
     window.matchMedia?.("(pointer: coarse)").matches;
+  const canvas =
+    glProps && typeof glProps === "object" && "canvas" in glProps
+      ? (glProps as { canvas?: HTMLCanvasElement }).canvas
+      : undefined;
+  if (canvas) {
+    canvas.dataset.renderer = coarsePointer ? "webgl2-forced" : "webgpu-auto";
+  }
   const renderer = new WebGPURenderer({
     ...(glProps as ConstructorParameters<typeof WebGPURenderer>[0]),
     forceWebGL: coarsePointer,

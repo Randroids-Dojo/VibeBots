@@ -20,4 +20,14 @@ describe("compatibility migration markers", () => {
     expect(source).toContain("release_version text NOT NULL");
     expect(source).toContain("status text NOT NULL DEFAULT 'sending'");
   });
+
+  it("creates the player performance sample table", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+
+    expect(source).toContain(
+      "CREATE TABLE IF NOT EXISTS player_performance_samples",
+    );
+    expect(source).toContain("p95_frame_ms real NOT NULL");
+    expect(source).toContain("player_performance_samples_p95_idx");
+  });
 });

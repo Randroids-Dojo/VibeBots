@@ -89,6 +89,13 @@ Successful sells emit `mine.cash_out.cash_out_succeeded` with `alert=false`.
 Use it to correlate a player hash, seed, trip index, credited value, charged
 consumables, and remaining stock without paging on normal traffic.
 
+Mine performance samples are stored in `player_performance_samples`. The
+client records compact frame percentiles from real browser play, plus renderer
+mode, draw calls, viewport size, device pixel ratio, hardware hints, app
+version, mine version, user agent, and active player id. Use this table to
+triage low-frame or glitch reports from old laptops and compare them by
+renderer, DPR, viewport, and p95 frame time.
+
 For a known affected long-running player whose client support snapshot drifted,
 repair stored support stock explicitly instead of adding runtime replay
 exceptions:

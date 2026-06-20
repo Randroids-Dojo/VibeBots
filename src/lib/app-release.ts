@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.74-stale-trip-recovery";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.75-mine-performance-samples";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.75",
+      date: "2026-06-20",
+      title: "Mine performance samples",
+      intro: "The mine now collects lightweight frame samples from real play.",
+      changes: [
+        {
+          build,
+          text: "The mine samples real browser frame intervals after the canvas has rendered, then submits compact percentiles for later diagnosis.",
+        },
+        {
+          build,
+          text: "Samples include renderer mode, draw calls, viewport size, device pixel ratio, CPU and memory hints, app version, and mine version.",
+        },
+        {
+          build,
+          text: "The server stores samples by active player save so slow old laptops can be compared without changing deterministic mine gameplay.",
+        },
+      ],
+    },
     {
       version: "0.1.74",
       date: "2026-06-20",

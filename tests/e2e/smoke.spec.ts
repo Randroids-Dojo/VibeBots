@@ -953,18 +953,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Old in-flight mine trips now restore the original save cleanly.",
+    "The mine now collects lightweight frame samples from real play.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "gameplay version beside each local in-flight trip checkpoint",
+    "browser frame intervals",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "clears only that stale checkpoint",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "production repair advanced one affected player's replay counter",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("renderer mode");
+  await expect(dialog.locator("li").nth(2)).toContainText("active player save");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -983,6 +979,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.75", "Mine performance samples"],
     ["0.1.74", "Stale trip recovery"],
     ["0.1.73", "Falling rock crush"],
     ["0.1.72", "Plank side buttons"],
@@ -1036,7 +1033,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.74-stale-trip-recovery",
+      "2026-06-20-0.1.75-mine-performance-samples",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1157,7 +1154,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.74-stale-trip-recovery",
+      "2026-06-20-0.1.75-mine-performance-samples",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1960,6 +1957,42 @@ test.describe("phone viewport", () => {
         timeout: 5_000,
       })
       .toBeGreaterThan(0);
+  });
+
+  test("mine posts a compact performance sample", async ({ page }) => {
+    const samples: unknown[] = [];
+    await page.route("**/api/performance", async (route) => {
+      samples.push(route.request().postDataJSON());
+      await route.fulfill({ json: { saved: true } });
+    });
+    await page.addInitScript(() => {
+      const w = window as typeof window & {
+        __vibebotsPerfInitialDelayMs?: number;
+        __vibebotsPerfSampleMs?: number;
+        __vibebotsPerfRepeatMs?: number;
+        __vibebotsPerfMinSendIntervalMs?: number;
+      };
+      w.__vibebotsPerfInitialDelayMs = 0;
+      w.__vibebotsPerfSampleMs = 300;
+      w.__vibebotsPerfRepeatMs = 60_000;
+      w.__vibebotsPerfMinSendIntervalMs = 0;
+      localStorage.setItem(
+        "vibebots-release-notes-dismissed-id",
+        "2026-06-20-0.1.75-mine-performance-samples",
+      );
+    });
+
+    await page.goto("/mine");
+    await expect(page.locator("canvas")).toBeVisible();
+    await expect.poll(() => samples.length, { timeout: 10_000 }).toBe(1);
+    const payload = samples[0] as Record<string, unknown>;
+    expect(payload.source).toBe("mine");
+    expect(String(payload.appVersion)).toMatch(/^0\.1\.75/);
+    expect(payload.mineVersion).toBe(38);
+    expect(payload.frameCount).toBeGreaterThan(5);
+    expect(payload.p95FrameMs).toBeGreaterThan(0);
+    expect(payload.viewportWidth).toBeGreaterThan(0);
+    expect(payload.devicePixelRatio).toBeGreaterThan(0);
   });
 
   test("a downward drag on the sheet handle dismisses it", async ({ page }) => {

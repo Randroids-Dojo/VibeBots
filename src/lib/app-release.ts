@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.98-mine-text-status-layout";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.99-meaningful-mine-zoom";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.99",
+      date: "2026-06-20",
+      title: "Meaningful mine zoom",
+      intro: "Mine zoom now moves far enough to read against cell size.",
+      changes: [
+        {
+          build,
+          text: "Zoom inputs now move twice as far across HUD buttons, wheel, pinch, and gamepad controls.",
+        },
+        {
+          build,
+          text: "Lantern zoom caps now reach 1.32, 1.64, and 1.96 so each upgrade reveals several more cells.",
+        },
+        {
+          build,
+          text: "Lamp coverage still reaches the camera footprint at each cap while the two-cell dark falloff border stays in place.",
+        },
+      ],
+    },
     {
       version: "0.1.98",
       date: "2026-06-20",

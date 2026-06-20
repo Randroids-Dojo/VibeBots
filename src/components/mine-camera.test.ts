@@ -2,11 +2,25 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_GEAR, LANTERN_RADIUS } from "@/sim/mine";
 import {
   clampMineCameraZoom,
+  MINE_CAMERA_BASE_DISTANCE,
+  MINE_CAMERA_BUTTON_STEP,
   maxMineCameraZoom,
   maxMineCameraZoomForRadius,
   mineLampDistanceForRadius,
   mineRenderWindow,
 } from "./mine-camera";
+
+const MINE_CAMERA_FOV_DEGREES = 42;
+const PHONE_PORTRAIT_ASPECT = 390 / 844;
+
+function visibleDiagonalAtZoom(zoom: number): number {
+  const halfHeight =
+    Math.tan((MINE_CAMERA_FOV_DEGREES * Math.PI) / 360) *
+    MINE_CAMERA_BASE_DISTANCE *
+    zoom;
+  const halfWidth = halfHeight * PHONE_PORTRAIT_ASPECT;
+  return Math.hypot(halfHeight, halfWidth);
+}
 
 describe("mine camera zoom", () => {
   it("caps zoom-out by lantern reach", () => {
@@ -16,11 +30,12 @@ describe("mine camera zoom", () => {
     const maxLanternRadius =
       LANTERN_RADIUS[LANTERN_RADIUS.length - 1] ?? LANTERN_RADIUS[0];
 
-    expect(zoomCaps[0]).toBeGreaterThan(1);
+    expect(MINE_CAMERA_BUTTON_STEP).toBe(0.16);
+    expect(zoomCaps[0]).toBeCloseTo(1.32);
+    expect(zoomCaps[1]).toBeCloseTo(1.64);
+    expect(zoomCaps[2]).toBeCloseTo(1.96);
     for (let index = 1; index < zoomCaps.length; index += 1) {
-      expect(zoomCaps[index] - zoomCaps[index - 1]).toBeGreaterThanOrEqual(
-        0.16,
-      );
+      expect(zoomCaps[index] - zoomCaps[index - 1]).toBeCloseTo(0.32);
     }
     expect(zoomCaps.at(-1)).toBeCloseTo(
       maxMineCameraZoomForRadius(maxLanternRadius),
@@ -48,11 +63,19 @@ describe("mine camera zoom", () => {
     const lampDistances = LANTERN_RADIUS.map((radius) =>
       mineLampDistanceForRadius(radius),
     );
+    const zoomCaps = LANTERN_RADIUS.map((_, index) =>
+      maxMineCameraZoom({ ...DEFAULT_GEAR, lantern: index + 1 }),
+    );
 
     expect(lampDistances[0]).toBe(9);
     for (let index = 1; index < lampDistances.length; index += 1) {
       expect(lampDistances[index] - lampDistances[index - 1]).toBeGreaterThan(
         2,
+      );
+    }
+    for (let index = 0; index < lampDistances.length; index += 1) {
+      expect(lampDistances[index]).toBeGreaterThan(
+        visibleDiagonalAtZoom(zoomCaps[index]),
       );
     }
   });

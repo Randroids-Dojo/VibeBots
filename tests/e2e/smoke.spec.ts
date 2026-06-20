@@ -1113,12 +1113,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Mine copy is clearer, and status messages stay clear of zoom controls.",
+    "Mine zoom now moves far enough to read against cell size.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("Recall Rope");
-  await expect(dialog.locator("li").nth(1)).toContainText("Auto-sell");
-  await expect(dialog.locator("li").nth(2)).toContainText("zoom controls");
+  await expect(dialog.locator("li").first()).toContainText("twice as far");
+  await expect(dialog.locator("li").nth(1)).toContainText("1.96");
+  await expect(dialog.locator("li").nth(2)).toContainText("two-cell");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1137,6 +1137,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.99", "Meaningful mine zoom"],
     ["0.1.98", "Mine text and status layout"],
     ["0.1.97", "Credits"],
     ["0.1.96", "Menu outside taps"],
@@ -1258,7 +1259,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.98-mine-text-status-layout",
+      "2026-06-20-0.1.99-meaningful-mine-zoom",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1379,7 +1380,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.98-mine-text-status-layout",
+      "2026-06-20-0.1.99-meaningful-mine-zoom",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2743,11 +2744,11 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
 
   await zoomOut.click();
   await expect(zoomOut).toBeDisabled();
-  await expect(canvas).toHaveAttribute("data-cam-zoom", "1.12");
+  await expect(canvas).toHaveAttribute("data-cam-zoom", "1.32");
   await expect(canvas).toHaveAttribute("data-lit-below", "3");
   await expect(canvas).toHaveAttribute("data-render-below", "5");
   await expect(canvas).toHaveAttribute("data-lamp-distance", "9.00");
-  await expect(zoomControls).toHaveAttribute("data-camera-zoom-max", "1.12");
+  await expect(zoomControls).toHaveAttribute("data-camera-zoom-max", "1.32");
 
   await zoomIn.click();
   await expect(zoomOut).toBeEnabled();
@@ -2755,7 +2756,7 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
     .poll(async () => Number(await canvas.getAttribute("data-cam-zoom")), {
       timeout: 5_000,
     })
-    .toBeLessThan(1.12);
+    .toBeLessThan(1.32);
 });
 
 test("the carved world survives a reload (REQ-026)", async ({ page }) => {

@@ -3,15 +3,15 @@ import { LANTERN_RADIUS, lightRadius, type MineGear } from "@/sim/mine";
 export const MINE_CAMERA_BASE_DISTANCE = 13;
 export const MINE_CAMERA_ZOOM_DEFAULT = 1;
 export const MINE_CAMERA_MIN_ZOOM = 0.72;
-export const MINE_CAMERA_BUTTON_STEP = 0.08;
+export const MINE_CAMERA_BUTTON_STEP = 0.16;
 export const MINE_CAMERA_STORAGE_KEY = "vibebots-mine-camera-zoom-v1";
 export const MINE_CAMERA_FALLOFF_ROWS = 2;
 
 const BASE_LANTERN_RADIUS = LANTERN_RADIUS[0] ?? 3;
 const MAX_LANTERN_RADIUS =
   LANTERN_RADIUS[LANTERN_RADIUS.length - 1] ?? BASE_LANTERN_RADIUS;
-const BASE_FALLOFF_ZOOM = 0.12;
-const MAX_ZOOM_STEP_PER_LANTERN_ROW = 0.09;
+const BASE_FALLOFF_ZOOM = 0.32;
+const MAX_ZOOM_STEP_PER_LANTERN_ROW = 0.16;
 
 function mineCameraZoomForRadius(radius: number): number {
   return (

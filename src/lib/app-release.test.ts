@@ -2,18 +2,34 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine text and status layout note complete", () => {
+  it("keeps the latest meaningful zoom note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.98-mine-text-status-layout");
+    expect(release.noticeId).toBe("2026-06-20-0.1.99-meaningful-mine-zoom");
     expect(latestNote).toMatchObject({
+      version: "0.1.99",
+      title: "Meaningful mine zoom",
+      intro: "Mine zoom now moves far enough to read against cell size.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Zoom inputs now move twice as far across HUD buttons, wheel, pinch, and gamepad controls.",
+      "Lantern zoom caps now reach 1.32, 1.64, and 1.96 so each upgrade reveals several more cells.",
+      "Lamp coverage still reaches the camera footprint at each cap while the two-cell dark falloff border stays in place.",
+    ]);
+  });
+
+  it("keeps the latest mine text and status layout note complete", () => {
+    const release = getAppRelease();
+    const statusNote = release.notes.find((note) => note.version === "0.1.98");
+
+    expect(statusNote).toMatchObject({
       version: "0.1.98",
       title: "Mine text and status layout",
       intro:
         "Mine copy is clearer, and status messages stay clear of zoom controls.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(statusNote?.changes.map((change) => change.text)).toEqual([
       "Surface tips and upgrade blurbs now use shorter rule-focused text, including Recall Rope range, Warpcoil range, and Lantern zoom.",
       "Auto-sell results now replace the surface tip while visible and wrap in the same status chip style.",
       "Wrapped status chips reserve space for the Settings button and zoom controls on narrow screens.",

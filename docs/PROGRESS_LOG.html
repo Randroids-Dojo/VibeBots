@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="meaningful-mine-zoom" data-date="2026-06-20">
+    <h3>Meaningful Mine Zoom</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/meaningful-mine-zoom</code>, created from current <code>origin/main</code> after confirming the worktree was detached, then rebased after remote main moved through the pickaxe battery tuning, smoke CI, gear-validation cleanup, cargo hold rebalance, death-camera, menu-dismissal, credits, and status-layout slices.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed zoom tuning follow-up. Mine zoom inputs now move twice as far across HUD buttons, wheel, pinch, and gamepad controls. Lantern zoom caps increased from <code>1.12</code>, <code>1.30</code>, and <code>1.48</code> to <code>1.32</code>, <code>1.64</code>, and <code>1.96</code>, making every Lantern upgrade reveal several more cells while keeping the two-cell dark falloff border. Package version moved to <code>0.1.99</code>; <code>MINE_VERSION</code> stays at <code>46</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, smoke, package, and doc files, focused Vitest for camera and release metadata (31 passed), <code>pnpm check:dashes</code>, <code>git diff --check origin/main...HEAD</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (320 passed), <code>pnpm check:purity</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3399</code> for latest release notes plus mine zoom (2 passed). Playwright smoke confirmed the Lantern 1 cap is <code>1.32</code>, two Zoom out clicks reach that cap from default zoom, lamp distance remains <code>9.00</code>, and the camera still renders the two-cell falloff border.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: make the first Lantern zoom visibly larger than a one-cell nudge by targeting <code>1.32</code>, then keep each later Lantern adding about the same extra zoom range.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated static and in-game release notes and appended a Build log entry to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="status-chip-zoom-clearance" data-date="2026-06-20">
     <h3>Status Chip Zoom Clearance</h3>
     <dl>

@@ -4240,7 +4240,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         if (!zoomIn && !zoomOut) continue;
         if (now - lastGamepadZoomRef.current < 160) break;
         lastGamepadZoomRef.current = now;
-        adjustCameraZoom(zoomOut ? 0.05 : -0.05);
+        adjustCameraZoom(zoomOut ? 0.1 : -0.1);
         break;
       }
       frame = requestAnimationFrame(pollGamepadZoom);
@@ -5644,7 +5644,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           </button>
         </div>
         {statusLine && (
-          <span style={{ ...statusChipStyle, color: "#f5c542" }}>
+          <span
+            data-mine-status-tip="true"
+            style={{ ...statusChipStyle, color: "#f5c542" }}
+          >
             {statusLine}
           </span>
         )}

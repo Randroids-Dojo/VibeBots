@@ -137,7 +137,7 @@ export function MineTouchControls({
       data-touch-surface
       onWheel={(e) => {
         e.preventDefault();
-        onZoomChange(e.deltaY > 0 ? 0.06 : -0.06);
+        onZoomChange(e.deltaY > 0 ? 0.12 : -0.12);
       }}
       onPointerDown={(e) => {
         if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -161,7 +161,7 @@ export function MineTouchControls({
           const nextDistance = distanceBetweenPointers();
           const prevDistance = pinchDistance.current;
           if (nextDistance !== null && prevDistance !== null) {
-            onZoomChange((prevDistance - nextDistance) / 280);
+            onZoomChange((prevDistance - nextDistance) / 140);
           }
           pinchDistance.current = nextDistance;
           return;

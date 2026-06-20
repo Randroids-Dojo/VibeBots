@@ -11,29 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.98.123",
+  version: "0.1.99.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.98-mine-text-status-layout",
-  intro:
-    "Mine copy is clearer, and status messages stay clear of zoom controls.",
+  noticeId: "2026-06-20-0.1.99-meaningful-mine-zoom",
+  intro: "Mine zoom now moves far enough to read against cell size.",
   changes: [
     {
       build: 123,
-      text: "Auto-sell results now replace tips while visible.",
+      text: "Zoom inputs now move twice as far.",
     },
   ],
   notes: [
     {
-      version: "0.1.98",
+      version: "0.1.99",
       date: "2026-06-20",
-      title: "Mine text and status layout",
-      intro:
-        "Mine copy is clearer, and status messages stay clear of zoom controls.",
+      title: "Meaningful mine zoom",
+      intro: "Mine zoom now moves far enough to read against cell size.",
       changes: [
         {
           build: 123,
-          text: "Auto-sell results now replace tips while visible.",
+          text: "Zoom inputs now move twice as far.",
         },
       ],
     },
@@ -134,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Mine text and status layout"),
+      expect.stringContaining("Meaningful mine zoom"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

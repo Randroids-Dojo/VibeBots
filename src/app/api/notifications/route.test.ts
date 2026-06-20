@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.98-mine-text-status-layout",
+      releaseNoticeId: "2026-06-20-0.1.99-meaningful-mine-zoom",
       releaseSummary:
-        "Mine text and status layout: Mine copy is clearer, and status messages stay clear of zoom controls.",
+        "Meaningful mine zoom: Mine zoom now moves far enough to read against cell size.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.98-mine-text-status-layout",
+      releaseNoticeId: "2026-06-20-0.1.99-meaningful-mine-zoom",
       attempted: 2,
       sent: 1,
       expired: 1,

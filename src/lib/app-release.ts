@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.105-battle-camera";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.106-mine-refresh-layout";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.106",
+      date: "2026-06-20",
+      title: "Mine refresh layout",
+      intro: "Refreshing into a new build keeps the mine screen locked.",
+      changes: [
+        {
+          build,
+          text: "The mine screen now uses a fixed app shell so browser scroll restoration cannot shift the canvas after Refresh.",
+        },
+        {
+          build,
+          text: "The shell turns scroll restoration off while the mine is mounted, keeping the HUD and bottom controls inside the visible viewport.",
+        },
+        {
+          build,
+          text: "Focused smoke clicks the new-version Refresh button and checks the loaded mine stays aligned to the viewport.",
+        },
+      ],
+    },
     {
       version: "0.1.105",
       date: "2026-06-20",

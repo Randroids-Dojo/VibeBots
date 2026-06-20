@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.105-battle-camera",
+      releaseNoticeId: "2026-06-20-0.1.106-mine-refresh-layout",
       releaseSummary:
-        "Battle camera: Battle mode now keeps both bots in the shot.",
+        "Mine refresh layout: Refreshing into a new build keeps the mine screen locked.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.105-battle-camera",
+      releaseNoticeId: "2026-06-20-0.1.106-mine-refresh-layout",
       attempted: 2,
       sent: 1,
       expired: 1,

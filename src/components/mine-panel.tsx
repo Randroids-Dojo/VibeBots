@@ -717,6 +717,14 @@ const surfaceActionPromptAnchorStyle: React.CSSProperties = {
   zIndex: 8,
 };
 
+const mineShellStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  width: "100%",
+  height: "100dvh",
+  overflow: "hidden",
+};
+
 function collectTargetKey(target: CollectTarget): string {
   return `${target.type}:${target.col},${target.row}`;
 }
@@ -4337,6 +4345,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, []);
 
   useEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    window.scrollTo(0, 0);
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(MINE_CAMERA_STORAGE_KEY);
       if (!raw) return;
@@ -5203,8 +5220,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   return (
     <div
+      data-mine-shell="true"
       onPointerDownCapture={handleScreenPointerDown}
-      style={{ position: "relative", width: "100%", height: "100dvh" }}
+      style={mineShellStyle}
     >
       {mineSceneReady ? (
         <MineSceneErrorBoundary

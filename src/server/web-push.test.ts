@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.105.123",
+  version: "0.1.106.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.105-battle-camera",
-  intro: "Battle mode now keeps both bots in the shot.",
+  noticeId: "2026-06-20-0.1.106-mine-refresh-layout",
+  intro: "Refreshing into a new build keeps the mine screen locked.",
   changes: [
     {
       build: 123,
-      text: "The arena camera follows both bots.",
+      text: "Refresh keeps the mine screen locked.",
     },
   ],
   notes: [
     {
-      version: "0.1.105",
+      version: "0.1.106",
       date: "2026-06-20",
-      title: "Battle camera",
-      intro: "Battle mode now keeps both bots in the shot.",
+      title: "Mine refresh layout",
+      intro: "Refreshing into a new build keeps the mine screen locked.",
       changes: [
         {
           build: 123,
-          text: "The arena camera follows both bots.",
+          text: "Refresh keeps the mine screen locked.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Battle camera"),
+      expect.stringContaining("Mine refresh layout"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

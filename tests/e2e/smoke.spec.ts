@@ -52,6 +52,32 @@ async function expectSurfacePromptBottomClearance(
     .toBeGreaterThanOrEqual(140);
 }
 
+async function expectMineShellViewportLocked(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const shell = document.querySelector("[data-mine-shell]");
+          const controls = document.querySelector(
+            '[aria-label="Dig controls"]',
+          );
+          if (!shell || !controls) return false;
+          const shellRect = shell.getBoundingClientRect();
+          const controlRect = controls.getBoundingClientRect();
+          return (
+            window.scrollY === 0 &&
+            Math.abs(shellRect.top) < 1 &&
+            Math.abs(shellRect.left) < 1 &&
+            Math.abs(shellRect.bottom - window.innerHeight) < 1 &&
+            controlRect.bottom <= window.innerHeight &&
+            controlRect.top >= 0
+          );
+        }),
+      { message: "mine shell should stay locked to the visible viewport" },
+    )
+    .toBe(true);
+}
+
 /** Walk the surface toward a destination building until its Enter prompt
  * appears, then tap it. Presses are paced past the glide and the loop
  * tolerates the odd dropped synthetic key (it stops on the prompt, not a
@@ -1216,16 +1242,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Battle mode now keeps both bots in the shot.",
+    "Refreshing into a new build keeps the mine screen locked.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "live midpoint between the bots",
+  await expect(dialog.locator("li").first()).toContainText("fixed app shell");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "scroll restoration off",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("backs up");
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "both bots stay framed",
-  );
+  await expect(dialog.locator("li").nth(2)).toContainText("Refresh button");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1244,6 +1268,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.106", "Mine refresh layout"],
     ["0.1.105", "Battle camera"],
     ["0.1.104", "Mine input cadence"],
     ["0.1.103", "Mine load fallback"],
@@ -1372,7 +1397,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.105-battle-camera",
+      "2026-06-20-0.1.106-mine-refresh-layout",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1384,23 +1409,6 @@ test("mine prompts to refresh when the deployed version changes", async ({
       body: '<span hidden data-vibebots-app-version="999.0.0-test"></span>',
     });
   });
-  await page.route("**/mine?vibebots_refresh=999.0.0-test", async (route) => {
-    await route.fulfill({
-      contentType: "text/html",
-      body: `<!doctype html>
-        <html>
-          <body>
-            <script>
-              document.body.setAttribute(
-                "data-dismissed-release-note",
-                localStorage.getItem("vibebots-release-notes-dismissed-id") ?? ""
-              );
-            </script>
-          </body>
-        </html>`,
-    });
-  });
-
   await page.goto("/mine");
   const dismissedBeforeRefresh = await page.evaluate(() =>
     localStorage.getItem("vibebots-release-notes-dismissed-id"),
@@ -1420,10 +1428,16 @@ test("mine prompts to refresh when the deployed version changes", async ({
   );
   await prompt.getByRole("button", { name: "Refresh" }).click();
   await page.waitForURL("**/mine?vibebots_refresh=999.0.0-test");
-  await expect(page.locator("body")).toHaveAttribute(
-    "data-dismissed-release-note",
-    dismissedBeforeRefresh ?? "",
-  );
+  await expect(page.locator("[data-mine-shell]")).toBeVisible();
+  await expectMineShellViewportLocked(page);
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("vibebots-release-notes-dismissed-id"),
+    ),
+  ).toBe(dismissedBeforeRefresh);
+  await expect(
+    page.getByRole("dialog", { name: "New in VibeBots" }),
+  ).not.toBeVisible();
 });
 
 test("mine waits to show refresh prompt until the new page is refreshable", async ({
@@ -1493,7 +1507,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.105-battle-camera",
+      "2026-06-20-0.1.106-mine-refresh-layout",
     );
   });
   await page.route("**/api/version", async (route) => {

@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest battle camera note complete", () => {
+  it("keeps the latest mine refresh layout note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.105-battle-camera");
+    expect(release.noticeId).toBe("2026-06-20-0.1.106-mine-refresh-layout");
     expect(latestNote).toMatchObject({
+      version: "0.1.106",
+      title: "Mine refresh layout",
+      intro: "Refreshing into a new build keeps the mine screen locked.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The mine screen now uses a fixed app shell so browser scroll restoration cannot shift the canvas after Refresh.",
+      "The shell turns scroll restoration off while the mine is mounted, keeping the HUD and bottom controls inside the visible viewport.",
+      "Focused smoke clicks the new-version Refresh button and checks the loaded mine stays aligned to the viewport.",
+    ]);
+  });
+
+  it("keeps the archived battle camera note complete", () => {
+    const release = getAppRelease();
+    const battleNote = release.notes.find((note) => note.version === "0.1.105");
+
+    expect(battleNote).toMatchObject({
       version: "0.1.105",
       title: "Battle camera",
       intro: "Battle mode now keeps both bots in the shot.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(battleNote?.changes.map((change) => change.text)).toEqual([
       "The arena camera now follows the live midpoint between the bots instead of staying fixed.",
       "The camera backs up as bots spread apart, then eases closer as they clash.",
       "Smoke coverage now checks that both bots stay framed while the match moves.",

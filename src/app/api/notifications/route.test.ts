@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.78-falling-rock-durability",
+      releaseNoticeId: "2026-06-20-0.1.79-stamp-catalog-refresh",
       releaseSummary:
-        "Falling rock durability: Falling rocks now take at least two hits to destroy.",
+        "Stamp catalog refresh: The Stamp Book now covers newer mine features.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.78-falling-rock-durability",
+      releaseNoticeId: "2026-06-20-0.1.79-stamp-catalog-refresh",
       attempted: 2,
       sent: 1,
       expired: 1,

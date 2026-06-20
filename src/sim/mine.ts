@@ -3411,6 +3411,19 @@ export function countPlacedBeaconsInDiff(diff: WorldDiff | undefined): number {
   return count;
 }
 
+export function countActiveBiomePortalsInDiff(
+  diff: WorldDiff | undefined,
+): number {
+  const active = new Set<PortalBeaconId>();
+  for (const [col, row, cell] of diff ?? []) {
+    const portal = authoredPortalAt(col, row);
+    if (portal && cell.portal === portal.id && cell.portalActive === true) {
+      active.add(portal.id);
+    }
+  }
+  return active.size;
+}
+
 function maxBeaconOrder(state: MineState): number {
   let order = 0;
   for (const cell of state.cells.values()) {
@@ -3768,6 +3781,8 @@ export interface TripResult {
   /** Deepest row reached for the persisted profile record. */
   maxDepth: number;
   moves: number;
+  /** Successful manual bag-drop actions. */
+  bagDrops: number;
   /** Consumables spent (server decrements at cash-out). */
   used: MineConsumables;
   /** Free recovery stock granted by deaths: forgiven at cash-out. */
@@ -3791,8 +3806,10 @@ export function replayTrip(
 ): TripResult {
   const state = createMine(seed, gear, consumables, diff);
   const capped = actions.slice(0, MAX_TRIP_MOVES);
+  let bagDrops = 0;
   for (const action of capped) {
-    applyAction(state, action);
+    const result = applyAction(state, action);
+    if (result.ok && (result.droppedFromBag ?? 0) > 0) bagDrops++;
   }
   return {
     bankedCredits: state.miner.bankedCredits,
@@ -3806,6 +3823,7 @@ export function replayTrip(
       : undefined,
     maxDepth: state.miner.maxDepth,
     moves: capped.length,
+    bagDrops,
     used: { ...state.used },
     granted: { ...state.granted },
     diff: exportDiff(state),

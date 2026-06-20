@@ -213,6 +213,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
   "Tip: row 1,000 takes rail, Warpcoil, cargo, and battery upgrades together.",
   "Tip: surface beacons in distant biomes unlock free portals back to base.",
+  "Tip: the Stamp Book now tracks biome portals and bag-drop planning.",
 ] as const;
 const MINE_SURFACE_TIP_EMPTY_SLOTS = 3;
 const MINE_SURFACE_TIP_ROTATION_MS = 15_000;

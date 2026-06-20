@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.78.123",
+  version: "0.1.79.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.78-falling-rock-durability",
-  intro: "Falling rocks now take at least two hits to destroy.",
+  noticeId: "2026-06-20-0.1.79-stamp-catalog-refresh",
+  intro: "The Stamp Book now covers newer mine features.",
   changes: [
     {
       build: 123,
-      text: "Falling rocks always need a second hit.",
+      text: "New biome and bag-drop stamps are available.",
     },
   ],
   notes: [
     {
-      version: "0.1.78",
+      version: "0.1.79",
       date: "2026-06-20",
-      title: "Falling rock durability",
-      intro: "Falling rocks now take at least two hits to destroy.",
+      title: "Stamp catalog refresh",
+      intro: "The Stamp Book now covers newer mine features.",
       changes: [
         {
           build: 123,
-          text: "Falling rocks always need a second hit.",
+          text: "New biome and bag-drop stamps are available.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Falling rock durability"),
+      expect.stringContaining("Stamp catalog refresh"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

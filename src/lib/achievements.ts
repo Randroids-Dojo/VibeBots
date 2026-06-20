@@ -12,9 +12,11 @@ export interface AchievementDefinition {
 
 export type AchievementMetric =
   | "deepestDepth"
+  | "activeBiomePortals"
   | "sales"
   | "maxTripVibes"
   | "partsBanked"
+  | "bagDrops"
   | "depotPurchases"
   | "pickaxeLevel"
   | "batteryLevel"
@@ -36,6 +38,7 @@ export interface AchievementStats {
   sales: number;
   maxTripVibes: number;
   partsBanked: number;
+  bagDrops: number;
   depotPurchases: number;
   laddersPlaced: number;
   planksPlaced: number;
@@ -48,6 +51,7 @@ export interface AchievementStats {
 
 export interface AchievementSnapshot {
   deepestDepth: number;
+  activeBiomePortals: number;
   pickaxeLevel: number;
   batteryLevel: number;
   cargoLevel: number;
@@ -75,6 +79,7 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   sales: 0,
   maxTripVibes: 0,
   partsBanked: 0,
+  bagDrops: 0,
   depotPurchases: 0,
   laddersPlaced: 0,
   planksPlaced: 0,
@@ -168,6 +173,24 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     target: 140,
   },
   {
+    id: "depth-biome-scout",
+    category: "depth",
+    title: "Biome Scout",
+    description: "Activate one distant biome portal.",
+    stamp: "B1",
+    metric: "activeBiomePortals",
+    target: 1,
+  },
+  {
+    id: "depth-portal-network",
+    category: "depth",
+    title: "Portal Network",
+    description: "Activate both biome portals.",
+    stamp: "B2",
+    metric: "activeBiomePortals",
+    target: 2,
+  },
+  {
     id: "haul-first-sale",
     category: "haul",
     title: "First Sale",
@@ -219,6 +242,24 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     description: "Bank 5 mine parts total.",
     stamp: "P5",
     metric: "partsBanked",
+    target: 5,
+  },
+  {
+    id: "haul-bag-sorter",
+    category: "haul",
+    title: "Bag Sorter",
+    description: "Drop selected ore from the bag once.",
+    stamp: "BG",
+    metric: "bagDrops",
+    target: 1,
+  },
+  {
+    id: "haul-pack-light",
+    category: "haul",
+    title: "Pack Light",
+    description: "Drop selected ore from the bag 5 times.",
+    stamp: "B5",
+    metric: "bagDrops",
     target: 5,
   },
   {
@@ -382,6 +423,7 @@ export function mergeAchievementStats(
     sales: current.sales + (patch.sales ?? 0),
     maxTripVibes: Math.max(current.maxTripVibes, patch.maxTripVibes ?? 0),
     partsBanked: current.partsBanked + (patch.partsBanked ?? 0),
+    bagDrops: current.bagDrops + (patch.bagDrops ?? 0),
     depotPurchases: current.depotPurchases + (patch.depotPurchases ?? 0),
     laddersPlaced: current.laddersPlaced + (patch.laddersPlaced ?? 0),
     planksPlaced: current.planksPlaced + (patch.planksPlaced ?? 0),
@@ -401,6 +443,8 @@ export function achievementMetricValue(
   switch (metric) {
     case "deepestDepth":
       return snapshot.deepestDepth;
+    case "activeBiomePortals":
+      return snapshot.activeBiomePortals;
     case "pickaxeLevel":
       return snapshot.pickaxeLevel;
     case "batteryLevel":

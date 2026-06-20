@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { applyAchievementProgress } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
 import {
   DEFAULT_GEAR,
@@ -8,6 +9,7 @@ import {
   STARTING_CONSUMABLES,
 } from "@/sim/mine";
 import {
+  achievementProgressForTrip,
   chargeableConsumables,
   gearOwnershipError,
   POST,
@@ -35,6 +37,7 @@ vi.mock("@/server/player", async (importOriginal) => {
 
 const mockedDb = vi.mocked(db);
 const mockedStorageConfigured = vi.mocked(storageConfigured);
+const mockedApplyAchievementProgress = vi.mocked(applyAchievementProgress);
 let warnSpy: ReturnType<typeof vi.spyOn>;
 let errorSpy: ReturnType<typeof vi.spyOn>;
 let infoSpy: ReturnType<typeof vi.spyOn>;
@@ -131,6 +134,7 @@ describe("POST /api/mine/bank", () => {
   beforeEach(() => {
     mockedStorageConfigured.mockReturnValue(true);
     mockedDb.mockReset();
+    mockedApplyAchievementProgress.mockClear();
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
@@ -445,6 +449,22 @@ describe("POST /api/mine/bank", () => {
     });
     expect(String(infoSpy.mock.calls[0][0])).not.toContain("player-1");
   });
+
+  it("ignores manual bag drop actions that replay did not apply", async () => {
+    const sql = mockSql(ownedBase, { seed: 3 });
+
+    const res = await post({
+      seed: 3,
+      moves: ["down", "drop:coal:1"],
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockedApplyAchievementProgress).toHaveBeenCalledWith(
+      sql,
+      "player-1",
+      expect.objectContaining({ bagDrops: 0 }),
+    );
+  });
 });
 
 describe("mine bank policy helpers", () => {
@@ -495,10 +515,47 @@ describe("mine bank policy helpers", () => {
         bankedParts: [],
         maxDepth: 0,
         moves: 0,
+        bagDrops: 0,
         used: stock({ dynamite: 1, rope: 1, ladder: 7, plank: 5, beacon: 1 }),
         granted: stock({ ladder: 3, plank: 2 }),
         diff: [],
       }),
     ).toEqual(stock({ dynamite: 1, rope: 1, ladder: 4, plank: 3, beacon: 1 }));
+  });
+
+  it("counts replayed bag drop actions for achievement progress", () => {
+    expect(
+      achievementProgressForTrip(
+        {
+          bankedCredits: 0,
+          bankedParts: [],
+          maxDepth: 1,
+          moves: 3,
+          bagDrops: 2,
+          used: stock(),
+          granted: stock(),
+          diff: [],
+        },
+        ["down", "drop:coal:1", "drop:copper:2"],
+      ),
+    ).toMatchObject({ bagDrops: 2 });
+  });
+
+  it("ignores submitted bag drop actions that replay did not apply", () => {
+    expect(
+      achievementProgressForTrip(
+        {
+          bankedCredits: 0,
+          bankedParts: [],
+          maxDepth: 1,
+          moves: 2,
+          bagDrops: 0,
+          used: stock(),
+          granted: stock(),
+          diff: [],
+        },
+        ["down", "drop:coal:1"],
+      ),
+    ).toMatchObject({ bagDrops: 0 });
   });
 });

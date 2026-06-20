@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.78-falling-rock-durability";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.79-stamp-catalog-refresh";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.79",
+      date: "2026-06-20",
+      title: "Stamp catalog refresh",
+      intro: "The Stamp Book now covers newer mine features.",
+      changes: [
+        {
+          build,
+          text: "New biome stamps track activating one distant biome portal and then both biome portals.",
+        },
+        {
+          build,
+          text: "New bag stamps track successful uses of Drop selected from the bag to make room during a trip.",
+        },
+        {
+          build,
+          text: "Already activated biome portals count from the saved mine diff, while new bag-drop stamp progress starts from successful recorded drops after this release.",
+        },
+      ],
+    },
     {
       version: "0.1.78",
       date: "2026-06-20",

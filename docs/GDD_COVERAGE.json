@@ -554,12 +554,16 @@
         "src/lib/achievements.ts",
         "src/server/achievements.ts",
         "src/app/api/achievements/route.ts",
+        "src/app/api/mine/bank/route.ts",
+        "src/sim/mine.ts",
         "src/components/mine-panel.tsx",
         "src/server/db.ts"
       ],
       "testRefs": [
         "src/lib/achievements.test.ts",
         "src/app/api/achievements/route.test.ts",
+        "src/app/api/mine/bank/route.test.ts",
+        "src/sim/mine.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []

@@ -15,6 +15,7 @@ import {
   cellAt,
   collectAction,
   collectablePlacements,
+  countActiveBiomePortalsInDiff,
   countPlacedBeaconsInDiff,
   createMine,
   DEFAULT_GEAR,
@@ -554,6 +555,21 @@ describe("mine", () => {
     expect(replayTrip(31337, moves)).toEqual(replayed);
   });
 
+  it("counts successful bag drop actions during replay", () => {
+    const diff: WorldDiff = [
+      [START_COL, 1, { kind: "empty", drop: { coal: 1 } }],
+    ];
+    const replayed = replayTrip(
+      31337,
+      ["down", dropOreAction({ coal: 1 })],
+      DEFAULT_GEAR,
+      NO_CONSUMABLES,
+      diff,
+    );
+
+    expect(replayed.bagDrops).toBe(1);
+  });
+
   it("persists the carved world across trips via the diff (REQ-026)", () => {
     const trip1: MineAction[] = ["down", "down", "down", "down", "up", "up"];
     const owned = stock({ ladder: 8 });
@@ -778,6 +794,7 @@ describe("mine", () => {
       true,
       true,
     ]);
+    expect(countActiveBiomePortalsInDiff(exportDiff(restored))).toBe(2);
   });
 
   it("replays portal trips identically", () => {

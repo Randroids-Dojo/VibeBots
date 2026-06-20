@@ -279,6 +279,24 @@ If a version bump does not touch mining, still do the review and record that tip
 
 ---
 
+## RULE 14: Review stamps for new features
+
+The Stamp Book is the long-term cosmetic goal layer. When a slice adds or meaningfully changes a player-facing feature, review whether it should add one or more stamps.
+
+Add stamps when they make the feature more legible, give players a clear optional goal, or mark a durable milestone they would be proud to collect. Prefer stamps for new mechanics, regions, progression gates, survival feats, feature mastery, and first-use moments.
+
+Do not add stamps just because code changed. Avoid stamps for bug fixes, tiny UI polish, diagnostics, copy-only updates, or actions that would encourage unfun grinding.
+
+Every new stamp must have a trustworthy progress source:
+
+- Backfill from durable records when the server already stores proof.
+- Start from new recorded counters when old profiles cannot prove it safely.
+- Keep stamps cosmetic only. They must not grant vibes, gear, parts, consumables, luck, or combat power.
+- Update `src/lib/achievements.ts`, the achievement tests, relevant server progress plumbing, GDD coverage, release notes, and the progress log.
+- Record the stamp review in the slice's progress-log entry, even when no new stamp is added.
+
+---
+
 ## Quick pre-commit checklist
 
 1. No em-dashes. Run `grep -rnP '[\x{2014}\x{2013}]' .` (checks for U+2014 em-dash and U+2013 en-dash). Must return nothing.

@@ -9,6 +9,7 @@ import {
 
 const baseSnapshot = {
   deepestDepth: 0,
+  activeBiomePortals: 0,
   pickaxeLevel: 1,
   batteryLevel: 1,
   cargoLevel: 1,
@@ -24,6 +25,10 @@ describe("achievements", () => {
   it("keeps achievement ids unique", () => {
     const ids = ACHIEVEMENT_DEFINITIONS.map((definition) => definition.id);
     expect(new Set(ids).size).toBe(ids.length);
+    const stamps = ACHIEVEMENT_DEFINITIONS.map(
+      (definition) => definition.stamp,
+    );
+    expect(new Set(stamps).size).toBe(stamps.length);
   });
 
   it("unlocks depth and tool stamps from persistent records", () => {
@@ -45,21 +50,35 @@ describe("achievements", () => {
     );
   });
 
+  it("unlocks biome portal stamps from durable portal counts", () => {
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        activeBiomePortals: 2,
+      }),
+    ).toEqual(
+      expect.arrayContaining(["depth-biome-scout", "depth-portal-network"]),
+    );
+  });
+
   it("merges lifetime counters and one-trip max values", () => {
     const first = mergeAchievementStats(DEFAULT_ACHIEVEMENT_STATS, {
       sales: 1,
       maxTripVibes: 25,
+      bagDrops: 1,
       laddersPlaced: 3,
     });
     expect(
       mergeAchievementStats(first, {
         sales: 1,
         maxTripVibes: 12,
+        bagDrops: 4,
         laddersPlaced: 7,
       }),
     ).toMatchObject({
       sales: 2,
       maxTripVibes: 25,
+      bagDrops: 5,
       laddersPlaced: 10,
     });
   });

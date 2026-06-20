@@ -258,7 +258,7 @@ export function chargeableConsumables(trip: TripResult): MineConsumables {
   };
 }
 
-function achievementProgressForTrip(
+export function achievementProgressForTrip(
   trip: TripResult,
   actions: readonly MineAction[],
 ) {
@@ -267,6 +267,7 @@ function achievementProgressForTrip(
     sales: soldLoot ? 1 : 0,
     maxTripVibes: trip.bankedCredits,
     partsBanked: trip.bankedParts.length,
+    bagDrops: trip.bagDrops,
     laddersPlaced: trip.used.ladder,
     planksPlaced: trip.used.plank,
     recallsWithLoot: actions.includes("recall") && soldLoot ? 1 : 0,

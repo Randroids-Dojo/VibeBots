@@ -7,6 +7,7 @@ import {
   normalizeAchievementStats,
   type PlayerAchievementView,
 } from "@/lib/achievements";
+import { countActiveBiomePortalsInDiff, type WorldDiff } from "@/sim/mine";
 import type { db } from "./db";
 
 type Sql = Awaited<ReturnType<typeof db>>;
@@ -32,6 +33,7 @@ interface AchievementProfileRow {
   elevator_depth: number;
   elevator_speed_level: number;
   parts_owned: number;
+  mine_diff: unknown;
 }
 
 function statsFromUnknown(value: unknown): AchievementStats {
@@ -85,12 +87,19 @@ async function achievementSnapshot(
            p.warpcoil_level,
            p.elevator_depth,
            p.elevator_speed_level,
-           COALESCE(SUM(pp.count), 0)::int AS parts_owned
+           COALESCE((
+             SELECT SUM(pp.count)::int
+             FROM player_parts pp
+             WHERE pp.player_id = p.id
+           ), 0) AS parts_owned,
+           mw.diff AS mine_diff
     FROM players p
-    LEFT JOIN player_parts pp ON pp.player_id = p.id
-    WHERE p.id = ${playerId}
-    GROUP BY p.id`) as Array<AchievementProfileRow>;
+    LEFT JOIN mine_worlds mw ON mw.player_id = p.id
+    WHERE p.id = ${playerId}`) as Array<AchievementProfileRow>;
   const row = rows[0];
+  const worldDiff = Array.isArray(row?.mine_diff)
+    ? (row.mine_diff as WorldDiff)
+    : [];
   const retroStats = normalizeAchievementStats({
     ...stats,
     sales: Math.max(
@@ -101,6 +110,7 @@ async function achievementSnapshot(
   });
   return {
     deepestDepth: row?.deepest_depth ?? 0,
+    activeBiomePortals: countActiveBiomePortalsInDiff(worldDiff),
     pickaxeLevel: row?.pickaxe_level ?? 1,
     batteryLevel: row?.lamp_level ?? 1,
     cargoLevel: row?.cargo_level ?? 1,

@@ -14,6 +14,7 @@ export async function GET(): Promise<Response> {
     const achievements = buildAchievementViews(
       {
         deepestDepth: 0,
+        activeBiomePortals: 0,
         pickaxeLevel: 1,
         batteryLevel: 1,
         cargoLevel: 1,

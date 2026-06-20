@@ -957,16 +957,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Falling rocks now take at least two hits to destroy.",
+    "The Stamp Book now covers newer mine features.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "cannot break in fewer than two pickaxe hits",
+    "one distant biome portal",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "short rescue window",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText("two-hit minimum");
+  await expect(dialog.locator("li").nth(1)).toContainText("Drop selected");
+  await expect(dialog.locator("li").nth(2)).toContainText("saved mine diff");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -985,6 +983,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.79", "Stamp catalog refresh"],
     ["0.1.78", "Falling rock durability"],
     ["0.1.77", "Upward mining warning"],
     ["0.1.76", "Surface tip rotation"],
@@ -1042,7 +1041,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.78-falling-rock-durability",
+      "2026-06-20-0.1.79-stamp-catalog-refresh",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1163,7 +1162,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.78-falling-rock-durability",
+      "2026-06-20-0.1.79-stamp-catalog-refresh",
     );
   });
   await page.route("**/api/version", async (route) => {

@@ -1174,16 +1174,23 @@ test("mine shows the latest release note once to a fresh browser", async ({
     ["0.1.55", "Mine metal floor"],
     ["0.1.54", "Death bag recovery"],
   ] as const;
-  expect(await notes.count()).toBeGreaterThanOrEqual(recentReleaseNotes.length);
+  const renderedReleaseNotes = await notes.evaluateAll((items) =>
+    items.map((item) => ({
+      version: item.getAttribute("data-release-note"),
+      text: item.textContent ?? "",
+    })),
+  );
+  expect(renderedReleaseNotes.length).toBeGreaterThanOrEqual(
+    recentReleaseNotes.length,
+  );
   for (const [
     index,
     [noteVersion, noteTitle],
   ] of recentReleaseNotes.entries()) {
-    await expect(notes.nth(index)).toHaveAttribute(
-      "data-release-note",
-      noteVersion,
-    );
-    await expect(notes.nth(index)).toContainText(noteTitle);
+    expect(renderedReleaseNotes[index]).toMatchObject({
+      version: noteVersion,
+    });
+    expect(renderedReleaseNotes[index]?.text).toContain(noteTitle);
   }
   await dialog.getByRole("button", { name: "Got it" }).click();
   await expect(dialog).not.toBeVisible();

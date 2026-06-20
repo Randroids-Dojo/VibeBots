@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest scrap language note complete", () => {
+  it("keeps the latest scrap panel text bounds note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.112-scrap-language");
+    expect(release.noticeId).toBe("2026-06-20-0.1.113-scrap-panel-text-bounds");
     expect(latestNote).toMatchObject({
+      version: "0.1.113",
+      title: "Scrap panel text bounds",
+      intro: "Scrap mode text now stays inside the phone panel.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Scrap mode header now wraps long status chips instead of letting them spill outside the panel.",
+      "The selected scrap value stays readable on narrow phone screens.",
+      "Focused smoke coverage now checks the panel and its children stay inside horizontal bounds.",
+    ]);
+  });
+
+  it("keeps the archived scrap language note complete", () => {
+    const release = getAppRelease();
+    const scrapNote = release.notes.find((note) => note.version === "0.1.112");
+
+    expect(scrapNote).toMatchObject({
       version: "0.1.112",
       title: "Scrap language",
       intro: "Placed support removal now uses scrap wording.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(scrapNote?.changes.map((change) => change.text)).toEqual([
       "The placed-support removal button is now Scrap placed supports.",
       "The selection panel is now Scrap mode, with Scrap as the confirm action.",
       "Scrapping feedback now says Scrapped supports and keeps the same carried scrap value rules.",

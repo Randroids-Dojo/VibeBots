@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.112-scrap-language";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.113-scrap-panel-text-bounds";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.113",
+      date: "2026-06-20",
+      title: "Scrap panel text bounds",
+      intro: "Scrap mode text now stays inside the phone panel.",
+      changes: [
+        {
+          build,
+          text: "The Scrap mode header now wraps long status chips instead of letting them spill outside the panel.",
+        },
+        {
+          build,
+          text: "The selected scrap value stays readable on narrow phone screens.",
+        },
+        {
+          build,
+          text: "Focused smoke coverage now checks the panel and its children stay inside horizontal bounds.",
+        },
+      ],
+    },
     {
       version: "0.1.112",
       date: "2026-06-20",

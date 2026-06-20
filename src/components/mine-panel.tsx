@@ -532,6 +532,15 @@ const statusChipStyle: React.CSSProperties = {
   overflowWrap: "break-word",
 };
 
+const compactChipStyle: React.CSSProperties = {
+  ...chipStyle,
+  boxSizing: "border-box",
+  minWidth: 0,
+  maxWidth: "100%",
+  whiteSpace: "normal",
+  overflowWrap: "break-word",
+};
+
 const RESOURCE_FLOAT_COLORS: Record<OreId, string> = {
   coal: "#8b93a7",
   copper: "#d28445",
@@ -6158,17 +6167,29 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
+              flexWrap: "wrap",
               gap: 10,
               marginBottom: 10,
             }}
           >
-            <span style={{ ...chipStyle, color: "#8b93a7" }}>
+            <span
+              style={{
+                ...compactChipStyle,
+                flex: "1 1 132px",
+                color: "#8b93a7",
+              }}
+            >
               {visibleSupports.length === 0
                 ? "nothing to scrap"
                 : "tap supports to scrap"}
             </span>
-            <span style={{ ...chipStyle, color: "#54e0c7" }}>
+            <span
+              style={{
+                ...compactChipStyle,
+                flex: "1 1 166px",
+                color: "#54e0c7",
+              }}
+            >
               {`${selectedSupports.length} selected, scrap value: ${selectedSupportValue}`}
             </span>
           </div>

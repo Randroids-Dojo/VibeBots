@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="scrap-panel-text-bounds" data-date="2026-06-20">
+    <h3>Scrap Panel Text Bounds</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/fresh-main-1d1d7e6c</code>, created from current <code>origin/main</code> in a fresh worktree before implementation.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported mobile text overflow fix. The Scrap mode panel keeps the same player-facing copy, but its header chips now wrap so "selected, scrap value" stays inside the fixed phone-width panel. Focused smoke now runs the scrap-selection case at a narrow phone viewport and verifies the panel plus children stay within horizontal bounds. Package version moved to <code>0.1.113</code>; <code>MINE_VERSION</code> stays at <code>47</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, smoke, release, notification, package, and test files, JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>, focused Vitest for release notes, notifications, and version route (39 passed), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm lint</code>, <code>pnpm test</code> (345 passed), <code>pnpm build</code>, <code>pnpm check:purity</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3515 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|scrap selection outlines selected cells in red" --project=chromium</code> (2 passed), and critical smoke with <code>PLAYWRIGHT_PORT=3516 pnpm test:e2e:critical --project=chromium</code> (5 passed). An in-app Browser check opened local <code>/mine</code> at <code>390 x 844</code> and confirmed the <code>0.1.113</code> release dialog. Exact scrap-panel seeding in Browser was blocked by Browser URL policy, so the focused Playwright smoke is the panel visual regression gate.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as presentation-only UI containment, so no mine version, sim version, or mine surface tip change is needed. Release metadata moved because the fix is player-facing and is being pushed directly to main.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated static and in-game release notes for <code>0.1.113</code>; the existing mining HUD requirement remains covered by <code>src/components/mine-panel.tsx</code> and <code>tests/e2e/smoke.spec.ts</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="scrap-language" data-date="2026-06-20">
     <h3>Scrap Language</h3>
     <dl>

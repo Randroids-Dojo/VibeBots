@@ -114,6 +114,42 @@ async function expectMineShellViewportLocked(page: Page): Promise<void> {
     .toBe(true);
 }
 
+async function expectRegionHorizontalBounds(
+  page: Page,
+  name: string,
+): Promise<void> {
+  const region = page.getByRole("region", { name });
+  await expect
+    .poll(
+      () =>
+        region.evaluate((element) => {
+          const panel = element as HTMLElement;
+          const panelRect = panel.getBoundingClientRect();
+          const childRects = Array.from(
+            panel.querySelectorAll<HTMLElement>("*"),
+            (child) => child.getBoundingClientRect(),
+          );
+          const contentLeft = Math.min(
+            panelRect.left,
+            ...childRects.map((rect) => rect.left),
+          );
+          const contentRight = Math.max(
+            panelRect.right,
+            ...childRects.map((rect) => rect.right),
+          );
+          return (
+            panelRect.left >= 0 &&
+            panelRect.right <= window.innerWidth &&
+            contentLeft >= panelRect.left - 1 &&
+            contentRight <= panelRect.right + 1 &&
+            panel.scrollWidth <= panel.clientWidth + 1
+          );
+        }),
+      { message: `${name} should stay inside its panel` },
+    )
+    .toBe(true);
+}
+
 /** Walk the surface toward a destination building until its Enter prompt
  * appears, then tap it. Presses are paced past the glide and the loop
  * tolerates the odd dropped synthetic key (it stops on the prompt, not a
@@ -1097,6 +1133,7 @@ test("falling-rock crush stays on camera before the report", async ({
 });
 
 test("scrap selection outlines selected cells in red", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/mine/world", async (route) => {
     await route.fulfill({ status: 503, body: "{}" });
   });
@@ -1131,6 +1168,7 @@ test("scrap selection outlines selected cells in red", async ({ page }) => {
   await page.getByRole("button", { name: "Scrap placed supports" }).click();
   const salvage = page.getByRole("region", { name: "Scrap mode" });
   await expect(salvage).toBeVisible();
+  await expectRegionHorizontalBounds(page, "Scrap mode");
   const before = await canvas.screenshot();
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
@@ -1144,6 +1182,7 @@ test("scrap selection outlines selected cells in red", async ({ page }) => {
     position: { x: box.width / 2 + 54, y: box.height / 2 + 105 },
   });
   await expect(salvage).toContainText("2 selected");
+  await expectRegionHorizontalBounds(page, "Scrap mode");
 
   const after = await canvas.screenshot();
   expect(await countRedPixels(page, after)).toBeGreaterThan(
@@ -1363,14 +1402,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Placed support removal now uses scrap wording.",
+    "Scrap mode text now stays inside the phone panel.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Scrap placed supports",
+    "wraps long status chips",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("Scrap mode");
-  await expect(dialog.locator("li").nth(2)).toContainText("Scrapped supports");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "selected scrap value",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText("horizontal bounds");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1389,6 +1430,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.113", "Scrap panel text bounds"],
     ["0.1.112", "Scrap language"],
     ["0.1.111", "Hardware Store copy"],
     ["0.1.110", "Mine death report"],
@@ -1524,7 +1566,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.112-scrap-language",
+      "2026-06-20-0.1.113-scrap-panel-text-bounds",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1634,7 +1676,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.112-scrap-language",
+      "2026-06-20-0.1.113-scrap-panel-text-bounds",
     );
   });
   await page.route("**/api/version", async (route) => {

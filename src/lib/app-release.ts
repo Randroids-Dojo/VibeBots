@@ -35,7 +35,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       changes: [
         {
           build,
-          text: "Surface tips and upgrade blurbs now use shorter rule-focused text, including Recall Rope range, Warpcoil range, and Lantern zoom.",
+          text: "Surface tips and upgrade blurbs now use shorter rule-focused text for Recall Rope range, Warpcoil range, and Lantern zoom.",
         },
         {
           build,
@@ -43,7 +43,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Wrapped status chips reserve space for the Settings button and zoom controls on narrow screens.",
+          text: "Status chips now reserve room for the Settings button and zoom controls on narrow screens.",
         },
       ],
     },

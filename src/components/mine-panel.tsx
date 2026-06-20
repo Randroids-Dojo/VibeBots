@@ -4990,13 +4990,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         : cashOut.state === "error"
           ? cashOut.message
           : null;
-  const visibleCashNote = cashNoteVisible ? cashNote : null;
-  const fallbackStatusLine = visibleCashNote ?? mineSurfaceTip;
-  const fallbackStatusColor = visibleCashNote
+  const autoSellStatusLine = cashNoteVisible ? cashNote : null;
+  const surfaceInfoLine = autoSellStatusLine ?? mineSurfaceTip;
+  const surfaceInfoColor = autoSellStatusLine
     ? cashOut.state === "error"
       ? "#ff6b6b"
       : "#54e0c7"
     : "#f5c542";
+  const showSurfaceInfoLine =
+    miner.row === 0 &&
+    surfaceInfoLine !== null &&
+    (autoSellStatusLine !== null || !statusLine);
 
   const act = fireDirection;
   const unlockedDynamiteTier = dynamiteTier(mine.gear);
@@ -5651,13 +5655,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             {statusLine}
           </span>
         )}
-        {miner.row === 0 &&
-          fallbackStatusLine &&
-          (visibleCashNote || !statusLine) && (
-            <span style={{ ...statusChipStyle, color: fallbackStatusColor }}>
-              {fallbackStatusLine}
-            </span>
-          )}
+        {showSurfaceInfoLine && (
+          <span style={{ ...statusChipStyle, color: surfaceInfoColor }}>
+            {surfaceInfoLine}
+          </span>
+        )}
         {lostCargo && (
           <span
             className="mine-lost-locator"

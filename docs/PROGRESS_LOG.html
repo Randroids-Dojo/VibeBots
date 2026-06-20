@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-text-status-review-cleanup" data-date="2026-06-20">
+    <h3>Mine Text Status Review Cleanup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/review-cleanup-20260620-0116</code>, rebased over current <code>origin/main</code> after the <code>0.1.99</code> meaningful mine zoom release landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Deep review cleanup for the mine text and status layout release. The HUD code now names auto-sell status, surface info, and display gating directly instead of using generic fallback names, and the archived <code>0.1.98</code> release notes use simpler wording for status-chip wrapping. Package version stays at <code>0.1.99</code>; <code>MINE_VERSION</code> stays at <code>46</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Before rebasing over the meaningful mine zoom release, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write src/components/mine-panel.tsx src/lib/app-release.ts src/lib/app-release.test.ts docs/RELEASE_NOTES.html docs/PROGRESS_LOG.html</code>, focused app-release, notification, version, and Web Push Vitest (27 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (319 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code> and <code>package.json</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_PORT=3401</code> for latest release notes, auto-sell status wrapping, and HUD zoom controls (3 passed), and full Playwright smoke against <code>PLAYWRIGHT_PORT=3402</code> (59 passed, 2 storage-gated skipped). After rebasing over <code>0.1.99</code>, reran focused camera, release, notification, version, and Web Push Vitest (31 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (320 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_PORT=3403</code> (3 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as review cleanup for the existing text and status layout release, so no package or gameplay-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. No GDD build-log entry needed because gameplay rules and player controls did not change.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="meaningful-mine-zoom" data-date="2026-06-20">
     <h3>Meaningful Mine Zoom</h3>
     <dl>

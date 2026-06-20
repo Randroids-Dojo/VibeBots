@@ -19,7 +19,7 @@ describe("app release notes", () => {
     ]);
   });
 
-  it("keeps the latest mine text and status layout note complete", () => {
+  it("keeps the archived mine text and status layout note complete", () => {
     const release = getAppRelease();
     const statusNote = release.notes.find((note) => note.version === "0.1.98");
 
@@ -30,9 +30,9 @@ describe("app release notes", () => {
         "Mine copy is clearer, and status messages stay clear of zoom controls.",
     });
     expect(statusNote?.changes.map((change) => change.text)).toEqual([
-      "Surface tips and upgrade blurbs now use shorter rule-focused text, including Recall Rope range, Warpcoil range, and Lantern zoom.",
+      "Surface tips and upgrade blurbs now use shorter rule-focused text for Recall Rope range, Warpcoil range, and Lantern zoom.",
       "Auto-sell results now replace the surface tip while visible and wrap in the same status chip style.",
-      "Wrapped status chips reserve space for the Settings button and zoom controls on narrow screens.",
+      "Status chips now reserve room for the Settings button and zoom controls on narrow screens.",
     ]);
   });
 

@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.84" data-date="2026-06-20">
+    <h2>0.1.84</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.84</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>42</code> to <code>43</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mining upgrades now stretch across the long mine instead of topping out early.</dd>
+      <dt>Upgrade ladder</dt><dd>Pickaxe, battery, cargo, lantern, warpcoil, elevator speed, and fall harness tracks gained later levels with higher prices.</dd>
+      <dt>Gates</dt><dd>Later upgrade buys require both bunker-earned player levels and durable deepest-depth progress. The Upgrades stall shows locked rows with the missing level or depth.</dd>
+      <dt>Observability</dt><dd>The server now stores append-only per-player balance events for cash-outs, gear upgrades, consumable buys, base-part buys, elevator extensions, and raid rewards so future tuning can aggregate real progression behavior.</dd>
+      <dt>Verification</dt><dd>After rebasing onto current <code>origin/main</code>, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, release, smoke, and doc files, focused Vitest for mine sim, mine SFX, bunker sim, gear upgrade route, mine bank route, consumable buy route, bunker route, version route, Web Push, schema, player helpers, bunker server, mine pacing, and notifications (195 passed), <code>pnpm test</code> (293 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3311</code> for latest release notes and bunker level display (2 passed). Ports <code>3282</code>, <code>3294</code>, <code>3297</code>, and <code>3302</code> were occupied during verification, so the final smoke used clean port <code>3311</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.83" data-date="2026-06-20">
     <h2>0.1.83</h2>
     <dl>
@@ -624,7 +637,7 @@
       <dt>Highlights</dt><dd>Support salvage multi-select is now visually clear: selected ladder and plank cells render a bright red full-cell outline above the mine darkness layer.</dd>
       <dt>Interface</dt><dd>The whole eligible cell is now tappable in salvage mode, so selection no longer depends on hitting the thin ladder or plank mesh. The support mesh still brightens as secondary feedback.</dd>
       <dt>Rules</dt><dd>No sim, economy, inventory, or replay rule changed. This is a render and hit-target correction for the existing adjacent 3x3 support salvage rule.</dd>
-      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Final live-remote verification: <code>pnpm typecheck</code>, <code>pnpm test</code> (191 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3099</code> for support salvage red selected-cell outlines and the latest release note (2 passed).</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Final live-remote verification: <code>pnpm typecheck</code>, <code>pnpm test</code> (193 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://localhost:3099</code> for support salvage red selected-cell outlines and the latest release note (2 passed).</dd>
     </dl>
   </article>
 

@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 42;
+export const MINE_VERSION = 43;
 export const MINE_BOTTOM_ROW = 1000;
 export const BAG_STACK_LIMIT = 5;
 
@@ -226,13 +226,17 @@ export function elevatorSegmentPrice(segment: number): number {
 }
 
 /** Max robot battery charge by battery-cell level. */
-export const BATTERY_CHARGE = [60, 90, 130, 180] as const;
+export const BATTERY_CHARGE = [
+  60, 90, 130, 180, 240, 315, 405, 520, 660, 820,
+] as const;
 /** Visible rows below the miner by lantern level. */
-export const LANTERN_RADIUS = [3, 5, 7] as const;
+export const LANTERN_RADIUS = [3, 5, 7, 9, 11, 13, 15, 17] as const;
 /** Ore chunks the hold carries by cargo level (parts ride free). */
-export const CARGO_CAPACITY = [8, 14, 22, 32] as const;
+export const CARGO_CAPACITY = [
+  8, 14, 22, 32, 46, 64, 88, 118, 154, 196,
+] as const;
 /** Cells the miner can fall and survive by fall-harness level. */
-export const SAFE_FALL_ROWS = [4, 6, 9, 13, 18] as const;
+export const SAFE_FALL_ROWS = [4, 6, 9, 13, 18, 24, 31, 39] as const;
 
 export type MineGearTrack =
   | "pickaxe"
@@ -249,63 +253,88 @@ export interface GearTrackDef {
   name: string;
   /** prices[i] is the cost to go from level i+1 to level i+2. */
   prices: readonly number[];
+  /** minimum player level to buy prices[i]. */
+  levelRequirements: readonly number[];
+  /** deepest row reached to buy prices[i]. */
+  depthRequirements: readonly number[];
   /** One-line shop copy for what the next level does. */
   blurb: string;
+}
+
+export interface GearUpgradeRequirements {
+  playerLevel: number;
+  maxDepth: number;
 }
 
 export const GEAR_TRACKS: readonly GearTrackDef[] = [
   {
     track: "pickaxe",
     name: "Pickaxe",
-    prices: [45, 140, 420, 1200],
+    prices: [45, 140, 420, 1200, 3200, 8200, 19000, 42000, 90000],
+    levelRequirements: [1, 5, 12, 25, 40, 55, 70, 85, 100],
+    depthRequirements: [0, 18, 45, 90, 150, 260, 420, 620, 820],
     blurb: "cuts harder rock tiers",
   },
   {
     track: "battery",
     name: "Battery Cell",
-    prices: [35, 110, 340],
+    prices: [35, 110, 340, 950, 2400, 5600, 12500, 28000, 62000],
+    levelRequirements: [1, 4, 10, 20, 35, 50, 65, 80, 92],
+    depthRequirements: [0, 16, 45, 90, 150, 240, 380, 560, 760],
     blurb: "more robot charge per trip",
   },
   {
     track: "cargo",
     name: "Cargo Hold",
-    prices: [30, 90, 280],
+    prices: [30, 90, 280, 760, 1900, 4700, 10800, 25000, 58000],
+    levelRequirements: [1, 4, 9, 18, 32, 48, 64, 80, 96],
+    depthRequirements: [0, 14, 40, 85, 145, 230, 360, 540, 740],
     blurb: "carry more ore per trip",
   },
   {
     track: "lantern",
     name: "Lantern",
-    prices: [55, 180],
+    prices: [55, 180, 520, 1400, 3600, 9000, 22000],
+    levelRequirements: [1, 6, 14, 28, 44, 62, 80],
+    depthRequirements: [0, 20, 55, 115, 210, 360, 600],
     blurb: "see deeper ahead",
   },
   {
     track: "warpcoil",
     name: "Warpcoil",
-    prices: [180, 700, 2600],
+    prices: [180, 700, 2600, 9000, 26000, 70000],
+    levelRequirements: [8, 22, 40, 60, 80, 100],
+    depthRequirements: [50, 130, 260, 450, 650, 850],
     blurb: "longer beacon warp range",
   },
   {
     track: "blast",
     name: "Blast Charge",
     prices: [250, 800, 2500],
+    levelRequirements: [12, 35, 70],
+    depthRequirements: [60, 180, 420],
     blurb: "unlock stronger dynamite shapes",
   },
   {
     track: "elevatorSpeed",
     name: "Elevator Speed",
     prices: [100, 260, 680, 1750, 4500, 11000, 26000, 62000],
+    levelRequirements: [1, 8, 18, 32, 48, 62, 76, 90],
+    depthRequirements: [0, 30, 80, 150, 260, 400, 560, 760],
     blurb: "faster elevator rides (needs a rail)",
   },
   {
     track: "fall",
     name: "Fall Harness",
-    prices: [80, 220, 620, 1700],
+    prices: [80, 220, 620, 1700, 4300, 10500, 25000],
+    levelRequirements: [1, 8, 18, 32, 48, 64, 80],
+    depthRequirements: [0, 30, 75, 140, 230, 360, 540],
     blurb: "survive longer free falls",
   },
 ];
 
 /** Beacon warp reach in rows by warpcoil level (REQ-029). */
-export const WARP_RANGE = [60, 150, 400, 1000] as const;
+export const WARP_RANGE = [60, 150, 400, 650, 800, 925, 999] as const;
 
 export function warpRange(gear: MineGear): number {
   return WARP_RANGE[Math.min(gear.warpcoil, WARP_RANGE.length) - 1];
@@ -395,6 +424,18 @@ export function maxGearLevel(track: MineGearTrack): number {
   return gearTrackDef(track).prices.length + 1;
 }
 
+export function gearUpgradeRequirements(
+  track: MineGearTrack,
+  currentLevel: number,
+): GearUpgradeRequirements {
+  const def = gearTrackDef(track);
+  const index = Math.max(0, currentLevel - 1);
+  return {
+    playerLevel: def.levelRequirements[index] ?? 1,
+    maxDepth: def.depthRequirements[index] ?? 0,
+  };
+}
+
 /** Digging rock costs more than dirt even with the right pickaxe. */
 export const ROCK_DIG_COST = 2;
 
@@ -444,7 +485,12 @@ export function rockTierAt(row: number): number {
   if (row < 24) return 1;
   if (row < 48) return 2;
   if (row < 90) return 3;
-  return 4;
+  if (row < 140) return 4;
+  if (row < 220) return 5;
+  if (row < 340) return 6;
+  if (row < 500) return 7;
+  if (row < 720) return 8;
+  return 9;
 }
 
 export function canDigRock(gear: MineGear, tier: number): boolean {

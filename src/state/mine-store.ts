@@ -252,6 +252,10 @@ export interface MineSessionState {
   bought: MineConsumables;
   /** Wallet balance from the last server response; null = unknown. */
   balance: number | null;
+  /** Overall player level from raid defense XP; used by shop gates. */
+  playerLevel: number;
+  /** Durable deepest row reached; used by shop gates. */
+  deepestDepth: number;
   /** One-line feedback for the stall menus. */
   shopNote: string | null;
   /** Server replay-protection counter; null until the world loads. */
@@ -322,6 +326,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     consumables: NO_CONSUMABLES,
     bought: NO_CONSUMABLES,
     balance: null,
+    playerLevel: 1,
+    deepestDepth: 0,
     shopNote: null,
     tripIndex: 0,
     tripBaseDiff: [],
@@ -444,6 +450,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const consumables: MineConsumables = body.consumables ?? NO_CONSUMABLES;
         set({
           balance: typeof body.balance === "number" ? body.balance : null,
+          playerLevel:
+            typeof body.playerLevel === "number" ? body.playerLevel : 1,
+          deepestDepth:
+            typeof body.deepestDepth === "number" ? body.deepestDepth : 0,
         });
         const current = get().gear;
         const currentCons = get().consumables;
@@ -774,6 +784,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             soldHaul: body.credited.soldHaul,
           },
           balance: typeof body.balance === "number" ? body.balance : null,
+          deepestDepth:
+            typeof body.deepestDepth === "number"
+              ? body.deepestDepth
+              : get().deepestDepth,
           consumables: remaining,
           bought: NO_CONSUMABLES,
           mine: nextMine,

@@ -138,13 +138,16 @@
         "src/sim/inventory.ts",
         "src/state/workshop-store.ts",
         "src/server/part-inventory.ts",
-        "src/sim/mine.ts"
+        "src/sim/mine.ts",
+        "src/server/balance-telemetry.ts",
+        "src/server/db.ts"
       ],
       "testRefs": [
         "src/sim/inventory.test.ts",
         "src/sim/combat.test.ts",
         "src/state/workshop-store.test.ts",
         "src/sim/mine.test.ts",
+        "src/server/db.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
@@ -234,10 +237,13 @@
         "src/app/api/mine/bank/route.ts",
         "src/components/mine-panel.tsx",
         "src/state/mine-store.ts",
-        "src/server/db.ts"
+        "src/server/db.ts",
+        "src/server/balance-telemetry.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/app/api/gear/upgrade/route.test.ts",
+        "src/server/db.test.ts"
       ],
       "followupRefs": [
         "F-013"
@@ -685,10 +691,12 @@
         "src/components/mine-panel.tsx",
         "src/state/bunker-store.ts",
         "src/server/db.ts",
-        "src/server/player.ts"
+        "src/server/player.ts",
+        "src/server/balance-telemetry.ts"
       ],
       "testRefs": [
         "src/sim/bunker.test.ts",
+        "src/app/api/gear/upgrade/route.test.ts",
         "src/app/api/consumables/buy/route.test.ts",
         "src/server/player.test.ts",
         "src/server/bunker.test.ts",

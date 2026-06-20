@@ -362,18 +362,25 @@ describe("bunker vertical slice sim", () => {
     expect(overallPlayerLevel(120, 180)).toBe(2);
   });
 
-  it("caps player level at two and raises the beacon limit at level two", () => {
+  it("raises the beacon limit at level two and keeps later levels open", () => {
     expect(playerLevelProgress(0)).toMatchObject({
       level: 1,
-      cap: 2,
+      cap: 100,
       progressXp: 0,
       neededXp: 100,
       beaconLimit: 2,
     });
     expect(playerLevelProgress(100)).toMatchObject({
       level: 2,
-      cap: 2,
-      progressXp: 100,
+      cap: 100,
+      progressXp: 0,
+      neededXp: 100,
+      nextLevelXp: 200,
+      beaconLimit: 3,
+    });
+    expect(playerLevelProgress(10_000)).toMatchObject({
+      level: 100,
+      cap: 100,
       neededXp: 0,
       nextLevelXp: null,
       beaconLimit: 3,

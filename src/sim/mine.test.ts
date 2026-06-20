@@ -39,6 +39,7 @@ import {
   GAS_VENT_DRAIN,
   GEAR_TRACKS,
   gearTrackDef,
+  gearUpgradeRequirements,
   HAZARD_FREE_ROWS,
   isVisible,
   LADDER_RECOVERY_FLOOR,
@@ -144,6 +145,25 @@ describe("mine", () => {
     expect(first.ok && (first.cracked?.remaining ?? 0)).toBeLessThanOrEqual(2);
   });
 
+  it("extends tool upgrades behind level and depth gates", () => {
+    expect(maxGearLevel("pickaxe")).toBe(10);
+    expect(maxGearLevel("battery")).toBe(10);
+    expect(maxGearLevel("cargo")).toBe(10);
+    expect(gearUpgradeRequirements("pickaxe", 9)).toEqual({
+      playerLevel: 100,
+      maxDepth: 820,
+    });
+    expect(gearUpgradeRequirements("warpcoil", 6)).toEqual({
+      playerLevel: 100,
+      maxDepth: 850,
+    });
+    expect(BATTERY_CHARGE[BATTERY_CHARGE.length - 1]).toBe(820);
+    expect(cargoCapacity({ ...DEFAULT_GEAR, cargo: 10 })).toBe(196);
+    expect(lightRadius({ ...DEFAULT_GEAR, lantern: 8 })).toBe(17);
+    expect(safeFallRows({ ...DEFAULT_GEAR, fall: 8 })).toBe(39);
+    expect(warpRange({ ...DEFAULT_GEAR, warpcoil: 7 })).toBe(999);
+  });
+
   it("generates the same mine for the same seed", () => {
     const a = createMine(42);
     const b = createMine(42);
@@ -226,6 +246,15 @@ describe("mine", () => {
       ok: false,
       reason: "blocked",
     });
+  });
+
+  it("adds deeper rock tiers through the row 1000 goal", () => {
+    expect(rockTierAt(23)).toBe(1);
+    expect(rockTierAt(24)).toBe(2);
+    expect(rockTierAt(140)).toBe(5);
+    expect(rockTierAt(720)).toBe(9);
+    expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 9 }, 9)).toBe(false);
+    expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 10 }, 9)).toBe(true);
   });
 
   it("keeps ores inside their starting band and leaves trace odds deeper", () => {
@@ -957,7 +986,7 @@ describe("mine", () => {
     expect(rockTierAt(95)).toBe(4);
     expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 4 }, 4)).toBe(false);
     expect(canDigRock({ ...DEFAULT_GEAR, pickaxe: 5 }, 4)).toBe(true);
-    expect(maxGearLevel("pickaxe")).toBe(5);
+    expect(maxGearLevel("pickaxe")).toBe(10);
     // Magma vents like gas at triple burn.
     const state = createMine(263);
     setCell(state, START_COL, 1, { kind: "dirt" });
@@ -2525,14 +2554,14 @@ describe("mine", () => {
     expect(
       Object.fromEntries(GEAR_TRACKS.map((def) => [def.track, def.prices])),
     ).toEqual({
-      pickaxe: [45, 140, 420, 1200],
-      battery: [35, 110, 340],
-      cargo: [30, 90, 280],
-      lantern: [55, 180],
-      warpcoil: [180, 700, 2600],
+      pickaxe: [45, 140, 420, 1200, 3200, 8200, 19000, 42000, 90000],
+      battery: [35, 110, 340, 950, 2400, 5600, 12500, 28000, 62000],
+      cargo: [30, 90, 280, 760, 1900, 4700, 10800, 25000, 58000],
+      lantern: [55, 180, 520, 1400, 3600, 9000, 22000],
+      warpcoil: [180, 700, 2600, 9000, 26000, 70000],
       blast: [250, 800, 2500],
       elevatorSpeed: [100, 260, 680, 1750, 4500, 11000, 26000, 62000],
-      fall: [80, 220, 620, 1700],
+      fall: [80, 220, 620, 1700, 4300, 10500, 25000],
     });
   });
 

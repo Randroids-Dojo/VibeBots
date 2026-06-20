@@ -9,6 +9,10 @@ import {
   startBunkerRaid,
 } from "./bunker";
 
+vi.mock("./balance-telemetry", () => ({
+  recordBalanceEvent: vi.fn(async () => undefined),
+}));
+
 function makeBuySql({
   trackXp = 0,
   defenseXp = 0,

@@ -1,12 +1,19 @@
 import { z } from "zod";
 import { refreshPlayerAchievements } from "@/server/achievements";
+import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
 import {
   getMinePlayerProfile,
   getOrCreatePlayerId,
   mineGearLevelFromProfile,
 } from "@/server/player";
-import { gearTrackDef, type MineGearTrack, maxGearLevel } from "@/sim/mine";
+import { playerLevelProgress } from "@/sim/bunker";
+import {
+  gearTrackDef,
+  gearUpgradeRequirements,
+  type MineGearTrack,
+  maxGearLevel,
+} from "@/sim/mine";
 
 export const runtime = "nodejs";
 
@@ -54,6 +61,29 @@ export async function POST(request: Request): Promise<Response> {
   const level = profile ? mineGearLevelFromProfile(profile, track) : 1;
   if (level >= maxGearLevel(track)) {
     return Response.json({ error: "already at max level" }, { status: 422 });
+  }
+  const requirements = gearUpgradeRequirements(track, level);
+  const progress = playerLevelProgress(profile?.defense_xp ?? 0);
+  const deepestDepth = profile?.deepest_depth ?? 0;
+  if (progress.level < requirements.playerLevel) {
+    return Response.json(
+      {
+        error: `requires player level ${requirements.playerLevel}`,
+        requiredPlayerLevel: requirements.playerLevel,
+        playerLevel: progress.level,
+      },
+      { status: 423 },
+    );
+  }
+  if (deepestDepth < requirements.maxDepth) {
+    return Response.json(
+      {
+        error: `requires depth ${requirements.maxDepth}`,
+        requiredDepth: requirements.maxDepth,
+        deepestDepth,
+      },
+      { status: 423 },
+    );
   }
   const price = gearTrackDef(track).prices[level - 1];
 
@@ -127,6 +157,20 @@ export async function POST(request: Request): Promise<Response> {
     await refreshPlayerAchievements(sql, playerId);
   } catch {
     // Stamps are cosmetic and must never block a successful upgrade.
+  }
+  try {
+    await recordBalanceEvent(sql, playerId, "gear.upgrade", {
+      track,
+      fromLevel: level,
+      toLevel: rows[0].level,
+      price,
+      balanceAfter: rows[0].emeralds,
+      playerLevel: progress.level,
+      defenseXp: progress.currentXp,
+      deepestDepth,
+    });
+  } catch {
+    // Balance events support tuning, but should not fail a charged upgrade.
   }
   return Response.json({
     track,

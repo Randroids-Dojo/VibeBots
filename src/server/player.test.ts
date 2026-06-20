@@ -25,6 +25,7 @@ const profile: MinePlayerProfile = {
   emeralds: 99,
   track_xp: 20,
   defense_xp: 30,
+  deepest_depth: 40,
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
   legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",

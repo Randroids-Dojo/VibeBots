@@ -44,7 +44,7 @@ const view = {
     trackXp: 80,
     defenseXp: 20,
     overallLevel: 1,
-    levelCap: 2,
+    levelCap: 100,
     progressXp: 20,
     neededXp: 80,
     nextLevelXp: 100,

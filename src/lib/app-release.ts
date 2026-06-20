@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.83-beacon-depth-gate";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.84-upgrade-rebalance";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.84",
+      date: "2026-06-20",
+      title: "Upgrade rebalance",
+      intro: "Tool upgrades now stretch deeper into the long mine.",
+      changes: [
+        {
+          build,
+          text: "Pickaxe, battery, cargo, lantern, warpcoil, elevator speed, and fall harness tracks now have longer level ladders.",
+        },
+        {
+          build,
+          text: "Later upgrades require both bunker-earned player levels and durable deepest-depth progress before the shop will sell them.",
+        },
+        {
+          build,
+          text: "Balance events now record key per-player economy milestones for future tuning, including cash-outs, upgrades, purchases, elevator extensions, and raid rewards.",
+        },
+      ],
+    },
     {
       version: "0.1.83",
       date: "2026-06-20",

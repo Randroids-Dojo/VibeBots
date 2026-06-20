@@ -31,6 +31,7 @@ import {
   type WorldDiff,
 } from "@/sim/mine";
 import { applyAchievementProgress } from "./achievements";
+import { recordBalanceEvent } from "./balance-telemetry";
 import type { db } from "./db";
 
 type Sql = Awaited<ReturnType<typeof db>>;
@@ -320,6 +321,20 @@ export async function buyBasePart(
     VALUES (${playerId}, ${partId}, ${count})
     ON CONFLICT (player_id, part_id)
     DO UPDATE SET count = player_base_parts.count + ${count}`;
+  try {
+    await recordBalanceEvent(sql, playerId, "base_part.purchase", {
+      partId,
+      quantity: count,
+      unitPrice: BASE_PART_CATALOG[partId].price,
+      price,
+      playerLevel: view.player.overallLevel,
+      defenseXp: view.player.defenseXp,
+      deployedCount,
+      inventoryAllowance,
+    });
+  } catch {
+    // Balance events support tuning, but should not fail a charged purchase.
+  }
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
@@ -540,6 +555,26 @@ export async function finishBunkerRaid(
     }
   }
   const afterProgress = playerLevelProgress(defenseXpAfter);
+  if (raid.survived) {
+    try {
+      await recordBalanceEvent(sql, playerId, "bunker.raid_reward", {
+        raidId: row.raid_id,
+        tier: raid.tier,
+        survived: raid.survived,
+        vibesGained: raid.reward.vibes,
+        defenseXpGained: raid.reward.defenseXp,
+        defenseXpBefore: before.defense_xp,
+        defenseXpAfter,
+        levelBefore: beforeProgress.level,
+        levelAfter: afterProgress.level,
+        clankers: raid.clankers.length,
+        incomingDamage: raid.incomingDamage,
+        breached: raid.breached,
+      });
+    } catch {
+      // Balance events support tuning, but should not fail a raid reward.
+    }
+  }
   return {
     ok: true,
     view: await loadBunkerView(sql, playerId),

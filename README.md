@@ -96,6 +96,12 @@ version, mine version, user agent, and active player id. Use this table to
 triage low-frame or glitch reports from old laptops and compare them by
 renderer, DPR, viewport, and p95 frame time.
 
+Balance tuning events are stored in `player_balance_events`. Each row belongs
+to one player and records app version, mine version, event name, and compact
+JSON properties. Use this append-only stream to tune progression by aggregating
+events such as `mine.cash_out`, `gear.upgrade`, `consumable.purchase`,
+`base_part.purchase`, `elevator.upgrade`, and `bunker.raid_reward`.
+
 For a known affected long-running player whose client support snapshot drifted,
 repair stored support stock explicitly instead of adding runtime replay
 exceptions:

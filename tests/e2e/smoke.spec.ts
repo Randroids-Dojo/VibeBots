@@ -403,10 +403,10 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
       trackXp: 40,
       defenseXp: 120,
       overallLevel: 2,
-      levelCap: 2,
-      progressXp: 100,
-      neededXp: 0,
-      nextLevelXp: null,
+      levelCap: 100,
+      progressXp: 20,
+      neededXp: 80,
+      nextLevelXp: 200,
       beaconLimit: 3,
     },
   };
@@ -480,7 +480,7 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   const builder = page.getByRole("region", { name: "Bunker builder" });
   await expect(builder).toBeVisible();
   await expect(builder.getByLabel("Player level progress")).toContainText(
-    "Player level 2/2",
+    "Player level 2/100",
   );
   await expect(builder.getByLabel("Player level progress")).toContainText(
     "Beacon cap 3",
@@ -516,7 +516,7 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
           trackXp: 0,
           defenseXp: 0,
           overallLevel: 1,
-          levelCap: 2,
+          levelCap: 100,
           progressXp: 0,
           neededXp: 100,
           nextLevelXp: 100,
@@ -1084,14 +1084,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Warp Beacons now respect your current Warpcoil range.",
+    "Tool upgrades now stretch deeper into the long mine.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "current Warpcoil range",
+    "longer level ladders",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("icon stays visible");
-  await expect(dialog.locator("li").nth(2)).toContainText("surface tip");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "bunker-earned player levels",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText("Balance events");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1110,6 +1112,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.84", "Upgrade rebalance"],
     ["0.1.83", "Beacon depth gate"],
     ["0.1.82", "Pickaxe gate hints"],
     ["0.1.81", "Bunker claim clarity"],
@@ -1172,7 +1175,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.83-beacon-depth-gate",
+      "2026-06-20-0.1.84-upgrade-rebalance",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1293,7 +1296,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.83-beacon-depth-gate",
+      "2026-06-20-0.1.84-upgrade-rebalance",
     );
   });
   await page.route("**/api/version", async (route) => {

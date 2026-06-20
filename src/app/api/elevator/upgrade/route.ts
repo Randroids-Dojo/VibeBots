@@ -1,6 +1,8 @@
 import { refreshPlayerAchievements } from "@/server/achievements";
+import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
 import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
+import { playerLevelProgress } from "@/sim/bunker";
 import {
   ELEVATOR_SEGMENT_ROWS,
   elevatorSegmentPrice,
@@ -68,6 +70,21 @@ export async function POST(): Promise<Response> {
     await refreshPlayerAchievements(sql, playerId);
   } catch {
     // Stamps are cosmetic and must never block a successful rail buy.
+  }
+  try {
+    await recordBalanceEvent(sql, playerId, "elevator.upgrade", {
+      fromDepth: depth,
+      toDepth: updated[0].elevator_depth,
+      segment,
+      price,
+      refundedLadders,
+      refundedPlanks,
+      balanceAfter: updated[0].emeralds,
+      playerLevel: playerLevelProgress(profile?.defense_xp ?? 0).level,
+      deepestDepth: profile?.deepest_depth ?? 0,
+    });
+  } catch {
+    // Balance events support tuning, but should not fail a charged rail buy.
   }
   return Response.json({
     elevator: updated[0].elevator_depth,

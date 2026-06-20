@@ -30,4 +30,15 @@ describe("compatibility migration markers", () => {
     expect(source).toContain("p95_frame_ms real NOT NULL");
     expect(source).toContain("player_performance_samples_p95_idx");
   });
+
+  it("creates the player balance event table", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+
+    expect(source).toContain(
+      "CREATE TABLE IF NOT EXISTS player_balance_events",
+    );
+    expect(source).toContain("event text NOT NULL");
+    expect(source).toContain("properties jsonb NOT NULL");
+    expect(source).toContain("player_balance_events_player_created_at_idx");
+  });
 });

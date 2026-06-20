@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { applyAchievementProgress } from "@/server/achievements";
+import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
 import { logMineCashOutEvent } from "@/server/monitoring";
 import {
@@ -569,6 +570,36 @@ export async function POST(request: Request): Promise<Response> {
     remaining: remainingConsumables,
     worldTripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
   });
+  try {
+    await recordBalanceEvent(sql, playerId, "mine.cash_out", {
+      seed: parsed.data.seed,
+      tripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
+      moves: trip.moves,
+      maxDepth: trip.maxDepth,
+      bankedVibes: trip.bankedCredits,
+      partsBanked: trip.bankedParts.length,
+      salvageVibes: trip.soldHaul?.salvageCredits ?? 0,
+      soldVibes: trip.soldHaul?.totalVibes ?? trip.bankedCredits,
+      balanceAfter: rows[0].emeralds ?? 0,
+      deepestDepthAfter: rows[0].deepest_depth ?? trip.maxDepth,
+      dynamiteUsed: trip.used.dynamite,
+      ropeUsed: trip.used.rope,
+      ladderUsed: trip.used.ladder,
+      plankUsed: trip.used.plank,
+      beaconUsed: trip.used.beacon,
+      pickaxeLevel: parsed.data.gear.pickaxe,
+      batteryLevel: parsed.data.gear.battery,
+      cargoLevel: parsed.data.gear.cargo,
+      lanternLevel: parsed.data.gear.lantern,
+      warpcoilLevel: parsed.data.gear.warpcoil,
+      blastLevel: parsed.data.gear.blast ?? 1,
+      elevatorSpeedLevel: parsed.data.gear.elevatorSpeed ?? 1,
+      fallLevel: parsed.data.gear.fall ?? 1,
+      elevatorDepth: parsed.data.gear.elevator,
+    });
+  } catch {
+    // Balance events support tuning, but should not fail a completed cash-out.
+  }
   return Response.json({
     credited: {
       credits: trip.bankedCredits,

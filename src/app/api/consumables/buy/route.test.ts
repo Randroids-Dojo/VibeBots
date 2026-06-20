@@ -13,6 +13,10 @@ vi.mock("@/server/achievements", () => ({
   applyAchievementProgress: vi.fn(async () => {}),
 }));
 
+vi.mock("@/server/balance-telemetry", () => ({
+  recordBalanceEvent: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/server/player", () => ({
   getMinePlayerProfile: vi.fn(),
   getOrCreatePlayerId: vi.fn(async () => "player-1"),

@@ -65,6 +65,7 @@ import {
   findBeacons,
   findPortalBeacons,
   GEAR_TRACKS,
+  gearUpgradeRequirements,
   MAX_BEACONS,
   MINE_VERSION,
   type MineAction,
@@ -217,10 +218,11 @@ const MINE_SURFACE_TIPS = [
   "Tip: the Hardware Store sells level 1 bunker parts for your base.",
   "Tip: Blast Charge unlocks stronger dynamite tiers at the Upgrades stall.",
   "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
-  "Tip: survived bunker defenses add XP toward Level 2 and a third beacon slot.",
+  "Tip: survived bunker defenses raise player level, and later tool upgrades need that level.",
   "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
   "Tip: plant Warp Beacons only inside your current Warpcoil range.",
   "Tip: row 1,000 takes rail, Warpcoil, cargo, and battery upgrades together.",
+  "Tip: late upgrades need both max depth records and bunker-earned player levels.",
   "Tip: surface beacons in distant biomes unlock free portals back to base.",
   "Tip: the Stamp Book now tracks biome portals and bag-drop planning.",
 ] as const;
@@ -2890,6 +2892,8 @@ function StallMenu({
   mine,
   gear,
   balance,
+  playerLevel,
+  deepestDepth,
   beaconLimit,
   shopNote,
   cashOutPending,
@@ -2904,6 +2908,8 @@ function StallMenu({
   mine: MineState;
   gear: MineGear;
   balance: number | null;
+  playerLevel: number;
+  deepestDepth: number;
   beaconLimit: number;
   shopNote: string | null;
   cashOutPending: boolean;
@@ -3138,22 +3144,36 @@ function StallMenu({
             const level = gear[def.track] ?? 1;
             const maxed = level >= maxGearLevel(def.track);
             const price = maxed ? null : def.prices[level - 1];
+            const requirements = gearUpgradeRequirements(def.track, level);
+            const levelLocked = playerLevel < requirements.playerLevel;
+            const depthLocked = deepestDepth < requirements.maxDepth;
+            const locked = levelLocked || depthLocked;
             const affordable =
               price !== null &&
               upgradeFunds !== null &&
               upgradeFunds >= price &&
-              !cashOutPending;
+              !cashOutPending &&
+              !locked;
+            const lockLabel = levelLocked
+              ? `level ${requirements.playerLevel}`
+              : depthLocked
+                ? `depth ${requirements.maxDepth}`
+                : null;
             return (
               <SheetRow
                 key={def.track}
                 icon={ITEM_ICONS[def.track] ?? "\u{2699}\u{FE0F}"}
                 name={def.name}
-                sub={def.blurb}
+                sub={lockLabel ? `${def.blurb}; needs ${lockLabel}` : def.blurb}
                 badge={def.track === "blast" ? `tier ${level}` : `lv ${level}`}
                 action={
                   maxed ? (
                     <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>
                       max
+                    </span>
+                  ) : locked ? (
+                    <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>
+                      locked
                     </span>
                   ) : (
                     <button
@@ -3819,6 +3839,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const deleteSaveSlot = useMineStore((s) => s.deleteSaveSlot);
   const saveCurrentTrip = useMineStore((s) => s.saveCurrentTrip);
   const balance = useMineStore((s) => s.balance);
+  const playerLevel = useMineStore((s) => s.playerLevel);
+  const deepestDepth = useMineStore((s) => s.deepestDepth);
   const shopNote = useMineStore((s) => s.shopNote);
   const buyConsumable = useMineStore((s) => s.buyConsumable);
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
@@ -5022,6 +5044,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           mine={mine}
           gear={gear}
           balance={balance}
+          playerLevel={bunkerPlayer?.overallLevel ?? playerLevel}
+          deepestDepth={deepestDepth}
           beaconLimit={bunkerPlayer?.beaconLimit ?? MAX_BEACONS}
           shopNote={shopNote}
           cashOutPending={cashOut.state === "pending"}

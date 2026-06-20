@@ -246,6 +246,22 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     CREATE INDEX IF NOT EXISTS player_performance_samples_p95_idx
     ON player_performance_samples (p95_frame_ms DESC, created_at DESC)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS player_balance_events (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      event text NOT NULL,
+      app_version text NOT NULL,
+      mine_version integer,
+      properties jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS player_balance_events_player_created_at_idx
+    ON player_balance_events (player_id, created_at DESC)`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS player_balance_events_event_created_at_idx
+    ON player_balance_events (event, created_at DESC)`;
 }
 
 /** The shared SQL client, with the schema guaranteed applied. */

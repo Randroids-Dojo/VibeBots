@@ -20,11 +20,11 @@ describe("mine pacing", () => {
   it("ramps down as core mining gear improves", () => {
     const maxed = {
       ...DEFAULT_GEAR,
-      pickaxe: 5,
-      battery: 4,
-      cargo: 4,
-      lantern: 3,
-      fall: 5,
+      pickaxe: 10,
+      battery: 10,
+      cargo: 10,
+      lantern: 8,
+      fall: 8,
     };
     expect(actionRepeatMs(maxed)).toBe(MAXED_ACTION_REPEAT_MS);
     expect(minerStepSeconds(maxed)).toBe(MAXED_MINER_STEP_SECONDS);

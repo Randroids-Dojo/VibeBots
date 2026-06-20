@@ -26,6 +26,10 @@ vi.mock("@/server/achievements", () => ({
   applyAchievementProgress: vi.fn(async () => {}),
 }));
 
+vi.mock("@/server/balance-telemetry", () => ({
+  recordBalanceEvent: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/server/player", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/player")>();
   return {
@@ -60,6 +64,7 @@ const ownedBase = {
   emeralds: 0,
   track_xp: 0,
   defense_xp: 0,
+  deepest_depth: 0,
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
   legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",

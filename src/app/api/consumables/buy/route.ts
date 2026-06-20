@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { applyAchievementProgress } from "@/server/achievements";
+import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
 import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
 import { playerLevelProgress } from "@/sim/bunker";
@@ -130,6 +131,20 @@ export async function POST(request: Request): Promise<Response> {
     await applyAchievementProgress(sql, playerId, { depotPurchases: quantity });
   } catch {
     // Stamps are cosmetic and must never block a successful depot purchase.
+  }
+  try {
+    await recordBalanceEvent(sql, playerId, "consumable.purchase", {
+      item,
+      quantity,
+      unitPrice: CONSUMABLE_PRICES[item],
+      price,
+      countAfter: rows[0].count,
+      balanceAfter: rows[0].emeralds,
+      playerLevel: playerLevelProgress(profile?.defense_xp ?? 0).level,
+      deepestDepth: profile?.deepest_depth ?? 0,
+    });
+  } catch {
+    // Balance events support tuning, but should not fail a charged purchase.
   }
   return Response.json({
     item,

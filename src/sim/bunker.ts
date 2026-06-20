@@ -135,6 +135,21 @@ export interface BunkerState {
   parts: PlacedBasePart[];
 }
 
+export interface PendingBunkerBuild {
+  claimCol: number;
+  claimRow: number;
+  claimedAtMoveCount: number;
+  bunker: BunkerState;
+  inventory: BasePartInventory;
+}
+
+export interface PendingBunkerClaimPayload {
+  claimCol: number;
+  claimRow: number;
+  claimedAtMoveCount: number;
+  parts: PlacedBasePart[];
+}
+
 export interface ClankerState {
   id: string;
   col: number;

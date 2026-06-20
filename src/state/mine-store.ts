@@ -1,8 +1,21 @@
 import { create } from "zustand";
 import {
+  type BasePartId,
+  bunkerCells,
+  createBunker,
+  moveBasePart,
+  type PendingBunkerBuild,
+  type PendingBunkerClaimPayload,
+  placeBasePart,
+  proposedBunkerFootprint,
+  removeBasePart,
+  STARTER_BASE_PART_INVENTORY,
+} from "@/sim/bunker";
+import {
   addConsumables,
   applyAction,
   carryoverConsumables,
+  cellAt,
   createMine,
   DEFAULT_GEAR,
   exportDiff,
@@ -68,6 +81,7 @@ interface SavedTrip {
   consumables: MineConsumables;
   baseDiff: WorldDiff;
   moves: MineAction[];
+  pendingBunker?: PendingBunkerBuild | null;
 }
 
 function validSaveSlot(value: unknown): SaveSlotId | null {
@@ -239,6 +253,7 @@ export type CashOutState =
       milestoneBonus: number;
       balance: number;
       soldHaul?: SoldHaul;
+      bunkerClaimed?: boolean;
     }
   | { state: "unavailable" }
   | { state: "error"; message: string };
@@ -263,6 +278,7 @@ export interface MineSessionState {
   /** The world checkpoint this trip started from (the replay base). */
   tripBaseDiff: WorldDiff;
   moves: MineAction[];
+  pendingBunker: PendingBunkerBuild | null;
   tick: number;
   lastResult: MoveResult | null;
   lastAction: MineAction | null;
@@ -280,6 +296,19 @@ export interface MineSessionState {
   ) => Promise<boolean>;
   deleteSaveSlot: (slot: SaveSlotId) => Promise<boolean>;
   saveCurrentTrip: () => void;
+  claimPendingBunker: (col: number, row: number) => boolean;
+  placePendingBunkerPart: (
+    partId: BasePartId,
+    col: number,
+    row: number,
+  ) => boolean;
+  removePendingBunkerPart: (col: number, row: number) => boolean;
+  movePendingBunkerPart: (
+    fromCol: number,
+    fromRow: number,
+    toCol: number,
+    toRow: number,
+  ) => boolean;
   submitCashOut: () => Promise<boolean>;
   buyConsumable: (
     item: keyof MineConsumables,
@@ -302,6 +331,18 @@ function surfaceOnlyLog(moves: MineAction[]): boolean {
   );
 }
 
+function pendingBunkerPayload(
+  pending: PendingBunkerBuild | null,
+): PendingBunkerClaimPayload | undefined {
+  if (!pending) return undefined;
+  return {
+    claimCol: pending.claimCol,
+    claimRow: pending.claimRow,
+    claimedAtMoveCount: pending.claimedAtMoveCount,
+    parts: pending.bunker.parts,
+  };
+}
+
 export const useMineStore = create<MineSessionState>((set, get) => {
   const seed = randomSeed();
   const initialSlots: SaveSlotsState = {
@@ -320,6 +361,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       consumables: st.consumables,
       baseDiff: st.tripBaseDiff,
       moves: [...st.moves],
+      pendingBunker: st.pendingBunker,
     });
   };
   return {
@@ -335,6 +377,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     tripIndex: 0,
     tripBaseDiff: [],
     moves: [],
+    pendingBunker: null,
     tick: 0,
     lastResult: null,
     lastAction: null,
@@ -395,6 +438,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             consumables: saved.consumables,
             mine: resumed,
             moves: [...saved.moves],
+            pendingBunker: saved.pendingBunker ?? null,
             tick: saved.moves.length,
             lastResult: null,
           });
@@ -409,6 +453,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           tripBaseDiff: baseDiff,
           mine: createMine(seed, gear, consumables, baseDiff),
           moves: [],
+          pendingBunker: null,
           tick: 0,
           lastResult: null,
         });
@@ -495,6 +540,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           tripBaseDiff: baseDiff,
           mine: createMine(worldSeed, gear, consumables, baseDiff),
           moves: [],
+          pendingBunker: null,
           tick: 0,
           lastResult: null,
         });
@@ -705,9 +751,109 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       }
     },
 
+    claimPendingBunker: (col, row) => {
+      const { cashOut, mine, moves, pendingBunker } = get();
+      if (cashOut.state === "pending" || pendingBunker || mine.miner.row <= 0) {
+        return false;
+      }
+      const footprint = proposedBunkerFootprint(col, row);
+      if (footprint.row < 1) return false;
+      if (
+        bunkerCells(footprint).some((cell) => {
+          return cellAt(mine, cell.col, cell.row)?.kind !== "empty";
+        })
+      ) {
+        return false;
+      }
+      const bunker = createBunker(footprint);
+      set({
+        pendingBunker: {
+          claimCol: col,
+          claimRow: row,
+          claimedAtMoveCount: moves.length,
+          bunker,
+          inventory: { ...STARTER_BASE_PART_INVENTORY },
+        },
+        shopNote: "bunker claimed; bank at surface to save it",
+      });
+      persistCurrentTrip();
+      return true;
+    },
+
+    placePendingBunkerPart: (partId, col, row) => {
+      const pending = get().pendingBunker;
+      if (!pending || get().cashOut.state === "pending") return false;
+      const placed = placeBasePart(
+        pending.bunker,
+        pending.inventory,
+        partId,
+        col,
+        row,
+      );
+      if (!placed.ok) return false;
+      set({
+        pendingBunker: {
+          ...pending,
+          bunker: placed.bunker,
+          inventory: placed.inventory,
+        },
+      });
+      persistCurrentTrip();
+      return true;
+    },
+
+    removePendingBunkerPart: (col, row) => {
+      const pending = get().pendingBunker;
+      if (!pending || get().cashOut.state === "pending") return false;
+      const removed = removeBasePart(
+        pending.bunker,
+        pending.inventory,
+        col,
+        row,
+      );
+      if (!removed.ok) return false;
+      set({
+        pendingBunker: {
+          ...pending,
+          bunker: removed.bunker,
+          inventory: removed.inventory,
+        },
+      });
+      persistCurrentTrip();
+      return true;
+    },
+
+    movePendingBunkerPart: (fromCol, fromRow, toCol, toRow) => {
+      const pending = get().pendingBunker;
+      if (!pending || get().cashOut.state === "pending") return false;
+      const moved = moveBasePart(
+        pending.bunker,
+        fromCol,
+        fromRow,
+        toCol,
+        toRow,
+      );
+      if (!moved.ok) return false;
+      set({
+        pendingBunker: {
+          ...pending,
+          bunker: moved.bunker,
+        },
+      });
+      persistCurrentTrip();
+      return true;
+    },
+
     submitCashOut: async () => {
       persistCurrentTrip();
-      const { seed: currentSeed, moves, mine, consumables, tripIndex } = get();
+      const {
+        seed: currentSeed,
+        moves,
+        mine,
+        consumables,
+        tripIndex,
+        pendingBunker,
+      } = get();
       set({ cashOut: { state: "pending" } });
       try {
         const res = await fetch("/api/mine/bank", {
@@ -722,6 +868,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             // bought mid-trip applies to the next trip, not this log.
             gear: mine.gear,
             consumables,
+            pendingBunker: pendingBunkerPayload(pendingBunker),
           }),
         });
         if (res.status === 503) {
@@ -778,6 +925,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           consumables: remaining,
           baseDiff: worldDiff,
           moves: walk,
+          pendingBunker: null,
         });
         set({
           tripBaseDiff: worldDiff,
@@ -788,6 +936,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             milestoneBonus: body.credited.milestoneBonus ?? 0,
             balance: body.balance,
             soldHaul: body.credited.soldHaul,
+            ...(body.bunkerClaimed === true ? { bunkerClaimed: true } : {}),
           },
           balance: typeof body.balance === "number" ? body.balance : null,
           deepestDepth:
@@ -799,6 +948,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           mine: nextMine,
           tripIndex: nextTripIndex,
           moves: walk,
+          pendingBunker: null,
           tick: 0,
           lastResult: null,
         });
@@ -906,6 +1056,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           consumables: owned,
           baseDiff,
           moves,
+          pendingBunker: get().pendingBunker,
         });
         set({
           gear: nextGear,
@@ -980,6 +1131,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             consumables: owned,
             baseDiff: nextBaseDiff,
             moves,
+            pendingBunker: get().pendingBunker,
           });
           set({
             gear: nextGear,
@@ -1059,10 +1211,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           consumables,
           baseDiff: tripBaseDiff,
           moves: [],
+          pendingBunker: null,
         });
         set({
           mine: rebuilt,
           moves: [],
+          pendingBunker: null,
           balance: typeof body.balance === "number" ? body.balance : null,
           shopNote: `teleported to base for ${price} vibes`,
           tick: tick + 1,
@@ -1092,6 +1246,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         consumables: owned,
         baseDiff: diff,
         moves: [],
+        pendingBunker: null,
       });
       set({
         worldLoaded: true,
@@ -1101,6 +1256,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         consumables: owned,
         bought: NO_CONSUMABLES,
         moves: [],
+        pendingBunker: null,
         tick: 0,
         lastResult: null,
         cashOut: { state: "idle" },

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.119-jump-button-placement",
+      releaseNoticeId: "2026-06-20-0.1.120-underground-bunker-claims",
       releaseSummary:
-        "Jump button placement: Jump now sits on the middle right and leaves movement clear.",
+        "Underground bunker claims: Clear rooms can become bunkers before surfacing.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.119-jump-button-placement",
+      releaseNoticeId: "2026-06-20-0.1.120-underground-bunker-claims",
       attempted: 2,
       sent: 1,
       expired: 1,

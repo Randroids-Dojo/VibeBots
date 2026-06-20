@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="underground-bunker-claims" data-date="2026-06-20">
+    <h3>Underground Bunker Claims</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260620-165402-cad53433</code>, created as a fresh worktree from current <code>origin/main</code> and rebased before implementation.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed bunker builder UX slice. The bunker claim panel now checks the live local mine cells instead of requiring the cleared footprint to be banked first. Claiming creates a pending bunker with starter inventory, keeps raids disabled until the claim is banked, and sends the pending claim with cash-out so the server replays the mine at the claim move and saves the bunker with the cleared cells in one transaction. The builder UI is now compact and moved away from the lower cell area, with distinct Place, Remove, and Move modes. Canvas cell targeting places and removes parts anywhere inside the claimed space, and Move mode restores placed-part dragging. Package version moved to <code>0.1.120</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched files, focused Vitest for mine store, bank route, release notes, notifications, version route, and Web Push (87 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3534 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|bunker claim mode highlights|bunker claims can be edited before banking" --project=chromium</code> (3 passed, including mode selection, canvas placement, and drag movement), <code>pnpm test</code> (364 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, and <code>pnpm check:dashes</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: pending bunker claims can be edited immediately, but raids wait until the claim is saved at surface cash-out. Recommended default: this changes cash-out validation and local session state only, so no mine-version or sim-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>REQ-034 and REQ-035 remain partial with new implementation and test references in <code>docs/GDD_COVERAGE.json</code>. Appended a build-log entry to <code>docs/gdd/08-base-building.html</code>, updated static and in-game release notes, and added focused smoke coverage for pending bunker editing, canvas placement, and drag movement.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="jump-button-placement" data-date="2026-06-20">
     <h3>Jump Button Placement</h3>
     <dl>

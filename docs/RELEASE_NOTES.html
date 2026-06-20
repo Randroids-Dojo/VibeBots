@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.120" data-date="2026-06-20">
+    <h2>0.1.120</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.120</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Clear rooms can become bunkers before surfacing.</dd>
+      <dt>Bunker builder</dt><dd>The bunker builder now checks live underground cells, so a cleared room can be claimed immediately. The compact builder uses distinct Place, Remove, and Move modes, targets canvas cells across the claimed space, and restores drag movement for placed parts.</dd>
+      <dt>Banking</dt><dd>Cash-out replays the mine at the claimed move, saves the bunker and cleared cells together, and unlocks raids after the claim is banked.</dd>
+      <dt>Verification</dt><dd>Focused store coverage checks local claims, blocked footprints, pending part edits, successful cash-out persistence, and failed cash-out recovery. Focused route coverage checks server replay validation, rejected blocked claims, stock enforcement, duplicate-claim rejection, and persistence SQL. Focused smoke coverage checks the release note, blocked claim cells, mode selection, canvas placement, and drag movement. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.119" data-date="2026-06-20">
     <h2>0.1.119</h2>
     <dl>

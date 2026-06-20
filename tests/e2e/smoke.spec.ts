@@ -530,6 +530,22 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   expect(energy).toBeGreaterThanOrEqual(58.5);
   // The climb estimate prices ladders as well as energy (REQ-020).
   await expect(status).toHaveAttribute("data-climb-ladders", "1");
+  const jumpJets = page.getByRole("button", { name: "Jump jets" });
+  await expect(jumpJets).toBeVisible();
+  await expect(jumpJets).toBeEnabled();
+  const settingsButton = page.getByRole("button", { name: "Open settings" });
+  await settingsButton.focus();
+  await page.keyboard.press("Space");
+  const settingsPanel = page.getByRole("region", { name: "Settings" });
+  await expect(settingsPanel).toBeVisible();
+  await expect(status).toHaveAttribute("data-depth", "1");
+  await settingsButton.click();
+  await expect(settingsPanel).not.toBeVisible();
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  });
 
   // Climbing out consumes a provisioned ladder (REQ-020).
   // digTo returns as soon as depth updates, so wait through the level 1
@@ -574,6 +590,10 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(placePlankRight).toBeVisible();
   await expect(placePlankLeft).toBeDisabled();
   await expect(placePlankRight).toBeDisabled();
+  const jumpBox = await jumpJets.boundingBox();
+  const plankBox = await placePlankLeft.boundingBox();
+  expect(jumpBox?.width).toBeGreaterThan(plankBox?.width ?? 0);
+  expect(jumpBox?.height).toBeGreaterThan(plankBox?.height ?? 0);
   await expect(
     page.getByRole("button", { name: "Scrap placed supports" }),
   ).toBeVisible();
@@ -1402,16 +1422,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Release notes now match the clean shop layout.",
+    "A free hop now clears one-cell ledges without spending ladders.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "without repeating the rejected framing",
+    "Jump Jets lift the miner up one empty cell",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "shop button feedback",
+    "The new Jump button is larger",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("cleaner wording");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "Ladders still build reusable shafts",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1430,6 +1452,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.117", "Jump Jets"],
     ["0.1.116", "Shop release copy"],
     ["0.1.115", "Clean shop layout"],
     ["0.1.114", "Shop button feedback"],

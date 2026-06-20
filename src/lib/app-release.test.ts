@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest shop release copy note complete", () => {
+  it("keeps the latest jump jets note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.116-shop-release-copy");
+    expect(release.noticeId).toBe("2026-06-20-0.1.117-jump-jets");
     expect(latestNote).toMatchObject({
+      version: "0.1.117",
+      title: "Jump Jets",
+      intro: "A free hop now clears one-cell ledges without spending ladders.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Jump Jets lift the miner up one empty cell as a logged battery action without placing a ladder.",
+      "The new Jump button is larger than the support and consumable controls, sits in the bottom traversal cluster, and shares the Space shortcut.",
+      "Ladders still build reusable shafts, while Jump Jets only hold the miner until the next action.",
+    ]);
+  });
+
+  it("keeps the archived shop release copy note complete", () => {
+    const release = getAppRelease();
+    const releaseCopyNote = release.notes.find(
+      (note) => note.version === "0.1.116",
+    );
+
+    expect(releaseCopyNote).toMatchObject({
       version: "0.1.116",
       title: "Shop release copy",
       intro: "Release notes now match the clean shop layout.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(releaseCopyNote?.changes.map((change) => change.text)).toEqual([
       "The latest shop note now describes the simpler rows without repeating the rejected framing.",
       "The 0.1.114 archive is kept as shop button feedback and points to the 0.1.115 cleanup.",
       "Release tests and smoke coverage now check the cleaner wording.",

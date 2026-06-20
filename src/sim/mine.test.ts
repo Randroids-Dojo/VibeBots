@@ -8,6 +8,7 @@ import {
   biomeAt,
   blastRadius,
   canDigRock,
+  canJump,
   canPlacePlank,
   cargoCapacity,
   carriedCount,
@@ -2263,6 +2264,114 @@ describe("mine", () => {
     expect(step(state, "up")).toEqual({ ok: false, reason: "no-ladder" });
     // Still standing where the refusal happened, battery untouched by it.
     expect(state.miner.row).toBe(1);
+  });
+
+  it("jump jets lift one empty row without placing a ladder", () => {
+    const state = createMine(2026062001, DEFAULT_GEAR, stock({ ladder: 0 }));
+    const c = START_COL;
+    state.miner.row = 2;
+    state.miner.col = c;
+    setCell(state, c, 1, { kind: "empty" });
+    setCell(state, c, 2, { kind: "empty" });
+    setCell(state, c, 3, { kind: "dirt" });
+    setCell(state, c + 1, 1, { kind: "empty" });
+    setCell(state, c + 1, 2, { kind: "empty" });
+    setCell(state, c + 1, 3, { kind: "dirt" });
+
+    expect(canJump(state)).toBe(true);
+    const jumped = applyAction(state, "jump");
+
+    expect(jumped.ok && jumped.jumped).toEqual({ col: c, row: 1 });
+    expect(state.miner.row).toBe(1);
+    expect(state.jumpHover).toBe(true);
+    expect(state.consumables.ladder).toBe(0);
+    expect(state.used.ladder).toBe(0);
+    expect(cellAt(state, c, 2)?.ladder).toBeUndefined();
+    expect(state.miner.energy).toBeCloseTo(START_ENERGY - MOVE_COST, 5);
+    expect(returnLadderNeed(state)).toBe(1);
+
+    const drift = applyAction(state, "right");
+
+    expect(drift.ok && drift.fell).toBe(1);
+    expect(state.jumpHover).toBe(false);
+    expect(state.miner.col).toBe(c + 1);
+    expect(state.miner.row).toBe(2);
+  });
+
+  it("jump jets cannot chain upward", () => {
+    const state = createMine(2026062002);
+    const c = START_COL;
+    state.miner.row = 2;
+    setCell(state, c, 1, { kind: "empty" });
+    setCell(state, c, 2, { kind: "empty" });
+    setCell(state, c, 3, { kind: "dirt" });
+
+    expect(applyAction(state, "jump").ok).toBe(true);
+    expect(applyAction(state, "jump")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(state.miner.row).toBe(1);
+    expect(state.jumpHover).toBe(true);
+  });
+
+  it("jump jets stay in hover through blocked moves", () => {
+    const state = createMine(2026062004, DEFAULT_GEAR, stock({ ladder: 0 }));
+    const c = START_COL;
+    state.miner.row = 2;
+    setCell(state, c, 0, { kind: "empty" });
+    setCell(state, c, 1, { kind: "empty" });
+    setCell(state, c, 2, { kind: "empty" });
+    setCell(state, c, 3, { kind: "dirt" });
+    setCell(state, c + 1, 1, { kind: "empty" });
+    setCell(state, c + 1, 2, { kind: "empty" });
+    setCell(state, c + 1, 3, { kind: "dirt" });
+
+    expect(applyAction(state, "jump").ok).toBe(true);
+    expect(applyAction(state, "up")).toEqual({
+      ok: false,
+      reason: "no-ladder",
+    });
+    expect(state.miner.row).toBe(1);
+    expect(state.jumpHover).toBe(true);
+    expect(applyAction(state, "jump")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+
+    const drift = applyAction(state, "right");
+
+    expect(drift.ok && drift.fell).toBe(1);
+    expect(state.jumpHover).toBe(false);
+    expect(state.miner.row).toBe(2);
+  });
+
+  it("replays jump jet trips identically", () => {
+    const seed = 2026062003;
+    const base = createMine(seed);
+    const c = START_COL;
+    setCell(base, c, 1, { kind: "empty" });
+    setCell(base, c, 2, { kind: "empty" });
+    setCell(base, c, 3, { kind: "dirt" });
+    setCell(base, c + 1, 1, { kind: "empty" });
+    setCell(base, c + 1, 2, { kind: "empty" });
+    setCell(base, c + 1, 3, { kind: "dirt" });
+    const diff = exportDiff(base);
+    const live = createMine(seed, DEFAULT_GEAR, NO_CONSUMABLES, diff);
+    live.miner.row = 2;
+    live.miner.col = c;
+    const actions: MineAction[] = ["jump", "right"];
+    for (const action of actions) applyAction(live, action);
+
+    const replayed = createMine(seed, DEFAULT_GEAR, NO_CONSUMABLES, diff);
+    replayed.miner.row = 2;
+    replayed.miner.col = c;
+    for (const action of actions) applyAction(replayed, action);
+
+    expect(replayed.miner.row).toBe(live.miner.row);
+    expect(replayed.miner.col).toBe(live.miner.col);
+    expect(replayed.used.ladder).toBe(0);
+    expect(exportDiff(replayed)).toEqual(exportDiff(live));
   });
 
   it("prices the ladder budget for the climb home", () => {

@@ -370,7 +370,7 @@
     },
     {
       "id": "REQ-020",
-      "requirement": "Ascent is ladder-gated: climbing out of a cell consumes and plants a ladder once (then climbs free), placed ladders can be collected back within visible range, and the shop sells more; out of ladders means recall, buy, or lose the carry.",
+      "requirement": "Ascent is ladder-gated for reusable routes: climbing out of a cell consumes and plants a ladder once (then climbs free), placed ladders can be collected back within visible range, and the shop sells more; Jump Jets provide a free one-cell hover that spends no ladder but leaves no reusable support; out of ladders means jump once, recall, buy, or lose the carry.",
       "gddRef": "docs/gdd/06-mining.html#ladders",
       "status": "done",
       "implementationRefs": [

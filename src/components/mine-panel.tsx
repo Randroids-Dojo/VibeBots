@@ -51,6 +51,7 @@ import {
   BEACON_LABEL_MAX_LENGTH,
   CONSUMABLE_PRICES,
   type CollectTarget,
+  canJump,
   canPlacePlank,
   cargoCapacity,
   carriedCount,
@@ -701,6 +702,20 @@ const iconButtonStyle: React.CSSProperties = {
   height: 46,
   fontSize: "0.95rem",
   pointerEvents: "auto",
+};
+
+const jumpButtonStyle: React.CSSProperties = {
+  ...iconButtonStyle,
+  minWidth: 92,
+  height: 54,
+  borderRadius: 8,
+  border: "2px solid #54e0c7",
+  background: "rgba(15, 31, 37, 0.94)",
+  color: "#eafff9",
+  fontSize: "0.95rem",
+  fontWeight: 900,
+  letterSpacing: 0,
+  boxShadow: "0 0 18px rgba(84, 224, 199, 0.2)",
 };
 
 const zoomButtonStyle: React.CSSProperties = {
@@ -4773,6 +4788,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     [directionCadence],
   );
 
+  const fireJump = useCallback(() => {
+    if (!mineSceneReady) return;
+    if (elevatorAutoDir) return;
+    const state = useMineStore.getState();
+    state.move("jump");
+  }, [elevatorAutoDir, mineSceneReady]);
+
   const releaseDirection = useCallback((dir: Direction | null) => {
     directionCadenceRef.current?.release(dir);
     if (dir === null || dir === "up") {
@@ -4879,6 +4901,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       ) {
         return;
       }
+      if (event.key === " " || event.key === "Spacebar") {
+        if (targetEl?.closest("button,a,[role='button']")) return;
+        event.preventDefault();
+        if (!creditsOpen) fireJump();
+        return;
+      }
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
@@ -4898,7 +4926,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [creditsOpen, fireDirection, releaseDirection]);
+  }, [creditsOpen, fireDirection, fireJump, releaseDirection]);
 
   const miner = mine.miner;
   const currentCell = cellAt(mine, miner.col, miner.row);
@@ -4961,6 +4989,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (sum, target) => sum + supportSalvageValue(target.type),
     0,
   );
+  const jumpEnabled = mineSceneReady && !elevatorAutoDir && canJump(mine);
   const leftPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "left");
   const rightPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "right");
   const beaconRange = warpRange(mine.gear);
@@ -5372,25 +5401,30 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                     ? "Fuse lit. Move away."
                     : lastResult?.ok && lastResult.plankPlaced
                       ? "Plank placed."
-                      : salvagedSupportCount > 0
-                        ? `Scrapped ${salvagedSupportCount} support${salvagedSupportCount > 1 ? "s" : ""}. Scrap sells for ${salvagedSupportValue} vibes at surface.`
-                        : lastResult?.ok && (lastResult.droppedFromBag ?? 0) > 0
-                          ? `Dropped ${lastResult.droppedFromBag} ore from bag.`
-                          : lastResult?.ok && (lastResult.dropped ?? 0) > 0
-                            ? `${lastResult.dropped} ore dropped.`
-                            : lastResult?.ok && lastResult.pickedUpBag
-                              ? `Recovered bag: ${lastResult.pickedUpBag.value} vibes${lastResult.pickedUpBag.parts > 0 ? ` and ${lastResult.pickedUpBag.parts} part${lastResult.pickedUpBag.parts > 1 ? "s" : ""}` : ""}.`
-                              : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
-                                ? `Collected ${lastResult.pickedUp} ore.`
-                                : lastResult?.ok && (lastResult.vented ?? 0) > 0
-                                  ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
-                                  : miner.row === 0 &&
-                                      (bankedCredits > 0 ||
-                                        bankedPartsCount > 0)
-                                    ? cashOut.state === "pending"
-                                      ? "Selling haul..."
-                                      : undefined
-                                    : undefined;
+                      : lastResult?.ok && lastResult.jumped
+                        ? "Jump jets fired."
+                        : salvagedSupportCount > 0
+                          ? `Scrapped ${salvagedSupportCount} support${salvagedSupportCount > 1 ? "s" : ""}. Scrap sells for ${salvagedSupportValue} vibes at surface.`
+                          : lastResult?.ok &&
+                              (lastResult.droppedFromBag ?? 0) > 0
+                            ? `Dropped ${lastResult.droppedFromBag} ore from bag.`
+                            : lastResult?.ok && (lastResult.dropped ?? 0) > 0
+                              ? `${lastResult.dropped} ore dropped.`
+                              : lastResult?.ok && lastResult.pickedUpBag
+                                ? `Recovered bag: ${lastResult.pickedUpBag.value} vibes${lastResult.pickedUpBag.parts > 0 ? ` and ${lastResult.pickedUpBag.parts} part${lastResult.pickedUpBag.parts > 1 ? "s" : ""}` : ""}.`
+                                : lastResult?.ok &&
+                                    (lastResult.pickedUp ?? 0) > 0
+                                  ? `Collected ${lastResult.pickedUp} ore.`
+                                  : lastResult?.ok &&
+                                      (lastResult.vented ?? 0) > 0
+                                    ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
+                                    : miner.row === 0 &&
+                                        (bankedCredits > 0 ||
+                                          bankedPartsCount > 0)
+                                      ? cashOut.state === "pending"
+                                        ? "Selling haul..."
+                                        : undefined
+                                      : undefined;
   const cashNote =
     cashOut.state === "done"
       ? soldHaulLine(cashOut.soldHaul, cashOut.credits, cashOut.parts)
@@ -6409,6 +6443,24 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         <span style={{ ...chipStyle, color: "#8b93a7" }}>
           &#129717; {mine.consumables.plank}
         </span>
+        <button
+          type="button"
+          aria-label="Jump jets"
+          title="Jump up one cell"
+          onClick={() => {
+            setDynamiteMenuOpen(false);
+            setRecoveryMenuOpen(false);
+            fireJump();
+          }}
+          disabled={!jumpEnabled}
+          style={{
+            ...jumpButtonStyle,
+            opacity: jumpEnabled ? 1 : 0.46,
+            cursor: jumpEnabled ? "pointer" : "default",
+          }}
+        >
+          Jump
+        </button>
         <button
           type="button"
           aria-label="Place plank left"

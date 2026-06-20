@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 47;
+export const MINE_VERSION = 48;
 export const MINE_BOTTOM_ROW = 1000;
 export const BAG_STACK_LIMIT = 5;
 
@@ -1183,6 +1183,8 @@ export interface MineState {
   cells: Map<string, MineCell>;
   /** A lit dynamite charge waiting for the miner to step clear. */
   pendingDynamite?: PendingDynamite;
+  /** Jump Jets hold the miner one row up until the next successful action. */
+  jumpHover?: boolean;
   miner: MinerState;
 }
 
@@ -2018,6 +2020,8 @@ export type MoveResult =
       droppedFromBag?: number;
       /** A recall rope ended the trip from below (carry banked). */
       recalled?: boolean;
+      /** Jump Jets lifted the miner one row without placing support. */
+      jumped?: MineCoord;
       /** The trip was voluntarily abandoned (carry forfeited). */
       abandoned?: boolean;
       /** This climb consumed and placed a new ladder (REQ-020). */
@@ -2071,6 +2075,7 @@ type BaseMineAction =
   | "dynamite-4"
   | "plank-left"
   | "plank-right"
+  | "jump"
   | "recall"
   | "abandon"
   | "ride-down"
@@ -2122,6 +2127,7 @@ export const MINE_ACTIONS = [
   "dynamite-4",
   "plank-left",
   "plank-right",
+  "jump",
   "recall",
   "abandon",
   "ride-down",
@@ -2565,6 +2571,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     return { ok: false, reason: "blocked" };
   const isOverheadDig = dir === "up" && cell.kind !== "empty";
   if (cell.kind === "ore" && cell.ore) {
+    clearJumpHover(state);
     const ore = cell.ore;
     const struck = cellMut(state, t.col, t.row);
     const current = struck.oreRemaining ?? oreReserveAt(ore, t.row);
@@ -2676,6 +2683,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   // Every swing is its own logged action and burns battery charge, so a
   // dig can still collapse the trip mid-block.
   if (cell.kind !== "empty") {
+    clearJumpHover(state);
     const struck = cellMut(state, t.col, t.row);
     const kindForDig = digKindFor(struck);
     const remaining = (struck.hp ?? hitsForDig(struck, state.gear)) - 1;
@@ -2745,6 +2753,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       laddered = true;
     }
   }
+  clearJumpHover(state);
   // Lateral steps never auto-spend planks anymore (REQ-022). A placed
   // plank or ladder support prevents falling; otherwise the move is still
   // legal and deterministic gravity drops the miner after the move.
@@ -2877,6 +2886,65 @@ export function canPlacePlank(
 
 type MoveFailureReason = Extract<MoveResult, { ok: false }>["reason"];
 
+function clearJumpHover(state: MineState): void {
+  state.jumpHover = false;
+}
+
+export function canJump(state: MineState): boolean {
+  if (state.jumpHover) return false;
+  if (isOnElevatorRail(state)) return false;
+  const miner = state.miner;
+  if (miner.row < 1) return false;
+  const t = { col: miner.col, row: miner.row - 1 };
+  if (isPendingDynamiteAt(state, t.col, t.row)) return false;
+  const cell = cellAt(state, t.col, t.row);
+  return cell?.kind === "empty";
+}
+
+function jumpJets(state: MineState): MoveResult {
+  if (!canJump(state)) return { ok: false, reason: "blocked" };
+  const miner = state.miner;
+  miner.energy = Math.max(0, miner.energy - MOVE_COST);
+  miner.row--;
+  state.jumpHover = true;
+  const jumped = { col: miner.col, row: miner.row };
+  const emptied: Array<{ col: number; row: number }> = [];
+  const fallTick = tickFalls(state, emptied);
+  const settled = settleAfterEmptied(state, emptied);
+  if (fallTick.crushed || (miner.row > 0 && miner.energy <= 0)) {
+    const lost = minerLostCargo(miner, fallTick.crushRest);
+    state.jumpHover = false;
+    collapse(state, true, lost);
+    return {
+      ok: true,
+      dug: null,
+      dugOre: null,
+      found: null,
+      collapsed: true,
+      crushed: fallTick.crushed,
+      fallingRockTriggered: settled.fallingRockTriggered || undefined,
+      fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
+      ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
+      jumped,
+      lost,
+    };
+  }
+  if (miner.row === 0) {
+    bank(miner, state.gear);
+  }
+  return maybeExplodePendingDynamite(state, {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    fallingRockTriggered: settled.fallingRockTriggered || undefined,
+    fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
+    ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
+    jumped,
+  });
+}
+
 function plankPlacementTarget(
   state: MineState,
   dir: "left" | "right",
@@ -2903,6 +2971,7 @@ function finishStationaryAction(
   base: Extract<MoveResult, { ok: true }>,
   changedSupports: MineCoord[] = [],
 ): MoveResult {
+  clearJumpHover(state);
   const emptied: Array<{ col: number; row: number }> = [];
   const fallTick = tickFalls(state, emptied);
   const settled = settleAfterEmptied(state, emptied, changedSupports);
@@ -3271,6 +3340,7 @@ function maybeExplodePendingDynamite(
   const charge = state.pendingDynamite;
   if (!charge || result.collapsed || !hasDynamiteGap(state, charge))
     return result;
+  clearJumpHover(state);
   const explosion = detonateDynamiteAt(state, charge);
   const vented = (result.vented ?? 0) + (explosion.vented ?? 0);
   const collected = (result.collected ?? 0) + (explosion.collected ?? 0);
@@ -3827,6 +3897,8 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
       return placePlank(state, "left");
     case "plank-right":
       return placePlank(state, "right");
+    case "jump":
+      return jumpJets(state);
     case "recall":
       return recall(state);
     case "abandon":

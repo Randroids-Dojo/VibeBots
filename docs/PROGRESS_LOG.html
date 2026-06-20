@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="jump-jets" data-date="2026-06-20">
+    <h3>Jump Jets</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/worktree-20260620-154255</code>, fast-forwarded to current <code>origin/main</code> before implementation, then rebased over the upstream clean shop layout and shop release copy releases after remote main moved.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed mine traversal slice. The mine now has a larger bottom Jump button that fires Jump Jets, lifting the miner up one empty cell without spending or placing a ladder. The jump is a logged battery action, cannot chain upward while hovering, leaves no reusable support, and lets gravity resume after the next successful action. Space triggers the same action on keyboard, while focused buttons keep their normal Space activation. Package version moved to <code>0.1.117</code>; <code>MINE_VERSION</code> moves from <code>47</code> to <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched files, focused Vitest for mine sim, app release, and notifications (156 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3515 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|mine digs and tracks depth and energy" --project=chromium</code> (2 passed, including the larger Jump button and focused Settings Space activation checks), <code>pnpm test</code> (353 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: Jump Jets are free in ladder stock but still spend normal battery and one logged action so falling rocks, delayed dynamite, and replay parity stay honest. Recommended default: the Jump button belongs in the bottom traversal cluster and is larger than support and consumable controls, while Up remains unchanged for overhead digging and ladder climbing. Mine surface tips were reviewed and do not need new copy because the release note and larger button introduce the mechanic directly.</dd>
+      <dt>GDD coverage</dt><dd>REQ-020 remains done with updated wording for the one-cell Jump Jets exception. Updated <code>docs/GDD_COVERAGE.json</code>, <code>docs/gdd/06-mining.html</code>, static and in-game release notes, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="shop-release-copy-cleanup" data-date="2026-06-20">
     <h3>Shop Release Copy Cleanup</h3>
     <dl>

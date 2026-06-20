@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.116-shop-release-copy";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.117-jump-jets";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.117",
+      date: "2026-06-20",
+      title: "Jump Jets",
+      intro: "A free hop now clears one-cell ledges without spending ladders.",
+      changes: [
+        {
+          build,
+          text: "Jump Jets lift the miner up one empty cell as a logged battery action without placing a ladder.",
+        },
+        {
+          build,
+          text: "The new Jump button is larger than the support and consumable controls, sits in the bottom traversal cluster, and shares the Space shortcut.",
+        },
+        {
+          build,
+          text: "Ladders still build reusable shafts, while Jump Jets only hold the miner until the next action.",
+        },
+      ],
+    },
     {
       version: "0.1.116",
       date: "2026-06-20",

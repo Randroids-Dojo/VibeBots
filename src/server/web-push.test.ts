@@ -11,29 +11,29 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.87.123",
+  version: "0.1.91.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.87-mine-zoom-buttons",
+  noticeId: "2026-06-20-0.1.91-zoom-under-settings",
   intro:
-    "Mason, load your first save now. The mine HUD now has direct zoom controls.",
+    "Mason, load your first save now. Mine zoom controls now sit under Settings.",
   changes: [
     {
       build: 123,
-      text: "HUD zoom buttons adjust the lantern-capped camera.",
+      text: "Zoom controls now sit under the Settings cog.",
     },
   ],
   notes: [
     {
-      version: "0.1.87",
+      version: "0.1.91",
       date: "2026-06-20",
-      title: "Mine zoom buttons",
+      title: "Zoom placement fix",
       intro:
-        "Mason, load your first save now. The mine HUD now has direct zoom controls.",
+        "Mason, load your first save now. Mine zoom controls now sit under Settings.",
       changes: [
         {
           build: 123,
-          text: "HUD zoom buttons adjust the lantern-capped camera.",
+          text: "Zoom controls now sit under the Settings cog.",
         },
       ],
     },
@@ -134,7 +134,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Mine zoom buttons"),
+      expect.stringContaining("Zoom placement fix"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

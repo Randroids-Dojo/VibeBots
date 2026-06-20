@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-zoom-placement" data-date="2026-06-20">
+    <h3>Mine Zoom Placement</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-24d97d65</code>, rebased to current <code>origin/main</code> after the save slot start safety release landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User screenshot showed the zoom dock sitting over the mine view. Zoom in and zoom out now sit directly under the upper-right Settings cog, and the Settings panel opens below the zoom dock so the controls do not cover each other. The visible status chips are now the critical-info overlap target for smoke coverage. Package version moved to <code>0.1.91</code>; <code>MINE_VERSION</code> stays at <code>43</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm exec biome check --write package.json src/components/mine-panel.tsx src/lib/app-release.ts src/lib/app-release.test.ts src/app/api/notifications/route.test.ts src/app/api/version/route.test.ts src/server/web-push.test.ts tests/e2e/smoke.spec.ts docs/RELEASE_NOTES.html docs/PROGRESS_LOG.html docs/gdd/06-mining.html</code>, focused app-release, notification, version, Web Push, and camera Vitest (21 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with isolated <code>PLAYWRIGHT_PORT=3347</code> for latest release notes and HUD zoom buttons (2 passed), live production-server layout check on port <code>3348</code> confirming the zoom dock sits 8px below Settings with no overlap against visible status chips or Settings, <code>pnpm test</code> (307 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, and the dependency gate for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Rebased over <code>0.1.90</code> and reran the full local gates before commit.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as HUD placement only, so no gameplay-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code> and updated release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="save-slot-start-safety" data-date="2026-06-20">
     <h3>Save Slot Start Safety</h3>
     <dl>

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.90-save-slot-start-safety",
+      releaseNoticeId: "2026-06-20-0.1.91-zoom-under-settings",
       releaseSummary:
-        "Save slot start safety: Mason, load your first save now. Empty slots now have an explicit Start path.",
+        "Zoom placement fix: Mason, load your first save now. Mine zoom controls now sit under Settings.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.90-save-slot-start-safety",
+      releaseNoticeId: "2026-06-20-0.1.91-zoom-under-settings",
       attempted: 2,
       sent: 1,
       expired: 1,

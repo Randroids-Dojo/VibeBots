@@ -4891,8 +4891,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         data-camera-zoom-max={maxCameraZoom.toFixed(2)}
         style={{
           position: "absolute",
-          top: 212,
-          right: 264,
+          top: 108,
+          right: 14,
           zIndex: 7,
           display: "grid",
           gridTemplateRows: "42px 42px",
@@ -4934,7 +4934,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-label="Settings"
           style={{
             position: "absolute",
-            top: 108,
+            top: 206,
             right: 14,
             zIndex: 7,
             width: 238,
@@ -5302,6 +5302,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         }}
       >
         <div
+          data-mine-status-critical="true"
           style={{
             display: "flex",
             gap: 6,

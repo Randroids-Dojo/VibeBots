@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.90-save-slot-start-safety";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.91-zoom-under-settings";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.91",
+      date: "2026-06-20",
+      title: "Zoom placement fix",
+      intro:
+        "Mason, load your first save now. Mine zoom controls now sit under Settings.",
+      changes: [
+        {
+          build,
+          text: "Zoom in and zoom out now sit directly under the cog icon instead of floating over the mine view.",
+        },
+        {
+          build,
+          text: "The Settings panel opens below the zoom dock, so the controls do not cover each other.",
+        },
+        {
+          build,
+          text: "Smoke coverage checks the dock against visible status chips, the Settings button, and the open Settings panel on desktop and narrow viewports.",
+        },
+      ],
+    },
     {
       version: "0.1.90",
       date: "2026-06-20",

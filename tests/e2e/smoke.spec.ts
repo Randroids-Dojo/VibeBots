@@ -1100,16 +1100,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Empty slots now have an explicit Start path.",
+    "Mine zoom controls now sit under Settings.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "long-term save still exists",
+    "directly under the cog icon",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Existing saves still use Load",
+    "Settings panel opens below the zoom dock",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("referrer host");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "visible status chips",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1128,6 +1130,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.91", "Zoom placement fix"],
     ["0.1.90", "Save slot start safety"],
     ["0.1.89", "Bunker part drag"],
     ["0.1.88", "Death cam flash fix"],
@@ -1197,7 +1200,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.90-save-slot-start-safety",
+      "2026-06-20-0.1.91-zoom-under-settings",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1318,7 +1321,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.90-save-slot-start-safety",
+      "2026-06-20-0.1.91-zoom-under-settings",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2485,7 +2488,7 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
           .querySelector('[aria-label="Zoom controls"]')
           ?.getBoundingClientRect();
         const status = document
-          .querySelector('[aria-label="Mine status"]')
+          .querySelector('[data-mine-status-critical="true"]')
           ?.getBoundingClientRect();
         const settings = document
           .querySelector('[aria-label="Open settings"]')
@@ -2496,7 +2499,12 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
           a.right > b.left &&
           a.top < b.bottom &&
           a.bottom > b.top;
-        return !overlaps(zoom, status) && !overlaps(zoom, settings);
+        return (
+          Math.abs(zoom.right - settings.right) < 1 &&
+          zoom.top >= settings.bottom + 8 &&
+          !overlaps(zoom, status) &&
+          !overlaps(zoom, settings)
+        );
       }),
     ).resolves.toBe(true);
   };

@@ -2,18 +2,37 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest save slot safety note complete", () => {
+  it("keeps the latest zoom placement note complete with the save reminder", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.90-save-slot-start-safety");
+    expect(release.noticeId).toBe("2026-06-20-0.1.91-zoom-under-settings");
     expect(latestNote).toMatchObject({
+      version: "0.1.91",
+      title: "Zoom placement fix",
+      intro:
+        "Mason, load your first save now. Mine zoom controls now sit under Settings.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Zoom in and zoom out now sit directly under the cog icon instead of floating over the mine view.",
+      "The Settings panel opens below the zoom dock, so the controls do not cover each other.",
+      "Smoke coverage checks the dock against visible status chips, the Settings button, and the open Settings panel on desktop and narrow viewports.",
+    ]);
+  });
+
+  it("keeps the archived save slot safety note complete", () => {
+    const release = getAppRelease();
+    const saveSlotNote = release.notes.find(
+      (note) => note.version === "0.1.90",
+    );
+
+    expect(saveSlotNote).toMatchObject({
       version: "0.1.90",
       title: "Save slot start safety",
       intro:
         "Mason, load your first save now. Empty slots now have an explicit Start path.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(saveSlotNote?.changes.map((change) => change.text)).toEqual([
       "Production logs and a read-only database check found two active saved players, confirmed the long-term save still exists, and showed fresh default rows from Load game attempts.",
       "Existing saves still use Load, while empty slots now show Start and the server refuses to create an empty slot unless the client explicitly asks to start one.",
       "Save-slot requests now emit safe structured logs with hashed player identifiers, requested slot, accepted status, creation status, referrer host, and fetch-site context.",
@@ -22,15 +41,14 @@ describe("app release notes", () => {
 
   it("keeps the archived bunker part drag note complete", () => {
     const release = getAppRelease();
-    const bunkerPartDragNote = release.notes.find(
-      (note) => note.version === "0.1.89",
-    );
+    const bunkerNote = release.notes.find((note) => note.version === "0.1.89");
 
-    expect(bunkerPartDragNote).toMatchObject({
+    expect(bunkerNote).toMatchObject({
+      version: "0.1.89",
       title: "Bunker part drag",
       intro: "Base parts can now be selected and dragged into place.",
     });
-    expect(bunkerPartDragNote?.changes.map((change) => change.text)).toEqual([
+    expect(bunkerNote?.changes.map((change) => change.text)).toEqual([
       "Double-click or double-tap a placed bunker part to select it in the mine view.",
       "Press and drag the selected part to another claimed bunker cell without spending or refunding inventory.",
       "Click or tap elsewhere to clear the selection before choosing another part.",
@@ -39,16 +57,17 @@ describe("app release notes", () => {
 
   it("keeps the archived death cam flash note complete with the save reminder", () => {
     const release = getAppRelease();
-    const deathCamFlashNote = release.notes.find(
+    const deathCamNote = release.notes.find(
       (note) => note.version === "0.1.88",
     );
 
-    expect(deathCamFlashNote).toMatchObject({
+    expect(deathCamNote).toMatchObject({
+      version: "0.1.88",
       title: "Death cam flash fix",
       intro:
         "Mason, load your first save now. Death animations now keep the mine filled from the first frame.",
     });
-    expect(deathCamFlashNote?.changes.map((change) => change.text)).toEqual([
+    expect(deathCamNote?.changes.map((change) => change.text)).toEqual([
       "Fatal falls and falling-rock crushes now prepare the death camera before the browser paints the next frame.",
       "The camera no longer gets one frame ahead of the populated underground cell window, removing the brief void flash.",
       "Mine rules, recovery, and replay behavior are unchanged.",

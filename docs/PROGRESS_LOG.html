@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-warning-visuals" data-date="2026-06-20">
+    <h3>Mine Warning Visuals</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/fresh-main-20260620-dc0deb40</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased over the stall-sheet anywhere-drag release after remote main moved.</dd>
+      <dt>PR</dt><dd>Skipped by request. Committing and pushing directly to remote <code>main</code>.</dd>
+      <dt>Changed</dt><dd>Low-battery mine presentation now adds a pulsing red edge warning around the screen, throbs the battery chip, and labels the charge as low. Low ladder stock now throbs the ladder chip and shows the current stock against the needed ladder count for the current depth. Package version moved to <code>0.1.108</code>; <code>MINE_VERSION</code> stays at <code>47</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Before the rebase, ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, test, package, and release files, focused app-release, notification, version, and Web Push Vitest (36 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke for low-battery ladder warnings plus latest release notes (2 passed), in-app Browser check against built <code>http://localhost:3493/mine</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, and critical Playwright smoke (5 passed). After rebasing over the stall-sheet anywhere-drag release and renumbering to <code>0.1.108</code>, reran <code>pnpm exec biome check --write</code> on touched source, test, package, and release files, focused app-release, notification, version, and Web Push Vitest (37 passed), <code>pnpm typecheck</code>, <code>git diff --check</code>, <code>pnpm build</code>, focused Playwright smoke for low-battery ladder warnings plus latest release notes (2 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, critical Playwright smoke (5 passed), and an in-app Browser check against rebuilt <code>http://localhost:3493/mine</code> confirming release note <code>2026-06-20-0.1.108-mine-warning-visuals</code>. Final cleanup pass removed a stale low-battery shell attribute and renamed the shared red-pixel screenshot helper, then reran <code>pnpm exec biome check --write</code>, focused app-release, notification, version, and Web Push Vitest (37 passed), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, dependency gate, <code>pnpm build</code>, <code>pnpm lint</code>, focused Playwright smoke for low-battery ladder warnings plus latest release notes (2 passed), critical Playwright smoke (5 passed), and a local production-server Playwright release-note smoke against <code>http://127.0.0.1:3493</code> (1 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as mine presentation only, so no gameplay-version or sim-version bump is needed. Mine surface tips were reviewed and kept unchanged because the existing tips already mention battery upgrades, ladders, Recall, Abandon, and Supply Depot options.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code> and updated static plus in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="stall-sheet-anywhere-drag" data-date="2026-06-20">
     <h3>Stall Sheet Anywhere Drag</h3>
     <dl>

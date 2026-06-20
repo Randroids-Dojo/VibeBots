@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest sheet drag dismiss note complete", () => {
+  it("keeps the latest mine warning visuals note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.107-stall-sheet-drag");
+    expect(release.noticeId).toBe("2026-06-20-0.1.108-mine-warning-visuals");
     expect(latestNote).toMatchObject({
+      version: "0.1.108",
+      title: "Mine warning visuals",
+      intro: "Low battery and ladder risk now stand out more clearly.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Low battery now adds a pulsing red edge warning around the mine screen.",
+      "The battery chip throbs red and labels the charge as low when the climb home is risky.",
+      "The ladder chip now pulses and shows how many ladders are needed when the current stock is short for the depth.",
+    ]);
+  });
+
+  it("keeps the archived sheet drag dismiss note complete", () => {
+    const release = getAppRelease();
+    const sheetNote = release.notes.find((note) => note.version === "0.1.107");
+
+    expect(sheetNote).toMatchObject({
       version: "0.1.107",
       title: "Sheet drag dismiss",
       intro: "Bottom shop sheets now dismiss from a pull anywhere inside.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(sheetNote?.changes.map((change) => change.text)).toEqual([
       "Dragging down from anywhere inside a stall sheet now moves the panel, not just the top handle.",
       "Releasing past the dismiss distance closes the Hardware Store, Supply Depot, Upgrades, Elevator, or Warp Pad sheet.",
       "Ordinary taps on shop buttons still work, and editable beacon names do not start a drag.",

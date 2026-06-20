@@ -207,10 +207,7 @@ async function pressGamepadBack(page: Page): Promise<void> {
   await page.waitForTimeout(80);
 }
 
-async function countCanvasRedPixels(
-  page: Page,
-  image: Buffer,
-): Promise<number> {
+async function countRedPixels(page: Page, image: Buffer): Promise<number> {
   return page.evaluate(async (base64) => {
     const img = new Image();
     await new Promise<void>((resolve, reject) => {
@@ -247,6 +244,8 @@ import {
   ELEVATOR_SEGMENT_ROWS,
   exportDiff,
   MINE_VERSION,
+  type MineAction,
+  returnEnergyCost,
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
@@ -504,6 +503,74 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
     page.getByRole("button", { name: "Edit placed pickups" }),
   ).toBeVisible();
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
+});
+
+test("mine low battery and ladder warnings pulse on screen", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 640 });
+  const gear = DEFAULT_GEAR;
+  const consumables = { ...STARTING_CONSUMABLES, ladder: 0 };
+  const seed = 2026062001;
+  const baseMine = createMine(seed, gear, consumables);
+  for (let row = 1; row <= 54; row++) {
+    setCell(baseMine, START_COL, row, { kind: "dirt" });
+  }
+  const baseDiff = exportDiff(baseMine);
+  const replayMine = createMine(seed, gear, consumables, baseDiff);
+  const moves: MineAction[] = [];
+  for (let i = 0; i < 240; i++) {
+    const result = applyAction(replayMine, "down");
+    if (result.ok) moves.push("down");
+    const batteryLow =
+      replayMine.miner.row > 0 &&
+      replayMine.miner.energy < returnEnergyCost(replayMine.miner) * 1.25 + 2;
+    if (batteryLow) break;
+  }
+  expect(replayMine.miner.row).toBeGreaterThanOrEqual(30);
+  expect(replayMine.miner.energy).toBeGreaterThan(0);
+
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear,
+      consumables,
+      baseDiff,
+      moves,
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-battery-low", "true");
+  await expect(status).toHaveAttribute("data-ladder-short", "true");
+  await expect(status.locator("[data-battery-chip='true']")).toContainText(
+    "Low",
+  );
+  await expect(page.locator("[data-ladder-chip='true']")).toContainText(
+    "needed",
+  );
+
+  const edgeWarning = page.locator("[data-battery-edge-warning='true']");
+  await expect(edgeWarning).toBeVisible();
+  const firstFrame = await page.screenshot();
+  await page.waitForTimeout(430);
+  const secondFrame = await page.screenshot();
+  const firstRedPixels = await countRedPixels(page, firstFrame);
+  const secondRedPixels = await countRedPixels(page, secondFrame);
+  expect(Math.abs(firstRedPixels - secondRedPixels)).toBeGreaterThan(120);
 });
 
 test("mine bunker builder starts a Clanker raid", async ({ page }) => {
@@ -781,7 +848,7 @@ test("bunker claim mode highlights uncleared claim cells in red", async ({
     builder.getByRole("button", { name: "Claim 7x5 bunker" }),
   ).toBeDisabled();
 
-  const redPixels = await countCanvasRedPixels(
+  const redPixels = await countRedPixels(
     page,
     await page.locator("canvas").screenshot(),
   );
@@ -1023,8 +1090,8 @@ test("edit pickup selection outlines selected cells in red", async ({
   await expect(salvage).toContainText("2 selected");
 
   const after = await canvas.screenshot();
-  expect(await countCanvasRedPixels(page, after)).toBeGreaterThan(
-    (await countCanvasRedPixels(page, before)) + 80,
+  expect(await countRedPixels(page, after)).toBeGreaterThan(
+    (await countRedPixels(page, before)) + 80,
   );
 });
 
@@ -1242,17 +1309,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Bottom shop sheets now dismiss from a pull anywhere inside.",
+    "Low battery and ladder risk now stand out more clearly.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "not just the top handle",
+    "pulsing red edge warning",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Hardware Store, Supply Depot, Upgrades, Elevator, or Warp Pad",
+    "battery chip throbs red",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Ordinary taps on shop buttons still work",
+    "ladder chip now pulses",
   );
 
   await page.mouse.click(8, 8);
@@ -1272,6 +1339,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.108", "Mine warning visuals"],
     ["0.1.107", "Sheet drag dismiss"],
     ["0.1.106", "Mine refresh layout"],
     ["0.1.105", "Battle camera"],
@@ -1402,7 +1470,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.107-stall-sheet-drag",
+      "2026-06-20-0.1.108-mine-warning-visuals",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1512,7 +1580,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.107-stall-sheet-drag",
+      "2026-06-20-0.1.108-mine-warning-visuals",
     );
   });
   await page.route("**/api/version", async (route) => {

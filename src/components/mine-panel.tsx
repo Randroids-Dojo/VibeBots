@@ -5297,6 +5297,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onRetry={retryMineSceneLoad}
         />
       )}
+      {batteryLow && (
+        <div
+          className="mine-battery-edge-warning"
+          data-battery-edge-warning="true"
+          aria-hidden="true"
+        />
+      )}
       {mineSceneReady &&
         !collectMode &&
         !bunkerCanvasEditing &&
@@ -5806,6 +5813,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         data-banked={miner.bankedCredits}
         data-wallet={balance ?? ""}
         data-climb-ladders={laddersNeeded}
+        data-battery-low={batteryLow ? "true" : "false"}
+        data-ladder-short={ladderShort ? "true" : "false"}
         style={{
           position: "absolute",
           top: 10,
@@ -5837,11 +5846,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             {horizontalDistanceLabel}
           </span>
           <span
+            className={batteryLow ? "mine-hud-chip-danger" : undefined}
+            data-battery-chip="true"
             style={{
               ...chipStyle,
               position: "relative",
               overflow: "hidden",
               minWidth: 118,
+              color: batteryLow ? "#ffe7e7" : "#e6e8ee",
             }}
           >
             <span
@@ -5849,12 +5861,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 position: "absolute",
                 inset: 0,
                 width: `${Math.max(0, Math.min(100, (miner.energy / maxEnergy(mine.gear)) * 100))}%`,
-                background: batteryLow ? "#ff6b6b" : "#54e0c7",
-                opacity: 0.3,
+                background: batteryLow ? "#ff2f2f" : "#54e0c7",
+                opacity: batteryLow ? 0.62 : 0.3,
               }}
             />
             <span style={{ position: "relative" }}>
               &#128267; {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
+              {batteryLow ? (
+                <strong className="mine-chip-alert"> Low</strong>
+              ) : null}
             </span>
           </span>
           <button
@@ -6178,12 +6193,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         }}
       >
         <span
+          className={ladderShort ? "mine-hud-chip-danger" : undefined}
+          data-ladder-chip="true"
           style={{
             ...chipStyle,
-            color: ladderShort ? "#ff6b6b" : "#8b93a7",
+            color: ladderShort ? "#ffe7e7" : "#8b93a7",
           }}
         >
-          &#129692; {mine.consumables.ladder}
+          {ladderShort ? "!" : ""} &#129692; {mine.consumables.ladder}
+          {ladderShort ? `/${laddersNeeded} needed` : ""}
         </span>
         <span style={{ ...chipStyle, color: "#8b93a7" }}>
           &#129717; {mine.consumables.plank}

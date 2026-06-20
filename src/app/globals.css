@@ -143,6 +143,79 @@ a {
   }
 }
 
+@keyframes mine-danger-chip-throb {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 1px rgba(255, 80, 80, 0.88),
+      0 0 14px rgba(255, 37, 37, 0.46);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow:
+      0 0 0 2px rgba(255, 215, 92, 0.86),
+      0 0 26px rgba(255, 37, 37, 0.72);
+  }
+}
+
+@keyframes mine-battery-edge-throb {
+  0%,
+  100% {
+    opacity: 0.38;
+    box-shadow:
+      inset 0 0 0 4px rgba(255, 38, 38, 0.58),
+      inset 0 0 42px rgba(255, 0, 0, 0.42),
+      inset 0 0 118px rgba(255, 0, 0, 0.18);
+  }
+  50% {
+    opacity: 0.82;
+    box-shadow:
+      inset 0 0 0 9px rgba(255, 58, 58, 0.82),
+      inset 0 0 70px rgba(255, 0, 0, 0.66),
+      inset 0 0 150px rgba(255, 0, 0, 0.32);
+  }
+}
+
+.mine-hud-chip-danger {
+  animation: mine-danger-chip-throb 0.72s ease-in-out infinite;
+}
+
+.mine-chip-alert {
+  margin-left: 4px;
+  color: #ffd75c;
+  text-transform: uppercase;
+}
+
+.mine-battery-edge-warning {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  border: 1px solid rgba(255, 72, 72, 0.74);
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(255, 0, 0, 0) 52%,
+      rgba(255, 0, 0, 0.22) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.2),
+      transparent 13%,
+      transparent 87%,
+      rgba(255, 0, 0, 0.2)
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 0, 0, 0.24),
+      transparent 15%,
+      transparent 85%,
+      rgba(255, 0, 0, 0.24)
+    );
+  animation: mine-battery-edge-throb 0.82s ease-in-out infinite;
+}
+
 .mine-scene-backdrop {
   position: absolute;
   inset: 0;

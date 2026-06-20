@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.107.123",
+  version: "0.1.108.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.107-stall-sheet-drag",
-  intro: "Bottom shop sheets now dismiss from a pull anywhere inside.",
+  noticeId: "2026-06-20-0.1.108-mine-warning-visuals",
+  intro: "Low battery and ladder risk now stand out more clearly.",
   changes: [
     {
       build: 123,
-      text: "The Upgrades sheet closes from a downward drag anywhere inside.",
+      text: "Low battery shows a pulsing red edge warning.",
     },
   ],
   notes: [
     {
-      version: "0.1.107",
+      version: "0.1.108",
       date: "2026-06-20",
-      title: "Sheet drag dismiss",
-      intro: "Bottom shop sheets now dismiss from a pull anywhere inside.",
+      title: "Mine warning visuals",
+      intro: "Low battery and ladder risk now stand out more clearly.",
       changes: [
         {
           build: 123,
-          text: "The Upgrades sheet closes from a downward drag anywhere inside.",
+          text: "Low battery shows a pulsing red edge warning.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Sheet drag dismiss"),
+      expect.stringContaining("Mine warning visuals"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

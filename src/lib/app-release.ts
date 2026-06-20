@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.107-stall-sheet-drag";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.108-mine-warning-visuals";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.108",
+      date: "2026-06-20",
+      title: "Mine warning visuals",
+      intro: "Low battery and ladder risk now stand out more clearly.",
+      changes: [
+        {
+          build,
+          text: "Low battery now adds a pulsing red edge warning around the mine screen.",
+        },
+        {
+          build,
+          text: "The battery chip throbs red and labels the charge as low when the climb home is risky.",
+        },
+        {
+          build,
+          text: "The ladder chip now pulses and shows how many ladders are needed when the current stock is short for the depth.",
+        },
+      ],
+    },
     {
       version: "0.1.107",
       date: "2026-06-20",

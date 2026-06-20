@@ -2,17 +2,37 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine warning visuals note complete", () => {
+  it("keeps the latest mine refresh viewport lock note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.108-mine-warning-visuals");
+    expect(release.noticeId).toBe(
+      "2026-06-20-0.1.109-mine-refresh-viewport-lock",
+    );
     expect(latestNote).toMatchObject({
+      version: "0.1.109",
+      title: "Mine refresh viewport lock",
+      intro: "Refresh now keeps the whole mine page pinned in place.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The mine now locks the document and body scroll while mounted, so mobile refresh restoration cannot push HUD controls down.",
+      "The new-version Refresh button resets scroll and replaces the current page with a cache-busted mine URL.",
+      "Smoke coverage now checks the document lock plus Settings, zoom, and dig controls after the refresh path loads.",
+    ]);
+  });
+
+  it("keeps the archived mine warning visuals note complete", () => {
+    const release = getAppRelease();
+    const warningNote = release.notes.find(
+      (note) => note.version === "0.1.108",
+    );
+
+    expect(warningNote).toMatchObject({
       version: "0.1.108",
       title: "Mine warning visuals",
       intro: "Low battery and ladder risk now stand out more clearly.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(warningNote?.changes.map((change) => change.text)).toEqual([
       "Low battery now adds a pulsing red edge warning around the mine screen.",
       "The battery chip throbs red and labels the charge as low when the climb home is risky.",
       "The ladder chip now pulses and shows how many ladders are needed when the current stock is short for the depth.",

@@ -202,7 +202,9 @@ export function VersionRefreshPrompt({
         <button
           type="button"
           onClick={() => {
-            window.location.assign(
+            window.history.scrollRestoration = "manual";
+            window.scrollTo(0, 0);
+            window.location.replace(
               cacheBustedMineUrl("vibebots_refresh", staleVersion).toString(),
             );
           }}

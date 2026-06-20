@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-refresh-viewport-lock" data-date="2026-06-20">
+    <h3>Mine Refresh Viewport Lock</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/fresh-main-3c4a689c</code>, rebased over current <code>origin/main</code> after the stall-sheet drag and mine warning visuals releases landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User reported the refresh layout bug still reproducing. The mine now locks <code>html</code> and <code>body</code> scrolling while mounted, repeats the scroll reset after the first frame, and the new-version Refresh button resets scroll then uses <code>location.replace</code> for the cache-busted mine URL. Package version moved to <code>0.1.109</code>; <code>MINE_VERSION</code> stays at <code>47</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, smoke, release, test, package, and doc files, <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, focused app-release, notification, version, and Web Push Vitest (38 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, and focused Playwright smoke against <code>PLAYWRIGHT_PORT=3491</code> for latest release notes plus the new-version Refresh path (2 passed). The focused refresh smoke now checks locked document and body scroll plus visible Settings, zoom, and dig controls after the refresh path loads.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as a viewport presentation fix only, so no gameplay-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, notification expectations, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-warning-visuals" data-date="2026-06-20">
     <h3>Mine Warning Visuals</h3>
     <dl>

@@ -61,16 +61,39 @@ async function expectMineShellViewportLocked(page: Page): Promise<void> {
           const controls = document.querySelector(
             '[aria-label="Dig controls"]',
           );
-          if (!shell || !controls) return false;
+          const settings = document.querySelector(
+            '[aria-label="Open settings"]',
+          );
+          const zoomIn = document.querySelector('[aria-label="Zoom in"]');
+          const zoomOut = document.querySelector('[aria-label="Zoom out"]');
+          if (!shell || !controls || !settings || !zoomIn || !zoomOut) {
+            return false;
+          }
+          const viewportHeight = window.innerHeight;
+          const inViewport = (element: Element) => {
+            const rect = element.getBoundingClientRect();
+            return (
+              rect.top >= 0 &&
+              rect.left >= 0 &&
+              rect.bottom <= viewportHeight &&
+              rect.right <= window.innerWidth
+            );
+          };
           const shellRect = shell.getBoundingClientRect();
-          const controlRect = controls.getBoundingClientRect();
+          const htmlStyle = window.getComputedStyle(document.documentElement);
+          const bodyStyle = window.getComputedStyle(document.body);
           return (
             window.scrollY === 0 &&
             Math.abs(shellRect.top) < 1 &&
             Math.abs(shellRect.left) < 1 &&
             Math.abs(shellRect.bottom - window.innerHeight) < 1 &&
-            controlRect.bottom <= window.innerHeight &&
-            controlRect.top >= 0
+            htmlStyle.overflow === "hidden" &&
+            bodyStyle.overflow === "hidden" &&
+            bodyStyle.position === "fixed" &&
+            inViewport(controls) &&
+            inViewport(settings) &&
+            inViewport(zoomIn) &&
+            inViewport(zoomOut)
           );
         }),
       { message: "mine shell should stay locked to the visible viewport" },
@@ -1309,17 +1332,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Low battery and ladder risk now stand out more clearly.",
+    "Refresh now keeps the whole mine page pinned in place.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "pulsing red edge warning",
+    "locks the document and body scroll",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "battery chip throbs red",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("resets scroll");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "ladder chip now pulses",
+    "Settings, zoom, and dig controls",
   );
 
   await page.mouse.click(8, 8);
@@ -1339,6 +1360,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.109", "Mine refresh viewport lock"],
     ["0.1.108", "Mine warning visuals"],
     ["0.1.107", "Sheet drag dismiss"],
     ["0.1.106", "Mine refresh layout"],
@@ -1470,7 +1492,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.108-mine-warning-visuals",
+      "2026-06-20-0.1.109-mine-refresh-viewport-lock",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1580,7 +1602,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.108-mine-warning-visuals",
+      "2026-06-20-0.1.109-mine-refresh-viewport-lock",
     );
   });
   await page.route("**/api/version", async (route) => {

@@ -4384,10 +4384,47 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   useEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration;
+    const documentStyle = document.documentElement.style;
+    const bodyStyle = document.body.style;
+    const previousDocumentHeight = documentStyle.height;
+    const previousDocumentOverflow = documentStyle.overflow;
+    const previousDocumentOverscroll = documentStyle.overscrollBehavior;
+    const previousBodyHeight = bodyStyle.height;
+    const previousBodyInset = bodyStyle.inset;
+    const previousBodyOverflow = bodyStyle.overflow;
+    const previousBodyOverscroll = bodyStyle.overscrollBehavior;
+    const previousBodyPosition = bodyStyle.position;
+    const previousBodyWidth = bodyStyle.width;
+    const lockMineViewport = () => {
+      window.scrollTo(0, 0);
+      documentStyle.height = "100%";
+      documentStyle.overflow = "hidden";
+      documentStyle.overscrollBehavior = "none";
+      bodyStyle.height = "100%";
+      bodyStyle.inset = "0";
+      bodyStyle.overflow = "hidden";
+      bodyStyle.overscrollBehavior = "none";
+      bodyStyle.position = "fixed";
+      bodyStyle.width = "100%";
+    };
+
     window.history.scrollRestoration = "manual";
-    window.scrollTo(0, 0);
+    lockMineViewport();
+    const frame = requestAnimationFrame(lockMineViewport);
+    const timeout = window.setTimeout(lockMineViewport, 120);
     return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
       window.history.scrollRestoration = previousScrollRestoration;
+      documentStyle.height = previousDocumentHeight;
+      documentStyle.overflow = previousDocumentOverflow;
+      documentStyle.overscrollBehavior = previousDocumentOverscroll;
+      bodyStyle.height = previousBodyHeight;
+      bodyStyle.inset = previousBodyInset;
+      bodyStyle.overflow = previousBodyOverflow;
+      bodyStyle.overscrollBehavior = previousBodyOverscroll;
+      bodyStyle.position = previousBodyPosition;
+      bodyStyle.width = previousBodyWidth;
     };
   }, []);
 

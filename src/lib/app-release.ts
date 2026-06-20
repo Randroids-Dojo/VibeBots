@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.108-mine-warning-visuals";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.109-mine-refresh-viewport-lock";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.109",
+      date: "2026-06-20",
+      title: "Mine refresh viewport lock",
+      intro: "Refresh now keeps the whole mine page pinned in place.",
+      changes: [
+        {
+          build,
+          text: "The mine now locks the document and body scroll while mounted, so mobile refresh restoration cannot push HUD controls down.",
+        },
+        {
+          build,
+          text: "The new-version Refresh button resets scroll and replaces the current page with a cache-busted mine URL.",
+        },
+        {
+          build,
+          text: "Smoke coverage now checks the document lock plus Settings, zoom, and dig controls after the refresh path loads.",
+        },
+      ],
+    },
     {
       version: "0.1.108",
       date: "2026-06-20",

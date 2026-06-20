@@ -61,6 +61,7 @@ export type SaveSlotsState =
     };
 
 interface SavedTrip {
+  mineVersion: number;
   seed: number;
   tripIndex: number;
   gear: MineGear;
@@ -99,10 +100,13 @@ function loadLocalTrip(slot: SaveSlotId): SavedTrip | null {
     if (
       typeof parsed.seed !== "number" ||
       typeof parsed.tripIndex !== "number" ||
+      parsed.mineVersion !== MINE_VERSION ||
       !Array.isArray(parsed.baseDiff) ||
       !Array.isArray(parsed.moves)
-    )
+    ) {
+      removeLocalTrip(slot);
       return null;
+    }
     const saved = parsed as SavedTrip;
     if (
       !saved.moves.every(
@@ -190,14 +194,22 @@ function consumablesFromResponse(value: unknown): MineConsumables | null {
 }
 
 function cashOutErrorMessage(body: unknown): string {
+  if (isMineVersionMismatch(body)) {
+    return "Mine updated. Your save is restored; start a fresh trip.";
+  }
   if (body && typeof body === "object") {
     const record = body as Record<string, unknown>;
-    if (record.code === "mine_version_mismatch") {
-      return "Mine updated. Reload this page, then sell again.";
-    }
     if (typeof record.error === "string") return record.error;
   }
   return "cash out failed";
+}
+
+function isMineVersionMismatch(body: unknown): boolean {
+  return (
+    Boolean(body) &&
+    typeof body === "object" &&
+    (body as Record<string, unknown>).code === "mine_version_mismatch"
+  );
 }
 
 /**
@@ -293,6 +305,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     const st = get();
     if (!st.worldLoaded) return;
     saveLocalTrip(st.activeSlot, {
+      mineVersion: MINE_VERSION,
       seed: st.seed,
       tripIndex: st.tripIndex,
       gear: st.mine.gear,
@@ -700,6 +713,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         }
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
+          if (isMineVersionMismatch(body)) {
+            removeLocalTrip(get().activeSlot);
+            await get().loadWorld();
+            await get().loadGear();
+          }
           set({
             cashOut: {
               state: "error",
@@ -736,6 +754,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             ? body.tripIndex
             : get().tripIndex + 1;
         saveLocalTrip(get().activeSlot, {
+          mineVersion: MINE_VERSION,
           seed: currentSeed,
           tripIndex: nextTripIndex,
           gear: get().gear,
@@ -859,6 +878,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const rebuilt = createMine(s0, nextGear, owned, baseDiff);
         for (const m of moves) applyAction(rebuilt, m);
         saveLocalTrip(get().activeSlot, {
+          mineVersion: MINE_VERSION,
           seed: s0,
           tripIndex: get().tripIndex,
           gear: nextGear,
@@ -932,6 +952,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           const rebuilt = createMine(s0, nextGear, owned, nextBaseDiff);
           for (const m of moves) applyAction(rebuilt, m);
           saveLocalTrip(get().activeSlot, {
+            mineVersion: MINE_VERSION,
             seed: s0,
             tripIndex: get().tripIndex,
             gear: nextGear,
@@ -1010,6 +1031,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         } = get();
         const rebuilt = createMine(s0, gear, consumables, tripBaseDiff);
         saveLocalTrip(get().activeSlot, {
+          mineVersion: MINE_VERSION,
           seed: s0,
           tripIndex,
           gear,
@@ -1042,6 +1064,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const seed = seedOverride ?? worldSeed;
       const diff = seedOverride === undefined ? exportDiff(mine) : [];
       saveLocalTrip(get().activeSlot, {
+        mineVersion: MINE_VERSION,
         seed,
         tripIndex: get().tripIndex,
         gear: get().gear,

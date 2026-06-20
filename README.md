@@ -102,6 +102,20 @@ The command dry-runs by default and only raises `ladder_count` and
 `plank_count`. It never changes vibes, resources, gear, paid consumables, mine
 worlds, or trip counters.
 
+For a known affected player whose local in-flight trip checkpoint is stale after
+a mine-version bump, repair the stored replay guard explicitly instead of
+changing payout rules:
+
+```sh
+pnpm ops:repair-stale-trip -- --player-hash <log-player-hash> --expected-seed <seed> --expected-trip-index <count>
+pnpm ops:repair-stale-trip -- --player-hash <log-player-hash> --expected-seed <seed> --expected-trip-index <count> --apply
+```
+
+The command dry-runs by default and only advances `mine_worlds.trip_count` from
+the exact expected value to expected + 1 when the seed also matches. It never
+changes the durable mine diff, gear, wallet, inventory, achievements, parts,
+designs, or saved bots.
+
 ## Project docs
 
 - `AGENTS.md`: rules for all agentic tools working in this repo

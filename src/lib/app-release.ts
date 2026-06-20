@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.71-ore-yields";
+const RELEASE_NOTICE_ID = "2026-06-19-0.1.72-stale-trip-recovery";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.72",
+      date: "2026-06-19",
+      title: "Stale trip recovery",
+      intro: "Old in-flight mine trips now restore the original save cleanly.",
+      changes: [
+        {
+          build,
+          text: "The mine now records the gameplay version beside each local in-flight trip checkpoint.",
+        },
+        {
+          build,
+          text: "If a saved trip was played on older mine rules, the client clears only that stale checkpoint and reloads the durable save from the server.",
+        },
+        {
+          build,
+          text: "A production repair advanced one affected player's replay counter so their original save loads from the durable world instead of the stale trip.",
+        },
+      ],
+    },
     {
       version: "0.1.71",
       date: "2026-06-19",

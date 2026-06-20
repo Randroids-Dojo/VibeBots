@@ -871,17 +871,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Deeper ore and better pickaxes now pay more satisfyingly.",
+    "Old in-flight mine trips now restore the original save cleanly.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Copper, silver, and later ore tiers",
+    "gameplay version beside each local in-flight trip checkpoint",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "deterministic yield bursts",
+    "clears only that stale checkpoint",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Better Pickaxe levels",
+    "production repair advanced one affected player's replay counter",
   );
 
   await page.mouse.click(8, 8);
@@ -901,6 +901,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.72", "Stale trip recovery"],
     ["0.1.71", "Ore yield tuning"],
     ["0.1.70", "Biome portal beacons"],
     ["0.1.69", "Installed app refresh"],
@@ -951,7 +952,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.71-ore-yields",
+      "2026-06-19-0.1.72-stale-trip-recovery",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1072,7 +1073,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.71-ore-yields",
+      "2026-06-19-0.1.72-stale-trip-recovery",
     );
   });
   await page.route("**/api/version", async (route) => {

@@ -11,11 +11,11 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.71.123",
+  version: "0.1.72.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-19-0.1.71-ore-yields",
-  intro: "Deeper ore and better pickaxes now pay more satisfyingly.",
+  noticeId: "2026-06-19-0.1.72-stale-trip-recovery",
+  intro: "Old in-flight mine trips now restore the original save cleanly.",
   changes: [
     {
       build: 123,
@@ -24,10 +24,10 @@ const release: AppRelease = {
   ],
   notes: [
     {
-      version: "0.1.71",
+      version: "0.1.72",
       date: "2026-06-19",
-      title: "Ore yield tuning",
-      intro: "Deeper ore and better pickaxes now pay more satisfyingly.",
+      title: "Stale trip recovery",
+      intro: "Old in-flight mine trips now restore the original save cleanly.",
       changes: [
         {
           build: 123,
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Ore yield tuning"),
+      expect.stringContaining("Stale trip recovery"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

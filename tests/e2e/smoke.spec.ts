@@ -1,6 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
+import packageJson from "../../package.json";
 
 const MINE_KEY_CADENCE_MS = 190;
+const APP_VERSION_PATTERN = new RegExp(
+  `^${packageJson.version.replaceAll(".", "\\.")}([.+]|$)`,
+);
 
 async function pressMineKey(
   page: Page,
@@ -2002,18 +2006,15 @@ test.describe("phone viewport", () => {
       w.__vibebotsPerfSampleMs = 2_000;
       w.__vibebotsPerfRepeatMs = 60_000;
       w.__vibebotsPerfMinSendIntervalMs = 0;
-      localStorage.setItem(
-        "vibebots-release-notes-dismissed-id",
-        "2026-06-20-0.1.76-surface-tip-rotation",
-      );
     });
 
     await page.goto("/mine");
     await expect(page.locator("canvas")).toBeVisible();
+    await dismissReleaseNotes(page);
     await expect.poll(() => samples.length, { timeout: 15_000 }).toBe(1);
     const payload = samples[0] as Record<string, unknown>;
     expect(payload.source).toBe("mine");
-    expect(String(payload.appVersion)).toMatch(/^0\.1\.75/);
+    expect(String(payload.appVersion)).toMatch(APP_VERSION_PATTERN);
     expect(payload.mineVersion).toBe(38);
     expect(payload.frameCount).toBeGreaterThan(5);
     expect(payload.p95FrameMs).toBeGreaterThan(0);

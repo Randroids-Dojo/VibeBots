@@ -2,6 +2,23 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
+  it("keeps the latest death cam note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes[0];
+
+    expect(release.noticeId).toBe("2026-06-20-0.1.86-death-cam");
+    expect(latestNote).toMatchObject({
+      version: "0.1.86",
+      title: "Death cam fix",
+      intro: "Death animations now stay inside the real mine view.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Fatal falls and falling-rock crushes keep rendering the populated underground cells around the death.",
+      "The trip report still waits until the fall or crush impact finishes, but the camera no longer shows a sudden empty void.",
+      "Mine rules, recovery, and replay behavior are unchanged.",
+    ]);
+  });
+
   it("keeps the archived falling rock durability note complete", () => {
     const release = getAppRelease();
     const fallingRockNote = release.notes.find(

@@ -696,6 +696,14 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
       timeout: 5_000,
     })
     .toBe("true");
+  await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-rendered-cell-count")),
+      {
+        timeout: 5_000,
+      },
+    )
+    .toBeGreaterThan(20);
   const fallActiveShot = await canvas.screenshot();
   expect(Buffer.compare(beforeFallShot, fallActiveShot)).not.toBe(0);
 
@@ -801,6 +809,14 @@ test("falling-rock crush stays on camera before the report", async ({
       timeout: 5_000,
     })
     .toBeLessThan(-7);
+  await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-rendered-cell-count")),
+      {
+        timeout: 5_000,
+      },
+    )
+    .toBeGreaterThan(20);
   await expect
     .poll(async () => canvas.getAttribute("data-fall-visual-impact"), {
       timeout: 5_000,
@@ -1084,16 +1100,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Tool upgrades now stretch deeper into the long mine.",
+    "Death animations now stay inside the real mine view.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "longer level ladders",
+    "populated underground cells",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "bunker-earned player levels",
+    "no longer shows a sudden empty void",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("Balance events");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "replay behavior are unchanged",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1112,6 +1130,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.86", "Death cam fix"],
     ["0.1.85", "Save slot refresh"],
     ["0.1.84", "Upgrade rebalance"],
     ["0.1.83", "Beacon depth gate"],
@@ -1176,7 +1195,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.85-save-slot-refresh",
+      "2026-06-20-0.1.86-death-cam",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1297,7 +1316,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.85-save-slot-refresh",
+      "2026-06-20-0.1.86-death-cam",
     );
   });
   await page.route("**/api/version", async (route) => {

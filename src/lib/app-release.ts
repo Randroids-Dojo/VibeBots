@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.85-save-slot-refresh";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.86-death-cam";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.86",
+      date: "2026-06-20",
+      title: "Death cam fix",
+      intro: "Death animations now stay inside the real mine view.",
+      changes: [
+        {
+          build,
+          text: "Fatal falls and falling-rock crushes keep rendering the populated underground cells around the death.",
+        },
+        {
+          build,
+          text: "The trip report still waits until the fall or crush impact finishes, but the camera no longer shows a sudden empty void.",
+        },
+        {
+          build,
+          text: "Mine rules, recovery, and replay behavior are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.85",
       date: "2026-06-20",

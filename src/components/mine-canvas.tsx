@@ -35,7 +35,6 @@ import {
   findPortalBeacons,
   hitsFor,
   isSupportSalvageTarget,
-  isVisible,
   lanternDistance,
   lightRadius,
   type MineBiomeId,
@@ -2340,9 +2339,12 @@ function MineScene({
   const fallPlayback = useRef<FallPlayback | null>(null);
   const fallClearTimeout = useRef<number | null>(null);
   const [fallWindow, setFallWindow] = useState<FallWindow | null>(null);
+  const renderedCellCountRef = useRef(0);
 
   const displayCol = fallWindow?.col ?? mine.miner.col;
   const minerRow = fallWindow?.toRow ?? mine.miner.row;
+  const renderDistance = (col: number, row: number) =>
+    Math.max(Math.abs(col - displayCol), Math.max(0, row - minerRow));
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
   const litBelow = lightRadius(mine.gear);
@@ -2688,6 +2690,9 @@ function MineScene({
       state.gl.domElement.dataset.renderRadius = String(renderRadius);
       state.gl.domElement.dataset.renderMinCol = String(firstCol);
       state.gl.domElement.dataset.renderMaxCol = String(lastCol);
+      state.gl.domElement.dataset.renderedCellCount = String(
+        renderedCellCountRef.current,
+      );
       state.gl.domElement.dataset.cameraMotionFrames = String(
         cameraMotion.current?.frames ?? 0,
       );
@@ -2900,16 +2905,20 @@ function MineScene({
   const crackMeshes = [];
   const darknessMeshes = [];
   const supportSelectionMeshes = [];
+  let renderedCellCount = 0;
   const selectedSupportSet = new Set(selectedSupportKeys ?? []);
   const dynamitePreviewSet = new Set(
     (dynamitePreviewCells ?? []).map((coord) => `${coord.col}:${coord.row}`),
   );
   for (let row = firstRow; row <= lastRow; row++) {
     for (let col = firstCol; col <= lastCol; col++) {
-      const distanceFromMiner = lanternDistance(mine, col, row);
+      const distanceFromMiner = fallWindow
+        ? renderDistance(col, row)
+        : lanternDistance(mine, col, row);
       if (distanceFromMiner > renderRadius) continue;
       const cell = cellAt(mine, col, row);
       if (!cell) continue;
+      renderedCellCount += 1;
       const key = `${col}:${row}`;
       const x = cellX(col);
       const y = -row;
@@ -3431,7 +3440,10 @@ function MineScene({
   const charge = mine.pendingDynamite;
   if (
     charge &&
-    isVisible(mine, charge.col, charge.row) &&
+    (fallWindow
+      ? renderDistance(charge.col, charge.row) <= lightRadius(mine.gear)
+      : lanternDistance(mine, charge.col, charge.row) <=
+        lightRadius(mine.gear)) &&
     charge.row >= firstRow &&
     charge.row <= lastRow &&
     charge.col >= firstCol &&
@@ -3445,6 +3457,7 @@ function MineScene({
       />,
     );
   }
+  renderedCellCountRef.current = renderedCellCount;
 
   return (
     <>

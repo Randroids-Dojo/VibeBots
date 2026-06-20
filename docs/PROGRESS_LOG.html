@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="death-cam-populated-cells" data-date="2026-06-20">
+    <h3>Death Cam Populated Cells</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/death-cam-populated-cells</code>, created from current <code>origin/main</code> in a fresh worktree, then rebased after remote main moved to the save slot refresh release.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported death camera fix. Fatal free-fall and falling-rock crush playback now render mine-cell visibility from the death animation focus instead of the already reset surface miner position, so the camera stays on real populated cells while the miner falls or gets crushed. The canvas exposes <code>data-rendered-cell-count</code> for smoke coverage. Package version moved to <code>0.1.86</code>; <code>MINE_VERSION</code> stays at <code>43</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write package.json src/components/mine-canvas.tsx src/lib/app-release.ts src/lib/app-release.test.ts src/app/api/notifications/route.test.ts tests/e2e/smoke.spec.ts</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, focused Vitest for app release and notification route tests (9 passed), JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm test</code> (294 passed), <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3317</code> for fatal free fall, falling-rock crush, and latest release notes (3 passed). A browser spot check on <code>/mine</code> confirmed the <code>0.1.86</code> release dialog copy and a populated canvas with <code>data-rendered-cell-count="66"</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep this as render-layer state only, with no gameplay-version bump, because collapse behavior, death recovery, and replay results are unchanged. Mine surface tips were reviewed and kept unchanged because this fixes death-camera presentation, not player rules or controls.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a Build log entry to <code>docs/gdd/06-mining.html</code>, updated release notes, and tightened focused smoke coverage for the death camera.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="save-slot-refresh" data-date="2026-06-20">
     <h3>Save Slot Refresh</h3>
     <dl>

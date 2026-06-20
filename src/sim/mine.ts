@@ -1965,6 +1965,8 @@ export type MoveResult =
         | "no-beacon"
         | "out-of-range"
         | "surface";
+      /** Pickaxe level needed to cut the blocked resource. */
+      requiredPickaxeLevel?: number;
     };
 
 type BaseMineAction =
@@ -2448,8 +2450,15 @@ export function step(state: MineState, dir: Direction): MoveResult {
   const cell = cellAt(state, t.col, t.row);
   if (!cell) return { ok: false, reason: "edge" };
   const isRockLike = cell.kind === "rock" || isFallingRock(cell);
-  if (isRockLike && !canDigRock(state.gear, rockTierForDig(cell, t.row)))
-    return { ok: false, reason: "rock" };
+  if (isRockLike) {
+    const rockTier = rockTierForDig(cell, t.row);
+    if (!canDigRock(state.gear, rockTier))
+      return {
+        ok: false,
+        reason: "rock",
+        requiredPickaxeLevel: rockTier + 1,
+      };
+  }
   if (
     cell.kind === "metal" ||
     (cell.kind === "boulder" && !isFallingRock(cell)) ||

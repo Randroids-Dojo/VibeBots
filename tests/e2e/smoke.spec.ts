@@ -705,6 +705,43 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
   await expect(report).not.toContainText("Crushed by a boulder");
 });
 
+test("mine shows the needed pickaxe level on gated rock hits", async ({
+  page,
+}) => {
+  const mine = createMine(6261, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  setCell(mine, START_COL, 1, { kind: "rock", rockTier: 1 });
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      json: {
+        activeSlot: 1,
+        seed: 6261,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      },
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear: DEFAULT_GEAR,
+        consumables: STARTING_CONSUMABLES,
+        balance: 0,
+      },
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.locator("canvas")).toBeVisible();
+  await pressMineKey(page, "ArrowDown");
+
+  const hint = page.locator(".mine-pickaxe-gate-hint");
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText("Pickaxe level 2 needed");
+  await expect(hint).toHaveCSS("pointer-events", "none");
+  await expect(hint).toBeHidden({ timeout: 3_000 });
+});
+
 test("falling-rock crush stays on camera before the report", async ({
   page,
 }) => {
@@ -1047,14 +1084,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Bunker claim mode now marks blockers in red.",
+    "Hard rock walls now tell you which Pickaxe level they need.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "highlighted in red",
+    "temporary floating Pickaxe level hint",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("miner's row");
-  await expect(dialog.locator("li").nth(2)).toContainText("failing claim");
+  await expect(dialog.locator("li").nth(1)).toContainText("normal HUD text");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "gameplay versions are unchanged",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1073,6 +1112,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.82", "Pickaxe gate hints"],
     ["0.1.81", "Bunker claim clarity"],
     ["0.1.80", "Bag stacks and ore rebalance"],
     ["0.1.79", "Stamp catalog refresh"],
@@ -1133,7 +1173,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.81-bunker-claim-clarity",
+      "2026-06-20-0.1.82-pickaxe-gate-hints",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1254,7 +1294,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.81-bunker-claim-clarity",
+      "2026-06-20-0.1.82-pickaxe-gate-hints",
     );
   });
   await page.route("**/api/version", async (route) => {

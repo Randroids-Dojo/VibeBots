@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.82" data-date="2026-06-20">
+    <h2>0.1.82</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.82</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>41</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Hard rock walls now tell you which Pickaxe level they need.</dd>
+      <dt>Interface</dt><dd>When a rock or fallen rock is too hard for the current Pickaxe, the mine shows a temporary floating HUD hint with the required Pickaxe level.</dd>
+      <dt>Renderer safety</dt><dd>The hint uses ordinary DOM text above the mine view, not runtime canvas text, so mobile renderers keep it readable.</dd>
+      <dt>Rules</dt><dd>Pickaxe gate rules, mine replay behavior, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks the required Pickaxe level on regular and fallen rock gates. Focused smoke coverage checks the floating level hint appears, ignores pointer input, and disappears after the temporary display window.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.81" data-date="2026-06-20">
     <h2>0.1.81</h2>
     <dl>

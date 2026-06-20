@@ -109,6 +109,46 @@ a {
   }
 }
 
+@keyframes mine-pickaxe-gate-pop {
+  0% {
+    transform: translate(-50%, 8px) scale(0.92);
+    opacity: 0;
+  }
+  16% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(-50%, -8px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -20px) scale(0.98);
+    opacity: 0;
+  }
+}
+
+.mine-pickaxe-gate-hint {
+  position: absolute;
+  top: 28%;
+  left: 50%;
+  z-index: 9;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid rgba(245, 197, 66, 0.8);
+  border-radius: 999px;
+  background: rgba(18, 20, 28, 0.92);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.42);
+  color: #f5c542;
+  font-size: 0.95rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+  animation: mine-pickaxe-gate-pop 1800ms ease-out both;
+}
+
 @keyframes mine-lost-pulse {
   0%,
   100% {

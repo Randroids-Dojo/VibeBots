@@ -229,6 +229,7 @@ const MINE_SURFACE_TIP_CHOICES: readonly (string | null)[] = [
   ...MINE_SURFACE_TIPS,
   ...Array.from({ length: MINE_SURFACE_TIP_EMPTY_SLOTS }, () => null),
 ];
+const PICKAXE_GATE_HINT_MS = 1800;
 
 interface MineSurfaceTipTestWindow {
   __vibebotsSurfaceTipSequence?: (string | null)[];
@@ -3852,6 +3853,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
   const [releaseNotesVisible, setReleaseNotesVisible] = useState(false);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
+  const [pickaxeGateHint, setPickaxeGateHint] = useState<{
+    key: number;
+    level: number;
+  } | null>(null);
   const [cameraZoom, setCameraZoom] = useState(MINE_CAMERA_ZOOM_DEFAULT);
   const [bagPanelOpen, setBagPanelOpen] = useState(false);
   const [bagFullFlash, setBagFullFlash] = useState(false);
@@ -4062,6 +4067,27 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       setTeleportBurstKey((key) => key + 1);
     }
   }, [lastAction, lastResult]);
+
+  useEffect(() => {
+    if (
+      !lastResult ||
+      lastResult.ok ||
+      lastResult.reason !== "rock" ||
+      !lastResult.requiredPickaxeLevel
+    ) {
+      setPickaxeGateHint((hint) => (hint ? null : hint));
+      return;
+    }
+    const key = tick;
+    setPickaxeGateHint({
+      key,
+      level: lastResult.requiredPickaxeLevel,
+    });
+    const timer = window.setTimeout(() => {
+      setPickaxeGateHint((hint) => (hint?.key === key ? null : hint));
+    }, PICKAXE_GATE_HINT_MS);
+    return () => window.clearTimeout(timer);
+  }, [lastResult, tick]);
 
   const fireDirection = useCallback(
     (dir: Direction, options: { repeat?: boolean } = {}) => {
@@ -4469,7 +4495,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const statusLine =
     lastResult && !lastResult.ok
       ? lastResult.reason === "rock"
-        ? "Too hard for this pickaxe."
+        ? lastResult.requiredPickaxeLevel
+          ? `Pickaxe level ${lastResult.requiredPickaxeLevel} needed.`
+          : "Too hard for this pickaxe."
         : lastResult.reason === "hold-full"
           ? "Hold full. Bank it topside."
           : lastResult.reason === "no-dynamite"
@@ -4578,6 +4606,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       )}
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
+      {pickaxeGateHint && (
+        <div
+          key={pickaxeGateHint.key}
+          className="mine-pickaxe-gate-hint"
+          role="status"
+        >
+          Pickaxe level {pickaxeGateHint.level} needed
+        </div>
+      )}
       {teleportBurstKey > 0 && (
         <div
           key={teleportBurstKey}

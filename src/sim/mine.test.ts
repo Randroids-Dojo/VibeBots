@@ -1179,7 +1179,11 @@ describe("mine", () => {
 
     const walled = createMine(19);
     setCell(walled, START_COL, 1, { kind: "rock", rockTier: 1 });
-    expect(step(walled, "down")).toEqual({ ok: false, reason: "rock" });
+    expect(step(walled, "down")).toEqual({
+      ok: false,
+      reason: "rock",
+      requiredPickaxeLevel: 2,
+    });
   });
 
   it("replays identically with a gear snapshot", () => {
@@ -1521,7 +1525,11 @@ describe("mine", () => {
       fallen: true,
     });
     setCell(weakFallen, c + 1, 25, { kind: "dirt" });
-    expect(step(weakFallen, "right")).toEqual({ ok: false, reason: "rock" });
+    expect(step(weakFallen, "right")).toEqual({
+      ok: false,
+      reason: "rock",
+      requiredPickaxeLevel: 3,
+    });
 
     const afterDrop = createMine(111, { ...DEFAULT_GEAR, pickaxe: 5 });
     afterDrop.miner.col = c;

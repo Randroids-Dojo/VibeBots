@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.81-bunker-claim-clarity";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.82-pickaxe-gate-hints";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.82",
+      date: "2026-06-20",
+      title: "Pickaxe gate hints",
+      intro: "Hard rock walls now tell you which Pickaxe level they need.",
+      changes: [
+        {
+          build,
+          text: "When a rock or fallen rock is too hard, the mine shows a temporary floating Pickaxe level hint above the playfield.",
+        },
+        {
+          build,
+          text: "The hint uses normal HUD text, not canvas text, so it stays readable on mobile renderers.",
+        },
+        {
+          build,
+          text: "Pickaxe gate rules, mine replay behavior, and gameplay versions are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.81",
       date: "2026-06-20",

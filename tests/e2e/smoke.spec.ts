@@ -2812,32 +2812,31 @@ test.describe
     test("biome portal beacons activate and appear at the Warp Pad", async ({
       page,
     }) => {
-      const trip = {
-        seed: 20260619,
-        mineVersion: MINE_VERSION,
-        tripIndex: 0,
-        gear: DEFAULT_GEAR,
-        consumables: STARTING_CONSUMABLES,
-        baseDiff: [],
-        moves: Array.from({ length: 75 }, () => "left"),
-      };
       await page.route("**/api/mine/world", async (route) => {
-        await route.fulfill({ status: 503, body: "{}" });
+        await route.fulfill({
+          json: {
+            activeSlot: 1,
+            seed: 20260619,
+            tripIndex: 0,
+            diff: [],
+          },
+        });
       });
       await page.route("**/api/gear", async (route) => {
-        await route.fulfill({ status: 503, body: "{}" });
+        await route.fulfill({
+          json: {
+            gear: DEFAULT_GEAR,
+            consumables: STARTING_CONSUMABLES,
+            balance: 0,
+          },
+        });
       });
-      await page.addInitScript((savedTrip) => {
-        localStorage.setItem(
-          "vibebots-mine-trip-v2-slot-1",
-          JSON.stringify(savedTrip),
-        );
-      }, trip);
       await page.goto("/mine");
       await dismissReleaseNotes(page);
       const status = page.getByLabel("Mine status");
       await expect(status).toHaveAttribute("data-depth", "0");
 
+      for (let i = 0; i < 75; i++) await pressMineKey(page, "ArrowLeft");
       const activate = page.getByRole("button", {
         name: "Activate Winter Beacon",
       });
@@ -2870,45 +2869,34 @@ test.describe
         warpcoil: 5,
       };
       const consumables = { ...STARTING_CONSUMABLES, beacon: 0 };
-      const trip = {
-        seed: 12345,
-        mineVersion: MINE_VERSION,
-        tripIndex: 0,
-        gear,
-        consumables,
-        baseDiff: [
-          [0, 665, { kind: "empty", beacon: true, drop: { coal: 12 } }],
-          [1, 665, { kind: "rock", rockTier: 3, fallen: true }],
-          [1, 664, { kind: "rock", rockTier: 3, fallen: true }],
-          [0, 666, { kind: "rock", rockTier: 3, fallen: true }],
-          [-1, 665, { kind: "empty" }],
-          [0, 664, { kind: "empty" }],
-        ],
-        moves: [
-          "right",
-          "right",
-          "right",
-          "right",
-          "right",
-          "right",
-          "warp-down",
-        ],
-      };
+      const baseDiff = [
+        [0, 665, { kind: "empty", beacon: true, drop: { coal: 12 } }],
+        [1, 665, { kind: "rock", rockTier: 3, fallen: true }],
+        [1, 664, { kind: "rock", rockTier: 3, fallen: true }],
+        [0, 666, { kind: "rock", rockTier: 3, fallen: true }],
+        [-1, 665, { kind: "empty" }],
+        [0, 664, { kind: "empty" }],
+      ];
       await page.route("**/api/mine/world", async (route) => {
-        await route.fulfill({ status: 503, body: "{}" });
+        await route.fulfill({
+          json: {
+            activeSlot: 1,
+            seed: 12345,
+            tripIndex: 0,
+            diff: baseDiff,
+          },
+        });
       });
       await page.route("**/api/gear", async (route) => {
-        await route.fulfill({ status: 503, body: "{}" });
+        await route.fulfill({ json: { gear, consumables, balance: 0 } });
       });
-      await page.addInitScript((savedTrip) => {
-        localStorage.setItem(
-          "vibebots-mine-trip-v2-slot-1",
-          JSON.stringify(savedTrip),
-        );
-      }, trip);
       await page.goto("/mine");
       await dismissReleaseNotes(page);
       const status = page.getByLabel("Mine status");
+
+      for (let i = 0; i < 6; i++) await pressMineKey(page, "ArrowRight");
+      const pad = await openStall(page, "Warp Pad");
+      await pad.getByRole("button", { name: "Warp" }).click();
       await expect(status).toHaveAttribute("data-depth", "665");
 
       const canvas = page.locator("canvas");

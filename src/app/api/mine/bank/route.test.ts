@@ -481,6 +481,12 @@ describe("mine bank policy helpers", () => {
     expect(gearOwnershipError({ ...DEFAULT_GEAR, recall: 2 }, ownedBase)).toBe(
       "gear not owned: recall level 2",
     );
+    expect(
+      gearOwnershipError({ ...DEFAULT_GEAR, elevatorSpeed: 2 }, ownedBase),
+    ).toBe("gear not owned: elevator speed level 2");
+    expect(gearOwnershipError({ ...DEFAULT_GEAR, fall: 2 }, ownedBase)).toBe(
+      "gear not owned: fall harness level 2",
+    );
     expect(gearOwnershipError(DEFAULT_GEAR, ownedBase)).toBeNull();
   });
 

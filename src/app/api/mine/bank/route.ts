@@ -176,14 +176,16 @@ async function currentPlayerIdForLog(): Promise<string | undefined> {
   }
 }
 
-const PROFILE_LEVEL_KEYS = [
-  ["pickaxe", "pickaxe_level"],
-  ["battery", "lamp_level"],
-  ["cargo", "cargo_level"],
-  ["lantern", "lantern_level"],
-  ["warpcoil", "warpcoil_level"],
-  ["blast", "blast_level"],
-  ["recall", "recall_level"],
+const PROFILE_GEAR_LEVELS = [
+  ["pickaxe", "pickaxe_level", "pickaxe"],
+  ["battery", "lamp_level", "battery"],
+  ["cargo", "cargo_level", "cargo"],
+  ["lantern", "lantern_level", "lantern"],
+  ["warpcoil", "warpcoil_level", "warpcoil"],
+  ["blast", "blast_level", "blast"],
+  ["elevatorSpeed", "elevator_speed_level", "elevator speed"],
+  ["fall", "fall_level", "fall harness"],
+  ["recall", "recall_level", "recall"],
 ] as const satisfies ReadonlyArray<
   readonly [
     MineGearTrack,
@@ -195,8 +197,11 @@ const PROFILE_LEVEL_KEYS = [
       | "lantern_level"
       | "warpcoil_level"
       | "blast_level"
+      | "elevator_speed_level"
+      | "fall_level"
       | "recall_level"
     >,
+    string,
   ]
 >;
 
@@ -204,19 +209,13 @@ export function gearOwnershipError(
   gear: MineGear,
   owned: MinePlayerProfile,
 ): string | null {
-  for (const [track, column] of PROFILE_LEVEL_KEYS) {
+  for (const [track, column, label] of PROFILE_GEAR_LEVELS) {
     if ((gear[track] ?? 1) > owned[column]) {
-      return `gear not owned: ${track} level ${gear[track]}`;
+      return `gear not owned: ${label} level ${gear[track]}`;
     }
   }
   if (gear.elevator > owned.elevator_depth) {
     return `rail not owned: depth ${gear.elevator}`;
-  }
-  if ((gear.elevatorSpeed ?? 1) > owned.elevator_speed_level) {
-    return `gear not owned: elevator speed ${gear.elevatorSpeed}`;
-  }
-  if ((gear.fall ?? 1) > owned.fall_level) {
-    return `gear not owned: fall harness ${gear.fall}`;
   }
   return null;
 }

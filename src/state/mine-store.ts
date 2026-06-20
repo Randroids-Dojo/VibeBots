@@ -614,6 +614,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           activeSlot: parsed.activeSlot,
           saveSlots: { state: "ready", ...parsed },
         });
+        await get().loadWorld();
+        await get().loadGear();
         return true;
       } catch {
         set({

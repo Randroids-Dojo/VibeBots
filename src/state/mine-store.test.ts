@@ -343,46 +343,65 @@ describe("mine store upgrade flow", () => {
   });
 
   it("flushes the current slot before switching save slots", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({
-        activeSlot: 2,
-        slots: [
-          {
-            slot: 1,
-            active: false,
-            exists: true,
-            createdAt: "2026-06-18T00:00:00.000Z",
-            balance: 10,
-            deepestDepth: 3,
-            partsOwned: 1,
-            designs: 1,
-            stamps: 2,
-          },
-          {
-            slot: 2,
-            active: true,
-            exists: true,
-            createdAt: "2026-06-18T00:00:00.000Z",
-            balance: 0,
-            deepestDepth: 0,
-            partsOwned: 0,
-            designs: 0,
-            stamps: 0,
-          },
-          {
-            slot: 3,
-            active: false,
-            exists: false,
-            createdAt: null,
-            balance: 0,
-            deepestDepth: 0,
-            partsOwned: 0,
-            designs: 0,
-            stamps: 0,
-          },
-        ],
-      }),
-    );
+    const slotTwoGear = { ...DEFAULT_GEAR, lantern: 2 };
+    const slotTwoConsumables = stock({ ladder: 4, plank: 2 });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          activeSlot: 2,
+          slots: [
+            {
+              slot: 1,
+              active: false,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 10,
+              deepestDepth: 3,
+              partsOwned: 1,
+              designs: 1,
+              stamps: 2,
+            },
+            {
+              slot: 2,
+              active: true,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+            {
+              slot: 3,
+              active: false,
+              exists: false,
+              createdAt: null,
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          seed: 456,
+          tripIndex: 8,
+          diff: [],
+          activeSlot: 2,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          gear: slotTwoGear,
+          consumables: slotTwoConsumables,
+          balance: 33,
+        }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const ok = await store().switchSaveSlot(2);
@@ -395,11 +414,19 @@ describe("mine store upgrade flow", () => {
         body: JSON.stringify({ slot: 2 }),
       }),
     );
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/mine/world");
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/gear");
     expect(localStorage.setItem).toHaveBeenCalledWith(
       "vibebots-mine-trip-v2-slot-1",
       expect.any(String),
     );
     expect(store().activeSlot).toBe(2);
+    expect(store().seed).toBe(456);
+    expect(store().tripIndex).toBe(8);
+    expect(store().gear).toEqual(slotTwoGear);
+    expect(store().consumables).toEqual(slotTwoConsumables);
+    expect(store().balance).toBe(33);
+    expect(store().moves).toEqual([]);
     expect(store().saveSlots.state).toBe("ready");
   });
 

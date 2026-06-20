@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.85" data-date="2026-06-20">
+    <h2>0.1.85</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.85</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>43</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mason, load your first save now.</dd>
+      <dt>Save slots</dt><dd>After the server accepts a Load game slot switch, the client now reloads the mine world and gear for that slot before returning to the mine.</dd>
+      <dt>Recovery</dt><dd>This prevents a previously open save from staying visible after choosing another saved slot.</dd>
+      <dt>Verification</dt><dd>Focused store coverage checks that switching slots posts the slot change, then reloads <code>/api/mine/world</code> and <code>/api/gear</code> before reporting the load complete.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.84" data-date="2026-06-20">
     <h2>0.1.84</h2>
     <dl>

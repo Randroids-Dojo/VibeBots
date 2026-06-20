@@ -1112,6 +1112,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.85", "Save slot refresh"],
     ["0.1.84", "Upgrade rebalance"],
     ["0.1.83", "Beacon depth gate"],
     ["0.1.82", "Pickaxe gate hints"],
@@ -1175,7 +1176,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.84-upgrade-rebalance",
+      "2026-06-20-0.1.85-save-slot-refresh",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1296,7 +1297,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.84-upgrade-rebalance",
+      "2026-06-20-0.1.85-save-slot-refresh",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1904,6 +1905,112 @@ test("save slot deletion requires a destructive double confirmation", async ({
   await slotTwo.getByRole("button", { name: "Delete Slot 2 Forever" }).click();
   await expect(slotTwo).toContainText("New game");
   expect(deleteRequests).toBe(1);
+});
+
+test("loading a save slot refreshes the selected world and gear", async ({
+  page,
+}) => {
+  let activeSlot = 1;
+  let postRequests = 0;
+  const worldSlots: number[] = [];
+  const gearSlots: number[] = [];
+  const gear = {
+    pickaxe: 1,
+    battery: 1,
+    cargo: 1,
+    lantern: 1,
+    elevator: 0,
+    warpcoil: 1,
+    blast: 1,
+    elevatorSpeed: 1,
+    fall: 1,
+  };
+  const consumables = {
+    dynamite: 0,
+    rope: 0,
+    ladder: 2,
+    plank: 2,
+    beacon: 0,
+  };
+  const filledSlot = (
+    slot: 1 | 2,
+    balance: number,
+    deepestDepth: number,
+    partsOwned: number,
+    designs: number,
+    stamps: number,
+  ) => ({
+    slot,
+    active: activeSlot === slot,
+    exists: true,
+    createdAt: "2026-06-18T00:00:00.000Z",
+    balance,
+    deepestDepth,
+    partsOwned,
+    designs,
+    stamps,
+  });
+  const slots = () => [
+    filledSlot(1, 12, 5, 2, 1, 3),
+    filledSlot(2, 4, 2, 1, 1, 1),
+    {
+      slot: 3,
+      active: false,
+      exists: false,
+      createdAt: null,
+      balance: 0,
+      deepestDepth: 0,
+      partsOwned: 0,
+      designs: 0,
+      stamps: 0,
+    },
+  ];
+  await page.route("**/api/save-slots", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      expect(request.postDataJSON()).toEqual({ slot: 2 });
+      activeSlot = 2;
+      postRequests++;
+    }
+    await route.fulfill({ json: { activeSlot, slots: slots() } });
+  });
+  await page.route("**/api/mine/world", async (route) => {
+    worldSlots.push(activeSlot);
+    await route.fulfill({
+      json: {
+        seed: activeSlot === 1 ? 111 : 222,
+        tripIndex: activeSlot === 1 ? 3 : 8,
+        diff: [],
+        activeSlot,
+      },
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    gearSlots.push(activeSlot);
+    await route.fulfill({
+      json: {
+        gear: activeSlot === 1 ? gear : { ...gear, lantern: 2 },
+        consumables,
+        balance: activeSlot === 1 ? 12 : 4,
+      },
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const settings = await openSettings(page);
+  await settings.getByRole("button", { name: "Load game" }).click();
+  const saveSlots = page.getByRole("dialog", { name: "Load Save Slot" });
+  await expect(saveSlots).toBeVisible();
+
+  await saveSlots
+    .getByRole("group", { name: "Slot 2" })
+    .getByRole("button", { name: "Load" })
+    .click();
+
+  await expect.poll(() => postRequests).toBe(1);
+  await expect.poll(() => worldSlots.includes(2)).toBe(true);
+  await expect.poll(() => gearSlots.includes(2)).toBe(true);
 });
 
 test("mine rotates surface game tips and sometimes leaves the slot empty", async ({

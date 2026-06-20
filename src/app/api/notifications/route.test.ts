@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.84-upgrade-rebalance",
-      releaseSummary:
-        "Upgrade rebalance: Tool upgrades now stretch deeper into the long mine.",
+      releaseNoticeId: "2026-06-20-0.1.85-save-slot-refresh",
+      releaseSummary: "Save slot refresh: Mason, load your first save now.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.84-upgrade-rebalance",
+      releaseNoticeId: "2026-06-20-0.1.85-save-slot-refresh",
       attempted: 2,
       sent: 1,
       expired: 1,

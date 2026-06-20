@@ -2,10 +2,26 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.84-upgrade-rebalance";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.85-save-slot-refresh";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.85",
+      date: "2026-06-20",
+      title: "Save slot refresh",
+      intro: "Mason, load your first save now.",
+      changes: [
+        {
+          build,
+          text: "After the server accepts a Load game slot switch, the client now reloads the mine world and gear for that slot before returning to the mine.",
+        },
+        {
+          build,
+          text: "This prevents a previously open save from staying visible after choosing another saved slot.",
+        },
+      ],
+    },
     {
       version: "0.1.84",
       date: "2026-06-20",

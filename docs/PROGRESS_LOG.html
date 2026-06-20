@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="save-slot-refresh" data-date="2026-06-20">
+    <h3>Save Slot Refresh</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-8a8eba9c</code>, created from current <code>origin/main</code> in a fresh worktree before investigation, then rebased over <code>origin/main</code> after the upgrade rebalance slice landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported long-time save recovery followup. Production logs showed player hash <code>c4964eb44eee8e8e</code> hit one fresh <code>mine.cash_out.mine_version_mismatch</code> at <code>2026-06-20T02:24:30Z</code> after the upward-mining version bump, then successfully cashed out trip <code>80</code> on <code>MINE_VERSION</code> <code>41</code> at <code>2026-06-20T02:50:24Z</code>. The remaining Load game failure matched a client state bug: after <code>/api/save-slots</code> accepted a slot switch, the store updated the active-slot summary but did not reload the selected slot's mine world or gear. <code>switchSaveSlot</code> now reloads <code>/api/mine/world</code> and <code>/api/gear</code> before reporting success, so the previous in-memory save cannot stay on screen after choosing another slot. The release summary and notification say <q>Mason, load your first save now.</q> Package version moved to <code>0.1.85</code>; <code>MINE_VERSION</code> stays at <code>43</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm typecheck</code>, focused mine-store, notification, app-release, version, and Web Push Vitest (25 passed), <code>pnpm build</code>, <code>pnpm test</code> (293 passed), focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3333</code> for save-slot world and gear refresh (1 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, and <code>git diff --cached --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat the durable server slot world and gear as the source of truth after a slot switch, even when the old slot still has an in-memory trip open. Mine surface tips were reviewed and kept unchanged because this fixes save loading, not a mine rule, economy path, control, upgrade, hazard, shop, or recovery mechanic.</dd>
+      <dt>GDD coverage</dt><dd>REQ-033 stays done. Updated the build log in <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, notification expectations, focused store coverage, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="upgrade-rebalance-observability" data-date="2026-06-20">
     <h3>Upgrade Rebalance And Observability</h3>
     <dl>

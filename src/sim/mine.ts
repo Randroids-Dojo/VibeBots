@@ -278,7 +278,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     prices: [45, 140, 420, 1200, 3200, 8200, 19000, 42000, 90000],
     levelRequirements: [1, 5, 12, 25, 40, 55, 70, 85, 100],
     depthRequirements: [0, 18, 45, 90, 150, 260, 420, 620, 820],
-    blurb: "cuts harder rock tiers",
+    blurb: "breaks tougher rock and ore faster",
   },
   {
     track: "battery",
@@ -286,7 +286,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     prices: [35, 110, 340, 950, 2400, 5600, 12500, 28000, 62000],
     levelRequirements: [1, 4, 10, 20, 35, 50, 65, 80, 92],
     depthRequirements: [0, 16, 45, 90, 150, 240, 380, 560, 760],
-    blurb: "more robot charge per trip",
+    blurb: "longer trips before shutdown",
   },
   {
     track: "cargo",
@@ -294,7 +294,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     prices: [80, 220, 600, 1650, 4600, 12500, 34000, 78000, 170000],
     levelRequirements: [1, 5, 12, 24, 40, 56, 72, 88, 100],
     depthRequirements: [0, 20, 55, 110, 190, 300, 450, 650, 850],
-    blurb: "carry more ore per trip",
+    blurb: "adds ore stack slots",
   },
   {
     track: "lantern",
@@ -302,7 +302,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     prices: [55, 180, 520, 1400, 3600, 9000, 22000],
     levelRequirements: [1, 6, 14, 28, 44, 62, 80],
     depthRequirements: [0, 20, 55, 115, 210, 360, 600],
-    blurb: "see deeper ahead",
+    blurb: "lights more rows and zooms farther out",
   },
   {
     track: "warpcoil",
@@ -310,7 +310,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     prices: [180, 700, 2600, 9000, 26000, 70000],
     levelRequirements: [8, 22, 40, 60, 80, 100],
     depthRequirements: [50, 130, 260, 450, 650, 850],
-    blurb: "longer beacon warp range",
+    blurb: "reaches deeper planted beacons",
   },
   {
     track: "blast",
@@ -318,7 +318,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     prices: [250, 800, 2500],
     levelRequirements: [12, 35, 70],
     depthRequirements: [60, 180, 420],
-    blurb: "unlock stronger dynamite shapes",
+    blurb: "unlocks larger dynamite blasts",
   },
   {
     track: "elevatorSpeed",
@@ -326,7 +326,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     prices: [100, 260, 680, 1750, 4500, 11000, 26000, 62000],
     levelRequirements: [1, 8, 18, 32, 48, 62, 76, 90],
     depthRequirements: [0, 30, 80, 150, 260, 400, 560, 760],
-    blurb: "faster elevator rides (needs a rail)",
+    blurb: "moves more rail rows per step",
   },
   {
     track: "fall",
@@ -334,7 +334,7 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     prices: [80, 220, 620, 1700, 4300, 10500, 25000],
     levelRequirements: [1, 8, 18, 32, 48, 64, 80],
     depthRequirements: [0, 30, 75, 140, 230, 360, 540],
-    blurb: "survive longer free falls",
+    blurb: "survive deeper drops",
   },
   {
     track: "recall",

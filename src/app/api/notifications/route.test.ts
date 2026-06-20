@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.97-credits",
+      releaseNoticeId: "2026-06-20-0.1.98-mine-text-status-layout",
       releaseSummary:
-        "Credits: The mine pause menu now includes a special thanks.",
+        "Mine text and status layout: Mine copy is clearer, and status messages stay clear of zoom controls.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.97-credits",
+      releaseNoticeId: "2026-06-20-0.1.98-mine-text-status-layout",
       attempted: 2,
       sent: 1,
       expired: 1,

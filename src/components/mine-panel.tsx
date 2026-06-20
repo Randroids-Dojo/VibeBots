@@ -258,25 +258,19 @@ function DismissibleDialogFrame({
 }
 
 const MINE_SURFACE_TIPS = [
-  "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
-  "Tip: press up into a solid block to mine overhead without spending a ladder.",
-  "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
-  "Tip: dynamite chips rich ore reserves and still scoops what it breaks into your hold.",
-  "Tip: falling rocks wait two moves and take at least two hits to break.",
-  "Tip: zoom out improves with Lantern upgrades, but the dark edge still hides far cells.",
-  "Tip: dropped bags fall if you mine or pick up the support under them.",
-  "Tip: unsupported ladders slide down shafts until they land on support.",
-  "Tip: the Hardware Store sells level 1 bunker parts for your base.",
-  "Tip: Blast Charge unlocks stronger dynamite tiers at the Upgrades stall.",
-  "Tip: Recall Rope upgrades let rope work deeper before you spend one.",
-  "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
-  "Tip: survived bunker defenses raise player level, and later tool upgrades need that level.",
-  "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
-  "Tip: plant Warp Beacons only inside your current Warpcoil range.",
-  "Tip: row 1,000 takes rail, Warpcoil, Recall Rope, cargo, and battery upgrades together.",
-  "Tip: late upgrades need both max depth records and bunker-earned player levels.",
-  "Tip: surface beacons in distant biomes unlock free portals back to base.",
-  "Tip: the Stamp Book now tracks biome portals and bag-drop planning.",
+  "Tip: rich ore may need several hits. Every swing still costs battery.",
+  "Tip: press up into solid ground to dig overhead without using a ladder.",
+  "Tip: falling rocks drop after two moves and need at least two hits to break.",
+  "Tip: Lantern upgrades reveal more rows and let you zoom out farther.",
+  "Tip: Buy ladders and planks at the Supply Depot before deeper trips.",
+  "Tip: Dynamite collects the ore and parts it breaks if your hold has room.",
+  "Tip: Upgrade Blast Charge to unlock larger dynamite blast shapes.",
+  "Tip: Upgrade Recall Rope to bank from deeper rows.",
+  "Tip: Planted beacons only work within your current Warpcoil range.",
+  "Tip: Distant biome beacons become free portals back to base.",
+  "Tip: Bunker defenses raise player level for later upgrades.",
+  "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
+  "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
 ] as const;
 const MINE_SURFACE_TIP_EMPTY_SLOTS = 3;
 const MINE_SURFACE_TIP_ROTATION_MS = 15_000;
@@ -446,7 +440,7 @@ const chipStyle: React.CSSProperties = {
 const statusChipStyle: React.CSSProperties = {
   ...chipStyle,
   boxSizing: "border-box",
-  maxWidth: "min(560px, calc(100vw - 24px))",
+  maxWidth: "min(560px, calc(100vw - 94px))",
   whiteSpace: "normal",
   overflowWrap: "break-word",
 };
@@ -3474,9 +3468,13 @@ function StallMenu({
             name={
               warpDestinationCount > 0
                 ? `${warpDestinationCount} destination${warpDestinationCount > 1 ? "s" : ""} online`
-                : "no beacon planted; kits at the depot"
+                : "No planted beacons yet"
             }
-            sub={`portals are free; planted beacons use warpcoil range ${warpRange(mine.gear)} rows`}
+            sub={
+              warpDestinationCount > 0
+                ? `Warpcoil range: ${warpRange(mine.gear)} rows for planted beacons. Biome portals are free.`
+                : `Buy beacon kits at the Supply Depot. Warpcoil range: ${warpRange(mine.gear)} rows.`
+            }
           />
           <div
             style={{
@@ -4933,17 +4931,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           : lastResult.reason === "no-dynamite"
             ? "No dynamite."
             : lastResult.reason === "no-ladder"
-              ? "No ladders to climb. Recall or buy more."
+              ? "No ladders to climb. Recall or Abandon."
               : lastResult.reason === "no-plank"
                 ? "No planks to bridge that drop."
                 : lastResult.reason === "no-beacon"
-                  ? "No beacon. Kits are at the depot."
+                  ? "No planted beacon. Buy kits at the Supply Depot."
                   : lastResult.reason === "out-of-range"
-                    ? "Too deep for current Warpcoil. Upgrade at the Upgrades stall."
+                    ? "Beacon is beyond Warpcoil range. Upgrade Warpcoil."
                     : lastResult.reason === "rope-range"
-                      ? "Rope range too short. Upgrade at the Upgrades stall."
+                      ? "Too deep for Recall Rope. Upgrade Recall Rope."
                       : lastResult.reason === "no-rope"
-                        ? "No rope."
+                        ? "No Recall Rope."
                         : lastResult.reason === "surface"
                           ? undefined
                           : lastResult.reason === "blocked"
@@ -4983,9 +4981,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                                     ? cashOut.state === "pending"
                                       ? "Selling haul..."
                                       : undefined
-                                    : miner.row === 0
-                                      ? mineSurfaceTip
-                                      : undefined;
+                                    : undefined;
   const cashNote =
     cashOut.state === "done"
       ? soldHaulLine(cashOut.soldHaul, cashOut.credits, cashOut.parts)
@@ -4994,6 +4990,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         : cashOut.state === "error"
           ? cashOut.message
           : null;
+  const visibleCashNote = cashNoteVisible ? cashNote : null;
+  const fallbackStatusLine = visibleCashNote ?? mineSurfaceTip;
+  const fallbackStatusColor = visibleCashNote
+    ? cashOut.state === "error"
+      ? "#ff6b6b"
+      : "#54e0c7"
+    : "#f5c542";
 
   const act = fireDirection;
   const unlockedDynamiteTier = dynamiteTier(mine.gear);
@@ -5583,7 +5586,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         }}
       >
         <div
-          data-mine-status-critical="true"
           style={{
             display: "flex",
             gap: 6,
@@ -5646,16 +5648,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             {statusLine}
           </span>
         )}
-        {cashNote && cashNoteVisible && (
-          <span
-            style={{
-              ...chipStyle,
-              color: cashOut.state === "error" ? "#ff6b6b" : "#54e0c7",
-            }}
-          >
-            {cashNote}
-          </span>
-        )}
+        {miner.row === 0 &&
+          fallbackStatusLine &&
+          (visibleCashNote || !statusLine) && (
+            <span style={{ ...statusChipStyle, color: fallbackStatusColor }}>
+              {fallbackStatusLine}
+            </span>
+          )}
         {lostCargo && (
           <span
             className="mine-lost-locator"

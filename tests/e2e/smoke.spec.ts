@@ -196,6 +196,7 @@ async function countCanvasRedPixels(
 import { SIM_VERSION } from "../../src/sim/constants";
 import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "../../src/sim/design";
 import {
+  applyAction,
   createMine,
   DEFAULT_GEAR,
   ELEVATOR_COL,
@@ -1112,16 +1113,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The mine pause menu now includes a special thanks.",
+    "Mine copy is clearer, and status messages stay clear of zoom controls.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("Credits option");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Mason and MJ Lutcavich",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "pauses mine movement",
-  );
+  await expect(dialog.locator("li").first()).toContainText("Recall Rope");
+  await expect(dialog.locator("li").nth(1)).toContainText("Auto-sell");
+  await expect(dialog.locator("li").nth(2)).toContainText("zoom controls");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1140,6 +1137,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.98", "Mine text and status layout"],
     ["0.1.97", "Credits"],
     ["0.1.96", "Menu outside taps"],
     ["0.1.95", "Death cam surface jump fix"],
@@ -1260,7 +1258,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.97-credits",
+      "2026-06-20-0.1.98-mine-text-status-layout",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1381,7 +1379,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.97-credits",
+      "2026-06-20-0.1.98-mine-text-status-layout",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2112,8 +2110,8 @@ test("mine rotates surface game tips and sometimes leaves the slot empty", async
       __vibebotsSurfaceTipRotationMs?: number;
     };
     w.__vibebotsSurfaceTipSequence = [
-      "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
-      "Tip: press up into a solid block to mine overhead without spending a ladder.",
+      "Tip: rich ore may need several hits. Every swing still costs battery.",
+      "Tip: press up into solid ground to dig overhead without using a ladder.",
       null,
     ];
     w.__vibebotsSurfaceTipRotationMs = 5_000;
@@ -2123,10 +2121,10 @@ test("mine rotates surface game tips and sometimes leaves the slot empty", async
 
   const status = page.getByLabel("Mine status");
   await expect(status).toContainText(
-    "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
+    "Tip: rich ore may need several hits. Every swing still costs battery.",
   );
   const longTip = page.getByText(
-    "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
+    "Tip: rich ore may need several hits. Every swing still costs battery.",
     { exact: true },
   );
   await expect(longTip).toBeVisible();
@@ -2135,10 +2133,109 @@ test("mine rotates surface game tips and sometimes leaves the slot empty", async
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);
   expect(box?.height ?? 0).toBeGreaterThan(22);
   await expect(status).toContainText(
-    "Tip: press up into a solid block to mine overhead without spending a ladder.",
+    "Tip: press up into solid ground to dig overhead without using a ladder.",
     { timeout: 8_000 },
   );
   await expect(status).not.toContainText("Tip:", { timeout: 8_000 });
+});
+
+test("auto sell result replaces tips and wraps in the status chip", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 575, height: 1280 });
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/mine/bank", async (route) => {
+    await route.fulfill({
+      json: {
+        credited: {
+          credits: 27,
+          parts: ["test-part"],
+          milestoneBonus: 0,
+          soldHaul: {
+            ores: { coal: 17, copper: 9 },
+            salvageCredits: 1,
+            totalVibes: 27,
+          },
+        },
+        balance: 61,
+        tripIndex: 1,
+        consumables: STARTING_CONSUMABLES,
+      },
+    });
+  });
+
+  const gear = {
+    ...DEFAULT_GEAR,
+    pickaxe: 9,
+    battery: 9,
+    cargo: 9,
+  };
+  const baseMine = createMine(20260620, gear, STARTING_CONSUMABLES);
+  setCell(baseMine, START_COL, 1, { kind: "ore", ore: "coal" });
+  setCell(baseMine, START_COL, 2, { kind: "dirt" });
+  const baseDiff = exportDiff(baseMine);
+  const mine = createMine(20260620, gear, STARTING_CONSUMABLES, baseDiff);
+  const moves: string[] = [];
+  for (let i = 0; i < 24 && mine.miner.row === 0; i++) {
+    const result = applyAction(mine, "down");
+    if (result.ok) moves.push("down");
+  }
+  expect(mine.miner.row).toBe(1);
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      json: {
+        activeSlot: 1,
+        seed: 20260620,
+        tripIndex: 0,
+        diff: baseDiff,
+      },
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: { gear, consumables: STARTING_CONSUMABLES, balance: 0 },
+    });
+  });
+
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem(
+        "vibebots-mine-trip-v2-slot-1",
+        JSON.stringify(trip),
+      );
+    },
+    {
+      mineVersion: MINE_VERSION,
+      seed: 20260620,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff,
+      moves,
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "1");
+
+  await pressMineKey(page, "ArrowUp");
+  await expect(status).toHaveAttribute("data-depth", "0");
+  const sellNote = status.getByText(/^Sold Coal x17, Copper x9/);
+  await expect(sellNote).toBeVisible();
+  await page.waitForTimeout(100);
+  await expect(sellNote).toBeVisible();
+  await expect(status.getByText(/^Tip:/)).toHaveCount(0);
+  const box = await sellNote.boundingBox();
+  expect(box).not.toBeNull();
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);
+  expect(box?.height ?? 0).toBeGreaterThan(22);
 });
 
 test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022)", async ({
@@ -2535,6 +2632,17 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
 test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    const w = window as typeof window & {
+      __vibebotsSurfaceTipSequence?: (string | null)[];
+      __vibebotsSurfaceTipRotationMs?: number;
+    };
+    w.__vibebotsSurfaceTipSequence = [
+      "Tip: Distant biome beacons become free portals back to base.",
+    ];
+    w.__vibebotsSurfaceTipRotationMs = 60_000;
+  });
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   const canvas = page.locator("canvas");
@@ -2545,19 +2653,24 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
   await expect(canvas).toBeVisible();
   await expect(zoomControls).toBeVisible();
   await expect(settingsButton).toBeVisible();
+  await expect(
+    page.getByText(
+      "Tip: Distant biome beacons become free portals back to base.",
+    ),
+  ).toBeVisible();
   const expectZoomControlsClear = async () => {
     await expect(
       page.evaluate(() => {
         const zoom = document
           .querySelector('[aria-label="Zoom controls"]')
           ?.getBoundingClientRect();
-        const status = document
-          .querySelector('[data-mine-status-critical="true"]')
-          ?.getBoundingClientRect();
+        const statusTargets = [
+          ...document.querySelectorAll('[aria-label="Mine status"] > span'),
+        ].map((node) => node.getBoundingClientRect());
         const settings = document
           .querySelector('[aria-label="Open settings"]')
           ?.getBoundingClientRect();
-        if (!zoom || !status || !settings) return false;
+        if (!zoom || !settings || statusTargets.length === 0) return false;
         const overlaps = (a: DOMRect, b: DOMRect) =>
           a.left < b.right &&
           a.right > b.left &&
@@ -2566,7 +2679,7 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
         return (
           Math.abs(zoom.right - settings.right) < 1 &&
           zoom.top >= settings.bottom + 8 &&
-          !overlaps(zoom, status) &&
+          statusTargets.every((status) => !overlaps(zoom, status)) &&
           !overlaps(zoom, settings)
         );
       }),
@@ -2598,7 +2711,6 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
   await expectZoomControlsClearOfSettings();
   await settingsButton.click();
   await expect(settingsPanel).not.toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
   await expectZoomControlsClear();
   await settingsButton.click();
   await expect(settingsPanel).toBeVisible();
@@ -2828,8 +2940,8 @@ test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
     await pressMineKey(page, "ArrowRight");
   }
   const pad = await openStall(page, "Warp Pad");
-  await expect(pad).toContainText("no beacon planted");
-  await expect(pad).toContainText("range 60 rows");
+  await expect(pad).toContainText("No planted beacons yet");
+  await expect(pad).toContainText("Warpcoil range: 60 rows");
   await expect(
     pad.getByRole("button", { name: "Warp to beacon" }),
   ).toBeDisabled();
@@ -2862,13 +2974,29 @@ test("warp beacon planting disables beyond current Warpcoil range", async ({
     moves: Array.from({ length: targetRow }, () => "down"),
   };
   await page.route("**/api/mine/world", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
+    await route.fulfill({
+      json: {
+        activeSlot: 1,
+        seed: trip.seed,
+        tripIndex: trip.tripIndex,
+        diff: baseDiff,
+      },
+    });
   });
   await page.route("**/api/gear", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
+    await route.fulfill({
+      json: {
+        gear,
+        consumables: trip.consumables,
+        balance: 0,
+      },
+    });
   });
   await page.addInitScript((savedTrip) => {
-    localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(savedTrip));
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify(savedTrip),
+    );
   }, trip);
 
   await page.goto("/mine");
@@ -2881,7 +3009,9 @@ test("warp beacon planting disables beyond current Warpcoil range", async ({
   await expect(beacon).toHaveAttribute("aria-disabled", "true");
   await expect(beacon).toHaveCSS("opacity", "0.42");
   await beacon.click({ force: true });
-  await expect(page.getByText("Too deep for current Warpcoil.")).toBeVisible();
+  await expect(
+    page.getByText("Beacon is beyond Warpcoil range. Upgrade Warpcoil."),
+  ).toBeVisible();
   await expect(beacon).toContainText("1");
 });
 

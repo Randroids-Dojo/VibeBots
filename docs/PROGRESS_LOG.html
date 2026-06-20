@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="status-chip-zoom-clearance" data-date="2026-06-20">
+    <h3>Status Chip Zoom Clearance</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/vibebots-20260619-234543</code>, rebased over current <code>origin/main</code> after the Credits release landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Mine surface tips, upgrade blurbs, Warp Pad empty-state copy, and failure toasts now use shorter rule-focused wording that accounts for Recall Rope range, Warpcoil range, Lantern zoom, and the row <code>1,000</code> upgrade path. Auto-sell results replace the surface tip while visible and wrap in the same status-chip style. Wrapped mine status chips reserve right-side space for the Settings button and zoom dock, so surface tips and auto-sell results do not slide underneath the zoom controls on narrow screens. Removed the older critical-status marker and updated focused smoke to measure the real visible children of <code>aria-label="Mine status"</code> instead of relying on implementation-only markers. Package version moved to <code>0.1.98</code>; <code>MINE_VERSION</code> stays at <code>46</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>After rebasing over the Credits release on current <code>origin/main</code>, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, release, route, push, and smoke files, focused app-release, notification, version, and Web Push Vitest (27 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (319 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code> and <code>package.json</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_PORT=3395</code> for latest release notes, tip rotation, auto-sell result wrapping, HUD zoom controls, and Warpcoil range copy (5 passed), Credits Playwright smoke against <code>PLAYWRIGHT_PORT=3396</code> (1 passed), critical Playwright smoke against <code>PLAYWRIGHT_PORT=3397</code> using the current critical grep (5 passed), and full Playwright smoke against <code>PLAYWRIGHT_PORT=3398</code> (59 passed, 2 storage-gated skipped).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as HUD copy and layout only, so no gameplay-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, notification expectations, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-credits-option" data-date="2026-06-20">
     <h3>Mine Credits Option</h3>
     <dl>

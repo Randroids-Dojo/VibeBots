@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.97-credits";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.98-mine-text-status-layout";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.98",
+      date: "2026-06-20",
+      title: "Mine text and status layout",
+      intro:
+        "Mine copy is clearer, and status messages stay clear of zoom controls.",
+      changes: [
+        {
+          build,
+          text: "Surface tips and upgrade blurbs now use shorter rule-focused text, including Recall Rope range, Warpcoil range, and Lantern zoom.",
+        },
+        {
+          build,
+          text: "Auto-sell results now replace the surface tip while visible and wrap in the same status chip style.",
+        },
+        {
+          build,
+          text: "Wrapped status chips reserve space for the Settings button and zoom controls on narrow screens.",
+        },
+      ],
+    },
     {
       version: "0.1.97",
       date: "2026-06-20",

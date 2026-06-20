@@ -2,33 +2,50 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest credits note scoped to the pause menu", () => {
+  it("keeps the latest mine text and status layout note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.97-credits");
+    expect(release.noticeId).toBe("2026-06-20-0.1.98-mine-text-status-layout");
     expect(latestNote).toMatchObject({
+      version: "0.1.98",
+      title: "Mine text and status layout",
+      intro:
+        "Mine copy is clearer, and status messages stay clear of zoom controls.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Surface tips and upgrade blurbs now use shorter rule-focused text, including Recall Rope range, Warpcoil range, and Lantern zoom.",
+      "Auto-sell results now replace the surface tip while visible and wrap in the same status chip style.",
+      "Wrapped status chips reserve space for the Settings button and zoom controls on narrow screens.",
+    ]);
+  });
+
+  it("keeps the archived credits note scoped to the pause menu", () => {
+    const release = getAppRelease();
+    const creditsNote = release.notes.find((note) => note.version === "0.1.97");
+
+    expect(creditsNote).toMatchObject({
       version: "0.1.97",
       title: "Credits",
       intro: "The mine pause menu now includes a special thanks.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(creditsNote?.changes.map((change) => change.text)).toEqual([
       "Settings now has a Credits option that opens a pause window.",
       "The Credits window thanks Mason and MJ Lutcavich for testing, feedback, and great ideas.",
       "The window pauses mine movement and closes from outside taps, Escape, gamepad back, or its close buttons.",
     ]);
   });
 
-  it("keeps the archived menu outside tap note complete", () => {
+  it("keeps the archived menu outside taps note complete", () => {
     const release = getAppRelease();
-    const latestNote = release.notes.find((note) => note.version === "0.1.96");
+    const menuNote = release.notes.find((note) => note.version === "0.1.96");
 
-    expect(latestNote).toMatchObject({
+    expect(menuNote).toMatchObject({
       version: "0.1.96",
       title: "Menu outside taps",
       intro: "Open mine menus now close from a simple outside tap.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(menuNote?.changes.map((change) => change.text)).toEqual([
       "Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions now close when you tap or click outside them.",
       "The outside tap is swallowed after closing the menu, so it does not also move, dig, or press an underlying control.",
       "Bunker builder and modal dialogs keep their existing backdrop dismissal, while edit pickups still use canvas taps to select placed supports.",

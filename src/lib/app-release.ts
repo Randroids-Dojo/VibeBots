@@ -30,15 +30,16 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       version: "0.1.78",
       date: "2026-06-20",
       title: "Falling rock durability",
-      intro: "Falling rocks now take at least two hits to destroy.",
+      intro:
+        "Falling rocks and boulders now take at least two hits to destroy.",
       changes: [
         {
           build,
-          text: "Falling and fallen rocks still use their row pickaxe tier gate, but they cannot break in fewer than two pickaxe hits.",
+          text: "Falling and fallen rocks or boulders still use their row pickaxe tier gate, but they cannot break in fewer than two pickaxe hits.",
         },
         {
           build,
-          text: "Fully upgraded pickaxes still speed up ordinary rock, while hazard rocks keep a short rescue window to stop the fall.",
+          text: "Fully upgraded pickaxes still speed up ordinary rock, while falling hazards keep a short rescue window to stop the fall.",
         },
         {
           build,

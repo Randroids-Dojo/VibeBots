@@ -31,10 +31,10 @@
     <dl>
       <dt>Package version</dt><dd><code>0.1.78</code></dd>
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>39</code> to <code>40</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
-      <dt>Highlights</dt><dd>Falling rocks now take at least two hits to destroy.</dd>
-      <dt>Hazard rule</dt><dd>Falling and fallen rocks still use their current-row pickaxe tier gate, but even a fully upgraded pickaxe cannot one-shot them.</dd>
-      <dt>Player window</dt><dd>The two-hit minimum preserves a short rescue window so players can destroy a falling rock before it drops when they react immediately.</dd>
-      <dt>Verification</dt><dd>Focused sim coverage checks a teetering rock and a landed rock both crack on the first upgraded-pickaxe hit and break on the second. Release and notification tests cover the new current release copy.</dd>
+      <dt>Highlights</dt><dd>Falling rocks and boulders now take at least two hits to destroy.</dd>
+      <dt>Hazard rule</dt><dd>Falling and fallen rocks or boulders still use their current-row pickaxe tier gate, but even a fully upgraded pickaxe cannot one-shot them.</dd>
+      <dt>Player window</dt><dd>The two-hit minimum preserves a short rescue window so players can destroy a falling hazard before it drops when they react immediately.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks ordinary rock still breaking in one upgraded-pickaxe hit, a teetering boulder cracking before it drops, and a landed boulder cracking before the second hit breaks it. App-release coverage checks the archived release copy, and smoke coverage keeps the release visible in the recent release list.</dd>
     </dl>
   </article>
 

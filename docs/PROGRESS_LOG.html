@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="release-note-cleanup" data-date="2026-06-20">
+    <h3>Release Note Cleanup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>verify/falling-rock-two-hit-20260619214418</code>, fast-forwarded to latest <code>origin/main</code> before commit.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Deep review cleanup for the falling-rock durability release copy. Static release notes, in-game release notes, and archived release coverage now say falling or fallen rocks and boulders keep the two-hit minimum, while the current <code>0.1.79</code> Stamp Book release remains the active notification release. Added direct app-release coverage for the archived <code>0.1.78</code> copy and a small source comment for the hazard-hit floor. Package version stays at <code>0.1.79</code>; <code>MINE_VERSION</code> stays at <code>40</code>; <code>SIM_VERSION</code> stays unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran focused release, mine, notification, version, and Web Push Vitest, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke for release notes plus surface tips.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: archived release notes can be corrected for accuracy without changing the current release notice id, because <code>0.1.79</code> remains the newest release shown to returning players.</dd>
+      <dt>GDD coverage</dt><dd>REQ-015 stays done. Updated the hazards and hardness spec text in <code>docs/gdd/06-mining.html</code>, added a new GDD build-log cleanup entry, and kept historical ledger entries append-only.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="stamp-catalog-refresh" data-date="2026-06-20">
     <h3>Stamp Catalog Refresh</h3>
     <dl>

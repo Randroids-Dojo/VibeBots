@@ -76,6 +76,7 @@ export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
 const SUPPORT_SALVAGE_NUMERATOR = 1;
 const SUPPORT_SALVAGE_DENOMINATOR = 2;
 const PLANK_HITS = 3;
+/** Falling hazards keep a two-action rescue window after their warning. */
 export const FALLING_ROCK_MIN_HITS = 2;
 export const MAX_BEACONS = 2;
 export const BEACON_LABEL_MAX_LENGTH = 12;

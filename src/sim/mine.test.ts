@@ -29,6 +29,7 @@ import {
   elevatorSpeedRows,
   exportDiff,
   FALL_DELAY_ACTIONS,
+  FALLING_ROCK_MIN_HITS,
   findBeacon,
   findBeacons,
   findPortalBeacons,
@@ -1410,6 +1411,16 @@ describe("mine", () => {
 
   it("mines falling rocks before and after they drop with the row pickaxe gate", () => {
     const c = START_COL;
+    const ordinaryRock = createMine(108, { ...DEFAULT_GEAR, pickaxe: 5 });
+    ordinaryRock.miner.col = c;
+    ordinaryRock.miner.row = 6;
+    setCell(ordinaryRock, c, 6, { kind: "empty" });
+    setCell(ordinaryRock, c + 1, 6, { kind: "rock", rockTier: 1 });
+    setCell(ordinaryRock, c + 1, 7, { kind: "dirt" });
+    const minedOrdinary = step(ordinaryRock, "right");
+    expect(minedOrdinary.ok && minedOrdinary.dug).toBe("rock");
+    expect(ordinaryRock.miner.col).toBe(c + 1);
+
     const beforeDrop = createMine(109, { ...DEFAULT_GEAR, pickaxe: 5 });
     beforeDrop.miner.col = c;
     beforeDrop.miner.row = 6;
@@ -1420,6 +1431,13 @@ describe("mine", () => {
     });
     setCell(beforeDrop, c + 1, 7, { kind: "dirt" });
 
+    const crackedBeforeDrop = step(beforeDrop, "right");
+    expect(crackedBeforeDrop.ok && crackedBeforeDrop.cracked).toEqual({
+      kind: "rock",
+      remaining: FALLING_ROCK_MIN_HITS - 1,
+    });
+    expect(beforeDrop.miner.col).toBe(c);
+    expect(cellAt(beforeDrop, c + 1, 6)?.hp).toBe(FALLING_ROCK_MIN_HITS - 1);
     const minedBeforeDrop = step(beforeDrop, "right");
     expect(minedBeforeDrop.ok && minedBeforeDrop.dug).toBe("rock");
     expect(beforeDrop.miner.col).toBe(c + 1);
@@ -1444,7 +1462,13 @@ describe("mine", () => {
     setCell(afterDrop, c + 1, 30, { kind: "boulder", fallen: true });
     setCell(afterDrop, c + 1, 31, { kind: "dirt" });
 
-    const minedAfterDrop = dig(afterDrop, "right");
+    const crackedAfterDrop = step(afterDrop, "right");
+    expect(crackedAfterDrop.ok && crackedAfterDrop.cracked).toEqual({
+      kind: "rock",
+      remaining: FALLING_ROCK_MIN_HITS - 1,
+    });
+    expect(afterDrop.miner.col).toBe(c);
+    const minedAfterDrop = step(afterDrop, "right");
     expect(minedAfterDrop.ok && minedAfterDrop.dug).toBe("rock");
     expect(afterDrop.miner.col).toBe(c + 1);
     expect(cellAt(afterDrop, c + 1, 30)?.kind).toBe("empty");

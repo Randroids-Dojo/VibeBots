@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.77-upward-mining-warning";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.78-falling-rock-durability";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.78",
+      date: "2026-06-20",
+      title: "Falling rock durability",
+      intro: "Falling rocks now take at least two hits to destroy.",
+      changes: [
+        {
+          build,
+          text: "Falling and fallen rocks still use their row pickaxe tier gate, but they cannot break in fewer than two pickaxe hits.",
+        },
+        {
+          build,
+          text: "Fully upgraded pickaxes still speed up ordinary rock, while hazard rocks keep a short rescue window to stop the fall.",
+        },
+        {
+          build,
+          text: "The surface tip rotation now calls out the two-move timer and two-hit minimum together.",
+        },
+      ],
+    },
     {
       version: "0.1.77",
       date: "2026-06-20",

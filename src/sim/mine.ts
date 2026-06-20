@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 39;
+export const MINE_VERSION = 40;
 export const MINE_BOTTOM_ROW = 1000;
 
 /**
@@ -76,6 +76,7 @@ export const CONSUMABLE_PRICES: Record<keyof MineConsumables, number> = {
 const SUPPORT_SALVAGE_NUMERATOR = 1;
 const SUPPORT_SALVAGE_DENOMINATOR = 2;
 const PLANK_HITS = 3;
+export const FALLING_ROCK_MIN_HITS = 2;
 export const MAX_BEACONS = 2;
 export const BEACON_LABEL_MAX_LENGTH = 12;
 
@@ -2354,6 +2355,11 @@ function digKindFor(cell: MineCell): CellKind {
   return isFallingRock(cell) ? "rock" : cell.kind;
 }
 
+function hitsForDig(cell: MineCell, gear: MineGear): number {
+  const base = hitsFor(digKindFor(cell), gear);
+  return isFallingRock(cell) ? Math.max(FALLING_ROCK_MIN_HITS, base) : base;
+}
+
 function settleAfterEmptied(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
@@ -2533,7 +2539,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   if (cell.kind !== "empty") {
     const struck = cellMut(state, t.col, t.row);
     const kindForDig = digKindFor(struck);
-    const remaining = (struck.hp ?? hitsFor(kindForDig, state.gear)) - 1;
+    const remaining = (struck.hp ?? hitsForDig(struck, state.gear)) - 1;
     if (remaining > 0) {
       struck.hp = remaining;
       miner.energy = Math.max(0, miner.energy - swingCostFor(kindForDig));

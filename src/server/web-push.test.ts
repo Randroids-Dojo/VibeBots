@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.77.123",
+  version: "0.1.78.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.77-upward-mining-warning",
-  intro: "Miners can now chip overhead cells and get a danger cue.",
+  noticeId: "2026-06-20-0.1.78-falling-rock-durability",
+  intro: "Falling rocks now take at least two hits to destroy.",
   changes: [
     {
       build: 123,
-      text: "Overhead hazard digs play a warning cue.",
+      text: "Falling rocks always need a second hit.",
     },
   ],
   notes: [
     {
-      version: "0.1.77",
+      version: "0.1.78",
       date: "2026-06-20",
-      title: "Upward mining warning",
-      intro: "Miners can now chip overhead cells and get a danger cue.",
+      title: "Falling rock durability",
+      intro: "Falling rocks now take at least two hits to destroy.",
       changes: [
         {
           build: 123,
-          text: "Overhead hazard digs play a warning cue.",
+          text: "Falling rocks always need a second hit.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Upward mining warning"),
+      expect.stringContaining("Falling rock durability"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

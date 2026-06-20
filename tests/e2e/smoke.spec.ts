@@ -957,14 +957,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Miners can now chip overhead cells and get a danger cue.",
+    "Falling rocks now take at least two hits to destroy.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "mines that overhead block",
+    "cannot break in fewer than two pickaxe hits",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("fresh up command");
-  await expect(dialog.locator("li").nth(2)).toContainText("amber particles");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "short rescue window",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText("two-hit minimum");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -983,6 +985,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.78", "Falling rock durability"],
     ["0.1.77", "Upward mining warning"],
     ["0.1.76", "Surface tip rotation"],
     ["0.1.75", "Mine performance samples"],
@@ -1039,7 +1042,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.77-upward-mining-warning",
+      "2026-06-20-0.1.78-falling-rock-durability",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1160,7 +1163,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.77-upward-mining-warning",
+      "2026-06-20-0.1.78-falling-rock-durability",
     );
   });
   await page.route("**/api/version", async (route) => {

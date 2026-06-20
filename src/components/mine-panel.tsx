@@ -203,7 +203,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: press up into a solid block to mine overhead without spending a ladder.",
   "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
   "Tip: dynamite chips rich ore reserves and still scoops what it breaks into your hold.",
-  "Tip: falling rocks wait two moves after their support is mined.",
+  "Tip: falling rocks wait two moves and take at least two hits to break.",
   "Tip: dropped bags fall if you mine or pick up the support under them.",
   "Tip: unsupported ladders slide down shafts until they land on support.",
   "Tip: the Hardware Store sells level 1 bunker parts for your base.",

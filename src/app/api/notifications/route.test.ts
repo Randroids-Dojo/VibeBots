@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.77-upward-mining-warning",
+      releaseNoticeId: "2026-06-20-0.1.78-falling-rock-durability",
       releaseSummary:
-        "Upward mining warning: Miners can now chip overhead cells and get a danger cue.",
+        "Falling rock durability: Falling rocks now take at least two hits to destroy.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.77-upward-mining-warning",
+      releaseNoticeId: "2026-06-20-0.1.78-falling-rock-durability",
       attempted: 2,
       sent: 1,
       expired: 1,

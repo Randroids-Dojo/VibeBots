@@ -1102,17 +1102,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Stronger tools and richer ore now draw more battery.",
+    "The starting mine bag now has four slots, with 50 as endgame.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "adds a noticeable battery cost",
+    "starts at four typed stack slots",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "ruby, diamond, and core-tier veins",
+    "50 as the endgame cap",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "gameplay version moved to 45",
+    "six-figure deep-depth buys",
   );
 
   await page.mouse.click(8, 8);
@@ -1132,6 +1132,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.94", "Cargo hold rebalance"],
     ["0.1.93", "Pickaxe battery tuning"],
     ["0.1.92", "Recall rope range"],
     ["0.1.91", "Zoom placement fix"],
@@ -1204,7 +1205,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.93-pickaxe-swing-cost",
+      "2026-06-20-0.1.94-cargo-hold-rebalance",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1325,7 +1326,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.93-pickaxe-swing-cost",
+      "2026-06-20-0.1.94-cargo-hold-rebalance",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1679,7 +1680,7 @@ test("ladder gravity prompt opens mechanic feedback after the fall settles", asy
 
 test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 360 });
-  const gear = { ...DEFAULT_GEAR, battery: 4, cargo: 4 };
+  const gear = { ...DEFAULT_GEAR, battery: 4, cargo: 10 };
   const mine = createMine(8181, gear, STARTING_CONSUMABLES);
   setCell(mine, START_COL, 1, {
     kind: "empty",
@@ -1735,16 +1736,16 @@ test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {
 
   const bagButton = page.getByRole("button", { name: "Open bag" });
   await expect(bagButton).toBeVisible();
-  await expect(bagButton).toContainText("7 ore (2/32)");
+  await expect(bagButton).toContainText("7 ore (2/50)");
   await expect(page.getByLabel("Mine status").getByText("Coal x5")).toHaveCount(
     0,
   );
 
   await bagButton.click();
-  await expect(page.getByRole("dialog", { name: "Bag 2/32" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Bag 2/50" })).toBeVisible();
   const dialog = page.locator("#mine-bag-panel");
   await expect(dialog).toHaveAttribute("data-bag-variant", "tool-satchel");
-  await expect(dialog).toHaveAttribute("data-bag-capacity", "32");
+  await expect(dialog).toHaveAttribute("data-bag-capacity", "50");
   await expect(dialog).toHaveAttribute("data-bag-filled", "2");
   await expect(dialog).toHaveAttribute("data-bag-ore-count", "7");
   await expect(dialog).toHaveAttribute("data-bag-stack-limit", "5");
@@ -1768,7 +1769,7 @@ test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {
   await expect(
     diamondStack.locator("[data-resource-graphic='true']"),
   ).toBeVisible();
-  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(30);
+  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(48);
   const dropButton = dialog.getByRole("button", { name: "Drop selected" });
   await expect(dropButton).toBeDisabled();
   await coalStack
@@ -1780,7 +1781,7 @@ test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {
   await expect(dialog).toHaveAttribute("data-bag-filled", "1");
   await expect(dialog).toHaveAttribute("data-bag-ore-count", "2");
   await expect(dialog.locator("[data-ore='coal']")).toHaveCount(0);
-  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(31);
+  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(49);
   const scrollState = await dialog
     .locator("[data-bag-scroll='true']")
     .evaluate((node) => {

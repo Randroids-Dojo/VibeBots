@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 45;
+export const MINE_VERSION = 46;
 export const MINE_BOTTOM_ROW = 1000;
 export const BAG_STACK_LIMIT = 5;
 
@@ -237,10 +237,8 @@ export const BATTERY_CHARGE = [
 ] as const;
 /** Visible rows below the miner by lantern level. */
 export const LANTERN_RADIUS = [3, 5, 7, 9, 11, 13, 15, 17] as const;
-/** Ore chunks the hold carries by cargo level (parts ride free). */
-export const CARGO_CAPACITY = [
-  8, 14, 22, 32, 46, 64, 88, 118, 154, 196,
-] as const;
+/** Ore stack slots the hold carries by cargo level (parts ride free). */
+export const CARGO_CAPACITY = [4, 6, 8, 11, 15, 20, 27, 35, 43, 50] as const;
 /** Cells the miner can fall and survive by fall-harness level. */
 export const SAFE_FALL_ROWS = [4, 6, 9, 13, 18, 24, 31, 39] as const;
 
@@ -293,9 +291,9 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
   {
     track: "cargo",
     name: "Cargo Hold",
-    prices: [30, 90, 280, 760, 1900, 4700, 10800, 25000, 58000],
-    levelRequirements: [1, 4, 9, 18, 32, 48, 64, 80, 96],
-    depthRequirements: [0, 14, 40, 85, 145, 230, 360, 540, 740],
+    prices: [80, 220, 600, 1650, 4600, 12500, 34000, 78000, 170000],
+    levelRequirements: [1, 5, 12, 24, 40, 56, 72, 88, 100],
+    depthRequirements: [0, 20, 55, 110, 190, 300, 450, 650, 850],
     blurb: "carry more ore per trip",
   },
   {

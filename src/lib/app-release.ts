@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.93-pickaxe-swing-cost";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.94-cargo-hold-rebalance";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.94",
+      date: "2026-06-20",
+      title: "Cargo hold rebalance",
+      intro: "The starting mine bag now has four slots, with 50 as endgame.",
+      changes: [
+        {
+          build,
+          text: "Level 1 Cargo Hold now starts at four typed stack slots instead of eight, so early trips hit the bank-or-push decision sooner.",
+        },
+        {
+          build,
+          text: "Cargo upgrades now grow through 6, 8, 11, 15, 20, 27, 35, 43, and 50 stack slots, with 50 as the endgame cap.",
+        },
+        {
+          build,
+          text: "Cargo upgrade prices now start at 80 vibes and scale into six-figure deep-depth buys behind row and player-level gates.",
+        },
+      ],
+    },
     {
       version: "0.1.93",
       date: "2026-06-20",

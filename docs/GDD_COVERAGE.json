@@ -254,7 +254,7 @@
     },
     {
       "id": "REQ-014",
-      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining; the hold uses typed resource stack slots with five chunks max per stack, and overflow ore from completed digs or dynamite harvests falls to floor piles for later partial pickup.",
+      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining; the hold starts with four typed resource stack slots, caps at 50 endgame slots, each slot holds five chunks max, and overflow ore from completed digs or dynamite harvests falls to floor piles for later partial pickup.",
       "gddRef": "docs/gdd/06-mining.html#gear",
       "status": "done",
       "implementationRefs": [

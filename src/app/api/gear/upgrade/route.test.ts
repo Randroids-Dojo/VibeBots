@@ -40,7 +40,7 @@ const mockedRecord = vi.mocked(recordBalanceEvent);
 const sql = vi.fn(async (strings: TemplateStringsArray) => {
   const query = strings.join("");
   if (query.includes("RETURNING emeralds, cargo_level AS level")) {
-    return [{ emeralds: 470, level: 2 }];
+    return [{ emeralds: 420, level: 2 }];
   }
   return [];
 });
@@ -131,7 +131,7 @@ describe("gear upgrade route", () => {
     await expect(res.json()).resolves.toEqual({
       track: "cargo",
       level: 2,
-      balance: 470,
+      balance: 420,
     });
     expect(mineGearLevelFromProfile(profile() as never, "cargo")).toBe(1);
     expect(mockedRefresh).toHaveBeenCalledWith(sql, "player-1");
@@ -143,8 +143,8 @@ describe("gear upgrade route", () => {
         track: "cargo",
         fromLevel: 1,
         toLevel: 2,
-        price: 30,
-        balanceAfter: 470,
+        price: 80,
+        balanceAfter: 420,
       }),
     );
   });

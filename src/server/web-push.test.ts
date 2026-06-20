@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.93.123",
+  version: "0.1.94.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.93-pickaxe-swing-cost",
-  intro: "Stronger tools and richer ore now draw more battery.",
+  noticeId: "2026-06-20-0.1.94-cargo-hold-rebalance",
+  intro: "The starting mine bag now has four slots, with 50 as endgame.",
   changes: [
     {
       build: 123,
-      text: "Each Pickaxe level above 1 adds a noticeable battery cost.",
+      text: "Level 1 Cargo Hold now starts at four stack slots.",
     },
   ],
   notes: [
     {
-      version: "0.1.93",
+      version: "0.1.94",
       date: "2026-06-20",
-      title: "Pickaxe battery tuning",
-      intro: "Stronger tools and richer ore now draw more battery.",
+      title: "Cargo hold rebalance",
+      intro: "The starting mine bag now has four slots, with 50 as endgame.",
       changes: [
         {
           build: 123,
-          text: "Each Pickaxe level above 1 adds a noticeable battery cost.",
+          text: "Level 1 Cargo Hold now starts at four stack slots.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Pickaxe battery tuning"),
+      expect.stringContaining("Cargo hold rebalance"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest pickaxe swing cost note scoped to battery tuning", () => {
+  it("keeps the latest cargo hold rebalance note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.93-pickaxe-swing-cost");
+    expect(release.noticeId).toBe("2026-06-20-0.1.94-cargo-hold-rebalance");
     expect(latestNote).toMatchObject({
+      version: "0.1.94",
+      title: "Cargo hold rebalance",
+      intro: "The starting mine bag now has four slots, with 50 as endgame.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Level 1 Cargo Hold now starts at four typed stack slots instead of eight, so early trips hit the bank-or-push decision sooner.",
+      "Cargo upgrades now grow through 6, 8, 11, 15, 20, 27, 35, 43, and 50 stack slots, with 50 as the endgame cap.",
+      "Cargo upgrade prices now start at 80 vibes and scale into six-figure deep-depth buys behind row and player-level gates.",
+    ]);
+  });
+
+  it("keeps the archived pickaxe swing cost note scoped to battery tuning", () => {
+    const release = getAppRelease();
+    const pickaxeNote = release.notes.find((note) => note.version === "0.1.93");
+
+    expect(pickaxeNote).toMatchObject({
       version: "0.1.93",
       title: "Pickaxe battery tuning",
       intro: "Stronger tools and richer ore now draw more battery.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(pickaxeNote?.changes.map((change) => change.text)).toEqual([
       "Every Pickaxe level above 1 now adds a noticeable battery cost to each mining swing.",
       "Richer ores add their own battery strain, so ruby, diamond, and core-tier veins make Battery Cell upgrades matter sooner.",
       "The mine gameplay version moved to 45, and deep ore runs now push players toward Battery Cell upgrades too.",
@@ -21,14 +37,14 @@ describe("app release notes", () => {
 
   it("keeps the archived recall rope note complete", () => {
     const release = getAppRelease();
-    const latestNote = release.notes.find((note) => note.version === "0.1.92");
+    const recallNote = release.notes.find((note) => note.version === "0.1.92");
 
-    expect(latestNote).toMatchObject({
+    expect(recallNote).toMatchObject({
       version: "0.1.92",
       title: "Recall rope range",
       intro: "Recall ropes now scale with a permanent depth upgrade.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(recallNote?.changes.map((change) => change.text)).toEqual([
       "Base recall ropes can only pull from the shallow mine, starting at row 12.",
       "The new Recall Rope upgrade at the Upgrades stall raises the usable row limit through 30, 75, 180, 420, and 1000.",
       "The recovery menu disables Recall past your current range, and server replay verifies the same gear level before banking.",

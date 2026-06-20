@@ -194,8 +194,13 @@ describe("mine", () => {
       playerLevel: 100,
       maxDepth: 850,
     });
+    expect(gearUpgradeRequirements("cargo", 9)).toEqual({
+      playerLevel: 100,
+      maxDepth: 850,
+    });
     expect(BATTERY_CHARGE[BATTERY_CHARGE.length - 1]).toBe(820);
-    expect(cargoCapacity({ ...DEFAULT_GEAR, cargo: 10 })).toBe(196);
+    expect(cargoCapacity(DEFAULT_GEAR)).toBe(4);
+    expect(cargoCapacity({ ...DEFAULT_GEAR, cargo: 10 })).toBe(50);
     expect(lightRadius({ ...DEFAULT_GEAR, lantern: 8 })).toBe(17);
     expect(safeFallRows({ ...DEFAULT_GEAR, fall: 8 })).toBe(39);
     expect(warpRange({ ...DEFAULT_GEAR, warpcoil: 7 })).toBe(999);
@@ -1155,7 +1160,7 @@ describe("mine", () => {
   });
 
   it("stacks matching ore without mixing resource types", () => {
-    const state = createMine(191);
+    const state = createMine(191, { ...DEFAULT_GEAR, cargo: 2 });
     const initialCarried = {
       coal: 4,
       silver: 5,
@@ -1163,8 +1168,6 @@ describe("mine", () => {
       ruby: 5,
       diamond: 5,
       "core-crystal": 5,
-      "frozen-coal": 5,
-      "frost-copper": 5,
     };
     state.miner.carried = { ...initialCarried };
     expect(carriedStackCount(state.miner)).toBe(cargoCapacity(state.gear));
@@ -2618,7 +2621,7 @@ describe("mine", () => {
     ).toEqual({
       pickaxe: [45, 140, 420, 1200, 3200, 8200, 19000, 42000, 90000],
       battery: [35, 110, 340, 950, 2400, 5600, 12500, 28000, 62000],
-      cargo: [30, 90, 280, 760, 1900, 4700, 10800, 25000, 58000],
+      cargo: [80, 220, 600, 1650, 4600, 12500, 34000, 78000, 170000],
       lantern: [55, 180, 520, 1400, 3600, 9000, 22000],
       warpcoil: [180, 700, 2600, 9000, 26000, 70000],
       blast: [250, 800, 2500],

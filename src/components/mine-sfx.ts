@@ -54,6 +54,7 @@ export type MineSfxEvent =
   | "buy"
   | "sell"
   | "deny"
+  | "bag-full"
   | "clang";
 
 const ORE_PITCH: Record<OreId, number> = {
@@ -214,6 +215,7 @@ export function mineResultSfxEvents(
   if ((result.vented ?? 0) > 0) events.push("gas");
   if (result.fallingRockTriggered) events.push("fall-warning");
   if (result.oreHarvested) events.push("ore-pickup");
+  if (result.bagFull) events.push("bag-full");
   if (result.found) events.push("cache-fanfare");
   if (result.recalled) events.push("recall");
   if (action === "place-beacon" || result.supportCollected?.beacon)
@@ -651,6 +653,31 @@ function playTransport(event: MineSfxEvent): void {
   }
 }
 
+function playBagFull(): void {
+  const ac = audioCtx();
+  if (!ac) return;
+  const now = ac.currentTime;
+  const out = bus(ac, 0.26, 0.34);
+  tone(ac, {
+    wave: "square",
+    start: 210,
+    end: 118,
+    gain: 0.1,
+    at: now,
+    len: 0.12,
+    out,
+  });
+  tone(ac, {
+    wave: "triangle",
+    start: 92,
+    end: 62,
+    gain: 0.16,
+    at: now + 0.05,
+    len: 0.18,
+    out,
+  });
+}
+
 function playCommerce(event: MineSfxEvent): void {
   const ac = audioCtx();
   if (!ac) return;
@@ -713,6 +740,8 @@ export function playMineSfxEvent(event: MineSfxEvent): void {
     playBuild(event);
   } else if (event === "warp" || event === "elevator") {
     playTransport(event);
+  } else if (event === "bag-full") {
+    playBagFull();
   } else if (event === "buy" || event === "sell" || event === "deny") {
     playCommerce(event);
   }

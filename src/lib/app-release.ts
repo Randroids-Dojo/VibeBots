@@ -2,10 +2,35 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.79-stamp-catalog-refresh";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.80-bag-stacks-rebalance";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.80",
+      date: "2026-06-20",
+      title: "Bag stacks and ore rebalance",
+      intro:
+        "The mine bag now stacks matching resources with lower ore values.",
+      changes: [
+        {
+          build,
+          text: "Each bag slot holds one resource type and stacks up to five chunks, so matching ore tops off existing stacks before using an empty slot.",
+        },
+        {
+          build,
+          text: "Ore chunks now sell for much smaller whole-vibe amounts to balance the larger stack capacity.",
+        },
+        {
+          build,
+          text: "When no compatible stack space remains, mined overflow drops to the floor and the HUD flashes with a full-bag sound.",
+        },
+        {
+          build,
+          text: "The open bag now shows resource graphics, stack counts, max-stack overlays, and drops the whole selected stack.",
+        },
+      ],
+    },
     {
       version: "0.1.79",
       date: "2026-06-20",

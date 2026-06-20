@@ -957,14 +957,19 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "The Stamp Book now covers newer mine features.",
+    "The mine bag now stacks matching resources with lower ore values.",
   );
-  await expect(dialog.locator("li")).toHaveCount(3);
+  await expect(dialog.locator("li")).toHaveCount(4);
   await expect(dialog.locator("li").first()).toContainText(
-    "one distant biome portal",
+    "stacks up to five chunks",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("Drop selected");
-  await expect(dialog.locator("li").nth(2)).toContainText("saved mine diff");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "smaller whole-vibe amounts",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText("full-bag sound");
+  await expect(dialog.locator("li").nth(3)).toContainText(
+    "whole selected stack",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -983,6 +988,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.80", "Bag stacks and ore rebalance"],
     ["0.1.79", "Stamp catalog refresh"],
     ["0.1.78", "Falling rock durability"],
     ["0.1.77", "Upward mining warning"],
@@ -1041,7 +1047,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.79-stamp-catalog-refresh",
+      "2026-06-20-0.1.80-bag-stacks-rebalance",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1162,7 +1168,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.79-stamp-catalog-refresh",
+      "2026-06-20-0.1.80-bag-stacks-rebalance",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1572,38 +1578,52 @@ test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {
 
   const bagButton = page.getByRole("button", { name: "Open bag" });
   await expect(bagButton).toBeVisible();
-  await expect(bagButton).toContainText("7/32");
+  await expect(bagButton).toContainText("7 ore (2/32)");
   await expect(page.getByLabel("Mine status").getByText("Coal x5")).toHaveCount(
     0,
   );
 
   await bagButton.click();
-  await expect(page.getByRole("dialog", { name: "Bag 7/32" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Bag 2/32" })).toBeVisible();
   const dialog = page.locator("#mine-bag-panel");
   await expect(dialog).toHaveAttribute("data-bag-variant", "tool-satchel");
   await expect(dialog).toHaveAttribute("data-bag-capacity", "32");
-  await expect(dialog).toHaveAttribute("data-bag-filled", "7");
+  await expect(dialog).toHaveAttribute("data-bag-filled", "2");
+  await expect(dialog).toHaveAttribute("data-bag-ore-count", "7");
+  await expect(dialog).toHaveAttribute("data-bag-stack-limit", "5");
   await expect(dialog.locator("[data-bag-lid='true']")).toBeVisible();
   await expect(dialog.locator("[data-bag-tray='true']")).toBeVisible();
-  await expect(dialog.getByText("Ore pockets", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Stack slots", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Ore chunks", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Scrap", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Parts", { exact: true })).toBeVisible();
-  await expect(dialog.locator("[data-ore='coal']")).toHaveCount(5);
-  await expect(dialog.locator("[data-ore='diamond']")).toHaveCount(2);
-  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(25);
+  const coalStack = dialog.locator("[data-ore='coal']");
+  const diamondStack = dialog.locator("[data-ore='diamond']");
+  await expect(coalStack).toHaveCount(1);
+  await expect(coalStack).toHaveAttribute("data-stack-count", "5");
+  await expect(coalStack).toHaveAttribute("data-stack-full", "true");
+  await expect(
+    coalStack.locator("[data-stack-full-overlay='true']"),
+  ).toBeVisible();
+  await expect(diamondStack).toHaveCount(1);
+  await expect(diamondStack).toHaveAttribute("data-stack-count", "2");
+  await expect(diamondStack).toHaveAttribute("data-stack-full", "false");
+  await expect(
+    diamondStack.locator("[data-resource-graphic='true']"),
+  ).toBeVisible();
+  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(30);
   const dropButton = dialog.getByRole("button", { name: "Drop selected" });
   await expect(dropButton).toBeDisabled();
-  await dialog
-    .locator("[data-ore='coal']")
-    .first()
-    .getByRole("button", { name: "Select Coal for dropping" })
+  await coalStack
+    .getByRole("button", { name: "Select Coal stack of 5 for dropping" })
     .click();
-  await expect(dropButton).toContainText("1");
+  await expect(dropButton).toContainText("5");
   await expect(dropButton).toBeEnabled();
   await dropButton.click();
-  await expect(dialog).toHaveAttribute("data-bag-filled", "6");
-  await expect(dialog.locator("[data-ore='coal']")).toHaveCount(4);
-  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(26);
+  await expect(dialog).toHaveAttribute("data-bag-filled", "1");
+  await expect(dialog).toHaveAttribute("data-bag-ore-count", "2");
+  await expect(dialog.locator("[data-ore='coal']")).toHaveCount(0);
+  await expect(dialog.locator("[data-empty-cell='true']")).toHaveCount(31);
   const scrollState = await dialog
     .locator("[data-bag-scroll='true']")
     .evaluate((node) => {

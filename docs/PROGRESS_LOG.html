@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bag-stacks-ore-rebalance" data-date="2026-06-20">
+    <h3>Bag Stacks And Ore Rebalance</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/vibebots-20260619-76c0af22</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased after <code>origin/main</code> advanced through the <code>0.1.79</code> release-note cleanup.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed mine bag and economy rule change. The hold now treats cargo capacity as typed resource stack slots with a maximum of five chunks per stack. Matching resources top off existing stacks before consuming an empty slot, different resources never share a slot, and mined overflow still drops to the floor while the HUD flashes and plays a full-bag cue. The open bag now renders one slot per stack with a resource graphic, stack count, max-stack overlay, and whole-stack drop selection. Ore chunk values were reduced to smaller whole-vibe amounts to balance the larger carry volume. Package version moved to <code>0.1.80</code>; <code>MINE_VERSION</code> moved from <code>40</code> to <code>41</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger after rebase for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched code and test files, focused mine, SFX, notification, performance, version, Web Push, and app-release Vitest (125 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (285 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3292</code> for latest release notes, bag stacks, compact performance samples, and upward mining warning (4 passed), and in-app Browser verification against <code>http://127.0.0.1:3292/mine</code> for <code>0.1.80</code> release copy, visible canvas, and zero console errors.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: existing saves keep their per-resource carried counts, with stack slots derived at runtime, so no save schema migration is needed. Recommended default: ore values remain whole integers with a one-vibe floor because wallet banking stores whole vibes.</dd>
+      <dt>GDD coverage</dt><dd>REQ-014 and REQ-024 stay done with updated carry-capacity and bag-grid wording plus a new build-log entry in <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="release-note-cleanup" data-date="2026-06-20">
     <h3>Release Note Cleanup</h3>
     <dl>

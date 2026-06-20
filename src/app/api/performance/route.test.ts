@@ -20,9 +20,9 @@ const sql = vi.fn(async () => []);
 function sample(overrides: Record<string, unknown> = {}) {
   return {
     source: "mine",
-    appVersion: "0.1.75",
+    appVersion: "0.1.80",
     appBuild: 123,
-    mineVersion: 38,
+    mineVersion: 41,
     durationMs: 12_000,
     frameCount: 720,
     avgFrameMs: 16.7,
@@ -79,9 +79,9 @@ describe("performance API route", () => {
     expect(values).toEqual([
       "player-1",
       "mine",
-      "0.1.75",
+      "0.1.80",
       123,
-      38,
+      41,
       12_000,
       720,
       16.7,

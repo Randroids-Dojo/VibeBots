@@ -116,7 +116,9 @@
         "src/sim/mine.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/components/mine-sfx.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
     },
@@ -243,7 +245,7 @@
     },
     {
       "id": "REQ-014",
-      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining; overflow ore from completed digs or dynamite harvests falls to floor piles for later partial pickup.",
+      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining; the hold uses typed resource stack slots with five chunks max per stack, and overflow ore from completed digs or dynamite harvests falls to floor piles for later partial pickup.",
       "gddRef": "docs/gdd/06-mining.html#gear",
       "status": "done",
       "implementationRefs": [
@@ -419,12 +421,13 @@
     },
     {
       "id": "REQ-024",
-      "requirement": "The mine reads as a mobile game, not a website: chip HUD (depth, energy bar, hold, carry, banked, climb cost) with one-line toasts, icon consumable buttons in thumb reach, no page header or D-pad, and a one-shot drag-to-move hint.",
+      "requirement": "The mine reads as a mobile game, not a website: chip HUD (depth, energy bar, stack-slot bag, banked, climb cost) with one-line toasts, icon consumable buttons in thumb reach, no page header or D-pad, and a one-shot drag-to-move hint.",
       "gddRef": "docs/gdd/06-mining.html#controls",
       "status": "done",
       "implementationRefs": [
         "src/components/mine-panel.tsx",
-        "src/app/mine/page.tsx"
+        "src/app/mine/page.tsx",
+        "src/app/globals.css"
       ],
       "testRefs": [
         "tests/e2e/smoke.spec.ts"

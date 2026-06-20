@@ -37,12 +37,14 @@ import {
   activatePortalAction,
   activePortalAt,
   authoredPortalAt,
+  BAG_STACK_LIMIT,
   BEACON_LABEL_MAX_LENGTH,
   CONSUMABLE_PRICES,
   type CollectTarget,
   canPlacePlank,
   cargoCapacity,
   carriedCount,
+  carriedStackCount,
   cellAt,
   collectAction,
   collectablePlacements,
@@ -440,6 +442,8 @@ type OreBagCell = {
   name: string;
   label: string;
   color: string;
+  count: number;
+  full: boolean;
 };
 
 function oreBagRows(carried: Partial<Record<OreId, number>>): Array<{
@@ -465,14 +469,19 @@ function oreBagRows(carried: Partial<Record<OreId, number>>): Array<{
 function oreBagCells(carried: Partial<Record<OreId, number>>): OreBagCell[] {
   const cells: OreBagCell[] = [];
   for (const row of oreBagRows(carried)) {
-    for (let index = 0; index < row.count; index++) {
+    let remaining = row.count;
+    for (let index = 0; remaining > 0; index++) {
+      const count = Math.min(BAG_STACK_LIMIT, remaining);
       cells.push({
         id: row.id,
         key: `${row.id}-${index}`,
         name: row.name,
         label: ORE_CELL_LABELS[row.id],
         color: RESOURCE_FLOAT_COLORS[row.id],
+        count,
+        full: count >= BAG_STACK_LIMIT,
       });
+      remaining -= count;
     }
   }
   return cells;
@@ -486,8 +495,8 @@ function selectedOrePileFromBagCells(
   let count = 0;
   for (const cell of cells) {
     if (!selectedKeys.has(cell.key)) continue;
-    count++;
-    pile[cell.id] = (pile[cell.id] ?? 0) + 1;
+    count += cell.count;
+    pile[cell.id] = (pile[cell.id] ?? 0) + cell.count;
   }
   return { count, pile };
 }
@@ -3821,6 +3830,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [cameraZoom, setCameraZoom] = useState(MINE_CAMERA_ZOOM_DEFAULT);
   const [bagPanelOpen, setBagPanelOpen] = useState(false);
+  const [bagFullFlash, setBagFullFlash] = useState(false);
   const [selectedBagCells, setSelectedBagCells] = useState<Set<string>>(
     () => new Set(),
   );
@@ -4129,6 +4139,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     horizontalDistance > 0 ? `+${horizontalDistance}` : `${horizontalDistance}`;
   const bagCapacity = cargoCapacity(mine.gear);
   const carriedOreCount = carriedCount(miner);
+  const carriedOreStackCount = carriedStackCount(miner);
   const bagCells = oreBagCells(miner.carried);
   const bagCellKeyList = bagCells.map((cell) => cell.key).join("|");
   const selectedBagDrop = selectedOrePileFromBagCells(
@@ -4137,10 +4148,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   );
   const selectedBagCount = selectedBagDrop.count;
   const canDropSelectedBagCells = miner.row > 0 && selectedBagCount > 0;
-  const emptyBagSlots = Math.max(0, bagCapacity - bagCells.length);
+  const emptyBagSlots = Math.max(0, bagCapacity - carriedOreStackCount);
   const emptyBagCellKeys = Array.from(
     { length: emptyBagSlots },
-    (_, index) => `empty-${bagCells.length + index}`,
+    (_, index) => `empty-${carriedOreStackCount + index}`,
   );
   const bagDetails = bagDetailSummary(miner);
   const climbCost = returnEnergyCost(miner);
@@ -4290,6 +4301,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       return next.size === prev.size ? prev : next;
     });
   }, [bagCellKeyList]);
+
+  useEffect(() => {
+    if (!(lastResult?.ok && lastResult.bagFull)) return;
+    setBagFullFlash(false);
+    const frame = window.requestAnimationFrame(() => setBagFullFlash(true));
+    const timer = window.setTimeout(() => setBagFullFlash(false), 620);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [lastResult]);
 
   useEffect(() => {
     if (baseReturn) return;
@@ -4991,7 +5013,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             aria-label="Open bag"
             aria-controls="mine-bag-panel"
             aria-expanded={bagPanelOpen}
-            title={`Open bag. Ore capacity ${carriedOreCount}/${bagCapacity}.`}
+            data-bag-full-flash={bagFullFlash ? "true" : "false"}
+            title={`Open bag. ${carriedOreCount} ore chunks in ${carriedOreStackCount}/${bagCapacity} stack slots.`}
             onClick={() => setBagPanelOpen(true)}
             style={{
               ...chipStyle,
@@ -5001,7 +5024,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               fontWeight: 800,
             }}
           >
-            &#127890; {carriedOreCount}/{bagCapacity}
+            &#127890; {carriedOreCount} ore ({carriedOreStackCount}/
+            {bagCapacity})
           </button>
         </div>
         {statusLine && (
@@ -5056,7 +5080,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             aria-labelledby="mine-bag-title"
             data-bag-variant="tool-satchel"
             data-bag-capacity={bagCapacity}
-            data-bag-filled={carriedOreCount}
+            data-bag-filled={carriedOreStackCount}
+            data-bag-ore-count={carriedOreCount}
+            data-bag-stack-limit={BAG_STACK_LIMIT}
             className="mine-bag-satchel"
           >
             <div className="mine-bag-handle" aria-hidden="true" />
@@ -5073,7 +5099,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 <div className="mine-bag-title-row">
                   <div>
                     <h2 id="mine-bag-title" className="mine-bag-title">
-                      Bag {carriedOreCount}/{bagCapacity}
+                      Bag {carriedOreStackCount}/{bagCapacity}
                     </h2>
                     <p className="mine-bag-summary">{bagDetails}</p>
                   </div>
@@ -5088,10 +5114,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 </div>
                 <div className="mine-bag-lid-pockets">
                   <div className="mine-bag-pocket">
-                    <span>Ore pockets</span>
+                    <span>Stack slots</span>
                     <strong>
-                      {carriedOreCount}/{bagCapacity}
+                      {carriedOreStackCount}/{bagCapacity}
                     </strong>
+                  </div>
+                  <div className="mine-bag-pocket">
+                    <span>Ore chunks</span>
+                    <strong>{carriedOreCount}</strong>
                   </div>
                   <div className="mine-bag-pocket">
                     <span>Scrap</span>
@@ -5141,8 +5171,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                       return (
                         <li
                           key={cell.key}
-                          title={cell.name}
+                          title={`${cell.name} x${cell.count}`}
                           data-ore={cell.id}
+                          data-stack-count={cell.count}
+                          data-stack-full={cell.full ? "true" : "false"}
                           data-selected={selected ? "true" : "false"}
                           className="mine-bag-cell mine-bag-cell-filled"
                           style={{
@@ -5155,10 +5187,28 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                             type="button"
                             className="mine-bag-cell-button"
                             aria-pressed={selected}
-                            aria-label={`${selected ? "Unselect" : "Select"} ${cell.name} for dropping`}
+                            aria-label={`${selected ? "Unselect" : "Select"} ${cell.name} stack of ${cell.count} for dropping`}
                             onClick={() => toggleBagCell(cell.key)}
                           >
-                            {cell.label}
+                            <span
+                              className="mine-bag-resource-graphic"
+                              data-resource-graphic="true"
+                              aria-hidden="true"
+                            >
+                              <span className="mine-bag-resource-core">
+                                {cell.label}
+                              </span>
+                            </span>
+                            <span className="mine-bag-stack-count">
+                              x{cell.count}
+                            </span>
+                            {cell.full && (
+                              <span
+                                className="mine-bag-stack-full-overlay"
+                                data-stack-full-overlay="true"
+                                aria-hidden="true"
+                              />
+                            )}
                           </button>
                         </li>
                       );

@@ -39,8 +39,9 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 40;
+export const MINE_VERSION = 41;
 export const MINE_BOTTOM_ROW = 1000;
+export const BAG_STACK_LIMIT = 5;
 
 /**
  * Consumables (REQ-016): bought on the surface, spent as logged actions
@@ -463,8 +464,8 @@ export const MOVE_COST = 0.5;
 export const LIGHT_RADIUS = 3;
 
 /**
- * Ore tiers (REQ-011): roughly exponential credit value, rarity inverse
- * to value, each living in a depth band with overlap (trapezoid ramp:
+ * Ore tiers (REQ-011): richer tiers have stronger reserves and modest
+ * whole-vibe chunk values, each living in a depth band with overlap (trapezoid ramp:
  * fade in from minRow, full strength peakStart..peakEnd, fade out to
  * maxRow). After the main band, old tiers keep a low trace chance so
  * deeper rows still contain earlier resources, but as larger stacks.
@@ -521,7 +522,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "copper",
     name: "Copper",
-    value: 2,
+    value: 1,
     biome: "default",
     minRow: 4,
     peakStart: 8,
@@ -532,7 +533,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "silver",
     name: "Silver",
-    value: 3,
+    value: 1,
     biome: "default",
     minRow: 14,
     peakStart: 20,
@@ -543,7 +544,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "emerald",
     name: "Emerald",
-    value: 5,
+    value: 1,
     biome: "default",
     minRow: 24,
     peakStart: 32,
@@ -554,7 +555,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "ruby",
     name: "Ruby",
-    value: 8,
+    value: 2,
     biome: "default",
     minRow: 36,
     peakStart: 44,
@@ -565,7 +566,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "diamond",
     name: "Diamond",
-    value: 12,
+    value: 3,
     biome: "default",
     minRow: 48,
     peakStart: 58,
@@ -576,7 +577,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "core-crystal",
     name: "Core Crystal",
-    value: 20,
+    value: 4,
     biome: "default",
     minRow: 64,
     peakStart: 80,
@@ -598,7 +599,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "frost-copper",
     name: "Frost Copper",
-    value: 2,
+    value: 1,
     biome: "winter",
     minRow: 4,
     peakStart: 8,
@@ -609,7 +610,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "rime-silver",
     name: "Rime Silver",
-    value: 3,
+    value: 1,
     biome: "winter",
     minRow: 14,
     peakStart: 20,
@@ -620,7 +621,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "aurora-emerald",
     name: "Aurora Emerald",
-    value: 5,
+    value: 1,
     biome: "winter",
     minRow: 24,
     peakStart: 32,
@@ -631,7 +632,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "glacier-ruby",
     name: "Glacier Ruby",
-    value: 9,
+    value: 2,
     biome: "winter",
     minRow: 36,
     peakStart: 44,
@@ -642,7 +643,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "blue-diamond",
     name: "Blue Diamond",
-    value: 13,
+    value: 3,
     biome: "winter",
     minRow: 48,
     peakStart: 58,
@@ -653,7 +654,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "permafrost-core",
     name: "Permafrost Core",
-    value: 22,
+    value: 5,
     biome: "winter",
     minRow: 64,
     peakStart: 80,
@@ -675,7 +676,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "wire-spool",
     name: "Wire Spool",
-    value: 2,
+    value: 1,
     biome: "highTech",
     minRow: 4,
     peakStart: 8,
@@ -686,7 +687,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "logic-chip",
     name: "Logic Chip",
-    value: 3,
+    value: 1,
     biome: "highTech",
     minRow: 14,
     peakStart: 20,
@@ -697,7 +698,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "micro-monitor",
     name: "Micro Monitor",
-    value: 5,
+    value: 1,
     biome: "highTech",
     minRow: 24,
     peakStart: 32,
@@ -708,7 +709,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "keyboard-matrix",
     name: "Keyboard Matrix",
-    value: 9,
+    value: 2,
     biome: "highTech",
     minRow: 36,
     peakStart: 44,
@@ -719,7 +720,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "servo-motor",
     name: "Servo Motor",
-    value: 13,
+    value: 3,
     biome: "highTech",
     minRow: 48,
     peakStart: 58,
@@ -730,7 +731,7 @@ export const ORES: readonly OreDef[] = [
   {
     id: "quantum-core",
     name: "Quantum Core",
-    value: 24,
+    value: 5,
     biome: "highTech",
     minRow: 64,
     peakStart: 80,
@@ -1196,7 +1197,7 @@ export function lightRadius(gear: MineGear): number {
   return LANTERN_RADIUS[Math.min(gear.lantern, LANTERN_RADIUS.length) - 1];
 }
 
-/** Ore chunks the hold takes for the session's gear. */
+/** Ore stack slots the hold takes for the session's gear. */
 export function cargoCapacity(gear: MineGear): number {
   return CARGO_CAPACITY[Math.min(gear.cargo, CARGO_CAPACITY.length) - 1];
 }
@@ -1231,12 +1232,38 @@ export function carriedCount(miner: MinerState): number {
   return total;
 }
 
+function stackCountForOreCount(count: number): number {
+  return Math.ceil(Math.max(0, count) / BAG_STACK_LIMIT);
+}
+
+/** Count of occupied carried ore stack slots. */
+export function carriedStackCount(miner: MinerState): number {
+  let total = 0;
+  for (const count of Object.values(miner.carried)) {
+    total += stackCountForOreCount(count ?? 0);
+  }
+  return total;
+}
+
+function stackRoomForOre(
+  miner: MinerState,
+  ore: OreId,
+  slotCapacity: number,
+): number {
+  const carried = miner.carried[ore] ?? 0;
+  const oreStacks = stackCountForOreCount(carried);
+  const usedStacks = carriedStackCount(miner);
+  const openSlots = Math.max(0, slotCapacity - usedStacks);
+  const roomInExistingStacks =
+    oreStacks > 0 ? oreStacks * BAG_STACK_LIMIT - carried : 0;
+  return roomInExistingStacks + openSlots * BAG_STACK_LIMIT;
+}
+
 /**
  * Pour an ore pile into the hold up to the cargo cap. Returns how many
  * chunks were taken and whatever overflowed (the caller decides where the
- * leftover lands). Shared by walk-over pickups and dynamite collection so
- * the fill-to-cap loop lives in one place; the running count avoids
- * re-summing the hold on every chunk.
+ * leftover lands). Shared by walk-over pickups and dynamite collection.
+ * Each hold slot carries one resource type and stacks up to five chunks.
  */
 function fillHold(
   state: MineState,
@@ -1247,21 +1274,22 @@ function fillHold(
   leftover: Partial<Record<OreId, number>>;
 } {
   const miner = state.miner;
-  const cap = cargoCapacity(state.gear);
-  let carried = carriedCount(miner);
+  const slotCapacity = cargoCapacity(state.gear);
   let taken = 0;
   let dropped = 0;
   const leftover: Partial<Record<OreId, number>> = {};
   for (const [id, n] of Object.entries(pile) as Array<[OreId, number]>) {
-    for (let i = 0; i < n; i++) {
-      if (carried < cap) {
-        miner.carried[id] = (miner.carried[id] ?? 0) + 1;
-        carried++;
-        taken++;
-      } else {
-        leftover[id] = (leftover[id] ?? 0) + 1;
-        dropped++;
-      }
+    const room = stackRoomForOre(miner, id, slotCapacity);
+    const count = Math.max(0, Math.floor(n));
+    const take = Math.min(count, room);
+    if (take > 0) {
+      miner.carried[id] = (miner.carried[id] ?? 0) + take;
+      taken += take;
+    }
+    const spill = count - take;
+    if (spill > 0) {
+      leftover[id] = (leftover[id] ?? 0) + spill;
+      dropped += spill;
     }
   }
   return { taken, dropped, leftover };
@@ -1881,6 +1909,8 @@ export type MoveResult =
       collected?: number;
       /** Ore chunks left on the floor because the hold was full. */
       dropped?: number;
+      /** The bag had no compatible stack space for one or more chunks. */
+      bagFull?: boolean;
       /** Parts a dynamite blast cracked out of caches in range. */
       foundParts?: string[];
       /** A dynamite charge was placed and is waiting for space. */
@@ -2506,6 +2536,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
         ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
         vented,
         dropped: dropped > 0 ? dropped : undefined,
+        bagFull: dropped > 0 ? true : undefined,
         fell: fell || undefined,
         fallFatal: fellTooFar || undefined,
         lost,
@@ -2526,6 +2557,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
       vented,
       dropped: dropped > 0 ? dropped : undefined,
+      bagFull: dropped > 0 ? true : undefined,
       fell: fell || undefined,
       cracked:
         remaining > 0
@@ -2683,6 +2715,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
       vented,
       dropped: dropped > 0 ? dropped : undefined,
+      bagFull: dropped > 0 ? true : undefined,
       laddered,
       planked,
       fell: fell || undefined,
@@ -2707,6 +2740,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
     vented,
     dropped: dropped > 0 ? dropped : undefined,
+    bagFull: dropped > 0 ? true : undefined,
     laddered,
     planked,
     fell: fell || undefined,
@@ -3026,6 +3060,7 @@ interface ExplosionResult {
   blasted?: number;
   collected?: number;
   dropped?: number;
+  bagFull?: boolean;
   foundParts?: string[];
   fallingRockTriggered?: boolean;
   fallingRockWarnings?: MineCoord[];
@@ -3111,6 +3146,7 @@ function detonateDynamiteAt(
     blasted: blasted > 0 ? blasted : undefined,
     collected: collected > 0 ? collected : undefined,
     dropped: dropped > 0 ? dropped : undefined,
+    bagFull: dropped > 0 ? true : undefined,
     foundParts: foundParts.length > 0 ? foundParts : undefined,
     fallingRockTriggered: settled.fallingRockTriggered || undefined,
     fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
@@ -3130,6 +3166,7 @@ function maybeExplodePendingDynamite(
   const vented = (result.vented ?? 0) + (explosion.vented ?? 0);
   const collected = (result.collected ?? 0) + (explosion.collected ?? 0);
   const dropped = (result.dropped ?? 0) + (explosion.dropped ?? 0);
+  const bagFull = result.bagFull || explosion.bagFull;
   const foundParts = [
     ...(result.foundParts ?? []),
     ...(explosion.foundParts ?? []),
@@ -3149,6 +3186,7 @@ function maybeExplodePendingDynamite(
       blasted: explosion.blasted,
       collected: collected > 0 ? collected : undefined,
       dropped: dropped > 0 ? dropped : undefined,
+      bagFull: bagFull ? true : undefined,
       foundParts: foundParts.length > 0 ? foundParts : undefined,
       exploded: explosion.exploded,
       collapsed: true,
@@ -3173,6 +3211,7 @@ function maybeExplodePendingDynamite(
     blasted: explosion.blasted,
     collected: collected > 0 ? collected : undefined,
     dropped: dropped > 0 ? dropped : undefined,
+    bagFull: bagFull ? true : undefined,
     foundParts: foundParts.length > 0 ? foundParts : undefined,
     exploded: explosion.exploded,
     fallingRockTriggered:

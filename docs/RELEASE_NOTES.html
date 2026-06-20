@@ -13,6 +13,20 @@
 
 <main id="entries">
 
+  <article data-version="0.1.80" data-date="2026-06-20">
+    <h2>0.1.80</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.80</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>40</code> to <code>41</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>The mine bag now stacks matching resources in typed slots, and ore chunk values are reduced to balance the larger carry volume.</dd>
+      <dt>Rules</dt><dd>Each bag slot holds only one resource type and stacks up to five chunks. Matching resources top off existing stacks first, while different resource types require their own empty stack slot.</dd>
+      <dt>Economy</dt><dd>Ore values now use smaller whole-vibe payouts, with a one-vibe floor for shallow chunks and top-tier chunks paying four or five vibes depending on biome.</dd>
+      <dt>Feedback</dt><dd>When mined ore cannot fit because there is no compatible stack space, overflow still drops to the floor and the HUD gives a full-bag flash plus sound.</dd>
+      <dt>Interface</dt><dd>The open bag renders one slot per stack with a resource graphic, stack count, max-stack overlay, and whole-stack drop selection.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks same-resource stacking, no type mixing, overflow drops, occupied stack counts, and the retuned ore value curve. Focused UI smoke checks stack count badges, max-stack overlay, empty slots, and dropping a whole selected stack.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.79" data-date="2026-06-20">
     <h2>0.1.79</h2>
     <dl>

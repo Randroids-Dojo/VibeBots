@@ -40,6 +40,22 @@ describe("mining sfx event mapping", () => {
     ).toEqual(["dig-cache", "cache-fanfare"]);
   });
 
+  it("maps bag overflow to the full-bag cue", () => {
+    expect(
+      mineResultSfxEvents(
+        {
+          ...ok,
+          dug: "ore",
+          dugOre: "coal",
+          oreHarvested: { ore: "coal", units: 1, dropped: 1, remaining: 0 },
+          dropped: 1,
+          bagFull: true,
+        },
+        "down",
+      ),
+    ).toEqual(["dig-ore-coal", "ore-pickup", "bag-full"]);
+  });
+
   it("maps consumables and hazards to action-specific cues", () => {
     expect(
       mineResultSfxEvents(

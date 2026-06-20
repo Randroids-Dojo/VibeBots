@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   activatePortalAction,
   applyAction,
+  BAG_STACK_LIMIT,
   BASE_HITS,
   BATTERY_CHARGE,
   biomeAt,
@@ -10,6 +11,7 @@ import {
   canPlacePlank,
   cargoCapacity,
   carriedCount,
+  carriedStackCount,
   carriedValue,
   carryoverConsumables,
   cellAt,
@@ -253,8 +255,8 @@ describe("mine", () => {
       ORES.filter((ore) => ore.biome === "default").map((ore) =>
         oreCellValueAt(ore.id, row),
       ),
-    ).toEqual([4, 10, 21, 45, 96, 216, 560]);
-    expect(oreCellValueAt("core-crystal", MINE_BALANCE_MAX_ROW)).toBe(6720);
+    ).toEqual([4, 5, 7, 9, 24, 54, 112]);
+    expect(oreCellValueAt("core-crystal", MINE_BALANCE_MAX_ROW)).toBe(1344);
   });
 
   it("maps horizontal biome bands and ore pools by column", () => {
@@ -360,8 +362,11 @@ describe("mine", () => {
     expect(oreUnitsAt(MINE_BALANCE_MAX_ROW)).toBe(12);
     expect(oreReserveAt("diamond", 48)).toBe(18);
     expect(oreReserveAt("core-crystal", 64)).toBe(28);
-    expect(oreDef("copper").value).toBeGreaterThan(oreDef("coal").value);
-    expect(oreDef("silver").value).toBeGreaterThan(oreDef("copper").value);
+    expect(oreDef("ruby").value).toBeGreaterThan(oreDef("emerald").value);
+    expect(oreDef("diamond").value).toBeGreaterThan(oreDef("ruby").value);
+    expect(oreDef("core-crystal").value).toBeGreaterThan(
+      oreDef("diamond").value,
+    );
 
     let foundDrySwing = false;
     let weakYield = 0;
@@ -986,7 +991,7 @@ describe("mine", () => {
 
   it("digs ore with a full hold and drops the overflow on the nearest surface", () => {
     const state = createMine(19);
-    state.miner.carried = { coal: cargoCapacity(state.gear) };
+    state.miner.carried = { coal: cargoCapacity(state.gear) * BAG_STACK_LIMIT };
     setCell(state, START_COL, 1, { kind: "ore", ore: "coal" });
     setCell(state, START_COL, 2, { kind: "empty" });
     setCell(state, START_COL, 3, { kind: "dirt" });
@@ -1008,16 +1013,20 @@ describe("mine", () => {
       remaining: 0,
     });
     expect(dug.ok && dug.dropped).toBe(1);
+    expect(dug.ok && dug.bagFull).toBe(true);
     expect(cellAt(state, START_COL, 1)?.drop).toBeUndefined();
     expect(cellAt(state, START_COL, 2)?.drop).toEqual({
       coal: expectedOverflow,
     });
-    expect(carriedCount(state.miner)).toBe(cargoCapacity(state.gear));
+    expect(carriedCount(state.miner)).toBe(
+      cargoCapacity(state.gear) * BAG_STACK_LIMIT,
+    );
+    expect(carriedStackCount(state.miner)).toBe(cargoCapacity(state.gear));
   });
 
   it("drops floor ore again when the surface below it is dug out", () => {
     const state = createMine(19);
-    state.miner.carried = { coal: cargoCapacity(state.gear) };
+    state.miner.carried = { coal: cargoCapacity(state.gear) * BAG_STACK_LIMIT };
     setCell(state, START_COL, 1, { kind: "ore", ore: "coal" });
     setCell(state, START_COL, 2, { kind: "empty" });
     setCell(state, START_COL, 3, { kind: "dirt" });
@@ -1041,13 +1050,52 @@ describe("mine", () => {
 
   it("partially picks up a floor pile and leaves the remainder", () => {
     const state = createMine(19);
-    state.miner.carried = { coal: cargoCapacity(state.gear) - 2 };
+    state.miner.carried = {
+      coal: cargoCapacity(state.gear) * BAG_STACK_LIMIT - 2,
+    };
     setCell(state, START_COL, 1, { kind: "empty", drop: { coal: 3 } });
     setCell(state, START_COL, 2, { kind: "dirt" });
     const picked = step(state, "down");
     expect(picked.ok && picked.pickedUp).toBe(2);
-    expect(carriedCount(state.miner)).toBe(cargoCapacity(state.gear));
+    expect(carriedCount(state.miner)).toBe(
+      cargoCapacity(state.gear) * BAG_STACK_LIMIT,
+    );
+    expect(carriedStackCount(state.miner)).toBe(cargoCapacity(state.gear));
     expect(cellAt(state, START_COL, 1)?.drop).toEqual({ coal: 1 });
+  });
+
+  it("stacks matching ore without mixing resource types", () => {
+    const state = createMine(191);
+    const initialCarried = {
+      coal: 4,
+      silver: 5,
+      emerald: 5,
+      ruby: 5,
+      diamond: 5,
+      "core-crystal": 5,
+      "frozen-coal": 5,
+      "frost-copper": 5,
+    };
+    state.miner.carried = { ...initialCarried };
+    expect(carriedStackCount(state.miner)).toBe(cargoCapacity(state.gear));
+
+    setCell(state, START_COL, 1, { kind: "empty", drop: { coal: 3 } });
+    setCell(state, START_COL, 2, { kind: "dirt" });
+    const pickedCoal = step(state, "down");
+    expect(pickedCoal.ok && pickedCoal.pickedUp).toBe(1);
+    expect(state.miner.carried).toEqual({ ...initialCarried, coal: 5 });
+    expect(cellAt(state, START_COL, 1)?.drop).toEqual({ coal: 2 });
+
+    state.miner.row = 1;
+    setCell(state, START_COL + 1, 1, {
+      kind: "empty",
+      drop: { copper: 2 },
+    });
+    setCell(state, START_COL + 1, 2, { kind: "dirt" });
+    const blockedCopper = step(state, "right");
+    expect(blockedCopper.ok && blockedCopper.pickedUp).toBeUndefined();
+    expect(state.miner.carried).toEqual({ ...initialCarried, coal: 5 });
+    expect(cellAt(state, START_COL + 1, 1)?.drop).toEqual({ copper: 2 });
   });
 
   it("drops carried ore into the current cell without auto-picking floor ore", () => {
@@ -1078,7 +1126,7 @@ describe("mine", () => {
     const capacity = cargoCapacity(state.gear);
     state.miner.col = START_COL - 1;
     state.miner.row = 1;
-    state.miner.carried = { diamond: capacity - 1 };
+    state.miner.carried = { diamond: (capacity - 1) * BAG_STACK_LIMIT };
     setCell(state, START_COL - 1, 1, { kind: "empty" });
     setCell(state, START_COL - 1, 2, { kind: "dirt" });
     setCell(state, START_COL, 1, {
@@ -1091,7 +1139,10 @@ describe("mine", () => {
     const firstPickup = step(state, "right");
 
     expect(firstPickup.ok && firstPickup.pickedUp).toBe(1);
-    expect(state.miner.carried).toEqual({ diamond: capacity - 1, coal: 1 });
+    expect(state.miner.carried).toEqual({
+      diamond: (capacity - 1) * BAG_STACK_LIMIT,
+      coal: 1,
+    });
     expect(cellAt(state, START_COL, 1)?.drop).toEqual({ copper: 1 });
     expect(cellAt(state, START_COL, 1)?.dropDeferred).toEqual({ copper: 1 });
 

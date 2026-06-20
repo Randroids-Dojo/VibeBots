@@ -48,9 +48,7 @@ import {
   activePortalAt,
   authoredPortalAt,
   BAG_STACK_LIMIT,
-  BATTERY_CHARGE,
   BEACON_LABEL_MAX_LENGTH,
-  CARGO_CAPACITY,
   CONSUMABLE_PRICES,
   type CollectTarget,
   canPlacePlank,
@@ -75,9 +73,7 @@ import {
   findBeacons,
   findPortalBeacons,
   GEAR_TRACKS,
-  type GearTrackDef,
   gearUpgradeRequirements,
-  LANTERN_RADIUS,
   MAX_BEACONS,
   MINE_VERSION,
   type MineAction,
@@ -92,17 +88,14 @@ import {
   type OreId,
   oreDef,
   portalWarpAction,
-  RECALL_ROPE_RANGE,
   recallRopeRange,
   renameBeaconAction,
   returnEnergyCost,
   returnLadderNeed,
-  SAFE_FALL_ROWS,
   type SoldHaul,
   START_COL,
   stratumAt,
   supportSalvageValue,
-  WARP_RANGE,
   warpRange,
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
@@ -2963,16 +2956,12 @@ function SheetRow({
   sub,
   badge,
   action,
-  meta,
-  highlight,
 }: {
   icon: string;
   name: string;
   sub?: string;
   badge?: string;
   action?: React.ReactNode;
-  meta?: React.ReactNode;
-  highlight?: boolean;
 }) {
   return (
     <div
@@ -2981,13 +2970,8 @@ function SheetRow({
         gridTemplateColumns: "42px minmax(0, 1fr) auto",
         alignItems: "center",
         gap: 12,
-        padding: "10px",
-        margin: "0 -4px",
+        padding: "10px 0",
         borderBottom: "1px solid rgba(38, 48, 74, 0.55)",
-        borderRadius: 14,
-        background: highlight
-          ? "linear-gradient(135deg, rgba(84, 224, 199, 0.14), rgba(245, 197, 66, 0.08))"
-          : "transparent",
       }}
     >
       <span
@@ -3001,7 +2985,6 @@ function SheetRow({
           justifyContent: "center",
           fontSize: "1.2rem",
           flexShrink: 0,
-          boxShadow: highlight ? "0 0 18px rgba(84, 224, 199, 0.16)" : "none",
         }}
       >
         {icon}
@@ -3036,19 +3019,6 @@ function SheetRow({
             {sub}
           </span>
         )}
-        {meta && (
-          <span
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 6,
-              marginTop: 7,
-              fontSize: "0.68rem",
-            }}
-          >
-            {meta}
-          </span>
-        )}
       </span>
       {action}
     </div>
@@ -3069,28 +3039,6 @@ const sheetButtonStyle = (enabled: boolean): React.CSSProperties => ({
   fontWeight: 700,
   fontSize: "0.9rem",
 });
-
-const shopMetaChipStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  minHeight: 24,
-  borderRadius: 999,
-  border: "1px solid rgba(84, 224, 199, 0.18)",
-  background: "rgba(17, 21, 31, 0.58)",
-  color: "#cdd6ea",
-  padding: "3px 8px",
-  fontWeight: 700,
-};
-
-function shopMetaChip(text: string, tone: "cool" | "warn" | "muted" = "cool") {
-  const color =
-    tone === "warn" ? "#f5c542" : tone === "muted" ? "#8b93a7" : "#54e0c7";
-  return (
-    <span key={text} style={{ ...shopMetaChipStyle, color }}>
-      {text}
-    </span>
-  );
-}
 
 function hapticsAllowed(): boolean {
   if (typeof window === "undefined") return false;
@@ -3389,97 +3337,6 @@ function QuantityPicker({
 type DepotItem = "dynamite" | "rope" | "ladder" | "plank" | "beacon";
 const DEPOT_BUY_QUANTITIES = [1, 5, 10] as const;
 
-const DEPOT_ITEM_TACTICS: Record<
-  DepotItem,
-  {
-    blurb: string;
-    bestFor: string;
-  }
-> = {
-  dynamite: {
-    blurb: "opens a blocked route and scoops broken loot",
-    bestFor: "hard walls",
-  },
-  rope: {
-    blurb: "banks the haul from inside your rope range",
-    bestFor: "deep exits",
-  },
-  ladder: {
-    blurb: "turns one empty climb into a permanent rung",
-    bestFor: "safe returns",
-  },
-  plank: {
-    blurb: "bridges a gap before a risky side step",
-    bestFor: "wide shafts",
-  },
-  beacon: {
-    blurb: "plants a named warp anchor for future routing",
-    bestFor: "route control",
-  },
-};
-
-function depotStockAfter(
-  item: DepotItem,
-  quantity: number,
-  mine: MineState,
-): string {
-  return item === "beacon"
-    ? `${mine.consumables.beacon + quantity} packed`
-    : `stock ${mine.consumables[item]} to ${mine.consumables[item] + quantity}`;
-}
-
-function upgradeImpact(
-  def: GearTrackDef,
-  level: number,
-  gear: MineGear,
-): string {
-  const next = level + 1;
-  const nextGear = { ...gear, [def.track]: next };
-  switch (def.track) {
-    case "battery":
-      return `charge ${maxEnergy(gear)} to ${BATTERY_CHARGE[next - 1]}`;
-    case "cargo":
-      return `slots ${cargoCapacity(gear)} to ${CARGO_CAPACITY[next - 1]}`;
-    case "lantern":
-      return `light ${LANTERN_RADIUS[level - 1]} to ${LANTERN_RADIUS[next - 1]} rows`;
-    case "recall":
-      return `rope row ${recallRopeRange(gear)} to ${RECALL_ROPE_RANGE[next - 1]}`;
-    case "fall":
-      return `fall ${SAFE_FALL_ROWS[level - 1]} to ${SAFE_FALL_ROWS[next - 1]} rows`;
-    case "elevatorSpeed":
-      return `ride ${elevatorSpeedRows(gear)} to ${elevatorSpeedRows(nextGear)} rows`;
-    case "blast":
-      return `unlocks ${DYNAMITE_TIER_LABELS[next as DynamiteTier]}`;
-    case "warpcoil":
-      return `warp ${warpRange(gear)} to ${WARP_RANGE[next - 1]} rows`;
-    case "pickaxe":
-      return "fewer hits and tougher rock";
-  }
-}
-
-function upgradeTactic(track: MineGearTrack): string {
-  switch (track) {
-    case "pickaxe":
-      return "break gates";
-    case "battery":
-      return "long trips";
-    case "cargo":
-      return "bigger hauls";
-    case "lantern":
-      return "read ahead";
-    case "warpcoil":
-      return "beacon routes";
-    case "blast":
-      return "blast plans";
-    case "elevatorSpeed":
-      return "faster commute";
-    case "fall":
-      return "risky drops";
-    case "recall":
-      return "deep banking";
-  }
-}
-
 /**
  * The shop sheet (REQ-021): standing at a stall slides a mobile bottom
  * sheet up over the lower screen, with thumb-sized rows and the wallet
@@ -3725,22 +3582,19 @@ function StallMenu({
           <QuantityPicker value={buyQuantity} onChange={setBuyQuantity} />
           {(
             [
-              ["dynamite", "Dynamite"],
-              ["rope", "Recall Rope"],
-              ["ladder", "Ladder"],
-              ["plank", "Plank"],
-              ["beacon", "Warp Beacon"],
+              ["dynamite", "Dynamite", "fuels your selected blast tier"],
+              ["rope", "Recall Rope", "bank within your rope range"],
+              ["ladder", "Ladder", "climbs one cell, stays planted"],
+              ["plank", "Plank", "bridges one gap, stays planted"],
+              ["beacon", "Warp Beacon", "plants the warp anchor"],
             ] as const
-          ).map(([item, name]) => {
-            const tactic = DEPOT_ITEM_TACTICS[item];
+          ).map(([item, name, blurb]) => {
             const price = CONSUMABLE_PRICES[item];
             const totalPrice = price * buyQuantity;
             const beaconAllowed =
               item !== "beacon" || buyQuantity <= beaconRoom;
             const affordable =
               balance !== null && balance >= totalPrice && beaconAllowed;
-            const projectedBalance =
-              balance === null ? null : Math.max(0, balance - totalPrice);
             const beaconBadge =
               item === "beacon"
                 ? `${mine.consumables.beacon} packed, ${beacons.length} planted`
@@ -3752,7 +3606,7 @@ function StallMenu({
             const rowSub =
               item === "beacon" && !beaconAllowed
                 ? "At the cap. If a beacon is deployed, scrap it in scrap mode to free a slot."
-                : tactic.blurb;
+                : blurb;
             return (
               <SheetRow
                 key={item}
@@ -3760,19 +3614,6 @@ function StallMenu({
                 name={name}
                 sub={rowSub}
                 badge={beaconBadge ?? `have ${mine.consumables[item]}`}
-                highlight={affordable && buyQuantity > 1}
-                meta={
-                  <>
-                    {shopMetaChip(`best for ${tactic.bestFor}`)}
-                    {shopMetaChip(depotStockAfter(item, buyQuantity, mine))}
-                    {shopMetaChip(
-                      projectedBalance === null
-                        ? "wallet offline"
-                        : `${projectedBalance} vibes left`,
-                      affordable ? "cool" : "warn",
-                    )}
-                  </>
-                }
                 action={
                   <button
                     type="button"
@@ -3808,10 +3649,6 @@ function StallMenu({
               upgradeFunds >= price &&
               !cashOutPending &&
               !locked;
-            const projectedFunds =
-              price === null || upgradeFunds === null
-                ? null
-                : Math.max(0, upgradeFunds - price);
             const lockLabel = levelLocked
               ? `level ${requirements.playerLevel}`
               : depthLocked
@@ -3829,31 +3666,6 @@ function StallMenu({
                     : def.track === "recall"
                       ? `row ${recallRopeRange(gear)}`
                       : `lv ${level}`
-                }
-                highlight={affordable}
-                meta={
-                  maxed ? (
-                    shopMetaChip("fully upgraded", "muted")
-                  ) : locked ? (
-                    <>
-                      {shopMetaChip(`best for ${upgradeTactic(def.track)}`)}
-                      {shopMetaChip(
-                        lockLabel ? `needs ${lockLabel}` : "locked",
-                        "warn",
-                      )}
-                    </>
-                  ) : price === null ? null : (
-                    <>
-                      {shopMetaChip(`best for ${upgradeTactic(def.track)}`)}
-                      {shopMetaChip(upgradeImpact(def, level, gear))}
-                      {shopMetaChip(
-                        projectedFunds === null
-                          ? "wallet offline"
-                          : `${projectedFunds} vibes after`,
-                        affordable ? "cool" : "warn",
-                      )}
-                    </>
-                  )
                 }
                 action={
                   maxed ? (

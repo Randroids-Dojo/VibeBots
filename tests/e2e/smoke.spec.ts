@@ -1401,18 +1401,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText(
-    "Depot and upgrade buys now feel more deliberate.",
-  );
+  await expect(dialog).toContainText("Mine shops are easier to scan.");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Supply Depot rows now show what each item is best for",
+    "no longer add extra tag chips",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Upgrades now show the next tactical impact",
+    "simple descriptions",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Shop buttons add stronger visual feedback",
+    "hold-to-buy confirmation",
   );
 
   await page.mouse.click(8, 8);
@@ -1432,6 +1430,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.115", "Clean shop layout"],
     ["0.1.114", "Tactical shop buttons"],
     ["0.1.113", "Scrap panel text bounds"],
     ["0.1.112", "Scrap language"],
@@ -3180,9 +3179,9 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   await expect(depot).toContainText("supplies for digging deeper");
   await expect(depot).toContainText("Ladder");
   await expect(depot).toContainText("have");
-  await expect(depot).toContainText("best for safe returns");
-  await expect(depot).toContainText("stock 8 to 9");
   await expect(depot).toContainText("Buy 1 for 2 vibes");
+  await expect(depot).not.toContainText("best for");
+  await expect(depot).not.toContainText("vibes left");
   await expect(depot).not.toContainText("current trip");
   await expect(depot).not.toContainText("purchases pack");
   await expect(depot).not.toContainText("Basic Turret");
@@ -3198,6 +3197,8 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   await expect(upgrades).toContainText("Fall Harness");
   await expect(upgrades).toContainText("Recall Rope");
   await expect(upgrades).toContainText("row 12");
+  await expect(upgrades).not.toContainText("best for");
+  await expect(upgrades).not.toContainText("vibes after");
 
   // Walking off the stall column closes the menu.
   await pressMineKey(page, "ArrowLeft");
@@ -3247,9 +3248,9 @@ test("upgrade buys require a completed hold", async ({ page }) => {
   await dismissReleaseNotes(page);
   await walkToStallPrompt(page, "ArrowRight", "Upgrades");
   const upgrades = await openStall(page, "Upgrades");
-  await expect(upgrades).toContainText("best for break gates");
-  await expect(upgrades).toContainText("fewer hits and tougher rock");
-  await expect(upgrades).toContainText("75 vibes after");
+  await expect(upgrades).toContainText("Pickaxe");
+  await expect(upgrades).not.toContainText("best for");
+  await expect(upgrades).not.toContainText("vibes after");
 
   const buyPickaxe = upgrades.getByRole("button", {
     name: "Hold to buy Pickaxe for 45 vibes",

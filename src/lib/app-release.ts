@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.114-tactical-shop-buttons";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.115-clean-shop-layout";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.115",
+      date: "2026-06-20",
+      title: "Clean shop layout",
+      intro: "Mine shops are easier to scan.",
+      changes: [
+        {
+          build,
+          text: "Supply Depot and Upgrades rows no longer add extra tag chips.",
+        },
+        {
+          build,
+          text: "Rows are back to simple descriptions with clear buy buttons.",
+        },
+        {
+          build,
+          text: "Upgrade purchases still keep the hold-to-buy confirmation and feedback.",
+        },
+      ],
+    },
     {
       version: "0.1.114",
       date: "2026-06-20",

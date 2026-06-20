@@ -2,39 +2,38 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest zoom note complete with the save reminder", () => {
+  it("keeps the latest death cam flash note complete with the save reminder", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.87-mine-zoom-buttons");
+    expect(release.noticeId).toBe("2026-06-20-0.1.88-death-cam-flash");
     expect(latestNote).toMatchObject({
+      version: "0.1.88",
+      title: "Death cam flash fix",
+      intro:
+        "Mason, load your first save now. Death animations now keep the mine filled from the first frame.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Fatal falls and falling-rock crushes now prepare the death camera before the browser paints the next frame.",
+      "The camera no longer gets one frame ahead of the populated underground cell window, removing the brief void flash.",
+      "Mine rules, recovery, and replay behavior are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived zoom note complete with the save reminder", () => {
+    const release = getAppRelease();
+    const zoomNote = release.notes.find((note) => note.version === "0.1.87");
+
+    expect(zoomNote).toMatchObject({
       version: "0.1.87",
       title: "Mine zoom buttons",
       intro:
         "Mason, load your first save now. The mine HUD now has direct zoom controls.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(zoomNote?.changes.map((change) => change.text)).toEqual([
       "The HUD now has on-screen zoom in and zoom out buttons in a clear camera dock for mouse, touch, and gamepad players who want direct camera control.",
       "Zoom out still caps at the active Lantern range, and each Lantern upgrade opens a meaningfully wider camera limit.",
       "The miner headlamp now scales with Lantern range so lit cells stay readable while the outer two-cell border keeps its dark falloff.",
-    ]);
-  });
-
-  it("keeps the archived death cam note complete with the save reminder", () => {
-    const release = getAppRelease();
-    const deathCamNote = release.notes.find(
-      (note) => note.version === "0.1.86",
-    );
-
-    expect(deathCamNote).toMatchObject({
-      title: "Death cam fix",
-      intro:
-        "Mason, load your first save now. Death animations now stay inside the real mine view.",
-    });
-    expect(deathCamNote?.changes.map((change) => change.text)).toEqual([
-      "Fatal falls and falling-rock crushes keep rendering the populated underground cells around the death.",
-      "The trip report still waits until the fall or crush impact finishes, but the camera no longer shows a sudden empty void.",
-      "Mine rules, recovery, and replay behavior are unchanged.",
     ]);
   });
 

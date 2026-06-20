@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.88" data-date="2026-06-20">
+    <h2>0.1.88</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.88</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>43</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mason, load your first save now. Death animations now keep the mine filled from the first frame.</dd>
+      <dt>Renderer</dt><dd>The death camera setup now runs before the browser paints the next frame, so fatal falls and falling-rock crushes cannot move the camera underground while the mesh visibility window is still centered on the reset surface miner.</dd>
+      <dt>Rules</dt><dd>Collapse, recovery stock, dropped bags, cash-out replay, and gameplay versions are unchanged.</dd>
+      <dt>Verification</dt><dd>After rebasing over the <code>0.1.87</code> mine zoom release, ran <code>pnpm exec biome check --write</code> on touched source and release files, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, focused app-release and notification Vitest (10 passed), JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm test</code> (296 passed), <code>pnpm build</code>, and isolated Playwright smoke with no shared <code>PLAYWRIGHT_BASE_URL</code> for fatal free fall, falling-rock crush, and latest release notes (3 passed).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.87" data-date="2026-06-20">
     <h2>0.1.87</h2>
     <dl>

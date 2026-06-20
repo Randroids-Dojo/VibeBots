@@ -2,7 +2,14 @@
 
 import { RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type {
   AmbientLight,
   DirectionalLight,
@@ -2369,7 +2376,7 @@ function MineScene({
   // Dig/blast feedback: bursts, shake, swing, and facing keyed to the
   // last sim result.
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
-  useEffect(() => {
+  useLayoutEffect(() => {
     const j = juice.current;
     if (fallClearTimeout.current != null) {
       window.clearTimeout(fallClearTimeout.current);

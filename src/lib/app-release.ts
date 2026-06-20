@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.87-mine-zoom-buttons";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.88-death-cam-flash";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.88",
+      date: "2026-06-20",
+      title: "Death cam flash fix",
+      intro:
+        "Mason, load your first save now. Death animations now keep the mine filled from the first frame.",
+      changes: [
+        {
+          build,
+          text: "Fatal falls and falling-rock crushes now prepare the death camera before the browser paints the next frame.",
+        },
+        {
+          build,
+          text: "The camera no longer gets one frame ahead of the populated underground cell window, removing the brief void flash.",
+        },
+        {
+          build,
+          text: "Mine rules, recovery, and replay behavior are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.87",
       date: "2026-06-20",

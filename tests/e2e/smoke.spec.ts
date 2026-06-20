@@ -315,6 +315,66 @@ test("workshop panels stack on portrait phones", async ({ page }) => {
   expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(shopBox.y + 1);
 });
 
+test("mine shows a moving loader and retry when the world stalls", async ({
+  page,
+}) => {
+  const mine = createMine(9191, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  let retryReady = false;
+  await page.route("**/api/mine/world", async (route) => {
+    if (!retryReady) {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      await route.abort("failed");
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 9191,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    if (!retryReady) {
+      await route.abort("failed");
+      return;
+    }
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+
+  await page.goto("/mine");
+  const loader = page.getByRole("status").filter({
+    hasText: "Opening the shaft",
+  });
+  await expect(loader).toBeVisible();
+  const bit = page.locator("[data-mine-loader-bit]");
+  const firstTransform = await bit.evaluate(
+    (node) => getComputedStyle(node).transform,
+  );
+  await page.waitForTimeout(220);
+  await expect
+    .poll(() => bit.evaluate((node) => getComputedStyle(node).transform), {
+      timeout: 2_000,
+    })
+    .not.toBe(firstTransform);
+
+  const alert = page.getByRole("alert").filter({ hasText: "Mine signal lost" });
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText("Mine signal lost");
+  await expect(alert).toContainText("Your save was not changed");
+
+  retryReady = true;
+  await alert.getByRole("button", { name: "Try again" }).click();
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(alert).not.toBeVisible();
+});
+
 test("mine digs and tracks depth and energy", async ({ page }) => {
   await page.goto("/mine");
   await dismissReleaseNotes(page);
@@ -1131,17 +1191,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Stacked falling rocks now drop as one column.",
+    "Bad network loads now show the mine is trying to recover.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "support under a vertical rock or boulder stack",
+    "animated cart-and-drill loader",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "every warned block falls together",
+    "save was not changed",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "gameplay version moved to 47",
+    "movement stays paused",
   );
 
   await page.mouse.click(8, 8);
@@ -1161,6 +1221,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.103", "Mine load fallback"],
     ["0.1.102", "Falling rock chains"],
     ["0.1.101", "Depot copy cleanup"],
     ["0.1.100", "Surface shop prompts"],
@@ -1286,7 +1347,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.102-falling-rock-chains",
+      "2026-06-20-0.1.103-mine-load-fallback",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1407,7 +1468,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.102-falling-rock-chains",
+      "2026-06-20-0.1.103-mine-load-fallback",
     );
   });
   await page.route("**/api/version", async (route) => {

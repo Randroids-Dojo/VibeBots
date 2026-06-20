@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.102-falling-rock-chains";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.103-mine-load-fallback";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.103",
+      date: "2026-06-20",
+      title: "Mine load fallback",
+      intro: "Bad network loads now show the mine is trying to recover.",
+      changes: [
+        {
+          build,
+          text: "The mine now shows an animated cart-and-drill loader while world data or the canvas bundle is still loading.",
+        },
+        {
+          build,
+          text: "If the network drops before the world loads, a transparent message explains that the save was not changed.",
+        },
+        {
+          build,
+          text: "The retry button reloads the mine scene, and mine movement stays paused until the world is ready.",
+        },
+      ],
+    },
     {
       version: "0.1.102",
       date: "2026-06-20",

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.102-falling-rock-chains",
+      releaseNoticeId: "2026-06-20-0.1.103-mine-load-fallback",
       releaseSummary:
-        "Falling rock chains: Stacked falling rocks now drop as one column.",
+        "Mine load fallback: Bad network loads now show the mine is trying to recover.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.102-falling-rock-chains",
+      releaseNoticeId: "2026-06-20-0.1.103-mine-load-fallback",
       attempted: 2,
       sent: 1,
       expired: 1,

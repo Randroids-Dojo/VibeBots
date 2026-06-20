@@ -109,6 +109,204 @@ a {
   }
 }
 
+@keyframes mine-loader-cart-run {
+  0% {
+    transform: translateX(-68px);
+  }
+  50% {
+    transform: translateX(68px);
+  }
+  100% {
+    transform: translateX(-68px);
+  }
+}
+
+@keyframes mine-loader-bit-dig {
+  0%,
+  100% {
+    transform: translate(-50%, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(-50%, 8px) rotate(180deg);
+  }
+}
+
+@keyframes mine-loader-gem-glow {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(2px) scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.08);
+  }
+}
+
+.mine-scene-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(
+      circle at 50% 18%,
+      rgba(84, 224, 199, 0.16),
+      transparent 24%
+    ),
+    linear-gradient(180deg, #0b0e14 0%, #090910 46%, #130f0b 100%);
+}
+
+.mine-scene-backdrop::before {
+  position: absolute;
+  inset: auto 0 0;
+  height: 48%;
+  content: "";
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(122, 90, 58, 0.5) 0 34px,
+      rgba(92, 66, 48, 0.5) 34px 68px
+    ),
+    linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.42));
+  mask-image: linear-gradient(180deg, transparent 0%, black 22%);
+}
+
+.mine-scene-notice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 40;
+  display: grid;
+  width: min(340px, calc(100vw - 32px));
+  gap: 12px;
+  justify-items: center;
+  padding: 18px 20px;
+  color: #e6e8ee;
+  text-align: center;
+  pointer-events: auto;
+  background: rgba(8, 12, 20, 0.72);
+  border: 1px solid rgba(84, 224, 199, 0.42);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(10px);
+}
+
+.mine-scene-loader {
+  position: relative;
+  width: 188px;
+  height: 72px;
+}
+
+.mine-scene-loader-rail {
+  position: absolute;
+  right: 0;
+  bottom: 10px;
+  left: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    #5a3a35 0 10px,
+    #a98658 10px 16px
+  );
+  border-radius: 999px;
+  box-shadow: 0 0 12px rgba(245, 197, 66, 0.22);
+}
+
+.mine-scene-loader-cart {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  display: flex;
+  width: 58px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #2c3549;
+  border: 2px solid #6c7d9d;
+  border-radius: 8px 8px 12px 12px;
+  box-shadow: inset 0 -8px rgba(0, 0, 0, 0.22);
+  animation: mine-loader-cart-run 1.55s ease-in-out infinite;
+}
+
+.mine-scene-loader-cart::before,
+.mine-scene-loader-cart::after {
+  position: absolute;
+  bottom: -9px;
+  width: 12px;
+  height: 12px;
+  content: "";
+  background: #111722;
+  border: 2px solid #8792aa;
+  border-radius: 999px;
+}
+
+.mine-scene-loader-cart::before {
+  left: 8px;
+}
+
+.mine-scene-loader-cart::after {
+  right: 8px;
+}
+
+.mine-scene-loader-gem {
+  width: 9px;
+  height: 12px;
+  background: #54e0c7;
+  clip-path: polygon(50% 0, 100% 35%, 76% 100%, 24% 100%, 0 35%);
+  animation: mine-loader-gem-glow 0.82s ease-in-out infinite;
+}
+
+.mine-scene-loader-gem:nth-child(2) {
+  background: #f5c542;
+  animation-delay: 0.12s;
+}
+
+.mine-scene-loader-gem:nth-child(3) {
+  background: #8fe9f2;
+  animation-delay: 0.24s;
+}
+
+.mine-scene-loader-bit {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 18px;
+  height: 36px;
+  background: linear-gradient(180deg, #f5c542, #8f5a2d);
+  clip-path: polygon(50% 0, 100% 58%, 50% 100%, 0 58%);
+  filter: drop-shadow(0 0 10px rgba(245, 197, 66, 0.44));
+  animation: mine-loader-bit-dig 0.72s ease-in-out infinite;
+}
+
+.mine-scene-notice-copy {
+  display: grid;
+  gap: 4px;
+  line-height: 1.35;
+}
+
+.mine-scene-notice-copy strong {
+  color: #f5c542;
+  font-size: 1rem;
+}
+
+.mine-scene-notice-copy span {
+  color: #dce5f7;
+  font-size: 0.86rem;
+}
+
+.mine-scene-retry {
+  min-height: 40px;
+  padding: 0 18px;
+  color: #061018;
+  font-weight: 900;
+  cursor: pointer;
+  background: #54e0c7;
+  border: 0;
+  border-radius: 10px;
+}
+
 @keyframes mine-pickaxe-gate-pop {
   0% {
     transform: translate(-50%, 8px) scale(0.92);
@@ -779,6 +977,9 @@ button[data-bag-full-flash="true"] {
   .mine-base-indicator,
   .mine-base-teleport-burst,
   .mine-base-teleport-burst span,
+  .mine-scene-loader-bit,
+  .mine-scene-loader-cart,
+  .mine-scene-loader-gem,
   .stall-sheet {
     animation: none;
   }

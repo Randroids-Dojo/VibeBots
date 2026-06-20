@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-load-fallback" data-date="2026-06-20">
+    <h3>Mine Load Fallback</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-load-fallback</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased over the falling-rock chain settling release after remote main moved.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported bad-network black-screen fix. The mine panel now tracks explicit scene loading state, shows an animated cart-and-drill loader while the world or canvas bundle loads, blocks mine movement until <code>worldLoaded</code> is true, catches canvas startup failures, and shows a transparent retry message when neither the network nor a local trip can load the world. Package version moved to <code>0.1.103</code>; <code>MINE_VERSION</code> stays at <code>47</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before commit for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, release, smoke, package, and doc files, <code>pnpm typecheck</code>, <code>pnpm test</code> (326 passed), <code>pnpm build</code>, <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, focused Playwright smoke against <code>PLAYWRIGHT_PORT=3469</code> for the moving loader and latest release note (2 passed), critical Playwright smoke against <code>PLAYWRIGHT_PORT=3470</code> (5 passed), and a built-app Browser check against <code>http://localhost:3471/mine</code> that confirmed the <code>0.1.103</code> release note, loader, canvas, and HUD state.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep this as a client-side loading and recovery fix, so no gameplay-version bump is needed. Mine surface tips were reviewed and kept unchanged because this changes reliability messaging, not mining rules, shops, upgrades, hazards, controls, or recovery mechanics.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code> and updated static and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="falling-rock-chain-settling" data-date="2026-06-20">
     <h3>Falling Rock Chain Settling</h3>
     <dl>

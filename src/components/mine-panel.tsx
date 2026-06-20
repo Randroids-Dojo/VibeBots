@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
+  Component,
+  type ErrorInfo,
   type HTMLAttributes,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -110,7 +112,88 @@ import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
 import { STALLS, type StallDef, stallAt } from "./mine-stalls";
 import { MineTouchControls } from "./mine-touch-controls";
 
-const MineCanvas = dynamic(() => import("./mine-canvas"), { ssr: false });
+type MineSceneStatus = "loading" | "ready" | "error";
+const MINE_SCENE_LOAD_ERROR =
+  "The network dropped before the mine could load. Your save was not changed. Check the connection and retry.";
+
+function MineSceneBackdrop() {
+  return <div className="mine-scene-backdrop" aria-hidden="true" />;
+}
+
+function MineSceneNotice({
+  status,
+  message,
+  onRetry,
+}: {
+  status: "loading" | "error";
+  message?: string;
+  onRetry?: () => void;
+}) {
+  const loading = status === "loading";
+  return (
+    <div
+      className="mine-scene-notice"
+      role={loading ? "status" : "alert"}
+      aria-live={loading ? "polite" : "assertive"}
+    >
+      <div className="mine-scene-loader" aria-hidden="true">
+        <span className="mine-scene-loader-rail" />
+        <span className="mine-scene-loader-cart">
+          <span className="mine-scene-loader-gem" />
+          <span className="mine-scene-loader-gem" />
+          <span className="mine-scene-loader-gem" />
+        </span>
+        <span className="mine-scene-loader-bit" data-mine-loader-bit="true" />
+      </div>
+      <div className="mine-scene-notice-copy">
+        <strong>{loading ? "Opening the shaft" : "Mine signal lost"}</strong>
+        <span>
+          {loading
+            ? "Warming the lamps and loading your latest tunnel."
+            : (message ?? MINE_SCENE_LOAD_ERROR)}
+        </span>
+      </div>
+      {!loading && onRetry && (
+        <button type="button" className="mine-scene-retry" onClick={onRetry}>
+          Try again
+        </button>
+      )}
+    </div>
+  );
+}
+
+class MineSceneErrorBoundary extends Component<
+  {
+    children: ReactNode;
+    onError: (message: string) => void;
+  },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, _info: ErrorInfo) {
+    this.props.onError(error.message || "The mine renderer failed to start.");
+  }
+
+  render() {
+    if (this.state.error) return <MineSceneBackdrop />;
+    return this.props.children;
+  }
+}
+
+const MineCanvas = dynamic(() => import("./mine-canvas"), {
+  ssr: false,
+  loading: () => (
+    <>
+      <MineSceneBackdrop />
+      <MineSceneNotice status="loading" />
+    </>
+  ),
+});
 
 const RELEASE_LAST_PLAYED_KEY = "vibebots-last-played-app-version";
 const RELEASE_LAST_PLAYED_BUILD_KEY = "vibebots-last-played-app-build";
@@ -4048,6 +4131,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const cashOut = useMineStore((s) => s.cashOut);
   const submitCashOut = useMineStore((s) => s.submitCashOut);
   const gear = useMineStore((s) => s.gear);
+  const worldLoaded = useMineStore((s) => s.worldLoaded);
   const loadGear = useMineStore((s) => s.loadGear);
   const loadWorld = useMineStore((s) => s.loadWorld);
   const saveSlots = useMineStore((s) => s.saveSlots);
@@ -4095,6 +4179,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   });
   const [releaseNotesOpenCount, setReleaseNotesOpenCount] = useState(0);
   const [releaseNotesVisible, setReleaseNotesVisible] = useState(false);
+  const [mineSceneStatus, setMineSceneStatus] =
+    useState<MineSceneStatus>("loading");
+  const [mineSceneMessage, setMineSceneMessage] = useState<string | null>(null);
+  const [mineCanvasKey, setMineCanvasKey] = useState(0);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [pickaxeGateHint, setPickaxeGateHint] = useState<{
     key: number;
@@ -4187,14 +4275,45 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     [gear, persistCameraZoom],
   );
 
+  const loadMineScene = useCallback(
+    async (isCancelled: () => boolean = () => false) => {
+      const finishIfActive = (status: MineSceneStatus, message?: string) => {
+        if (isCancelled()) return;
+        setMineSceneStatus(status);
+        setMineSceneMessage(message ?? null);
+      };
+
+      setMineSceneStatus("loading");
+      setMineSceneMessage(null);
+
+      try {
+        // The world first (it seeds the mine), then gear (which rebuilds
+        // the trip over that world when levels differ).
+        await loadWorld();
+        await loadGear();
+        await loadBunker();
+      } catch {
+        finishIfActive("error", MINE_SCENE_LOAD_ERROR);
+        return;
+      }
+
+      if (useMineStore.getState().worldLoaded) {
+        finishIfActive("ready");
+      } else {
+        finishIfActive("error", MINE_SCENE_LOAD_ERROR);
+      }
+    },
+    [loadWorld, loadGear, loadBunker],
+  );
+
   useEffect(() => {
-    // The world first (it seeds the mine), then gear (which rebuilds
-    // the trip over that world when levels differ).
-    void loadWorld().then(() => {
-      void loadGear();
-      void loadBunker();
-    });
-  }, [loadWorld, loadGear, loadBunker]);
+    let cancelled = false;
+    void loadMineScene(() => cancelled);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadMineScene]);
 
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
@@ -4346,8 +4465,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     return () => window.clearTimeout(timer);
   }, [lastResult, tick]);
 
+  const mineSceneReady = worldLoaded && mineSceneStatus === "ready";
+
   const fireDirection = useCallback(
     (dir: Direction, options: { repeat?: boolean } = {}) => {
+      if (!mineSceneReady) return;
       if (elevatorAutoDir) return;
       if (dir !== "up") {
         upwardDigAwaitingReleaseRef.current = false;
@@ -4378,7 +4500,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         upwardDigAwaitingReleaseRef.current = true;
       }
     },
-    [elevatorAutoDir],
+    [elevatorAutoDir, mineSceneReady],
   );
 
   const releaseDirection = useCallback((dir: Direction | null) => {
@@ -5036,38 +5158,66 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const bunkerCanvasEditing = Boolean(
     bunker && bunkerPanelOpen && !activeBunkerRaid,
   );
+  const retryMineSceneLoad = () => {
+    setMineCanvasKey((key) => key + 1);
+    void loadMineScene();
+  };
+  const reportMineSceneError = (message: string) => {
+    setMineSceneStatus("error");
+    setMineSceneMessage(message || "The mine renderer failed to start.");
+  };
 
   return (
     <div
       onPointerDownCapture={handleScreenPointerDown}
       style={{ position: "relative", width: "100%", height: "100dvh" }}
     >
-      <MineCanvas
-        zoom={cameraZoom}
-        collectMode={collectMode}
-        selectedSupportKeys={collectSelection}
-        dynamitePreviewCells={selectedDynamitePreview}
-        bunkerPreview={bunkerPreview}
-        bunkerBlockedCells={localBlockedBunkerCells}
-        bunker={bunker}
-        activeBunkerRaid={activeBunkerRaid}
-        selectedBunkerPartCell={selectedBunkerPartCell}
-        bunkerPartDragTargetCell={bunkerPartDragTargetCell}
-        onBunkerPartTap={handleBunkerPartTap}
-        onBunkerPartPointerDown={handleBunkerPartPointerDown}
-        onBunkerDragTarget={handleBunkerDragTarget}
-        onBunkerDragEnd={handleBunkerDragEnd}
-        onBunkerBackgroundTap={deselectBunkerPart}
-        onToggleSupport={toggleCollectTarget}
-      />
-      {!collectMode && !bunkerCanvasEditing && !creditsOpen && (
-        <MineTouchControls
-          onDirection={act}
-          onReleaseDirection={releaseDirection}
-          onZoomChange={adjustCameraZoom}
-          repeatMs={actionRepeatMs(mine.gear)}
+      {mineSceneReady ? (
+        <MineSceneErrorBoundary
+          key={mineCanvasKey}
+          onError={reportMineSceneError}
+        >
+          <MineCanvas
+            zoom={cameraZoom}
+            collectMode={collectMode}
+            selectedSupportKeys={collectSelection}
+            dynamitePreviewCells={selectedDynamitePreview}
+            bunkerPreview={bunkerPreview}
+            bunkerBlockedCells={localBlockedBunkerCells}
+            bunker={bunker}
+            activeBunkerRaid={activeBunkerRaid}
+            selectedBunkerPartCell={selectedBunkerPartCell}
+            bunkerPartDragTargetCell={bunkerPartDragTargetCell}
+            onBunkerPartTap={handleBunkerPartTap}
+            onBunkerPartPointerDown={handleBunkerPartPointerDown}
+            onBunkerDragTarget={handleBunkerDragTarget}
+            onBunkerDragEnd={handleBunkerDragEnd}
+            onBunkerBackgroundTap={deselectBunkerPart}
+            onToggleSupport={toggleCollectTarget}
+          />
+        </MineSceneErrorBoundary>
+      ) : (
+        <MineSceneBackdrop />
+      )}
+      {mineSceneStatus === "loading" && <MineSceneNotice status="loading" />}
+      {mineSceneStatus === "error" && (
+        <MineSceneNotice
+          status="error"
+          message={mineSceneMessage ?? undefined}
+          onRetry={retryMineSceneLoad}
         />
       )}
+      {mineSceneReady &&
+        !collectMode &&
+        !bunkerCanvasEditing &&
+        !creditsOpen && (
+          <MineTouchControls
+            onDirection={act}
+            onReleaseDirection={releaseDirection}
+            onZoomChange={adjustCameraZoom}
+            repeatMs={actionRepeatMs(mine.gear)}
+          />
+        )}
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
       {pickaxeGateHint && (

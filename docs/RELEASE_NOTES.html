@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.103" data-date="2026-06-20">
+    <h2>0.1.103</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.103</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>47</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Bad network loads now show the mine is trying to recover.</dd>
+      <dt>Loading</dt><dd>The mine shows an animated cart-and-drill loader while world data or the canvas bundle is still loading.</dd>
+      <dt>Recovery</dt><dd>If the network drops before the world loads, a transparent message explains that the save was not changed and offers a retry. Mine movement stays paused until the world is ready.</dd>
+      <dt>Verification</dt><dd>Focused smoke coverage proves the loader visibly moves, the first failed world and gear requests show the recovery message, retry loads the world, and the canvas returns. Browser verification confirmed the release note, loader, canvas, and HUD state in the built app.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.102" data-date="2026-06-20">
     <h2>0.1.102</h2>
     <dl>

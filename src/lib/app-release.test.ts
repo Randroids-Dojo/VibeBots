@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest falling rock chains note complete", () => {
+  it("keeps the latest mine load fallback note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.102-falling-rock-chains");
+    expect(release.noticeId).toBe("2026-06-20-0.1.103-mine-load-fallback");
     expect(latestNote).toMatchObject({
+      version: "0.1.103",
+      title: "Mine load fallback",
+      intro: "Bad network loads now show the mine is trying to recover.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The mine now shows an animated cart-and-drill loader while world data or the canvas bundle is still loading.",
+      "If the network drops before the world loads, a transparent message explains that the save was not changed.",
+      "The retry button reloads the mine scene, and mine movement stays paused until the world is ready.",
+    ]);
+  });
+
+  it("keeps the archived falling rock chains note complete", () => {
+    const release = getAppRelease();
+    const rockNote = release.notes.find((note) => note.version === "0.1.102");
+
+    expect(rockNote).toMatchObject({
       version: "0.1.102",
       title: "Falling rock chains",
       intro: "Stacked falling rocks now drop as one column.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(rockNote?.changes.map((change) => change.text)).toEqual([
       "Mining the support under a vertical rock or boulder stack now starts the countdown on the whole chain.",
       "When the countdown ends, every warned block falls together instead of waiting for one rock per delay cycle.",
       "The mine gameplay version moved to 47 so cash-out replay rejects older chain-settling rules.",

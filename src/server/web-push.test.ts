@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.102.123",
+  version: "0.1.103.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.102-falling-rock-chains",
-  intro: "Stacked falling rocks now drop as one column.",
+  noticeId: "2026-06-20-0.1.103-mine-load-fallback",
+  intro: "Bad network loads now show the mine is trying to recover.",
   changes: [
     {
       build: 123,
-      text: "Stacked rocks drop together.",
+      text: "The mine shows a loader and retry when loading fails.",
     },
   ],
   notes: [
     {
-      version: "0.1.102",
+      version: "0.1.103",
       date: "2026-06-20",
-      title: "Falling rock chains",
-      intro: "Stacked falling rocks now drop as one column.",
+      title: "Mine load fallback",
+      intro: "Bad network loads now show the mine is trying to recover.",
       changes: [
         {
           build: 123,
-          text: "Stacked rocks drop together.",
+          text: "The mine shows a loader and retry when loading fails.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Falling rock chains"),
+      expect.stringContaining("Mine load fallback"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

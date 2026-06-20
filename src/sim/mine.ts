@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 43;
+export const MINE_VERSION = 44;
 export const MINE_BOTTOM_ROW = 1000;
 export const BAG_STACK_LIMIT = 5;
 
@@ -47,7 +47,7 @@ export const BAG_STACK_LIMIT = 5;
  * Consumables (REQ-016): bought on the surface, spent as logged actions
  * so the server replay can verify and decrement them. Each resolves one
  * dread: dynamite ("I can't get through"), recall rope ("I won't make
- * it back": ends the trip from anywhere, banking the carry).
+ * it back": banks the carry when the miner is inside rope range).
  */
 export interface MineConsumables {
   dynamite: number;
@@ -184,6 +184,11 @@ export interface MineGear {
    * fall before the landing kills the trip. Optional for old snapshots.
    */
   fall?: number;
+  /**
+   * Recall rope range level: how deep a paid rope can pull the miner
+   * back from. Optional for old snapshots.
+   */
+  recall?: number;
 }
 
 export type MineGearSnapshot = Omit<MineGear, "battery"> & {
@@ -200,6 +205,7 @@ export const DEFAULT_GEAR: MineGear = {
   blast: 1,
   elevatorSpeed: 1,
   fall: 1,
+  recall: 1,
 };
 
 /** The elevator's column: the elevator runs down this shaft. */
@@ -246,7 +252,8 @@ export type MineGearTrack =
   | "warpcoil"
   | "blast"
   | "elevatorSpeed"
-  | "fall";
+  | "fall"
+  | "recall";
 
 export interface GearTrackDef {
   track: MineGearTrack;
@@ -331,6 +338,14 @@ export const GEAR_TRACKS: readonly GearTrackDef[] = [
     depthRequirements: [0, 30, 75, 140, 230, 360, 540],
     blurb: "survive longer free falls",
   },
+  {
+    track: "recall",
+    name: "Recall Rope",
+    prices: [75, 240, 850, 3200, 12000],
+    levelRequirements: [1, 10, 26, 48, 74],
+    depthRequirements: [0, 25, 70, 160, 360],
+    blurb: "recall from deeper rows",
+  },
 ];
 
 /** Beacon warp reach in rows by warpcoil level (REQ-029). */
@@ -338,6 +353,15 @@ export const WARP_RANGE = [60, 150, 400, 650, 800, 925, 999] as const;
 
 export function warpRange(gear: MineGear): number {
   return WARP_RANGE[Math.min(gear.warpcoil, WARP_RANGE.length) - 1];
+}
+
+/** Max row a recall rope can pull from by Recall Rope level. */
+export const RECALL_ROPE_RANGE = [12, 30, 75, 180, 420, 1000] as const;
+
+export function recallRopeRange(gear: MineGear): number {
+  return RECALL_ROPE_RANGE[
+    Math.min(gear.recall ?? 1, RECALL_ROPE_RANGE.length) - 1
+  ];
 }
 
 /** The village warp pad's column. */
@@ -1228,7 +1252,14 @@ export function dynamiteTier(gear: Pick<MineGear, "blast">): DynamiteTier {
 
 /** Fill the current battery field for legacy gear snapshots. */
 export function normalizeGear(gear: MineGearSnapshot): MineGear {
-  return { ...gear, battery: batteryLevel(gear), blast: dynamiteTier(gear) };
+  return {
+    ...gear,
+    battery: batteryLevel(gear),
+    blast: dynamiteTier(gear),
+    elevatorSpeed: gear.elevatorSpeed ?? 1,
+    fall: gear.fall ?? 1,
+    recall: gear.recall ?? 1,
+  };
 }
 
 /** Max robot battery charge for the session's gear. */
@@ -2010,6 +2041,7 @@ export type MoveResult =
         | "no-elevator"
         | "no-beacon"
         | "out-of-range"
+        | "rope-range"
         | "surface";
       /** Pickaxe level needed to cut the blocked resource. */
       requiredPickaxeLevel?: number;
@@ -3355,11 +3387,14 @@ function collectLadder(state: MineState): MoveResult {
   );
 }
 
-/** The recall rope: ends the trip from anywhere, banking the carry. */
+/** The recall rope: banks the carry when the miner is inside rope range. */
 function recall(state: MineState): MoveResult {
   const miner = state.miner;
   if (miner.row === 0) return { ok: false, reason: "surface" };
   if (state.consumables.rope <= 0) return { ok: false, reason: "no-rope" };
+  if (miner.row > recallRopeRange(state.gear)) {
+    return { ok: false, reason: "rope-range" };
+  }
   state.consumables.rope--;
   state.used.rope++;
   miner.col = START_COL;

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.91-zoom-under-settings",
+      releaseNoticeId: "2026-06-20-0.1.92-recall-rope-range",
       releaseSummary:
-        "Zoom placement fix: Mine zoom controls now sit under Settings.",
+        "Recall rope range: Recall ropes now scale with a permanent depth upgrade.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.91-zoom-under-settings",
+      releaseNoticeId: "2026-06-20-0.1.92-recall-rope-range",
       attempted: 2,
       sent: 1,
       expired: 1,

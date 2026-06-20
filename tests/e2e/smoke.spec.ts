@@ -356,8 +356,9 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Deploy tier 4 dynamite" }),
   ).toBeDisabled();
+  await page.getByRole("button", { name: "Recovery options" }).click();
   await expect(
-    page.getByRole("button", { name: /Recall \(\d+\)/ }),
+    page.getByRole("menuitem", { name: /Recall \(\d+, range \d+\)/ }),
   ).toBeVisible();
   const placePlankLeft = page.getByRole("button", {
     name: "Place plank left",
@@ -545,7 +546,7 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
   await claimButton.click();
   await expect(builder).toBeVisible();
   await expect(builder.getByLabel("Player level progress")).toContainText(
-    "Player level 1/2",
+    "Player level 1/100",
   );
   await expect(
     builder.getByRole("button", { name: "Claim 7x5 bunker" }),
@@ -1101,18 +1102,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Mine zoom controls now sit under Settings.",
+    "Recall ropes now scale with a permanent depth upgrade.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "directly under the cog icon",
-  );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Settings panel opens below the zoom dock",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "visible status chips",
-  );
+  await expect(dialog.locator("li").first()).toContainText("row 12");
+  await expect(dialog.locator("li").nth(1)).toContainText("1000");
+  await expect(dialog.locator("li").nth(2)).toContainText("server replay");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1131,6 +1126,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.92", "Recall rope range"],
     ["0.1.91", "Zoom placement fix"],
     ["0.1.90", "Save slot start safety"],
     ["0.1.89", "Bunker part drag"],
@@ -1201,7 +1197,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.91-zoom-under-settings",
+      "2026-06-20-0.1.92-recall-rope-range",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1322,7 +1318,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.91-zoom-under-settings",
+      "2026-06-20-0.1.92-recall-rope-range",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2236,11 +2232,15 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
   await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "0");
-  const abandon = page.getByRole("button", { name: "Abandon trip" });
+  const recovery = page.getByRole("button", { name: "Recovery options" });
+  await recovery.click();
+  const abandon = page.getByRole("menuitem", { name: "Abandon trip" });
   await expect(abandon).toBeDisabled();
+  await recovery.click();
 
   await digTo(page, 1);
   await expect(status).toHaveAttribute("data-depth", "1");
+  await recovery.click();
   await expect(abandon).toBeEnabled();
 
   // Two-tap confirm: the first tap arms, the second fires (the window
@@ -2592,7 +2592,8 @@ test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   // Dig a two-deep shaft, then abandon (a trip-ending moment, which
   // checkpoints the guest world to local storage).
   await digTo(page, 2);
-  const abandon = page.getByRole("button", { name: "Abandon trip" });
+  await page.getByRole("button", { name: "Recovery options" }).click();
+  const abandon = page.getByRole("menuitem", { name: "Abandon trip" });
   await abandon.click();
   await expect(abandon).toContainText("Sure?");
   await abandon.click();
@@ -2670,6 +2671,8 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
   await expect(upgrades).toContainText("Pickaxe");
   await expect(upgrades).toContainText("Cargo Hold");
   await expect(upgrades).toContainText("Fall Harness");
+  await expect(upgrades).toContainText("Recall Rope");
+  await expect(upgrades).toContainText("row 12");
 
   // Walking off the stall column closes the menu.
   await pressMineKey(page, "ArrowLeft");
@@ -2833,7 +2836,7 @@ test("deep dropped ore markers do not create a white text card", async ({
     battery: 5,
     cargo: 5,
     lantern: 4,
-    warpcoil: 4,
+    warpcoil: 5,
   };
   const consumables = { ...STARTING_CONSUMABLES, beacon: 0 };
   const trip = {

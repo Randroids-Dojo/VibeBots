@@ -85,6 +85,7 @@ import {
   type OreId,
   oreDef,
   portalWarpAction,
+  recallRopeRange,
   renameBeaconAction,
   returnEnergyCost,
   returnLadderNeed,
@@ -223,11 +224,12 @@ const MINE_SURFACE_TIPS = [
   "Tip: unsupported ladders slide down shafts until they land on support.",
   "Tip: the Hardware Store sells level 1 bunker parts for your base.",
   "Tip: Blast Charge unlocks stronger dynamite tiers at the Upgrades stall.",
+  "Tip: Recall Rope upgrades let rope work deeper before you spend one.",
   "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
   "Tip: survived bunker defenses raise player level, and later tool upgrades need that level.",
   "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
   "Tip: plant Warp Beacons only inside your current Warpcoil range.",
-  "Tip: row 1,000 takes rail, Warpcoil, cargo, and battery upgrades together.",
+  "Tip: row 1,000 takes rail, Warpcoil, Recall Rope, cargo, and battery upgrades together.",
   "Tip: late upgrades need both max depth records and bunker-earned player levels.",
   "Tip: surface beacons in distant biomes unlock free portals back to base.",
   "Tip: the Stamp Book now tracks biome portals and bag-drop planning.",
@@ -2756,6 +2758,7 @@ const ITEM_ICONS: Record<string, string> = {
   blast: "\u{1F4A5}",
   elevatorSpeed: "\u{1F6D7}",
   fall: "\u{1FA82}",
+  recall: "\u{1FAA2}",
 };
 
 const BASE_PART_ICONS: Record<BasePartId, string> = {
@@ -3118,7 +3121,7 @@ function StallMenu({
           {(
             [
               ["dynamite", "Dynamite", "fuels your selected blast tier"],
-              ["rope", "Recall Rope", "bank the carry from anywhere"],
+              ["rope", "Recall Rope", "bank within your rope range"],
               ["ladder", "Ladder", "climbs one cell, stays planted"],
               ["plank", "Plank", "bridges one gap, stays planted"],
               ["beacon", "Warp Beacon", "plants the warp anchor"],
@@ -3195,7 +3198,13 @@ function StallMenu({
                 icon={ITEM_ICONS[def.track] ?? "\u{2699}\u{FE0F}"}
                 name={def.name}
                 sub={lockLabel ? `${def.blurb}; needs ${lockLabel}` : def.blurb}
-                badge={def.track === "blast" ? `tier ${level}` : `lv ${level}`}
+                badge={
+                  def.track === "blast"
+                    ? `tier ${level}`
+                    : def.track === "recall"
+                      ? `row ${recallRopeRange(gear)}`
+                      : `lv ${level}`
+                }
                 action={
                   maxed ? (
                     <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>
@@ -3889,6 +3898,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const finishBunkerRaid = useBunkerStore((s) => s.finishRaid);
   const router = useRouter();
   const [dynamiteMenuOpen, setDynamiteMenuOpen] = useState(false);
+  const [recoveryMenuOpen, setRecoveryMenuOpen] = useState(false);
   const [selectedDynamiteTier, setSelectedDynamiteTier] =
     useState<DynamiteTier>(1);
   const [abandonArmed, setAbandonArmed] = useState(false);
@@ -4329,6 +4339,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       : 0;
   const bankedCredits = miner.bankedCredits;
   const bankedPartsCount = miner.bankedParts.length;
+  const currentRecallRange = recallRopeRange(mine.gear);
   const baseReturn =
     miner.row === 0
       ? baseReturnTarget(miner.col, cameraZoom, viewportSize)
@@ -4688,13 +4699,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                   ? "No beacon. Kits are at the depot."
                   : lastResult.reason === "out-of-range"
                     ? "Too deep for current Warpcoil. Upgrade at the Upgrades stall."
-                    : lastResult.reason === "no-rope"
-                      ? "No rope."
-                      : lastResult.reason === "surface"
-                        ? undefined
-                        : lastResult.reason === "blocked"
-                          ? "No way through."
-                          : "Edge of the mine."
+                    : lastResult.reason === "rope-range"
+                      ? "Rope range too short. Upgrade at the Upgrades stall."
+                      : lastResult.reason === "no-rope"
+                        ? "No rope."
+                        : lastResult.reason === "surface"
+                          ? undefined
+                          : lastResult.reason === "blocked"
+                            ? "No way through."
+                            : "Edge of the mine."
       : lastResult?.ok && lastResult.fallFatal
         ? "Fell too far. The crew hauled you out; the cargo stayed below."
         : lastResult?.ok && lastResult.crushed
@@ -5678,6 +5691,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-label="Place plank left"
           onClick={() => {
             setDynamiteMenuOpen(false);
+            setRecoveryMenuOpen(false);
             move("plank-left");
           }}
           disabled={!leftPlankEnabled}
@@ -5694,6 +5708,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-label="Place plank right"
           onClick={() => {
             setDynamiteMenuOpen(false);
+            setRecoveryMenuOpen(false);
             move("plank-right");
           }}
           disabled={!rightPlankEnabled}
@@ -5711,6 +5726,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-pressed={collectMode}
           onClick={() => {
             setDynamiteMenuOpen(false);
+            setRecoveryMenuOpen(false);
             setCollectMode((open) => !open);
           }}
           disabled={!collectMode && visibleSupports.length === 0}
@@ -5734,7 +5750,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <button
             type="button"
             aria-label={`Dynamite ${DYNAMITE_TIER_LABELS[selectedDynamiteTier]} (${mine.consumables.dynamite})`}
-            onClick={() => setDynamiteMenuOpen((open) => !open)}
+            onClick={() => {
+              setRecoveryMenuOpen(false);
+              setDynamiteMenuOpen((open) => !open);
+            }}
             disabled={!!elevatorAutoDir}
             aria-pressed={dynamiteMenuOpen}
             style={{
@@ -5845,20 +5864,109 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             </div>
           )}
         </div>
-        <button
-          type="button"
-          aria-label={`Recall (${mine.consumables.rope})`}
-          onClick={() => {
-            setDynamiteMenuOpen(false);
-            if (!elevatorAutoDir) move("recall");
-          }}
-          disabled={
-            !!elevatorAutoDir || mine.consumables.rope <= 0 || miner.row === 0
-          }
-          style={iconButtonStyle}
-        >
-          &#129526; {mine.consumables.rope}
-        </button>
+        <div style={{ position: "relative", pointerEvents: "auto" }}>
+          <button
+            type="button"
+            aria-label="Recovery options"
+            onClick={() => {
+              setDynamiteMenuOpen(false);
+              if (recoveryMenuOpen) setAbandonArmed(false);
+              setRecoveryMenuOpen(!recoveryMenuOpen);
+            }}
+            disabled={!!elevatorAutoDir}
+            aria-pressed={recoveryMenuOpen}
+            style={{
+              ...iconButtonStyle,
+              ...(recoveryMenuOpen
+                ? {
+                    background: "#21314a",
+                    borderColor: "#8fb8ff",
+                    boxShadow: "0 0 12px rgba(143, 184, 255, 0.34)",
+                  }
+                : null),
+            }}
+          >
+            &#129526; {mine.consumables.rope} &#9662;
+          </button>
+          {recoveryMenuOpen && (
+            <div
+              role="menu"
+              aria-label="Recovery actions"
+              style={{
+                position: "absolute",
+                right: 0,
+                bottom: 54,
+                width: 244,
+                padding: 10,
+                borderRadius: 12,
+                border: "1px solid #34415f",
+                background: "rgba(10, 13, 20, 0.96)",
+                color: "#e6e8ee",
+                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
+              }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                aria-label={`Recall (${mine.consumables.rope}, range ${currentRecallRange})`}
+                onClick={() => {
+                  setRecoveryMenuOpen(false);
+                  setAbandonArmed(false);
+                  if (!elevatorAutoDir) move("recall");
+                }}
+                disabled={
+                  !!elevatorAutoDir ||
+                  mine.consumables.rope <= 0 ||
+                  miner.row === 0 ||
+                  miner.row > currentRecallRange
+                }
+                style={{
+                  ...sheetButtonStyle(
+                    !elevatorAutoDir &&
+                      mine.consumables.rope > 0 &&
+                      miner.row > 0 &&
+                      miner.row <= currentRecallRange,
+                  ),
+                  width: "100%",
+                  minHeight: 36,
+                  marginBottom: 8,
+                }}
+              >
+                &#129526; Recall ({mine.consumables.rope}) row{" "}
+                {currentRecallRange}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                aria-label="Abandon trip"
+                onClick={() => {
+                  if (abandonArmed) {
+                    setAbandonArmed(false);
+                    setRecoveryMenuOpen(false);
+                    move("abandon");
+                  } else {
+                    setAbandonArmed(true);
+                  }
+                }}
+                disabled={!!elevatorAutoDir || miner.row === 0}
+                style={{
+                  ...sheetButtonStyle(!elevatorAutoDir && miner.row > 0),
+                  width: "100%",
+                  minHeight: 36,
+                  ...(abandonArmed
+                    ? {
+                        background: "#7a2c2c",
+                        borderColor: "#ff6b6b",
+                        color: "#ffd9d9",
+                      }
+                    : null),
+                }}
+              >
+                {abandonArmed ? "Sure?" : "Abandon"}
+              </button>
+            </div>
+          )}
+        </div>
         {miner.row >= 1 && mine.consumables.beacon > 0 && (
           <button
             type="button"
@@ -5867,6 +5975,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             onClick={() => {
               if (elevatorAutoDir) return;
               setDynamiteMenuOpen(false);
+              setRecoveryMenuOpen(false);
               move("place-beacon");
             }}
             disabled={!!elevatorAutoDir}
@@ -5893,7 +6002,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 type="button"
                 aria-label="Warp home"
                 onClick={() => {
-                  if (!elevatorAutoDir) move("warp-home");
+                  if (!elevatorAutoDir) {
+                    setRecoveryMenuOpen(false);
+                    move("warp-home");
+                  }
                 }}
                 disabled={!!elevatorAutoDir}
                 style={iconButtonStyle}
@@ -5907,7 +6019,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <button
             type="button"
             aria-label="Ride elevator down"
-            onClick={() => startElevatorRide("ride-down")}
+            onClick={() => {
+              setRecoveryMenuOpen(false);
+              startElevatorRide("ride-down");
+            }}
             disabled={!!elevatorAutoDir}
             style={iconButtonStyle}
           >
@@ -5918,39 +6033,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <button
             type="button"
             aria-label="Ride elevator up"
-            onClick={() => startElevatorRide("ride-up")}
+            onClick={() => {
+              setRecoveryMenuOpen(false);
+              startElevatorRide("ride-up");
+            }}
             disabled={!!elevatorAutoDir}
             style={iconButtonStyle}
           >
             &#128727;&#11014;&#65039;
           </button>
         )}
-        <button
-          type="button"
-          aria-label="Abandon trip"
-          onClick={() => {
-            if (abandonArmed) {
-              setAbandonArmed(false);
-              setDynamiteMenuOpen(false);
-              move("abandon");
-            } else {
-              setAbandonArmed(true);
-            }
-          }}
-          disabled={!!elevatorAutoDir || miner.row === 0}
-          style={{
-            ...iconButtonStyle,
-            ...(abandonArmed
-              ? {
-                  background: "#7a2c2c",
-                  borderColor: "#ff6b6b",
-                  color: "#ffd9d9",
-                }
-              : null),
-          }}
-        >
-          {abandonArmed ? "Sure?" : <>&#127987;</>}
-        </button>
       </section>
 
       {/* One-shot onboarding: gone after the first action. */}

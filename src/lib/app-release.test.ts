@@ -2,18 +2,38 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest zoom placement note scoped to zoom placement", () => {
+  it("keeps the latest recall rope note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.91-zoom-under-settings");
+    expect(release.noticeId).toBe("2026-06-20-0.1.92-recall-rope-range");
     expect(latestNote).toMatchObject({
+      version: "0.1.92",
+      title: "Recall rope range",
+      intro: "Recall ropes now scale with a permanent depth upgrade.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Base recall ropes can only pull from the shallow mine, starting at row 12.",
+      "The new Recall Rope upgrade at the Upgrades stall raises the usable row limit through 30, 75, 180, 420, and 1000.",
+      "The recovery menu disables Recall past your current range, and server replay verifies the same gear level before banking.",
+    ]);
+  });
+
+  it("keeps the archived zoom placement note scoped to zoom placement", () => {
+    const release = getAppRelease();
+    const zoomPlacementNote = release.notes.find(
+      (note) => note.version === "0.1.91",
+    );
+
+    expect(zoomPlacementNote).toMatchObject({
       version: "0.1.91",
       title: "Zoom placement fix",
       intro: "Mine zoom controls now sit under Settings.",
     });
-    expect(latestNote?.intro).not.toContain("Mason, load your first save now.");
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(zoomPlacementNote?.intro).not.toContain(
+      "Mason, load your first save now.",
+    );
+    expect(zoomPlacementNote?.changes.map((change) => change.text)).toEqual([
       "Zoom in and zoom out now sit directly under the cog icon instead of floating over the mine view.",
       "The Settings panel opens below the zoom dock, so the controls do not cover each other.",
       "Smoke coverage checks the dock against visible status chips, the Settings button, and the open Settings panel on desktop and narrow viewports.",

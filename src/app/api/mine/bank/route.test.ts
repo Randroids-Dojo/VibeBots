@@ -56,6 +56,7 @@ const ownedBase = {
   blast_level: 1,
   elevator_speed_level: 1,
   fall_level: 1,
+  recall_level: 1,
   dynamite_count: 0,
   rope_count: 0,
   ladder_count: 0,
@@ -476,6 +477,9 @@ describe("mine bank policy helpers", () => {
   it("flags gear snapshots above owned profile levels", () => {
     expect(gearOwnershipError({ ...DEFAULT_GEAR, pickaxe: 2 }, ownedBase)).toBe(
       "gear not owned: pickaxe level 2",
+    );
+    expect(gearOwnershipError({ ...DEFAULT_GEAR, recall: 2 }, ownedBase)).toBe(
+      "gear not owned: recall level 2",
     );
     expect(gearOwnershipError(DEFAULT_GEAR, ownedBase)).toBeNull();
   });

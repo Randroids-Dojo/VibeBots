@@ -28,6 +28,7 @@ const bodySchema = z.object({
     "blast",
     "elevatorSpeed",
     "fall",
+    "recall",
   ]),
 });
 
@@ -144,6 +145,12 @@ export async function POST(request: Request): Promise<Response> {
           SET emeralds = emeralds - ${price}, fall_level = ${level + 1}
           WHERE id = ${playerId} AND emeralds >= ${price} AND fall_level = ${level}
           RETURNING emeralds, fall_level AS level`;
+      case "recall":
+        return sql`
+          UPDATE players
+          SET emeralds = emeralds - ${price}, recall_level = ${level + 1}
+          WHERE id = ${playerId} AND emeralds >= ${price} AND recall_level = ${level}
+          RETURNING emeralds, recall_level AS level`;
     }
   })();
   const rows = upgraded as Array<{ emeralds: number; level: number }>;

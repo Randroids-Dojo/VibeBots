@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.92" data-date="2026-06-20">
+    <h2>0.1.92</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.92</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>43</code> to <code>44</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Recall ropes now have a permanent depth-range upgrade.</dd>
+      <dt>Rules</dt><dd>The base rope can pull the miner only from row <code>12</code> or shallower. Recall Rope upgrades raise the usable limit through rows <code>30</code>, <code>75</code>, <code>180</code>, <code>420</code>, and <code>1000</code>.</dd>
+      <dt>Interface</dt><dd>The Upgrades stall shows the current rope row limit, and the in-mine Recovery menu groups Recall with Abandon while disabling Recall past that limit.</dd>
+      <dt>Verification</dt><dd>After rebasing onto current <code>origin/main</code>, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, focused Vitest for mine sim, player profile, mine bank route, version route, notifications, Web Push, gear upgrade route, and app release notes (157 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (312 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3362</code> for latest release notes, the Recovery menu Abandon path, mine zoom, and surface village stalls (4 passed), and full Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3362</code> (56 passed, 2 storage-gated skipped). After rebasing over the CI smoke speed slice, reran <code>pnpm typecheck</code>, <code>pnpm test</code> (312 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, and <code>pnpm test:e2e:critical --project=chromium</code> (5 passed).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.91" data-date="2026-06-20">
     <h2>0.1.91</h2>
     <dl>

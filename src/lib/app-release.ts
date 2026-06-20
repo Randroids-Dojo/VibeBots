@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.91-zoom-under-settings";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.92-recall-rope-range";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.92",
+      date: "2026-06-20",
+      title: "Recall rope range",
+      intro: "Recall ropes now scale with a permanent depth upgrade.",
+      changes: [
+        {
+          build,
+          text: "Base recall ropes can only pull from the shallow mine, starting at row 12.",
+        },
+        {
+          build,
+          text: "The new Recall Rope upgrade at the Upgrades stall raises the usable row limit through 30, 75, 180, 420, and 1000.",
+        },
+        {
+          build,
+          text: "The recovery menu disables Recall past your current range, and server replay verifies the same gear level before banking.",
+        },
+      ],
+    },
     {
       version: "0.1.91",
       date: "2026-06-20",

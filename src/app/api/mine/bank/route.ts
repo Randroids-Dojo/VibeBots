@@ -43,6 +43,7 @@ const GEAR_LOG_FIELDS = [
   "blast",
   "elevatorSpeed",
   "fall",
+  "recall",
 ] as const;
 const CONSUMABLE_LOG_FIELDS = [
   "dynamite",
@@ -61,7 +62,8 @@ const gearLevel = (
     | "warpcoil"
     | "blast"
     | "elevatorSpeed"
-    | "fall",
+    | "fall"
+    | "recall",
 ) => z.number().int().min(1).max(maxGearLevel(track));
 
 const bodySchema = z.object({
@@ -88,6 +90,7 @@ const bodySchema = z.object({
       blast: gearLevel("blast").optional(),
       elevatorSpeed: gearLevel("elevatorSpeed").optional(),
       fall: gearLevel("fall").optional(),
+      recall: gearLevel("recall").optional(),
     })
     .transform((gear) => normalizeGear(gear)),
   // Client snapshot used as an ownership upper bound. The server derives
@@ -180,6 +183,7 @@ const PROFILE_LEVEL_KEYS = [
   ["lantern", "lantern_level"],
   ["warpcoil", "warpcoil_level"],
   ["blast", "blast_level"],
+  ["recall", "recall_level"],
 ] as const satisfies ReadonlyArray<
   readonly [
     MineGearTrack,
@@ -191,6 +195,7 @@ const PROFILE_LEVEL_KEYS = [
       | "lantern_level"
       | "warpcoil_level"
       | "blast_level"
+      | "recall_level"
     >,
   ]
 >;

@@ -31,6 +31,7 @@ export async function GET(): Promise<Response> {
           blast: 1,
           elevatorSpeed: 1,
           fall: 1,
+          recall: 1,
         },
     consumables: row
       ? mineConsumablesFromProfile(row)

@@ -72,6 +72,7 @@ import {
   portalWarpAction,
   ROCK_DIG_COST,
   ROCK_FREE_ROWS,
+  recallRopeRange,
   refundRailSupportsInDiff,
   renameBeaconAction,
   replayTrip,
@@ -1025,6 +1026,7 @@ describe("mine", () => {
     const { battery: _battery, ...legacy } = { ...DEFAULT_GEAR, lamp: 3 };
     const normalized = normalizeGear(legacy);
     expect(normalized.battery).toBe(3);
+    expect(normalized.recall).toBe(1);
     expect(createMine(3, normalized).miner.energy).toBe(BATTERY_CHARGE[2]);
   });
 
@@ -1683,7 +1685,7 @@ describe("mine", () => {
     expect(state.miner.carried["core-crystal"]).toBe(8);
   });
 
-  it("recall rope banks the carry from any depth", () => {
+  it("recall rope banks the carry inside the owned range", () => {
     const state = createMine(59, DEFAULT_GEAR, {
       dynamite: 0,
       rope: 1,
@@ -1707,6 +1709,29 @@ describe("mine", () => {
       ok: false,
       reason: "surface",
     });
+  });
+
+  it("recall rope needs upgrades for deeper use", () => {
+    const limited = createMine(60, DEFAULT_GEAR, stock({ rope: 1 }));
+    limited.miner.row = recallRopeRange(DEFAULT_GEAR) + 1;
+
+    expect(applyAction(limited, "recall")).toEqual({
+      ok: false,
+      reason: "rope-range",
+    });
+    expect(limited.consumables.rope).toBe(1);
+    expect(limited.used.rope).toBe(0);
+
+    const upgradedGear = { ...DEFAULT_GEAR, recall: 3 };
+    const upgraded = createMine(60, upgradedGear, stock({ rope: 1 }));
+    upgraded.miner.row = recallRopeRange(upgradedGear);
+    upgraded.miner.carried = { copper: 2 };
+
+    const result = applyAction(upgraded, "recall");
+    expect(result.ok && result.recalled).toBe(true);
+    expect(upgraded.miner.row).toBe(0);
+    expect(upgraded.miner.bankedCredits).toBe(2 * oreDef("copper").value);
+    expect(upgraded.used.rope).toBe(1);
   });
 
   it("gates climbs on owned ladders and plants them", () => {
@@ -2562,7 +2587,14 @@ describe("mine", () => {
       blast: [250, 800, 2500],
       elevatorSpeed: [100, 260, 680, 1750, 4500, 11000, 26000, 62000],
       fall: [80, 220, 620, 1700, 4300, 10500, 25000],
+      recall: [75, 240, 850, 3200, 12000],
     });
+  });
+
+  it("scales recall rope range toward the bottom row", () => {
+    expect(recallRopeRange(DEFAULT_GEAR)).toBe(12);
+    expect(recallRopeRange({ ...DEFAULT_GEAR, recall: 3 })).toBe(75);
+    expect(recallRopeRange({ ...DEFAULT_GEAR, recall: 6 })).toBe(1000);
   });
 
   it("prices blast charge unlocks against the current mining economy", () => {

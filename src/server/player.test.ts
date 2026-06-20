@@ -45,6 +45,7 @@ const profile: MinePlayerProfile = {
   blast_level: 7,
   elevator_speed_level: 8,
   fall_level: 9,
+  recall_level: 10,
   dynamite_count: 1,
   rope_count: 2,
   ladder_count: 3,
@@ -85,6 +86,7 @@ describe("mine player profile helpers", () => {
       blast: 4,
       elevatorSpeed: 8,
       fall: 9,
+      recall: 10,
     });
   });
 
@@ -102,6 +104,7 @@ describe("mine player profile helpers", () => {
     expect(mineGearLevelFromProfile(profile, "battery")).toBe(3);
     expect(mineGearLevelFromProfile(profile, "elevatorSpeed")).toBe(8);
     expect(mineGearLevelFromProfile(profile, "fall")).toBe(9);
+    expect(mineGearLevelFromProfile(profile, "recall")).toBe(10);
   });
 
   it("normalizes a legacy player cookie into slot 1", () => {

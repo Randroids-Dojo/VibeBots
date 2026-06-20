@@ -295,7 +295,11 @@
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/app/api/consumables/buy/route.ts",
+        "src/app/api/gear/route.ts",
+        "src/app/api/gear/upgrade/route.ts",
         "src/app/api/mine/bank/route.ts",
+        "src/server/db.ts",
+        "src/server/player.ts",
         "src/components/shop-panel.tsx",
         "src/components/mine-panel.tsx",
         "src/components/mine-canvas.tsx",
@@ -303,6 +307,8 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
+        "src/server/player.test.ts",
+        "src/app/api/mine/bank/route.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": [

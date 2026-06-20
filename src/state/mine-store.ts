@@ -449,7 +449,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           return;
         }
         const body = await res.json();
-        const gear: MineGear = body.gear;
+        const gear: MineGear = normalizeGear(body.gear);
         const consumables: MineConsumables = body.consumables ?? NO_CONSUMABLES;
         set({
           balance: typeof body.balance === "number" ? body.balance : null,
@@ -470,6 +470,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           (gear.blast ?? 1) === (current.blast ?? 1) &&
           (gear.elevatorSpeed ?? 1) === (current.elevatorSpeed ?? 1) &&
           (gear.fall ?? 1) === (current.fall ?? 1) &&
+          (gear.recall ?? 1) === (current.recall ?? 1) &&
           consumables.dynamite === currentCons.dynamite &&
           consumables.rope === currentCons.rope &&
           consumables.ladder === currentCons.ladder &&

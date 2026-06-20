@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.91.123",
+  version: "0.1.92.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.91-zoom-under-settings",
-  intro: "Mine zoom controls now sit under Settings.",
+  noticeId: "2026-06-20-0.1.92-recall-rope-range",
+  intro: "Recall ropes now scale with a permanent depth upgrade.",
   changes: [
     {
       build: 123,
-      text: "Zoom controls now sit under the Settings cog.",
+      text: "Recall rope range now starts shallow and upgrades deeper.",
     },
   ],
   notes: [
     {
-      version: "0.1.91",
+      version: "0.1.92",
       date: "2026-06-20",
-      title: "Zoom placement fix",
-      intro: "Mine zoom controls now sit under Settings.",
+      title: "Recall rope range",
+      intro: "Recall ropes now scale with a permanent depth upgrade.",
       changes: [
         {
           build: 123,
-          text: "Zoom controls now sit under the Settings cog.",
+          text: "Recall rope range now starts shallow and upgrades deeper.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Zoom placement fix"),
+      expect.stringContaining("Recall rope range"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

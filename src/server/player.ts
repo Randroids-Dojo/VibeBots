@@ -62,6 +62,7 @@ export interface MinePlayerProfile {
   blast_level: number;
   elevator_speed_level: number;
   fall_level: number;
+  recall_level: number;
   dynamite_count: number;
   rope_count: number;
   ladder_count: number;
@@ -370,7 +371,7 @@ export async function getMinePlayerProfile(
   const rows = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
            warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
-           fall_level, dynamite_count, rope_count, ladder_count, plank_count,
+           fall_level, recall_level, dynamite_count, rope_count, ladder_count, plank_count,
            beacon_count, emeralds, track_xp, defense_xp, deepest_depth,
            support_kit_granted_at, elevator_support_refund_at,
            legacy_support_snapshot_reconciled_at,
@@ -404,6 +405,7 @@ export function mineGearFromProfile(row: MinePlayerProfile): MineGear {
     blast: dynamiteTier({ blast: row.blast_level }),
     elevatorSpeed: row.elevator_speed_level,
     fall: row.fall_level,
+    recall: row.recall_level,
   };
 }
 
@@ -428,5 +430,7 @@ export function mineGearLevelFromProfile(
       return row.elevator_speed_level;
     case "fall":
       return row.fall_level;
+    case "recall":
+      return row.recall_level;
   }
 }

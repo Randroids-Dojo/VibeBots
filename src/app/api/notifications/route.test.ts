@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.111-hardware-store-copy",
+      releaseNoticeId: "2026-06-20-0.1.112-scrap-language",
       releaseSummary:
-        "Hardware Store copy: The Hardware Store sheet now stays focused on items.",
+        "Scrap language: Placed support removal now uses scrap wording.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.111-hardware-store-copy",
+      releaseNoticeId: "2026-06-20-0.1.112-scrap-language",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -77,7 +77,7 @@ a {
   }
 }
 
-/* Mine juice (REQ-018): floating pickup text and fanfare entrances. */
+/* Mine juice (REQ-018): floating collection text and fanfare entrances. */
 @keyframes mine-float-up {
   from {
     transform: translate(-50%, 0);

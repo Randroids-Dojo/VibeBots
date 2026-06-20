@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest Hardware Store copy note complete", () => {
+  it("keeps the latest scrap language note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.111-hardware-store-copy");
+    expect(release.noticeId).toBe("2026-06-20-0.1.112-scrap-language");
     expect(latestNote).toMatchObject({
+      version: "0.1.112",
+      title: "Scrap language",
+      intro: "Placed support removal now uses scrap wording.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The placed-support removal button is now Scrap placed supports.",
+      "The selection panel is now Scrap mode, with Scrap as the confirm action.",
+      "Scrapping feedback now says Scrapped supports and keeps the same carried scrap value rules.",
+    ]);
+  });
+
+  it("keeps the archived Hardware Store copy note complete", () => {
+    const release = getAppRelease();
+    const storeNote = release.notes.find((note) => note.version === "0.1.111");
+
+    expect(storeNote).toMatchObject({
       version: "0.1.111",
       title: "Hardware Store copy",
       intro: "The Hardware Store sheet now stays focused on items.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(storeNote?.changes.map((change) => change.text)).toEqual([
       "The extra Hardware Store intro and footer helper paragraphs were removed.",
       "Buy buttons remain the source for prices, level locks, and stock limits.",
       "Item rows still describe each base part without repeating shop-wide rules.",
@@ -265,7 +281,7 @@ describe("app release notes", () => {
     expect(menuNote?.changes.map((change) => change.text)).toEqual([
       "Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions now close when you tap or click outside them.",
       "The outside tap is swallowed after closing the menu, so it does not also move, dig, or press an underlying control.",
-      "Bunker builder and modal dialogs keep their existing backdrop dismissal, while edit pickups still use canvas taps to select placed supports.",
+      "Bunker builder and modal dialogs keep their existing backdrop dismissal, while scrap mode still uses canvas taps to select placed supports.",
     ]);
   });
 

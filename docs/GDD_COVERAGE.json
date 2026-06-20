@@ -256,7 +256,7 @@
     },
     {
       "id": "REQ-014",
-      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining; the hold starts with four typed resource stack slots, caps at 50 endgame slots, each slot holds five chunks max, and overflow ore from completed digs or dynamite harvests falls to floor piles for later partial pickup.",
+      "requirement": "Carry capacity is a secondary trip cap that forces the banking decision even with energy remaining; the hold starts with four typed resource stack slots, caps at 50 endgame slots, each slot holds five chunks max, and overflow ore from completed digs or dynamite harvests falls to floor piles for later partial collection.",
       "gddRef": "docs/gdd/06-mining.html#gear",
       "status": "done",
       "implementationRefs": [
@@ -335,7 +335,7 @@
     },
     {
       "id": "REQ-018",
-      "requirement": "Digging has render-layer texture: crack states, hardness-scaled particles, short smooth tweened movement, pitch-ramped pickups, rare-find fanfare.",
+      "requirement": "Digging has render-layer texture: crack states, hardness-scaled particles, short smooth tweened movement, pitch-ramped collection chimes, rare-find fanfare.",
       "gddRef": "docs/gdd/06-mining.html#feel",
       "status": "done",
       "implementationRefs": [

@@ -496,6 +496,9 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toHaveAttribute("data-climb-ladders", "1");
 
   // Climbing out consumes a provisioned ladder (REQ-020).
+  // digTo returns as soon as depth updates, so wait through the level 1
+  // action cadence before sending the climb key.
+  await page.waitForTimeout(650);
   await pressMineKey(page, "ArrowUp");
   await expect(status).toHaveAttribute("data-depth", "0");
   // Banking on the surface recharges the robot battery.
@@ -536,7 +539,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(placePlankLeft).toBeDisabled();
   await expect(placePlankRight).toBeDisabled();
   await expect(
-    page.getByRole("button", { name: "Edit placed pickups" }),
+    page.getByRole("button", { name: "Scrap placed supports" }),
   ).toBeVisible();
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
 });
@@ -1093,9 +1096,7 @@ test("falling-rock crush stays on camera before the report", async ({
   ).toBeGreaterThan(20);
 });
 
-test("edit pickup selection outlines selected cells in red", async ({
-  page,
-}) => {
+test("scrap selection outlines selected cells in red", async ({ page }) => {
   await page.route("**/api/mine/world", async (route) => {
     await route.fulfill({ status: 503, body: "{}" });
   });
@@ -1125,10 +1126,10 @@ test("edit pickup selection outlines selected cells in red", async ({
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Edit placed pickups" }),
+    page.getByRole("button", { name: "Scrap placed supports" }),
   ).toBeEnabled();
-  await page.getByRole("button", { name: "Edit placed pickups" }).click();
-  const salvage = page.getByRole("region", { name: "Edit pickups" });
+  await page.getByRole("button", { name: "Scrap placed supports" }).click();
+  const salvage = page.getByRole("region", { name: "Scrap mode" });
   await expect(salvage).toBeVisible();
   const before = await canvas.screenshot();
   const box = await canvas.boundingBox();
@@ -1150,7 +1151,7 @@ test("edit pickup selection outlines selected cells in red", async ({
   );
 });
 
-test("standing on a ladder uses edit pickups for removal", async ({ page }) => {
+test("standing on a ladder uses scrap mode for removal", async ({ page }) => {
   await page.route("**/api/mine/world", async (route) => {
     await route.fulfill({ status: 503, body: "{}" });
   });
@@ -1185,14 +1186,12 @@ test("standing on a ladder uses edit pickups for removal", async ({ page }) => {
     page.getByRole("button", { name: "Salvage ladder" }),
   ).toHaveCount(0);
 
-  const editPickups = page.getByRole("button", {
-    name: "Edit placed pickups",
+  const scrapSupports = page.getByRole("button", {
+    name: "Scrap placed supports",
   });
-  await expect(editPickups).toBeEnabled();
-  await editPickups.click();
-  await expect(
-    page.getByRole("region", { name: "Edit pickups" }),
-  ).toBeVisible();
+  await expect(scrapSupports).toBeEnabled();
+  await scrapSupports.click();
+  await expect(page.getByRole("region", { name: "Scrap mode" })).toBeVisible();
 });
 
 test("home redirects to the mine hub", async ({ page }) => {
@@ -1364,16 +1363,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The Hardware Store sheet now stays focused on items.",
+    "Placed support removal now uses scrap wording.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "helper paragraphs were removed",
+    "Scrap placed supports",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("level locks");
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "without repeating shop-wide rules",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("Scrap mode");
+  await expect(dialog.locator("li").nth(2)).toContainText("Scrapped supports");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1392,6 +1389,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.112", "Scrap language"],
     ["0.1.111", "Hardware Store copy"],
     ["0.1.110", "Mine death report"],
     ["0.1.109", "Mine refresh viewport lock"],
@@ -1526,7 +1524,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.111-hardware-store-copy",
+      "2026-06-20-0.1.112-scrap-language",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1636,7 +1634,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.111-hardware-store-copy",
+      "2026-06-20-0.1.112-scrap-language",
     );
   });
   await page.route("**/api/version", async (route) => {

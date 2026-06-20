@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.112" data-date="2026-06-20">
+    <h2>0.1.112</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.112</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>47</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Placed support removal now uses scrap wording.</dd>
+      <dt>Interface</dt><dd>The placed-support removal button is now <strong>Scrap placed supports</strong>, the selection panel is <strong>Scrap mode</strong>, and the confirm action is <strong>Scrap</strong>.</dd>
+      <dt>Feedback</dt><dd>Scrapping feedback now says supports were scrapped, while carried scrap value and replay rules are unchanged.</dd>
+      <dt>Verification</dt><dd>Focused release-note, notification, and mine scrap smoke coverage verify the new copy. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.111" data-date="2026-06-20">
     <h2>0.1.111</h2>
     <dl>
@@ -196,7 +208,7 @@
       <dt>Highlights</dt><dd>Open mine menus now close from a simple outside tap.</dd>
       <dt>Controls</dt><dd>Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions close when the player taps or clicks outside the open menu.</dd>
       <dt>Input safety</dt><dd>The outside tap is swallowed after closing the menu, so it does not also move, dig, or press an underlying mine control.</dd>
-      <dt>Scope</dt><dd>Bunker builder and modal dialogs keep their existing backdrop dismissal, while edit pickups still use canvas taps to select placed supports.</dd>
+      <dt>Scope</dt><dd>Bunker builder and modal dialogs keep their existing backdrop dismissal, while scrap mode still uses canvas taps to select placed supports.</dd>
       <dt>Verification</dt><dd>After rebasing over the death cam surface jump release, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, focused app-release, notification, version, and Web Push Vitest (25 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm test</code> (317 passed), <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3376</code> for latest release notes, stall reopen, and floating menu outside dismiss (3 passed), and <code>pnpm test:e2e:critical --project=chromium</code> against the same server (5 passed).</dd>
     </dl>
   </article>
@@ -222,7 +234,7 @@
       <dt>Highlights</dt><dd>The starting mine bag now has four stack slots instead of eight, and 50 slots is the endgame Cargo Hold cap.</dd>
       <dt>Rules</dt><dd>Level 1 Cargo Hold starts with four typed stack slots. Each slot still holds one resource type and up to five chunks.</dd>
       <dt>Progression</dt><dd>Cargo upgrades now grow through 6, 8, 11, 15, 20, 27, 35, 43, and 50 stack slots. Prices start at 80 vibes and scale into six-figure deep-depth buys behind row and player-level gates.</dd>
-      <dt>Verification</dt><dd>Focused sim coverage checks the four-slot starting hold, the capped max hold, stack overflow, floor pickup, and the pinned cargo price ladder. Full verification is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks the four-slot starting hold, the capped max hold, stack overflow, floor collection, and the pinned cargo price ladder. Full verification is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
     </dl>
   </article>
 
@@ -546,10 +558,10 @@
     <dl>
       <dt>Package version</dt><dd><code>0.1.68</code></dd>
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>35</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
-      <dt>Highlights</dt><dd>Ladders now use the same edit pickup flow as other supports.</dd>
-      <dt>Interface</dt><dd>The dedicated ladder removal button no longer appears while standing on a planted ladder. Use <strong>Edit placed pickups</strong> to select planted ladders, then confirm <strong>Pick up</strong> to remove them.</dd>
+      <dt>Highlights</dt><dd>Ladders now use the same scrap flow as other supports.</dd>
+      <dt>Interface</dt><dd>The dedicated ladder removal button no longer appears while standing on a planted ladder. Use <strong>Scrap placed supports</strong> to select planted ladders, then confirm <strong>Scrap</strong> to remove them.</dd>
       <dt>Rules</dt><dd>Plank placement, ladder physics, support salvage value, and replay rules are unchanged.</dd>
-      <dt>Verification</dt><dd>Focused smoke coverage confirms the old ladder button is absent on a planted ladder and edit pickup mode remains the removal path.</dd>
+      <dt>Verification</dt><dd>Focused smoke coverage confirms the old ladder button is absent on a planted ladder and scrap mode remains the removal path.</dd>
     </dl>
   </article>
 
@@ -572,9 +584,9 @@
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>35</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
       <dt>Highlights</dt><dd>The open bag can now drop selected ore slots to make room.</dd>
       <dt>Controls</dt><dd>Tapping carried ore cells marks one or more chunks, and <strong>Drop selected</strong> leaves those chunks on the miner's current underground cell.</dd>
-      <dt>Rules</dt><dd>Manual drops merge with existing floor piles. If the player later walks over a combined pile, pickup prioritizes older floor ore before reclaiming chunks just dropped from the bag.</dd>
-      <dt>Pickup guard</dt><dd>Dropping from an open bag does not auto-pick floor ore from the same cell, so opening the bag while standing on a pile stays predictable until the player moves away and back.</dd>
-      <dt>Verification</dt><dd>Focused sim coverage checks bag-drop merging, no same-cell auto-pickup, deferred pickup priority, and later deferred pickup after moving away and back. Focused bag smoke coverage checks selecting a cell, enabling <strong>Drop selected</strong>, and the visible capacity update.</dd>
+      <dt>Rules</dt><dd>Manual drops merge with existing floor piles. If the player later walks over a combined pile, collection prioritizes older floor ore before reclaiming chunks just dropped from the bag.</dd>
+      <dt>Collection guard</dt><dd>Dropping from an open bag does not auto-collect floor ore from the same cell, so opening the bag while standing on a pile stays predictable until the player moves away and back.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks bag-drop merging, no same-cell auto-collection, deferred collection priority, and later deferred collection after moving away and back. Focused bag smoke coverage checks selecting a cell, enabling <strong>Drop selected</strong>, and the visible capacity update.</dd>
     </dl>
   </article>
 
@@ -671,7 +683,7 @@
       <dt>Highlights</dt><dd>Dropped recoverable bags now obey support changes in the mine.</dd>
       <dt>Rules</dt><dd>When the cell below a dropped bag is mined away, the bag falls down the shaft until it lands on the next stable cell. If a ladder or plank that was supporting a bag is picked up, the bag drops through that opening too.</dd>
       <dt>Interface</dt><dd>The lost-cargo locator follows the bag to its new resting cell, so recovery still points at the actual pouch location.</dd>
-      <dt>Verification</dt><dd>Focused mine sim coverage was added for mined support removal, ladder pickup support removal, and plank pickup support removal.</dd>
+      <dt>Verification</dt><dd>Focused mine sim coverage was added for mined support removal, ladder scrap support removal, and plank scrap support removal.</dd>
     </dl>
   </article>
 
@@ -875,7 +887,7 @@
       <dt>Package version</dt><dd><code>0.1.41</code></dd>
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>30</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
       <dt>Highlights</dt><dd>Warp beacons are capped at two total owned anchors, counting both packed kits and placed beacons.</dd>
-      <dt>Interface</dt><dd>The Warp Pad now gives every deployed beacon a short rename field beside its Warp button, and capped buyers are reminded they can collect deployed beacons in edit pickup mode for scrap.</dd>
+      <dt>Interface</dt><dd>The Warp Pad now gives every deployed beacon a short rename field beside its Warp button, and capped buyers are reminded they can scrap deployed beacons in scrap mode to free a slot.</dd>
       <dt>Persistence</dt><dd>Beacon names are stored on the placed beacon cell and replay through a logged rename action, keeping client recovery and server cash-out replay aligned.</dd>
       <dt>Verification</dt><dd>Full verification is recorded in the progress log for this slice.</dd>
     </dl>
@@ -924,7 +936,7 @@
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moved from <code>29</code> to <code>30</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
       <dt>Highlights</dt><dd>Warp beacons now work as multiple placed anchors. The Warp Pad shows all planted beacons in newest-first order instead of jumping to one movable beacon.</dd>
       <dt>Interface</dt><dd>The Warp Pad list is scrollable, keeps out-of-range beacons visible but disabled, and targets the selected beacon with a replay-safe coordinate action.</dd>
-      <dt>Rules</dt><dd>Beacon kits are still consumables, Warpcoil still controls usable range, and edit pickup mode can now salvage a placed beacon for carried vibe value instead of returning a kit.</dd>
+      <dt>Rules</dt><dd>Beacon kits are still consumables, Warpcoil still controls usable range, and scrap mode can now scrap a placed beacon for carried vibe value instead of returning a kit.</dd>
       <dt>Verification</dt><dd>Full verification is recorded in the progress log for this slice.</dd>
     </dl>
   </article>
@@ -1069,7 +1081,7 @@
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moved from <code>25</code> to <code>26</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
       <dt>Highlights</dt><dd>Support cleanup now salvages ladders and planks for partial carried vibe value instead of refunding full consumables.</dd>
       <dt>Interface</dt><dd>Only ladders and planks in the miner's adjacent 3x3 salvage range brighten while salvage mode is active. Selected supports use a simple red outline around the support itself, with no floating yellow circles or text labels.</dd>
-      <dt>Rules</dt><dd>Salvage value is carried like ore, so it must still be surfaced or recalled to become wallet vibes. Pickup actions are rejected for stale targets or supports outside the adjacent 3x3 range. Planks can also be broken for the same partial salvage after repeated down hits with the pickaxe.</dd>
+      <dt>Rules</dt><dd>Scrap value is carried like ore, so it must still be surfaced or recalled to become wallet vibes. Scrap actions are rejected for stale targets or supports outside the adjacent 3x3 range. Planks can also be broken for the same partial scrap after repeated down hits with the pickaxe.</dd>
       <dt>Fixes</dt><dd>Removed the floating <code>L</code>, <code>P</code>, and <code>OK</code> labels that could render as white boxes on mobile.</dd>
       <dt>Verification</dt><dd>After rebasing onto the latest <code>origin/main</code>, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, smoke, and doc files, focused Vitest for mine sim, bank route, and mine SFX (90 passed), <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm test</code> (167 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm build</code>, and targeted Playwright smoke on a clean port for the mine HUD salvage control plus latest release-note popup and cumulative settings list (2 passed). An attempted default-port smoke was discarded because an older local server was already listening on port 3000 and served stale markup.</dd>
     </dl>
@@ -1289,7 +1301,7 @@
     <dl>
       <dt>Package version</dt><dd><code>0.1.6</code></dd>
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moved from <code>21</code> to <code>22</code>. <code>SIM_VERSION</code> stays at <code>2</code>.</dd>
-      <dt>Highlights</dt><dd>Reaching the surface with a haul now sells it automatically into the wallet. Elevator rides auto-chain to the rail bottom or surface after one ride start, and Elevator Speed upgrades improve both the row distance and cadence of those automatic steps. Collect mode now uses in-world ladder and plank cell taps with visible markers instead of a support list.</dd>
+      <dt>Highlights</dt><dd>Reaching the surface with a haul now sells it automatically into the wallet. Elevator rides auto-chain to the rail bottom or surface after one ride start, and Elevator Speed upgrades improve both the row distance and cadence of those automatic steps. Scrap mode now uses in-world ladder and plank cell taps with visible markers instead of a support list.</dd>
       <dt>Migration</dt><dd>Rail construction refunds both ladders and planks in the new rail span. Existing players get a one-time world-load cleanup that removes and returns any ladder or plank hidden behind already owned elevator rails.</dd>
       <dt>Controls</dt><dd>Walking and mining now share one cadence for held input and repeated taps, with small speed gains from Pickaxe upgrades. The old quick press and release bypass no longer outruns the intended action delay.</dd>
       <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched files, <code>pnpm typecheck</code>, focused Vitest for mine sim, mine store, and mine camera (75 passed), <code>pnpm test</code> (136 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, <code>pnpm build</code>, and Playwright smoke against a fresh production server on port 3027 (22 passed, 2 storage-gated skips).</dd>

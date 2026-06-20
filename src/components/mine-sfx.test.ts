@@ -26,7 +26,7 @@ describe("mining sfx event mapping", () => {
         },
         "down",
       ),
-    ).toEqual(["dig-ore-ruby", "ore-pickup"]);
+    ).toEqual(["dig-ore-ruby", "ore-collect"]);
 
     expect(
       mineResultSfxEvents(
@@ -53,7 +53,7 @@ describe("mining sfx event mapping", () => {
         },
         "down",
       ),
-    ).toEqual(["dig-ore-coal", "ore-pickup", "bag-full"]);
+    ).toEqual(["dig-ore-coal", "ore-collect", "bag-full"]);
   });
 
   it("maps consumables and hazards to action-specific cues", () => {

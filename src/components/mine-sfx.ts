@@ -36,7 +36,7 @@ export type MineSfxEvent =
   | "dig-rock"
   | `dig-ore-${OreId}`
   | "dig-cache"
-  | "ore-pickup"
+  | "ore-collect"
   | "cache-fanfare"
   | "dynamite"
   | "gas"
@@ -214,7 +214,7 @@ export function mineResultSfxEvents(
   if (result.exploded || (result.blasted ?? 0) > 0) events.push("dynamite");
   if ((result.vented ?? 0) > 0) events.push("gas");
   if (result.fallingRockTriggered) events.push("fall-warning");
-  if (result.oreHarvested) events.push("ore-pickup");
+  if (result.oreHarvested) events.push("ore-collect");
   if (result.bagFull) events.push("bag-full");
   if (result.found) events.push("cache-fanfare");
   if (result.recalled) events.push("recall");
@@ -399,7 +399,7 @@ function playDig(event: MineSfxEvent): void {
   }
 }
 
-function playPickup(): void {
+function playCollect(): void {
   const ac = audioCtx();
   if (!ac) return;
   const now = ac.currentTime;
@@ -717,8 +717,8 @@ export function playMineSfxEvent(event: MineSfxEvent): void {
     playStrike(event);
   } else if (event.startsWith("dig-")) {
     playDig(event);
-  } else if (event === "ore-pickup") {
-    playPickup();
+  } else if (event === "ore-collect") {
+    playCollect();
   } else if (event === "cache-fanfare") {
     playCacheFanfare();
   } else if (event === "dynamite") {

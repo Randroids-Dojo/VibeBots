@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.111-hardware-store-copy";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.112-scrap-language";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.112",
+      date: "2026-06-20",
+      title: "Scrap language",
+      intro: "Placed support removal now uses scrap wording.",
+      changes: [
+        {
+          build,
+          text: "The placed-support removal button is now Scrap placed supports.",
+        },
+        {
+          build,
+          text: "The selection panel is now Scrap mode, with Scrap as the confirm action.",
+        },
+        {
+          build,
+          text: "Scrapping feedback now says Scrapped supports and keeps the same carried scrap value rules.",
+        },
+      ],
+    },
     {
       version: "0.1.111",
       date: "2026-06-20",
@@ -324,7 +344,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Bunker builder and modal dialogs keep their existing backdrop dismissal, while edit pickups still use canvas taps to select placed supports.",
+          text: "Bunker builder and modal dialogs keep their existing backdrop dismissal, while scrap mode still uses canvas taps to select placed supports.",
         },
       ],
     },
@@ -876,7 +896,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       version: "0.1.68",
       date: "2026-06-19",
       title: "Ladder removal cleanup",
-      intro: "Ladders now use the same edit pickup flow as other supports.",
+      intro: "Ladders now use the same scrap flow as other supports.",
       changes: [
         {
           build,
@@ -884,7 +904,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Use Edit placed pickups to select planted ladders, then confirm Pick up to remove them.",
+          text: "Use Scrap placed supports to select planted ladders, then confirm Scrap to remove them.",
         },
         {
           build,
@@ -925,7 +945,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Manual drops merge with existing floor piles, and walk-over pickup takes older floor ore before reclaiming chunks you just dropped.",
+          text: "Manual drops merge with existing floor piles, and walk-over collection takes older floor ore before reclaiming chunks you just dropped.",
         },
         {
           build,
@@ -1534,7 +1554,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Edit pickup mode can now salvage placed beacons for carried vibe value, removing them from the warp list.",
+          text: "Scrap mode can now scrap placed beacons for carried vibe value, removing them from the warp list.",
         },
       ],
     },
@@ -2209,7 +2229,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Collect mode no longer opens a support list. Tap visible ladder or plank cells to mark them, then confirm the pickup.",
+          text: "Scrap mode no longer opens a support list. Tap visible ladder or plank cells to mark them, then confirm Scrap.",
         },
         {
           build,
@@ -2326,7 +2346,7 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Collect mode lets you select visible placed ladders and planks, then return them to inventory with replay-safe accounting.",
+          text: "Scrap mode lets you select visible placed ladders and planks, then scrap them with replay-safe accounting.",
         },
         {
           build,

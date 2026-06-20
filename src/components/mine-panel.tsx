@@ -2720,7 +2720,7 @@ interface FloatNote {
   glow: string;
 }
 
-/** Floating pickup text, cache fanfare, and the collapse reveal. */
+/** Floating collection text, cache fanfare, and the collapse reveal. */
 function JuiceOverlays() {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
@@ -3463,7 +3463,7 @@ function StallMenu({
                 : `Buy ${buyQuantity} for ${totalPrice} vibes`;
             const rowSub =
               item === "beacon" && !beaconAllowed
-                ? "At the cap. If a beacon is deployed, collect it in edit pickup mode for scraps to free a slot."
+                ? "At the cap. If a beacon is deployed, scrap it in scrap mode to free a slot."
                 : blurb;
             return (
               <SheetRow
@@ -5229,7 +5229,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                     : lastResult?.ok && lastResult.plankPlaced
                       ? "Plank placed."
                       : salvagedSupportCount > 0
-                        ? `Salvaged ${salvagedSupportCount} pickup${salvagedSupportCount > 1 ? "s" : ""}. Scrap sells for ${salvagedSupportValue} vibes at surface.`
+                        ? `Scrapped ${salvagedSupportCount} support${salvagedSupportCount > 1 ? "s" : ""}. Scrap sells for ${salvagedSupportValue} vibes at surface.`
                         : lastResult?.ok && (lastResult.droppedFromBag ?? 0) > 0
                           ? `Dropped ${lastResult.droppedFromBag} ore from bag.`
                           : lastResult?.ok && (lastResult.dropped ?? 0) > 0
@@ -5237,7 +5237,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                             : lastResult?.ok && lastResult.pickedUpBag
                               ? `Recovered bag: ${lastResult.pickedUpBag.value} vibes${lastResult.pickedUpBag.parts > 0 ? ` and ${lastResult.pickedUpBag.parts} part${lastResult.pickedUpBag.parts > 1 ? "s" : ""}` : ""}.`
                               : lastResult?.ok && (lastResult.pickedUp ?? 0) > 0
-                                ? `Picked up ${lastResult.pickedUp} ore.`
+                                ? `Collected ${lastResult.pickedUp} ore.`
                                 : lastResult?.ok && (lastResult.vented ?? 0) > 0
                                   ? `Gas! ${(lastResult.vented ?? 0) * 8} charge burned.`
                                   : miner.row === 0 &&
@@ -6139,7 +6139,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
       {collectMode && (
         <section
-          aria-label="Edit pickups"
+          aria-label="Scrap mode"
           style={{
             position: "absolute",
             right: 12,
@@ -6165,8 +6165,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           >
             <span style={{ ...chipStyle, color: "#8b93a7" }}>
               {visibleSupports.length === 0
-                ? "no visible pickups"
-                : "tap visible pickups"}
+                ? "nothing to scrap"
+                : "tap supports to scrap"}
             </span>
             <span style={{ ...chipStyle, color: "#54e0c7" }}>
               {`${selectedSupports.length} selected, scrap value: ${selectedSupportValue}`}
@@ -6175,7 +6175,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
-              aria-label="Confirm edit pickups"
+              aria-label="Confirm scrap"
               disabled={selectedSupports.length === 0}
               onClick={() => {
                 move(collectAction(selectedSupports));
@@ -6196,11 +6196,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 cursor: selectedSupports.length > 0 ? "pointer" : "default",
               }}
             >
-              Pick up
+              Scrap
             </button>
             <button
               type="button"
-              aria-label="Cancel edit pickups"
+              aria-label="Cancel scrap"
               onClick={() => {
                 setCollectSelection([]);
                 setCollectMode(false);
@@ -6289,7 +6289,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         </button>
         <button
           type="button"
-          aria-label="Edit placed pickups"
+          aria-label="Scrap placed supports"
           aria-pressed={collectMode}
           onClick={() => {
             setDynamiteMenuOpen(false);

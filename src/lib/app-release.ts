@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.100-surface-shop-prompts";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.101-depot-copy-cleanup";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.101",
+      date: "2026-06-20",
+      title: "Depot copy cleanup",
+      intro: "The Supply Depot sheet is simpler and drops trip wording.",
+      changes: [
+        {
+          build,
+          text: "The Supply Depot subtitle now says it carries supplies for digging deeper.",
+        },
+        {
+          build,
+          text: "The extra footer under the consumable list was removed, leaving only the buy quantity and item rows.",
+        },
+        {
+          build,
+          text: "The ladder and plank surface tip now says to stock up before heading deeper, without talking about trips.",
+        },
+      ],
+    },
     {
       version: "0.1.100",
       date: "2026-06-20",

@@ -262,7 +262,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: press up into solid ground to dig overhead without using a ladder.",
   "Tip: falling rocks drop after two moves and need at least two hits to break.",
   "Tip: Lantern upgrades reveal more rows and let you zoom out farther.",
-  "Tip: Buy ladders and planks at the Supply Depot before deeper trips.",
+  "Tip: Buy ladders and planks at the Supply Depot before heading deeper.",
   "Tip: Dynamite collects the ore and parts it breaks if your hold has room.",
   "Tip: Upgrade Blast Charge to unlock larger dynamite blast shapes.",
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
@@ -3342,9 +3342,6 @@ function StallMenu({
               />
             );
           })}
-          <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            purchases pack straight into your current trip.
-          </p>
         </div>
       )}
       {stall.id === "upgrades" && (

@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest surface shop prompts note complete", () => {
+  it("keeps the latest depot copy cleanup note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.100-surface-shop-prompts");
+    expect(release.noticeId).toBe("2026-06-20-0.1.101-depot-copy-cleanup");
     expect(latestNote).toMatchObject({
+      version: "0.1.101",
+      title: "Depot copy cleanup",
+      intro: "The Supply Depot sheet is simpler and drops trip wording.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Supply Depot subtitle now says it carries supplies for digging deeper.",
+      "The extra footer under the consumable list was removed, leaving only the buy quantity and item rows.",
+      "The ladder and plank surface tip now says to stock up before heading deeper, without talking about trips.",
+    ]);
+  });
+
+  it("keeps the archived surface shop prompts note complete", () => {
+    const release = getAppRelease();
+    const promptNote = release.notes.find((note) => note.version === "0.1.100");
+
+    expect(promptNote).toMatchObject({
       version: "0.1.100",
       title: "Surface shop prompts",
       intro: "Shop open prompts now sit higher above the mine controls.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(promptNote?.changes.map((change) => change.text)).toEqual([
       "Standing at a surface shop now shows its Tap to open button higher on phone screens.",
       "The raised prompt slot applies to Hardware Store, Supply Depot, Upgrades, portal, and destination surface prompts.",
       "Focused smoke checks Hardware Store and Supply Depot prompt clearance on a narrow phone viewport.",
@@ -37,15 +53,15 @@ describe("app release notes", () => {
 
   it("keeps the archived mine text and status layout note complete", () => {
     const release = getAppRelease();
-    const statusNote = release.notes.find((note) => note.version === "0.1.98");
+    const textNote = release.notes.find((note) => note.version === "0.1.98");
 
-    expect(statusNote).toMatchObject({
+    expect(textNote).toMatchObject({
       version: "0.1.98",
       title: "Mine text and status layout",
       intro:
         "Mine copy is clearer, and status messages stay clear of zoom controls.",
     });
-    expect(statusNote?.changes.map((change) => change.text)).toEqual([
+    expect(textNote?.changes.map((change) => change.text)).toEqual([
       "Surface tips and upgrade blurbs now use shorter rule-focused text for Recall Rope range, Warpcoil range, and Lantern zoom.",
       "Auto-sell results now replace the surface tip while visible and wrap in the same status chip style.",
       "Status chips now reserve room for the Settings button and zoom controls on narrow screens.",

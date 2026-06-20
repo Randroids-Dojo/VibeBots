@@ -32,7 +32,7 @@ export const STALLS: readonly StallDef[] = [
     col: 2,
     name: "Supply Depot",
     color: "#ff9f43",
-    blurb: "mine consumables for the current trip",
+    blurb: "supplies for digging deeper",
   },
   {
     id: "upgrades",

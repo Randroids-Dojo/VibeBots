@@ -1131,14 +1131,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Shop open prompts now sit higher above the mine controls.",
+    "The Supply Depot sheet is simpler and drops trip wording.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("Tap to open");
-  await expect(dialog.locator("li").nth(1)).toContainText("Supply Depot");
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "narrow phone viewport",
+  await expect(dialog.locator("li").first()).toContainText(
+    "supplies for digging deeper",
   );
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "extra footer under the consumable list was removed",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText("heading deeper");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1157,6 +1159,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.101", "Depot copy cleanup"],
     ["0.1.100", "Surface shop prompts"],
     ["0.1.99", "Meaningful mine zoom"],
     ["0.1.98", "Mine text and status layout"],
@@ -1280,7 +1283,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.100-surface-shop-prompts",
+      "2026-06-20-0.1.101-depot-copy-cleanup",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1401,7 +1404,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.100-surface-shop-prompts",
+      "2026-06-20-0.1.101-depot-copy-cleanup",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2852,9 +2855,12 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
     await pressMineKey(page, "ArrowRight");
   }
   const depot = await openStall(page, "Supply Depot");
+  await expect(depot).toContainText("supplies for digging deeper");
   await expect(depot).toContainText("Ladder");
   await expect(depot).toContainText("have");
   await expect(depot).toContainText("Buy 1 for 2 vibes");
+  await expect(depot).not.toContainText("current trip");
+  await expect(depot).not.toContainText("purchases pack");
   await expect(depot).not.toContainText("Basic Turret");
   await expect(depot).not.toContainText("Floor Spikes");
   await depot.getByRole("button", { name: "x5" }).click();

@@ -2,37 +2,51 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest clean shop layout note complete", () => {
+  it("keeps the latest shop release copy note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.115-clean-shop-layout");
+    expect(release.noticeId).toBe("2026-06-20-0.1.116-shop-release-copy");
     expect(latestNote).toMatchObject({
+      version: "0.1.116",
+      title: "Shop release copy",
+      intro: "Release notes now match the clean shop layout.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The latest shop note now describes the simpler rows without repeating the rejected framing.",
+      "The 0.1.114 archive is kept as shop button feedback and points to the 0.1.115 cleanup.",
+      "Release tests and smoke coverage now check the cleaner wording.",
+    ]);
+  });
+
+  it("keeps the archived clean shop layout note complete", () => {
+    const release = getAppRelease();
+    const cleanNote = release.notes.find((note) => note.version === "0.1.115");
+
+    expect(cleanNote).toMatchObject({
       version: "0.1.115",
       title: "Clean shop layout",
       intro: "Mine shops are easier to scan.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Supply Depot and Upgrades rows no longer add extra tag chips.",
-      "Rows are back to simple descriptions with clear buy buttons.",
+    expect(cleanNote?.changes.map((change) => change.text)).toEqual([
+      "Supply Depot and Upgrades rows now use simple descriptions.",
+      "Rows keep clear buy buttons without extra labels or projected-balance text.",
       "Upgrade purchases still keep the hold-to-buy confirmation and feedback.",
     ]);
   });
 
-  it("keeps the archived tactical shop buttons note complete", () => {
+  it("keeps the archived shop button feedback note complete", () => {
     const release = getAppRelease();
-    const tacticalNote = release.notes.find(
-      (note) => note.version === "0.1.114",
-    );
+    const buttonNote = release.notes.find((note) => note.version === "0.1.114");
 
-    expect(tacticalNote).toMatchObject({
+    expect(buttonNote).toMatchObject({
       version: "0.1.114",
-      title: "Tactical shop buttons",
-      intro: "Depot and upgrade buys now feel more deliberate.",
+      title: "Shop button feedback",
+      intro: "Shop purchases gained stronger button feedback.",
     });
-    expect(tacticalNote?.changes.map((change) => change.text)).toEqual([
-      "Supply Depot rows now show what each item is best for, projected stock, and vibes left after the selected quantity.",
-      "Upgrades now show the next tactical impact and require a completed hold before buying.",
+    expect(buttonNote?.changes.map((change) => change.text)).toEqual([
+      "Supply Depot and Upgrades briefly added row-planning details that were removed in 0.1.115.",
+      "Upgrades added a hold-to-buy confirmation before buying.",
       "Shop buttons add stronger visual feedback plus supported mobile vibration for press, success, and deny moments.",
     ]);
   });

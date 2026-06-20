@@ -110,8 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.115-clean-shop-layout",
-      releaseSummary: "Clean shop layout: Mine shops are easier to scan.",
+      releaseNoticeId: "2026-06-20-0.1.116-shop-release-copy",
+      releaseSummary:
+        "Shop release copy: Release notes now match the clean shop layout.",
     });
   });
 
@@ -171,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.115-clean-shop-layout",
+      releaseNoticeId: "2026-06-20-0.1.116-shop-release-copy",
       attempted: 2,
       sent: 1,
       expired: 1,

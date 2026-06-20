@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.115-clean-shop-layout";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.116-shop-release-copy";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.116",
+      date: "2026-06-20",
+      title: "Shop release copy",
+      intro: "Release notes now match the clean shop layout.",
+      changes: [
+        {
+          build,
+          text: "The latest shop note now describes the simpler rows without repeating the rejected framing.",
+        },
+        {
+          build,
+          text: "The 0.1.114 archive is kept as shop button feedback and points to the 0.1.115 cleanup.",
+        },
+        {
+          build,
+          text: "Release tests and smoke coverage now check the cleaner wording.",
+        },
+      ],
+    },
     {
       version: "0.1.115",
       date: "2026-06-20",
@@ -14,11 +34,11 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
       changes: [
         {
           build,
-          text: "Supply Depot and Upgrades rows no longer add extra tag chips.",
+          text: "Supply Depot and Upgrades rows now use simple descriptions.",
         },
         {
           build,
-          text: "Rows are back to simple descriptions with clear buy buttons.",
+          text: "Rows keep clear buy buttons without extra labels or projected-balance text.",
         },
         {
           build,
@@ -29,16 +49,16 @@ function releaseNotes(build: number | null): AppReleaseNote[] {
     {
       version: "0.1.114",
       date: "2026-06-20",
-      title: "Tactical shop buttons",
-      intro: "Depot and upgrade buys now feel more deliberate.",
+      title: "Shop button feedback",
+      intro: "Shop purchases gained stronger button feedback.",
       changes: [
         {
           build,
-          text: "Supply Depot rows now show what each item is best for, projected stock, and vibes left after the selected quantity.",
+          text: "Supply Depot and Upgrades briefly added row-planning details that were removed in 0.1.115.",
         },
         {
           build,
-          text: "Upgrades now show the next tactical impact and require a completed hold before buying.",
+          text: "Upgrades added a hold-to-buy confirmation before buying.",
         },
         {
           build,

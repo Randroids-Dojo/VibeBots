@@ -1401,17 +1401,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("Mine shops are easier to scan.");
+  await expect(dialog).toContainText(
+    "Release notes now match the clean shop layout.",
+  );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "no longer add extra tag chips",
+    "without repeating the rejected framing",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "simple descriptions",
+    "shop button feedback",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "hold-to-buy confirmation",
-  );
+  await expect(dialog.locator("li").nth(2)).toContainText("cleaner wording");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1430,8 +1430,9 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.116", "Shop release copy"],
     ["0.1.115", "Clean shop layout"],
-    ["0.1.114", "Tactical shop buttons"],
+    ["0.1.114", "Shop button feedback"],
     ["0.1.113", "Scrap panel text bounds"],
     ["0.1.112", "Scrap language"],
     ["0.1.111", "Hardware Store copy"],

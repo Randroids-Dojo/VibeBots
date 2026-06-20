@@ -13,8 +13,11 @@ import {
 } from "react";
 import {
   clampMineCameraZoom,
+  MINE_CAMERA_BUTTON_STEP,
+  MINE_CAMERA_MIN_ZOOM,
   MINE_CAMERA_STORAGE_KEY,
   MINE_CAMERA_ZOOM_DEFAULT,
+  maxMineCameraZoom,
   mineCameraDistance,
 } from "@/components/mine-camera";
 import type { PlayerAchievementView } from "@/lib/achievements";
@@ -213,6 +216,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
   "Tip: dynamite chips rich ore reserves and still scoops what it breaks into your hold.",
   "Tip: falling rocks wait two moves and take at least two hits to break.",
+  "Tip: zoom out improves with Lantern upgrades, but the dark edge still hides far cells.",
   "Tip: dropped bags fall if you mine or pick up the support under them.",
   "Tip: unsupported ladders slide down shafts until they land on support.",
   "Tip: the Hardware Store sells level 1 bunker parts for your base.",
@@ -557,6 +561,19 @@ const iconButtonStyle: React.CSSProperties = {
   minWidth: 54,
   height: 46,
   fontSize: "0.95rem",
+  pointerEvents: "auto",
+};
+
+const zoomButtonStyle: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 12,
+  border: "1px solid #26304a",
+  background: "rgba(17, 21, 31, 0.88)",
+  color: "#e6e8ee",
+  fontSize: "1.35rem",
+  fontWeight: 900,
+  lineHeight: 1,
   pointerEvents: "auto",
 };
 
@@ -4601,6 +4618,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     mine.consumables.dynamite > 0 &&
     !elevatorAutoDir &&
     !mine.pendingDynamite;
+  const minCameraZoomReached =
+    cameraZoom <= MINE_CAMERA_MIN_ZOOM + MINE_CAMERA_BUTTON_STEP / 4;
+  const maxCameraZoom = maxMineCameraZoom(mine.gear);
+  const maxCameraZoomReached =
+    cameraZoom >= maxCameraZoom - MINE_CAMERA_BUTTON_STEP / 4;
   const dynamiteHelperText = selectedDynamiteLocked
     ? "Locked. Buy this dynamite tier at the Upgrades stall."
     : mine.consumables.dynamite <= 0
@@ -4715,6 +4737,50 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       >
         &#9881;
       </button>
+      <section
+        aria-label="Zoom controls"
+        data-camera-zoom={cameraZoom.toFixed(2)}
+        data-camera-zoom-max={maxCameraZoom.toFixed(2)}
+        style={{
+          position: "absolute",
+          top: 212,
+          right: 264,
+          zIndex: 7,
+          display: "grid",
+          gridTemplateRows: "42px 42px",
+          gap: 6,
+          pointerEvents: "none",
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Zoom in"
+          title="Zoom in"
+          disabled={minCameraZoomReached}
+          onClick={() => adjustCameraZoom(-MINE_CAMERA_BUTTON_STEP)}
+          style={{
+            ...zoomButtonStyle,
+            opacity: minCameraZoomReached ? 0.42 : 1,
+            cursor: minCameraZoomReached ? "default" : "pointer",
+          }}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          aria-label="Zoom out"
+          title="Zoom out"
+          disabled={maxCameraZoomReached}
+          onClick={() => adjustCameraZoom(MINE_CAMERA_BUTTON_STEP)}
+          style={{
+            ...zoomButtonStyle,
+            opacity: maxCameraZoomReached ? 0.42 : 1,
+            cursor: maxCameraZoomReached ? "default" : "pointer",
+          }}
+        >
+          -
+        </button>
+      </section>
       {settingsOpen && (
         <section
           aria-label="Settings"

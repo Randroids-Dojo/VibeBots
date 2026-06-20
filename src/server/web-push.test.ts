@@ -11,27 +11,29 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.83.123",
+  version: "0.1.87.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.83-beacon-depth-gate",
-  intro: "Warp Beacons now respect your current Warpcoil range.",
+  noticeId: "2026-06-20-0.1.87-mine-zoom-buttons",
+  intro:
+    "Mason, load your first save now. The mine HUD now has direct zoom controls.",
   changes: [
     {
       build: 123,
-      text: "Too-deep beacon placement keeps the kit and shows an upgrade cue.",
+      text: "HUD zoom buttons adjust the lantern-capped camera.",
     },
   ],
   notes: [
     {
-      version: "0.1.83",
+      version: "0.1.87",
       date: "2026-06-20",
-      title: "Beacon depth gate",
-      intro: "Warp Beacons now respect your current Warpcoil range.",
+      title: "Mine zoom buttons",
+      intro:
+        "Mason, load your first save now. The mine HUD now has direct zoom controls.",
       changes: [
         {
           build: 123,
-          text: "Too-deep beacon placement keeps the kit and shows an upgrade cue.",
+          text: "HUD zoom buttons adjust the lantern-capped camera.",
         },
       ],
     },
@@ -132,7 +134,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Beacon depth gate"),
+      expect.stringContaining("Mine zoom buttons"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

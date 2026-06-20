@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.87" data-date="2026-06-20">
+    <h2>0.1.87</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.87</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>43</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mason, load your first save now. The mine HUD now has direct zoom buttons.</dd>
+      <dt>Controls</dt><dd>Zoom in and zoom out buttons now sit in a clear camera dock below the status band and left of Settings, using the same lantern-capped camera preference as wheel, pinch, and gamepad zoom.</dd>
+      <dt>Lantern range</dt><dd>Each Lantern upgrade meaningfully increases the zoom-out cap, and the miner headlamp distance now scales with the fully lit Lantern range.</dd>
+      <dt>Falloff</dt><dd>The visible edge keeps the existing two-cell dark border falloff, so nearby cells are readable while outer cells still fade into darkness.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Focused camera tests cover every Lantern upgrade's zoom and light range increase. Focused smoke coverage checks the HUD buttons, disabled cap, lit radius, render falloff, lamp distance attributes, and non-overlap with the mine status band, Settings button, and open Settings panel on desktop and narrow viewports. Full local verification passed with type-check, build, unit, lint, purity, dash, JSON, and diff checks.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.86" data-date="2026-06-20">
     <h2>0.1.86</h2>
     <dl>

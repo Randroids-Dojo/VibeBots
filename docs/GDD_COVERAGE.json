@@ -236,6 +236,7 @@
         "src/app/api/gear/upgrade/route.ts",
         "src/app/api/mine/bank/route.ts",
         "src/components/mine-panel.tsx",
+        "src/components/mine-camera.ts",
         "src/state/mine-store.ts",
         "src/server/db.ts",
         "src/server/balance-telemetry.ts"
@@ -243,7 +244,9 @@
       "testRefs": [
         "src/sim/mine.test.ts",
         "src/app/api/gear/upgrade/route.test.ts",
-        "src/server/db.test.ts"
+        "src/server/db.test.ts",
+        "src/components/mine-camera.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": [
         "F-013"

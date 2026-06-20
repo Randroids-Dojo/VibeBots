@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.86-death-cam-save-reminder",
+      releaseNoticeId: "2026-06-20-0.1.87-mine-zoom-buttons",
       releaseSummary:
-        "Death cam fix: Mason, load your first save now. Death animations now stay inside the real mine view.",
+        "Mine zoom buttons: Mason, load your first save now. The mine HUD now has direct zoom controls.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.86-death-cam-save-reminder",
+      releaseNoticeId: "2026-06-20-0.1.87-mine-zoom-buttons",
       attempted: 2,
       sent: 1,
       expired: 1,

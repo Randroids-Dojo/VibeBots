@@ -16,6 +16,7 @@ import {
   clampMineCameraZoom,
   MINE_CAMERA_FALLOFF_ROWS,
   mineCameraDistance,
+  mineLampDistanceForRadius,
   mineRenderWindow,
 } from "@/components/mine-camera";
 import { createWebGPU } from "@/components/part-visuals";
@@ -2348,6 +2349,7 @@ function MineScene({
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
   const litBelow = lightRadius(mine.gear);
+  const lampDistance = mineLampDistanceForRadius(litBelow);
   const renderRadius = renderWindow.below;
   const renderColRadius = Math.min(renderWindow.cols, renderRadius);
   const firstCol = displayCol - renderColRadius;
@@ -2687,6 +2689,7 @@ function MineScene({
       state.gl.domElement.dataset.camZoom = cameraZoom.toFixed(2);
       state.gl.domElement.dataset.renderBelow = String(renderWindow.below);
       state.gl.domElement.dataset.litBelow = String(litBelow);
+      state.gl.domElement.dataset.lampDistance = lampDistance.toFixed(2);
       state.gl.domElement.dataset.renderRadius = String(renderRadius);
       state.gl.domElement.dataset.renderMinCol = String(firstCol);
       state.gl.domElement.dataset.renderMaxCol = String(lastCol);
@@ -2705,12 +2708,14 @@ function MineScene({
     if (dirRef.current) dirRef.current.intensity = 0.06 + 1.04 * day;
     const lamp = lampRef.current;
     if (lamp) {
-      let intensity = 1.0 + 3.8 * depthT;
+      let intensity = (1.0 + 3.8 * depthT) * (1 + (litBelow - 3) * 0.1);
       // The lamp gutters when the trip is nearly out of energy.
       const energy = mine.miner.energy;
       if (minerRow > 0 && energy < 10)
         intensity *= 0.78 + 0.22 * Math.sin(t * 26) * Math.sin(t * 7.3);
       lamp.intensity = intensity;
+      lamp.distance = lampDistance;
+      lamp.decay = 1.25;
     }
     // The miner glides between cells instead of teleporting. useFrame is
     // the only writer of this position: a JSX position prop here would be

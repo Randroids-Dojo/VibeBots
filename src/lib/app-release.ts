@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.86-death-cam-save-reminder";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.87-mine-zoom-buttons";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.87",
+      date: "2026-06-20",
+      title: "Mine zoom buttons",
+      intro:
+        "Mason, load your first save now. The mine HUD now has direct zoom controls.",
+      changes: [
+        {
+          build,
+          text: "The HUD now has on-screen zoom in and zoom out buttons in a clear camera dock for mouse, touch, and gamepad players who want direct camera control.",
+        },
+        {
+          build,
+          text: "Zoom out still caps at the active Lantern range, and each Lantern upgrade opens a meaningfully wider camera limit.",
+        },
+        {
+          build,
+          text: "The miner headlamp now scales with Lantern range so lit cells stay readable while the outer two-cell border keeps its dark falloff.",
+        },
+      ],
+    },
     {
       version: "0.1.86",
       date: "2026-06-20",

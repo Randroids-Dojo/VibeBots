@@ -1101,18 +1101,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Death animations now stay inside the real mine view.",
+    "The mine HUD now has direct zoom controls.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "populated underground cells",
+    "on-screen zoom in and zoom out buttons",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "no longer shows a sudden empty void",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "replay behavior are unchanged",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("active Lantern");
+  await expect(dialog.locator("li").nth(2)).toContainText("outer two-cell");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1131,6 +1127,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.87", "Mine zoom buttons"],
     ["0.1.86", "Death cam fix"],
     ["0.1.85", "Save slot refresh"],
     ["0.1.84", "Upgrade rebalance"],
@@ -1196,7 +1193,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.86-death-cam-save-reminder",
+      "2026-06-20-0.1.87-mine-zoom-buttons",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1317,7 +1314,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.86-death-cam-save-reminder",
+      "2026-06-20-0.1.87-mine-zoom-buttons",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2457,6 +2454,115 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
     "data-render-max-col",
     String(START_COL + 5),
   );
+});
+
+test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const canvas = page.locator("canvas");
+  const zoomControls = page.locator('[aria-label="Zoom controls"]');
+  const zoomIn = page.getByRole("button", { name: "Zoom in" });
+  const zoomOut = page.getByRole("button", { name: "Zoom out" });
+  const settingsButton = page.getByRole("button", { name: "Open settings" });
+  await expect(canvas).toBeVisible();
+  await expect(zoomControls).toBeVisible();
+  await expect(settingsButton).toBeVisible();
+  const expectZoomControlsClear = async () => {
+    await expect(
+      page.evaluate(() => {
+        const zoom = document
+          .querySelector('[aria-label="Zoom controls"]')
+          ?.getBoundingClientRect();
+        const status = document
+          .querySelector('[aria-label="Mine status"]')
+          ?.getBoundingClientRect();
+        const settings = document
+          .querySelector('[aria-label="Open settings"]')
+          ?.getBoundingClientRect();
+        if (!zoom || !status || !settings) return false;
+        const overlaps = (a: DOMRect, b: DOMRect) =>
+          a.left < b.right &&
+          a.right > b.left &&
+          a.top < b.bottom &&
+          a.bottom > b.top;
+        return !overlaps(zoom, status) && !overlaps(zoom, settings);
+      }),
+    ).resolves.toBe(true);
+  };
+  const expectZoomControlsClearOfSettings = async () => {
+    await expect(
+      page.evaluate(() => {
+        const zoom = document
+          .querySelector('[aria-label="Zoom controls"]')
+          ?.getBoundingClientRect();
+        const settings = document
+          .querySelector('[aria-label="Settings"]')
+          ?.getBoundingClientRect();
+        if (!zoom || !settings) return false;
+        return (
+          zoom.left >= settings.right ||
+          zoom.right <= settings.left ||
+          zoom.top >= settings.bottom ||
+          zoom.bottom <= settings.top
+        );
+      }),
+    ).resolves.toBe(true);
+  };
+  await expectZoomControlsClear();
+  await settingsButton.click();
+  const settingsPanel = page.getByRole("region", { name: "Settings" });
+  await expect(settingsPanel).toBeVisible();
+  await expectZoomControlsClearOfSettings();
+  await settingsButton.click();
+  await expect(settingsPanel).not.toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectZoomControlsClear();
+  await settingsButton.click();
+  await expect(settingsPanel).toBeVisible();
+  await expectZoomControlsClearOfSettings();
+  await settingsButton.click();
+  await expect(settingsPanel).not.toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(
+    page.evaluate(() => {
+      const zoom = document
+        .querySelector('[aria-label="Zoom controls"]')
+        ?.getBoundingClientRect();
+      if (!zoom) return false;
+      return zoom.left >= 0 && zoom.right <= window.innerWidth;
+    }),
+  ).resolves.toBe(true);
+  await expect
+    .poll(async () => canvas.getAttribute("data-cam-zoom"), {
+      timeout: 5_000,
+    })
+    .not.toBeNull();
+
+  const startZoom = Number(await canvas.getAttribute("data-cam-zoom"));
+  await zoomOut.click();
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-cam-zoom")), {
+      timeout: 5_000,
+    })
+    .toBeGreaterThan(startZoom);
+
+  await zoomOut.click();
+  await expect(zoomOut).toBeDisabled();
+  await expect(canvas).toHaveAttribute("data-cam-zoom", "1.12");
+  await expect(canvas).toHaveAttribute("data-lit-below", "3");
+  await expect(canvas).toHaveAttribute("data-render-below", "5");
+  await expect(canvas).toHaveAttribute("data-lamp-distance", "9.00");
+  await expect(zoomControls).toHaveAttribute("data-camera-zoom-max", "1.12");
+
+  await zoomIn.click();
+  await expect(zoomOut).toBeEnabled();
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-cam-zoom")), {
+      timeout: 5_000,
+    })
+    .toBeLessThan(1.12);
 });
 
 test("the carved world survives a reload (REQ-026)", async ({ page }) => {

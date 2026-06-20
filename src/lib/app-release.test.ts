@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest bunker part drag note complete", () => {
+  it("keeps the latest save slot safety note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.89-bunker-part-drag");
+    expect(release.noticeId).toBe("2026-06-20-0.1.90-save-slot-start-safety");
     expect(latestNote).toMatchObject({
-      version: "0.1.89",
+      version: "0.1.90",
+      title: "Save slot start safety",
+      intro:
+        "Mason, load your first save now. Empty slots now have an explicit Start path.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Production logs and a read-only database check found two active saved players, confirmed the long-term save still exists, and showed fresh default rows from Load game attempts.",
+      "Existing saves still use Load, while empty slots now show Start and the server refuses to create an empty slot unless the client explicitly asks to start one.",
+      "Save-slot requests now emit safe structured logs with hashed player identifiers, requested slot, accepted status, creation status, referrer host, and fetch-site context.",
+    ]);
+  });
+
+  it("keeps the archived bunker part drag note complete", () => {
+    const release = getAppRelease();
+    const bunkerPartDragNote = release.notes.find(
+      (note) => note.version === "0.1.89",
+    );
+
+    expect(bunkerPartDragNote).toMatchObject({
       title: "Bunker part drag",
       intro: "Base parts can now be selected and dragged into place.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(bunkerPartDragNote?.changes.map((change) => change.text)).toEqual([
       "Double-click or double-tap a placed bunker part to select it in the mine view.",
       "Press and drag the selected part to another claimed bunker cell without spending or refunding inventory.",
       "Click or tap elsewhere to clear the selection before choosing another part.",

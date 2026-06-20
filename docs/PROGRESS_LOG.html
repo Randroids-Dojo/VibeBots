@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="save-slot-start-safety" data-date="2026-06-20">
+    <h3>Save Slot Start Safety</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260619-225621-65d0adf7</code>, created in a fresh worktree from current <code>origin/main</code>, then rebased over the <code>0.1.89</code> bunker part drag release.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Root-caused the long-term save report from production evidence instead of adding another client-only recovery path. Vercel logs showed two active saved players with successful cash-outs, current save-slot endpoints were returning <code>200</code>, and a read-only production database check confirmed the long-term save still exists with its banked mine, gear, wallet, stamps, and parts. A later burst of Load game requests created fresh default player rows, confirming the real issue was save-slot identity and empty-slot creation, not missing saved data. The permanent fix tightens the save-slot contract: empty slots now display Start, the client only sends <code>create: true</code> for Start, and the server rejects empty-slot switches without that explicit create intent while keeping the active save unchanged. Save-slot list and switch calls now emit safe structured logs with hashed player identifiers, requested slot, accepted state, creation state, referrer host, and fetch-site context. Package version moved to <code>0.1.90</code>; <code>MINE_VERSION</code> stays at <code>43</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, test, package, and coverage files, focused Vitest for player helpers, save-slot route, mine store, release notes, and notifications (42 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm test</code> (306 passed), <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3347</code> for latest release notes and save-slot world and gear refresh (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: preserve the original Slot 1 and any existing slots as Load actions, while treating empty-slot selection as a new-save Start action that must be explicit end to end.</dd>
+      <dt>GDD coverage</dt><dd>REQ-033 stays done. Updated <code>docs/GDD_COVERAGE.json</code>, release notes, focused route/store/smoke coverage, and the mining build log.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-part-drag" data-date="2026-06-20">
     <h3>Bunker Part Drag</h3>
     <dl>

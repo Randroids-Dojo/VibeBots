@@ -1100,18 +1100,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Base parts can now be selected and dragged into place.",
+    "Empty slots now have an explicit Start path.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Double-click or double-tap",
+    "long-term save still exists",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "without spending or refunding inventory",
+    "Existing saves still use Load",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "tap elsewhere to clear the selection",
-  );
+  await expect(dialog.locator("li").nth(2)).toContainText("referrer host");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1130,6 +1128,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.90", "Save slot start safety"],
     ["0.1.89", "Bunker part drag"],
     ["0.1.88", "Death cam flash fix"],
     ["0.1.87", "Mine zoom buttons"],
@@ -1198,7 +1197,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.89-bunker-part-drag",
+      "2026-06-20-0.1.90-save-slot-start-safety",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1319,7 +1318,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.89-bunker-part-drag",
+      "2026-06-20-0.1.90-save-slot-start-safety",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1990,7 +1989,7 @@ test("loading a save slot refreshes the selected world and gear", async ({
   await page.route("**/api/save-slots", async (route) => {
     const request = route.request();
     if (request.method() === "POST") {
-      expect(request.postDataJSON()).toEqual({ slot: 2 });
+      expect(request.postDataJSON()).toEqual({ slot: 2, create: false });
       activeSlot = 2;
       postRequests++;
     }
@@ -2024,6 +2023,11 @@ test("loading a save slot refreshes the selected world and gear", async ({
   await settings.getByRole("button", { name: "Load game" }).click();
   const saveSlots = page.getByRole("dialog", { name: "Load Save Slot" });
   await expect(saveSlots).toBeVisible();
+  await expect(
+    saveSlots.getByRole("group", { name: "Slot 3" }).getByRole("button", {
+      name: "Start",
+    }),
+  ).toBeVisible();
 
   await saveSlots
     .getByRole("group", { name: "Slot 2" })

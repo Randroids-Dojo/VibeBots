@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db, storageConfigured } from "@/server/db";
+import { logSaveSlotEvent } from "@/server/monitoring";
 import {
   deleteSaveSlot,
   getOrCreateActiveSaveSlot,
@@ -11,6 +12,10 @@ import { DELETE, GET, POST } from "./route";
 vi.mock("@/server/db", () => ({
   db: vi.fn(async () => "sql"),
   storageConfigured: vi.fn(() => true),
+}));
+
+vi.mock("@/server/monitoring", () => ({
+  logSaveSlotEvent: vi.fn(),
 }));
 
 vi.mock("@/server/player", () => ({
@@ -53,13 +58,21 @@ vi.mock("@/server/player", () => ({
       stamps: 0,
     },
   ]),
-  switchActiveSaveSlot: vi.fn(async (slot: 1 | 2 | 3) => ({
-    playerId: `player-${slot}`,
-    session: {
-      activeSlot: slot,
-      slots: { "1": "player-1", [slot]: `player-${slot}` },
-    },
-  })),
+  switchActiveSaveSlot: vi.fn(async (slot: 1 | 2 | 3, options = {}) => {
+    const create = (options as { createIfMissing?: boolean }).createIfMissing;
+    const existing = slot === 1 ? "player-1" : null;
+    const playerId = existing ?? (create ? `player-${slot}` : null);
+    return {
+      playerId,
+      created: !existing && Boolean(playerId),
+      session: playerId
+        ? {
+            activeSlot: slot,
+            slots: { "1": "player-1", [slot]: playerId },
+          }
+        : { activeSlot: 1, slots: { "1": "player-1" } },
+    };
+  }),
   deleteSaveSlot: vi.fn(async (slot: 1 | 2 | 3) => ({
     activeSlot: 1,
     slots: slot === 1 ? {} : { "1": "player-1" },
@@ -72,6 +85,18 @@ const mockedSwitchActiveSaveSlot = vi.mocked(switchActiveSaveSlot);
 const mockedDeleteSaveSlot = vi.mocked(deleteSaveSlot);
 const mockedSaveSlotSummaries = vi.mocked(saveSlotSummaries);
 const mockedDb = vi.mocked(db);
+const mockedLogSaveSlotEvent = vi.mocked(logSaveSlotEvent);
+
+function get(): Promise<Response> {
+  return GET(
+    new Request("http://localhost/api/save-slots", {
+      headers: {
+        referer: "https://vibecoded.games/play",
+        "sec-fetch-site": "cross-site",
+      },
+    }),
+  );
+}
 
 function post(body: unknown): Promise<Response> {
   return POST(
@@ -100,11 +125,19 @@ describe("/api/save-slots", () => {
   });
 
   it("lists the active save slot summaries", async () => {
-    const res = await GET();
+    const res = await get();
 
     expect(res.status).toBe(200);
     expect(mockedGetOrCreateActiveSaveSlot).toHaveBeenCalled();
     expect(mockedDb).toHaveBeenCalled();
+    expect(mockedLogSaveSlotEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "save_slots.list",
+        currentPlayerId: "player-1",
+        referrerHost: "vibecoded.games",
+        secFetchSite: "cross-site",
+      }),
+    );
     expect(mockedSaveSlotSummaries).toHaveBeenCalledWith("sql", {
       activeSlot: 1,
       slots: { "1": "player-1" },
@@ -115,12 +148,28 @@ describe("/api/save-slots", () => {
   });
 
   it("switches to a requested slot", async () => {
-    const res = await post({ slot: 2 });
+    const res = await post({ slot: 2, create: true });
 
     expect(res.status).toBe(200);
-    expect(mockedSwitchActiveSaveSlot).toHaveBeenCalledWith(2);
+    expect(mockedSwitchActiveSaveSlot).toHaveBeenCalledWith(2, {
+      createIfMissing: true,
+    });
     const body = await res.json();
     expect(body.activeSlot).toBe(2);
+  });
+
+  it("does not create an empty save slot unless requested", async () => {
+    const res = await post({ slot: 2 });
+
+    expect(res.status).toBe(409);
+    expect(mockedSwitchActiveSaveSlot).toHaveBeenCalledWith(2, {
+      createIfMissing: false,
+    });
+    const body = await res.json();
+    expect(body).toMatchObject({
+      code: "empty_save_slot",
+      activeSlot: 1,
+    });
   });
 
   it("rejects invalid slot ids", async () => {
@@ -149,7 +198,7 @@ describe("/api/save-slots", () => {
   it("returns unavailable when storage is offline", async () => {
     mockedStorageConfigured.mockReturnValue(false);
 
-    const res = await GET();
+    const res = await get();
 
     expect(res.status).toBe(503);
   });

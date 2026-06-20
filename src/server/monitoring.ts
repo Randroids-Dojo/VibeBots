@@ -70,3 +70,33 @@ export function logMineCashOutEvent(event: MineCashOutMonitoringEvent): void {
     ...rest,
   });
 }
+
+export function logSaveSlotEvent(payload: {
+  event: string;
+  activeSlot: number;
+  requestedSlot?: number;
+  currentPlayerId?: string | null;
+  selectedPlayerId?: string | null;
+  created?: boolean;
+  accepted?: boolean;
+  reason?: string;
+  referrerHost?: string | null;
+  secFetchSite?: string | null;
+}): void {
+  const { currentPlayerId, selectedPlayerId, ...rest } = payload;
+  console.info(
+    JSON.stringify({
+      source: "vibebots",
+      component: "save_slots",
+      alert: false,
+      severity: "info",
+      currentPlayer: currentPlayerId
+        ? hashIdentifier(currentPlayerId)
+        : undefined,
+      selectedPlayer: selectedPlayerId
+        ? hashIdentifier(selectedPlayerId)
+        : undefined,
+      ...rest,
+    }),
+  );
+}

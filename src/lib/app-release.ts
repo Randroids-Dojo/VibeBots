@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.89-bunker-part-drag";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.90-save-slot-start-safety";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.90",
+      date: "2026-06-20",
+      title: "Save slot start safety",
+      intro:
+        "Mason, load your first save now. Empty slots now have an explicit Start path.",
+      changes: [
+        {
+          build,
+          text: "Production logs and a read-only database check found two active saved players, confirmed the long-term save still exists, and showed fresh default rows from Load game attempts.",
+        },
+        {
+          build,
+          text: "Existing saves still use Load, while empty slots now show Start and the server refuses to create an empty slot unless the client explicitly asks to start one.",
+        },
+        {
+          build,
+          text: "Save-slot requests now emit safe structured logs with hashed player identifiers, requested slot, accepted status, creation status, referrer host, and fetch-site context.",
+        },
+      ],
+    },
     {
       version: "0.1.89",
       date: "2026-06-20",

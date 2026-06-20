@@ -274,7 +274,10 @@ export interface MineSessionState {
   loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
   loadSaveSlots: () => Promise<void>;
-  switchSaveSlot: (slot: SaveSlotId) => Promise<boolean>;
+  switchSaveSlot: (
+    slot: SaveSlotId,
+    options?: { create?: boolean },
+  ) => Promise<boolean>;
   deleteSaveSlot: (slot: SaveSlotId) => Promise<boolean>;
   saveCurrentTrip: () => void;
   submitCashOut: () => Promise<boolean>;
@@ -561,7 +564,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       }
     },
 
-    switchSaveSlot: async (slot) => {
+    switchSaveSlot: async (slot, options = {}) => {
       persistCurrentTrip();
       const current = get().saveSlots;
       set({
@@ -575,7 +578,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const res = await fetch("/api/save-slots", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ slot }),
+          body: JSON.stringify({ slot, create: options.create === true }),
         });
         if (!res.ok) {
           if (res.status === 503) {

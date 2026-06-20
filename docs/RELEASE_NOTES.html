@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.90" data-date="2026-06-20">
+    <h2>0.1.90</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.90</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>43</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mason, load your first save now. Existing saves still say Load, while empty save slots now say Start.</dd>
+      <dt>Root cause</dt><dd>Production logs showed two active saved players with successful cash-outs and durable saved worlds. The long-term save still exists with its banked mine, upgrades, wallet, stamps, and parts intact. A later burst of Load game requests created fresh default player rows, which confirmed the real issue was save-slot identity and empty-slot creation, not missing saved data.</dd>
+      <dt>Save slots</dt><dd>The client now sends an explicit create flag only when the player chooses Start on an empty slot. The server refuses empty-slot switches without that flag and keeps the active save unchanged, so a Load action cannot silently create a new save.</dd>
+      <dt>Observability</dt><dd><code>/api/save-slots</code> now logs safe structured events for list, accepted switch, rejected empty switch, requested slot, accepted state, creation state, hashed player identifiers, referrer host, and fetch-site context.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, test, package, and coverage files, focused Vitest for player helpers, save-slot route, mine store, release notes, and notifications (42 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm test</code> (306 passed), <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3347</code> for latest release notes and save-slot world and gear refresh (2 passed).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.89" data-date="2026-06-20">
     <h2>0.1.89</h2>
     <dl>

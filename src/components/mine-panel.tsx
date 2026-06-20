@@ -2109,7 +2109,7 @@ function SaveSlotsPopup({
   state: SaveSlotsState;
   onClose: () => void;
   onRefresh: () => void;
-  onLoad: (slot: 1 | 2 | 3) => Promise<boolean>;
+  onLoad: (slot: 1 | 2 | 3, options?: { create?: boolean }) => Promise<boolean>;
   onDelete: (slot: 1 | 2 | 3) => Promise<boolean>;
 }) {
   const [pendingSlot, setPendingSlot] = useState<1 | 2 | 3 | null>(null);
@@ -2297,7 +2297,9 @@ function SaveSlotsPopup({
                     onClick={async () => {
                       setDeleteConfirmSlot(null);
                       setPendingSlot(summary.slot);
-                      const loaded = await onLoad(summary.slot);
+                      const loaded = await onLoad(summary.slot, {
+                        create: !summary.exists,
+                      });
                       if (loaded) window.location.assign("/mine");
                       setPendingSlot(null);
                     }}
@@ -2314,7 +2316,15 @@ function SaveSlotsPopup({
                       fontWeight: 800,
                     }}
                   >
-                    {summary.active ? "Loaded" : pending ? "Loading" : "Load"}
+                    {summary.active
+                      ? "Loaded"
+                      : pending
+                        ? summary.exists
+                          ? "Loading"
+                          : "Starting"
+                        : summary.exists
+                          ? "Load"
+                          : "Start"}
                   </button>
                   <button
                     type="button"

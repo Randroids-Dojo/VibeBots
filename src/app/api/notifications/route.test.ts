@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.89-bunker-part-drag",
+      releaseNoticeId: "2026-06-20-0.1.90-save-slot-start-safety",
       releaseSummary:
-        "Bunker part drag: Base parts can now be selected and dragged into place.",
+        "Save slot start safety: Mason, load your first save now. Empty slots now have an explicit Start path.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.89-bunker-part-drag",
+      releaseNoticeId: "2026-06-20-0.1.90-save-slot-start-safety",
       attempted: 2,
       sent: 1,
       expired: 1,

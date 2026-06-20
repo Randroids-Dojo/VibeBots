@@ -411,7 +411,7 @@ describe("mine store upgrade flow", () => {
       "/api/save-slots",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ slot: 2 }),
+        body: JSON.stringify({ slot: 2, create: false }),
       }),
     );
     expect(fetchMock.mock.calls[1][0]).toBe("/api/mine/world");
@@ -428,6 +428,144 @@ describe("mine store upgrade flow", () => {
     expect(store().balance).toBe(33);
     expect(store().moves).toEqual([]);
     expect(store().saveSlots.state).toBe("ready");
+  });
+
+  it("can explicitly start an empty save slot", async () => {
+    const slotThreeGear = { ...DEFAULT_GEAR, cargo: 2 };
+    const slotThreeConsumables = stock({ ladder: 2, plank: 2 });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          activeSlot: 3,
+          slots: [
+            {
+              slot: 1,
+              active: false,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 10,
+              deepestDepth: 3,
+              partsOwned: 1,
+              designs: 1,
+              stamps: 2,
+            },
+            {
+              slot: 2,
+              active: false,
+              exists: false,
+              createdAt: null,
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+            {
+              slot: 3,
+              active: true,
+              exists: true,
+              createdAt: "2026-06-20T00:00:00.000Z",
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          seed: 789,
+          tripIndex: 0,
+          diff: [],
+          activeSlot: 3,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          gear: slotThreeGear,
+          consumables: slotThreeConsumables,
+          balance: 0,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().switchSaveSlot(3, { create: true });
+
+    expect(ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/save-slots",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ slot: 3, create: true }),
+      }),
+    );
+    expect(store().activeSlot).toBe(3);
+    expect(store().seed).toBe(789);
+    expect(store().gear).toEqual(slotThreeGear);
+    expect(store().consumables).toEqual(slotThreeConsumables);
+  });
+
+  it("keeps the current slot when loading an empty slot is rejected", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: "save slot is empty",
+          code: "empty_save_slot",
+          activeSlot: 1,
+          slots: [
+            {
+              slot: 1,
+              active: true,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 10,
+              deepestDepth: 3,
+              partsOwned: 1,
+              designs: 1,
+              stamps: 2,
+            },
+            {
+              slot: 2,
+              active: false,
+              exists: false,
+              createdAt: null,
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+            {
+              slot: 3,
+              active: false,
+              exists: false,
+              createdAt: null,
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+          ],
+        },
+        409,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().switchSaveSlot(2);
+
+    expect(ok).toBe(false);
+    expect(store().activeSlot).toBe(1);
+    expect(store().seed).toBe(123);
+    expect(store().saveSlots).toMatchObject({
+      state: "error",
+      activeSlot: 1,
+      message: "load failed",
+    });
   });
 
   it("flushes the current slot before loading save slot summaries", async () => {

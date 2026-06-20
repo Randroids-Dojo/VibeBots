@@ -1,10 +1,38 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  cookieValue: null as string | null,
+  cookieSet: vi.fn(),
+  createdPlayerIndex: 0,
+  db: vi.fn(),
+  sql: vi.fn(),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: vi.fn(() =>
+      mocks.cookieValue ? { value: mocks.cookieValue } : undefined,
+    ),
+    set: mocks.cookieSet,
+  })),
+}));
+
+vi.mock("@randroids-dojo/vibekit/server", () => ({
+  signToken: vi.fn((payload: unknown) => JSON.stringify(payload)),
+  verifyToken: vi.fn((token: string) => JSON.parse(token)),
+}));
+
+vi.mock("./db", () => ({
+  db: mocks.db,
+}));
+
 import {
   type MinePlayerProfile,
   mineConsumablesFromProfile,
   mineGearFromProfile,
   mineGearLevelFromProfile,
   normalizeSaveSlotSessionPayload,
+  switchActiveSaveSlot,
 } from "./player";
 
 const profile: MinePlayerProfile = {
@@ -33,6 +61,19 @@ const profile: MinePlayerProfile = {
 };
 
 describe("mine player profile helpers", () => {
+  beforeEach(() => {
+    process.env.AUTH_SECRET = "test-secret";
+    mocks.cookieValue = null;
+    mocks.createdPlayerIndex = 0;
+    mocks.cookieSet.mockClear();
+    mocks.sql = vi.fn(async () => {
+      mocks.createdPlayerIndex += 1;
+      return [{ id: `created-player-${mocks.createdPlayerIndex}` }];
+    });
+    mocks.db.mockReset();
+    mocks.db.mockResolvedValue(mocks.sql);
+  });
+
   it("maps stored player columns to replay gear", () => {
     expect(mineGearFromProfile(profile)).toEqual({
       pickaxe: 2,
@@ -93,5 +134,74 @@ describe("mine player profile helpers", () => {
       null,
     );
     expect(normalizeSaveSlotSessionPayload({ activeSlot: 1 })).toBe(null);
+  });
+
+  it("does not create an empty save slot when create is not explicit", async () => {
+    mocks.cookieValue = JSON.stringify({
+      activeSlot: 1,
+      slots: { "1": "initial-player" },
+    });
+
+    const result = await switchActiveSaveSlot(2);
+
+    expect(result).toEqual({
+      playerId: null,
+      session: {
+        activeSlot: 1,
+        slots: { "1": "initial-player" },
+      },
+      created: false,
+    });
+    expect(mocks.db).not.toHaveBeenCalled();
+    expect(mocks.cookieSet).not.toHaveBeenCalled();
+  });
+
+  it("starts an empty save slot only when create is explicit", async () => {
+    mocks.cookieValue = JSON.stringify({
+      activeSlot: 1,
+      slots: { "1": "initial-player" },
+    });
+
+    const result = await switchActiveSaveSlot(2, { createIfMissing: true });
+
+    expect(result).toEqual({
+      playerId: "created-player-1",
+      session: {
+        activeSlot: 2,
+        slots: { "1": "initial-player", "2": "created-player-1" },
+      },
+      created: true,
+    });
+    expect(mocks.db).toHaveBeenCalledTimes(1);
+    expect(mocks.sql).toHaveBeenCalledTimes(1);
+    expect(mocks.cookieSet).toHaveBeenCalledWith(
+      "vb_player",
+      JSON.stringify(result.session),
+      expect.objectContaining({ httpOnly: true, path: "/" }),
+    );
+  });
+
+  it("switches existing save slots without creating a player", async () => {
+    mocks.cookieValue = JSON.stringify({
+      activeSlot: 1,
+      slots: { "1": "initial-player", "2": "second-player" },
+    });
+
+    const result = await switchActiveSaveSlot(2);
+
+    expect(result).toEqual({
+      playerId: "second-player",
+      session: {
+        activeSlot: 2,
+        slots: { "1": "initial-player", "2": "second-player" },
+      },
+      created: false,
+    });
+    expect(mocks.db).not.toHaveBeenCalled();
+    expect(mocks.cookieSet).toHaveBeenCalledWith(
+      "vb_player",
+      JSON.stringify(result.session),
+      expect.objectContaining({ httpOnly: true, path: "/" }),
+    );
   });
 });

@@ -219,7 +219,12 @@ export async function getOrCreatePlayerId(): Promise<string> {
 
 export async function switchActiveSaveSlot(
   slot: SaveSlotId,
-): Promise<{ playerId: string; session: SaveSlotSession }> {
+  options: { createIfMissing?: boolean } = {},
+): Promise<{
+  playerId: string | null;
+  session: SaveSlotSession;
+  created: boolean;
+}> {
   const normalized = await readSaveSlotSession();
   const session = normalized?.session ?? { activeSlot: slot, slots: {} };
   const nextSession: SaveSlotSession = {
@@ -227,12 +232,21 @@ export async function switchActiveSaveSlot(
     slots: { ...session.slots },
   };
   const key = saveSlotKey(slot);
-  if (!nextSession.slots[key]) {
+  const existing = nextSession.slots[key] ?? null;
+  if (!existing && !options.createIfMissing) {
+    if (normalized?.migrated) await writeSaveSlotSession(session);
+    return { playerId: null, session, created: false };
+  }
+  if (!existing && options.createIfMissing) {
     const sql = await db();
     nextSession.slots[key] = await createPlayer(sql);
   }
   await writeSaveSlotSession(nextSession);
-  return { playerId: nextSession.slots[key], session: nextSession };
+  return {
+    playerId: nextSession.slots[key] ?? null,
+    session: nextSession,
+    created: !existing && Boolean(nextSession.slots[key]),
+  };
 }
 
 export async function deleteSaveSlot(

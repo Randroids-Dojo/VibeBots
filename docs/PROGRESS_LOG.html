@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="jump-button-placement" data-date="2026-06-20">
+    <h3>Jump Button Placement</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/worktree-20260620-154255</code>, rebased over the direct <code>0.1.118</code> visual viewport refresh release and its review cleanup after remote main moved.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported mine control fix. The Jump button moved from the bottom dig controls to the middle-right edge of the mine, and the bottom dig-control strip now ignores pointer events in empty space so drag movement is not blocked while its actual buttons remain clickable. Package version moved to <code>0.1.119</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched source, test, release, package, and doc files, focused Vitest for release notes, notifications, and version route (45 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3517 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|mine digs and tracks depth and energy" --project=chromium</code> (2 passed, including middle-right Jump placement and bottom-center mine-shell hit target checks), <code>pnpm test</code> (355 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, and <code>git diff --cached --check</code>. In-app Browser checked <code>http://127.0.0.1:3518/mine</code> at <code>390 x 844</code>: Jump rendered at <code>x=288 y=390 w=88 h=64</code>, the bottom-center hit target belonged to the mine shell, and a bottom-center drag moved the HUD from <code>Base 0</code> to <code>Base +1</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as UI placement and pointer hit-target cleanup only, so no mine-version or sim-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, and added focused smoke coverage for right-side placement, bottom-control non-overlap, and bottom-center hit target.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="visual-viewport-refresh-review" data-date="2026-06-20">
     <h3>Visual Viewport Refresh Review</h3>
     <dl>

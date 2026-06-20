@@ -2,18 +2,36 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest visual viewport refresh note complete", () => {
+  it("keeps the latest jump button placement note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.118-visual-viewport-refresh");
+    expect(release.noticeId).toBe("2026-06-20-0.1.119-jump-button-placement");
     expect(latestNote).toMatchObject({
+      version: "0.1.119",
+      title: "Jump button placement",
+      intro: "Jump now sits on the middle right and leaves movement clear.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Jump button moved to the middle-right edge of the mine instead of the bottom controls.",
+      "The bottom dig-control strip no longer catches pointer input in empty space, so drag movement stays clear.",
+      "Smoke coverage now checks the larger Jump button placement, bottom-control non-overlap, and bottom-center hit target.",
+    ]);
+  });
+
+  it("keeps the archived visual viewport refresh note complete", () => {
+    const release = getAppRelease();
+    const viewportNote = release.notes.find(
+      (note) => note.version === "0.1.118",
+    );
+
+    expect(viewportNote).toMatchObject({
       version: "0.1.118",
       title: "Visual viewport refresh",
       intro:
         "Installed Android refreshes now anchor to the visible mine screen.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(viewportNote?.changes.map((change) => change.text)).toEqual([
       "The mine shell now uses the visual viewport when available, so standalone Android refreshes do not anchor controls to a stale layout viewport.",
       "The Refresh button records the target version and reruns viewport alignment on refresh, focus, resume, and visual viewport changes.",
       "Smoke coverage now mocks an installed app visual viewport and checks Settings, zoom, and dig controls after refresh and resume.",

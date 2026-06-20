@@ -59,6 +59,7 @@ import {
   NO_CONSUMABLES,
   normalizeBeaconLabel,
   normalizeGear,
+  ORE_SWING_COST_STEP,
   ORES,
   type OreId,
   oreCellValueAt,
@@ -66,8 +67,10 @@ import {
   oreDef,
   oreIdsForBiome,
   oreReserveAt,
+  oreSwingCostFor,
   oreSwingYield,
   oreUnitsAt,
+  PICKAXE_SWING_COST_STEP,
   PLANK_RECOVERY_FLOOR,
   portalWarpAction,
   ROCK_DIG_COST,
@@ -88,6 +91,7 @@ import {
   step,
   stratumAt,
   supportSalvageValue,
+  swingCostFor,
   WARP_PAD_COL,
   type WorldDiff,
   warpRange,
@@ -142,8 +146,40 @@ describe("mine", () => {
     }
     // A better pickaxe needs fewer swings.
     const strong = createMine(137, { ...DEFAULT_GEAR, pickaxe: 3 });
+    const strongEnergy = strong.miner.energy;
     const first = step(strong, "down");
     expect(first.ok && (first.cracked?.remaining ?? 0)).toBeLessThanOrEqual(2);
+    expect(strongEnergy - strong.miner.energy).toBeCloseTo(
+      SWING_COST.dirt + 2 * PICKAXE_SWING_COST_STEP,
+      5,
+    );
+    expect(swingCostFor("dirt", { ...DEFAULT_GEAR, pickaxe: 3 })).toBeCloseTo(
+      SWING_COST.dirt + 2 * PICKAXE_SWING_COST_STEP,
+      5,
+    );
+    expect(PICKAXE_SWING_COST_STEP).toBe(0.1);
+  });
+
+  it("makes richer ore strikes cost noticeably more battery", () => {
+    expect(ORE_SWING_COST_STEP).toBe(0.08);
+    expect(oreSwingCostFor("coal", DEFAULT_GEAR)).toBeCloseTo(
+      SWING_COST.ore,
+      5,
+    );
+    expect(oreSwingCostFor("diamond", DEFAULT_GEAR)).toBeCloseTo(
+      SWING_COST.ore + 5 * ORE_SWING_COST_STEP,
+      5,
+    );
+    expect(oreSwingCostFor("core-crystal", DEFAULT_GEAR)).toBeCloseTo(
+      SWING_COST.ore + 6 * ORE_SWING_COST_STEP,
+      5,
+    );
+    expect(
+      oreSwingCostFor("core-crystal", { ...DEFAULT_GEAR, pickaxe: 4 }),
+    ).toBeCloseTo(
+      SWING_COST.ore + 3 * PICKAXE_SWING_COST_STEP + 6 * ORE_SWING_COST_STEP,
+      5,
+    );
   });
 
   it("extends tool upgrades behind level and depth gates", () => {
@@ -1226,7 +1262,8 @@ describe("mine", () => {
     expect(dug.ok && dug.dug).toBe("rock");
     // Pickaxe 2 cuts tier-1 rock in 4 swings of the rock swing cost.
     expect(before - state.miner.energy).toBeCloseTo(
-      (BASE_HITS.rock - 1) * SWING_COST.rock,
+      (BASE_HITS.rock - 1) *
+        swingCostFor("rock", { ...DEFAULT_GEAR, pickaxe: 2 }),
       5,
     );
     void ROCK_DIG_COST;

@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest recall rope note complete", () => {
+  it("keeps the latest pickaxe swing cost note scoped to battery tuning", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.92-recall-rope-range");
+    expect(release.noticeId).toBe("2026-06-20-0.1.93-pickaxe-swing-cost");
+    expect(latestNote).toMatchObject({
+      version: "0.1.93",
+      title: "Pickaxe battery tuning",
+      intro: "Stronger tools and richer ore now draw more battery.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Every Pickaxe level above 1 now adds a noticeable battery cost to each mining swing.",
+      "Richer ores add their own battery strain, so ruby, diamond, and core-tier veins make Battery Cell upgrades matter sooner.",
+      "The mine gameplay version moved to 45, and deep ore runs now push players toward Battery Cell upgrades too.",
+    ]);
+  });
+
+  it("keeps the archived recall rope note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.92");
+
     expect(latestNote).toMatchObject({
       version: "0.1.92",
       title: "Recall rope range",

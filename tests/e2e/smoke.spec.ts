@@ -1102,12 +1102,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Recall ropes now scale with a permanent depth upgrade.",
+    "Stronger tools and richer ore now draw more battery.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("row 12");
-  await expect(dialog.locator("li").nth(1)).toContainText("1000");
-  await expect(dialog.locator("li").nth(2)).toContainText("server replay");
+  await expect(dialog.locator("li").first()).toContainText(
+    "adds a noticeable battery cost",
+  );
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "ruby, diamond, and core-tier veins",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "gameplay version moved to 45",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1126,6 +1132,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.93", "Pickaxe battery tuning"],
     ["0.1.92", "Recall rope range"],
     ["0.1.91", "Zoom placement fix"],
     ["0.1.90", "Save slot start safety"],
@@ -1197,7 +1204,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.92-recall-rope-range",
+      "2026-06-20-0.1.93-pickaxe-swing-cost",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1318,7 +1325,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.92-recall-rope-range",
+      "2026-06-20-0.1.93-pickaxe-swing-cost",
     );
   });
   await page.route("**/api/version", async (route) => {

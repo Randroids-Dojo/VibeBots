@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.92-recall-rope-range",
+      releaseNoticeId: "2026-06-20-0.1.93-pickaxe-swing-cost",
       releaseSummary:
-        "Recall rope range: Recall ropes now scale with a permanent depth upgrade.",
+        "Pickaxe battery tuning: Stronger tools and richer ore now draw more battery.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.92-recall-rope-range",
+      releaseNoticeId: "2026-06-20-0.1.93-pickaxe-swing-cost",
       attempted: 2,
       sent: 1,
       expired: 1,

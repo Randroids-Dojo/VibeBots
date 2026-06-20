@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pickaxe-swing-energy" data-date="2026-06-20">
+    <h3>Pickaxe Swing Energy</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/pickaxe-energy-cost</code>, created from current <code>origin/main</code> in a fresh worktree, then rebased after remote main moved.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed mining balance. Every Pickaxe level above 1 now adds a noticeable battery-charge cost to each mining swing, and richer ore tiers add their own battery strain, so stronger Pickaxes still break many blocks faster while ruby, diamond, and core-tier routes push players toward Battery Cell upgrades too. Package version moved to <code>0.1.93</code>; <code>MINE_VERSION</code> moved from <code>44</code> to <code>45</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after implementation for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, test, and doc files, focused mine, app-release, notification, version, and Web Push Vitest (131 passed), <code>pnpm typecheck</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm test</code> (314 passed), <code>pnpm lint</code>, <code>pnpm build</code>, and targeted Playwright smoke against <code>PLAYWRIGHT_PORT=3367</code> for latest release notes (1 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: combine a noticeable Pickaxe surcharge with an ore-tier surcharge so Battery Cell upgrades become attractive when richer veins enter the route, while Pickaxe upgrades remain faster. Mine surface tips were reviewed and kept unchanged because an existing tip already says rich ore and dry strikes drain battery.</dd>
+      <dt>GDD coverage</dt><dd>REQ-013 stays done with updated sim behavior and focused mine coverage. Appended a Build log entry to <code>docs/gdd/06-mining.html</code> and updated release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="recall-rope-range" data-date="2026-06-20">
     <h3>Recall Rope Range</h3>
     <dl>

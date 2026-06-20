@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 44;
+export const MINE_VERSION = 45;
 export const MINE_BOTTOM_ROW = 1000;
 export const BAG_STACK_LIMIT = 5;
 
@@ -467,7 +467,7 @@ export const ROCK_DIG_COST = 2;
  * Multi-hit digging (REQ-013, user-directed 2026-06-12): swings to
  * break each diggable kind at pickaxe level 1. Each pickaxe level
  * above 1 removes one swing (min 1), so the upgrade buys speed and
- * energy, not just permission.
+ * permission. Stronger pickaxes also draw more battery charge per swing.
  */
 export const BASE_HITS = {
   dirt: 4,
@@ -488,6 +488,12 @@ export const SWING_COST = {
   rock: 0.4,
 } as const;
 
+/** Extra battery charge burned by every swing for each Pickaxe level above 1. */
+export const PICKAXE_SWING_COST_STEP = 0.1;
+
+/** Extra battery charge burned by each ore value tier above the starter ore. */
+export const ORE_SWING_COST_STEP = 0.08;
+
 /** Swings to break a cell of this kind under this gear. */
 export function hitsFor(kind: CellKind, gear: MineGear): number {
   const base = BASE_HITS[kind as keyof typeof BASE_HITS];
@@ -496,8 +502,20 @@ export function hitsFor(kind: CellKind, gear: MineGear): number {
 }
 
 /** Robot battery charge one swing at this kind costs. */
-export function swingCostFor(kind: CellKind): number {
-  return SWING_COST[kind as keyof typeof SWING_COST] ?? MOVE_COST;
+export function swingCostFor(
+  kind: CellKind,
+  gear: Pick<MineGear, "pickaxe"> = DEFAULT_GEAR,
+): number {
+  const base = SWING_COST[kind as keyof typeof SWING_COST] ?? MOVE_COST;
+  return base + Math.max(0, gear.pickaxe - 1) * PICKAXE_SWING_COST_STEP;
+}
+
+/** Robot battery charge one ore swing costs, including richer-ore strain. */
+export function oreSwingCostFor(
+  ore: OreId,
+  gear: Pick<MineGear, "pickaxe"> = DEFAULT_GEAR,
+): number {
+  return swingCostFor("ore", gear) + oreValueTier(ore) * ORE_SWING_COST_STEP;
 }
 
 /**
@@ -2582,7 +2600,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       remaining <= 0 ? ventGasAround(state, t.col, t.row, emptied) : 0;
     miner.energy = Math.max(
       0,
-      miner.energy - swingCostFor("ore") - vented * GAS_VENT_DRAIN,
+      miner.energy - oreSwingCostFor(ore, state.gear) - vented * GAS_VENT_DRAIN,
     );
     if (remaining <= 0 && !isOverheadDig) {
       miner.col = t.col;
@@ -2662,7 +2680,10 @@ export function step(state: MineState, dir: Direction): MoveResult {
     const remaining = (struck.hp ?? hitsForDig(struck, state.gear)) - 1;
     if (remaining > 0) {
       struck.hp = remaining;
-      miner.energy = Math.max(0, miner.energy - swingCostFor(kindForDig));
+      miner.energy = Math.max(
+        0,
+        miner.energy - swingCostFor(kindForDig, state.gear),
+      );
       // A swing is a full action: teetering blocks count down and drop,
       // and the battery can still run out mid-block.
       const emptiedMid: Array<{ col: number; row: number }> = [];
@@ -2738,7 +2759,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   if (cell.kind !== "empty") {
     const kindForDig = digKindFor(cell);
     dug = kindForDig;
-    cost = swingCostFor(kindForDig);
+    cost = swingCostFor(kindForDig, state.gear);
     let overflowPile: Partial<Record<OreId, number>> | undefined;
     if (cell.kind === "ore" && cell.ore) {
       const units = oreUnitsAt(t.row);

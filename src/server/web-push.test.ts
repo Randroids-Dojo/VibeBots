@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.92.123",
+  version: "0.1.93.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.92-recall-rope-range",
-  intro: "Recall ropes now scale with a permanent depth upgrade.",
+  noticeId: "2026-06-20-0.1.93-pickaxe-swing-cost",
+  intro: "Stronger tools and richer ore now draw more battery.",
   changes: [
     {
       build: 123,
-      text: "Recall rope range now starts shallow and upgrades deeper.",
+      text: "Each Pickaxe level above 1 adds a noticeable battery cost.",
     },
   ],
   notes: [
     {
-      version: "0.1.92",
+      version: "0.1.93",
       date: "2026-06-20",
-      title: "Recall rope range",
-      intro: "Recall ropes now scale with a permanent depth upgrade.",
+      title: "Pickaxe battery tuning",
+      intro: "Stronger tools and richer ore now draw more battery.",
       changes: [
         {
           build: 123,
-          text: "Recall rope range now starts shallow and upgrades deeper.",
+          text: "Each Pickaxe level above 1 adds a noticeable battery cost.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Recall rope range"),
+      expect.stringContaining("Pickaxe battery tuning"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

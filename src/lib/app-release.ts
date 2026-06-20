@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.92-recall-rope-range";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.93-pickaxe-swing-cost";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.93",
+      date: "2026-06-20",
+      title: "Pickaxe battery tuning",
+      intro: "Stronger tools and richer ore now draw more battery.",
+      changes: [
+        {
+          build,
+          text: "Every Pickaxe level above 1 now adds a noticeable battery cost to each mining swing.",
+        },
+        {
+          build,
+          text: "Richer ores add their own battery strain, so ruby, diamond, and core-tier veins make Battery Cell upgrades matter sooner.",
+        },
+        {
+          build,
+          text: "The mine gameplay version moved to 45, and deep ore runs now push players toward Battery Cell upgrades too.",
+        },
+      ],
+    },
     {
       version: "0.1.92",
       date: "2026-06-20",

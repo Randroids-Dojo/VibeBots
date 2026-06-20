@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.77" data-date="2026-06-20">
+    <h2>0.1.77</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.77</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>38</code> to <code>39</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Miners can now chip solid overhead cells.</dd>
+      <dt>Controls</dt><dd>Pressing up into a diggable block now mines that overhead cell in place. Empty upward movement still uses the existing ladder climb rule, and held up input waits for release after an overhead block opens so it cannot auto-place a ladder.</dd>
+      <dt>Hazard cue</dt><dd>When an overhead dig starts a falling-rock countdown, the mine plays a dedicated warning sound and flashes amber particles at the unstable rock.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks overhead mining without ladders, exact warning coordinates, and the miner staying in place. Focused SFX coverage checks the new warning event, and focused smoke coverage checks the warning data attribute, changed canvas pixels, and the held-up ladder placement gate.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.76" data-date="2026-06-20">
     <h2>0.1.76</h2>
     <dl>

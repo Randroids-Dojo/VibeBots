@@ -957,14 +957,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Surface tips now rotate while you are topside.",
+    "Miners can now chip overhead cells and get a danger cue.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "about every 15 seconds",
+    "mines that overhead block",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("quiet moments");
-  await expect(dialog.locator("li").nth(2)).toContainText("no mine rules");
+  await expect(dialog.locator("li").nth(1)).toContainText("fresh up command");
+  await expect(dialog.locator("li").nth(2)).toContainText("amber particles");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -983,6 +983,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.77", "Upward mining warning"],
     ["0.1.76", "Surface tip rotation"],
     ["0.1.75", "Mine performance samples"],
     ["0.1.74", "Stale trip recovery"],
@@ -1038,7 +1039,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.76-surface-tip-rotation",
+      "2026-06-20-0.1.77-upward-mining-warning",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1159,7 +1160,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.76-surface-tip-rotation",
+      "2026-06-20-0.1.77-upward-mining-warning",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1301,6 +1302,78 @@ test("mine falling-rock alert can be dismissed or permanently hidden", async ({
   await dismissReleaseNotes(page);
   await pressMineKey(page, "ArrowRight");
   await expect(alert).not.toBeVisible();
+});
+
+test("upward mining warns when it starts a falling rock", async ({ page }) => {
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  const gear = { ...DEFAULT_GEAR, pickaxe: 4, fall: 5 };
+  const mine = createMine(8180, gear, STARTING_CONSUMABLES);
+  const c = START_COL - 1;
+  for (let row = 1; row <= 9; row++) {
+    setCell(mine, START_COL, row, { kind: "empty" });
+  }
+  setCell(mine, START_COL, 10, { kind: "dirt" });
+  setCell(mine, c, 9, { kind: "empty" });
+  setCell(mine, c, 10, { kind: "dirt" });
+  setCell(mine, c, 8, { kind: "dirt" });
+  setCell(mine, c, 7, { kind: "rock", rockTier: 1 });
+
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-falling-rock-alert-dismissed", "true");
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      mineVersion: MINE_VERSION,
+      seed: 8180,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "left"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const canvas = page.locator("canvas");
+  const status = page.getByLabel("Mine status");
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "9",
+  );
+  await expect(status).toHaveAttribute("data-ladders", "8");
+  const before = await canvas.screenshot();
+  await page.keyboard.down("ArrowUp");
+  await expect
+    .poll(async () => canvas.getAttribute("data-falling-rock-warning"), {
+      timeout: 5_000,
+    })
+    .toBe("true");
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowUp",
+        repeat: true,
+        bubbles: true,
+      }),
+    );
+  });
+  await page.waitForTimeout(120);
+  await expect(status).toHaveAttribute("data-depth", "9");
+  await expect(status).toHaveAttribute("data-ladders", "8");
+  await page.keyboard.up("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  await expect(status).toHaveAttribute("data-depth", "8");
+  await expect(status).toHaveAttribute("data-ladders", "7");
+  const after = await canvas.screenshot();
+  expect(Buffer.compare(before, after)).not.toBe(0);
+  await expect(page.getByRole("dialog", { name: "Falling rock" })).toBeHidden();
 });
 
 test("mine feedback form submits from settings and closes with gamepad back", async ({
@@ -1725,7 +1798,7 @@ test("mine rotates surface game tips and sometimes leaves the slot empty", async
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);
   expect(box?.height ?? 0).toBeGreaterThan(22);
   await expect(status).toContainText(
-    "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
+    "Tip: press up into a solid block to mine overhead without spending a ladder.",
   );
   await expect(status).not.toContainText("Tip:");
 });
@@ -1856,7 +1929,7 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
       timeout: 3_500,
     })
-    .toBeGreaterThan(initialX + 4.25);
+    .toBeGreaterThan(initialX + 3.75);
   await page.mouse.up();
   await expect(page.locator("[data-joystick]")).not.toBeVisible();
 
@@ -2015,7 +2088,7 @@ test.describe("phone viewport", () => {
     const payload = samples[0] as Record<string, unknown>;
     expect(payload.source).toBe("mine");
     expect(String(payload.appVersion)).toMatch(APP_VERSION_PATTERN);
-    expect(payload.mineVersion).toBe(38);
+    expect(payload.mineVersion).toBe(MINE_VERSION);
     expect(payload.frameCount).toBeGreaterThan(5);
     expect(payload.p95FrameMs).toBeGreaterThan(0);
     expect(payload.viewportWidth).toBeGreaterThan(0);

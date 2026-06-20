@@ -249,10 +249,13 @@
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/components/mine-canvas.tsx",
-        "src/components/mine-panel.tsx"
+        "src/components/mine-panel.tsx",
+        "src/components/mine-sfx.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/components/mine-sfx.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []
     },

@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 38;
+export const MINE_VERSION = 39;
 export const MINE_BOTTOM_ROW = 1000;
 
 /**
@@ -1848,6 +1848,8 @@ export type MoveResult =
   | {
       ok: true;
       dug: CellKind | null;
+      /** Cell cleared by a dig action. */
+      dugAt?: MineCoord;
       /** Set when dug was an ore cell. */
       dugOre: OreId | null;
       /** Ore units mined on the final cell-clearing swing. */
@@ -1865,6 +1867,8 @@ export type MoveResult =
       crushed?: boolean;
       /** This action started at least one falling-rock countdown. */
       fallingRockTriggered?: boolean;
+      /** The rock or boulder cells that newly started a fall countdown. */
+      fallingRockWarnings?: MineCoord[];
       /** Placed ladders that settled after a support changed. */
       ladderFalls?: LadderFall[];
       /** Gas pockets vented by this action (robot battery charge burned). */
@@ -2317,8 +2321,8 @@ function minerLostCargo(
 function markUnstable(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
-): boolean {
-  let triggered = false;
+): MineCoord[] {
+  const warnings: MineCoord[] = [];
   for (const { col, row } of emptied) {
     const blockRow = row - 1;
     if (blockRow <= HAZARD_FREE_ROWS) continue;
@@ -2327,10 +2331,10 @@ function markUnstable(
     if (above.fallIn !== undefined) continue;
     if (cellAt(state, col, row)?.kind === "empty") {
       cellMut(state, col, blockRow).fallIn = FALL_DELAY_ACTIONS;
-      triggered = true;
+      warnings.push({ col, row: blockRow });
     }
   }
-  return triggered;
+  return warnings;
 }
 
 function isFallingRock(cell: MineCell): boolean {
@@ -2354,14 +2358,37 @@ function settleAfterEmptied(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
   changedSupports: MineCoord[] = [],
-): { fallingRockTriggered: boolean; ladderFalls: LadderFall[] } {
-  const fallingRockTriggered = markUnstable(state, emptied);
+): {
+  fallingRockTriggered: boolean;
+  fallingRockWarnings: MineCoord[];
+  ladderFalls: LadderFall[];
+} {
+  const fallingRockWarnings = markUnstable(state, emptied);
   const ladderFalls = settleUnsupportedLadders(state, [
     ...emptied,
     ...changedSupports,
   ]);
   settleUnsupportedDrops(state);
-  return { fallingRockTriggered, ladderFalls };
+  return {
+    fallingRockTriggered: fallingRockWarnings.length > 0,
+    fallingRockWarnings,
+    ladderFalls,
+  };
+}
+
+function warningCellsOrUndefined(
+  warnings: MineCoord[],
+): MineCoord[] | undefined {
+  return warnings.length > 0 ? warnings : undefined;
+}
+
+function combineWarningCells(
+  a?: MineCoord[],
+  b?: MineCoord[],
+): MineCoord[] | undefined {
+  if (!a?.length) return b?.length ? b : undefined;
+  if (!b?.length) return a;
+  return [...a, ...b];
 }
 
 /**
@@ -2393,8 +2420,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     cell.kind === "magma"
   )
     return { ok: false, reason: "blocked" };
-  if (dir === "up" && cell.kind !== "empty")
-    return { ok: false, reason: "blocked" };
+  const isOverheadDig = dir === "up" && cell.kind !== "empty";
   if (cell.kind === "ore" && cell.ore) {
     const ore = cell.ore;
     const struck = cellMut(state, t.col, t.row);
@@ -2434,7 +2460,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       0,
       miner.energy - swingCostFor("ore") - vented * GAS_VENT_DRAIN,
     );
-    if (remaining <= 0) {
+    if (remaining <= 0 && !isOverheadDig) {
       miner.col = t.col;
       miner.row = t.row;
       if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
@@ -2459,6 +2485,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       return {
         ok: true,
         dug: remaining <= 0 ? "ore" : null,
+        dugAt: remaining <= 0 ? { col: t.col, row: t.row } : undefined,
         dugOre: remaining <= 0 ? ore : null,
         dugOreCount: remaining <= 0 ? units : undefined,
         oreHarvested: units > 0 ? oreHarvested : undefined,
@@ -2466,6 +2493,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
         collapsed: true,
         crushed: fallTick.crushed || fellTooFar,
         fallingRockTriggered: settled.fallingRockTriggered || undefined,
+        fallingRockWarnings: warningCellsOrUndefined(
+          settled.fallingRockWarnings,
+        ),
         ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
         vented,
         dropped: dropped > 0 ? dropped : undefined,
@@ -2477,6 +2507,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     return maybeExplodePendingDynamite(state, {
       ok: true,
       dug: remaining <= 0 ? "ore" : null,
+      dugAt: remaining <= 0 ? { col: t.col, row: t.row } : undefined,
       dugOre: remaining <= 0 ? ore : null,
       dugOreCount: remaining <= 0 ? units : undefined,
       oreHarvested: units > 0 ? oreHarvested : undefined,
@@ -2484,6 +2515,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       collapsed: false,
       crushed: fallTick.crushed,
       fallingRockTriggered: settled.fallingRockTriggered || undefined,
+      fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
       ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
       vented,
       dropped: dropped > 0 ? dropped : undefined,
@@ -2527,6 +2559,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
           collapsed: true,
           crushed: fallTickMid.crushed || fellTooFarMid,
           fallingRockTriggered: settledMid.fallingRockTriggered || undefined,
+          fallingRockWarnings: warningCellsOrUndefined(
+            settledMid.fallingRockWarnings,
+          ),
           ladderFalls: ladderFallsOrUndefined(settledMid.ladderFalls),
           fell: fellMid || undefined,
           fallFatal: fellTooFarMid || undefined,
@@ -2540,6 +2575,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
         found: null,
         collapsed: false,
         fallingRockTriggered: settledMid.fallingRockTriggered || undefined,
+        fallingRockWarnings: warningCellsOrUndefined(
+          settledMid.fallingRockWarnings,
+        ),
         ladderFalls: ladderFallsOrUndefined(settledMid.ladderFalls),
         fell: fellMid || undefined,
         cracked: { kind: kindForDig, remaining },
@@ -2547,7 +2585,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     }
   }
   let laddered = false;
-  if (dir === "up" && miner.row >= 1) {
+  if (dir === "up" && cell.kind === "empty" && miner.row >= 1) {
     const here = cellMut(state, miner.col, miner.row);
     if (!here.ladder) {
       if (state.consumables.ladder <= 0)
@@ -2606,9 +2644,11 @@ export function step(state: MineState, dir: Direction): MoveResult {
   const planked = false;
 
   miner.energy = Math.max(0, miner.energy - cost - vented * GAS_VENT_DRAIN);
-  miner.col = t.col;
-  miner.row = t.row;
-  if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
+  if (!isOverheadDig) {
+    miner.col = t.col;
+    miner.row = t.row;
+    if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
+  }
 
   const fallTick = tickFalls(state, emptied);
   const settled = settleAfterEmptied(state, emptied);
@@ -2625,12 +2665,14 @@ export function step(state: MineState, dir: Direction): MoveResult {
     return {
       ok: true,
       dug,
+      dugAt: dug ? { col: t.col, row: t.row } : undefined,
       dugOre,
       dugOreCount,
       found,
       collapsed,
       crushed: fallTick.crushed || fellTooFar,
       fallingRockTriggered: settled.fallingRockTriggered || undefined,
+      fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
       ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
       vented,
       dropped: dropped > 0 ? dropped : undefined,
@@ -2647,12 +2689,14 @@ export function step(state: MineState, dir: Direction): MoveResult {
   return maybeExplodePendingDynamite(state, {
     ok: true,
     dug,
+    dugAt: dug ? { col: t.col, row: t.row } : undefined,
     dugOre,
     dugOreCount,
     found,
     collapsed,
     crushed: fallTick.crushed,
     fallingRockTriggered: settled.fallingRockTriggered || undefined,
+    fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
     ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
     vented,
     dropped: dropped > 0 ? dropped : undefined,
@@ -2723,6 +2767,10 @@ function finishStationaryAction(
       crushed: true,
       fallingRockTriggered:
         base.fallingRockTriggered || settled.fallingRockTriggered || undefined,
+      fallingRockWarnings: combineWarningCells(
+        base.fallingRockWarnings,
+        settled.fallingRockWarnings,
+      ),
       ladderFalls: combinedLadderFalls(base.ladderFalls, settled.ladderFalls),
       fell: fell || undefined,
       fallFatal: fellTooFar || undefined,
@@ -2733,6 +2781,10 @@ function finishStationaryAction(
     ...base,
     fallingRockTriggered:
       base.fallingRockTriggered || settled.fallingRockTriggered || undefined,
+    fallingRockWarnings: combineWarningCells(
+      base.fallingRockWarnings,
+      settled.fallingRockWarnings,
+    ),
     ladderFalls: combinedLadderFalls(base.ladderFalls, settled.ladderFalls),
     fell: fell || base.fell,
   });
@@ -2969,6 +3021,7 @@ interface ExplosionResult {
   dropped?: number;
   foundParts?: string[];
   fallingRockTriggered?: boolean;
+  fallingRockWarnings?: MineCoord[];
   ladderFalls?: LadderFall[];
   exploded: PendingDynamite;
 }
@@ -3053,6 +3106,7 @@ function detonateDynamiteAt(
     dropped: dropped > 0 ? dropped : undefined,
     foundParts: foundParts.length > 0 ? foundParts : undefined,
     fallingRockTriggered: settled.fallingRockTriggered || undefined,
+    fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
     ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
     exploded: center,
   };
@@ -3096,6 +3150,10 @@ function maybeExplodePendingDynamite(
         result.fallingRockTriggered || explosion.fallingRockTriggered
           ? true
           : undefined,
+      fallingRockWarnings: combineWarningCells(
+        result.fallingRockWarnings,
+        explosion.fallingRockWarnings,
+      ),
       ladderFalls,
       fell: totalFell > 0 ? totalFell : undefined,
       fallFatal: true,
@@ -3114,6 +3172,10 @@ function maybeExplodePendingDynamite(
       result.fallingRockTriggered || explosion.fallingRockTriggered
         ? true
         : undefined,
+    fallingRockWarnings: combineWarningCells(
+      result.fallingRockWarnings,
+      explosion.fallingRockWarnings,
+    ),
     ladderFalls,
     fell: totalFell > 0 ? totalFell : undefined,
   };
@@ -3148,6 +3210,7 @@ function plantDynamite(state: MineState, tier: DynamiteTier): MoveResult {
       collapsed: true,
       crushed: true,
       fallingRockTriggered: settled.fallingRockTriggered || undefined,
+      fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
       ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
       dynamitePlanted: t,
       lost,
@@ -3162,6 +3225,7 @@ function plantDynamite(state: MineState, tier: DynamiteTier): MoveResult {
     found: null,
     collapsed: false,
     fallingRockTriggered: settled.fallingRockTriggered || undefined,
+    fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
     ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
     dynamitePlanted: t,
     fell: fell || undefined,
@@ -3294,6 +3358,9 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
         collapsed: true,
         crushed: true,
         fallingRockTriggered: settled.fallingRockTriggered || undefined,
+        fallingRockWarnings: warningCellsOrUndefined(
+          settled.fallingRockWarnings,
+        ),
         ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
         lost,
       };
@@ -3305,6 +3372,7 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
       found: null,
       collapsed: false,
       fallingRockTriggered: settled.fallingRockTriggered || undefined,
+      fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
       ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
     };
   }

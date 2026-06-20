@@ -200,6 +200,7 @@ function DismissibleDialogFrame({
 
 const MINE_SURFACE_TIPS = [
   "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
+  "Tip: press up into a solid block to mine overhead without spending a ladder.",
   "Tip: ladders and planks refill after a cave-in, but Abandon leaves stock as-is.",
   "Tip: dynamite chips rich ore reserves and still scoops what it breaks into your hold.",
   "Tip: falling rocks wait two moves after their support is mined.",
@@ -3837,6 +3838,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastGamepadZoomRef = useRef(0);
   const lastGamepadBagCloseRef = useRef(false);
   const lastDirectionActionRef = useRef(0);
+  const upwardDigAwaitingReleaseRef = useRef(false);
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const previousMinerRowRef = useRef(mine.miner.row);
   void tick;
@@ -4015,6 +4017,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const fireDirection = useCallback(
     (dir: Direction, options: { repeat?: boolean } = {}) => {
       if (elevatorAutoDir) return;
+      if (dir !== "up") {
+        upwardDigAwaitingReleaseRef.current = false;
+      } else if (upwardDigAwaitingReleaseRef.current) {
+        return;
+      }
       const state = useMineStore.getState();
       const now = Date.now();
       if (
@@ -4024,10 +4031,29 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         return;
       }
       lastDirectionActionRef.current = now;
+      const startCol = state.mine.miner.col;
+      const startRow = state.mine.miner.row;
       state.move(dir);
+      const result = useMineStore.getState().lastResult;
+      if (
+        dir === "up" &&
+        result?.ok &&
+        result.dugAt &&
+        result.dugAt.col === startCol &&
+        result.dugAt.row === startRow - 1 &&
+        !result.laddered
+      ) {
+        upwardDigAwaitingReleaseRef.current = true;
+      }
     },
     [elevatorAutoDir],
   );
+
+  const releaseDirection = useCallback((dir: Direction | null) => {
+    if (dir === "up") {
+      upwardDigAwaitingReleaseRef.current = false;
+    }
+  }, []);
 
   // Moving off the column closes any open sheet, so the menu never
   // follows the miner and a return shows the prompt, not the open sheet.
@@ -4065,9 +4091,20 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       event.preventDefault();
       fireDirection(dir, { repeat: event.repeat });
     };
+    const onKeyUp = (event: KeyboardEvent) => {
+      const dir = KEY_DIRECTIONS[event.key];
+      if (dir) releaseDirection(dir);
+    };
+    const onBlur = () => releaseDirection("up");
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [fireDirection]);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [fireDirection, releaseDirection]);
 
   const miner = mine.miner;
   const currentCell = cellAt(mine, miner.col, miner.row);
@@ -4447,6 +4484,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       {!collectMode && (
         <MineTouchControls
           onDirection={act}
+          onReleaseDirection={releaseDirection}
           onZoomChange={adjustCameraZoom}
           repeatMs={actionRepeatMs(mine.gear)}
         />

@@ -1207,6 +1207,33 @@ describe("mine", () => {
     expect(cellAt(state, c + 1, 6)?.kind).toBe("boulder");
   });
 
+  it("mines the overhead cell without climbing and warns on a falling rock", () => {
+    const state = createMine(431, { ...DEFAULT_GEAR, pickaxe: 4 });
+    const c = START_COL;
+    state.miner.row = 9;
+    state.miner.col = c;
+    state.consumables.ladder = 0;
+    setCell(state, c, 9, { kind: "empty" });
+    setCell(state, c, 8, { kind: "dirt" });
+    setCell(state, c, 7, { kind: "rock", rockTier: 1 });
+    setCell(state, c, 10, { kind: "dirt" });
+
+    const result = step(state, "up");
+
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.dug).toBe("dirt");
+    expect(result.ok && result.dugAt).toEqual({ col: c, row: 8 });
+    expect(result.ok && result.fallingRockTriggered).toBe(true);
+    expect(result.ok && result.fallingRockWarnings).toEqual([
+      { col: c, row: 7 },
+    ]);
+    expect(state.miner.col).toBe(c);
+    expect(state.miner.row).toBe(9);
+    expect(state.consumables.ladder).toBe(0);
+    expect(cellAt(state, c, 8)?.kind).toBe("empty");
+    expect(cellAt(state, c, 7)?.fallIn).toBe(FALL_DELAY_ACTIONS);
+  });
+
   it("drops an undermined rock onto a lingering miner, crushing them", () => {
     // Default pickaxe: dirt takes four swings, so chipping a wall keeps
     // the miner in place under the rock while its countdown runs out.

@@ -25,10 +25,12 @@ const AXIS_HYSTERESIS = 1.35;
 export function MineTouchControls({
   onDirection,
   onZoomChange,
+  onReleaseDirection,
   repeatMs,
 }: {
   onDirection: (dir: Direction, options?: { repeat?: boolean }) => void;
   onZoomChange: (delta: number) => void;
+  onReleaseDirection?: (dir: Direction | null) => void;
   repeatMs: number;
 }) {
   const js = useRef(createJoystick());
@@ -101,10 +103,12 @@ export function MineTouchControls({
   };
 
   const release = () => {
+    const releasedDir = heldDir.current;
     endJoystick(js.current);
     heldDir.current = null;
     stopRepeat();
     setStick(null);
+    onReleaseDirection?.(releasedDir);
   };
 
   const distanceBetweenPointers = (): number | null => {

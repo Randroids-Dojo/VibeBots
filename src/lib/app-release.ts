@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.76-surface-tip-rotation";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.77-upward-mining-warning";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.77",
+      date: "2026-06-20",
+      title: "Upward mining warning",
+      intro: "Miners can now chip overhead cells and get a danger cue.",
+      changes: [
+        {
+          build,
+          text: "Pressing up into a solid diggable cell now mines that overhead block without spending a ladder or climbing into it.",
+        },
+        {
+          build,
+          text: "Held up input waits for release after the overhead block opens, so a ladder is only placed after a fresh up command.",
+        },
+        {
+          build,
+          text: "If that overhead dig starts a falling-rock countdown, the mine plays a dedicated warning sound and flashes amber particles at the unstable rock.",
+        },
+      ],
+    },
     {
       version: "0.1.76",
       date: "2026-06-20",

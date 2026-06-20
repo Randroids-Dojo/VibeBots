@@ -40,6 +40,7 @@ export type MineSfxEvent =
   | "cache-fanfare"
   | "dynamite"
   | "gas"
+  | "fall-warning"
   | "crush"
   | "fall-death"
   | "collapse"
@@ -211,6 +212,7 @@ export function mineResultSfxEvents(
     events.push("plank");
   if (result.exploded || (result.blasted ?? 0) > 0) events.push("dynamite");
   if ((result.vented ?? 0) > 0) events.push("gas");
+  if (result.fallingRockTriggered) events.push("fall-warning");
   if (result.oreHarvested) events.push("ore-pickup");
   if (result.found) events.push("cache-fanfare");
   if (result.recalled) events.push("recall");
@@ -547,6 +549,32 @@ function playRecall(): void {
   });
 }
 
+function playFallWarning(): void {
+  const ac = audioCtx();
+  if (!ac) return;
+  const now = ac.currentTime;
+  const out = bus(ac, 0.22, 0.42);
+  tone(ac, {
+    wave: "triangle",
+    start: 150,
+    end: 92,
+    gain: 0.12,
+    at: now,
+    len: 0.28,
+    out,
+  });
+  tone(ac, {
+    wave: "square",
+    start: 520,
+    end: 390,
+    gain: 0.045,
+    at: now + 0.04,
+    len: 0.18,
+    out,
+  });
+  burstNoise(ac, out, now + 0.03, 0.18, 0.06, 260);
+}
+
 function playBuild(event: MineSfxEvent): void {
   const ac = audioCtx();
   if (!ac) return;
@@ -670,6 +698,8 @@ export function playMineSfxEvent(event: MineSfxEvent): void {
     playDynamite();
   } else if (event === "gas") {
     playGas();
+  } else if (event === "fall-warning") {
+    playFallWarning();
   } else if (
     event === "crush" ||
     event === "fall-death" ||

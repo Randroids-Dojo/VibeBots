@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.74.123",
+  version: "0.1.77.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.74-stale-trip-recovery",
-  intro: "Old in-flight mine trips now restore the original save cleanly.",
+  noticeId: "2026-06-20-0.1.77-upward-mining-warning",
+  intro: "Miners can now chip overhead cells and get a danger cue.",
   changes: [
     {
       build: 123,
-      text: "The mine now records the gameplay version beside each local in-flight trip checkpoint.",
+      text: "Overhead hazard digs play a warning cue.",
     },
   ],
   notes: [
     {
-      version: "0.1.74",
+      version: "0.1.77",
       date: "2026-06-20",
-      title: "Stale trip recovery",
-      intro: "Old in-flight mine trips now restore the original save cleanly.",
+      title: "Upward mining warning",
+      intro: "Miners can now chip overhead cells and get a danger cue.",
       changes: [
         {
           build: 123,
-          text: "The mine now records the gameplay version beside each local in-flight trip checkpoint.",
+          text: "Overhead hazard digs play a warning cue.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Stale trip recovery"),
+      expect.stringContaining("Upward mining warning"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

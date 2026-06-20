@@ -309,6 +309,8 @@ interface JuiceState {
   facing: number;
   /** Dig lunge: body offset toward the struck cell, decaying. */
   lunge: { x: number; y: number; t: number };
+  /** Seconds left in the most recent falling-rock warning cue. */
+  fallWarning: number;
 }
 
 interface MotionTrack {
@@ -1039,6 +1041,22 @@ function spawnDust(juice: JuiceState, x: number, y: number): void {
       size: 0.06 + Math.random() * 0.05,
       color: "#7a6a55",
       life: 0.4 + Math.random() * 0.35,
+    });
+  }
+}
+
+function spawnFallWarning(juice: JuiceState, x: number, y: number): void {
+  for (let i = 0; i < 12; i++) {
+    pushParticle(juice, {
+      kind: i % 3 === 0 ? "spark" : "dust",
+      x: x + (Math.random() - 0.5) * 0.32,
+      y: y + (Math.random() - 0.5) * 0.28,
+      vx: (Math.random() - 0.5) * 1.2,
+      vy: Math.random() * 1.6 + 0.25,
+      gravity: 2.4,
+      size: 0.055 + Math.random() * 0.06,
+      color: i % 3 === 0 ? "#ffe08a" : TEETER_EMISSIVE,
+      life: 0.34 + Math.random() * 0.2,
     });
   }
 }
@@ -2292,6 +2310,7 @@ function MineScene({
     bounce: 0,
     facing: 0,
     lunge: { x: 0, y: 0, t: 0 },
+    fallWarning: 0,
   });
   const minerPlaced = useRef(false);
   // Smoothed frame time (ms), exposed for performance QA. A surface walk
@@ -2422,7 +2441,8 @@ function MineScene({
     }
     if (!lastResult?.ok) return;
     const miner = mine.miner;
-    const at = lastResult.lost ?? { col: miner.col, row: miner.row };
+    const at = lastResult.dugAt ??
+      lastResult.lost ?? { col: miner.col, row: miner.row };
     if (lastResult.cracked) {
       j.swing = PICK_SWING_SECONDS;
       const dc = lastAction === "left" ? -1 : lastAction === "right" ? 1 : 0;
@@ -2513,6 +2533,13 @@ function MineScene({
             : GAS_COLOR;
       spawnBurst(j, cellX(at.col), -at.row, ventColor, 16);
       j.shake = Math.max(j.shake, 0.25);
+    }
+    if (lastResult.fallingRockWarnings?.length) {
+      for (const warning of lastResult.fallingRockWarnings.slice(0, 6)) {
+        spawnFallWarning(j, cellX(warning.col), -warning.row);
+      }
+      j.fallWarning = 0.55;
+      j.shake = Math.max(j.shake, 0.08);
     }
     if (lastResult.ladderFalls?.length) {
       const visibleFalls = lastResult.ladderFalls.slice(0, 14);
@@ -2706,6 +2733,7 @@ function MineScene({
       el.dataset.minerMotionFrames = String(minerMotion.current?.frames ?? 0);
       el.dataset.fallVisualActive = activeFall ? "true" : "false";
       el.dataset.fallVisualImpact = activeFall?.impacted ? "true" : "false";
+      el.dataset.fallingRockWarning = j.fallWarning > 0 ? "true" : "false";
       // Last frame's draw-call count: the budget that phones live by.
       el.dataset.drawCalls = String(state.gl.info.render.calls);
       // Smoothed frame time: a steady low value means no per-step hitches.
@@ -2719,6 +2747,7 @@ function MineScene({
       body.rotation.y += (targetYaw - body.rotation.y) * Math.min(1, delta * 8);
       // Dig lunge decays over its window; bob hums underneath.
       j.lunge.t = Math.max(0, j.lunge.t - delta);
+      j.fallWarning = Math.max(0, j.fallWarning - delta);
       const lk = j.lunge.t / DIG_LUNGE_SECONDS;
       body.position.x = j.lunge.x * lk;
       // Grounded on the cell floor, with a soft idle hover bob.

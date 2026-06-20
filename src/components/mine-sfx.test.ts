@@ -53,6 +53,17 @@ describe("mining sfx event mapping", () => {
         "left",
       ),
     ).toEqual(["step", "dynamite", "gas"]);
+    expect(
+      mineResultSfxEvents(
+        {
+          ...ok,
+          dug: "dirt",
+          fallingRockTriggered: true,
+          fallingRockWarnings: [{ col: 0, row: 4 }],
+        },
+        "up",
+      ),
+    ).toEqual(["dig-dirt", "fall-warning"]);
 
     expect(mineResultSfxEvents({ ...ok, recalled: true }, "recall")).toEqual([
       "recall",

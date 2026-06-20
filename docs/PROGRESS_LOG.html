@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="stall-sheet-anywhere-drag" data-date="2026-06-20">
+    <h3>Stall Sheet Anywhere Drag</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/stall-sheet-anywhere-drag</code>, created by renaming the fresh branch that was rooted at current <code>origin/main</code>, then rebased over the mine input cadence, smoke-stabilization, battle-camera, and mine-refresh-layout releases after remote main moved.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Bottom stall sheets now track downward drags from anywhere inside the panel instead of only the top handle. A meaningful downward movement moves the sheet, a short tug snaps back, a longer pull dismisses it, ordinary button taps still work, and beacon rename fields opt out of sheet drag. Package version moved to <code>0.1.107</code>; <code>MINE_VERSION</code> stays at <code>47</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, smoke, package, and doc files, focused app-release, notification, version, and Web Push Vitest before rebase (34 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_PORT=3486</code> for the latest release note and interior stall-sheet drag (2 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, critical Playwright smoke against <code>PLAYWRIGHT_PORT=3487</code> (5 passed), and an in-app Browser check against <code>http://127.0.0.1:3488/mine</code> confirming the Upgrades sheet dismissed from an interior drag and the Open Upgrades prompt returned. After rebasing over the Battle camera release and renumbering to <code>0.1.106</code>, reran <code>pnpm exec biome check --write</code> on touched files, focused app-release, notification, version, and Web Push Vitest (35 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, and focused Playwright smoke against <code>PLAYWRIGHT_PORT=3489</code> for the latest release note plus interior stall-sheet drag (2 passed). After rebasing over the Mine refresh layout release and renumbering to <code>0.1.107</code>, reran <code>pnpm exec biome check --write</code> on touched files, focused app-release, notification, version, and Web Push Vitest (36 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, <code>pnpm check:purity</code>, and focused Playwright smoke against <code>PLAYWRIGHT_PORT=3490</code> for the latest release note plus interior stall-sheet drag (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep this as UI control behavior only, so no gameplay-version bump is needed. Mine surface tips were reviewed and kept unchanged because this changes bottom-sheet dismissal, not mine rules, shops, upgrades, hazards, recovery, or progression guidance.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code> and updated static and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-refresh-layout" data-date="2026-06-20">
     <h3>Mine Refresh Layout</h3>
     <dl>

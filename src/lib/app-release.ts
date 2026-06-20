@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.106-mine-refresh-layout";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.107-stall-sheet-drag";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.107",
+      date: "2026-06-20",
+      title: "Sheet drag dismiss",
+      intro: "Bottom shop sheets now dismiss from a pull anywhere inside.",
+      changes: [
+        {
+          build,
+          text: "Dragging down from anywhere inside a stall sheet now moves the panel, not just the top handle.",
+        },
+        {
+          build,
+          text: "Releasing past the dismiss distance closes the Hardware Store, Supply Depot, Upgrades, Elevator, or Warp Pad sheet.",
+        },
+        {
+          build,
+          text: "Ordinary taps on shop buttons still work, and editable beacon names do not start a drag.",
+        },
+      ],
+    },
     {
       version: "0.1.106",
       date: "2026-06-20",

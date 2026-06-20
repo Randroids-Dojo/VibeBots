@@ -1242,14 +1242,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Refreshing into a new build keeps the mine screen locked.",
+    "Bottom shop sheets now dismiss from a pull anywhere inside.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("fixed app shell");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "scroll restoration off",
+  await expect(dialog.locator("li").first()).toContainText(
+    "not just the top handle",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("Refresh button");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "Hardware Store, Supply Depot, Upgrades, Elevator, or Warp Pad",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "Ordinary taps on shop buttons still work",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1268,6 +1272,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.107", "Sheet drag dismiss"],
     ["0.1.106", "Mine refresh layout"],
     ["0.1.105", "Battle camera"],
     ["0.1.104", "Mine input cadence"],
@@ -1397,7 +1402,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.106-mine-refresh-layout",
+      "2026-06-20-0.1.107-stall-sheet-drag",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1507,7 +1512,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.106-mine-refresh-layout",
+      "2026-06-20-0.1.107-stall-sheet-drag",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2708,27 +2713,30 @@ test.describe("phone viewport", () => {
     expect(payload.devicePixelRatio).toBeGreaterThan(0);
   });
 
-  test("a downward drag on the sheet handle dismisses it", async ({ page }) => {
+  test("a downward drag from anywhere inside a stall sheet dismisses it", async ({
+    page,
+  }) => {
     await page.goto("/mine");
     await dismissReleaseNotes(page);
     const status = page.getByLabel("Mine status");
     await expect(status).toHaveAttribute("data-depth", "0");
 
-    // Stand at the Supply Depot (two columns right of the shaft) and
-    // tap the prompt to open the sheet.
-    for (let i = 0; i < 2; i++) {
+    // Stand at the Upgrades stall and tap the prompt to open the sheet.
+    const upgradesPrompt = page.getByRole("button", { name: "Open Upgrades" });
+    for (let i = 0; i < 12; i++) {
+      if (await upgradesPrompt.isVisible().catch(() => false)) break;
       await pressMineKey(page, "ArrowRight");
     }
-    const depot = await openStall(page, "Supply Depot");
+    const upgrades = await openStall(page, "Upgrades");
     // Let the slide-up entrance (0.28s) settle so the docked baseline
     // is the resting position, not a mid-animation frame.
     await page.waitForTimeout(450);
 
-    // Grab the top of the sheet (the drag handle).
-    const box = await depot.boundingBox();
+    // Grab the interior of the sheet, below the header affordance.
+    const box = await upgrades.boundingBox();
     if (!box) throw new Error("sheet has no bounding box");
     const x = box.x + box.width / 2;
-    const y = box.y + 8;
+    const y = box.y + Math.min(220, box.height * 0.55);
     await page.mouse.move(x, y);
     await page.mouse.down();
 
@@ -2737,15 +2745,15 @@ test.describe("phone viewport", () => {
     // down, then that a short pull snaps back to its docked position.
     await page.mouse.move(x, y + 40);
     await page.waitForTimeout(30);
-    const dragged = await depot.boundingBox();
+    const dragged = await upgrades.boundingBox();
     if (!dragged) throw new Error("sheet vanished mid-drag");
     expect(dragged.y).toBeGreaterThan(box.y + 15);
     await page.mouse.up();
     await page.waitForTimeout(250);
-    const snapped = await depot.boundingBox();
+    const snapped = await upgrades.boundingBox();
     if (!snapped) throw new Error("sheet dismissed on a sub-threshold drag");
     expect(snapped.y).toBeLessThan(dragged.y - 10);
-    await expect(depot).toBeVisible();
+    await expect(upgrades).toBeVisible();
 
     // Now a full pull past the threshold dismisses, still on the column.
     await page.mouse.move(x, y);
@@ -2755,7 +2763,7 @@ test.describe("phone viewport", () => {
       await page.waitForTimeout(20);
     }
     await page.mouse.up();
-    await expect(depot).not.toBeVisible();
+    await expect(upgrades).not.toBeVisible();
     await expect(status).toHaveAttribute("data-depth", "0");
   });
 });

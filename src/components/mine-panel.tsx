@@ -2993,6 +2993,7 @@ function SheetRow({
 
 /** Downward drag distance (px) past which releasing closes the sheet. */
 const SWIPE_DISMISS_PX = 70;
+const SHEET_DRAG_START_PX = 8;
 
 const sheetButtonStyle = (enabled: boolean): React.CSSProperties => ({
   minWidth: 78,
@@ -3235,42 +3236,85 @@ function StallMenu({
   const warpDestinationCount = beacons.length + portals.length;
   const beaconTotal = mine.consumables.beacon + beacons.length;
   const beaconRoom = Math.max(0, beaconLimit - beaconTotal);
-  // Swipe-to-dismiss: the grab zone follows the finger down, and a far
-  // enough pull (or a flick) closes the sheet. A short tug snaps back.
+  // Swipe-to-dismiss: the sheet follows a downward pull from anywhere inside
+  // the panel. A short tug snaps back.
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [buyQuantity, setBuyQuantity] = useState(1);
   const [beaconDrafts, setBeaconDrafts] = useState<Record<string, string>>({});
-  const dragStart = useRef<number | null>(null);
+  const draggingRef = useRef(false);
+  const dragStart = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const dismiss = () => {
     setDragY(0);
     setDragging(false);
+    draggingRef.current = false;
     dragStart.current = null;
     onClose();
   };
-  const onGrabDown = (e: React.PointerEvent) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragStart.current = e.clientY;
-    setDragging(true);
+  const onSheetPointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (e.target instanceof HTMLElement) {
+      const editable = e.target.closest(
+        "input, textarea, select, [contenteditable='true']",
+      );
+      if (editable) return;
+    }
+    dragStart.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
   };
-  const onGrabMove = (e: React.PointerEvent) => {
-    if (dragStart.current === null) return;
-    const dy = e.clientY - dragStart.current;
+  const onSheetPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (
+      dragStart.current === null ||
+      e.pointerId !== dragStart.current.pointerId
+    ) {
+      return;
+    }
+    const dy = e.clientY - dragStart.current.y;
+    const dx = Math.abs(e.clientX - dragStart.current.x);
+    if (!draggingRef.current) {
+      if (dy <= SHEET_DRAG_START_PX || dy <= dx) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      draggingRef.current = true;
+      setDragging(true);
+    }
+    e.preventDefault();
     setDragY(dy > 0 ? dy : 0);
   };
-  const onGrabUp = (e: React.PointerEvent) => {
-    if (dragStart.current === null) return;
-    const dy = e.clientY - dragStart.current;
+  const onSheetPointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    if (
+      dragStart.current === null ||
+      e.pointerId !== dragStart.current.pointerId
+    ) {
+      return;
+    }
+    const dy = e.clientY - dragStart.current.y;
+    const wasDragging = draggingRef.current;
     dragStart.current = null;
     setDragging(false);
+    draggingRef.current = false;
+    if (!wasDragging) return;
+    e.preventDefault();
     if (dy > SWIPE_DISMISS_PX) dismiss();
     else setDragY(0);
+  };
+  const onSheetPointerCancel = () => {
+    dragStart.current = null;
+    draggingRef.current = false;
+    setDragging(false);
+    setDragY(0);
   };
   return (
     <section
       ref={sheetRef}
       aria-label={stall.name}
       className="stall-sheet"
+      onPointerDown={onSheetPointerDown}
+      onPointerMove={onSheetPointerMove}
+      onPointerUp={onSheetPointerUp}
+      onPointerCancel={onSheetPointerCancel}
       style={{
         position: "absolute",
         left: 0,
@@ -3287,19 +3331,13 @@ function StallMenu({
         zIndex: 10,
         transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
         transition: dragging ? "none" : "transform 180ms ease",
+        touchAction: "none",
       }}
     >
-      {/* Grab zone: the handle plus the strip around it (the iOS sheet
-          convention). Pointer drag here pulls the sheet down to close. */}
       <div
-        onPointerDown={onGrabDown}
-        onPointerMove={onGrabMove}
-        onPointerUp={onGrabUp}
-        onPointerCancel={onGrabUp}
         style={{
           margin: "-8px -18px 0",
           padding: "10px 18px 4px",
-          touchAction: "none",
           cursor: "grab",
         }}
       >

@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine refresh layout note complete", () => {
+  it("keeps the latest sheet drag dismiss note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.106-mine-refresh-layout");
+    expect(release.noticeId).toBe("2026-06-20-0.1.107-stall-sheet-drag");
     expect(latestNote).toMatchObject({
+      version: "0.1.107",
+      title: "Sheet drag dismiss",
+      intro: "Bottom shop sheets now dismiss from a pull anywhere inside.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Dragging down from anywhere inside a stall sheet now moves the panel, not just the top handle.",
+      "Releasing past the dismiss distance closes the Hardware Store, Supply Depot, Upgrades, Elevator, or Warp Pad sheet.",
+      "Ordinary taps on shop buttons still work, and editable beacon names do not start a drag.",
+    ]);
+  });
+
+  it("keeps the archived mine refresh layout note complete", () => {
+    const release = getAppRelease();
+    const refreshNote = release.notes.find(
+      (note) => note.version === "0.1.106",
+    );
+
+    expect(refreshNote).toMatchObject({
       version: "0.1.106",
       title: "Mine refresh layout",
       intro: "Refreshing into a new build keeps the mine screen locked.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(refreshNote?.changes.map((change) => change.text)).toEqual([
       "The mine screen now uses a fixed app shell so browser scroll restoration cannot shift the canvas after Refresh.",
       "The shell turns scroll restoration off while the mine is mounted, keeping the HUD and bottom controls inside the visible viewport.",
       "Focused smoke clicks the new-version Refresh button and checks the loaded mine stays aligned to the viewport.",
@@ -21,14 +39,14 @@ describe("app release notes", () => {
 
   it("keeps the archived battle camera note complete", () => {
     const release = getAppRelease();
-    const battleNote = release.notes.find((note) => note.version === "0.1.105");
+    const cameraNote = release.notes.find((note) => note.version === "0.1.105");
 
-    expect(battleNote).toMatchObject({
+    expect(cameraNote).toMatchObject({
       version: "0.1.105",
       title: "Battle camera",
       intro: "Battle mode now keeps both bots in the shot.",
     });
-    expect(battleNote?.changes.map((change) => change.text)).toEqual([
+    expect(cameraNote?.changes.map((change) => change.text)).toEqual([
       "The arena camera now follows the live midpoint between the bots instead of staying fixed.",
       "The camera backs up as bots spread apart, then eases closer as they clash.",
       "Smoke coverage now checks that both bots stay framed while the match moves.",

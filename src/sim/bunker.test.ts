@@ -10,6 +10,7 @@ import {
   createBunker,
   FLOOR_SPIKES_DAMAGE,
   FLOOR_SPIKES_DURABILITY,
+  moveBasePart,
   overallPlayerLevel,
   placeBasePart,
   playerLevelProgress,
@@ -77,6 +78,37 @@ describe("bunker vertical slice sim", () => {
     if (!removed.ok) return;
     expect(removed.inventory["wall-panel"]).toBe(2);
     expect(removed.bunker.parts).toHaveLength(0);
+  });
+
+  it("moves a placed part without changing inventory or durability", () => {
+    const bunker = createBunker(proposedBunkerFootprint(10, 8));
+    const placed = placeBasePart(
+      bunker,
+      STARTER_BASE_PART_INVENTORY,
+      "wall-panel",
+      bunker.footprint.col,
+      bunker.footprint.row,
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const moved = moveBasePart(
+      placed.bunker,
+      bunker.footprint.col,
+      bunker.footprint.row,
+      bunker.footprint.col + 1,
+      bunker.footprint.row,
+    );
+    expect(moved.ok).toBe(true);
+    if (!moved.ok) return;
+    expect(placed.inventory["wall-panel"]).toBe(1);
+    expect(moved.bunker.parts).toEqual([
+      {
+        partId: "wall-panel",
+        col: bunker.footprint.col + 1,
+        row: bunker.footprint.row,
+        durability: BASE_PART_CATALOG["wall-panel"].durability,
+      },
+    ]);
   });
 
   it("resolves a tier-one Clanker raid into deterministic rewards", () => {

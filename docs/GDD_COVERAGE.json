@@ -630,6 +630,7 @@
         "src/server/bunker.ts",
         "src/app/api/bunker/parts/buy/route.ts",
         "src/app/api/bunker/parts/place/route.ts",
+        "src/app/api/bunker/parts/move/route.ts",
         "src/app/api/bunker/parts/remove/route.ts",
         "src/components/mine-panel.tsx",
         "src/components/mine-stalls.ts",

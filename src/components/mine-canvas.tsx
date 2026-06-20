@@ -1,7 +1,7 @@
 "use client";
 
 import { RoundedBox } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, type ThreeEvent, useFrame } from "@react-three/fiber";
 import {
   memo,
   useEffect,
@@ -33,7 +33,7 @@ import type {
   BunkerRaidSnapshot,
   BunkerState,
 } from "@/sim/bunker";
-import { BASE_PART_CATALOG } from "@/sim/bunker";
+import { BASE_PART_CATALOG, containsBunkerCell } from "@/sim/bunker";
 import {
   biomeAt,
   type CollectTarget,
@@ -442,11 +442,23 @@ function BunkerOverlay({
   blockedCells,
   bunker,
   activeRaid,
+  selectedPartCell,
+  dragTargetCell,
+  onBunkerPartTap,
+  onBunkerPartPointerDown,
+  onBunkerDragTarget,
+  onBunkerDragEnd,
 }: {
   preview?: BunkerFootprint | null;
   blockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
   activeRaid?: BunkerRaidSnapshot | null;
+  selectedPartCell?: MineCoord | null;
+  dragTargetCell?: MineCoord | null;
+  onBunkerPartTap?: (cell: MineCoord) => void;
+  onBunkerPartPointerDown?: (cell: MineCoord) => void;
+  onBunkerDragTarget?: (cell: MineCoord) => void;
+  onBunkerDragEnd?: (cell: MineCoord) => void;
 }) {
   const footprint = bunker?.footprint ?? preview;
   if (!footprint) return null;
@@ -508,8 +520,79 @@ function BunkerOverlay({
         <SelectedSupportCellOutline col={cell.col} row={cell.row} />
       </group>
     )) ?? [];
+  const cellFromPoint = (event: ThreeEvent<PointerEvent>): MineCoord => ({
+    col: Math.round(event.point.x),
+    row: Math.round(-event.point.y),
+  });
+  const selectedKey = selectedPartCell
+    ? `${selectedPartCell.col}:${selectedPartCell.row}`
+    : null;
+  const dragTarget =
+    dragTargetCell &&
+    containsBunkerCell(footprint, dragTargetCell.col, dragTargetCell.row) ? (
+      <group
+        key={`bunker-drag-target:${dragTargetCell.col}:${dragTargetCell.row}`}
+      >
+        <mesh
+          position={[cellX(dragTargetCell.col), -dragTargetCell.row, 1.08]}
+          renderOrder={21}
+        >
+          <planeGeometry args={[1.08, 1.08]} />
+          <meshBasicMaterial
+            color="#54e0c7"
+            transparent
+            opacity={0.2}
+            depthWrite={false}
+            depthTest={false}
+            toneMapped={false}
+          />
+        </mesh>
+        <SelectedSupportCellOutline
+          col={dragTargetCell.col}
+          row={dragTargetCell.row}
+        />
+      </group>
+    ) : null;
+  const dragPlane =
+    selectedPartCell &&
+    dragTargetCell &&
+    onBunkerDragTarget &&
+    onBunkerDragEnd ? (
+      <mesh
+        position={[
+          cellX(footprint.col + (footprint.width - 1) / 2),
+          -(footprint.row + (footprint.height - 1) / 2),
+          1.1,
+        ]}
+        renderOrder={22}
+        onPointerMove={(e) => {
+          e.stopPropagation();
+          onBunkerDragTarget(cellFromPoint(e));
+        }}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          onBunkerDragEnd(cellFromPoint(e));
+        }}
+        onPointerCancel={(e) => {
+          e.stopPropagation();
+          onBunkerDragEnd(cellFromPoint(e));
+        }}
+      >
+        <planeGeometry args={[footprint.width, footprint.height]} />
+        <meshBasicMaterial
+          color="#54e0c7"
+          transparent
+          opacity={0}
+          depthWrite={false}
+          depthTest={false}
+        />
+      </mesh>
+    ) : null;
   const parts =
     bunker?.parts.map((part) => {
+      const partCell = { col: part.col, row: part.row };
+      const partKey = `${part.col}:${part.row}`;
+      const selected = selectedKey === partKey;
       if (part.partId === "floor-spikes") {
         const maxDurability = BASE_PART_CATALOG["floor-spikes"].durability;
         const ratio = Math.max(
@@ -518,10 +601,22 @@ function BunkerOverlay({
         );
         const spikeHeight = 0.32 * ratio;
         return (
+          // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
           <group
             key={`bunker-part:${part.col}:${part.row}`}
             position={[cellX(part.col), -part.row, 0.48]}
+            onClick={(e) => {
+              e.stopPropagation();
+              onBunkerPartTap?.(partCell);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              if (selected) onBunkerPartPointerDown?.(partCell);
+            }}
           >
+            {selected && (
+              <SelectedSupportCellOutline col={part.col} row={part.row} />
+            )}
             <RoundedBox
               args={[0.82, 0.82, 0.08]}
               radius={0.03}
@@ -568,20 +663,31 @@ function BunkerOverlay({
         "floor-spikes": "#c9d1dd",
       };
       return (
-        <RoundedBox
+        // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+        <group
           key={`bunker-part:${part.col}:${part.row}`}
-          args={[0.86, 0.86, 0.28]}
-          radius={0.04}
-          smoothness={1}
           position={[cellX(part.col), -part.row, 0.52]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onBunkerPartTap?.(partCell);
+          }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (selected) onBunkerPartPointerDown?.(partCell);
+          }}
         >
-          <meshStandardMaterial
-            color={colors[part.partId]}
-            roughness={0.62}
-            metalness={0.25}
-            flatShading
-          />
-        </RoundedBox>
+          {selected && (
+            <SelectedSupportCellOutline col={part.col} row={part.row} />
+          )}
+          <RoundedBox args={[0.86, 0.86, 0.28]} radius={0.04} smoothness={1}>
+            <meshStandardMaterial
+              color={colors[part.partId]}
+              roughness={0.62}
+              metalness={0.25}
+              flatShading
+            />
+          </RoundedBox>
+        </group>
       );
     }) ?? [];
   const clankers =
@@ -605,6 +711,8 @@ function BunkerOverlay({
         </mesh>
       )}
       {parts}
+      {dragTarget}
+      {dragPlane}
       {clankers}
     </>
   );
@@ -2303,7 +2411,13 @@ function MineScene({
   bunkerBlockedCells,
   bunker,
   activeBunkerRaid,
+  selectedBunkerPartCell,
+  bunkerPartDragTargetCell,
   onToggleSupport,
+  onBunkerPartTap,
+  onBunkerPartPointerDown,
+  onBunkerDragTarget,
+  onBunkerDragEnd,
 }: MineCanvasProps) {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
@@ -3536,6 +3650,12 @@ function MineScene({
         blockedCells={bunkerBlockedCells}
         bunker={bunker}
         activeRaid={activeBunkerRaid}
+        selectedPartCell={selectedBunkerPartCell}
+        dragTargetCell={bunkerPartDragTargetCell}
+        onBunkerPartTap={onBunkerPartTap}
+        onBunkerPartPointerDown={onBunkerPartPointerDown}
+        onBunkerDragTarget={onBunkerDragTarget}
+        onBunkerDragEnd={onBunkerDragEnd}
       />
       <group ref={particlesRef}>
         {juice.current.particles.map((p) => (
@@ -3586,7 +3706,14 @@ interface MineCanvasProps {
   bunkerBlockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
   activeBunkerRaid?: BunkerRaidSnapshot | null;
+  selectedBunkerPartCell?: MineCoord | null;
+  bunkerPartDragTargetCell?: MineCoord | null;
   onToggleSupport?: (target: CollectTarget) => void;
+  onBunkerPartTap?: (cell: MineCoord) => void;
+  onBunkerPartPointerDown?: (cell: MineCoord) => void;
+  onBunkerDragTarget?: (cell: MineCoord) => void;
+  onBunkerDragEnd?: (cell: MineCoord) => void;
+  onBunkerBackgroundTap?: () => void;
 }
 
 export default function MineCanvas(props: MineCanvasProps) {
@@ -3595,6 +3722,7 @@ export default function MineCanvas(props: MineCanvasProps) {
       camera={{ position: [0, 1.5, 13], fov: 42 }}
       dpr={[1, 2]}
       gl={createWebGPU}
+      onPointerMissed={props.onBunkerBackgroundTap}
     >
       <MineScene {...props} />
     </Canvas>

@@ -1099,19 +1099,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   const noteId = await dialog.getAttribute("data-release-note-id");
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
-  await expect(dialog).toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Death animations now keep the mine filled from the first frame.",
+    "Base parts can now be selected and dragged into place.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "before the browser paints the next frame",
+    "Double-click or double-tap",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "removing the brief void flash",
+    "without spending or refunding inventory",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "replay behavior are unchanged",
+    "tap elsewhere to clear the selection",
   );
 
   await page.mouse.click(8, 8);
@@ -1131,6 +1130,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.89", "Bunker part drag"],
     ["0.1.88", "Death cam flash fix"],
     ["0.1.87", "Mine zoom buttons"],
     ["0.1.86", "Death cam fix"],
@@ -1198,7 +1198,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.88-death-cam-flash",
+      "2026-06-20-0.1.89-bunker-part-drag",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1319,7 +1319,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.88-death-cam-flash",
+      "2026-06-20-0.1.89-bunker-part-drag",
     );
   });
   await page.route("**/api/version", async (route) => {

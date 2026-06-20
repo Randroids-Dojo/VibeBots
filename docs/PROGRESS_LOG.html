@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-part-drag" data-date="2026-06-20">
+    <h3>Bunker Part Drag</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/fresh-20260619-224305</code>, created from latest <code>origin/main</code> in a fresh worktree before implementation, then rebased over current <code>origin/main</code> after the <code>0.1.88</code> death-camera flash fix landed.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>Base-building controls now support double-click or double-tap selection of a placed bunker part in the mine view, then press-and-drag movement to another claimed bunker cell. The move path preserves part durability, does not spend or refund inventory, and selection clears on the next click or tap elsewhere, including HUD and panel clicks. Added a pure sim helper, server helper, <code>/api/bunker/parts/move</code> route, bunker store action, and R3F canvas selection targets. Package version moved to <code>0.1.89</code>; <code>MINE_VERSION</code> stays at <code>43</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after implementation for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. After rebasing over the <code>0.1.88</code> death-camera flash fix and renumbering this slice to <code>0.1.89</code>, ran <code>pnpm exec biome check --write</code> on touched source, tests, release, and doc files, focused bunker, release, notification, and version Vitest (35 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (299 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PORT=3345</code> for latest release notes and the bunker builder raid flow (2 passed), and in-app Browser verification against <code>http://127.0.0.1:3346/mine</code> for the <code>v0.1.89</code> release copy, visible canvas, and zero console errors.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: repositioning a placed part is a layout edit, not a remove-and-rebuild operation, so durability is preserved and inventory does not change. Mine surface tips were reviewed and kept unchanged because an existing bunker tip already points players to base parts, and this is an interaction improvement inside the builder.</dd>
+      <dt>GDD coverage</dt><dd>REQ-035 stays partial with an updated implementation ref for <code>src/app/api/bunker/parts/move/route.ts</code> and a new build-log entry in <code>docs/gdd/08-base-building.html</code>.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="death-cam-first-frame" data-date="2026-06-20">
     <h3>Death Cam First Frame</h3>
     <dl>

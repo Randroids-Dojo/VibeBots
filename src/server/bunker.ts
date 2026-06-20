@@ -15,6 +15,7 @@ import {
   canBuyBasePart,
   createBunker,
   EMPTY_BASE_PART_INVENTORY,
+  moveBasePart,
   overallPlayerLevel,
   placeBasePart,
   playerLevelProgress,
@@ -379,6 +380,25 @@ export async function removeBunkerPart(
     removed.bunker,
     removed.inventory,
   );
+  return { ok: true, view: await loadBunkerView(sql, playerId) };
+}
+
+export async function moveBunkerPart(
+  sql: Sql,
+  playerId: string,
+  fromCol: number,
+  fromRow: number,
+  toCol: number,
+  toRow: number,
+): Promise<BunkerOperationResult> {
+  const view = await loadBunkerView(sql, playerId);
+  if (!view.bunker)
+    return { ok: false, status: 409, error: "claim a bunker first" };
+  const moved = moveBasePart(view.bunker, fromCol, fromRow, toCol, toRow);
+  if (!moved.ok) {
+    return { ok: false, status: 409, error: `cannot move: ${moved.reason}` };
+  }
+  await saveBunkerAndInventory(sql, playerId, moved.bunker, view.inventory);
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 

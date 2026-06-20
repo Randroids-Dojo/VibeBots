@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buyBasePart, loadBunkerView, startBunkerRaid } from "@/server/bunker";
+import {
+  buyBasePart,
+  loadBunkerView,
+  moveBunkerPart,
+  startBunkerRaid,
+} from "@/server/bunker";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
 import { POST as buyPartPost } from "./parts/buy/route";
+import { POST as movePartPost } from "./parts/move/route";
 import { POST as startRaidPost } from "./raid/start/route";
 import { GET } from "./route";
 
@@ -18,6 +24,7 @@ vi.mock("@/server/player", () => ({
 vi.mock("@/server/bunker", () => ({
   buyBasePart: vi.fn(),
   loadBunkerView: vi.fn(),
+  moveBunkerPart: vi.fn(),
   startBunkerRaid: vi.fn(),
 }));
 
@@ -26,6 +33,7 @@ const mockedStorageConfigured = vi.mocked(storageConfigured);
 const mockedPlayer = vi.mocked(getOrCreatePlayerId);
 const mockedBuy = vi.mocked(buyBasePart);
 const mockedLoad = vi.mocked(loadBunkerView);
+const mockedMove = vi.mocked(moveBunkerPart);
 const mockedStart = vi.mocked(startBunkerRaid);
 
 const view = {
@@ -59,6 +67,7 @@ describe("bunker API routes", () => {
     mockedPlayer.mockResolvedValue("player-1");
     mockedBuy.mockResolvedValue({ ok: true, view });
     mockedLoad.mockResolvedValue(view);
+    mockedMove.mockResolvedValue({ ok: true, view });
     mockedStart.mockResolvedValue({
       ok: true,
       view,
@@ -155,6 +164,32 @@ describe("bunker API routes", () => {
       "player-1",
       "floor-spikes",
       1,
+    );
+  });
+
+  it("moves placed base parts", async () => {
+    const res = await movePartPost(
+      new Request("http://localhost/api/bunker/parts/move", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fromCol: 7,
+          fromRow: 4,
+          toCol: 8,
+          toRow: 4,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual(view);
+    expect(mockedMove).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      7,
+      4,
+      8,
+      4,
     );
   });
 });

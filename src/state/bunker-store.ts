@@ -44,6 +44,12 @@ export interface BunkerStoreState {
   buyBasePart: (partId: BasePartId, quantity?: number) => Promise<void>;
   placePart: (partId: BasePartId, col: number, row: number) => Promise<void>;
   removePart: (col: number, row: number) => Promise<void>;
+  movePart: (
+    fromCol: number,
+    fromRow: number,
+    toCol: number,
+    toRow: number,
+  ) => Promise<void>;
   startRaid: () => Promise<void>;
   finishRaid: () => Promise<void>;
 }
@@ -136,6 +142,13 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
     mutation(set, "/api/bunker/parts/place", { partId, col, row }),
   removePart: (col, row) =>
     mutation(set, "/api/bunker/parts/remove", { col, row }),
+  movePart: (fromCol, fromRow, toCol, toRow) =>
+    mutation(set, "/api/bunker/parts/move", {
+      fromCol,
+      fromRow,
+      toCol,
+      toRow,
+    }),
   startRaid: () => mutation(set, "/api/bunker/raid/start", { tier: 1 }),
   finishRaid: () => mutation(set, "/api/bunker/raid/finish"),
 }));

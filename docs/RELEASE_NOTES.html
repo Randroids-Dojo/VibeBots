@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.89" data-date="2026-06-20">
+    <h2>0.1.89</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.89</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>43</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Base parts can now be selected and dragged into place.</dd>
+      <dt>Builder controls</dt><dd>Double-clicking or double-tapping a placed bunker part selects it in the mine view. Pressing and dragging the selected part moves it to another claimed bunker cell.</dd>
+      <dt>Inventory</dt><dd>Moving a placed part preserves its durability and does not spend or refund base-part inventory.</dd>
+      <dt>Selection</dt><dd>The next click or tap elsewhere, including HUD or panel clicks, clears the selected bunker part before another part can be selected.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks bunker part movement preserves inventory and durability. Focused route coverage checks the new <code>/api/bunker/parts/move</code> endpoint forwards validated coordinates to the server helper. Full release verification passed after rebasing over the <code>0.1.88</code> death-camera flash fix.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.88" data-date="2026-06-20">
     <h2>0.1.88</h2>
     <dl>

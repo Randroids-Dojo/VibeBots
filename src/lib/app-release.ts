@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.88-death-cam-flash";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.89-bunker-part-drag";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.89",
+      date: "2026-06-20",
+      title: "Bunker part drag",
+      intro: "Base parts can now be selected and dragged into place.",
+      changes: [
+        {
+          build,
+          text: "Double-click or double-tap a placed bunker part to select it in the mine view.",
+        },
+        {
+          build,
+          text: "Press and drag the selected part to another claimed bunker cell without spending or refunding inventory.",
+        },
+        {
+          build,
+          text: "Click or tap elsewhere to clear the selection before choosing another part.",
+        },
+      ],
+    },
     {
       version: "0.1.88",
       date: "2026-06-20",

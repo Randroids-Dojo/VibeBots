@@ -424,6 +424,51 @@ export function removeBasePart(
   };
 }
 
+export function moveBasePart(
+  bunker: BunkerState,
+  fromCol: number,
+  fromRow: number,
+  toCol: number,
+  toRow: number,
+):
+  | { ok: true; bunker: BunkerState }
+  | {
+      ok: false;
+      reason: "missing" | "outside" | "core" | "occupied";
+    } {
+  const part = bunker.parts.find((candidate) => {
+    return candidate.col === fromCol && candidate.row === fromRow;
+  });
+  if (!part) return { ok: false, reason: "missing" };
+  if (!containsBunkerCell(bunker.footprint, toCol, toRow)) {
+    return { ok: false, reason: "outside" };
+  }
+  if (bunker.core.col === toCol && bunker.core.row === toRow) {
+    return { ok: false, reason: "core" };
+  }
+  if (
+    bunker.parts.some((candidate) => {
+      return (
+        candidate !== part && candidate.col === toCol && candidate.row === toRow
+      );
+    })
+  ) {
+    return { ok: false, reason: "occupied" };
+  }
+  if (fromCol === toCol && fromRow === toRow) return { ok: true, bunker };
+  return {
+    ok: true,
+    bunker: {
+      ...bunker,
+      parts: bunker.parts.map((candidate) =>
+        candidate === part
+          ? { ...candidate, col: toCol, row: toRow }
+          : candidate,
+      ),
+    },
+  };
+}
+
 function perimeterTargets(footprint: BunkerFootprint): Array<{
   col: number;
   row: number;

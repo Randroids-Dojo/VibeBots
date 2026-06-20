@@ -2,18 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest death cam flash note complete with the save reminder", () => {
+  it("keeps the latest bunker part drag note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.88-death-cam-flash");
+    expect(release.noticeId).toBe("2026-06-20-0.1.89-bunker-part-drag");
     expect(latestNote).toMatchObject({
-      version: "0.1.88",
+      version: "0.1.89",
+      title: "Bunker part drag",
+      intro: "Base parts can now be selected and dragged into place.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Double-click or double-tap a placed bunker part to select it in the mine view.",
+      "Press and drag the selected part to another claimed bunker cell without spending or refunding inventory.",
+      "Click or tap elsewhere to clear the selection before choosing another part.",
+    ]);
+  });
+
+  it("keeps the archived death cam flash note complete with the save reminder", () => {
+    const release = getAppRelease();
+    const deathCamFlashNote = release.notes.find(
+      (note) => note.version === "0.1.88",
+    );
+
+    expect(deathCamFlashNote).toMatchObject({
       title: "Death cam flash fix",
       intro:
         "Mason, load your first save now. Death animations now keep the mine filled from the first frame.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(deathCamFlashNote?.changes.map((change) => change.text)).toEqual([
       "Fatal falls and falling-rock crushes now prepare the death camera before the browser paints the next frame.",
       "The camera no longer gets one frame ahead of the populated underground cell window, removing the brief void flash.",
       "Mine rules, recovery, and replay behavior are unchanged.",

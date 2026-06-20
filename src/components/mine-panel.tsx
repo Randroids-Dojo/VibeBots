@@ -3781,7 +3781,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [selectedDynamiteTier, setSelectedDynamiteTier] =
     useState<DynamiteTier>(1);
   const [abandonArmed, setAbandonArmed] = useState(false);
-  const [facing, setFacing] = useState<"left" | "right">("right");
   const [collectMode, setCollectMode] = useState(false);
   const [collectSelection, setCollectSelection] = useState<string[]>([]);
   const [elevatorAutoDir, setElevatorAutoDir] = useState<
@@ -4006,7 +4005,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         return;
       }
       lastDirectionActionRef.current = now;
-      if (dir === "left" || dir === "right") setFacing(dir);
       state.move(dir);
     },
     [elevatorAutoDir],
@@ -4112,7 +4110,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (sum, target) => sum + supportSalvageValue(target.type),
     0,
   );
-  const plankEnabled = !elevatorAutoDir && canPlacePlank(mine, facing);
+  const leftPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "left");
+  const rightPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "right");
   const minerOnElevatorRail = miner.col === ELEVATOR_COL;
   const elevatorAvailable =
     mine.gear.elevator > 0 &&
@@ -5222,19 +5221,35 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         </span>
         <button
           type="button"
-          aria-label={`Place plank ${facing}`}
+          aria-label="Place plank left"
           onClick={() => {
             setDynamiteMenuOpen(false);
-            move(`plank-${facing}` as MineAction);
+            move("plank-left");
           }}
-          disabled={!plankEnabled}
+          disabled={!leftPlankEnabled}
           style={{
             ...iconButtonStyle,
-            opacity: plankEnabled ? 1 : 0.42,
-            cursor: plankEnabled ? "pointer" : "default",
+            opacity: leftPlankEnabled ? 1 : 0.42,
+            cursor: leftPlankEnabled ? "pointer" : "default",
           }}
         >
-          &#129717; {facing === "left" ? "\u25C0" : "\u25B6"}
+          &#129717; {"\u25C0"}
+        </button>
+        <button
+          type="button"
+          aria-label="Place plank right"
+          onClick={() => {
+            setDynamiteMenuOpen(false);
+            move("plank-right");
+          }}
+          disabled={!rightPlankEnabled}
+          style={{
+            ...iconButtonStyle,
+            opacity: rightPlankEnabled ? 1 : 0.42,
+            cursor: rightPlankEnabled ? "pointer" : "default",
+          }}
+        >
+          &#129717; {"\u25B6"}
         </button>
         <button
           type="button"

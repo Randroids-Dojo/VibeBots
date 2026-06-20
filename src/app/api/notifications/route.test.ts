@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-19-0.1.71-ore-yields",
+      releaseNoticeId: "2026-06-20-0.1.72-plank-side-buttons",
       releaseSummary:
-        "Ore yield tuning: Deeper ore and better pickaxes now pay more satisfyingly.",
+        "Plank side buttons: Both bridge directions now stay visible in the mine HUD.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-19-0.1.71-ore-yields",
+      releaseNoticeId: "2026-06-20-0.1.72-plank-side-buttons",
       attempted: 2,
       sent: 1,
       expired: 1,

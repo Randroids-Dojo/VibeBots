@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.71.123",
+  version: "0.1.72.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-19-0.1.71-ore-yields",
-  intro: "Deeper ore and better pickaxes now pay more satisfyingly.",
+  noticeId: "2026-06-20-0.1.72-plank-side-buttons",
+  intro: "Both bridge directions now stay visible in the mine HUD.",
   changes: [
     {
       build: 123,
-      text: "Biome surface beacons now connect to the portal network.",
+      text: "Each side disables independently when that target cell cannot accept a plank.",
     },
   ],
   notes: [
     {
-      version: "0.1.71",
-      date: "2026-06-19",
-      title: "Ore yield tuning",
-      intro: "Deeper ore and better pickaxes now pay more satisfyingly.",
+      version: "0.1.72",
+      date: "2026-06-20",
+      title: "Plank side buttons",
+      intro: "Both bridge directions now stay visible in the mine HUD.",
       changes: [
         {
           build: 123,
-          text: "Biome surface beacons now connect to the portal network.",
+          text: "Each side disables independently when that target cell cannot accept a plank.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Ore yield tuning"),
+      expect.stringContaining("Plank side buttons"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

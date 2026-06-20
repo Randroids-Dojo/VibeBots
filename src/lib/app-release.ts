@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-19-0.1.71-ore-yields";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.72-plank-side-buttons";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.72",
+      date: "2026-06-20",
+      title: "Plank side buttons",
+      intro: "Both bridge directions now stay visible in the mine HUD.",
+      changes: [
+        {
+          build,
+          text: "The mine now shows separate left and right plank buttons instead of swapping one button based on facing.",
+        },
+        {
+          build,
+          text: "Each side disables independently when that target cell cannot accept a plank.",
+        },
+        {
+          build,
+          text: "Plank placement rules, action logs, and replay behavior are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.71",
       date: "2026-06-19",

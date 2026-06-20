@@ -355,9 +355,16 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: /Recall \(\d+\)/ }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /Place plank (left|right)/ }),
-  ).toBeVisible();
+  const placePlankLeft = page.getByRole("button", {
+    name: "Place plank left",
+  });
+  const placePlankRight = page.getByRole("button", {
+    name: "Place plank right",
+  });
+  await expect(placePlankLeft).toBeVisible();
+  await expect(placePlankRight).toBeVisible();
+  await expect(placePlankLeft).toBeDisabled();
+  await expect(placePlankRight).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Edit placed pickups" }),
   ).toBeVisible();
@@ -871,17 +878,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Deeper ore and better pickaxes now pay more satisfyingly.",
+    "Both bridge directions now stay visible in the mine HUD.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Copper, silver, and later ore tiers",
+    "separate left and right plank buttons",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "deterministic yield bursts",
+    "Each side disables independently",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Better Pickaxe levels",
+    "Plank placement rules",
   );
 
   await page.mouse.click(8, 8);
@@ -901,6 +908,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.72", "Plank side buttons"],
     ["0.1.71", "Ore yield tuning"],
     ["0.1.70", "Biome portal beacons"],
     ["0.1.69", "Installed app refresh"],
@@ -951,7 +959,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.71-ore-yields",
+      "2026-06-20-0.1.72-plank-side-buttons",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1072,7 +1080,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-19-0.1.71-ore-yields",
+      "2026-06-20-0.1.72-plank-side-buttons",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1637,6 +1645,35 @@ test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022
   await pressMineKey(page, "ArrowRight");
   await expect(status).toHaveAttribute("data-ladders", "7");
   await expect(status).toHaveAttribute("data-planks", "4");
+});
+
+test("plank controls always show both sides with side-specific disabled state", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  const placePlankLeft = page.getByRole("button", {
+    name: "Place plank left",
+  });
+  const placePlankRight = page.getByRole("button", {
+    name: "Place plank right",
+  });
+
+  await expect(placePlankLeft).toBeVisible();
+  await expect(placePlankRight).toBeVisible();
+  await expect(placePlankLeft).toBeDisabled();
+  await expect(placePlankRight).toBeDisabled();
+
+  await digTo(page, 2);
+  await digLateral(page, "ArrowRight", 0.8);
+  await pressMineKey(page, "ArrowLeft");
+  await pressMineKey(page, "ArrowUp");
+  await expect(status).toHaveAttribute("data-depth", "1");
+  await expect(placePlankLeft).toBeVisible();
+  await expect(placePlankRight).toBeVisible();
+  await expect(placePlankLeft).toBeDisabled();
+  await expect(placePlankRight).toBeEnabled();
 });
 
 test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", async ({

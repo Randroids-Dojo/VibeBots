@@ -591,6 +591,7 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await pressMineKey(page, "ArrowRight");
   await expect(status).toHaveAttribute("data-horizontal-distance", "1");
   await expect(status).toContainText("Base +1");
+  await page.waitForTimeout(650);
   await pressMineKey(page, "ArrowLeft");
   await expect(status).toHaveAttribute("data-horizontal-distance", "0");
 
@@ -669,6 +670,27 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   const plankBox = await placePlankLeft.boundingBox();
   expect(jumpBox?.width).toBeGreaterThan(plankBox?.width ?? 0);
   expect(jumpBox?.height).toBeGreaterThan(plankBox?.height ?? 0);
+  const viewport = page.viewportSize();
+  expect(jumpBox?.x ?? 0).toBeGreaterThan((viewport?.width ?? 0) * 0.65);
+  expect(jumpBox?.y ?? 0).toBeGreaterThan((viewport?.height ?? 0) * 0.32);
+  expect((jumpBox?.y ?? 0) + (jumpBox?.height ?? 0)).toBeLessThan(
+    (plankBox?.y ?? 0) - 12,
+  );
+  const bottomCenterHit = await page.evaluate(() => {
+    const target = document.elementFromPoint(
+      window.innerWidth / 2,
+      window.innerHeight - 32,
+    );
+    return {
+      label: target?.getAttribute("aria-label") ?? null,
+      mineShell: target
+        ?.closest("[data-mine-shell='true']")
+        ?.getAttribute("data-mine-shell"),
+    };
+  });
+  expect(bottomCenterHit.label).not.toBe("Jump jets");
+  expect(bottomCenterHit.label).not.toBe("Dig controls");
+  expect(bottomCenterHit.mineShell).toBe("true");
   await expect(
     page.getByRole("button", { name: "Scrap placed supports" }),
   ).toBeVisible();
@@ -1497,15 +1519,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Installed Android refreshes now anchor to the visible mine screen.",
+    "Jump now sits on the middle right and leaves movement clear.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("visual viewport");
+  await expect(dialog.locator("li").first()).toContainText("middle-right edge");
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Refresh button records the target version",
+    "bottom dig-control strip",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Settings, zoom, and dig controls",
+    "bottom-center hit target",
   );
 
   await page.mouse.click(8, 8);
@@ -1525,6 +1547,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.119", "Jump button placement"],
     ["0.1.118", "Visual viewport refresh"],
     ["0.1.117", "Jump Jets"],
     ["0.1.116", "Shop release copy"],
@@ -1667,7 +1690,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.118-visual-viewport-refresh",
+      "2026-06-20-0.1.119-jump-button-placement",
     );
   });
   await page.route("**/api/version", async (route) => {

@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.118-visual-viewport-refresh";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.119-jump-button-placement";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.119",
+      date: "2026-06-20",
+      title: "Jump button placement",
+      intro: "Jump now sits on the middle right and leaves movement clear.",
+      changes: [
+        {
+          build,
+          text: "The Jump button moved to the middle-right edge of the mine instead of the bottom controls.",
+        },
+        {
+          build,
+          text: "The bottom dig-control strip no longer catches pointer input in empty space, so drag movement stays clear.",
+        },
+        {
+          build,
+          text: "Smoke coverage now checks the larger Jump button placement, bottom-control non-overlap, and bottom-center hit target.",
+        },
+      ],
+    },
     {
       version: "0.1.118",
       date: "2026-06-20",

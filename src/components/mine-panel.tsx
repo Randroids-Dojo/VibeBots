@@ -708,8 +708,8 @@ const iconButtonStyle: React.CSSProperties = {
 
 const jumpButtonStyle: React.CSSProperties = {
   ...iconButtonStyle,
-  minWidth: 92,
-  height: 54,
+  minWidth: 88,
+  height: 64,
   borderRadius: 8,
   border: "2px solid #54e0c7",
   background: "rgba(15, 31, 37, 0.94)",
@@ -6521,6 +6521,30 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         </section>
       )}
 
+      <button
+        type="button"
+        aria-label="Jump jets"
+        title="Jump up one cell"
+        onClick={() => {
+          setDynamiteMenuOpen(false);
+          setRecoveryMenuOpen(false);
+          fireJump();
+        }}
+        disabled={!jumpEnabled}
+        style={{
+          ...jumpButtonStyle,
+          position: "absolute",
+          right: 14,
+          top: "50%",
+          transform: "translateY(-50%)",
+          zIndex: 6,
+          opacity: jumpEnabled ? 1 : 0.46,
+          cursor: jumpEnabled ? "pointer" : "default",
+        }}
+      >
+        Jump
+      </button>
+
       {/* Consumable cluster: thumb-reach icon buttons. Movement is the
           thumbstick (or WASD/arrows); the D-pad is gone. */}
       <section
@@ -6536,6 +6560,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           justifyContent: "flex-end",
           maxWidth: "calc(100vw - 24px)",
           zIndex: 5,
+          pointerEvents: "none",
         }}
       >
         <span
@@ -6552,24 +6577,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         <span style={{ ...chipStyle, color: "#8b93a7" }}>
           &#129717; {mine.consumables.plank}
         </span>
-        <button
-          type="button"
-          aria-label="Jump jets"
-          title="Jump up one cell"
-          onClick={() => {
-            setDynamiteMenuOpen(false);
-            setRecoveryMenuOpen(false);
-            fireJump();
-          }}
-          disabled={!jumpEnabled}
-          style={{
-            ...jumpButtonStyle,
-            opacity: jumpEnabled ? 1 : 0.46,
-            cursor: jumpEnabled ? "pointer" : "default",
-          }}
-        >
-          Jump
-        </button>
         <button
           type="button"
           aria-label="Place plank left"

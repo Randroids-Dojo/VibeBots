@@ -1191,17 +1191,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Bad network loads now show the mine is trying to recover.",
+    "Holding movement now keeps pace with rapid taps.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "animated cart-and-drill loader",
+    "no slower than repeated taps or swipes",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "save was not changed",
+    "swipe-spam shortcut",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "movement stays paused",
+    "without changing replay, save, or sim versions",
   );
 
   await page.mouse.click(8, 8);
@@ -1221,6 +1221,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.104", "Mine input cadence"],
     ["0.1.103", "Mine load fallback"],
     ["0.1.102", "Falling rock chains"],
     ["0.1.101", "Depot copy cleanup"],
@@ -1347,7 +1348,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.103-mine-load-fallback",
+      "2026-06-20-0.1.104-mine-input-cadence",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1468,7 +1469,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.103-mine-load-fallback",
+      "2026-06-20-0.1.104-mine-input-cadence",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2399,11 +2400,18 @@ test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", as
     })
     .toBeGreaterThan(initialX + 0.05);
   await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-miner-motion-frames")),
+      { timeout: 1_000 },
+    )
+    .toBeGreaterThan(2);
+  await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
       timeout: 600,
     })
     .toBeGreaterThan(initialX + 0.85);
 
+  await page.waitForTimeout(620);
   await page.keyboard.press("ArrowRight");
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
@@ -2421,6 +2429,42 @@ test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", as
   await page.waitForTimeout(90);
   const afterStrike = await canvas.screenshot();
   expect(Buffer.compare(beforeStrike, afterStrike)).not.toBe(0);
+});
+
+test("rapid repeated keyboard taps do not bypass held cadence (REQ-023)", async ({
+  page,
+}) => {
+  const status = page.getByLabel("Mine status");
+  const horizontalDistance = async () =>
+    Number(await status.getAttribute("data-horizontal-distance"));
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(status).toHaveAttribute("data-depth", "0");
+
+  const keyboardStart = await horizontalDistance();
+  await page.keyboard.press("ArrowRight");
+  await expect(status).toHaveAttribute(
+    "data-horizontal-distance",
+    String(keyboardStart + 1),
+  );
+  await page.evaluate(() => {
+    for (let i = 0; i < 3; i++) {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }),
+      );
+      window.dispatchEvent(
+        new KeyboardEvent("keyup", { bubbles: true, key: "ArrowRight" }),
+      );
+    }
+  });
+  await page.waitForTimeout(100);
+  expect(await horizontalDistance()).toBe(keyboardStart + 1);
+
+  await page.keyboard.down("ArrowRight");
+  await page.waitForTimeout(650);
+  await page.keyboard.up("ArrowRight");
+  expect(await horizontalDistance()).toBeGreaterThanOrEqual(keyboardStart + 2);
 });
 
 test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({

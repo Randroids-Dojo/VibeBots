@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine load fallback note complete", () => {
+  it("keeps the latest mine input cadence note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.103-mine-load-fallback");
+    expect(release.noticeId).toBe("2026-06-20-0.1.104-mine-input-cadence");
     expect(latestNote).toMatchObject({
+      version: "0.1.104",
+      title: "Mine input cadence",
+      intro: "Holding movement now keeps pace with rapid taps.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Keyboard and thumbstick movement now share one cadence, so holding a direction is no slower than repeated taps or swipes.",
+      "Rapid tap-release bursts wait for the same next legal action time as held input, closing the swipe-spam shortcut.",
+      "The miner glide now fills more of each legal action interval, making movement look smoother without changing replay, save, or sim versions.",
+    ]);
+  });
+
+  it("keeps the archived mine load fallback note complete", () => {
+    const release = getAppRelease();
+    const loadNote = release.notes.find((note) => note.version === "0.1.103");
+
+    expect(loadNote).toMatchObject({
       version: "0.1.103",
       title: "Mine load fallback",
       intro: "Bad network loads now show the mine is trying to recover.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(loadNote?.changes.map((change) => change.text)).toEqual([
       "The mine now shows an animated cart-and-drill loader while world data or the canvas bundle is still loading.",
       "If the network drops before the world loads, a transparent message explains that the save was not changed.",
       "The retry button reloads the mine scene, and mine movement stays paused until the world is ready.",

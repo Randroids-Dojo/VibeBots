@@ -771,8 +771,7 @@ function BunkerOverlay({
 
 /** Width of the dressed surface camp strip around the origin. */
 const CAMP_WIDTH = 60;
-const easeStep = (t: number) =>
-  t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+const easeStep = (t: number) => 0.5 - Math.cos(t * Math.PI) * 0.5;
 
 function snapMotion(
   now: number,

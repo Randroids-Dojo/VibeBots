@@ -26,32 +26,22 @@ export function MineTouchControls({
   onDirection,
   onZoomChange,
   onReleaseDirection,
-  repeatMs,
 }: {
-  onDirection: (dir: Direction, options?: { repeat?: boolean }) => void;
+  onDirection: (dir: Direction) => void;
   onZoomChange: (delta: number) => void;
   onReleaseDirection?: (dir: Direction | null) => void;
-  repeatMs: number;
 }) {
   const js = useRef(createJoystick());
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinchDistance = useRef<number | null>(null);
   const pinching = useRef(false);
   const heldDir = useRef<Direction | null>(null);
-  const repeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [stick, setStick] = useState<{
     originX: number;
     originY: number;
     nubX: number;
     nubY: number;
   } | null>(null);
-
-  const stopRepeat = () => {
-    if (repeatTimer.current) {
-      clearInterval(repeatTimer.current);
-      repeatTimer.current = null;
-    }
-  };
 
   const syncDirection = () => {
     const v = readJoystick(js.current);
@@ -75,14 +65,10 @@ export function MineTouchControls({
     }
     if (dir !== held) {
       heldDir.current = dir;
-      stopRepeat();
       if (dir) {
         onDirection(dir);
-        repeatTimer.current = setInterval(() => {
-          if (heldDir.current) {
-            onDirection(heldDir.current);
-          }
-        }, repeatMs);
+      } else {
+        onReleaseDirection?.(held);
       }
     }
   };
@@ -106,7 +92,6 @@ export function MineTouchControls({
     const releasedDir = heldDir.current;
     endJoystick(js.current);
     heldDir.current = null;
-    stopRepeat();
     setStick(null);
     onReleaseDirection?.(releasedDir);
   };

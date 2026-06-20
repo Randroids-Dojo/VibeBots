@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.103-mine-load-fallback";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.104-mine-input-cadence";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.104",
+      date: "2026-06-20",
+      title: "Mine input cadence",
+      intro: "Holding movement now keeps pace with rapid taps.",
+      changes: [
+        {
+          build,
+          text: "Keyboard and thumbstick movement now share one cadence, so holding a direction is no slower than repeated taps or swipes.",
+        },
+        {
+          build,
+          text: "Rapid tap-release bursts wait for the same next legal action time as held input, closing the swipe-spam shortcut.",
+        },
+        {
+          build,
+          text: "The miner glide now fills more of each legal action interval, making movement look smoother without changing replay, save, or sim versions.",
+        },
+      ],
+    },
     {
       version: "0.1.103",
       date: "2026-06-20",

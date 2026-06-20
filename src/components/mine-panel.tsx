@@ -106,6 +106,10 @@ import {
   useMineStore,
 } from "@/state/mine-store";
 import { DESTINATIONS, destinationAt } from "./mine-destinations";
+import {
+  createDirectionCadenceController,
+  type DirectionCadenceController,
+} from "./mine-input-cadence";
 import { actionRepeatMs } from "./mine-pacing";
 import { useMinePerformanceSampling } from "./mine-performance-sampling";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
@@ -4230,7 +4234,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastShopNoteRef = useRef<string | null>(null);
   const lastGamepadZoomRef = useRef(0);
   const lastGamepadBagCloseRef = useRef(false);
-  const lastDirectionActionRef = useRef(0);
+  const directionActionRef = useRef<(dir: Direction) => boolean>(() => false);
+  const directionCadenceRef =
+    useRef<DirectionCadenceController<Direction> | null>(null);
   const upwardDigAwaitingReleaseRef = useRef(false);
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const previousMinerRowRef = useRef(mine.miner.row);
@@ -4467,24 +4473,31 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   const mineSceneReady = worldLoaded && mineSceneStatus === "ready";
 
-  const fireDirection = useCallback(
-    (dir: Direction, options: { repeat?: boolean } = {}) => {
-      if (!mineSceneReady) return;
-      if (elevatorAutoDir) return;
+  const directionCadence = useCallback(() => {
+    if (!directionCadenceRef.current) {
+      directionCadenceRef.current = createDirectionCadenceController({
+        clock: {
+          now: () => Date.now(),
+          setTimeout: (callback, delayMs) =>
+            window.setTimeout(callback, delayMs),
+          clearTimeout: (timer) => window.clearTimeout(timer),
+        },
+        onAction: (dir: Direction) => directionActionRef.current(dir),
+      });
+    }
+    return directionCadenceRef.current;
+  }, []);
+
+  const performDirectionAction = useCallback(
+    (dir: Direction): boolean => {
+      if (!mineSceneReady) return false;
+      if (elevatorAutoDir) return false;
       if (dir !== "up") {
         upwardDigAwaitingReleaseRef.current = false;
       } else if (upwardDigAwaitingReleaseRef.current) {
-        return;
+        return false;
       }
       const state = useMineStore.getState();
-      const now = Date.now();
-      if (
-        options.repeat &&
-        now - lastDirectionActionRef.current < actionRepeatMs(state.mine.gear)
-      ) {
-        return;
-      }
-      lastDirectionActionRef.current = now;
       const startCol = state.mine.miner.col;
       const startRow = state.mine.miner.row;
       state.move(dir);
@@ -4499,14 +4512,35 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       ) {
         upwardDigAwaitingReleaseRef.current = true;
       }
+      return true;
     },
     [elevatorAutoDir, mineSceneReady],
   );
 
+  directionActionRef.current = performDirectionAction;
+
+  const fireDirection = useCallback(
+    (dir: Direction) => {
+      const repeatMs = actionRepeatMs(useMineStore.getState().mine.gear);
+      directionCadence().press(dir, repeatMs);
+    },
+    [directionCadence],
+  );
+
   const releaseDirection = useCallback((dir: Direction | null) => {
-    if (dir === "up") {
+    directionCadenceRef.current?.release(dir);
+    if (dir === null || dir === "up") {
       upwardDigAwaitingReleaseRef.current = false;
     }
+  }, []);
+
+  useEffect(() => {
+    if (mineSceneReady && !elevatorAutoDir && !creditsOpen) return;
+    directionCadenceRef.current?.cancel();
+  }, [creditsOpen, elevatorAutoDir, mineSceneReady]);
+
+  useEffect(() => {
+    return () => directionCadenceRef.current?.cancel();
   }, []);
 
   // Moving off the column closes any open sheet, so the menu never
@@ -4603,13 +4637,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       if (!dir) return;
       event.preventDefault();
       if (creditsOpen) return;
-      fireDirection(dir, { repeat: event.repeat });
+      fireDirection(dir);
     };
     const onKeyUp = (event: KeyboardEvent) => {
       const dir = KEY_DIRECTIONS[event.key];
       if (dir) releaseDirection(dir);
     };
-    const onBlur = () => releaseDirection("up");
+    const onBlur = () => releaseDirection(null);
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
@@ -5215,7 +5249,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             onDirection={act}
             onReleaseDirection={releaseDirection}
             onZoomChange={adjustCameraZoom}
-            repeatMs={actionRepeatMs(mine.gear)}
           />
         )}
       <StratumBanner row={miner.row} />

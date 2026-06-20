@@ -106,6 +106,10 @@ For a known affected player whose local in-flight trip checkpoint is stale after
 a mine-version bump, repair the stored replay guard explicitly instead of
 changing payout rules:
 
+Run it with `DATABASE_URL` set for the target database. For production, prefer
+`vercel env run -e production -- pnpm ops:repair-stale-trip -- ...` so the
+connection string is loaded from Vercel and not copied into the shell history.
+
 ```sh
 pnpm ops:repair-stale-trip -- --player-hash <log-player-hash> --expected-seed <seed> --expected-trip-index <count>
 pnpm ops:repair-stale-trip -- --player-hash <log-player-hash> --expected-seed <seed> --expected-trip-index <count> --apply

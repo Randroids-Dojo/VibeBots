@@ -113,6 +113,7 @@ function loadLocalTrip(slot: SaveSlotId): SavedTrip | null {
         (move) => typeof move === "string" && isMineAction(move),
       )
     ) {
+      removeLocalTrip(slot);
       return null;
     }
     return { ...saved, gear: normalizeGear(saved.gear) };

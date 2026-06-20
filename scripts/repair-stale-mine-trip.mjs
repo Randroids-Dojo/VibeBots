@@ -2,6 +2,8 @@
 import { createHash } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 
+const PLAYER_HASH_LENGTH = 16;
+
 function usage() {
   console.error(`usage:
   pnpm ops:repair-stale-trip -- --player-hash <hash> --expected-seed <seed> --expected-trip-index <count> [--apply]
@@ -33,6 +35,30 @@ function readIntArg(name) {
   return value;
 }
 
+function readPlayerHash() {
+  const raw = readArg("--player-hash");
+  if (raw === null) return null;
+  const hash = raw.toLowerCase();
+  if (hash.length !== PLAYER_HASH_LENGTH || !/^[0-9a-f]+$/.test(hash)) {
+    throw new Error(
+      `--player-hash must be a ${PLAYER_HASH_LENGTH}-character hex hash`,
+    );
+  }
+  return hash;
+}
+
+function safeNonNegativeInt(value, name) {
+  const text = typeof value === "bigint" ? value.toString() : String(value);
+  if (!/^\d+$/.test(text)) {
+    throw new Error(`${name} must be a non-negative integer`);
+  }
+  const number = Number(text);
+  if (!Number.isSafeInteger(number) || number < 0) {
+    throw new Error(`${name} is outside JavaScript's safe integer range`);
+  }
+  return number;
+}
+
 function playerHash(playerId) {
   return createHash("sha256").update(playerId).digest("hex").slice(0, 16);
 }
@@ -50,12 +76,12 @@ async function findPlayer(sql, playerId, hash) {
   const rows = await sql`
     SELECT p.id, mw.seed, mw.trip_count
     FROM players p
-    LEFT JOIN mine_worlds mw ON mw.player_id = p.id`;
-  const matches = rows.filter((row) => playerHash(row.id) === hash);
-  if (matches.length > 1) {
+    LEFT JOIN mine_worlds mw ON mw.player_id = p.id
+    WHERE substring(encode(sha256(p.id::text::bytea), 'hex') from 1 for ${PLAYER_HASH_LENGTH}) = ${hash}`;
+  if (rows.length > 1) {
     throw new Error(`player hash ${hash} matched more than one row`);
   }
-  return matches[0] ?? null;
+  return rows[0] ?? null;
 }
 
 async function main() {
@@ -65,13 +91,16 @@ async function main() {
   }
   const apply = process.argv.includes("--apply");
   const playerId = readArg("--player-id");
-  const hash = readArg("--player-hash");
+  const hash = readPlayerHash();
   if ((playerId && hash) || (!playerId && !hash)) {
     throw new Error("provide exactly one of --player-id or --player-hash");
   }
   const expectedSeed = readIntArg("--expected-seed");
   const expectedTripIndex = readIntArg("--expected-trip-index");
   const nextTripIndex = expectedTripIndex + 1;
+  if (!Number.isSafeInteger(nextTripIndex)) {
+    throw new Error("--expected-trip-index is too large to advance safely");
+  }
 
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
@@ -86,8 +115,8 @@ async function main() {
   }
 
   const before = {
-    seed: Number(player.seed),
-    tripIndex: Number(player.trip_count),
+    seed: safeNonNegativeInt(player.seed, "stored seed"),
+    tripIndex: safeNonNegativeInt(player.trip_count, "stored trip_count"),
   };
   const matches =
     before.seed === expectedSeed && before.tripIndex === expectedTripIndex;
@@ -125,8 +154,11 @@ async function main() {
         ...plan,
         dryRun: false,
         stored: {
-          seed: Number(rows[0].seed),
-          tripIndex: Number(rows[0].trip_count),
+          seed: safeNonNegativeInt(rows[0].seed, "updated seed"),
+          tripIndex: safeNonNegativeInt(
+            rows[0].trip_count,
+            "updated trip_count",
+          ),
         },
       },
       null,

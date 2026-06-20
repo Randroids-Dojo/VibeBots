@@ -1112,18 +1112,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Falling-rock deaths now stay underground until the death animation finishes.",
+    "Open mine menus now close from a simple outside tap.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "before the next frame can follow the reset surface miner",
-  );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "underground impact cell",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "Mine rules, recovery, and replay behavior are unchanged.",
-  );
+  await expect(dialog.locator("li").first()).toContainText("Recovery actions");
+  await expect(dialog.locator("li").nth(1)).toContainText("underlying control");
+  await expect(dialog.locator("li").nth(2)).toContainText("edit pickups");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1142,6 +1136,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.96", "Menu outside taps"],
     ["0.1.95", "Death cam surface jump fix"],
     ["0.1.94", "Cargo hold rebalance"],
     ["0.1.93", "Pickaxe battery tuning"],
@@ -1223,7 +1218,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.95-death-cam-surface-jump",
+      "2026-06-20-0.1.96-menu-outside-dismiss",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1344,7 +1339,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.95-death-cam-surface-jump",
+      "2026-06-20-0.1.96-menu-outside-dismiss",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2735,6 +2730,47 @@ test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
   // Tapping the prompt again reopens it.
   await prompt.click();
   await expect(buyer).toBeVisible();
+});
+
+test("floating mine menus dismiss from outside taps", async ({ page }) => {
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const outsidePoint = { x: 18, y: 220 };
+
+  await page.getByRole("button", { name: "Open settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await expect(settings).toBeVisible();
+  await page.mouse.click(outsidePoint.x, outsidePoint.y);
+  await expect(settings).not.toBeVisible();
+
+  await page.getByRole("button", { name: /Dynamite .*\(/ }).click();
+  const dynamiteMenu = page.getByRole("menu", { name: "Dynamite tiers" });
+  await expect(dynamiteMenu).toBeVisible();
+  await page.mouse.click(outsidePoint.x, outsidePoint.y);
+  await expect(dynamiteMenu).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Recovery options" }).click();
+  const recoveryMenu = page.getByRole("menu", { name: "Recovery actions" });
+  await expect(recoveryMenu).toBeVisible();
+  await page.mouse.click(outsidePoint.x, outsidePoint.y);
+  await expect(recoveryMenu).not.toBeVisible();
+
+  for (let i = 0; i < 3; i++) {
+    await pressMineKey(page, "ArrowLeft");
+  }
+  const hardware = await openStall(page, "Hardware Store");
+  await page.mouse.click(outsidePoint.x, outsidePoint.y);
+  await expect(hardware).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open Hardware Store" }),
+  ).toBeVisible();
+
+  const indicator = await walkUntilBaseIndicator(page);
+  await indicator.click();
+  const baseReturn = page.getByRole("region", { name: "Base return" });
+  await expect(baseReturn).toBeVisible();
+  await page.mouse.click(outsidePoint.x, outsidePoint.y);
+  await expect(baseReturn).not.toBeVisible();
 });
 
 test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({

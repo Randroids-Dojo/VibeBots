@@ -6,6 +6,7 @@ import {
   type HTMLAttributes,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -185,6 +186,49 @@ function useDismissControls(active: boolean, onDismiss: () => void) {
       cancelAnimationFrame(frame);
     };
   }, [active]);
+}
+
+function useOutsidePointerDismiss(
+  active: boolean,
+  isInsideOpenSurface: (
+    target: EventTarget | null,
+    path: readonly EventTarget[],
+  ) => boolean,
+  onDismiss: () => void,
+) {
+  const isInsideOpenSurfaceRef = useRef(isInsideOpenSurface);
+  const onDismissRef = useRef(onDismiss);
+
+  useEffect(() => {
+    isInsideOpenSurfaceRef.current = isInsideOpenSurface;
+    onDismissRef.current = onDismiss;
+  }, [isInsideOpenSurface, onDismiss]);
+
+  useEffect(() => {
+    if (!active) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const path = event.composedPath();
+      if (isInsideOpenSurfaceRef.current(event.target, path)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onDismissRef.current();
+    };
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [active]);
+}
+
+function eventInsideRef(
+  ref: RefObject<HTMLElement | null>,
+  target: EventTarget | null,
+  path: readonly EventTarget[],
+): boolean {
+  const element = ref.current;
+  if (!element) return false;
+  if (path.includes(element)) return true;
+  return target instanceof Node && element.contains(target);
 }
 
 function DismissibleDialogFrame({
@@ -2936,6 +2980,7 @@ function StallMenu({
   onBuyElevator,
   onRide,
   onClose,
+  sheetRef,
 }: {
   stall: StallDef;
   mine: MineState;
@@ -2952,6 +2997,7 @@ function StallMenu({
   onBuyElevator: () => void;
   onRide: (action: MineAction) => void;
   onClose: () => void;
+  sheetRef?: RefObject<HTMLElement | null>;
 }) {
   const miner = mine.miner;
   const banked = miner.bankedCredits;
@@ -2997,6 +3043,7 @@ function StallMenu({
   };
   return (
     <section
+      ref={sheetRef}
       aria-label={stall.name}
       className="stall-sheet"
       style={{
@@ -3952,6 +3999,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // Touch players never see keyboard copy (matches the renderer's
   // coarse-pointer heuristic). False during SSR; set before paint.
   const [coarsePointer, setCoarsePointer] = useState(false);
+  const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const settingsMenuRef = useRef<HTMLElement | null>(null);
+  const baseReturnButtonRef = useRef<HTMLButtonElement | null>(null);
+  const baseReturnMenuRef = useRef<HTMLElement | null>(null);
+  const stallSheetRef = useRef<HTMLElement | null>(null);
+  const dynamiteMenuRef = useRef<HTMLDivElement | null>(null);
+  const recoveryMenuRef = useRef<HTMLDivElement | null>(null);
   const lastCashOutStateRef = useRef(cashOut.state);
   const lastShopNoteRef = useRef<string | null>(null);
   const lastGamepadZoomRef = useRef(0);
@@ -4209,6 +4263,65 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBaseReturnOpen(false);
     setBaseReturnConfirm(false);
   }, [mine.miner.col]);
+
+  const dismissFloatingMenus = useCallback(() => {
+    setSettingsOpen(false);
+    setBaseReturnOpen(false);
+    setBaseReturnConfirm(false);
+    setOpenStallCol(null);
+    setDynamiteMenuOpen(false);
+    setRecoveryMenuOpen(false);
+    setAbandonArmed(false);
+  }, []);
+
+  const isInsideOpenFloatingMenu = useCallback(
+    (target: EventTarget | null, path: readonly EventTarget[]) => {
+      if (
+        settingsOpen &&
+        (eventInsideRef(settingsButtonRef, target, path) ||
+          eventInsideRef(settingsMenuRef, target, path))
+      ) {
+        return true;
+      }
+      if (
+        baseReturnOpen &&
+        (eventInsideRef(baseReturnButtonRef, target, path) ||
+          eventInsideRef(baseReturnMenuRef, target, path))
+      ) {
+        return true;
+      }
+      if (
+        openStallCol !== null &&
+        eventInsideRef(stallSheetRef, target, path)
+      ) {
+        return true;
+      }
+      if (dynamiteMenuOpen && eventInsideRef(dynamiteMenuRef, target, path)) {
+        return true;
+      }
+      if (recoveryMenuOpen && eventInsideRef(recoveryMenuRef, target, path)) {
+        return true;
+      }
+      return false;
+    },
+    [
+      baseReturnOpen,
+      dynamiteMenuOpen,
+      openStallCol,
+      recoveryMenuOpen,
+      settingsOpen,
+    ],
+  );
+
+  useOutsidePointerDismiss(
+    settingsOpen ||
+      baseReturnOpen ||
+      openStallCol !== null ||
+      dynamiteMenuOpen ||
+      recoveryMenuOpen,
+    isInsideOpenFloatingMenu,
+    dismissFloatingMenus,
+  );
 
   // The abandon confirm disarms itself; a stray thumb cannot torch a
   // haul twenty minutes deep.
@@ -4875,6 +4988,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onDelete={deleteSaveSlot}
       />
       <button
+        ref={settingsButtonRef}
         type="button"
         aria-label="Open settings"
         aria-expanded={settingsOpen}
@@ -4944,6 +5058,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       </section>
       {settingsOpen && (
         <section
+          ref={settingsMenuRef}
           aria-label="Settings"
           style={{
             position: "absolute",
@@ -5048,6 +5163,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       {baseReturn && (
         <>
           <button
+            ref={baseReturnButtonRef}
             type="button"
             className={`mine-base-indicator mine-base-indicator-${baseReturn.direction}`}
             aria-label={`Base is ${baseReturn.direction}`}
@@ -5065,6 +5181,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           </button>
           {baseReturnOpen && (
             <section
+              ref={baseReturnMenuRef}
               aria-label="Base return"
               className={`mine-base-return-menu mine-base-return-menu-${baseReturn.direction}`}
             >
@@ -5286,6 +5403,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onBuyElevator={() => void buyElevator()}
           onRide={startElevatorRide}
           onClose={() => setOpenStallCol(null)}
+          sheetRef={stallSheetRef}
         />
       )}
 
@@ -5746,7 +5864,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         >
           &#8635;
         </button>
-        <div style={{ position: "relative", pointerEvents: "auto" }}>
+        <div
+          ref={dynamiteMenuRef}
+          style={{ position: "relative", pointerEvents: "auto" }}
+        >
           <button
             type="button"
             aria-label={`Dynamite ${DYNAMITE_TIER_LABELS[selectedDynamiteTier]} (${mine.consumables.dynamite})`}
@@ -5864,7 +5985,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             </div>
           )}
         </div>
-        <div style={{ position: "relative", pointerEvents: "auto" }}>
+        <div
+          ref={recoveryMenuRef}
+          style={{ position: "relative", pointerEvents: "auto" }}
+        >
           <button
             type="button"
             aria-label="Recovery options"

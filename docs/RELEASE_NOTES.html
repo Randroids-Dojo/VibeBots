@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.96" data-date="2026-06-20">
+    <h2>0.1.96</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.96</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>46</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Open mine menus now close from a simple outside tap.</dd>
+      <dt>Controls</dt><dd>Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions close when the player taps or clicks outside the open menu.</dd>
+      <dt>Input safety</dt><dd>The outside tap is swallowed after closing the menu, so it does not also move, dig, or press an underlying mine control.</dd>
+      <dt>Scope</dt><dd>Bunker builder and modal dialogs keep their existing backdrop dismissal, while edit pickups still use canvas taps to select placed supports.</dd>
+      <dt>Verification</dt><dd>After rebasing over the death cam surface jump release, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, focused app-release, notification, version, and Web Push Vitest (25 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm test</code> (317 passed), <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3376</code> for latest release notes, stall reopen, and floating menu outside dismiss (3 passed), and <code>pnpm test:e2e:critical --project=chromium</code> against the same server (5 passed).</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.95" data-date="2026-06-20">
     <h2>0.1.95</h2>
     <dl>

@@ -2,18 +2,36 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest death cam surface jump note complete", () => {
+  it("keeps the latest menu outside tap note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.95-death-cam-surface-jump");
+    expect(release.noticeId).toBe("2026-06-20-0.1.96-menu-outside-dismiss");
     expect(latestNote).toMatchObject({
+      version: "0.1.96",
+      title: "Menu outside taps",
+      intro: "Open mine menus now close from a simple outside tap.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions now close when you tap or click outside them.",
+      "The outside tap is swallowed after closing the menu, so it does not also move, dig, or press an underlying control.",
+      "Bunker builder and modal dialogs keep their existing backdrop dismissal, while edit pickups still use canvas taps to select placed supports.",
+    ]);
+  });
+
+  it("keeps the archived death cam surface jump note complete", () => {
+    const release = getAppRelease();
+    const deathCamNote = release.notes.find(
+      (note) => note.version === "0.1.95",
+    );
+
+    expect(deathCamNote).toMatchObject({
       version: "0.1.95",
       title: "Death cam surface jump fix",
       intro:
         "Falling-rock deaths now stay underground until the death animation finishes.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(deathCamNote?.changes.map((change) => change.text)).toEqual([
       "The mine renderer now installs death playback from the mine store action before the next frame can follow the reset surface miner.",
       "Falling-rock crushes keep both the camera and miner on the underground impact cell from the first active death frame.",
       "Mine rules, recovery, and replay behavior are unchanged.",

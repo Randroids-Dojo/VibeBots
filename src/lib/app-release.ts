@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.95-death-cam-surface-jump";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.96-menu-outside-dismiss";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.96",
+      date: "2026-06-20",
+      title: "Menu outside taps",
+      intro: "Open mine menus now close from a simple outside tap.",
+      changes: [
+        {
+          build,
+          text: "Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions now close when you tap or click outside them.",
+        },
+        {
+          build,
+          text: "The outside tap is swallowed after closing the menu, so it does not also move, dig, or press an underlying control.",
+        },
+        {
+          build,
+          text: "Bunker builder and modal dialogs keep their existing backdrop dismissal, while edit pickups still use canvas taps to select placed supports.",
+        },
+      ],
+    },
     {
       version: "0.1.95",
       date: "2026-06-20",

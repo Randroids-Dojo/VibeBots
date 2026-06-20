@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.94.123",
+  version: "0.1.96.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.94-cargo-hold-rebalance",
-  intro: "The starting mine bag now has four slots, with 50 as endgame.",
+  noticeId: "2026-06-20-0.1.96-menu-outside-dismiss",
+  intro: "Open mine menus now close from a simple outside tap.",
   changes: [
     {
       build: 123,
-      text: "Level 1 Cargo Hold now starts at four stack slots.",
+      text: "Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions now close from outside taps.",
     },
   ],
   notes: [
     {
-      version: "0.1.94",
+      version: "0.1.96",
       date: "2026-06-20",
-      title: "Cargo hold rebalance",
-      intro: "The starting mine bag now has four slots, with 50 as endgame.",
+      title: "Menu outside taps",
+      intro: "Open mine menus now close from a simple outside tap.",
       changes: [
         {
           build: 123,
-          text: "Level 1 Cargo Hold now starts at four stack slots.",
+          text: "Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions now close from outside taps.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Cargo hold rebalance"),
+      expect.stringContaining("Menu outside taps"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

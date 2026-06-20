@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="menu-outside-dismiss" data-date="2026-06-20">
+    <h3>Menu Outside Dismiss</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/menu-outside-dismiss</code>, continued in a fresh worktree and rebased over the death cam surface jump release on current <code>origin/main</code> before direct push.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Open mine HUD menus now close from one outside tap or click. A shared outside pointer dismissal helper covers Settings, Base return, surface stall sheets, Dynamite tiers, and Recovery actions, and it swallows the outside pointer event so the same tap does not also move, dig, or activate an underlying mine control. Modal dialogs and bunker builder dismissal keep their existing behavior, and edit pickups still use canvas taps to select visible supports. Package version moved to <code>0.1.96</code>; <code>MINE_VERSION</code> stays at <code>46</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>After rebasing over the death cam surface jump release, dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm exec biome check --write</code> on touched source, release, and smoke files, focused app-release, notification, version, and Web Push Vitest (25 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, <code>pnpm test</code> (317 passed), <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3376</code> for latest release notes, stall reopen, and floating menu outside dismiss (3 passed), and <code>pnpm test:e2e:critical --project=chromium</code> against the same server (5 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as HUD input behavior only, so no gameplay-version bump is needed. Recommended default: leave edit pickups out of outside-dismiss because taps outside its panel intentionally select visible placed supports.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Existing <code>REQ-021</code> and <code>REQ-024</code> HUD and stall coverage now includes outside-dismiss smoke coverage, appended a Build log entry to <code>docs/gdd/06-mining.html</code>, and updated release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="death-cam-surface-jump" data-date="2026-06-20">
     <h3>Death Cam Surface Jump</h3>
     <dl>

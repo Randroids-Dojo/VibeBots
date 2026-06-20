@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-credits-option" data-date="2026-06-20">
+    <h3>Mine Credits Option</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/vibebots-20260620-002331</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased over the cargo hold rebalance, protected production verification, release-note smoke speed, death camera surface-jump, and menu outside-dismiss updates after remote main moved.</dd>
+      <dt>PR</dt><dd>not opened</dd>
+      <dt>Changed</dt><dd>User-directed pause-menu addition. The mine Settings menu now has a Credits option that opens a dismissible pause window thanking Mason and MJ Lutcavich for testing VibeBots, sharing feedback, and bringing great ideas to the mine. Mine keyboard and touch movement pause while Credits is open. Package version moved to <code>0.1.97</code>; <code>MINE_VERSION</code> stays at <code>46</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Earlier passes ran <code>pnpm install --frozen-lockfile</code> and in-app Browser verification against port <code>3420</code>. After rebasing over the menu outside-dismiss release and renumbering Credits to <code>0.1.97</code>, reran <code>pnpm exec biome check --write</code> on touched source, release, test, and doc files, focused app-release, version, notification, and Web Push Vitest (26 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_PORT=3434</code> for latest release notes and Credits pause behavior (2 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and <code>git diff --cached --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: place Credits in the existing mine Settings pause surface rather than adding a new HUD control, so the thank-you option stays with other non-mining actions and does not cover primary play controls.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code> and updated release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="menu-outside-dismiss" data-date="2026-06-20">
     <h3>Menu Outside Dismiss</h3>
     <dl>

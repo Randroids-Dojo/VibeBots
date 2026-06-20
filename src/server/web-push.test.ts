@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.96.123",
+  version: "0.1.97.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.96-menu-outside-dismiss",
-  intro: "Open mine menus now close from a simple outside tap.",
+  noticeId: "2026-06-20-0.1.97-credits",
+  intro: "The mine pause menu now includes a special thanks.",
   changes: [
     {
       build: 123,
-      text: "Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions now close from outside taps.",
+      text: "Settings now has a Credits option that opens a pause window.",
     },
   ],
   notes: [
     {
-      version: "0.1.96",
+      version: "0.1.97",
       date: "2026-06-20",
-      title: "Menu outside taps",
-      intro: "Open mine menus now close from a simple outside tap.",
+      title: "Credits",
+      intro: "The mine pause menu now includes a special thanks.",
       changes: [
         {
           build: 123,
-          text: "Settings, Base return, stall sheets, Dynamite tiers, and Recovery actions now close from outside taps.",
+          text: "Settings now has a Credits option that opens a pause window.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Menu outside taps"),
+      expect.stringContaining("Credits"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

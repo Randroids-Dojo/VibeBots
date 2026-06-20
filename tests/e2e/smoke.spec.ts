@@ -1112,12 +1112,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Open mine menus now close from a simple outside tap.",
+    "The mine pause menu now includes a special thanks.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("Recovery actions");
-  await expect(dialog.locator("li").nth(1)).toContainText("underlying control");
-  await expect(dialog.locator("li").nth(2)).toContainText("edit pickups");
+  await expect(dialog.locator("li").first()).toContainText("Credits option");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "Mason and MJ Lutcavich",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "pauses mine movement",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1136,6 +1140,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.97", "Credits"],
     ["0.1.96", "Menu outside taps"],
     ["0.1.95", "Death cam surface jump fix"],
     ["0.1.94", "Cargo hold rebalance"],
@@ -1211,6 +1216,43 @@ test("mine shows the latest release note once to a fresh browser", async ({
   );
 });
 
+test("mine credits open from settings and pause mine movement", async ({
+  page,
+}) => {
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const settings = await openSettings(page);
+  await settings.getByRole("button", { name: "Credits" }).click();
+  const dialog = page.getByRole("dialog", { name: "Credits" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Mason and MJ Lutcavich");
+  await expect(dialog).toContainText("testing VibeBots");
+  await expect(dialog).toContainText("feedback");
+  await expect(dialog).toContainText("great ideas");
+
+  const status = page.getByLabel("Mine status");
+  const depthBefore = await status.getAttribute("data-depth");
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(MINE_KEY_CADENCE_MS);
+  await expect(status).toHaveAttribute("data-depth", depthBefore ?? "0");
+
+  await page.mouse.click(8, 8);
+  await expect(dialog).not.toBeVisible();
+
+  const settingsAgain = await openSettings(page);
+  await settingsAgain.getByRole("button", { name: "Credits" }).click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+});
+
 test("mine prompts to refresh when the deployed version changes", async ({
   page,
 }) => {
@@ -1218,7 +1260,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.96-menu-outside-dismiss",
+      "2026-06-20-0.1.97-credits",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1339,7 +1381,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.96-menu-outside-dismiss",
+      "2026-06-20-0.1.97-credits",
     );
   });
   await page.route("**/api/version", async (route) => {

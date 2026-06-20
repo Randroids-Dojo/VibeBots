@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.96-menu-outside-dismiss";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.97-credits";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.97",
+      date: "2026-06-20",
+      title: "Credits",
+      intro: "The mine pause menu now includes a special thanks.",
+      changes: [
+        {
+          build,
+          text: "Settings now has a Credits option that opens a pause window.",
+        },
+        {
+          build,
+          text: "The Credits window thanks Mason and MJ Lutcavich for testing, feedback, and great ideas.",
+        },
+        {
+          build,
+          text: "The window pauses mine movement and closes from outside taps, Escape, gamepad back, or its close buttons.",
+        },
+      ],
+    },
     {
       version: "0.1.96",
       date: "2026-06-20",

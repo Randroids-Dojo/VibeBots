@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest menu outside tap note complete", () => {
+  it("keeps the latest credits note scoped to the pause menu", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.96-menu-outside-dismiss");
+    expect(release.noticeId).toBe("2026-06-20-0.1.97-credits");
+    expect(latestNote).toMatchObject({
+      version: "0.1.97",
+      title: "Credits",
+      intro: "The mine pause menu now includes a special thanks.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Settings now has a Credits option that opens a pause window.",
+      "The Credits window thanks Mason and MJ Lutcavich for testing, feedback, and great ideas.",
+      "The window pauses mine movement and closes from outside taps, Escape, gamepad back, or its close buttons.",
+    ]);
+  });
+
+  it("keeps the archived menu outside tap note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.96");
+
     expect(latestNote).toMatchObject({
       version: "0.1.96",
       title: "Menu outside taps",

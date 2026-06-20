@@ -1554,6 +1554,132 @@ function FeedbackDialog({
   );
 }
 
+function CreditsDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <DismissibleDialogFrame
+      onDismiss={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="credits-title"
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 38,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        background: "rgba(3, 6, 12, 0.72)",
+        pointerEvents: "auto",
+      }}
+    >
+      <section
+        style={{
+          width: "min(440px, 100%)",
+          borderRadius: 12,
+          border: "1px solid #f0c36b",
+          background: "rgba(16, 20, 31, 0.98)",
+          boxShadow: "0 18px 60px rgba(0, 0, 0, 0.58)",
+          color: "#e6e8ee",
+          padding: 18,
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <p
+              style={{
+                margin: "0 0 4px",
+                color: "#f0c36b",
+                fontSize: "0.78rem",
+                fontWeight: 900,
+                letterSpacing: 0,
+                textTransform: "uppercase",
+              }}
+            >
+              Special thanks
+            </p>
+            <h2 id="credits-title" style={{ margin: 0, fontSize: "1.18rem" }}>
+              Credits
+            </h2>
+          </div>
+          <button
+            type="button"
+            aria-label="Close credits"
+            onClick={onClose}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              border: "1px solid #384564",
+              background: "#182033",
+              color: "#e6e8ee",
+              fontSize: "1rem",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            X
+          </button>
+        </header>
+        <p
+          style={{
+            margin: "0 0 14px",
+            color: "#dce5f7",
+            fontSize: "0.98rem",
+            lineHeight: 1.45,
+          }}
+        >
+          Thank you to Mason and MJ Lutcavich for testing VibeBots, sharing
+          feedback, and bringing great ideas to the mine.
+        </p>
+        <p
+          style={{
+            margin: "0 0 16px",
+            color: "#9fa9bf",
+            fontSize: "0.86rem",
+            lineHeight: 1.4,
+          }}
+        >
+          Your play sessions are helping shape what the robots dig, build, and
+          survive next.
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            width: "100%",
+            minHeight: 44,
+            borderRadius: 10,
+            border: "1px solid #f0c36b",
+            background: "#2d2616",
+            color: "#f0c36b",
+            fontSize: "0.94rem",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          Back to the mine
+        </button>
+      </section>
+    </DismissibleDialogFrame>
+  );
+}
+
 function IosHomeScreenPrompt({ disabled }: { disabled: boolean }) {
   const [visible, setVisible] = useState(false);
 
@@ -3958,6 +4084,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [stampBookOpen, setStampBookOpen] = useState(false);
   const [saveSlotsOpen, setSaveSlotsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext>({
     source: "pause",
   });
@@ -4348,6 +4475,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
+      if (creditsOpen) return;
       fireDirection(dir, { repeat: event.repeat });
     };
     const onKeyUp = (event: KeyboardEvent) => {
@@ -4363,7 +4491,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [fireDirection, releaseDirection]);
+  }, [creditsOpen, fireDirection, releaseDirection]);
 
   const miner = mine.miner;
   const currentCell = cellAt(mine, miner.col, miner.row);
@@ -4918,7 +5046,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onBunkerBackgroundTap={deselectBunkerPart}
         onToggleSupport={toggleCollectTarget}
       />
-      {!collectMode && !bunkerCanvasEditing && (
+      {!collectMode && !bunkerCanvasEditing && !creditsOpen && (
         <MineTouchControls
           onDirection={act}
           onReleaseDirection={releaseDirection}
@@ -4974,6 +5102,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         appVersion={appRelease.version}
         onClose={() => setFeedbackOpen(false)}
       />
+      <CreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} />
       <StampBookPopup
         open={stampBookOpen}
         onClose={() => setStampBookOpen(false)}
@@ -5156,6 +5285,27 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             }}
           >
             Feedback
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen(false);
+              setCreditsOpen(true);
+            }}
+            style={{
+              width: "100%",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #9fb6ff",
+              background: "#1c2440",
+              color: "#c7d4ff",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              marginTop: 8,
+            }}
+          >
+            Credits
           </button>
           <ReleaseNotificationControl />
         </section>

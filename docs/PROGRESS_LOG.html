@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="visual-viewport-refresh" data-date="2026-06-20">
+    <h3>Visual Viewport Refresh</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/fresh-main-3c4a689c</code>, rebased over the direct <code>0.1.117</code> Jump Jets release after remote main moved.</dd>
+      <dt>PR</dt><dd>pending</dd>
+      <dt>Changed</dt><dd>User-reported installed Android refresh fix. The mine refresh button now records the target version before replacing the page, and the mine shell measures <code>window.visualViewport</code> when available instead of assuming the layout viewport is the visible app viewport. The shell realigns on refresh, focus, page show, visual viewport resize, and visual viewport scroll, and exposes measured viewport attributes for smoke coverage. Package version moved to <code>0.1.118</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched files, focused Vitest for release notes, notifications, version route, and Web Push (47 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3502 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine prompts to refresh|visual viewport changes|mine shows the latest release note" --project=chromium</code> (3 passed), critical smoke with <code>PLAYWRIGHT_PORT=3503 pnpm test:e2e:critical --project=chromium</code> (5 passed), <code>pnpm test</code> (354 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, and <code>git diff --cached --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: treat this as mobile installed-app shell alignment only, so no mine-version or sim-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended build-log entries to <code>docs/gdd/06-mining.html</code> and <code>docs/gdd/09-notifications.html</code>, updated static and in-game release notes, updated notification expectations, and added focused smoke coverage for installed app visual viewport refresh and resume alignment.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="jump-jets" data-date="2026-06-20">
     <h3>Jump Jets</h3>
     <dl>

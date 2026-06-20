@@ -11,27 +11,28 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.111.123",
+  version: "0.1.118.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.111-hardware-store-copy",
-  intro: "The Hardware Store sheet now stays focused on items.",
+  noticeId: "2026-06-20-0.1.118-visual-viewport-refresh",
+  intro: "Installed Android refreshes now anchor to the visible mine screen.",
   changes: [
     {
       build: 123,
-      text: "The extra Hardware Store intro and footer helper paragraphs were removed.",
+      text: "The mine shell now uses the visual viewport when available, so standalone Android refreshes do not anchor controls to a stale layout viewport.",
     },
   ],
   notes: [
     {
-      version: "0.1.111",
+      version: "0.1.118",
       date: "2026-06-20",
-      title: "Hardware Store copy",
-      intro: "The Hardware Store sheet now stays focused on items.",
+      title: "Visual viewport refresh",
+      intro:
+        "Installed Android refreshes now anchor to the visible mine screen.",
       changes: [
         {
           build: 123,
-          text: "The extra Hardware Store intro and footer helper paragraphs were removed.",
+          text: "The mine shell now uses the visual viewport when available, so standalone Android refreshes do not anchor controls to a stale layout viewport.",
         },
       ],
     },
@@ -132,7 +133,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Hardware Store copy"),
+      expect.stringContaining("Visual viewport refresh"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

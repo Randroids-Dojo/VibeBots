@@ -11,6 +11,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -748,6 +749,52 @@ const mineShellStyle: React.CSSProperties = {
   height: "100dvh",
   overflow: "hidden",
 };
+
+const MINE_REFRESH_ENTRY_KEY = "vibebots-mine-refresh-entry-version";
+
+interface MineViewportFrame {
+  displayMode: "browser" | "fullscreen" | "minimal-ui" | "standalone";
+  height: number;
+  layoutHeight: number;
+  layoutWidth: number;
+  left: number;
+  refreshEntry: string;
+  top: number;
+  width: number;
+}
+
+function readMineDisplayMode(): MineViewportFrame["displayMode"] {
+  if (window.matchMedia?.("(display-mode: fullscreen)").matches) {
+    return "fullscreen";
+  }
+  if (window.matchMedia?.("(display-mode: standalone)").matches) {
+    return "standalone";
+  }
+  if (window.matchMedia?.("(display-mode: minimal-ui)").matches) {
+    return "minimal-ui";
+  }
+  return "browser";
+}
+
+function readMineViewportFrame(refreshEntry: string): MineViewportFrame {
+  const visualViewport = window.visualViewport;
+  const layoutWidth = window.innerWidth;
+  const layoutHeight = window.innerHeight;
+  return {
+    displayMode: readMineDisplayMode(),
+    height: visualViewport?.height ?? layoutHeight,
+    layoutHeight,
+    layoutWidth,
+    left: visualViewport?.offsetLeft ?? 0,
+    refreshEntry,
+    top: visualViewport?.offsetTop ?? 0,
+    width: visualViewport?.width ?? layoutWidth,
+  };
+}
+
+function mineViewportValue(value: number | undefined): string {
+  return typeof value === "number" ? value.toFixed(2) : "unmeasured";
+}
 
 function collectTargetKey(target: CollectTarget): string {
   return `${target.type}:${target.col},${target.row}`;
@@ -4415,6 +4462,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     width: 1024,
     height: 768,
   });
+  const [mineViewportFrame, setMineViewportFrame] =
+    useState<MineViewportFrame | null>(null);
   const [baseReturnOpen, setBaseReturnOpen] = useState(false);
   const [baseReturnConfirm, setBaseReturnConfirm] = useState(false);
   const [baseReturnPending, setBaseReturnPending] = useState(false);
@@ -4549,7 +4598,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration;
     const documentStyle = document.documentElement.style;
     const bodyStyle = document.body.style;
@@ -4562,6 +4611,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     const previousBodyOverscroll = bodyStyle.overscrollBehavior;
     const previousBodyPosition = bodyStyle.position;
     const previousBodyWidth = bodyStyle.width;
+    let refreshEntry = "none";
+    try {
+      refreshEntry = sessionStorage.getItem(MINE_REFRESH_ENTRY_KEY) ?? "none";
+      sessionStorage.removeItem(MINE_REFRESH_ENTRY_KEY);
+    } catch {
+      // Storage can be unavailable in hardened browser modes.
+    }
+    let frame: number | null = null;
+    const timeouts: number[] = [];
     const lockMineViewport = () => {
       window.scrollTo(0, 0);
       documentStyle.height = "100%";
@@ -4573,15 +4631,45 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       bodyStyle.overscrollBehavior = "none";
       bodyStyle.position = "fixed";
       bodyStyle.width = "100%";
+      setMineViewportFrame(readMineViewportFrame(refreshEntry));
+    };
+    const scheduleMineViewportLock = () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        lockMineViewport();
+      });
     };
 
     window.history.scrollRestoration = "manual";
     lockMineViewport();
-    const frame = requestAnimationFrame(lockMineViewport);
-    const timeout = window.setTimeout(lockMineViewport, 120);
+    for (const delayMs of [40, 120, 300]) {
+      timeouts.push(window.setTimeout(lockMineViewport, delayMs));
+    }
+    const visualViewport = window.visualViewport;
+    visualViewport?.addEventListener("resize", scheduleMineViewportLock);
+    visualViewport?.addEventListener("scroll", scheduleMineViewportLock);
+    visualViewport?.addEventListener("scrollend", scheduleMineViewportLock);
+    window.addEventListener("resize", scheduleMineViewportLock);
+    window.addEventListener("focus", scheduleMineViewportLock);
+    window.addEventListener("pageshow", scheduleMineViewportLock);
+    document.addEventListener("visibilitychange", scheduleMineViewportLock);
     return () => {
-      cancelAnimationFrame(frame);
-      window.clearTimeout(timeout);
+      if (frame !== null) cancelAnimationFrame(frame);
+      for (const timeout of timeouts) window.clearTimeout(timeout);
+      visualViewport?.removeEventListener("resize", scheduleMineViewportLock);
+      visualViewport?.removeEventListener("scroll", scheduleMineViewportLock);
+      visualViewport?.removeEventListener(
+        "scrollend",
+        scheduleMineViewportLock,
+      );
+      window.removeEventListener("resize", scheduleMineViewportLock);
+      window.removeEventListener("focus", scheduleMineViewportLock);
+      window.removeEventListener("pageshow", scheduleMineViewportLock);
+      document.removeEventListener(
+        "visibilitychange",
+        scheduleMineViewportLock,
+      );
       window.history.scrollRestoration = previousScrollRestoration;
       documentStyle.height = previousDocumentHeight;
       documentStyle.overflow = previousDocumentOverflow;
@@ -5480,12 +5568,34 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setMineSceneStatus("error");
     setMineSceneMessage(message || "The mine renderer failed to start.");
   };
+  const measuredMineShellStyle: React.CSSProperties = mineViewportFrame
+    ? {
+        ...mineShellStyle,
+        inset: "auto",
+        left: `${mineViewportFrame.left}px`,
+        top: `${mineViewportFrame.top}px`,
+        width: `${mineViewportFrame.width}px`,
+        height: `${mineViewportFrame.height}px`,
+      }
+    : mineShellStyle;
 
   return (
     <div
       data-mine-shell="true"
+      data-display-mode={mineViewportFrame?.displayMode ?? "unknown"}
+      data-layout-viewport-height={mineViewportValue(
+        mineViewportFrame?.layoutHeight,
+      )}
+      data-layout-viewport-width={mineViewportValue(
+        mineViewportFrame?.layoutWidth,
+      )}
+      data-refresh-entry={mineViewportFrame?.refreshEntry ?? "none"}
+      data-visual-viewport-height={mineViewportValue(mineViewportFrame?.height)}
+      data-visual-viewport-left={mineViewportValue(mineViewportFrame?.left)}
+      data-visual-viewport-top={mineViewportValue(mineViewportFrame?.top)}
+      data-visual-viewport-width={mineViewportValue(mineViewportFrame?.width)}
       onPointerDownCapture={handleScreenPointerDown}
-      style={mineShellStyle}
+      style={measuredMineShellStyle}
     >
       {mineSceneReady ? (
         <MineSceneErrorBoundary

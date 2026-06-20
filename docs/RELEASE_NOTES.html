@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.118" data-date="2026-06-20">
+    <h2>0.1.118</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.118</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Installed Android refreshes now anchor to the visible mine screen.</dd>
+      <dt>Refresh</dt><dd>The mine shell now sizes itself from the visual viewport when available, so standalone Android refreshes do not anchor HUD, Settings, zoom, or dig controls to a stale layout viewport.</dd>
+      <dt>Resume</dt><dd>The Refresh button records the target version and the mine reruns viewport alignment on refresh, focus, resume, visual viewport resize, and visual viewport scroll.</dd>
+      <dt>Verification</dt><dd>Focused smoke coverage mocks an installed app visual viewport and checks Settings, zoom, and dig controls after refresh and after a viewport change. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.117" data-date="2026-06-20">
     <h2>0.1.117</h2>
     <dl>

@@ -82,14 +82,20 @@ async function expectMineShellViewportLocked(page: Page): Promise<void> {
           if (!shell || !controls || !settings || !zoomIn || !zoomOut) {
             return false;
           }
-          const viewportHeight = window.innerHeight;
+          const visualViewport = window.visualViewport;
+          const viewportTop = visualViewport?.offsetTop ?? 0;
+          const viewportLeft = visualViewport?.offsetLeft ?? 0;
+          const viewportWidth = visualViewport?.width ?? window.innerWidth;
+          const viewportHeight = visualViewport?.height ?? window.innerHeight;
+          const viewportRight = viewportLeft + viewportWidth;
+          const viewportBottom = viewportTop + viewportHeight;
           const inViewport = (element: Element) => {
             const rect = element.getBoundingClientRect();
             return (
-              rect.top >= 0 &&
-              rect.left >= 0 &&
-              rect.bottom <= viewportHeight &&
-              rect.right <= window.innerWidth
+              rect.top >= viewportTop &&
+              rect.left >= viewportLeft &&
+              rect.bottom <= viewportBottom &&
+              rect.right <= viewportRight
             );
           };
           const shellRect = shell.getBoundingClientRect();
@@ -97,9 +103,10 @@ async function expectMineShellViewportLocked(page: Page): Promise<void> {
           const bodyStyle = window.getComputedStyle(document.body);
           return (
             window.scrollY === 0 &&
-            Math.abs(shellRect.top) < 1 &&
-            Math.abs(shellRect.left) < 1 &&
-            Math.abs(shellRect.bottom - window.innerHeight) < 1 &&
+            Math.abs(shellRect.top - viewportTop) < 1 &&
+            Math.abs(shellRect.left - viewportLeft) < 1 &&
+            Math.abs(shellRect.right - viewportRight) < 1 &&
+            Math.abs(shellRect.bottom - viewportBottom) < 1 &&
             htmlStyle.overflow === "hidden" &&
             bodyStyle.overflow === "hidden" &&
             bodyStyle.position === "fixed" &&
@@ -112,6 +119,74 @@ async function expectMineShellViewportLocked(page: Page): Promise<void> {
       { message: "mine shell should stay locked to the visible viewport" },
     )
     .toBe(true);
+}
+
+async function installStandaloneVisualViewport(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.addInitScript(() => {
+    const realMatchMedia = window.matchMedia?.bind(window);
+    const fakeMediaQueryList = (query: string, matches: boolean) =>
+      ({
+        addEventListener: () => {},
+        addListener: () => {},
+        dispatchEvent: () => false,
+        matches,
+        media: query,
+        onchange: null,
+        removeEventListener: () => {},
+        removeListener: () => {},
+      }) as MediaQueryList;
+
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (query: string) => {
+        if (query === "(display-mode: standalone)") {
+          return fakeMediaQueryList(query, true);
+        }
+        return realMatchMedia?.(query) ?? fakeMediaQueryList(query, false);
+      },
+    });
+
+    const events = new EventTarget();
+    const state = {
+      height: 696,
+      offsetLeft: 0,
+      offsetTop: 64,
+      pageLeft: 0,
+      pageTop: 0,
+      scale: 1,
+      width: 390,
+    };
+    const viewport = {
+      addEventListener: events.addEventListener.bind(events),
+      dispatchEvent: events.dispatchEvent.bind(events),
+      onresize: null,
+      onscroll: null,
+      onscrollend: null,
+      removeEventListener: events.removeEventListener.bind(events),
+    } as unknown as VisualViewport;
+
+    for (const key of Object.keys(state) as Array<keyof typeof state>) {
+      Object.defineProperty(viewport, key, {
+        configurable: true,
+        get: () => state[key],
+      });
+    }
+
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: viewport,
+    });
+    Object.defineProperty(window, "__vibebotsSetVisualViewport", {
+      configurable: true,
+      value: (next: Partial<typeof state>) => {
+        Object.assign(state, next);
+        events.dispatchEvent(new Event("resize"));
+        events.dispatchEvent(new Event("scroll"));
+        events.dispatchEvent(new Event("scrollend"));
+      },
+    });
+  });
 }
 
 async function expectRegionHorizontalBounds(
@@ -1422,17 +1497,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "A free hop now clears one-cell ledges without spending ladders.",
+    "Installed Android refreshes now anchor to the visible mine screen.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "Jump Jets lift the miner up one empty cell",
-  );
+  await expect(dialog.locator("li").first()).toContainText("visual viewport");
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "The new Jump button is larger",
+    "Refresh button records the target version",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Ladders still build reusable shafts",
+    "Settings, zoom, and dig controls",
   );
 
   await page.mouse.click(8, 8);
@@ -1452,6 +1525,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.118", "Visual viewport refresh"],
     ["0.1.117", "Jump Jets"],
     ["0.1.116", "Shop release copy"],
     ["0.1.115", "Clean shop layout"],
@@ -1588,11 +1662,12 @@ test("mine credits open from settings and pause mine movement", async ({
 test("mine prompts to refresh when the deployed version changes", async ({
   page,
 }) => {
+  await installStandaloneVisualViewport(page);
   await speedUpVersionRefreshChecks(page);
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.113-scrap-panel-text-bounds",
+      "2026-06-20-0.1.118-visual-viewport-refresh",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1623,7 +1698,12 @@ test("mine prompts to refresh when the deployed version changes", async ({
   );
   await prompt.getByRole("button", { name: "Refresh" }).click();
   await page.waitForURL("**/mine?vibebots_refresh=999.0.0-test");
-  await expect(page.locator("[data-mine-shell]")).toBeVisible();
+  const shell = page.locator("[data-mine-shell]");
+  await expect(shell).toBeVisible();
+  await expect(shell).toHaveAttribute("data-display-mode", "standalone");
+  await expect(shell).toHaveAttribute("data-refresh-entry", "999.0.0-test");
+  await expect(shell).toHaveAttribute("data-visual-viewport-top", "64.00");
+  await expect(shell).toHaveAttribute("data-visual-viewport-height", "696.00");
   await expectMineShellViewportLocked(page);
   expect(
     await page.evaluate(() =>
@@ -1633,6 +1713,36 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await expect(
     page.getByRole("dialog", { name: "New in VibeBots" }),
   ).not.toBeVisible();
+});
+
+test("mine realigns installed app controls when the visual viewport changes", async ({
+  page,
+}) => {
+  await installStandaloneVisualViewport(page);
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+
+  await expectMineShellViewportLocked(page);
+  await page.evaluate(() => {
+    const setVisualViewport = (
+      window as typeof window & {
+        __vibebotsSetVisualViewport?: (next: {
+          height: number;
+          offsetTop: number;
+        }) => void;
+      }
+    ).__vibebotsSetVisualViewport;
+    if (!setVisualViewport) {
+      throw new Error("visual viewport test fixture was not installed");
+    }
+    setVisualViewport({ height: 668, offsetTop: 92 });
+  });
+
+  const shell = page.locator("[data-mine-shell]");
+  await expect(shell).toHaveAttribute("data-display-mode", "standalone");
+  await expect(shell).toHaveAttribute("data-visual-viewport-top", "92.00");
+  await expect(shell).toHaveAttribute("data-visual-viewport-height", "668.00");
+  await expectMineShellViewportLocked(page);
 });
 
 test("mine waits to show refresh prompt until the new page is refreshable", async ({

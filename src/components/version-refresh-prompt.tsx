@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const POLL_INTERVAL_MS = 60_000;
 const APP_VERSION_MARKER = /data-vibebots-app-version="([^"]+)"/;
+const MINE_REFRESH_ENTRY_KEY = "vibebots-mine-refresh-entry-version";
 
 function versionFromPayload(payload: unknown): string | null {
   if (
@@ -202,6 +203,11 @@ export function VersionRefreshPrompt({
         <button
           type="button"
           onClick={() => {
+            try {
+              sessionStorage.setItem(MINE_REFRESH_ENTRY_KEY, staleVersion);
+            } catch {
+              // Storage can be unavailable in hardened browser modes.
+            }
             window.history.scrollRestoration = "manual";
             window.scrollTo(0, 0);
             window.location.replace(

@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.117-jump-jets";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.118-visual-viewport-refresh";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.118",
+      date: "2026-06-20",
+      title: "Visual viewport refresh",
+      intro:
+        "Installed Android refreshes now anchor to the visible mine screen.",
+      changes: [
+        {
+          build,
+          text: "The mine shell now uses the visual viewport when available, so standalone Android refreshes do not anchor controls to a stale layout viewport.",
+        },
+        {
+          build,
+          text: "The Refresh button records the target version and reruns viewport alignment on refresh, focus, resume, and visual viewport changes.",
+        },
+        {
+          build,
+          text: "Smoke coverage now mocks an installed app visual viewport and checks Settings, zoom, and dig controls after refresh and resume.",
+        },
+      ],
+    },
     {
       version: "0.1.117",
       date: "2026-06-20",

@@ -620,6 +620,16 @@ const zoomButtonStyle: React.CSSProperties = {
   pointerEvents: "auto",
 };
 
+const SURFACE_ACTION_PROMPT_BOTTOM = 154;
+
+const surfaceActionPromptAnchorStyle: React.CSSProperties = {
+  position: "absolute",
+  bottom: SURFACE_ACTION_PROMPT_BOTTOM,
+  left: "50%",
+  transform: "translateX(-50%)",
+  zIndex: 8,
+};
+
 function collectTargetKey(target: CollectTarget): string {
   return `${target.type}:${target.col},${target.row}`;
 }
@@ -5377,10 +5387,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-label={`Open ${stall.name}`}
           onClick={() => setOpenStallCol(miner.col)}
           style={{
-            position: "absolute",
-            bottom: 92,
-            left: "50%",
-            transform: "translateX(-50%)",
+            ...surfaceActionPromptAnchorStyle,
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -5392,7 +5399,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             fontWeight: 700,
             fontSize: "0.95rem",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
-            zIndex: 8,
             whiteSpace: "nowrap",
           }}
         >
@@ -5408,10 +5414,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-label={`Enter ${destination.name}`}
           onClick={() => router.push(destination.href)}
           style={{
-            position: "absolute",
-            bottom: 92,
-            left: "50%",
-            transform: "translateX(-50%)",
+            ...surfaceActionPromptAnchorStyle,
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -5423,7 +5426,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             fontWeight: 700,
             fontSize: "0.95rem",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
-            zIndex: 8,
             whiteSpace: "nowrap",
           }}
         >
@@ -5440,10 +5442,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-label={`Activate ${portalHere.name}`}
           onClick={() => move(activatePortalAction(portalHere.id))}
           style={{
-            position: "absolute",
-            bottom: 92,
-            left: "50%",
-            transform: "translateX(-50%)",
+            ...surfaceActionPromptAnchorStyle,
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -5455,7 +5454,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             fontWeight: 700,
             fontSize: "0.95rem",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
-            zIndex: 8,
             whiteSpace: "nowrap",
           }}
         >
@@ -5470,10 +5468,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         <section
           aria-label={`${activePortalHere.name} portal`}
           style={{
-            position: "absolute",
-            bottom: 92,
-            left: "50%",
-            transform: "translateX(-50%)",
+            ...surfaceActionPromptAnchorStyle,
             display: "grid",
             gridAutoFlow: "column",
             gap: 8,
@@ -5483,7 +5478,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             border: `2px solid ${activePortalHere.color}`,
             background: "rgba(17, 21, 31, 0.94)",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
-            zIndex: 8,
           }}
         >
           <button

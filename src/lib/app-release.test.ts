@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest meaningful zoom note complete", () => {
+  it("keeps the latest surface shop prompts note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.99-meaningful-mine-zoom");
+    expect(release.noticeId).toBe("2026-06-20-0.1.100-surface-shop-prompts");
     expect(latestNote).toMatchObject({
+      version: "0.1.100",
+      title: "Surface shop prompts",
+      intro: "Shop open prompts now sit higher above the mine controls.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Standing at a surface shop now shows its Tap to open button higher on phone screens.",
+      "The raised prompt slot applies to Hardware Store, Supply Depot, Upgrades, portal, and destination surface prompts.",
+      "Focused smoke checks Hardware Store and Supply Depot prompt clearance on a narrow phone viewport.",
+    ]);
+  });
+
+  it("keeps the archived meaningful zoom note complete", () => {
+    const release = getAppRelease();
+    const zoomNote = release.notes.find((note) => note.version === "0.1.99");
+
+    expect(zoomNote).toMatchObject({
       version: "0.1.99",
       title: "Meaningful mine zoom",
       intro: "Mine zoom now moves far enough to read against cell size.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(zoomNote?.changes.map((change) => change.text)).toEqual([
       "Zoom inputs now move twice as far across HUD buttons, wheel, pinch, and gamepad controls.",
       "Lantern zoom caps now reach 1.32, 1.64, and 1.96 so each upgrade reveals several more cells.",
       "Lamp coverage still reaches the camera footprint at each cap while the two-cell dark falloff border stays in place.",

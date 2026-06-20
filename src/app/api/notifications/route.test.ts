@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.99-meaningful-mine-zoom",
+      releaseNoticeId: "2026-06-20-0.1.100-surface-shop-prompts",
       releaseSummary:
-        "Meaningful mine zoom: Mine zoom now moves far enough to read against cell size.",
+        "Surface shop prompts: Shop open prompts now sit higher above the mine controls.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.99-meaningful-mine-zoom",
+      releaseNoticeId: "2026-06-20-0.1.100-surface-shop-prompts",
       attempted: 2,
       sent: 1,
       expired: 1,

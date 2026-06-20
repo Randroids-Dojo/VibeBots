@@ -11,11 +11,11 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.99.123",
+  version: "0.1.100.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.99-meaningful-mine-zoom",
-  intro: "Mine zoom now moves far enough to read against cell size.",
+  noticeId: "2026-06-20-0.1.100-surface-shop-prompts",
+  intro: "Shop open prompts now sit higher above the mine controls.",
   changes: [
     {
       build: 123,
@@ -24,10 +24,10 @@ const release: AppRelease = {
   ],
   notes: [
     {
-      version: "0.1.99",
+      version: "0.1.100",
       date: "2026-06-20",
-      title: "Meaningful mine zoom",
-      intro: "Mine zoom now moves far enough to read against cell size.",
+      title: "Surface shop prompts",
+      intro: "Shop open prompts now sit higher above the mine controls.",
       changes: [
         {
           build: 123,
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Meaningful mine zoom"),
+      expect.stringContaining("Surface shop prompts"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

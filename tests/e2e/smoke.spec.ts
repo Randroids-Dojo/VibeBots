@@ -34,6 +34,24 @@ async function openStall(page: Page, name: string) {
   return sheet;
 }
 
+async function expectSurfacePromptBottomClearance(
+  page: Page,
+  name: string,
+): Promise<void> {
+  const prompt = page.getByRole("button", { name });
+  await expect(prompt).toBeVisible();
+  await expect
+    .poll(
+      async () =>
+        prompt.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return window.innerHeight - rect.bottom;
+        }),
+      { message: `${name} should sit above the bottom controls` },
+    )
+    .toBeGreaterThanOrEqual(140);
+}
+
 /** Walk the surface toward a destination building until its Enter prompt
  * appears, then tap it. Presses are paced past the glide and the loop
  * tolerates the odd dropped synthetic key (it stops on the prompt, not a
@@ -1113,12 +1131,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Mine zoom now moves far enough to read against cell size.",
+    "Shop open prompts now sit higher above the mine controls.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("twice as far");
-  await expect(dialog.locator("li").nth(1)).toContainText("1.96");
-  await expect(dialog.locator("li").nth(2)).toContainText("two-cell");
+  await expect(dialog.locator("li").first()).toContainText("Tap to open");
+  await expect(dialog.locator("li").nth(1)).toContainText("Supply Depot");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "narrow phone viewport",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1137,6 +1157,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.100", "Surface shop prompts"],
     ["0.1.99", "Meaningful mine zoom"],
     ["0.1.98", "Mine text and status layout"],
     ["0.1.97", "Credits"],
@@ -1259,7 +1280,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.99-meaningful-mine-zoom",
+      "2026-06-20-0.1.100-surface-shop-prompts",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1380,7 +1401,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.99-meaningful-mine-zoom",
+      "2026-06-20-0.1.100-surface-shop-prompts",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2856,6 +2877,7 @@ test("surface village stalls open their menus on tap (REQ-021)", async ({
 });
 
 test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
@@ -2871,6 +2893,7 @@ test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
     exact: true,
   });
   await expect(prompt).toBeVisible();
+  await expectSurfacePromptBottomClearance(page, "Open Hardware Store");
   await expect(buyer).not.toBeVisible();
 
   // Tap opens; the close button dismisses without walking away (still on
@@ -2880,11 +2903,21 @@ test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
   await buyer.getByRole("button", { name: "Close shop" }).click();
   await expect(buyer).not.toBeVisible();
   await expect(prompt).toBeVisible();
+  await expectSurfacePromptBottomClearance(page, "Open Hardware Store");
   await expect(status).toHaveAttribute("data-depth", "0");
 
   // Tapping the prompt again reopens it.
   await prompt.click();
   await expect(buyer).toBeVisible();
+  await buyer.getByRole("button", { name: "Close shop" }).click();
+  await expect(buyer).not.toBeVisible();
+
+  // The reported phone layout was at the Supply Depot. The same raised
+  // prompt slot applies to every stall.
+  for (let i = 0; i < 5; i++) {
+    await pressMineKey(page, "ArrowRight");
+  }
+  await expectSurfacePromptBottomClearance(page, "Open Supply Depot");
 });
 
 test("floating mine menus dismiss from outside taps", async ({ page }) => {

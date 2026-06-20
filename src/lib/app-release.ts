@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.99-meaningful-mine-zoom";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.100-surface-shop-prompts";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.100",
+      date: "2026-06-20",
+      title: "Surface shop prompts",
+      intro: "Shop open prompts now sit higher above the mine controls.",
+      changes: [
+        {
+          build,
+          text: "Standing at a surface shop now shows its Tap to open button higher on phone screens.",
+        },
+        {
+          build,
+          text: "The raised prompt slot applies to Hardware Store, Supply Depot, Upgrades, portal, and destination surface prompts.",
+        },
+        {
+          build,
+          text: "Focused smoke checks Hardware Store and Supply Depot prompt clearance on a narrow phone viewport.",
+        },
+      ],
+    },
     {
       version: "0.1.99",
       date: "2026-06-20",

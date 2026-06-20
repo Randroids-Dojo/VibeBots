@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.94-cargo-hold-rebalance",
+      releaseNoticeId: "2026-06-20-0.1.95-death-cam-surface-jump",
       releaseSummary:
-        "Cargo hold rebalance: The starting mine bag now has four slots, with 50 as endgame.",
+        "Death cam surface jump fix: Falling-rock deaths now stay underground until the death animation finishes.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.94-cargo-hold-rebalance",
+      releaseNoticeId: "2026-06-20-0.1.95-death-cam-surface-jump",
       attempted: 2,
       sent: 1,
       expired: 1,

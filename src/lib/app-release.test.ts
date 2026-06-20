@@ -2,17 +2,34 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest cargo hold rebalance note complete", () => {
+  it("keeps the latest death cam surface jump note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.94-cargo-hold-rebalance");
+    expect(release.noticeId).toBe("2026-06-20-0.1.95-death-cam-surface-jump");
     expect(latestNote).toMatchObject({
+      version: "0.1.95",
+      title: "Death cam surface jump fix",
+      intro:
+        "Falling-rock deaths now stay underground until the death animation finishes.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The mine renderer now installs death playback from the mine store action before the next frame can follow the reset surface miner.",
+      "Falling-rock crushes keep both the camera and miner on the underground impact cell from the first active death frame.",
+      "Mine rules, recovery, and replay behavior are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived cargo hold rebalance note complete", () => {
+    const release = getAppRelease();
+    const cargoNote = release.notes.find((note) => note.version === "0.1.94");
+
+    expect(cargoNote).toMatchObject({
       version: "0.1.94",
       title: "Cargo hold rebalance",
       intro: "The starting mine bag now has four slots, with 50 as endgame.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(cargoNote?.changes.map((change) => change.text)).toEqual([
       "Level 1 Cargo Hold now starts at four typed stack slots instead of eight, so early trips hit the bank-or-push decision sooner.",
       "Cargo upgrades now grow through 6, 8, 11, 15, 20, 27, 35, 43, and 50 stack slots, with 50 as the endgame cap.",
       "Cargo upgrade prices now start at 80 vibes and scale into six-figure deep-depth buys behind row and player-level gates.",
@@ -53,19 +70,15 @@ describe("app release notes", () => {
 
   it("keeps the archived zoom placement note scoped to zoom placement", () => {
     const release = getAppRelease();
-    const zoomPlacementNote = release.notes.find(
-      (note) => note.version === "0.1.91",
-    );
+    const zoomNote = release.notes.find((note) => note.version === "0.1.91");
 
-    expect(zoomPlacementNote).toMatchObject({
+    expect(zoomNote).toMatchObject({
       version: "0.1.91",
       title: "Zoom placement fix",
       intro: "Mine zoom controls now sit under Settings.",
     });
-    expect(zoomPlacementNote?.intro).not.toContain(
-      "Mason, load your first save now.",
-    );
-    expect(zoomPlacementNote?.changes.map((change) => change.text)).toEqual([
+    expect(zoomNote?.intro).not.toContain("Mason, load your first save now.");
+    expect(zoomNote?.changes.map((change) => change.text)).toEqual([
       "Zoom in and zoom out now sit directly under the cog icon instead of floating over the mine view.",
       "The Settings panel opens below the zoom dock, so the controls do not cover each other.",
       "Smoke coverage checks the dock against visible status chips, the Settings button, and the open Settings panel on desktop and narrow viewports.",

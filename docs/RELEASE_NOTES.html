@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.95" data-date="2026-06-20">
+    <h2>0.1.95</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.95</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>46</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Falling-rock deaths now stay underground until the death animation finishes.</dd>
+      <dt>Root cause</dt><dd>The sim correctly resets the miner to the surface after collapse, but the renderer needed a death-playback event before the next R3F frame could follow that reset position.</dd>
+      <dt>Renderer</dt><dd>The mine canvas now installs death playback from the mine store action before the next frame can follow the reset surface miner. The first active crush frame already uses the underground impact cell for both camera and miner placement.</dd>
+      <dt>Rules</dt><dd>Collapse, recovery stock, dropped bags, cash-out replay, and gameplay versions are unchanged.</dd>
+      <dt>Verification</dt><dd>Focused smoke coverage samples the first active falling-rock crush frame and requires both camera and miner to stay underground before the trip report appears. Final verification is recorded in the progress log for this release.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.94" data-date="2026-06-20">
     <h2>0.1.94</h2>
     <dl>

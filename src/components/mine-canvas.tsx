@@ -49,6 +49,7 @@ import {
   type MineCell,
   type MineCoord,
   type MineState,
+  type MoveResult,
   type OreId,
   oreReserveAt,
   START_COL,
@@ -343,6 +344,56 @@ interface FallPlayback extends FallWindow {
   track: MotionTrack | null;
   impacted: boolean;
   doneAt: number | null;
+}
+
+function fallPlaybackFromResult(
+  result: MoveResult | null,
+  key: number,
+): FallPlayback | null {
+  if (
+    result?.ok &&
+    result.collapsed &&
+    result.fallFatal &&
+    result.lost &&
+    result.fell
+  ) {
+    const toRow = result.lost.row;
+    return {
+      key,
+      kind: "fall",
+      col: result.lost.col,
+      fromRow: Math.max(0, toRow - result.fell),
+      toRow,
+      fell: result.fell,
+      track: null,
+      impacted: false,
+      doneAt: null,
+    };
+  }
+  if (result?.ok && result.collapsed && result.crushed && result.lost) {
+    return {
+      key,
+      kind: "crush",
+      col: result.lost.col,
+      fromRow: result.lost.row,
+      toRow: result.lost.row,
+      fell: 0,
+      track: null,
+      impacted: false,
+      doneAt: null,
+    };
+  }
+  return null;
+}
+
+function fallWindowFromPlayback(playback: FallPlayback): FallWindow {
+  return {
+    key: playback.key,
+    col: playback.col,
+    fromRow: playback.fromRow,
+    toRow: playback.toRow,
+    fell: playback.fell,
+  };
 }
 
 const PICK_SWING_SECONDS = 0.18;
@@ -2487,6 +2538,20 @@ function MineScene({
     };
   }, []);
 
+  useLayoutEffect(() => {
+    return useMineStore.subscribe((state, prev) => {
+      if (state.tick === prev.tick) return;
+      const playback = fallPlaybackFromResult(state.lastResult, state.tick);
+      if (playback) {
+        fallPlayback.current = playback;
+        setFallWindow(fallWindowFromPlayback(playback));
+      } else if (!(state.lastResult?.ok && state.lastResult.collapsed)) {
+        fallPlayback.current = null;
+        setFallWindow(null);
+      }
+    });
+  }, []);
+
   // Dig/blast feedback: bursts, shake, swing, and facing keyed to the
   // last sim result.
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
@@ -2496,70 +2561,26 @@ function MineScene({
       window.clearTimeout(fallClearTimeout.current);
       fallClearTimeout.current = null;
     }
-    if (
-      lastResult?.ok &&
-      lastResult.collapsed &&
-      lastResult.fallFatal &&
-      lastResult.lost &&
-      lastResult.fell
-    ) {
-      const toRow = lastResult.lost.row;
-      const fall: FallPlayback = {
-        key: tick,
-        kind: "fall",
-        col: lastResult.lost.col,
-        fromRow: Math.max(0, toRow - lastResult.fell),
-        toRow,
-        fell: lastResult.fell,
-        track: null,
-        impacted: false,
-        doneAt: null,
-      };
-      fallPlayback.current = fall;
-      setFallWindow({
-        key: fall.key,
-        col: fall.col,
-        fromRow: fall.fromRow,
-        toRow: fall.toRow,
-        fell: fall.fell,
-      });
-      const clearMs = Math.min(1600, Math.max(850, 520 + fall.fell * 100));
+    const playback = fallPlaybackFromResult(lastResult, tick);
+    if (playback) {
+      const activePlayback =
+        fallPlayback.current?.key === playback.key
+          ? fallPlayback.current
+          : playback;
+      fallPlayback.current = activePlayback;
+      setFallWindow(fallWindowFromPlayback(activePlayback));
+      const clearMs =
+        activePlayback.kind === "fall"
+          ? Math.min(1600, Math.max(850, 520 + activePlayback.fell * 100))
+          : 1600;
       fallClearTimeout.current = window.setTimeout(() => {
-        if (fallPlayback.current?.key === fall.key) fallPlayback.current = null;
-        setFallWindow((prev) => (prev?.key === fall.key ? null : prev));
+        if (fallPlayback.current?.key === activePlayback.key)
+          fallPlayback.current = null;
+        setFallWindow((prev) =>
+          prev?.key === activePlayback.key ? null : prev,
+        );
         fallClearTimeout.current = null;
       }, clearMs);
-    } else if (
-      lastResult?.ok &&
-      lastResult.collapsed &&
-      lastResult.crushed &&
-      lastResult.lost
-    ) {
-      const crush: FallPlayback = {
-        key: tick,
-        kind: "crush",
-        col: lastResult.lost.col,
-        fromRow: lastResult.lost.row,
-        toRow: lastResult.lost.row,
-        fell: 0,
-        track: null,
-        impacted: false,
-        doneAt: null,
-      };
-      fallPlayback.current = crush;
-      setFallWindow({
-        key: crush.key,
-        col: crush.col,
-        fromRow: crush.fromRow,
-        toRow: crush.toRow,
-        fell: crush.fell,
-      });
-      fallClearTimeout.current = window.setTimeout(() => {
-        if (fallPlayback.current?.key === crush.key)
-          fallPlayback.current = null;
-        setFallWindow((prev) => (prev?.key === crush.key ? null : prev));
-        fallClearTimeout.current = null;
-      }, 1600);
     } else if (!(lastResult?.ok && lastResult.collapsed)) {
       fallPlayback.current = null;
       setFallWindow(null);

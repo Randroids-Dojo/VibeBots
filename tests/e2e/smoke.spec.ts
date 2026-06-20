@@ -797,11 +797,21 @@ test("falling-rock crush stays on camera before the report", async ({
   await pressMineKey(page, "ArrowDown");
   const beforeCrushShot = await canvas.screenshot();
   await pressMineKey(page, "ArrowDown");
-  await expect
-    .poll(async () => canvas.getAttribute("data-fall-visual-active"), {
-      timeout: 5_000,
-    })
-    .toBe("true");
+  let firstActiveFrame: { camY: number; minerY: number } | null = null;
+  for (let i = 0; i < 120; i++) {
+    const active = await canvas.getAttribute("data-fall-visual-active");
+    if (active === "true") {
+      firstActiveFrame = {
+        camY: Number(await canvas.getAttribute("data-cam-y")),
+        minerY: Number(await canvas.getAttribute("data-miner-y")),
+      };
+      break;
+    }
+    await page.waitForTimeout(16);
+  }
+  expect(firstActiveFrame).not.toBeNull();
+  expect(firstActiveFrame?.camY).toBeLessThan(-7);
+  expect(firstActiveFrame?.minerY).toBeLessThan(-7);
   await expect(
     page.getByRole("button", { name: "Dismiss trip report" }),
   ).not.toBeVisible();
@@ -1102,17 +1112,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The starting mine bag now has four slots, with 50 as endgame.",
+    "Falling-rock deaths now stay underground until the death animation finishes.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "starts at four typed stack slots",
+    "before the next frame can follow the reset surface miner",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "50 as the endgame cap",
+    "underground impact cell",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "six-figure deep-depth buys",
+    "Mine rules, recovery, and replay behavior are unchanged.",
   );
 
   await page.mouse.click(8, 8);
@@ -1132,6 +1142,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.95", "Death cam surface jump fix"],
     ["0.1.94", "Cargo hold rebalance"],
     ["0.1.93", "Pickaxe battery tuning"],
     ["0.1.92", "Recall rope range"],
@@ -1212,7 +1223,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.94-cargo-hold-rebalance",
+      "2026-06-20-0.1.95-death-cam-surface-jump",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1333,7 +1344,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.94-cargo-hold-rebalance",
+      "2026-06-20-0.1.95-death-cam-surface-jump",
     );
   });
   await page.route("**/api/version", async (route) => {

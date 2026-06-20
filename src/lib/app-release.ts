@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.94-cargo-hold-rebalance";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.95-death-cam-surface-jump";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.95",
+      date: "2026-06-20",
+      title: "Death cam surface jump fix",
+      intro:
+        "Falling-rock deaths now stay underground until the death animation finishes.",
+      changes: [
+        {
+          build,
+          text: "The mine renderer now installs death playback from the mine store action before the next frame can follow the reset surface miner.",
+        },
+        {
+          build,
+          text: "Falling-rock crushes keep both the camera and miner on the underground impact cell from the first active death frame.",
+        },
+        {
+          build,
+          text: "Mine rules, recovery, and replay behavior are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.94",
       date: "2026-06-20",

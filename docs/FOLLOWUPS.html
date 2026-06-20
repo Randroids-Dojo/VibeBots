@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-030" data-f="F-030" data-priority="nice-to-have">
+    <h3>F-030: Deeply analyze mine death playback architecture</h3>
+    <dl>
+      <dt>Context</dt><dd>The death camera surface-jump fix closes the observed frame race, but the renderer now depends on a render-only death playback event that is synchronized with the mine store action. That is cleaner than a frame-loop fallback, but the death, collapse, and trip-reset presentation pipeline still deserves a deeper design pass before more states accumulate.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>ready: audit the mine store action pipeline, React subscriptions, R3F frame ownership, trip-reset timing, and smoke coverage; research better event systems such as explicit render events emitted from the store transaction, a visual playback queue, or a deterministic presentation-state reducer; then recommend whether to keep the subscription, replace it, or migrate incrementally.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-deeply-analyze-mine-81862016</code></dd>
+    </dl>
+  </section>
+
   <section id="F-029" data-f="F-029" data-priority="nice-to-have">
     <h3>F-029: Expand bunker defense into the full feature</h3>
     <dl>

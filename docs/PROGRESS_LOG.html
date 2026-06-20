@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="warp-beacon-depth-gate" data-date="2026-06-20">
+    <h3>Warp Beacon Depth Gate</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/warp-beacon-depth-gate</code>, created in a fresh worktree from current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-directed mine transport rule. Beacon placement now refuses rows deeper than the current Warpcoil range before spending a kit, matching the existing warp-home and warp-pad range gates. The HUD keeps the beacon icon visible but dimmed at too-deep rows and tapping it shows the Warpcoil upgrade message. Package version moved to <code>0.1.83</code>; <code>MINE_VERSION</code> moved from <code>41</code> to <code>42</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after implementation for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Rebasing over newer <code>origin/main</code> required renumbering this slice after the active release reached <code>0.1.82</code> and mine replay rules reached <code>MINE_VERSION</code> 41. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and test files, focused mine/release/notification/Web Push Vitest (117 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm test</code> (287 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>git diff --cached --check</code>, and focused Playwright smoke against <code>PORT=3306</code> for latest release notes and the disabled beacon placement interaction (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: reuse the existing out-of-range refusal path for beacon planting so all Warpcoil range failures share one short player-facing message. Mine surface tips were reviewed and gained a beacon placement range tip.</dd>
+      <dt>GDD coverage</dt><dd>REQ-029 stays done with updated implementation and test refs. Updated the transport build log in <code>docs/gdd/06-mining.html</code>, plus static and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pickaxe-gate-hints" data-date="2026-06-20">
     <h3>Pickaxe Gate Hints</h3>
     <dl>

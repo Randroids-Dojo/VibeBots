@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.82-pickaxe-gate-hints";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.83-beacon-depth-gate";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.83",
+      date: "2026-06-20",
+      title: "Beacon depth gate",
+      intro: "Warp Beacons now respect your current Warpcoil range.",
+      changes: [
+        {
+          build,
+          text: "Planting a Warp Beacon deeper than the current Warpcoil range is refused before a kit is spent.",
+        },
+        {
+          build,
+          text: "The beacon icon stays visible but dimmed at too-deep rows, so tapping it explains the needed upgrade.",
+        },
+        {
+          build,
+          text: "The surface tip rotation now reminds players that beacon placement is tied to Warpcoil range.",
+        },
+      ],
+    },
     {
       version: "0.1.82",
       date: "2026-06-20",

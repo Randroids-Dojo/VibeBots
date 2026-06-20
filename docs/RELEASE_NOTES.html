@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.83" data-date="2026-06-20">
+    <h2>0.1.83</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.83</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>41</code> to <code>42</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Warp Beacons now respect the current Warpcoil range before placement.</dd>
+      <dt>Rules</dt><dd>Planting a beacon deeper than the player's current Warpcoil range is refused before a beacon kit is spent, matching the existing warp-home and warp-pad range gates.</dd>
+      <dt>Interface</dt><dd>The beacon icon remains visible but dimmed at too-deep rows. Tapping it shows a clear upgrade message instead of silently allowing an unusable anchor.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks the placement refusal, stock preservation, and upgraded success path. Focused smoke coverage checks the dimmed icon and refusal toast at row 61 with a level 1 Warpcoil.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.82" data-date="2026-06-20">
     <h2>0.1.82</h2>
     <dl>

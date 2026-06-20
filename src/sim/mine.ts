@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 41;
+export const MINE_VERSION = 42;
 export const MINE_BOTTOM_ROW = 1000;
 export const BAG_STACK_LIMIT = 5;
 
@@ -3554,6 +3554,8 @@ function placeBeacon(state: MineState): MoveResult {
   const miner = state.miner;
   if (miner.row < 1) return { ok: false, reason: "surface" };
   if (miner.row >= MINE_BOTTOM_ROW) return { ok: false, reason: "blocked" };
+  if (miner.row > warpRange(state.gear))
+    return { ok: false, reason: "out-of-range" };
   if (state.consumables.beacon <= 0) return { ok: false, reason: "no-beacon" };
   const cell = cellMut(state, miner.col, miner.row);
   if (cell.beacon) return { ok: false, reason: "blocked" };

@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.79.123",
+  version: "0.1.83.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.79-stamp-catalog-refresh",
-  intro: "The Stamp Book now covers newer mine features.",
+  noticeId: "2026-06-20-0.1.83-beacon-depth-gate",
+  intro: "Warp Beacons now respect your current Warpcoil range.",
   changes: [
     {
       build: 123,
-      text: "New biome and bag-drop stamps are available.",
+      text: "Too-deep beacon placement keeps the kit and shows an upgrade cue.",
     },
   ],
   notes: [
     {
-      version: "0.1.79",
+      version: "0.1.83",
       date: "2026-06-20",
-      title: "Stamp catalog refresh",
-      intro: "The Stamp Book now covers newer mine features.",
+      title: "Beacon depth gate",
+      intro: "Warp Beacons now respect your current Warpcoil range.",
       changes: [
         {
           build: 123,
-          text: "New biome and bag-drop stamps are available.",
+          text: "Too-deep beacon placement keeps the kit and shows an upgrade cue.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Stamp catalog refresh"),
+      expect.stringContaining("Beacon depth gate"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

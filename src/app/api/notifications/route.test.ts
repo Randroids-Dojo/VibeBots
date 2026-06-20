@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.82-pickaxe-gate-hints",
+      releaseNoticeId: "2026-06-20-0.1.83-beacon-depth-gate",
       releaseSummary:
-        "Pickaxe gate hints: Hard rock walls now tell you which Pickaxe level they need.",
+        "Beacon depth gate: Warp Beacons now respect your current Warpcoil range.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.82-pickaxe-gate-hints",
+      releaseNoticeId: "2026-06-20-0.1.83-beacon-depth-gate",
       attempted: 2,
       sent: 1,
       expired: 1,

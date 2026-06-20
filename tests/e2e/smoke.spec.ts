@@ -1084,16 +1084,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Hard rock walls now tell you which Pickaxe level they need.",
+    "Warp Beacons now respect your current Warpcoil range.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "temporary floating Pickaxe level hint",
+    "current Warpcoil range",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("normal HUD text");
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "gameplay versions are unchanged",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("icon stays visible");
+  await expect(dialog.locator("li").nth(2)).toContainText("surface tip");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1112,6 +1110,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.83", "Beacon depth gate"],
     ["0.1.82", "Pickaxe gate hints"],
     ["0.1.81", "Bunker claim clarity"],
     ["0.1.80", "Bag stacks and ore rebalance"],
@@ -1173,7 +1172,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.82-pickaxe-gate-hints",
+      "2026-06-20-0.1.83-beacon-depth-gate",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1294,7 +1293,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.82-pickaxe-gate-hints",
+      "2026-06-20-0.1.83-beacon-depth-gate",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -2473,6 +2472,56 @@ test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
   await expect(
     pad.getByRole("button", { name: "Warp to beacon" }),
   ).toBeDisabled();
+});
+
+test("warp beacon planting disables beyond current Warpcoil range", async ({
+  page,
+}) => {
+  const gear = {
+    ...DEFAULT_GEAR,
+    pickaxe: 5,
+    battery: 4,
+    cargo: 4,
+    lantern: 3,
+    warpcoil: 1,
+  };
+  const targetRow = 61;
+  const baseDiff = Array.from({ length: targetRow }, (_, index) => [
+    START_COL,
+    index + 1,
+    { kind: "empty", ladder: true },
+  ]);
+  const trip = {
+    seed: 20260620,
+    mineVersion: MINE_VERSION,
+    tripIndex: 0,
+    gear,
+    consumables: { ...STARTING_CONSUMABLES, beacon: 1 },
+    baseDiff,
+    moves: Array.from({ length: targetRow }, () => "down"),
+  };
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.addInitScript((savedTrip) => {
+    localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(savedTrip));
+  }, trip);
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", String(targetRow));
+
+  const beacon = page.getByRole("button", { name: "Plant warp beacon" });
+  await expect(beacon).toBeVisible();
+  await expect(beacon).toHaveAttribute("aria-disabled", "true");
+  await expect(beacon).toHaveCSS("opacity", "0.42");
+  await beacon.click({ force: true });
+  await expect(page.getByText("Too deep for current Warpcoil.")).toBeVisible();
+  await expect(beacon).toContainText("1");
 });
 
 test("biome portal beacons activate and appear at the Warp Pad", async ({

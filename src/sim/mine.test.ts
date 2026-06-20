@@ -866,6 +866,29 @@ describe("mine", () => {
     expect(warpRange(coil.gear)).toBe(400);
   });
 
+  it("refuses beacon placement deeper than the current warpcoil range", () => {
+    const cons = stock({ beacon: 1 });
+    const state = createMine(252, DEFAULT_GEAR, cons);
+    state.miner.row = warpRange(state.gear) + 1;
+    setCell(state, state.miner.col, state.miner.row, { kind: "empty" });
+
+    expect(applyAction(state, "place-beacon")).toEqual({
+      ok: false,
+      reason: "out-of-range",
+    });
+    expect(state.consumables.beacon).toBe(1);
+    expect(state.used.beacon).toBe(0);
+    expect(findBeacon(state)).toBeNull();
+
+    state.gear.warpcoil = 2;
+    expect(applyAction(state, "place-beacon").ok).toBe(true);
+    expect(state.consumables.beacon).toBe(0);
+    expect(findBeacon(state)).toEqual({
+      col: state.miner.col,
+      row: 61,
+    });
+  });
+
   it("replays beacon trips identically", () => {
     const cons = stock({ beacon: 2 });
     const actions: MineAction[] = [

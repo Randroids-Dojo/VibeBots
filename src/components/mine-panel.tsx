@@ -219,6 +219,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: out of ladders? Recall, Abandon, or buy more at the Supply Depot.",
   "Tip: survived bunker defenses add XP toward Level 2 and a third beacon slot.",
   "Tip: Clankers prefer open tunnels, so clear approaches and place panels to shape raids.",
+  "Tip: plant Warp Beacons only inside your current Warpcoil range.",
   "Tip: row 1,000 takes rail, Warpcoil, cargo, and battery upgrades together.",
   "Tip: surface beacons in distant biomes unlock free portals back to base.",
   "Tip: the Stamp Book now tracks biome portals and bag-drop planning.",
@@ -4244,6 +4245,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   );
   const leftPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "left");
   const rightPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "right");
+  const beaconRange = warpRange(mine.gear);
+  const beaconDepthAllowed = miner.row <= beaconRange;
+  const beaconButtonDisabled = !!elevatorAutoDir || !beaconDepthAllowed;
   const minerOnElevatorRail = miner.col === ELEVATOR_COL;
   const elevatorAvailable =
     mine.gear.elevator > 0 &&
@@ -4509,7 +4513,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 : lastResult.reason === "no-beacon"
                   ? "No beacon. Kits are at the depot."
                   : lastResult.reason === "out-of-range"
-                    ? "Beacon out of warpcoil range. Upgrade at the Upgrades stall."
+                    ? "Too deep for current Warpcoil. Upgrade at the Upgrades stall."
                     : lastResult.reason === "no-rope"
                       ? "No rope."
                       : lastResult.reason === "surface"
@@ -5620,11 +5624,23 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           <button
             type="button"
             aria-label="Plant warp beacon"
+            aria-disabled={beaconButtonDisabled}
             onClick={() => {
-              if (!elevatorAutoDir) move("place-beacon");
+              if (elevatorAutoDir) return;
+              setDynamiteMenuOpen(false);
+              move("place-beacon");
             }}
             disabled={!!elevatorAutoDir}
-            style={iconButtonStyle}
+            title={
+              beaconDepthAllowed
+                ? "Plant warp beacon"
+                : `Warpcoil range ${beaconRange} rows`
+            }
+            style={{
+              ...iconButtonStyle,
+              opacity: beaconButtonDisabled ? 0.42 : 1,
+              cursor: beaconButtonDisabled ? "default" : "pointer",
+            }}
           >
             &#128225; {mine.consumables.beacon}
           </button>

@@ -31,6 +31,7 @@ import {
   FEEDBACK_CATEGORY_OPTIONS,
   type FeedbackCategory,
 } from "@/lib/feedback";
+import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
 import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
@@ -749,8 +750,6 @@ const mineShellStyle: React.CSSProperties = {
   height: "100dvh",
   overflow: "hidden",
 };
-
-const MINE_REFRESH_ENTRY_KEY = "vibebots-mine-refresh-entry-version";
 
 interface MineViewportFrame {
   displayMode: "browser" | "fullscreen" | "minimal-ui" | "standalone";

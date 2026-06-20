@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="visual-viewport-refresh-review" data-date="2026-06-20">
+    <h3>Visual Viewport Refresh Review</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/review-cleanup</code>, based on current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>Deep review cleanup for the installed Android refresh fix. The refresh marker key now lives in one shared helper instead of being duplicated between the release prompt and mine shell, and the static release notes now include the complete local, CI, CodeQL, production deploy, and public version endpoint evidence for <code>0.1.118</code>. Package version stays at <code>0.1.118</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write src/lib/mine-refresh.ts src/components/version-refresh-prompt.tsx src/components/mine-panel.tsx docs/RELEASE_NOTES.html docs/PROGRESS_LOG.html</code>, focused Vitest for release notes, notification routes, version route, and Web Push (47 passed), <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3504 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine prompts to refresh|visual viewport changes|mine shows the latest release note" --project=chromium</code> (3 passed), <code>pnpm test</code> (354 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, and critical smoke with <code>PLAYWRIGHT_PORT=3505 pnpm test:e2e:critical --project=chromium</code> (5 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep the release notice id and package version stable because this is cleanup plus release evidence, not a new player-facing feature.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. No new GDD build-log entry is needed because the gameplay and notification behavior are unchanged.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="visual-viewport-refresh" data-date="2026-06-20">
     <h3>Visual Viewport Refresh</h3>
     <dl>

@@ -23,6 +23,8 @@ if (!Number.isInteger(localPort) || localPort < 1 || localPort > 65535) {
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 60_000,
+  fullyParallel: process.env.CI === "true",
+  workers: process.env.CI ? 2 : undefined,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {

@@ -2788,123 +2788,140 @@ test("warp beacon planting disables beyond current Warpcoil range", async ({
   await expect(beacon).toContainText("1");
 });
 
-test("biome portal beacons activate and appear at the Warp Pad", async ({
-  page,
-}) => {
-  const trip = {
-    seed: 20260619,
-    mineVersion: MINE_VERSION,
-    tripIndex: 0,
-    gear: DEFAULT_GEAR,
-    consumables: STARTING_CONSUMABLES,
-    baseDiff: [],
-    moves: Array.from({ length: 75 }, () => "left"),
-  };
-  await page.route("**/api/mine/world", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
-  });
-  await page.route("**/api/gear", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
-  });
-  await page.addInitScript((savedTrip) => {
-    localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(savedTrip));
-  }, trip);
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  const status = page.getByLabel("Mine status");
-  await expect(status).toHaveAttribute("data-depth", "0");
+test.describe
+  .serial("deep saved-trip smoke", () => {
+    test("biome portal beacons activate and appear at the Warp Pad", async ({
+      page,
+    }) => {
+      const trip = {
+        seed: 20260619,
+        mineVersion: MINE_VERSION,
+        tripIndex: 0,
+        gear: DEFAULT_GEAR,
+        consumables: STARTING_CONSUMABLES,
+        baseDiff: [],
+        moves: Array.from({ length: 75 }, () => "left"),
+      };
+      await page.route("**/api/mine/world", async (route) => {
+        await route.fulfill({ status: 503, body: "{}" });
+      });
+      await page.route("**/api/gear", async (route) => {
+        await route.fulfill({ status: 503, body: "{}" });
+      });
+      await page.addInitScript((savedTrip) => {
+        localStorage.setItem(
+          "vibebots-mine-trip-v2-slot-1",
+          JSON.stringify(savedTrip),
+        );
+      }, trip);
+      await page.goto("/mine");
+      await dismissReleaseNotes(page);
+      const status = page.getByLabel("Mine status");
+      await expect(status).toHaveAttribute("data-depth", "0");
 
-  const activate = page.getByRole("button", {
-    name: "Activate Winter Beacon",
-  });
-  await expect(activate).toBeVisible();
-  const canvas = page.locator("canvas");
-  const before = await canvas.screenshot();
-  await activate.click();
-  const portal = page.getByRole("region", { name: "Winter Beacon portal" });
-  await expect(portal).toBeVisible();
-  const after = await canvas.screenshot();
-  expect(Buffer.compare(before, after)).not.toBe(0);
+      const activate = page.getByRole("button", {
+        name: "Activate Winter Beacon",
+      });
+      await expect(activate).toBeVisible();
+      const canvas = page.locator("canvas");
+      const before = await canvas.screenshot();
+      await activate.click();
+      const portal = page.getByRole("region", { name: "Winter Beacon portal" });
+      await expect(portal).toBeVisible();
+      const after = await canvas.screenshot();
+      expect(Buffer.compare(before, after)).not.toBe(0);
 
-  await portal.getByRole("button", { name: "Base" }).click();
-  await expect(status).toHaveAttribute("data-depth", "0");
-  for (let i = 0; i < 6; i++) await pressMineKey(page, "ArrowRight");
-  const pad = await openStall(page, "Warp Pad");
-  await expect(pad).toContainText("Winter Beacon");
-  await expect(pad).toContainText("portals are free");
-});
+      await portal.getByRole("button", { name: "Base" }).click();
+      await expect(status).toHaveAttribute("data-depth", "0");
+      for (let i = 0; i < 6; i++) await pressMineKey(page, "ArrowRight");
+      const pad = await openStall(page, "Warp Pad");
+      await expect(pad).toContainText("Winter Beacon");
+      await expect(pad).toContainText("portals are free");
+    });
 
-test("deep dropped ore markers do not create a white text card", async ({
-  page,
-}) => {
-  const gear = {
-    ...DEFAULT_GEAR,
-    pickaxe: 5,
-    battery: 5,
-    cargo: 5,
-    lantern: 4,
-    warpcoil: 5,
-  };
-  const consumables = { ...STARTING_CONSUMABLES, beacon: 0 };
-  const trip = {
-    seed: 12345,
-    mineVersion: MINE_VERSION,
-    tripIndex: 0,
-    gear,
-    consumables,
-    baseDiff: [
-      [0, 665, { kind: "empty", beacon: true, drop: { coal: 12 } }],
-      [1, 665, { kind: "rock", rockTier: 3, fallen: true }],
-      [1, 664, { kind: "rock", rockTier: 3, fallen: true }],
-      [0, 666, { kind: "rock", rockTier: 3, fallen: true }],
-      [-1, 665, { kind: "empty" }],
-      [0, 664, { kind: "empty" }],
-    ],
-    moves: ["right", "right", "right", "right", "right", "right", "warp-down"],
-  };
-  await page.route("**/api/mine/world", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
-  });
-  await page.route("**/api/gear", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
-  });
-  await page.addInitScript((savedTrip) => {
-    localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(savedTrip));
-  }, trip);
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  const status = page.getByLabel("Mine status");
-  await expect(status).toHaveAttribute("data-depth", "665");
+    test("deep dropped ore markers do not create a white text card", async ({
+      page,
+    }) => {
+      const gear = {
+        ...DEFAULT_GEAR,
+        pickaxe: 5,
+        battery: 5,
+        cargo: 5,
+        lantern: 4,
+        warpcoil: 5,
+      };
+      const consumables = { ...STARTING_CONSUMABLES, beacon: 0 };
+      const trip = {
+        seed: 12345,
+        mineVersion: MINE_VERSION,
+        tripIndex: 0,
+        gear,
+        consumables,
+        baseDiff: [
+          [0, 665, { kind: "empty", beacon: true, drop: { coal: 12 } }],
+          [1, 665, { kind: "rock", rockTier: 3, fallen: true }],
+          [1, 664, { kind: "rock", rockTier: 3, fallen: true }],
+          [0, 666, { kind: "rock", rockTier: 3, fallen: true }],
+          [-1, 665, { kind: "empty" }],
+          [0, 664, { kind: "empty" }],
+        ],
+        moves: [
+          "right",
+          "right",
+          "right",
+          "right",
+          "right",
+          "right",
+          "warp-down",
+        ],
+      };
+      await page.route("**/api/mine/world", async (route) => {
+        await route.fulfill({ status: 503, body: "{}" });
+      });
+      await page.route("**/api/gear", async (route) => {
+        await route.fulfill({ status: 503, body: "{}" });
+      });
+      await page.addInitScript((savedTrip) => {
+        localStorage.setItem(
+          "vibebots-mine-trip-v2-slot-1",
+          JSON.stringify(savedTrip),
+        );
+      }, trip);
+      await page.goto("/mine");
+      await dismissReleaseNotes(page);
+      const status = page.getByLabel("Mine status");
+      await expect(status).toHaveAttribute("data-depth", "665");
 
-  const canvas = page.locator("canvas");
-  await expect(canvas).toBeVisible();
-  await page.keyboard.press("ArrowLeft");
-  await page.waitForTimeout(300);
-  await expect(canvas).toHaveAttribute("data-miner-x", "-1.00");
-  const brightPixels = await canvas.evaluate((node) => {
-    const source = node as HTMLCanvasElement;
-    const sample = document.createElement("canvas");
-    sample.width = source.width;
-    sample.height = source.height;
-    const ctx = sample.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return Number.POSITIVE_INFINITY;
-    ctx.drawImage(source, 0, 0);
-    const data = ctx.getImageData(0, 0, sample.width, sample.height).data;
-    let bright = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      if (
-        data[i] > 245 &&
-        data[i + 1] > 245 &&
-        data[i + 2] > 245 &&
-        data[i + 3] > 180
-      ) {
-        bright++;
-      }
-    }
-    return bright;
+      const canvas = page.locator("canvas");
+      await expect(canvas).toBeVisible();
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForTimeout(300);
+      await expect(canvas).toHaveAttribute("data-miner-x", "-1.00");
+      const brightPixels = await canvas.evaluate((node) => {
+        const source = node as HTMLCanvasElement;
+        const sample = document.createElement("canvas");
+        sample.width = source.width;
+        sample.height = source.height;
+        const ctx = sample.getContext("2d", { willReadFrequently: true });
+        if (!ctx) return Number.POSITIVE_INFINITY;
+        ctx.drawImage(source, 0, 0);
+        const data = ctx.getImageData(0, 0, sample.width, sample.height).data;
+        let bright = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          if (
+            data[i] > 245 &&
+            data[i + 1] > 245 &&
+            data[i + 2] > 245 &&
+            data[i + 3] > 180
+          ) {
+            bright++;
+          }
+        }
+        return bright;
+      });
+      expect(brightPixels).toBeLessThan(800);
+    });
   });
-  expect(brightPixels).toBeLessThan(800);
-});
 
 test("the warp pad lists beacons newest first (REQ-029)", async ({ page }) => {
   const mine = createMine(9797, DEFAULT_GEAR, STARTING_CONSUMABLES);

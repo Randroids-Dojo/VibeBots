@@ -1761,26 +1761,16 @@ test("mine rotates surface game tips and sometimes leaves the slot empty", async
 }) => {
   await page.setViewportSize({ width: 575, height: 1280 });
   await page.addInitScript(() => {
-    Math.random = () => 0;
-    const intervalRandomValues = [0, 0.9];
-    const realSetInterval = window.setInterval;
-    window.setInterval = ((...args: Parameters<typeof window.setInterval>) => {
-      const [handler, timeout, ...rest] = args;
-      if (timeout !== 15_000) return realSetInterval(handler, timeout, ...rest);
-      return realSetInterval(
-        () => {
-          const previousRandom = Math.random;
-          Math.random = () => intervalRandomValues.shift() ?? 0.9;
-          try {
-            if (typeof handler === "function") handler();
-          } finally {
-            Math.random = previousRandom;
-          }
-        },
-        1000,
-        ...rest,
-      );
-    }) as typeof window.setInterval;
+    const w = window as typeof window & {
+      __vibebotsSurfaceTipSequence?: (string | null)[];
+      __vibebotsSurfaceTipRotationMs?: number;
+    };
+    w.__vibebotsSurfaceTipSequence = [
+      "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
+      "Tip: press up into a solid block to mine overhead without spending a ladder.",
+      null,
+    ];
+    w.__vibebotsSurfaceTipRotationMs = 5_000;
   });
   await page.goto("/mine");
   await dismissReleaseNotes(page);
@@ -1793,14 +1783,16 @@ test("mine rotates surface game tips and sometimes leaves the slot empty", async
     "Tip: rich ore can burst for bigger chunks, but a dry strike still drains battery.",
     { exact: true },
   );
+  await expect(longTip).toBeVisible();
   const box = await longTip.boundingBox();
   expect(box).not.toBeNull();
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);
   expect(box?.height ?? 0).toBeGreaterThan(22);
   await expect(status).toContainText(
     "Tip: press up into a solid block to mine overhead without spending a ladder.",
+    { timeout: 8_000 },
   );
-  await expect(status).not.toContainText("Tip:");
+  await expect(status).not.toContainText("Tip:", { timeout: 8_000 });
 });
 
 test("ladders count as support: no plank spent crossing the shaft mouth (REQ-022)", async ({

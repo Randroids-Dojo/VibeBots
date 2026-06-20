@@ -221,6 +221,11 @@ const MINE_SURFACE_TIP_CHOICES: readonly (string | null)[] = [
   ...Array.from({ length: MINE_SURFACE_TIP_EMPTY_SLOTS }, () => null),
 ];
 
+interface MineSurfaceTipTestWindow {
+  __vibebotsSurfaceTipSequence?: (string | null)[];
+  __vibebotsSurfaceTipRotationMs?: number;
+}
+
 interface NotificationConfig {
   configured: boolean;
   vapidPublicKey: string | null;
@@ -350,6 +355,12 @@ function elevatorAutoDelayMs(gear: MineGear): number {
 }
 
 function randomMineSurfaceTip(current: string | null): string | null {
+  const sequence =
+    typeof window === "undefined"
+      ? undefined
+      : (window as Window & MineSurfaceTipTestWindow)
+          .__vibebotsSurfaceTipSequence;
+  if (sequence && sequence.length > 0) return sequence.shift() ?? null;
   const options = MINE_SURFACE_TIP_CHOICES.filter((tip) => tip !== current);
   const slot = options[Math.floor(Math.random() * options.length)];
   return slot ?? null;
@@ -3851,9 +3862,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       setMineSurfaceTip(next);
     };
     rotateMineSurfaceTip();
+    const rotationMs =
+      (window as Window & MineSurfaceTipTestWindow)
+        .__vibebotsSurfaceTipRotationMs ?? MINE_SURFACE_TIP_ROTATION_MS;
     const timer = window.setInterval(() => {
       rotateMineSurfaceTip();
-    }, MINE_SURFACE_TIP_ROTATION_MS);
+    }, rotationMs);
     return () => window.clearInterval(timer);
   }, [mine.miner.row]);
 

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.72-plank-side-buttons",
+      releaseNoticeId: "2026-06-20-0.1.73-falling-rock-crush",
       releaseSummary:
-        "Plank side buttons: Both bridge directions now stay visible in the mine HUD.",
+        "Falling rock crush: Falling rocks now always crush miners caught under them.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.72-plank-side-buttons",
+      releaseNoticeId: "2026-06-20-0.1.73-falling-rock-crush",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -60,7 +60,7 @@ describe("mining sfx event mapping", () => {
 
     expect(
       mineResultSfxEvents({ ...ok, collapsed: true, crushed: true }, "down"),
-    ).toEqual(["step", "crush"]);
+    ).toEqual(["step"]);
     expect(
       mineResultSfxEvents(
         { ...ok, collapsed: true, crushed: true, fallFatal: true, fell: 5 },

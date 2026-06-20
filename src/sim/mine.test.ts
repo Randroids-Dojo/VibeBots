@@ -1233,6 +1233,52 @@ describe("mine", () => {
     expect(state.miner.collapses).toBe(1);
   });
 
+  it("crushes if a teetering rock overlaps the miner before it can move", () => {
+    const state = createMine(470);
+    const c = START_COL;
+    state.miner.row = 6;
+    state.miner.col = c;
+    setCell(state, c, 6, { kind: "rock", rockTier: 1, fallIn: 1 });
+    setCell(state, c, 7, { kind: "dirt" });
+    state.miner.carried = { coal: 1 };
+
+    const fatal = step(state, "down");
+
+    expect(fatal.ok && fatal.crushed).toBe(true);
+    expect(fatal.ok && fatal.collapsed).toBe(true);
+    expect(fatal.ok && fatal.lost).toMatchObject({
+      value: 1,
+      col: c,
+      row: 6,
+    });
+    expect(state.miner.row).toBe(0);
+    expect(carriedCount(state.miner)).toBe(0);
+  });
+
+  it("crushes a miner who keeps digging under an undermined rock", () => {
+    const gear = { ...DEFAULT_GEAR, pickaxe: 4, fall: 5 };
+    const state = createMine(6262, gear);
+    const c = START_COL;
+    for (let row = 1; row <= 6; row++) {
+      setCell(state, c, row, { kind: "empty" });
+    }
+    setCell(state, c, 7, { kind: "dirt" });
+    setCell(state, c + 1, 5, { kind: "rock", rockTier: 1 });
+    setCell(state, c + 1, 6, { kind: "dirt" });
+    setCell(state, c + 1, 7, { kind: "dirt" });
+    setCell(state, c + 1, 8, { kind: "dirt" });
+    setCell(state, c + 1, 9, { kind: "dirt" });
+
+    expect(step(state, "down").ok).toBe(true);
+    expect(step(state, "right").ok).toBe(true);
+    expect(step(state, "down").ok).toBe(true);
+    const fatal = step(state, "down");
+
+    expect(fatal.ok && fatal.crushed).toBe(true);
+    expect(fatal.ok && fatal.lost).toMatchObject({ col: c + 1, row: 8 });
+    expect(state.miner.row).toBe(0);
+  });
+
   it("drops crush cargo on the fallen rock rest cell", () => {
     const state = createMine(48);
     const c = START_COL;

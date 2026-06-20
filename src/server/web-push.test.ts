@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.72.123",
+  version: "0.1.73.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.72-plank-side-buttons",
-  intro: "Both bridge directions now stay visible in the mine HUD.",
+  noticeId: "2026-06-20-0.1.73-falling-rock-crush",
+  intro: "Falling rocks now always crush miners caught under them.",
   changes: [
     {
       build: 123,
-      text: "Each side disables independently when that target cell cannot accept a plank.",
+      text: "Crush deaths hold the camera underground before the report.",
     },
   ],
   notes: [
     {
-      version: "0.1.72",
+      version: "0.1.73",
       date: "2026-06-20",
-      title: "Plank side buttons",
-      intro: "Both bridge directions now stay visible in the mine HUD.",
+      title: "Falling rock crush",
+      intro: "Falling rocks now always crush miners caught under them.",
       changes: [
         {
           build: 123,
-          text: "Each side disables independently when that target cell cannot accept a plank.",
+          text: "Crush deaths hold the camera underground before the report.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Plank side buttons"),
+      expect.stringContaining("Falling rock crush"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

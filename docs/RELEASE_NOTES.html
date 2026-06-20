@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.73" data-date="2026-06-20">
+    <h2>0.1.73</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.73</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> moves from <code>37</code> to <code>38</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Falling rocks now always crush miners caught under them.</dd>
+      <dt>Rules</dt><dd>A dropping rock treats every cell it covers from perch to rest as lethal if the miner occupies that column, including direct overlap edge cases from saved or replayed mine state.</dd>
+      <dt>Impact</dt><dd>Crush deaths hold the camera on the underground impact, visibly flatten the miner, then show the trip report and haul the miner back to the surface.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks the direct overlap guard and active digging under an undermined rock. Focused Playwright coverage checks that crush motion changes pixels, keeps the camera underground, reaches impact, and delays the trip report until after the hit.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.72" data-date="2026-06-20">
     <h2>0.1.72</h2>
     <dl>

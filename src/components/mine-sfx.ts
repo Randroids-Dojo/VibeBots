@@ -226,8 +226,9 @@ export function mineResultSfxEvents(
   if (result.abandoned) events.push("abandon");
   else if (result.fallFatal) {
     // The renderer plays the death cue at impact, not when the sim resets.
-  } else if (result.crushed) events.push("crush");
-  else if (result.collapsed) events.push("collapse");
+  } else if (result.crushed) {
+    // The renderer plays the crush cue at impact, not when the sim resets.
+  } else if (result.collapsed) events.push("collapse");
 
   return events;
 }

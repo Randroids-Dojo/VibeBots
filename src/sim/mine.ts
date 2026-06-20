@@ -39,7 +39,7 @@ function cellRandom(
  * (seed, moves). The client submits it with a cash-out so a session
  * played on old rules is rejected instead of silently re-priced.
  */
-export const MINE_VERSION = 37;
+export const MINE_VERSION = 38;
 export const MINE_BOTTOM_ROW = 1000;
 
 /**
@@ -2236,13 +2236,13 @@ function tickFalls(
   dropping.sort((a, b) => b.row - a.row || a.col - b.col);
   for (const { col, row, cell } of dropping) {
     let rest = row;
-    let crushedByThisBlock = false;
     while (true) {
       const below = cellAt(state, col, rest + 1);
       if (below?.kind !== "empty") break;
       rest++;
-      if (miner.col === col && miner.row === rest) crushedByThisBlock = true;
     }
+    const crushedByThisBlock =
+      miner.col === col && miner.row >= row && miner.row <= rest;
     setCell(state, col, row, { kind: "empty" });
     emptied.push({ col, row });
     // The block relocates intact. The teeter resets and crack damage is

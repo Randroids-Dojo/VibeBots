@@ -2440,11 +2440,14 @@ function JuiceOverlays() {
         parts: lastResult.lost.parts.length,
         nearMiss: nearMissLine(mine, lastResult.lost),
       };
-      if (lastResult.fallFatal) {
-        wreckTimeout.current = window.setTimeout(() => {
-          setWreck(nextWreck);
-          wreckTimeout.current = null;
-        }, 850);
+      if (lastResult.fallFatal || lastResult.crushed) {
+        wreckTimeout.current = window.setTimeout(
+          () => {
+            setWreck(nextWreck);
+            wreckTimeout.current = null;
+          },
+          lastResult.fallFatal ? 850 : 1300,
+        );
       } else {
         setWreck(nextWreck);
       }

@@ -330,6 +330,7 @@ interface FallWindow {
 }
 
 interface FallPlayback extends FallWindow {
+  kind: "fall" | "crush";
   track: MotionTrack | null;
   impacted: boolean;
   doneAt: number | null;
@@ -339,6 +340,7 @@ const PICK_SWING_SECONDS = 0.18;
 const DIG_LUNGE_SECONDS = 0.16;
 const CAMERA_STEP_SECONDS = 0.28;
 const FATAL_FALL_HOLD_SECONDS = 0.38;
+const CRUSH_HOLD_SECONDS = 0.95;
 /** Length of the bounce-off animation when the pick can't cut the rock. */
 const BOUNCE_SECONDS = 0.28;
 const DYNAMITE_RED = "#b43b32";
@@ -2339,6 +2341,7 @@ function MineScene({
       const toRow = lastResult.lost.row;
       const fall: FallPlayback = {
         key: tick,
+        kind: "fall",
         col: lastResult.lost.col,
         fromRow: Math.max(0, toRow - lastResult.fell),
         toRow,
@@ -2361,6 +2364,37 @@ function MineScene({
         setFallWindow((prev) => (prev?.key === fall.key ? null : prev));
         fallClearTimeout.current = null;
       }, clearMs);
+    } else if (
+      lastResult?.ok &&
+      lastResult.collapsed &&
+      lastResult.crushed &&
+      lastResult.lost
+    ) {
+      const crush: FallPlayback = {
+        key: tick,
+        kind: "crush",
+        col: lastResult.lost.col,
+        fromRow: lastResult.lost.row,
+        toRow: lastResult.lost.row,
+        fell: 0,
+        track: null,
+        impacted: false,
+        doneAt: null,
+      };
+      fallPlayback.current = crush;
+      setFallWindow({
+        key: crush.key,
+        col: crush.col,
+        fromRow: crush.fromRow,
+        toRow: crush.toRow,
+        fell: crush.fell,
+      });
+      fallClearTimeout.current = window.setTimeout(() => {
+        if (fallPlayback.current?.key === crush.key)
+          fallPlayback.current = null;
+        setFallWindow((prev) => (prev?.key === crush.key ? null : prev));
+        fallClearTimeout.current = null;
+      }, 1600);
     } else if (!(lastResult?.ok && lastResult.collapsed)) {
       fallPlayback.current = null;
       setFallWindow(null);
@@ -2501,7 +2535,10 @@ function MineScene({
     let visualTargetY = -mine.miner.row;
     if (activeFall) {
       if (!activeFall.track) {
-        const duration = Math.min(1.05, Math.max(0.42, activeFall.fell * 0.11));
+        const duration =
+          activeFall.kind === "crush"
+            ? 0.32
+            : Math.min(1.05, Math.max(0.42, activeFall.fell * 0.11));
         activeFall.track = {
           fromX: cellX(activeFall.col),
           fromY: -activeFall.fromRow,
@@ -2516,13 +2553,24 @@ function MineScene({
       [visualTargetX, visualTargetY] = sampleMotion(activeFall.track, t);
       if (motionProgress(activeFall.track, t) >= 1 && !activeFall.impacted) {
         activeFall.impacted = true;
-        activeFall.doneAt = t + FATAL_FALL_HOLD_SECONDS;
+        activeFall.doneAt =
+          t +
+          (activeFall.kind === "crush"
+            ? CRUSH_HOLD_SECONDS
+            : FATAL_FALL_HOLD_SECONDS);
         const impactX = cellX(activeFall.col);
         const impactY = -activeFall.toRow;
-        spawnBurst(j, impactX, impactY, "#ff6b6b", 24);
-        spawnSparks(j, impactX, impactY, 12);
-        j.shake = Math.max(j.shake, 0.72);
-        playMineSfxEvent("fall-death");
+        if (activeFall.kind === "crush") {
+          spawnBurst(j, impactX, impactY, "#d9863a", 32);
+          spawnSparks(j, impactX, impactY + 0.12, 18);
+          j.shake = Math.max(j.shake, 0.9);
+          playMineSfxEvent("crush");
+        } else {
+          spawnBurst(j, impactX, impactY, "#ff6b6b", 24);
+          spawnSparks(j, impactX, impactY, 12);
+          j.shake = Math.max(j.shake, 0.72);
+          playMineSfxEvent("fall-death");
+        }
       }
       if (activeFall.doneAt != null && t >= activeFall.doneAt) {
         const key = activeFall.key;
@@ -2585,6 +2633,7 @@ function MineScene({
       state.camera.lookAt(sx, rig.position.y + sy, 0);
       // Rendered camera pan exposed for motion QA on narrow viewports.
       state.gl.domElement.dataset.camX = rig.position.x.toFixed(2);
+      state.gl.domElement.dataset.camY = rig.position.y.toFixed(2);
       state.gl.domElement.dataset.camZoom = cameraZoom.toFixed(2);
       state.gl.domElement.dataset.renderBelow = String(renderWindow.below);
       state.gl.domElement.dataset.litBelow = String(litBelow);
@@ -2677,6 +2726,16 @@ function MineScene({
       // Lean into the glide while moving between cells.
       const vx = visualTargetX - miner.position.x;
       body.rotation.z = Math.max(-0.16, Math.min(0.16, -vx * 0.3));
+      if (activeFall?.kind === "crush") {
+        const crushed = activeFall.impacted ? 1 : 0;
+        body.scale.x = 1 + crushed * 0.26;
+        body.scale.y = 1 - crushed * 0.42;
+        body.scale.z = 1 + crushed * 0.18;
+        body.position.y -= crushed * 0.12;
+        body.rotation.z += crushed * 0.24;
+      } else {
+        body.scale.set(1, 1, 1);
+      }
     }
     // Legs: a foot-locked walk cycle. The stride advances by the
     // distance actually travelled this frame (no skating), and the legs

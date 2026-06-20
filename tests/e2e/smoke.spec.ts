@@ -610,6 +610,77 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
   await expect(report).not.toContainText("Crushed by a boulder");
 });
 
+test("falling-rock crush stays on camera before the report", async ({
+  page,
+}) => {
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  const gear = { ...DEFAULT_GEAR, pickaxe: 4, fall: 5 };
+  const mine = createMine(6262, gear, STARTING_CONSUMABLES);
+  const c = START_COL;
+  for (let row = 1; row <= 6; row++) {
+    setCell(mine, c, row, { kind: "empty" });
+  }
+  setCell(mine, c, 7, { kind: "dirt" });
+  setCell(mine, c + 1, 5, { kind: "rock", rockTier: 1 });
+  setCell(mine, c + 1, 6, { kind: "dirt" });
+  setCell(mine, c + 1, 7, { kind: "dirt" });
+  setCell(mine, c + 1, 8, { kind: "dirt" });
+  setCell(mine, c + 1, 9, { kind: "dirt" });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-falling-rock-alert-dismissed", "true");
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed: 6262,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+
+  await pressMineKey(page, "ArrowRight");
+  await pressMineKey(page, "ArrowDown");
+  const beforeCrushShot = await canvas.screenshot();
+  await pressMineKey(page, "ArrowDown");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fall-visual-active"), {
+      timeout: 5_000,
+    })
+    .toBe("true");
+  await expect(
+    page.getByRole("button", { name: "Dismiss trip report" }),
+  ).not.toBeVisible();
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {
+      timeout: 5_000,
+    })
+    .toBeLessThan(-7);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fall-visual-impact"), {
+      timeout: 5_000,
+    })
+    .toBe("true");
+  const activeCrushShot = await canvas.screenshot();
+  expect(Buffer.compare(beforeCrushShot, activeCrushShot)).not.toBe(0);
+
+  const report = page.getByRole("button", { name: "Dismiss trip report" });
+  await expect(report).toBeVisible({ timeout: 15_000 });
+  await expect(report).toContainText("Crushed by a boulder");
+});
+
 test("edit pickup selection outlines selected cells in red", async ({
   page,
 }) => {
@@ -878,18 +949,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "Both bridge directions now stay visible in the mine HUD.",
+    "Falling rocks now always crush miners caught under them.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "separate left and right plank buttons",
+    "every covered cell",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Each side disables independently",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "Plank placement rules",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("camera underground");
+  await expect(dialog.locator("li").nth(2)).toContainText("visibly flattens");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -908,6 +975,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.73", "Falling rock crush"],
     ["0.1.72", "Plank side buttons"],
     ["0.1.71", "Ore yield tuning"],
     ["0.1.70", "Biome portal beacons"],
@@ -959,7 +1027,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.72-plank-side-buttons",
+      "2026-06-20-0.1.73-falling-rock-crush",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1080,7 +1148,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.72-plank-side-buttons",
+      "2026-06-20-0.1.73-falling-rock-crush",
     );
   });
   await page.route("**/api/version", async (route) => {

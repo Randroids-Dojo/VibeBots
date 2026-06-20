@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.72-plank-side-buttons";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.73-falling-rock-crush";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.73",
+      date: "2026-06-20",
+      title: "Falling rock crush",
+      intro: "Falling rocks now always crush miners caught under them.",
+      changes: [
+        {
+          build,
+          text: "A dropping rock now treats every covered cell as lethal, including direct overlap edge cases from saved or replayed mine state.",
+        },
+        {
+          build,
+          text: "Crush deaths hold the camera underground for the impact before showing the trip report and hauling the miner back to the village.",
+        },
+        {
+          build,
+          text: "The miner visibly flattens under the hit with a burst, shake, and impact sound so the loss reads before the surface reset.",
+        },
+      ],
+    },
     {
       version: "0.1.72",
       date: "2026-06-20",

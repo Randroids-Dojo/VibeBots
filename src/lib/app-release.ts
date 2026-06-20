@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.80-bag-stacks-rebalance";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.81-bunker-claim-clarity";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.81",
+      date: "2026-06-20",
+      title: "Bunker claim clarity",
+      intro: "Bunker claim mode now marks blockers in red.",
+      changes: [
+        {
+          build,
+          text: "Every local cell that still needs clearing inside the 7x5 claim is highlighted in red in the mine view.",
+        },
+        {
+          build,
+          text: "The claim button stays disabled until the local mine and the banked checkpoint both have the full area clear, including the miner's row.",
+        },
+        {
+          build,
+          text: "Shallow claim attempts and clear-but-unbanked rooms now explain the next step instead of sending a failing claim request.",
+        },
+      ],
+    },
     {
       version: "0.1.80",
       date: "2026-06-20",

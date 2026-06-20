@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-claim-clarity" data-date="2026-06-20">
+    <h3>Bunker Claim Clarity</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260619-211826</code>, created from current <code>origin/main</code> in a fresh worktree before implementation, then rebased over current <code>origin/main</code> after remote main moved.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user</dd>
+      <dt>Changed</dt><dd>User-reported bunker claim fix. Root cause: the claim API validates the banked server mine world, not just the current unsaved underground trip, and the 7x5 footprint includes the miner's row. The mine now highlights local cells that still need clearing in red, disables the claim button until the full footprint is clear in both the local view and banked checkpoint, explains shallow and unbanked clearings, and reuses the same footprint cell helper on the server. Package version moved to <code>0.1.81</code>; <code>MINE_VERSION</code> stays at <code>41</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, docs, and smoke files, focused bunker, notification, and app-release Vitest (30 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3288</code> for bunker claim red blockers and latest release notes (2 passed), <code>pnpm test</code> (286 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --check</code>, and full Playwright smoke before the final release-number rebase against <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3286</code> (52 passed, 2 storage-gated skipped).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep the full 7x5 claim rule unchanged, including the miner's row, because the room footprint needs to match the server's persistent base placement contract. Mine surface tips were reviewed and kept unchanged because this changes claim-mode clarity, not general mining advice.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Updated the build log in <code>docs/gdd/06-mining.html</code>, static release notes, in-game release notes, notification expectations, server coverage, and focused smoke coverage.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bag-stacks-ore-rebalance" data-date="2026-06-20">
     <h3>Bag Stacks And Ore Rebalance</h3>
     <dl>

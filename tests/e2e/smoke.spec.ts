@@ -567,6 +567,96 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
   ).toBeVisible();
 });
 
+test("bunker claim mode highlights uncleared claim cells in red", async ({
+  page,
+}) => {
+  const mine = createMine(6060, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 6; row++) {
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 6060,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: null,
+        inventory: {
+          "wall-panel": 2,
+          "floor-panel": 3,
+          "roof-panel": 3,
+          "door-panel": 1,
+          "basic-turret": 0,
+          "floor-spikes": 0,
+        },
+        activeRaid: null,
+        player: {
+          balance: 120,
+          trackXp: 0,
+          defenseXp: 0,
+          overallLevel: 1,
+          levelCap: 2,
+          progressXp: 0,
+          neededXp: 100,
+          nextLevelXp: 100,
+          beaconLimit: 2,
+        },
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem(
+        "vibebots-mine-trip-v2-slot-1",
+        JSON.stringify(trip),
+      );
+    },
+    {
+      seed: 6060,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "6",
+  );
+
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  const builder = page.getByRole("region", { name: "Bunker builder" });
+  await expect(builder).toContainText(/Clear \d+ red cells/);
+  await expect(
+    builder.getByRole("button", { name: "Claim 7x5 bunker" }),
+  ).toBeDisabled();
+
+  const redPixels = await countCanvasRedPixels(
+    page,
+    await page.locator("canvas").screenshot(),
+  );
+  expect(redPixels).toBeGreaterThan(50);
+});
+
 test("fatal free fall stays on camera until impact", async ({ page }) => {
   await page.route("**/api/mine/world", async (route) => {
     await route.fulfill({ status: 503, body: "{}" });
@@ -957,19 +1047,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).toContainText(
-    "The mine bag now stacks matching resources with lower ore values.",
+    "Bunker claim mode now marks blockers in red.",
   );
-  await expect(dialog.locator("li")).toHaveCount(4);
+  await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "stacks up to five chunks",
+    "highlighted in red",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "smaller whole-vibe amounts",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText("full-bag sound");
-  await expect(dialog.locator("li").nth(3)).toContainText(
-    "whole selected stack",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("miner's row");
+  await expect(dialog.locator("li").nth(2)).toContainText("failing claim");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -988,6 +1073,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.81", "Bunker claim clarity"],
     ["0.1.80", "Bag stacks and ore rebalance"],
     ["0.1.79", "Stamp catalog refresh"],
     ["0.1.78", "Falling rock durability"],
@@ -1047,7 +1133,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.80-bag-stacks-rebalance",
+      "2026-06-20-0.1.81-bunker-claim-clarity",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -1168,7 +1254,7 @@ test("mine refresh prompt dismisses from an outside tap", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.80-bag-stacks-rebalance",
+      "2026-06-20-0.1.81-bunker-claim-clarity",
     );
   });
   await page.route("**/api/version", async (route) => {

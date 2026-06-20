@@ -7,6 +7,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -30,6 +31,7 @@ import {
   basePartMinimumLevel,
   basePartOwnedCount,
   basePartOwnedLimit,
+  bunkerCells,
   DEFENSE_XP_PER_LEVEL,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
@@ -48,6 +50,8 @@ import {
   cellAt,
   collectAction,
   collectablePlacements,
+  createMine,
+  DEFAULT_GEAR,
   type Direction,
   DYNAMITE_TIERS,
   type DynamiteTier,
@@ -64,11 +68,13 @@ import {
   MAX_BEACONS,
   MINE_VERSION,
   type MineAction,
+  type MineCoord,
   type MineGear,
   type MineGearTrack,
   type MineState,
   maxEnergy,
   maxGearLevel,
+  NO_CONSUMABLES,
   normalizeBeaconLabel,
   type OreId,
   oreDef,
@@ -3419,6 +3425,8 @@ function BunkerControlPanel({
   claimMode,
   panelOpen,
   preview,
+  localBlockedCells,
+  bankedBlockedCells,
   selectedPart,
   onSelectPart,
   onStartClaim,
@@ -3436,6 +3444,8 @@ function BunkerControlPanel({
   claimMode: boolean;
   panelOpen: boolean;
   preview: BunkerFootprint | null;
+  localBlockedCells: readonly MineCoord[];
+  bankedBlockedCells: readonly MineCoord[];
   selectedPart: BasePartId;
   onSelectPart: (partId: BasePartId) => void;
   onStartClaim: () => void;
@@ -3456,7 +3466,14 @@ function BunkerControlPanel({
   const lastReward = useBunkerStore((s) => s.lastRaidReward);
   const note = useBunkerStore((s) => s.note);
   const hasBunker = Boolean(bunker);
-  const canClaim = !hasBunker && status !== "loading" && preview !== null;
+  const localBlockerCount = localBlockedCells.length;
+  const bankedBlockerCount = bankedBlockedCells.length;
+  const canClaim =
+    !hasBunker &&
+    status !== "loading" &&
+    preview !== null &&
+    localBlockerCount === 0 &&
+    bankedBlockerCount === 0;
   const canBuild = hasBunker && !activeRaid;
   const compactLabel = hasBunker ? "Open bunker builder" : "Start bunker claim";
   const compactText = hasBunker ? "Bunker" : "Bunker claim";
@@ -3552,7 +3569,13 @@ function BunkerControlPanel({
         <p style={{ margin: "6px 0 10px", fontSize: "0.78rem", opacity: 0.7 }}>
           {hasBunker
             ? `Cell ${minerCol}, ${minerRow}. Place parts on claimed cells. The outline has no collision.`
-            : "Clear and bank a 7x5 claim. The outline is only a guide."}
+            : !preview
+              ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
+              : localBlockerCount > 0
+                ? `Clear ${localBlockerCount} red cell${localBlockerCount === 1 ? "" : "s"}. The miner's row counts.`
+                : bankedBlockerCount > 0
+                  ? "Return to the surface to bank this clearing, then come back to claim."
+                  : "Ready to claim. This 7x5 space is clear and banked."}
         </p>
         {player && (
           <fieldset
@@ -3781,6 +3804,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const move = useMineStore((s) => s.move);
   const seed = useMineStore((s) => s.seed);
   const tripIndex = useMineStore((s) => s.tripIndex);
+  const tripBaseDiff = useMineStore((s) => s.tripBaseDiff);
   const movesLength = useMineStore((s) => s.moves.length);
   const cashOut = useMineStore((s) => s.cashOut);
   const submitCashOut = useMineStore((s) => s.submitCashOut);
@@ -4255,8 +4279,33 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         };
   const bunkerPreview =
     miner.row > 0 && !bunker && bunkerClaimMode
-      ? proposedBunkerFootprint(miner.col, miner.row)
+      ? (() => {
+          const footprint = proposedBunkerFootprint(miner.col, miner.row);
+          return footprint.row >= 1 ? footprint : null;
+        })()
       : null;
+  const bankedMineForClaim = useMemo(
+    () => createMine(seed, DEFAULT_GEAR, NO_CONSUMABLES, tripBaseDiff),
+    [seed, tripBaseDiff],
+  );
+  const localBlockedBunkerCells = useMemo(() => {
+    void tick;
+    return bunkerPreview
+      ? bunkerCells(bunkerPreview).filter(
+          ({ col, row }) => cellAt(mine, col, row)?.kind !== "empty",
+        )
+      : [];
+  }, [bunkerPreview, mine, tick]);
+  const bankedBlockedBunkerCells = useMemo(
+    () =>
+      bunkerPreview
+        ? bunkerCells(bunkerPreview).filter(
+            ({ col, row }) =>
+              cellAt(bankedMineForClaim, col, row)?.kind !== "empty",
+          )
+        : [],
+    [bankedMineForClaim, bunkerPreview],
+  );
 
   const handleBaseReturn = async () => {
     if (!baseReturn || baseReturnDisabled) return;
@@ -4514,6 +4563,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         selectedSupportKeys={collectSelection}
         dynamitePreviewCells={selectedDynamitePreview}
         bunkerPreview={bunkerPreview}
+        bunkerBlockedCells={localBlockedBunkerCells}
         bunker={bunker}
         activeBunkerRaid={activeBunkerRaid}
         onToggleSupport={toggleCollectTarget}
@@ -4906,6 +4956,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         claimMode={bunkerClaimMode}
         panelOpen={bunkerPanelOpen}
         preview={bunkerPreview}
+        localBlockedCells={localBlockedBunkerCells}
+        bankedBlockedCells={bankedBlockedBunkerCells}
         selectedPart={selectedBasePart}
         onSelectPart={setSelectedBasePart}
         onStartClaim={() => {

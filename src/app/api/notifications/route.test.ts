@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.80-bag-stacks-rebalance",
+      releaseNoticeId: "2026-06-20-0.1.81-bunker-claim-clarity",
       releaseSummary:
-        "Bag stacks and ore rebalance: The mine bag now stacks matching resources with lower ore values.",
+        "Bunker claim clarity: Bunker claim mode now marks blockers in red.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.80-bag-stacks-rebalance",
+      releaseNoticeId: "2026-06-20-0.1.81-bunker-claim-clarity",
       attempted: 2,
       sent: 1,
       expired: 1,

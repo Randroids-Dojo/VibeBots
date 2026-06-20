@@ -432,10 +432,12 @@ function ClankerMesh({
 
 function BunkerOverlay({
   preview,
+  blockedCells,
   bunker,
   activeRaid,
 }: {
   preview?: BunkerFootprint | null;
+  blockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
   activeRaid?: BunkerRaidSnapshot | null;
 }) {
@@ -482,6 +484,23 @@ function BunkerOverlay({
       </mesh>,
     );
   }
+  const blocked =
+    blockedCells?.map((cell) => (
+      <group key={`bunker-blocked:${cell.col}:${cell.row}`}>
+        <mesh position={[cellX(cell.col), -cell.row, 1]} renderOrder={18}>
+          <planeGeometry args={[1.08, 1.08]} />
+          <meshBasicMaterial
+            color={SUPPORT_SELECT_RED}
+            transparent
+            opacity={0.24}
+            depthWrite={false}
+            depthTest={false}
+            toneMapped={false}
+          />
+        </mesh>
+        <SelectedSupportCellOutline col={cell.col} row={cell.row} />
+      </group>
+    )) ?? [];
   const parts =
     bunker?.parts.map((part) => {
       if (part.partId === "floor-spikes") {
@@ -565,6 +584,7 @@ function BunkerOverlay({
   return (
     <>
       {lines}
+      {blocked}
       {bunker && (
         <mesh position={[cellX(bunker.core.col), -bunker.core.row, 0.62]}>
           <octahedronGeometry args={[0.28, 0]} />
@@ -2273,6 +2293,7 @@ function MineScene({
   selectedSupportKeys,
   dynamitePreviewCells,
   bunkerPreview,
+  bunkerBlockedCells,
   bunker,
   activeBunkerRaid,
   onToggleSupport,
@@ -3487,6 +3508,7 @@ function MineScene({
       {supportSelectionMeshes}
       <BunkerOverlay
         preview={bunkerPreview}
+        blockedCells={bunkerBlockedCells}
         bunker={bunker}
         activeRaid={activeBunkerRaid}
       />
@@ -3536,6 +3558,7 @@ interface MineCanvasProps {
   selectedSupportKeys?: readonly string[];
   dynamitePreviewCells?: readonly MineCoord[];
   bunkerPreview?: BunkerFootprint | null;
+  bunkerBlockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
   activeBunkerRaid?: BunkerRaidSnapshot | null;
   onToggleSupport?: (target: CollectTarget) => void;

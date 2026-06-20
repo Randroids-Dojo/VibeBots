@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.81" data-date="2026-06-20">
+    <h2>0.1.81</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.81</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>41</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Bunker claim mode now marks blockers in red.</dd>
+      <dt>Interface</dt><dd>Every local cell that still needs clearing inside the 7x5 claim is highlighted in red in the mine view, using the same red selection language as placed-support edit mode.</dd>
+      <dt>Claim readiness</dt><dd>The claim button stays disabled until the local mine and the banked checkpoint both have the full area clear, including the miner's row. Shallow claims and clear-but-unbanked rooms explain the next step.</dd>
+      <dt>Verification</dt><dd>Focused server coverage checks that side cells on the miner's row still block the full-footprint claim. Focused smoke coverage checks red blocker pixels and disabled claim state.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.80" data-date="2026-06-20">
     <h2>0.1.80</h2>
     <dl>

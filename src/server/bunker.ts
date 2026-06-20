@@ -11,6 +11,7 @@ import {
   type BunkerRaidSnapshot,
   type BunkerState,
   basePartOwnedLimit,
+  bunkerCells,
   canBuyBasePart,
   createBunker,
   EMPTY_BASE_PART_INVENTORY,
@@ -191,14 +192,8 @@ function footprintIsCleared(
 ): boolean {
   if (footprint.row < 1) return false;
   const mine = createMine(seed, DEFAULT_GEAR, NO_CONSUMABLES, diff);
-  for (let row = footprint.row; row < footprint.row + footprint.height; row++) {
-    for (
-      let col = footprint.col;
-      col < footprint.col + footprint.width;
-      col++
-    ) {
-      if (cellAt(mine, col, row)?.kind !== "empty") return false;
-    }
+  for (const { col, row } of bunkerCells(footprint)) {
+    if (cellAt(mine, col, row)?.kind !== "empty") return false;
   }
   return true;
 }

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { bunkerCells, proposedBunkerFootprint } from "@/sim/bunker";
 import { applyAchievementProgress } from "./achievements";
 import {
   buyBasePart,
+  claimBunker,
   finishBunkerRaid,
   loadBunkerView,
   startBunkerRaid,
@@ -197,6 +199,36 @@ describe("bunker server helpers", () => {
       )
       .map((call) => call[2]);
     expect(insertedParts).toEqual(["floor-panel", "roof-panel"]);
+  });
+
+  it("requires the full footprint, including side cells on the miner row", async () => {
+    const footprint = proposedBunkerFootprint(10, 8);
+    const blockedCell = {
+      col: footprint.col,
+      row: footprint.row + footprint.height - 1,
+    };
+    const diff = bunkerCells(footprint)
+      .filter(
+        (cell) => cell.col !== blockedCell.col || cell.row !== blockedCell.row,
+      )
+      .map((cell) => [cell.col, cell.row, { kind: "empty" }] as const);
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT player_id")) return [];
+      if (query.includes("SELECT seed, diff")) return [{ seed: 123, diff }];
+      if (query.includes("INSERT INTO bunkers")) {
+        throw new Error("claim should not insert");
+      }
+      return [];
+    });
+
+    const result = await claimBunker(sql as never, "player-1", 10, 8);
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: "clear the full 7x5 claim first",
+    });
   });
 
   it("starts raids with clanker paths from the saved mine world", async () => {

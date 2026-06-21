@@ -2,18 +2,36 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest touch zoom lock note complete", () => {
+  it("keeps the latest touch drag layer note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.121-touch-zoom-lock");
+    expect(release.noticeId).toBe("2026-06-20-0.1.122-touch-drag-layer");
     expect(latestNote).toMatchObject({
+      version: "0.1.122",
+      title: "Touch drag layer",
+      intro: "Movement drags now sit above the mine canvas again.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The movement touch surface now has an explicit stack position above the 3D canvas.",
+      "HUD buttons keep their higher stack position, so Jump and consumable controls remain tappable.",
+      "Smoke coverage now checks that open mine space targets movement while HUD buttons stay on top.",
+    ]);
+  });
+
+  it("keeps the archived touch zoom lock note complete", () => {
+    const release = getAppRelease();
+    const touchZoomNote = release.notes.find(
+      (note) => note.version === "0.1.121",
+    );
+
+    expect(touchZoomNote).toMatchObject({
       version: "0.1.121",
       title: "Touch zoom lock",
       intro:
         "Touch input is locked back to mine controls instead of page zoom.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(touchZoomNote?.changes.map((change) => change.text)).toEqual([
       "The app viewport now blocks browser page pinch zoom so the HUD cannot inflate over the mine.",
       "The mine shell catches document pinch gestures while preserving the bounded in-mine camera zoom.",
       "Smoke coverage now dispatches real touch events to prove touch drag movement still works on phone viewports.",

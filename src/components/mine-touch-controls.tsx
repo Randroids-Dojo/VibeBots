@@ -169,6 +169,7 @@ export function MineTouchControls({
         position: "absolute",
         inset: 0,
         touchAction: "none",
+        zIndex: 4,
       }}
     >
       {stick && (

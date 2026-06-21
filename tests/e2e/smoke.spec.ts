@@ -1712,16 +1712,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Touch input is locked back to mine controls instead of page zoom.",
+    "Movement drags now sit above the mine canvas again.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "browser page pinch zoom",
+    "explicit stack position",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "bounded in-mine camera zoom",
+    "HUD buttons keep their higher stack position",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("real touch events");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "open mine space targets movement",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1740,6 +1742,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.122", "Touch drag layer"],
     ["0.1.121", "Touch zoom lock"],
     ["0.1.120", "Underground bunker claims"],
     ["0.1.119", "Jump button placement"],
@@ -1885,7 +1888,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.121-touch-zoom-lock",
+      "2026-06-20-0.1.122-touch-drag-layer",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -3133,6 +3136,30 @@ test.describe("phone viewport", () => {
     const canvas = page.locator("canvas");
     await expect(status).toHaveAttribute("data-depth", "0");
     await expect(canvas).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const openTarget = document.elementFromPoint(150, 470);
+          const jumpButton = document.querySelector('[aria-label="Jump jets"]');
+          const jumpRect = jumpButton?.getBoundingClientRect();
+          const hudTarget = jumpRect
+            ? document.elementFromPoint(
+                jumpRect.left + jumpRect.width / 2,
+                jumpRect.top + jumpRect.height / 2,
+              )
+            : null;
+          return {
+            hudButton: hudTarget?.closest("button")?.getAttribute("aria-label"),
+            openMineIsTouchSurface: Boolean(
+              openTarget?.closest("[data-touch-surface]"),
+            ),
+          };
+        }),
+      )
+      .toEqual({
+        hudButton: "Jump jets",
+        openMineIsTouchSurface: true,
+      });
 
     const viewportMeta = await page
       .locator('meta[name="viewport"]')

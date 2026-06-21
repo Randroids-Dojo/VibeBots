@@ -36,17 +36,43 @@ export interface MineCashOutMonitoringEvent {
   detail?: string;
 }
 
+export interface MineClientDiagnosticEvent {
+  code:
+    | "touch_surface_missing"
+    | "touch_surface_not_topmost"
+    | "movement_layer_disabled";
+  severity: MonitoringSeverity;
+  playerId?: string;
+  appVersion?: string;
+  appBuild?: number | null;
+  mineVersion?: number;
+  activeSlot?: number;
+  minerRow?: number;
+  hasActiveBunker?: boolean;
+  bunkerPanelOpen?: boolean;
+  activeBunkerRaid?: boolean;
+  collectMode?: boolean;
+  creditsOpen?: boolean;
+  mineSceneReady?: boolean;
+  movementTouchEnabled?: boolean;
+  displayMode?: string | null;
+  viewport?: unknown;
+  target?: unknown;
+  detail?: string;
+}
+
 function hashIdentifier(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
 function writeMonitoringLog(
   severity: MonitoringSeverity,
+  component: string,
   payload: Record<string, unknown>,
 ): void {
   const line = JSON.stringify({
     source: "vibebots",
-    component: "mine.cash_out",
+    component,
     alert: severity !== "info",
     severity,
     ...payload,
@@ -64,8 +90,19 @@ function writeMonitoringLog(
 
 export function logMineCashOutEvent(event: MineCashOutMonitoringEvent): void {
   const { playerId, severity, ...rest } = event;
-  writeMonitoringLog(severity, {
+  writeMonitoringLog(severity, "mine.cash_out", {
     event: `mine.cash_out.${event.code}`,
+    player: playerId ? hashIdentifier(playerId) : undefined,
+    ...rest,
+  });
+}
+
+export function logMineClientDiagnosticEvent(
+  event: MineClientDiagnosticEvent,
+): void {
+  const { playerId, severity, ...rest } = event;
+  writeMonitoringLog(severity, "mine.client_diagnostic", {
+    event: `mine.client_diagnostic.${event.code}`,
     player: playerId ? hashIdentifier(playerId) : undefined,
     ...rest,
   });

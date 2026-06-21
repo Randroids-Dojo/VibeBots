@@ -4563,7 +4563,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [mineSurfaceTip, setMineSurfaceTip] = useState<string | null>(null);
   const mineSurfaceTipRef = useRef<string | null>(null);
   const [bunkerClaimMode, setBunkerClaimMode] = useState(false);
-  const [bunkerPanelOpen, setBunkerPanelOpen] = useState(true);
+  const [bunkerPanelOpen, setBunkerPanelOpen] = useState(false);
   const [selectedBasePart, setSelectedBasePart] =
     useState<BasePartId>("wall-panel");
   const [bunkerBuildMode, setBunkerBuildMode] =
@@ -4606,6 +4606,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const activeBunker = pendingBunker?.bunker ?? bunker;
   const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
   const pendingBunkerActive = pendingBunker !== null;
+  const terminalMineState = Boolean(lastResult?.ok && lastResult.collapsed);
 
   useEffect(() => {
     if (mine.miner.row !== 0) return;
@@ -5005,9 +5006,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const fireJump = useCallback(() => {
     if (!mineSceneReady) return;
     if (elevatorAutoDir) return;
+    if (terminalMineState || creditsOpen) return;
     const state = useMineStore.getState();
+    if (!canJump(state.mine)) return;
     state.move("jump");
-  }, [elevatorAutoDir, mineSceneReady]);
+  }, [creditsOpen, elevatorAutoDir, mineSceneReady, terminalMineState]);
 
   const releaseDirection = useCallback((dir: Direction | null) => {
     directionCadenceRef.current?.release(dir);
@@ -5203,7 +5206,18 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (sum, target) => sum + supportSalvageValue(target.type),
     0,
   );
-  const jumpEnabled = mineSceneReady && !elevatorAutoDir && canJump(mine);
+  const bunkerCanvasEditing = Boolean(
+    miner.row > 0 &&
+      activeBunker &&
+      bunkerPanelOpen &&
+      !activeBunkerRaid &&
+      !terminalMineState,
+  );
+  const jumpAvailable = canJump(mine);
+  const jumpButtonVisible =
+    jumpAvailable && !terminalMineState && !bunkerCanvasEditing;
+  const jumpEnabled =
+    jumpButtonVisible && mineSceneReady && !elevatorAutoDir && !creditsOpen;
   const leftPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "left");
   const rightPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "right");
   const beaconRange = warpRange(mine.gear);
@@ -5270,7 +5284,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           color: "#54e0c7",
         };
   const bunkerPreview =
-    miner.row > 0 && !activeBunker && bunkerClaimMode
+    miner.row > 0 && !activeBunker && bunkerClaimMode && !terminalMineState
       ? (() => {
           const footprint = proposedBunkerFootprint(miner.col, miner.row);
           return footprint.row >= 1 ? footprint : null;
@@ -5363,6 +5377,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   useEffect(() => {
     if (activeBunker || miner.row <= 0) setBunkerClaimMode(false);
   }, [activeBunker, miner.row]);
+
+  useEffect(() => {
+    if (!terminalMineState && miner.row > 0 && !activeBunkerRaid) return;
+    setBunkerClaimMode(false);
+    setBunkerPanelOpen(false);
+    setSelectedBunkerPartCell(null);
+    setBunkerPartDragTargetCell(null);
+    setBunkerTargetCell(null);
+  }, [activeBunkerRaid, miner.row, terminalMineState]);
 
   useEffect(() => {
     if (!activeBunker || !bunkerPanelOpen || activeBunkerRaid) {
@@ -5728,11 +5751,83 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       : mine.pendingDynamite
         ? "One fuse is already lit."
         : null;
-  const bunkerCanvasEditing = Boolean(
-    miner.row > 0 && activeBunker && bunkerPanelOpen && !activeBunkerRaid,
-  );
   const movementTouchEnabled =
-    mineSceneReady && !collectMode && !bunkerCanvasEditing && !creditsOpen;
+    mineSceneReady &&
+    !collectMode &&
+    !bunkerCanvasEditing &&
+    !creditsOpen &&
+    !terminalMineState;
+
+  useEffect(() => {
+    if (releaseNotesVisible) return;
+    if (!coarsePointer && navigator.maxTouchPoints <= 0) return;
+    const code =
+      terminalMineState && lastAction === null && movesLength > 0
+        ? "saved_trip_replay_collapsed"
+        : terminalMineState && (bunkerClaimMode || bunkerPanelOpen)
+          ? "bunker_overlay_during_terminal"
+          : bunkerCanvasEditing
+            ? "movement_disabled_by_bunker_panel"
+            : null;
+    if (!code) return;
+    const key = [
+      "state",
+      code,
+      activeSlot,
+      miner.row,
+      activeBunker ? "bunker" : "mine",
+      bunkerPanelOpen ? "panel" : "closed",
+      terminalMineState ? "terminal" : "play",
+    ].join(":");
+    if (inputDiagnosticKeysRef.current.has(key)) return;
+    inputDiagnosticKeysRef.current.add(key);
+    void fetch("/api/mine/diagnostics", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        code,
+        appVersion: appRelease.version,
+        appBuild: appRelease.build,
+        mineVersion: MINE_VERSION,
+        activeSlot,
+        minerRow: miner.row,
+        hasActiveBunker: Boolean(activeBunker),
+        bunkerPanelOpen,
+        activeBunkerRaid: Boolean(activeBunkerRaid),
+        collectMode,
+        creditsOpen,
+        mineSceneReady,
+        movementTouchEnabled,
+        displayMode: mineViewportFrame?.displayMode ?? null,
+        detail:
+          code === "saved_trip_replay_collapsed"
+            ? "saved trip replay restored a terminal collapse result"
+            : code === "bunker_overlay_during_terminal"
+              ? "bunker overlay remained open during a terminal mine result"
+              : "bunker panel disabled movement touch input",
+      }),
+    }).catch(() => {});
+  }, [
+    activeBunker,
+    activeBunkerRaid,
+    activeSlot,
+    appRelease,
+    bunkerCanvasEditing,
+    bunkerClaimMode,
+    bunkerPanelOpen,
+    coarsePointer,
+    collectMode,
+    creditsOpen,
+    lastAction,
+    mineSceneReady,
+    mineViewportFrame,
+    miner.row,
+    movementTouchEnabled,
+    movesLength,
+    releaseNotesVisible,
+    terminalMineState,
+  ]);
 
   useEffect(() => {
     if (!movementTouchEnabled) return;
@@ -6821,29 +6916,31 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         </section>
       )}
 
-      <button
-        type="button"
-        aria-label="Jump jets"
-        title="Jump up one cell"
-        onClick={() => {
-          setDynamiteMenuOpen(false);
-          setRecoveryMenuOpen(false);
-          fireJump();
-        }}
-        disabled={!jumpEnabled}
-        style={{
-          ...jumpButtonStyle,
-          position: "absolute",
-          right: 14,
-          top: "50%",
-          transform: "translateY(-50%)",
-          zIndex: 6,
-          opacity: jumpEnabled ? 1 : 0.46,
-          cursor: jumpEnabled ? "pointer" : "default",
-        }}
-      >
-        Jump
-      </button>
+      {jumpButtonVisible && (
+        <button
+          type="button"
+          aria-label="Jump jets"
+          title="Jump up one cell"
+          onClick={() => {
+            setDynamiteMenuOpen(false);
+            setRecoveryMenuOpen(false);
+            fireJump();
+          }}
+          disabled={!jumpEnabled}
+          style={{
+            ...jumpButtonStyle,
+            position: "absolute",
+            right: 14,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 6,
+            opacity: jumpEnabled ? 1 : 0.46,
+            cursor: jumpEnabled ? "pointer" : "default",
+          }}
+        >
+          Jump
+        </button>
+      )}
 
       {/* Consumable cluster: thumb-reach icon buttons. Movement is the
           thumbstick (or WASD/arrows); the D-pad is gone. */}

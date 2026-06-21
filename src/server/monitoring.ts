@@ -37,7 +37,12 @@ export interface MineCashOutMonitoringEvent {
 }
 
 export interface MineClientDiagnosticEvent {
-  code: "touch_surface_missing" | "touch_surface_not_topmost";
+  code:
+    | "touch_surface_missing"
+    | "touch_surface_not_topmost"
+    | "movement_disabled_by_bunker_panel"
+    | "bunker_overlay_during_terminal"
+    | "saved_trip_replay_collapsed";
   severity: MonitoringSeverity;
   playerId?: string;
   appVersion?: string;

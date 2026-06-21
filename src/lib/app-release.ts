@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.123-save-touch-diagnostics";
+const RELEASE_NOTICE_ID = "2026-06-21-0.1.124-mine-terminal-state";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.124",
+      date: "2026-06-21",
+      title: "Mine terminal state fix",
+      intro: "Mine death and bunker UI now settle cleanly after reloads.",
+      changes: [
+        {
+          build,
+          text: "Saved trips that replay into a fatal fall now restore the death result once, mark it consumed, and stop replaying the same fall forever.",
+        },
+        {
+          build,
+          text: "Bunker builder UI now starts closed, closes on surface or death, and never leaves the claim grid over fatal fall playback.",
+        },
+        {
+          build,
+          text: "Jump only appears when the sim says a jump is available, and diagnostics now log terminal replay and bunker-overlay input blockers.",
+        },
+      ],
+    },
     {
       version: "0.1.123",
       date: "2026-06-20",

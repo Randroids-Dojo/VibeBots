@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest save touch diagnostics note complete", () => {
+  it("keeps the latest mine terminal state note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.123-save-touch-diagnostics");
+    expect(release.noticeId).toBe("2026-06-21-0.1.124-mine-terminal-state");
+    expect(latestNote).toMatchObject({
+      version: "0.1.124",
+      title: "Mine terminal state fix",
+      intro: "Mine death and bunker UI now settle cleanly after reloads.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Saved trips that replay into a fatal fall now restore the death result once, mark it consumed, and stop replaying the same fall forever.",
+      "Bunker builder UI now starts closed, closes on surface or death, and never leaves the claim grid over fatal fall playback.",
+      "Jump only appears when the sim says a jump is available, and diagnostics now log terminal replay and bunker-overlay input blockers.",
+    ]);
+  });
+
+  it("keeps the archived save touch diagnostics note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.123");
+
     expect(latestNote).toMatchObject({
       version: "0.1.123",
       title: "Save touch diagnostics",

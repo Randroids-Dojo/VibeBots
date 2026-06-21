@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createBunker, STARTER_BASE_PART_INVENTORY } from "@/sim/bunker";
 import {
   createMine,
   DEFAULT_GEAR,
@@ -395,6 +396,113 @@ describe("mine store upgrade flow", () => {
     expect(localStorage.removeItem).toHaveBeenCalledWith(
       "vibebots-mine-trip-v2",
     );
+  });
+
+  it("restores a terminal saved trip once without replaying death forever", async () => {
+    const seed = 6161;
+    const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+    for (let row = 1; row <= 6; row++) {
+      setCell(mine, START_COL, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, 7, { kind: "dirt" });
+    const saved = {
+      mineVersion: MINE_VERSION,
+      seed,
+      tripIndex: 4,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down"] as MineAction[],
+      pendingBunker: {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 0,
+        bunker: {
+          footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+          parts: [],
+        },
+        inventory: {},
+      },
+    };
+    localStorage.setItem("vibebots-mine-trip-v2-slot-1", JSON.stringify(saved));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          activeSlot: 1,
+          seed,
+          tripIndex: 4,
+          diff: saved.baseDiff,
+        }),
+      ),
+    );
+
+    await store().loadWorld();
+
+    expect(store().mine.miner.row).toBe(0);
+    const terminalResult = store().lastResult;
+    expect(
+      terminalResult?.ok &&
+        terminalResult.collapsed &&
+        terminalResult.fallFatal,
+    ).toBe(true);
+    expect(store().pendingBunker).toBeNull();
+    const consumed = JSON.parse(
+      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+    );
+    expect(consumed.terminalReplayConsumed).toBe(true);
+    expect(consumed.pendingBunker).toBeNull();
+
+    await store().loadWorld();
+
+    expect(store().mine.miner.row).toBe(0);
+    expect(store().lastResult).toBeNull();
+    expect(store().pendingBunker).toBeNull();
+  });
+
+  it("clears pending bunker state when a live move collapses", () => {
+    const seed = 6162;
+    const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+    for (let row = 1; row <= 6; row++) {
+      setCell(mine, START_COL, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, 7, { kind: "dirt" });
+    useMineStore.setState({
+      mine,
+      seed,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      tripIndex: 4,
+      tripBaseDiff: exportDiff(mine),
+      moves: [],
+      pendingBunker: {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 0,
+        bunker: createBunker({
+          col: START_COL - 3,
+          row: 1,
+          width: 7,
+          height: 5,
+        }),
+        inventory: { ...STARTER_BASE_PART_INVENTORY },
+      },
+      worldLoaded: true,
+    });
+
+    store().move("down");
+
+    const terminalResult = store().lastResult;
+    expect(
+      terminalResult?.ok &&
+        terminalResult.collapsed &&
+        terminalResult.fallFatal,
+    ).toBe(true);
+    expect(store().pendingBunker).toBeNull();
+    const saved = JSON.parse(
+      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+    );
+    expect(saved.pendingBunker).toBeNull();
   });
 
   it("does not overwrite a legacy local trip before the slot world loads", () => {

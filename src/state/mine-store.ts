@@ -82,6 +82,7 @@ interface SavedTrip {
   baseDiff: WorldDiff;
   moves: MineAction[];
   pendingBunker?: PendingBunkerBuild | null;
+  terminalReplayConsumed?: boolean;
 }
 
 function validSaveSlot(value: unknown): SaveSlotId | null {
@@ -150,6 +151,43 @@ function removeLocalTrip(slot: SaveSlotId): void {
   } catch {
     // Storage blocked: the server-side save is still deleted.
   }
+}
+
+function replaySavedTrip(
+  saved: SavedTrip,
+  baseDiff: WorldDiff,
+): {
+  mine: MineState;
+  moves: MineAction[];
+  lastResult: MoveResult | null;
+  pendingBunker: PendingBunkerBuild | null;
+  terminalReplayConsumed: boolean;
+} {
+  const resumed = createMine(
+    saved.seed,
+    saved.gear,
+    saved.consumables,
+    baseDiff,
+  );
+  const moves: MineAction[] = [];
+  let terminalResult: MoveResult | null = null;
+  for (const action of saved.moves) {
+    const result = applyAction(resumed, action);
+    if (result.ok) moves.push(action);
+    if (result.ok && result.collapsed) {
+      terminalResult = result;
+      break;
+    }
+  }
+  const terminalReplayConsumed =
+    terminalResult !== null && saved.terminalReplayConsumed === true;
+  return {
+    mine: resumed,
+    moves,
+    lastResult: terminalReplayConsumed ? null : terminalResult,
+    pendingBunker: terminalResult ? null : (saved.pendingBunker ?? null),
+    terminalReplayConsumed,
+  };
 }
 
 function deleteSaveSlotConfirmation(slot: SaveSlotId): string {
@@ -396,7 +434,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const result = applyAction(mine, action);
       // Refused actions are not part of the trip (the sim ignored them).
       if (result.ok) moves.push(action);
-      set({ tick: tick + 1, lastResult: result, lastAction: action });
+      set({
+        tick: tick + 1,
+        lastResult: result,
+        lastAction: action,
+        ...(result.ok && result.collapsed ? { pendingBunker: null } : null),
+      });
       // Persist the in-flight trip so a reload resumes mid-trip,
       // carry and carving intact.
       if (result.ok) {
@@ -421,13 +464,24 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           saved.tripIndex === tripIndex &&
           saved.moves.length > 0
         ) {
-          const resumed = createMine(
-            seed,
-            saved.gear,
-            saved.consumables,
-            baseDiff,
-          );
-          for (const a of saved.moves) applyAction(resumed, a);
+          const replay = replaySavedTrip(saved, baseDiff);
+          if (
+            replay.lastResult?.ok &&
+            replay.lastResult.collapsed &&
+            !replay.terminalReplayConsumed
+          ) {
+            saveLocalTrip(slot, {
+              mineVersion: MINE_VERSION,
+              seed,
+              tripIndex,
+              gear: saved.gear,
+              consumables: saved.consumables,
+              baseDiff: saved.baseDiff,
+              moves: replay.moves,
+              pendingBunker: null,
+              terminalReplayConsumed: true,
+            });
+          }
           set({
             activeSlot: slot,
             worldLoaded: true,
@@ -436,11 +490,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             tripBaseDiff: baseDiff,
             gear: saved.gear,
             consumables: saved.consumables,
-            mine: resumed,
-            moves: [...saved.moves],
-            pendingBunker: saved.pendingBunker ?? null,
-            tick: saved.moves.length,
-            lastResult: null,
+            mine: replay.mine,
+            moves: replay.moves,
+            pendingBunker: replay.pendingBunker,
+            tick: replay.moves.length,
+            lastResult: replay.lastResult,
           });
           return;
         }

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-terminal-state" data-date="2026-06-21">
+    <h3>Mine Terminal State</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/main-bunker-touch-clean</code>, based on current <code>origin/main</code> after the <code>0.1.123</code> save touch diagnostics release.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user after implementation and review.</dd>
+      <dt>Changed</dt><dd>User-reported mine terminal-state fix. Saved trips that replay into fatal falls now restore the terminal result once and mark that replay consumed, preventing the same death animation from looping forever after reload. The bunker builder now starts closed, closes on surface or terminal mine states, and does not leave the claim grid over fatal fall playback. Jump only renders when the sim says a jump is available. Mine diagnostics now accept terminal replay and bunker-overlay blocker codes. Package version moved to <code>0.1.124</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Ran focused Vitest for mine store, mine diagnostics, and monitoring (27 passed), focused release, notification, version, and Web Push Vitest (53 passed), <code>pnpm exec tsc --noEmit --pretty false</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with <code>pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|fatal free fall stays on camera|bunker claims can be edited before banking"</code> (3 passed), <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm test</code> (376 passed), <code>pnpm lint</code>, and <code>pnpm check:purity</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this changes client save replay handling and UI gates only. It does not change deterministic mine rules, cash-out replay math, or battle sim behavior, so no mine-version or sim-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, and strengthened focused smoke coverage for terminal falls and pending bunker reloads.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="save-touch-diagnostics" data-date="2026-06-20">
     <h3>Save Touch Diagnostics</h3>
     <dl>

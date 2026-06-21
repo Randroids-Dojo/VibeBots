@@ -25,7 +25,13 @@ const targetSchema = z
 
 const diagnosticSchema = z
   .object({
-    code: z.enum(["touch_surface_missing", "touch_surface_not_topmost"]),
+    code: z.enum([
+      "touch_surface_missing",
+      "touch_surface_not_topmost",
+      "movement_disabled_by_bunker_panel",
+      "bunker_overlay_during_terminal",
+      "saved_trip_replay_collapsed",
+    ]),
     appVersion: z.string().min(1).max(40).optional(),
     appBuild: z.number().int().nullable().optional(),
     mineVersion: z.number().int().nonnegative().optional(),

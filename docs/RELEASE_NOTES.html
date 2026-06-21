@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.124" data-date="2026-06-21">
+    <h2>0.1.124</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.124</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mine death and bunker UI now settle cleanly after reloads.</dd>
+      <dt>Save replay</dt><dd>Saved trips that replay into a fatal fall now restore the terminal result once, mark it consumed, and keep reloads from replaying the same death loop forever.</dd>
+      <dt>Controls</dt><dd>The bunker builder starts closed, closes at the surface or after death, and the claim grid no longer stays over fatal fall playback. Jump only appears when the sim says a jump is available.</dd>
+      <dt>Diagnostics</dt><dd>Mine diagnostics now accept terminal replay and bunker-overlay blocker codes so future client-state bugs have a clear log trail.</dd>
+      <dt>Verification</dt><dd>Focused store coverage checks terminal saved-trip replay, focused smoke coverage checks pending bunker reloads and fatal fall UI, and final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.123" data-date="2026-06-20">
     <h2>0.1.123</h2>
     <dl>

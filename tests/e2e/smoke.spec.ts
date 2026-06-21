@@ -1158,10 +1158,10 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   });
   await page.addInitScript(
     (trip) => {
-      localStorage.setItem(
-        "vibebots-mine-trip-v2-slot-1",
-        JSON.stringify(trip),
-      );
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
     },
     {
       seed: 6061,
@@ -1231,11 +1231,26 @@ test("bunker claims can be edited before banking", async ({ page }) => {
       col: firstPart.col + 1,
       row: firstPart.row,
     });
-  const raidButton = builder.getByRole("button", {
+  await page.reload();
+  await dismissReleaseNotes(page);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "5",
+  );
+  await expect(
+    page.getByRole("region", { name: "Bunker builder" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Open bunker builder" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Open bunker builder" }).click();
+  const reopenedBuilder = page.getByRole("region", { name: "Bunker builder" });
+  await expect(reopenedBuilder).toBeVisible();
+  const raidButton = reopenedBuilder.getByRole("button", {
     name: "Start Clanker raid",
   });
   await expect(raidButton).toBeDisabled();
-  await expect(builder).toContainText(
+  await expect(reopenedBuilder).toContainText(
     "Raids unlock after the bunker saves at the surface.",
   );
 });
@@ -1271,6 +1286,7 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
   await dismissReleaseNotes(page);
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
+  await expect(page.getByRole("button", { name: "Jump jets" })).toHaveCount(0);
 
   const beforeFallShot = await canvas.screenshot();
   await pressMineKey(page, "ArrowDown");
@@ -1294,6 +1310,7 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
   await expect(report).toBeVisible({ timeout: 15_000 });
   await expect(report).toContainText("Fell too far");
   await expect(report).not.toContainText("Crushed by falling rock");
+  await expect(page.getByRole("button", { name: "Jump jets" })).toHaveCount(0);
 });
 
 test("mine shows the needed pickaxe level on gated rock hits", async ({
@@ -1712,17 +1729,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Bunker saves no longer block movement drags at the surface.",
+    "Mine death and bunker UI now settle cleanly after reloads.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Surface saves with an existing bunker",
+    "Saved trips that replay into a fatal fall",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "mine diagnostics route",
+    "Bunker builder UI now starts closed",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "surface bunker save",
+    "Jump only appears when the sim says a jump is available",
   );
 
   await page.mouse.click(8, 8);
@@ -1742,6 +1759,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.124", "Mine terminal state fix"],
     ["0.1.123", "Save touch diagnostics"],
     ["0.1.122", "Touch drag layer"],
     ["0.1.121", "Touch zoom lock"],

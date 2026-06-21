@@ -1817,16 +1817,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("Base building is compact and walkable.");
+  await expect(dialog).toContainText(
+    "Zoomed-out mine views stay readable instead of going darker.",
+  );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "docks low on phone screens so the claimed base stays visible",
+    "no longer draws edge falloff while zoom-out is still available",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "separate from the base-part inventory buttons",
+    "falloff appears only at the lantern's zoom-out cap",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "builder includes walk buttons for moving while it stays open",
+    "zoom caps, mine replay rules, and sim versions are unchanged",
   );
 
   await page.mouse.click(8, 8);
@@ -1846,6 +1848,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.128", "Lantern zoom overview fix"],
     ["0.1.127", "Bunker builder controls"],
     ["0.1.126", "Scrap selection cleanup"],
     ["0.1.125", "Terminal replay movement fix"],
@@ -3573,6 +3576,8 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
       timeout: 5_000,
     })
     .toBeLessThan(startZoom);
+  await expect(canvas).toHaveAttribute("data-darkness-opacity-min", "0.00");
+  await expect(canvas).toHaveAttribute("data-darkness-opacity-max", "0.00");
 
   for (let i = 0; i < 8; i++) {
     await page.mouse.wheel(0, 600);
@@ -3593,6 +3598,16 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
     "data-render-max-col",
     String(START_COL + 5),
   );
+  const minDarkness = Number(
+    await canvas.getAttribute("data-darkness-opacity-min"),
+  );
+  const maxDarkness = Number(
+    await canvas.getAttribute("data-darkness-opacity-max"),
+  );
+  expect(minDarkness).toBeGreaterThanOrEqual(0.44);
+  expect(minDarkness).toBeLessThanOrEqual(0.45);
+  expect(maxDarkness).toBeGreaterThanOrEqual(0.56);
+  expect(maxDarkness).toBeLessThanOrEqual(0.57);
 });
 
 test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
@@ -3700,12 +3715,16 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
     .not.toBeNull();
 
   const startZoom = Number(await canvas.getAttribute("data-cam-zoom"));
+  await expect(canvas).toHaveAttribute("data-darkness-opacity-min", "0.00");
+  await expect(canvas).toHaveAttribute("data-darkness-opacity-max", "0.00");
   await zoomOut.click();
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-cam-zoom")), {
       timeout: 5_000,
     })
     .toBeGreaterThan(startZoom);
+  await expect(canvas).toHaveAttribute("data-darkness-opacity-min", "0.00");
+  await expect(canvas).toHaveAttribute("data-darkness-opacity-max", "0.00");
 
   await zoomOut.click();
   await expect(zoomOut).toBeDisabled();
@@ -3713,6 +3732,16 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
   await expect(canvas).toHaveAttribute("data-lit-below", "3");
   await expect(canvas).toHaveAttribute("data-render-below", "5");
   await expect(canvas).toHaveAttribute("data-lamp-distance", "9.00");
+  const minDarkness = Number(
+    await canvas.getAttribute("data-darkness-opacity-min"),
+  );
+  const maxDarkness = Number(
+    await canvas.getAttribute("data-darkness-opacity-max"),
+  );
+  expect(minDarkness).toBeGreaterThanOrEqual(0.44);
+  expect(minDarkness).toBeLessThanOrEqual(0.45);
+  expect(maxDarkness).toBeGreaterThanOrEqual(0.56);
+  expect(maxDarkness).toBeLessThanOrEqual(0.57);
   await expect(zoomControls).toHaveAttribute("data-camera-zoom-max", "1.32");
 
   await zoomIn.click();

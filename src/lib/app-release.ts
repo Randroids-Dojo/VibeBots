@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-21-0.1.127-bunker-builder-controls";
+const RELEASE_NOTICE_ID = "2026-06-21-0.1.128-lantern-zoom-overview";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.128",
+      date: "2026-06-21",
+      title: "Lantern zoom overview fix",
+      intro: "Zoomed-out mine views stay readable instead of going darker.",
+      changes: [
+        {
+          build,
+          text: "The mine no longer draws edge falloff while zoom-out is still available.",
+        },
+        {
+          build,
+          text: "A short dark falloff appears only at the lantern's zoom-out cap, when the camera reaches the edge of unlocked visibility.",
+        },
+        {
+          build,
+          text: "The lantern light radius, zoom caps, mine replay rules, and sim versions are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.127",
       date: "2026-06-21",

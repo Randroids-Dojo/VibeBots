@@ -21,8 +21,9 @@ import type {
 import { Color } from "three/webgpu";
 import {
   clampMineCameraZoom,
-  MINE_CAMERA_FALLOFF_ROWS,
+  maxMineCameraZoom,
   mineCameraDistance,
+  mineDarknessOpacity,
   mineLampDistanceForRadius,
   mineRenderWindow,
 } from "@/components/mine-camera";
@@ -2611,6 +2612,7 @@ function MineScene({
   const renderDistance = (col: number, row: number) =>
     Math.max(Math.abs(col - displayCol), Math.max(0, row - minerRow));
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
+  const maxCameraZoom = maxMineCameraZoom(mine.gear);
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
   const litBelow = lightRadius(mine.gear);
   const lampDistance = mineLampDistanceForRadius(litBelow);
@@ -2930,6 +2932,12 @@ function MineScene({
       state.gl.domElement.dataset.renderedCellCount = String(
         renderedCellCountRef.current,
       );
+      state.gl.domElement.dataset.darknessOpacityMin = hasDarknessOverlay
+        ? minDarknessOpacity.toFixed(2)
+        : "0.00";
+      state.gl.domElement.dataset.darknessOpacityMax = hasDarknessOverlay
+        ? maxDarknessOpacity.toFixed(2)
+        : "0.00";
       state.gl.domElement.dataset.cameraMotionFrames = String(
         cameraMotion.current?.frames ?? 0,
       );
@@ -3144,6 +3152,8 @@ function MineScene({
   const crackMeshes = [];
   const darknessMeshes = [];
   const supportSelectionMeshes = [];
+  let minDarknessOpacity = 1;
+  let maxDarknessOpacity = 0;
   let renderedCellCount = 0;
   const selectedSupportSet = new Set(selectedSupportKeys ?? []);
   const dynamitePreviewSet = new Set(
@@ -3193,18 +3203,26 @@ function MineScene({
       }
       const beyondLight = Math.max(0, distanceFromMiner - litBelow);
       if (beyondLight > 0) {
-        const fade = Math.min(1, beyondLight / MINE_CAMERA_FALLOFF_ROWS);
-        darknessMeshes.push(
-          <mesh key={`dark:${key}`} position={[x, y, 0.72]}>
-            <planeGeometry args={[1.08, 1.08]} />
-            <meshBasicMaterial
-              color={EDGE_DARKNESS_COLOR}
-              transparent
-              opacity={0.52 + fade * 0.43}
-              depthWrite={false}
-            />
-          </mesh>,
+        const opacity = mineDarknessOpacity(
+          beyondLight,
+          cameraZoom,
+          maxCameraZoom,
         );
+        if (opacity > 0) {
+          minDarknessOpacity = Math.min(minDarknessOpacity, opacity);
+          maxDarknessOpacity = Math.max(maxDarknessOpacity, opacity);
+          darknessMeshes.push(
+            <mesh key={`dark:${key}`} position={[x, y, 0.72]}>
+              <planeGeometry args={[1.08, 1.08]} />
+              <meshBasicMaterial
+                color={EDGE_DARKNESS_COLOR}
+                transparent
+                opacity={opacity}
+                depthWrite={false}
+              />
+            </mesh>,
+          );
+        }
       }
       // Damaged blocks wear cracks (REQ-013); the overlay rides above
       // whatever shape the kind renders.
@@ -3697,6 +3715,7 @@ function MineScene({
     );
   }
   renderedCellCountRef.current = renderedCellCount;
+  const hasDarknessOverlay = maxDarknessOpacity > 0;
 
   return (
     <>

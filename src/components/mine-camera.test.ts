@@ -6,6 +6,7 @@ import {
   MINE_CAMERA_BUTTON_STEP,
   maxMineCameraZoom,
   maxMineCameraZoomForRadius,
+  mineDarknessOpacity,
   mineLampDistanceForRadius,
   mineRenderWindow,
 } from "./mine-camera";
@@ -78,5 +79,17 @@ describe("mine camera zoom", () => {
         visibleDiagonalAtZoom(zoomCaps[index]),
       );
     }
+  });
+
+  it("only renders falloff after zoom reaches the lantern cap", () => {
+    const defaultEdge = mineDarknessOpacity(2, 1, 1.32);
+    const availableZoomEdge = mineDarknessOpacity(2, 1.16, 1.32);
+    const zoomedEdge = mineDarknessOpacity(2, 1.32, 1.32);
+    const zoomedNear = mineDarknessOpacity(1, 1.32, 1.32);
+
+    expect(defaultEdge).toBe(0);
+    expect(availableZoomEdge).toBe(0);
+    expect(zoomedEdge).toBeCloseTo(0.57);
+    expect(zoomedNear).toBeCloseTo(0.445);
   });
 });

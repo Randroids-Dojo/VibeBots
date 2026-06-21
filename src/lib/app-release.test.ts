@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest bunker builder controls note complete", () => {
+  it("keeps the latest lantern zoom overview note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-21-0.1.127-bunker-builder-controls");
+    expect(release.noticeId).toBe("2026-06-21-0.1.128-lantern-zoom-overview");
+    expect(latestNote).toMatchObject({
+      version: "0.1.128",
+      title: "Lantern zoom overview fix",
+      intro: "Zoomed-out mine views stay readable instead of going darker.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The mine no longer draws edge falloff while zoom-out is still available.",
+      "A short dark falloff appears only at the lantern's zoom-out cap, when the camera reaches the edge of unlocked visibility.",
+      "The lantern light radius, zoom caps, mine replay rules, and sim versions are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker builder controls note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.127");
+
     expect(latestNote).toMatchObject({
       version: "0.1.127",
       title: "Bunker builder controls",

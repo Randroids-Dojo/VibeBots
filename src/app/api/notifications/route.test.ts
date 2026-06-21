@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-21-0.1.127-bunker-builder-controls",
+      releaseNoticeId: "2026-06-21-0.1.128-lantern-zoom-overview",
       releaseSummary:
-        "Bunker builder controls: Base building is compact and walkable.",
+        "Lantern zoom overview fix: Zoomed-out mine views stay readable instead of going darker.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-21-0.1.127-bunker-builder-controls",
+      releaseNoticeId: "2026-06-21-0.1.128-lantern-zoom-overview",
       attempted: 2,
       sent: 1,
       expired: 1,

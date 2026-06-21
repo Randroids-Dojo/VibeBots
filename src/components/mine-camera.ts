@@ -12,6 +12,9 @@ const MAX_LANTERN_RADIUS =
   LANTERN_RADIUS[LANTERN_RADIUS.length - 1] ?? BASE_LANTERN_RADIUS;
 const BASE_FALLOFF_ZOOM = 0.32;
 const MAX_ZOOM_STEP_PER_LANTERN_ROW = 0.16;
+const DARKNESS_CAP_NEAR_OPACITY = 0.32;
+const DARKNESS_CAP_FAR_OPACITY = 0.57;
+const ZOOM_CAP_EPSILON = MINE_CAMERA_BUTTON_STEP / 8;
 
 function mineCameraZoomForRadius(radius: number): number {
   return (
@@ -46,6 +49,20 @@ export function mineCameraDistance(zoom: number): number {
 
 export function mineLampDistanceForRadius(radius: number): number {
   return 9 + Math.max(0, radius - BASE_LANTERN_RADIUS) * 1.35;
+}
+
+export function mineDarknessOpacity(
+  beyondLight: number,
+  zoom: number,
+  maxZoom: number,
+): number {
+  if (beyondLight <= 0) return 0;
+  if (Number.isFinite(maxZoom) && zoom < maxZoom - ZOOM_CAP_EPSILON) return 0;
+  const fade = Math.min(1, beyondLight / MINE_CAMERA_FALLOFF_ROWS);
+  return (
+    DARKNESS_CAP_NEAR_OPACITY +
+    fade * (DARKNESS_CAP_FAR_OPACITY - DARKNESS_CAP_NEAR_OPACITY)
+  );
 }
 
 export function mineRenderWindow(

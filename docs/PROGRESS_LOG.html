@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="lantern-zoom-overview" data-date="2026-06-21">
+    <h3>Lantern Zoom Overview</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/lantern-zoom-overview</code>, created in a fresh worktree from <code>origin/main</code> and rebased onto current <code>origin/main</code> after the upstream <code>0.1.127</code> bunker builder release landed.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user after deep review and cleanup.</dd>
+      <dt>Changed</dt><dd>User-reported lantern zoom visibility fix. The deterministic lantern radius and zoom caps stay unchanged, but the mine renderer no longer draws edge falloff while zoom-out is still available. A short dark falloff appears only at the lantern's zoom-out cap. The canvas exposes min and max darkness opacity for regression coverage. Package version moved to <code>0.1.128</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec vitest run src/components/mine-camera.test.ts src/lib/app-release.test.ts src/app/api/notifications/route.test.ts</code>, <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3620 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|mine wheel zoom extends|mine HUD zoom buttons" --project=chromium</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>pnpm test</code>, JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>, and <code>git diff --check</code>. In-app Browser checked <code>http://127.0.0.1:3621/mine</code> at <code>390 x 844</code>: the first zoom-out step showed no darkness overlay, while zoom cap <code>1.32</code> showed edge opacity <code>0.57</code> and min opacity <code>0.44</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a render-only legibility fix. It does not change mine generation, lantern sim reach, cash-out replay, or battle sim behavior, so no mine-version or sim-version bump is needed. Mine surface tips were reviewed; the existing lantern zoom tip remains current.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, and added camera plus focused smoke coverage for no falloff before the zoom cap and bounded falloff at the cap.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-builder-controls" data-date="2026-06-21">
     <h3>Bunker Builder Controls</h3>
     <dl>

@@ -924,6 +924,7 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await digTo(page, 1);
+  await page.getByRole("button", { name: "Open bunker builder" }).click();
   const builder = page.getByRole("region", { name: "Bunker builder" });
   await expect(builder).toBeVisible();
   await expect(builder.getByLabel("Player level progress")).toContainText(

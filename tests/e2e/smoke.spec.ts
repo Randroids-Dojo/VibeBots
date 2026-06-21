@@ -1481,7 +1481,7 @@ test("scrap selection outlines selected cells in red", async ({ page }) => {
       gear: DEFAULT_GEAR,
       consumables: STARTING_CONSUMABLES,
       baseDiff: exportDiff(mine),
-      moves: [],
+      moves: ["down"],
     },
   );
 
@@ -1500,21 +1500,76 @@ test("scrap selection outlines selected cells in red", async ({ page }) => {
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
   if (!box) return;
+  const clickUntilSelected = async (expectedCount: number) => {
+    const xPoints = [0.32, 0.42, 0.5, 0.58, 0.68].map((x) => x * box.width);
+    const yPoints = [0.42, 0.5, 0.58, 0.66, 0.74, 0.82].map(
+      (y) => y * box.height,
+    );
+    for (const y of yPoints) {
+      for (const x of xPoints) {
+        await canvas.click({ position: { x, y }, force: true });
+        const text = await salvage.textContent();
+        if (text?.includes(`${expectedCount} selected`)) return;
+      }
+    }
+    throw new Error(`Could not select ${expectedCount} scrap target(s)`);
+  };
 
-  await canvas.click({
-    position: { x: box.width / 2, y: box.height / 2 + 75 },
-  });
+  await clickUntilSelected(1);
   await expect(salvage).toContainText("1 selected");
-  await canvas.click({
-    position: { x: box.width / 2 + 54, y: box.height / 2 + 105 },
-  });
-  await expect(salvage).toContainText("2 selected");
   await expectRegionHorizontalBounds(page, "Scrap mode");
 
   const after = await canvas.screenshot();
-  expect(await countRedPixels(page, after)).toBeGreaterThan(
+  const selectedRedPixels = await countRedPixels(page, after);
+  expect(selectedRedPixels).toBeGreaterThan(
     (await countRedPixels(page, before)) + 80,
   );
+
+  await salvage.getByRole("button", { name: "Confirm scrap" }).click();
+  await expect(salvage).toHaveCount(0);
+  const cleared = await canvas.screenshot();
+  expect(await countRedPixels(page, cleared)).toBeLessThan(
+    selectedRedPixels - 80,
+  );
+});
+
+test("scrap mode closes bunker claim overlays", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  const mine = createMine(7173, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  setCell(mine, START_COL, 1, { kind: "empty", ladder: true });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed: 7173,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  await expect(
+    page.getByRole("region", { name: "Bunker builder" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Scrap placed supports" }).click();
+  await expect(
+    page.getByRole("region", { name: "Bunker builder" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Scrap mode" })).toBeVisible();
 });
 
 test("standing on a ladder uses scrap mode for removal", async ({ page }) => {
@@ -1729,17 +1784,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Saved fall replays no longer block swipe movement.",
+    "Scrap mode no longer leaves bunker selection squares behind.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "settle at Base 0 without leaving a collapsed result active",
+    "Opening Scrap now closes bunker claim",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Swipe movement stays enabled after dismissing the release list",
+    "Bunker claim previews are hidden while Scrap mode is active",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "proves the replayed save can move immediately",
+    "proves the red selection pixels clear",
   );
 
   await page.mouse.click(8, 8);
@@ -1759,6 +1814,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.126", "Scrap selection cleanup"],
     ["0.1.125", "Terminal replay movement fix"],
     ["0.1.124", "Mine terminal state fix"],
     ["0.1.123", "Save touch diagnostics"],

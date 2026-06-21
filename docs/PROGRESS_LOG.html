@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="scrap-selection-cleanup" data-date="2026-06-21">
+    <h3>Scrap Selection Cleanup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/touch-terminal-replay-20260621</code>, based on <code>origin/main</code> after the <code>0.1.125</code> terminal replay movement release.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user after implementation and review.</dd>
+      <dt>Changed</dt><dd>User-reported scrap cleanup fix. Scrap mode now closes bunker claim and builder overlays when it opens, and bunker claim previews do not render while Scrap mode is active. This prevents the bunker grid or red claim preview from sticking on screen after supports are removed. Package version moved to <code>0.1.126</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Ran focused release, notification, version, and Web Push Vitest (55 passed), <code>pnpm exec biome format --write</code> on touched TypeScript and smoke files, <code>pnpm build</code>, focused Playwright smoke with <code>pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "scrap selection outlines|scrap mode closes bunker claim|mine shows the latest release note"</code> (3 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (378 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: Scrap mode and bunker editing are mutually exclusive edit modes. This is a client UI-state fix only and does not change deterministic mine rules, cash-out replay math, or battle sim behavior, so no mine-version or sim-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, and strengthened phone smoke coverage for scrap cleanup.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="terminal-replay-movement" data-date="2026-06-21">
     <h3>Terminal Replay Movement</h3>
     <dl>

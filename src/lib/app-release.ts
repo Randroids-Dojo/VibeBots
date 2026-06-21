@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-21-0.1.125-terminal-replay-movement";
+const RELEASE_NOTICE_ID = "2026-06-21-0.1.126-scrap-selection-cleanup";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.126",
+      date: "2026-06-21",
+      title: "Scrap selection cleanup",
+      intro: "Scrap mode no longer leaves bunker selection squares behind.",
+      changes: [
+        {
+          build,
+          text: "Opening Scrap now closes bunker claim and builder overlays so their grid cannot stay stuck over the mine.",
+        },
+        {
+          build,
+          text: "Bunker claim previews are hidden while Scrap mode is active, keeping support removal focused on supports only.",
+        },
+        {
+          build,
+          text: "Phone smoke coverage now opens bunker claim first, scraps supports, and proves the red selection pixels clear.",
+        },
+      ],
+    },
     {
       version: "0.1.125",
       date: "2026-06-21",

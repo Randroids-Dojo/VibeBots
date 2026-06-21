@@ -2,13 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest terminal replay movement note complete", () => {
+  it("keeps the latest scrap selection cleanup note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-06-21-0.1.125-terminal-replay-movement",
-    );
+    expect(release.noticeId).toBe("2026-06-21-0.1.126-scrap-selection-cleanup");
+    expect(latestNote).toMatchObject({
+      version: "0.1.126",
+      title: "Scrap selection cleanup",
+      intro: "Scrap mode no longer leaves bunker selection squares behind.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Opening Scrap now closes bunker claim and builder overlays so their grid cannot stay stuck over the mine.",
+      "Bunker claim previews are hidden while Scrap mode is active, keeping support removal focused on supports only.",
+      "Phone smoke coverage now opens bunker claim first, scraps supports, and proves the red selection pixels clear.",
+    ]);
+  });
+
+  it("keeps the archived terminal replay movement note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.125");
+
     expect(latestNote).toMatchObject({
       version: "0.1.125",
       title: "Terminal replay movement fix",

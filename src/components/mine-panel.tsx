@@ -4125,7 +4125,10 @@ function BunkerControlPanel({
           onClick={dismissPanel}
           style={{
             position: "absolute",
-            inset: 0,
+            top: 0,
+            right: 0,
+            bottom: 112,
+            left: 0,
             zIndex: 7,
             border: 0,
             background: "transparent",
@@ -5284,7 +5287,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           color: "#54e0c7",
         };
   const bunkerPreview =
-    miner.row > 0 && !activeBunker && bunkerClaimMode && !terminalMineState
+    miner.row > 0 &&
+    !activeBunker &&
+    bunkerClaimMode &&
+    !collectMode &&
+    !terminalMineState
       ? (() => {
           const footprint = proposedBunkerFootprint(miner.col, miner.row);
           return footprint.row >= 1 ? footprint : null;
@@ -5377,6 +5384,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   useEffect(() => {
     if (activeBunker || miner.row <= 0) setBunkerClaimMode(false);
   }, [activeBunker, miner.row]);
+
+  useEffect(() => {
+    if (!collectMode) return;
+    setBunkerClaimMode(false);
+    setBunkerPanelOpen(false);
+    setSelectedBunkerPartCell(null);
+    setBunkerPartDragTargetCell(null);
+    setBunkerTargetCell(null);
+  }, [collectMode]);
 
   useEffect(() => {
     if (!terminalMineState && miner.row > 0 && !activeBunkerRaid) return;
@@ -6826,7 +6842,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             position: "absolute",
             right: 12,
             bottom: 82,
-            zIndex: 6,
+            zIndex: 10,
             width: "min(300px, calc(100vw - 24px))",
             border: "1px solid #26304a",
             borderRadius: 12,
@@ -6956,7 +6972,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           alignItems: "center",
           justifyContent: "flex-end",
           maxWidth: "calc(100vw - 24px)",
-          zIndex: 5,
+          zIndex: 9,
           pointerEvents: "none",
         }}
       >
@@ -7015,7 +7031,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onClick={() => {
             setDynamiteMenuOpen(false);
             setRecoveryMenuOpen(false);
-            setCollectMode((open) => !open);
+            setCollectMode((open) => {
+              const next = !open;
+              if (next) {
+                setBunkerClaimMode(false);
+                setBunkerPanelOpen(false);
+                setSelectedBunkerPartCell(null);
+                setBunkerPartDragTargetCell(null);
+                setBunkerTargetCell(null);
+              }
+              return next;
+            });
           }}
           disabled={!collectMode && visibleSupports.length === 0}
           style={{

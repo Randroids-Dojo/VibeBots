@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.125.125",
+  version: "0.1.126.126",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-21-0.1.125-terminal-replay-movement",
-  intro: "Saved fall replays no longer block swipe movement.",
+  noticeId: "2026-06-21-0.1.126-scrap-selection-cleanup",
+  intro: "Scrap mode no longer leaves bunker selection squares behind.",
   changes: [
     {
       build: 123,
-      text: "Swipe movement stays enabled after dismissing the release list, even for installed saves that just consumed an old terminal replay.",
+      text: "Opening Scrap now closes bunker claim and builder overlays so their grid cannot stay stuck over the mine.",
     },
   ],
   notes: [
     {
-      version: "0.1.125",
+      version: "0.1.126",
       date: "2026-06-21",
-      title: "Terminal replay movement fix",
-      intro: "Saved fall replays no longer block swipe movement.",
+      title: "Scrap selection cleanup",
+      intro: "Scrap mode no longer leaves bunker selection squares behind.",
       changes: [
         {
           build: 123,
-          text: "Swipe movement stays enabled after dismissing the release list, even for installed saves that just consumed an old terminal replay.",
+          text: "Opening Scrap now closes bunker claim and builder overlays so their grid cannot stay stuck over the mine.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Terminal replay movement fix"),
+      expect.stringContaining("Scrap selection cleanup"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

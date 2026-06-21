@@ -11,21 +11,6 @@ import {
   mineConsumablesFromProfile,
 } from "@/server/player";
 import {
-  BASE_PART_CATALOG,
-  BASE_PART_IDS,
-  type BasePartId,
-  type BasePartInventory,
-  type BunkerState,
-  createBunker,
-  EMPTY_BASE_PART_INVENTORY,
-  placeBasePart,
-  proposedBunkerFootprint,
-  STARTER_BASE_PART_INVENTORY,
-} from "@/sim/bunker";
-import {
-  applyAction,
-  cellAt,
-  createMine,
   isMineAction,
   LADDER_RECOVERY_FLOOR,
   MAX_TRIP_MOVES,
@@ -47,13 +32,6 @@ export const maxDuration = 60;
 
 const DB_INT_MAX = 2_147_483_647;
 const consumableCount = z.number().int().min(0).max(DB_INT_MAX);
-const basePartIdSchema = z.enum(BASE_PART_IDS);
-const placedBasePartSchema = z.object({
-  partId: basePartIdSchema,
-  col: z.number().int(),
-  row: z.number().int().min(1),
-  durability: z.number().int().min(1).max(1000),
-});
 const GEAR_LOG_FIELDS = [
   "pickaxe",
   "battery",
@@ -124,14 +102,6 @@ const bodySchema = z.object({
     plank: consumableCount,
     beacon: consumableCount,
   }),
-  pendingBunker: z
-    .object({
-      claimCol: z.number().int(),
-      claimRow: z.number().int().min(1),
-      claimedAtMoveCount: z.number().int().min(0).max(MAX_TRIP_MOVES),
-      parts: z.array(placedBasePartSchema).max(128),
-    })
-    .optional(),
 });
 
 function valueKind(value: unknown): string {
@@ -291,105 +261,6 @@ export function chargeableConsumables(trip: TripResult): MineConsumables {
     plank: Math.max(0, trip.used.plank - trip.granted.plank),
     beacon: trip.used.beacon,
   };
-}
-
-type PendingBunkerInput = NonNullable<
-  z.infer<typeof bodySchema>["pendingBunker"]
->;
-
-type PendingBunkerValidation =
-  | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
-  | { ok: false; error: string };
-
-function isBasePartId(value: string): value is BasePartId {
-  return BASE_PART_IDS.includes(value as BasePartId);
-}
-
-function pendingBunkerInventoryFromRows(
-  rows: Array<{ part_id: string; count: number }>,
-): BasePartInventory {
-  if (rows.length === 0) return { ...STARTER_BASE_PART_INVENTORY };
-  const inventory = { ...EMPTY_BASE_PART_INVENTORY };
-  const ownedPartIds = new Set<string>();
-  for (const row of rows) {
-    if (!isBasePartId(row.part_id)) continue;
-    ownedPartIds.add(row.part_id);
-    inventory[row.part_id] = Math.max(0, Number(row.count) || 0);
-  }
-  for (const [partId, count] of Object.entries(STARTER_BASE_PART_INVENTORY)) {
-    if (count <= 0 || ownedPartIds.has(partId)) continue;
-    inventory[partId as BasePartId] = count;
-  }
-  return inventory;
-}
-
-function samePlacedParts(
-  left: BunkerState["parts"],
-  right: BunkerState["parts"],
-) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-export function validatePendingBunkerClaim(
-  pending: PendingBunkerInput,
-  seed: number,
-  gear: MineGear,
-  consumables: MineConsumables,
-  baseDiff: WorldDiff,
-  moves: MineAction[],
-  inventory: BasePartInventory,
-): PendingBunkerValidation {
-  if (pending.claimedAtMoveCount > moves.length) {
-    return { ok: false, error: "invalid bunker claim checkpoint" };
-  }
-  const footprint = proposedBunkerFootprint(pending.claimCol, pending.claimRow);
-  if (footprint.row < 1) {
-    return { ok: false, error: "bunker claim is too close to the surface" };
-  }
-  const claimState = createMine(seed, gear, consumables, baseDiff);
-  for (const action of moves.slice(0, pending.claimedAtMoveCount)) {
-    applyAction(claimState, action);
-  }
-  if (
-    claimState.miner.col !== pending.claimCol ||
-    claimState.miner.row !== pending.claimRow
-  ) {
-    return { ok: false, error: "bunker claim position changed" };
-  }
-  for (let row = footprint.row; row < footprint.row + footprint.height; row++) {
-    for (
-      let col = footprint.col;
-      col < footprint.col + footprint.width;
-      col++
-    ) {
-      if (cellAt(claimState, col, row)?.kind !== "empty") {
-        return { ok: false, error: "clear the full 7x5 claim first" };
-      }
-    }
-  }
-  let bunker = createBunker(footprint);
-  let remaining = { ...inventory };
-  for (const part of pending.parts) {
-    if (part.durability !== BASE_PART_CATALOG[part.partId].durability) {
-      return { ok: false, error: "invalid bunker part durability" };
-    }
-    const placed = placeBasePart(
-      bunker,
-      remaining,
-      part.partId,
-      part.col,
-      part.row,
-    );
-    if (!placed.ok) {
-      return { ok: false, error: `cannot place bunker part: ${placed.reason}` };
-    }
-    bunker = placed.bunker;
-    remaining = placed.inventory;
-  }
-  if (!samePlacedParts(bunker.parts, pending.parts)) {
-    return { ok: false, error: "invalid bunker part layout" };
-  }
-  return { ok: true, bunker, inventory: remaining };
 }
 
 export function achievementProgressForTrip(
@@ -567,66 +438,14 @@ export async function POST(request: Request): Promise<Response> {
     ownedRow,
   );
   const replayConsumables = replayStock.consumables;
-  const baseDiff = (worlds[0].diff ?? []) as WorldDiff;
-  const actions = parsed.data.moves as MineAction[];
-  if (parsed.data.pendingBunker !== undefined) {
-    const existingBunker = (await sql`
-      SELECT player_id
-      FROM bunkers
-      WHERE player_id = ${playerId}
-      LIMIT 1`) as Array<{ player_id: string }>;
-    if (existingBunker.length > 0) {
-      logMineCashOutEvent({
-        code: "cash_out_failed",
-        severity: "warn",
-        ...playerLogContext,
-        detail: "bunker already claimed",
-      });
-      return Response.json(
-        { error: "bunker already claimed" },
-        { status: 409 },
-      );
-    }
-  }
-  let pendingBunker: PendingBunkerValidation | null = null;
-  if (parsed.data.pendingBunker !== undefined) {
-    const rows = (await sql`
-      SELECT part_id, count
-      FROM player_base_parts
-      WHERE player_id = ${playerId}`) as Array<{
-      part_id: string;
-      count: number;
-    }>;
-    pendingBunker = validatePendingBunkerClaim(
-      parsed.data.pendingBunker,
-      parsed.data.seed,
-      gear,
-      replayConsumables,
-      baseDiff,
-      actions,
-      pendingBunkerInventoryFromRows(rows),
-    );
-  }
-  if (pendingBunker && !pendingBunker.ok) {
-    logMineCashOutEvent({
-      code: "cash_out_failed",
-      severity: "warn",
-      ...playerLogContext,
-      detail: pendingBunker.error,
-    });
-    return Response.json({ error: pendingBunker.error }, { status: 409 });
-  }
   const trip = replayTrip(
     parsed.data.seed,
-    actions,
+    parsed.data.moves as MineAction[],
     gear,
     replayConsumables,
-    baseDiff,
+    (worlds[0].diff ?? []) as WorldDiff,
   );
   const chargedConsumables = chargeableConsumables(trip);
-  const claimedBunker = pendingBunker?.ok ? pendingBunker.bunker : null;
-  const bunkerInventory = pendingBunker?.ok ? pendingBunker.inventory : null;
-  const hasPendingBunker = claimedBunker !== null;
   if (replayStock.usedLegacySupportSnapshot) {
     logMineCashOutEvent({
       code: "legacy_support_reconciled",
@@ -656,12 +475,6 @@ export async function POST(request: Request): Promise<Response> {
           updated_at = now()
       WHERE player_id = ${playerId}
         AND trip_count = ${parsed.data.tripIndex}
-        AND (
-          ${!hasPendingBunker}
-          OR NOT EXISTS (
-            SELECT 1 FROM bunkers WHERE player_id = ${playerId}
-          )
-        )
       RETURNING trip_count
     ), upd AS (
       UPDATE players
@@ -687,26 +500,6 @@ export async function POST(request: Request): Promise<Response> {
       GROUP BY value
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
-    ), claimed_bunker AS (
-      INSERT INTO bunkers (player_id, footprint, core, parts)
-      SELECT
-        ${playerId},
-        ${JSON.stringify(claimedBunker?.footprint ?? {})}::jsonb,
-        ${JSON.stringify(claimedBunker?.core ?? {})}::jsonb,
-        ${JSON.stringify(claimedBunker?.parts ?? [])}::jsonb
-      WHERE ${hasPendingBunker} AND EXISTS (SELECT 1 FROM world)
-      ON CONFLICT (player_id) DO NOTHING
-      RETURNING player_id
-    ), base_part_updates AS (
-      INSERT INTO player_base_parts (player_id, part_id, count)
-      SELECT ${playerId}, key, value::int
-      FROM jsonb_each_text(${JSON.stringify(bunkerInventory ?? {})}::jsonb)
-      WHERE
-        ${hasPendingBunker}
-        AND EXISTS (SELECT 1 FROM claimed_bunker)
-      ON CONFLICT (player_id, part_id)
-      DO UPDATE SET count = EXCLUDED.count
-      RETURNING part_id
     )
     SELECT
       (SELECT emeralds FROM upd) AS emeralds,
@@ -716,8 +509,7 @@ export async function POST(request: Request): Promise<Response> {
       (SELECT ladder_count FROM upd) AS ladder_count,
       (SELECT plank_count FROM upd) AS plank_count,
       (SELECT beacon_count FROM upd) AS beacon_count,
-      (SELECT trip_count FROM world) AS trip_count,
-      EXISTS (SELECT 1 FROM claimed_bunker) AS bunker_claimed`) as Array<{
+      (SELECT trip_count FROM world) AS trip_count`) as Array<{
     emeralds: number | null;
     deepest_depth: number | null;
     dynamite_count: number | null;
@@ -726,7 +518,6 @@ export async function POST(request: Request): Promise<Response> {
     plank_count: number | null;
     beacon_count: number | null;
     trip_count: number | null;
-    bunker_claimed: boolean | null;
   }>;
   if (rows[0]?.emeralds === null || rows[0]?.emeralds === undefined) {
     logMineCashOutEvent({
@@ -779,7 +570,6 @@ export async function POST(request: Request): Promise<Response> {
       credits: trip.bankedCredits,
       parts: trip.bankedParts.length,
       soldHaul: trip.soldHaul,
-      bunkerClaimed: rows[0].bunker_claimed === true,
     },
     remaining: remainingConsumables,
     worldTripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
@@ -825,6 +615,5 @@ export async function POST(request: Request): Promise<Response> {
     deepestDepth: rows[0].deepest_depth,
     tripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
     consumables: remainingConsumables,
-    bunkerClaimed: rows[0].bunker_claimed === true,
   });
 }

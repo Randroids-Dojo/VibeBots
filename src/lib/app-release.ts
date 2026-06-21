@@ -2,91 +2,10 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.122-touch-drag-layer";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.118-visual-viewport-refresh";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
-    {
-      version: "0.1.122",
-      date: "2026-06-20",
-      title: "Touch drag layer",
-      intro: "Movement drags now sit above the mine canvas again.",
-      changes: [
-        {
-          build,
-          text: "The movement touch surface now has an explicit stack position above the 3D canvas.",
-        },
-        {
-          build,
-          text: "HUD buttons keep their higher stack position, so Jump and consumable controls remain tappable.",
-        },
-        {
-          build,
-          text: "Smoke coverage now checks that open mine space targets movement while HUD buttons stay on top.",
-        },
-      ],
-    },
-    {
-      version: "0.1.121",
-      date: "2026-06-20",
-      title: "Touch zoom lock",
-      intro:
-        "Touch input is locked back to mine controls instead of page zoom.",
-      changes: [
-        {
-          build,
-          text: "The app viewport now blocks browser page pinch zoom so the HUD cannot inflate over the mine.",
-        },
-        {
-          build,
-          text: "The mine shell catches document pinch gestures while preserving the bounded in-mine camera zoom.",
-        },
-        {
-          build,
-          text: "Smoke coverage now dispatches real touch events to prove touch drag movement still works on phone viewports.",
-        },
-      ],
-    },
-    {
-      version: "0.1.120",
-      date: "2026-06-20",
-      title: "Underground bunker claims",
-      intro: "Clear rooms can become bunkers before surfacing.",
-      changes: [
-        {
-          build,
-          text: "The bunker builder now checks the live underground cells, so a clear room can be claimed without first cashing out.",
-        },
-        {
-          build,
-          text: "The builder now uses compact Place, Remove, and Move modes, with canvas cell targeting and restored drag movement across the claimed space.",
-        },
-        {
-          build,
-          text: "Cash-out replays the mine at the claimed move, saves the bunker and cleared cells together, and unlocks raids after the claim is banked.",
-        },
-      ],
-    },
-    {
-      version: "0.1.119",
-      date: "2026-06-20",
-      title: "Jump button placement",
-      intro: "Jump now sits on the middle right and leaves movement clear.",
-      changes: [
-        {
-          build,
-          text: "The Jump button moved to the middle-right edge of the mine instead of the bottom controls.",
-        },
-        {
-          build,
-          text: "The bottom dig-control strip no longer catches pointer input in empty space, so drag movement stays clear.",
-        },
-        {
-          build,
-          text: "Smoke coverage now checks the larger Jump button placement, bottom-control non-overlap, and bottom-center hit target.",
-        },
-      ],
-    },
     {
       version: "0.1.118",
       date: "2026-06-20",

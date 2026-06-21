@@ -14,63 +14,6 @@ async function pressMineKey(
   await page.waitForTimeout(MINE_KEY_CADENCE_MS);
 }
 
-async function touchDrag(
-  page: Page,
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-): Promise<void> {
-  const client = await page.context().newCDPSession(page);
-  await client.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [{ id: 1, x: start.x, y: start.y }],
-  });
-  for (let step = 1; step <= 6; step += 1) {
-    const progress = step / 6;
-    await client.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [
-        {
-          id: 1,
-          x: start.x + (end.x - start.x) * progress,
-          y: start.y + (end.y - start.y) * progress,
-        },
-      ],
-    });
-  }
-  await page.waitForTimeout(700);
-  await client.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
-  await client.detach();
-}
-
-async function touchPinchOut(
-  page: Page,
-  center: { x: number; y: number },
-): Promise<void> {
-  const client = await page.context().newCDPSession(page);
-  const send = async (gap: number, type: "touchStart" | "touchMove") => {
-    await client.send("Input.dispatchTouchEvent", {
-      type,
-      touchPoints: [
-        { id: 1, x: center.x - gap / 2, y: center.y },
-        { id: 2, x: center.x + gap / 2, y: center.y },
-      ],
-    });
-  };
-  await send(42, "touchStart");
-  for (const gap of [72, 104, 138, 172]) {
-    await send(gap, "touchMove");
-  }
-  await page.waitForTimeout(120);
-  await client.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
-  await client.detach();
-}
-
 /** Multi-hit digging (REQ-013): swing down until the depth is reached. */
 async function digTo(page: Page, depth: number): Promise<void> {
   const status = page.getByLabel("Mine status");
@@ -648,7 +591,6 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await pressMineKey(page, "ArrowRight");
   await expect(status).toHaveAttribute("data-horizontal-distance", "1");
   await expect(status).toContainText("Base +1");
-  await page.waitForTimeout(650);
   await pressMineKey(page, "ArrowLeft");
   await expect(status).toHaveAttribute("data-horizontal-distance", "0");
 
@@ -727,27 +669,6 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   const plankBox = await placePlankLeft.boundingBox();
   expect(jumpBox?.width).toBeGreaterThan(plankBox?.width ?? 0);
   expect(jumpBox?.height).toBeGreaterThan(plankBox?.height ?? 0);
-  const viewport = page.viewportSize();
-  expect(jumpBox?.x ?? 0).toBeGreaterThan((viewport?.width ?? 0) * 0.65);
-  expect(jumpBox?.y ?? 0).toBeGreaterThan((viewport?.height ?? 0) * 0.32);
-  expect((jumpBox?.y ?? 0) + (jumpBox?.height ?? 0)).toBeLessThan(
-    (plankBox?.y ?? 0) - 12,
-  );
-  const bottomCenterHit = await page.evaluate(() => {
-    const target = document.elementFromPoint(
-      window.innerWidth / 2,
-      window.innerHeight - 32,
-    );
-    return {
-      label: target?.getAttribute("aria-label") ?? null,
-      mineShell: target
-        ?.closest("[data-mine-shell='true']")
-        ?.getAttribute("data-mine-shell"),
-    };
-  });
-  expect(bottomCenterHit.label).not.toBe("Jump jets");
-  expect(bottomCenterHit.label).not.toBe("Dig controls");
-  expect(bottomCenterHit.mineShell).toBe("true");
   await expect(
     page.getByRole("button", { name: "Scrap placed supports" }),
   ).toBeVisible();
@@ -1102,142 +1023,6 @@ test("bunker claim mode highlights uncleared claim cells in red", async ({
     await page.locator("canvas").screenshot(),
   );
   expect(redPixels).toBeGreaterThan(50);
-});
-
-test("bunker claims can be edited before banking", async ({ page }) => {
-  const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
-  for (let row = 1; row <= 6; row++) {
-    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
-      setCell(mine, col, row, { kind: "empty" });
-    }
-    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
-  }
-  await page.route("**/api/mine/world", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        activeSlot: 1,
-        seed: 6061,
-        tripIndex: 0,
-        diff: exportDiff(mine),
-      }),
-    });
-  });
-  await page.route("**/api/gear", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
-  });
-  await page.route("**/api/bunker", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        bunker: null,
-        inventory: {
-          "wall-panel": 2,
-          "floor-panel": 3,
-          "roof-panel": 3,
-          "door-panel": 1,
-          "basic-turret": 0,
-          "floor-spikes": 0,
-        },
-        activeRaid: null,
-        player: {
-          balance: 120,
-          trackXp: 0,
-          defenseXp: 0,
-          overallLevel: 1,
-          levelCap: 2,
-          progressXp: 0,
-          neededXp: 100,
-          nextLevelXp: 100,
-          beaconLimit: 2,
-        },
-      }),
-    });
-  });
-  await page.addInitScript(
-    (trip) => {
-      localStorage.setItem(
-        "vibebots-mine-trip-v2-slot-1",
-        JSON.stringify(trip),
-      );
-    },
-    {
-      seed: 6061,
-      mineVersion: MINE_VERSION,
-      tripIndex: 0,
-      gear: DEFAULT_GEAR,
-      consumables: STARTING_CONSUMABLES,
-      baseDiff: exportDiff(mine),
-      moves: ["down", "down", "down", "down", "down"],
-    },
-  );
-
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  await expect(page.getByLabel("Mine status")).toHaveAttribute(
-    "data-depth",
-    "5",
-  );
-
-  await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const builder = page.getByRole("region", { name: "Bunker builder" });
-  await expect(builder).toContainText(
-    "Ready to claim. Build now, then bank at surface to save.",
-  );
-  await builder.getByRole("button", { name: "Claim 7x5 bunker" }).click();
-  await expect(builder.getByRole("button", { name: "Wall x2" })).toBeVisible();
-  const placeMode = builder.getByRole("button", { name: "Place" });
-  const removeMode = builder.getByRole("button", { name: "Remove" });
-  const moveMode = builder.getByRole("button", { name: "Move", exact: true });
-  await expect(placeMode).toHaveAttribute("aria-pressed", "true");
-  await expect(removeMode).toHaveAttribute("aria-pressed", "false");
-  await expect(moveMode).toHaveAttribute("aria-pressed", "false");
-  const canvas = page.locator("canvas");
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("canvas has no bounding box");
-  const placePoint = {
-    x: box.x + box.width / 2 + 56,
-    y: box.y + box.height / 2,
-  };
-  await page.mouse.click(placePoint.x, placePoint.y);
-  await expect(builder.getByRole("button", { name: "Wall x1" })).toBeVisible();
-  const firstPart = await page.evaluate(() => {
-    const trip = JSON.parse(
-      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
-    );
-    return trip.pendingBunker?.bunker.parts[0] ?? null;
-  });
-  expect(firstPart).toMatchObject({ partId: "wall-panel" });
-  await moveMode.click();
-  await page.mouse.move(placePoint.x, placePoint.y);
-  await page.mouse.down();
-  await page.mouse.move(placePoint.x + 112, placePoint.y, { steps: 5 });
-  await page.mouse.up();
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => {
-          const trip = JSON.parse(
-            localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
-          );
-          return trip.pendingBunker?.bunker.parts[0] ?? null;
-        }),
-      { timeout: 3_000 },
-    )
-    .toMatchObject({
-      partId: "wall-panel",
-      col: firstPart.col + 1,
-      row: firstPart.row,
-    });
-  const raidButton = builder.getByRole("button", {
-    name: "Start Clanker raid",
-  });
-  await expect(raidButton).toBeDisabled();
-  await expect(builder).toContainText(
-    "Raids unlock after the bunker saves at the surface.",
-  );
 });
 
 test("fatal free fall stays on camera until impact", async ({ page }) => {
@@ -1712,17 +1497,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Movement drags now sit above the mine canvas again.",
+    "Installed Android refreshes now anchor to the visible mine screen.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "explicit stack position",
-  );
+  await expect(dialog.locator("li").first()).toContainText("visual viewport");
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "HUD buttons keep their higher stack position",
+    "Refresh button records the target version",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "open mine space targets movement",
+    "Settings, zoom, and dig controls",
   );
 
   await page.mouse.click(8, 8);
@@ -1742,10 +1525,6 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
-    ["0.1.122", "Touch drag layer"],
-    ["0.1.121", "Touch zoom lock"],
-    ["0.1.120", "Underground bunker claims"],
-    ["0.1.119", "Jump button placement"],
     ["0.1.118", "Visual viewport refresh"],
     ["0.1.117", "Jump Jets"],
     ["0.1.116", "Shop release copy"],
@@ -1888,7 +1667,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.122-touch-drag-layer",
+      "2026-06-20-0.1.118-visual-viewport-refresh",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -3119,72 +2898,7 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
 });
 
 test.describe("phone viewport", () => {
-  test.use({
-    viewport: { width: 390, height: 760 },
-    hasTouch: true,
-    isMobile: true,
-  });
-
-  test("touch drag moves the miner and page pinch stays locked", async ({
-    browserName,
-    page,
-  }) => {
-    test.skip(browserName !== "chromium", "uses CDP touch events");
-    await page.goto("/mine");
-    await dismissReleaseNotes(page);
-    const status = page.getByLabel("Mine status");
-    const canvas = page.locator("canvas");
-    await expect(status).toHaveAttribute("data-depth", "0");
-    await expect(canvas).toBeVisible();
-    await expect
-      .poll(() =>
-        page.evaluate(() => {
-          const openTarget = document.elementFromPoint(150, 470);
-          const jumpButton = document.querySelector('[aria-label="Jump jets"]');
-          const jumpRect = jumpButton?.getBoundingClientRect();
-          const hudTarget = jumpRect
-            ? document.elementFromPoint(
-                jumpRect.left + jumpRect.width / 2,
-                jumpRect.top + jumpRect.height / 2,
-              )
-            : null;
-          return {
-            hudButton: hudTarget?.closest("button")?.getAttribute("aria-label"),
-            openMineIsTouchSurface: Boolean(
-              openTarget?.closest("[data-touch-surface]"),
-            ),
-          };
-        }),
-      )
-      .toEqual({
-        hudButton: "Jump jets",
-        openMineIsTouchSurface: true,
-      });
-
-    const viewportMeta = await page
-      .locator('meta[name="viewport"]')
-      .getAttribute("content");
-    expect(viewportMeta).toContain("maximum-scale=1");
-    expect(viewportMeta).toContain("user-scalable=no");
-    const pageScale = async () =>
-      page.evaluate(() => window.visualViewport?.scale ?? 1);
-    await expect.poll(pageScale).toBe(1);
-
-    await touchPinchOut(page, { x: 195, y: 120 });
-    await expect.poll(pageScale).toBe(1);
-
-    const startDistance = Number(
-      await status.getAttribute("data-horizontal-distance"),
-    );
-    await touchDrag(page, { x: 150, y: 470 }, { x: 250, y: 470 });
-    await expect
-      .poll(
-        async () =>
-          Number(await status.getAttribute("data-horizontal-distance")),
-        { timeout: 5_000 },
-      )
-      .toBeGreaterThan(startDistance);
-  });
+  test.use({ viewport: { width: 390, height: 760 }, hasTouch: true });
 
   test("control copy never mentions the keyboard on touch devices", async ({
     page,

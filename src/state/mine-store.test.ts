@@ -2,14 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createMine,
   DEFAULT_GEAR,
-  exportDiff,
   MINE_VERSION,
   type MineAction,
   type MineConsumables,
   NO_CONSUMABLES,
-  START_COL,
-  STARTING_CONSUMABLES,
-  setCell,
 } from "@/sim/mine";
 import { useMineStore } from "./mine-store";
 
@@ -25,18 +21,6 @@ const stock = (overrides: Partial<MineConsumables> = {}): MineConsumables => ({
   ...NO_CONSUMABLES,
   ...overrides,
 });
-
-function clearedBunkerMine() {
-  const mine = createMine(123, DEFAULT_GEAR, STARTING_CONSUMABLES);
-  for (let row = 1; row <= 5; row++) {
-    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
-      setCell(mine, col, row, { kind: "empty" });
-    }
-  }
-  mine.miner.col = START_COL;
-  mine.miner.row = 5;
-  return mine;
-}
 
 describe("mine store upgrade flow", () => {
   beforeEach(() => {
@@ -65,7 +49,6 @@ describe("mine store upgrade flow", () => {
       lastResult: null,
       lastAction: null,
       cashOut: { state: "idle" },
-      pendingBunker: null,
       activeSlot: 1,
       saveSlots: { state: "unknown", activeSlot: 1, slots: [] },
       worldLoaded: true,
@@ -109,116 +92,6 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(lastSaved?.[1] ?? "{}").consumables).toEqual(
       stock({ ladder: 2, plank: 1 }),
     );
-  });
-
-  it("claims and edits a locally clear bunker before banking", () => {
-    const mine = clearedBunkerMine();
-    useMineStore.setState({
-      mine,
-      consumables: STARTING_CONSUMABLES,
-      moves: ["down", "down", "down", "down", "down"] as MineAction[],
-      tick: 5,
-    });
-
-    expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
-    expect(store().pendingBunker?.bunker.footprint).toMatchObject({
-      col: START_COL - 3,
-      row: 1,
-      width: 7,
-      height: 5,
-    });
-
-    expect(store().placePendingBunkerPart("wall-panel", START_COL - 3, 1)).toBe(
-      true,
-    );
-    expect(store().pendingBunker?.inventory["wall-panel"]).toBe(1);
-    expect(
-      store().movePendingBunkerPart(START_COL - 3, 1, START_COL - 2, 1),
-    ).toBe(true);
-    expect(store().pendingBunker?.bunker.parts[0]).toMatchObject({
-      partId: "wall-panel",
-      col: START_COL - 2,
-      row: 1,
-    });
-    expect(store().removePendingBunkerPart(START_COL - 2, 1)).toBe(true);
-    expect(store().pendingBunker?.inventory["wall-panel"]).toBe(2);
-  });
-
-  it("refuses a pending bunker when the live footprint is blocked", () => {
-    const mine = clearedBunkerMine();
-    setCell(mine, START_COL - 3, 5, { kind: "dirt" });
-    useMineStore.setState({
-      mine,
-      consumables: STARTING_CONSUMABLES,
-      moves: ["down", "down", "down", "down", "down"] as MineAction[],
-      tick: 5,
-    });
-
-    expect(store().claimPendingBunker(START_COL, 5)).toBe(false);
-    expect(store().pendingBunker).toBeNull();
-  });
-
-  it("sends and clears a pending bunker on successful cash-out", async () => {
-    const mine = clearedBunkerMine();
-    useMineStore.setState({
-      mine,
-      consumables: STARTING_CONSUMABLES,
-      moves: ["down", "down", "down", "down", "down"] as MineAction[],
-      tick: 5,
-      tripBaseDiff: exportDiff(mine),
-    });
-    expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
-    expect(store().placePendingBunkerPart("wall-panel", START_COL - 3, 1)).toBe(
-      true,
-    );
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      jsonResponse({
-        credited: { credits: 0, parts: [], milestoneBonus: 0 },
-        balance: 10,
-        tripIndex: 3,
-        consumables: STARTING_CONSUMABLES,
-        bunkerClaimed: true,
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await store().submitCashOut();
-
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.pendingBunker).toMatchObject({
-      claimCol: START_COL,
-      claimRow: 5,
-      claimedAtMoveCount: 5,
-      parts: [{ partId: "wall-panel", col: START_COL - 3, row: 1 }],
-    });
-    expect(store().pendingBunker).toBeNull();
-    expect(store().cashOut).toMatchObject({
-      state: "done",
-      bunkerClaimed: true,
-    });
-    const lastSaved = vi.mocked(localStorage.setItem).mock.calls.at(-1);
-    expect(JSON.parse(lastSaved?.[1] ?? "{}").pendingBunker).toBeNull();
-  });
-
-  it("keeps a pending bunker when cash-out fails", async () => {
-    const mine = clearedBunkerMine();
-    useMineStore.setState({
-      mine,
-      consumables: STARTING_CONSUMABLES,
-      moves: ["down", "down", "down", "down", "down"] as MineAction[],
-      tick: 5,
-      tripBaseDiff: exportDiff(mine),
-    });
-    expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValueOnce(jsonResponse({ error: "retry" }, 409)),
-    );
-
-    await store().submitCashOut();
-
-    expect(store().pendingBunker).not.toBeNull();
-    expect(store().cashOut).toEqual({ state: "error", message: "retry" });
   });
 
   it("clears stale local trips after mine-version cash-out rejects", async () => {

@@ -1,17 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyAchievementProgress } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
-import { BASE_PART_CATALOG, STARTER_BASE_PART_INVENTORY } from "@/sim/bunker";
 import {
-  createMine,
   DEFAULT_GEAR,
-  exportDiff,
   MINE_VERSION,
   type MineConsumables,
   NO_CONSUMABLES,
-  START_COL,
   STARTING_CONSUMABLES,
-  setCell,
 } from "@/sim/mine";
 import {
   achievementProgressForTrip,
@@ -20,7 +15,6 @@ import {
   POST,
   paidConsumableSnapshotExceedsOwned,
   replayConsumablesForCashOut,
-  validatePendingBunkerClaim,
 } from "./route";
 
 vi.mock("@/server/db", () => ({
@@ -83,17 +77,6 @@ const stock = (overrides: Partial<MineConsumables> = {}): MineConsumables => ({
   ...overrides,
 });
 
-function pendingBunkerBaseDiff(blocked = false) {
-  const mine = createMine(123, DEFAULT_GEAR, STARTING_CONSUMABLES);
-  for (let row = 1; row <= 5; row++) {
-    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
-      setCell(mine, col, row, { kind: "empty" });
-    }
-  }
-  if (blocked) setCell(mine, START_COL - 3, 5, { kind: "dirt" });
-  return exportDiff(mine);
-}
-
 function post(overrides: Record<string, unknown> = {}): Promise<Response> {
   return POST(
     new Request("http://localhost/api/mine/bank", {
@@ -114,12 +97,7 @@ function post(overrides: Record<string, unknown> = {}): Promise<Response> {
 
 function mockSql(
   owned: Record<string, unknown> = ownedBase,
-  options: {
-    seed?: number;
-    diff?: unknown;
-    bunkerClaimed?: boolean;
-    existingBunker?: boolean;
-  } = {},
+  options: { seed?: number } = {},
 ) {
   const worldSeed = options.seed ?? 123;
   const sql = vi.fn(async () => {
@@ -127,20 +105,9 @@ function mockSql(
     const strings = calls[calls.length - 1]?.[0];
     const query = strings?.join(" ") ?? "";
     if (query.includes("SELECT seed, diff, trip_count")) {
-      return [{ seed: worldSeed, diff: options.diff ?? [], trip_count: 0 }];
+      return [{ seed: worldSeed, diff: [], trip_count: 0 }];
     }
     if (query.includes("SELECT pickaxe_level")) return [owned];
-    if (query.includes("SELECT player_id") && query.includes("FROM bunkers")) {
-      return options.existingBunker ? [{ player_id: "player-1" }] : [];
-    }
-    if (
-      query.includes("SELECT part_id, count") &&
-      query.includes("FROM player_base_parts")
-    ) {
-      return Object.entries(STARTER_BASE_PART_INVENTORY).map(
-        ([part_id, count]) => ({ part_id, count }),
-      );
-    }
     if (query.includes("support_kit_granted_at = now()")) {
       return [
         {
@@ -162,7 +129,6 @@ function mockSql(
         beacon_count: owned.beacon_count ?? 0,
         bonus: 0,
         trip_count: 1,
-        bunker_claimed: options.bunkerClaimed === true,
       },
     ];
   });
@@ -212,164 +178,6 @@ describe("POST /api/mine/bank", () => {
       detail: "request body could not be parsed as JSON",
     });
     expect(String(warnSpy.mock.calls[0][0])).not.toContain("player-1");
-  });
-
-  it("validates a locally claimed bunker against the replayed claim moment", () => {
-    const result = validatePendingBunkerClaim(
-      {
-        claimCol: START_COL,
-        claimRow: 5,
-        claimedAtMoveCount: 5,
-        parts: [
-          {
-            partId: "wall-panel",
-            col: START_COL - 3,
-            row: 1,
-            durability: BASE_PART_CATALOG["wall-panel"].durability,
-          },
-        ],
-      },
-      123,
-      DEFAULT_GEAR,
-      STARTING_CONSUMABLES,
-      pendingBunkerBaseDiff(),
-      ["down", "down", "down", "down", "down"],
-      STARTER_BASE_PART_INVENTORY,
-    );
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.bunker.footprint).toMatchObject({
-      col: START_COL - 3,
-      row: 1,
-      width: 7,
-      height: 5,
-    });
-    expect(result.inventory["wall-panel"]).toBe(1);
-  });
-
-  it("rejects pending bunkers that were not clear when claimed", () => {
-    const result = validatePendingBunkerClaim(
-      {
-        claimCol: START_COL,
-        claimRow: 5,
-        claimedAtMoveCount: 5,
-        parts: [],
-      },
-      123,
-      DEFAULT_GEAR,
-      STARTING_CONSUMABLES,
-      pendingBunkerBaseDiff(true),
-      ["down", "down", "down", "down", "down"],
-      STARTER_BASE_PART_INVENTORY,
-    );
-
-    expect(result).toEqual({
-      ok: false,
-      error: "clear the full 7x5 claim first",
-    });
-  });
-
-  it("rejects pending bunker parts that exceed server-owned stock", () => {
-    const result = validatePendingBunkerClaim(
-      {
-        claimCol: START_COL,
-        claimRow: 5,
-        claimedAtMoveCount: 5,
-        parts: [
-          {
-            partId: "door-panel",
-            col: START_COL - 3,
-            row: 1,
-            durability: BASE_PART_CATALOG["door-panel"].durability,
-          },
-          {
-            partId: "door-panel",
-            col: START_COL - 2,
-            row: 1,
-            durability: BASE_PART_CATALOG["door-panel"].durability,
-          },
-        ],
-      },
-      123,
-      DEFAULT_GEAR,
-      STARTING_CONSUMABLES,
-      pendingBunkerBaseDiff(),
-      ["down", "down", "down", "down", "down"],
-      STARTER_BASE_PART_INVENTORY,
-    );
-
-    expect(result).toEqual({
-      ok: false,
-      error: "cannot place bunker part: stock",
-    });
-  });
-
-  it("persists a valid pending bunker during cash-out", async () => {
-    const sql = mockSql(ownedBase, {
-      diff: pendingBunkerBaseDiff(),
-      bunkerClaimed: true,
-    });
-
-    const res = await post({
-      moves: ["down", "down", "down", "down", "down"],
-      pendingBunker: {
-        claimCol: START_COL,
-        claimRow: 5,
-        claimedAtMoveCount: 5,
-        parts: [
-          {
-            partId: "wall-panel",
-            col: START_COL - 3,
-            row: 1,
-            durability: BASE_PART_CATALOG["wall-panel"].durability,
-          },
-        ],
-      },
-    });
-
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({
-      bunkerClaimed: true,
-      tripIndex: 1,
-    });
-    const queries = (
-      sql.mock.calls as unknown as Array<[TemplateStringsArray]>
-    ).map(([strings]) => strings.join(" "));
-    expect(queries.some((query) => query.includes("INSERT INTO bunkers"))).toBe(
-      true,
-    );
-    expect(
-      queries.some((query) => query.includes("INSERT INTO player_base_parts")),
-    ).toBe(true);
-  });
-
-  it("rejects duplicate pending bunker claims before granting starter parts", async () => {
-    const sql = mockSql(ownedBase, {
-      diff: pendingBunkerBaseDiff(),
-      existingBunker: true,
-    });
-
-    const res = await post({
-      moves: ["down", "down", "down", "down", "down"],
-      pendingBunker: {
-        claimCol: START_COL,
-        claimRow: 5,
-        claimedAtMoveCount: 5,
-        parts: [],
-      },
-    });
-
-    expect(res.status).toBe(409);
-    await expect(res.json()).resolves.toEqual({
-      error: "bunker already claimed",
-    });
-    const queries = (
-      sql.mock.calls as unknown as Array<[TemplateStringsArray]>
-    ).map(([strings]) => strings.join(" "));
-    expect(
-      queries.some((query) => query.includes("INSERT INTO player_base_parts")),
-    ).toBe(false);
   });
 
   it("logs request-shape failures with safe cash-out context", async () => {

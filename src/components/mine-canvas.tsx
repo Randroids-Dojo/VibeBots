@@ -1,7 +1,7 @@
 "use client";
 
 import { RoundedBox } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, type ThreeEvent, useFrame } from "@react-three/fiber";
 import {
   memo,
   useEffect,
@@ -61,8 +61,6 @@ import { DESTINATIONS, type DestinationDef } from "./mine-destinations";
 import { minerStepSeconds } from "./mine-pacing";
 import { playMineResultSfx, playMineSfxEvent } from "./mine-sfx";
 import { STALLS, type StallDef } from "./mine-stalls";
-
-type BunkerBuildMode = "place" | "remove" | "move";
 
 const ORE_COLORS: Record<OreId, string> = {
   coal: "#33343a",
@@ -497,12 +495,8 @@ function BunkerOverlay({
   activeRaid,
   selectedPartCell,
   dragTargetCell,
-  targetCell,
-  buildMode,
   onBunkerPartTap,
   onBunkerPartPointerDown,
-  onBunkerCellHover,
-  onBunkerCellTap,
   onBunkerDragTarget,
   onBunkerDragEnd,
 }: {
@@ -512,12 +506,8 @@ function BunkerOverlay({
   activeRaid?: BunkerRaidSnapshot | null;
   selectedPartCell?: MineCoord | null;
   dragTargetCell?: MineCoord | null;
-  targetCell?: MineCoord | null;
-  buildMode?: BunkerBuildMode;
   onBunkerPartTap?: (cell: MineCoord) => void;
   onBunkerPartPointerDown?: (cell: MineCoord) => void;
-  onBunkerCellHover?: (cell: MineCoord) => void;
-  onBunkerCellTap?: (cell: MineCoord) => void;
   onBunkerDragTarget?: (cell: MineCoord) => void;
   onBunkerDragEnd?: (cell: MineCoord) => void;
 }) {
@@ -581,75 +571,13 @@ function BunkerOverlay({
         <SelectedSupportCellOutline col={cell.col} row={cell.row} />
       </group>
     )) ?? [];
-  const cellFromPoint = (event: {
-    point: { x: number; y: number };
-  }): MineCoord => ({
+  const cellFromPoint = (event: ThreeEvent<PointerEvent>): MineCoord => ({
     col: Math.round(event.point.x),
     row: Math.round(-event.point.y),
   });
   const selectedKey = selectedPartCell
     ? `${selectedPartCell.col}:${selectedPartCell.row}`
     : null;
-  const targetColor = buildMode === "remove" ? "#ff6b6b" : "#54e0c7";
-  const validTarget =
-    targetCell && containsBunkerCell(footprint, targetCell.col, targetCell.row)
-      ? targetCell
-      : null;
-  const targetHighlight =
-    validTarget && buildMode !== "move" ? (
-      <group key={`bunker-target:${validTarget.col}:${validTarget.row}`}>
-        <mesh
-          position={[cellX(validTarget.col), -validTarget.row, 1.04]}
-          renderOrder={20}
-        >
-          <planeGeometry args={[1.08, 1.08]} />
-          <meshBasicMaterial
-            color={targetColor}
-            transparent
-            opacity={0.18}
-            depthWrite={false}
-            depthTest={false}
-            toneMapped={false}
-          />
-        </mesh>
-        <SelectedSupportCellOutline
-          col={validTarget.col}
-          row={validTarget.row}
-        />
-      </group>
-    ) : null;
-  const cellTargetPlane =
-    bunker &&
-    buildMode !== "move" &&
-    !activeRaid &&
-    onBunkerCellTap &&
-    onBunkerCellHover ? (
-      // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
-      <mesh
-        position={[
-          cellX(footprint.col + (footprint.width - 1) / 2),
-          -(footprint.row + (footprint.height - 1) / 2),
-          0.44,
-        ]}
-        renderOrder={12}
-        onPointerMove={(e) => {
-          onBunkerCellHover(cellFromPoint(e));
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onBunkerCellTap(cellFromPoint(e));
-        }}
-      >
-        <planeGeometry args={[footprint.width, footprint.height]} />
-        <meshBasicMaterial
-          color={targetColor}
-          transparent
-          opacity={0}
-          depthWrite={false}
-          depthTest={false}
-        />
-      </mesh>
-    ) : null;
   const dragTarget =
     dragTargetCell &&
     containsBunkerCell(footprint, dragTargetCell.col, dragTargetCell.row) ? (
@@ -677,26 +605,19 @@ function BunkerOverlay({
       </group>
     ) : null;
   const dragPlane =
-    bunker && buildMode === "move" && onBunkerDragTarget && onBunkerDragEnd ? (
+    selectedPartCell &&
+    dragTargetCell &&
+    onBunkerDragTarget &&
+    onBunkerDragEnd ? (
       <mesh
         position={[
           cellX(footprint.col + (footprint.width - 1) / 2),
           -(footprint.row + (footprint.height - 1) / 2),
-          0.45,
+          1.1,
         ]}
-        renderOrder={13}
-        onPointerDown={(e) => {
-          const cell = cellFromPoint(e);
-          if (
-            bunker.parts.some((part) => {
-              return part.col === cell.col && part.row === cell.row;
-            })
-          ) {
-            e.stopPropagation();
-            onBunkerPartPointerDown?.(cell);
-          }
-        }}
+        renderOrder={22}
         onPointerMove={(e) => {
+          e.stopPropagation();
           onBunkerDragTarget(cellFromPoint(e));
         }}
         onPointerUp={(e) => {
@@ -737,15 +658,11 @@ function BunkerOverlay({
             position={[cellX(part.col), -part.row, 0.48]}
             onClick={(e) => {
               e.stopPropagation();
-              if (buildMode === "remove" && onBunkerCellTap) {
-                onBunkerCellTap(partCell);
-                return;
-              }
               onBunkerPartTap?.(partCell);
             }}
             onPointerDown={(e) => {
               e.stopPropagation();
-              onBunkerPartPointerDown?.(partCell);
+              if (selected) onBunkerPartPointerDown?.(partCell);
             }}
           >
             {selected && (
@@ -803,15 +720,11 @@ function BunkerOverlay({
           position={[cellX(part.col), -part.row, 0.52]}
           onClick={(e) => {
             e.stopPropagation();
-            if (buildMode === "remove" && onBunkerCellTap) {
-              onBunkerCellTap(partCell);
-              return;
-            }
             onBunkerPartTap?.(partCell);
           }}
           onPointerDown={(e) => {
             e.stopPropagation();
-            onBunkerPartPointerDown?.(partCell);
+            if (selected) onBunkerPartPointerDown?.(partCell);
           }}
         >
           {selected && (
@@ -848,8 +761,6 @@ function BunkerOverlay({
           />
         </mesh>
       )}
-      {cellTargetPlane}
-      {targetHighlight}
       {parts}
       {dragTarget}
       {dragPlane}
@@ -2552,13 +2463,9 @@ function MineScene({
   activeBunkerRaid,
   selectedBunkerPartCell,
   bunkerPartDragTargetCell,
-  bunkerTargetCell,
-  bunkerBuildMode,
   onToggleSupport,
   onBunkerPartTap,
   onBunkerPartPointerDown,
-  onBunkerCellHover,
-  onBunkerCellTap,
   onBunkerDragTarget,
   onBunkerDragEnd,
 }: MineCanvasProps) {
@@ -3765,12 +3672,8 @@ function MineScene({
         activeRaid={activeBunkerRaid}
         selectedPartCell={selectedBunkerPartCell}
         dragTargetCell={bunkerPartDragTargetCell}
-        targetCell={bunkerTargetCell}
-        buildMode={bunkerBuildMode}
         onBunkerPartTap={onBunkerPartTap}
         onBunkerPartPointerDown={onBunkerPartPointerDown}
-        onBunkerCellHover={onBunkerCellHover}
-        onBunkerCellTap={onBunkerCellTap}
         onBunkerDragTarget={onBunkerDragTarget}
         onBunkerDragEnd={onBunkerDragEnd}
       />
@@ -3825,13 +3728,9 @@ interface MineCanvasProps {
   activeBunkerRaid?: BunkerRaidSnapshot | null;
   selectedBunkerPartCell?: MineCoord | null;
   bunkerPartDragTargetCell?: MineCoord | null;
-  bunkerTargetCell?: MineCoord | null;
-  bunkerBuildMode?: BunkerBuildMode;
   onToggleSupport?: (target: CollectTarget) => void;
   onBunkerPartTap?: (cell: MineCoord) => void;
   onBunkerPartPointerDown?: (cell: MineCoord) => void;
-  onBunkerCellHover?: (cell: MineCoord) => void;
-  onBunkerCellTap?: (cell: MineCoord) => void;
   onBunkerDragTarget?: (cell: MineCoord) => void;
   onBunkerDragEnd?: (cell: MineCoord) => void;
   onBunkerBackgroundTap?: () => void;

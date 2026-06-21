@@ -31,14 +31,11 @@ import {
   FEEDBACK_CATEGORY_OPTIONS,
   type FeedbackCategory,
 } from "@/lib/feedback";
-import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
 import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
   type BasePartId,
-  type BasePartInventory,
   type BunkerFootprint,
-  type BunkerState,
   basePartMinimumLevel,
   basePartOwnedCount,
   basePartOwnedLimit,
@@ -370,7 +367,7 @@ const MINE_SURFACE_TIP_CHOICES: readonly (string | null)[] = [
   ...MINE_SURFACE_TIPS,
   ...Array.from({ length: MINE_SURFACE_TIP_EMPTY_SLOTS }, () => null),
 ];
-type BunkerBuildMode = "place" | "remove" | "move";
+const BUNKER_PART_DOUBLE_TAP_MS = 450;
 const PICKAXE_GATE_HINT_MS = 1800;
 
 interface MineSurfaceTipTestWindow {
@@ -710,8 +707,8 @@ const iconButtonStyle: React.CSSProperties = {
 
 const jumpButtonStyle: React.CSSProperties = {
   ...iconButtonStyle,
-  minWidth: 88,
-  height: 64,
+  minWidth: 92,
+  height: 54,
   borderRadius: 8,
   border: "2px solid #54e0c7",
   background: "rgba(15, 31, 37, 0.94)",
@@ -751,9 +748,9 @@ const mineShellStyle: React.CSSProperties = {
   width: "100%",
   height: "100dvh",
   overflow: "hidden",
-  overscrollBehavior: "none",
-  touchAction: "none",
 };
+
+const MINE_REFRESH_ENTRY_KEY = "vibebots-mine-refresh-entry-version";
 
 interface MineViewportFrame {
   displayMode: "browser" | "fullscreen" | "minimal-ui" | "standalone";
@@ -4009,49 +4006,47 @@ function StallMenu({
 }
 
 function BunkerControlPanel({
+  minerCol,
   minerRow,
   claimMode,
   panelOpen,
-  bunker,
-  inventory,
-  pendingClaim,
   preview,
   localBlockedCells,
   bankedBlockedCells,
   selectedPart,
-  buildMode,
   onSelectPart,
-  onBuildModeChange,
   onStartClaim,
   onCancelClaim,
   onOpenPanel,
   onDismissPanel,
   onClaim,
+  onPlace,
+  onRemove,
   onStartRaid,
   onFinishRaid,
 }: {
+  minerCol: number;
   minerRow: number;
   claimMode: boolean;
   panelOpen: boolean;
   preview: BunkerFootprint | null;
-  bunker: BunkerState | null;
-  inventory: BasePartInventory;
-  pendingClaim: boolean;
   localBlockedCells: readonly MineCoord[];
   bankedBlockedCells: readonly MineCoord[];
   selectedPart: BasePartId;
-  buildMode: BunkerBuildMode;
   onSelectPart: (partId: BasePartId) => void;
-  onBuildModeChange: (mode: BunkerBuildMode) => void;
   onStartClaim: () => void;
   onCancelClaim: () => void;
   onOpenPanel: () => void;
   onDismissPanel: () => void;
   onClaim: () => void;
+  onPlace: () => void;
+  onRemove: () => void;
   onStartRaid: () => void;
   onFinishRaid: () => void;
 }) {
   const status = useBunkerStore((s) => s.status);
+  const bunker = useBunkerStore((s) => s.bunker);
+  const inventory = useBunkerStore((s) => s.inventory);
   const activeRaid = useBunkerStore((s) => s.activeRaid);
   const player = useBunkerStore((s) => s.player);
   const lastReward = useBunkerStore((s) => s.lastRaidReward);
@@ -4063,9 +4058,9 @@ function BunkerControlPanel({
     !hasBunker &&
     status !== "loading" &&
     preview !== null &&
-    localBlockerCount === 0;
+    localBlockerCount === 0 &&
+    bankedBlockerCount === 0;
   const canBuild = hasBunker && !activeRaid;
-  const canPlace = canBuild && inventory[selectedPart] > 0;
   const compactLabel = hasBunker ? "Open bunker builder" : "Start bunker claim";
   const compactText = hasBunker ? "Bunker" : "Bunker claim";
   const openCompactPanel = hasBunker ? onOpenPanel : onStartClaim;
@@ -4118,32 +4113,28 @@ function BunkerControlPanel({
   }
   return (
     <>
-      {!hasBunker && (
-        <button
-          type="button"
-          aria-label="Dismiss bunker builder"
-          onClick={dismissPanel}
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 7,
-            border: 0,
-            background: "transparent",
-            pointerEvents: "auto",
-            cursor: "default",
-          }}
-        />
-      )}
+      <button
+        type="button"
+        aria-label="Dismiss bunker builder"
+        onClick={dismissPanel}
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 7,
+          border: 0,
+          background: "transparent",
+          pointerEvents: "auto",
+          cursor: "default",
+        }}
+      />
       <section
         aria-label="Bunker builder"
         style={{
           position: "absolute",
-          right: 12,
-          top: 88,
+          left: 12,
+          bottom: 94,
           zIndex: 8,
-          width: "min(300px, calc(100vw - 24px))",
-          maxHeight: "calc(100vh - 176px)",
-          overflowY: "auto",
+          width: "min(360px, calc(100vw - 24px))",
           border: "1px solid #54e0c7",
           borderRadius: 12,
           background: "rgba(14, 20, 28, 0.94)",
@@ -4160,39 +4151,17 @@ function BunkerControlPanel({
           >
             lv {player?.overallLevel ?? 1}
           </span>
-          {hasBunker && (
-            <button
-              type="button"
-              onClick={onDismissPanel}
-              style={{
-                border: "1px solid #5b6680",
-                borderRadius: 8,
-                background: "#20283a",
-                color: "#cdd6ea",
-                fontWeight: 800,
-                fontSize: "0.72rem",
-                padding: "5px 8px",
-                cursor: "pointer",
-              }}
-            >
-              Close
-            </button>
-          )}
         </div>
         <p style={{ margin: "6px 0 10px", fontSize: "0.78rem", opacity: 0.7 }}>
           {hasBunker
-            ? buildMode === "place"
-              ? "Place mode. Tap a claimed cell for the selected part."
-              : buildMode === "remove"
-                ? "Remove mode. Tap an undamaged placed part."
-                : "Move mode. Drag any placed part to another claimed cell."
+            ? `Cell ${minerCol}, ${minerRow}. Place parts on claimed cells. The outline has no collision.`
             : !preview
               ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
               : localBlockerCount > 0
                 ? `Clear ${localBlockerCount} red cell${localBlockerCount === 1 ? "" : "s"}. The miner's row counts.`
                 : bankedBlockerCount > 0
-                  ? "Ready to claim. Build now, then bank at surface to save."
-                  : "Ready to claim. Build now, then bank at surface to save."}
+                  ? "Return to the surface to bank this clearing, then come back to claim."
+                  : "Ready to claim. This 7x5 space is clear and banked."}
         </p>
         {player && (
           <fieldset
@@ -4310,73 +4279,6 @@ function BunkerControlPanel({
         )}
         {hasBunker && (
           <>
-            <fieldset
-              aria-label="Build mode"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: 8,
-                marginBottom: 10,
-                border: 0,
-                padding: 0,
-              }}
-            >
-              {(
-                [
-                  {
-                    mode: "place",
-                    label: "Place",
-                    color: "#54e0c7",
-                    enabled: canPlace,
-                  },
-                  {
-                    mode: "remove",
-                    label: "Remove",
-                    color: "#ff6b6b",
-                    enabled: canBuild,
-                  },
-                  {
-                    mode: "move",
-                    label: "Move",
-                    color: "#8aa4ff",
-                    enabled: canBuild,
-                  },
-                ] satisfies Array<{
-                  mode: BunkerBuildMode;
-                  label: string;
-                  color: string;
-                  enabled: boolean;
-                }>
-              ).map((item) => {
-                const active = buildMode === item.mode;
-                return (
-                  <button
-                    key={item.mode}
-                    type="button"
-                    aria-pressed={active}
-                    disabled={!item.enabled}
-                    onClick={() => onBuildModeChange(item.mode)}
-                    style={{
-                      minHeight: 40,
-                      borderRadius: 10,
-                      border: active
-                        ? `1px solid ${item.color}`
-                        : "1px solid #2c3a5c",
-                      background: active
-                        ? `${item.color}2b`
-                        : "rgba(38, 48, 74, 0.55)",
-                      color: active ? item.color : "#cdd6ea",
-                      fontWeight: 900,
-                      fontSize: "0.76rem",
-                      cursor: item.enabled ? "pointer" : "not-allowed",
-                      opacity: item.enabled ? 1 : 0.44,
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </fieldset>
             <div
               style={{
                 display: "grid",
@@ -4413,12 +4315,37 @@ function BunkerControlPanel({
                 );
               })}
             </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+              }}
+            >
+              <button
+                type="button"
+                disabled={!canBuild || inventory[selectedPart] <= 0}
+                onClick={onPlace}
+                style={sheetButtonStyle(
+                  canBuild && inventory[selectedPart] > 0,
+                )}
+              >
+                Place
+              </button>
+              <button
+                type="button"
+                disabled={!canBuild}
+                onClick={onRemove}
+                style={sheetButtonStyle(canBuild)}
+              >
+                Remove
+              </button>
+            </div>
             <button
               type="button"
               onClick={activeRaid ? onFinishRaid : onStartRaid}
-              disabled={pendingClaim}
               style={{
-                ...sheetButtonStyle(!pendingClaim),
+                ...sheetButtonStyle(true),
                 width: "100%",
                 marginTop: 8,
                 border: "1px solid #ff6b6b",
@@ -4428,17 +4355,6 @@ function BunkerControlPanel({
             >
               {activeRaid ? "Check raid result" : "Start Clanker raid"}
             </button>
-            {pendingClaim && (
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  fontSize: "0.74rem",
-                  color: "#f5c542",
-                }}
-              >
-                Raids unlock after the bunker saves at the surface.
-              </p>
-            )}
             {activeRaid && (
               <p
                 style={{
@@ -4476,15 +4392,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const tripIndex = useMineStore((s) => s.tripIndex);
   const tripBaseDiff = useMineStore((s) => s.tripBaseDiff);
   const movesLength = useMineStore((s) => s.moves.length);
-  const pendingBunker = useMineStore((s) => s.pendingBunker);
   const cashOut = useMineStore((s) => s.cashOut);
   const submitCashOut = useMineStore((s) => s.submitCashOut);
-  const claimPendingBunker = useMineStore((s) => s.claimPendingBunker);
-  const placePendingBunkerPart = useMineStore((s) => s.placePendingBunkerPart);
-  const removePendingBunkerPart = useMineStore(
-    (s) => s.removePendingBunkerPart,
-  );
-  const movePendingBunkerPart = useMineStore((s) => s.movePendingBunkerPart);
   const gear = useMineStore((s) => s.gear);
   const worldLoaded = useMineStore((s) => s.worldLoaded);
   const loadGear = useMineStore((s) => s.loadGear);
@@ -4503,10 +4412,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const buyElevator = useMineStore((s) => s.buyElevator);
   const teleportToBase = useMineStore((s) => s.teleportToBase);
   const bunker = useBunkerStore((s) => s.bunker);
-  const bunkerInventory = useBunkerStore((s) => s.inventory);
   const activeBunkerRaid = useBunkerStore((s) => s.activeRaid);
   const bunkerPlayer = useBunkerStore((s) => s.player);
   const loadBunker = useBunkerStore((s) => s.loadBunker);
+  const claimBunker = useBunkerStore((s) => s.claimBunker);
   const buyBasePart = useBunkerStore((s) => s.buyBasePart);
   const placeBunkerPart = useBunkerStore((s) => s.placePart);
   const removeBunkerPart = useBunkerStore((s) => s.removePart);
@@ -4565,11 +4474,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [bunkerPanelOpen, setBunkerPanelOpen] = useState(true);
   const [selectedBasePart, setSelectedBasePart] =
     useState<BasePartId>("wall-panel");
-  const [bunkerBuildMode, setBunkerBuildMode] =
-    useState<BunkerBuildMode>("place");
-  const [bunkerTargetCell, setBunkerTargetCell] = useState<MineCoord | null>(
-    null,
-  );
   const [selectedBunkerPartCell, setSelectedBunkerPartCell] =
     useState<MineCoord | null>(null);
   const [bunkerPartDragTargetCell, setBunkerPartDragTargetCell] =
@@ -4598,12 +4502,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const upwardDigAwaitingReleaseRef = useRef(false);
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const previousMinerRowRef = useRef(mine.miner.row);
+  const lastBunkerPartTapRef = useRef<{ key: string; at: number } | null>(null);
   const bunkerPartDragStartRef = useRef<MineCoord | null>(null);
   const bunkerPartDragMovedRef = useRef(false);
   void tick;
-  const activeBunker = pendingBunker?.bunker ?? bunker;
-  const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
-  const pendingBunkerActive = pendingBunker !== null;
 
   useEffect(() => {
     if (mine.miner.row !== 0) return;
@@ -4683,27 +4585,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
-  }, []);
-
-  useEffect(() => {
-    const nonPassive = { passive: false } as AddEventListenerOptions;
-    const preventGestureZoom = (event: Event) => {
-      event.preventDefault();
-    };
-    const preventDocumentPinch = (event: TouchEvent) => {
-      if (event.touches.length < 2) return;
-      event.preventDefault();
-    };
-    window.addEventListener("gesturestart", preventGestureZoom, nonPassive);
-    window.addEventListener("gesturechange", preventGestureZoom, nonPassive);
-    window.addEventListener("gestureend", preventGestureZoom, nonPassive);
-    document.addEventListener("touchmove", preventDocumentPinch, nonPassive);
-    return () => {
-      window.removeEventListener("gesturestart", preventGestureZoom);
-      window.removeEventListener("gesturechange", preventGestureZoom);
-      window.removeEventListener("gestureend", preventGestureZoom);
-      document.removeEventListener("touchmove", preventDocumentPinch);
-    };
   }, []);
 
   useEffect(() => {
@@ -4887,11 +4768,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       playMineSfxEvent("deny");
     }
   }, [cashOut.state]);
-
-  useEffect(() => {
-    if (cashOut.state !== "done" || !cashOut.bunkerClaimed) return;
-    void loadBunker();
-  }, [cashOut, loadBunker]);
 
   useEffect(() => {
     if (cashOut.state === "idle" || cashOut.state === "pending") {
@@ -5268,7 +5144,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           color: "#54e0c7",
         };
   const bunkerPreview =
-    miner.row > 0 && !activeBunker && bunkerClaimMode
+    miner.row > 0 && !bunker && bunkerClaimMode
       ? (() => {
           const footprint = proposedBunkerFootprint(miner.col, miner.row);
           return footprint.row >= 1 ? footprint : null;
@@ -5359,61 +5235,79 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [baseReturn]);
 
   useEffect(() => {
-    if (activeBunker || miner.row <= 0) setBunkerClaimMode(false);
-  }, [activeBunker, miner.row]);
+    if (bunker || miner.row <= 0) setBunkerClaimMode(false);
+  }, [bunker, miner.row]);
 
   useEffect(() => {
-    if (!activeBunker || !bunkerPanelOpen || activeBunkerRaid) {
+    if (!bunker || !bunkerPanelOpen || activeBunkerRaid) {
       setSelectedBunkerPartCell(null);
       setBunkerPartDragTargetCell(null);
-      setBunkerTargetCell(null);
       return;
     }
     setSelectedBunkerPartCell((cell) => {
       if (!cell) return cell;
-      return activeBunker.parts.some(
+      return bunker.parts.some(
         (part) => part.col === cell.col && part.row === cell.row,
       )
         ? cell
         : null;
     });
-  }, [activeBunkerRaid, activeBunker, bunkerPanelOpen]);
+  }, [activeBunkerRaid, bunker, bunkerPanelOpen]);
 
   const handleBunkerPartTap = useCallback(
     (cell: MineCoord) => {
-      if (!activeBunker || activeBunkerRaid) return;
-      setBunkerBuildMode("move");
-      setSelectedBunkerPartCell(cell);
-      setBunkerPartDragTargetCell(null);
+      if (!bunker || activeBunkerRaid) return;
+      if (selectedBunkerPartCell) {
+        setSelectedBunkerPartCell(null);
+        setBunkerPartDragTargetCell(null);
+        lastBunkerPartTapRef.current = null;
+        return;
+      }
+      const key = `${cell.col}:${cell.row}`;
+      const now = Date.now();
+      const last = lastBunkerPartTapRef.current;
+      if (
+        last &&
+        last.key === key &&
+        now - last.at <= BUNKER_PART_DOUBLE_TAP_MS
+      ) {
+        setSelectedBunkerPartCell(cell);
+        setBunkerPartDragTargetCell(null);
+        lastBunkerPartTapRef.current = null;
+        return;
+      }
+      lastBunkerPartTapRef.current = { key, at: now };
     },
-    [activeBunkerRaid, activeBunker],
+    [activeBunkerRaid, bunker, selectedBunkerPartCell],
   );
 
   const handleBunkerPartPointerDown = useCallback(
     (cell: MineCoord) => {
-      if (!activeBunker || activeBunkerRaid) return;
-      setBunkerBuildMode("move");
-      setSelectedBunkerPartCell(cell);
+      if (!bunker || activeBunkerRaid || !selectedBunkerPartCell) return;
+      if (
+        selectedBunkerPartCell.col !== cell.col ||
+        selectedBunkerPartCell.row !== cell.row
+      ) {
+        return;
+      }
       bunkerPartDragStartRef.current = cell;
       bunkerPartDragMovedRef.current = false;
       setBunkerPartDragTargetCell(cell);
     },
-    [activeBunkerRaid, activeBunker],
+    [activeBunkerRaid, bunker, selectedBunkerPartCell],
   );
 
   const handleBunkerDragTarget = useCallback(
     (cell: MineCoord) => {
       const start = bunkerPartDragStartRef.current;
-      if (!activeBunker || !start) return;
-      if (!containsBunkerCell(activeBunker.footprint, cell.col, cell.row)) {
-        return;
-      }
+      if (!bunker || !start) return;
+      if (!containsBunkerCell(bunker.footprint, cell.col, cell.row)) return;
       if (cell.col !== start.col || cell.row !== start.row) {
         bunkerPartDragMovedRef.current = true;
       }
       setBunkerPartDragTargetCell(cell);
     },
-    [activeBunker],
+    [bunker],
   );
 
   const handleBunkerDragEnd = useCallback(
@@ -5423,26 +5317,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       bunkerPartDragStartRef.current = null;
       bunkerPartDragMovedRef.current = false;
       setBunkerPartDragTargetCell(null);
-      if (!activeBunker || !start) return;
+      if (!bunker || !start) return;
       if (!moved) {
-        setSelectedBunkerPartCell(start);
+        setSelectedBunkerPartCell(null);
         return;
       }
-      if (!containsBunkerCell(activeBunker.footprint, cell.col, cell.row)) {
-        return;
-      }
+      if (!containsBunkerCell(bunker.footprint, cell.col, cell.row)) return;
       if (cell.col === start.col && cell.row === start.row) return;
       setSelectedBunkerPartCell(cell);
-      if (pendingBunkerActive) {
-        const movedLocally = movePendingBunkerPart(
-          start.col,
-          start.row,
-          cell.col,
-          cell.row,
-        );
-        if (!movedLocally) setSelectedBunkerPartCell(null);
-        return;
-      }
       void moveBunkerPart(start.col, start.row, cell.col, cell.row).then(() => {
         const current = useBunkerStore.getState().bunker;
         const movedPartExists = current?.parts.some(
@@ -5451,62 +5333,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         if (!movedPartExists) setSelectedBunkerPartCell(null);
       });
     },
-    [activeBunker, moveBunkerPart, movePendingBunkerPart, pendingBunkerActive],
-  );
-
-  const setBunkerCellTarget = useCallback(
-    (cell: MineCoord) => {
-      if (!activeBunker) return;
-      if (!containsBunkerCell(activeBunker.footprint, cell.col, cell.row)) {
-        return;
-      }
-      setBunkerTargetCell(cell);
-    },
-    [activeBunker],
-  );
-
-  const handleBunkerCellTap = useCallback(
-    (cell: MineCoord) => {
-      if (!activeBunker || activeBunkerRaid) return;
-      if (!containsBunkerCell(activeBunker.footprint, cell.col, cell.row)) {
-        return;
-      }
-      setBunkerTargetCell(cell);
-      setSelectedBunkerPartCell(null);
-      setBunkerPartDragTargetCell(null);
-      if (bunkerBuildMode === "place") {
-        if (pendingBunkerActive) {
-          placePendingBunkerPart(selectedBasePart, cell.col, cell.row);
-          return;
-        }
-        void placeBunkerPart(selectedBasePart, cell.col, cell.row);
-        return;
-      }
-      if (bunkerBuildMode === "remove") {
-        if (pendingBunkerActive) {
-          removePendingBunkerPart(cell.col, cell.row);
-          return;
-        }
-        void removeBunkerPart(cell.col, cell.row);
-      }
-    },
-    [
-      activeBunker,
-      activeBunkerRaid,
-      bunkerBuildMode,
-      pendingBunkerActive,
-      placeBunkerPart,
-      placePendingBunkerPart,
-      removeBunkerPart,
-      removePendingBunkerPart,
-      selectedBasePart,
-    ],
+    [bunker, moveBunkerPart],
   );
 
   const deselectBunkerPart = useCallback(() => {
     if (!selectedBunkerPartCell) return;
     setSelectedBunkerPartCell(null);
     setBunkerPartDragTargetCell(null);
+    lastBunkerPartTapRef.current = null;
   }, [selectedBunkerPartCell]);
 
   const handleScreenPointerDown = useCallback(
@@ -5546,10 +5380,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     previousMinerRowRef.current = miner.row;
     if (cashOut.state === "pending") return;
     if (!(previousRow > 0 && miner.row === 0)) return;
-    if (bankedCredits <= 0 && bankedPartsCount <= 0 && !pendingBunkerActive) {
-      return;
-    }
-    const key = `${seed}:${tripIndex}:${movesLength}:${bankedCredits}:${bankedPartsCount}:${pendingBunkerActive ? "bunker" : "mine"}`;
+    if (bankedCredits <= 0 && bankedPartsCount <= 0) return;
+    const key = `${seed}:${tripIndex}:${movesLength}:${bankedCredits}:${bankedPartsCount}`;
     if (lastAutoCashOutKeyRef.current === key) return;
     lastAutoCashOutKeyRef.current = key;
     void submitCashOut();
@@ -5559,7 +5391,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     cashOut.state,
     miner.row,
     movesLength,
-    pendingBunkerActive,
     seed,
     submitCashOut,
     tripIndex,
@@ -5727,7 +5558,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         ? "One fuse is already lit."
         : null;
   const bunkerCanvasEditing = Boolean(
-    activeBunker && bunkerPanelOpen && !activeBunkerRaid,
+    bunker && bunkerPanelOpen && !activeBunkerRaid,
   );
   const retryMineSceneLoad = () => {
     setMineCanvasKey((key) => key + 1);
@@ -5778,16 +5609,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             dynamitePreviewCells={selectedDynamitePreview}
             bunkerPreview={bunkerPreview}
             bunkerBlockedCells={localBlockedBunkerCells}
-            bunker={activeBunker}
+            bunker={bunker}
             activeBunkerRaid={activeBunkerRaid}
             selectedBunkerPartCell={selectedBunkerPartCell}
             bunkerPartDragTargetCell={bunkerPartDragTargetCell}
-            bunkerTargetCell={bunkerTargetCell}
-            bunkerBuildMode={bunkerBuildMode}
             onBunkerPartTap={handleBunkerPartTap}
             onBunkerPartPointerDown={handleBunkerPartPointerDown}
-            onBunkerCellHover={setBunkerCellTarget}
-            onBunkerCellTap={handleBunkerCellTap}
             onBunkerDragTarget={handleBunkerDragTarget}
             onBunkerDragEnd={handleBunkerDragEnd}
             onBunkerBackgroundTap={deselectBunkerPart}
@@ -6260,19 +6087,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         </section>
       )}
       <BunkerControlPanel
+        minerCol={miner.col}
         minerRow={miner.row}
         claimMode={bunkerClaimMode}
         panelOpen={bunkerPanelOpen}
-        bunker={activeBunker}
-        inventory={activeBunkerInventory}
-        pendingClaim={pendingBunkerActive}
         preview={bunkerPreview}
         localBlockedCells={localBlockedBunkerCells}
         bankedBlockedCells={bankedBlockedBunkerCells}
         selectedPart={selectedBasePart}
-        buildMode={bunkerBuildMode}
         onSelectPart={setSelectedBasePart}
-        onBuildModeChange={setBunkerBuildMode}
         onStartClaim={() => {
           setBunkerPanelOpen(true);
           setBunkerClaimMode(true);
@@ -6280,12 +6103,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onCancelClaim={() => setBunkerClaimMode(false)}
         onOpenPanel={() => setBunkerPanelOpen(true)}
         onDismissPanel={() => setBunkerPanelOpen(false)}
-        onClaim={() => {
-          if (claimPendingBunker(miner.col, miner.row)) {
-            setBunkerClaimMode(false);
-            setBunkerPanelOpen(true);
-          }
-        }}
+        onClaim={() => void claimBunker(miner.col, miner.row)}
+        onPlace={() =>
+          void placeBunkerPart(selectedBasePart, miner.col, miner.row)
+        }
+        onRemove={() => void removeBunkerPart(miner.col, miner.row)}
         onStartRaid={() => void startBunkerRaid()}
         onFinishRaid={() => void finishBunkerRaid()}
       />
@@ -6700,30 +6522,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         </section>
       )}
 
-      <button
-        type="button"
-        aria-label="Jump jets"
-        title="Jump up one cell"
-        onClick={() => {
-          setDynamiteMenuOpen(false);
-          setRecoveryMenuOpen(false);
-          fireJump();
-        }}
-        disabled={!jumpEnabled}
-        style={{
-          ...jumpButtonStyle,
-          position: "absolute",
-          right: 14,
-          top: "50%",
-          transform: "translateY(-50%)",
-          zIndex: 6,
-          opacity: jumpEnabled ? 1 : 0.46,
-          cursor: jumpEnabled ? "pointer" : "default",
-        }}
-      >
-        Jump
-      </button>
-
       {/* Consumable cluster: thumb-reach icon buttons. Movement is the
           thumbstick (or WASD/arrows); the D-pad is gone. */}
       <section
@@ -6739,7 +6537,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           justifyContent: "flex-end",
           maxWidth: "calc(100vw - 24px)",
           zIndex: 5,
-          pointerEvents: "none",
         }}
       >
         <span
@@ -6756,6 +6553,24 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         <span style={{ ...chipStyle, color: "#8b93a7" }}>
           &#129717; {mine.consumables.plank}
         </span>
+        <button
+          type="button"
+          aria-label="Jump jets"
+          title="Jump up one cell"
+          onClick={() => {
+            setDynamiteMenuOpen(false);
+            setRecoveryMenuOpen(false);
+            fireJump();
+          }}
+          disabled={!jumpEnabled}
+          style={{
+            ...jumpButtonStyle,
+            opacity: jumpEnabled ? 1 : 0.46,
+            cursor: jumpEnabled ? "pointer" : "default",
+          }}
+        >
+          Jump
+        </button>
         <button
           type="button"
           aria-label="Place plank left"

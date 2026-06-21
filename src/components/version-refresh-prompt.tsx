@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
 
 const POLL_INTERVAL_MS = 60_000;
 const APP_VERSION_MARKER = /data-vibebots-app-version="([^"]+)"/;
+const MINE_REFRESH_ENTRY_KEY = "vibebots-mine-refresh-entry-version";
 
 function versionFromPayload(payload: unknown): string | null {
   if (

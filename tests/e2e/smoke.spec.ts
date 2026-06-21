@@ -14,63 +14,6 @@ async function pressMineKey(
   await page.waitForTimeout(MINE_KEY_CADENCE_MS);
 }
 
-async function touchDrag(
-  page: Page,
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-): Promise<void> {
-  const client = await page.context().newCDPSession(page);
-  await client.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [{ id: 1, x: start.x, y: start.y }],
-  });
-  for (let step = 1; step <= 6; step += 1) {
-    const progress = step / 6;
-    await client.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [
-        {
-          id: 1,
-          x: start.x + (end.x - start.x) * progress,
-          y: start.y + (end.y - start.y) * progress,
-        },
-      ],
-    });
-  }
-  await page.waitForTimeout(700);
-  await client.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
-  await client.detach();
-}
-
-async function touchPinchOut(
-  page: Page,
-  center: { x: number; y: number },
-): Promise<void> {
-  const client = await page.context().newCDPSession(page);
-  const send = async (gap: number, type: "touchStart" | "touchMove") => {
-    await client.send("Input.dispatchTouchEvent", {
-      type,
-      touchPoints: [
-        { id: 1, x: center.x - gap / 2, y: center.y },
-        { id: 2, x: center.x + gap / 2, y: center.y },
-      ],
-    });
-  };
-  await send(42, "touchStart");
-  for (const gap of [72, 104, 138, 172]) {
-    await send(gap, "touchMove");
-  }
-  await page.waitForTimeout(120);
-  await client.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
-  await client.detach();
-}
-
 /** Multi-hit digging (REQ-013): swing down until the depth is reached. */
 async function digTo(page: Page, depth: number): Promise<void> {
   const status = page.getByLabel("Mine status");
@@ -1712,17 +1655,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Movement drags now sit above the mine canvas again.",
+    "Clear rooms can become bunkers before surfacing.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "explicit stack position",
+    "live underground cells",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "HUD buttons keep their higher stack position",
+    "compact Place, Remove, and Move modes",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "open mine space targets movement",
+    "unlocks raids after the claim is banked",
   );
 
   await page.mouse.click(8, 8);
@@ -1742,8 +1685,6 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
-    ["0.1.122", "Touch drag layer"],
-    ["0.1.121", "Touch zoom lock"],
     ["0.1.120", "Underground bunker claims"],
     ["0.1.119", "Jump button placement"],
     ["0.1.118", "Visual viewport refresh"],
@@ -1888,7 +1829,7 @@ test("mine prompts to refresh when the deployed version changes", async ({
   await page.addInitScript(() => {
     localStorage.setItem(
       "vibebots-release-notes-dismissed-id",
-      "2026-06-20-0.1.122-touch-drag-layer",
+      "2026-06-20-0.1.120-underground-bunker-claims",
     );
   });
   await page.route("**/api/version", async (route) => {
@@ -3119,72 +3060,7 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
 });
 
 test.describe("phone viewport", () => {
-  test.use({
-    viewport: { width: 390, height: 760 },
-    hasTouch: true,
-    isMobile: true,
-  });
-
-  test("touch drag moves the miner and page pinch stays locked", async ({
-    browserName,
-    page,
-  }) => {
-    test.skip(browserName !== "chromium", "uses CDP touch events");
-    await page.goto("/mine");
-    await dismissReleaseNotes(page);
-    const status = page.getByLabel("Mine status");
-    const canvas = page.locator("canvas");
-    await expect(status).toHaveAttribute("data-depth", "0");
-    await expect(canvas).toBeVisible();
-    await expect
-      .poll(() =>
-        page.evaluate(() => {
-          const openTarget = document.elementFromPoint(150, 470);
-          const jumpButton = document.querySelector('[aria-label="Jump jets"]');
-          const jumpRect = jumpButton?.getBoundingClientRect();
-          const hudTarget = jumpRect
-            ? document.elementFromPoint(
-                jumpRect.left + jumpRect.width / 2,
-                jumpRect.top + jumpRect.height / 2,
-              )
-            : null;
-          return {
-            hudButton: hudTarget?.closest("button")?.getAttribute("aria-label"),
-            openMineIsTouchSurface: Boolean(
-              openTarget?.closest("[data-touch-surface]"),
-            ),
-          };
-        }),
-      )
-      .toEqual({
-        hudButton: "Jump jets",
-        openMineIsTouchSurface: true,
-      });
-
-    const viewportMeta = await page
-      .locator('meta[name="viewport"]')
-      .getAttribute("content");
-    expect(viewportMeta).toContain("maximum-scale=1");
-    expect(viewportMeta).toContain("user-scalable=no");
-    const pageScale = async () =>
-      page.evaluate(() => window.visualViewport?.scale ?? 1);
-    await expect.poll(pageScale).toBe(1);
-
-    await touchPinchOut(page, { x: 195, y: 120 });
-    await expect.poll(pageScale).toBe(1);
-
-    const startDistance = Number(
-      await status.getAttribute("data-horizontal-distance"),
-    );
-    await touchDrag(page, { x: 150, y: 470 }, { x: 250, y: 470 });
-    await expect
-      .poll(
-        async () =>
-          Number(await status.getAttribute("data-horizontal-distance")),
-        { timeout: 5_000 },
-      )
-      .toBeGreaterThan(startDistance);
-  });
+  test.use({ viewport: { width: 390, height: 760 }, hasTouch: true });
 
   test("control copy never mentions the keyboard on touch devices", async ({
     page,

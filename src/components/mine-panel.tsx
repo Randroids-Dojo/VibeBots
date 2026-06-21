@@ -751,8 +751,6 @@ const mineShellStyle: React.CSSProperties = {
   width: "100%",
   height: "100dvh",
   overflow: "hidden",
-  overscrollBehavior: "none",
-  touchAction: "none",
 };
 
 interface MineViewportFrame {
@@ -4683,27 +4681,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
-  }, []);
-
-  useEffect(() => {
-    const nonPassive = { passive: false } as AddEventListenerOptions;
-    const preventGestureZoom = (event: Event) => {
-      event.preventDefault();
-    };
-    const preventDocumentPinch = (event: TouchEvent) => {
-      if (event.touches.length < 2) return;
-      event.preventDefault();
-    };
-    window.addEventListener("gesturestart", preventGestureZoom, nonPassive);
-    window.addEventListener("gesturechange", preventGestureZoom, nonPassive);
-    window.addEventListener("gestureend", preventGestureZoom, nonPassive);
-    document.addEventListener("touchmove", preventDocumentPinch, nonPassive);
-    return () => {
-      window.removeEventListener("gesturestart", preventGestureZoom);
-      window.removeEventListener("gesturechange", preventGestureZoom);
-      window.removeEventListener("gestureend", preventGestureZoom);
-      document.removeEventListener("touchmove", preventDocumentPinch);
-    };
   }, []);
 
   useEffect(() => {

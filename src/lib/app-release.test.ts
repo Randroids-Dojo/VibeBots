@@ -2,52 +2,19 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest touch drag layer note complete", () => {
+  it("keeps the latest underground bunker claims note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.122-touch-drag-layer");
-    expect(latestNote).toMatchObject({
-      version: "0.1.122",
-      title: "Touch drag layer",
-      intro: "Movement drags now sit above the mine canvas again.",
-    });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The movement touch surface now has an explicit stack position above the 3D canvas.",
-      "HUD buttons keep their higher stack position, so Jump and consumable controls remain tappable.",
-      "Smoke coverage now checks that open mine space targets movement while HUD buttons stay on top.",
-    ]);
-  });
-
-  it("keeps the archived touch zoom lock note complete", () => {
-    const release = getAppRelease();
-    const touchZoomNote = release.notes.find(
-      (note) => note.version === "0.1.121",
+    expect(release.noticeId).toBe(
+      "2026-06-20-0.1.120-underground-bunker-claims",
     );
-
-    expect(touchZoomNote).toMatchObject({
-      version: "0.1.121",
-      title: "Touch zoom lock",
-      intro:
-        "Touch input is locked back to mine controls instead of page zoom.",
-    });
-    expect(touchZoomNote?.changes.map((change) => change.text)).toEqual([
-      "The app viewport now blocks browser page pinch zoom so the HUD cannot inflate over the mine.",
-      "The mine shell catches document pinch gestures while preserving the bounded in-mine camera zoom.",
-      "Smoke coverage now dispatches real touch events to prove touch drag movement still works on phone viewports.",
-    ]);
-  });
-
-  it("keeps the archived underground bunker claims note complete", () => {
-    const release = getAppRelease();
-    const bunkerNote = release.notes.find((note) => note.version === "0.1.120");
-
-    expect(bunkerNote).toMatchObject({
+    expect(latestNote).toMatchObject({
       version: "0.1.120",
       title: "Underground bunker claims",
       intro: "Clear rooms can become bunkers before surfacing.",
     });
-    expect(bunkerNote?.changes.map((change) => change.text)).toEqual([
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "The bunker builder now checks the live underground cells, so a clear room can be claimed without first cashing out.",
       "The builder now uses compact Place, Remove, and Move modes, with canvas cell targeting and restored drag movement across the claimed space.",
       "Cash-out replays the mine at the claimed move, saves the bunker and cleared cells together, and unlocks raids after the claim is banked.",

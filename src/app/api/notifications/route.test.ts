@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-20-0.1.120-underground-bunker-claims",
+      releaseNoticeId: "2026-06-20-0.1.121-touch-zoom-lock",
       releaseSummary:
-        "Underground bunker claims: Clear rooms can become bunkers before surfacing.",
+        "Touch zoom lock: Touch input is locked back to mine controls instead of page zoom.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-20-0.1.120-underground-bunker-claims",
+      releaseNoticeId: "2026-06-20-0.1.121-touch-zoom-lock",
       attempted: 2,
       sent: 1,
       expired: 1,

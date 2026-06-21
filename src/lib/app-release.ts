@@ -2,10 +2,31 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.120-underground-bunker-claims";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.121-touch-zoom-lock";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.121",
+      date: "2026-06-20",
+      title: "Touch zoom lock",
+      intro:
+        "Touch input is locked back to mine controls instead of page zoom.",
+      changes: [
+        {
+          build,
+          text: "The app viewport now blocks browser page pinch zoom so the HUD cannot inflate over the mine.",
+        },
+        {
+          build,
+          text: "The mine shell catches document pinch gestures while preserving the bounded in-mine camera zoom.",
+        },
+        {
+          build,
+          text: "Smoke coverage now dispatches real touch events to prove touch drag movement still works on phone viewports.",
+        },
+      ],
+    },
     {
       version: "0.1.120",
       date: "2026-06-20",

@@ -11,27 +11,28 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.120.123",
+  version: "0.1.121.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.120-underground-bunker-claims",
-  intro: "Clear rooms can become bunkers before surfacing.",
+  noticeId: "2026-06-20-0.1.121-touch-zoom-lock",
+  intro: "Touch input is locked back to mine controls instead of page zoom.",
   changes: [
     {
       build: 123,
-      text: "The builder now uses compact Place, Remove, and Move modes, with canvas cell targeting and restored drag movement across the claimed space.",
+      text: "Smoke coverage now dispatches real touch events to prove touch drag movement still works on phone viewports.",
     },
   ],
   notes: [
     {
-      version: "0.1.120",
+      version: "0.1.121",
       date: "2026-06-20",
-      title: "Underground bunker claims",
-      intro: "Clear rooms can become bunkers before surfacing.",
+      title: "Touch zoom lock",
+      intro:
+        "Touch input is locked back to mine controls instead of page zoom.",
       changes: [
         {
           build: 123,
-          text: "The builder now uses compact Place, Remove, and Move modes, with canvas cell targeting and restored drag movement across the claimed space.",
+          text: "Smoke coverage now dispatches real touch events to prove touch drag movement still works on phone viewports.",
         },
       ],
     },
@@ -132,7 +133,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Underground bunker claims"),
+      expect.stringContaining("Touch zoom lock"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

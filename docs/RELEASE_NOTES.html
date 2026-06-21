@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.123" data-date="2026-06-20">
+    <h2>0.1.123</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.123</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Bunker saves no longer block movement drags at the surface.</dd>
+      <dt>Controls</dt><dd>The mine now treats bunker canvas editing as active only below the surface, so a save with an existing or pending bunker can still drag to move at Base 0 while underground builder editing keeps its own canvas gestures.</dd>
+      <dt>Diagnostics</dt><dd>The client now reports bounded <code>mine.client_diagnostic</code> logs when movement should be available but the touch surface is missing or covered. Logs include save slot, surface row, bunker state, display mode, viewport size, and a hashed player id when available.</dd>
+      <dt>Verification</dt><dd>Focused route and monitoring tests cover the new diagnostics path, and phone smoke coverage recreates a surface bunker save to prove open mine drags still move the miner. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.122" data-date="2026-06-20">
     <h2>0.1.122</h2>
     <dl>

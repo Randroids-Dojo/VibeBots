@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest touch drag layer note complete", () => {
+  it("keeps the latest save touch diagnostics note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-20-0.1.122-touch-drag-layer");
+    expect(release.noticeId).toBe("2026-06-20-0.1.123-save-touch-diagnostics");
     expect(latestNote).toMatchObject({
+      version: "0.1.123",
+      title: "Save touch diagnostics",
+      intro: "Bunker saves no longer block movement drags at the surface.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Surface saves with an existing bunker now keep movement drags enabled unless the underground builder is actually active.",
+      "A new mine diagnostics route logs bounded touch-layer state when movement should be available but the touch surface is missing or covered.",
+      "Phone smoke coverage now recreates a surface bunker save and proves touch drags still move the miner.",
+    ]);
+  });
+
+  it("keeps the archived touch drag layer note complete", () => {
+    const release = getAppRelease();
+    const touchDragNote = release.notes.find(
+      (note) => note.version === "0.1.122",
+    );
+
+    expect(touchDragNote).toMatchObject({
       version: "0.1.122",
       title: "Touch drag layer",
       intro: "Movement drags now sit above the mine canvas again.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(touchDragNote?.changes.map((change) => change.text)).toEqual([
       "The movement touch surface now has an explicit stack position above the 3D canvas.",
       "HUD buttons keep their higher stack position, so Jump and consumable controls remain tappable.",
       "Smoke coverage now checks that open mine space targets movement while HUD buttons stay on top.",

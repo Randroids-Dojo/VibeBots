@@ -4490,6 +4490,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const loadGear = useMineStore((s) => s.loadGear);
   const loadWorld = useMineStore((s) => s.loadWorld);
   const saveSlots = useMineStore((s) => s.saveSlots);
+  const activeSlot = useMineStore((s) => s.activeSlot);
   const loadSaveSlots = useMineStore((s) => s.loadSaveSlots);
   const switchSaveSlot = useMineStore((s) => s.switchSaveSlot);
   const deleteSaveSlot = useMineStore((s) => s.deleteSaveSlot);
@@ -4600,6 +4601,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const previousMinerRowRef = useRef(mine.miner.row);
   const bunkerPartDragStartRef = useRef<MineCoord | null>(null);
   const bunkerPartDragMovedRef = useRef(false);
+  const inputDiagnosticKeysRef = useRef<Set<string>>(new Set());
   void tick;
   const activeBunker = pendingBunker?.bunker ?? bunker;
   const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
@@ -5727,8 +5729,130 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         ? "One fuse is already lit."
         : null;
   const bunkerCanvasEditing = Boolean(
-    activeBunker && bunkerPanelOpen && !activeBunkerRaid,
+    miner.row > 0 && activeBunker && bunkerPanelOpen && !activeBunkerRaid,
   );
+  const movementTouchEnabled =
+    mineSceneReady && !collectMode && !bunkerCanvasEditing && !creditsOpen;
+
+  useEffect(() => {
+    if (!movementTouchEnabled) return;
+    if (releaseNotesVisible) return;
+    if (!coarsePointer && navigator.maxTouchPoints <= 0) return;
+    const key = [
+      activeSlot,
+      miner.row,
+      activeBunker ? "bunker" : "mine",
+      bunkerPanelOpen ? "panel" : "closed",
+      collectMode ? "collect" : "move",
+      creditsOpen ? "credits" : "play",
+    ].join(":");
+    if (inputDiagnosticKeysRef.current.has(key)) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (document.querySelector("[role='dialog']")) return;
+      const surface = document.querySelector("[data-touch-surface]");
+      const visual = window.visualViewport;
+      const viewport = {
+        width: Math.round(window.innerWidth),
+        height: Math.round(window.innerHeight),
+        visualWidth: visual ? Math.round(visual.width) : null,
+        visualHeight: visual ? Math.round(visual.height) : null,
+        visualScale: visual ? visual.scale : null,
+      };
+      const samplePoints = [
+        { x: 0.38, y: 0.62 },
+        { x: 0.62, y: 0.62 },
+        { x: 0.5, y: 0.52 },
+        { x: 0.5, y: 0.72 },
+      ].map((point) => ({
+        x: Math.round(
+          Math.min(viewport.width - 24, Math.max(24, viewport.width * point.x)),
+        ),
+        y: Math.round(
+          Math.min(
+            viewport.height - 96,
+            Math.max(24, viewport.height * point.y),
+          ),
+        ),
+      }));
+      const samples = samplePoints.map((point) => {
+        const target = document.elementFromPoint(point.x, point.y);
+        return {
+          target,
+          touchTarget: target?.closest("[data-touch-surface]") ?? null,
+          interactiveTarget:
+            target?.closest(
+              "button,[role='button'],[role='status'],[role='alert']",
+            ) ?? null,
+        };
+      });
+      const openSample = samples.find((sample) => sample.touchTarget);
+      const blocker = samples.find(
+        (sample) => !sample.touchTarget && !sample.interactiveTarget,
+      );
+      const code = !surface
+        ? "touch_surface_missing"
+        : !openSample && blocker
+          ? "touch_surface_not_topmost"
+          : null;
+      if (!code) return;
+      const target = blocker?.target ?? samples[0]?.target ?? null;
+      inputDiagnosticKeysRef.current.add(key);
+      void fetch("/api/mine/diagnostics", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          code,
+          appVersion: appRelease.version,
+          appBuild: appRelease.build,
+          mineVersion: MINE_VERSION,
+          activeSlot,
+          minerRow: miner.row,
+          hasActiveBunker: Boolean(activeBunker),
+          bunkerPanelOpen,
+          activeBunkerRaid: Boolean(activeBunkerRaid),
+          collectMode,
+          creditsOpen,
+          mineSceneReady,
+          movementTouchEnabled,
+          displayMode: mineViewportFrame?.displayMode ?? null,
+          viewport,
+          target: {
+            tag: target instanceof Element ? target.tagName : null,
+            role:
+              target instanceof Element ? target.getAttribute("role") : null,
+            ariaLabel:
+              target instanceof Element
+                ? target.getAttribute("aria-label")
+                : null,
+            hasTouchSurface: Boolean(
+              samples.find((sample) => sample.target === target)?.touchTarget,
+            ),
+          },
+          detail:
+            code === "touch_surface_missing"
+              ? "movement touch surface missing while movement is enabled"
+              : "movement touch surface is not the topmost open mine target",
+        }),
+      }).catch(() => {});
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    activeBunker,
+    activeBunkerRaid,
+    activeSlot,
+    appRelease,
+    bunkerPanelOpen,
+    coarsePointer,
+    collectMode,
+    creditsOpen,
+    mineSceneReady,
+    mineViewportFrame,
+    miner.row,
+    movementTouchEnabled,
+    releaseNotesVisible,
+  ]);
   const retryMineSceneLoad = () => {
     setMineCanvasKey((key) => key + 1);
     void loadMineScene();
@@ -5812,16 +5936,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           aria-hidden="true"
         />
       )}
-      {mineSceneReady &&
-        !collectMode &&
-        !bunkerCanvasEditing &&
-        !creditsOpen && (
-          <MineTouchControls
-            onDirection={act}
-            onReleaseDirection={releaseDirection}
-            onZoomChange={adjustCameraZoom}
-          />
-        )}
+      {mineSceneReady && movementTouchEnabled && (
+        <MineTouchControls
+          onDirection={act}
+          onReleaseDirection={releaseDirection}
+          onZoomChange={adjustCameraZoom}
+        />
+      )}
       <StratumBanner row={miner.row} />
       <JuiceOverlays />
       {pickaxeGateHint && (

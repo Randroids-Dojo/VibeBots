@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.122-touch-drag-layer";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.123-save-touch-diagnostics";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.123",
+      date: "2026-06-20",
+      title: "Save touch diagnostics",
+      intro: "Bunker saves no longer block movement drags at the surface.",
+      changes: [
+        {
+          build,
+          text: "Surface saves with an existing bunker now keep movement drags enabled unless the underground builder is actually active.",
+        },
+        {
+          build,
+          text: "A new mine diagnostics route logs bounded touch-layer state when movement should be available but the touch surface is missing or covered.",
+        },
+        {
+          build,
+          text: "Phone smoke coverage now recreates a surface bunker save and proves touch drags still move the miner.",
+        },
+      ],
+    },
     {
       version: "0.1.122",
       date: "2026-06-20",

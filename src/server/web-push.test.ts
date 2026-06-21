@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.122.123",
+  version: "0.1.123.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.122-touch-drag-layer",
-  intro: "Movement drags now sit above the mine canvas again.",
+  noticeId: "2026-06-20-0.1.123-save-touch-diagnostics",
+  intro: "Bunker saves no longer block movement drags at the surface.",
   changes: [
     {
       build: 123,
-      text: "Smoke coverage now checks that open mine space targets movement while HUD buttons stay on top.",
+      text: "Phone smoke coverage now recreates a surface bunker save and proves touch drags still move the miner.",
     },
   ],
   notes: [
     {
-      version: "0.1.122",
+      version: "0.1.123",
       date: "2026-06-20",
-      title: "Touch drag layer",
-      intro: "Movement drags now sit above the mine canvas again.",
+      title: "Save touch diagnostics",
+      intro: "Bunker saves no longer block movement drags at the surface.",
       changes: [
         {
           build: 123,
-          text: "Smoke coverage now checks that open mine space targets movement while HUD buttons stay on top.",
+          text: "Phone smoke coverage now recreates a surface bunker save and proves touch drags still move the miner.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Touch drag layer"),
+      expect.stringContaining("Save touch diagnostics"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

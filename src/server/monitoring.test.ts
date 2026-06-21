@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { logMineCashOutEvent } from "./monitoring";
+import {
+  logMineCashOutEvent,
+  logMineClientDiagnosticEvent,
+} from "./monitoring";
 
 describe("mine cash-out monitoring", () => {
   it("writes alert-grade JSON without exposing raw player ids", () => {
@@ -67,6 +70,43 @@ describe("mine cash-out monitoring", () => {
       mineVersion: 29,
       credited: { credits: 4, parts: 0 },
       remaining: { ladder: 1342, plank: 226 },
+    });
+
+    spy.mockRestore();
+  });
+});
+
+describe("mine client diagnostic monitoring", () => {
+  it("writes warn JSON without exposing raw player ids", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    logMineClientDiagnosticEvent({
+      code: "touch_surface_missing",
+      severity: "warn",
+      playerId: "player-1",
+      activeSlot: 2,
+      minerRow: 0,
+      hasActiveBunker: true,
+      bunkerPanelOpen: true,
+      movementTouchEnabled: true,
+      detail: "movement touch surface missing while surface movement enabled",
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const raw = String(spy.mock.calls[0][0]);
+    expect(raw).not.toContain("player-1");
+    expect(JSON.parse(raw)).toMatchObject({
+      source: "vibebots",
+      component: "mine.client_diagnostic",
+      event: "mine.client_diagnostic.touch_surface_missing",
+      alert: true,
+      severity: "warn",
+      code: "touch_surface_missing",
+      activeSlot: 2,
+      minerRow: 0,
+      hasActiveBunker: true,
+      bunkerPanelOpen: true,
+      movementTouchEnabled: true,
     });
 
     spy.mockRestore();

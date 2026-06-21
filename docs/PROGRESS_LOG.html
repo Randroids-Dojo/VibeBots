@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="save-touch-diagnostics" data-date="2026-06-20">
+    <h3>Save Touch Diagnostics</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/main-bunker-touch-clean</code>, based on current <code>origin/main</code> after the <code>0.1.122</code> touch drag layer release.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user after PR #74 preview testing isolated the save-specific input failure.</dd>
+      <dt>Changed</dt><dd>User-reported save-specific mobile input fix. The movement touch layer now uses one positive <code>movementTouchEnabled</code> gate, and bunker canvas editing only suppresses movement below the surface where the builder is actually visible. Saves with an existing or pending bunker can move normally at Base 0. Added <code>/api/mine/diagnostics</code> and <code>mine.client_diagnostic</code> logs for missing or covered touch surfaces, with bounded payloads and hashed player ids when available. Package version moved to <code>0.1.123</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm exec biome check --write</code> on touched source, test, release, package, and doc files, focused Vitest for app release, mine diagnostics, monitoring, version route, notifications, and Web Push (59 passed), <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3558 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|touch drag moves|surface saves with bunkers" --project=chromium</code> (3 passed), <code>pnpm test</code> (373 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, critical Playwright smoke with <code>PLAYWRIGHT_PORT=3559 pnpm test:e2e:critical --project=chromium</code> (5 passed), and JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a client input-state and diagnostics fix. It does not change mine replay, mine save data, or battle sim behavior, so no mine-version or sim-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, and added focused smoke coverage for surface bunker saves accepting touch drags.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="touch-drag-layer" data-date="2026-06-20">
     <h3>Touch Drag Layer</h3>
     <dl>

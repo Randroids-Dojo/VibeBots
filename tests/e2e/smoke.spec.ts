@@ -3186,6 +3186,95 @@ test.describe("phone viewport", () => {
       .toBeGreaterThan(startDistance);
   });
 
+  test("surface saves with bunkers still accept movement drags", async ({
+    browserName,
+    page,
+  }) => {
+    test.skip(browserName !== "chromium", "uses CDP touch events");
+    const mine = createMine(8086, DEFAULT_GEAR, STARTING_CONSUMABLES);
+    await page.route("**/api/mine/world", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          activeSlot: 2,
+          seed: 8086,
+          tripIndex: 0,
+          diff: exportDiff(mine),
+        }),
+      });
+    });
+    await page.route("**/api/gear", async (route) => {
+      await route.fulfill({ status: 503, body: "{}" });
+    });
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          bunker: {
+            footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+            core: { col: START_COL, row: 3, durability: 160 },
+            parts: [
+              {
+                partId: "wall-panel",
+                col: START_COL - 3,
+                row: 1,
+                durability: 90,
+              },
+            ],
+          },
+          inventory: {
+            "wall-panel": 2,
+            "floor-panel": 3,
+            "roof-panel": 3,
+            "door-panel": 1,
+            "basic-turret": 0,
+            "floor-spikes": 0,
+          },
+          activeRaid: null,
+          player: {
+            balance: 120,
+            trackXp: 40,
+            defenseXp: 120,
+            overallLevel: 2,
+            levelCap: 100,
+            progressXp: 20,
+            neededXp: 80,
+            nextLevelXp: 200,
+            beaconLimit: 3,
+          },
+        }),
+      });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    const status = page.getByLabel("Mine status");
+    await expect(page.locator("canvas")).toBeVisible();
+    await expect(status).toHaveAttribute("data-depth", "0");
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const openTarget = document.elementFromPoint(150, 470);
+          return Boolean(openTarget?.closest("[data-touch-surface]"));
+        }),
+      )
+      .toBe(true);
+
+    const startDistance = Number(
+      await status.getAttribute("data-horizontal-distance"),
+    );
+    await touchDrag(page, { x: 150, y: 470 }, { x: 250, y: 470 });
+    await expect
+      .poll(
+        async () =>
+          Number(await status.getAttribute("data-horizontal-distance")),
+        { timeout: 5_000 },
+      )
+      .toBeGreaterThan(startDistance);
+  });
+
   test("control copy never mentions the keyboard on touch devices", async ({
     page,
   }) => {

@@ -5727,7 +5727,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         ? "One fuse is already lit."
         : null;
   const bunkerCanvasEditing = Boolean(
-    activeBunker && bunkerPanelOpen && !activeBunkerRaid,
+    miner.row > 0 && activeBunker && bunkerPanelOpen && !activeBunkerRaid,
   );
   const retryMineSceneLoad = () => {
     setMineCanvasKey((key) => key + 1);

@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-21-0.1.126-scrap-selection-cleanup";
+const RELEASE_NOTICE_ID = "2026-06-21-0.1.127-bunker-builder-controls";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.127",
+      date: "2026-06-21",
+      title: "Bunker builder controls",
+      intro: "Base building is compact and walkable.",
+      changes: [
+        {
+          build,
+          text: "The bunker builder now docks low on phone screens so the claimed base stays visible while editing.",
+        },
+        {
+          build,
+          text: "Place, Remove, and Move live in a labeled mode group, separate from the base-part inventory buttons.",
+        },
+        {
+          build,
+          text: "Remove mode now owns placed-part taps, returns undamaged parts to inventory, and the builder includes walk buttons for moving while it stays open.",
+        },
+      ],
+    },
     {
       version: "0.1.126",
       date: "2026-06-21",

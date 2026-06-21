@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest scrap selection cleanup note complete", () => {
+  it("keeps the latest bunker builder controls note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-21-0.1.126-scrap-selection-cleanup");
+    expect(release.noticeId).toBe("2026-06-21-0.1.127-bunker-builder-controls");
+    expect(latestNote).toMatchObject({
+      version: "0.1.127",
+      title: "Bunker builder controls",
+      intro: "Base building is compact and walkable.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The bunker builder now docks low on phone screens so the claimed base stays visible while editing.",
+      "Place, Remove, and Move live in a labeled mode group, separate from the base-part inventory buttons.",
+      "Remove mode now owns placed-part taps, returns undamaged parts to inventory, and the builder includes walk buttons for moving while it stays open.",
+    ]);
+  });
+
+  it("keeps the archived scrap selection cleanup note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.126");
+
     expect(latestNote).toMatchObject({
       version: "0.1.126",
       title: "Scrap selection cleanup",

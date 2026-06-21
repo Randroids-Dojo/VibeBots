@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.126.126",
+  version: "0.1.127.127",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-21-0.1.126-scrap-selection-cleanup",
-  intro: "Scrap mode no longer leaves bunker selection squares behind.",
+  noticeId: "2026-06-21-0.1.127-bunker-builder-controls",
+  intro: "Base building is compact and walkable.",
   changes: [
     {
       build: 123,
-      text: "Opening Scrap now closes bunker claim and builder overlays so their grid cannot stay stuck over the mine.",
+      text: "Remove mode now owns placed-part taps, returns undamaged parts to inventory, and the builder includes walk buttons for moving while it stays open.",
     },
   ],
   notes: [
     {
-      version: "0.1.126",
+      version: "0.1.127",
       date: "2026-06-21",
-      title: "Scrap selection cleanup",
-      intro: "Scrap mode no longer leaves bunker selection squares behind.",
+      title: "Bunker builder controls",
+      intro: "Base building is compact and walkable.",
       changes: [
         {
           build: 123,
-          text: "Opening Scrap now closes bunker claim and builder overlays so their grid cannot stay stuck over the mine.",
+          text: "Remove mode now owns placed-part taps, returns undamaged parts to inventory, and the builder includes walk buttons for moving while it stays open.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Scrap selection cleanup"),
+      expect.stringContaining("Bunker builder controls"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

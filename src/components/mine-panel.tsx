@@ -371,6 +371,12 @@ const MINE_SURFACE_TIP_CHOICES: readonly (string | null)[] = [
   ...Array.from({ length: MINE_SURFACE_TIP_EMPTY_SLOTS }, () => null),
 ];
 type BunkerBuildMode = "place" | "remove" | "move";
+const BUNKER_WALK_BUTTONS: Array<[Direction, string]> = [
+  ["left", "<"],
+  ["up", "^"],
+  ["right", ">"],
+  ["down", "v"],
+];
 const PICKAXE_GATE_HINT_MS = 1800;
 
 interface MineSurfaceTipTestWindow {
@@ -4027,6 +4033,7 @@ function BunkerControlPanel({
   onOpenPanel,
   onDismissPanel,
   onClaim,
+  onWalk,
   onStartRaid,
   onFinishRaid,
 }: {
@@ -4048,6 +4055,7 @@ function BunkerControlPanel({
   onOpenPanel: () => void;
   onDismissPanel: () => void;
   onClaim: () => void;
+  onWalk: (dir: Direction) => void;
   onStartRaid: () => void;
   onFinishRaid: () => void;
 }) {
@@ -4141,17 +4149,17 @@ function BunkerControlPanel({
         aria-label="Bunker builder"
         style={{
           position: "absolute",
-          right: 12,
-          top: 88,
+          left: 10,
+          right: 10,
+          bottom: 106,
           zIndex: 8,
-          width: "min(300px, calc(100vw - 24px))",
-          maxHeight: "calc(100vh - 176px)",
+          maxHeight: "min(238px, calc(100vh - 188px))",
           overflowY: "auto",
           border: "1px solid #54e0c7",
-          borderRadius: 12,
+          borderRadius: 8,
           background: "rgba(14, 20, 28, 0.94)",
           boxShadow: "0 12px 32px rgba(0, 0, 0, 0.42)",
-          padding: 12,
+          padding: 10,
           color: "#e6e8ee",
           pointerEvents: "auto",
         }}
@@ -4318,12 +4326,25 @@ function BunkerControlPanel({
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: 8,
-                marginBottom: 10,
-                border: 0,
-                padding: 0,
+                gap: 6,
+                margin: "0 0 8px",
+                border: "1px solid rgba(138, 164, 255, 0.36)",
+                borderRadius: 8,
+                background: "rgba(17, 21, 31, 0.58)",
+                padding: "14px 6px 6px",
+                position: "relative",
               }}
             >
+              <legend
+                style={{
+                  color: "#9fb6ff",
+                  fontSize: "0.7rem",
+                  fontWeight: 900,
+                  padding: "0 5px",
+                }}
+              >
+                Mode
+              </legend>
               {(
                 [
                   {
@@ -4360,19 +4381,20 @@ function BunkerControlPanel({
                     disabled={!item.enabled}
                     onClick={() => onBuildModeChange(item.mode)}
                     style={{
-                      minHeight: 40,
-                      borderRadius: 10,
+                      minHeight: 34,
+                      borderRadius: 6,
                       border: active
-                        ? `1px solid ${item.color}`
+                        ? `2px solid ${item.color}`
                         : "1px solid #2c3a5c",
                       background: active
                         ? `${item.color}2b`
                         : "rgba(38, 48, 74, 0.55)",
                       color: active ? item.color : "#cdd6ea",
                       fontWeight: 900,
-                      fontSize: "0.76rem",
+                      fontSize: "0.74rem",
                       cursor: item.enabled ? "pointer" : "not-allowed",
                       opacity: item.enabled ? 1 : 0.44,
+                      boxShadow: active ? `0 0 0 2px ${item.color}24` : "none",
                     }}
                   >
                     {item.label}
@@ -4380,14 +4402,76 @@ function BunkerControlPanel({
                 );
               })}
             </fieldset>
-            <div
+            <fieldset
+              aria-label="Walk while building"
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: 8,
-                marginBottom: 10,
+                gridTemplateColumns: "40px 40px 40px 1fr",
+                gap: 6,
+                alignItems: "center",
+                margin: "0 0 8px",
+                border: "1px solid rgba(84, 224, 199, 0.28)",
+                borderRadius: 8,
+                background: "rgba(84, 224, 199, 0.06)",
+                padding: "14px 6px 6px",
               }}
             >
+              <legend
+                style={{
+                  color: "#54e0c7",
+                  fontSize: "0.7rem",
+                  fontWeight: 900,
+                  padding: "0 5px",
+                }}
+              >
+                Walk
+              </legend>
+              {BUNKER_WALK_BUTTONS.map(([dir, label]) => (
+                <button
+                  key={dir}
+                  type="button"
+                  aria-label={`Walk ${dir}`}
+                  disabled={!canBuild}
+                  onClick={() => onWalk(dir)}
+                  style={{
+                    minHeight: 34,
+                    borderRadius: 6,
+                    border: "1px solid #2c3a5c",
+                    background: "rgba(38, 48, 74, 0.72)",
+                    color: "#e6e8ee",
+                    fontWeight: 900,
+                    fontSize: "0.82rem",
+                    cursor: canBuild ? "pointer" : "not-allowed",
+                    opacity: canBuild ? 1 : 0.44,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </fieldset>
+            <fieldset
+              aria-label="Base parts"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: 6,
+                marginBottom: 10,
+                border: "1px solid rgba(84, 224, 199, 0.24)",
+                borderRadius: 8,
+                background: "rgba(17, 21, 31, 0.42)",
+                padding: "14px 6px 6px",
+              }}
+            >
+              <legend
+                style={{
+                  color: "#54e0c7",
+                  fontSize: "0.7rem",
+                  fontWeight: 900,
+                  padding: "0 5px",
+                }}
+              >
+                Parts
+              </legend>
               {BASE_PART_IDS.map((partId) => {
                 const active = selectedPart === partId;
                 return (
@@ -4397,8 +4481,8 @@ function BunkerControlPanel({
                     aria-pressed={active}
                     onClick={() => onSelectPart(partId)}
                     style={{
-                      minHeight: 42,
-                      borderRadius: 10,
+                      minHeight: 34,
+                      borderRadius: 6,
                       border: active
                         ? "1px solid #54e0c7"
                         : "1px solid #2c3a5c",
@@ -4407,15 +4491,16 @@ function BunkerControlPanel({
                         : "rgba(38, 48, 74, 0.55)",
                       color: active ? "#54e0c7" : "#cdd6ea",
                       fontWeight: 800,
-                      fontSize: "0.76rem",
+                      fontSize: "0.68rem",
                       cursor: "pointer",
+                      padding: "4px 3px",
                     }}
                   >
                     {BASE_PART_CATALOG[partId].name} x{inventory[partId]}
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
             <button
               type="button"
               onClick={activeRaid ? onFinishRaid : onStartRaid}
@@ -5782,9 +5867,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         ? "saved_trip_replay_collapsed"
         : terminalMineState && (bunkerClaimMode || bunkerPanelOpen)
           ? "bunker_overlay_during_terminal"
-          : bunkerCanvasEditing
-            ? "movement_disabled_by_bunker_panel"
-            : null;
+          : null;
     if (!code) return;
     const key = [
       "state",
@@ -5819,9 +5902,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         detail:
           code === "saved_trip_replay_collapsed"
             ? "saved trip replay restored a terminal collapse result"
-            : code === "bunker_overlay_during_terminal"
-              ? "bunker overlay remained open during a terminal mine result"
-              : "bunker panel disabled movement touch input",
+            : "bunker overlay remained open during a terminal mine result",
       }),
     }).catch(() => {});
   }, [
@@ -5829,7 +5910,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     activeBunkerRaid,
     activeSlot,
     appRelease,
-    bunkerCanvasEditing,
     bunkerClaimMode,
     bunkerPanelOpen,
     coarsePointer,
@@ -6518,6 +6598,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             setBunkerPanelOpen(true);
           }
         }}
+        onWalk={act}
         onStartRaid={() => void startBunkerRaid()}
         onFinishRaid={() => void finishBunkerRaid()}
       />

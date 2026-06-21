@@ -1105,6 +1105,7 @@ test("bunker claim mode highlights uncleared claim cells in red", async ({
 });
 
 test("bunker claims can be edited before banking", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
   const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
   for (let row = 1; row <= 6; row++) {
     for (let col = START_COL - 3; col <= START_COL + 3; col++) {
@@ -1188,9 +1189,16 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   );
   await builder.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await expect(builder.getByRole("button", { name: "Wall x2" })).toBeVisible();
-  const placeMode = builder.getByRole("button", { name: "Place" });
-  const removeMode = builder.getByRole("button", { name: "Remove" });
-  const moveMode = builder.getByRole("button", { name: "Move", exact: true });
+  const builderBox = await builder.boundingBox();
+  expect(builderBox?.height ?? 999).toBeLessThanOrEqual(260);
+  expect(builderBox?.y ?? 0).toBeGreaterThan(360);
+  const modeGroup = builder.getByLabel("Build mode");
+  const partsGroup = builder.getByLabel("Base parts");
+  await expect(modeGroup).toBeVisible();
+  await expect(partsGroup).toBeVisible();
+  const placeMode = modeGroup.getByRole("button", { name: "Place" });
+  const removeMode = modeGroup.getByRole("button", { name: "Remove" });
+  const moveMode = modeGroup.getByRole("button", { name: "Move", exact: true });
   await expect(placeMode).toHaveAttribute("aria-pressed", "true");
   await expect(removeMode).toHaveAttribute("aria-pressed", "false");
   await expect(moveMode).toHaveAttribute("aria-pressed", "false");
@@ -1210,6 +1218,25 @@ test("bunker claims can be edited before banking", async ({ page }) => {
     return trip.pendingBunker?.bunker.parts[0] ?? null;
   });
   expect(firstPart).toMatchObject({ partId: "wall-panel" });
+  await removeMode.click();
+  await expect(removeMode).toHaveAttribute("aria-pressed", "true");
+  await page.mouse.click(placePoint.x, placePoint.y);
+  await expect(builder.getByRole("button", { name: "Wall x2" })).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const trip = JSON.parse(
+            localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+          );
+          return trip.pendingBunker?.bunker.parts.length ?? 0;
+        }),
+      { timeout: 3_000 },
+    )
+    .toBe(0);
+  await placeMode.click();
+  await page.mouse.click(placePoint.x, placePoint.y);
+  await expect(builder.getByRole("button", { name: "Wall x1" })).toBeVisible();
   await moveMode.click();
   await page.mouse.move(placePoint.x, placePoint.y);
   await page.mouse.down();
@@ -1231,11 +1258,17 @@ test("bunker claims can be edited before banking", async ({ page }) => {
       col: firstPart.col + 1,
       row: firstPart.row,
     });
+  await builder.getByRole("button", { name: "Walk up" }).click();
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "4",
+  );
+  await expect(builder).toBeVisible();
   await page.reload();
   await dismissReleaseNotes(page);
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-depth",
-    "5",
+    "4",
   );
   await expect(
     page.getByRole("region", { name: "Bunker builder" }),
@@ -1783,18 +1816,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText(
-    "Scrap mode no longer leaves bunker selection squares behind.",
-  );
+  await expect(dialog).toContainText("Base building is compact and walkable.");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Opening Scrap now closes bunker claim",
+    "docks low on phone screens so the claimed base stays visible",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Bunker claim previews are hidden while Scrap mode is active",
+    "separate from the base-part inventory buttons",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "proves the red selection pixels clear",
+    "builder includes walk buttons for moving while it stays open",
   );
 
   await page.mouse.click(8, 8);
@@ -1814,6 +1845,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.127", "Bunker builder controls"],
     ["0.1.126", "Scrap selection cleanup"],
     ["0.1.125", "Terminal replay movement fix"],
     ["0.1.124", "Mine terminal state fix"],

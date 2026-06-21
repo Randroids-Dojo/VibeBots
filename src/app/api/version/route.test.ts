@@ -6,8 +6,8 @@ import { GET } from "./route";
 
 vi.mock("@/lib/app-release", () => ({
   getAppRelease: vi.fn(() => ({
-    version: "0.1.126.126",
-    noticeId: "2026-06-21-0.1.126-scrap-selection-cleanup",
+    version: "0.1.127.127",
+    noticeId: "2026-06-21-0.1.127-bunker-builder-controls",
   })),
 }));
 
@@ -45,7 +45,7 @@ describe("version API route", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
-    await expect(res.json()).resolves.toEqual({ version: "0.1.126.126" });
+    await expect(res.json()).resolves.toEqual({ version: "0.1.127.127" });
     expect(getAppRelease).toHaveBeenCalledOnce();
     expect(mockedDispatchReleasePushOnce).not.toHaveBeenCalled();
   });
@@ -61,8 +61,8 @@ describe("version API route", () => {
     expect(mockedDispatchReleasePushOnce).toHaveBeenCalledWith(
       "sql",
       expect.objectContaining({
-        version: "0.1.126.126",
-        noticeId: "2026-06-21-0.1.126-scrap-selection-cleanup",
+        version: "0.1.127.127",
+        noticeId: "2026-06-21-0.1.127-bunker-builder-controls",
       }),
     );
   });

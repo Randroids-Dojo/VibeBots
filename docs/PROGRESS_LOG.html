@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-builder-controls" data-date="2026-06-21">
+    <h3>Bunker Builder Controls</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-builder-compact</code>, created in a fresh worktree from <code>origin/main</code> at <code>7a64b5335d39187cd4c60bd61887eb04f6e61430</code>.</dd>
+      <dt>PR</dt><dd>direct push to <code>origin/main</code> requested by user after review and cleanup.</dd>
+      <dt>Changed</dt><dd>User-reported base-building UX cleanup. The bunker builder now docks as a compact low panel on phone screens, leaves the claimed base visible above it, separates Place, Remove, and Move into a labeled mode group, separates base-part inventory into its own parts group, and adds walk buttons so players can move around while the builder remains open. Remove mode now owns placed-part taps instead of first selecting Move, so undamaged parts return to inventory. Package version moved to <code>0.1.127</code> after rebasing over the upstream <code>0.1.126</code> scrap cleanup release; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, release, smoke, package, and doc files, focused release, notification, version, and Web Push Vitest (55 passed), <code>pnpm build</code>, <code>pnpm typecheck</code>, <code>pnpm test</code> (378 passed before rebase), <code>pnpm lint</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3572 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|bunker claims can be edited before banking" --project=chromium</code> (2 passed before rebase), and in-app Browser phone-viewport sanity for the release dialog plus mine canvas mount. Final verification was rerun after conflict resolution.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep canvas grid editing active while the full-screen touch joystick stays disabled, and provide explicit walk buttons inside the builder so edit taps and movement are not competing for the same touch surface. Recommended default: this is a presentation and input-routing fix only, so no mine-version or sim-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>REQ-034 and REQ-035 remain partial. Appended a build-log entry to <code>docs/gdd/08-base-building.html</code>, updated static and in-game release notes, and strengthened smoke coverage for compact panel bounds, mode separation, remove inventory return, move dragging, and walking while the builder stays visible.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="scrap-selection-cleanup" data-date="2026-06-21">
     <h3>Scrap Selection Cleanup</h3>
     <dl>

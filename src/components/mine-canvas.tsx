@@ -741,11 +741,11 @@ function BunkerOverlay({
                 onBunkerCellTap(partCell);
                 return;
               }
-              onBunkerPartTap?.(partCell);
+              if (buildMode === "move") onBunkerPartTap?.(partCell);
             }}
             onPointerDown={(e) => {
               e.stopPropagation();
-              onBunkerPartPointerDown?.(partCell);
+              if (buildMode === "move") onBunkerPartPointerDown?.(partCell);
             }}
           >
             {selected && (
@@ -807,11 +807,11 @@ function BunkerOverlay({
               onBunkerCellTap(partCell);
               return;
             }
-            onBunkerPartTap?.(partCell);
+            if (buildMode === "move") onBunkerPartTap?.(partCell);
           }}
           onPointerDown={(e) => {
             e.stopPropagation();
-            onBunkerPartPointerDown?.(partCell);
+            if (buildMode === "move") onBunkerPartPointerDown?.(partCell);
           }}
         >
           {selected && (

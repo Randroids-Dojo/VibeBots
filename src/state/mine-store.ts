@@ -161,6 +161,7 @@ function replaySavedTrip(
   moves: MineAction[];
   lastResult: MoveResult | null;
   pendingBunker: PendingBunkerBuild | null;
+  terminalReplayCollapsed: boolean;
   terminalReplayConsumed: boolean;
 } {
   const resumed = createMine(
@@ -184,8 +185,9 @@ function replaySavedTrip(
   return {
     mine: resumed,
     moves,
-    lastResult: terminalReplayConsumed ? null : terminalResult,
+    lastResult: null,
     pendingBunker: terminalResult ? null : (saved.pendingBunker ?? null),
+    terminalReplayCollapsed: terminalResult !== null,
     terminalReplayConsumed,
   };
 }
@@ -466,8 +468,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         ) {
           const replay = replaySavedTrip(saved, baseDiff);
           if (
-            replay.lastResult?.ok &&
-            replay.lastResult.collapsed &&
+            replay.terminalReplayCollapsed &&
             !replay.terminalReplayConsumed
           ) {
             saveLocalTrip(slot, {

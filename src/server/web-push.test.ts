@@ -11,27 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.124.124",
+  version: "0.1.125.125",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-21-0.1.124-mine-terminal-state",
-  intro: "Mine death and bunker UI now settle cleanly after reloads.",
+  noticeId: "2026-06-21-0.1.125-terminal-replay-movement",
+  intro: "Saved fall replays no longer block swipe movement.",
   changes: [
     {
       build: 123,
-      text: "Jump only appears when the sim says a jump is available, and diagnostics now log terminal replay and bunker-overlay input blockers.",
+      text: "Swipe movement stays enabled after dismissing the release list, even for installed saves that just consumed an old terminal replay.",
     },
   ],
   notes: [
     {
-      version: "0.1.124",
+      version: "0.1.125",
       date: "2026-06-21",
-      title: "Mine terminal state fix",
-      intro: "Mine death and bunker UI now settle cleanly after reloads.",
+      title: "Terminal replay movement fix",
+      intro: "Saved fall replays no longer block swipe movement.",
       changes: [
         {
           build: 123,
-          text: "Jump only appears when the sim says a jump is available, and diagnostics now log terminal replay and bunker-overlay input blockers.",
+          text: "Swipe movement stays enabled after dismissing the release list, even for installed saves that just consumed an old terminal replay.",
         },
       ],
     },
@@ -132,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Mine terminal state fix"),
+      expect.stringContaining("Terminal replay movement fix"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

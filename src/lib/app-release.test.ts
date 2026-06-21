@@ -2,11 +2,29 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine terminal state note complete", () => {
+  it("keeps the latest terminal replay movement note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-21-0.1.124-mine-terminal-state");
+    expect(release.noticeId).toBe(
+      "2026-06-21-0.1.125-terminal-replay-movement",
+    );
+    expect(latestNote).toMatchObject({
+      version: "0.1.125",
+      title: "Terminal replay movement fix",
+      intro: "Saved fall replays no longer block swipe movement.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Saved trips that replay into a fatal fall now settle at Base 0 without leaving a collapsed result active.",
+      "Swipe movement stays enabled after dismissing the release list, even for installed saves that just consumed an old terminal replay.",
+      "Store coverage now proves the replayed save can move immediately after loading.",
+    ]);
+  });
+
+  it("keeps the archived mine terminal state note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.124");
+
     expect(latestNote).toMatchObject({
       version: "0.1.124",
       title: "Mine terminal state fix",

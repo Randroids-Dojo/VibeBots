@@ -1729,17 +1729,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Mine death and bunker UI now settle cleanly after reloads.",
+    "Saved fall replays no longer block swipe movement.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Saved trips that replay into a fatal fall",
+    "settle at Base 0 without leaving a collapsed result active",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Bunker builder UI now starts closed",
+    "Swipe movement stays enabled after dismissing the release list",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Jump only appears when the sim says a jump is available",
+    "proves the replayed save can move immediately",
   );
 
   await page.mouse.click(8, 8);
@@ -1759,6 +1759,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.125", "Terminal replay movement fix"],
     ["0.1.124", "Mine terminal state fix"],
     ["0.1.123", "Save touch diagnostics"],
     ["0.1.122", "Touch drag layer"],

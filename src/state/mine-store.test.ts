@@ -398,7 +398,7 @@ describe("mine store upgrade flow", () => {
     );
   });
 
-  it("restores a terminal saved trip once without replaying death forever", async () => {
+  it("clears a terminal saved trip replay and leaves movement usable", async () => {
     const seed = 6161;
     const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
     for (let row = 1; row <= 6; row++) {
@@ -440,18 +440,19 @@ describe("mine store upgrade flow", () => {
     await store().loadWorld();
 
     expect(store().mine.miner.row).toBe(0);
-    const terminalResult = store().lastResult;
-    expect(
-      terminalResult?.ok &&
-        terminalResult.collapsed &&
-        terminalResult.fallFatal,
-    ).toBe(true);
+    expect(store().lastResult).toBeNull();
     expect(store().pendingBunker).toBeNull();
     const consumed = JSON.parse(
       localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
     );
     expect(consumed.terminalReplayConsumed).toBe(true);
     expect(consumed.pendingBunker).toBeNull();
+
+    store().move("right");
+
+    expect(store().lastResult?.ok).toBe(true);
+    expect(store().mine.miner.col).toBe(START_COL + 1);
+    expect(store().pendingBunker).toBeNull();
 
     await store().loadWorld();
 

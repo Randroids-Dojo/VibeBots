@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.125" data-date="2026-06-21">
+    <h2>0.1.125</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.125</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Saved fall replays no longer block swipe movement.</dd>
+      <dt>Save replay</dt><dd>Saved trips that replay into a fatal fall now settle at Base 0 without leaving a collapsed result active, so installed saves can move immediately after the release list is dismissed.</dd>
+      <dt>Diagnostics</dt><dd>The fix was traced from production <code>mine.client_diagnostic.saved_trip_replay_collapsed</code> logs for <code>0.1.124</code>, where <code>movementTouchEnabled</code> was false at row 0 after a terminal replay.</dd>
+      <dt>Verification</dt><dd>Focused store coverage now proves the replayed save can move immediately after loading. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.124" data-date="2026-06-21">
     <h2>0.1.124</h2>
     <dl>

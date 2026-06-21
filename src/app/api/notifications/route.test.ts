@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-21-0.1.124-mine-terminal-state",
+      releaseNoticeId: "2026-06-21-0.1.125-terminal-replay-movement",
       releaseSummary:
-        "Mine terminal state fix: Mine death and bunker UI now settle cleanly after reloads.",
+        "Terminal replay movement fix: Saved fall replays no longer block swipe movement.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-21-0.1.124-mine-terminal-state",
+      releaseNoticeId: "2026-06-21-0.1.125-terminal-replay-movement",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-21-0.1.124-mine-terminal-state";
+const RELEASE_NOTICE_ID = "2026-06-21-0.1.125-terminal-replay-movement";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.125",
+      date: "2026-06-21",
+      title: "Terminal replay movement fix",
+      intro: "Saved fall replays no longer block swipe movement.",
+      changes: [
+        {
+          build,
+          text: "Saved trips that replay into a fatal fall now settle at Base 0 without leaving a collapsed result active.",
+        },
+        {
+          build,
+          text: "Swipe movement stays enabled after dismissing the release list, even for installed saves that just consumed an old terminal replay.",
+        },
+        {
+          build,
+          text: "Store coverage now proves the replayed save can move immediately after loading.",
+        },
+      ],
+    },
     {
       version: "0.1.124",
       date: "2026-06-21",

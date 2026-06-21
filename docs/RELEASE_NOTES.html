@@ -13,6 +13,17 @@
 
 <main id="entries">
 
+  <article data-version="0.1.122" data-date="2026-06-20">
+    <h2>0.1.122</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.122</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Movement drags now sit above the mine canvas again.</dd>
+      <dt>Controls</dt><dd>The movement touch surface now has an explicit stack position above the 3D canvas, while HUD buttons keep their higher stack position so Jump and consumable controls remain tappable.</dd>
+      <dt>Verification</dt><dd>Focused smoke coverage checks that open mine space targets movement while HUD buttons stay on top, then dispatches a real touch drag to prove the miner moves. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.121" data-date="2026-06-20">
     <h2>0.1.121</h2>
     <dl>

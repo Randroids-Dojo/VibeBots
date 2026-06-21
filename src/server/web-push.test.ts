@@ -11,28 +11,27 @@ vi.mock("web-push", () => ({
 }));
 
 const release: AppRelease = {
-  version: "0.1.121.123",
+  version: "0.1.122.123",
   build: 123,
   ref: "test-ref",
-  noticeId: "2026-06-20-0.1.121-touch-zoom-lock",
-  intro: "Touch input is locked back to mine controls instead of page zoom.",
+  noticeId: "2026-06-20-0.1.122-touch-drag-layer",
+  intro: "Movement drags now sit above the mine canvas again.",
   changes: [
     {
       build: 123,
-      text: "Smoke coverage now dispatches real touch events to prove touch drag movement still works on phone viewports.",
+      text: "Smoke coverage now checks that open mine space targets movement while HUD buttons stay on top.",
     },
   ],
   notes: [
     {
-      version: "0.1.121",
+      version: "0.1.122",
       date: "2026-06-20",
-      title: "Touch zoom lock",
-      intro:
-        "Touch input is locked back to mine controls instead of page zoom.",
+      title: "Touch drag layer",
+      intro: "Movement drags now sit above the mine canvas again.",
       changes: [
         {
           build: 123,
-          text: "Smoke coverage now dispatches real touch events to prove touch drag movement still works on phone viewports.",
+          text: "Smoke coverage now checks that open mine space targets movement while HUD buttons stay on top.",
         },
       ],
     },
@@ -133,7 +132,7 @@ describe("release web push dispatch", () => {
           auth: "auth-key",
         },
       },
-      expect.stringContaining("Touch zoom lock"),
+      expect.stringContaining("Touch drag layer"),
     );
     expect(
       calls.some((call) => call.query.includes("last_release_notice_id")),

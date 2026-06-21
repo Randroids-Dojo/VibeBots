@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-20-0.1.121-touch-zoom-lock";
+const RELEASE_NOTICE_ID = "2026-06-20-0.1.122-touch-drag-layer";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.122",
+      date: "2026-06-20",
+      title: "Touch drag layer",
+      intro: "Movement drags now sit above the mine canvas again.",
+      changes: [
+        {
+          build,
+          text: "The movement touch surface now has an explicit stack position above the 3D canvas.",
+        },
+        {
+          build,
+          text: "HUD buttons keep their higher stack position, so Jump and consumable controls remain tappable.",
+        },
+        {
+          build,
+          text: "Smoke coverage now checks that open mine space targets movement while HUD buttons stay on top.",
+        },
+      ],
+    },
     {
       version: "0.1.121",
       date: "2026-06-20",

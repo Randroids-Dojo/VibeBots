@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest Clanker visuals note complete", () => {
+  it("keeps the latest roof cell polish note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-22-0.1.134-clanker-visuals");
+    expect(release.noticeId).toBe("2026-06-22-0.1.135-roof-cell-polish");
+    expect(latestNote).toMatchObject({
+      version: "0.1.135",
+      title: "Roof cell polish",
+      intro: "Bunker roof cells now sit cleanly together.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Roof base parts now render as bounded gabled cells instead of loose triangular caps.",
+      "Adjacent roof cells share a consistent eave, ridge, and shingle silhouette that lines up above walls and floors.",
+      "Production-mode visual verification now checks a three-roof starter-base layout.",
+    ]);
+  });
+
+  it("keeps the archived Clanker visuals note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.134");
+
     expect(latestNote).toMatchObject({
       version: "0.1.134",
       title: "Clanker visuals",

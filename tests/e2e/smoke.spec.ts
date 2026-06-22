@@ -2033,17 +2033,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Clankers now look like polished robotic creatures.",
+    "Bunker roof cells now sit cleanly together.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Raid attackers now render as low armored spider-bots",
+    "bounded gabled cells",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "The crawl animation now bobs the chassis",
+    "eave, ridge, and shingle silhouette",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Self-destructs now flash with a larger burst ring",
+    "three-roof starter-base layout",
   );
 
   await page.mouse.click(8, 8);
@@ -2063,6 +2063,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.135", "Roof cell polish"],
     ["0.1.134", "Clanker visuals"],
     ["0.1.133", "Clanker open paths"],
     ["0.1.132", "Dirt break polish"],

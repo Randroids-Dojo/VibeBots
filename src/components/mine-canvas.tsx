@@ -18,7 +18,7 @@ import type {
   Mesh,
   PointLight,
 } from "three/webgpu";
-import { Color } from "three/webgpu";
+import { Color, Shape } from "three/webgpu";
 import {
   clampMineCameraZoom,
   maxMineCameraZoom,
@@ -102,6 +102,11 @@ const GLOWING_ORES = new Set<OreId>([
 const BASE_FLOOR_RIB_X = [-0.28, 0, 0.28] as const;
 const BASE_WALL_RAIL_Y = [-0.26, 0.26] as const;
 const BASE_ROOF_RAFTER_SIDES = [-1, 1] as const;
+const BASE_ROOF_SHINGLE_BANDS = [
+  { y: -0.17, width: 0.68 },
+  { y: -0.05, width: 0.5 },
+  { y: 0.07, width: 0.32 },
+] as const;
 const BASE_DOOR_BRACE_Y = [-0.18, 0.18] as const;
 const BASE_FLOOR_SPIKE_X = [-0.32, -0.16, 0, 0.16, 0.32] as const;
 const CLANKER_LEGS = [
@@ -121,6 +126,14 @@ const CLANKER_BURST_SHARDS = [
   { x: -0.08, y: -0.31, angle: -0.15, scale: 0.58 },
   { x: 0.1, y: 0.3, angle: 0.9, scale: 0.62 },
 ] as const;
+
+const BASE_ROOF_FACE_SHAPE = new Shape();
+BASE_ROOF_FACE_SHAPE.moveTo(-0.46, -0.28);
+BASE_ROOF_FACE_SHAPE.lineTo(-0.46, -0.1);
+BASE_ROOF_FACE_SHAPE.lineTo(0, 0.34);
+BASE_ROOF_FACE_SHAPE.lineTo(0.46, -0.1);
+BASE_ROOF_FACE_SHAPE.lineTo(0.46, -0.28);
+BASE_ROOF_FACE_SHAPE.lineTo(-0.46, -0.28);
 
 function dropPileStats(cell: MineCell): { count: number; ore: OreId | null } {
   let count = 0;
@@ -902,48 +915,79 @@ function BaseWallPanel() {
 function BaseRoofPanel() {
   return (
     <group>
-      <mesh position={[0, 0.02, 0.02]} rotation={[0, 0, Math.PI / 3]}>
-        <coneGeometry args={[0.54, 0.76, 3, 1]} />
+      <mesh position={[0, -0.02, 0.08]}>
+        <shapeGeometry args={[BASE_ROOF_FACE_SHAPE]} />
         <meshStandardMaterial
-          color="#77669f"
-          roughness={0.66}
+          color="#6f5e88"
+          roughness={0.72}
           metalness={0.18}
           flatShading
         />
       </mesh>
-      <mesh position={[0, -0.31, 0.16]}>
-        <boxGeometry args={[0.82, 0.055, 0.055]} />
+      <mesh position={[0, -0.31, 0.15]}>
+        <boxGeometry args={[0.98, 0.085, 0.09]} />
         <meshStandardMaterial
-          color="#c5a56a"
+          color="#c49b5c"
           roughness={0.58}
-          metalness={0.06}
+          metalness={0.08}
           flatShading
         />
       </mesh>
       {BASE_ROOF_RAFTER_SIDES.map((side) => (
         <mesh
           key={side}
-          position={[side * 0.18, 0.02, 0.18]}
-          rotation={[0, 0, side * 0.92]}
+          position={[side * 0.22, 0.09, 0.16]}
+          rotation={[0, 0, side * -0.77]}
         >
-          <boxGeometry args={[0.58, 0.045, 0.045]} />
+          <boxGeometry args={[0.63, 0.055, 0.075]} />
           <meshStandardMaterial
-            color="#d4b77b"
+            color="#d8b36d"
             roughness={0.58}
-            metalness={0.05}
+            metalness={0.07}
             flatShading
           />
         </mesh>
       ))}
-      <mesh position={[0, -0.05, 0.2]}>
-        <boxGeometry args={[0.045, 0.5, 0.045]} />
+      {BASE_ROOF_SHINGLE_BANDS.map((band) => (
+        <mesh key={band.y} position={[0, band.y, 0.17]}>
+          <boxGeometry args={[band.width, 0.04, 0.045]} />
+          <meshStandardMaterial
+            color="#8a789d"
+            roughness={0.7}
+            metalness={0.14}
+            flatShading
+          />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.31, 0.18]}>
+        <boxGeometry args={[0.18, 0.07, 0.09]} />
         <meshStandardMaterial
-          color="#b89258"
-          roughness={0.6}
-          metalness={0.04}
+          color="#efd08a"
+          roughness={0.54}
+          metalness={0.08}
           flatShading
         />
       </mesh>
+      <mesh position={[0, -0.29, 0.22]}>
+        <boxGeometry args={[0.34, 0.055, 0.055]} />
+        <meshStandardMaterial
+          color="#efd08a"
+          roughness={0.55}
+          metalness={0.08}
+          flatShading
+        />
+      </mesh>
+      {BASE_ROOF_RAFTER_SIDES.map((side) => (
+        <mesh key={`post:${side}`} position={[side * 0.42, -0.18, 0.18]}>
+          <boxGeometry args={[0.065, 0.22, 0.065]} />
+          <meshStandardMaterial
+            color="#a67b42"
+            roughness={0.62}
+            metalness={0.08}
+            flatShading
+          />
+        </mesh>
+      ))}
     </group>
   );
 }

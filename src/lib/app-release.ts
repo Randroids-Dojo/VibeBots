@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-22-0.1.134-clanker-visuals";
+const RELEASE_NOTICE_ID = "2026-06-22-0.1.135-roof-cell-polish";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.135",
+      date: "2026-06-22",
+      title: "Roof cell polish",
+      intro: "Bunker roof cells now sit cleanly together.",
+      changes: [
+        {
+          build,
+          text: "Roof base parts now render as bounded gabled cells instead of loose triangular caps.",
+        },
+        {
+          build,
+          text: "Adjacent roof cells share a consistent eave, ridge, and shingle silhouette that lines up above walls and floors.",
+        },
+        {
+          build,
+          text: "Production-mode visual verification now checks a three-roof starter-base layout.",
+        },
+      ],
+    },
     {
       version: "0.1.134",
       date: "2026-06-22",

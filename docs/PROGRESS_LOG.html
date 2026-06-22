@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="clanker-visuals" data-date="2026-06-22">
+    <h3>Clanker Visuals</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>polish/clanker-sprite-animations</code>, created from <code>origin/main</code> at <code>427ff70</code>, then rebased onto current <code>origin/main</code> at <code>ddbb16c</code>.</dd>
+      <dt>PR</dt><dd>Not opened. Local implementation branch.</dd>
+      <dt>Changed</dt><dd>User-directed Clanker sprite and animation polish. Raid attackers now render as low armored spider-bots with eight articulated legs, plated bodies, glowing sensors, front cutters, chassis bob, leg gait, sensor sweep, eye pulse, and a larger self-destruct burst with metal fragments. Package version moved to <code>0.1.134</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. After rebasing over <code>0.1.132</code> dirt break polish and <code>0.1.133</code> Clanker open paths, ran <code>pnpm exec biome check --write</code> on touched source and test files, focused Vitest for app release and notifications (58 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm test</code> (392 passed), <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>git diff --cached --check</code>, <code>git diff --check</code>, and focused Playwright smoke with <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3666 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|mine bunker builder starts a Clanker raid" --project=chromium</code> (2 passed). A local Playwright visual probe against <code>http://127.0.0.1:3666/mine</code> saved <code>test-results/clanker-visual-probe.png</code> with a <code>900 x 900</code> canvas, and a two-frame screenshot diff found <code>9618</code> changed pixels. In-app Browser loaded the local build and confirmed app version <code>0.1.134.267</code>, the Clanker visuals release copy, and a <code>1280 x 720</code> mine shell.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a render-only Clanker presentation pass using existing raid paths and death timing, so no mine-version or sim-version bump is needed. Mine surface tips were reviewed and no tip change was needed because the change affects in-canvas enemy appearance rather than controls, economy, upgrades, hazards, shops, or progression rules.</dd>
+      <dt>GDD coverage</dt><dd>REQ-037 remains partial under <code>F-029</code>. Appended a build-log entry to <code>docs/gdd/08-base-building.html</code> and updated static and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="clanker-open-bunker-paths" data-date="2026-06-22">
     <h3>Clanker Open Bunker Paths</h3>
     <dl>

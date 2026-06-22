@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest Clanker open paths note complete", () => {
+  it("keeps the latest Clanker visuals note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-22-0.1.133-clanker-open-paths");
+    expect(release.noticeId).toBe("2026-06-22-0.1.134-clanker-visuals");
+    expect(latestNote).toMatchObject({
+      version: "0.1.134",
+      title: "Clanker visuals",
+      intro: "Clankers now look like polished robotic creatures.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Raid attackers now render as low armored spider-bots with eight articulated legs, plated bodies, glowing sensors, and front cutters.",
+      "The crawl animation now bobs the chassis, cycles each leg, sweeps the sensor head, and works along the existing raid path timing.",
+      "Self-destructs now flash with a larger burst ring and metal fragments instead of a plain orange sphere.",
+    ]);
+  });
+
+  it("keeps the archived Clanker open paths note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.133");
+
     expect(latestNote).toMatchObject({
       version: "0.1.133",
       title: "Clanker open paths",

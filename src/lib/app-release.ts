@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-22-0.1.133-clanker-open-paths";
+const RELEASE_NOTICE_ID = "2026-06-22-0.1.134-clanker-visuals";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.134",
+      date: "2026-06-22",
+      title: "Clanker visuals",
+      intro: "Clankers now look like polished robotic creatures.",
+      changes: [
+        {
+          build,
+          text: "Raid attackers now render as low armored spider-bots with eight articulated legs, plated bodies, glowing sensors, and front cutters.",
+        },
+        {
+          build,
+          text: "The crawl animation now bobs the chassis, cycles each leg, sweeps the sensor head, and works along the existing raid path timing.",
+        },
+        {
+          build,
+          text: "Self-destructs now flash with a larger burst ring and metal fragments instead of a plain orange sphere.",
+        },
+      ],
+    },
     {
       version: "0.1.133",
       date: "2026-06-22",

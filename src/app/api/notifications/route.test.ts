@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-22-0.1.133-clanker-open-paths",
+      releaseNoticeId: "2026-06-22-0.1.134-clanker-visuals",
       releaseSummary:
-        "Clanker open paths: Clankers now prefer open bunker routes to the player cell.",
+        "Clanker visuals: Clankers now look like polished robotic creatures.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-22-0.1.133-clanker-open-paths",
+      releaseNoticeId: "2026-06-22-0.1.134-clanker-visuals",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest raid XP pickup note complete", () => {
+  it("keeps the latest base part visuals note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-22-0.1.130-raid-xp-pickups");
+    expect(release.noticeId).toBe("2026-06-22-0.1.131-base-part-visuals");
+    expect(latestNote).toMatchObject({
+      version: "0.1.131",
+      title: "Base part visuals",
+      intro: "Bunker parts now look like their real building roles.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Floors draw as bottom plates, walls draw as center panels, and doors sit on the left or right edge of the claimed room.",
+      "Floor Spikes now rise out of a bottom plate as several large upward spikes.",
+      "Roofs draw as triangular caps with rafter beams, and Basic Turrets use a small mounted barrel instead of a generic block.",
+    ]);
+  });
+
+  it("keeps the archived raid XP pickup note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.130");
+
     expect(latestNote).toMatchObject({
       version: "0.1.130",
       title: "Raid XP pickups",

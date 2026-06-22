@@ -1861,16 +1861,18 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Raid XP now comes from walking over the dropped pickups.",
+    "Bunker parts now look like their real building roles.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "miner must physically walk over",
+    "Floors draw as bottom plates",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "enough defense XP to reach Level 2",
+    "several large upward spikes",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("kills the miner");
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "Roofs draw as triangular caps",
+  );
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1889,6 +1891,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.131", "Base part visuals"],
     ["0.1.130", "Raid XP pickups"],
     ["0.1.129", "Clanker raid damage"],
     ["0.1.128", "Lantern zoom overview fix"],

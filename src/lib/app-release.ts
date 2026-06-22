@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-22-0.1.130-raid-xp-pickups";
+const RELEASE_NOTICE_ID = "2026-06-22-0.1.131-base-part-visuals";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.131",
+      date: "2026-06-22",
+      title: "Base part visuals",
+      intro: "Bunker parts now look like their real building roles.",
+      changes: [
+        {
+          build,
+          text: "Floors draw as bottom plates, walls draw as center panels, and doors sit on the left or right edge of the claimed room.",
+        },
+        {
+          build,
+          text: "Floor Spikes now rise out of a bottom plate as several large upward spikes.",
+        },
+        {
+          build,
+          text: "Roofs draw as triangular caps with rafter beams, and Basic Turrets use a small mounted barrel instead of a generic block.",
+        },
+      ],
+    },
     {
       version: "0.1.130",
       date: "2026-06-22",

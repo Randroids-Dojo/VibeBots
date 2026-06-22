@@ -99,6 +99,12 @@ const GLOWING_ORES = new Set<OreId>([
   "quantum-core",
 ]);
 
+const BASE_FLOOR_RIB_X = [-0.28, 0, 0.28] as const;
+const BASE_WALL_RAIL_Y = [-0.26, 0.26] as const;
+const BASE_ROOF_RAFTER_SIDES = [-1, 1] as const;
+const BASE_DOOR_BRACE_Y = [-0.18, 0.18] as const;
+const BASE_FLOOR_SPIKE_X = [-0.32, -0.16, 0, 0.16, 0.32] as const;
+
 function dropPileStats(cell: MineCell): { count: number; ore: OreId | null } {
   let count = 0;
   let ore: OreId | null = null;
@@ -537,6 +543,274 @@ function ClankerMesh({
   );
 }
 
+function BasePartVisual({
+  partId,
+  durability,
+  footprint,
+  col,
+}: {
+  partId: BasePartId;
+  durability: number;
+  footprint: BunkerFootprint;
+  col: number;
+}) {
+  switch (partId) {
+    case "floor-panel":
+      return <BaseFloorPanel />;
+    case "wall-panel":
+      return <BaseWallPanel />;
+    case "roof-panel":
+      return <BaseRoofPanel />;
+    case "door-panel":
+      return <BaseDoorPanel side={doorSideForBunkerColumn(col, footprint)} />;
+    case "floor-spikes":
+      return <BaseFloorSpikes durability={durability} />;
+    case "basic-turret":
+      return <BaseTurret durability={durability} />;
+  }
+}
+
+function doorSideForBunkerColumn(
+  col: number,
+  footprint: BunkerFootprint,
+): -1 | 1 {
+  if (col <= footprint.col) return -1;
+  if (col >= footprint.col + footprint.width - 1) return 1;
+  const midpoint = footprint.col + (footprint.width - 1) / 2;
+  return col < midpoint ? -1 : 1;
+}
+
+function BaseFloorPanel() {
+  return (
+    <group>
+      <RoundedBox
+        args={[0.88, 0.2, 0.14]}
+        radius={0.035}
+        smoothness={1}
+        position={[0, -0.35, 0]}
+      >
+        <meshStandardMaterial
+          color="#71808c"
+          roughness={0.68}
+          metalness={0.28}
+          flatShading
+        />
+      </RoundedBox>
+      {BASE_FLOOR_RIB_X.map((x) => (
+        <mesh key={x} position={[x, -0.25, 0.08]}>
+          <boxGeometry args={[0.035, 0.12, 0.045]} />
+          <meshStandardMaterial
+            color="#9fb0bd"
+            roughness={0.6}
+            metalness={0.22}
+            flatShading
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function BaseWallPanel() {
+  return (
+    <group>
+      <RoundedBox args={[0.24, 0.82, 0.18]} radius={0.035} smoothness={1}>
+        <meshStandardMaterial
+          color="#3fbda9"
+          roughness={0.64}
+          metalness={0.24}
+          flatShading
+        />
+      </RoundedBox>
+      {BASE_WALL_RAIL_Y.map((y) => (
+        <mesh key={y} position={[0, y, 0.11]}>
+          <boxGeometry args={[0.38, 0.055, 0.055]} />
+          <meshStandardMaterial
+            color="#8cf0dd"
+            roughness={0.55}
+            metalness={0.18}
+            flatShading
+          />
+        </mesh>
+      ))}
+      <mesh position={[0, 0, 0.12]}>
+        <boxGeometry args={[0.055, 0.64, 0.055]} />
+        <meshStandardMaterial
+          color="#287f77"
+          roughness={0.62}
+          metalness={0.25}
+          flatShading
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function BaseRoofPanel() {
+  return (
+    <group>
+      <mesh position={[0, 0.02, 0.02]} rotation={[0, 0, Math.PI / 3]}>
+        <coneGeometry args={[0.54, 0.76, 3, 1]} />
+        <meshStandardMaterial
+          color="#77669f"
+          roughness={0.66}
+          metalness={0.18}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[0, -0.31, 0.16]}>
+        <boxGeometry args={[0.82, 0.055, 0.055]} />
+        <meshStandardMaterial
+          color="#c5a56a"
+          roughness={0.58}
+          metalness={0.06}
+          flatShading
+        />
+      </mesh>
+      {BASE_ROOF_RAFTER_SIDES.map((side) => (
+        <mesh
+          key={side}
+          position={[side * 0.18, 0.02, 0.18]}
+          rotation={[0, 0, side * 0.92]}
+        >
+          <boxGeometry args={[0.58, 0.045, 0.045]} />
+          <meshStandardMaterial
+            color="#d4b77b"
+            roughness={0.58}
+            metalness={0.05}
+            flatShading
+          />
+        </mesh>
+      ))}
+      <mesh position={[0, -0.05, 0.2]}>
+        <boxGeometry args={[0.045, 0.5, 0.045]} />
+        <meshStandardMaterial
+          color="#b89258"
+          roughness={0.6}
+          metalness={0.04}
+          flatShading
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function BaseDoorPanel({ side }: { side: -1 | 1 }) {
+  const x = side * 0.36;
+  return (
+    <group>
+      <RoundedBox
+        args={[0.22, 0.82, 0.16]}
+        radius={0.03}
+        smoothness={1}
+        position={[x, 0, 0]}
+      >
+        <meshStandardMaterial
+          color="#bc8442"
+          roughness={0.64}
+          metalness={0.12}
+          flatShading
+        />
+      </RoundedBox>
+      {BASE_DOOR_BRACE_Y.map((y) => (
+        <mesh key={y} position={[x, y, 0.1]}>
+          <boxGeometry args={[0.26, 0.055, 0.045]} />
+          <meshStandardMaterial
+            color="#7f4c27"
+            roughness={0.66}
+            metalness={0.12}
+            flatShading
+          />
+        </mesh>
+      ))}
+      <mesh position={[x - side * 0.065, 0, 0.12]}>
+        <sphereGeometry args={[0.035, 8, 6]} />
+        <meshStandardMaterial
+          color="#f5d06f"
+          roughness={0.42}
+          metalness={0.32}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[x - side * 0.15, 0, -0.01]}>
+        <boxGeometry args={[0.035, 0.72, 0.09]} />
+        <meshStandardMaterial
+          color="#6f3d22"
+          roughness={0.68}
+          metalness={0.08}
+          flatShading
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function BaseFloorSpikes({ durability }: { durability: number }) {
+  const maxDurability = BASE_PART_CATALOG["floor-spikes"].durability;
+  const ratio = Math.max(0.15, Math.min(1, durability / maxDurability));
+  const spikeHeight = 0.48 * ratio;
+  return (
+    <group>
+      <BaseFloorPanel />
+      {BASE_FLOOR_SPIKE_X.map((x) => (
+        <mesh key={x} position={[x, -0.31 + spikeHeight * 0.5, 0.15]}>
+          <coneGeometry args={[0.09 * ratio, spikeHeight, 5]} />
+          <meshStandardMaterial
+            color={ratio > 0.5 ? "#d4dde8" : "#7b8290"}
+            emissive={ratio > 0.5 ? "#3b82f6" : "#000000"}
+            emissiveIntensity={0.08 * ratio}
+            roughness={0.5}
+            metalness={0.35}
+            flatShading
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function BaseTurret({ durability }: { durability: number }) {
+  const maxDurability = BASE_PART_CATALOG["basic-turret"].durability;
+  const ratio = Math.max(0.2, Math.min(1, durability / maxDurability));
+  return (
+    <group>
+      <RoundedBox
+        args={[0.58, 0.2, 0.16]}
+        radius={0.035}
+        smoothness={1}
+        position={[0, -0.3, 0]}
+      >
+        <meshStandardMaterial
+          color="#6674a3"
+          roughness={0.62}
+          metalness={0.3}
+          flatShading
+        />
+      </RoundedBox>
+      <mesh position={[0, -0.04, 0.08]} scale={[1, ratio, 1]}>
+        <cylinderGeometry args={[0.18, 0.24, 0.3, 12]} />
+        <meshStandardMaterial
+          color="#8aa4ff"
+          emissive="#5b6cff"
+          emissiveIntensity={0.12 * ratio}
+          roughness={0.5}
+          metalness={0.35}
+          flatShading
+        />
+      </mesh>
+      <mesh position={[0, 0.18, 0.08]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.045, 0.055, 0.46, 8]} />
+        <meshStandardMaterial
+          color="#c6d1ff"
+          roughness={0.42}
+          metalness={0.38}
+          flatShading
+        />
+      </mesh>
+    </group>
+  );
+}
+
 function BunkerOverlay({
   preview,
   blockedCells,
@@ -770,84 +1044,11 @@ function BunkerOverlay({
       const partCell = { col: part.col, row: part.row };
       const partKey = `${part.col}:${part.row}`;
       const selected = selectedKey === partKey;
-      if (part.partId === "floor-spikes") {
-        const maxDurability = BASE_PART_CATALOG["floor-spikes"].durability;
-        const ratio = Math.max(
-          0.15,
-          Math.min(1, part.durability / maxDurability),
-        );
-        const spikeHeight = 0.32 * ratio;
-        return (
-          // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
-          <group
-            key={`bunker-part:${part.col}:${part.row}`}
-            position={[cellX(part.col), -part.row, 0.48]}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (buildMode === "remove" && onBunkerCellTap) {
-                onBunkerCellTap(partCell);
-                return;
-              }
-              if (buildMode === "move") onBunkerPartTap?.(partCell);
-            }}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              if (buildMode === "move") onBunkerPartPointerDown?.(partCell);
-            }}
-          >
-            {selected && (
-              <SelectedSupportCellOutline col={part.col} row={part.row} />
-            )}
-            <RoundedBox
-              args={[0.82, 0.82, 0.08]}
-              radius={0.03}
-              smoothness={1}
-              position={[0, 0, -0.04]}
-            >
-              <meshStandardMaterial
-                color={ratio > 0.5 ? "#384153" : "#2a2d35"}
-                roughness={0.72}
-                metalness={0.25}
-                flatShading
-              />
-            </RoundedBox>
-            {[
-              [-0.22, -0.18],
-              [0.22, -0.18],
-              [0, 0.12],
-            ].map(([x, y]) => (
-              <mesh
-                key={`spike:${x}:${y}`}
-                position={[x, y, 0.04 + spikeHeight * 0.5]}
-                rotation={[Math.PI / 2, 0, 0]}
-              >
-                <coneGeometry args={[0.08 * ratio, spikeHeight, 5]} />
-                <meshStandardMaterial
-                  color={ratio > 0.5 ? "#c9d1dd" : "#7b8290"}
-                  emissive={ratio > 0.5 ? "#3b82f6" : "#000000"}
-                  emissiveIntensity={0.08 * ratio}
-                  roughness={0.5}
-                  metalness={0.35}
-                  flatShading
-                />
-              </mesh>
-            ))}
-          </group>
-        );
-      }
-      const colors: Record<BasePartId, string> = {
-        "wall-panel": "#4fd4bf",
-        "floor-panel": "#78909c",
-        "roof-panel": "#6d5f8f",
-        "door-panel": "#d6a54d",
-        "basic-turret": "#8aa4ff",
-        "floor-spikes": "#c9d1dd",
-      };
       return (
         // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
         <group
           key={`bunker-part:${part.col}:${part.row}`}
-          position={[cellX(part.col), -part.row, 0.52]}
+          position={[cellX(part.col), -part.row, 0.5]}
           onClick={(e) => {
             e.stopPropagation();
             if (buildMode === "remove" && onBunkerCellTap) {
@@ -864,14 +1065,12 @@ function BunkerOverlay({
           {selected && (
             <SelectedSupportCellOutline col={part.col} row={part.row} />
           )}
-          <RoundedBox args={[0.86, 0.86, 0.28]} radius={0.04} smoothness={1}>
-            <meshStandardMaterial
-              color={colors[part.partId]}
-              roughness={0.62}
-              metalness={0.25}
-              flatShading
-            />
-          </RoundedBox>
+          <BasePartVisual
+            col={part.col}
+            durability={part.durability}
+            footprint={footprint}
+            partId={part.partId}
+          />
         </group>
       );
     }) ?? [];

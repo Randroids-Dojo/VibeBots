@@ -364,6 +364,8 @@ const MINE_SURFACE_TIPS = [
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
 ] as const;
+const BUNKER_MINER_DEATH_TIP =
+  "Tip: Clankers follow open bunker cells. Fully enclose the player cell before the next raid.";
 const MINE_SURFACE_TIP_EMPTY_SLOTS = 3;
 const MINE_SURFACE_TIP_ROTATION_MS = 15_000;
 const MINE_SURFACE_TIP_CHOICES: readonly (string | null)[] = [
@@ -4309,7 +4311,7 @@ function BunkerControlPanel({
                 {lastReward.stampAwarded ? " First Defense stamp earned." : ""}
               </span>
             ) : (
-              <span>No defense XP gained.</span>
+              <span>No defense XP gained. {BUNKER_MINER_DEATH_TIP}</span>
             )}
           </div>
         )}
@@ -4560,7 +4562,7 @@ function BunkerControlPanel({
                   ? uncollectedPickups.length > 0
                     ? `${activeRaid.clankers.length} ${activeRaid.clankers.length === 1 ? "Clanker" : "Clankers"} dead. Walk over ${uncollectedPickupXp} defense XP on the ground.`
                     : `All raid XP collected: ${collectedPickupXp} defense XP.`
-                  : "Miner killed. The raid ended and all XP vanished."}
+                  : `Miner killed. The raid ended and all XP vanished. ${BUNKER_MINER_DEATH_TIP}`}
               </p>
             )}
           </>

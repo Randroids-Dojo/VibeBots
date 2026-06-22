@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="clanker-open-bunker-paths" data-date="2026-06-22">
+    <h3>Clanker Open Bunker Paths</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/clanker-open-bunker-paths</code>, created from <code>origin/main</code> after the <code>0.1.130</code> raid XP pickup release, then rebased over the <code>0.1.131</code> base part visuals and <code>0.1.132</code> dirt break polish releases.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by the user after review, cleanup, and verification.</dd>
+      <dt>Changed</dt><dd>User clarification followup. Clankers now prefer any valid open route through bunker cells to the player cell before targeting nearby walls, so a bunker must fully enclose the player cell to make blockers take the hit first. Failed raid UI now tells the player that Clankers follow open bunker cells and to fully enclose the player cell before the next raid. Package version moved to <code>0.1.133</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate found no outdated watched releases for VibeKit, Rapier, Next, three, or fiber. Ran <code>pnpm exec biome check --write</code> on touched source, tests, release, and doc files; focused Vitest for bunker sim, app release, and notifications (75 passed after rebase); <code>pnpm build</code>; focused Playwright smoke with <code>PLAYWRIGHT_PORT=3654 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|mine bunker builder explains miner death" --project=chromium</code> (2 passed); <code>pnpm typecheck</code>; <code>pnpm test</code> (391 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>; and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this changes bunker raid route selection and player-facing failure copy only, not mine generation, cash-out replay, or combat sim behavior, so no mine-version or sim-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>REQ-036 and REQ-037 remain partial under <code>F-029</code>. Updated <code>docs/gdd/08-base-building.html</code>, static release notes, and in-game release notes for open-route priority and the miner-death tip.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="dirt-break-polish" data-date="2026-06-22">
     <h3>Dirt Break Polish</h3>
     <dl>

@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-22-0.1.132-dirt-break-polish";
+const RELEASE_NOTICE_ID = "2026-06-22-0.1.133-clanker-open-paths";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.133",
+      date: "2026-06-22",
+      title: "Clanker open paths",
+      intro: "Clankers now prefer open bunker routes to the player cell.",
+      changes: [
+        {
+          build,
+          text: "If a bunker has an open path to the player cell, Clankers now follow that path instead of stopping to bite a nearby wall.",
+        },
+        {
+          build,
+          text: "Players need to fully enclose the player cell before starting the next raid if they want the walls to take the hit first.",
+        },
+        {
+          build,
+          text: "Failed raid messages now tip players that Clankers follow open bunker cells and that the player cell should be enclosed.",
+        },
+      ],
+    },
     {
       version: "0.1.132",
       date: "2026-06-22",

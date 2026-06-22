@@ -1050,6 +1050,111 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("mine bunker builder explains miner death after an open Clanker path", async ({
+  page,
+}) => {
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: {
+          footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+          core: { col: START_COL, row: 3, durability: 128 },
+          parts: [
+            {
+              partId: "wall-panel",
+              col: START_COL - 3,
+              row: 1,
+              durability: 90,
+            },
+          ],
+        },
+        inventory: {
+          "wall-panel": 2,
+          "floor-panel": 3,
+          "roof-panel": 3,
+          "door-panel": 1,
+          "basic-turret": 0,
+          "floor-spikes": 0,
+        },
+        activeRaid: {
+          raidId: "raid-failed-smoke",
+          tier: 1,
+          durationSeconds: 3,
+          startedAtMs: Date.now() - 3000,
+          clankers: [
+            {
+              id: "clanker-1",
+              col: START_COL - 6,
+              row: 0,
+              targetCol: START_COL,
+              targetRow: 3,
+              batterySteps: 9,
+              deathStep: 8,
+              status: "self-destructed",
+              path: [
+                { col: START_COL - 6, row: 0 },
+                { col: START_COL - 5, row: 0 },
+                { col: START_COL - 4, row: 0 },
+                { col: START_COL - 3, row: 0 },
+                { col: START_COL - 2, row: 0 },
+                { col: START_COL - 2, row: 1 },
+                { col: START_COL - 1, row: 1 },
+                { col: START_COL, row: 1 },
+                { col: START_COL, row: 2 },
+                { col: START_COL, row: 3 },
+              ],
+            },
+          ],
+          turretShots: 0,
+          turretDamage: 0,
+          spikeTriggers: 0,
+          spikeDamage: 0,
+          totalPartDurability: 90,
+          incomingDamage: 32,
+          partDamage: [
+            {
+              clankerId: "clanker-1",
+              col: START_COL,
+              row: 3,
+              target: "core",
+              damage: 32,
+            },
+          ],
+          coreDamage: 32,
+          xpPickups: [],
+          allClankersDead: true,
+          breached: true,
+          minerKilled: true,
+          survived: false,
+          reward: { vibes: 0, defenseXp: 0 },
+        },
+        player: {
+          balance: 120,
+          trackXp: 40,
+          defenseXp: 120,
+          overallLevel: 2,
+          levelCap: 100,
+          progressXp: 20,
+          neededXp: 80,
+          nextLevelXp: 200,
+          beaconLimit: 3,
+        },
+      }),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByRole("button", { name: "Open bunker builder" }).click();
+  const builder = page.getByRole("region", { name: "Bunker builder" });
+  await expect(builder).toContainText("Miner killed");
+  await expect(builder).toContainText("Clankers follow open bunker cells");
+  await expect(builder).toContainText("Fully enclose the player cell");
+});
+
 test("mine requires an explicit bunker claim mode before showing the claim panel", async ({
   page,
 }) => {
@@ -1928,17 +2033,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Dirt blocks now crack and burst with more weight.",
+    "Clankers now prefer open bunker routes to the player cell.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "branch wider on every hit",
+    "open path to the player cell",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "chunky debris, slower dust",
+    "fully enclose the player cell",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "final dirt particle burst",
+    "Clankers follow open bunker cells",
   );
 
   await page.mouse.click(8, 8);
@@ -1958,6 +2063,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.133", "Clanker open paths"],
     ["0.1.132", "Dirt break polish"],
     ["0.1.131", "Base part visuals"],
     ["0.1.130", "Raid XP pickups"],

@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest dirt break polish note complete", () => {
+  it("keeps the latest Clanker open paths note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-22-0.1.132-dirt-break-polish");
+    expect(release.noticeId).toBe("2026-06-22-0.1.133-clanker-open-paths");
+    expect(latestNote).toMatchObject({
+      version: "0.1.133",
+      title: "Clanker open paths",
+      intro: "Clankers now prefer open bunker routes to the player cell.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "If a bunker has an open path to the player cell, Clankers now follow that path instead of stopping to bite a nearby wall.",
+      "Players need to fully enclose the player cell before starting the next raid if they want the walls to take the hit first.",
+      "Failed raid messages now tip players that Clankers follow open bunker cells and that the player cell should be enclosed.",
+    ]);
+  });
+
+  it("keeps the archived dirt break polish note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.132");
+
     expect(latestNote).toMatchObject({
       version: "0.1.132",
       title: "Dirt break polish",

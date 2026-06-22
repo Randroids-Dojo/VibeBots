@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.133" data-date="2026-06-22">
+    <h2>0.1.133</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.133</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Clankers now prefer open bunker routes to the player cell.</dd>
+      <dt>Pathing</dt><dd>If a bunker has an open path to the player cell, Clankers follow that path instead of stopping to bite a nearby wall. Walls become the target only when the player cell is actually enclosed.</dd>
+      <dt>Death tip</dt><dd>Failed raid messages now tell players that Clankers follow open bunker cells and that the player cell should be fully enclosed before the next raid.</dd>
+      <dt>Verification</dt><dd>Focused sim coverage checks an open gap beside a nearby wall still routes the Clanker to the player cell. Smoke coverage checks the failed raid death tip.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.132" data-date="2026-06-22">
     <h2>0.1.132</h2>
     <dl>

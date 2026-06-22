@@ -690,6 +690,15 @@ function planClankerRoute(
   target: { col: number; row: number };
   path: Array<{ col: number; row: number }>;
 } {
+  const coreRoute = routeToTarget(
+    bunker,
+    start,
+    bunker.core,
+    options,
+    reservations,
+  );
+  if (coreRoute) return { target: bunker.core, path: coreRoute.path };
+
   let best: {
     target: { col: number; row: number };
     path: Array<{ col: number; row: number }>;

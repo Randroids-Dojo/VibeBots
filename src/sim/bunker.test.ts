@@ -6,11 +6,13 @@ import {
   BUNKER_CLAIM_WIDTH,
   type BunkerRaidTerrainKind,
   basePartOwnedLimit,
+  bunkerCells,
   CLANKER_SELF_DESTRUCT_XP,
   canBuyBasePart,
   createBunker,
   FLOOR_SPIKES_DAMAGE,
   FLOOR_SPIKES_DURABILITY,
+  isBunkerPerimeterCell,
   moveBasePart,
   overallPlayerLevel,
   placeBasePart,
@@ -22,6 +24,23 @@ import {
 } from "./bunker";
 
 const openTerrain = (): BunkerRaidTerrainKind => "empty";
+
+function fullyEnclosedBunker(minerCol: number, minerRow: number) {
+  const bunker = createBunker(proposedBunkerFootprint(minerCol, minerRow));
+  return {
+    ...bunker,
+    parts: bunkerCells(bunker.footprint)
+      .filter((cell) =>
+        isBunkerPerimeterCell(bunker.footprint, cell.col, cell.row),
+      )
+      .map((cell) => ({
+        partId: "wall-panel" as const,
+        col: cell.col,
+        row: cell.row,
+        durability: BASE_PART_CATALOG["wall-panel"].durability,
+      })),
+  };
+}
 
 describe("bunker vertical slice sim", () => {
   it("proposes a fixed underground footprint with the miner bottom-center", () => {
@@ -113,22 +132,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("resolves a tier-one Clanker raid into damage, dead clankers, and XP pickups", () => {
-    const base = createBunker(proposedBunkerFootprint(4, 5));
-    let bunker = base;
-    let inventory = { ...STARTER_BASE_PART_INVENTORY, "wall-panel": 8 };
-    for (let i = 0; i < 8; i++) {
-      const placed = placeBasePart(
-        bunker,
-        inventory,
-        "wall-panel",
-        base.footprint.col + (i % base.footprint.width),
-        base.footprint.row + Math.floor(i / base.footprint.width),
-      );
-      expect(placed.ok).toBe(true);
-      if (!placed.ok) return;
-      bunker = placed.bunker;
-      inventory = placed.inventory;
-    }
+    const bunker = fullyEnclosedBunker(4, 5);
 
     const raid = resolveBunkerRaid(bunker, 1, "test-raid");
     expect(raid.durationSeconds).toBeLessThan(180);
@@ -137,7 +141,9 @@ describe("bunker vertical slice sim", () => {
     expect(
       raid.clankers.map((clanker) => `${clanker.col},${clanker.row}`),
     ).toEqual(
-      [-2, 10, -3, 11, -4, 12].map((col) => `${col},${base.footprint.row - 1}`),
+      [-2, 10, -3, 11, -4, 12].map(
+        (col) => `${col},${bunker.footprint.row - 1}`,
+      ),
     );
     expect(raid.partDamage.length).toBeGreaterThan(0);
     expect(raid.incomingDamage).toBeGreaterThan(0);
@@ -192,6 +198,56 @@ describe("bunker vertical slice sim", () => {
       { col: base.core.col, row: base.footprint.row + 1 },
       { col: base.core.col, row: base.core.row },
     ]);
+  });
+
+  it("prefers an open bunker route to the miner over biting a nearby wall", () => {
+    let base = createBunker(proposedBunkerFootprint(10, 8));
+    const placed = placeBasePart(
+      base,
+      STARTER_BASE_PART_INVENTORY,
+      "wall-panel",
+      base.footprint.col,
+      base.footprint.row,
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    base = placed.bunker;
+    const firstSpawn = {
+      col: base.footprint.col - 3,
+      row: base.footprint.row - 1,
+    };
+    const open = new Set<string>();
+    for (let col = firstSpawn.col; col <= base.footprint.col + 1; col++) {
+      open.add(`${col},${firstSpawn.row}`);
+    }
+    for (let row = base.footprint.row; row <= base.core.row; row++) {
+      open.add(`${base.footprint.col + 1},${row}`);
+    }
+    for (let col = base.footprint.col + 1; col <= base.core.col; col++) {
+      open.add(`${col},${base.core.row}`);
+    }
+
+    const raid = resolveBunkerRaid(base, 1, "gap-raid", {
+      terrainAt: (col, row) => (open.has(`${col},${row}`) ? "empty" : "dirt"),
+    });
+
+    expect(raid.clankers[0]).toMatchObject({
+      targetCol: base.core.col,
+      targetRow: base.core.row,
+    });
+    expect(raid.clankers[0]?.path).toContainEqual({
+      col: base.footprint.col + 1,
+      row: base.footprint.row,
+    });
+    expect(raid.partDamage).not.toContainEqual(
+      expect.objectContaining({
+        col: base.footprint.col,
+        row: base.footprint.row,
+        target: "part",
+      }),
+    );
+    expect(raid.minerKilled).toBe(true);
+    expect(raid.survived).toBe(false);
   });
 
   it("kills the miner and clears XP when an open route reaches the player cell", () => {
@@ -273,7 +329,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("spreads clanker targets instead of stacking every route", () => {
-    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const base = fullyEnclosedBunker(10, 8);
     const raid = resolveBunkerRaid(base, 1, "spread-raid", {
       terrainAt: openTerrain,
     });

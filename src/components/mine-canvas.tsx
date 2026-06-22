@@ -423,6 +423,8 @@ function ClankerMesh({
   raid: BunkerRaidSnapshot;
 }) {
   const groupRef = useRef<Group>(null);
+  const bodyRef = useRef<Group>(null);
+  const burstRef = useRef<Group>(null);
   const localStartRef = useRef<number | null>(null);
   useFrame((state) => {
     const group = groupRef.current;
@@ -433,6 +435,8 @@ function ClankerMesh({
         : [{ col: clanker.col, row: clanker.row }];
     if (path.length === 1) {
       group.position.set(cellX(path[0].col), -path[0].row, 0.72);
+      if (bodyRef.current) bodyRef.current.visible = true;
+      if (burstRef.current) burstRef.current.visible = false;
       return;
     }
     let elapsedSeconds = 0;
@@ -446,11 +450,17 @@ function ClankerMesh({
       raid.durationSeconds * 0.78,
       Math.max(3, (path.length - 1) * 0.7),
     );
+    const maxStep = Math.min(
+      path.length - 1,
+      Math.max(0, clanker.deathStep ?? path.length - 1),
+    );
+    const deathSeconds =
+      path.length <= 1 ? 0 : (maxStep / (path.length - 1)) * travelSeconds;
     const progress =
       travelSeconds <= 0
-        ? path.length - 1
+        ? maxStep
         : Math.min(
-            path.length - 1,
+            maxStep,
             (elapsedSeconds / travelSeconds) * (path.length - 1),
           );
     const segment = Math.min(path.length - 2, Math.floor(progress));
@@ -460,6 +470,20 @@ function ClankerMesh({
     const x = from.col + (to.col - from.col) * t;
     const y = from.row + (to.row - from.row) * t;
     group.position.set(cellX(x), -y, 0.72);
+    const dead = elapsedSeconds >= deathSeconds;
+    if (bodyRef.current) bodyRef.current.visible = !dead;
+    if (burstRef.current) {
+      const burstActive = dead && clanker.status === "self-destructed";
+      burstRef.current.visible = burstActive;
+      if (burstActive) {
+        const burstAge = Math.min(
+          1,
+          Math.max(0, elapsedSeconds - deathSeconds),
+        );
+        const scale = 0.6 + burstAge * 0.9;
+        burstRef.current.scale.setScalar(scale);
+      }
+    }
   });
   return (
     <group
@@ -467,26 +491,48 @@ function ClankerMesh({
       position={[cellX(clanker.col), -clanker.row, 0.72]}
       scale={0.75}
     >
-      <mesh>
-        <sphereGeometry args={[0.18, 8, 6]} />
-        <meshStandardMaterial
-          color="#ff6b6b"
-          emissive="#ff2e2e"
-          emissiveIntensity={0.45}
-          roughness={0.5}
-          flatShading
-        />
-      </mesh>
-      {[-0.22, 0.22].map((x) => (
-        <mesh
-          key={x}
-          position={[x, -0.03, 0]}
-          rotation={[0, 0, x > 0 ? -0.7 : 0.7]}
-        >
-          <boxGeometry args={[0.34, 0.035, 0.035]} />
-          <meshStandardMaterial color="#8d98aa" roughness={0.55} flatShading />
+      <group ref={bodyRef}>
+        <mesh>
+          <sphereGeometry args={[0.18, 8, 6]} />
+          <meshStandardMaterial
+            color="#ff6b6b"
+            emissive="#ff2e2e"
+            emissiveIntensity={0.45}
+            roughness={0.5}
+            flatShading
+          />
         </mesh>
-      ))}
+        {[-0.22, 0.22].map((x) => (
+          <mesh
+            key={x}
+            position={[x, -0.03, 0]}
+            rotation={[0, 0, x > 0 ? -0.7 : 0.7]}
+          >
+            <boxGeometry args={[0.34, 0.035, 0.035]} />
+            <meshStandardMaterial
+              color="#8d98aa"
+              roughness={0.55}
+              flatShading
+            />
+          </mesh>
+        ))}
+      </group>
+      <group ref={burstRef} visible={false}>
+        <mesh>
+          <sphereGeometry args={[0.28, 8, 6]} />
+          <meshStandardMaterial
+            color="#ffb347"
+            emissive="#ff6b1a"
+            emissiveIntensity={1.1}
+            roughness={0.35}
+            flatShading
+          />
+        </mesh>
+        <mesh>
+          <ringGeometry args={[0.28, 0.43, 16]} />
+          <meshBasicMaterial color="#ffd166" transparent opacity={0.72} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -833,6 +879,25 @@ function BunkerOverlay({
     activeRaid?.clankers.map((clanker) => (
       <ClankerMesh key={clanker.id} clanker={clanker} raid={activeRaid} />
     )) ?? [];
+  const xpPickups =
+    (activeRaid?.xpPickups ?? []).map((pickup) => (
+      <group
+        key={pickup.id}
+        position={[cellX(pickup.col), -pickup.row, 0.86]}
+        scale={0.62}
+      >
+        <mesh>
+          <octahedronGeometry args={[0.16, 0]} />
+          <meshStandardMaterial
+            color="#f5c542"
+            emissive="#f59e0b"
+            emissiveIntensity={0.85}
+            roughness={0.3}
+            flatShading
+          />
+        </mesh>
+      </group>
+    )) ?? [];
   return (
     <>
       {lines}
@@ -855,6 +920,7 @@ function BunkerOverlay({
       {dragTarget}
       {dragPlane}
       {clankers}
+      {xpPickups}
     </>
   );
 }

@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-21-0.1.128-lantern-zoom-overview";
+const RELEASE_NOTICE_ID = "2026-06-21-0.1.129-clanker-raid-damage";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.129",
+      date: "2026-06-21",
+      title: "Clanker raid damage",
+      intro: "Bunker raids now end when every Clanker is dead.",
+      changes: [
+        {
+          build,
+          text: "Clankers now spend battery on their route, bite reachable base parts or the core, and stop as soon as they die.",
+        },
+        {
+          build,
+          text: "Clankers that fail to reach the player cell self-destruct in the mine view, and dead Clankers leave defense XP pickups.",
+        },
+        {
+          build,
+          text: "The bunker raid button now collects the dropped raid XP instead of waiting on the old fixed timer.",
+        },
+      ],
+    },
     {
       version: "0.1.128",
       date: "2026-06-21",

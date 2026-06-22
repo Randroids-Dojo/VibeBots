@@ -690,11 +690,14 @@
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
-        "src/components/mine-canvas.tsx"
+        "src/app/api/bunker/raid/finish/route.ts",
+        "src/components/mine-canvas.tsx",
+        "src/components/mine-panel.tsx"
       ],
       "testRefs": [
         "src/sim/bunker.test.ts",
-        "src/server/bunker.test.ts"
+        "src/server/bunker.test.ts",
+        "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": [
         "F-029"

@@ -14,5 +14,9 @@ export async function POST(): Promise<Response> {
   if (!result.ok) {
     return Response.json({ error: result.error }, { status: result.status });
   }
-  return Response.json({ ...result.view, raid: result.raid });
+  return Response.json({
+    ...result.view,
+    raid: result.raid,
+    reward: result.reward,
+  });
 }

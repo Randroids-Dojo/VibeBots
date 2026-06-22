@@ -5,7 +5,6 @@ import {
   type BasePartId,
   type BasePartInventory,
   BUNKER_RAID_COOLDOWN_HOURS,
-  BUNKER_RAID_DURATION_SECONDS,
   type BunkerFootprint,
   type BunkerRaidRewardReport,
   type BunkerRaidSnapshot,
@@ -478,6 +477,7 @@ export async function startBunkerRaid(
   await sql`
     UPDATE bunkers
     SET parts = ${JSON.stringify(wornBunker.parts)}::jsonb,
+        core = ${JSON.stringify(wornBunker.core)}::jsonb,
         updated_at = now()
     WHERE player_id = ${playerId}`;
   await sql`
@@ -493,7 +493,7 @@ export async function startBunkerRaid(
       ${raid.raidId},
       ${raid.tier},
       ${JSON.stringify(raid)}::jsonb,
-      ${BUNKER_RAID_DURATION_SECONDS}
+      ${raid.durationSeconds}
     )`;
   return { ok: true, view: await loadBunkerView(sql, playerId), raid };
 }
@@ -525,7 +525,7 @@ export async function finishBunkerRaid(
   }
   const raid = row.snapshot as BunkerRaidSnapshot;
   const elapsed = Date.now() - new Date(row.started_at).getTime();
-  if (elapsed < row.duration_seconds * 1000) {
+  if (!raid.allClankersDead && elapsed < row.duration_seconds * 1000) {
     return { ok: false, status: 409, error: "raid still in progress" };
   }
   const rewarded = (await sql`

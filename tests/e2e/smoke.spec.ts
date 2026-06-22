@@ -882,6 +882,9 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
               row: 0,
               targetCol: START_COL - 3,
               targetRow: 1,
+              batterySteps: 9,
+              deathStep: 4,
+              status: "self-destructed",
               path: [
                 { col: START_COL - 6, row: 0 },
                 { col: START_COL - 5, row: 0 },
@@ -897,9 +900,30 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
           spikeDamage: 0,
           totalPartDurability: 90,
           incomingDamage: 40,
+          partDamage: [
+            {
+              clankerId: "clanker-1",
+              col: START_COL - 3,
+              row: 1,
+              target: "part",
+              partId: "wall-panel",
+              damage: 40,
+            },
+          ],
+          coreDamage: 0,
+          xpPickups: [
+            {
+              id: "clanker-1-xp",
+              col: START_COL - 3,
+              row: 1,
+              defenseXp: 10,
+              collected: false,
+            },
+          ],
+          allClankersDead: true,
           breached: false,
           survived: true,
-          reward: { vibes: 30, defenseXp: 60 },
+          reward: { vibes: 30, defenseXp: 10 },
         },
         raid: {
           raidId: "raid-smoke",
@@ -913,9 +937,13 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
           spikeDamage: 0,
           totalPartDurability: 90,
           incomingDamage: 40,
+          partDamage: [],
+          coreDamage: 0,
+          xpPickups: [],
+          allClankersDead: true,
           breached: false,
           survived: true,
-          reward: { vibes: 30, defenseXp: 60 },
+          reward: { vibes: 30, defenseXp: 10 },
         },
       }),
     });
@@ -937,7 +965,13 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await expect(builder).toContainText("Floor x3");
   await expect(builder).toContainText("Roof x3");
   await builder.getByRole("button", { name: "Start Clanker raid" }).click();
-  await expect(builder).toContainText("Clankers attacking for 180 seconds");
+  await page.getByRole("button", { name: "Open bunker builder" }).click();
+  await expect(builder).toBeVisible();
+  await expect(builder).toContainText("1 Clanker dead");
+  await expect(builder).toContainText("10 defense XP on the ground");
+  await expect(
+    builder.getByRole("button", { name: "Collect raid XP" }),
+  ).toBeVisible();
 });
 
 test("mine requires an explicit bunker claim mode before showing the claim panel", async ({
@@ -1818,17 +1852,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Zoomed-out mine views stay readable instead of going darker.",
+    "Bunker raids now end when every Clanker is dead.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "no longer draws edge falloff while zoom-out is still available",
+    "spend battery on their route",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "falloff appears only at the lantern's zoom-out cap",
+    "dead Clankers leave defense XP pickups",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "zoom caps, mine replay rules, and sim versions are unchanged",
+    "collects the dropped raid XP",
   );
 
   await page.mouse.click(8, 8);
@@ -1848,6 +1882,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.129", "Clanker raid damage"],
     ["0.1.128", "Lantern zoom overview fix"],
     ["0.1.127", "Bunker builder controls"],
     ["0.1.126", "Scrap selection cleanup"],

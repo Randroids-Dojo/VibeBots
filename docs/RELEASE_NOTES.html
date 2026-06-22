@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.129" data-date="2026-06-21">
+    <h2>0.1.129</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.129</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Bunker raids now end when every Clanker is dead.</dd>
+      <dt>Clankers</dt><dd>Clankers now spend battery on their route, bite reachable base parts or the bunker core, and stop when they die. If they cannot reach the player cell before battery exhaustion, they self-destruct in the mine view.</dd>
+      <dt>Rewards</dt><dd>Clankers that fail to reach the player cell self-destruct in the mine view. Dead Clankers leave defense XP pickups, and the bunker raid button collects the dropped XP instead of waiting on the old fixed timer.</dd>
+      <dt>Verification</dt><dd>Focused sim, server, route, release, notification, type, and smoke coverage checks the new raid damage contract, self-destruct pickups, immediate raid finish, and current release note. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.128" data-date="2026-06-21">
     <h2>0.1.128</h2>
     <dl>

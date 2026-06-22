@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-21-0.1.128-lantern-zoom-overview",
+      releaseNoticeId: "2026-06-21-0.1.129-clanker-raid-damage",
       releaseSummary:
-        "Lantern zoom overview fix: Zoomed-out mine views stay readable instead of going darker.",
+        "Clanker raid damage: Bunker raids now end when every Clanker is dead.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-21-0.1.128-lantern-zoom-overview",
+      releaseNoticeId: "2026-06-21-0.1.129-clanker-raid-damage",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -6,6 +6,7 @@ import {
   BUNKER_CLAIM_WIDTH,
   type BunkerRaidTerrainKind,
   basePartOwnedLimit,
+  CLANKER_SELF_DESTRUCT_XP,
   canBuyBasePart,
   createBunker,
   FLOOR_SPIKES_DAMAGE,
@@ -111,7 +112,7 @@ describe("bunker vertical slice sim", () => {
     ]);
   });
 
-  it("resolves a tier-one Clanker raid into deterministic rewards", () => {
+  it("resolves a tier-one Clanker raid into damage, dead clankers, and XP pickups", () => {
     const base = createBunker(proposedBunkerFootprint(4, 5));
     let bunker = base;
     let inventory = { ...STARTER_BASE_PART_INVENTORY, "wall-panel": 8 };
@@ -130,23 +131,30 @@ describe("bunker vertical slice sim", () => {
     }
 
     const raid = resolveBunkerRaid(bunker, 1, "test-raid");
-    expect(raid.durationSeconds).toBe(180);
+    expect(raid.durationSeconds).toBeLessThan(180);
     expect(raid.clankers).toHaveLength(6);
-    expect(
-      raid.clankers.every((clanker) => {
-        return clanker.row === base.footprint.row - 1;
-      }),
-    ).toBe(true);
+    expect(raid.allClankersDead).toBe(true);
     expect(
       raid.clankers.map((clanker) => `${clanker.col},${clanker.row}`),
     ).toEqual(
       [-2, 10, -3, 11, -4, 12].map((col) => `${col},${base.footprint.row - 1}`),
     );
+    expect(raid.partDamage.length).toBeGreaterThan(0);
+    expect(raid.incomingDamage).toBeGreaterThan(0);
+    expect(
+      raid.clankers.every((clanker) => clanker.status === "self-destructed"),
+    ).toBe(true);
+    expect(raid.xpPickups).toHaveLength(6);
+    expect(
+      raid.xpPickups.every(
+        (pickup) => pickup.defenseXp === CLANKER_SELF_DESTRUCT_XP,
+      ),
+    ).toBe(true);
     expect(raid.survived).toBe(true);
     expect(raid.reward).toEqual({ vibes: 30, defenseXp: 60 });
   });
 
-  it("plans clanker paths through open cells before chewing dirt", () => {
+  it("plans clanker paths through open cells toward the player cell", () => {
     const base = createBunker(proposedBunkerFootprint(10, 8));
     const firstSpawn = {
       col: base.footprint.col - 3,
@@ -156,7 +164,12 @@ describe("bunker vertical slice sim", () => {
     for (let col = firstSpawn.col; col <= base.footprint.col; col++) {
       open.add(`${col},${firstSpawn.row}`);
     }
-    open.add(`${base.footprint.col},${base.footprint.row}`);
+    for (let row = base.footprint.row; row <= base.core.row; row++) {
+      open.add(`${base.footprint.col},${row}`);
+    }
+    for (let col = base.footprint.col; col <= base.core.col; col++) {
+      open.add(`${col},${base.core.row}`);
+    }
 
     const raid = resolveBunkerRaid(base, 1, "open-raid", {
       terrainAt: (col, row) => (open.has(`${col},${row}`) ? "empty" : "dirt"),
@@ -168,7 +181,31 @@ describe("bunker vertical slice sim", () => {
       { col: firstSpawn.col + 2, row: firstSpawn.row },
       { col: firstSpawn.col + 3, row: firstSpawn.row },
       { col: base.footprint.col, row: base.footprint.row },
+      { col: base.footprint.col + 1, row: base.footprint.row },
+      { col: base.footprint.col + 2, row: base.footprint.row },
+      { col: base.core.col, row: base.footprint.row },
+      { col: base.core.col, row: base.footprint.row + 1 },
+      { col: base.core.col, row: base.core.row },
     ]);
+  });
+
+  it("breaches the player cell when an open route reaches it before battery dies", () => {
+    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const raid = resolveBunkerRaid(base, 1, "core-raid", {
+      terrainAt: openTerrain,
+    });
+
+    expect(
+      raid.clankers.some((clanker) => clanker.targetCol === base.core.col),
+    ).toBe(true);
+    expect(
+      raid.clankers.some((clanker) => {
+        return clanker.status === "self-destructed";
+      }),
+    ).toBe(true);
+    expect(raid.coreDamage).toBeGreaterThan(0);
+    expect(raid.xpPickups).toHaveLength(0);
+    expect(raid.survived).toBe(false);
   });
 
   it("never spawns clankers inside occupied generated cells", () => {
@@ -259,7 +296,16 @@ describe("bunker vertical slice sim", () => {
 
     expect(raid.turretShots).toBe(3);
     expect(raid.turretDamage).toBe(54);
-    expect(raid.incomingDamage).toBe(102);
+    expect(
+      raid.clankers.filter((clanker) => clanker.status === "turret-destroyed"),
+    ).toHaveLength(3);
+    expect(
+      raid.clankers.some((clanker) => {
+        return clanker.status === "self-destructed";
+      }),
+    ).toBe(true);
+    expect(raid.xpPickups.length).toBeGreaterThan(0);
+    expect(raid.survived).toBe(true);
 
     const worn = applyBunkerRaidWear(placed.bunker, raid);
     expect(worn.parts).toEqual([
@@ -289,7 +335,7 @@ describe("bunker vertical slice sim", () => {
 
     expect(raid.spikeTriggers).toBe(1);
     expect(raid.spikeDamage).toBe(FLOOR_SPIKES_DAMAGE);
-    expect(raid.incomingDamage).toBe(140);
+    expect(raid.coreDamage).toBeGreaterThan(0);
 
     const worn = applyBunkerRaidWear(placed.bunker, raid);
     expect(worn.parts).toEqual([

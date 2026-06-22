@@ -14,6 +14,11 @@ export const BASIC_TURRET_MIN_LEVEL = 2;
 export const BASIC_TURRET_OWNED_LIMIT = 1;
 export const FLOOR_SPIKES_LEVEL_ONE_LIMIT = 4;
 export const FLOOR_SPIKES_LEVEL_TWO_LIMIT = 6;
+export const CLANKER_BASE_BATTERY_STEPS = 7;
+export const CLANKER_BATTERY_STEPS_PER_TIER = 2;
+export const CLANKER_BASE_BITE_DAMAGE = 24;
+export const CLANKER_BITE_DAMAGE_PER_TIER = 8;
+export const CLANKER_SELF_DESTRUCT_XP = 10;
 
 export const BASE_PART_IDS = [
   "wall-panel",
@@ -157,6 +162,18 @@ export interface ClankerState {
   targetCol: number;
   targetRow: number;
   path?: Array<{ col: number; row: number }>;
+  batterySteps: number;
+  deathStep: number;
+  status: "turret-destroyed" | "self-destructed";
+}
+
+export interface BunkerRaidDamageEvent {
+  clankerId: string;
+  col: number;
+  row: number;
+  target: "part" | "core";
+  partId?: BasePartId;
+  damage: number;
 }
 
 export interface BunkerRaidSnapshot {
@@ -171,6 +188,16 @@ export interface BunkerRaidSnapshot {
   spikeDamage: number;
   totalPartDurability: number;
   incomingDamage: number;
+  partDamage: BunkerRaidDamageEvent[];
+  coreDamage: number;
+  xpPickups: Array<{
+    id: string;
+    col: number;
+    row: number;
+    defenseXp: number;
+    collected: boolean;
+  }>;
+  allClankersDead: boolean;
   breached: boolean;
   survived: boolean;
   reward: {
@@ -677,8 +704,8 @@ function planClankerRoute(
       part && BASE_PART_CATALOG[part.partId].blocksClankers
         ? 0
         : bunker.core.col === target.col && bunker.core.row === target.row
-          ? 16
-          : 12;
+          ? 6
+          : 50;
     const score = route.score + finalPenalty + targetPriority;
     if (
       !best ||
@@ -704,6 +731,14 @@ function reservePath(
   }
 }
 
+function clankerBatterySteps(tier: number): number {
+  return CLANKER_BASE_BATTERY_STEPS + tier * CLANKER_BATTERY_STEPS_PER_TIER;
+}
+
+function clankerBiteDamage(tier: number): number {
+  return CLANKER_BASE_BITE_DAMAGE + tier * CLANKER_BITE_DAMAGE_PER_TIER;
+}
+
 export function resolveBunkerRaid(
   bunker: BunkerState,
   tier: number,
@@ -713,7 +748,12 @@ export function resolveBunkerRaid(
   const normalizedTier = Math.max(1, Math.floor(tier));
   const targets = candidateTargets(bunker);
   const clankerCount = 4 + normalizedTier * 2;
-  const clankers: ClankerState[] = [];
+  const plannedRoutes: Array<{
+    id: string;
+    start: { col: number; row: number };
+    target: { col: number; row: number };
+    path: Array<{ col: number; row: number }>;
+  }> = [];
   const reservations = new Map<string, number>();
   const spawnReservations = new Set<string>();
   for (let i = 0; i < clankerCount; i++) {
@@ -727,12 +767,10 @@ export function resolveBunkerRaid(
       reservations,
     );
     reservePath(reservations, route.path);
-    clankers.push({
+    plannedRoutes.push({
       id: `${raidId}-clanker-${i + 1}`,
-      col: start.col,
-      row: start.row,
-      targetCol: route.target.col,
-      targetRow: route.target.row,
+      start,
+      target: route.target,
       path: route.path,
     });
   }
@@ -752,17 +790,119 @@ export function resolveBunkerRaid(
   ).length;
   const spikeTriggers = Math.min(clankerCount, liveSpikeCount);
   const spikeDamage = spikeTriggers * FLOOR_SPIKES_DAMAGE;
-  const incomingDamage = Math.max(
-    0,
-    clankerCount * (18 + normalizedTier * 8) - turretDamage - spikeDamage,
+  const clankers: ClankerState[] = [];
+  const partDamage: BunkerRaidDamageEvent[] = [];
+  const xpPickups: BunkerRaidSnapshot["xpPickups"] = [];
+  const biteDamage = clankerBiteDamage(normalizedTier);
+  const batterySteps = clankerBatterySteps(normalizedTier);
+  let coreDamage = 0;
+  let remainingTurretShots = turretShots;
+
+  for (const route of plannedRoutes) {
+    if (remainingTurretShots > 0) {
+      remainingTurretShots--;
+      const deathCell = route.path[0] ?? route.start;
+      clankers.push({
+        id: route.id,
+        col: route.start.col,
+        row: route.start.row,
+        targetCol: route.target.col,
+        targetRow: route.target.row,
+        path: route.path,
+        batterySteps,
+        deathStep: 0,
+        status: "turret-destroyed",
+      });
+      xpPickups.push({
+        id: `${route.id}-xp`,
+        col: deathCell.col,
+        row: deathCell.row,
+        defenseXp: CLANKER_SELF_DESTRUCT_XP,
+        collected: false,
+      });
+      continue;
+    }
+
+    const routeSteps = Math.max(0, route.path.length - 1);
+    const reachedTarget = routeSteps <= batterySteps;
+    const deathStep = reachedTarget ? routeSteps : batterySteps;
+    const deathCell =
+      route.path[Math.min(deathStep, Math.max(0, route.path.length - 1))] ??
+      route.start;
+    const targetIsCore =
+      reachedTarget &&
+      route.target.col === bunker.core.col &&
+      route.target.row === bunker.core.row;
+    const targetPart = reachedTarget
+      ? findPartAt(bunker, route.target.col, route.target.row)
+      : undefined;
+
+    if (targetPart) {
+      partDamage.push({
+        clankerId: route.id,
+        col: targetPart.col,
+        row: targetPart.row,
+        target: "part",
+        partId: targetPart.partId,
+        damage: biteDamage,
+      });
+    } else if (targetIsCore) {
+      coreDamage += biteDamage;
+      partDamage.push({
+        clankerId: route.id,
+        col: bunker.core.col,
+        row: bunker.core.row,
+        target: "core",
+        damage: biteDamage,
+      });
+    }
+
+    const status = "self-destructed";
+    if (!targetIsCore) {
+      xpPickups.push({
+        id: `${route.id}-xp`,
+        col: deathCell.col,
+        row: deathCell.row,
+        defenseXp: CLANKER_SELF_DESTRUCT_XP,
+        collected: false,
+      });
+    }
+
+    clankers.push({
+      id: route.id,
+      col: route.start.col,
+      row: route.start.row,
+      targetCol: route.target.col,
+      targetRow: route.target.row,
+      path: route.path,
+      batterySteps,
+      deathStep,
+      status,
+    });
+  }
+
+  const incomingDamage = partDamage.reduce((sum, event) => {
+    return sum + event.damage;
+  }, 0);
+  const deathStep = clankers.reduce((maxStep, clanker) => {
+    return Math.max(maxStep, clanker.deathStep);
+  }, 0);
+  const durationSeconds = Math.min(
+    BUNKER_RAID_DURATION_SECONDS,
+    Math.max(3, deathStep),
   );
   const breached =
-    incomingDamage >= totalPartDurability + bunker.core.durability;
+    coreDamage >= bunker.core.durability ||
+    partDamage.some((event) => event.target === "core");
   const survived = !breached;
+  const finalXpPickups = survived ? xpPickups : [];
+  const pickupXp = finalXpPickups.reduce((sum, pickup) => {
+    return sum + pickup.defenseXp;
+  }, 0);
   return {
     raidId,
     tier: normalizedTier,
-    durationSeconds: BUNKER_RAID_DURATION_SECONDS,
+    durationSeconds,
     startedAtMs: options.startedAtMs,
     clankers,
     turretShots,
@@ -771,12 +911,16 @@ export function resolveBunkerRaid(
     spikeDamage,
     totalPartDurability,
     incomingDamage,
+    partDamage,
+    coreDamage,
+    xpPickups: finalXpPickups,
+    allClankersDead: true,
     breached,
     survived,
     reward: survived
       ? {
           vibes: 20 + normalizedTier * 10,
-          defenseXp: 40 + normalizedTier * 20,
+          defenseXp: pickupXp,
         }
       : { vibes: 0, defenseXp: 0 },
   };
@@ -784,15 +928,31 @@ export function resolveBunkerRaid(
 
 export function applyBunkerRaidWear(
   bunker: BunkerState,
-  raid: Pick<BunkerRaidSnapshot, "clankers" | "spikeTriggers" | "turretShots">,
+  raid: {
+    clankers: readonly unknown[];
+    spikeTriggers: number;
+    turretShots: number;
+    partDamage?: BunkerRaidDamageEvent[];
+    coreDamage?: number;
+  },
 ): BunkerState {
   let remainingSpikeSteps = raid.spikeTriggers;
   let remainingTurretHits = Math.max(
     0,
     raid.clankers.length - raid.turretShots,
   );
+  const damageByPartCell = new Map<string, number>();
+  for (const event of raid.partDamage ?? []) {
+    if (event.target !== "part") continue;
+    const key = coordKey(event.col, event.row);
+    damageByPartCell.set(key, (damageByPartCell.get(key) ?? 0) + event.damage);
+  }
   return {
     ...bunker,
+    core: {
+      ...bunker.core,
+      durability: Math.max(0, bunker.core.durability - (raid.coreDamage ?? 0)),
+    },
     parts: bunker.parts
       .flatMap((part) => {
         if (part.partId !== "floor-spikes" || remainingSpikeSteps <= 0) {
@@ -809,6 +969,13 @@ export function applyBunkerRaidWear(
         }
         const damage = Math.min(part.durability, remainingTurretHits);
         remainingTurretHits -= damage;
+        const nextDurability = Math.max(0, part.durability - damage);
+        if (nextDurability <= 0) return [];
+        return [{ ...part, durability: nextDurability }];
+      })
+      .flatMap((part) => {
+        const damage = damageByPartCell.get(coordKey(part.col, part.row)) ?? 0;
+        if (damage <= 0) return [part];
         const nextDurability = Math.max(0, part.durability - damage);
         if (nextDurability <= 0) return [];
         return [{ ...part, durability: nextDurability }];

@@ -78,6 +78,10 @@ describe("bunker server helpers", () => {
               spikeDamage: 0,
               totalPartDurability: 180,
               incomingDamage: 100,
+              partDamage: [],
+              coreDamage: 0,
+              xpPickups: [],
+              allClankersDead: true,
               breached: false,
               survived: true,
               reward: { vibes: 30, defenseXp: 60 },
@@ -103,7 +107,7 @@ describe("bunker server helpers", () => {
 
   it("reports defense XP, level-up rewards, and the first defense stamp", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-18T00:05:00.000Z"));
+    vi.setSystemTime(new Date("2026-06-18T00:00:10.000Z"));
     const sql = vi.fn(async (strings: TemplateStringsArray) => {
       const query = strings.join(" ");
       if (query.includes("SELECT raid_id, snapshot")) {
@@ -123,6 +127,18 @@ describe("bunker server helpers", () => {
               spikeDamage: 0,
               totalPartDurability: 180,
               incomingDamage: 100,
+              partDamage: [],
+              coreDamage: 0,
+              xpPickups: [
+                {
+                  id: "raid-1-clanker-1-xp",
+                  col: 4,
+                  row: 5,
+                  defenseXp: 60,
+                  collected: false,
+                },
+              ],
+              allClankersDead: true,
               breached: false,
               survived: true,
               reward: { vibes: 30, defenseXp: 60 },
@@ -272,15 +288,13 @@ describe("bunker server helpers", () => {
     expect(result.raid.clankers[0]).toMatchObject({
       col: 4,
       row: 5,
-      targetRow: 6,
+      targetCol: 10,
+      targetRow: 8,
     });
-    expect(result.raid.clankers[0].path).toEqual([
-      { col: 4, row: 5 },
-      { col: 5, row: 5 },
-      { col: 6, row: 5 },
-      { col: 7, row: 5 },
-      { col: 7, row: 6 },
-    ]);
+    expect(result.raid.clankers[0].path?.at(-1)).toEqual({
+      col: 10,
+      row: 8,
+    });
   });
 
   it("rejects Basic Turret buys below player level 2 before spending", async () => {

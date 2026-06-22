@@ -360,7 +360,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
   "Tip: Planted beacons only work within your current Warpcoil range.",
   "Tip: Distant biome beacons become free portals back to base.",
-  "Tip: Bunker defenses raise player level for later upgrades.",
+  "Tip: Bunker raids drop defense XP for player-level upgrades.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
 ] as const;
@@ -4514,7 +4514,7 @@ function BunkerControlPanel({
                 background: "#3a1820",
               }}
             >
-              {activeRaid ? "Check raid result" : "Start Clanker raid"}
+              {activeRaid ? "Collect raid XP" : "Start Clanker raid"}
             </button>
             {pendingClaim && (
               <p
@@ -4535,8 +4535,14 @@ function BunkerControlPanel({
                   color: "#f5c542",
                 }}
               >
-                {activeRaid.clankers.length} Clankers attacking for{" "}
-                {activeRaid.durationSeconds} seconds.
+                {activeRaid.clankers.length}{" "}
+                {activeRaid.clankers.length === 1 ? "Clanker" : "Clankers"}{" "}
+                dead.{" "}
+                {(activeRaid.xpPickups ?? []).reduce(
+                  (sum, pickup) => sum + pickup.defenseXp,
+                  0,
+                )}{" "}
+                defense XP on the ground.
               </p>
             )}
           </>

@@ -330,6 +330,11 @@ interface JuiceState {
   fallWarning: number;
 }
 
+function crackSegmentCountForDamage(damage: number): number {
+  const d = Math.max(0, Math.min(1, damage));
+  return 3 + Math.floor(d * 6) + Math.floor(d * d * 7);
+}
+
 interface MotionTrack {
   fromX: number;
   fromY: number;
@@ -1521,6 +1526,42 @@ function spawnBurst(
   }
 }
 
+function spawnDirtBreakBurst(
+  juice: JuiceState,
+  x: number,
+  y: number,
+  color: string,
+): void {
+  const dustColors = [color, "#6f5a42", "#9a7450", "#4a3527"];
+  for (let i = 0; i < 24; i++) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    pushParticle(juice, {
+      kind: "debris",
+      x: x + (Math.random() - 0.5) * 0.52,
+      y: y + (Math.random() - 0.5) * 0.42,
+      vx: side * (0.9 + Math.random() * 2.9) + (Math.random() - 0.5) * 0.8,
+      vy: 0.7 + Math.random() * 3.4,
+      gravity: 10.5 + Math.random() * 4,
+      size: 0.09 + Math.random() * 0.16,
+      color: dustColors[i % dustColors.length],
+      life: 0.5 + Math.random() * 0.42,
+    });
+  }
+  for (let i = 0; i < 18; i++) {
+    pushParticle(juice, {
+      kind: "dust",
+      x: x + (Math.random() - 0.5) * 0.72,
+      y: y - 0.22 + Math.random() * 0.22,
+      vx: (Math.random() - 0.5) * 1.9,
+      vy: 0.28 + Math.random() * 1.05,
+      gravity: 1.6 + Math.random() * 0.8,
+      size: 0.13 + Math.random() * 0.16,
+      color: dustColors[(i + 1) % dustColors.length],
+      life: 0.72 + Math.random() * 0.48,
+    });
+  }
+}
+
 /** Hot pick-strike sparks: fast, bright, gone in a blink. */
 function spawnSparks(
   juice: JuiceState,
@@ -1767,23 +1808,61 @@ function CrackMarks({
   row: number;
   damage: number;
 }) {
-  const count = Math.min(3, Math.max(1, Math.ceil(damage * 3)));
+  const d = Math.max(0.08, Math.min(1, damage));
+  const count = crackSegmentCountForDamage(d);
   const marks = [];
   for (let i = 0; i < count; i++) {
     const a = cellHash(col, row, 61 + i);
     const b = cellHash(col, row, 67 + i);
+    const branch = i > 2;
+    const branchDepth = branch ? (i - 3) / Math.max(1, count - 3) : 0;
+    const length =
+      (branch ? 0.16 : 0.3) + d * (branch ? 0.18 : 0.42) + branchDepth * 0.08;
+    const width = branch ? 0.018 + d * 0.012 : 0.026 + d * 0.018;
+    const z = branch ? 0.515 : 0.52;
+    const spread = 0.2 + d * 0.42;
     marks.push(
-      <mesh
+      <group
         key={i}
-        position={[(a - 0.5) * 0.6, (b - 0.5) * 0.6, 0.5]}
-        rotation={[0, 0, a * 3.1]}
+        position={[(a - 0.5) * spread, (b - 0.5) * spread, z]}
+        rotation={[0, 0, a * Math.PI * 1.75 + branchDepth * 1.2]}
       >
-        <boxGeometry args={[0.3 + damage * 0.35, 0.035, 0.02]} />
-        <meshStandardMaterial color="#0d0b08" roughness={1} />
-      </mesh>,
+        <mesh position={[0.018, -0.015, -0.004]}>
+          <boxGeometry args={[length + 0.035, width + 0.014, 0.018]} />
+          <meshBasicMaterial
+            color="#5b3d29"
+            transparent
+            opacity={0.34 + d * 0.2}
+            depthWrite={false}
+          />
+        </mesh>
+        <mesh>
+          <boxGeometry args={[length, width, 0.024]} />
+          <meshBasicMaterial
+            color="#110c08"
+            transparent
+            opacity={0.64 + d * 0.28}
+            depthWrite={false}
+          />
+        </mesh>
+        {d > 0.55 && !branch ? (
+          <mesh
+            position={[length * 0.24, 0.055 + b * 0.035, 0.01]}
+            rotation={[0, 0, -0.72 - b * 0.58]}
+          >
+            <boxGeometry args={[length * 0.45, width * 0.62, 0.02]} />
+            <meshBasicMaterial
+              color="#0b0805"
+              transparent
+              opacity={0.6 + d * 0.24}
+              depthWrite={false}
+            />
+          </mesh>
+        ) : null}
+      </group>,
     );
   }
-  return <group>{marks}</group>;
+  return <group scale={[1, 1, 1 + d * 0.08]}>{marks}</group>;
 }
 
 /**
@@ -2873,6 +2952,7 @@ function MineScene({
   const fallClearTimeout = useRef<number | null>(null);
   const [fallWindow, setFallWindow] = useState<FallWindow | null>(null);
   const renderedCellCountRef = useRef(0);
+  const renderedCrackSegmentCountRef = useRef(0);
 
   const displayCol = fallWindow?.col ?? mine.miner.col;
   const minerRow = fallWindow?.toRow ?? mine.miner.row;
@@ -3012,21 +3092,32 @@ function MineScene({
             : lastResult.dug === "part-cache"
               ? CACHE_COLOR
               : biomeDirtColorAt(at.col, at.row);
-      spawnBurst(
-        j,
-        cellX(at.col),
-        -at.row,
-        color,
-        lastResult.dug === "rock" ? 16 : 11,
-      );
+      if (lastResult.dug === "dirt") {
+        spawnDirtBreakBurst(j, cellX(at.col), -at.row, color);
+      } else {
+        spawnBurst(
+          j,
+          cellX(at.col),
+          -at.row,
+          color,
+          lastResult.dug === "rock" ? 16 : 11,
+        );
+      }
       spawnSparks(
         j,
         cellX(at.col),
         -at.row,
-        lastResult.dug === "rock" ? 10 : 6,
+        lastResult.dug === "rock" ? 10 : lastResult.dug === "dirt" ? 5 : 6,
       );
       // Every strike thumps; rock thumps harder.
-      j.shake = Math.max(j.shake, lastResult.dug === "rock" ? 0.12 : 0.045);
+      j.shake = Math.max(
+        j.shake,
+        lastResult.dug === "rock"
+          ? 0.12
+          : lastResult.dug === "dirt"
+            ? 0.16
+            : 0.045,
+      );
       // Lunge the body toward the struck cell.
       const ldx = lastAction === "left" ? -1 : lastAction === "right" ? 1 : 0;
       const ldy = lastAction === "down" ? -1 : lastAction === "up" ? 1 : 0;
@@ -3199,6 +3290,10 @@ function MineScene({
       state.gl.domElement.dataset.renderedCellCount = String(
         renderedCellCountRef.current,
       );
+      state.gl.domElement.dataset.crackSegmentCount = String(
+        renderedCrackSegmentCountRef.current,
+      );
+      state.gl.domElement.dataset.particleCount = String(j.particles.length);
       state.gl.domElement.dataset.darknessOpacityMin = hasDarknessOverlay
         ? minDarknessOpacity.toFixed(2)
         : "0.00";
@@ -3422,6 +3517,7 @@ function MineScene({
   let minDarknessOpacity = 1;
   let maxDarknessOpacity = 0;
   let renderedCellCount = 0;
+  let renderedCrackSegmentCount = 0;
   const selectedSupportSet = new Set(selectedSupportKeys ?? []);
   const dynamitePreviewSet = new Set(
     (dynamitePreviewCells ?? []).map((coord) => `${coord.col}:${coord.row}`),
@@ -3506,6 +3602,7 @@ function MineScene({
           1 -
             (cell.hp ?? hitsFor(cell.kind, mine.gear)) /
               hitsFor(cell.kind, mine.gear);
+        renderedCrackSegmentCount += crackSegmentCountForDamage(damage);
         crackMeshes.push(
           <group key={`crack:${key}`} position={[x, y, 0]}>
             <CrackMarks col={col} row={row} damage={damage} />
@@ -3982,6 +4079,7 @@ function MineScene({
     );
   }
   renderedCellCountRef.current = renderedCellCount;
+  renderedCrackSegmentCountRef.current = renderedCrackSegmentCount;
   const hasDarknessOverlay = maxDarknessOpacity > 0;
 
   return (

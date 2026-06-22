@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="dirt-break-polish" data-date="2026-06-22">
+    <h3>Dirt Break Polish</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/dirt-break-polish</code>, created from a fresh worktree rooted at current <code>origin/main</code>, then rebased over the upstream raid XP pickup and base part visuals releases.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, cleanup, and verification.</dd>
+      <dt>Changed</dt><dd>User-reported mine visual polish. Dirt damage now renders as growing branching cracks instead of sparse bars, and the final dirt break throws heavier chunks, slower dust, and a stronger shake. The mine canvas exposes crack and particle diagnostics for smoke coverage. Package version moved to <code>0.1.132</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, test, release, package, and doc files, focused Vitest for release and notification tests (56 passed after rebase), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, <code>pnpm test</code> (389 passed), <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3664 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "dirt cracks grow before a heavy break burst|mine shows the latest release note" --project=chromium</code> (2 passed), <code>git diff --check</code>, and JSON validation. Rebased again over <code>0.1.131</code> base part visuals and reran the final checks before direct push. In-app Browser checked <code>http://127.0.0.1:3665/mine</code>: the release dialog showed <code>0.1.132</code> dirt polish copy and the mine canvas rendered at <code>1280 x 720</code> CSS pixels.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a render-only feedback upgrade and does not change mine generation, action logs, replay validation, cash-out math, or combat sim behavior, so no mine-version or sim-version bump is needed. Mine surface tips were reviewed; the existing multi-hit and falling-rock tips remain current.</dd>
+      <dt>GDD coverage</dt><dd>No coverage-row status changed because REQ-018 was already done. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, and added focused smoke coverage for crack growth and the final dirt burst.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="base-part-visuals" data-date="2026-06-22">
     <h3>Base Part Visuals</h3>
     <dl>

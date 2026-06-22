@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest base part visuals note complete", () => {
+  it("keeps the latest dirt break polish note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-22-0.1.131-base-part-visuals");
+    expect(release.noticeId).toBe("2026-06-22-0.1.132-dirt-break-polish");
+    expect(latestNote).toMatchObject({
+      version: "0.1.132",
+      title: "Dirt break polish",
+      intro: "Dirt blocks now crack and burst with more weight.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Dirt cracks now branch wider on every hit instead of using the old sparse marks.",
+      "The final dirt hit throws chunky debris, slower dust, and a stronger thump so the break feels heavier.",
+      "Focused smoke coverage now checks crack growth and the final dirt particle burst.",
+    ]);
+  });
+
+  it("keeps the archived base part visuals note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.131");
+
     expect(latestNote).toMatchObject({
       version: "0.1.131",
       title: "Base part visuals",

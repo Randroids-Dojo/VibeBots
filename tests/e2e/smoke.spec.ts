@@ -754,6 +754,73 @@ test("mine digs and tracks depth and energy", async ({ page }) => {
   await expect(status).toHaveAttribute("data-ladders", /\d+/);
 });
 
+test("dirt cracks grow before a heavy break burst", async ({ page }) => {
+  const seed = 2026062102;
+  const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  setCell(mine, START_COL, 1, { kind: "dirt" });
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+
+  await pressMineKey(page, "ArrowDown");
+  let firstCracks = 0;
+  await expect
+    .poll(
+      async () => {
+        firstCracks = Number(
+          await canvas.getAttribute("data-crack-segment-count"),
+        );
+        return firstCracks;
+      },
+      { timeout: 3_000 },
+    )
+    .toBeGreaterThan(0);
+  await page.waitForTimeout(650);
+
+  await pressMineKey(page, "ArrowDown");
+  await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-crack-segment-count")),
+      { timeout: 3_000 },
+    )
+    .toBeGreaterThan(firstCracks);
+  await page.waitForTimeout(650);
+
+  await pressMineKey(page, "ArrowDown");
+  await page.waitForTimeout(650);
+  await pressMineKey(page, "ArrowDown");
+  await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-particle-count")),
+      { timeout: 3_000 },
+    )
+    .toBeGreaterThanOrEqual(30);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "1",
+  );
+});
+
 test("mine low battery and ladder warnings pulse on screen", async ({
   page,
 }) => {
@@ -1861,17 +1928,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Bunker parts now look like their real building roles.",
+    "Dirt blocks now crack and burst with more weight.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Floors draw as bottom plates",
+    "branch wider on every hit",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "several large upward spikes",
+    "chunky debris, slower dust",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Roofs draw as triangular caps",
+    "final dirt particle burst",
   );
 
   await page.mouse.click(8, 8);
@@ -1891,6 +1958,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.132", "Dirt break polish"],
     ["0.1.131", "Base part visuals"],
     ["0.1.130", "Raid XP pickups"],
     ["0.1.129", "Clanker raid damage"],

@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-22-0.1.131-base-part-visuals";
+const RELEASE_NOTICE_ID = "2026-06-22-0.1.132-dirt-break-polish";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.132",
+      date: "2026-06-22",
+      title: "Dirt break polish",
+      intro: "Dirt blocks now crack and burst with more weight.",
+      changes: [
+        {
+          build,
+          text: "Dirt cracks now branch wider on every hit instead of using the old sparse marks.",
+        },
+        {
+          build,
+          text: "The final dirt hit throws chunky debris, slower dust, and a stronger thump so the break feels heavier.",
+        },
+        {
+          build,
+          text: "Focused smoke coverage now checks crack growth and the final dirt particle burst.",
+        },
+      ],
+    },
     {
       version: "0.1.131",
       date: "2026-06-22",

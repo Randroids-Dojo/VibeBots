@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-22-0.1.135-roof-cell-polish",
+      releaseNoticeId: "2026-06-22-0.1.136-clanker-chew-xp-pickups",
       releaseSummary:
-        "Roof cell polish: Bunker roof cells now sit cleanly together.",
+        "Clanker chew and XP pickups: Clankers now chew blockers and drop readable XP.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-22-0.1.135-roof-cell-polish",
+      releaseNoticeId: "2026-06-22-0.1.136-clanker-chew-xp-pickups",
       attempted: 2,
       sent: 1,
       expired: 1,

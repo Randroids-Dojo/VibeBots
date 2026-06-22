@@ -148,7 +148,12 @@ describe("bunker vertical slice sim", () => {
     expect(raid.partDamage.length).toBeGreaterThan(0);
     expect(raid.incomingDamage).toBeGreaterThan(0);
     expect(
-      raid.clankers.every((clanker) => clanker.status === "self-destructed"),
+      raid.clankers.every((clanker) => clanker.status === "battery-drained"),
+    ).toBe(true);
+    expect(
+      raid.partDamage.some(
+        (event) => event.damage >= BASE_PART_CATALOG["wall-panel"].durability,
+      ),
     ).toBe(true);
     expect(raid.xpPickups).toHaveLength(6);
     expect(
@@ -162,6 +167,42 @@ describe("bunker vertical slice sim", () => {
       level: 2,
       progressXp: 50,
       beaconLimit: 3,
+    });
+  });
+
+  it("spends remaining Clanker battery chewing a surviving blocker", () => {
+    const base = fullyEnclosedBunker(10, 8);
+    const bunker = {
+      ...base,
+      parts: base.parts.map((part) => ({ ...part, durability: 500 })),
+    };
+    const blockingWall = bunker.parts[0];
+    expect(blockingWall).toBeDefined();
+    if (!blockingWall) return;
+    const raid = resolveBunkerRaid(bunker, 1, "chew-raid");
+    const clanker = raid.clankers[0];
+    const damage = raid.partDamage.find((event) => {
+      return event.clankerId === clanker?.id;
+    });
+
+    expect(clanker).toMatchObject({
+      targetCol: blockingWall.col,
+      targetRow: blockingWall.row,
+      status: "battery-drained",
+      deathStep: 9,
+    });
+    expect(clanker?.path).toHaveLength(10);
+    expect(damage).toMatchObject({
+      target: "part",
+      partId: "wall-panel",
+      damage: 192,
+    });
+    expect(
+      raid.xpPickups.find((pickup) => pickup.id === `${clanker?.id}-xp`),
+    ).toMatchObject({
+      col: blockingWall.col - 1,
+      row: blockingWall.row,
+      collected: false,
     });
   });
 

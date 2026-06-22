@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="clanker-chew-xp-pickups" data-date="2026-06-22">
+    <h3>Clanker Chew And XP Pickups</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/clanker-chew-xp-pickups</code>, created from a fresh worktree rooted at current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, cleanup, and verification.</dd>
+      <dt>Changed</dt><dd>User-reported bunker raid cleanup. Clankers that reach blocking base parts now spend their remaining battery chewing for repeated damage instead of exploding on contact; a tier-one Clanker can destroy standard wall panels and heavily damage tougher blockers. Raid XP drops land on a reachable approach cell unless the blocker breaks, so walking over the pickup collects it normally. XP pickup art is smaller and uses a green and gold marker with a blue ring. Added a surface tip that layered walls matter because Clankers chew blockers with remaining battery. Package version moved to <code>0.1.136</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source and test files, focused Vitest for bunker sim, bunker server, app release, and notifications (88 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (395 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>, <code>git diff --check</code>, <code>pnpm build</code>, and focused Playwright smoke with <code>PLAYWRIGHT_PORT=3674 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|mine bunker builder starts a Clanker raid" --project=chromium</code> (2 passed). In-app Browser checked <code>http://127.0.0.1:3673/mine</code> and confirmed the local production mine canvas rendered at <code>1280 x 720</code>; that browser profile had already dismissed release notes, so release copy was verified by focused Playwright smoke.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this changes bunker raid resolution, pickup placement, pickup rendering, and tip copy only, not mine generation, cash-out replay, or combat sim behavior, so no mine-version or sim-version bump is needed.</dd>
+      <dt>GDD coverage</dt><dd>REQ-037 and REQ-038 remain partial under <code>F-029</code>. Appended a build-log entry to <code>docs/gdd/08-base-building.html</code>, updated <code>docs/GDD_COVERAGE.json</code>, and updated static and in-game release notes.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="roof-cell-polish" data-date="2026-06-22">
     <h3>Roof Cell Polish</h3>
     <dl>

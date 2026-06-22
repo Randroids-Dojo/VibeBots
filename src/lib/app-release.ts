@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-22-0.1.135-roof-cell-polish";
+const RELEASE_NOTICE_ID = "2026-06-22-0.1.136-clanker-chew-xp-pickups";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.136",
+      date: "2026-06-22",
+      title: "Clanker chew and XP pickups",
+      intro: "Clankers now chew blockers and drop readable XP.",
+      changes: [
+        {
+          build,
+          text: "Clankers that reach blocking base parts now spend their remaining battery chewing for repeated damage instead of exploding on contact.",
+        },
+        {
+          build,
+          text: "Raid XP now drops on a reachable approach cell unless the blocker is destroyed, so walking over the pickup collects it normally.",
+        },
+        {
+          build,
+          text: "XP pickups are now smaller green and gold markers with a blue ring so they read as XP instead of a large loose gem.",
+        },
+      ],
+    },
     {
       version: "0.1.135",
       date: "2026-06-22",

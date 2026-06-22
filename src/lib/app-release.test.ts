@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest roof cell polish note complete", () => {
+  it("keeps the latest Clanker chew and XP pickup note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-22-0.1.135-roof-cell-polish");
+    expect(release.noticeId).toBe("2026-06-22-0.1.136-clanker-chew-xp-pickups");
+    expect(latestNote).toMatchObject({
+      version: "0.1.136",
+      title: "Clanker chew and XP pickups",
+      intro: "Clankers now chew blockers and drop readable XP.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Clankers that reach blocking base parts now spend their remaining battery chewing for repeated damage instead of exploding on contact.",
+      "Raid XP now drops on a reachable approach cell unless the blocker is destroyed, so walking over the pickup collects it normally.",
+      "XP pickups are now smaller green and gold markers with a blue ring so they read as XP instead of a large loose gem.",
+    ]);
+  });
+
+  it("keeps the archived roof cell polish note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.135");
+
     expect(latestNote).toMatchObject({
       version: "0.1.135",
       title: "Roof cell polish",

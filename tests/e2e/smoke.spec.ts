@@ -950,13 +950,18 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
               targetCol: START_COL - 3,
               targetRow: 1,
               batterySteps: 9,
-              deathStep: 4,
-              status: "self-destructed",
+              deathStep: 9,
+              status: "battery-drained",
               path: [
                 { col: START_COL - 6, row: 0 },
                 { col: START_COL - 5, row: 0 },
                 { col: START_COL - 4, row: 0 },
                 { col: START_COL - 3, row: 0 },
+                { col: START_COL - 3, row: 1 },
+                { col: START_COL - 3, row: 1 },
+                { col: START_COL - 3, row: 1 },
+                { col: START_COL - 3, row: 1 },
+                { col: START_COL - 3, row: 1 },
                 { col: START_COL - 3, row: 1 },
               ],
             },
@@ -982,7 +987,7 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
             {
               id: "clanker-1-xp",
               col: START_COL - 3,
-              row: 1,
+              row: 0,
               defenseXp: 25,
               collected: false,
             },
@@ -2033,17 +2038,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Bunker roof cells now sit cleanly together.",
+    "Clankers now chew blockers and drop readable XP.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "bounded gabled cells",
+    "remaining battery chewing",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "eave, ridge, and shingle silhouette",
+    "reachable approach cell",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "three-roof starter-base layout",
+    "smaller green and gold markers",
   );
 
   await page.mouse.click(8, 8);
@@ -2063,6 +2068,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.136", "Clanker chew and XP pickups"],
     ["0.1.135", "Roof cell polish"],
     ["0.1.134", "Clanker visuals"],
     ["0.1.133", "Clanker open paths"],

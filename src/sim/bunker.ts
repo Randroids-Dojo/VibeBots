@@ -164,7 +164,7 @@ export interface ClankerState {
   path?: Array<{ col: number; row: number }>;
   batterySteps: number;
   deathStep: number;
-  status: "turret-destroyed" | "self-destructed";
+  status: "turret-destroyed" | "self-destructed" | "battery-drained";
 }
 
 export interface BunkerRaidDamageEvent {
@@ -749,6 +749,32 @@ function clankerBiteDamage(tier: number): number {
   return CLANKER_BASE_BITE_DAMAGE + tier * CLANKER_BITE_DAMAGE_PER_TIER;
 }
 
+function clankerBlockerAttackCount(
+  batterySteps: number,
+  routeSteps: number,
+): number {
+  return Math.max(1, batterySteps - routeSteps + 1);
+}
+
+function extendPathForBlockerAttack(
+  path: Array<{ col: number; row: number }>,
+  attackCount: number,
+): Array<{ col: number; row: number }> {
+  const finalCell = path.at(-1);
+  if (!finalCell || attackCount <= 1) return path;
+  const extended = [...path];
+  for (let i = 1; i < attackCount; i++) {
+    extended.push(finalCell);
+  }
+  return extended;
+}
+
+function reachableDropCellBeforeTarget(
+  path: Array<{ col: number; row: number }>,
+): { col: number; row: number } {
+  return path[Math.max(0, path.length - 2)] ?? path[0] ?? { col: 0, row: 0 };
+}
+
 export function resolveBunkerRaid(
   bunker: BunkerState,
   tier: number,
@@ -847,15 +873,34 @@ export function resolveBunkerRaid(
     const targetPart = reachedTarget
       ? findPartAt(bunker, route.target.col, route.target.row)
       : undefined;
+    let clankerPath = route.path;
+    let clankerDeathStep = deathStep;
+    let status: ClankerState["status"] = "self-destructed";
 
     if (targetPart) {
+      const attackCount = clankerBlockerAttackCount(batterySteps, routeSteps);
+      const damage = biteDamage * attackCount;
+      const pickupCell =
+        damage >= targetPart.durability
+          ? deathCell
+          : reachableDropCellBeforeTarget(route.path);
+      clankerPath = extendPathForBlockerAttack(route.path, attackCount);
+      clankerDeathStep = batterySteps;
+      status = "battery-drained";
       partDamage.push({
         clankerId: route.id,
         col: targetPart.col,
         row: targetPart.row,
         target: "part",
         partId: targetPart.partId,
-        damage: biteDamage,
+        damage,
+      });
+      xpPickups.push({
+        id: `${route.id}-xp`,
+        col: pickupCell.col,
+        row: pickupCell.row,
+        defenseXp: CLANKER_SELF_DESTRUCT_XP,
+        collected: false,
       });
     } else if (targetIsCore) {
       coreDamage += biteDamage;
@@ -869,8 +914,7 @@ export function resolveBunkerRaid(
       });
     }
 
-    const status = "self-destructed";
-    if (!targetIsCore) {
+    if (!targetIsCore && !targetPart) {
       xpPickups.push({
         id: `${route.id}-xp`,
         col: deathCell.col,
@@ -886,9 +930,9 @@ export function resolveBunkerRaid(
       row: route.start.row,
       targetCol: route.target.col,
       targetRow: route.target.row,
-      path: route.path,
+      path: clankerPath,
       batterySteps,
-      deathStep,
+      deathStep: clankerDeathStep,
       status,
     });
   }

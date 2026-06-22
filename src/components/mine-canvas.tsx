@@ -809,6 +809,52 @@ function ClankerMesh({
   );
 }
 
+function RaidXpPickupVisual() {
+  return (
+    <group scale={0.34}>
+      <mesh>
+        <octahedronGeometry args={[0.16, 0]} />
+        <meshStandardMaterial
+          color="#a3e635"
+          emissive="#84cc16"
+          emissiveIntensity={0.9}
+          roughness={0.28}
+          flatShading
+        />
+      </mesh>
+      {[0, 1, 2, 3].map((index) => {
+        const angle = (index * Math.PI) / 2;
+        return (
+          <mesh
+            key={index}
+            position={[Math.cos(angle) * 0.23, Math.sin(angle) * 0.23, 0]}
+            rotation={[0, 0, angle]}
+          >
+            <boxGeometry args={[0.18, 0.045, 0.035]} />
+            <meshStandardMaterial
+              color="#facc15"
+              emissive="#f59e0b"
+              emissiveIntensity={0.65}
+              roughness={0.32}
+              flatShading
+            />
+          </mesh>
+        );
+      })}
+      <mesh position={[0, 0, -0.035]}>
+        <torusGeometry args={[0.26, 0.018, 6, 16]} />
+        <meshStandardMaterial
+          color="#38bdf8"
+          emissive="#0ea5e9"
+          emissiveIntensity={0.48}
+          roughness={0.42}
+          flatShading
+        />
+      </mesh>
+    </group>
+  );
+}
+
 function BasePartVisual({
   partId,
   durability,
@@ -1382,18 +1428,8 @@ function BunkerOverlay({
         <group
           key={pickup.id}
           position={[cellX(pickup.col), -pickup.row, 0.86]}
-          scale={0.62}
         >
-          <mesh>
-            <octahedronGeometry args={[0.16, 0]} />
-            <meshStandardMaterial
-              color="#f5c542"
-              emissive="#f59e0b"
-              emissiveIntensity={0.85}
-              roughness={0.3}
-              flatShading
-            />
-          </mesh>
+          <RaidXpPickupVisual />
         </group>
       )) ?? [];
   return (

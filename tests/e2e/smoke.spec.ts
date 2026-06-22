@@ -916,14 +916,15 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
               id: "clanker-1-xp",
               col: START_COL - 3,
               row: 1,
-              defenseXp: 10,
+              defenseXp: 25,
               collected: false,
             },
           ],
           allClankersDead: true,
           breached: false,
+          minerKilled: false,
           survived: true,
-          reward: { vibes: 30, defenseXp: 10 },
+          reward: { vibes: 30, defenseXp: 25 },
         },
         raid: {
           raidId: "raid-smoke",
@@ -942,10 +943,18 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
           xpPickups: [],
           allClankersDead: true,
           breached: false,
+          minerKilled: false,
           survived: true,
-          reward: { vibes: 30, defenseXp: 10 },
+          reward: { vibes: 30, defenseXp: 25 },
         },
       }),
+    });
+  });
+  await page.route("**/api/bunker/raid/collect", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(bunkerView),
     });
   });
 
@@ -968,9 +977,9 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await page.getByRole("button", { name: "Open bunker builder" }).click();
   await expect(builder).toBeVisible();
   await expect(builder).toContainText("1 Clanker dead");
-  await expect(builder).toContainText("10 defense XP on the ground");
+  await expect(builder).toContainText("Walk over 25 defense XP on the ground");
   await expect(
-    builder.getByRole("button", { name: "Collect raid XP" }),
+    builder.getByRole("button", { name: "Walk over raid XP" }),
   ).toBeVisible();
 });
 
@@ -1852,18 +1861,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Bunker raids now end when every Clanker is dead.",
+    "Raid XP now comes from walking over the dropped pickups.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "spend battery on their route",
+    "miner must physically walk over",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "dead Clankers leave defense XP pickups",
+    "enough defense XP to reach Level 2",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "collects the dropped raid XP",
-  );
+  await expect(dialog.locator("li").nth(2)).toContainText("kills the miner");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -1882,6 +1889,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.130", "Raid XP pickups"],
     ["0.1.129", "Clanker raid damage"],
     ["0.1.128", "Lantern zoom overview fix"],
     ["0.1.127", "Bunker builder controls"],

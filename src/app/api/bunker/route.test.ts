@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buyBasePart,
+  collectBunkerRaidPickup,
   loadBunkerView,
   moveBunkerPart,
   startBunkerRaid,
@@ -9,6 +10,7 @@ import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
 import { POST as buyPartPost } from "./parts/buy/route";
 import { POST as movePartPost } from "./parts/move/route";
+import { POST as collectRaidPost } from "./raid/collect/route";
 import { POST as startRaidPost } from "./raid/start/route";
 import { GET } from "./route";
 
@@ -23,6 +25,7 @@ vi.mock("@/server/player", () => ({
 
 vi.mock("@/server/bunker", () => ({
   buyBasePart: vi.fn(),
+  collectBunkerRaidPickup: vi.fn(),
   loadBunkerView: vi.fn(),
   moveBunkerPart: vi.fn(),
   startBunkerRaid: vi.fn(),
@@ -32,6 +35,7 @@ const mockedDb = vi.mocked(db);
 const mockedStorageConfigured = vi.mocked(storageConfigured);
 const mockedPlayer = vi.mocked(getOrCreatePlayerId);
 const mockedBuy = vi.mocked(buyBasePart);
+const mockedCollect = vi.mocked(collectBunkerRaidPickup);
 const mockedLoad = vi.mocked(loadBunkerView);
 const mockedMove = vi.mocked(moveBunkerPart);
 const mockedStart = vi.mocked(startBunkerRaid);
@@ -87,8 +91,41 @@ describe("bunker API routes", () => {
         xpPickups: [],
         allClankersDead: true,
         breached: false,
+        minerKilled: false,
         survived: true,
         reward: { vibes: 30, defenseXp: 60 },
+      },
+    });
+    mockedCollect.mockResolvedValue({
+      ok: true,
+      view,
+      raid: {
+        raidId: "raid-1",
+        tier: 1,
+        durationSeconds: 180,
+        clankers: [],
+        turretShots: 0,
+        turretDamage: 0,
+        spikeTriggers: 0,
+        spikeDamage: 0,
+        totalPartDurability: 0,
+        incomingDamage: 0,
+        partDamage: [],
+        coreDamage: 0,
+        xpPickups: [
+          {
+            id: "raid-1-clanker-1-xp",
+            col: 7,
+            row: 4,
+            defenseXp: 25,
+            collected: true,
+          },
+        ],
+        allClankersDead: true,
+        breached: false,
+        minerKilled: false,
+        survived: true,
+        reward: { vibes: 30, defenseXp: 25 },
       },
     });
   });
@@ -130,6 +167,30 @@ describe("bunker API routes", () => {
       expect.any(Function),
       "player-1",
       1,
+    );
+  });
+
+  it("collects raid XP from the miner cell", async () => {
+    const res = await collectRaidPost(
+      new Request("http://localhost/api/bunker/raid/collect", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ col: 7, row: 4 }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      raid: {
+        raidId: "raid-1",
+        xpPickups: [{ collected: true, defenseXp: 25 }],
+      },
+    });
+    expect(mockedCollect).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      7,
+      4,
     );
   });
 

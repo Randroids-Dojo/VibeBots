@@ -151,7 +151,12 @@ describe("bunker vertical slice sim", () => {
       ),
     ).toBe(true);
     expect(raid.survived).toBe(true);
-    expect(raid.reward).toEqual({ vibes: 30, defenseXp: 60 });
+    expect(raid.reward).toEqual({ vibes: 30, defenseXp: 150 });
+    expect(playerLevelProgress(raid.reward.defenseXp)).toMatchObject({
+      level: 2,
+      progressXp: 50,
+      beaconLimit: 3,
+    });
   });
 
   it("plans clanker paths through open cells toward the player cell", () => {
@@ -189,7 +194,7 @@ describe("bunker vertical slice sim", () => {
     ]);
   });
 
-  it("breaches the player cell when an open route reaches it before battery dies", () => {
+  it("kills the miner and clears XP when an open route reaches the player cell", () => {
     const base = createBunker(proposedBunkerFootprint(10, 8));
     const raid = resolveBunkerRaid(base, 1, "core-raid", {
       terrainAt: openTerrain,
@@ -205,7 +210,9 @@ describe("bunker vertical slice sim", () => {
     ).toBe(true);
     expect(raid.coreDamage).toBeGreaterThan(0);
     expect(raid.xpPickups).toHaveLength(0);
+    expect(raid.minerKilled).toBe(true);
     expect(raid.survived).toBe(false);
+    expect(raid.reward).toEqual({ vibes: 0, defenseXp: 0 });
   });
 
   it("never spawns clankers inside occupied generated cells", () => {
@@ -433,7 +440,8 @@ describe("bunker vertical slice sim", () => {
     ).toEqual({ ok: true });
   });
 
-  it("combines track XP and defense XP into overall level", () => {
+  it("uses only collected defense XP for overall player level", () => {
+    expect(overallPlayerLevel(10_000, 0)).toBe(1);
     expect(overallPlayerLevel(90, 0)).toBe(1);
     expect(overallPlayerLevel(90, 99)).toBe(1);
     expect(overallPlayerLevel(90, 100)).toBe(2);

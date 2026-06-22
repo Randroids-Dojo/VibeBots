@@ -360,7 +360,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
   "Tip: Planted beacons only work within your current Warpcoil range.",
   "Tip: Distant biome beacons become free portals back to base.",
-  "Tip: Bunker raids drop defense XP for player-level upgrades.",
+  "Tip: Walk over bunker raid XP drops to claim player-level progress.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
 ] as const;
@@ -4090,6 +4090,27 @@ function BunkerControlPanel({
     levelProgressMax > 0
       ? Math.min(100, (levelProgressValue / levelProgressMax) * 100)
       : 0;
+  const uncollectedPickups = (activeRaid?.xpPickups ?? []).filter(
+    (pickup) => !pickup.collected,
+  );
+  const uncollectedPickupXp = uncollectedPickups.reduce(
+    (sum, pickup) => sum + pickup.defenseXp,
+    0,
+  );
+  const collectedPickupXp = (activeRaid?.xpPickups ?? []).reduce(
+    (sum, pickup) => sum + (pickup.collected ? pickup.defenseXp : 0),
+    0,
+  );
+  const finishDisabled =
+    pendingClaim ||
+    Boolean(activeRaid?.survived && uncollectedPickups.length > 0);
+  const raidButtonLabel = activeRaid
+    ? activeRaid.survived
+      ? uncollectedPickups.length > 0
+        ? "Walk over raid XP"
+        : "Finish raid"
+      : "End failed raid"
+    : "Start Clanker raid";
   useDismissControls(
     minerRow > 0 && (claimMode || (hasBunker && panelOpen)),
     dismissPanel,
@@ -4504,9 +4525,9 @@ function BunkerControlPanel({
             <button
               type="button"
               onClick={activeRaid ? onFinishRaid : onStartRaid}
-              disabled={pendingClaim}
+              disabled={finishDisabled}
               style={{
-                ...sheetButtonStyle(!pendingClaim),
+                ...sheetButtonStyle(!finishDisabled),
                 width: "100%",
                 marginTop: 8,
                 border: "1px solid #ff6b6b",
@@ -4514,7 +4535,7 @@ function BunkerControlPanel({
                 background: "#3a1820",
               }}
             >
-              {activeRaid ? "Collect raid XP" : "Start Clanker raid"}
+              {raidButtonLabel}
             </button>
             {pendingClaim && (
               <p
@@ -4535,14 +4556,11 @@ function BunkerControlPanel({
                   color: "#f5c542",
                 }}
               >
-                {activeRaid.clankers.length}{" "}
-                {activeRaid.clankers.length === 1 ? "Clanker" : "Clankers"}{" "}
-                dead.{" "}
-                {(activeRaid.xpPickups ?? []).reduce(
-                  (sum, pickup) => sum + pickup.defenseXp,
-                  0,
-                )}{" "}
-                defense XP on the ground.
+                {activeRaid.survived
+                  ? uncollectedPickups.length > 0
+                    ? `${activeRaid.clankers.length} ${activeRaid.clankers.length === 1 ? "Clanker" : "Clankers"} dead. Walk over ${uncollectedPickupXp} defense XP on the ground.`
+                    : `All raid XP collected: ${collectedPickupXp} defense XP.`
+                  : "Miner killed. The raid ended and all XP vanished."}
               </p>
             )}
           </>
@@ -4607,6 +4625,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const removeBunkerPart = useBunkerStore((s) => s.removePart);
   const moveBunkerPart = useBunkerStore((s) => s.movePart);
   const startBunkerRaid = useBunkerStore((s) => s.startRaid);
+  const collectBunkerRaidPickup = useBunkerStore((s) => s.collectRaidPickup);
   const finishBunkerRaid = useBunkerStore((s) => s.finishRaid);
   const router = useRouter();
   const [dynamiteMenuOpen, setDynamiteMenuOpen] = useState(false);
@@ -4656,6 +4675,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [teleportBurstKey, setTeleportBurstKey] = useState(0);
   const [mineSurfaceTip, setMineSurfaceTip] = useState<string | null>(null);
   const mineSurfaceTipRef = useRef<string | null>(null);
+  const collectingRaidPickupIdsRef = useRef<Set<string>>(new Set());
   const [bunkerClaimMode, setBunkerClaimMode] = useState(false);
   const [bunkerPanelOpen, setBunkerPanelOpen] = useState(false);
   const [selectedBasePart, setSelectedBasePart] =
@@ -5475,6 +5495,22 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   useEffect(() => {
     if (activeBunker || miner.row <= 0) setBunkerClaimMode(false);
   }, [activeBunker, miner.row]);
+
+  useEffect(() => {
+    if (!activeBunkerRaid?.survived) return;
+    const pickup = activeBunkerRaid.xpPickups.find((candidate) => {
+      return (
+        !candidate.collected &&
+        candidate.col === miner.col &&
+        candidate.row === miner.row
+      );
+    });
+    if (!pickup || collectingRaidPickupIdsRef.current.has(pickup.id)) return;
+    collectingRaidPickupIdsRef.current.add(pickup.id);
+    void collectBunkerRaidPickup(miner.col, miner.row).finally(() => {
+      collectingRaidPickupIdsRef.current.delete(pickup.id);
+    });
+  }, [activeBunkerRaid, collectBunkerRaidPickup, miner.col, miner.row]);
 
   useEffect(() => {
     if (!collectMode) return;

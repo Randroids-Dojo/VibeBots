@@ -690,6 +690,7 @@
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
+        "src/app/api/bunker/raid/collect/route.ts",
         "src/app/api/bunker/raid/finish/route.ts",
         "src/components/mine-canvas.tsx",
         "src/components/mine-panel.tsx"
@@ -705,12 +706,13 @@
     },
     {
       "id": "REQ-038",
-      "requirement": "Surviving bunker attacks grants deterministic defense XP toward overall player level, which gates bot parts, base parts, skins, stamps, consumables, and upgrades.",
+      "requirement": "Surviving bunker attacks drops deterministic defense XP pickups toward overall player level; collected defense XP gates bot parts, base parts, skins, stamps, consumables, and upgrades.",
       "gddRef": "docs/gdd/08-base-building.html#rewards-and-level",
       "status": "partial",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
+        "src/app/api/bunker/raid/collect/route.ts",
         "src/app/api/consumables/buy/route.ts",
         "src/components/mine-panel.tsx",
         "src/state/bunker-store.ts",

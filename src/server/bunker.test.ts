@@ -4,6 +4,7 @@ import { applyAchievementProgress } from "./achievements";
 import {
   buyBasePart,
   claimBunker,
+  collectBunkerRaidPickup,
   finishBunkerRaid,
   loadBunkerView,
   startBunkerRaid,
@@ -83,6 +84,7 @@ describe("bunker server helpers", () => {
               xpPickups: [],
               allClankersDead: true,
               breached: false,
+              minerKilled: false,
               survived: true,
               reward: { vibes: 30, defenseXp: 60 },
             },
@@ -105,7 +107,135 @@ describe("bunker server helpers", () => {
     });
   });
 
-  it("reports defense XP, level-up rewards, and the first defense stamp", async () => {
+  it("refuses to finish a survived raid while XP pickups are uncollected", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-18T00:00:10.000Z"));
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT raid_id, snapshot")) {
+        return [
+          {
+            raid_id: "raid-1",
+            started_at: "2026-06-18T00:00:00.000Z",
+            duration_seconds: 180,
+            snapshot: {
+              raidId: "raid-1",
+              tier: 1,
+              durationSeconds: 3,
+              clankers: [],
+              turretShots: 0,
+              turretDamage: 0,
+              spikeTriggers: 0,
+              spikeDamage: 0,
+              totalPartDurability: 180,
+              incomingDamage: 100,
+              partDamage: [],
+              coreDamage: 0,
+              xpPickups: [
+                {
+                  id: "raid-1-clanker-1-xp",
+                  col: 4,
+                  row: 5,
+                  defenseXp: 25,
+                  collected: false,
+                },
+              ],
+              allClankersDead: true,
+              breached: false,
+              minerKilled: false,
+              survived: true,
+              reward: { vibes: 30, defenseXp: 25 },
+            },
+          },
+        ];
+      }
+      if (query.includes("UPDATE players")) {
+        throw new Error("reward should wait for pickup collection");
+      }
+      return [];
+    });
+
+    const result = await finishBunkerRaid(sql as never, "player-1");
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: "collect raid XP pickups first",
+    });
+  });
+
+  it("marks XP pickups collected only when the miner stands on their cell", async () => {
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT raid_id, snapshot")) {
+        return [
+          {
+            raid_id: "raid-1",
+            snapshot: {
+              raidId: "raid-1",
+              tier: 1,
+              durationSeconds: 3,
+              clankers: [],
+              turretShots: 0,
+              turretDamage: 0,
+              spikeTriggers: 0,
+              spikeDamage: 0,
+              totalPartDurability: 180,
+              incomingDamage: 100,
+              partDamage: [],
+              coreDamage: 0,
+              xpPickups: [
+                {
+                  id: "raid-1-clanker-1-xp",
+                  col: 4,
+                  row: 5,
+                  defenseXp: 25,
+                  collected: false,
+                },
+              ],
+              allClankersDead: true,
+              breached: false,
+              minerKilled: false,
+              survived: true,
+              reward: { vibes: 30, defenseXp: 25 },
+            },
+          },
+        ];
+      }
+      if (query.includes("UPDATE bunker_raids")) return [];
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, core, parts")) return [];
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("INSERT INTO player_base_parts")) return [];
+      return [];
+    });
+
+    const missed = await collectBunkerRaidPickup(
+      sql as never,
+      "player-1",
+      8,
+      5,
+    );
+    expect(missed.ok).toBe(true);
+    if (!missed.ok) return;
+    expect(missed.raid.xpPickups[0]?.collected).toBe(false);
+
+    const collected = await collectBunkerRaidPickup(
+      sql as never,
+      "player-1",
+      4,
+      5,
+    );
+    expect(collected.ok).toBe(true);
+    if (!collected.ok) return;
+    expect(collected.raid.xpPickups[0]?.collected).toBe(true);
+    expect(collected.raid.reward.defenseXp).toBe(25);
+  });
+
+  it("reports collected defense XP, level-up rewards, and the first defense stamp", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-18T00:00:10.000Z"));
     const sql = vi.fn(async (strings: TemplateStringsArray) => {
@@ -134,14 +264,15 @@ describe("bunker server helpers", () => {
                   id: "raid-1-clanker-1-xp",
                   col: 4,
                   row: 5,
-                  defenseXp: 60,
-                  collected: false,
+                  defenseXp: 100,
+                  collected: true,
                 },
               ],
               allClankersDead: true,
               breached: false,
+              minerKilled: false,
               survived: true,
-              reward: { vibes: 30, defenseXp: 60 },
+              reward: { vibes: 30, defenseXp: 100 },
             },
           },
         ];
@@ -151,9 +282,9 @@ describe("bunker server helpers", () => {
         return [{ track_xp: 0, defense_xp: 60 }];
       }
       if (query.includes("SELECT achievement_id")) return [];
-      if (query.includes("UPDATE players")) return [{ defense_xp: 120 }];
+      if (query.includes("UPDATE players")) return [{ defense_xp: 160 }];
       if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
-        return [{ emeralds: 30, track_xp: 0, defense_xp: 120 }];
+        return [{ emeralds: 30, track_xp: 0, defense_xp: 160 }];
       }
       if (query.includes("SELECT footprint, core, parts")) return [];
       if (query.includes("SELECT snapshot")) return [];
@@ -168,9 +299,9 @@ describe("bunker server helpers", () => {
     expect(result.reward).toEqual({
       survived: true,
       vibesGained: 30,
-      xpGained: 60,
+      xpGained: 100,
       defenseXpBefore: 60,
-      defenseXpAfter: 120,
+      defenseXpAfter: 160,
       levelBefore: 1,
       levelAfter: 2,
       leveledUp: true,

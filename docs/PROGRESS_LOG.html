@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="raid-xp-pickups-death" data-date="2026-06-22">
+    <h3>Raid XP Pickups And Miner Death</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/raid-xp-pickups-death</code>, created from current <code>origin/main</code> after the <code>0.1.129</code> Clanker raid damage release.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by the user after review, cleanup, and verification.</dd>
+      <dt>Changed</dt><dd>User clarification followup. Raid XP is now awarded only from defense XP pickups the miner walks over; the server records collected pickups in the active raid snapshot and refuses to finish a survived raid while pickups remain uncollected. Each dead Clanker now drops <code>25</code> defense XP, so the first survived tier-one raid drops enough pickup XP to reach Level 2 after all pickups are collected. If a Clanker reaches the player cell, it self-destructs, kills the miner, ends the raid, and clears all XP pickups before collection. Package version moved to <code>0.1.130</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched source, route, test, release, and doc files; focused Vitest for bunker sim, bunker server, bunker route, app release, and notifications (87 passed); <code>pnpm typecheck</code>; <code>pnpm test</code> (387 passed); <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; <code>pnpm build</code>; JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check</code>; and focused Playwright smoke with <code>PLAYWRIGHT_PORT=3652 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|mine bunker builder starts a Clanker raid" --project=chromium</code> (2 passed). In-app Browser checked <code>http://127.0.0.1:3653/mine</code>: the <code>0.1.130</code> release dialog showed the walk-over pickup and miner-death copy, dismissed cleanly, and the mine canvas rendered at <code>390 x 844</code> CSS pixels.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this changes raid reward collection, death resolution, route handling, and presentation only, not mine generation, cash-out replay, or combat sim behavior, so no mine-version or sim-version bump is needed. Mine surface tips were reviewed and the bunker tip now says raid XP must be walked over. Existing combat reward helpers still compute match track XP for future combat progression, but persisted overall player level ignores track XP and uses collected raid defense XP only.</dd>
+      <dt>GDD coverage</dt><dd>REQ-037 and REQ-038 remain partial under <code>F-029</code>. Updated <code>docs/gdd/08-base-building.html</code>, <code>docs/GDD_COVERAGE.json</code>, static release notes, and in-game release notes for pickup collection, first-raid Level 2 progress, and player-cell death.</dd>
+      <dt>Followups</dt><dd>none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="clanker-raid-damage" data-date="2026-06-21">
     <h3>Clanker Raid Damage</h3>
     <dl>

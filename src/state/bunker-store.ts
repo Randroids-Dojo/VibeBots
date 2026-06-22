@@ -51,6 +51,7 @@ export interface BunkerStoreState {
     toRow: number,
   ) => Promise<void>;
   startRaid: () => Promise<void>;
+  collectRaidPickup: (col: number, row: number) => Promise<void>;
   finishRaid: () => Promise<void>;
 }
 
@@ -150,5 +151,7 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
       toRow,
     }),
   startRaid: () => mutation(set, "/api/bunker/raid/start", { tier: 1 }),
+  collectRaidPickup: (col, row) =>
+    mutation(set, "/api/bunker/raid/collect", { col, row }),
   finishRaid: () => mutation(set, "/api/bunker/raid/finish"),
 }));

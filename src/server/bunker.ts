@@ -498,6 +498,60 @@ export async function startBunkerRaid(
   return { ok: true, view: await loadBunkerView(sql, playerId), raid };
 }
 
+export async function collectBunkerRaidPickup(
+  sql: Sql,
+  playerId: string,
+  col: number,
+  row: number,
+): Promise<BunkerOperationResult<{ raid: BunkerRaidSnapshot }>> {
+  const rows = (await sql`
+    SELECT raid_id, snapshot
+    FROM bunker_raids
+    WHERE player_id = ${playerId}
+      AND result IS NULL
+    ORDER BY started_at DESC
+    LIMIT 1`) as Array<{ raid_id: string; snapshot: unknown }>;
+  const rowData = rows[0];
+  if (!rowData || typeof rowData.snapshot !== "object") {
+    return { ok: false, status: 409, error: "no active raid" };
+  }
+  const raid = rowData.snapshot as BunkerRaidSnapshot;
+  if (!raid.survived) {
+    return { ok: true, view: await loadBunkerView(sql, playerId), raid };
+  }
+  let collected = false;
+  const updatedRaid: BunkerRaidSnapshot = {
+    ...raid,
+    xpPickups: raid.xpPickups.map((pickup) => {
+      if (pickup.col !== col || pickup.row !== row || pickup.collected) {
+        return pickup;
+      }
+      collected = true;
+      return { ...pickup, collected: true };
+    }),
+  };
+  if (collected) {
+    const collectedXp = updatedRaid.xpPickups.reduce((sum, pickup) => {
+      return sum + (pickup.collected ? pickup.defenseXp : 0);
+    }, 0);
+    updatedRaid.reward = {
+      ...updatedRaid.reward,
+      defenseXp: collectedXp,
+    };
+    await sql`
+      UPDATE bunker_raids
+      SET snapshot = ${JSON.stringify(updatedRaid)}::jsonb
+      WHERE player_id = ${playerId}
+        AND raid_id = ${rowData.raid_id}
+        AND result IS NULL`;
+  }
+  return {
+    ok: true,
+    view: await loadBunkerView(sql, playerId),
+    raid: updatedRaid,
+  };
+}
+
 export async function finishBunkerRaid(
   sql: Sql,
   playerId: string,
@@ -528,9 +582,30 @@ export async function finishBunkerRaid(
   if (!raid.allClankersDead && elapsed < row.duration_seconds * 1000) {
     return { ok: false, status: 409, error: "raid still in progress" };
   }
+  const uncollectedXpPickups = raid.survived
+    ? raid.xpPickups.filter((pickup) => !pickup.collected)
+    : [];
+  if (uncollectedXpPickups.length > 0) {
+    return {
+      ok: false,
+      status: 409,
+      error: "collect raid XP pickups first",
+    };
+  }
+  const collectedDefenseXp = raid.survived
+    ? raid.xpPickups.reduce((sum, pickup) => {
+        return sum + (pickup.collected ? pickup.defenseXp : 0);
+      }, 0)
+    : 0;
+  const completedRaid: BunkerRaidSnapshot = {
+    ...raid,
+    reward: raid.survived
+      ? { ...raid.reward, defenseXp: collectedDefenseXp }
+      : { vibes: 0, defenseXp: 0 },
+  };
   const rewarded = (await sql`
     UPDATE bunker_raids
-    SET result = ${JSON.stringify(raid)}::jsonb,
+    SET result = ${JSON.stringify(completedRaid)}::jsonb,
         rewarded_at = now()
     WHERE player_id = ${playerId}
       AND raid_id = ${row.raid_id}
@@ -560,8 +635,8 @@ export async function finishBunkerRaid(
     const firstDefenseAlreadyUnlocked = firstDefenseRows.length > 0;
     const playerRows = (await sql`
       UPDATE players
-      SET emeralds = emeralds + ${raid.reward.vibes},
-          defense_xp = defense_xp + ${raid.reward.defenseXp}
+      SET emeralds = emeralds + ${completedRaid.reward.vibes},
+          defense_xp = defense_xp + ${completedRaid.reward.defenseXp}
       WHERE id = ${playerId}
       RETURNING defense_xp`) as Array<{ defense_xp: number }>;
     defenseXpAfter = playerRows[0]?.defense_xp ?? defenseXpAfter;
@@ -581,8 +656,8 @@ export async function finishBunkerRaid(
         raidId: row.raid_id,
         tier: raid.tier,
         survived: raid.survived,
-        vibesGained: raid.reward.vibes,
-        defenseXpGained: raid.reward.defenseXp,
+        vibesGained: completedRaid.reward.vibes,
+        defenseXpGained: completedRaid.reward.defenseXp,
         defenseXpBefore: before.defense_xp,
         defenseXpAfter,
         levelBefore: beforeProgress.level,
@@ -598,11 +673,11 @@ export async function finishBunkerRaid(
   return {
     ok: true,
     view: await loadBunkerView(sql, playerId),
-    raid,
+    raid: completedRaid,
     reward: {
       survived: raid.survived,
-      vibesGained: raid.reward.vibes,
-      xpGained: raid.reward.defenseXp,
+      vibesGained: completedRaid.reward.vibes,
+      xpGained: completedRaid.reward.defenseXp,
       defenseXpBefore: before.defense_xp,
       defenseXpAfter,
       levelBefore: beforeProgress.level,

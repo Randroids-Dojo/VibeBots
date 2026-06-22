@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.130" data-date="2026-06-22">
+    <h2>0.1.130</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.130</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Raid XP now comes from walking over the dropped pickups.</dd>
+      <dt>Rewards</dt><dd>Dead Clankers drop defense XP pickups that the miner must physically walk over before the XP can be claimed. The first survived raid drops enough pickup XP to reach Level 2 after every pickup is collected.</dd>
+      <dt>Death</dt><dd>If a Clanker reaches the player cell, it self-destructs, kills the miner, ends the raid, and clears every XP pickup before collection.</dd>
+      <dt>Progression</dt><dd>Collected raid defense XP is the only implemented source for overall player level. Mining cash-outs, shopping, upgrades, combat rewards, and stamps do not grant player-level XP.</dd>
+      <dt>Verification</dt><dd>Focused sim, server, route, release, notification, type, and smoke coverage checks walk-over pickup collection, no reward for uncollected pickups, no XP on miner death, and the current release note. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.129" data-date="2026-06-21">
     <h2>0.1.129</h2>
     <dl>
@@ -1111,7 +1124,7 @@
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>30</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
       <dt>Highlights</dt><dd>First vertical slice of underground base building: stake a cleared bunker claim, buy wall and door panels, place them in the mine, and trigger a Clanker defense event.</dd>
       <dt>Rules</dt><dd>The first claim is a fixed 7x5 footprint centered on the miner and must already be carved into the saved mine diff. The first part catalog has Wall Panel and Door Panel. The first raid tier lasts 180 seconds and resolves through deterministic layout survival.</dd>
-      <dt>Progression</dt><dd>Surviving a raid grants vibes plus defense XP, and overall player level now combines track XP and defense XP as the first cross-mode progression hook.</dd>
+      <dt>Progression</dt><dd>Surviving a raid grants vibes plus defense XP toward player level. Current player-level XP rules are superseded by <code>0.1.130</code>: collected raid defense XP is the only implemented source for overall player level.</dd>
       <dt>Verification</dt><dd>Full verification is recorded in the progress log for this slice.</dd>
     </dl>
   </article>

@@ -880,24 +880,26 @@ function BunkerOverlay({
       <ClankerMesh key={clanker.id} clanker={clanker} raid={activeRaid} />
     )) ?? [];
   const xpPickups =
-    (activeRaid?.xpPickups ?? []).map((pickup) => (
-      <group
-        key={pickup.id}
-        position={[cellX(pickup.col), -pickup.row, 0.86]}
-        scale={0.62}
-      >
-        <mesh>
-          <octahedronGeometry args={[0.16, 0]} />
-          <meshStandardMaterial
-            color="#f5c542"
-            emissive="#f59e0b"
-            emissiveIntensity={0.85}
-            roughness={0.3}
-            flatShading
-          />
-        </mesh>
-      </group>
-    )) ?? [];
+    (activeRaid?.xpPickups ?? [])
+      .filter((pickup) => !pickup.collected)
+      .map((pickup) => (
+        <group
+          key={pickup.id}
+          position={[cellX(pickup.col), -pickup.row, 0.86]}
+          scale={0.62}
+        >
+          <mesh>
+            <octahedronGeometry args={[0.16, 0]} />
+            <meshStandardMaterial
+              color="#f5c542"
+              emissive="#f59e0b"
+              emissiveIntensity={0.85}
+              roughness={0.3}
+              flatShading
+            />
+          </mesh>
+        </group>
+      )) ?? [];
   return (
     <>
       {lines}

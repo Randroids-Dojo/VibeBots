@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest Clanker raid damage note complete", () => {
+  it("keeps the latest raid XP pickup note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-21-0.1.129-clanker-raid-damage");
+    expect(release.noticeId).toBe("2026-06-22-0.1.130-raid-xp-pickups");
+    expect(latestNote).toMatchObject({
+      version: "0.1.130",
+      title: "Raid XP pickups",
+      intro: "Raid XP now comes from walking over the dropped pickups.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Dead Clankers drop defense XP pickups that the miner must physically walk over before the XP can be claimed.",
+      "The first survived raid now drops enough defense XP to reach Level 2 after every pickup is collected.",
+      "If a Clanker reaches the player cell, it self-destructs, kills the miner, ends the raid, and clears every XP pickup before collection.",
+    ]);
+  });
+
+  it("keeps the archived Clanker raid damage note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.129");
+
     expect(latestNote).toMatchObject({
       version: "0.1.129",
       title: "Clanker raid damage",

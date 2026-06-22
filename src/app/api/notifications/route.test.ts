@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-21-0.1.129-clanker-raid-damage",
+      releaseNoticeId: "2026-06-22-0.1.130-raid-xp-pickups",
       releaseSummary:
-        "Clanker raid damage: Bunker raids now end when every Clanker is dead.",
+        "Raid XP pickups: Raid XP now comes from walking over the dropped pickups.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-21-0.1.129-clanker-raid-damage",
+      releaseNoticeId: "2026-06-22-0.1.130-raid-xp-pickups",
       attempted: 2,
       sent: 1,
       expired: 1,

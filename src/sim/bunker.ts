@@ -18,7 +18,7 @@ export const CLANKER_BASE_BATTERY_STEPS = 7;
 export const CLANKER_BATTERY_STEPS_PER_TIER = 2;
 export const CLANKER_BASE_BITE_DAMAGE = 24;
 export const CLANKER_BITE_DAMAGE_PER_TIER = 8;
-export const CLANKER_SELF_DESTRUCT_XP = 10;
+export const CLANKER_SELF_DESTRUCT_XP = 25;
 
 export const BASE_PART_IDS = [
   "wall-panel",
@@ -199,6 +199,7 @@ export interface BunkerRaidSnapshot {
   }>;
   allClankersDead: boolean;
   breached: boolean;
+  minerKilled: boolean;
   survived: boolean;
   reward: {
     vibes: number;
@@ -797,6 +798,7 @@ export function resolveBunkerRaid(
   const batterySteps = clankerBatterySteps(normalizedTier);
   let coreDamage = 0;
   let remainingTurretShots = turretShots;
+  let minerDeathStep: number | null = null;
 
   for (const route of plannedRoutes) {
     if (remainingTurretShots > 0) {
@@ -848,6 +850,7 @@ export function resolveBunkerRaid(
       });
     } else if (targetIsCore) {
       coreDamage += biteDamage;
+      minerDeathStep = Math.min(minerDeathStep ?? deathStep, deathStep);
       partDamage.push({
         clankerId: route.id,
         col: bunker.core.col,
@@ -884,16 +887,16 @@ export function resolveBunkerRaid(
   const incomingDamage = partDamage.reduce((sum, event) => {
     return sum + event.damage;
   }, 0);
-  const deathStep = clankers.reduce((maxStep, clanker) => {
+  const lastDeathStep = clankers.reduce((maxStep, clanker) => {
     return Math.max(maxStep, clanker.deathStep);
   }, 0);
+  const terminalStep = minerDeathStep ?? lastDeathStep;
   const durationSeconds = Math.min(
     BUNKER_RAID_DURATION_SECONDS,
-    Math.max(3, deathStep),
+    Math.max(3, terminalStep),
   );
-  const breached =
-    coreDamage >= bunker.core.durability ||
-    partDamage.some((event) => event.target === "core");
+  const minerKilled = minerDeathStep !== null;
+  const breached = minerKilled || coreDamage >= bunker.core.durability;
   const survived = !breached;
   const finalXpPickups = survived ? xpPickups : [];
   const pickupXp = finalXpPickups.reduce((sum, pickup) => {
@@ -916,6 +919,7 @@ export function resolveBunkerRaid(
     xpPickups: finalXpPickups,
     allClankersDead: true,
     breached,
+    minerKilled,
     survived,
     reward: survived
       ? {

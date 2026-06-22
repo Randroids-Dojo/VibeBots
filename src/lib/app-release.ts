@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-21-0.1.129-clanker-raid-damage";
+const RELEASE_NOTICE_ID = "2026-06-22-0.1.130-raid-xp-pickups";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.130",
+      date: "2026-06-22",
+      title: "Raid XP pickups",
+      intro: "Raid XP now comes from walking over the dropped pickups.",
+      changes: [
+        {
+          build,
+          text: "Dead Clankers drop defense XP pickups that the miner must physically walk over before the XP can be claimed.",
+        },
+        {
+          build,
+          text: "The first survived raid now drops enough defense XP to reach Level 2 after every pickup is collected.",
+        },
+        {
+          build,
+          text: "If a Clanker reaches the player cell, it self-destructs, kills the miner, ends the raid, and clears every XP pickup before collection.",
+        },
+      ],
+    },
     {
       version: "0.1.129",
       date: "2026-06-21",

@@ -2,14 +2,7 @@
 
 import { RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import {
-  memo,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import type {
   AmbientLight,
   DirectionalLight,
@@ -50,7 +43,6 @@ import {
   type MineCell,
   type MineCoord,
   type MineState,
-  type MoveResult,
   type OreId,
   oreReserveAt,
   START_COL,
@@ -58,6 +50,11 @@ import {
   stratumAt,
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
+import {
+  CRUSH_HOLD_SECONDS,
+  FATAL_FALL_HOLD_SECONDS,
+  useMineDeathPlaybackBridge,
+} from "./mine-death-playback";
 import { DESTINATIONS, type DestinationDef } from "./mine-destinations";
 import { minerStepSeconds } from "./mine-pacing";
 import { playMineResultSfx, playMineSfxEvent } from "./mine-sfx";
@@ -375,76 +372,9 @@ interface MotionTrack {
   frames: number;
 }
 
-interface FallWindow {
-  key: number;
-  col: number;
-  fromRow: number;
-  toRow: number;
-  fell: number;
-}
-
-interface FallPlayback extends FallWindow {
-  kind: "fall" | "crush";
-  track: MotionTrack | null;
-  impacted: boolean;
-  doneAt: number | null;
-}
-
-function fallPlaybackFromResult(
-  result: MoveResult | null,
-  key: number,
-): FallPlayback | null {
-  if (
-    result?.ok &&
-    result.collapsed &&
-    result.fallFatal &&
-    result.lost &&
-    result.fell
-  ) {
-    const toRow = result.lost.row;
-    return {
-      key,
-      kind: "fall",
-      col: result.lost.col,
-      fromRow: Math.max(0, toRow - result.fell),
-      toRow,
-      fell: result.fell,
-      track: null,
-      impacted: false,
-      doneAt: null,
-    };
-  }
-  if (result?.ok && result.collapsed && result.crushed && result.lost) {
-    return {
-      key,
-      kind: "crush",
-      col: result.lost.col,
-      fromRow: result.lost.row,
-      toRow: result.lost.row,
-      fell: 0,
-      track: null,
-      impacted: false,
-      doneAt: null,
-    };
-  }
-  return null;
-}
-
-function fallWindowFromPlayback(playback: FallPlayback): FallWindow {
-  return {
-    key: playback.key,
-    col: playback.col,
-    fromRow: playback.fromRow,
-    toRow: playback.toRow,
-    fell: playback.fell,
-  };
-}
-
 const PICK_SWING_SECONDS = 0.18;
 const DIG_LUNGE_SECONDS = 0.16;
 const CAMERA_STEP_SECONDS = 0.28;
-const FATAL_FALL_HOLD_SECONDS = 0.38;
-const CRUSH_HOLD_SECONDS = 3.6;
 /** Length of the bounce-off animation when the pick can't cut the rock. */
 const BOUNCE_SECONDS = 0.28;
 const DYNAMITE_RED = "#b43b32";
@@ -3276,9 +3206,8 @@ function MineScene({
   // Smoothed frame time (ms), exposed for performance QA. A surface walk
   // must not spike this the way the per-step village rebuild used to.
   const frameMsRef = useRef(16);
-  const fallPlayback = useRef<FallPlayback | null>(null);
-  const fallClearTimeout = useRef<number | null>(null);
-  const [fallWindow, setFallWindow] = useState<FallWindow | null>(null);
+  const { fallPlayback, fallWindow, clearFallPlayback } =
+    useMineDeathPlaybackBridge(lastResult, tick);
   const renderedCellCountRef = useRef(0);
   const renderedCrackSegmentCountRef = useRef(0);
 
@@ -3298,62 +3227,11 @@ function MineScene({
   const firstRow = Math.max(0, minerRow - renderWindow.above);
   const lastRow = minerRow + renderWindow.below;
 
-  useEffect(() => {
-    return () => {
-      if (fallClearTimeout.current != null) {
-        window.clearTimeout(fallClearTimeout.current);
-        fallClearTimeout.current = null;
-      }
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    return useMineStore.subscribe((state, prev) => {
-      if (state.tick === prev.tick) return;
-      const playback = fallPlaybackFromResult(state.lastResult, state.tick);
-      if (playback) {
-        fallPlayback.current = playback;
-        setFallWindow(fallWindowFromPlayback(playback));
-      } else if (!(state.lastResult?.ok && state.lastResult.collapsed)) {
-        fallPlayback.current = null;
-        setFallWindow(null);
-      }
-    });
-  }, []);
-
   // Dig/blast feedback: bursts, shake, swing, and facing keyed to the
   // last sim result.
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
   useLayoutEffect(() => {
     const j = juice.current;
-    if (fallClearTimeout.current != null) {
-      window.clearTimeout(fallClearTimeout.current);
-      fallClearTimeout.current = null;
-    }
-    const playback = fallPlaybackFromResult(lastResult, tick);
-    if (playback) {
-      const activePlayback =
-        fallPlayback.current?.key === playback.key
-          ? fallPlayback.current
-          : playback;
-      fallPlayback.current = activePlayback;
-      setFallWindow(fallWindowFromPlayback(activePlayback));
-      const clearMs =
-        activePlayback.kind === "fall"
-          ? Math.min(1600, Math.max(850, 520 + activePlayback.fell * 100))
-          : 4300;
-      fallClearTimeout.current = window.setTimeout(() => {
-        if (fallPlayback.current?.key === activePlayback.key)
-          fallPlayback.current = null;
-        setFallWindow((prev) =>
-          prev?.key === activePlayback.key ? null : prev,
-        );
-        fallClearTimeout.current = null;
-      }, clearMs);
-    } else if (!(lastResult?.ok && lastResult.collapsed)) {
-      fallPlayback.current = null;
-      setFallWindow(null);
-    }
     playMineResultSfx(lastResult, lastAction);
     if (lastAction === "left") j.facing = -1;
     else if (lastAction === "right") j.facing = 1;
@@ -3548,8 +3426,7 @@ function MineScene({
       }
       if (activeFall.doneAt != null && t >= activeFall.doneAt) {
         const key = activeFall.key;
-        fallPlayback.current = null;
-        setFallWindow((prev) => (prev?.key === key ? null : prev));
+        clearFallPlayback(key);
       }
     }
     const resetJump =

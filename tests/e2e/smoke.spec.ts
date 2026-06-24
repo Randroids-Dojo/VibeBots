@@ -1654,10 +1654,8 @@ test("falling-rock crush stays on camera before the report", async ({
       timeout: 5_000,
     })
     .toBeGreaterThan(0.5);
-  await pressMineKey(page, "ArrowDown");
-  await expect
-    .poll(async () => status.getAttribute("data-depth"), { timeout: 5_000 })
-    .toBe("7");
+  await digTo(page, 7);
+  await expect(status).toHaveAttribute("data-depth", "7");
   const beforeCrushShot = await canvas.screenshot();
   let firstActiveFrame: { camY: number; minerY: number } | null = null;
   for (let attempt = 0; attempt < 4 && !firstActiveFrame; attempt++) {

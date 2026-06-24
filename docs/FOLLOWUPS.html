@@ -483,6 +483,7 @@
     <dt>Blocker (if any)</dt><dd>none, but keep this as a behavior-preserving cleanup.</dd>
     <dt>Unblock condition</dt><dd>Ready: extract the death-playback derivation and bridge into a small helper or hook, centralize <code>FallPlayback</code> and <code>FallWindow</code> creation, preserve the pre-frame store subscription, and keep current canvas diagnostics. Acceptance: fatal-fall and falling-rock-crush smoke still prove the camera stays underground, populated cells render, impact flags flip, and the trip report waits for impact.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>Resolved</dt><dd>2026-06-23: extracted the death playback bridge to <code>src/components/mine-death-playback.ts</code>. <code>mine-canvas.tsx</code> still owns frame sampling, impact particles, SFX, camera, and miner transforms, while the helper owns terminal result mapping, the synchronous store subscription, fallback clear timer, and fall window state.</dd>
   </dl>
 </section>
 </main>

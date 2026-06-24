@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest Clanker chew and XP pickup note complete", () => {
+  it("keeps the latest mine panel cleanup note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-22-0.1.136-clanker-chew-xp-pickups");
+    expect(release.noticeId).toBe("2026-06-23-0.1.137-mine-panel-cleanup");
+    expect(latestNote).toMatchObject({
+      version: "0.1.137",
+      title: "Mine panel cleanup",
+      intro: "The mine UI is split into clearer owned modules.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Release notes, bag, save slots, stamp book, feedback, settings prompts, stalls, and bunker controls now live in their own component files.",
+      "MinePanel now stays focused on mine state, viewport, HUD, and action routing instead of owning every dialog and sheet.",
+      "Smoke coverage now checks the moved release notes, settings, feedback, bag, save slot, bunker, and stall surfaces.",
+    ]);
+  });
+
+  it("keeps the archived Clanker chew and XP pickup note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.136");
+
     expect(latestNote).toMatchObject({
       version: "0.1.136",
       title: "Clanker chew and XP pickups",

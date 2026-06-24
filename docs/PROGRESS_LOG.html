@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-panel-ui-module-split" data-date="2026-06-23">
+    <h3>Mine Panel UI Module Split</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260621-211241</code>, rebased on current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, cleanup, release-note updates, and verification.</dd>
+      <dt>Changed</dt><dd>Completed <code>F-031</code> with a behavior-preserving mine panel ownership split. Release notes moved to <code>src/components/mine-release-notes-popup.tsx</code>; bag presentation moved to <code>src/components/mine-bag-panel.tsx</code>; falling-rock, ladder-feedback, iOS install, feedback, credits, and update-alert UI moved to <code>src/components/mine-settings-dialogs.tsx</code>; save slots moved to <code>src/components/mine-save-slots-popup.tsx</code>; stamp book moved to <code>src/components/mine-stamp-book-popup.tsx</code>; surface stall sheets moved to <code>src/components/mine-stall-menu.tsx</code>; bunker controls moved to <code>src/components/mine-bunker-control-panel.tsx</code>; shared dismiss and sheet controls moved to <code>src/components/dismissible-dialog-frame.tsx</code> and <code>src/components/mine-sheet-controls.tsx</code>. <code>MinePanel</code> stays as the state, viewport, HUD, and action-routing orchestrator. The stall prompt smoke now uses its existing prompt-aware walk helper instead of assuming three rapid keypresses always land on the Hardware Store. Package version moved to <code>0.1.137</code>, and static plus in-game release notes now describe the cleanup.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write --unsafe</code> on touched source, test, package, release, and doc files; focused Vitest for app release, notifications, version route, and Web Push (66 passed); <code>pnpm typecheck</code>; <code>pnpm test</code> (396 passed); <code>pnpm build</code>; <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>; <code>git diff --check</code>; focused Playwright smoke with <code>PLAYWRIGHT_PORT=3697 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|mine credits open from settings|mine feedback form submits|ladder gravity prompt opens|mine bag chip opens|save slot deletion requires|loading a save slot refreshes|mine bunker builder starts a Clanker raid|surface village stalls open|a stall opens on tap and closes back to the prompt|a downward drag from anywhere inside a stall sheet dismisses" --project=chromium</code> (11 passed); and critical smoke with <code>PLAYWRIGHT_PORT=3698 pnpm test:e2e:critical --project=chromium</code> (5 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a component ownership refactor only. It does not change local storage keys, mine rules, save state, bunker behavior, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>.</dd>
+      <dt>GDD coverage</dt><dd>No GDD coverage rows changed because this slice only moves existing component code.</dd>
+      <dt>Followups</dt><dd>Resolved <code>F-031</code>. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="clanker-chew-xp-pickups" data-date="2026-06-22">
     <h3>Clanker Chew And XP Pickups</h3>
     <dl>

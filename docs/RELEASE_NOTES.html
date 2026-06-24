@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.137" data-date="2026-06-23">
+    <h2>0.1.137</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.137</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>The mine UI is split into clearer owned modules.</dd>
+      <dt>Mine UI</dt><dd>Release notes, bag, save slots, stamp book, feedback, settings prompts, stalls, and bunker controls now live in their own component files. <code>MinePanel</code> stays focused on mine state, viewport, HUD, and action routing instead of owning every dialog and sheet.</dd>
+      <dt>Agent workflow</dt><dd>The split makes common mine surfaces easier to locate without scanning the whole shell file. Focused smoke coverage now checks the moved release notes, settings, feedback, bag, save slot, bunker, and stall surfaces.</dd>
+      <dt>Verification</dt><dd>Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.136" data-date="2026-06-22">
     <h2>0.1.136</h2>
     <dl>

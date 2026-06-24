@@ -2038,17 +2038,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Clankers now chew blockers and drop readable XP.",
+    "The mine UI is split into clearer owned modules.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "remaining battery chewing",
+    "Release notes, bag, save slots",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "reachable approach cell",
+    "MinePanel now stays focused",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "smaller green and gold markers",
+    "Smoke coverage now checks",
   );
 
   await page.mouse.click(8, 8);
@@ -2068,6 +2068,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.137", "Mine panel cleanup"],
     ["0.1.136", "Clanker chew and XP pickups"],
     ["0.1.135", "Roof cell polish"],
     ["0.1.134", "Clanker visuals"],
@@ -4175,9 +4176,7 @@ test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
   await expect(status).toHaveAttribute("data-depth", "0");
 
   // Stand at the Hardware Store (three columns left of the shaft).
-  for (let i = 0; i < 3; i++) {
-    await pressMineKey(page, "ArrowLeft");
-  }
+  await walkToStallPrompt(page, "ArrowLeft", "Hardware Store");
   const prompt = page.getByRole("button", { name: "Open Hardware Store" });
   const buyer = page.getByRole("region", {
     name: "Hardware Store",
@@ -4205,9 +4204,7 @@ test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
 
   // The reported phone layout was at the Supply Depot. The same raised
   // prompt slot applies to every stall.
-  for (let i = 0; i < 5; i++) {
-    await pressMineKey(page, "ArrowRight");
-  }
+  await walkToStallPrompt(page, "ArrowRight", "Supply Depot");
   await expectSurfacePromptBottomClearance(page, "Open Supply Depot");
 });
 

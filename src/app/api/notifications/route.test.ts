@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-22-0.1.136-clanker-chew-xp-pickups",
+      releaseNoticeId: "2026-06-23-0.1.137-mine-panel-cleanup",
       releaseSummary:
-        "Clanker chew and XP pickups: Clankers now chew blockers and drop readable XP.",
+        "Mine panel cleanup: The mine UI is split into clearer owned modules.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-22-0.1.136-clanker-chew-xp-pickups",
+      releaseNoticeId: "2026-06-23-0.1.137-mine-panel-cleanup",
       attempted: 2,
       sent: 1,
       expired: 1,

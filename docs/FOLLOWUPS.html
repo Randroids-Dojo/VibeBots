@@ -382,6 +382,98 @@
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
   </dl>
 </section>
+
+<section id="F-031" data-f="F-031" data-priority="polish">
+  <h3>F-031: Split the mine panel shell into owned UI modules</h3>
+  <dl>
+    <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/components/mine-panel.tsx</code> is the largest source file at roughly 7,475 lines. It owns release notes, settings, save slots, feedback, stamps, surface stalls, bunker controls, input routing, viewport measurement, bag UI, cash-out status, and the mine shell. New agents must scan most of the file to find the right owner for even small UI changes.</dd>
+    <dt>Blocker (if any)</dt><dd>none, but do it only as small mechanical slices. This file is hot and touches mobile input, release notes, and bunker controls.</dd>
+    <dt>Unblock condition</dt><dd>Ready: extract stable leaf surfaces first, such as release notes, settings dialogs, save slots, feedback, stamp book, and surface stall sheets, into nearby <code>src/components/mine/*</code> modules or equivalent local files. Keep the top-level <code>MinePanel</code> as the orchestration point, preserve existing props and store calls, and do not change player-facing copy or mine rules in the extraction PRs. Acceptance: each extracted module has one clear ownership comment or name, existing focused smoke still passes, and future agents can identify the owner for a dialog or panel without searching the whole shell.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>Progress</dt><dd>2026-06-23: extracted release-note storage and rendering to <code>src/components/mine-release-notes-popup.tsx</code>, and moved shared dialog-dismiss behavior to <code>src/components/dismissible-dialog-frame.tsx</code>. F-031 remains open for settings, save slots, feedback, stamp book, and surface stall surfaces.</dd>
+    <dt>Resolved</dt><dd>2026-06-23: completed the shell split with behavior-preserving component owners for bag panel, release notes, settings-adjacent prompts, feedback, credits, update alerts, save slots, stamp book, shared dialog dismissal, shared sheet controls, surface stall sheets, and bunker controls. <code>MinePanel</code> remains the orchestration owner for mine state, input, viewport, HUD, and action routing.</dd>
+  </dl>
+</section>
+
+<section id="F-032" data-f="F-032" data-priority="polish">
+  <h3>F-032: Split the mine canvas scene into render-only subsystems</h3>
+  <dl>
+    <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/components/mine-canvas.tsx</code> is roughly 3,936 lines and mixes palette helpers, terrain materials, particle spawning, miner rig animation, surface buildings, bunker overlays, Clanker playback, death playback, and the main <code>useFrame</code> loop. The file is render-only, but its size makes animation fixes easy to over-broaden.</dd>
+    <dt>Blocker (if any)</dt><dd>none. Keep Rule 10 and the mine canvas text policy in force.</dd>
+    <dt>Unblock condition</dt><dd>Ready: extract pure render helpers and leaf meshes first, such as palettes/material helpers, surface buildings, bunker overlay meshes, miner rig pieces, and particle spawn helpers. Keep the main scene state machine and <code>useFrame</code> ownership in one place until it has tests or clear seams. Do not add new runtime 3D text, do not change sim behavior, and do not change the renderer dependency stack. Acceptance: smoke coverage still proves movement and key overlays, and visual helpers can be read without scrolling through the full scene loop.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-033" data-f="F-033" data-priority="polish">
+  <h3>F-033: Decompose the mine sim into stable pure modules</h3>
+  <dl>
+    <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/sim/mine.ts</code> is roughly 4,057 lines and contains version constants, gear tracks, ore definitions, strata, cell generation, bag math, support settling, falling rocks, free fall, dynamite, elevators, beacons, portals, action parsing, banking, and replay. It is pure and well-tested, but its breadth makes every mine rule change feel risky.</dd>
+    <dt>Blocker (if any)</dt><dd>none, but this must be behavior-preserving and must respect the sim purity contract.</dd>
+    <dt>Unblock condition</dt><dd>Ready: split by deterministic subsystem while keeping a stable public export surface, for example <code>src/sim/mine/gear.ts</code>, <code>ores.ts</code>, <code>world.ts</code>, <code>actions.ts</code>, <code>hazards.ts</code>, <code>supports.ts</code>, and <code>replay.ts</code> with <code>src/sim/mine.ts</code> as a compatibility barrel during migration. Move tests incrementally so each module has nearby coverage. Acceptance: <code>pnpm check:purity</code>, mine unit tests, and replay-sensitive route tests pass with no mine version bump because behavior did not change.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-034" data-f="F-034" data-priority="polish">
+  <h3>F-034: Split the Playwright smoke suite by feature area</h3>
+  <dl>
+    <dt>Context</dt><dd>Refactor review 2026-06-21: <code>tests/e2e/smoke.spec.ts</code> is roughly 4,536 lines and contains shared helpers plus arena, workshop, mine, bunker, release-note, notification, viewport, save-slot, shop, warp, elevator, storage, and API smoke cases. The monolith slows focused review because agents must search a single file for helper behavior and for the exact test a slice should run.</dd>
+    <dt>Blocker (if any)</dt><dd>none, but preserve CI behavior and critical test selection.</dd>
+    <dt>Unblock condition</dt><dd>Ready: extract shared helpers into a small test support module, then split specs by feature area, such as <code>mine-core</code>, <code>mine-bunker</code>, <code>mine-ui</code>, <code>release-notes</code>, <code>workshop</code>, and <code>api</code>. Keep current test names or update <code>test:e2e:critical</code> in the same PR so the required CI gate still selects the intended cases. Acceptance: critical smoke and the full smoke suite still run under isolated ports, and a future agent can run a focused feature spec without invoking unrelated flows.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-035" data-f="F-035" data-priority="polish">
+  <h3>F-035: Move release metadata out of the release logic module</h3>
+  <dl>
+    <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/lib/app-release.ts</code> is roughly 2,792 lines, but almost all of that is release-note archive data while only the bottom of the file computes the current build and release object. Release notes are changed often, so mixing archive data and behavior makes small copy updates noisy and easy to misread.</dd>
+    <dt>Blocker (if any)</dt><dd>none. Keep release-note and Web Push copy sourced from the same metadata.</dd>
+    <dt>Unblock condition</dt><dd>Ready: move archive entries into typed data modules, for example one file per month or per release range, and keep <code>getAppRelease</code>, current build detection, notice id selection, and type exports in a small logic module. Do not switch to runtime file reads or remote fetches. Acceptance: release-note tests, notification tests, version route tests, and latest-release smoke expectations still pass, and changing the current release copy no longer requires scanning the full archive.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-036" data-f="F-036" data-priority="polish">
+  <h3>F-036: Introduce typed API route boundary helpers</h3>
+  <dl>
+    <dt>Context</dt><dd>Refactor review 2026-06-21: route handlers repeat the same storage check, JSON parse, Zod validation, player id lookup, database lookup, operation result mapping, and <code>Response.json</code> error shapes. The bunker routes show the clearest repetition across claim, buy, place, move, raid start, and raid finish.</dd>
+    <dt>Blocker (if any)</dt><dd>none, but start with low-risk routes and leave heavily instrumented routes alone at first.</dd>
+    <dt>Unblock condition</dt><dd>Ready: add a small server-side helper for route boundaries that can parse optional JSON bodies, return consistent validation errors, load the active player and db handle, and map typed operation results to responses. Migrate the bunker route family first because the server operations already return <code>{ ok, status, error }</code>. Keep <code>/api/mine/bank</code> separate until its monitoring taxonomy can be preserved exactly. Acceptance: route tests cover the helper through migrated routes, storage-offline and invalid-body responses stay compatible, and future agents can add a simple player-scoped route without copying boilerplate.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-037" data-f="F-037" data-priority="polish">
+  <h3>F-037: Extract mine store persistence and API clients from Zustand state</h3>
+  <dl>
+    <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/state/mine-store.ts</code> is roughly 1,321 lines and combines local trip serialization, save-slot parsing, cash-out response parsing, remote route calls, pending bunker editing, store actions, and mutable sim state. Recent incidents have repeatedly touched this file, so it needs clearer ownership boundaries before more save and bunker behavior accumulates.</dd>
+    <dt>Blocker (if any)</dt><dd>none, but do not change the in-place sim mutation pattern during this refactor.</dd>
+    <dt>Unblock condition</dt><dd>Ready: extract pure helpers for local trip keys, migration, load/save/remove, saved-trip replay, save-slot response parsing, cash-out error parsing, and route-call wrappers. Keep the Zustand store as the state transition owner and keep the current replay semantics unchanged. Acceptance: existing mine store tests move with the helpers or gain focused helper tests, stale-trip and save-slot regression tests still pass, and future agents can inspect persistence code without reading every store action.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-038" data-f="F-038" data-priority="polish">
+  <h3>F-038: Create a bunker feature boundary map and facade</h3>
+  <dl>
+    <dt>Context</dt><dd>Refactor review 2026-06-21: bunker behavior now spans <code>src/sim/bunker.ts</code>, <code>src/server/bunker.ts</code>, <code>src/state/bunker-store.ts</code>, many <code>src/app/api/bunker/**</code> routes, and the mine panel and canvas. The GDD marks base building partial, so more slices will land here and new agents currently have to discover the boundary by searching.</dd>
+    <dt>Blocker (if any)</dt><dd>none. This should not move files into a broad feature folder until the import churn is justified.</dd>
+    <dt>Unblock condition</dt><dd>Ready: add a small boundary map in code or docs that names the sim, server, client store, routes, panel, and canvas responsibilities, then introduce a narrow typed facade where it removes real duplication, such as shared bunker route response types or store view normalization. Do not collapse sim, server, and UI into one module. Acceptance: the first picked bunker follow-up can cite the boundary map, route/store types remain consistent, and the change does not make mine-panel or mine-canvas imports harder to follow.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-039" data-f="F-039" data-priority="polish">
+  <h3>F-039: Split mine-specific global styles into owned style modules</h3>
+  <dl>
+    <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/app/globals.css</code> is roughly 1,059 lines and has accumulated broad app styles plus mine-specific HUD, sheet, alert, and mobile layout rules. Mobile text bounds and overlay fixes have repeatedly touched the same global surface, which makes unrelated style regressions hard to review.</dd>
+    <dt>Blocker (if any)</dt><dd>none, but visual QA is required because many selectors protect phone layouts.</dd>
+    <dt>Unblock condition</dt><dd>Ready: identify mine-only classes and move them into CSS modules or a clearly named imported mine stylesheet using existing Next.js support. Keep truly global reset and app shell rules in <code>globals.css</code>. Do not rename classes and restructure components in the same PR unless the rename is mechanically covered by tests. Acceptance: mobile focused smoke still checks panel bounds, release dialogs, settings, builder panels, and shop sheets; agents can find mine HUD styles without scanning unrelated global CSS.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
 </main>
 
 </body>

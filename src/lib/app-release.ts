@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-22-0.1.136-clanker-chew-xp-pickups";
+const RELEASE_NOTICE_ID = "2026-06-23-0.1.137-mine-panel-cleanup";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.137",
+      date: "2026-06-23",
+      title: "Mine panel cleanup",
+      intro: "The mine UI is split into clearer owned modules.",
+      changes: [
+        {
+          build,
+          text: "Release notes, bag, save slots, stamp book, feedback, settings prompts, stalls, and bunker controls now live in their own component files.",
+        },
+        {
+          build,
+          text: "MinePanel now stays focused on mine state, viewport, HUD, and action routing instead of owning every dialog and sheet.",
+        },
+        {
+          build,
+          text: "Smoke coverage now checks the moved release notes, settings, feedback, bag, save slot, bunker, and stall surfaces.",
+        },
+      ],
+    },
     {
       version: "0.1.136",
       date: "2026-06-22",

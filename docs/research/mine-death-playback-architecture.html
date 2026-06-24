@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mine Death Playback Architecture</title>
+</head>
+<body>
+
+<header>
+  <h1>Mine Death Playback Architecture</h1>
+  <p>Audit for <a href="../FOLLOWUPS.html#F-030">F-030</a>. The question was whether the current store-action subscription should stay, be replaced, or migrate toward a different presentation pipeline.</p>
+</header>
+
+<main>
+  <section id="recommendation">
+    <h2>Recommendation</h2>
+    <p>Keep the current store-action subscription as the timing primitive for fatal-fall and falling-rock-crush playback. It is the right bridge between a pure sim that resets the miner immediately and a render loop that must hold the camera on the underground impact cell before the browser paints the reset state.</p>
+    <p>Migrate incrementally rather than replacing it wholesale. The next cleanup should extract the death-playback derivation and R3F bridge from <code>src/components/mine-canvas.tsx</code> into a small owned helper or hook, but it should preserve the same synchronous subscription behavior and the same canvas diagnostics.</p>
+  </section>
+
+  <section id="current-flow">
+    <h2>Current Flow</h2>
+    <ol>
+      <li><code>src/sim/mine.ts</code> applies a logged mine action. A terminal result returns <code>collapsed</code>, optional <code>fallFatal</code> or <code>crushed</code>, and <code>lost</code> coordinates while the sim state has already run deterministic recovery back to the surface.</li>
+      <li><code>src/state/mine-store.ts</code> commits <code>lastResult</code>, <code>lastAction</code>, and a bumped <code>tick</code> in the same store transaction. Live collapses clear pending bunker edits before the trip is persisted.</li>
+      <li><code>src/components/mine-canvas.tsx</code> subscribes to the store in a layout effect and derives a render-only <code>FallPlayback</code> from the committed result and tick. That ref is installed before the next frame can follow the recovered surface miner.</li>
+      <li>The R3F <code>useFrame</code> loop owns the miner and camera transforms. While playback is active, it samples the playback track instead of the recovered sim position, exposes <code>data-fall-visual-active</code> and <code>data-fall-visual-impact</code>, plays impact SFX at impact time, then clears the visual event after the hold window.</li>
+      <li><code>src/components/mine-panel.tsx</code> delays the trip report overlay for fatal falls and crushes, so the player sees the impact before the report takes focus.</li>
+      <li>Saved terminal trip replays are consumed in <code>src/state/mine-store.ts</code>. The store clears the replayed terminal result after the first recovery so a reload does not loop the same death playback forever.</li>
+    </ol>
+  </section>
+
+  <section id="options-reviewed">
+    <h2>Options Reviewed</h2>
+    <dl>
+      <dt>Keep the subscription as-is</dt>
+      <dd>Viable for correctness. The subscription is intentionally synchronous and already backed by smoke tests for fatal falls and rock crushes. The weakness is readability: the playback derivation, timeout, frame loop, and diagnostics live inside the largest render file.</dd>
+      <dt>Emit explicit render events from the store transaction</dt>
+      <dd>Viable later, but not enough by itself. A typed event would clarify ownership, but the canvas would still need a synchronous subscription or equivalent pre-frame bridge because the sim position has already reset. This is best introduced only after more render events share the same path.</dd>
+      <dt>Move death playback into a deterministic presentation-state reducer</dt>
+      <dd>Not recommended now. Death playback is render timing, not game authority. Putting it in sim-like state would blur the pure replay contract, add persistence questions, and still need a frame-clock adapter for animation.</dd>
+      <dt>Use wall-clock timers from the store or panel</dt>
+      <dd>Rejected. The death impact belongs to the canvas frame loop where camera, miner, particles, and SFX are coordinated. Store or panel timers would make the first-frame race easier to reintroduce.</dd>
+    </dl>
+  </section>
+
+  <section id="risk-assessment">
+    <h2>Risk Assessment</h2>
+    <ul>
+      <li>The current subscription is a deliberate race fix, not incidental coupling. Removing it without an equivalent pre-frame bridge can bring back the surface-jump or empty-void frame.</li>
+      <li>The duplicate playback derivation in the subscription and tick layout effect is defensive, but it is also the main maintenance smell. Future agents have to read both paths to prove they install the same event.</li>
+      <li>The sim result already carries the correct authority data. No sim-version or mine-version bump is needed for a presentation-only cleanup.</li>
+      <li>Existing smoke coverage is strong for visible outcomes: fatal fall stays on camera until impact, falling-rock crush starts underground on the first active frame, rendered cells remain populated, the impact flag flips, and the trip report waits.</li>
+    </ul>
+  </section>
+
+  <section id="next-slice">
+    <h2>Next Slice</h2>
+    <p>Open follow-up <a href="../FOLLOWUPS.html#F-040">F-040</a> tracks the recommended incremental cleanup: extract a small death-playback helper or hook, centralize <code>FallPlayback</code> derivation and clearing, and keep the store subscription plus current smoke diagnostics intact.</p>
+  </section>
+</main>
+
+</body>
+</html>

@@ -59,6 +59,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>ready: audit the mine store action pipeline, React subscriptions, R3F frame ownership, trip-reset timing, and smoke coverage; research better event systems such as explicit render events emitted from the store transaction, a visual playback queue, or a deterministic presentation-state reducer; then recommend whether to keep the subscription, replace it, or migrate incrementally.</dd>
       <dt>PR / Dot reference</dt><dd><code>VibeBots-deeply-analyze-mine-81862016</code></dd>
+      <dt>Resolved</dt><dd>2026-06-23: audit documented in <code>docs/research/mine-death-playback-architecture.html</code>. Recommendation: keep the current store-action subscription as the synchronous pre-frame bridge, do not move death playback into sim or store-owned durable state, and migrate incrementally by extracting the death-playback helper or hook tracked by <code>F-040</code>.</dd>
     </dl>
   </section>
 
@@ -471,6 +472,16 @@
     <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/app/globals.css</code> is roughly 1,059 lines and has accumulated broad app styles plus mine-specific HUD, sheet, alert, and mobile layout rules. Mobile text bounds and overlay fixes have repeatedly touched the same global surface, which makes unrelated style regressions hard to review.</dd>
     <dt>Blocker (if any)</dt><dd>none, but visual QA is required because many selectors protect phone layouts.</dd>
     <dt>Unblock condition</dt><dd>Ready: identify mine-only classes and move them into CSS modules or a clearly named imported mine stylesheet using existing Next.js support. Keep truly global reset and app shell rules in <code>globals.css</code>. Do not rename classes and restructure components in the same PR unless the rename is mechanically covered by tests. Acceptance: mobile focused smoke still checks panel bounds, release dialogs, settings, builder panels, and shop sheets; agents can find mine HUD styles without scanning unrelated global CSS.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-040" data-f="F-040" data-priority="polish">
+  <h3>F-040: Extract the mine death playback bridge into an owned helper</h3>
+  <dl>
+    <dt>Context</dt><dd>F-030 found that the current store-action subscription is the right timing primitive for fatal fall and falling-rock-crush playback, but the derivation, timeout cleanup, frame-loop refs, and diagnostics are still embedded in <code>src/components/mine-canvas.tsx</code>. Future canvas work should not have to rediscover why the synchronous subscription exists.</dd>
+    <dt>Blocker (if any)</dt><dd>none, but keep this as a behavior-preserving cleanup.</dd>
+    <dt>Unblock condition</dt><dd>Ready: extract the death-playback derivation and bridge into a small helper or hook, centralize <code>FallPlayback</code> and <code>FallWindow</code> creation, preserve the pre-frame store subscription, and keep current canvas diagnostics. Acceptance: fatal-fall and falling-rock-crush smoke still prove the camera stays underground, populated cells render, impact flags flip, and the trip report waits for impact.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
   </dl>
 </section>

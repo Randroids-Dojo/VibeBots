@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-death-playback-architecture-audit" data-date="2026-06-23">
+    <h3>Mine Death Playback Architecture Audit</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/death-playback-architecture</code>, created from current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>Not opened yet.</dd>
+      <dt>Changed</dt><dd>Completed <code>F-030</code> by auditing the mine death playback path across <code>src/sim/mine.ts</code>, <code>src/state/mine-store.ts</code>, <code>src/components/mine-canvas.tsx</code>, <code>src/components/mine-panel.tsx</code>, and Playwright smoke coverage. Added <code>docs/research/mine-death-playback-architecture.html</code> with the recommendation to keep the current store-action subscription as the synchronous pre-frame bridge, avoid sim or durable-store ownership for render-only death playback, and migrate incrementally through a focused helper extraction. Added <code>F-040</code> for that extraction.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, and <code>pnpm lint</code>. Biome's direct path check for the HTML docs was skipped by the repo config because those ledger paths are ignored.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is an architecture documentation slice only, so no package version, release note, mine version, sim version, or GDD coverage status changes are needed.</dd>
+      <dt>GDD coverage</dt><dd>No GDD coverage rows changed because the shipped fatal-fall and falling-rock-crush behavior is unchanged.</dd>
+      <dt>Followups</dt><dd>Resolved <code>F-030</code>. Added <code>F-040</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-panel-ui-module-split" data-date="2026-06-23">
     <h3>Mine Panel UI Module Split</h3>
     <dl>

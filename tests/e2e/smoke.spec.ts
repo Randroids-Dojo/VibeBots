@@ -292,7 +292,7 @@ async function enterBuilding(
   name: string,
 ): Promise<void> {
   const prompt = page.getByRole("button", { name: `Enter ${name}` });
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 40; i++) {
     if (await prompt.isVisible().catch(() => false)) break;
     await pressMineKey(page, key);
   }

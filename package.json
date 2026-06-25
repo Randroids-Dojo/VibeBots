@@ -31,7 +31,7 @@
     "next": "16.2.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "three": "0.184.0",
+    "three": "0.185.0",
     "web-push": "^3.6.7",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
@@ -42,7 +42,7 @@
     "@types/node": "^22.18.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/three": "~0.184.1",
+    "@types/three": "~0.185.0",
     "@types/web-push": "^3.6.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.8"

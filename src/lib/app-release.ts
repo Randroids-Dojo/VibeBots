@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-24-0.1.138-death-playback-cleanup";
+const RELEASE_NOTICE_ID = "2026-06-25-0.1.139-mine-render-subsystems";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.139",
+      date: "2026-06-25",
+      title: "Mine renderer cleanup",
+      intro: "The mine renderer is split into clearer owned modules.",
+      changes: [
+        {
+          build,
+          text: "Mine render palettes, terrain colors, hash helpers, block meshes, particle spawning, support selection, bunker overlays, miner rig pieces, and surface buildings now live in focused component modules.",
+        },
+        {
+          build,
+          text: "The main mine canvas still owns the scene state machine, frame sampling, camera motion, miner motion, lighting, diagnostics, and event-to-effect bridge.",
+        },
+        {
+          build,
+          text: "This is a render-only ownership cleanup. Mine rules, replay behavior, save data, gameplay versions, and renderer dependencies are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.138",
       date: "2026-06-24",

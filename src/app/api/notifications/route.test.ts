@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-24-0.1.138-death-playback-cleanup",
+      releaseNoticeId: "2026-06-25-0.1.139-mine-render-subsystems",
       releaseSummary:
-        "Death playback cleanup: Mine death playback now has a clearer render bridge.",
+        "Mine renderer cleanup: The mine renderer is split into clearer owned modules.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-24-0.1.138-death-playback-cleanup",
+      releaseNoticeId: "2026-06-25-0.1.139-mine-render-subsystems",
       attempted: 2,
       sent: 1,
       expired: 1,

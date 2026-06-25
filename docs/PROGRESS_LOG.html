@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-canvas-render-subsystems" data-date="2026-06-25">
+    <h3>Mine Canvas Render Subsystems</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>refactor/mine-canvas-render-subsystems</code>, created from current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, simplification, cleanup, release-note audit, and verification.</dd>
+      <dt>Changed</dt><dd>Completed <code>F-032</code> with a behavior-preserving split of <code>src/components/mine-canvas.tsx</code>. Render palettes and color helpers moved to <code>src/components/mine-render-palette.ts</code>; block meshes and crack/drop helpers moved to <code>src/components/mine-block-render.tsx</code>; bunker overlay meshes moved to <code>src/components/mine-bunker-overlay.tsx</code>; miner rig pieces moved to <code>src/components/mine-miner-render.tsx</code>; particle spawn helpers moved to <code>src/components/mine-particles.ts</code>; support hit targets and outlines moved to <code>src/components/mine-support-selection.tsx</code>; surface buildings and dressing moved to <code>src/components/mine-surface-render.tsx</code>. <code>MineScene</code> still owns the scene state machine, frame loop, camera, lighting, diagnostics, and event-to-effect bridge. Package version moved to <code>0.1.139</code> so the release notes describe the renderer ownership cleanup.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm biome check --write</code> on touched source files; <code>pnpm typecheck</code>; <code>pnpm lint</code>; focused Vitest for mine camera, mine pacing, app release, and notification routes; <code>pnpm test</code> (398 passed); <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; <code>git diff --check</code>; <code>pnpm build</code>; and focused Playwright smoke for latest release notes plus immediate mine movement.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a render-only ownership cleanup. It does not change mine rules, replay behavior, save data, <code>MINE_VERSION</code>, <code>SIM_VERSION</code>, or renderer dependencies.</dd>
+      <dt>GDD coverage</dt><dd>No GDD coverage rows changed because mine behavior is unchanged. <code>docs/gdd/06-mining.html</code> gained a build log entry naming the new render helper owners.</dd>
+      <dt>Followups</dt><dd>Resolved <code>F-032</code>. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-death-playback-release-cleanup" data-date="2026-06-24">
     <h3>Mine Death Playback Release Cleanup</h3>
     <dl>

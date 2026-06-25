@@ -2036,17 +2036,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Mine death playback now has a clearer render bridge.",
+    "The mine renderer is split into clearer owned modules.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Fatal-fall and falling-rock-crush playback",
+    "Mine render palettes, terrain colors, hash helpers",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "The helper owns terminal result mapping",
+    "The main mine canvas still owns the scene state machine",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "The mine canvas stays focused",
+    "This is a render-only ownership cleanup",
   );
 
   await page.mouse.click(8, 8);
@@ -2066,6 +2066,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.139", "Mine renderer cleanup"],
     ["0.1.138", "Death playback cleanup"],
     ["0.1.137", "Mine panel cleanup"],
     ["0.1.136", "Clanker chew and XP pickups"],

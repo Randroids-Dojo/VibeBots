@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest death playback cleanup note complete", () => {
+  it("keeps the latest mine renderer cleanup note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-24-0.1.138-death-playback-cleanup");
+    expect(release.noticeId).toBe("2026-06-25-0.1.139-mine-render-subsystems");
+    expect(latestNote).toMatchObject({
+      version: "0.1.139",
+      title: "Mine renderer cleanup",
+      intro: "The mine renderer is split into clearer owned modules.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Mine render palettes, terrain colors, hash helpers, block meshes, particle spawning, support selection, bunker overlays, miner rig pieces, and surface buildings now live in focused component modules.",
+      "The main mine canvas still owns the scene state machine, frame sampling, camera motion, miner motion, lighting, diagnostics, and event-to-effect bridge.",
+      "This is a render-only ownership cleanup. Mine rules, replay behavior, save data, gameplay versions, and renderer dependencies are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived death playback cleanup note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.138");
+
     expect(latestNote).toMatchObject({
       version: "0.1.138",
       title: "Death playback cleanup",

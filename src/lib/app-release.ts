@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-23-0.1.137-mine-panel-cleanup";
+const RELEASE_NOTICE_ID = "2026-06-24-0.1.138-death-playback-cleanup";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.138",
+      date: "2026-06-24",
+      title: "Death playback cleanup",
+      intro: "Mine death playback now has a clearer render bridge.",
+      changes: [
+        {
+          build,
+          text: "Fatal-fall and falling-rock-crush playback now live in a focused mine death playback helper instead of the main canvas scene.",
+        },
+        {
+          build,
+          text: "The helper owns terminal result mapping, the synchronous store subscription, the fallback clear timer, and the short fall window used for camera framing.",
+        },
+        {
+          build,
+          text: "The mine canvas stays focused on frame sampling, camera and miner transforms, particles, impact sounds, and diagnostics.",
+        },
+      ],
+    },
     {
       version: "0.1.137",
       date: "2026-06-23",

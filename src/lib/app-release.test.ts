@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine panel cleanup note complete", () => {
+  it("keeps the latest death playback cleanup note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-23-0.1.137-mine-panel-cleanup");
+    expect(release.noticeId).toBe("2026-06-24-0.1.138-death-playback-cleanup");
+    expect(latestNote).toMatchObject({
+      version: "0.1.138",
+      title: "Death playback cleanup",
+      intro: "Mine death playback now has a clearer render bridge.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Fatal-fall and falling-rock-crush playback now live in a focused mine death playback helper instead of the main canvas scene.",
+      "The helper owns terminal result mapping, the synchronous store subscription, the fallback clear timer, and the short fall window used for camera framing.",
+      "The mine canvas stays focused on frame sampling, camera and miner transforms, particles, impact sounds, and diagnostics.",
+    ]);
+  });
+
+  it("keeps the archived mine panel cleanup note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.137");
+
     expect(latestNote).toMatchObject({
       version: "0.1.137",
       title: "Mine panel cleanup",

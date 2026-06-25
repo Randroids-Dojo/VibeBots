@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-death-playback-release-cleanup" data-date="2026-06-24">
+    <h3>Mine Death Playback Release Cleanup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/death-playback-architecture</code>, rebased on current <code>origin/main</code> before direct push.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, simplification, cleanup, release-note audit, and verification.</dd>
+      <dt>Changed</dt><dd>Reviewed the completed <code>F-030</code> and <code>F-040</code> death playback cleanup for release. Tightened <code>src/components/mine-death-playback.ts</code> so frame-loop completion cancels the fallback clear timer immediately. Added package version <code>0.1.138</code>, static release notes, in-game release metadata, notification summary coverage, and smoke assertions for the death playback cleanup note. <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.184.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write --unsafe</code> on touched source, test, package, release, and doc files; focused release and notification Vitest (64 passed); JSON validation for <code>package.json</code> and <code>docs/GDD_COVERAGE.json</code>; <code>pnpm typecheck</code>; <code>pnpm test</code> (397 passed); <code>pnpm build</code>; <code>pnpm lint</code>; <code>pnpm check:purity</code>; <code>pnpm check:dashes</code>; focused Playwright smoke with <code>PLAYWRIGHT_PORT=3702 pnpm exec playwright test tests/e2e/smoke.spec.ts --grep "mine shows the latest release note|fatal free fall stays on camera until impact|falling-rock crush stays on camera before the report" --project=chromium</code> (3 passed after fixing one stale release-note assertion); and critical smoke with <code>PLAYWRIGHT_PORT=3703 pnpm test:e2e:critical --project=chromium</code> (5 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this remains a behavior-preserving render architecture cleanup. The package version and release notes changed because the final direct-main cleanup explicitly required release notes to be accurate and complete.</dd>
+      <dt>GDD coverage</dt><dd>No GDD coverage rows changed because fatal fall and falling-rock-crush behavior is unchanged.</dd>
+      <dt>Followups</dt><dd><code>F-030</code> and <code>F-040</code> remain resolved. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-death-playback-helper" data-date="2026-06-23">
     <h3>Mine Death Playback Helper</h3>
     <dl>

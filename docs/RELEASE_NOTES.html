@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.138" data-date="2026-06-24">
+    <h2>0.1.138</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.138</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Mine death playback now has a clearer render bridge.</dd>
+      <dt>Mine UI</dt><dd>Fatal-fall and falling-rock-crush playback now live in <code>src/components/mine-death-playback.ts</code> instead of the main canvas scene. The helper owns terminal result mapping, the synchronous store subscription, the fallback clear timer, and the short fall window used for camera framing.</dd>
+      <dt>Agent workflow</dt><dd><code>mine-canvas.tsx</code> stays focused on frame sampling, camera and miner transforms, particles, impact sounds, and diagnostics. The F-030 architecture audit remains in <code>docs/research/mine-death-playback-architecture.html</code>, and <code>F-040</code> is closed by the helper extraction.</dd>
+      <dt>Verification</dt><dd>Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.137" data-date="2026-06-23">
     <h2>0.1.137</h2>
     <dl>

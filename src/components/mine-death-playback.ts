@@ -113,10 +113,14 @@ export function useMineDeathPlaybackBridge(
     fallClearTimeout.current = null;
   }, []);
 
-  const clearFallPlayback = useCallback((key: number) => {
-    if (fallPlayback.current?.key === key) fallPlayback.current = null;
-    setFallWindow((prev) => (prev?.key === key ? null : prev));
-  }, []);
+  const clearFallPlayback = useCallback(
+    (key: number) => {
+      clearPendingTimeout();
+      if (fallPlayback.current?.key === key) fallPlayback.current = null;
+      setFallWindow((prev) => (prev?.key === key ? null : prev));
+    },
+    [clearPendingTimeout],
+  );
 
   useEffect(() => () => clearPendingTimeout(), [clearPendingTimeout]);
 

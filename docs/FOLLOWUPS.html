@@ -414,7 +414,9 @@
     <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/sim/mine.ts</code> is roughly 4,057 lines and contains version constants, gear tracks, ore definitions, strata, cell generation, bag math, support settling, falling rocks, free fall, dynamite, elevators, beacons, portals, action parsing, banking, and replay. It is pure and well-tested, but its breadth makes every mine rule change feel risky.</dd>
     <dt>Blocker (if any)</dt><dd>none, but this must be behavior-preserving and must respect the sim purity contract.</dd>
     <dt>Unblock condition</dt><dd>Ready: split by deterministic subsystem while keeping a stable public export surface, for example <code>src/sim/mine/gear.ts</code>, <code>ores.ts</code>, <code>world.ts</code>, <code>actions.ts</code>, <code>hazards.ts</code>, <code>supports.ts</code>, and <code>replay.ts</code> with <code>src/sim/mine.ts</code> as a compatibility barrel during migration. Move tests incrementally so each module has nearby coverage. Acceptance: <code>pnpm check:purity</code>, mine unit tests, and replay-sensitive route tests pass with no mine version bump because behavior did not change.</dd>
-    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>PR / Dot reference</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/77">#77</a>.</dd>
+    <dt>Progress</dt><dd>2026-06-25: decomposed the mine sim into pure module owners for action tokens, biomes and portals, cell and state types, consumables, digging hardness, gear tracks, inventory and dropped bags, ores and strata, deterministic randomness, support settling, world generation and diffs, and replay orchestration. <code>src/sim/mine.ts</code> remains the stable compatibility barrel.</dd>
+    <dt>Resolved</dt><dd>2026-06-25: completed as a behavior-preserving sim ownership cleanup. Added nearby module coverage in <code>src/sim/mine/actions.test.ts</code>, <code>src/sim/mine/gear.test.ts</code>, and <code>src/sim/mine/world.test.ts</code>; kept <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
   </dl>
 </section>
 

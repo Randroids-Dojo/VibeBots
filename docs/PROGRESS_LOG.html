@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="holodeck-scenario-followup" data-date="2026-06-25">
+    <h3>Holodeck Scenario Followup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260625-215200-fadf7e33</code>, created from current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after review, cleanup, release-note audit, and verification.</dd>
+      <dt>Changed</dt><dd>Captured future Holodeck scenario-mode work as <code>F-043</code> and dot <code>VibeBots-add-holodeck-scenario-5a70a188</code>. The tracked scope is an options-menu Holodeck entry, a scenario selector, a first miner-plus-single-block auto-mining loop, scenario-local controls such as pickaxe level and block type, and a registry that can accept later scenarios without options-menu edits.</dd>
+      <dt>Verification</dt><dd>Reviewed <code>docs/RELEASE_NOTES.html</code> and <code>src/lib/app-release.ts</code>: no package version or player-facing release note is needed because this ships backlog tracking only, not the Holodeck mode. Ran <code>dot-html show VibeBots-add-holodeck-scenario-5a70a188</code>, dash checks, <code>git diff --check</code>, and project type-check.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: Holodeck is future work and does not change current mine rules, save data, player UI, package version, app release notes, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>.</dd>
+      <dt>GDD coverage</dt><dd>No GDD coverage rows changed because the mode has not shipped. The future implementation should update the GDD when the first Holodeck slice lands.</dd>
+      <dt>Followups</dt><dd>Added <a href="FOLLOWUPS.html#F-043">F-043</a>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="three-r185-upgrade" data-date="2026-06-25">
     <h3>Three r185 Upgrade</h3>
     <dl>

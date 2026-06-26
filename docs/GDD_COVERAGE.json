@@ -338,7 +338,9 @@
         "src/server/player.test.ts",
         "src/app/api/mine/bank/route.test.ts",
         "tests/e2e/smoke.spec.ts",
-        "src/sim/mine/actions.test.ts"
+        "src/sim/mine/actions.test.ts",
+        "src/sim/mine/consumables.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": [
         "F-015"
@@ -357,7 +359,9 @@
         "src/sim/mine/replay.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/sim/mine/inventory.test.ts",
+        "src/sim/mine/supports.test.ts"
       ],
       "followupRefs": [
         "F-012"
@@ -417,7 +421,9 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/smoke.spec.ts",
+        "src/sim/mine/supports.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -455,7 +461,9 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/smoke.spec.ts",
+        "src/sim/mine/supports.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -522,7 +530,10 @@
       "testRefs": [
         "src/sim/mine.test.ts",
         "tests/e2e/smoke.spec.ts",
-        "src/sim/mine/world.test.ts"
+        "src/sim/mine/world.test.ts",
+        "src/sim/mine/inventory.test.ts",
+        "src/sim/mine/supports.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -540,7 +551,8 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "src/sim/mine/world.test.ts"
+        "src/sim/mine/world.test.ts",
+        "src/sim/mine/random.test.ts"
       ],
       "followupRefs": []
     },
@@ -562,7 +574,8 @@
       "testRefs": [
         "src/sim/mine.test.ts",
         "tests/e2e/smoke.spec.ts",
-        "src/sim/mine/world.test.ts"
+        "src/sim/mine/world.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -586,7 +599,10 @@
         "src/sim/mine.test.ts",
         "src/app/api/consumables/buy/route.test.ts",
         "tests/e2e/smoke.spec.ts",
-        "src/sim/mine/actions.test.ts"
+        "src/sim/mine/actions.test.ts",
+        "src/sim/mine/biomes.test.ts",
+        "src/sim/mine/consumables.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -602,7 +618,9 @@
         "src/sim/mine/world.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/sim/mine/digging.test.ts",
+        "src/sim/mine/random.test.ts"
       ],
       "followupRefs": []
     },
@@ -618,7 +636,10 @@
         "src/sim/mine/replay.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/sim/mine/consumables.test.ts",
+        "src/sim/mine/replay.test.ts",
+        "src/sim/mine/supports.test.ts"
       ],
       "followupRefs": []
     },

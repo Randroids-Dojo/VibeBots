@@ -121,7 +121,9 @@ export function parseDropOreAction(
   if (!raw) return null;
   const pile: Partial<Record<OreId, number>> = {};
   for (const part of raw.split(";")) {
-    const [id, countText] = part.split(":");
+    const fields = part.split(":");
+    if (fields.length !== 2) return null;
+    const [id, countText] = fields;
     if (!id || !countText || !ORE_BY_ID.has(id as OreId)) return null;
     const count = Number(countText);
     if (!Number.isSafeInteger(count) || count <= 0) return null;

@@ -7,6 +7,8 @@ import {
   parseDropOreAction,
   renameBeaconAction,
 } from "./actions";
+import { applyAction } from "./replay";
+import { createMine } from "./world";
 
 describe("mine action tokens", () => {
   it("round-trips sorted collect targets", () => {
@@ -31,7 +33,21 @@ describe("mine action tokens", () => {
     expect(action).toBe("drop:coal:2;diamond:1");
     expect(parseDropOreAction(action)).toEqual({ coal: 2, diamond: 1 });
     expect(parseDropOreAction("drop:not-real:2")).toBeNull();
+    expect(parseDropOreAction("drop:coal:2:extra")).toBeNull();
+    expect(isMineAction("drop:coal:2:extra")).toBe(false);
     expect(isMineAction(action)).toBe(true);
+  });
+
+  it("rejects extra-delimiter ore drops before replay execution", () => {
+    const state = createMine(42);
+    state.miner.row = 1;
+    state.miner.carried.coal = 2;
+
+    expect(applyAction(state, "drop:coal:2:extra" as never)).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(state.miner.carried.coal).toBe(2);
   });
 
   it("normalizes encoded beacon rename labels", () => {

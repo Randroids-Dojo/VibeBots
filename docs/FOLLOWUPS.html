@@ -415,9 +415,6 @@
     <dt>Blocker (if any)</dt><dd>none, but this must be behavior-preserving and must respect the sim purity contract.</dd>
     <dt>Unblock condition</dt><dd>Ready: split by deterministic subsystem while keeping a stable public export surface, for example <code>src/sim/mine/gear.ts</code>, <code>ores.ts</code>, <code>world.ts</code>, <code>actions.ts</code>, <code>hazards.ts</code>, <code>supports.ts</code>, and <code>replay.ts</code> with <code>src/sim/mine.ts</code> as a compatibility barrel during migration. Move tests incrementally so each module has nearby coverage. Acceptance: <code>pnpm check:purity</code>, mine unit tests, and replay-sensitive route tests pass with no mine version bump because behavior did not change.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
-    <dt>Progress</dt><dd>2026-06-25: decomposed the mine sim into pure module owners for action tokens, biomes and portals, cell and state types, consumables, digging hardness, gear tracks, inventory and dropped bags, ores and strata, deterministic randomness, support settling, world generation and diffs, and replay orchestration. <code>src/sim/mine.ts</code> remains the stable compatibility barrel.</dd>
-    <dt>Resolved</dt><dd>2026-06-25: completed as a behavior-preserving sim ownership cleanup. Added nearby module coverage in <code>src/sim/mine/actions.test.ts</code>, <code>src/sim/mine/gear.test.ts</code>, <code>src/sim/mine/world.test.ts</code>, <code>src/sim/mine/biomes.test.ts</code>, <code>src/sim/mine/consumables.test.ts</code>, <code>src/sim/mine/digging.test.ts</code>, <code>src/sim/mine/inventory.test.ts</code>, <code>src/sim/mine/random.test.ts</code>, <code>src/sim/mine/replay.test.ts</code>, and <code>src/sim/mine/supports.test.ts</code>; kept <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
-    <dt>Closure update</dt><dd>2026-06-25: <a href="https://github.com/Randroids-Dojo/VibeBots/pull/77">#77</a> closes this entry. PR review added one production parser hardening fix for malformed ore-drop tokens and broadened pure module tests. Two behavior-changing review findings were captured as separate follow-ups, <code>F-041</code> and <code>F-042</code>, rather than changing deterministic mine payouts or replay semantics inside this refactor.</dd>
   </dl>
 </section>
 
@@ -509,6 +506,16 @@
     <dt>Blocker (if any)</dt><dd>Needs a behavior review because routing every successful handler through one finalization path may advance falling-rock timers, settle supports, clear jump hover, or detonate planted charges differently.</dd>
     <dt>Unblock condition</dt><dd>Ready: document the intended finalization contract per action family, add focused tests for each branch, then either centralize a shared finish helper with unchanged results or intentionally change semantics with the required mine version, docs, and replay coverage updates. Acceptance: recall, abandon, elevator, warp, portal, beacon, bag-drop, movement, support collection, dynamite timing, ladder settling, and falling-rock timing remain explicitly covered.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-033-closure-2026-06-25" data-f="F-033" data-role="closure">
+  <h3>F-033 closure: Decompose the mine sim into stable pure modules</h3>
+  <dl>
+    <dt>Closed by</dt><dd>2026-06-25: <a href="https://github.com/Randroids-Dojo/VibeBots/pull/77">#77</a>.</dd>
+    <dt>Progress</dt><dd>Decomposed the mine sim into pure module owners for action tokens, biomes and portals, cell and state types, consumables, digging hardness, gear tracks, inventory and dropped bags, ores and strata, deterministic randomness, support settling, world generation and diffs, and replay orchestration. <code>src/sim/mine.ts</code> remains the stable compatibility barrel.</dd>
+    <dt>Resolved</dt><dd>Completed as a behavior-preserving sim ownership cleanup. Added nearby module coverage in <code>src/sim/mine/actions.test.ts</code>, <code>src/sim/mine/gear.test.ts</code>, <code>src/sim/mine/world.test.ts</code>, <code>src/sim/mine/biomes.test.ts</code>, <code>src/sim/mine/consumables.test.ts</code>, <code>src/sim/mine/digging.test.ts</code>, <code>src/sim/mine/inventory.test.ts</code>, <code>src/sim/mine/random.test.ts</code>, <code>src/sim/mine/replay.test.ts</code>, and <code>src/sim/mine/supports.test.ts</code>; kept <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    <dt>Closure update</dt><dd>PR review added one production parser hardening fix for malformed ore-drop tokens and broadened pure module tests. Two behavior-changing review findings were captured as separate follow-ups, <code>F-041</code> and <code>F-042</code>, rather than changing deterministic mine payouts or replay semantics inside this refactor.</dd>
   </dl>
 </section>
 </main>

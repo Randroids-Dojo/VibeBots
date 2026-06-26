@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-06-22",
+  "updatedAt": "2026-06-25",
   "rows": [
     {
       "id": "REQ-001",
@@ -99,7 +99,11 @@
         "src/sim/mine.ts",
         "src/app/mine/page.tsx",
         "src/components/mine-panel.tsx",
-        "src/components/mine-canvas.tsx"
+        "src/components/mine-canvas.tsx",
+        "src/sim/mine/replay.ts",
+        "src/sim/mine/world.ts",
+        "src/sim/mine/gear.ts",
+        "src/sim/mine/consumables.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
@@ -113,7 +117,9 @@
       "gddRef": "docs/gdd/06-mining.html#loop",
       "status": "done",
       "implementationRefs": [
-        "src/sim/mine.ts"
+        "src/sim/mine.ts",
+        "src/sim/mine/replay.ts",
+        "src/sim/mine/world.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
@@ -140,7 +146,9 @@
         "src/server/part-inventory.ts",
         "src/sim/mine.ts",
         "src/server/balance-telemetry.ts",
-        "src/server/db.ts"
+        "src/server/db.ts",
+        "src/sim/mine/replay.ts",
+        "src/sim/mine/inventory.ts"
       ],
       "testRefs": [
         "src/sim/inventory.test.ts",
@@ -194,10 +202,14 @@
       "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
-        "src/components/mine-canvas.tsx"
+        "src/components/mine-canvas.tsx",
+        "src/sim/mine/ores.ts",
+        "src/sim/mine/digging.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/sim/mine/world.test.ts"
       ],
       "followupRefs": [
         "F-014"
@@ -216,7 +228,8 @@
         "src/server/achievements.ts",
         "src/components/mine-panel.tsx",
         "src/components/mine-canvas.tsx",
-        "src/server/db.ts"
+        "src/server/db.ts",
+        "src/sim/mine/ores.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
@@ -241,14 +254,18 @@
         "src/components/mine-camera.ts",
         "src/state/mine-store.ts",
         "src/server/db.ts",
-        "src/server/balance-telemetry.ts"
+        "src/server/balance-telemetry.ts",
+        "src/sim/mine/gear.ts",
+        "src/sim/mine/digging.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
         "src/app/api/gear/upgrade/route.test.ts",
         "src/server/db.test.ts",
         "src/components/mine-camera.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/smoke.spec.ts",
+        "src/sim/mine/gear.test.ts"
       ],
       "followupRefs": [
         "F-013"
@@ -263,7 +280,10 @@
         "src/sim/mine.ts",
         "src/components/mine-canvas.tsx",
         "src/components/mine-panel.tsx",
-        "src/components/mine-sfx.ts"
+        "src/components/mine-sfx.ts",
+        "src/sim/mine/inventory.ts",
+        "src/sim/mine/gear.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
@@ -280,7 +300,10 @@
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/components/mine-canvas.tsx",
-        "src/components/mine-panel.tsx"
+        "src/components/mine-panel.tsx",
+        "src/sim/mine/world.ts",
+        "src/sim/mine/supports.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts"
@@ -305,13 +328,19 @@
         "src/components/shop-panel.tsx",
         "src/components/mine-panel.tsx",
         "src/components/mine-canvas.tsx",
-        "src/state/mine-store.ts"
+        "src/state/mine-store.ts",
+        "src/sim/mine/consumables.ts",
+        "src/sim/mine/actions.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
         "src/server/player.test.ts",
         "src/app/api/mine/bank/route.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/smoke.spec.ts",
+        "src/sim/mine/actions.test.ts",
+        "src/sim/mine/consumables.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": [
         "F-015"
@@ -324,10 +353,15 @@
       "status": "done",
       "implementationRefs": [
         "src/components/mine-panel.tsx",
-        "src/sim/mine.ts"
+        "src/sim/mine.ts",
+        "src/sim/mine/inventory.ts",
+        "src/sim/mine/supports.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/sim/mine/inventory.test.ts",
+        "src/sim/mine/supports.test.ts"
       ],
       "followupRefs": [
         "F-012"
@@ -361,7 +395,9 @@
       "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
-        "src/components/mine-panel.tsx"
+        "src/components/mine-panel.tsx",
+        "src/sim/mine/inventory.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts"
@@ -378,11 +414,16 @@
         "src/app/api/mine/bank/route.ts",
         "src/app/api/consumables/buy/route.ts",
         "src/components/mine-panel.tsx",
-        "src/components/mine-canvas.tsx"
+        "src/components/mine-canvas.tsx",
+        "src/sim/mine/supports.ts",
+        "src/sim/mine/consumables.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/smoke.spec.ts",
+        "src/sim/mine/supports.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -413,11 +454,16 @@
         "src/app/api/mine/bank/route.ts",
         "src/app/api/consumables/buy/route.ts",
         "src/components/mine-panel.tsx",
-        "src/components/mine-canvas.tsx"
+        "src/components/mine-canvas.tsx",
+        "src/sim/mine/supports.ts",
+        "src/sim/mine/consumables.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/smoke.spec.ts",
+        "src/sim/mine/supports.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -458,7 +504,8 @@
       "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
-        "src/components/mine-panel.tsx"
+        "src/components/mine-panel.tsx",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
@@ -476,11 +523,17 @@
         "src/state/mine-store.ts",
         "src/app/api/mine/world/route.ts",
         "src/app/api/mine/bank/route.ts",
-        "src/server/db.ts"
+        "src/server/db.ts",
+        "src/sim/mine/world.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/smoke.spec.ts",
+        "src/sim/mine/world.test.ts",
+        "src/sim/mine/inventory.test.ts",
+        "src/sim/mine/supports.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -492,10 +545,14 @@
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/components/mine-canvas.tsx",
-        "src/components/mine-stalls.ts"
+        "src/components/mine-stalls.ts",
+        "src/sim/mine/world.ts",
+        "src/sim/mine/random.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/sim/mine/world.test.ts",
+        "src/sim/mine/random.test.ts"
       ],
       "followupRefs": []
     },
@@ -509,11 +566,16 @@
         "src/app/api/elevator/upgrade/route.ts",
         "src/state/mine-store.ts",
         "src/components/mine-panel.tsx",
-        "src/components/mine-canvas.tsx"
+        "src/components/mine-canvas.tsx",
+        "src/sim/mine/gear.ts",
+        "src/sim/mine/world.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/smoke.spec.ts",
+        "src/sim/mine/world.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -528,12 +590,19 @@
         "src/state/mine-store.ts",
         "src/components/mine-panel.tsx",
         "src/components/mine-canvas.tsx",
-        "src/components/mine-stalls.ts"
+        "src/components/mine-stalls.ts",
+        "src/sim/mine/biomes.ts",
+        "src/sim/mine/actions.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
         "src/app/api/consumables/buy/route.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/smoke.spec.ts",
+        "src/sim/mine/actions.test.ts",
+        "src/sim/mine/biomes.test.ts",
+        "src/sim/mine/consumables.test.ts",
+        "src/sim/mine/replay.test.ts"
       ],
       "followupRefs": []
     },
@@ -544,10 +613,14 @@
       "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
-        "src/components/mine-canvas.tsx"
+        "src/components/mine-canvas.tsx",
+        "src/sim/mine/ores.ts",
+        "src/sim/mine/world.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/sim/mine/digging.test.ts",
+        "src/sim/mine/random.test.ts"
       ],
       "followupRefs": []
     },
@@ -558,10 +631,15 @@
       "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
-        "src/components/mine-panel.tsx"
+        "src/components/mine-panel.tsx",
+        "src/sim/mine/consumables.ts",
+        "src/sim/mine/replay.ts"
       ],
       "testRefs": [
-        "src/sim/mine.test.ts"
+        "src/sim/mine.test.ts",
+        "src/sim/mine/consumables.test.ts",
+        "src/sim/mine/replay.test.ts",
+        "src/sim/mine/supports.test.ts"
       ],
       "followupRefs": []
     },
@@ -577,7 +655,8 @@
         "src/app/api/mine/bank/route.ts",
         "src/sim/mine.ts",
         "src/components/mine-panel.tsx",
-        "src/server/db.ts"
+        "src/server/db.ts",
+        "src/sim/mine/ores.ts"
       ],
       "testRefs": [
         "src/lib/achievements.test.ts",

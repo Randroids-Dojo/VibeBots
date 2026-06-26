@@ -488,6 +488,36 @@
     <dt>Resolved</dt><dd>2026-06-23: extracted the death playback bridge to <code>src/components/mine-death-playback.ts</code>. <code>mine-canvas.tsx</code> still owns frame sampling, impact particles, SFX, camera, and miner transforms, while the helper owns terminal result mapping, the synchronous store subscription, fallback clear timer, and fall window state.</dd>
   </dl>
 </section>
+
+<section id="F-041" data-f="F-041" data-priority="polish">
+  <h3>F-041: Audit the ore spawn fade at max row boundaries</h3>
+  <dl>
+    <dt>Context</dt><dd>PR #77 review found that <code>oreChanceAt</code> currently returns zero at <code>row === ore.maxRow</code> and a trace chance below the authored band at deeper rows. That may be intentional post-band trace ore or an old discontinuity, but changing it would alter generated cells and payout chances for the same seed.</dd>
+    <dt>Blocker (if any)</dt><dd>Needs a gameplay decision because this is a deterministic generation change, not a cleanup-only refactor.</dd>
+    <dt>Unblock condition</dt><dd>Ready: decide whether post-band trace ore should exist and whether <code>row === ore.maxRow</code> should use the trace chance or taper to zero. If behavior changes, bump <code>MINE_VERSION</code>, add ore-boundary regression tests, update mining docs and coverage, and verify mine replay-sensitive tests and bank-route pricing still agree.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-042" data-f="F-042" data-priority="polish">
+  <h3>F-042: Audit shared post-action finalization in mine replay</h3>
+  <dl>
+    <dt>Context</dt><dd>PR #77 review called out that some action handlers return directly while movement and many stationary actions flow through common finalization. Some direct returns are known current semantics for recall, abandon, portal, warp, elevator, beacon, and bag-drop actions, but the split made the difference easier to see and harder for future agents to reason about.</dd>
+    <dt>Blocker (if any)</dt><dd>Needs a behavior review because routing every successful handler through one finalization path may advance falling-rock timers, settle supports, clear jump hover, or detonate planted charges differently.</dd>
+    <dt>Unblock condition</dt><dd>Ready: document the intended finalization contract per action family, add focused tests for each branch, then either centralize a shared finish helper with unchanged results or intentionally change semantics with the required mine version, docs, and replay coverage updates. Acceptance: recall, abandon, elevator, warp, portal, beacon, bag-drop, movement, support collection, dynamite timing, ladder settling, and falling-rock timing remain explicitly covered.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
+<section id="F-033-closure-2026-06-25" data-f="F-033" data-role="closure">
+  <h3>F-033 closure: Decompose the mine sim into stable pure modules</h3>
+  <dl>
+    <dt>Closed by</dt><dd>2026-06-25: <a href="https://github.com/Randroids-Dojo/VibeBots/pull/77">#77</a>.</dd>
+    <dt>Progress</dt><dd>Decomposed the mine sim into pure module owners for action tokens, biomes and portals, cell and state types, consumables, digging hardness, gear tracks, inventory and dropped bags, ores and strata, deterministic randomness, support settling, world generation and diffs, and replay orchestration. <code>src/sim/mine.ts</code> remains the stable compatibility barrel.</dd>
+    <dt>Resolved</dt><dd>Completed as a behavior-preserving sim ownership cleanup. Added nearby module coverage in <code>src/sim/mine/actions.test.ts</code>, <code>src/sim/mine/gear.test.ts</code>, <code>src/sim/mine/world.test.ts</code>, <code>src/sim/mine/biomes.test.ts</code>, <code>src/sim/mine/consumables.test.ts</code>, <code>src/sim/mine/digging.test.ts</code>, <code>src/sim/mine/inventory.test.ts</code>, <code>src/sim/mine/random.test.ts</code>, <code>src/sim/mine/replay.test.ts</code>, and <code>src/sim/mine/supports.test.ts</code>; kept <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    <dt>Closure update</dt><dd>PR review added one production parser hardening fix for malformed ore-drop tokens and broadened pure module tests. Two behavior-changing review findings were captured as separate follow-ups, <code>F-041</code> and <code>F-042</code>, rather than changing deterministic mine payouts or replay semantics inside this refactor.</dd>
+  </dl>
+</section>
 </main>
 
 </body>

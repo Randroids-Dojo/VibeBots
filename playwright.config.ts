@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { defineConfig } from "@playwright/test";
+import { parsePlaywrightWorkerCount } from "./src/lib/playwright-workers";
 
 const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 const configuredPort = process.env.PLAYWRIGHT_PORT ?? process.env.PORT;
@@ -14,12 +15,7 @@ const defaultPort =
 const localPort = Number(configuredPort ?? defaultPort);
 const localHost = process.env.PLAYWRIGHT_HOST ?? "127.0.0.1";
 const localBaseUrl = `http://${localHost}:${localPort}`;
-const workerCount =
-  configuredWorkers === undefined
-    ? 2
-    : /^[1-9]\d*$/.test(configuredWorkers)
-      ? Number(configuredWorkers)
-      : Number.NaN;
+const workerCount = parsePlaywrightWorkerCount(configuredWorkers);
 
 if (!Number.isInteger(localPort) || localPort < 1 || localPort > 65535) {
   throw new Error(

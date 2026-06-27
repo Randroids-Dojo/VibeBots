@@ -57,6 +57,7 @@ import { type BunkerBuildMode, BunkerOverlay } from "./mine-bunker-overlay";
 import {
   CRUSH_HOLD_SECONDS,
   FATAL_FALL_HOLD_SECONDS,
+  fatalFallPlaybackSeconds,
   useMineDeathPlaybackBridge,
 } from "./mine-death-playback";
 import { MinerBot } from "./mine-miner-render";
@@ -422,7 +423,7 @@ function MineScene({
         const duration =
           activeFall.kind === "crush"
             ? 0.32
-            : Math.min(1.05, Math.max(0.42, activeFall.fell * 0.11));
+            : fatalFallPlaybackSeconds(activeFall.fell);
         activeFall.track = {
           fromX: cellX(activeFall.col),
           fromY: -activeFall.fromRow,

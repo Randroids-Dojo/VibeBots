@@ -38,6 +38,11 @@ export interface FallPlayback extends FallWindow {
 
 export const FATAL_FALL_HOLD_SECONDS = 0.38;
 export const CRUSH_HOLD_SECONDS = 3.6;
+export const FATAL_FALL_SECONDS_PER_ROW = 0.11;
+
+export function fatalFallPlaybackSeconds(fell: number): number {
+  return Math.max(0.42, fell * FATAL_FALL_SECONDS_PER_ROW);
+}
 
 function fallPlaybackFromResult(
   result: MoveResult | null,
@@ -91,7 +96,12 @@ function fallWindowFromPlayback(playback: FallPlayback): FallWindow {
 
 function clearMsForPlayback(playback: FallPlayback): number {
   return playback.kind === "fall"
-    ? Math.min(1600, Math.max(850, 520 + playback.fell * 100))
+    ? Math.ceil(
+        (fatalFallPlaybackSeconds(playback.fell) +
+          FATAL_FALL_HOLD_SECONDS +
+          0.4) *
+          1000,
+      )
     : 4300;
 }
 

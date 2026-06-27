@@ -100,6 +100,8 @@
         "src/app/mine/page.tsx",
         "src/components/mine-panel.tsx",
         "src/components/mine-canvas.tsx",
+        "src/components/mine-death-playback.ts",
+        "src/state/mine-store.ts",
         "src/sim/mine/replay.ts",
         "src/sim/mine/world.ts",
         "src/sim/mine/gear.ts",
@@ -107,6 +109,8 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
+        "src/components/mine-death-playback.test.ts",
+        "src/state/mine-store.test.ts",
         "tests/e2e/smoke.spec.ts"
       ],
       "followupRefs": []

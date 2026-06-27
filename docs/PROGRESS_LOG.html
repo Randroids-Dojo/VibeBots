@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="fall-death-respawn-controls" data-date="2026-06-27">
+    <h3>Fall Death Respawn Controls</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/fall-death-respawn-controls</code>, created from current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>Direct push to <code>main</code> per user request after cleanup review.</dd>
+      <dt>Changed</dt><dd>User-reported falling-death fix. Fatal free-fall playback now scales with the full fall distance and the fallback clear timer waits for the landing impact before clearing, so long drops keep the camera and miner on the fall path until the death animation settles. Terminal mine states now cancel held keyboard and touch movement, the touch control unmount path releases the joystick state, and dismissing the trip report clears only the terminal presentation result so the surface respawn starts from clean controls. Package version moved to <code>0.1.140</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the cleanup review for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, tests, release, package, and coverage files, focused Vitest for death playback, mine store, app release notes, and release notifications (86 passed), <code>pnpm build</code>, focused Playwright smoke with <code>PLAYWRIGHT_PORT=3768 pnpm exec playwright test tests/e2e/smoke.spec.ts --project=chromium --grep "fatal free fall stays on camera|held touch movement cancels|mine shows the latest release note"</code> (3 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (439 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, critical Playwright smoke with <code>PLAYWRIGHT_PORT=3769 pnpm test:e2e:critical --project=chromium</code> (5 passed), and a production-build in-app browser spot check on <code>http://127.0.0.1:3767/mine</code> that confirmed the <code>0.1.140</code> release note, visible canvas, and rendered cells.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a render and input-state fix for existing fatal-fall semantics. Mine replay rules, cash-out math, save data, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>GDD coverage</dt><dd>REQ-006 stays done with updated implementation and test refs in <code>docs/GDD_COVERAGE.json</code>. Appended a build-log entry to <code>docs/gdd/06-mining.html</code>, updated static and in-game release notes, and added focused smoke coverage for long fall camera tracking and held touch cancellation after death.</dd>
+      <dt>Followups</dt><dd>Opened dot <code>VibeBots-fix-falling-death-95efee3e</code> for this slice. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="local-parallel-playwright" data-date="2026-06-27">
     <h3>Local Parallel Playwright</h3>
     <dl>

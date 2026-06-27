@@ -327,6 +327,7 @@ export interface MineSessionState {
   saveSlots: SaveSlotsState;
   worldLoaded: boolean;
   move: (action: MineAction) => void;
+  clearTerminalResult: () => void;
   loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
   loadSaveSlots: () => Promise<void>;
@@ -447,6 +448,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       if (result.ok) {
         persistCurrentTrip();
       }
+    },
+
+    clearTerminalResult: () => {
+      const { lastResult } = get();
+      if (!(lastResult?.ok && lastResult.collapsed)) return;
+      set({ lastResult: null, lastAction: null });
     },
 
     loadWorld: async () => {

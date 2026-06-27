@@ -506,6 +506,35 @@ describe("mine store upgrade flow", () => {
     expect(saved.pendingBunker).toBeNull();
   });
 
+  it("clears a terminal death result without discarding the trip log", () => {
+    const seed = 6164;
+    const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+    for (let row = 1; row <= 6; row++) {
+      setCell(mine, START_COL, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, 7, { kind: "dirt" });
+    useMineStore.setState({
+      mine,
+      seed,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      tripIndex: 4,
+      tripBaseDiff: exportDiff(mine),
+      moves: [],
+      worldLoaded: true,
+    });
+
+    store().move("down");
+    const terminalResult = store().lastResult;
+    expect(terminalResult?.ok && terminalResult.collapsed).toBe(true);
+
+    store().clearTerminalResult();
+
+    expect(store().lastResult).toBeNull();
+    expect(store().lastAction).toBeNull();
+    expect(store().moves).toEqual(["down"]);
+  });
+
   it("does not overwrite a legacy local trip before the slot world loads", () => {
     const saved = {
       mineVersion: MINE_VERSION,

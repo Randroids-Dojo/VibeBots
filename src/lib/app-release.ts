@@ -2,10 +2,30 @@ import { execFileSync } from "node:child_process";
 import packageJson from "../../package.json";
 import type { AppRelease, AppReleaseNote } from "./app-release-types";
 
-const RELEASE_NOTICE_ID = "2026-06-25-0.1.139-mine-render-subsystems";
+const RELEASE_NOTICE_ID = "2026-06-27-0.1.140-fall-death-respawn";
 
 function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.140",
+      date: "2026-06-27",
+      title: "Fall death camera",
+      intro: "Fatal falls now stay visible until the landing impact.",
+      changes: [
+        {
+          build,
+          text: "Long fatal falls now keep the camera and miner moving all the way to the landing cell before the trip report appears.",
+        },
+        {
+          build,
+          text: "The death animation now waits for the full fall distance instead of clearing from a fixed short timeout.",
+        },
+        {
+          build,
+          text: "Held keyboard and touch movement now cancel on death, so respawning at the surface starts from a clean control state.",
+        },
+      ],
+    },
     {
       version: "0.1.139",
       date: "2026-06-25",

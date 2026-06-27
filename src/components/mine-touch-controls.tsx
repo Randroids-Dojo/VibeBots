@@ -9,7 +9,7 @@ import {
   moveJoystick,
   readJoystick,
 } from "@randroids-dojo/vibekit";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Direction } from "@/sim/mine";
 
 /** A new axis must clearly dominate before the direction switches. */
@@ -36,12 +36,17 @@ export function MineTouchControls({
   const pinchDistance = useRef<number | null>(null);
   const pinching = useRef(false);
   const heldDir = useRef<Direction | null>(null);
+  const onReleaseDirectionRef = useRef(onReleaseDirection);
   const [stick, setStick] = useState<{
     originX: number;
     originY: number;
     nubX: number;
     nubY: number;
   } | null>(null);
+
+  useEffect(() => {
+    onReleaseDirectionRef.current = onReleaseDirection;
+  }, [onReleaseDirection]);
 
   const syncDirection = () => {
     const v = readJoystick(js.current);
@@ -68,7 +73,7 @@ export function MineTouchControls({
       if (dir) {
         onDirection(dir);
       } else {
-        onReleaseDirection?.(held);
+        onReleaseDirectionRef.current?.(held);
       }
     }
   };
@@ -93,7 +98,7 @@ export function MineTouchControls({
     endJoystick(js.current);
     heldDir.current = null;
     setStick(null);
-    onReleaseDirection?.(releasedDir);
+    onReleaseDirectionRef.current?.(releasedDir);
   };
 
   const distanceBetweenPointers = (): number | null => {
@@ -107,6 +112,19 @@ export function MineTouchControls({
     pinching.current = false;
     pinchDistance.current = null;
   };
+
+  useEffect(
+    () => () => {
+      const releasedDir = heldDir.current;
+      endJoystick(js.current);
+      heldDir.current = null;
+      pointers.current.clear();
+      pinching.current = false;
+      pinchDistance.current = null;
+      onReleaseDirectionRef.current?.(releasedDir);
+    },
+    [],
+  );
 
   const trackPointer = (id: number, x: number, y: number) => {
     pointers.current.set(id, { x, y });

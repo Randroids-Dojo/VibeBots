@@ -699,6 +699,7 @@ function JuiceOverlays() {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);
+  const clearTerminalResult = useMineStore((s) => s.clearTerminalResult);
   const [floats, setFloats] = useState<FloatNote[]>([]);
   const [fanfare, setFanfare] = useState<string | null>(null);
   const [wreck, setWreck] = useState<{
@@ -853,7 +854,10 @@ function JuiceOverlays() {
       {wreck && (
         <button
           type="button"
-          onClick={() => setWreck(null)}
+          onClick={() => {
+            setWreck(null);
+            clearTerminalResult();
+          }}
           aria-label="Dismiss trip report"
           style={{
             position: "absolute",
@@ -1415,16 +1419,22 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     return directionCadenceRef.current;
   }, []);
 
+  const cancelMovementControls = useCallback(() => {
+    directionCadenceRef.current?.cancel();
+    upwardDigAwaitingReleaseRef.current = false;
+  }, []);
+
   const performDirectionAction = useCallback(
     (dir: Direction): boolean => {
       if (!mineSceneReady) return false;
       if (elevatorAutoDir) return false;
+      const state = useMineStore.getState();
+      if (state.lastResult?.ok && state.lastResult.collapsed) return false;
       if (dir !== "up") {
         upwardDigAwaitingReleaseRef.current = false;
       } else if (upwardDigAwaitingReleaseRef.current) {
         return false;
       }
-      const state = useMineStore.getState();
       const startCol = state.mine.miner.col;
       const startRow = state.mine.miner.row;
       state.move(dir);
@@ -1471,13 +1481,25 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, []);
 
   useEffect(() => {
-    if (mineSceneReady && !elevatorAutoDir && !creditsOpen) return;
-    directionCadenceRef.current?.cancel();
-  }, [creditsOpen, elevatorAutoDir, mineSceneReady]);
+    if (
+      mineSceneReady &&
+      !elevatorAutoDir &&
+      !creditsOpen &&
+      !terminalMineState
+    )
+      return;
+    cancelMovementControls();
+  }, [
+    cancelMovementControls,
+    creditsOpen,
+    elevatorAutoDir,
+    mineSceneReady,
+    terminalMineState,
+  ]);
 
   useEffect(() => {
-    return () => directionCadenceRef.current?.cancel();
-  }, []);
+    return () => cancelMovementControls();
+  }, [cancelMovementControls]);
 
   // Moving off the column closes any open sheet, so the menu never
   // follows the miner and a return shows the prompt, not the open sheet.
@@ -1578,6 +1600,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
+      if (terminalMineState) return;
       if (creditsOpen) return;
       fireDirection(dir);
     };
@@ -1594,7 +1617,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [creditsOpen, fireDirection, fireJump, releaseDirection]);
+  }, [
+    creditsOpen,
+    fireDirection,
+    fireJump,
+    releaseDirection,
+    terminalMineState,
+  ]);
 
   const miner = mine.miner;
   const currentCell = cellAt(mine, miner.col, miner.row);

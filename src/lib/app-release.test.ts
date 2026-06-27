@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mine renderer cleanup note complete", () => {
+  it("keeps the latest fall death camera note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-25-0.1.139-mine-render-subsystems");
+    expect(release.noticeId).toBe("2026-06-27-0.1.140-fall-death-respawn");
+    expect(latestNote).toMatchObject({
+      version: "0.1.140",
+      title: "Fall death camera",
+      intro: "Fatal falls now stay visible until the landing impact.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Long fatal falls now keep the camera and miner moving all the way to the landing cell before the trip report appears.",
+      "The death animation now waits for the full fall distance instead of clearing from a fixed short timeout.",
+      "Held keyboard and touch movement now cancel on death, so respawning at the surface starts from a clean control state.",
+    ]);
+  });
+
+  it("keeps the archived mine renderer cleanup note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.139");
+
     expect(latestNote).toMatchObject({
       version: "0.1.139",
       title: "Mine renderer cleanup",

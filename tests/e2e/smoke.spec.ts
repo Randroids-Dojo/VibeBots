@@ -61,6 +61,38 @@ async function touchDrag(
   await client.detach();
 }
 
+async function touchHoldDrag(
+  page: Page,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): Promise<() => Promise<void>> {
+  const client = await page.context().newCDPSession(page);
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ id: 1, x: start.x, y: start.y }],
+  });
+  for (let step = 1; step <= 6; step += 1) {
+    const progress = step / 6;
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        {
+          id: 1,
+          x: start.x + (end.x - start.x) * progress,
+          y: start.y + (end.y - start.y) * progress,
+        },
+      ],
+    });
+  }
+  return async () => {
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await client.detach();
+  };
+}
+
 async function touchPinchOut(
   page: Page,
   center: { x: number; y: number },
@@ -1453,10 +1485,10 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
     await route.fulfill({ status: 503, body: "{}" });
   });
   const mine = createMine(6161, DEFAULT_GEAR, STARTING_CONSUMABLES);
-  for (let row = 1; row <= 6; row++) {
+  for (let row = 1; row <= 36; row++) {
     setCell(mine, START_COL, row, { kind: "empty" });
   }
-  setCell(mine, START_COL, 7, { kind: "dirt" });
+  setCell(mine, START_COL, 37, { kind: "dirt" });
   await page.addInitScript(
     (trip) => {
       localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
@@ -1493,6 +1525,10 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
       },
     )
     .toBeGreaterThan(20);
+  await page.waitForTimeout(2_100);
+  await expect(canvas).toHaveAttribute("data-fall-visual-active", "true");
+  await expect(canvas).toHaveAttribute("data-fall-visual-impact", "false");
+  expect(Number(await canvas.getAttribute("data-cam-y"))).toBeLessThan(-8);
   const fallActiveShot = await canvas.screenshot();
   expect(Buffer.compare(beforeFallShot, fallActiveShot)).not.toBe(0);
 
@@ -1970,17 +2006,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The mine renderer is split into clearer owned modules.",
+    "Fatal falls now stay visible until the landing impact.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Mine render palettes, terrain colors, hash helpers",
+    "Long fatal falls now keep the camera and miner moving",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "The main mine canvas still owns the scene state machine",
+    "The death animation now waits for the full fall distance",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "This is a render-only ownership cleanup",
+    "Held keyboard and touch movement now cancel on death",
   );
 
   await page.mouse.click(8, 8);
@@ -2000,6 +2036,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.140", "Fall death camera"],
     ["0.1.139", "Mine renderer cleanup"],
     ["0.1.138", "Death playback cleanup"],
     ["0.1.137", "Mine panel cleanup"],
@@ -3436,6 +3473,79 @@ test.describe("phone viewport", () => {
     await touchPinchOut(page, { x: 195, y: 120 });
     await expect.poll(pageScale).toBe(1);
 
+    const startDistance = Number(
+      await status.getAttribute("data-horizontal-distance"),
+    );
+    await touchDrag(page, { x: 150, y: 470 }, { x: 250, y: 470 });
+    await expect
+      .poll(
+        async () =>
+          Number(await status.getAttribute("data-horizontal-distance")),
+        { timeout: 5_000 },
+      )
+      .toBeGreaterThan(startDistance);
+  });
+
+  test("held touch movement cancels after a fatal fall reset", async ({
+    browserName,
+    page,
+  }) => {
+    test.skip(browserName !== "chromium", "uses CDP touch events");
+    await page.route("**/api/mine/world", async (route) => {
+      await route.fulfill({ status: 503, body: "{}" });
+    });
+    await page.route("**/api/gear", async (route) => {
+      await route.fulfill({ status: 503, body: "{}" });
+    });
+    const mine = createMine(6163, DEFAULT_GEAR, STARTING_CONSUMABLES);
+    for (let row = 1; row <= 36; row++) {
+      setCell(mine, START_COL, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, 37, { kind: "dirt" });
+    await page.addInitScript(
+      (trip) => {
+        localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+      },
+      {
+        seed: 6163,
+        mineVersion: MINE_VERSION,
+        tripIndex: 0,
+        gear: DEFAULT_GEAR,
+        consumables: STARTING_CONSUMABLES,
+        baseDiff: exportDiff(mine),
+        moves: [],
+      },
+    );
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const releaseTouch = await touchHoldDrag(
+      page,
+      { x: 150, y: 470 },
+      { x: 150, y: 620 },
+    );
+    try {
+      await expect
+        .poll(async () => canvas.getAttribute("data-fall-visual-active"), {
+          timeout: 5_000,
+        })
+        .toBe("true");
+      await page.waitForTimeout(1_400);
+      const savedMoveCount = await page.evaluate(() => {
+        const raw = localStorage.getItem("vibebots-mine-trip-v2-slot-1");
+        return raw ? JSON.parse(raw).moves.length : -1;
+      });
+      expect(savedMoveCount).toBe(1);
+    } finally {
+      await releaseTouch();
+    }
+    const report = page.getByRole("button", { name: "Dismiss trip report" });
+    await expect(report).toBeVisible({ timeout: 15_000 });
+    await report.click();
+    const status = page.getByLabel("Mine status");
+    await expect(status).toHaveAttribute("data-depth", "0");
     const startDistance = Number(
       await status.getAttribute("data-horizontal-distance"),
     );

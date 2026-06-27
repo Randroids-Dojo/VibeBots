@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.140" data-date="2026-06-27">
+    <h2>0.1.140</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.140</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Fatal falls now stay visible until the landing impact.</dd>
+      <dt>Mine death playback</dt><dd>Long fatal falls keep the camera and miner moving all the way to the landing cell before the trip report appears. The fallback clear timer now waits for the full fall distance instead of snapping back to the surface after a fixed short window.</dd>
+      <dt>Controls</dt><dd>Held keyboard and touch movement cancel on death, so respawning at the surface starts from a clean control state instead of inheriting the last held direction.</dd>
+      <dt>Verification</dt><dd>Focused death playback unit coverage and Playwright smoke now check long fatal-fall camera tracking and held touch cancellation after a fatal fall. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.139" data-date="2026-06-25">
     <h2>0.1.139</h2>
     <dl>

@@ -22,7 +22,7 @@ pnpm typecheck        # next typegen + tsc --noEmit
 pnpm lint             # biome ci
 pnpm build            # production build
 pnpm test:e2e:critical # critical Playwright smoke for every CI push
-pnpm test:e2e         # playwright smoke (builds must exist: run pnpm build first)
+pnpm test:e2e         # playwright smoke, local defaults to 2 file-level workers (run pnpm build first)
 pnpm check:dashes     # AGENTS.md Rule 1 (no em/en-dashes)
 pnpm check:purity     # src/sim determinism contract
 ```

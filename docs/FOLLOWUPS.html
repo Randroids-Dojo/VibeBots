@@ -526,6 +526,17 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: audit local-only shared resources and test fixtures, then isolate or serialize only the tests that truly require it. Cover port assignment, web server reuse, localStorage and save-slot fixtures, API route mocks, release/version probes, screenshot and canvas sampling, and storage-dependent skips. Acceptance: the full Playwright suite can run locally with multiple workers without cross-test interference, while CI worker behavior stays explicit.</dd>
     <dt>PR / Dot reference</dt><dd><code>VibeBots-support-local-parallel-864d242c</code></dd>
+    <dt>Resolved</dt><dd>Local Playwright parallelism slice: route-owned smoke tests moved into arena, workshop, routes, and API spec files, while the mine-heavy UI smoke remains serial at file level. Local <code>pnpm test:e2e</code> now defaults to two file-level workers through <code>playwright.config.ts</code>, with <code>PLAYWRIGHT_WORKERS</code> available for intentional stress runs. CI shard commands still pass their explicit worker count.</dd>
+  </dl>
+</section>
+
+<section id="F-045" data-f="F-045" data-priority="polish">
+  <h3>F-045: Re-audit mid-trip mine reload resume coverage</h3>
+  <dl>
+    <dt>Context</dt><dd>The <code>F-044</code> local parallel Playwright slice found that the old carved-world smoke's mid-trip reload subsection no longer resumed at depth 2 after reloading the active slot, while the trip-ending carved-world checkpoint still worked. The broad smoke was narrowed back to its title so local parallel harness work did not silently change persistence behavior.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: audit the current mine store contract for in-flight trip persistence, decide whether a mid-trip reload should resume exact depth and energy after a slot reload, then restore focused coverage or document the intended behavior. Acceptance: the test suite has an explicit assertion for the chosen mid-trip reload contract, separate from the carved-world trip-ending checkpoint smoke.</dd>
+    <dt>PR / Dot reference</dt><dd><code>VibeBots-re-audit-mid-1743f9dc</code></dd>
   </dl>
 </section>
 

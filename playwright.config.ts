@@ -3,6 +3,7 @@ import { defineConfig } from "@playwright/test";
 
 const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 const configuredPort = process.env.PLAYWRIGHT_PORT ?? process.env.PORT;
+const configuredWorkers = process.env.PLAYWRIGHT_WORKERS;
 const defaultPort =
   3100 +
   (Number.parseInt(
@@ -13,6 +14,11 @@ const defaultPort =
 const localPort = Number(configuredPort ?? defaultPort);
 const localHost = process.env.PLAYWRIGHT_HOST ?? "127.0.0.1";
 const localBaseUrl = `http://${localHost}:${localPort}`;
+const workerCount = configuredWorkers
+  ? Number.parseInt(configuredWorkers, 10)
+  : process.env.CI
+    ? 2
+    : 2;
 
 if (!Number.isInteger(localPort) || localPort < 1 || localPort > 65535) {
   throw new Error(
@@ -20,11 +26,17 @@ if (!Number.isInteger(localPort) || localPort < 1 || localPort > 65535) {
   );
 }
 
+if (!Number.isInteger(workerCount) || workerCount < 1) {
+  throw new Error(
+    `Invalid Playwright worker count "${configuredWorkers}". Use PLAYWRIGHT_WORKERS with a positive integer.`,
+  );
+}
+
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 60_000,
   fullyParallel: process.env.CI === "true",
-  workers: process.env.CI ? 2 : undefined,
+  workers: workerCount,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {

@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Re-audit mid-trip mine reload resume coverage</title>
+<meta name="dot-title" content="Re-audit mid-trip mine reload resume coverage">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-06-26T20:31:23.570158-05:00">
+</head>
+<body>
+<article>
+<h1>Re-audit mid-trip mine reload resume coverage</h1>
+<section id="description">
+The F-044 local parallel Playwright slice found that the old carved-world smoke&#39;s mid-trip reload subsection no longer resumes at depth 2 after the active slot reloads, while the trip-ending carved-world checkpoint still works. Audit the current store contract for in-flight trip persistence, decide whether mid-trip reload should resume exact depth and energy, then restore focused coverage or document the intended behavior.
+</section>
+</article>
+</body>
+</html>

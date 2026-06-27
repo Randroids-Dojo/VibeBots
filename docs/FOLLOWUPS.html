@@ -519,6 +519,16 @@
   </dl>
 </section>
 
+<section id="F-044" data-f="F-044" data-priority="polish">
+  <h3>F-044: Support parallel Playwright runs locally</h3>
+  <dl>
+    <dt>Context</dt><dd>The split Playwright smoke suite is now feature-owned, but local runs still use one worker to avoid timing and shared-state interference across mine, release, storage, route-mock, and canvas-heavy tests. That keeps the suite reliable, but it prevents fast local feedback from the new feature file boundaries.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: audit local-only shared resources and test fixtures, then isolate or serialize only the tests that truly require it. Cover port assignment, web server reuse, localStorage and save-slot fixtures, API route mocks, release/version probes, screenshot and canvas sampling, and storage-dependent skips. Acceptance: the full Playwright suite can run locally with multiple workers without cross-test interference, while CI worker behavior stays explicit.</dd>
+    <dt>PR / Dot reference</dt><dd><code>VibeBots-support-local-parallel-864d242c</code></dd>
+  </dl>
+</section>
+
 <section id="F-033-closure-2026-06-25" data-f="F-033" data-role="closure">
   <h3>F-033 closure: Decompose the mine sim into stable pure modules</h3>
   <dl>

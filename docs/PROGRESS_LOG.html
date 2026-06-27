@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="local-parallel-playwright-followup" data-date="2026-06-26">
+    <h3>Local Parallel Playwright Followup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>direct/local-parallel-playwright</code>, created from current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after review, cleanup, release-note audit, and verification.</dd>
+      <dt>Changed</dt><dd>Captured future local parallel Playwright support as <code>F-044</code> and dot <code>VibeBots-support-local-parallel-864d242c</code>. The tracked scope is to audit and isolate local-only shared resources so the full feature-owned Playwright suite can safely run with multiple workers outside CI.</dd>
+      <dt>Verification</dt><dd>Reviewed <code>docs/RELEASE_NOTES.html</code>, <code>src/lib/app-release.ts</code>, and current mine tip copy: no package version, player-facing release note, or in-game tip change is needed because this ships backlog tracking only, not the parallel-run implementation. Ran <code>dot-html show VibeBots-support-local-parallel-864d242c</code>, <code>pnpm install --frozen-lockfile</code>, dash checks, <code>git diff --check</code>, and project type-check.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is future test-infrastructure work and does not change app behavior, Playwright worker settings, package version, app release notes, mine tips, mine rules, save data, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>.</dd>
+      <dt>GDD coverage</dt><dd>No GDD coverage rows changed because no gameplay behavior shipped.</dd>
+      <dt>Followups</dt><dd>Added <a href="FOLLOWUPS.html#F-044">F-044</a>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="holodeck-scenario-followup" data-date="2026-06-25">
     <h3>Holodeck Scenario Followup</h3>
     <dl>

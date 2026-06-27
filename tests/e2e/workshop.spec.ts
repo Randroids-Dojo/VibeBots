@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { DRIVE_WHEEL } from "../../src/sim/parts";
 
 test("workshop builds and undoes parts", async ({ page }) => {
   await page.goto("/workshop");
@@ -51,22 +52,52 @@ test("workshop panels stack on portrait phones", async ({ page }) => {
   expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(shopBox.y + 1);
 });
 
-test("workshop sells parts and shows balance (needs storage)", async ({
-  page,
-  request,
-}) => {
-  const probe = await request.get("/api/shop");
-  test.skip(
-    probe.status() === 503,
-    "storage not configured in this environment",
-  );
+test("workshop buys parts and refreshes balance", async ({ page }) => {
+  let boughtDriveWheel = false;
+  let buyRequests = 0;
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: boughtDriveWheel ? 14 : 20,
+        inventory: boughtDriveWheel
+          ? [{ part_id: DRIVE_WHEEL.id, count: 1 }]
+          : [],
+        catalog: [
+          {
+            id: DRIVE_WHEEL.id,
+            name: DRIVE_WHEEL.name,
+            category: DRIVE_WHEEL.category,
+            priceEmeralds: DRIVE_WHEEL.priceEmeralds,
+          },
+        ],
+      },
+    });
+  });
+  await page.route("**/api/shop/buy", async (route) => {
+    buyRequests += 1;
+    expect(route.request().postDataJSON()).toEqual({ partId: DRIVE_WHEEL.id });
+    boughtDriveWheel = true;
+    await route.fulfill({
+      json: { bought: DRIVE_WHEEL.id, emeralds: 14 },
+    });
+  });
 
   // Parts buying lives inside the Workshop now; the standalone /shop is gone.
   await page.goto("/workshop");
   const shop = page.getByLabel("Parts shop");
   await expect(shop).toBeVisible();
-  await expect(shop.getByText("vibes").first()).toBeVisible();
-  await expect(shop.getByText("Drive Wheel")).toBeVisible();
+  await expect(shop.locator("p").first()).toContainText("20 vibes");
+  const driveWheel = shop.locator("li").filter({ hasText: DRIVE_WHEEL.name });
+  await expect(driveWheel).toContainText(DRIVE_WHEEL.category);
+  const buyDriveWheel = driveWheel.getByRole("button", {
+    name: `${DRIVE_WHEEL.priceEmeralds} vibes`,
+  });
+  await expect(buyDriveWheel).toBeEnabled();
+  await buyDriveWheel.click();
+  await expect(shop.locator("p").first()).toContainText("14 vibes");
+  await expect(shop.locator("p").first()).toContainText("bought!");
+  await expect(driveWheel).toContainText("x1");
+  expect(buyRequests).toBe(1);
 });
 
 test("garage saves and lists designs (needs storage)", async ({

@@ -14,11 +14,12 @@ const defaultPort =
 const localPort = Number(configuredPort ?? defaultPort);
 const localHost = process.env.PLAYWRIGHT_HOST ?? "127.0.0.1";
 const localBaseUrl = `http://${localHost}:${localPort}`;
-const workerCount = configuredWorkers
-  ? Number.parseInt(configuredWorkers, 10)
-  : process.env.CI
+const workerCount =
+  configuredWorkers === undefined
     ? 2
-    : 2;
+    : /^[1-9]\d*$/.test(configuredWorkers)
+      ? Number(configuredWorkers)
+      : Number.NaN;
 
 if (!Number.isInteger(localPort) || localPort < 1 || localPort > 65535) {
   throw new Error(

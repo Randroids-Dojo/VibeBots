@@ -4030,6 +4030,25 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
     .toBeLessThan(1.32);
 });
 
+test("an active mine trip resumes at the same depth after reload", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "0");
+
+  await digTo(page, 2);
+  await expect(status).toHaveAttribute("data-depth", "2");
+  const energyBeforeReload = await status.getAttribute("data-energy");
+  expect(energyBeforeReload).toBeTruthy();
+
+  await page.reload();
+  await dismissReleaseNotes(page);
+  await expect(status).toHaveAttribute("data-depth", "2");
+  await expect(status).toHaveAttribute("data-energy", energyBeforeReload ?? "");
+});
+
 test("the carved world survives a reload (REQ-026)", async ({ page }) => {
   await page.goto("/mine");
   await dismissReleaseNotes(page);

@@ -554,6 +554,7 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: audit the current mine store contract for in-flight trip persistence, decide whether a mid-trip reload should resume exact depth and energy after a slot reload, then restore focused coverage or document the intended behavior. Acceptance: the test suite has an explicit assertion for the chosen mid-trip reload contract, separate from the carved-world trip-ending checkpoint smoke.</dd>
     <dt>PR / Dot reference</dt><dd><code>VibeBots-re-audit-mid-1743f9dc</code></dd>
+    <dt>Resolved</dt><dd>2026-06-27: audit confirmed the intended contract is exact non-terminal active-slot resume from the saved trip-start checkpoint plus action log. Added focused store coverage for replayed row, column, energy, carry, moves, and consumables, plus Playwright smoke coverage that a live in-flight trip reloads at the same depth and energy before the separate carved-world terminal checkpoint test.</dd>
   </dl>
 </section>
 

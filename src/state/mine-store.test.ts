@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createBunker, STARTER_BASE_PART_INVENTORY } from "@/sim/bunker";
 import {
+  applyAction,
   createMine,
   DEFAULT_GEAR,
   exportDiff,
@@ -605,6 +606,71 @@ describe("mine store upgrade flow", () => {
     expect(store().seed).toBe(222);
     expect(store().moves).toEqual(["down", "right"]);
     expect(store().consumables).toEqual(stock({ plank: 2 }));
+  });
+
+  it("resumes a non-terminal active slot trip at the replayed state", async () => {
+    const seed = 333;
+    const gear = { ...DEFAULT_GEAR, pickaxe: 2 };
+    const consumables = stock({ ladder: 6, plank: 1 });
+    const baseMine = createMine(seed, gear, consumables);
+    setCell(baseMine, START_COL, 1, { kind: "empty", ladder: true });
+    setCell(baseMine, START_COL, 2, { kind: "ore", ore: "coal" });
+    const baseDiff = exportDiff(baseMine);
+    const moves = [
+      "down",
+      "down",
+      "down",
+      "down",
+      "down",
+      "down",
+    ] as MineAction[];
+    const expected = createMine(seed, gear, consumables, baseDiff);
+    for (const move of moves) {
+      const result = applyAction(expected, move);
+      if (!result.ok) throw new Error(`expected saved move to replay: ${move}`);
+      expect(result.collapsed).toBe(false);
+    }
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify({
+        mineVersion: MINE_VERSION,
+        seed,
+        tripIndex: 9,
+        gear,
+        consumables,
+        baseDiff,
+        moves,
+      }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          seed,
+          tripIndex: 9,
+          diff: baseDiff,
+          activeSlot: 1,
+        }),
+      ),
+    );
+
+    await store().loadWorld();
+
+    expect(store().activeSlot).toBe(1);
+    expect(store().tripIndex).toBe(9);
+    expect(store().moves).toEqual(moves);
+    expect(store().mine.miner.row).toBe(expected.miner.row);
+    expect(store().mine.miner.col).toBe(expected.miner.col);
+    expect(store().mine.miner.energy).toBe(expected.miner.energy);
+    expect(store().mine.miner.carried).toEqual(expected.miner.carried);
+    expect(store().mine.miner.carriedParts).toEqual(
+      expected.miner.carriedParts,
+    );
+    expect(store().mine.miner.carriedSalvageCredits).toBe(
+      expected.miner.carriedSalvageCredits,
+    );
+    expect(store().consumables).toEqual(consumables);
+    expect(store().lastResult).toBeNull();
   });
 
   it("flushes the current slot before switching save slots", async () => {

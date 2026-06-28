@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mid-trip-reload-contract-coverage" data-date="2026-06-27">
+    <h3>Mid-Trip Reload Contract Coverage</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>refactor/mid-trip-reload-contract</code>, created from current <code>origin/main</code>.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, cleanup, release-note audit, tip audit, and verification.</dd>
+      <dt>Changed</dt><dd>Completed <code>F-045</code> by auditing the current active-slot in-flight trip persistence contract and restoring focused coverage. The intended contract is exact non-terminal resume from the saved trip-start checkpoint plus action log. Added store coverage for replayed row, column, energy, carry, moves, consumables, and terminal state, plus a Playwright smoke assertion that a live active mine trip reloads at the same depth and energy before the separate carved-world trip-ending checkpoint smoke.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched TypeScript and JSON files, focused Vitest with <code>pnpm exec vitest run src/state/mine-store.test.ts</code> (22 passed), <code>pnpm build</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and focused Playwright smoke with <code>PLAYWRIGHT_PORT=3783 pnpm exec playwright test tests/e2e/smoke.spec.ts --project=chromium --grep "active mine trip resumes"</code> (1 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is persistence-contract coverage only. Release notes and mine surface tips were reviewed and left unchanged because the slice does not change app behavior, player-facing mine mechanics, package version, mine rules, save data, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed. <code>REQ-026</code> keeps its done status with a new direct store test reference for active in-flight trip replay, and <code>docs/gdd/06-mining.html</code> gained a build-log note for the restored reload coverage.</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-045">F-045</a>. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="fatal-fall-smoke-stabilization" data-date="2026-06-27">
     <h3>Fatal Fall Smoke Stabilization</h3>
     <dl>

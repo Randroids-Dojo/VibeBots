@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-06-25",
+  "updatedAt": "2026-06-28",
   "rows": [
     {
       "id": "REQ-001",
@@ -37,7 +37,7 @@
         "src/sim/assembly.test.ts",
         "src/sim/combat.test.ts",
         "src/state/workshop-store.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/workshop.spec.ts"
       ],
       "followupRefs": [
         "F-006"
@@ -111,7 +111,9 @@
         "src/sim/mine.test.ts",
         "src/components/mine-death-playback.test.ts",
         "src/state/mine-store.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-core.spec.ts",
+        "tests/e2e/mine-ui.spec.ts",
+        "tests/e2e/mine-save-slots.spec.ts"
       ],
       "followupRefs": []
     },
@@ -127,8 +129,7 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "src/components/mine-sfx.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "src/components/mine-sfx.test.ts"
       ],
       "followupRefs": []
     },
@@ -160,7 +161,9 @@
         "src/state/workshop-store.test.ts",
         "src/sim/mine.test.ts",
         "src/server/db.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/workshop.spec.ts",
+        "tests/e2e/mine-navigation.spec.ts",
+        "tests/e2e/api.spec.ts"
       ],
       "followupRefs": []
     },
@@ -176,7 +179,8 @@
       ],
       "testRefs": [
         "src/components/arena-camera.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/arena.spec.ts",
+        "tests/e2e/workshop.spec.ts"
       ],
       "followupRefs": []
     },
@@ -191,7 +195,7 @@
       ],
       "testRefs": [
         "src/app/api/match/resolve/route.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/api.spec.ts"
       ],
       "followupRefs": [
         "F-002",
@@ -268,8 +272,10 @@
         "src/app/api/gear/upgrade/route.test.ts",
         "src/server/db.test.ts",
         "src/components/mine-camera.test.ts",
-        "tests/e2e/smoke.spec.ts",
-        "src/sim/mine/gear.test.ts"
+        "src/sim/mine/gear.test.ts",
+        "tests/e2e/mine-core.spec.ts",
+        "tests/e2e/mine-navigation.spec.ts",
+        "tests/e2e/mine-warp-elevator.spec.ts"
       ],
       "followupRefs": [
         "F-013"
@@ -292,7 +298,7 @@
       "testRefs": [
         "src/sim/mine.test.ts",
         "src/components/mine-sfx.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-ui.spec.ts"
       ],
       "followupRefs": []
     },
@@ -341,10 +347,11 @@
         "src/sim/mine.test.ts",
         "src/server/player.test.ts",
         "src/app/api/mine/bank/route.test.ts",
-        "tests/e2e/smoke.spec.ts",
         "src/sim/mine/actions.test.ts",
         "src/sim/mine/consumables.test.ts",
-        "src/sim/mine/replay.test.ts"
+        "src/sim/mine/replay.test.ts",
+        "tests/e2e/mine-core.spec.ts",
+        "tests/e2e/mine-navigation.spec.ts"
       ],
       "followupRefs": [
         "F-015"
@@ -385,7 +392,7 @@
       "testRefs": [
         "src/sim/mine.test.ts",
         "src/components/mine-sfx.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-core.spec.ts"
       ],
       "followupRefs": [
         "F-016",
@@ -425,9 +432,9 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts",
         "src/sim/mine/supports.test.ts",
-        "src/sim/mine/replay.test.ts"
+        "src/sim/mine/replay.test.ts",
+        "tests/e2e/mine-core.spec.ts"
       ],
       "followupRefs": []
     },
@@ -444,7 +451,7 @@
         "src/app/api/mine/base-teleport/route.ts"
       ],
       "testRefs": [
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-navigation.spec.ts"
       ],
       "followupRefs": []
     },
@@ -465,9 +472,9 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts",
         "src/sim/mine/supports.test.ts",
-        "src/sim/mine/replay.test.ts"
+        "src/sim/mine/replay.test.ts",
+        "tests/e2e/mine-core.spec.ts"
       ],
       "followupRefs": []
     },
@@ -482,7 +489,8 @@
         "src/app/globals.css"
       ],
       "testRefs": [
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-core.spec.ts",
+        "tests/e2e/mine-viewport.spec.ts"
       ],
       "followupRefs": []
     },
@@ -497,7 +505,8 @@
         "src/app/globals.css"
       ],
       "testRefs": [
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-core.spec.ts",
+        "tests/e2e/mine-ui.spec.ts"
       ],
       "followupRefs": []
     },
@@ -513,7 +522,7 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-core.spec.ts"
       ],
       "followupRefs": []
     },
@@ -534,11 +543,11 @@
       "testRefs": [
         "src/sim/mine.test.ts",
         "src/state/mine-store.test.ts",
-        "tests/e2e/smoke.spec.ts",
         "src/sim/mine/world.test.ts",
         "src/sim/mine/inventory.test.ts",
         "src/sim/mine/supports.test.ts",
-        "src/sim/mine/replay.test.ts"
+        "src/sim/mine/replay.test.ts",
+        "tests/e2e/mine-save-slots.spec.ts"
       ],
       "followupRefs": []
     },
@@ -578,9 +587,9 @@
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts",
         "src/sim/mine/world.test.ts",
-        "src/sim/mine/replay.test.ts"
+        "src/sim/mine/replay.test.ts",
+        "tests/e2e/mine-warp-elevator.spec.ts"
       ],
       "followupRefs": []
     },
@@ -603,11 +612,11 @@
       "testRefs": [
         "src/sim/mine.test.ts",
         "src/app/api/consumables/buy/route.test.ts",
-        "tests/e2e/smoke.spec.ts",
         "src/sim/mine/actions.test.ts",
         "src/sim/mine/biomes.test.ts",
         "src/sim/mine/consumables.test.ts",
-        "src/sim/mine/replay.test.ts"
+        "src/sim/mine/replay.test.ts",
+        "tests/e2e/mine-warp-elevator.spec.ts"
       ],
       "followupRefs": []
     },
@@ -667,8 +676,7 @@
         "src/lib/achievements.test.ts",
         "src/app/api/achievements/route.test.ts",
         "src/app/api/mine/bank/route.test.ts",
-        "src/sim/mine.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "src/sim/mine.test.ts"
       ],
       "followupRefs": []
     },
@@ -688,7 +696,7 @@
         "src/server/player.test.ts",
         "src/app/api/save-slots/route.test.ts",
         "src/state/mine-store.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-save-slots.spec.ts"
       ],
       "followupRefs": []
     },
@@ -711,7 +719,7 @@
         "src/state/mine-store.test.ts",
         "src/app/api/mine/bank/route.test.ts",
         "src/app/api/bunker/route.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-bunker.spec.ts"
       ],
       "followupRefs": [
         "F-029"
@@ -740,7 +748,7 @@
         "src/state/mine-store.test.ts",
         "src/app/api/mine/bank/route.test.ts",
         "src/app/api/bunker/route.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-bunker.spec.ts"
       ],
       "followupRefs": [
         "F-029"
@@ -782,7 +790,7 @@
       "testRefs": [
         "src/sim/bunker.test.ts",
         "src/server/bunker.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-bunker.spec.ts"
       ],
       "followupRefs": [
         "F-029"
@@ -811,7 +819,7 @@
         "src/app/api/consumables/buy/route.test.ts",
         "src/server/player.test.ts",
         "src/server/bunker.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-bunker.spec.ts"
       ],
       "followupRefs": [
         "F-029"
@@ -844,7 +852,7 @@
         "src/app/api/notifications/route.test.ts",
         "src/app/api/version/route.test.ts",
         "src/server/web-push.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/release-notifications.spec.ts"
       ],
       "followupRefs": []
     },
@@ -861,7 +869,7 @@
       ],
       "testRefs": [
         "src/app/api/feedback/route.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-ui.spec.ts"
       ],
       "followupRefs": []
     },
@@ -881,7 +889,7 @@
       "testRefs": [
         "src/lib/performance-metrics.test.ts",
         "src/app/api/performance/route.test.ts",
-        "tests/e2e/smoke.spec.ts"
+        "tests/e2e/mine-viewport.spec.ts"
       ],
       "followupRefs": []
     }

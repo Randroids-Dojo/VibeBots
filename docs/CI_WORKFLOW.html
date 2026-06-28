@@ -40,7 +40,7 @@
   <section id="full-smoke">
     <h2>Full Smoke</h2>
     <p>The full Playwright smoke suite still exists as <code>pnpm test:e2e</code>. CI runs it in four shards for nightly scheduled runs and manual <code>workflow_dispatch</code> runs with <code>full_e2e</code> enabled.</p>
-    <p>Local <code>pnpm test:e2e</code> uses two file-level workers by default. Route-owned specs such as arena, workshop, routes, and API smoke can run beside the mine-heavy smoke file, while the mine UI tests stay serial inside their file to avoid canvas and input-cadence contention. Override with <code>PLAYWRIGHT_WORKERS=&lt;n&gt;</code> when intentionally stress-testing.</p>
+    <p>Local <code>pnpm test:e2e</code> uses two file-level workers by default. Route-owned specs such as arena, workshop, routes, and API smoke can run beside focused mine feature specs such as core, bunker, viewport, save-slot, surface navigation, UI, and transport coverage. Keep canvas-heavy mine tests file-owned and avoid test-level mine concurrency unless intentionally stress-testing with <code>PLAYWRIGHT_WORKERS=&lt;n&gt;</code>.</p>
     <p>Run the full suite locally or through manual dispatch before merging work that changes shared UI shell behavior, cross-route storage state, release-note infrastructure, Playwright harness behavior, or other broad surfaces where the critical set is too narrow.</p>
   </section>
 

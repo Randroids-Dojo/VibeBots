@@ -469,7 +469,8 @@
     <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/state/mine-store.ts</code> is roughly 1,321 lines and combines local trip serialization, save-slot parsing, cash-out response parsing, remote route calls, pending bunker editing, store actions, and mutable sim state. Recent incidents have repeatedly touched this file, so it needs clearer ownership boundaries before more save and bunker behavior accumulates.</dd>
     <dt>Blocker (if any)</dt><dd>none, but do not change the in-place sim mutation pattern during this refactor.</dd>
     <dt>Unblock condition</dt><dd>Ready: extract pure helpers for local trip keys, migration, load/save/remove, saved-trip replay, save-slot response parsing, cash-out error parsing, and route-call wrappers. Keep the Zustand store as the state transition owner and keep the current replay semantics unchanged. Acceptance: existing mine store tests move with the helpers or gain focused helper tests, stale-trip and save-slot regression tests still pass, and future agents can inspect persistence code without reading every store action.</dd>
-    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>PR / Dot reference</dt><dd>Dot <code>VibeBots-finish-f-037-a530aa62</code>.</dd>
+    <dt>Resolved</dt><dd>2026-06-28: extracted mine trip persistence into <code>src/state/mine-trip-persistence.ts</code> and mine store request wrappers plus response parsers into <code>src/state/mine-api-client.ts</code>. The Zustand store remains the state-transition owner for pending bunker edits, cash-out state, surface-only checks, and in-place sim mutation. Focused helper tests cover local trip migration, slot isolation, invalid saved trips, gear normalization, saved-trip replay, parser behavior, and wrapper request shapes.</dd>
   </dl>
 </section>
 

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-store-persistence-api-extraction" data-date="2026-06-28">
+    <h3>Mine Store Persistence API Extraction</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>refactor/mine-store-extraction-f037</code>, created from current <code>origin/main</code> after moving the detached worktree onto the latest remote main.</dd>
+      <dt>PR</dt><dd>Local implementation branch. Direct push to <code>origin/main</code> not performed in this step.</dd>
+      <dt>Changed</dt><dd>Completed <code>F-037</code> by moving local mine trip persistence, slot-key migration, saved-trip validation, and saved-trip replay into <code>src/state/mine-trip-persistence.ts</code>. Mine store response parsing and route-call wrappers now live in <code>src/state/mine-api-client.ts</code>. <code>src/state/mine-store.ts</code> remains the owner of Zustand state transitions, pending bunker editing, cash-out state, surface-only upgrade checks, and in-place mine sim mutation.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched state files, focused state Vitest with <code>pnpm exec vitest run src/state/mine-trip-persistence.test.ts src/state/mine-api-client.test.ts src/state/mine-store.test.ts</code> (37 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (474 passed), <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm build</code>, and focused active-trip reload smoke with <code>PLAYWRIGHT_BASE_URL=http://127.0.0.1:3798 pnpm exec playwright test tests/e2e/mine-save-slots.spec.ts --project=chromium --grep "active mine trip resumes"</code> (1 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a refactor-only slice. It does not change player-facing behavior, package version, release notes, mine tips, mine rules, save data, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>. Release notes and mine surface tips were reviewed and left unchanged because current copy is still accurate and no player-visible behavior changed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because gameplay behavior is unchanged.</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-037">F-037</a>. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="typed-api-route-boundaries" data-date="2026-06-28">
     <h3>Typed API Route Boundaries</h3>
     <dl>

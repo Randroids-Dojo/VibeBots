@@ -1,7 +1,9 @@
 import { z } from "zod";
+import {
+  operationResultResponse,
+  withPlayerJsonRoute,
+} from "@/server/api-boundary";
 import { buyBasePart } from "@/server/bunker";
-import { db, storageConfigured } from "@/server/db";
-import { getOrCreatePlayerId } from "@/server/player";
 import { BASE_PART_IDS } from "@/sim/bunker";
 
 export const runtime = "nodejs";
@@ -12,29 +14,13 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request): Promise<Response> {
-  if (!storageConfigured()) {
-    return Response.json({ error: "storage not configured" }, { status: 503 });
-  }
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "invalid JSON body" }, { status: 400 });
-  }
-  const parsed = bodySchema.safeParse(body);
-  if (!parsed.success) {
-    return Response.json({ error: parsed.error.issues }, { status: 400 });
-  }
-  const playerId = await getOrCreatePlayerId();
-  const sql = await db();
-  const result = await buyBasePart(
-    sql,
-    playerId,
-    parsed.data.partId,
-    parsed.data.quantity,
+  return withPlayerJsonRoute(
+    request,
+    bodySchema,
+    async ({ sql, playerId }, body) =>
+      operationResultResponse(
+        await buyBasePart(sql, playerId, body.partId, body.quantity),
+        (result) => result.view,
+      ),
   );
-  if (!result.ok) {
-    return Response.json({ error: result.error }, { status: result.status });
-  }
-  return Response.json(result.view);
 }

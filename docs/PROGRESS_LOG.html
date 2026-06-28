@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="typed-api-route-boundaries" data-date="2026-06-28">
+    <h3>Typed API Route Boundaries</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>refactor/api-boundary-f036</code>, created from current <code>origin/main</code> before implementation.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after implementation, review, cleanup, release-note audit, tip audit, and verification.</dd>
+      <dt>Changed</dt><dd>Completed <code>F-036</code> by adding <code>src/server/api-boundary.ts</code> for storage-gated, player-scoped route boundaries. The bunker route family now uses typed helpers for JSON parsing, Zod validation, active player lookup, database handle lookup, and typed operation result mapping. <code>/api/mine/bank</code> was left separate so its monitoring taxonomy stays untouched.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched route and helper files, focused bunker route Vitest with <code>pnpm exec vitest run src/app/api/bunker/route.test.ts</code> (17 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (459 passed), <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm build</code>, and focused bunker Playwright smoke with <code>PLAYWRIGHT_PORT=3796 pnpm exec playwright test tests/e2e/mine-bunker.spec.ts --project=chromium --grep "mine bunker builder starts a Clanker raid"</code> (1 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a server route boundary cleanup only. It does not change app behavior, package version, player-facing release notes, mine tips, mine rules, save data, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>. Release notes and mine surface tips were reviewed and left unchanged because the slice changes API route structure and tests only.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because gameplay behavior is unchanged.</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-036">F-036</a>. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="playwright-smoke-suite-split" data-date="2026-06-28">
     <h3>Playwright Smoke Suite Split</h3>
     <dl>

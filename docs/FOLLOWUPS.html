@@ -459,6 +459,7 @@
     <dt>Blocker (if any)</dt><dd>none, but start with low-risk routes and leave heavily instrumented routes alone at first.</dd>
     <dt>Unblock condition</dt><dd>Ready: add a small server-side helper for route boundaries that can parse optional JSON bodies, return consistent validation errors, load the active player and db handle, and map typed operation results to responses. Migrate the bunker route family first because the server operations already return <code>{ ok, status, error }</code>. Keep <code>/api/mine/bank</code> separate until its monitoring taxonomy can be preserved exactly. Acceptance: route tests cover the helper through migrated routes, storage-offline and invalid-body responses stay compatible, and future agents can add a simple player-scoped route without copying boilerplate.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>Resolved</dt><dd>2026-06-28: Dot <code>VibeBots-finish-f-036-ba65bc46</code> added <code>src/server/api-boundary.ts</code>, migrated the bunker route family to typed player-scoped route helpers, preserved storage-offline, invalid-JSON, validation, and operation-failure response shapes, and kept <code>/api/mine/bank</code> separate.</dd>
   </dl>
 </section>
 

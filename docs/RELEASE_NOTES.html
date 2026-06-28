@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.144" data-date="2026-06-28">
+    <h2>0.1.144</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.144</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Raid XP pickups now match the visible overlap area.</dd>
+      <dt>Bunker raids</dt><dd>Raid XP collection now accepts the visible overlap area around the pickup, so standing beside a marker that covers the miner still collects it.</dd>
+      <dt>Visual clarity</dt><dd>All explosion visuals now dissipate. Clanker self-destruct bursts fade out instead of permanently covering collectible XP markers, and XP markers draw above raid effects while collectible.</dd>
+      <dt>Regression guard</dt><dd>Burst and explosion animation paths now have coverage that requires finite lifetimes, fading self-destruct meshes, particle countdown expiry, and self-clearing DOM burst overlays.</dd>
+      <dt>Verification</dt><dd>Focused bunker unit and Playwright smoke now check visual-overlap collection. Focused animation-lifetime coverage checks the dissipating burst contract. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.143" data-date="2026-06-28">
     <h2>0.1.143</h2>
     <dl>

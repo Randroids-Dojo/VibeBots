@@ -1,7 +1,7 @@
 import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
-import type { Group, Mesh } from "three/webgpu";
+import type { Group, Material, Mesh } from "three/webgpu";
 import { Shape } from "three/webgpu";
 import type {
   BasePartId,
@@ -16,6 +16,12 @@ import {
   SelectedSupportCellOutline,
   SUPPORT_SELECT_RED,
 } from "./mine-support-selection";
+import {
+  CLANKER_BURST_VISIBLE_SECONDS,
+  dissipatingOpacity,
+  transientAnimationActive,
+  transientAnimationProgress,
+} from "./mine-transient-animation";
 
 export type BunkerBuildMode = "place" | "remove" | "move";
 
@@ -46,6 +52,22 @@ const CLANKER_BURST_SHARDS = [
   { x: -0.08, y: -0.31, angle: -0.15, scale: 0.58 },
   { x: 0.1, y: 0.3, angle: 0.9, scale: 0.62 },
 ] as const;
+
+function setMaterialOpacity(material: Material | Material[], opacity: number) {
+  const materials = Array.isArray(material) ? material : [material];
+  for (const item of materials) {
+    item.transparent = true;
+    item.opacity = opacity;
+    item.depthWrite = opacity >= 0.95;
+  }
+}
+
+function setGroupMaterialOpacity(group: Group, opacity: number) {
+  group.traverse((child) => {
+    const mesh = child as Mesh;
+    if (mesh.material) setMaterialOpacity(mesh.material, opacity);
+  });
+}
 
 const BASE_ROOF_FACE_SHAPE = new Shape();
 BASE_ROOF_FACE_SHAPE.moveTo(-0.46, -0.28);
@@ -159,15 +181,23 @@ function ClankerMesh({
     const dead = elapsedSeconds >= deathSeconds;
     if (bodyRef.current) bodyRef.current.visible = !dead;
     if (burstRef.current) {
-      const burstActive = dead && clanker.status === "self-destructed";
+      const burstAge = Math.max(0, elapsedSeconds - deathSeconds);
+      const burstActive =
+        dead &&
+        clanker.status === "self-destructed" &&
+        transientAnimationActive(burstAge, CLANKER_BURST_VISIBLE_SECONDS);
       burstRef.current.visible = burstActive;
       if (burstActive) {
-        const burstAge = Math.min(
-          1,
-          Math.max(0, elapsedSeconds - deathSeconds),
+        const progress = transientAnimationProgress(
+          burstAge,
+          CLANKER_BURST_VISIBLE_SECONDS,
         );
-        const scale = 0.6 + burstAge * 0.9;
+        const scale = 0.6 + progress * 1.05;
         burstRef.current.scale.setScalar(scale);
+        setGroupMaterialOpacity(
+          burstRef.current,
+          dissipatingOpacity(burstAge, CLANKER_BURST_VISIBLE_SECONDS),
+        );
       }
     }
   });
@@ -410,7 +440,7 @@ function ClankerMesh({
 
 function RaidXpPickupVisual() {
   return (
-    <group scale={0.34}>
+    <group scale={0.42}>
       <mesh>
         <octahedronGeometry args={[0.16, 0]} />
         <meshStandardMaterial
@@ -419,6 +449,7 @@ function RaidXpPickupVisual() {
           emissiveIntensity={0.9}
           roughness={0.28}
           flatShading
+          depthTest={false}
         />
       </mesh>
       {[0, 1, 2, 3].map((index) => {
@@ -436,6 +467,7 @@ function RaidXpPickupVisual() {
               emissiveIntensity={0.65}
               roughness={0.32}
               flatShading
+              depthTest={false}
             />
           </mesh>
         );
@@ -448,6 +480,7 @@ function RaidXpPickupVisual() {
           emissiveIntensity={0.48}
           roughness={0.42}
           flatShading
+          depthTest={false}
         />
       </mesh>
     </group>
@@ -1026,7 +1059,8 @@ export function BunkerOverlay({
       .map((pickup) => (
         <group
           key={pickup.id}
-          position={[cellX(pickup.col), -pickup.row, 0.86]}
+          position={[cellX(pickup.col), -pickup.row, 1.18]}
+          renderOrder={40}
         >
           <RaidXpPickupVisual />
         </group>

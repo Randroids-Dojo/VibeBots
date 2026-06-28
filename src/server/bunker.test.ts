@@ -268,7 +268,7 @@ describe("bunker server helpers", () => {
     });
   });
 
-  it("marks XP pickups collected only when the miner stands on their cell", async () => {
+  it("marks XP pickups collected when the miner overlaps their visible cell", async () => {
     const sql = vi.fn(async (strings: TemplateStringsArray) => {
       const query = strings.join(" ");
       if (query.includes("SELECT raid_id, snapshot")) {
@@ -330,7 +330,7 @@ describe("bunker server helpers", () => {
     const collected = await collectBunkerRaidPickup(
       sql as never,
       "player-1",
-      4,
+      5,
       5,
     );
     expect(collected.ok).toBe(true);

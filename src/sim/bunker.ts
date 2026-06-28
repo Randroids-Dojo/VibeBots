@@ -19,6 +19,7 @@ export const CLANKER_BATTERY_STEPS_PER_TIER = 2;
 export const CLANKER_BASE_BITE_DAMAGE = 24;
 export const CLANKER_BITE_DAMAGE_PER_TIER = 8;
 export const CLANKER_SELF_DESTRUCT_XP = 25;
+export const BUNKER_RAID_PICKUP_COLLECTION_RADIUS = 1;
 
 export const BASE_PART_IDS = [
   "wall-panel",
@@ -205,6 +206,18 @@ export interface BunkerRaidSnapshot {
     vibes: number;
     defenseXp: number;
   };
+}
+
+export function canCollectBunkerRaidPickupFrom(
+  pickup: { col: number; row: number; collected: boolean },
+  minerCol: number,
+  minerRow: number,
+): boolean {
+  return (
+    !pickup.collected &&
+    Math.abs(pickup.col - minerCol) <= BUNKER_RAID_PICKUP_COLLECTION_RADIUS &&
+    Math.abs(pickup.row - minerRow) <= BUNKER_RAID_PICKUP_COLLECTION_RADIUS
+  );
 }
 
 export type BunkerRaidTerrainKind =

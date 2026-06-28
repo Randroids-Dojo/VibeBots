@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-28-0.1.143-raid-xp-pickup-retry",
+      releaseNoticeId: "2026-06-28-0.1.144-raid-xp-pickup-visibility",
       releaseSummary:
-        "Raid XP pickup retry: Raid XP pickups now retry while the miner stands on them.",
+        "Raid XP pickup visibility: Raid XP pickups now match the visible overlap area.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-28-0.1.143-raid-xp-pickup-retry",
+      releaseNoticeId: "2026-06-28-0.1.144-raid-xp-pickup-visibility",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -2,11 +2,29 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest raid XP pickup retry note complete", () => {
+  it("keeps the latest raid XP pickup visibility note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-28-0.1.143-raid-xp-pickup-retry");
+    expect(release.noticeId).toBe(
+      "2026-06-28-0.1.144-raid-xp-pickup-visibility",
+    );
+    expect(latestNote).toMatchObject({
+      version: "0.1.144",
+      title: "Raid XP pickup visibility",
+      intro: "Raid XP pickups now match the visible overlap area.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Raid XP collection now accepts the visible overlap area around the pickup, so standing beside a marker that covers the miner still collects it.",
+      "All explosion visuals now dissipate. Clanker self-destruct bursts fade out instead of permanently covering collectible XP markers.",
+      "XP markers draw above raid effects while collectible, and regression coverage now keeps burst and explosion animations finite.",
+    ]);
+  });
+
+  it("keeps the archived raid XP pickup retry note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.143");
+
     expect(latestNote).toMatchObject({
       version: "0.1.143",
       title: "Raid XP pickup retry",

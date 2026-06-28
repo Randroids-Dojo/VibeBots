@@ -29,6 +29,7 @@ import {
   type BasePartId,
   type BunkerRaidSnapshot,
   bunkerCells,
+  canCollectBunkerRaidPickupFrom,
   containsBunkerCell,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
@@ -272,14 +273,11 @@ function raidHasUncollectedPickupAt(
 ): boolean {
   return Boolean(
     raid?.survived &&
-      raid.xpPickups.some((pickup) => {
-        return (
+      raid.xpPickups.some(
+        (pickup) =>
           pickup.id === pickupId &&
-          !pickup.collected &&
-          pickup.col === col &&
-          pickup.row === row
-        );
-      }),
+          canCollectBunkerRaidPickupFrom(pickup, col, row),
+      ),
   );
 }
 
@@ -1896,11 +1894,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     void raidPickupRetryTick;
     if (!activeBunkerRaid?.survived) return;
     const pickup = activeBunkerRaid.xpPickups.find((candidate) => {
-      return (
-        !candidate.collected &&
-        candidate.col === miner.col &&
-        candidate.row === miner.row
-      );
+      return canCollectBunkerRaidPickupFrom(candidate, miner.col, miner.row);
     });
     if (!pickup || collectingRaidPickupIdsRef.current.has(pickup.id)) return;
     collectingRaidPickupIdsRef.current.add(pickup.id);

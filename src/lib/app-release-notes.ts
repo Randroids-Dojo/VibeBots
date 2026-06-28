@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-28-0.1.143-raid-xp-pickup-retry";
+export const RELEASE_NOTICE_ID = "2026-06-28-0.1.144-raid-xp-pickup-visibility";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.144",
+      date: "2026-06-28",
+      title: "Raid XP pickup visibility",
+      intro: "Raid XP pickups now match the visible overlap area.",
+      changes: [
+        {
+          build,
+          text: "Raid XP collection now accepts the visible overlap area around the pickup, so standing beside a marker that covers the miner still collects it.",
+        },
+        {
+          build,
+          text: "All explosion visuals now dissipate. Clanker self-destruct bursts fade out instead of permanently covering collectible XP markers.",
+        },
+        {
+          build,
+          text: "XP markers draw above raid effects while collectible, and regression coverage now keeps burst and explosion animations finite.",
+        },
+      ],
+    },
     {
       version: "0.1.143",
       date: "2026-06-28",

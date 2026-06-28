@@ -180,7 +180,7 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("mine retries raid XP pickup while the miner stands on it", async ({
+test("mine retries raid XP pickup while the miner overlaps it", async ({
   page,
 }) => {
   const activeRaid = {
@@ -200,7 +200,7 @@ test("mine retries raid XP pickup while the miner stands on it", async ({
     xpPickups: [
       {
         id: "clanker-1-xp",
-        col: START_COL,
+        col: START_COL - 1,
         row: 1,
         defenseXp: 25,
         collected: false,

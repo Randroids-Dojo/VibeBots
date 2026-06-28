@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="raid-xp-pickup-visibility" data-date="2026-06-28">
+    <h3>Raid XP Pickup Visibility</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/raid-xp-pickup-retry</code>, continuing from the shipped 0.1.143 raid pickup retry branch after the user reported that live pickups still did not collect.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, simplification, cleanup, release-note audit, tip audit, and verification.</dd>
+      <dt>Changed</dt><dd>User-reported bunker raid XP pickup visibility and overlap fix. The shared bunker helper now treats a pickup as collectible when the miner overlaps its visible pickup area, not only when the hidden cell centers exactly match. The mine panel and server route use the same helper. All explosion visuals now dissipate: the persistent Clanker self-destruct burst now fades out instead of permanently covering pickups, and live XP markers draw above raid effects while collectible. A transient animation guard now checks burst and explosion paths for finite lifetimes, fading self-destruct meshes, particle countdown expiry, and self-clearing DOM burst overlays. Package version moved to <code>0.1.144</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Ran <code>pnpm exec biome check --write</code> on touched source, test, release, package, and doc files, focused bunker, animation, and release Vitest with <code>pnpm exec vitest run src/components/mine-transient-animation.test.ts src/sim/bunker.test.ts src/server/bunker.test.ts src/app/api/bunker/route.test.ts src/lib/app-release.test.ts src/app/api/notifications/route.test.ts src/app/api/version/route.test.ts src/server/web-push.test.ts</code> (124 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused pickup-overlap Playwright smoke with <code>pnpm exec playwright test tests/e2e/mine-bunker.spec.ts -g "mine retries raid XP pickup" --project=chromium --workers=1</code> (1 passed), focused release-note Playwright smoke with <code>pnpm exec playwright test tests/e2e/release-notifications.spec.ts -g "mine shows the latest release note" --project=chromium --workers=1</code> (1 passed), <code>pnpm lint</code> (212 files), <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and JSON validation for <code>docs/GDD_COVERAGE.json</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: because the visible pickup and explosion art can overlap the miner from an adjacent cell, pickup collection should match the visible overlap area. Mine surface tips were reviewed and kept unchanged because the existing tip still accurately says to walk over bunker raid XP drops to claim player-level progress.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because the existing REQ-038 behavior is now more visually consistent rather than redesigned. <code>docs/gdd/08-base-building.html</code> gained a build-log entry for pickup visibility.</dd>
+      <dt>Followups</dt><dd>No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="raid-xp-pickup-retry" data-date="2026-06-28">
     <h3>Raid XP Pickup Retry</h3>
     <dl>

@@ -12,6 +12,7 @@ import {
   basePartOwnedLimit,
   bunkerCells,
   canBuyBasePart,
+  canCollectBunkerRaidPickupFrom,
   createBunker,
   EMPTY_BASE_PART_INVENTORY,
   moveBasePart,
@@ -557,7 +558,7 @@ export async function collectBunkerRaidPickup(
   const updatedRaid: BunkerRaidSnapshot = {
     ...raid,
     xpPickups: raid.xpPickups.map((pickup) => {
-      if (pickup.col !== col || pickup.row !== row || pickup.collected) {
+      if (!canCollectBunkerRaidPickupFrom(pickup, col, row)) {
         return pickup;
       }
       collected = true;

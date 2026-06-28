@@ -2,13 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest raid XP pickup visibility note complete", () => {
+  it("keeps the latest raid XP recovery note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-06-28-0.1.144-raid-xp-pickup-visibility",
-    );
+    expect(release.noticeId).toBe("2026-06-28-0.1.145-raid-xp-recovery");
+    expect(latestNote).toMatchObject({
+      version: "0.1.145",
+      title: "Raid XP recovery",
+      intro: "Old raid XP drops now point the way back.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Survived bunker raids with uncollected XP now show a HUD locator pointing back to the nearest pickup, even after later mine deaths.",
+      "The bunker builder stays usable after the raid combat is resolved, so you can adjust parts while the XP reward is still waiting.",
+      "Finish raid still waits for the XP pickups. Live raids and failed raids still keep bunker editing locked.",
+    ]);
+  });
+
+  it("keeps the archived raid XP pickup visibility note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.144");
+
     expect(latestNote).toMatchObject({
       version: "0.1.144",
       title: "Raid XP pickup visibility",

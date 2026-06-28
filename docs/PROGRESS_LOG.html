@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="raid-xp-recovery" data-date="2026-06-28">
+    <h3>Raid XP Recovery</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260628-173235-4c0ee21e96c3</code>, created from current <code>origin/main</code> before implementation.</dd>
+      <dt>PR</dt><dd>Local implementation branch. PR not opened in this step.</dd>
+      <dt>Changed</dt><dd>User-reported bunker raid XP recovery fix. Survived raids with uncollected XP now show a DOM HUD locator toward the nearest pickup, so later mine deaths no longer leave the reward gate directionless. The bunker builder stays editable once raid combat is resolved, including place, remove, move, and walk controls, while <code>Finish raid</code> still waits for pickup collection and live or failed raids still lock edits. The mine tip rotation now mentions the XP arrow. Package version moved to <code>0.1.145</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code> before implementation and again after review cleanup. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched TypeScript, CSS, and Playwright files, focused release Vitest with <code>pnpm exec vitest run src/lib/app-release.test.ts src/app/api/notifications/route.test.ts src/app/api/version/route.test.ts src/server/web-push.test.ts</code> (74 passed), <code>pnpm typecheck</code>, full <code>pnpm test</code> (490 passed), <code>pnpm build</code>, focused bunker Playwright smoke with <code>PLAYWRIGHT_PORT=3836 pnpm exec playwright test tests/e2e/mine-bunker.spec.ts --project=chromium --workers=1</code> (6 passed), focused release-note Playwright smoke with <code>PLAYWRIGHT_PORT=3837 pnpm exec playwright test tests/e2e/release-notifications.spec.ts --project=chromium --grep "mine shows the latest release note" --workers=1</code> (1 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and JSON validation for <code>docs/GDD_COVERAGE.json</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: later mine deaths should not erase or auto-claim survived raid XP. The correct recovery path is to guide the player back to the old pickup while keeping bunker edits available after combat resolution. Mine tips were reviewed and updated for the new XP arrow.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because <code>REQ-038</code> remains partial under the larger bunker feature scope. <code>docs/GDD_COVERAGE.json</code> now points <code>REQ-038</code> at the focused bunker control and overlay modules. <code>docs/gdd/06-mining.html</code> and <code>docs/gdd/08-base-building.html</code> gained build-log entries.</dd>
+      <dt>Followups</dt><dd>No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-style-ownership-split" data-date="2026-06-28">
     <h3>Mine Style Ownership Split</h3>
     <dl>

@@ -791,6 +791,7 @@ export function BunkerOverlay({
   blockedCells,
   bunker,
   activeRaid,
+  editingEnabled,
   selectedPartCell,
   dragTargetCell,
   targetCell,
@@ -806,6 +807,7 @@ export function BunkerOverlay({
   blockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
   activeRaid?: BunkerRaidSnapshot | null;
+  editingEnabled?: boolean;
   selectedPartCell?: MineCoord | null;
   dragTargetCell?: MineCoord | null;
   targetCell?: MineCoord | null;
@@ -819,6 +821,7 @@ export function BunkerOverlay({
 }) {
   const footprint = bunker?.footprint ?? preview;
   if (!footprint) return null;
+  const canEditBunker = Boolean(bunker && (editingEnabled ?? !activeRaid));
   const outlineColor = bunker ? "#54e0c7" : "#f5c542";
   const outlineOpacity = bunker ? 0.5 : 0.42;
   const lines = [];
@@ -917,7 +920,7 @@ export function BunkerOverlay({
   const cellTargetPlane =
     bunker &&
     buildMode !== "move" &&
-    !activeRaid &&
+    canEditBunker &&
     onBunkerCellTap &&
     onBunkerCellHover ? (
       // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
@@ -973,7 +976,11 @@ export function BunkerOverlay({
       </group>
     ) : null;
   const dragPlane =
-    bunker && buildMode === "move" && onBunkerDragTarget && onBunkerDragEnd ? (
+    bunker &&
+    canEditBunker &&
+    buildMode === "move" &&
+    onBunkerDragTarget &&
+    onBunkerDragEnd ? (
       <mesh
         position={[
           cellX(footprint.col + (footprint.width - 1) / 2),
@@ -1026,6 +1033,7 @@ export function BunkerOverlay({
           position={[cellX(part.col), -part.row, 0.5]}
           onClick={(e) => {
             e.stopPropagation();
+            if (!canEditBunker) return;
             if (buildMode === "remove" && onBunkerCellTap) {
               onBunkerCellTap(partCell);
               return;
@@ -1034,6 +1042,7 @@ export function BunkerOverlay({
           }}
           onPointerDown={(e) => {
             e.stopPropagation();
+            if (!canEditBunker) return;
             if (buildMode === "move") onBunkerPartPointerDown?.(partCell);
           }}
         >

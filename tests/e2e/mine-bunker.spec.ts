@@ -171,13 +171,25 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await expect(builder).toContainText("Floor x3");
   await expect(builder).toContainText("Roof x3");
   await builder.getByRole("button", { name: "Start Clanker raid" }).click();
-  await page.getByRole("button", { name: "Open bunker builder" }).click();
   await expect(builder).toBeVisible();
   await expect(builder).toContainText("1 Clanker dead");
   await expect(builder).toContainText("Walk over 25 defense XP on the ground");
+  await expect(builder.getByRole("button", { name: "Place" })).toBeEnabled();
+  await expect(builder.getByRole("button", { name: "Remove" })).toBeEnabled();
+  await expect(
+    builder.getByRole("button", { exact: true, name: "Move" }),
+  ).toBeEnabled();
+  await expect(
+    builder.getByRole("button", { name: "Walk left" }),
+  ).toBeEnabled();
   await expect(
     builder.getByRole("button", { name: "Walk over raid XP" }),
-  ).toBeVisible();
+  ).toBeDisabled();
+  const xpLocator = page.locator("[data-raid-xp-direction]");
+  await expect(xpLocator).toBeVisible();
+  await expect(xpLocator).toHaveAttribute("data-raid-xp-direction", "up-left");
+  await expect(xpLocator).toHaveAttribute("data-raid-xp-row-distance", "1");
+  await expect(xpLocator).toHaveAttribute("data-raid-xp-col-distance", "3");
 });
 
 test("mine retries raid XP pickup while the miner overlaps it", async ({
@@ -277,6 +289,7 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await page.getByRole("button", { name: "Open bunker builder" }).click();
   const builder = page.getByRole("region", { name: "Bunker builder" });
   await expect(builder).toContainText("All raid XP collected: 25 defense XP.");
+  await expect(page.locator("[data-raid-xp-direction]")).toHaveCount(0);
   await expect(
     builder.getByRole("button", { name: "Finish raid" }),
   ).toBeVisible();
@@ -385,6 +398,11 @@ test("mine bunker builder explains miner death after an open Clanker path", asyn
   await expect(builder).toContainText("Miner killed");
   await expect(builder).toContainText("Clankers follow open bunker cells");
   await expect(builder).toContainText("Fully enclose the player cell");
+  await expect(builder.getByRole("button", { name: "Place" })).toBeDisabled();
+  await expect(builder.getByRole("button", { name: "Remove" })).toBeDisabled();
+  await expect(
+    builder.getByRole("button", { exact: true, name: "Move" }),
+  ).toBeDisabled();
 });
 
 test("mine requires an explicit bunker claim mode before showing the claim panel", async ({

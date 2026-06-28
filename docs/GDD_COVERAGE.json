@@ -807,6 +807,8 @@
         "src/app/api/bunker/raid/collect/route.ts",
         "src/app/api/consumables/buy/route.ts",
         "src/components/mine-panel.tsx",
+        "src/components/mine-bunker-control-panel.tsx",
+        "src/components/mine-bunker-overlay.tsx",
         "src/components/mine-canvas.tsx",
         "src/state/bunker-store.ts",
         "src/server/db.ts",

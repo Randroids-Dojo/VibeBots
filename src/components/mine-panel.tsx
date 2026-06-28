@@ -233,7 +233,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
   "Tip: Planted beacons only work within your current Warpcoil range.",
   "Tip: Distant biome beacons become free portals back to base.",
-  "Tip: Walk over bunker raid XP drops to claim player-level progress.",
+  "Tip: Follow the XP arrow back to old bunker raid drops before finishing.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
@@ -279,6 +279,56 @@ function raidHasUncollectedPickupAt(
           canCollectBunkerRaidPickupFrom(pickup, col, row),
       ),
   );
+}
+
+function raidAllowsBunkerEditing(raid: BunkerRaidSnapshot | null): boolean {
+  return !raid || (raid.survived && raid.allClankersDead);
+}
+
+function raidXpLocator(
+  raid: BunkerRaidSnapshot | null,
+  miner: MineCoord,
+): {
+  direction: string;
+  rowDistance: number;
+  colDistance: number;
+  label: string;
+  side: "left" | "right" | "center";
+} | null {
+  if (!raid?.survived || !raid.allClankersDead) return null;
+  const pickups = raid.xpPickups.filter((pickup) => !pickup.collected);
+  let nearest: (typeof pickups)[number] | null = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const pickup of pickups) {
+    if (canCollectBunkerRaidPickupFrom(pickup, miner.col, miner.row)) {
+      return null;
+    }
+    const distance =
+      Math.abs(pickup.col - miner.col) + Math.abs(pickup.row - miner.row);
+    if (distance < nearestDistance) {
+      nearest = pickup;
+      nearestDistance = distance;
+    }
+  }
+  if (!nearest) return null;
+  const rowDelta = nearest.row - miner.row;
+  const colDelta = nearest.col - miner.col;
+  const rowDirection = rowDelta < 0 ? "up" : rowDelta > 0 ? "down" : null;
+  const colDirection = colDelta < 0 ? "left" : colDelta > 0 ? "right" : null;
+  const rowDistance = Math.abs(rowDelta);
+  const colDistance = Math.abs(colDelta);
+  const labelParts = ["XP"];
+  if (rowDirection) labelParts.push(rowDirection === "up" ? "↑" : "↓");
+  if (rowDistance > 0) labelParts.push(String(rowDistance));
+  if (colDirection) labelParts.push(colDirection === "left" ? "←" : "→");
+  if (colDistance > 0) labelParts.push(String(colDistance));
+  return {
+    direction: [rowDirection, colDirection].filter(Boolean).join("-") || "here",
+    rowDistance,
+    colDistance,
+    label: labelParts.join(" "),
+    side: colDirection ?? "center",
+  };
 }
 
 function baseReturnTarget(
@@ -1082,6 +1132,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
   const pendingBunkerActive = pendingBunker !== null;
   const terminalMineState = Boolean(lastResult?.ok && lastResult.collapsed);
+  const bunkerEditingAllowed = raidAllowsBunkerEditing(activeBunkerRaid);
 
   useEffect(() => {
     if (mine.miner.row !== 0) return;
@@ -1646,6 +1697,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   ]);
 
   const miner = mine.miner;
+  const activeRaidXpLocator = raidXpLocator(activeBunkerRaid, miner);
   const currentCell = cellAt(mine, miner.col, miner.row);
   const stratum = stratumAt(miner.row);
   const horizontalDistance = miner.col - START_COL;
@@ -1938,16 +1990,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [collectMode]);
 
   useEffect(() => {
-    if (!terminalMineState && miner.row > 0 && !activeBunkerRaid) return;
+    if (!terminalMineState && miner.row > 0 && bunkerEditingAllowed) return;
     setBunkerClaimMode(false);
     setBunkerPanelOpen(false);
     setSelectedBunkerPartCell(null);
     setBunkerPartDragTargetCell(null);
     setBunkerTargetCell(null);
-  }, [activeBunkerRaid, miner.row, terminalMineState]);
+  }, [bunkerEditingAllowed, miner.row, terminalMineState]);
 
   useEffect(() => {
-    if (!activeBunker || !bunkerPanelOpen || activeBunkerRaid) {
+    if (!activeBunker || !bunkerPanelOpen || !bunkerEditingAllowed) {
       setSelectedBunkerPartCell(null);
       setBunkerPartDragTargetCell(null);
       setBunkerTargetCell(null);
@@ -1961,28 +2013,28 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         ? cell
         : null;
     });
-  }, [activeBunkerRaid, activeBunker, bunkerPanelOpen]);
+  }, [activeBunker, bunkerEditingAllowed, bunkerPanelOpen]);
 
   const handleBunkerPartTap = useCallback(
     (cell: MineCoord) => {
-      if (!activeBunker || activeBunkerRaid) return;
+      if (!activeBunker || !bunkerEditingAllowed) return;
       setBunkerBuildMode("move");
       setSelectedBunkerPartCell(cell);
       setBunkerPartDragTargetCell(null);
     },
-    [activeBunkerRaid, activeBunker],
+    [activeBunker, bunkerEditingAllowed],
   );
 
   const handleBunkerPartPointerDown = useCallback(
     (cell: MineCoord) => {
-      if (!activeBunker || activeBunkerRaid) return;
+      if (!activeBunker || !bunkerEditingAllowed) return;
       setBunkerBuildMode("move");
       setSelectedBunkerPartCell(cell);
       bunkerPartDragStartRef.current = cell;
       bunkerPartDragMovedRef.current = false;
       setBunkerPartDragTargetCell(cell);
     },
-    [activeBunkerRaid, activeBunker],
+    [activeBunker, bunkerEditingAllowed],
   );
 
   const handleBunkerDragTarget = useCallback(
@@ -2051,7 +2103,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   const handleBunkerCellTap = useCallback(
     (cell: MineCoord) => {
-      if (!activeBunker || activeBunkerRaid) return;
+      if (!activeBunker || !bunkerEditingAllowed) return;
       if (!containsBunkerCell(activeBunker.footprint, cell.col, cell.row)) {
         return;
       }
@@ -2076,7 +2128,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     },
     [
       activeBunker,
-      activeBunkerRaid,
+      bunkerEditingAllowed,
       bunkerBuildMode,
       pendingBunkerActive,
       placeBunkerPart,
@@ -2553,6 +2605,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             bunkerBlockedCells={localBlockedBunkerCells}
             bunker={activeBunker}
             activeBunkerRaid={activeBunkerRaid}
+            bunkerEditingEnabled={bunkerEditingAllowed}
             selectedBunkerPartCell={selectedBunkerPartCell}
             bunkerPartDragTargetCell={bunkerPartDragTargetCell}
             bunkerTargetCell={bunkerTargetCell}
@@ -2899,6 +2952,18 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             </section>
           )}
         </>
+      )}
+      {activeRaidXpLocator && (
+        <div
+          role="status"
+          aria-label={`Raid XP is ${activeRaidXpLocator.direction}`}
+          className={`mine-raid-xp-indicator mine-raid-xp-indicator-${activeRaidXpLocator.side}`}
+          data-raid-xp-direction={activeRaidXpLocator.direction}
+          data-raid-xp-row-distance={activeRaidXpLocator.rowDistance}
+          data-raid-xp-col-distance={activeRaidXpLocator.colDistance}
+        >
+          {activeRaidXpLocator.label}
+        </div>
       )}
       {/* Standing on a stall shows a prompt; the menu opens on tap, not
           on walk-by. Tapping again after close needs another tap. */}

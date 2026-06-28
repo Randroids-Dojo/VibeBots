@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-28-0.1.144-raid-xp-pickup-visibility";
+export const RELEASE_NOTICE_ID = "2026-06-28-0.1.145-raid-xp-recovery";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.145",
+      date: "2026-06-28",
+      title: "Raid XP recovery",
+      intro: "Old raid XP drops now point the way back.",
+      changes: [
+        {
+          build,
+          text: "Survived bunker raids with uncollected XP now show a HUD locator pointing back to the nearest pickup, even after later mine deaths.",
+        },
+        {
+          build,
+          text: "The bunker builder stays usable after the raid combat is resolved, so you can adjust parts while the XP reward is still waiting.",
+        },
+        {
+          build,
+          text: "Finish raid still waits for the XP pickups. Live raids and failed raids still keep bunker editing locked.",
+        },
+      ],
+    },
     {
       version: "0.1.144",
       date: "2026-06-28",

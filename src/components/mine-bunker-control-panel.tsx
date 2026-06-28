@@ -82,7 +82,9 @@ export function BunkerControlPanel({
     status !== "loading" &&
     preview !== null &&
     localBlockerCount === 0;
-  const canBuild = hasBunker && !activeRaid;
+  const raidAllowsBuild =
+    !activeRaid || (activeRaid.survived && activeRaid.allClankersDead);
+  const canBuild = hasBunker && raidAllowsBuild;
   const canPlace = canBuild && inventory[selectedPart] > 0;
   const compactLabel = hasBunker ? "Open bunker builder" : "Start bunker claim";
   const compactText = hasBunker ? "Bunker" : "Bunker claim";

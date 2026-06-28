@@ -188,6 +188,7 @@ function MineScene({
   bunkerBlockedCells,
   bunker,
   activeBunkerRaid,
+  bunkerEditingEnabled,
   selectedBunkerPartCell,
   bunkerPartDragTargetCell,
   bunkerTargetCell,
@@ -1385,6 +1386,7 @@ function MineScene({
         blockedCells={bunkerBlockedCells}
         bunker={bunker}
         activeRaid={activeBunkerRaid}
+        editingEnabled={bunkerEditingEnabled}
         selectedPartCell={selectedBunkerPartCell}
         dragTargetCell={bunkerPartDragTargetCell}
         targetCell={bunkerTargetCell}
@@ -1445,6 +1447,7 @@ interface MineCanvasProps {
   bunkerBlockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
   activeBunkerRaid?: BunkerRaidSnapshot | null;
+  bunkerEditingEnabled?: boolean;
   selectedBunkerPartCell?: MineCoord | null;
   bunkerPartDragTargetCell?: MineCoord | null;
   bunkerTargetCell?: MineCoord | null;

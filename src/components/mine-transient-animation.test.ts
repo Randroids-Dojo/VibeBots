@@ -80,7 +80,7 @@ describe("mine transient animation lifetime contract", () => {
   });
 
   it("keeps DOM burst and explosion effects finite and self clearing", () => {
-    const css = readProjectFile("src/app/globals.css");
+    const css = readProjectFile("src/app/mine.css");
     const panel = readProjectFile("src/components/mine-panel.tsx");
     const animationBlocks = Array.from(
       css.matchAll(/([^{}]+)\{([^{}]+)\}/g),

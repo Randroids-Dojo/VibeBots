@@ -491,7 +491,8 @@
     <dt>Context</dt><dd>Refactor review 2026-06-21: <code>src/app/globals.css</code> is roughly 1,059 lines and has accumulated broad app styles plus mine-specific HUD, sheet, alert, and mobile layout rules. Mobile text bounds and overlay fixes have repeatedly touched the same global surface, which makes unrelated style regressions hard to review.</dd>
     <dt>Blocker (if any)</dt><dd>none, but visual QA is required because many selectors protect phone layouts.</dd>
     <dt>Unblock condition</dt><dd>Ready: identify mine-only classes and move them into CSS modules or a clearly named imported mine stylesheet using existing Next.js support. Keep truly global reset and app shell rules in <code>globals.css</code>. Do not rename classes and restructure components in the same PR unless the rename is mechanically covered by tests. Acceptance: mobile focused smoke still checks panel bounds, release dialogs, settings, builder panels, and shop sheets; agents can find mine HUD styles without scanning unrelated global CSS.</dd>
-    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>PR / Dot reference</dt><dd>Dot <code>VibeBots-finish-f-039-b2fab303</code>.</dd>
+    <dt>Resolved</dt><dd>2026-06-28: moved mine-only global selectors, keyframes, reduced-motion rules, bag styles, base-return styles, and stall-sheet animation styles into <code>src/app/mine.css</code>, imported after <code>src/app/globals.css</code>. Class names and component markup stayed unchanged, while <code>globals.css</code> now keeps only reset, app shell, error screen, workshop, and parts-shop styles.</dd>
   </dl>
 </section>
 

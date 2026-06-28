@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-style-ownership-split" data-date="2026-06-28">
+    <h3>Mine Style Ownership Split</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>refactor/mine-style-ownership-f039</code>, created from current <code>origin/main</code> before implementation.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, simplification, cleanup, release-note audit, tip audit, and verification.</dd>
+      <dt>Changed</dt><dd>Completed <code>F-039</code> by moving mine-only global styles from <code>src/app/globals.css</code> into <code>src/app/mine.css</code>, imported after the global stylesheet in <code>src/app/layout.tsx</code>. The moved block keeps the existing selectors, class names, keyframes, reduced-motion rules, bag styles, base-return styles, and stall-sheet animation contract unchanged.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger at start and closeout for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write src/app/layout.tsx src/app/globals.css src/app/mine.css</code>, <code>pnpm exec biome check --write src/components/mine-transient-animation.test.ts</code>, focused transient-animation Vitest with <code>pnpm exec vitest run src/components/mine-transient-animation.test.ts</code> (4 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (489 passed), <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm build</code>, focused mine style Playwright smoke with <code>PLAYWRIGHT_PORT=3839 pnpm exec playwright test tests/e2e/mine-ui.spec.ts tests/e2e/mine-bunker.spec.ts tests/e2e/mine-navigation.spec.ts tests/e2e/release-notifications.spec.ts --project=chromium</code> (29 passed), and critical smoke with <code>PLAYWRIGHT_PORT=3840 pnpm test:e2e:critical --project=chromium</code> (5 passed). Deep review confirmed <code>src/app/mine.css</code> is byte-for-byte the old mine CSS block from <code>src/app/globals.css</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a behavior-preserving style ownership split. It does not rename classes, restructure components, change player-facing behavior, package version, release notes, mine tips, mine rules, save data, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>. Release notes and mine surface tips were reviewed and left unchanged because the current copy is accurate and no player-visible behavior changed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because gameplay behavior is unchanged.</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-039">F-039</a>. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-boundary-map-and-client-facade" data-date="2026-06-28">
     <h3>Bunker Boundary Map And Client Facade</h3>
     <dl>

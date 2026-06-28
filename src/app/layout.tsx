@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { ClientErrorTelemetry } from "@/components/app-error-telemetry";
 import "./globals.css";
+import "./mine.css";
 
 export const metadata: Metadata = {
   title: "VibeBots",

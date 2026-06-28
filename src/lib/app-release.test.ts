@@ -2,13 +2,28 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest release metadata cleanup note complete", () => {
+  it("keeps the latest crash recovery logging note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-06-27-0.1.141-release-metadata-cleanup",
-    );
+    expect(release.noticeId).toBe("2026-06-28-0.1.142-crash-recovery-logging");
+    expect(latestNote).toMatchObject({
+      version: "0.1.142",
+      title: "Crash recovery logging",
+      intro:
+        "App crashes now show a recovery screen and log bounded telemetry.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Crashes now show a VibeBots recovery screen with Try again, Reload, and Mine buttons instead of leaving iOS on a broken page.",
+      "Client errors, global browser errors, and unhandled promise rejections now post bounded telemetry with hashed player identifiers.",
+      "Legacy bunker raid rows now normalize missing fields on load, and release notes stay above the mine loader so the first-run dialog remains tappable.",
+    ]);
+  });
+
+  it("keeps the archived release metadata cleanup note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.141");
+
     expect(latestNote).toMatchObject({
       version: "0.1.141",
       title: "Release metadata cleanup",

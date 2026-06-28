@@ -140,7 +140,7 @@ export function ReleaseNotesPopup({
       style={{
         position: "absolute",
         inset: 0,
-        zIndex: 30,
+        zIndex: 90,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

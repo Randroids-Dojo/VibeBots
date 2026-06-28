@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-27-0.1.141-release-metadata-cleanup";
+export const RELEASE_NOTICE_ID = "2026-06-28-0.1.142-crash-recovery-logging";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.142",
+      date: "2026-06-28",
+      title: "Crash recovery logging",
+      intro:
+        "App crashes now show a recovery screen and log bounded telemetry.",
+      changes: [
+        {
+          build,
+          text: "Crashes now show a VibeBots recovery screen with Try again, Reload, and Mine buttons instead of leaving iOS on a broken page.",
+        },
+        {
+          build,
+          text: "Client errors, global browser errors, and unhandled promise rejections now post bounded telemetry with hashed player identifiers.",
+        },
+        {
+          build,
+          text: "Legacy bunker raid rows now normalize missing fields on load, and release notes stay above the mine loader so the first-run dialog remains tappable.",
+        },
+      ],
+    },
     {
       version: "0.1.141",
       date: "2026-06-27",

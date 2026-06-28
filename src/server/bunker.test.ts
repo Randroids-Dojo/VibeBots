@@ -57,6 +57,110 @@ describe("bunker server helpers", () => {
     vi.mocked(applyAchievementProgress).mockClear();
   });
 
+  it("normalizes legacy active raid rows before returning the bunker view", async () => {
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, core, parts")) return [];
+      if (query.includes("SELECT snapshot")) {
+        return [
+          {
+            snapshot: {
+              raidId: "raid-legacy",
+              tier: 1,
+              durationSeconds: 180,
+              clankers: [],
+              turretShots: 0,
+              turretDamage: 0,
+              spikeTriggers: 0,
+              spikeDamage: 0,
+              totalPartDurability: 160,
+              incomingDamage: 40,
+              breached: false,
+              survived: true,
+              reward: { vibes: 30 },
+            },
+          },
+        ];
+      }
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("INSERT INTO player_base_parts")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.activeRaid).toMatchObject({
+      raidId: "raid-legacy",
+      partDamage: [],
+      coreDamage: 0,
+      xpPickups: [],
+      allClankersDead: false,
+      minerKilled: false,
+      reward: { vibes: 30, defenseXp: 0 },
+    });
+  });
+
+  it("finishes a survived legacy raid row without XP pickup fields", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-18T00:05:00.000Z"));
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT raid_id, snapshot")) {
+        return [
+          {
+            raid_id: "raid-legacy",
+            started_at: "2026-06-18T00:00:00.000Z",
+            duration_seconds: 180,
+            snapshot: {
+              raidId: "raid-legacy",
+              tier: 1,
+              durationSeconds: 180,
+              clankers: [],
+              turretShots: 0,
+              turretDamage: 0,
+              spikeTriggers: 0,
+              spikeDamage: 0,
+              totalPartDurability: 160,
+              incomingDamage: 40,
+              breached: false,
+              survived: true,
+              reward: { vibes: 30 },
+            },
+          },
+        ];
+      }
+      if (query.includes("UPDATE bunker_raids"))
+        return [{ raid_id: "raid-legacy" }];
+      if (query.includes("SELECT track_xp, defense_xp")) {
+        return [{ track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT achievement_id")) return [];
+      if (query.includes("UPDATE players")) return [{ defense_xp: 0 }];
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 60, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, core, parts")) return [];
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("INSERT INTO player_base_parts")) return [];
+      return [];
+    });
+
+    const result = await finishBunkerRaid(sql as never, "player-1");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.raid.xpPickups).toEqual([]);
+    expect(result.reward).toMatchObject({
+      survived: true,
+      vibesGained: 30,
+      xpGained: 0,
+    });
+  });
+
   it("does not pay a raid reward when the finish row was already claimed", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-18T00:05:00.000Z"));

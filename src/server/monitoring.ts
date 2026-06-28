@@ -63,6 +63,19 @@ export interface MineClientDiagnosticEvent {
   detail?: string;
 }
 
+export interface AppClientErrorEvent {
+  code: "react_error_boundary" | "global_error" | "unhandled_rejection";
+  severity: MonitoringSeverity;
+  playerId?: string;
+  source?: "app" | "global" | "window";
+  appVersion?: string;
+  path?: string;
+  message?: string;
+  digest?: string | null;
+  stack?: string;
+  userAgent?: string;
+}
+
 function hashIdentifier(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
@@ -106,6 +119,16 @@ export function logMineClientDiagnosticEvent(
   writeMonitoringLog(severity, "mine.client_diagnostic", {
     event: `mine.client_diagnostic.${event.code}`,
     player: playerId ? hashIdentifier(playerId) : undefined,
+    ...rest,
+  });
+}
+
+export function logAppClientErrorEvent(event: AppClientErrorEvent): void {
+  const { playerId, severity, source, ...rest } = event;
+  writeMonitoringLog(severity, "app.client_error", {
+    event: `app.client_error.${event.code}`,
+    player: playerId ? hashIdentifier(playerId) : undefined,
+    errorSource: source,
     ...rest,
   });
 }

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="crash-recovery-logging" data-date="2026-06-28">
+    <h3>Crash Recovery Logging</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260627-2b64cc88bb34-ab249efb</code>, created from current <code>origin/main</code> before investigation.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after data audit, deep review, simplification, cleanup, release-note audit, and verification.</dd>
+      <dt>Changed</dt><dd>Investigated the iPhone load failure against production logs and production data across all players. All non-empty mine worlds hydrate through the current sim; one non-iPhone world has a past-bottom diff that prunes on export, and the screenshot-matching iPhone player had a legacy active bunker raid missing newer fields. The server now normalizes legacy raid snapshots before returning or mutating active raids. The app now has top-level and global error screens, root browser error telemetry, and a bounded <code>/api/client-errors</code> logging route that writes hashed-player alert JSON. The release-note dialog now stacks above the mine loader so the first-run popup remains tappable while the shaft loader is visible. Package version moved to <code>0.1.142</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Production data audit checked 191 players, 116 mine worlds, 8 non-empty worlds, 2 iPhone signals, and hydrated every non-empty world through <code>createMine</code>. Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran focused Vitest for client errors, monitoring, bunker compatibility, release metadata, notification routes, and release version routes (87 passed), <code>pnpm test</code> (449 passed), <code>pnpm lint</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, critical Playwright smoke with <code>PLAYWRIGHT_PORT=3784 pnpm test:e2e:critical --project=chromium</code> (5 passed), full Chromium smoke with <code>PLAYWRIGHT_PORT=3785 pnpm test:e2e --project=chromium</code> (73 passed, 1 skipped), <code>pnpm check:dashes</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is app-shell crash recovery, telemetry, legacy server-data compatibility, and release-dialog layering. It does not change mine rules, mine tips, cash-out math, save data, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>. Mine surface tips were reviewed and kept unchanged because the release changes crash recovery and legacy load compatibility, not mining mechanics, controls, upgrades, hazards, shops, or recovery rules.</dd>
+      <dt>GDD coverage</dt><dd>No GDD coverage rows changed because gameplay behavior is unchanged. Static and in-game release notes were updated for <code>0.1.142</code>.</dd>
+      <dt>Followups</dt><dd>No new followups. The non-iPhone past-bottom production world remains a cleanup candidate but was not the reported iPhone load crash.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mid-trip-reload-contract-coverage" data-date="2026-06-27">
     <h3>Mid-Trip Reload Contract Coverage</h3>
     <dl>

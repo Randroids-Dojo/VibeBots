@@ -29,6 +29,112 @@ a {
   touch-action: manipulation;
 }
 
+.app-error-screen {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) 20px
+    max(24px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(
+      circle at 52% 22%,
+      rgba(84, 224, 199, 0.16),
+      transparent 28%
+    ),
+    linear-gradient(180deg, #0b0e14 0%, #121520 54%, #17120d 100%);
+}
+
+.app-error-panel {
+  display: grid;
+  width: min(420px, 100%);
+  gap: 18px;
+  justify-items: center;
+  padding: 24px;
+  color: #eef2f7;
+  text-align: center;
+  background: rgba(10, 14, 23, 0.86);
+  border: 1px solid rgba(84, 224, 199, 0.44);
+  border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.44);
+}
+
+.app-error-mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  color: #121520;
+  font-weight: 900;
+  font-size: 32px;
+  line-height: 1;
+  background: #f5c542;
+  border: 2px solid #ffe28a;
+  border-radius: 50%;
+  box-shadow: 0 0 24px rgba(245, 197, 66, 0.28);
+}
+
+.app-error-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.app-error-copy h1,
+.app-error-copy p {
+  margin: 0;
+}
+
+.app-error-kicker {
+  color: #54e0c7;
+  font-weight: 800;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.app-error-copy h1 {
+  color: #ffffff;
+  font-size: clamp(26px, 6vw, 40px);
+  line-height: 1.05;
+}
+
+.app-error-copy p {
+  color: #c8d0dd;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.app-error-copy .app-error-code {
+  color: #8fe9f2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.app-error-actions {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.app-error-actions button {
+  min-width: 112px;
+  min-height: 44px;
+  padding: 10px 16px;
+  color: #07110f;
+  font-weight: 800;
+  font-size: 15px;
+  background: #54e0c7;
+  border: 1px solid #8ff4e4;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.app-error-actions .app-error-action-secondary {
+  color: #eef2f7;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(230, 232, 238, 0.24);
+}
+
 .workshop-stage {
   position: relative;
   width: 100%;

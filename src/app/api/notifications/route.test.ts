@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-27-0.1.141-release-metadata-cleanup",
+      releaseNoticeId: "2026-06-28-0.1.142-crash-recovery-logging",
       releaseSummary:
-        "Release metadata cleanup: Release notes now live in a clearer owned module.",
+        "Crash recovery logging: App crashes now show a recovery screen and log bounded telemetry.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-27-0.1.141-release-metadata-cleanup",
+      releaseNoticeId: "2026-06-28-0.1.142-crash-recovery-logging",
       attempted: 2,
       sent: 1,
       expired: 1,

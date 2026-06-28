@@ -101,6 +101,42 @@ function parseBunkerState(
   };
 }
 
+function numberValue(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeBunkerRaidSnapshot(
+  snapshot: unknown,
+): BunkerRaidSnapshot | null {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const candidate = snapshot as Partial<BunkerRaidSnapshot>;
+  if (typeof candidate.raidId !== "string") return null;
+  return {
+    raidId: candidate.raidId,
+    tier: numberValue(candidate.tier, 1),
+    durationSeconds: numberValue(candidate.durationSeconds),
+    startedAtMs: numberValue(candidate.startedAtMs) || undefined,
+    clankers: Array.isArray(candidate.clankers) ? candidate.clankers : [],
+    turretShots: numberValue(candidate.turretShots),
+    turretDamage: numberValue(candidate.turretDamage),
+    spikeTriggers: numberValue(candidate.spikeTriggers),
+    spikeDamage: numberValue(candidate.spikeDamage),
+    totalPartDurability: numberValue(candidate.totalPartDurability),
+    incomingDamage: numberValue(candidate.incomingDamage),
+    partDamage: Array.isArray(candidate.partDamage) ? candidate.partDamage : [],
+    coreDamage: numberValue(candidate.coreDamage),
+    xpPickups: Array.isArray(candidate.xpPickups) ? candidate.xpPickups : [],
+    allClankersDead: Boolean(candidate.allClankersDead),
+    breached: Boolean(candidate.breached),
+    minerKilled: Boolean(candidate.minerKilled),
+    survived: Boolean(candidate.survived),
+    reward: {
+      vibes: numberValue(candidate.reward?.vibes),
+      defenseXp: numberValue(candidate.reward?.defenseXp),
+    },
+  };
+}
+
 async function ensureStarterBaseParts(
   sql: Sql,
   playerId: string,
@@ -168,10 +204,7 @@ export async function loadBunkerView(
   return {
     bunker: parseBunkerState(bunkerRows[0] ?? null),
     inventory: await ensureStarterBaseParts(sql, playerId),
-    activeRaid:
-      raidRows[0] && typeof raidRows[0].snapshot === "object"
-        ? (raidRows[0].snapshot as BunkerRaidSnapshot)
-        : null,
+    activeRaid: normalizeBunkerRaidSnapshot(raidRows[0]?.snapshot),
     player: {
       balance: player.emeralds,
       trackXp: player.track_xp,
@@ -515,7 +548,8 @@ export async function collectBunkerRaidPickup(
   if (!rowData || typeof rowData.snapshot !== "object") {
     return { ok: false, status: 409, error: "no active raid" };
   }
-  const raid = rowData.snapshot as BunkerRaidSnapshot;
+  const raid = normalizeBunkerRaidSnapshot(rowData.snapshot);
+  if (!raid) return { ok: false, status: 409, error: "no active raid" };
   if (!raid.survived) {
     return { ok: true, view: await loadBunkerView(sql, playerId), raid };
   }
@@ -577,7 +611,8 @@ export async function finishBunkerRaid(
   if (!row || typeof row.snapshot !== "object") {
     return { ok: false, status: 409, error: "no active raid" };
   }
-  const raid = row.snapshot as BunkerRaidSnapshot;
+  const raid = normalizeBunkerRaidSnapshot(row.snapshot);
+  if (!raid) return { ok: false, status: 409, error: "no active raid" };
   const elapsed = Date.now() - new Date(row.started_at).getTime();
   if (!raid.allClankersDead && elapsed < row.duration_seconds * 1000) {
     return { ok: false, status: 409, error: "raid still in progress" };

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  logAppClientErrorEvent,
   logMineCashOutEvent,
   logMineClientDiagnosticEvent,
 } from "./monitoring";
@@ -107,6 +108,43 @@ describe("mine client diagnostic monitoring", () => {
       hasActiveBunker: true,
       bunkerPanelOpen: true,
       movementTouchEnabled: true,
+    });
+
+    spy.mockRestore();
+  });
+});
+
+describe("app client error monitoring", () => {
+  it("writes error JSON without exposing raw player ids", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    logAppClientErrorEvent({
+      code: "react_error_boundary",
+      severity: "error",
+      playerId: "player-1",
+      source: "app",
+      appVersion: "0.1.142",
+      path: "/mine",
+      message: "Cannot read properties of undefined",
+      digest: "digest-1",
+      stack: "Error: Cannot read properties of undefined",
+      userAgent: "Vitest",
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const raw = String(spy.mock.calls[0][0]);
+    expect(raw).not.toContain("player-1");
+    expect(JSON.parse(raw)).toMatchObject({
+      source: "vibebots",
+      component: "app.client_error",
+      event: "app.client_error.react_error_boundary",
+      alert: true,
+      severity: "error",
+      code: "react_error_boundary",
+      errorSource: "app",
+      appVersion: "0.1.142",
+      path: "/mine",
+      digest: "digest-1",
     });
 
     spy.mockRestore();

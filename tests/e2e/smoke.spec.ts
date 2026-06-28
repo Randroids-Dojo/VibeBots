@@ -564,6 +564,22 @@ test("mine shows a moving loader and retry when the world stalls", async ({
   });
 
   await page.goto("/mine");
+  const dialog = page.getByRole("dialog", { name: "New in VibeBots" });
+  await expect(dialog).toBeVisible();
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const element = document.elementFromPoint(
+          window.innerWidth / 2,
+          window.innerHeight / 2,
+        );
+        return element
+          ?.closest('[role="dialog"]')
+          ?.getAttribute("aria-labelledby");
+      }),
+    )
+    .toBe("release-notes-title");
+
   const loader = page.getByRole("status").filter({
     hasText: "Opening the shaft",
   });
@@ -585,6 +601,7 @@ test("mine shows a moving loader and retry when the world stalls", async ({
   await expect(alert).toContainText("Your save was not changed");
 
   retryReady = true;
+  await dismissReleaseNotes(page);
   await alert.getByRole("button", { name: "Try again" }).click();
   await expect(page.locator("canvas")).toBeVisible();
   await expect(alert).not.toBeVisible();
@@ -2021,17 +2038,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Release notes now live in a clearer owned module.",
+    "App crashes now show a recovery screen and log bounded telemetry.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Release-note archive data now lives in its own typed module",
+    "Crashes now show a VibeBots recovery screen",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "getAppRelease remains the public release API",
+    "Client errors, global browser errors",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "This cleanup does not change player behavior",
+    "Legacy bunker raid rows now normalize missing fields",
   );
 
   await page.mouse.click(8, 8);
@@ -2051,6 +2068,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.142", "Crash recovery logging"],
     ["0.1.141", "Release metadata cleanup"],
     ["0.1.140", "Fall death camera"],
     ["0.1.139", "Mine renderer cleanup"],

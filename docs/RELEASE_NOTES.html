@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.142" data-date="2026-06-28">
+    <h2>0.1.142</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.142</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>App crashes now show a recovery screen and log bounded telemetry.</dd>
+      <dt>Crash recovery</dt><dd>Top-level app errors now render a VibeBots recovery screen with <code>Try again</code>, <code>Reload</code>, and <code>Mine</code> actions instead of leaving mobile browsers on a broken page.</dd>
+      <dt>Telemetry</dt><dd>React error boundaries, global browser errors, and unhandled promise rejections now post bounded client-error telemetry through <code>/api/client-errors</code>. Server logs keep raw player ids out by hashing identifiers before writing alert-grade JSON.</dd>
+      <dt>Load compatibility</dt><dd>Legacy bunker raid rows now normalize missing fields before reaching the client, and the release-note dialog stays above the mine loader so the first-run popup remains tappable during slow mine loads.</dd>
+      <dt>Verification</dt><dd>Focused client-error, monitoring, bunker compatibility, release, notification, type, unit, build, and smoke coverage checks the current release note, app crash telemetry, legacy raid normalization, and loader overlay ordering. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.141" data-date="2026-06-27">
     <h2>0.1.141</h2>
     <dl>

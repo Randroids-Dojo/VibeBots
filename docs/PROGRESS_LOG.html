@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="fatal-fall-smoke-stabilization" data-date="2026-06-27">
+    <h3>Fatal Fall Smoke Stabilization</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260627-175202-7231ed59aefb</code>, following the direct <code>origin/main</code> push for the release metadata cleanup.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, cleanup, release-note audit, and verification.</dd>
+      <dt>Changed</dt><dd>Stabilized the fatal free-fall Playwright smoke after remote CI exposed a timing-sensitive assertion. The test now waits for the observable mid-fall canvas state (<code>data-fall-visual-active="true"</code>, <code>data-fall-visual-impact="false"</code>, and a deep camera Y) instead of assuming a fixed delay always lands before impact. This keeps the same behavior contract and removes the CI timing race.</dd>
+      <dt>Verification</dt><dd>Ran focused Playwright smoke with <code>PLAYWRIGHT_PORT=3772 pnpm exec playwright test tests/e2e/smoke.spec.ts --project=chromium --grep "fatal free fall stays on camera until impact"</code> (1 passed), <code>pnpm exec biome check tests/e2e/smoke.spec.ts</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is test-harness stabilization only. It does not change player behavior, package version, release notes, mine tips, mine rules, save data, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>.</dd>
+      <dt>GDD coverage</dt><dd>No GDD coverage rows changed because gameplay behavior is unchanged.</dd>
+      <dt>Followups</dt><dd>No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="release-metadata-cleanup" data-date="2026-06-27">
     <h3>Release Metadata Cleanup</h3>
     <dl>

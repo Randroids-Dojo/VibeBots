@@ -1525,10 +1525,25 @@ test("fatal free fall stays on camera until impact", async ({ page }) => {
       },
     )
     .toBeGreaterThan(20);
-  await page.waitForTimeout(2_100);
-  await expect(canvas).toHaveAttribute("data-fall-visual-active", "true");
-  await expect(canvas).toHaveAttribute("data-fall-visual-impact", "false");
-  expect(Number(await canvas.getAttribute("data-cam-y"))).toBeLessThan(-8);
+  let midFallCamY = Number.NaN;
+  await expect
+    .poll(
+      async () => {
+        const active = await canvas.getAttribute("data-fall-visual-active");
+        const impact = await canvas.getAttribute("data-fall-visual-impact");
+        const camY = Number(await canvas.getAttribute("data-cam-y"));
+        if (active === "true" && impact === "false" && camY < -8) {
+          midFallCamY = camY;
+          return true;
+        }
+        return false;
+      },
+      {
+        timeout: 5_000,
+      },
+    )
+    .toBe(true);
+  expect(midFallCamY).toBeLessThan(-8);
   const fallActiveShot = await canvas.screenshot();
   expect(Buffer.compare(beforeFallShot, fallActiveShot)).not.toBe(0);
 

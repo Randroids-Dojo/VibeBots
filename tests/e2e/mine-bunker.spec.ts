@@ -180,6 +180,108 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("mine retries raid XP pickup while the miner stands on it", async ({
+  page,
+}) => {
+  const activeRaid = {
+    raidId: "raid-pickup-retry",
+    tier: 1,
+    durationSeconds: 180,
+    startedAtMs: Date.now(),
+    clankers: [],
+    turretShots: 0,
+    turretDamage: 0,
+    spikeTriggers: 0,
+    spikeDamage: 0,
+    totalPartDurability: 90,
+    incomingDamage: 0,
+    partDamage: [],
+    coreDamage: 0,
+    xpPickups: [
+      {
+        id: "clanker-1-xp",
+        col: START_COL,
+        row: 1,
+        defenseXp: 25,
+        collected: false,
+      },
+    ],
+    allClankersDead: true,
+    breached: false,
+    minerKilled: false,
+    survived: true,
+    reward: { vibes: 30, defenseXp: 25 },
+  };
+  const collectedRaid = {
+    ...activeRaid,
+    xpPickups: [{ ...activeRaid.xpPickups[0], collected: true }],
+  };
+  const bunkerView = {
+    bunker: {
+      footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+      core: { col: START_COL, row: 3, durability: 160 },
+      parts: [],
+    },
+    inventory: {
+      "wall-panel": 2,
+      "floor-panel": 3,
+      "roof-panel": 3,
+      "door-panel": 1,
+      "basic-turret": 0,
+      "floor-spikes": 0,
+    },
+    activeRaid,
+    player: {
+      balance: 120,
+      trackXp: 40,
+      defenseXp: 120,
+      overallLevel: 2,
+      levelCap: 100,
+      progressXp: 20,
+      neededXp: 80,
+      nextLevelXp: 200,
+      beaconLimit: 3,
+    },
+  };
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(bunkerView),
+    });
+  });
+  let collectAttempts = 0;
+  await page.route("**/api/bunker/raid/collect", async (route) => {
+    collectAttempts += 1;
+    const collected = collectAttempts >= 2;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...bunkerView,
+        activeRaid: collected ? collectedRaid : activeRaid,
+        raid: collected ? collectedRaid : activeRaid,
+      }),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await expect
+    .poll(() => collectAttempts, {
+      message: "XP pickup should retry while the miner stays on it",
+      timeout: 4_000,
+    })
+    .toBeGreaterThanOrEqual(2);
+  await page.getByRole("button", { name: "Open bunker builder" }).click();
+  const builder = page.getByRole("region", { name: "Bunker builder" });
+  await expect(builder).toContainText("All raid XP collected: 25 defense XP.");
+  await expect(
+    builder.getByRole("button", { name: "Finish raid" }),
+  ).toBeVisible();
+});
+
 test("mine bunker builder explains miner death after an open Clanker path", async ({
   page,
 }) => {

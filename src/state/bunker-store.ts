@@ -29,6 +29,7 @@ interface BunkerResponse {
   reward?: BunkerRaidRewardReport;
 }
 
+type BunkerMutationResult = BunkerResponse | null;
 type BunkerStoreStatus = "idle" | "loading" | "ready" | "unavailable" | "error";
 
 export interface BunkerStoreState {
@@ -40,19 +41,29 @@ export interface BunkerStoreState {
   lastRaidReward: BunkerRaidRewardReport | null;
   note: string | null;
   loadBunker: () => Promise<void>;
-  claimBunker: (col: number, row: number) => Promise<void>;
-  buyBasePart: (partId: BasePartId, quantity?: number) => Promise<void>;
-  placePart: (partId: BasePartId, col: number, row: number) => Promise<void>;
-  removePart: (col: number, row: number) => Promise<void>;
+  claimBunker: (col: number, row: number) => Promise<BunkerMutationResult>;
+  buyBasePart: (
+    partId: BasePartId,
+    quantity?: number,
+  ) => Promise<BunkerMutationResult>;
+  placePart: (
+    partId: BasePartId,
+    col: number,
+    row: number,
+  ) => Promise<BunkerMutationResult>;
+  removePart: (col: number, row: number) => Promise<BunkerMutationResult>;
   movePart: (
     fromCol: number,
     fromRow: number,
     toCol: number,
     toRow: number,
-  ) => Promise<void>;
-  startRaid: () => Promise<void>;
-  collectRaidPickup: (col: number, row: number) => Promise<void>;
-  finishRaid: () => Promise<void>;
+  ) => Promise<BunkerMutationResult>;
+  startRaid: () => Promise<BunkerMutationResult>;
+  collectRaidPickup: (
+    col: number,
+    row: number,
+  ) => Promise<BunkerMutationResult>;
+  finishRaid: () => Promise<BunkerMutationResult>;
 }
 
 function applyResponse(
@@ -79,7 +90,7 @@ async function mutation(
   set: (state: Partial<BunkerStoreState>) => void,
   url: string,
   body?: unknown,
-): Promise<void> {
+): Promise<BunkerMutationResult> {
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -88,7 +99,7 @@ async function mutation(
     });
     if (res.status === 503) {
       set({ status: "unavailable", note: "bunker ledger offline" });
-      return;
+      return null;
     }
     const parsed = await readResponse(res);
     if (!parsed) {
@@ -100,11 +111,13 @@ async function mutation(
             ? error.error
             : "bunker action failed",
       });
-      return;
+      return null;
     }
     applyResponse(set, parsed);
+    return parsed;
   } catch {
     set({ status: "error", note: "bunker action failed" });
+    return null;
   }
 }
 

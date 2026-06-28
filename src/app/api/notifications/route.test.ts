@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-28-0.1.142-crash-recovery-logging",
+      releaseNoticeId: "2026-06-28-0.1.143-raid-xp-pickup-retry",
       releaseSummary:
-        "Crash recovery logging: App crashes now show a recovery screen and log bounded telemetry.",
+        "Raid XP pickup retry: Raid XP pickups now retry while the miner stands on them.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-28-0.1.142-crash-recovery-logging",
+      releaseNoticeId: "2026-06-28-0.1.143-raid-xp-pickup-retry",
       attempted: 2,
       sent: 1,
       expired: 1,

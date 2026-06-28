@@ -27,6 +27,7 @@ import type { AppRelease } from "@/lib/app-release-types";
 import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
 import {
   type BasePartId,
+  type BunkerRaidSnapshot,
   bunkerCells,
   containsBunkerCell,
   proposedBunkerFootprint,
@@ -262,6 +263,25 @@ type ViewportSize = {
   width: number;
   height: number;
 };
+
+function raidHasUncollectedPickupAt(
+  raid: BunkerRaidSnapshot | null,
+  pickupId: string,
+  col: number,
+  row: number,
+): boolean {
+  return Boolean(
+    raid?.survived &&
+      raid.xpPickups.some((pickup) => {
+        return (
+          pickup.id === pickupId &&
+          !pickup.collected &&
+          pickup.col === col &&
+          pickup.row === row
+        );
+      }),
+  );
+}
 
 function baseReturnTarget(
   minerCol: number,
@@ -1017,6 +1037,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [mineSurfaceTip, setMineSurfaceTip] = useState<string | null>(null);
   const mineSurfaceTipRef = useRef<string | null>(null);
   const collectingRaidPickupIdsRef = useRef<Set<string>>(new Set());
+  const raidPickupRetryTimeoutRef = useRef<number | null>(null);
+  const [raidPickupRetryTick, setRaidPickupRetryTick] = useState(0);
   const [bunkerClaimMode, setBunkerClaimMode] = useState(false);
   const [bunkerPanelOpen, setBunkerPanelOpen] = useState(false);
   const [selectedBasePart, setSelectedBasePart] =
@@ -1863,6 +1885,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [activeBunker, miner.row]);
 
   useEffect(() => {
+    return () => {
+      if (raidPickupRetryTimeoutRef.current !== null) {
+        window.clearTimeout(raidPickupRetryTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    void raidPickupRetryTick;
     if (!activeBunkerRaid?.survived) return;
     const pickup = activeBunkerRaid.xpPickups.find((candidate) => {
       return (
@@ -1873,10 +1904,35 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     });
     if (!pickup || collectingRaidPickupIdsRef.current.has(pickup.id)) return;
     collectingRaidPickupIdsRef.current.add(pickup.id);
-    void collectBunkerRaidPickup(miner.col, miner.row).finally(() => {
-      collectingRaidPickupIdsRef.current.delete(pickup.id);
-    });
-  }, [activeBunkerRaid, collectBunkerRaidPickup, miner.col, miner.row]);
+    void collectBunkerRaidPickup(miner.col, miner.row)
+      .then((response) => {
+        const pickupStillUncollected =
+          response === null ||
+          raidHasUncollectedPickupAt(
+            response.activeRaid,
+            pickup.id,
+            miner.col,
+            miner.row,
+          );
+        if (!pickupStillUncollected) return;
+        if (raidPickupRetryTimeoutRef.current !== null) {
+          window.clearTimeout(raidPickupRetryTimeoutRef.current);
+        }
+        raidPickupRetryTimeoutRef.current = window.setTimeout(() => {
+          raidPickupRetryTimeoutRef.current = null;
+          setRaidPickupRetryTick((tick) => tick + 1);
+        }, 900);
+      })
+      .finally(() => {
+        collectingRaidPickupIdsRef.current.delete(pickup.id);
+      });
+  }, [
+    activeBunkerRaid,
+    collectBunkerRaidPickup,
+    miner.col,
+    miner.row,
+    raidPickupRetryTick,
+  ]);
 
   useEffect(() => {
     if (!collectMode) return;

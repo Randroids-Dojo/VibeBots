@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.143" data-date="2026-06-28">
+    <h2>0.1.143</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.143</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Raid XP pickups now retry while the miner stands on them.</dd>
+      <dt>Bunker raids</dt><dd>Standing on a survived raid XP drop now retries collection if the first server response still leaves the pickup on the ground, so the miner does not have to step away and back to trigger another pickup attempt.</dd>
+      <dt>Retry behavior</dt><dd>The retry is tied to the same pickup id and miner cell. Moving away from the pickup stops retrying that stale cell, and successful collections do not schedule another request.</dd>
+      <dt>Verification</dt><dd>Focused bunker Playwright smoke now checks that a pickup retry fires while the miner keeps standing on the XP cell and that the builder unlocks Finish raid after collection. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.142" data-date="2026-06-28">
     <h2>0.1.142</h2>
     <dl>

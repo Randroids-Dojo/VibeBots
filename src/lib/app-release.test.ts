@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest crash recovery logging note complete", () => {
+  it("keeps the latest raid XP pickup retry note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-28-0.1.142-crash-recovery-logging");
+    expect(release.noticeId).toBe("2026-06-28-0.1.143-raid-xp-pickup-retry");
+    expect(latestNote).toMatchObject({
+      version: "0.1.143",
+      title: "Raid XP pickup retry",
+      intro: "Raid XP pickups now retry while the miner stands on them.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Standing on a survived raid XP drop now retries collection if the first server response still leaves the pickup on the ground.",
+      "The retry stays tied to the same pickup and miner cell, so moving away does not keep collecting old drops.",
+      "This changes pickup reliability only. Mine rules, raid rewards, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived crash recovery logging note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.142");
+
     expect(latestNote).toMatchObject({
       version: "0.1.142",
       title: "Crash recovery logging",

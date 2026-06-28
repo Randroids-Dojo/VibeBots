@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="raid-xp-pickup-retry" data-date="2026-06-28">
+    <h3>Raid XP Pickup Retry</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/raid-xp-pickup-retry</code>, created from current <code>origin/main</code> before implementation.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, simplification, cleanup, release-note audit, tip audit, and verification.</dd>
+      <dt>Changed</dt><dd>User-reported bunker raid XP pickup reliability fix. The bunker store now returns parsed mutation responses, and the mine panel retries a pickup only when the response still shows the same survived-raid XP pickup uncollected on the miner's current cell. This prevents a failed or unchanged first collect response from leaving the miner stuck behind or on an XP drop until they move away and back. Package version moved to <code>0.1.143</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source, test, release, package, and doc files, focused route and release Vitest with <code>pnpm exec vitest run src/app/api/bunker/route.test.ts src/lib/app-release.test.ts src/app/api/notifications/route.test.ts src/app/api/version/route.test.ts src/server/web-push.test.ts</code> (89 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused bunker Playwright smoke with <code>pnpm exec playwright test tests/e2e/mine-bunker.spec.ts -g "mine retries raid XP pickup" --project=chromium --workers=1</code> (1 passed), focused release-note Playwright smoke with <code>pnpm exec playwright test tests/e2e/release-notifications.spec.ts -g "mine shows the latest release note" --project=chromium --workers=1</code> (1 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and JSON validation for <code>docs/GDD_COVERAGE.json</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a client retry and release-note fix for existing raid pickup semantics. It does not change raid reward math, mine rules, save data, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>. Mine surface tips were reviewed and kept unchanged because the existing tip already says to walk over bunker raid XP drops to claim player-level progress.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because the existing REQ-038 behavior is now more reliable rather than redesigned. <code>docs/gdd/08-base-building.html</code> gained a build-log entry for the pickup retry.</dd>
+      <dt>Followups</dt><dd>No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-store-persistence-api-extraction" data-date="2026-06-28">
     <h3>Mine Store Persistence API Extraction</h3>
     <dl>

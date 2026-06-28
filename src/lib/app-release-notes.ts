@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-28-0.1.142-crash-recovery-logging";
+export const RELEASE_NOTICE_ID = "2026-06-28-0.1.143-raid-xp-pickup-retry";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.143",
+      date: "2026-06-28",
+      title: "Raid XP pickup retry",
+      intro: "Raid XP pickups now retry while the miner stands on them.",
+      changes: [
+        {
+          build,
+          text: "Standing on a survived raid XP drop now retries collection if the first server response still leaves the pickup on the ground.",
+        },
+        {
+          build,
+          text: "The retry stays tied to the same pickup and miner cell, so moving away does not keep collecting old drops.",
+        },
+        {
+          build,
+          text: "This changes pickup reliability only. Mine rules, raid rewards, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.142",
       date: "2026-06-28",

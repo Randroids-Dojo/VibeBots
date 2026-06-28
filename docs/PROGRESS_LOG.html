@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-boundary-map-and-client-facade" data-date="2026-06-28">
+    <h3>Bunker Boundary Map And Client Facade</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>refactor/bunker-boundary-map-f038</code>, rebased onto current <code>origin/main</code> before closeout.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, simplification, cleanup, release-note audit, tip audit, and verification.</dd>
+      <dt>Changed</dt><dd>Completed <code>F-038</code> by adding <code>docs/research/bunker-feature-boundaries.html</code> as the bunker ownership map, moving shared server/client bunker route shapes into <code>src/lib/bunker-api-types.ts</code>, and moving client bunker route URLs, request bodies, response parsing, network failures, and route error extraction into <code>src/state/bunker-api-client.ts</code>. <code>src/state/bunker-store.ts</code> remains the owner of status transitions, notes, loaded bunker state, active raid, player progress, and last raid reward.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger at start and closeout for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched source files, focused bunker Vitest with <code>pnpm exec vitest run src/state/bunker-api-client.test.ts src/state/bunker-store.test.ts src/app/api/bunker/route.test.ts src/server/bunker.test.ts src/sim/bunker.test.ts</code> (56 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm test</code> (489 passed), <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, <code>pnpm build</code>, and focused bunker Playwright smoke with <code>PLAYWRIGHT_PORT=3828 pnpm exec playwright test tests/e2e/mine-bunker.spec.ts --project=chromium --grep "mine bunker builder starts a Clanker raid|mine retries raid XP pickup"</code> (2 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a refactor-only slice. It does not change player-facing behavior, package version, release notes, mine tips, bunker rules, raid rewards, save data, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>. Release notes and mine surface tips were reviewed and left unchanged because the current copy is accurate and no player-visible behavior changed.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because gameplay behavior is unchanged.</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-038">F-038</a>. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="raid-xp-pickup-visibility" data-date="2026-06-28">
     <h3>Raid XP Pickup Visibility</h3>
     <dl>

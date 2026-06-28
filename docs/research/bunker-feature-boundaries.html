@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Bunker Feature Boundaries</title>
+</head>
+<body>
+
+<header>
+  <h1>Bunker Feature Boundaries</h1>
+  <p>Boundary map for <a href="../FOLLOWUPS.html#F-038">F-038</a>. The goal is to make bunker work discoverable without collapsing sim, server, API, store, panel, and canvas ownership into one broad feature module.</p>
+</header>
+
+<main>
+  <section id="summary">
+    <h2>Summary</h2>
+    <p>The bunker feature crosses the mine loop, but each layer has a narrow job. Future bunker slices should start by identifying which owner below has authority for the change, then touch the smallest adjacent boundary needed for tests and UI wiring.</p>
+  </section>
+
+  <section id="owners">
+    <h2>Owners</h2>
+    <dl>
+      <dt>Pure sim rules</dt>
+      <dd><code>src/sim/bunker.ts</code> owns base-part catalog data, claim geometry, placement and removal rules, inventory spend and refund rules, raid pathing, Clanker raid resolution, raid wear, XP pickup snapshots, and player-level math. It must stay pure and deterministic.</dd>
+
+      <dt>Mine sim handoff</dt>
+      <dd><code>src/state/mine-store.ts</code> owns pending unbanked bunker edits during a live mine trip. It decides when a claimed bunker is still local-only and when cash-out can persist that claim through <code>/api/mine/bank</code>.</dd>
+
+      <dt>Server persistence and policy</dt>
+      <dd><code>src/server/bunker.ts</code> owns database reads and writes, starter base-part provisioning, legacy active-raid normalization, wallet checks, raid cooldowns, reward writes, achievement hooks, and balance telemetry. Server helpers return typed operation results instead of HTTP responses.</dd>
+
+      <dt>API route boundary</dt>
+      <dd><code>src/app/api/bunker/**</code> owns request parsing, Zod validation, storage gating, player lookup, and HTTP response mapping through <code>src/server/api-boundary.ts</code>. Routes should stay thin and delegate policy to <code>src/server/bunker.ts</code>.</dd>
+
+      <dt>Shared wire types</dt>
+      <dd><code>src/lib/bunker-api-types.ts</code> owns the bunker route view shape shared by server responses and client state. It should contain types only, with no fetch, database, React, or sim logic beyond type imports.</dd>
+
+      <dt>Client API facade</dt>
+      <dd><code>src/state/bunker-api-client.ts</code> owns bunker route URLs, HTTP methods, JSON bodies, response parsing, network failures, and route error extraction for the client. It should not update Zustand state.</dd>
+
+      <dt>Zustand state</dt>
+      <dd><code>src/state/bunker-store.ts</code> owns client-visible bunker status, loaded bunker state, inventory, active raid, player progress, last raid reward, user notes, and how successful or failed API results update those fields.</dd>
+
+      <dt>Mine panel controls</dt>
+      <dd><code>src/components/mine-panel.tsx</code> and <code>src/components/mine-bunker-control-panel.tsx</code> own claim mode, builder panel visibility, selected base part, build mode, raid pickup retry timing, and button wiring into mine and bunker stores.</dd>
+
+      <dt>Mine canvas overlay</dt>
+      <dd><code>src/components/mine-canvas.tsx</code> passes bunker props into <code>src/components/mine-bunker-overlay.tsx</code>. The overlay owns visual claim outlines, blocked-cell highlights, placed base-part visuals, Clanker paths, XP pickup visuals, hover targets, taps, and drag targets. It should not own server state or route calls.</dd>
+    </dl>
+  </section>
+
+  <section id="change-routing">
+    <h2>Change Routing</h2>
+    <ul>
+      <li>Change base-part legality, raid outcome, XP math, or level math in the pure sim first, then update server and UI consumers.</li>
+      <li>Change persistence, starter grants, rewards, cooldowns, or legacy row normalization in server helpers and route tests.</li>
+      <li>Change HTTP request or response handling in the client API facade, with store tests proving state results stay compatible.</li>
+      <li>Change local pending-claim behavior in the mine store, because unbanked claims are part of the trip replay contract.</li>
+      <li>Change controls and copy in the panel components. Change rendered geometry, animation, and pointer hit behavior in the canvas overlay.</li>
+    </ul>
+  </section>
+
+  <section id="guardrails">
+    <h2>Guardrails</h2>
+    <ul>
+      <li>Do not move the full bunker feature into one folder until import churn creates a real problem.</li>
+      <li>Do not import React, Zustand, Next route handlers, server code, or database code into <code>src/sim/bunker.ts</code>.</li>
+      <li>Do not make API routes own bunker policy beyond validation and response mapping.</li>
+      <li>Do not make the client API facade mutate Zustand state.</li>
+      <li>Do not make the canvas overlay fetch or persist bunker data.</li>
+      <li>Use <code>src/lib/bunker-api-types.ts</code> for shared route shapes so server and client changes stay visible to TypeScript.</li>
+    </ul>
+  </section>
+</main>
+
+</body>
+</html>

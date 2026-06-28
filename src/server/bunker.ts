@@ -1,3 +1,4 @@
+import type { BunkerView } from "@/lib/bunker-api-types";
 import {
   applyBunkerRaidWear,
   BASE_PART_CATALOG,
@@ -36,23 +37,6 @@ import { recordBalanceEvent } from "./balance-telemetry";
 import type { db } from "./db";
 
 type Sql = Awaited<ReturnType<typeof db>>;
-
-export interface BunkerView {
-  bunker: BunkerState | null;
-  inventory: BasePartInventory;
-  activeRaid: BunkerRaidSnapshot | null;
-  player: {
-    balance: number;
-    trackXp: number;
-    defenseXp: number;
-    overallLevel: number;
-    levelCap: number;
-    progressXp: number;
-    neededXp: number;
-    nextLevelXp: number | null;
-    beaconLimit: number;
-  };
-}
 
 type BunkerOperationResult<T extends object = object> =
   | ({ ok: true; view: BunkerView } & T)

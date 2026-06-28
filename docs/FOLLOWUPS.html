@@ -480,7 +480,8 @@
     <dt>Context</dt><dd>Refactor review 2026-06-21: bunker behavior now spans <code>src/sim/bunker.ts</code>, <code>src/server/bunker.ts</code>, <code>src/state/bunker-store.ts</code>, many <code>src/app/api/bunker/**</code> routes, and the mine panel and canvas. The GDD marks base building partial, so more slices will land here and new agents currently have to discover the boundary by searching.</dd>
     <dt>Blocker (if any)</dt><dd>none. This should not move files into a broad feature folder until the import churn is justified.</dd>
     <dt>Unblock condition</dt><dd>Ready: add a small boundary map in code or docs that names the sim, server, client store, routes, panel, and canvas responsibilities, then introduce a narrow typed facade where it removes real duplication, such as shared bunker route response types or store view normalization. Do not collapse sim, server, and UI into one module. Acceptance: the first picked bunker follow-up can cite the boundary map, route/store types remain consistent, and the change does not make mine-panel or mine-canvas imports harder to follow.</dd>
-    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>PR / Dot reference</dt><dd>Dot <code>VibeBots-finish-f-038-f7848d9c</code>.</dd>
+    <dt>Resolved</dt><dd>2026-06-28: added <code>docs/research/bunker-feature-boundaries.html</code> as the bunker boundary map, moved shared server/client bunker route shapes into <code>src/lib/bunker-api-types.ts</code>, and moved client bunker route URLs, request bodies, response parsing, network failures, and route error extraction into <code>src/state/bunker-api-client.ts</code>. The Zustand store remains the owner of status, notes, loaded bunker state, active raid, player progress, and last raid reward.</dd>
   </dl>
 </section>
 

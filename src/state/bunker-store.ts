@@ -1,4 +1,8 @@
 import { create } from "zustand";
+import type {
+  BunkerPlayerProgress,
+  BunkerRouteResponse,
+} from "@/lib/bunker-api-types";
 import {
   type BasePartId,
   type BasePartInventory,
@@ -7,29 +11,21 @@ import {
   type BunkerState,
   EMPTY_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
+import {
+  type BunkerApiResult,
+  bunkerErrorMessage,
+  buyRemoteBasePart,
+  claimRemoteBunker,
+  collectRemoteRaidPickup,
+  finishRemoteBunkerRaid,
+  loadRemoteBunker,
+  moveRemoteBunkerPart,
+  placeRemoteBunkerPart,
+  removeRemoteBunkerPart,
+  startRemoteBunkerRaid,
+} from "./bunker-api-client";
 
-export interface BunkerPlayerProgress {
-  balance: number;
-  trackXp: number;
-  defenseXp: number;
-  overallLevel: number;
-  levelCap: number;
-  progressXp: number;
-  neededXp: number;
-  nextLevelXp: number | null;
-  beaconLimit: number;
-}
-
-interface BunkerResponse {
-  bunker: BunkerState | null;
-  inventory: BasePartInventory;
-  activeRaid: BunkerRaidSnapshot | null;
-  player: BunkerPlayerProgress;
-  raid?: BunkerRaidSnapshot;
-  reward?: BunkerRaidRewardReport;
-}
-
-type BunkerMutationResult = BunkerResponse | null;
+type BunkerMutationResult = BunkerRouteResponse | null;
 type BunkerStoreStatus = "idle" | "loading" | "ready" | "unavailable" | "error";
 
 export interface BunkerStoreState {
@@ -68,7 +64,7 @@ export interface BunkerStoreState {
 
 function applyResponse(
   set: (state: Partial<BunkerStoreState>) => void,
-  body: BunkerResponse,
+  body: BunkerRouteResponse,
 ) {
   set({
     status: "ready",
@@ -81,44 +77,24 @@ function applyResponse(
   });
 }
 
-async function readResponse(res: Response): Promise<BunkerResponse | null> {
-  if (!res.ok) return null;
-  return (await res.json()) as BunkerResponse;
-}
-
-async function mutation(
+function applyMutationResult(
   set: (state: Partial<BunkerStoreState>) => void,
-  url: string,
-  body?: unknown,
-): Promise<BunkerMutationResult> {
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: body === undefined ? "{}" : JSON.stringify(body),
-    });
-    if (res.status === 503) {
-      set({ status: "unavailable", note: "bunker ledger offline" });
-      return null;
-    }
-    const parsed = await readResponse(res);
-    if (!parsed) {
-      const error = await res.json().catch(() => ({}));
-      set({
-        status: "error",
-        note:
-          typeof error.error === "string"
-            ? error.error
-            : "bunker action failed",
-      });
-      return null;
-    }
-    applyResponse(set, parsed);
-    return parsed;
-  } catch {
-    set({ status: "error", note: "bunker action failed" });
+  result: BunkerApiResult,
+  fallback: string,
+): BunkerMutationResult {
+  if (result.status === 503) {
+    set({ status: "unavailable", note: "bunker ledger offline" });
     return null;
   }
+  if (!result.ok) {
+    set({
+      status: "error",
+      note: bunkerErrorMessage(result.body, fallback),
+    });
+    return null;
+  }
+  applyResponse(set, result.body);
+  return result.body;
 }
 
 export const useBunkerStore = create<BunkerStoreState>((set) => ({
@@ -132,39 +108,64 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
 
   loadBunker: async () => {
     set({ status: "loading" });
-    try {
-      const res = await fetch("/api/bunker");
-      if (res.status === 503) {
-        set({ status: "unavailable", note: "bunker ledger offline" });
-        return;
-      }
-      const body = await readResponse(res);
-      if (!body) {
-        set({ status: "error", note: "could not load bunker" });
-        return;
-      }
-      applyResponse(set, body);
-    } catch {
-      set({ status: "error", note: "could not load bunker" });
+    const result = await loadRemoteBunker();
+    if (result.status === 503) {
+      set({ status: "unavailable", note: "bunker ledger offline" });
+      return;
     }
+    if (!result.ok) {
+      set({ status: "error", note: "could not load bunker" });
+      return;
+    }
+    applyResponse(set, result.body);
   },
 
-  claimBunker: (col, row) => mutation(set, "/api/bunker/claim", { col, row }),
-  buyBasePart: (partId, quantity = 1) =>
-    mutation(set, "/api/bunker/parts/buy", { partId, quantity }),
-  placePart: (partId, col, row) =>
-    mutation(set, "/api/bunker/parts/place", { partId, col, row }),
-  removePart: (col, row) =>
-    mutation(set, "/api/bunker/parts/remove", { col, row }),
-  movePart: (fromCol, fromRow, toCol, toRow) =>
-    mutation(set, "/api/bunker/parts/move", {
-      fromCol,
-      fromRow,
-      toCol,
-      toRow,
-    }),
-  startRaid: () => mutation(set, "/api/bunker/raid/start", { tier: 1 }),
-  collectRaidPickup: (col, row) =>
-    mutation(set, "/api/bunker/raid/collect", { col, row }),
-  finishRaid: () => mutation(set, "/api/bunker/raid/finish"),
+  claimBunker: async (col, row) =>
+    applyMutationResult(
+      set,
+      await claimRemoteBunker(col, row),
+      "bunker action failed",
+    ),
+  buyBasePart: async (partId, quantity = 1) =>
+    applyMutationResult(
+      set,
+      await buyRemoteBasePart(partId, quantity),
+      "bunker action failed",
+    ),
+  placePart: async (partId, col, row) =>
+    applyMutationResult(
+      set,
+      await placeRemoteBunkerPart(partId, col, row),
+      "bunker action failed",
+    ),
+  removePart: async (col, row) =>
+    applyMutationResult(
+      set,
+      await removeRemoteBunkerPart(col, row),
+      "bunker action failed",
+    ),
+  movePart: async (fromCol, fromRow, toCol, toRow) =>
+    applyMutationResult(
+      set,
+      await moveRemoteBunkerPart(fromCol, fromRow, toCol, toRow),
+      "bunker action failed",
+    ),
+  startRaid: async () =>
+    applyMutationResult(
+      set,
+      await startRemoteBunkerRaid(),
+      "bunker action failed",
+    ),
+  collectRaidPickup: async (col, row) =>
+    applyMutationResult(
+      set,
+      await collectRemoteRaidPickup(col, row),
+      "bunker action failed",
+    ),
+  finishRaid: async () =>
+    applyMutationResult(
+      set,
+      await finishRemoteBunkerRaid(),
+      "bunker action failed",
+    ),
 }));

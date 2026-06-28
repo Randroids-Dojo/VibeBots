@@ -2,11 +2,29 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest fall death camera note complete", () => {
+  it("keeps the latest release metadata cleanup note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-27-0.1.140-fall-death-respawn");
+    expect(release.noticeId).toBe(
+      "2026-06-27-0.1.141-release-metadata-cleanup",
+    );
+    expect(latestNote).toMatchObject({
+      version: "0.1.141",
+      title: "Release metadata cleanup",
+      intro: "Release notes now live in a clearer owned module.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Release-note archive data now lives in its own typed module instead of sharing a file with release-version logic.",
+      "getAppRelease remains the public release API for version routes, release popups, and Web Push summaries.",
+      "This cleanup does not change player behavior, mine rules, save data, MINE_VERSION, or SIM_VERSION.",
+    ]);
+  });
+
+  it("keeps the archived fall death camera note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.140");
+
     expect(latestNote).toMatchObject({
       version: "0.1.140",
       title: "Fall death camera",

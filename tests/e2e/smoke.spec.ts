@@ -2006,17 +2006,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Fatal falls now stay visible until the landing impact.",
+    "Release notes now live in a clearer owned module.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Long fatal falls now keep the camera and miner moving",
+    "Release-note archive data now lives in its own typed module",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "The death animation now waits for the full fall distance",
+    "getAppRelease remains the public release API",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Held keyboard and touch movement now cancel on death",
+    "This cleanup does not change player behavior",
   );
 
   await page.mouse.click(8, 8);
@@ -2036,6 +2036,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.141", "Release metadata cleanup"],
     ["0.1.140", "Fall death camera"],
     ["0.1.139", "Mine renderer cleanup"],
     ["0.1.138", "Death playback cleanup"],

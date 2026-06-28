@@ -70,6 +70,8 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>ready after the first vertical slice is verified and merged.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Review update</dt><dd>2026-06-27: keep this followup open, but narrow the stale original scope. Bunker defense now covers starter parts, floor and roof pieces, doors, turrets, floor spikes, raid rewards, XP pickups, player levels, first-defense stamps, raid wear, and Clanker pathing in the server-side raid snapshot.</dd>
+      <dt>Remaining scope</dt><dd>Live Clanker movement through the mine during raids, multi-level or irregular bunker rooms, repairs or repair plates, richer raid tiers and specialist attackers, cosmetic skins, and production playtest evidence still belong here.</dd>
     </dl>
   </section>
 
@@ -146,6 +148,8 @@
       <dt>Blocker (if any)</dt><dd>acceptable while the economy is cosmetic.</dd>
       <dt>Unblock condition</dt><dd>before the economy matters competitively: issue seeds server-side (signed, single-use, time-boxed) and rate-limit /api/mine/bank per player (pairs with F-004's Redis decision).</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Review update</dt><dd>2026-06-27: the server-owned world seed portion has landed. The mine world route returns a persisted server world, and cash-out validates against the stored world seed and trip count instead of treating each client seed as a free standalone economy attempt.</dd>
+      <dt>Remaining scope</dt><dd>Keep open for abuse controls: cash-out rate limiting and any explicit signed, single-use, or time-boxed trip policy selected before mining rewards become competitively meaningful.</dd>
     </dl>
   </section>
 
@@ -220,6 +224,8 @@
       <dt>Blocker (if any)</dt><dd>guest auth and the players table do not exist yet.</dd>
       <dt>Unblock condition</dt><dd>guest-auth slice ships and cross-device persistence starts to matter.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Review update</dt><dd>2026-06-27: the old blocker is stale. Guest auth and the players table now exist: <code>src/server/player.ts</code> resolves a signed httpOnly guest cookie, and the database setup carries nullable <code>clerk_user_id</code> for the later account-claim path.</dd>
+      <dt>Remaining scope</dt><dd>Keep open only for the Clerk integration, sign-in UI, and guest-to-account claim flow once cross-device persistence matters.</dd>
     </dl>
   </section>
 
@@ -347,7 +353,7 @@
     <dt>Context</dt><dd>Final mining audit 2026-06-11: the dig has visual texture (bursts, shake, tween, floats, fanfare) but no audio at all, and blocks break in one hit so crack states have nothing to show. The research canon (pitch-ramped pickup chimes, hardness-scaled feedback) says audio is the cheapest remaining multiplier; REQ-018 stays partial until both land.</dd>
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>ready: a hardness pass (multi-hit blocks gated by pickaxe tier, crack-state rendering) plus a small audio kit (dig, pickup with rising pitch, vent, collapse, fanfare; mutable per PLAYTEST audio items).</dd>
-    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>PR / Dot reference</dt><dd>Direct push to <code>origin/main</code> requested by user after deep review, cleanup, release-note audit, and verification.</dd>
     <dt>Resolved</dt><dd>Mining action SFX landed on <code>feature/mining-sfx</code> (PR pending): synthesized footsteps, per-material strikes and breaks, ore pickup chimes, cache fanfare, gas and dynamite blasts, death beats, recall, beacon, warp, elevator, buying, selling, and denial cues. Crack states had already landed in PR #50, so REQ-018 is now complete.</dd>
   </dl>
 </section>
@@ -381,6 +387,8 @@
     <dt>Blocker (if any)</dt><dd>none; the feature ships functional and deterministic.</dd>
     <dt>Unblock condition</dt><dd>ready: add a landing beat in <code>mine-canvas.tsx</code> (impact dust + a short screen shake scaled to fall distance, optional pitched thud once mine audio exists), then run a scripted/on-device playtest at 390x760 through the Old Granite and Magma Verge bands to tune <code>FALL_DELAY_ACTIONS</code> and whether every rock or only some should fall. Acceptance: a fall reads as an impact, and a deep trip is tense without feeling unfair.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>Review update</dt><dd>2026-06-27: keep open with a narrower scope. Fatal falling-rock crush playback now has shake, impact particles, sparks, SFX, and visual impact flags in the mine canvas. Non-fatal falling-rock landings still do not get the same readable payoff.</dd>
+    <dt>Remaining scope</dt><dd>Add and verify the non-fatal landing beat, then run the deep-strata balance playtest before tuning the fall cadence or rock-frequency rules.</dd>
   </dl>
 </section>
 
@@ -415,6 +423,8 @@
     <dt>Blocker (if any)</dt><dd>none, but this must be behavior-preserving and must respect the sim purity contract.</dd>
     <dt>Unblock condition</dt><dd>Ready: split by deterministic subsystem while keeping a stable public export surface, for example <code>src/sim/mine/gear.ts</code>, <code>ores.ts</code>, <code>world.ts</code>, <code>actions.ts</code>, <code>hazards.ts</code>, <code>supports.ts</code>, and <code>replay.ts</code> with <code>src/sim/mine.ts</code> as a compatibility barrel during migration. Move tests incrementally so each module has nearby coverage. Acceptance: <code>pnpm check:purity</code>, mine unit tests, and replay-sensitive route tests pass with no mine version bump because behavior did not change.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>Review update</dt><dd>2026-06-27: this original entry is superseded by the closure section below. <code>src/sim/mine.ts</code> is now a compatibility barrel, and pure module owners live under <code>src/sim/mine/</code>.</dd>
+    <dt>Resolved</dt><dd>Closed by <code>F-033 closure</code> below and PR #77.</dd>
   </dl>
 </section>
 
@@ -425,6 +435,8 @@
     <dt>Blocker (if any)</dt><dd>none, but preserve CI behavior and critical test selection.</dd>
     <dt>Unblock condition</dt><dd>Ready: extract shared helpers into a small test support module, then split specs by feature area, such as <code>mine-core</code>, <code>mine-bunker</code>, <code>mine-ui</code>, <code>release-notes</code>, <code>workshop</code>, and <code>api</code>. Keep current test names or update <code>test:e2e:critical</code> in the same PR so the required CI gate still selects the intended cases. Acceptance: critical smoke and the full smoke suite still run under isolated ports, and a future agent can run a focused feature spec without invoking unrelated flows.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>Progress</dt><dd>2026-06-27: route, API, arena, and workshop ownership have started moving into separate Playwright spec files through later local-parallelism work. The large mine-heavy <code>tests/e2e/smoke.spec.ts</code> still remains, so this followup is not closed.</dd>
+    <dt>Remaining scope</dt><dd>Finish extracting shared helpers and split the remaining mine, bunker, release-note, notification, viewport, save-slot, shop, warp, elevator, and storage flows into focused feature specs while preserving critical-smoke selection.</dd>
   </dl>
 </section>
 
@@ -435,6 +447,7 @@
     <dt>Blocker (if any)</dt><dd>none. Keep release-note and Web Push copy sourced from the same metadata.</dd>
     <dt>Unblock condition</dt><dd>Ready: move archive entries into typed data modules, for example one file per month or per release range, and keep <code>getAppRelease</code>, current build detection, notice id selection, and type exports in a small logic module. Do not switch to runtime file reads or remote fetches. Acceptance: release-note tests, notification tests, version route tests, and latest-release smoke expectations still pass, and changing the current release copy no longer requires scanning the full archive.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>Resolved</dt><dd>2026-06-27: release-note archive data moved to <code>src/lib/app-release-notes.ts</code>, while <code>src/lib/app-release.ts</code> now owns only build/ref lookup and the public <code>getAppRelease</code> result. Package version moved to <code>0.1.141</code>, and release, notification, and smoke expectations were updated to keep Web Push and release-note UI sourced from the same metadata.</dd>
   </dl>
 </section>
 
@@ -496,6 +509,8 @@
     <dt>Blocker (if any)</dt><dd>Needs a gameplay decision because this is a deterministic generation change, not a cleanup-only refactor.</dd>
     <dt>Unblock condition</dt><dd>Ready: decide whether post-band trace ore should exist and whether <code>row === ore.maxRow</code> should use the trace chance or taper to zero. If behavior changes, bump <code>MINE_VERSION</code>, add ore-boundary regression tests, update mining docs and coverage, and verify mine replay-sensitive tests and bank-route pricing still agree.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>Decision update</dt><dd>2026-06-27: keep this followup active and fix the discontinuity. <code>ore.maxRow</code> is a per-ore spawn-band boundary, not the row 1000 metal hard floor. The intended rule is that post-band trace ore is allowed, so the fade should land on the trace chance at <code>row === ore.maxRow</code> instead of dropping to zero for one row and jumping back to trace below the band.</dd>
+    <dt>Updated scope</dt><dd>Fix <code>oreChanceAt</code> so finite ore bands fade from peak chance to the post-band trace chance at their authored max row, keep deeper rows at trace chance, bump <code>MINE_VERSION</code>, add ore-boundary regression coverage, and update mining docs plus replay-sensitive checks for the deterministic generation change.</dd>
   </dl>
 </section>
 
@@ -506,6 +521,8 @@
     <dt>Blocker (if any)</dt><dd>Needs a behavior review because routing every successful handler through one finalization path may advance falling-rock timers, settle supports, clear jump hover, or detonate planted charges differently.</dd>
     <dt>Unblock condition</dt><dd>Ready: document the intended finalization contract per action family, add focused tests for each branch, then either centralize a shared finish helper with unchanged results or intentionally change semantics with the required mine version, docs, and replay coverage updates. Acceptance: recall, abandon, elevator, warp, portal, beacon, bag-drop, movement, support collection, dynamite timing, ladder settling, and falling-rock timing remain explicitly covered.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    <dt>Review update</dt><dd>2026-06-27: still valuable. <code>finishStationaryAction</code> now exists for some stationary handlers, but direct success returns remain for intentional branches such as recall, abandon, elevator, warp, portal, beacon, and bag-drop paths.</dd>
+    <dt>Updated scope</dt><dd>Do not blindly force every action through one helper. First document the per-action finalization contract, then add tests proving which handlers should skip support settling, falling-rock advancement, dynamite timing, hover clearing, or similar side effects.</dd>
   </dl>
 </section>
 

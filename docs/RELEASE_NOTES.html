@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.141" data-date="2026-06-27">
+    <h2>0.1.141</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.141</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Release notes now live in a clearer owned module.</dd>
+      <dt>Release metadata</dt><dd>The release-note archive moved out of <code>src/lib/app-release.ts</code> and into <code>src/lib/app-release-notes.ts</code>, leaving the release logic module focused on build numbers, git refs, notice ids, and the public <code>getAppRelease</code> result.</dd>
+      <dt>Agent workflow</dt><dd>Future release-note copy changes now have a dedicated typed data owner, while version routes, release popups, and Web Push summaries still use the same release metadata source.</dd>
+      <dt>Verification</dt><dd>Focused release, notification, type, unit, and smoke coverage checks the current release note and unchanged public release API. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.140" data-date="2026-06-27">
     <h2>0.1.140</h2>
     <dl>

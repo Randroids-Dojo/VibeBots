@@ -14,6 +14,14 @@ import {
   setCell,
 } from "./support/mine-helpers";
 
+function deferredSignal(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
 test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   const bunkerView = {
     bunker: {
@@ -263,18 +271,13 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
     });
   });
   let collectAttempts = 0;
-  let firstCollectStarted: (() => void) | null = null;
-  let releaseFirstCollect: (() => void) | null = null;
-  const firstCollectRequest = new Promise<void>((resolve) => {
-    firstCollectStarted = resolve;
-  });
+  const firstCollectRequest = deferredSignal();
+  const releaseFirstCollect = deferredSignal();
   await page.route("**/api/bunker/raid/collect", async (route) => {
     collectAttempts += 1;
     if (collectAttempts === 1) {
-      firstCollectStarted?.();
-      await new Promise<void>((resolve) => {
-        releaseFirstCollect = resolve;
-      });
+      firstCollectRequest.resolve();
+      await releaseFirstCollect.promise;
     }
     const collected = collectAttempts >= 2;
     await route.fulfill({
@@ -291,12 +294,12 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await digTo(page, 1);
-  await firstCollectRequest;
+  await firstCollectRequest.promise;
   const xpLocator = page.locator("[data-raid-xp-direction]");
   await expect(xpLocator).toBeVisible();
   await expect(xpLocator).toHaveAttribute("data-raid-xp-direction", "here");
   await expect(xpLocator).toContainText("XP here");
-  releaseFirstCollect?.();
+  releaseFirstCollect.resolve();
   await expect
     .poll(() => collectAttempts, {
       message: "XP pickup should retry while the miner stays on it",

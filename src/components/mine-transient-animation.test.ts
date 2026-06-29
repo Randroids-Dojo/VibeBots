@@ -108,4 +108,23 @@ describe("mine transient animation lifetime contract", () => {
     );
     expect(panel).toContain("onAnimationEnd={() => setTeleportBurstKey(0)}");
   });
+
+  it("keeps stratum entry banners finite and fading", () => {
+    const css = readProjectFile("src/app/mine.css");
+    const panel = readProjectFile("src/components/mine-panel.tsx");
+
+    expect(panel).toContain("const STRATUM_BANNER_MS = 2600;");
+    expect(panel).toContain("bannerTimer.current = setTimeout(");
+    expect(panel).toContain('className="mine-stratum-banner"');
+    expect(panel).toContain("onAnimationEnd={() =>");
+    expect(css).toMatch(
+      /@keyframes mine-stratum-banner-fade\s*\{[\s\S]*0%\s*\{[\s\S]*opacity:\s*0;[\s\S]*12%\s*\{[\s\S]*opacity:\s*1;[\s\S]*55%\s*\{[\s\S]*opacity:\s*1;[\s\S]*100%\s*\{[\s\S]*opacity:\s*0;/,
+    );
+    expect(css).toMatch(
+      /\.mine-stratum-banner\s*\{[\s\S]*animation:\s*mine-stratum-banner-fade\s+2600ms\s+ease-out\s+forwards;/,
+    );
+    expect(css).toMatch(
+      /@keyframes mine-stratum-banner-fade\s*\{[\s\S]*0%\s*\{[\s\S]*transform:\s*translate\(-50%, -6px\) scale\(0\.98\);[\s\S]*100%\s*\{[\s\S]*transform:\s*translate\(-50%, -8px\) scale\(0\.98\);/,
+    );
+  });
 });

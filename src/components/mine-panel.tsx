@@ -117,6 +117,7 @@ import { MineTouchControls } from "./mine-touch-controls";
 type MineSceneStatus = "loading" | "ready" | "error";
 const MINE_SCENE_LOAD_ERROR =
   "The network dropped before the mine could load. Your save was not changed. Check the connection and retry.";
+const STRATUM_BANNER_MS = 2600;
 
 function MineSceneBackdrop() {
   return <div className="mine-scene-backdrop" aria-hidden="true" />;
@@ -672,39 +673,50 @@ function collectTargetKey(target: CollectTarget): string {
 
 /** Banner shown for a few seconds when the miner enters a new stratum. */
 function StratumBanner({ row }: { row: number }) {
-  const [banner, setBanner] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ key: number; text: string } | null>(
+    null,
+  );
+  const bannerKey = useRef(0);
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deepestSeen = useRef(0);
   const stratum = stratumAt(row);
+
+  useEffect(() => {
+    return () => {
+      if (bannerTimer.current !== null) {
+        clearTimeout(bannerTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (row <= deepestSeen.current) return;
     const wasStratum = stratumAt(deepestSeen.current);
     deepestSeen.current = row;
     if (stratum.name === wasStratum.name) return;
-    setBanner(`Entering ${stratum.name}`);
-    const timer = setTimeout(() => setBanner(null), 2600);
-    return () => clearTimeout(timer);
+    if (bannerTimer.current !== null) {
+      clearTimeout(bannerTimer.current);
+    }
+    const nextKey = bannerKey.current + 1;
+    bannerKey.current = nextKey;
+    setBanner({ key: nextKey, text: `Entering ${stratum.name}` });
+    bannerTimer.current = setTimeout(() => {
+      setBanner((current) => (current?.key === nextKey ? null : current));
+      bannerTimer.current = null;
+    }, STRATUM_BANNER_MS);
   }, [row, stratum.name]);
 
   if (!banner) return null;
   return (
     <div
-      style={{
-        position: "absolute",
-        top: 90,
-        left: "50%",
-        transform: "translateX(-50%)",
-        background: "rgba(17, 21, 31, 0.92)",
-        border: "1px solid #54e0c7",
-        color: "#54e0c7",
-        borderRadius: 10,
-        padding: "10px 22px",
-        fontSize: "1.1rem",
-        fontWeight: 600,
-        pointerEvents: "none",
-      }}
+      key={banner.key}
+      className="mine-stratum-banner"
+      role="status"
+      onAnimationEnd={() =>
+        setBanner((current) => (current?.key === banner.key ? null : current))
+      }
     >
-      {banner}
+      {banner.text}
     </div>
   );
 }

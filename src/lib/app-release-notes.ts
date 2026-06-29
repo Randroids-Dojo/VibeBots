@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-29-0.1.146-raid-xp-here-marker";
+export const RELEASE_NOTICE_ID = "2026-06-29-0.1.147-stratum-banner-fade";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.147",
+      date: "2026-06-29",
+      title: "Stratum banner fade",
+      intro: "Mine stratum banners now fade away cleanly.",
+      changes: [
+        {
+          build,
+          text: "Entering Clay Beds and later stratum banners now fade out and clear themselves after they appear.",
+        },
+        {
+          build,
+          text: "Continuing to descend through the same stratum no longer cancels the banner timeout and leaves stale text on screen.",
+        },
+        {
+          build,
+          text: "Mine tips were reviewed and remain current. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.146",
       date: "2026-06-29",

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="stratum-banner-fade" data-date="2026-06-29">
+    <h3>Stratum Banner Fade</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260628-193623-5bc69e83</code>, rebased onto current <code>origin/main</code> before direct-main shipping.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> under the user-requested direct-main follow-up flow.</dd>
+      <dt>Changed</dt><dd>User-reported mine HUD fix. Stratum entry banners such as <code>Entering Clay Beds</code> now use a finite DOM fade animation plus a persistent fallback timer, so continuing to descend through the same stratum no longer cancels the timeout and leaves stale text on screen. Package version moved to <code>0.1.147</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched CSS, TypeScript, Playwright, package, release, and doc files, focused animation Vitest with <code>pnpm exec vitest run src/components/mine-transient-animation.test.ts</code> (5 passed), focused release Vitest with <code>pnpm exec vitest run src/lib/app-release.test.ts src/app/api/notifications/route.test.ts src/app/api/version/route.test.ts src/server/web-push.test.ts</code> (76 passed), <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm build</code>, focused stratum Playwright smoke with <code>PLAYWRIGHT_PORT=3846 pnpm exec playwright test tests/e2e/mine-core.spec.ts --project=chromium --grep "stratum entry banners fade"</code>, and focused release-note Playwright smoke with <code>PLAYWRIGHT_PORT=3847 pnpm exec playwright test tests/e2e/release-notifications.spec.ts --project=chromium --grep "mine shows the latest release note" --workers=1</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: stratum banners remain informational HUD overlays only. The mine tip rotation was reviewed and stayed unchanged because the fix does not alter mine rules or player decisions.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because <code>REQ-012</code> already covered stratum banners. <code>docs/gdd/06-mining.html</code> gained a build-log entry.</dd>
+      <dt>Followups</dt><dd>No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-finalization-contract" data-date="2026-06-29">
     <h3>Mine Finalization Contract</h3>
     <dl>

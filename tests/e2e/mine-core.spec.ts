@@ -211,6 +211,75 @@ test("dirt cracks grow before a heavy break burst", async ({ page }) => {
   );
 });
 
+test("stratum entry banners fade after continued descent", async ({ page }) => {
+  const seed = 2026062801;
+  const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 12; row += 1) {
+    setCell(mine, START_COL, row, { kind: "dirt" });
+  }
+  setCell(mine, START_COL, 13, { kind: "empty", ladder: true });
+  setCell(mine, START_COL, 14, { kind: "empty" });
+  setCell(mine, START_COL, 15, { kind: "dirt" });
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await digTo(page, 12);
+  await expect(status).toHaveAttribute("data-depth", "12");
+
+  const banner = page
+    .locator(".mine-stratum-banner")
+    .filter({ hasText: "Entering Clay Beds" });
+  await expect(banner).toBeVisible();
+  const entryFrame = await banner.evaluate((element) => {
+    const style = window.getComputedStyle(element);
+    return { opacity: Number(style.opacity), transform: style.transform };
+  });
+  await digTo(page, 13);
+  await expect(status).toHaveAttribute("data-depth", "13");
+  await expect
+    .poll(
+      async () => {
+        const fadingFrame = await banner
+          .evaluate((element) => {
+            const style = window.getComputedStyle(element);
+            return {
+              opacity: Number(style.opacity),
+              transform: style.transform,
+            };
+          })
+          .catch(() => null);
+        return (
+          fadingFrame !== null &&
+          fadingFrame.opacity > 0 &&
+          fadingFrame.opacity < 1 &&
+          fadingFrame.transform !== entryFrame.transform
+        );
+      },
+      { message: "stratum banner should visibly fade after a row change" },
+    )
+    .toBe(true);
+  await expect(banner).not.toBeVisible({ timeout: 3500 });
+});
+
 test("mine low battery and ladder warnings pulse on screen", async ({
   page,
 }) => {

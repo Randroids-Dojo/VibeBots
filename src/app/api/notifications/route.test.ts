@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-29-0.1.146-raid-xp-here-marker",
+      releaseNoticeId: "2026-06-29-0.1.147-stratum-banner-fade",
       releaseSummary:
-        "Raid XP here marker: Stale raid XP now stays marked at the pickup.",
+        "Stratum banner fade: Mine stratum banners now fade away cleanly.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-29-0.1.146-raid-xp-here-marker",
+      releaseNoticeId: "2026-06-29-0.1.147-stratum-banner-fade",
       attempted: 2,
       sent: 1,
       expired: 1,

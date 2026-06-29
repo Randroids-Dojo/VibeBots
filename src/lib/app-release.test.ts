@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest raid XP here marker note complete", () => {
+  it("keeps the latest stratum banner fade note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-29-0.1.146-raid-xp-here-marker");
+    expect(release.noticeId).toBe("2026-06-29-0.1.147-stratum-banner-fade");
+    expect(latestNote).toMatchObject({
+      version: "0.1.147",
+      title: "Stratum banner fade",
+      intro: "Mine stratum banners now fade away cleanly.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Entering Clay Beds and later stratum banners now fade out and clear themselves after they appear.",
+      "Continuing to descend through the same stratum no longer cancels the banner timeout and leaves stale text on screen.",
+      "Mine tips were reviewed and remain current. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived raid XP here marker note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.146");
+
     expect(latestNote).toMatchObject({
       version: "0.1.146",
       title: "Raid XP here marker",

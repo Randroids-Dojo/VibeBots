@@ -30,6 +30,25 @@
   }
 }
 
+@keyframes mine-stratum-banner-fade {
+  0% {
+    transform: translate(-50%, -6px) scale(0.98);
+    opacity: 0;
+  }
+  12% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  55% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -8px) scale(0.98);
+    opacity: 0;
+  }
+}
+
 @keyframes mine-loader-cart-run {
   0% {
     transform: translateX(-68px);
@@ -135,6 +154,22 @@
       rgba(255, 0, 0, 0.24)
     );
   animation: mine-battery-edge-throb 0.82s ease-in-out infinite;
+}
+
+.mine-stratum-banner {
+  position: absolute;
+  top: 90px;
+  left: 50%;
+  z-index: 9;
+  padding: 10px 22px;
+  color: #54e0c7;
+  font-weight: 600;
+  font-size: 1.1rem;
+  pointer-events: none;
+  background: rgba(17, 21, 31, 0.92);
+  border: 1px solid #54e0c7;
+  border-radius: 10px;
+  animation: mine-stratum-banner-fade 2600ms ease-out forwards;
 }
 
 .mine-scene-backdrop {

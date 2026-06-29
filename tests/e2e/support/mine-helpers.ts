@@ -538,25 +538,45 @@ async function countPixels(
       if (!ctx) return 0;
       ctx.drawImage(img, 0, 0);
       const pixels = ctx.getImageData(0, 0, scratch.width, scratch.height).data;
-      const left = mode === "raidXp" ? scratch.width * 0.25 : 0;
-      const right = mode === "raidXp" ? scratch.width * 0.58 : scratch.width;
-      const top = mode === "raidXp" ? scratch.height * 0.34 : 0;
-      const bottom = mode === "raidXp" ? scratch.height * 0.68 : scratch.height;
+      const bounds =
+        mode === "raidXp"
+          ? {
+              left: scratch.width * 0.25,
+              right: scratch.width * 0.58,
+              top: scratch.height * 0.34,
+              bottom: scratch.height * 0.68,
+            }
+          : {
+              left: 0,
+              right: scratch.width,
+              top: 0,
+              bottom: scratch.height,
+            };
+      const isRedPixel = (r: number, g: number, b: number, a: number) =>
+        r > 210 && g < 90 && b < 90 && a > 180;
+      const isRaidXpPixel = (r: number, g: number, b: number, a: number) => {
+        const cyan = b > 100 && g > 110 && r < 150 && a > 180;
+        const gold = r > 120 && g > 95 && b < 110 && a > 180;
+        return cyan || gold;
+      };
+      const shouldCount = mode === "red" ? isRedPixel : isRaidXpPixel;
       let count = 0;
-      for (let y = Math.floor(top); y < Math.ceil(bottom); y += 1) {
-        for (let x = Math.floor(left); x < Math.ceil(right); x += 1) {
+      for (
+        let y = Math.floor(bounds.top);
+        y < Math.ceil(bounds.bottom);
+        y += 1
+      ) {
+        for (
+          let x = Math.floor(bounds.left);
+          x < Math.ceil(bounds.right);
+          x += 1
+        ) {
           const i = (y * scratch.width + x) * 4;
           const r = pixels[i];
           const g = pixels[i + 1];
           const b = pixels[i + 2];
           const a = pixels[i + 3];
-          if (mode === "red") {
-            if (r > 210 && g < 90 && b < 90 && a > 180) count++;
-            continue;
-          }
-          const cyan = b > 100 && g > 110 && r < 150 && a > 180;
-          const gold = r > 120 && g > 95 && b < 110 && a > 180;
-          if (cyan || gold) count++;
+          if (shouldCount(r, g, b, a)) count++;
         }
       }
       return count;

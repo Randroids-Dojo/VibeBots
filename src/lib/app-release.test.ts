@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest visible raid XP pickups note complete", () => {
+  it("keeps the latest route-aware ladders note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-29-0.1.148-visible-raid-xp-pickups");
+    expect(release.noticeId).toBe("2026-06-29-0.1.149-route-aware-ladders");
+    expect(latestNote).toMatchObject({
+      version: "0.1.149",
+      title: "Route-aware ladders",
+      intro: "The ladder warning now respects clear paths home.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The ladder chip now checks known clear routes to the surface, so it stops warning when a nearby ladder shaft already gets you home.",
+      "If there is no known clear route home, the ladder chip says route blocked instead of showing a fake needed count.",
+      "The route estimate is sparse and capped for mobile performance. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived visible raid XP pickups note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.148");
+
     expect(latestNote).toMatchObject({
       version: "0.1.148",
       title: "Visible raid XP pickups",

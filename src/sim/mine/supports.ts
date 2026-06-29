@@ -5,10 +5,97 @@ import type {
   MinerState,
   MineState,
 } from "./cells";
-import type { MineConsumables } from "./consumables";
+import { MINE_BOTTOM_ROW, type MineConsumables } from "./consumables";
 import { MOVE_COST } from "./digging";
+import { ELEVATOR_COL } from "./gear";
 import { dropBagToSurface, dropOreToSurface } from "./inventory";
 import { cellAt, cellMut } from "./world";
+
+export interface ReturnHomeEstimate {
+  reachable: boolean;
+  laddersNeeded: number;
+  steps: number;
+  energyCost: number;
+  visited: number;
+  capped: boolean;
+}
+
+export const RETURN_HOME_VISIT_CAP = 4096;
+
+interface ReturnRouteNode {
+  col: number;
+  row: number;
+  laddersNeeded: number;
+  steps: number;
+}
+
+class ReturnRouteHeap {
+  private nodes: ReturnRouteNode[] = [];
+
+  get length(): number {
+    return this.nodes.length;
+  }
+
+  push(node: ReturnRouteNode): void {
+    this.nodes.push(node);
+    this.bubbleUp(this.nodes.length - 1);
+  }
+
+  pop(): ReturnRouteNode | undefined {
+    const first = this.nodes[0];
+    const last = this.nodes.pop();
+    if (!first || !last) return first;
+    if (this.nodes.length > 0) {
+      this.nodes[0] = last;
+      this.bubbleDown(0);
+    }
+    return first;
+  }
+
+  private bubbleUp(index: number): void {
+    let child = index;
+    while (child > 0) {
+      const parent = Math.floor((child - 1) / 2);
+      if (compareRouteNode(this.nodes[parent], this.nodes[child]) <= 0) break;
+      [this.nodes[parent], this.nodes[child]] = [
+        this.nodes[child],
+        this.nodes[parent],
+      ];
+      child = parent;
+    }
+  }
+
+  private bubbleDown(index: number): void {
+    let parent = index;
+    while (true) {
+      const left = parent * 2 + 1;
+      const right = left + 1;
+      let best = parent;
+      if (
+        left < this.nodes.length &&
+        compareRouteNode(this.nodes[left], this.nodes[best]) < 0
+      ) {
+        best = left;
+      }
+      if (
+        right < this.nodes.length &&
+        compareRouteNode(this.nodes[right], this.nodes[best]) < 0
+      ) {
+        best = right;
+      }
+      if (best === parent) break;
+      [this.nodes[parent], this.nodes[best]] = [
+        this.nodes[best],
+        this.nodes[parent],
+      ];
+      parent = best;
+    }
+  }
+}
+
+function compareRouteNode(a: ReturnRouteNode, b: ReturnRouteNode): number {
+  return a.laddersNeeded - b.laddersNeeded || a.steps - b.steps;
+}
 
 function isOrePileSupported(
   state: MineState,
@@ -155,17 +242,203 @@ export function returnEnergyCost(miner: MinerState): number {
 }
 
 /**
- * Ladders still needed to climb straight home up the current column
- * (REQ-020). Same cleared-shaft assumption as returnEnergyCost: cells
- * already holding a ladder climb free, everything else needs one.
+ * Cheapest known route home through already cleared cells. The search is
+ * sparse and capped so the HUD can ask this every render without scanning
+ * generated mine space.
+ */
+export function returnHomeEstimate(state: MineState): ReturnHomeEstimate {
+  if (state.miner.row <= 0) {
+    return {
+      reachable: true,
+      laddersNeeded: 0,
+      steps: 0,
+      energyCost: 0,
+      visited: 0,
+      capped: false,
+    };
+  }
+
+  const candidates = new Set<string>();
+  const addCandidate = (col: number, row: number): void => {
+    if (row < 0 || row > state.miner.row) return;
+    candidates.add(coordKey(col, row));
+  };
+  for (const [key, cell] of state.cells) {
+    if (cell.kind !== "empty") continue;
+    const [col, row] = parseCoordKey(key);
+    if (row < 1 || row > state.miner.row) continue;
+    addCandidate(col, row);
+    if (row === 1) addCandidate(col, 0);
+  }
+  addCandidate(state.miner.col, state.miner.row);
+  if (state.miner.row === 1) addCandidate(state.miner.col, 0);
+
+  const startKey = coordKey(state.miner.col, state.miner.row);
+  if (!candidates.has(startKey)) {
+    return blockedReturnEstimate(0, false);
+  }
+
+  const heap = new ReturnRouteHeap();
+  const best = new Map<
+    string,
+    Pick<ReturnRouteNode, "laddersNeeded" | "steps">
+  >();
+  heap.push({
+    col: state.miner.col,
+    row: state.miner.row,
+    laddersNeeded: 0,
+    steps: 0,
+  });
+  best.set(startKey, { laddersNeeded: 0, steps: 0 });
+
+  let visited = 0;
+  while (heap.length > 0) {
+    const current = heap.pop();
+    if (!current) break;
+    const key = coordKey(current.col, current.row);
+    const currentBest = best.get(key);
+    if (!currentBest || compareRouteCost(current, currentBest) !== 0) continue;
+    if (current.row === 0) {
+      return {
+        reachable: true,
+        laddersNeeded: current.laddersNeeded,
+        steps: current.steps,
+        energyCost: current.steps * MOVE_COST,
+        visited,
+        capped: false,
+      };
+    }
+    if (visited >= RETURN_HOME_VISIT_CAP) {
+      return blockedReturnEstimate(visited, true);
+    }
+    visited++;
+    for (const next of routeNeighbors(state, candidates, current)) {
+      const nextKey = coordKey(next.col, next.row);
+      const previous = best.get(nextKey);
+      if (previous && compareRouteCost(previous, next) <= 0) continue;
+      best.set(nextKey, {
+        laddersNeeded: next.laddersNeeded,
+        steps: next.steps,
+      });
+      heap.push(next);
+    }
+  }
+  return blockedReturnEstimate(visited, false);
+}
+
+/**
+ * Ladders still needed to climb home (REQ-020). Existing callers keep the
+ * numeric API while the HUD uses the richer route estimate.
  */
 export function returnLadderNeed(state: MineState): number {
-  let need = 0;
-  for (let r = 1; r <= state.miner.row; r++) {
-    const cell = cellAt(state, state.miner.col, r);
-    if (!(cell?.kind === "empty" && cell.ladder)) need++;
+  return returnHomeEstimate(state).laddersNeeded;
+}
+
+function routeNeighbors(
+  state: MineState,
+  candidates: ReadonlySet<string>,
+  current: ReturnRouteNode,
+): ReturnRouteNode[] {
+  const next: ReturnRouteNode[] = [];
+  const here = cellAt(state, current.col, current.row);
+  const hasLadder = here?.kind === "empty" && here.ladder === true;
+  if (current.row > 0) {
+    const row = current.row - 1;
+    const key = coordKey(current.col, row);
+    if (candidates.has(key)) {
+      if (hasLadder || !isElevatorRailCell(state, current.col, current.row)) {
+        next.push({
+          col: current.col,
+          row,
+          laddersNeeded: current.laddersNeeded + (hasLadder ? 0 : 1),
+          steps: current.steps + 1,
+        });
+      }
+    }
   }
-  return need;
+  for (const col of [current.col - 1, current.col + 1]) {
+    const key = coordKey(col, current.row);
+    if (!candidates.has(key) || !isStableReturnCell(state, col, current.row))
+      continue;
+    next.push({
+      col,
+      row: current.row,
+      laddersNeeded: current.laddersNeeded,
+      steps: current.steps + 1,
+    });
+  }
+  const downRow = current.row + 1;
+  if (downRow <= state.miner.row) {
+    const key = coordKey(current.col, downRow);
+    if (
+      candidates.has(key) &&
+      isStableReturnCell(state, current.col, downRow)
+    ) {
+      next.push({
+        col: current.col,
+        row: downRow,
+        laddersNeeded: current.laddersNeeded,
+        steps: current.steps + 1,
+      });
+    }
+  }
+  return next;
+}
+
+function isStableReturnCell(
+  state: MineState,
+  col: number,
+  row: number,
+): boolean {
+  if (row === 0) return true;
+  const here = cellAt(state, col, row);
+  if (here?.kind !== "empty") return false;
+  const below = cellAt(state, col, row + 1);
+  return !!(
+    here.ladder ||
+    here.plank ||
+    below?.ladder ||
+    (below && below.kind !== "empty")
+  );
+}
+
+function isElevatorRailCell(
+  state: MineState,
+  col: number,
+  row: number,
+): boolean {
+  const rail = Math.min(state.gear.elevator, MINE_BOTTOM_ROW - 1);
+  return col === ELEVATOR_COL && row >= 0 && row <= rail;
+}
+
+function blockedReturnEstimate(
+  visited: number,
+  capped: boolean,
+): ReturnHomeEstimate {
+  return {
+    reachable: false,
+    laddersNeeded: 0,
+    steps: 0,
+    energyCost: 0,
+    visited,
+    capped,
+  };
+}
+
+function coordKey(col: number, row: number): string {
+  return `${col},${row}`;
+}
+
+function parseCoordKey(key: string): [number, number] {
+  const [col, row] = key.split(",").map(Number);
+  return [col, row];
+}
+
+function compareRouteCost(
+  a: Pick<ReturnRouteNode, "laddersNeeded" | "steps">,
+  b: Pick<ReturnRouteNode, "laddersNeeded" | "steps">,
+): number {
+  return a.laddersNeeded - b.laddersNeeded || a.steps - b.steps;
 }
 
 /**

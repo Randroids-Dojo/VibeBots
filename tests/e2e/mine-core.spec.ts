@@ -331,6 +331,8 @@ test("mine low battery and ladder warnings pulse on screen", async ({
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-battery-low", "true");
   await expect(status).toHaveAttribute("data-ladder-short", "true");
+  await expect(status).toHaveAttribute("data-return-route", "short");
+  await expect(status).toHaveAttribute("data-return-capped", "false");
   await expect(status.locator("[data-battery-chip='true']")).toContainText(
     "Low",
   );
@@ -353,6 +355,58 @@ test("mine low battery and ladder warnings pulse on screen", async ({
       0,
     );
   expect(largestPulseDelta).toBeGreaterThan(80);
+});
+
+test("mine ladder warning accepts a nearby clear ladder path home", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const seed = 2026062801;
+  const consumables = { ...STARTING_CONSUMABLES, ladder: 0 };
+  const mine = createMine(seed, DEFAULT_GEAR, consumables);
+  for (let row = 1; row <= 3; row++) {
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  setCell(mine, START_COL, 4, { kind: "dirt" });
+  setCell(mine, START_COL + 1, 3, { kind: "empty" });
+  setCell(mine, START_COL + 1, 4, { kind: "dirt" });
+  const moves: MineAction[] = ["down", "down", "down", "right"];
+
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables,
+      baseDiff: exportDiff(mine),
+      moves,
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "3");
+  await expect(status).toHaveAttribute("data-horizontal-distance", "1");
+  await expect(status).toHaveAttribute("data-ladders", "0");
+  await expect(status).toHaveAttribute("data-climb-ladders", "0");
+  await expect(status).toHaveAttribute("data-ladder-short", "false");
+  await expect(status).toHaveAttribute("data-return-route", "clear");
+  await expect(status).toHaveAttribute("data-return-steps", "4");
+  await expect(status).toHaveAttribute("data-return-capped", "false");
+  await expect(page.locator("[data-ladder-chip='true']")).not.toContainText(
+    "needed",
+  );
 });
 
 test("fatal free fall stays on camera until impact", async ({ page }) => {

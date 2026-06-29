@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.149" data-date="2026-06-29">
+    <h2>0.1.149</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.149</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>The ladder warning now respects clear paths home.</dd>
+      <dt>Return route</dt><dd>The ladder chip now checks known clear routes to the surface, so it stops warning when a nearby ladder shaft already gets you home.</dd>
+      <dt>Blocked route</dt><dd>If there is no known clear route home, the ladder chip says <code>route blocked</code> instead of showing a fake needed count.</dd>
+      <dt>Performance</dt><dd>The route estimate is sparse and capped for mobile performance. Mine rules, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Focused mine unit and Playwright smoke now check route-aware ladder estimates, capped searches, elevator rail parity, and the nearby ladder-shaft HUD case. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.148" data-date="2026-06-29">
     <h2>0.1.148</h2>
     <dl>

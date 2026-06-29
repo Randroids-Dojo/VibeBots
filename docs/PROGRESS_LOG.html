@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="route-aware-ladder-warning" data-date="2026-06-29">
+    <h3>Route-Aware Ladder Warning</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/route-aware-ladder-warning</code>, created from current <code>origin/main</code> before implementation and rebased onto current <code>origin/main</code> after upstream release and cleanup entries landed.</dd>
+      <dt>PR</dt><dd>Local implementation branch. PR not opened in this step.</dd>
+      <dt>Changed</dt><dd>User-reported ladder warning fix. The ladder chip now uses a bounded sparse route estimate over known clear mine cells instead of pricing only the current column, so it stops flashing when a nearby planted ladder shaft reaches the surface. If no clear route is known, the chip says <code>route blocked</code> instead of showing a fake needed count. The estimate returns route state, ladder need, steps, energy cost, visited count, and cap status for stable HUD tests. Package version moved to <code>0.1.149</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code>. Ran <code>pnpm install --frozen-lockfile</code>, <code>pnpm exec biome check --write</code> on touched TypeScript, package, Playwright, release, and doc files, focused support and release Vitest with <code>pnpm exec vitest run src/sim/mine/supports.test.ts src/lib/app-release.test.ts src/app/api/notifications/route.test.ts src/app/api/version/route.test.ts src/server/web-push.test.ts</code> (87 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused mine Playwright smoke with <code>PLAYWRIGHT_PORT=3851 pnpm exec playwright test tests/e2e/mine-core.spec.ts --project=chromium --grep "mine low battery and ladder warnings pulse on screen|mine ladder warning accepts a nearby clear ladder path home" --workers=1</code> (2 passed), full <code>pnpm test</code> (504 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, critical smoke with <code>PLAYWRIGHT_PORT=3852 pnpm test:e2e:critical --project=chromium</code> (5 passed), and the dependency gate after verification.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is an estimate and HUD presentation fix only, so replay rules, cash-out validation, saved world data, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> stay unchanged. Mine surface tips were reviewed and left unchanged because the existing ladder, Recall, Supply Depot, and recovery tips remain accurate. Stamp Book goals were reviewed and no new stamp is needed because this is warning accuracy, not a new durable milestone.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because <code>REQ-017</code>, <code>REQ-020</code>, and <code>REQ-024</code> remain done. <code>docs/gdd/06-mining.html</code> gained a build-log entry.</dd>
+      <dt>Followups</dt><dd>No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="raid-xp-pixel-helper-cleanup" data-date="2026-06-29">
     <h3>Raid XP Pixel Helper Cleanup</h3>
     <dl>

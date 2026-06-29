@@ -70,7 +70,7 @@ import {
   portalWarpAction,
   recallRopeRange,
   returnEnergyCost,
-  returnLadderNeed,
+  returnHomeEstimate,
   type SoldHaul,
   START_COL,
   stratumAt,
@@ -1739,13 +1739,26 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (_, index) => `empty-${carriedOreStackCount + index}`,
   );
   const bagDetails = bagDetailSummary(miner);
-  const climbCost = returnEnergyCost(miner);
-  // The climb estimate assumes a cleared shaft; warn with a margin so a
-  // detour or two does not turn the warning into a lie (REQ-017).
+  const returnEstimate = returnHomeEstimate(mine);
+  const climbCost = returnEstimate.reachable
+    ? returnEstimate.energyCost
+    : returnEnergyCost(miner);
+  // The route estimate prices known clear paths back home (REQ-017).
   const batteryLow = miner.row > 0 && miner.energy < climbCost * 1.25 + 2;
-  // Ladder budget for the same straight-home climb (REQ-020).
-  const laddersNeeded = returnLadderNeed(mine);
-  const ladderShort = miner.row > 0 && laddersNeeded > mine.consumables.ladder;
+  const laddersNeeded = returnEstimate.laddersNeeded;
+  const returnRouteBlocked = miner.row > 0 && !returnEstimate.reachable;
+  const ladderShort =
+    miner.row > 0 &&
+    returnEstimate.reachable &&
+    laddersNeeded > mine.consumables.ladder;
+  const returnRouteState =
+    miner.row <= 0
+      ? "surface"
+      : returnRouteBlocked
+        ? "blocked"
+        : ladderShort
+          ? "short"
+          : "clear";
   // The village (REQ-021): standing on a stall's column opens its menu,
   // unless the player just closed it here (swipe-down or close button).
   const stall = miner.row === 0 ? stallAt(miner.col) : null;
@@ -3181,6 +3194,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         data-banked={miner.bankedCredits}
         data-wallet={balance ?? ""}
         data-climb-ladders={laddersNeeded}
+        data-return-route={returnRouteState}
+        data-return-steps={returnEstimate.steps}
+        data-return-capped={returnEstimate.capped ? "true" : "false"}
         data-battery-low={batteryLow ? "true" : "false"}
         data-ladder-short={ladderShort ? "true" : "false"}
         style={{
@@ -3457,15 +3473,24 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         }}
       >
         <span
-          className={ladderShort ? "mine-hud-chip-danger" : undefined}
+          className={
+            ladderShort || returnRouteBlocked
+              ? "mine-hud-chip-danger"
+              : undefined
+          }
           data-ladder-chip="true"
           style={{
             ...chipStyle,
-            color: ladderShort ? "#ffe7e7" : "#8b93a7",
+            color: ladderShort || returnRouteBlocked ? "#ffe7e7" : "#8b93a7",
           }}
         >
-          {ladderShort ? "!" : ""} &#129692; {mine.consumables.ladder}
-          {ladderShort ? `/${laddersNeeded} needed` : ""}
+          {ladderShort || returnRouteBlocked ? "!" : ""} &#129692;{" "}
+          {mine.consumables.ladder}
+          {returnRouteBlocked
+            ? " route blocked"
+            : ladderShort
+              ? `/${laddersNeeded} needed`
+              : ""}
         </span>
         <span style={{ ...chipStyle, color: "#8b93a7" }}>
           &#129717; {mine.consumables.plank}

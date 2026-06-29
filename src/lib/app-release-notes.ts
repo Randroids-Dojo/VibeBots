@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-29-0.1.148-visible-raid-xp-pickups";
+export const RELEASE_NOTICE_ID = "2026-06-29-0.1.149-route-aware-ladders";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.149",
+      date: "2026-06-29",
+      title: "Route-aware ladders",
+      intro: "The ladder warning now respects clear paths home.",
+      changes: [
+        {
+          build,
+          text: "The ladder chip now checks known clear routes to the surface, so it stops warning when a nearby ladder shaft already gets you home.",
+        },
+        {
+          build,
+          text: "If there is no known clear route home, the ladder chip says route blocked instead of showing a fake needed count.",
+        },
+        {
+          build,
+          text: "The route estimate is sparse and capped for mobile performance. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.148",
       date: "2026-06-29",

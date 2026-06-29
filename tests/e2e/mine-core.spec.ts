@@ -973,13 +973,12 @@ test("rapid repeated keyboard taps do not bypass held cadence (REQ-023)", async 
   await expect(status).toHaveAttribute("data-depth", "0");
 
   const keyboardStart = await horizontalDistance();
-  await page.keyboard.press("ArrowRight");
-  await expect(status).toHaveAttribute(
-    "data-horizontal-distance",
-    String(keyboardStart + 1),
-  );
+  // Fire the initial press plus 3 rapid follow-up taps all in the same
+  // synchronous JS frame. Separating them with an await would let the CI
+  // runner's React re-render delay (potentially > 620ms cadence window) open
+  // the cadence back up, making the follow-up taps look legitimate.
   await page.evaluate(() => {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       window.dispatchEvent(
         new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }),
       );

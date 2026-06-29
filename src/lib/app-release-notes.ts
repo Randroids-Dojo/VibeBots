@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-29-0.1.149-route-aware-ladders";
+export const RELEASE_NOTICE_ID = "2026-06-29-0.1.150-holodeck";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.150",
+      date: "2026-06-29",
+      title: "Holodeck test scenes",
+      intro: "A new Holodeck mode loads focused, looping mine test scenes.",
+      changes: [
+        {
+          build,
+          text: "A new Holodeck entry in the mine options menu loads small, controlled test scenes through a scenario selector.",
+        },
+        {
+          build,
+          text: "The first scenario auto-mines a single block on a deterministic loop, with live controls for pickaxe level and block type that reconfigure the scene without a reload.",
+        },
+        {
+          build,
+          text: "Holodeck runs in its own isolated session, so it never touches your live mine trip. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.149",
       date: "2026-06-29",

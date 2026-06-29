@@ -2930,6 +2930,27 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           >
             Credits
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen(false);
+              router.push("/holodeck");
+            }}
+            style={{
+              width: "100%",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #54e0c7",
+              background: "#172b30",
+              color: "#54e0c7",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              marginTop: 8,
+            }}
+          >
+            Holodeck
+          </button>
           <ReleaseNotificationControl />
         </section>
       )}

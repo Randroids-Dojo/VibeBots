@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="holodeck-scenario-mode" data-date="2026-06-29">
+    <h3>Holodeck Scenario Mode</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/holodeck-implementation-design-ej5am4</code>, created from current <code>origin/main</code> (<code>3ea9108</code>).</dd>
+      <dt>PR</dt><dd>(to be opened)</dd>
+      <dt>Changed</dt><dd>Added the Holodeck mode (followup F-043): a focused, reloadable mine-scene test bench reachable from the mine options menu. A new pure scenario registry <code>src/sim/holodeck.ts</code> fabricates a controlled scene with <code>createMine</code> + <code>setCell</code> (an empty void box, a metal floor, and one target block) plus a scripted action plan, and exposes <code>HOLODECK_SCENARIOS</code>, <code>holodeckComplete</code>, and <code>holodeckDrive</code>. An isolated zustand store <code>src/state/holodeck-store.ts</code> holds the scene, drives the auto-mine loop, and rebuilds on completion or a watchdog cap, never touching the live mine session. A fresh client canvas <code>src/components/holodeck-canvas.tsx</code> composes the existing prop-based render primitives (<code>MinerBot</code>, <code>OreCrystals</code>, <code>CrackMarks</code>, palette) rather than the full <code>MineCanvas</code>. The panel <code>src/components/holodeck-panel.tsx</code> renders a scenario selector and per-scenario controls (pickaxe level, block type) that reconfigure the scene live, with a play/pause toggle and a reset, driven on the <code>actionRepeatMs</code> cadence. New route <code>src/app/holodeck/page.tsx</code> and a Holodeck row in the <code>mine-panel.tsx</code> settings menu route to it. Package version moved to <code>0.1.150</code>; <code>MINE_VERSION</code> stays <code>48</code> and <code>SIM_VERSION</code> stays <code>3</code> (pure composition of existing primitives, isolated mode).</dd>
+      <dt>Verification</dt><dd>Dash check (ripgrep U+2014/U+2013, none), <code>git diff --check</code>, <code>pnpm typecheck</code>, <code>scripts/check-sim-purity.sh</code> (holodeck sim stays renderer-free and uses only safe Math), Biome check on all touched files, full unit suite <code>pnpm vitest run</code> (510 passed) plus the release-notes test after the bump (67 passed), <code>pnpm build</code> (route <code>/holodeck</code> present), and Playwright on an isolated port for <code>tests/e2e/holodeck.spec.ts</code> (3 passed: reachable from options, auto-mines with visible motion and a completed loop, controls reconfigure without reload) and <code>tests/e2e/routes.spec.ts</code> (2 passed). The local Playwright run used a throwaway config pointing at the pre-installed Chromium because the project pins a newer browser build than the sandbox carries; the committed config is unchanged and CI runs the pinned browser.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: entry is the options menu (matches the F-043 wording) rather than a surface destination building. Per user direction the renderer is a fresh canvas that reuses the already-extracted leaf primitives; a deeper shared block-mesh extraction from the main mine canvas was deferred to a followup to keep the determinism-adjacent <code>mine-canvas.tsx</code> untouched (F-046). Rule 13: mine surface tips reviewed; no change needed because Holodeck is a builder test bench, not a mining rule players track mid-trip. Rule 14: stamp review done; no stamp added because Holodeck is a diagnostic tool with no player-facing progression.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed; Holodeck is tooling and maps to no GDD requirement row.</dd>
+      <dt>Followups</dt><dd>F-043 resolved. New F-046: extract a shared block-mesh component used by both the mine canvas and the Holodeck canvas.</dd>
+    </dl>
+  </article>
+
   <article data-slice="route-aware-ladder-warning" data-date="2026-06-29">
     <h3>Route-Aware Ladder Warning</h3>
     <dl>

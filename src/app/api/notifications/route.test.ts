@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-29-0.1.149-route-aware-ladders",
+      releaseNoticeId: "2026-06-29-0.1.150-holodeck",
       releaseSummary:
-        "Route-aware ladders: The ladder warning now respects clear paths home.",
+        "Holodeck test scenes: A new Holodeck mode loads focused, looping mine test scenes.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-29-0.1.149-route-aware-ladders",
+      releaseNoticeId: "2026-06-29-0.1.150-holodeck",
       attempted: 2,
       sent: 1,
       expired: 1,

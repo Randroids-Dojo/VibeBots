@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest raid XP recovery note complete", () => {
+  it("keeps the latest raid XP here marker note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-28-0.1.145-raid-xp-recovery");
+    expect(release.noticeId).toBe("2026-06-29-0.1.146-raid-xp-here-marker");
+    expect(latestNote).toMatchObject({
+      version: "0.1.146",
+      title: "Raid XP here marker",
+      intro: "Stale raid XP now stays marked at the pickup.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "When the miner reaches an old survived-raid XP drop, the HUD now switches from the direction arrow to an XP here marker instead of disappearing.",
+      "The marker stays visible while pickup collection is still pending, so stale XP is not invisible at the destination.",
+      "The mine tip now mentions the XP here state. Mine rules, raid rewards, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived raid XP recovery note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.145");
+
     expect(latestNote).toMatchObject({
       version: "0.1.145",
       title: "Raid XP recovery",

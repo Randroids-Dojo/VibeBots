@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.146" data-date="2026-06-29">
+    <h2>0.1.146</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.146</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Stale raid XP now stays marked at the pickup.</dd>
+      <dt>Bunker raids</dt><dd>When the miner reaches an old survived-raid XP drop, the HUD now switches from the direction arrow to an <code>XP here</code> marker instead of disappearing.</dd>
+      <dt>Pickup clarity</dt><dd>The marker stays visible while pickup collection is still pending, so stale XP is not invisible at the destination.</dd>
+      <dt>Mine tips</dt><dd>The mine tip now mentions the <code>XP here</code> state. Mine rules, raid rewards, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Focused bunker Playwright smoke now checks the stale pickup marker before retry collection completes and checks that the marker disappears after pickup collection. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.145" data-date="2026-06-28">
     <h2>0.1.145</h2>
     <dl>

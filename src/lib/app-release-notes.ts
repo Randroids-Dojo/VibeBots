@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-28-0.1.145-raid-xp-recovery";
+export const RELEASE_NOTICE_ID = "2026-06-29-0.1.146-raid-xp-here-marker";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.146",
+      date: "2026-06-29",
+      title: "Raid XP here marker",
+      intro: "Stale raid XP now stays marked at the pickup.",
+      changes: [
+        {
+          build,
+          text: "When the miner reaches an old survived-raid XP drop, the HUD now switches from the direction arrow to an XP here marker instead of disappearing.",
+        },
+        {
+          build,
+          text: "The marker stays visible while pickup collection is still pending, so stale XP is not invisible at the destination.",
+        },
+        {
+          build,
+          text: "The mine tip now mentions the XP here state. Mine rules, raid rewards, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.145",
       date: "2026-06-28",

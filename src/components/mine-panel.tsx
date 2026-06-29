@@ -233,7 +233,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
   "Tip: Planted beacons only work within your current Warpcoil range.",
   "Tip: Distant biome beacons become free portals back to base.",
-  "Tip: Follow the XP arrow back to old bunker raid drops before finishing.",
+  "Tip: Follow the XP arrow, then collect when it says XP here.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
@@ -300,11 +300,18 @@ function raidXpLocator(
   let nearest: (typeof pickups)[number] | null = null;
   let nearestDistance = Number.POSITIVE_INFINITY;
   for (const pickup of pickups) {
+    const rowDistance = Math.abs(pickup.row - miner.row);
+    const colDistance = Math.abs(pickup.col - miner.col);
     if (canCollectBunkerRaidPickupFrom(pickup, miner.col, miner.row)) {
-      return null;
+      return {
+        direction: "here",
+        rowDistance,
+        colDistance,
+        label: "XP here",
+        side: "center",
+      };
     }
-    const distance =
-      Math.abs(pickup.col - miner.col) + Math.abs(pickup.row - miner.row);
+    const distance = rowDistance + colDistance;
     if (distance < nearestDistance) {
       nearest = pickup;
       nearestDistance = distance;

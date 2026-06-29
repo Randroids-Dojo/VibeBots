@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="raid-xp-here-marker" data-date="2026-06-29">
+    <h3>Raid XP Here Marker</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260628-173235-4c0ee21e96c3</code>, continuing from current <code>origin/main</code> after the user reported stale XP was invisible at the arrow destination.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> under the user-requested direct-main follow-up flow.</dd>
+      <dt>Changed</dt><dd>User-reported stale raid XP visibility follow-up. The raid XP locator now returns an <code>XP here</code> state while the miner is within collection radius of an uncollected survived-raid pickup, instead of disappearing before collection succeeds. The mine tip now mentions the <code>XP here</code> state. Package version moved to <code>0.1.146</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched TypeScript, package, and Playwright files, focused release Vitest with <code>pnpm exec vitest run src/lib/app-release.test.ts src/app/api/notifications/route.test.ts src/app/api/version/route.test.ts src/server/web-push.test.ts</code> (75 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused bunker Playwright smoke with <code>PLAYWRIGHT_PORT=3836 pnpm exec playwright test tests/e2e/mine-bunker.spec.ts --project=chromium --workers=1</code> (6 passed), focused release-note Playwright smoke with <code>PLAYWRIGHT_PORT=3837 pnpm exec playwright test tests/e2e/release-notifications.spec.ts --project=chromium --grep "mine shows the latest release note" --workers=1</code> (1 passed), full <code>pnpm test</code> (491 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and JSON validation for <code>docs/GDD_COVERAGE.json</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the locator should remain visible until the server confirms pickup collection. The direction arrow still points back while the miner is outside pickup range.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because <code>REQ-038</code> remains partial under the larger bunker feature scope. <code>docs/gdd/06-mining.html</code> and <code>docs/gdd/08-base-building.html</code> gained build-log entries.</dd>
+      <dt>Followups</dt><dd>No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="raid-xp-recovery" data-date="2026-06-28">
     <h3>Raid XP Recovery</h3>
     <dl>

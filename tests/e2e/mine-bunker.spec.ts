@@ -263,8 +263,19 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
     });
   });
   let collectAttempts = 0;
+  let firstCollectStarted: (() => void) | null = null;
+  let releaseFirstCollect: (() => void) | null = null;
+  const firstCollectRequest = new Promise<void>((resolve) => {
+    firstCollectStarted = resolve;
+  });
   await page.route("**/api/bunker/raid/collect", async (route) => {
     collectAttempts += 1;
+    if (collectAttempts === 1) {
+      firstCollectStarted?.();
+      await new Promise<void>((resolve) => {
+        releaseFirstCollect = resolve;
+      });
+    }
     const collected = collectAttempts >= 2;
     await route.fulfill({
       status: 200,
@@ -280,6 +291,12 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await digTo(page, 1);
+  await firstCollectRequest;
+  const xpLocator = page.locator("[data-raid-xp-direction]");
+  await expect(xpLocator).toBeVisible();
+  await expect(xpLocator).toHaveAttribute("data-raid-xp-direction", "here");
+  await expect(xpLocator).toContainText("XP here");
+  releaseFirstCollect?.();
   await expect
     .poll(() => collectAttempts, {
       message: "XP pickup should retry while the miner stays on it",
@@ -289,7 +306,7 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await page.getByRole("button", { name: "Open bunker builder" }).click();
   const builder = page.getByRole("region", { name: "Bunker builder" });
   await expect(builder).toContainText("All raid XP collected: 25 defense XP.");
-  await expect(page.locator("[data-raid-xp-direction]")).toHaveCount(0);
+  await expect(xpLocator).toHaveCount(0);
   await expect(
     builder.getByRole("button", { name: "Finish raid" }),
   ).toBeVisible();

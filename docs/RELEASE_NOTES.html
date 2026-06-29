@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.148" data-date="2026-06-29">
+    <h2>0.1.148</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.148</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Stale raid XP now has a bright pickup object.</dd>
+      <dt>Bunker raids</dt><dd>Survived-raid XP pickups now render as larger bright objects with a cyan halo, gold rays, and a stronger green core.</dd>
+      <dt>Pickup clarity</dt><dd>The stale-pickup smoke test now samples the mine canvas while collection is pending, so the <code>XP here</code> state must also have visible world pixels.</dd>
+      <dt>Mine tips</dt><dd>The mine tip now says the XP arrow leads to the bright pickup. Mine rules, raid rewards, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Focused bunker Playwright smoke checks the pending stale pickup marker and samples the canvas for visible raid XP pixels. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.147" data-date="2026-06-29">
     <h2>0.1.147</h2>
     <dl>

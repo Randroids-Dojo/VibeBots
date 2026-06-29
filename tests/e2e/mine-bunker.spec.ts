@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  countRaidXpPixels,
   countRedPixels,
   createMine,
   DEFAULT_GEAR,
@@ -299,6 +300,17 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await expect(xpLocator).toBeVisible();
   await expect(xpLocator).toHaveAttribute("data-raid-xp-direction", "here");
   await expect(xpLocator).toContainText("XP here");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => countRaidXpPixels(page, await canvas.screenshot()), {
+      message: "the raid XP pickup should render as a visible world marker",
+      timeout: 3_000,
+    })
+    .toBeGreaterThan(1_000);
+  const pendingXpPixels = await countRaidXpPixels(
+    page,
+    await canvas.screenshot(),
+  );
   releaseFirstCollect.resolve();
   await expect
     .poll(() => collectAttempts, {
@@ -310,6 +322,12 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   const builder = page.getByRole("region", { name: "Bunker builder" });
   await expect(builder).toContainText("All raid XP collected: 25 defense XP.");
   await expect(xpLocator).toHaveCount(0);
+  await expect
+    .poll(async () => countRaidXpPixels(page, await canvas.screenshot()), {
+      message: "the raid XP pickup world marker should clear after collection",
+      timeout: 3_000,
+    })
+    .toBeLessThan(pendingXpPixels - 500);
   await expect(
     builder.getByRole("button", { name: "Finish raid" }),
   ).toBeVisible();

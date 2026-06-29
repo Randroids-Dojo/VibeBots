@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="visible-raid-xp-pickups" data-date="2026-06-29">
+    <h3>Visible Raid XP Pickups</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fresh/main-20260628-173235-4c0ee21e96c3</code>, rebased onto current <code>origin/main</code> after the user reported the stale XP destination still lacked a visible world object.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> under the user-requested direct-main follow-up flow.</dd>
+      <dt>Changed</dt><dd>User-reported stale raid XP visibility follow-up. Survived-raid XP pickups now render as larger bright mesh objects with a cyan halo, gold rays, and stronger green core above raid debris, while the existing <code>XP here</code> HUD state remains. The mine tip now says the XP arrow leads to the bright pickup. Package version moved to <code>0.1.148</code>; <code>MINE_VERSION</code> stays at <code>48</code>; <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran <code>pnpm exec biome check --write</code> on touched TypeScript, package, Playwright, and release files, focused release Vitest with <code>pnpm exec vitest run src/lib/app-release.test.ts src/app/api/notifications/route.test.ts src/app/api/version/route.test.ts src/server/web-push.test.ts</code> (77 passed), <code>pnpm typecheck</code>, <code>pnpm build</code>, focused stale-pickup Playwright smoke with <code>PLAYWRIGHT_PORT=3836 pnpm exec playwright test tests/e2e/mine-bunker.spec.ts --project=chromium --grep "mine retries raid XP pickup" --workers=1</code> (1 passed), focused bunker Playwright smoke with <code>PLAYWRIGHT_PORT=3836 pnpm exec playwright test tests/e2e/mine-bunker.spec.ts --project=chromium --workers=1</code> (6 passed), focused release-note Playwright smoke with <code>PLAYWRIGHT_PORT=3837 pnpm exec playwright test tests/e2e/release-notifications.spec.ts --project=chromium --grep "mine shows the latest release note" --workers=1</code> (1 passed), full <code>pnpm test</code> (498 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, and JSON validation for <code>docs/GDD_COVERAGE.json</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the in-world raid XP pickup should be visible without relying on canvas text or runtime font atlases. Mesh halos, rays, and bright colors preserve the mine canvas text-safety contract.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed because <code>REQ-038</code> remains partial under the larger bunker feature scope. <code>docs/gdd/06-mining.html</code> and <code>docs/gdd/08-base-building.html</code> gained build-log entries.</dd>
+      <dt>Followups</dt><dd>No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="stratum-banner-fade" data-date="2026-06-29">
     <h3>Stratum Banner Fade</h3>
     <dl>

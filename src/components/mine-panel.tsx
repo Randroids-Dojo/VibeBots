@@ -234,7 +234,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
   "Tip: Planted beacons only work within your current Warpcoil range.",
   "Tip: Distant biome beacons become free portals back to base.",
-  "Tip: Follow the XP arrow, then collect when it says XP here.",
+  "Tip: Follow the XP arrow to the bright pickup, then collect when it says XP here.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",

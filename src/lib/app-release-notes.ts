@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-29-0.1.147-stratum-banner-fade";
+export const RELEASE_NOTICE_ID = "2026-06-29-0.1.148-visible-raid-xp-pickups";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.148",
+      date: "2026-06-29",
+      title: "Visible raid XP pickups",
+      intro: "Stale raid XP now has a bright pickup object.",
+      changes: [
+        {
+          build,
+          text: "Survived-raid XP pickups now render as larger bright objects with a cyan halo, gold rays, and a stronger green core.",
+        },
+        {
+          build,
+          text: "The stale-pickup smoke test now samples the mine canvas while collection is pending, so the XP here state must also have visible world pixels.",
+        },
+        {
+          build,
+          text: "The mine tip now says the XP arrow leads to the bright pickup. Mine rules, raid rewards, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.147",
       date: "2026-06-29",

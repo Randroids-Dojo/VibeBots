@@ -440,47 +440,56 @@ function ClankerMesh({
 
 function RaidXpPickupVisual() {
   return (
-    <group scale={0.42}>
-      <mesh>
-        <octahedronGeometry args={[0.16, 0]} />
-        <meshStandardMaterial
-          color="#a3e635"
-          emissive="#84cc16"
-          emissiveIntensity={0.9}
-          roughness={0.28}
-          flatShading
+    <group>
+      <mesh position={[0, 0, -0.06]}>
+        <ringGeometry args={[0.52, 0.72, 32]} />
+        <meshBasicMaterial
+          color="#67e8f9"
           depthTest={false}
+          depthWrite={false}
+          opacity={0.48}
+          transparent
         />
       </mesh>
-      {[0, 1, 2, 3].map((index) => {
-        const angle = (index * Math.PI) / 2;
+      <mesh position={[0, 0, 0.08]}>
+        <octahedronGeometry args={[0.46, 0]} />
+        <meshBasicMaterial
+          color="#39ff14"
+          depthTest={false}
+          depthWrite={false}
+        />
+      </mesh>
+      {[0, 1, 2, 3, 4, 5].map((index) => {
+        const angle = (index * Math.PI) / 3;
         return (
           <mesh
             key={index}
-            position={[Math.cos(angle) * 0.23, Math.sin(angle) * 0.23, 0]}
+            position={[Math.cos(angle) * 0.62, Math.sin(angle) * 0.62, 0.02]}
             rotation={[0, 0, angle]}
           >
-            <boxGeometry args={[0.18, 0.045, 0.035]} />
+            <boxGeometry args={[0.48, 0.08, 0.04]} />
             <meshStandardMaterial
               color="#facc15"
               emissive="#f59e0b"
-              emissiveIntensity={0.65}
-              roughness={0.32}
+              emissiveIntensity={0.85}
+              roughness={0.26}
               flatShading
               depthTest={false}
+              depthWrite={false}
             />
           </mesh>
         );
       })}
-      <mesh position={[0, 0, -0.035]}>
-        <torusGeometry args={[0.26, 0.018, 6, 16]} />
+      <mesh position={[0, 0, 0.04]}>
+        <torusGeometry args={[0.68, 0.045, 8, 28]} />
         <meshStandardMaterial
           color="#38bdf8"
           emissive="#0ea5e9"
-          emissiveIntensity={0.48}
-          roughness={0.42}
+          emissiveIntensity={0.7}
+          roughness={0.34}
           flatShading
           depthTest={false}
+          depthWrite={false}
         />
       </mesh>
     </group>
@@ -1068,8 +1077,8 @@ export function BunkerOverlay({
       .map((pickup) => (
         <group
           key={pickup.id}
-          position={[cellX(pickup.col), -pickup.row, 1.18]}
-          renderOrder={40}
+          position={[cellX(pickup.col), -pickup.row, 1.48]}
+          renderOrder={80}
         >
           <RaidXpPickupVisual />
         </group>

@@ -21,17 +21,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Mine stratum banners now fade away cleanly.",
+    "Stale raid XP now has a bright pickup object.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Entering Clay Beds and later stratum banners now fade out",
+    "larger bright objects with a cyan halo",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Continuing to descend through the same stratum no longer cancels",
+    "samples the mine canvas while collection is pending",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "Mine tips were reviewed and remain current",
+    "the XP arrow leads to the bright pickup",
   );
 
   await page.mouse.click(8, 8);
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.148", "Visible raid XP pickups"],
     ["0.1.147", "Stratum banner fade"],
     ["0.1.146", "Raid XP here marker"],
     ["0.1.145", "Raid XP recovery"],

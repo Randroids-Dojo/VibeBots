@@ -507,30 +507,62 @@ export async function countRedPixels(
   page: Page,
   image: Buffer,
 ): Promise<number> {
-  return page.evaluate(async (base64) => {
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error("canvas screenshot decode failed"));
-      img.src = `data:image/png;base64,${base64}`;
-    });
-    const scratch = document.createElement("canvas");
-    scratch.width = img.width;
-    scratch.height = img.height;
-    const ctx = scratch.getContext("2d");
-    if (!ctx) return 0;
-    ctx.drawImage(img, 0, 0);
-    const pixels = ctx.getImageData(0, 0, scratch.width, scratch.height).data;
-    let count = 0;
-    for (let i = 0; i < pixels.length; i += 4) {
-      const r = pixels[i];
-      const g = pixels[i + 1];
-      const b = pixels[i + 2];
-      const a = pixels[i + 3];
-      if (r > 210 && g < 90 && b < 90 && a > 180) count++;
-    }
-    return count;
-  }, image.toString("base64"));
+  return countPixels(page, image, "red");
+}
+
+export async function countRaidXpPixels(
+  page: Page,
+  image: Buffer,
+): Promise<number> {
+  return countPixels(page, image, "raidXp");
+}
+
+async function countPixels(
+  page: Page,
+  image: Buffer,
+  mode: "red" | "raidXp",
+): Promise<number> {
+  return page.evaluate(
+    async ({ base64, mode }) => {
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () =>
+          reject(new Error("canvas screenshot decode failed"));
+        img.src = `data:image/png;base64,${base64}`;
+      });
+      const scratch = document.createElement("canvas");
+      scratch.width = img.width;
+      scratch.height = img.height;
+      const ctx = scratch.getContext("2d");
+      if (!ctx) return 0;
+      ctx.drawImage(img, 0, 0);
+      const pixels = ctx.getImageData(0, 0, scratch.width, scratch.height).data;
+      const left = mode === "raidXp" ? scratch.width * 0.25 : 0;
+      const right = mode === "raidXp" ? scratch.width * 0.58 : scratch.width;
+      const top = mode === "raidXp" ? scratch.height * 0.34 : 0;
+      const bottom = mode === "raidXp" ? scratch.height * 0.68 : scratch.height;
+      let count = 0;
+      for (let y = Math.floor(top); y < Math.ceil(bottom); y += 1) {
+        for (let x = Math.floor(left); x < Math.ceil(right); x += 1) {
+          const i = (y * scratch.width + x) * 4;
+          const r = pixels[i];
+          const g = pixels[i + 1];
+          const b = pixels[i + 2];
+          const a = pixels[i + 3];
+          if (mode === "red") {
+            if (r > 210 && g < 90 && b < 90 && a > 180) count++;
+            continue;
+          }
+          const cyan = b > 100 && g > 110 && r < 150 && a > 180;
+          const gold = r > 120 && g > 95 && b < 110 && a > 180;
+          if (cyan || gold) count++;
+        }
+      }
+      return count;
+    },
+    { base64: image.toString("base64"), mode },
+  );
 }
 
 export type { MineAction, MineState } from "../../../src/sim/mine";

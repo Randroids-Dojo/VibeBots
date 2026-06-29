@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest stratum banner fade note complete", () => {
+  it("keeps the latest visible raid XP pickups note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-29-0.1.147-stratum-banner-fade");
+    expect(release.noticeId).toBe("2026-06-29-0.1.148-visible-raid-xp-pickups");
+    expect(latestNote).toMatchObject({
+      version: "0.1.148",
+      title: "Visible raid XP pickups",
+      intro: "Stale raid XP now has a bright pickup object.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Survived-raid XP pickups now render as larger bright objects with a cyan halo, gold rays, and a stronger green core.",
+      "The stale-pickup smoke test now samples the mine canvas while collection is pending, so the XP here state must also have visible world pixels.",
+      "The mine tip now says the XP arrow leads to the bright pickup. Mine rules, raid rewards, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived stratum banner fade note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.147");
+
     expect(latestNote).toMatchObject({
       version: "0.1.147",
       title: "Stratum banner fade",

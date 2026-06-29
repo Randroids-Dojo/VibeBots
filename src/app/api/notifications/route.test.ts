@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-29-0.1.147-stratum-banner-fade",
+      releaseNoticeId: "2026-06-29-0.1.148-visible-raid-xp-pickups",
       releaseSummary:
-        "Stratum banner fade: Mine stratum banners now fade away cleanly.",
+        "Visible raid XP pickups: Stale raid XP now has a bright pickup object.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-29-0.1.147-stratum-banner-fade",
+      releaseNoticeId: "2026-06-29-0.1.148-visible-raid-xp-pickups",
       attempted: 2,
       sent: 1,
       expired: 1,

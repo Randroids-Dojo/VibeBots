@@ -528,6 +528,7 @@
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
     <dt>Review update</dt><dd>2026-06-27: still valuable. <code>finishStationaryAction</code> now exists for some stationary handlers, but direct success returns remain for intentional branches such as recall, abandon, elevator, warp, portal, beacon, and bag-drop paths.</dd>
     <dt>Updated scope</dt><dd>Do not blindly force every action through one helper. First document the per-action finalization contract, then add tests proving which handlers should skip support settling, falling-rock advancement, dynamite timing, hover clearing, or similar side effects.</dd>
+    <dt>Resolved</dt><dd>2026-06-29: documented the replay finalization contract beside <code>applyAction</code> and added focused replay tests for the split between full-turn finalization and direct trip-control actions. The slice intentionally preserves current semantics, so <code>MINE_VERSION</code>, <code>SIM_VERSION</code>, package version, release notes, and mine tips stay unchanged.</dd>
   </dl>
 </section>
 

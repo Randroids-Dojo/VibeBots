@@ -1844,7 +1844,24 @@ function dropOreFromBag(
   };
 }
 
-/** Dispatches any logged trip action (Q-006 default B). */
+/**
+ * Dispatches any logged trip action (Q-006 default B).
+ *
+ * Finalization contract:
+ * - Directional movement and digs are full mine turns: they clear jump hover,
+ *   tick falling rocks, settle changed supports, settle the miner, and may
+ *   detonate a planted charge once the miner has moved clear.
+ * - Explicit stationary support actions use finishStationaryAction so support
+ *   salvage, support placement, and plank breaking follow the same turn
+ *   finalization without moving the miner.
+ * - Dynamite placement has its own delayed-charge contract: planting spends
+ *   stock and settles hazards, while a later successful finalized action
+ *   detonates after the miner leaves the charge.
+ * - Recall, abandon, elevator up, warp, portal travel, beacon placement,
+ *   beacon rename, and manual bag drops are direct trip-control actions. They
+ *   intentionally do not run the generic stationary finalizer unless their
+ *   handler explicitly does equivalent work.
+ */
 export function applyAction(state: MineState, action: MineAction): MoveResult {
   if (action.startsWith("collect:")) return collectPlaced(state, action);
   const droppedOre = parseDropOreAction(action);

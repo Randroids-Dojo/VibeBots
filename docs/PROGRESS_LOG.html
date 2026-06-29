@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-finalization-contract" data-date="2026-06-29">
+    <h3>Mine Finalization Contract</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>refactor/mine-finalization-contract-f042</code>, created from current <code>origin/main</code> before implementation.</dd>
+      <dt>PR</dt><dd>Direct push to <code>origin/main</code> requested by user after review, cleanup, release-note audit, and verification.</dd>
+      <dt>Changed</dt><dd>Completed <code>F-042</code> by documenting the replay finalization contract beside <code>applyAction</code> and adding replay-owned regression coverage for full-turn movement, support collection, elevator descent, dynamite timing, terminal recall and abandon, warp, portal, beacon, and manual bag-drop actions. Current semantics are preserved: direct trip-control actions stay direct, while movement and support actions keep the shared finalization path.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched the ledger before and after the slice for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.9</code>, three <code>0.185.0</code>, and fiber <code>9.6.1</code>. Ran focused replay Vitest with <code>pnpm exec vitest run src/sim/mine/replay.test.ts</code> (9 passed), focused replay/support/bank coverage with <code>pnpm exec vitest run src/sim/mine/replay.test.ts src/sim/mine/supports.test.ts src/app/api/mine/bank/route.test.ts</code> (34 passed), <code>pnpm typecheck</code>, <code>pnpm test</code> (495 passed), <code>pnpm lint</code>, <code>pnpm check:purity</code>, <code>pnpm check:dashes</code>, <code>git diff --check</code>, JSON validation for <code>docs/GDD_COVERAGE.json</code>, and <code>pnpm build</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: this is a replay-contract cleanup only. It does not change player-facing mine mechanics, save data, package version, app release notes, mine tips, <code>MINE_VERSION</code>, or <code>SIM_VERSION</code>. Release notes and mine tips were reviewed and no copy change is needed.</dd>
+      <dt>GDD coverage</dt><dd>No GDD coverage rows changed because gameplay behavior is unchanged.</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-042">F-042</a>. No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="raid-xp-here-marker" data-date="2026-06-29">
     <h3>Raid XP Here Marker</h3>
     <dl>

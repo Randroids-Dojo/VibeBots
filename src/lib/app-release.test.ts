@@ -2,11 +2,27 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest route-aware ladders note complete", () => {
+  it("keeps the latest holodeck note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-29-0.1.149-route-aware-ladders");
+    expect(release.noticeId).toBe("2026-06-29-0.1.150-holodeck");
+    expect(latestNote).toMatchObject({
+      version: "0.1.150",
+      title: "Holodeck test scenes",
+      intro: "A new Holodeck mode loads focused, looping mine test scenes.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A new Holodeck entry in the mine options menu loads small, controlled test scenes through a scenario selector.",
+      "The first scenario auto-mines a single block on a deterministic loop, with live controls for pickaxe level and block type that reconfigure the scene without a reload.",
+      "Holodeck runs in its own isolated session, so it never touches your live mine trip. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived route-aware ladders note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.149");
+
     expect(latestNote).toMatchObject({
       version: "0.1.149",
       title: "Route-aware ladders",

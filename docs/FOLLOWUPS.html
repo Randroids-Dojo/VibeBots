@@ -539,6 +539,17 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: add the Holodeck entry point, a scenario registry and selector, and one first scenario with the miner and a single block. The scenario should auto mine the block, reload the scene, and repeat in a loop. Include scenario-local controls such as pickaxe level and block type, and keep the registry open for additional scenarios proposed later. Acceptance: the mode is reachable from options, the selected scenario runs in a deterministic loop, controls reconfigure the scene without a full app reload, and future scenarios can be added without editing the options menu each time.</dd>
     <dt>PR / Dot reference</dt><dd><code>VibeBots-add-holodeck-scenario-5a70a188</code></dd>
+    <dt>Resolved</dt><dd>2026-06-29: shipped the Holodeck mode on branch <code>claude/holodeck-implementation-design-ej5am4</code>. Reachable from the mine options menu at <code>/holodeck</code>. A pure scenario registry (<code>src/sim/holodeck.ts</code>) fabricates controlled scenes via <code>createMine</code> + <code>setCell</code>; an isolated store (<code>src/state/holodeck-store.ts</code>) auto-mines the single-block scenario on a deterministic loop and rebuilds on completion; a fresh canvas (<code>src/components/holodeck-canvas.tsx</code>) reuses the existing render primitives; the panel exposes a scenario selector plus per-scenario pickaxe and block-type controls that reconfigure without a reload. Registry stays open for future scenarios with no options-menu edits. New followup <code>F-046</code> tracks deeper shared block-mesh extraction.</dd>
+  </dl>
+</section>
+
+<section id="F-046" data-f="F-046" data-priority="nice-to-have">
+  <h3>F-046: Extract a shared block-mesh component for the mine and Holodeck canvases</h3>
+  <dl>
+    <dt>Context</dt><dd>The Holodeck canvas (F-043) was built as a fresh canvas that reuses the already-extracted leaf primitives (<code>MinerBot</code>, <code>OreCrystals</code>, <code>CrackMarks</code>, palette), but it reimplements the per-cell solid block bodies (dirt, ore, rock, metal) that the main <code>mine-canvas.tsx</code> <code>MineScene</code> still inlines. The duplication is small and intentional for this slice, since extracting from the 1476-line determinism-adjacent mine canvas is a larger refactor.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: extract a shared <code>MineBlockMesh</code> (and any lighting-rig helper) into <code>mine-block-render.tsx</code>, then consume it from both <code>mine-canvas.tsx</code> and <code>holodeck-canvas.tsx</code> with the mine canvas output unchanged. Acceptance: one block-body source of truth, mine smoke still green, and Holodeck still renders dirt, ore, rock, and metal correctly.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
   </dl>
 </section>
 

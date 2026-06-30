@@ -74,3 +74,35 @@ test("holodeck controls reconfigure the scene without a reload", async ({
     )
     .toBeGreaterThan(0);
 });
+
+test("holodeck pause freezes the mining animation, play resumes it", async ({
+  page,
+}) => {
+  await page.goto("/holodeck");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await expect
+    .poll(async () => canvas.getAttribute("data-holodeck-arm"), {
+      timeout: 15_000,
+    })
+    .not.toBeNull();
+
+  // Pause: the pick arm must stop moving and the loop must stop advancing.
+  await page.getByRole("button", { name: "Pause" }).click();
+  await page.waitForTimeout(300); // let any in-flight swing settle to rest
+  const armPaused = await canvas.getAttribute("data-holodeck-arm");
+  const loopsPaused = Number(await canvas.getAttribute("data-holodeck-loops"));
+  await page.waitForTimeout(900);
+  expect(await canvas.getAttribute("data-holodeck-arm")).toBe(armPaused);
+  expect(Number(await canvas.getAttribute("data-holodeck-loops"))).toBe(
+    loopsPaused,
+  );
+
+  // Play: motion resumes.
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect
+    .poll(async () => canvas.getAttribute("data-holodeck-arm"), {
+      timeout: 15_000,
+    })
+    .not.toBe(armPaused);
+});

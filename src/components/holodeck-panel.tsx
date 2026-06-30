@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   HOLODECK_SCENARIOS,
   type HolodeckSettings,
@@ -55,8 +55,9 @@ export function HolodeckPanel() {
   const updateSetting = useHolodeckStore((s) => s.updateSetting);
   const reset = useHolodeckStore((s) => s.reset);
   const driveStep = useHolodeckStore((s) => s.driveStep);
+  const paused = useHolodeckStore((s) => s.paused);
+  const setPaused = useHolodeckStore((s) => s.setPaused);
 
-  const [paused, setPaused] = useState(false);
   const scenario = holodeckScenario(scenarioId);
   const intervalMs = actionRepeatMs({
     ...DEFAULT_GEAR,
@@ -146,7 +147,7 @@ export function HolodeckPanel() {
           <button
             type="button"
             aria-pressed={paused}
-            onClick={() => setPaused((p) => !p)}
+            onClick={() => setPaused(!paused)}
             style={{ ...fieldStyle, cursor: "pointer", fontWeight: 700 }}
           >
             {paused ? "▶ Play" : "⏸ Pause"}

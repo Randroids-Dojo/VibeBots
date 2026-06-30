@@ -137,6 +137,7 @@ function HolodeckScene() {
   const scene = useHolodeckStore((s) => s.scene);
   const tick = useHolodeckStore((s) => s.tick);
   const loops = useHolodeckStore((s) => s.loops);
+  const paused = useHolodeckStore((s) => s.paused);
   const lastAction = useHolodeckStore((s) => s.lastAction);
   void tick; // subscription trigger: the scene's state mutates in place
 
@@ -159,11 +160,14 @@ function HolodeckScene() {
       minerRef.current.position.set(cellX(miner.col), -miner.row, 0.2);
     }
     if (bodyRef.current) {
-      bodyRef.current.position.y = -0.14 + Math.sin(t * 2.4) * 0.02;
+      // Hold a still frame while paused; idle bob otherwise.
+      bodyRef.current.position.y =
+        -0.14 + (paused ? 0 : Math.sin(t * 2.4) * 0.02);
     }
-    // Chop the pick while a block is still there; rest between loops.
+    // Chop the pick while a block is still there; rest between loops and
+    // freeze entirely while paused.
     if (armRef.current) {
-      const swing = targetSolid ? Math.max(0, Math.sin(t * 9)) : 0;
+      const swing = paused || !targetSolid ? 0 : Math.max(0, Math.sin(t * 9));
       armRef.current.rotation.z = -swing * 1.1;
       // Expose live motion for QA (Rule 10): the value changes every frame.
       gl.domElement.dataset.holodeckArm = armRef.current.rotation.z.toFixed(3);

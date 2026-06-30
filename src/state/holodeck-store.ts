@@ -23,9 +23,12 @@ interface HolodeckSessionState {
   stepCount: number;
   /** Completed auto-mine + reload cycles since mount (monotonic). */
   loops: number;
+  /** When true, the auto-driver and the render animation are frozen. */
+  paused: boolean;
   tick: number;
   lastResult: MoveResult | null;
   lastAction: MineAction | null;
+  setPaused: (next: boolean) => void;
   selectScenario: (id: string) => void;
   updateSetting: <K extends keyof HolodeckSettings>(
     key: K,
@@ -45,9 +48,11 @@ export const useHolodeckStore = create<HolodeckSessionState>((set, get) => ({
   scene: INITIAL.build(INITIAL.defaults),
   stepCount: 0,
   loops: 0,
+  paused: false,
   tick: 0,
   lastResult: null,
   lastAction: null,
+  setPaused: (next) => set({ paused: next }),
   selectScenario: (id) => {
     const scenario = holodeckScenario(id);
     set((s) => ({

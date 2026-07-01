@@ -301,10 +301,15 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await expect(xpLocator).toHaveAttribute("data-raid-xp-direction", "here");
   await expect(xpLocator).toContainText("XP here");
   const canvas = page.locator("canvas");
+  // Each poll attempt here pays for a full screenshot capture plus a
+  // pixel-by-pixel scan on top of the usual round trip, which is
+  // considerably more expensive than a plain attribute read. 3s left no
+  // margin for a loaded CI runner to get more than one or two attempts in
+  // before the marker's first frame had even rendered.
   await expect
     .poll(async () => countRaidXpPixels(page, await canvas.screenshot()), {
       message: "the raid XP pickup should render as a visible world marker",
-      timeout: 3_000,
+      timeout: 8_000,
     })
     .toBeGreaterThan(1_000);
   const pendingXpPixels = await countRaidXpPixels(
@@ -325,7 +330,7 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await expect
     .poll(async () => countRaidXpPixels(page, await canvas.screenshot()), {
       message: "the raid XP pickup world marker should clear after collection",
-      timeout: 3_000,
+      timeout: 8_000,
     })
     .toBeLessThan(pendingXpPixels - 500);
   await expect(

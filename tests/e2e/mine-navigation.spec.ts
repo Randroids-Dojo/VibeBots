@@ -367,6 +367,11 @@ test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
 });
 
 test("floating mine menus dismiss from outside taps", async ({ page }) => {
+  // Walking to the base indicator takes up to 72 keypresses at the fixed
+  // mine key cadence (~14s of real sleeps) on top of several menu
+  // interactions earlier in the test; the suite-wide 60s timeout leaves
+  // no margin on a loaded CI runner.
+  test.setTimeout(120_000);
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   const outsidePoint = { x: 18, y: 220 };

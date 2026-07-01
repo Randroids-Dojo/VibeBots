@@ -553,6 +553,16 @@
   </dl>
 </section>
 
+<section id="F-047" data-f="F-047" data-priority="polish">
+  <h3>F-047: Full E2E "falling-rock crush" trip-report timing can race the camera hold on a slow CI runner</h3>
+  <dl>
+    <dt>Context</dt><dd>Fixing the nightly Full E2E regressions in <code>tests/e2e/mine-core.spec.ts</code> and <code>tests/e2e/mine-bunker.spec.ts</code> (raced Node&lt;-&gt;browser round trips against fixed-duration UI timers) surfaced a deeper, previously-unreached assertion in <code>"falling-rock crush stays on camera before the report"</code>: <code>data-fall-visual-active</code> can already read <code>"false"</code> by the moment the "Dismiss trip report" button becomes visible, even though the wreck reveal (1300ms after the crush, in <code>mine-panel.tsx</code>) is supposed to land comfortably inside the 3.6s crush camera hold (<code>CRUSH_HOLD_SECONDS</code> in <code>mine-death-playback.ts</code>). Root-cause hypothesis: the wreck reveal is a raw <code>window.setTimeout</code>, while the camera hold clears itself inside the render loop's own wall-clock check; under severe main-thread congestion (observed locally at roughly 270ms per rendered frame, an order of magnitude slower than the actual GitHub Actions runner based on how quickly its Full E2E shards complete), a busy render loop can starve the <code>setTimeout</code> callback far past its nominal delay, so by the time it finally fires the hold may have already expired. This was not part of the confirmed CI failure signature (CI failed earlier in both observed nights, at the assertions this slice already fixed), so it was left unchanged rather than guessed at with an under-informed product timing change.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: confirm whether this assertion is ever actually reached and failing on the real GitHub Actions runner (watch the next few scheduled Full E2E runs). If it reproduces there, tie the wreck reveal to the same render-clock signal the camera hold already uses (for example, only reveal the wreck once <code>data-fall-visual-active</code> has genuinely cleared, or drive both off one shared elapsed-time source) instead of an independent <code>setTimeout</code>, so the two can not drift apart under load. Acceptance: the assertion holds on a loaded runner without widening it into a no-op.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
 <section id="F-044" data-f="F-044" data-priority="polish">
   <h3>F-044: Support parallel Playwright runs locally</h3>
   <dl>

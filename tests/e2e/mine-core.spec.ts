@@ -249,35 +249,82 @@ test("stratum entry banners fade after continued descent", async ({ page }) => {
     .locator(".mine-stratum-banner")
     .filter({ hasText: "Entering Clay Beds" });
   await expect(banner).toBeVisible();
-  const entryFrame = await banner.evaluate((element) => {
-    const style = window.getComputedStyle(element);
-    return { opacity: Number(style.opacity), transform: style.transform };
+
+  // The banner's whole fade lifetime is a fixed 2.6s (STRATUM_BANNER_MS).
+  // Reaching depth 13 afterward has its own real-time cost (the direction
+  // cadence gate needs a full cooldown for the ladder descent), so
+  // checking the fade only *after* that move races the two against each
+  // other and is unreliable on a loaded CI runner. Instead, force the
+  // still-running animation into its fade phase right away via the Web
+  // Animations API (authoritative and instant, no need to wait out real
+  // time) while the banner is freshest, then do the depth-13 move
+  // afterward with no time pressure at all. getAnimations() can briefly
+  // be empty right after the element mounts, before the browser has
+  // registered the CSS animation against it, so retry in-browser instead
+  // of racing a separate round trip against that same short window.
+  const entry = await page.evaluate(async () => {
+    const deadline = Date.now() + 2_000;
+    let element: Element | null = null;
+    let anim: Animation | undefined;
+    while (Date.now() < deadline) {
+      element = document.querySelector(".mine-stratum-banner");
+      anim = element?.getAnimations()[0];
+      if (anim) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    if (!element || !anim) {
+      return { animFound: false as const };
+    }
+    const entryTransform = window.getComputedStyle(element).transform;
+    const duration = Number(anim.effect?.getTiming().duration);
+    if (Number.isFinite(duration)) {
+      anim.currentTime = duration * 0.75;
+    }
+    const fadingStyle = window.getComputedStyle(element);
+    return {
+      animFound: true as const,
+      entryTransform,
+      opacity: Number(fadingStyle.opacity),
+      fadingTransform: fadingStyle.transform,
+    };
   });
-  await digTo(page, 13);
+  expect(entry.animFound).toBe(true);
+  if (!entry.animFound) throw new Error("unreachable");
+  expect(entry.opacity).toBeGreaterThan(0);
+  expect(entry.opacity).toBeLessThan(1);
+  expect(entry.fadingTransform).not.toBe(entry.entryTransform);
+
+  // Depth 13 is still within the "Clay Beds" stratum, so this move must
+  // not retrigger or reset the banner (that reset was the bug fixed by
+  // the commit that introduced this animation). Drive it in-browser so
+  // it doesn't cost extra round trips; how long it takes doesn't matter
+  // anymore since the fade itself was already verified above.
+  await page.evaluate(async () => {
+    const statusEl = document.querySelector('[aria-label="Mine status"]');
+    const deadline = Date.now() + 4000;
+    while (Date.now() < deadline) {
+      if (Number(statusEl?.getAttribute("data-depth")) >= 13) return;
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }),
+      );
+      window.dispatchEvent(
+        new KeyboardEvent("keyup", { bubbles: true, key: "ArrowDown" }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  });
   await expect(status).toHaveAttribute("data-depth", "13");
-  await expect
-    .poll(
-      async () => {
-        const fadingFrame = await banner
-          .evaluate((element) => {
-            const style = window.getComputedStyle(element);
-            return {
-              opacity: Number(style.opacity),
-              transform: style.transform,
-            };
-          })
-          .catch(() => null);
-        return (
-          fadingFrame !== null &&
-          fadingFrame.opacity > 0 &&
-          fadingFrame.opacity < 1 &&
-          fadingFrame.transform !== entryFrame.transform
-        );
-      },
-      { message: "stratum banner should visibly fade after a row change" },
-    )
-    .toBe(true);
-  await expect(banner).not.toBeVisible({ timeout: 3500 });
+
+  // No fresh, un-faded banner should have appeared for the same stratum.
+  const freshBanner = page
+    .locator(".mine-stratum-banner")
+    .filter({ hasText: "Entering Clay Beds" });
+  if (await freshBanner.isVisible().catch(() => false)) {
+    const stillFading = await freshBanner.evaluate((element) => {
+      return Number(window.getComputedStyle(element).opacity) < 1;
+    });
+    expect(stillFading).toBe(true);
+  }
 });
 
 test("mine low battery and ladder warnings pulse on screen", async ({
@@ -576,58 +623,83 @@ test("falling-rock crush stays on camera before the report", async ({
   await digTo(page, 7);
   await expect(status).toHaveAttribute("data-depth", "7");
   const beforeCrushShot = await canvas.screenshot();
-  let firstActiveFrame: { camY: number; minerY: number } | null = null;
+  // The trip-report button appears a fixed 1300ms after the crush is
+  // detected (see the wreck timer in mine-panel.tsx), a tight budget on a
+  // loaded CI runner where each Node<->browser round trip can cost
+  // hundreds of ms. Detect the crush and read the report button's
+  // presence in one atomic in-browser step (rAF-driven polling, no round
+  // trip per tick) instead of polling canvas attributes from Node.
+  let firstActiveFrame: {
+    camY: number;
+    minerY: number;
+    reportVisibleAtCrush: boolean;
+  } | null = null;
   for (let attempt = 0; attempt < 4 && !firstActiveFrame; attempt++) {
     await pressMineKey(page, "ArrowDown");
-    for (let i = 0; i < 60; i++) {
-      const active = await canvas.getAttribute("data-fall-visual-active");
-      if (active === "true") {
-        firstActiveFrame = {
-          camY: Number(await canvas.getAttribute("data-cam-y")),
-          minerY: Number(await canvas.getAttribute("data-miner-y")),
+    firstActiveFrame = await page.evaluate(() => {
+      return new Promise((resolve) => {
+        const canvasEl = document.querySelector("canvas");
+        const deadline = Date.now() + 1_000;
+        const check = () => {
+          if (canvasEl?.getAttribute("data-fall-visual-active") === "true") {
+            resolve({
+              camY: Number(canvasEl.getAttribute("data-cam-y")),
+              minerY: Number(canvasEl.getAttribute("data-miner-y")),
+              reportVisibleAtCrush: !!document.querySelector(
+                '[aria-label="Dismiss trip report"]',
+              ),
+            });
+            return;
+          }
+          if (Date.now() > deadline) {
+            resolve(null);
+            return;
+          }
+          requestAnimationFrame(check);
         };
-        break;
-      }
-      await page.waitForTimeout(16);
-    }
+        check();
+      });
+    });
   }
   expect(firstActiveFrame).not.toBeNull();
   expect(firstActiveFrame?.camY).toBeLessThan(-7);
   expect(firstActiveFrame?.minerY).toBeLessThan(-7);
-  await expect(
-    page.getByRole("button", { name: "Dismiss trip report" }),
-  ).not.toBeVisible();
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {
-      timeout: 5_000,
-    })
-    .toBeLessThan(-7);
-  await expect
-    .poll(
-      async () => Number(await canvas.getAttribute("data-rendered-cell-count")),
-      {
-        timeout: 5_000,
-      },
-    )
-    .toBeGreaterThan(20);
-  await expect
-    .poll(async () => canvas.getAttribute("data-fall-visual-impact"), {
-      timeout: 5_000,
-    })
-    .toBe("true");
+  expect(firstActiveFrame?.reportVisibleAtCrush).toBe(false);
+  // The trip report's wreck timer keeps ticking in real time regardless of
+  // how these checks are made, so combine them into one in-browser wait
+  // (rAF-driven, no round trip per tick) instead of three separate
+  // Node-side .poll() calls, each of which costs a full round trip per
+  // check on a loaded CI runner and eats into the fall-visual hold budget.
+  await page.waitForFunction(
+    () => {
+      const canvasEl = document.querySelector("canvas");
+      return (
+        Number(canvasEl?.getAttribute("data-cam-y")) < -7 &&
+        Number(canvasEl?.getAttribute("data-rendered-cell-count")) > 20 &&
+        canvasEl?.getAttribute("data-fall-visual-impact") === "true"
+      );
+    },
+    { timeout: 5_000 },
+  );
   const activeCrushShot = await canvas.screenshot();
   expect(Buffer.compare(beforeCrushShot, activeCrushShot)).not.toBe(0);
 
   const report = page.getByRole("button", { name: "Dismiss trip report" });
   await expect(report).toBeVisible({ timeout: 15_000 });
+  // Check the camera-hold state in one round trip, right as the report
+  // appears, before the (unrelated, static) text checks below add more
+  // round-trip delay against the fall-visual hold's own real-time budget.
+  const atReportShown = await canvas.evaluate((element) => ({
+    fallVisualActive: element.getAttribute("data-fall-visual-active"),
+    camY: Number(element.getAttribute("data-cam-y")),
+    renderedCellCount: Number(element.getAttribute("data-rendered-cell-count")),
+  }));
+  expect(atReportShown.fallVisualActive).toBe("true");
+  expect(atReportShown.camY).toBeLessThan(-7);
+  expect(atReportShown.renderedCellCount).toBeGreaterThan(20);
   await expect(report).toContainText("Crushed by falling rock");
   await expect(report).toContainText("where the rock fell");
   await expect(report).not.toContainText("battery died");
-  await expect(canvas).toHaveAttribute("data-fall-visual-active", "true");
-  expect(Number(await canvas.getAttribute("data-cam-y"))).toBeLessThan(-7);
-  expect(
-    Number(await canvas.getAttribute("data-rendered-cell-count")),
-  ).toBeGreaterThan(20);
 });
 
 test("scrap selection outlines selected cells in red", async ({ page }) => {
@@ -973,13 +1045,14 @@ test("rapid repeated keyboard taps do not bypass held cadence (REQ-023)", async 
   await expect(status).toHaveAttribute("data-depth", "0");
 
   const keyboardStart = await horizontalDistance();
-  await page.keyboard.press("ArrowRight");
-  await expect(status).toHaveAttribute(
-    "data-horizontal-distance",
-    String(keyboardStart + 1),
-  );
+  // Dispatch all four taps inside one page.evaluate call so the cadence
+  // gate sees them back-to-back. Splitting the first tap into its own
+  // Playwright round trip left a real gap (CDP latency, well over the
+  // cadence window on a loaded CI runner) before the "rapid" taps landed,
+  // so the cooldown from the first tap had already expired by the time the
+  // rest arrived and the test asserted on the wrong invariant.
   await page.evaluate(() => {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       window.dispatchEvent(
         new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }),
       );

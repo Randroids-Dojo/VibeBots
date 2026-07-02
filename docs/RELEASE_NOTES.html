@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.156" data-date="2026-07-02">
+    <h2>0.1.156</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.156</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Ore crystals now look worth digging for.</dd>
+      <dt>Gem-grade ores</dt><dd>A shared TSL crystal material gives every ore glassy facets with fresnel-lit edges; the glowing rare tiers breathe on a per-cell phase. Clusters grew richer (3 to 5 crystals with taller shard variety), still deterministic per cell.</dd>
+      <dt>Performance</dt><dd>One shared material per (ore, glow, tier) replaces a material instance per crystal; detail requires the high tier and the live WebGPU backend, so phones and fallback devices keep the flat fast path.</dd>
+      <dt>Verification</dt><dd>Regression battery over ore-adjacent smokes plus Block Gallery captures of the classic ore set. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.155" data-date="2026-07-02">
     <h2>0.1.155</h2>
     <dl>

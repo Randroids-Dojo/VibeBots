@@ -110,8 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-02-0.1.155-living-blocks",
-      releaseSummary: "Living blocks: The mine's blocks got real surfaces.",
+      releaseNoticeId: "2026-07-02-0.1.156-gem-grade-ores",
+      releaseSummary:
+        "Gem-grade ores: Ore crystals now look worth digging for.",
     });
   });
 
@@ -171,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-02-0.1.155-living-blocks",
+      releaseNoticeId: "2026-07-02-0.1.156-gem-grade-ores",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-02-0.1.155-living-blocks";
+export const RELEASE_NOTICE_ID = "2026-07-02-0.1.156-gem-grade-ores";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.156",
+      date: "2026-07-02",
+      title: "Gem-grade ores",
+      intro: "Ore crystals now look worth digging for.",
+      changes: [
+        {
+          build,
+          text: "Every ore's crystals became glassy faceted clusters with lit edges: coal reads as dark chunks, copper as warm nuggets, and the rare glowing tiers now breathe with light.",
+        },
+        {
+          build,
+          text: "Richer clusters per block, still unique per cell, and phones keep their fast path.",
+        },
+        {
+          build,
+          text: "Mine rules, ore values, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.155",
       date: "2026-07-02",

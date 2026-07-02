@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="w1-gem-grade-ores" data-date="2026-07-02">
+    <h3>W1 Increment: Gem-Grade Ore Crystals</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed flow).</dd>
+      <dt>PR</dt><dd>None (direct main).</dd>
+      <dt>Changed</dt><dd>New shared TSL <code>crystalMaterial</code> in <code>mine-block-materials.ts</code>: glassy low-roughness facets with fresnel-lit edges, and a per-cell-phased breathing pulse for the glowing tiers (time node plus the in-shader cell hash). <code>OreCrystals</code> consumes it with backend-and-tier-gated detail, richer clusters (3 to 5 crystals, taller shard scale variety), and shared-material instancing instead of a material per crystal. Package version <code>0.1.156</code> with a release note; <code>MINE_VERSION</code> 48 and <code>SIM_VERSION</code> 3 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome, release/notification suites after the bump, full unit suite, <code>pnpm build</code>, a five-test regression battery (dirt cracks, raid XP pixels, crush camera, holodeck auto-mine, digs-and-tracks), and Block Gallery captures of the classic ore set showing each ore reading distinctly. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: crystal shapes stay octahedral this increment; per-family shape languages (tech ores as machined parts, frost as ice shards) are a future increment. Rule 13: tips reviewed, no change. Rule 14: no stamp.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed. <code>docs/gdd/06-mining.html</code> build log gains the entry below.</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="w1-mine-canvas-migration" data-date="2026-07-02">
     <h3>W1 Increment: The Mine Renders The Shared Block Bodies</h3>
     <dl>

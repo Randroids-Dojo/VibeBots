@@ -28,6 +28,7 @@ import {
   positionViewDirection,
   positionWorld,
   sin,
+  time,
   vec2,
   vec3,
 } from "three/tsl";
@@ -185,6 +186,38 @@ export function boulderBlockMaterial(
       float(0.88).add(wear.mul(0.2)),
     );
     material.roughnessNode = float(0.72).add(wear.mul(0.2));
+    return material;
+  });
+}
+
+/** Ore crystals: glassy facets with bright fresnel rims; the glowing
+ * tiers breathe. Detail keeps the pulse and rim; the flat tier keeps
+ * the old constant emissive so phones pay nothing new. */
+export function crystalMaterial(
+  baseHex: string,
+  glow: boolean,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  return cached(`crystal:${baseHex}:${glow}:${detail}`, () => {
+    const material = new MeshStandardNodeMaterial();
+    material.flatShading = true;
+    material.metalness = 0.1;
+    material.roughness = 0.18;
+    material.colorNode = color(baseHex);
+    if (!detail) {
+      material.emissiveNode = color(baseHex).mul(glow ? 1.1 : 0.4);
+      return material;
+    }
+    const rim = oneMinus(abs(dot(normalView, positionViewDirection)));
+    const facetRim = rim.mul(rim).mul(1.6);
+    const breath = glow
+      ? sin(time.mul(1.7).add(cellHashNode().mul(6.28)))
+          .mul(0.25)
+          .add(1.0)
+      : float(1.0);
+    material.emissiveNode = color(baseHex)
+      .mul(float(glow ? 0.85 : 0.3).add(facetRim))
+      .mul(breath);
     return material;
   });
 }

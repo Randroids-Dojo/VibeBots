@@ -7,6 +7,7 @@ import { isWebGPUBackend } from "./graphics-quality";
 import {
   blockDetailEnabled,
   boulderBlockMaterial,
+  crystalMaterial,
   dirtBlockMaterial,
   gasBlockMaterial,
   metalBlockMaterial,
@@ -313,7 +314,8 @@ export function crackSegmentCountForDamage(damage: number): number {
   return 3 + Math.floor(d * 6) + Math.floor(d * d * 7);
 }
 
-/** Crystals jutting from an ore cell, sized and angled per cell hash. */
+/** Crystals jutting from an ore cell, sized and angled per cell hash.
+ * Glassy shared TSL material with fresnel rims; glowing tiers breathe. */
 export function OreCrystals({
   col,
   row,
@@ -325,28 +327,26 @@ export function OreCrystals({
   color: string;
   glow: boolean;
 }) {
-  const count = 2 + Math.floor(cellHash(col, row, 7) * 2);
+  const detail = useThree((state) =>
+    blockDetailEnabled(isWebGPUBackend(state.gl)),
+  );
+  const material = crystalMaterial(color, glow, detail);
+  const count = 3 + Math.floor(cellHash(col, row, 7) * 3);
   const crystals = [];
   for (let i = 0; i < count; i++) {
     const a = cellHash(col, row, 11 + i);
     const b = cellHash(col, row, 23 + i);
-    const s = 0.09 + cellHash(col, row, 31 + i) * 0.09;
+    const s = 0.08 + cellHash(col, row, 31 + i) * 0.11;
     crystals.push(
       <mesh
         key={i}
-        position={[(a - 0.5) * 0.52, (b - 0.5) * 0.52, 0.42]}
+        position={[(a - 0.5) * 0.56, (b - 0.5) * 0.56, 0.42]}
         rotation={[a * 2.2, b * 2.2, (a + b) * 1.8]}
-        scale={[s, s * 1.7, s]}
+        scale={[s, s * (1.5 + b * 0.7), s]}
+        material={material}
+        dispose={null}
       >
         <octahedronGeometry args={[1, 0]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={glow ? 1.1 : 0.4}
-          roughness={0.25}
-          metalness={0.1}
-          flatShading
-        />
       </mesh>,
     );
   }

@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest living blocks note complete", () => {
+  it("keeps the latest gem-grade ores note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-02-0.1.155-living-blocks");
+    expect(release.noticeId).toBe("2026-07-02-0.1.156-gem-grade-ores");
     expect(latestNote).toMatchObject({
+      version: "0.1.156",
+      title: "Gem-grade ores",
+      intro: "Ore crystals now look worth digging for.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Every ore's crystals became glassy faceted clusters with lit edges: coal reads as dark chunks, copper as warm nuggets, and the rare glowing tiers now breathe with light.",
+      "Richer clusters per block, still unique per cell, and phones keep their fast path.",
+      "Mine rules, ore values, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived living blocks note complete", () => {
+    const release = getAppRelease();
+    const blocksNote = release.notes.find((note) => note.version === "0.1.155");
+
+    expect(blocksNote).toMatchObject({
       version: "0.1.155",
       title: "Living blocks",
       intro: "The mine's blocks got real surfaces.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(blocksNote?.changes.map((change) => change.text)).toEqual([
       "Dirt now shows soil grain and grit, rock carries crag striations with a cool sheen, bedrock metal is brushed steel, and gas pockets churn, all rendered per block with no two alike.",
       "The detail runs in the shader on capable devices and steps back to the classic flat look on phones, so nothing gets slower.",
       "A Holodeck Block Gallery lines up every block kind for a close look. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",

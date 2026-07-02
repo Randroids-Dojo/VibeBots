@@ -20,13 +20,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("The mine's blocks got real surfaces.");
+  await expect(dialog).toContainText(
+    "Ore crystals now look worth digging for.",
+  );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "soil grain and grit",
+    "glassy faceted clusters with lit edges",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "classic flat look on phones",
+    "phones keep their fast path",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION, and SIM_VERSION are unchanged",
@@ -49,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.156", "Gem-grade ores"],
     ["0.1.155", "Living blocks"],
     ["0.1.154", "Real light in the mine"],
     ["0.1.153", "Miner glow-up"],

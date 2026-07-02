@@ -35,12 +35,14 @@
     <h3>Dependency Bump: next 16.2.9 to 16.2.10</h3>
     <dl>
       <dt>Branch</dt><dd><code>chore/deps/next-16.2.9-to-16.2.10</code>, created from current <code>origin/main</code> (<code>8e9be60</code>).</dd>
-      <dt>PR</dt><dd>(to be opened)</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/82">#82</a></dd>
       <dt>Changed</dt><dd>Dependency Upgrade Gate bump: <code>next</code> moved from <code>16.2.9</code> to <code>16.2.10</code>. Upstream release notes: no changes except publishing <code>@next/swc-wasm-web</code>, which had accidentally not been published since 16.2.4. Ledger pinned line updated in the same diff; no code changes.</dd>
       <dt>Verification</dt><dd><code>pnpm typecheck</code>, full unit suite (511 passed), <code>pnpm build</code>, and route smoke on an isolated port in a fresh worktree (<code>tests/e2e/routes.spec.ts</code> and <code>tests/e2e/api.spec.ts</code>, 4 passed) covering App Router pages, the dynamic ssr:false canvas import, and API routes.</dd>
       <dt>Assumptions</dt><dd>Recommended default: a publish-only upstream patch needs no app package version bump or release note. Rule 13: mine tips reviewed, no change needed. Rule 14: no stamp (dependency maintenance).</dd>
       <dt>GDD coverage</dt><dd>No coverage status changed.</dd>
       <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
 
   <article data-slice="deps-three-0-185-1" data-date="2026-07-01">
     <h3>Dependency Bump: three 0.185.0 to 0.185.1</h3>

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="w1-mine-canvas-migration" data-date="2026-07-02">
+    <h3>W1 Increment: The Mine Renders The Shared Block Bodies</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed flow).</dd>
+      <dt>PR</dt><dd>None (direct main).</dd>
+      <dt>Changed</dt><dd>The mine canvas's dirt, ore, rock, and metal branches now render the shared <code>MineBlockBody</code> (F-046's consumption half), putting the W1 TSL materials live in gameplay: soil grain, crag striations, brushed bedrock, per-cell tone variation in-shader. The stateful branches (teetering rocks and boulders with their tremble refs, biome-tinted magma and gas) intentionally stay inline pending their own increment. Package version <code>0.1.155</code> with the player-facing release note; <code>MINE_VERSION</code> 48 and <code>SIM_VERSION</code> 3 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome, release/notification unit suites after the bump, <code>pnpm build</code>, a nine-test Playwright regression battery (scrap red pixels, raid XP pixels, stratum, crush camera, dirt cracks, deep-trip white-card and beacon smokes, both Holodeck specs), and live-mine portrait captures showing the grain in play. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: Rule 13 tips reviewed for 0.1.155, no change needed (visual-only). Rule 14: no stamp (rendering).</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed. <code>docs/gdd/06-mining.html</code> build log gains the entry below.</dd>
+      <dt>Followups</dt><dd>F-046 substantially closed: one block-body source of truth, both canvases consuming it; the stateful teeter/magma/gas inline branches are the remainder.</dd>
+    </dl>
+  </article>
+
   <article data-slice="w1-shared-block-materials" data-date="2026-07-02">
     <h3>W1 Increment: Shared TSL Block Materials On The Gallery Bench</h3>
     <dl>

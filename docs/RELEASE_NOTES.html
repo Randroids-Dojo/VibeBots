@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.155" data-date="2026-07-02">
+    <h2>0.1.155</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.155</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>The mine's blocks got real surfaces.</dd>
+      <dt>Living blocks</dt><dd>The mine canvas now renders cell bodies through the shared <code>MineBlockBody</code> on shared TSL materials: soil grain and grit on dirt, crag striations with a cool rim on rock, brushed bedrock steel, churning gas membranes, with the old per-cell tone variation computed in the shader from the cell's world position.</dd>
+      <dt>Performance</dt><dd>Hundreds of per-cell material instances collapse into a handful of shared programs; detail nodes compile in on the high tier only, so phones keep today's flat-shaded fragment cost.</dd>
+      <dt>Verification</dt><dd>Nine-test regression battery over pixel predicates, deep-trip smoke, crush camera, and the Holodeck specs; live-mine captures at portrait showing the grain in gameplay. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.154" data-date="2026-07-02">
     <h2>0.1.154</h2>
     <dl>

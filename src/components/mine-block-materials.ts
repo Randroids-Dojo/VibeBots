@@ -40,11 +40,12 @@ import {
 
 export type BlockMaterialKind = "dirt" | "rock" | "metal" | "boulder" | "gas";
 
-/** Detail nodes are compiled in only on the high tier; phones keep the
- * flat-shaded cost they have today. Resolved once at module init: the
- * material set is created on first use and shared for the session. */
-function detailEnabled(): boolean {
-  if (typeof window === "undefined") return false;
+/** Detail nodes compile in only when the caller passes detail: the high
+ * quality tier AND the live WebGPU backend (the WebGL2 fallback serves
+ * exactly the machines that cannot afford per-fragment noise, and CI's
+ * software-GL runners proved it by missing motion windows). */
+export function blockDetailEnabled(webgpuBackend: boolean): boolean {
+  if (typeof window === "undefined" || !webgpuBackend) return false;
   return (
     resolveGraphicsQualityTier(
       readStoredGraphicsQuality(),
@@ -84,12 +85,15 @@ function cached(
 }
 
 /** Soil: warm grain, pebbly speckle, matte. */
-export function dirtBlockMaterial(baseHex: string): MeshStandardNodeMaterial {
-  return cached(`dirt:${baseHex}:${detailEnabled()}`, () => {
+export function dirtBlockMaterial(
+  baseHex: string,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  return cached(`dirt:${baseHex}:${detail}`, () => {
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
     material.metalness = 0;
-    if (!detailEnabled()) {
+    if (!detail) {
       material.colorNode = jitteredColor(baseHex);
       material.roughness = 0.95;
       return material;
@@ -107,12 +111,15 @@ export function dirtBlockMaterial(baseHex: string): MeshStandardNodeMaterial {
 }
 
 /** Rock: harder crag striations and a faint cool sheen at grazing angles. */
-export function rockBlockMaterial(baseHex: string): MeshStandardNodeMaterial {
-  return cached(`rock:${baseHex}:${detailEnabled()}`, () => {
+export function rockBlockMaterial(
+  baseHex: string,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  return cached(`rock:${baseHex}:${detail}`, () => {
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
     material.metalness = 0.15;
-    if (!detailEnabled()) {
+    if (!detail) {
       material.colorNode = jitteredColor(baseHex);
       material.roughness = 0.6;
       return material;
@@ -132,11 +139,14 @@ export function rockBlockMaterial(baseHex: string): MeshStandardNodeMaterial {
 }
 
 /** Bedrock metal: brushed bands, full metalness (IBL pays for it). */
-export function metalBlockMaterial(baseHex: string): MeshStandardNodeMaterial {
-  return cached(`metal:${baseHex}:${detailEnabled()}`, () => {
+export function metalBlockMaterial(
+  baseHex: string,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  return cached(`metal:${baseHex}:${detail}`, () => {
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
-    if (!detailEnabled()) {
+    if (!detail) {
       material.colorNode = jitteredColor(baseHex);
       material.metalness = 0.85;
       material.roughness = 0.28;
@@ -159,12 +169,13 @@ export function metalBlockMaterial(baseHex: string): MeshStandardNodeMaterial {
 /** Boulders: dusty weathered stone, warm-edged. */
 export function boulderBlockMaterial(
   baseHex: string,
+  detail: boolean,
 ): MeshStandardNodeMaterial {
-  return cached(`boulder:${baseHex}:${detailEnabled()}`, () => {
+  return cached(`boulder:${baseHex}:${detail}`, () => {
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
     material.metalness = 0.05;
-    if (!detailEnabled()) {
+    if (!detail) {
       material.colorNode = jitteredColor(baseHex);
       material.roughness = 0.8;
       return material;
@@ -179,13 +190,16 @@ export function boulderBlockMaterial(
 }
 
 /** Gas pockets: sickly membrane with a slow interior churn. */
-export function gasBlockMaterial(baseHex: string): MeshStandardNodeMaterial {
-  return cached(`gas:${baseHex}:${detailEnabled()}`, () => {
+export function gasBlockMaterial(
+  baseHex: string,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  return cached(`gas:${baseHex}:${detail}`, () => {
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
     material.metalness = 0;
     material.roughness = 0.55;
-    if (!detailEnabled()) {
+    if (!detail) {
       material.colorNode = jitteredColor(baseHex);
       material.emissiveNode = color(baseHex).mul(0.25);
       return material;

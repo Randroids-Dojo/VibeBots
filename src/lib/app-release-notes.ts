@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-02-0.1.154-lighting-foundation";
+export const RELEASE_NOTICE_ID = "2026-07-02-0.1.155-living-blocks";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.155",
+      date: "2026-07-02",
+      title: "Living blocks",
+      intro: "The mine's blocks got real surfaces.",
+      changes: [
+        {
+          build,
+          text: "Dirt now shows soil grain and grit, rock carries crag striations with a cool sheen, bedrock metal is brushed steel, and gas pockets churn, all rendered per block with no two alike.",
+        },
+        {
+          build,
+          text: "The detail runs in the shader on capable devices and steps back to the classic flat look on phones, so nothing gets slower.",
+        },
+        {
+          build,
+          text: "A Holodeck Block Gallery lines up every block kind for a close look. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.154",
       date: "2026-07-02",

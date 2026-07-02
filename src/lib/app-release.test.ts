@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest lighting foundation note complete", () => {
+  it("keeps the latest living blocks note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-02-0.1.154-lighting-foundation");
+    expect(release.noticeId).toBe("2026-07-02-0.1.155-living-blocks");
     expect(latestNote).toMatchObject({
+      version: "0.1.155",
+      title: "Living blocks",
+      intro: "The mine's blocks got real surfaces.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Dirt now shows soil grain and grit, rock carries crag striations with a cool sheen, bedrock metal is brushed steel, and gas pockets churn, all rendered per block with no two alike.",
+      "The detail runs in the shader on capable devices and steps back to the classic flat look on phones, so nothing gets slower.",
+      "A Holodeck Block Gallery lines up every block kind for a close look. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived lighting foundation note complete", () => {
+    const release = getAppRelease();
+    const lightingNote = release.notes.find(
+      (note) => note.version === "0.1.154",
+    );
+
+    expect(lightingNote).toMatchObject({
       version: "0.1.154",
       title: "Real light in the mine",
       intro: "Shadows and studio lighting land on the surface.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(lightingNote?.changes.map((change) => change.text)).toEqual([
       "The sun now casts soft real-time shadows across the surface village, and a studio environment gives every surface, metal, and crystal true ambient light and reflections.",
       "The lighting fades as you descend, so the deep mine keeps its lamp-lit darkness.",
       "A graphics quality tier keeps phones fast: the low tier skips the heavy passes automatically. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",

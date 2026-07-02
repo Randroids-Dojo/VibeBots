@@ -59,7 +59,7 @@ import {
   DynamiteCharge,
   dropPileStats,
   FallingRockShard,
-  OreCrystals,
+  MineBlockBody,
 } from "./mine-block-render";
 import { type BunkerBuildMode, BunkerOverlay } from "./mine-bunker-overlay";
 import {
@@ -89,9 +89,7 @@ import {
   cellX,
   DARK_DEPTH,
   GAS_COLOR,
-  GLOWING_ORES,
   MAGMA_COLOR,
-  METAL_COLOR,
   ORE_COLORS,
   rockColorsForBiome,
   STRATA_BG,
@@ -1074,25 +1072,16 @@ function MineScene({
         continue;
       }
       if (cell.kind === "ore" && cell.ore) {
-        const oreColor = ORE_COLORS[cell.ore];
-        const glow = GLOWING_ORES.has(cell.ore);
         blockMeshes.push(
           <group key={key} position={[x, y, 0]}>
-            <RoundedBox args={[0.94, 0.94, 0.94]} radius={0.07} smoothness={2}>
-              <meshStandardMaterial
-                color={variedColor(biomeDirtColorAt(col, row), col, row)}
-                roughness={0.95}
-                flatShading
-              />
-            </RoundedBox>
-            <OreCrystals col={col} row={row} color={oreColor} glow={glow} />
+            <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
           </group>,
         );
         continue;
       }
       if (cell.kind === "rock") {
         const rockColors = rockColorsForBiome(biome);
-        const tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
+        const _tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
         const teeter = cell.fallIn;
         const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
         if (teeter !== undefined || cell.fallen) {
@@ -1110,30 +1099,9 @@ function MineScene({
           continue;
         }
         blockMeshes.push(
-          <mesh
-            key={key}
-            position={[x, y, 0]}
-            rotation={[
-              cellHash(col, row, 13) * 3.1,
-              cellHash(col, row, 17) * 3.1,
-              cellHash(col, row, 19) * 3.1,
-            ]}
-            ref={
-              teeter !== undefined ? teeterRef(key, x, y, urgency) : undefined
-            }
-          >
-            <dodecahedronGeometry args={[0.62, 0]} />
-            <meshStandardMaterial
-              color={variedColor(rockColors[tier], col, row)}
-              emissive={teeter !== undefined ? TEETER_EMISSIVE : "#000000"}
-              emissiveIntensity={
-                teeter !== undefined ? 0.15 + 0.5 * urgency : 0
-              }
-              roughness={0.6}
-              metalness={0.15}
-              flatShading
-            />
-          </mesh>,
+          <group key={key} position={[x, y, 0]}>
+            <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
+          </group>,
         );
         continue;
       }
@@ -1252,40 +1220,18 @@ function MineScene({
       }
       if (cell.kind === "metal") {
         blockMeshes.push(
-          <RoundedBox
-            key={key}
-            args={[0.98, 0.98, 1.02]}
-            radius={0.04}
-            smoothness={1}
-            position={[x, y, 0]}
-          >
-            <meshStandardMaterial
-              color={variedColor(METAL_COLOR, col, row)}
-              emissive="#101820"
-              emissiveIntensity={0.14}
-              roughness={0.28}
-              metalness={0.85}
-              flatShading
-            />
-          </RoundedBox>,
+          <group key={key} position={[x, y, 0]}>
+            <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
+          </group>,
         );
         continue;
       }
-      // Dirt: chunky beveled cube with stable per-cell tone variation.
+      // Dirt and anything else: the shared body (per-cell tone variation
+      // and soil grain live in the shader now).
       blockMeshes.push(
-        <RoundedBox
-          key={key}
-          args={[0.94, 0.94, 0.94]}
-          radius={0.07}
-          smoothness={2}
-          position={[x, y, 0]}
-        >
-          <meshStandardMaterial
-            color={variedColor(biomeDirtColorAt(col, row), col, row)}
-            roughness={0.95}
-            flatShading
-          />
-        </RoundedBox>,
+        <group key={key} position={[x, y, 0]}>
+          <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
+        </group>,
       );
     }
   }

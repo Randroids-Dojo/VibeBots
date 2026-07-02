@@ -1,9 +1,11 @@
 import { RoundedBox } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group, Mesh, PointLight } from "three/webgpu";
 import type { MineBiomeId, MineCell, OreId } from "@/sim/mine";
+import { isWebGPUBackend } from "./graphics-quality";
 import {
+  blockDetailEnabled,
   boulderBlockMaterial,
   dirtBlockMaterial,
   gasBlockMaterial,
@@ -42,6 +44,11 @@ export function MineBlockBody({
   row: number;
   biome?: MineBiomeId;
 }) {
+  // Detail requires both the high tier and the live WebGPU backend:
+  // per-fragment noise on software GL costs real frame time.
+  const detail = useThree((state) =>
+    blockDetailEnabled(isWebGPUBackend(state.gl)),
+  );
   if (cell.kind === "ore" && cell.ore) {
     return (
       <>
@@ -49,7 +56,7 @@ export function MineBlockBody({
           args={[0.94, 0.94, 0.94]}
           radius={0.07}
           smoothness={2}
-          material={dirtBlockMaterial(biomeDirtColorAt(col, row))}
+          material={dirtBlockMaterial(biomeDirtColorAt(col, row), detail)}
           dispose={null}
         />
         <OreCrystals
@@ -71,7 +78,7 @@ export function MineBlockBody({
           cellHash(col, row, 17) * 3.1,
           cellHash(col, row, 19) * 3.1,
         ]}
-        material={rockBlockMaterial(rockColors[tier])}
+        material={rockBlockMaterial(rockColors[tier], detail)}
         dispose={null}
       >
         <dodecahedronGeometry args={[0.62, 0]} />
@@ -84,7 +91,7 @@ export function MineBlockBody({
         args={[0.98, 0.98, 1.02]}
         radius={0.04}
         smoothness={1}
-        material={metalBlockMaterial(METAL_COLOR)}
+        material={metalBlockMaterial(METAL_COLOR, detail)}
         dispose={null}
       />
     );
@@ -98,7 +105,7 @@ export function MineBlockBody({
         args={[0.94, 0.94, 0.94]}
         radius={0.07}
         smoothness={2}
-        material={gasBlockMaterial(GAS_COLOR)}
+        material={gasBlockMaterial(GAS_COLOR, detail)}
         dispose={null}
       />
     );
@@ -107,7 +114,7 @@ export function MineBlockBody({
     return (
       <mesh
         rotation={[0, cellHash(col, row, 29) * 3.1, 0]}
-        material={boulderBlockMaterial(BOULDER_COLOR)}
+        material={boulderBlockMaterial(BOULDER_COLOR, detail)}
         dispose={null}
       >
         <icosahedronGeometry args={[0.56, 0]} />
@@ -120,7 +127,7 @@ export function MineBlockBody({
       args={[0.94, 0.94, 0.94]}
       radius={0.07}
       smoothness={2}
-      material={dirtBlockMaterial(biomeDirtColorAt(col, row))}
+      material={dirtBlockMaterial(biomeDirtColorAt(col, row), detail)}
       dispose={null}
     />
   );

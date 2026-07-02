@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-02-0.1.154-lighting-foundation",
-      releaseSummary:
-        "Real light in the mine: Shadows and studio lighting land on the surface.",
+      releaseNoticeId: "2026-07-02-0.1.155-living-blocks",
+      releaseSummary: "Living blocks: The mine's blocks got real surfaces.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-02-0.1.154-lighting-foundation",
+      releaseNoticeId: "2026-07-02-0.1.155-living-blocks",
       attempted: 2,
       sent: 1,
       expired: 1,

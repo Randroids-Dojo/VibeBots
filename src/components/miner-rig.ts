@@ -70,18 +70,23 @@ export interface MinerPose {
   arm: { rotZ: number };
 }
 
-export const MINER_RIG_REST_INPUTS: MinerRigInputs = {
-  t: 0,
-  delta: 0,
-  facing: 0,
-  stepDistance: 0,
-  leanVx: 0,
-  swing: 0,
-  bounce: 0,
-  lunge: { x: 0, y: 0, t: 0 },
-  crushed: false,
-  still: false,
-};
+/** A fresh rest-pose input set. A factory rather than a shared constant:
+ * inputs carry a nested lunge object, and a shared instance would alias
+ * it into every naive spread. */
+export function minerRigRestInputs(): MinerRigInputs {
+  return {
+    t: 0,
+    delta: 0,
+    facing: 0,
+    stepDistance: 0,
+    leanVx: 0,
+    swing: 0,
+    bounce: 0,
+    lunge: { x: 0, y: 0, t: 0 },
+    crushed: false,
+    still: false,
+  };
+}
 
 export function createMinerRigState(): MinerRigState {
   return { walkPhase: 0, bodyYaw: 0, legLRotX: 0, legRRotX: 0 };
@@ -207,13 +212,7 @@ export function minerClipInputs(
   delta: number,
   still: boolean,
 ): MinerRigInputs {
-  const base: MinerRigInputs = {
-    ...MINER_RIG_REST_INPUTS,
-    lunge: { x: 0, y: 0, t: 0 },
-    t,
-    delta,
-    still,
-  };
+  const base: MinerRigInputs = { ...minerRigRestInputs(), t, delta, still };
   if (still) return base;
   switch (clip) {
     case "idle":

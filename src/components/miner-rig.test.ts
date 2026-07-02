@@ -6,16 +6,16 @@ import {
   createMinerRigState,
   DIG_LUNGE_SECONDS,
   MINER_CLIPS,
-  MINER_RIG_REST_INPUTS,
+  type MinerRigInputs,
   minerArmRotZ,
   minerClipId,
   minerClipInputs,
+  minerRigRestInputs,
   PICK_SWING_SECONDS,
 } from "./miner-rig";
 
-const rest = (over: Partial<typeof MINER_RIG_REST_INPUTS> = {}) => ({
-  ...MINER_RIG_REST_INPUTS,
-  lunge: { x: 0, y: 0, t: 0 },
+const rest = (over: Partial<MinerRigInputs> = {}) => ({
+  ...minerRigRestInputs(),
   ...over,
 });
 

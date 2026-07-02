@@ -199,16 +199,15 @@ function HolodeckScene() {
     }
     if (armRef.current) {
       armRef.current.rotation.z = pose.arm.rotZ;
-      // Expose live motion for QA (Rule 10).
-      gl.domElement.dataset.holodeckArm = armRef.current.rotation.z.toFixed(3);
-      gl.domElement.dataset.holodeckTargetSolid = targetSolid ? "1" : "0";
-      gl.domElement.dataset.holodeckLoops = String(loops);
-      gl.domElement.dataset.holodeckClip = showcase ? clip : "";
-      gl.domElement.dataset.holodeckYaw = (minerGroup?.rotation.y ?? 0).toFixed(
-        3,
-      );
-      gl.domElement.dataset.holodeckBodyY = (body?.position.y ?? 0).toFixed(4);
     }
+    // Expose live motion for QA (Rule 10), independent of any one ref.
+    const el = gl.domElement;
+    el.dataset.holodeckArm = pose.arm.rotZ.toFixed(3);
+    el.dataset.holodeckTargetSolid = targetSolid ? "1" : "0";
+    el.dataset.holodeckLoops = String(loops);
+    el.dataset.holodeckClip = showcase ? clip : "";
+    el.dataset.holodeckYaw = (minerGroup?.rotation.y ?? 0).toFixed(3);
+    el.dataset.holodeckBodyY = pose.body.posY.toFixed(4);
   });
 
   // Render only the solid cells the scenario placed (the void stays empty).

@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest juicier breaks note complete", () => {
+  it("keeps the latest playtest polish note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-02-0.1.158-juicier-breaks");
+    expect(release.noticeId).toBe("2026-07-02-0.1.159-playtest-polish");
     expect(latestNote).toMatchObject({
+      version: "0.1.159",
+      title: "Playtest polish",
+      intro: "Three fixes straight from playtesting.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Getting crushed no longer squashes the miner into a pancake: the bot crumples with buckled knees and a dropped pick.",
+      "The miner's feet now stand on the surface grass instead of sinking shin-deep into the first row of dirt.",
+      "The Holodeck camera is yours on mobile: pinch to zoom, swipe to pan, double-tap to recenter. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived juicier breaks note complete", () => {
+    const release = getAppRelease();
+    const juiceNote = release.notes.find((note) => note.version === "0.1.158");
+
+    expect(juiceNote).toMatchObject({
       version: "0.1.158",
       title: "Juicier breaks",
       intro: "Digging feedback got richer and faster.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(juiceNote?.changes.map((change) => change.text)).toEqual([
       "Breaking an ore now showers sparkles in its color, with the rare glowing tiers lingering longest, and venting a gas pocket sends up a rising hiss of fumes.",
       "The particle engine was rebuilt to draw every burst in three batches instead of hundreds of separate pieces, so heavy digging stays smooth.",
       "Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",

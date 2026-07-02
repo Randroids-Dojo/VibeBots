@@ -457,6 +457,11 @@ function MineScene({
     const activeFall = fallPlayback.current;
     let visualTargetX = cellX(mine.miner.col);
     let visualTargetY = -mine.miner.row;
+    // The surface ground visual sits higher than an underground cell
+    // floor, so lift the bot at the ground line to keep feet on the
+    // grass instead of shin-deep in the first block row. The camera
+    // glide eases the step when entering the shaft.
+    if (mine.miner.row <= 0 && !activeFall) visualTargetY += 0.06;
     if (activeFall) {
       if (!activeFall.track) {
         const duration =

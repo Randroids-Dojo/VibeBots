@@ -142,11 +142,14 @@ export function advanceMinerRig(
     scaleZ: 1,
   };
   if (inputs.crushed) {
-    body.scaleX = 1.26;
-    body.scaleY = 0.58;
-    body.scaleZ = 1.18;
-    body.posY -= 0.12;
-    body.rotZ += 0.24;
+    // A designed crumple, not a pancake: the old 0.58 Y-squash drove the
+    // hat and visor through the torso. Compress a little, drop and tip
+    // the body, and let the splayed legs and hanging arm sell the hit.
+    body.scaleX = 1.06;
+    body.scaleY = 0.82;
+    body.scaleZ = 1.04;
+    body.posY -= 0.16;
+    body.rotZ += 0.34;
   }
 
   // Legs: a foot-locked walk cycle. The stride advances by the distance
@@ -170,6 +173,13 @@ export function advanceMinerRig(
     rotX: state.legRRotX,
     posY: BODY_REST_Y + Math.max(0, Math.sin(ph + Math.PI)) * lift,
   };
+
+  if (inputs.crushed) {
+    // Knees buckle outward and the pick arm drops limp.
+    legL.rotX = 0.85;
+    legR.rotX = -0.55;
+    return { body, legL, legR, arm: { rotZ: 1.15 } };
+  }
 
   return {
     body,

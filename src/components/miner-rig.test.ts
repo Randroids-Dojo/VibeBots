@@ -135,16 +135,23 @@ describe("miner rig kinematics", () => {
     expect(half.body.posX).toBeCloseTo(0.08, 5);
   });
 
-  it("squashes the body on a crush frame", () => {
+  it("crumples the body on a crush frame", () => {
     const state = createMinerRigState();
     const pose = advanceMinerRig(
       state,
       rest({ crushed: true, still: true, delta: 1 / 60 }),
     );
-    expect(pose.body.scaleY).toBeLessThan(0.7);
-    expect(pose.body.scaleX).toBeGreaterThan(1.2);
+    // Compressed but never pancaked: a hard squash drives the hat and
+    // visor through the torso geometry.
+    expect(pose.body.scaleY).toBeLessThan(0.9);
+    expect(pose.body.scaleY).toBeGreaterThan(0.7);
+    expect(pose.body.scaleX).toBeGreaterThan(1);
     expect(pose.body.posY).toBeLessThan(BODY_REST_Y);
-    expect(pose.body.rotZ).toBeGreaterThan(0.2);
+    expect(pose.body.rotZ).toBeGreaterThan(0.25);
+    // The hit reads through the limbs: splayed knees, limp pick arm.
+    expect(pose.legL.rotX).toBeGreaterThan(0.5);
+    expect(pose.legR.rotX).toBeLessThan(-0.3);
+    expect(pose.arm.rotZ).toBeGreaterThan(1);
   });
 
   it("clamps the walk lean", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import type { Group, PointLight } from "three/webgpu";
 import type { MineCell } from "@/sim/mine";
 import { DEFAULT_GEAR, hitsFor, oreReserveAt } from "@/sim/mine";
@@ -72,7 +72,13 @@ function blockDamage(cell: MineCell): number | null {
   return null;
 }
 
-function HolodeckScene({ features }: { features: GraphicsFeatures }) {
+function HolodeckScene({
+  features,
+  view,
+}: {
+  features: GraphicsFeatures;
+  view: RefObject<HolodeckView>;
+}) {
   const scenarioId = useHolodeckStore((s) => s.scenarioId);
   const settings = useHolodeckStore((s) => s.settings);
   const scene = useHolodeckStore((s) => s.scene);
@@ -125,11 +131,25 @@ function HolodeckScene({ features }: { features: GraphicsFeatures }) {
       : gallery
         ? { x: 0, y: focusY + 0.4, z: aspect >= 1 ? 8.5 : 13 }
         : { x: 0, y: 0, z: 11 };
+    // User gestures ride on top of the scenario framing: pan offsets
+    // the target, zoom divides the dolly distance.
+    const v = view.current;
+    const targetX = camTarget.x + v.panX;
+    const targetY = camTarget.y + v.panY;
+    const targetZ = camTarget.z / v.zoom;
     const ease = Math.min(1, delta * 5);
-    camera.position.x += (camTarget.x - camera.position.x) * ease;
-    camera.position.y += (camTarget.y - camera.position.y) * ease;
-    camera.position.z += (camTarget.z - camera.position.z) * ease;
-    camera.lookAt(showcase ? focusX : 0, showcase || gallery ? focusY : 0, 0);
+    camera.position.x += (targetX - camera.position.x) * ease;
+    camera.position.y += (targetY - camera.position.y) * ease;
+    camera.position.z += (targetZ - camera.position.z) * ease;
+    camera.lookAt(
+      (showcase ? focusX : 0) + v.panX,
+      (showcase || gallery ? focusY : 0) + v.panY,
+      0,
+    );
+    v.camZ = camera.position.z;
+    gl.domElement.dataset.holodeckZoom = v.zoom.toFixed(2);
+    gl.domElement.dataset.holodeckPanX = v.panX.toFixed(2);
+    gl.domElement.dataset.holodeckPanY = v.panY.toFixed(2);
     // The shared rig drives every joint: the single-block scenario plays
     // the real dig clip while its target block survives, the showcase
     // plays whichever clip is selected, and pause is a full still frame.
@@ -240,18 +260,128 @@ function HolodeckScene({ features }: { features: GraphicsFeatures }) {
   );
 }
 
+/** User camera offsets over the scenario framing: swipe pans, pinch or
+ * wheel zooms, double-tap recenters. Mutated by the viewport's pointer
+ * handlers and consumed by the scene's frame loop. */
+interface HolodeckView {
+  panX: number;
+  panY: number;
+  zoom: number;
+  /** Live camera distance, written by the frame loop so pan speed can
+   * match what a pixel covers at the current zoom. */
+  camZ: number;
+}
+
+const HOLODECK_ZOOM_MIN = 0.45;
+const HOLODECK_ZOOM_MAX = 3;
+const HOLODECK_PAN_LIMIT_X = 10;
+const HOLODECK_PAN_LIMIT_Y = 8;
+/** World height covered by the viewport per camera unit (fov 42). */
+const HOLODECK_FOV_FACTOR = 2 * Math.tan((42 * Math.PI) / 360);
+
 export default function HolodeckCanvas() {
   const features = graphicsFeaturesFor(
     resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
   );
+  const scenarioId = useHolodeckStore((s) => s.scenarioId);
+  const view = useRef<HolodeckView>({ panX: 0, panY: 0, zoom: 1, camZ: 11 });
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const lastTapAt = useRef(0);
+  const pinchDist = useRef(0);
+
+  // A new scenario gets a fresh framing.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scenarioId is the reset trigger; the view ref is stable.
+  useEffect(() => {
+    view.current.panX = 0;
+    view.current.panY = 0;
+    view.current.zoom = 1;
+  }, [scenarioId]);
+
+  const resetView = () => {
+    view.current.panX = 0;
+    view.current.panY = 0;
+    view.current.zoom = 1;
+  };
+
+  const clampView = () => {
+    const v = view.current;
+    v.zoom = Math.min(HOLODECK_ZOOM_MAX, Math.max(HOLODECK_ZOOM_MIN, v.zoom));
+    v.panX = Math.min(
+      HOLODECK_PAN_LIMIT_X,
+      Math.max(-HOLODECK_PAN_LIMIT_X, v.panX),
+    );
+    v.panY = Math.min(
+      HOLODECK_PAN_LIMIT_Y,
+      Math.max(-HOLODECK_PAN_LIMIT_Y, v.panY),
+    );
+  };
+
+  const pinchDistance = () => {
+    const [a, b] = [...pointers.current.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
   return (
-    <Canvas
-      camera={{ position: [0, 0, 11], fov: 42 }}
-      dpr={[1, 2]}
-      gl={createWebGPU}
-      shadows={features.shadows ? "soft" : false}
+    <div
+      data-testid="holodeck-viewport"
+      style={{ width: "100%", height: "100%", touchAction: "none" }}
+      onPointerDown={(e) => {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          // Capture keeps drags alive outside the viewport but is not
+          // required; synthetic pointers (tests, some stylus drivers)
+          // reject it.
+        }
+        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.current.size === 2) pinchDist.current = pinchDistance();
+        if (pointers.current.size === 1) {
+          const now = performance.now();
+          if (now - lastTapAt.current < 300) resetView();
+          lastTapAt.current = now;
+        }
+      }}
+      onPointerMove={(e) => {
+        const prev = pointers.current.get(e.pointerId);
+        if (!prev) return;
+        const height = e.currentTarget.clientHeight || 1;
+        const worldPerPixel =
+          (view.current.camZ * HOLODECK_FOV_FACTOR) / height;
+        if (pointers.current.size === 1) {
+          view.current.panX -= (e.clientX - prev.x) * worldPerPixel;
+          view.current.panY += (e.clientY - prev.y) * worldPerPixel;
+        }
+        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.current.size === 2) {
+          const dist = pinchDistance();
+          if (pinchDist.current > 0) {
+            view.current.zoom *= dist / pinchDist.current;
+          }
+          pinchDist.current = dist;
+        }
+        clampView();
+      }}
+      onPointerUp={(e) => {
+        pointers.current.delete(e.pointerId);
+        pinchDist.current = 0;
+      }}
+      onPointerCancel={(e) => {
+        pointers.current.delete(e.pointerId);
+        pinchDist.current = 0;
+      }}
+      onWheel={(e) => {
+        view.current.zoom *= Math.exp(-e.deltaY * 0.0012);
+        clampView();
+      }}
     >
-      <HolodeckScene features={features} />
-    </Canvas>
+      <Canvas
+        camera={{ position: [0, 0, 11], fov: 42 }}
+        dpr={[1, 2]}
+        gl={createWebGPU}
+        shadows={features.shadows ? "soft" : false}
+      >
+        <HolodeckScene features={features} view={view} />
+      </Canvas>
+    </div>
   );
 }

@@ -110,8 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-02-0.1.158-juicier-breaks",
-      releaseSummary: "Juicier breaks: Digging feedback got richer and faster.",
+      releaseNoticeId: "2026-07-02-0.1.159-playtest-polish",
+      releaseSummary: "Playtest polish: Three fixes straight from playtesting.",
     });
   });
 
@@ -171,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-02-0.1.158-juicier-breaks",
+      releaseNoticeId: "2026-07-02-0.1.159-playtest-polish",
       attempted: 2,
       sent: 1,
       expired: 1,

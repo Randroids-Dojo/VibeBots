@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-02-0.1.158-juicier-breaks";
+export const RELEASE_NOTICE_ID = "2026-07-02-0.1.159-playtest-polish";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.159",
+      date: "2026-07-02",
+      title: "Playtest polish",
+      intro: "Three fixes straight from playtesting.",
+      changes: [
+        {
+          build,
+          text: "Getting crushed no longer squashes the miner into a pancake: the bot crumples with buckled knees and a dropped pick.",
+        },
+        {
+          build,
+          text: "The miner's feet now stand on the surface grass instead of sinking shin-deep into the first row of dirt.",
+        },
+        {
+          build,
+          text: "The Holodeck camera is yours on mobile: pinch to zoom, swipe to pan, double-tap to recenter. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.158",
       date: "2026-07-02",

@@ -206,3 +206,89 @@ test("miner showcase plays clips and spins the turntable", async ({ page }) => {
   const shotAfter = await canvas.screenshot();
   expect(Buffer.compare(shotBefore, shotAfter)).not.toBe(0);
 });
+
+test("holodeck camera pans on swipe and zooms on pinch (REQ-021)", async ({
+  page,
+}) => {
+  await page.goto("/holodeck");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await expect(canvas).toHaveAttribute("data-holodeck-zoom", /\d/, {
+    timeout: 30_000,
+  });
+
+  const viewport = page.getByTestId("holodeck-viewport");
+  const box = await viewport.boundingBox();
+  if (!box) throw new Error("holodeck viewport has no box");
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+
+  // One-pointer swipe pans the camera.
+  const panBefore = Number(await canvas.getAttribute("data-holodeck-pan-x"));
+  await viewport.dispatchEvent("pointerdown", {
+    pointerId: 1,
+    clientX: cx,
+    clientY: cy,
+    isPrimary: true,
+  });
+  for (let i = 1; i <= 5; i++) {
+    await viewport.dispatchEvent("pointermove", {
+      pointerId: 1,
+      clientX: cx - i * 30,
+      clientY: cy,
+    });
+  }
+  await viewport.dispatchEvent("pointerup", { pointerId: 1 });
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-holodeck-pan-x")))
+    .toBeGreaterThan(panBefore + 0.5);
+
+  // Two-pointer pinch-out zooms in (camera dollies closer).
+  const camZBefore = Number(await canvas.getAttribute("data-holodeck-cam-z"));
+  await viewport.dispatchEvent("pointerdown", {
+    pointerId: 2,
+    clientX: cx - 40,
+    clientY: cy,
+  });
+  await viewport.dispatchEvent("pointerdown", {
+    pointerId: 3,
+    clientX: cx + 40,
+    clientY: cy,
+  });
+  for (let i = 1; i <= 5; i++) {
+    await viewport.dispatchEvent("pointermove", {
+      pointerId: 2,
+      clientX: cx - 40 - i * 25,
+      clientY: cy,
+    });
+    await viewport.dispatchEvent("pointermove", {
+      pointerId: 3,
+      clientX: cx + 40 + i * 25,
+      clientY: cy,
+    });
+  }
+  await viewport.dispatchEvent("pointerup", { pointerId: 2 });
+  await viewport.dispatchEvent("pointerup", { pointerId: 3 });
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-holodeck-zoom")))
+    .toBeGreaterThan(1.4);
+  await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-holodeck-cam-z")),
+      { timeout: 10_000 },
+    )
+    .toBeLessThan(camZBefore - 1);
+
+  // Double-tap recenters.
+  for (const _ of [0, 1]) {
+    await viewport.dispatchEvent("pointerdown", {
+      pointerId: 4,
+      clientX: cx,
+      clientY: cy,
+    });
+    await viewport.dispatchEvent("pointerup", { pointerId: 4 });
+  }
+  await expect
+    .poll(async () => await canvas.getAttribute("data-holodeck-zoom"))
+    .toBe("1.00");
+});

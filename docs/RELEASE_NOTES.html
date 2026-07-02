@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.159" data-date="2026-07-02">
+    <h2>0.1.159</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.159</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Three fixes straight from playtesting.</dd>
+      <dt>Crush pose</dt><dd>The crush frame crumples instead of pancaking: mild compression (scaleY 0.82), a dropped and tipped body, splayed knees, and a limp pick arm, so the hat and visor no longer punch through the squashed torso.</dd>
+      <dt>Surface footing</dt><dd>The surface ground visual sits higher than an underground cell floor, so the bot gets a 0.06 lift at the ground line; feet now rest on the grass instead of shin-deep in the first dirt row.</dd>
+      <dt>Holodeck camera</dt><dd>Pinch to zoom (0.45x to 3x), one-finger swipe to pan (clamped), mouse wheel zoom, and double-tap to recenter; the view resets on scenario change. Exposed as <code>data-holodeck-zoom</code>/<code>-pan-x</code>/<code>-pan-y</code> for the smoke suite.</dd>
+      <dt>Verification</dt><dd>Rig unit contract updated to the crumple ranges, new gesture smoke driving synthetic pointers, raw-touch CDP verification on an emulated Pixel 7 (pinch to the 3x clamp, swipe pan), and before/after captures of all three fixes. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.158" data-date="2026-07-02">
     <h2>0.1.158</h2>
     <dl>

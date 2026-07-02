@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="playtest-polish-crush-feet-gestures" data-date="2026-07-02">
+    <h3>Playtest Polish: Crush Crumple, Surface Footing, Holodeck Gestures</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed flow).</dd>
+      <dt>PR</dt><dd>None (direct main). Three user playtest reports drove the slice.</dd>
+      <dt>Changed</dt><dd>(1) The crush pose in <code>miner-rig.ts</code> crumples rather than pancakes: the old 0.58 Y-squash drove the hat and visor through the torso; now mild compression, a tipped drop, splayed knees, and a limp pick arm. (2) Surface footing: legs live inside the body group so <code>BODY_REST_Y</code> applies twice, putting foot bottoms at -0.50 against a -0.435 grass top; the mine canvas lifts the bot 0.06 at the ground line (underground cell floors sit at -0.53, so depth footing was already correct). (3) Holodeck camera gestures: pinch zoom, swipe pan, wheel zoom, double-tap recenter, view reset on scenario change, riding on top of each scenario's framing with new data attributes for the smoke suite; <code>setPointerCapture</code> is guarded because synthetic pointers reject it. Package version <code>0.1.159</code> with a release note; <code>MINE_VERSION</code> 48 and <code>SIM_VERSION</code> 3 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome (unpiped), rig unit contract updated to the crumple ranges (13 passed), release suites, full unit suite, <code>pnpm build</code>, the new gesture smoke (synthetic pointers), raw-touch CDP checks on an emulated Pixel 7 (pinch hit the 3x clamp, swipe panned; the compositor-level CDP gesture APIs do not deliver DOM events in headless and are a harness quirk, not a product gap), the crush and floating-feet before/after captures, and the crush-camera smoke. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the Reset button rebuilds the scenario but keeps the camera; double-tap is the recenter gesture. Rule 13: tips reviewed for 0.1.159, no change (no tip covers the Holodeck). Rule 14: no stamp.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed. <code>docs/gdd/06-mining.html</code> build log gains the entry below.</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="art-pipeline-baseline-diffing" data-date="2026-07-02">
     <h3>Art Pipeline: Capture Baseline Diffing</h3>
     <dl>

@@ -28,6 +28,12 @@ export interface HolodeckSettings {
   blockType: HolodeckBlockType;
   /** Fixed seed so the scene is fully deterministic. */
   seed: number;
+  /** Miner Showcase: which animation clip plays. The values are plain
+   * strings here so the pure registry never imports the render-side
+   * clip table; the canvas resolves unknown ids to idle. */
+  clip?: string;
+  /** Miner Showcase: stage rotation ("off" | "spin"). */
+  turntable?: string;
 }
 
 export interface HolodeckControlOption {
@@ -166,8 +172,89 @@ export const SINGLE_BLOCK_SCENARIO: HolodeckScenario = {
   build: buildSingleBlock,
 };
 
+/** Empty columns to either side of the showcase stage. */
+const SHOWCASE_VOID_RADIUS = 5;
+const SHOWCASE_MINER_ROW = 4;
+
+function buildMinerShowcase(settings: HolodeckSettings): HolodeckScene {
+  const gear: MineGear = {
+    ...DEFAULT_GEAR,
+    pickaxe: clamp(Math.floor(settings.pickaxe), 1, 10),
+    battery: 10,
+    lantern: 8,
+  };
+  const state = createMine(settings.seed, gear);
+
+  const minerRow = SHOWCASE_MINER_ROW;
+  const floorRow = minerRow + 1;
+  const firstCol = SINGLE_BLOCK_COL - SHOWCASE_VOID_RADIUS;
+  const lastCol = SINGLE_BLOCK_COL + SHOWCASE_VOID_RADIUS;
+
+  // An empty stage: void around the miner, a metal catwalk underfoot.
+  for (let row = 1; row <= floorRow + 1; row++) {
+    for (let col = firstCol; col <= lastCol; col++) {
+      setCell(state, col, row, { kind: "empty" });
+    }
+  }
+  for (let col = firstCol; col <= lastCol; col++) {
+    setCell(state, col, floorRow, { kind: "metal" });
+  }
+
+  state.miner.col = SINGLE_BLOCK_COL;
+  state.miner.row = minerRow;
+
+  // The animation is renderer-driven (clip inputs), so the plan is empty:
+  // the driver idles and the scene never rebuilds underneath a pose.
+  return {
+    state,
+    target: { col: SINGLE_BLOCK_COL, row: floorRow },
+    plan: [],
+    maxSteps: Number.MAX_SAFE_INTEGER,
+  };
+}
+
+export const MINER_SHOWCASE_SCENARIO: HolodeckScenario = {
+  id: "miner-showcase",
+  name: "Miner Showcase",
+  icon: "🤖",
+  description:
+    "The miner on an empty stage. Pick an animation clip and spin the turntable to inspect the model.",
+  controls: [
+    {
+      key: "clip",
+      label: "Animation",
+      kind: "select",
+      options: [
+        { value: "idle", label: "Idle" },
+        { value: "walk", label: "Walk" },
+        { value: "dig", label: "Dig" },
+        { value: "rebuff", label: "Rebuff" },
+        { value: "crush", label: "Crush" },
+      ],
+    },
+    {
+      key: "turntable",
+      label: "Turntable",
+      kind: "select",
+      options: [
+        { value: "off", label: "Off" },
+        { value: "spin", label: "Spin" },
+      ],
+    },
+  ],
+  defaults: {
+    pickaxe: 3,
+    blockType: "dirt",
+    seed: 1,
+    clip: "idle",
+    turntable: "off",
+  },
+  build: buildMinerShowcase,
+};
+
 export const HOLODECK_SCENARIOS: readonly HolodeckScenario[] = [
   SINGLE_BLOCK_SCENARIO,
+  MINER_SHOWCASE_SCENARIO,
 ];
 
 export function holodeckScenario(id: string): HolodeckScenario {
@@ -197,6 +284,11 @@ export function holodeckDrive(
   result: MoveResult | null;
   reset: boolean;
 } {
+  // A planless scenario (Miner Showcase) is a static stage: the driver
+  // idles and never rebuilds the scene underneath the rendered pose.
+  if (scene.plan.length === 0) {
+    return { scene, action: null, result: null, reset: false };
+  }
   if (holodeckComplete(scene) || stepCount >= scene.maxSteps) {
     return {
       scene: scenario.build(settings),

@@ -19,6 +19,12 @@ import {
   rockColorsForBiome,
   variedColor,
 } from "./mine-render-palette";
+import {
+  advanceMinerRig,
+  createMinerRigState,
+  minerClipId,
+  minerClipInputs,
+} from "./miner-rig";
 import { createWebGPU } from "./part-visuals";
 
 /** One solid block body, mirroring the mine canvas for the kinds the
@@ -134,6 +140,8 @@ function BlockBody({
 }
 
 function HolodeckScene() {
+  const scenarioId = useHolodeckStore((s) => s.scenarioId);
+  const settings = useHolodeckStore((s) => s.settings);
   const scene = useHolodeckStore((s) => s.scene);
   const tick = useHolodeckStore((s) => s.tick);
   const loops = useHolodeckStore((s) => s.loops);
@@ -148,31 +156,58 @@ function HolodeckScene() {
   const motesRef = useRef<Group>(null);
   const legLRef = useRef<Group>(null);
   const legRRef = useRef<Group>(null);
+  const rig = useRef(createMinerRigState());
+  const turntableYaw = useRef(0);
 
   const miner = scene.state.miner;
+  const showcase = scenarioId === "miner-showcase";
+  const clip = minerClipId(settings.clip);
+  const spinning = showcase && settings.turntable === "spin" && !paused;
   const targetSolid =
     scene.state.cells.get(`${scene.target.col},${scene.target.row}`)?.kind !==
     "empty";
 
-  useFrame(({ clock, gl }) => {
+  useFrame(({ clock, gl }, delta) => {
     const t = clock.elapsedTime;
-    if (minerRef.current) {
-      minerRef.current.position.set(cellX(miner.col), -miner.row, 0.2);
+    const minerGroup = minerRef.current;
+    if (minerGroup) {
+      minerGroup.position.set(cellX(miner.col), -miner.row, 0.2);
+      // Turntable: rotate the whole model for an all-around inspection.
+      if (spinning) turntableYaw.current += delta * 0.7;
+      minerGroup.rotation.y = showcase ? turntableYaw.current : 0;
     }
-    if (bodyRef.current) {
-      // Hold a still frame while paused; idle bob otherwise.
-      bodyRef.current.position.y =
-        -0.14 + (paused ? 0 : Math.sin(t * 2.4) * 0.02);
+    // The shared rig drives every joint: the single-block scenario plays
+    // the real dig clip while its target block survives, the showcase
+    // plays whichever clip is selected, and pause is a full still frame.
+    const inputs = showcase
+      ? minerClipInputs(clip, t, delta, paused)
+      : minerClipInputs(targetSolid ? "dig" : "idle", t, delta, paused);
+    const pose = advanceMinerRig(rig.current, inputs);
+    const body = bodyRef.current;
+    if (body) {
+      body.position.x = pose.body.posX;
+      body.position.y = pose.body.posY;
+      body.rotation.y = pose.body.rotY;
+      body.rotation.z = pose.body.rotZ;
+      body.scale.set(pose.body.scaleX, pose.body.scaleY, pose.body.scaleZ);
     }
-    // Chop the pick while a block is still there; rest between loops and
-    // freeze entirely while paused.
+    if (legLRef.current && legRRef.current) {
+      legLRef.current.rotation.x = pose.legL.rotX;
+      legLRef.current.position.y = pose.legL.posY;
+      legRRef.current.rotation.x = pose.legR.rotX;
+      legRRef.current.position.y = pose.legR.posY;
+    }
     if (armRef.current) {
-      const swing = paused || !targetSolid ? 0 : Math.max(0, Math.sin(t * 9));
-      armRef.current.rotation.z = -swing * 1.1;
-      // Expose live motion for QA (Rule 10): the value changes every frame.
+      armRef.current.rotation.z = pose.arm.rotZ;
+      // Expose live motion for QA (Rule 10).
       gl.domElement.dataset.holodeckArm = armRef.current.rotation.z.toFixed(3);
       gl.domElement.dataset.holodeckTargetSolid = targetSolid ? "1" : "0";
       gl.domElement.dataset.holodeckLoops = String(loops);
+      gl.domElement.dataset.holodeckClip = showcase ? clip : "";
+      gl.domElement.dataset.holodeckYaw = (minerGroup?.rotation.y ?? 0).toFixed(
+        3,
+      );
+      gl.domElement.dataset.holodeckBodyY = (body?.position.y ?? 0).toFixed(4);
     }
   });
 

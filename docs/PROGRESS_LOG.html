@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="miner-rig-and-showcase" data-date="2026-07-02">
+    <h3>Shared Miner Rig And Holodeck Miner Showcase</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/miner-rig-and-showcase</code>, created from <code>origin/main</code> (<code>083fa34</code>), rebased before PR.</dd>
+      <dt>PR</dt><dd>(to be opened)</dd>
+      <dt>Changed</dt><dd>First slice of the user-directed miner character overhaul: the animation design pipeline foundation. New pure module <code>src/components/miner-rig.ts</code> owns the miner's kinematics (eased yaw, foot-locked antiphase stride, idle bob, dig lunge, pick swing, rebuff slam-and-rebound, crush squash) as unit-testable functions plus deterministic showcase clip generators (idle/walk/dig/rebuff/crush). <code>mine-canvas.tsx</code> and <code>holodeck-canvas.tsx</code> now consume the identical rig instead of duplicating inline animation math (the Holodeck previously approximated the dig with a sine loop; it now plays the real impulse swing). New Holodeck scenario <code>miner-showcase</code> (<code>src/sim/holodeck.ts</code>): the miner on an empty metal stage with Animation and Turntable select controls; the scenario registry gained planless-scene support so the driver idles instead of rebuilding under a pose. Canvas exposes <code>data-holodeck-clip</code>, <code>data-holodeck-yaw</code>, and <code>data-holodeck-body-y</code> for motion QA. Package version <code>0.1.152</code> with a release note; <code>MINE_VERSION</code> stays <code>48</code>, <code>SIM_VERSION</code> stays <code>3</code> (render/UI layer plus a pure scenario registry addition).</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome, <code>pnpm check:purity</code> (the registry stays renderer-free; the rig lives in components), rig unit tests (13), holodeck registry/scenario unit tests, full unit suite, <code>pnpm build</code>, holodeck Playwright spec (5 passed, including the new showcase clip/turntable case; the old arm-sampling flake is fixed by poll-based sampling), and the miner motion smokes (dig/track, dirt cracks, crush camera, held cadence, thumbstick, lateral teleport regression; 6 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the Holodeck single-block scenario now plays the game's real impulse dig swing instead of its old continuous sine swing, since the bench should show real animation (its idle-bob amplitude also unified from 0.02 to the mine's 0.018). Recommended default: showcase clips are renderer-driven with an empty action plan rather than sim-driven, so the stage never rebuilds mid-pose. Rule 13: tips reviewed for 0.1.152, no change needed (no mining rule changed). Rule 14: stamp review done, no stamp yet; a Holodeck-visit or showcase stamp is deferred until the model v2 slice makes the showcase worth celebrating.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed. <code>docs/gdd/06-mining.html</code> gained a build-log entry for the shared rig.</dd>
+      <dt>Followups</dt><dd>None new; the model v2 slice (high-end geometry and TSL materials) continues on this foundation.</dd>
+    </dl>
+  </article>
+
   <article data-slice="deps-next-16-2-10" data-date="2026-07-01">
     <h3>Dependency Bump: next 16.2.9 to 16.2.10</h3>
     <dl>

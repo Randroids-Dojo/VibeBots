@@ -5,6 +5,7 @@ import {
   holodeckComplete,
   holodeckDrive,
   holodeckScenario,
+  MINER_SHOWCASE_SCENARIO,
   SINGLE_BLOCK_SCENARIO,
 } from "./holodeck";
 import { applyAction, cellAt, exportDiff } from "./mine";
@@ -107,5 +108,45 @@ describe("holodeck registry", () => {
   it("exposes scenarios and falls back to the first for unknown ids", () => {
     expect(HOLODECK_SCENARIOS.length).toBeGreaterThan(0);
     expect(holodeckScenario("does-not-exist")).toBe(SINGLE_BLOCK_SCENARIO);
+    expect(holodeckScenario("miner-showcase")).toBe(MINER_SHOWCASE_SCENARIO);
+  });
+});
+
+describe("holodeck miner showcase scenario", () => {
+  const SETTINGS = MINER_SHOWCASE_SCENARIO.defaults;
+
+  it("builds an empty stage with a metal catwalk under the miner", () => {
+    const scene = MINER_SHOWCASE_SCENARIO.build(SETTINGS);
+    const { col, row } = scene.state.miner;
+    expect(cellAt(scene.state, col, row)?.kind).toBe("empty");
+    expect(cellAt(scene.state, col, row + 1)?.kind).toBe("metal");
+    for (let dc = -3; dc <= 3; dc++) {
+      expect(cellAt(scene.state, col + dc, row)?.kind).toBe("empty");
+    }
+  });
+
+  it("declares the clip and turntable controls with defaults", () => {
+    const keys = MINER_SHOWCASE_SCENARIO.controls.map((c) => c.key);
+    expect(keys).toContain("clip");
+    expect(keys).toContain("turntable");
+    expect(SETTINGS.clip).toBe("idle");
+    expect(SETTINGS.turntable).toBe("off");
+  });
+
+  it("idles the driver: a planless scene never resets or acts", () => {
+    const scene = MINER_SHOWCASE_SCENARIO.build(SETTINGS);
+    for (let step = 0; step < 40; step++) {
+      const driven = holodeckDrive(
+        MINER_SHOWCASE_SCENARIO,
+        SETTINGS,
+        scene,
+        step,
+      );
+      expect(driven.scene).toBe(scene);
+      expect(driven.reset).toBe(false);
+      expect(driven.action).toBeNull();
+    }
+    // The stage is intact: the metal target is not something to complete.
+    expect(holodeckComplete(scene)).toBe(false);
   });
 });

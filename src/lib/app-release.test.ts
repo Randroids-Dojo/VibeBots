@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest crash report timing note complete", () => {
+  it("keeps the latest miner showcase note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-01-0.1.151-crash-report-timing");
+    expect(release.noticeId).toBe("2026-07-02-0.1.152-miner-showcase");
     expect(latestNote).toMatchObject({
+      version: "0.1.152",
+      title: "Miner Showcase",
+      intro: "A Holodeck stage shows off the miner's moves.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Holodeck gained a Miner Showcase scenario: the robot on an empty stage with an animation selector (idle, walk, dig, rebuff, crush) and a turntable to inspect it from every angle.",
+      "The miner's animation now runs through one shared rig everywhere, so the Holodeck plays the exact moves you see in the mine.",
+      "Mine rules, world generation, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived crash report timing note complete", () => {
+    const release = getAppRelease();
+    const crashNote = release.notes.find((note) => note.version === "0.1.151");
+
+    expect(crashNote).toMatchObject({
       version: "0.1.151",
       title: "Crash reports wait for the crash",
       intro: "Fatal falls and crushes finish on screen before the report.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(crashNote?.changes.map((change) => change.text)).toEqual([
       "The trip report after a fatal fall or falling-rock crush now waits for the visible impact instead of racing it on a timer, so slow devices no longer see the report before the crash lands.",
       "If the scene cannot render the impact at all, the report still arrives after a short safety delay.",
       "Mine rules, world generation, MINE_VERSION, and SIM_VERSION are unchanged.",

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-01-0.1.151-crash-report-timing",
+      releaseNoticeId: "2026-07-02-0.1.152-miner-showcase",
       releaseSummary:
-        "Crash reports wait for the crash: Fatal falls and crushes finish on screen before the report.",
+        "Miner Showcase: A Holodeck stage shows off the miner's moves.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-01-0.1.151-crash-report-timing",
+      releaseNoticeId: "2026-07-02-0.1.152-miner-showcase",
       attempted: 2,
       sent: 1,
       expired: 1,

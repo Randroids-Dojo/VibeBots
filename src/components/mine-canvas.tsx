@@ -102,6 +102,13 @@ import {
   SurfaceDressing,
   SurfaceSkin,
 } from "./mine-surface-render";
+import {
+  advanceMinerRig,
+  BOUNCE_SECONDS,
+  createMinerRigState,
+  DIG_LUNGE_SECONDS,
+  PICK_SWING_SECONDS,
+} from "./miner-rig";
 
 interface MotionTrack {
   fromX: number;
@@ -113,11 +120,7 @@ interface MotionTrack {
   frames: number;
 }
 
-const PICK_SWING_SECONDS = 0.18;
-const DIG_LUNGE_SECONDS = 0.16;
 const CAMERA_STEP_SECONDS = 0.28;
-/** Length of the bounce-off animation when the pick can't cut the rock. */
-const BOUNCE_SECONDS = 0.28;
 const EDGE_DARKNESS_COLOR = "#02040a";
 
 const easeStep = (t: number) => 0.5 - Math.cos(t * Math.PI) * 0.5;
@@ -216,7 +219,7 @@ function MineScene({
   // Walk cadence: advanced by distance actually travelled so the stride
   // is foot-locked to the glide, plus the prior frame's position to
   // measure that distance.
-  const walkPhase = useRef(0);
+  const minerRig = useRef(createMinerRigState());
   const prevMinerPos = useRef<{ x: number; y: number } | null>(null);
   const cameraMotion = useRef<MotionTrack | null>(null);
   const minerMotion = useRef<MotionTrack | null>(null);
@@ -617,76 +620,44 @@ function MineScene({
       frameMsRef.current += (delta * 1000 - frameMsRef.current) * 0.1;
       el.dataset.frameMs = frameMsRef.current.toFixed(1);
     }
-    // Body language: face the walk direction, idle bob, pick swings.
+    // Body language, foot-locked stride, and the pick arm all come from
+    // the shared rig (miner-rig.ts): the canvas owns the timers and the
+    // refs, the rig owns how inputs become joint transforms.
+    j.lunge.t = Math.max(0, j.lunge.t - delta);
+    j.fallWarning = Math.max(0, j.fallWarning - delta);
+    j.swing = Math.max(0, j.swing - delta);
+    j.bounce = Math.max(0, j.bounce - delta);
     const body = minerBodyRef.current;
-    if (body && miner) {
-      const targetYaw = j.facing * 0.85;
-      body.rotation.y += (targetYaw - body.rotation.y) * Math.min(1, delta * 8);
-      // Dig lunge decays over its window; bob hums underneath.
-      j.lunge.t = Math.max(0, j.lunge.t - delta);
-      j.fallWarning = Math.max(0, j.fallWarning - delta);
-      const lk = j.lunge.t / DIG_LUNGE_SECONDS;
-      body.position.x = j.lunge.x * lk;
-      // Grounded on the cell floor, with a soft idle hover bob.
-      body.position.y = -0.14 + Math.sin(t * 2.4) * 0.018 + j.lunge.y * lk;
-      // Lean into the glide while moving between cells.
-      const vx = visualTargetX - miner.position.x;
-      body.rotation.z = Math.max(-0.16, Math.min(0.16, -vx * 0.3));
-      if (activeFall?.kind === "crush") {
-        const crushed = activeFall.impacted ? 1 : 0;
-        body.scale.x = 1 + crushed * 0.26;
-        body.scale.y = 1 - crushed * 0.42;
-        body.scale.z = 1 + crushed * 0.18;
-        body.position.y -= crushed * 0.12;
-        body.rotation.z += crushed * 0.24;
-      } else {
-        body.scale.set(1, 1, 1);
-      }
-    }
-    // Legs: a foot-locked walk cycle. The stride advances by the
-    // distance actually travelled this frame (no skating), and the legs
-    // ease back to a neutral stance when the bot stands still or digs.
     const legL = legLRef.current;
     const legR = legRRef.current;
-    if (legL && legR && miner) {
+    const arm = pickArmRef.current;
+    if (miner && body && legL && legR && arm) {
       const prev = prevMinerPos.current;
       const dx = prev ? miner.position.x - prev.x : 0;
       const dy = prev ? miner.position.y - prev.y : 0;
       prevMinerPos.current = { x: miner.position.x, y: miner.position.y };
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      // Teleport-scale jumps (trip resets) must not spin the stride.
-      const stepping = dist > 0.0006 && dist < 1;
-      if (stepping) walkPhase.current += dist * 10;
-      const ph = walkPhase.current;
-      const amp = stepping ? 0.6 : 0;
-      const k = Math.min(1, delta * 12);
-      legL.rotation.x += (Math.sin(ph) * amp - legL.rotation.x) * k;
-      legR.rotation.x += (Math.sin(ph + Math.PI) * amp - legR.rotation.x) * k;
-      // The leg swinging forward lifts a touch off the cell floor.
-      const lift = stepping ? 0.02 : 0;
-      legL.position.y = -0.14 + Math.max(0, Math.sin(ph)) * lift;
-      legR.position.y = -0.14 + Math.max(0, Math.sin(ph + Math.PI)) * lift;
-    }
-    const arm = pickArmRef.current;
-    if (arm) {
-      j.swing = Math.max(0, j.swing - delta);
-      j.bounce = Math.max(0, j.bounce - delta);
-      if (j.bounce > 0) {
-        // Too-hard rock: the pick slams down then judders back up instead
-        // of biting in. Two phases: a quick slam to impact, then a damped
-        // rebound that kicks past rest and settles.
-        const e = 1 - j.bounce / BOUNCE_SECONDS; // 0 -> 1 elapsed
-        if (e < 0.32) {
-          const p = e / 0.32; // raised to impact
-          arm.rotation.z = -2 * (1 - p) * (1 - p);
-        } else {
-          const p = (e - 0.32) / 0.68; // rebound and settle
-          arm.rotation.z = Math.sin(p * Math.PI) * 0.85 * (1 - p * 0.6);
-        }
-      } else {
-        const k = j.swing / PICK_SWING_SECONDS;
-        arm.rotation.z = -2.1 * k * k;
-      }
+      const pose = advanceMinerRig(minerRig.current, {
+        t,
+        delta,
+        facing: j.facing,
+        stepDistance: Math.sqrt(dx * dx + dy * dy),
+        leanVx: visualTargetX - miner.position.x,
+        swing: j.swing,
+        bounce: j.bounce,
+        lunge: j.lunge,
+        crushed: activeFall?.kind === "crush" ? activeFall.impacted : false,
+        still: false,
+      });
+      body.position.x = pose.body.posX;
+      body.position.y = pose.body.posY;
+      body.rotation.y = pose.body.rotY;
+      body.rotation.z = pose.body.rotZ;
+      body.scale.set(pose.body.scaleX, pose.body.scaleY, pose.body.scaleZ);
+      legL.rotation.x = pose.legL.rotX;
+      legL.position.y = pose.legL.posY;
+      legR.rotation.x = pose.legR.rotX;
+      legR.position.y = pose.legR.posY;
+      arm.rotation.z = pose.arm.rotZ;
     }
     // Lamp-lit dust drifts around the bot underground.
     const motes = motesRef.current;

@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The mining robot got a full visual overhaul.",
+    "Shadows and studio lighting land on the surface.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "The miner was rebuilt",
+    "soft real-time shadows across the surface village",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "twin-blade steel head",
+    "keeps its lamp-lit darkness",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION, and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.154", "Real light in the mine"],
     ["0.1.153", "Miner glow-up"],
     ["0.1.152", "Miner Showcase"],
     ["0.1.151", "Crash reports wait for the crash"],

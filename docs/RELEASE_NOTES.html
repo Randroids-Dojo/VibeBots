@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.154" data-date="2026-07-02">
+    <h2>0.1.154</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.154</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Shadows and studio lighting land on the surface.</dd>
+      <dt>Lighting</dt><dd>Soft real-time sun shadows over the surface village (miner and buildings cast and receive), a zero-download PMREM studio environment for true ambient light and reflections, and daylight-scaled environment intensity so the deep mine keeps its darkness.</dd>
+      <dt>Quality tiers</dt><dd>A <code>graphicsQuality</code> module (auto/low/high) keys every heavy pass: phones (forced-WebGL2 coarse-pointer devices) ride the low tier with shadows and runtime IBL off, because runtime PMREM stalls that backend; the G2 slice bakes them an environment. The environment is also generated once per renderer, deferred off the first paint, and gated to the WebGPU backend.</dd>
+      <dt>Research</dt><dd><code>docs/research/realistic-graphics-pipeline.html</code> lands with this slice: the one-shot-demo case study (including a bundle inspection of the cited Counter-Strike clone) and the G1-G5 roadmap.</dd>
+      <dt>Verification</dt><dd>Unit suite including new tier tests, production build, WebGPU captures of the lit village, shallow-depth darkness, and the showcase stage, plus the motion and pixel smokes that could run before the local GPU stack degraded; clean-runner CI verification precedes the main push. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.153" data-date="2026-07-02">
     <h2>0.1.153</h2>
     <dl>

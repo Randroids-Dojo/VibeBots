@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="graphics-g1-lighting-foundation" data-date="2026-07-02">
+    <h3>Graphics G1: Shadow And Environment Lighting Foundation</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on <code>feat/graphics-g1</code> CI, then fast-forwarded to <code>main</code> under the user-directed flow.</dd>
+      <dt>PR</dt><dd>None (direct main after clean-runner verification).</dd>
+      <dt>Changed</dt><dd>First slice of the realistic-graphics program (user-directed; research at <code>docs/research/realistic-graphics-pipeline.html</code>, committed here). New <code>src/components/graphics-quality.ts</code>: quality tiers (auto/low/high) resolved from the stored setting and the coarse-pointer probe, with per-tier feature switches. New <code>src/components/studio-environment.tsx</code>: zero-download PMREM RoomEnvironment IBL, cached once per renderer, deferred off the first paint, and gated to the WebGPU backend after the WebGL2 fallback showed synchronous ReadPixels stalls. Mine canvas: soft sun shadows over the surface village with a tight ortho box and tier-scaled map size, daylight-scaled environment intensity so depth keeps its darkness; surface dressing and the miner cast/receive by traversal. Holodeck bench gains the same environment and shadows. Miner metals return to full metalness now that they have a world to reflect. Tone mapping stays ACESFilmic (every pixel predicate was tuned under it; AgX deferred with rationale in the research doc). Package version <code>0.1.154</code> with a release note; <code>MINE_VERSION</code> 48, <code>SIM_VERSION</code> 3 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome (scoped), full unit suite (538 passed, including new tier tests), <code>pnpm build</code>, WebGPU captures (lit village at both viewports, shallow-depth darkness, showcase stage with reflective metal floor), and the sensitive Playwright battery (10 of 12 passed; the two failures reproduce identically on the pre-G1 build and are the local GPU-stack degradation documented in F-048's family, confirmed by trace analysis showing adapter exhaustion). Clean-runner CI verification on <code>feat/graphics-g1</code> gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: low tier ships without runtime IBL and without shadows until G2 bakes a fallback-safe environment texture. Recommended default: no settings UI row yet; auto tier by device, with the stored-setting hook ready. Rule 13: tips reviewed for 0.1.154, no change needed. Rule 14: stamp review done, no stamp (rendering foundation).</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed. <code>docs/gdd/06-mining.html</code> build log gains the entry below.</dd>
+      <dt>Followups</dt><dd>None new; G2 (environment and material response, including the baked low-tier environment) is next in the program.</dd>
+    </dl>
+  </article>
+
   <article data-slice="held-cadence-jitter-fix" data-date="2026-07-02">
     <h3>Held-Input Cadence Survives Timer Jitter</h3>
     <dl>

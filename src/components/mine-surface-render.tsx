@@ -848,7 +848,17 @@ export const SurfaceDressing = memo(function SurfaceDressing() {
   }
   const frameX = cellX(START_COL);
   return (
-    <group>
+    <group
+      onUpdate={(group) => {
+        // The village both throws and catches the sun's shadows (G1).
+        // Applied by traversal: the dressing is a memoized static tree,
+        // so this runs once instead of prop-plumbing every mesh.
+        group.traverse((child) => {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        });
+      }}
+    >
       {/* Night sky over the camp */}
       <NightStars />
       {/* Grassy lip along the ground line the miner walks on */}

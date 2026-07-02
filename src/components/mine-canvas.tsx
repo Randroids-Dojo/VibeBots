@@ -43,6 +43,13 @@ import {
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
 import {
+  type GraphicsFeatures,
+  graphicsFeaturesFor,
+  hasCoarsePointer,
+  readStoredGraphicsQuality,
+  resolveGraphicsQualityTier,
+} from "./graphics-quality";
+import {
   CacheCrate,
   CrackMarks,
   crackSegmentCountForDamage,
@@ -109,6 +116,7 @@ import {
   DIG_LUNGE_SECONDS,
   PICK_SWING_SECONDS,
 } from "./miner-rig";
+import { StudioEnvironment } from "./studio-environment";
 
 interface MotionTrack {
   fromX: number;
@@ -203,7 +211,8 @@ function MineScene({
   onBunkerCellTap,
   onBunkerDragTarget,
   onBunkerDragEnd,
-}: MineCanvasProps) {
+  graphicsFeatures,
+}: MineCanvasProps & { graphicsFeatures: GraphicsFeatures }) {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);
@@ -555,6 +564,10 @@ function MineScene({
     if (ambientRef.current) ambientRef.current.intensity = 0.07 + 0.48 * day;
     if (hemiRef.current) hemiRef.current.intensity = 0.5 * day * day;
     if (dirRef.current) dirRef.current.intensity = 0.06 + 1.04 * day;
+    // The studio environment is a surface phenomenon: it fades with the
+    // daylight so the underground keeps its lamp-lit darkness.
+    state.scene.environmentIntensity =
+      graphicsFeatures.environmentIntensity * (0.12 + 0.88 * day);
     const lamp = lampRef.current;
     if (lamp) {
       let intensity = (1.0 + 3.8 * depthT) * (1 + (litBelow - 3) * 0.1);
@@ -1301,7 +1314,27 @@ function MineScene({
       <fog attach="fog" args={[bg, 12, 26]} />
       <ambientLight ref={ambientRef} intensity={0.55} color="#cdd8f4" />
       <hemisphereLight ref={hemiRef} args={["#8fb4e8", "#2a2017", 0.5]} />
-      <directionalLight ref={dirRef} position={[3, 6, 8]} intensity={1.1} />
+      <directionalLight
+        ref={dirRef}
+        position={[3, 6, 8]}
+        intensity={1.1}
+        castShadow={graphicsFeatures.shadows}
+        shadow-mapSize={[
+          graphicsFeatures.sunShadowMapSize,
+          graphicsFeatures.sunShadowMapSize,
+        ]}
+        shadow-camera-left={-18}
+        shadow-camera-right={18}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-8}
+        shadow-camera-near={0.5}
+        shadow-camera-far={40}
+        shadow-bias={-0.0004}
+      />
+      {/* Studio IBL: ambient response and reflections for every PBR
+          surface; the frame loop scales it with daylight so descending
+          into the dark still reads dark. */}
+      <StudioEnvironment intensity={graphicsFeatures.environmentIntensity} />
       <group ref={rigRef}>
         {/* Cave backdrop tracks the camera so depth never shows raw void. */}
         <mesh position={[0, 0, -5]}>
@@ -1437,14 +1470,21 @@ interface MineCanvasProps {
 }
 
 export default function MineCanvas(props: MineCanvasProps) {
+  // Resolved once per mount: the tier only changes with the device or a
+  // stored setting, and flipping renderer shadow support live is not
+  // worth the misconfiguration risk.
+  const features = graphicsFeaturesFor(
+    resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
+  );
   return (
     <Canvas
       camera={{ position: [0, 1.5, 13], fov: 42 }}
       dpr={[1, 2]}
       gl={createWebGPU}
+      shadows={features.shadows ? "soft" : false}
       onPointerMissed={props.onBunkerBackgroundTap}
     >
-      <MineScene {...props} />
+      <MineScene {...props} graphicsFeatures={features} />
     </Canvas>
   );
 }

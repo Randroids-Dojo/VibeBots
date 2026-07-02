@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-02-0.1.153-miner-model-v2";
+export const RELEASE_NOTICE_ID = "2026-07-02-0.1.154-lighting-foundation";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.154",
+      date: "2026-07-02",
+      title: "Real light in the mine",
+      intro: "Shadows and studio lighting land on the surface.",
+      changes: [
+        {
+          build,
+          text: "The sun now casts soft real-time shadows across the surface village, and a studio environment gives every surface, metal, and crystal true ambient light and reflections.",
+        },
+        {
+          build,
+          text: "The lighting fades as you descend, so the deep mine keeps its lamp-lit darkness.",
+        },
+        {
+          build,
+          text: "A graphics quality tier keeps phones fast: the low tier skips the heavy passes automatically. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.153",
       date: "2026-07-02",

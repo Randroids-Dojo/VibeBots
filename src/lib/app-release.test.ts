@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest miner model note complete", () => {
+  it("keeps the latest lighting foundation note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-02-0.1.153-miner-model-v2");
+    expect(release.noticeId).toBe("2026-07-02-0.1.154-lighting-foundation");
     expect(latestNote).toMatchObject({
+      version: "0.1.154",
+      title: "Real light in the mine",
+      intro: "Shadows and studio lighting land on the surface.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The sun now casts soft real-time shadows across the surface village, and a studio environment gives every surface, metal, and crystal true ambient light and reflections.",
+      "The lighting fades as you descend, so the deep mine keeps its lamp-lit darkness.",
+      "A graphics quality tier keeps phones fast: the low tier skips the heavy passes automatically. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived miner model note complete", () => {
+    const release = getAppRelease();
+    const modelNote = release.notes.find((note) => note.version === "0.1.153");
+
+    expect(modelNote).toMatchObject({
       version: "0.1.153",
       title: "Miner glow-up",
       intro: "The mining robot got a full visual overhaul.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(modelNote?.changes.map((change) => change.text)).toEqual([
       "The miner was rebuilt: armored hull with rim lighting, an animated chest screen and breathing visor, a bright headlamp lens, a backpack battery with glowing charge bars, a blinking beacon, toe caps, and a second arm bracing the walk.",
       "The pick gained a twin-blade steel head, and every surface uses new materials that read in the dark on both the WebGPU and WebGL paths.",
       "The Holodeck Miner Showcase camera now dollies in close for inspection, and stratum banners always finish their fade on slow devices. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",

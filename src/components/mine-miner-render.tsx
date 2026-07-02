@@ -160,7 +160,16 @@ export function MinerBot({
     <>
       {/* Dust motes drifting in the lamp light (hidden on the surface). */}
       <group ref={motesRef}>{motes}</group>
-      <group ref={bodyRef}>
+      <group
+        ref={bodyRef}
+        onUpdate={(group) => {
+          // The character is the primary shadow caster; motes and the
+          // lamp lens stay out of the shadow pass.
+          group.traverse((child) => {
+            child.castShadow = true;
+          });
+        }}
+      >
         {/* Pelvis the legs hang from, with hip guard flares */}
         <mesh position={[0, -0.13, 0]} material={MINER_CHASSIS} dispose={null}>
           <boxGeometry args={[0.34, 0.12, 0.26]} />

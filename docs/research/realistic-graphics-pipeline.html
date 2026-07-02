@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Research: Realistic Graphics Pipeline for VibeBots</title>
+</head>
+<body>
+
+<header>
+  <h1>Research: Realistic Graphics Pipeline</h1>
+  <p>User-directed 2026-07-02: reach the perceived quality of the viral "one-shot Age of Empires / Counter-Strike in three.js" demos. This document analyzes what actually makes those demos read as realistic, audits VibeBots' current render stack against it, and lays out a sliced roadmap that fits Rule 3 (no new core dependencies) and the mobile-first constraint (Android portrait, forced WebGL2 on coarse pointers).</p>
+</header>
+
+<section id="what-the-demos-do">
+  <h2>What the viral demos actually do</h2>
+  <p>The one-shot demos are three.js scenes whose realism comes overwhelmingly from the <strong>lighting and post pipeline</strong>, not from asset fidelity. Consistent ingredients:</p>
+  <ul>
+    <li><strong>Real-time shadows</strong> with soft filtering (PCF-soft or VSM), usually one sun-style directional light with a tight shadow camera.</li>
+    <li><strong>Image-based lighting</strong>: an HDRI environment (or procedural sky) feeding PBR materials through PMREM, so every surface picks up sky color, bounce, and reflections.</li>
+    <li><strong>An HDR post stack</strong>: bloom on emissives and bright speculars, ambient occlusion (GTAO/SSAO), temporal or SMAA anti-aliasing, filmic tone mapping (ACES or AgX), vignette, and color grading. Tone mapping alone is most of the "cinematic" impression.</li>
+    <li><strong>Surface detail</strong>: PBR texture sets or procedural normal/roughness perturbation so light has something to catch. Geometry is often simple; the materials carry it.</li>
+    <li><strong>Atmosphere</strong>: fog, god rays, dust particles, depth-of-field in vista shots.</li>
+    <li>They run on <strong>desktop WebGPU with no frame-rate promises</strong>: no phone budget, no CI, no determinism constraint. Reported by press as single-prompt outputs; at least one investigation (36kr) found some viral clips were partly handcrafted. The techniques are still exactly the list above.</li>
+  </ul>
+</section>
+
+<section id="pat-simmons-case-study">
+  <h2>Case study: Pat Simmons' Counter-Strike clone (the reference the user cited)</h2>
+  <p>Pat Simmons (@per_simmons, aiformortals.co) published two videos: "I Made Opus 4.8 and Fable 5 Build the Same App (RAW RESULTS)" (e-commerce store, 3D art museum, Age of Empires-style RTS) and "Fable 5 Is BACK And It Just One Shotted THIS" (a Counter-Strike clone, deployed at fable5-cs27126.vercel.app). The CS build is publicly deployed, so its production bundle was inspected directly (2026-07-02). Findings:</p>
+  <ul>
+    <li><strong>Plain WebGLRenderer</strong>, not WebGPU. The entire look is achieved with the classic three.js stack that our WebGL2 fallback path equals or exceeds.</li>
+    <li><strong>PCF-soft shadow mapping</strong> (VSM also referenced), one directional sun plus many spot/point lights with per-light shadow settings.</li>
+    <li><strong>PMREM + RoomEnvironment</strong>: the built-in neutral studio environment used as the IBL source. Zero texture downloads; every PBR surface gets reflections and ambient response for free.</li>
+    <li><strong>EffectComposer with SSAO</strong> and a bloom pass; <strong>AgX tone mapping</strong> (AgX references outnumber ACES in the bundle).</li>
+    <li><strong>Exponential fog everywhere</strong> (FogExp2; ~73 fog references): the single cheapest source of depth and atmosphere.</li>
+    <li><strong>Procedural textures</strong>: CanvasTexture/DataTexture generation with normal/roughness maps assigned in code; no .glb/.hdr/.png asset URLs appear in the bundle strings. The surface detail is generated, not downloaded.</li>
+    <li><strong>InstancedMesh</strong> for repeated geometry.</li>
+    <li><strong>Not actually one-shot</strong>: the video's own chapter list includes "Okay, Full Disclosure" and "3+ Hours of Non-Stop QA". The polish came from an iterative loop, which is exactly the loop this repo already runs.</li>
+  </ul>
+  <p>Implication: the cited reference validates the roadmap below almost term for term, and none of it requires WebGPU-only features. Where he used classic EffectComposer passes, we use the three-native TSL pipeline (better: it targets both backends); where he used canvas-generated textures, we can generate detail in TSL directly on the GPU.</p>
+</section>
+
+<section id="current-state">
+  <h2>VibeBots today (audit, 2026-07-02)</h2>
+  <ul>
+    <li><strong>Shadows: none.</strong> Zero castShadow/receiveShadow anywhere; the R3F canvases never enable renderer shadows.</li>
+    <li><strong>Environment lighting: none.</strong> Ambient + hemisphere + one directional + the miner's point lamp. No environment map, so metals and crystals have nothing to reflect.</li>
+    <li><strong>Post-processing: none.</strong> No composer/pipeline; emissive surfaces (ores, lamp, the new miner materials) never bloom.</li>
+    <li><strong>Tone mapping:</strong> R3F default ACESFilmic. Never tuned; no exposure control.</li>
+    <li><strong>Materials:</strong> flat-shaded MeshStandard across the mine; the miner just moved to TSL node materials with fresnel rims (PR #84), which proves the TSL path works on both backends.</li>
+    <li><strong>Budget instrumentation:</strong> data-draw-calls and data-frame-ms on the mine canvas, data-holodeck-draw-calls on the bench; capture tooling from the character pipeline.</li>
+  </ul>
+  <p>Conclusion: the gap to the demo look is not model quality; it is the absence of the entire lighting/post pipeline. Closing it is additive render-layer work with the stack we already pin.</p>
+</section>
+
+<section id="capability-inventory">
+  <h2>What our pinned stack already ships (three 0.185.1, WebGPU + WebGL2 fallback)</h2>
+  <p>All of the following exist as TSL nodes under <code>three/examples/jsm/tsl/display/</code> and compile through the same node system as our miner materials, WebGPU-first with the WebGL2 fallback:</p>
+  <ul>
+    <li><strong>AA:</strong> TRAA, TAAU (temporal upscale), SMAA, FXAA, SSAA.</li>
+    <li><strong>Light transport:</strong> GTAO, SSGI (screen-space global illumination), SSR, SSS, Godrays, Lensflare, ImportanceSampledEnvironment.</li>
+    <li><strong>Camera/film:</strong> Bloom, DepthOfField, MotionBlur, Film grain, ChromaticAberration, Vignette-style grading via Lut3D.</li>
+    <li><strong>Performance:</strong> FSR1 spatial upscaling (render at a fraction of native, upscale), Denoise/RecurrentDenoise for cheap AO/GI sampling.</li>
+    <li><strong>Tone mapping:</strong> ACESFilmic and AgX built into the renderer.</li>
+  </ul>
+  <p>No new dependencies are required for any of the roadmap below (Rule 3 holds; the pmndrs postprocessing ban stays irrelevant because everything is three-native TSL).</p>
+</section>
+
+<section id="constraints">
+  <h2>Constraints the demos do not have</h2>
+  <ul>
+    <li><strong>Android portrait at 390x760 is the primary device</strong>, and coarse pointers force the WebGL2 backend. Every effect must have a phone tier or a clean off-switch. Temporal passes (TRAA/SSGI) and multi-tap AO are desktop-tier by default.</li>
+    <li><strong>Determinism:</strong> render-layer only; nothing here touches src/sim. Screenshot-based tests must keep stable predicates (pixel tests already audited once for the miner materials; bloom will shift them and each slice budgets for test updates).</li>
+    <li><strong>Draw calls and fill rate:</strong> dpr is capped at 2; post passes add full-screen fill cost, which is why FSR1/TAAU matter (render at ~0.7x on phones, upscale to native).</li>
+    <li><strong>Art direction:</strong> the goal is a realistic RENDER of VibeBots' stylized world (lighting, shadow, atmosphere, material response), not swapping the art for photoreal assets. The palette and silhouettes stay; the light gets real.</li>
+  </ul>
+</section>
+
+<section id="roadmap">
+  <h2>Sliced roadmap</h2>
+  <p>Each slice is one PR, tested on the Holodeck bench plus mine smokes, with captures on WebGPU and forced-WebGL2 at both viewports, and a quality-tier switch so phones always have an escape hatch. A <code>graphicsQuality</code> setting (auto/low/high) lands in G1 and every later slice keys off it.</p>
+  <ol>
+    <li><strong>G1: Light and shadow foundation.</strong> Enable renderer shadows (PCF-soft; VSM if fallback behaves), sun directional with a tight shadow camera on the surface, the miner's lamp becomes a shadow-casting light underground with tier-scaled map size (512 phone / 2048 desktop), AgX tone mapping + exposure tuning, quality-tier plumbing and auto device detection. Biggest visual jump per millisecond spent.</li>
+    <li><strong>G2: Environment and material response.</strong> PMREM environment (small compressed HDRI or a procedural TSL sky per stratum), ores/metal/crystals get reflective response, drop flatShading on hero surfaces, procedural triplanar normal/roughness detail for dirt and rock via TSL noise (no texture downloads, works on both backends).</li>
+    <li><strong>G3: Post stack.</strong> three-native PostProcessing pipeline with tiers: phones get bloom + vignette/grade (+FXAA when needed); desktop adds GTAO (denoised), TRAA, god rays from the headlamp, subtle DoF on the Holodeck bench. FSR1 as the phone fill-rate escape hatch. The emissives authored in the miner materials start paying off everywhere.</li>
+    <li><strong>G4: Atmosphere and dressing.</strong> Depth fog tuned per stratum, dust motes upgraded to lamp-lit volumetric-feel billboards, surface village material pass, block-face micro-displacement variety.</li>
+    <li><strong>G5: Pipeline hardening.</strong> Capture tool grows A/B baseline diffing and per-tier capture matrices; perf gates on data-frame-ms/draw-calls in smoke; a Holodeck "Lighting Lab" scenario with light-rig and tier controls joins the Miner Showcase as the standing QA bench.</li>
+  </ol>
+</section>
+
+<section id="sources">
+  <h2>Sources</h2>
+  <ul>
+    <li>three.js 2026 post-processing and RenderPipeline state: threejsroadmap.com and utsubo.com write-ups; three.js official WebGPU examples (bloom, SSR, physical lights).</li>
+    <li>WebGPU Baseline status 2026 (all major browsers): vr.org and webgpu.com coverage.</li>
+    <li>SSGI on WebGPU three.js: Anderson Mancini's demo.</li>
+    <li>Fable 5 one-shot game coverage (and the caveat that some viral clips were partly handcrafted): cryptobriefing.com, modemguides.com, 36kr investigation, Braffolk/fable5-world-demo.</li>
+    <li>Local ground truth: pass inventory read directly from the pinned <code>three@0.185.1</code> package; scene audit of the VibeBots canvases.</li>
+  </ul>
+</section>
+
+</body>
+</html>

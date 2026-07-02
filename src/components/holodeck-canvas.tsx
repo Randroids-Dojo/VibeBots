@@ -7,6 +7,13 @@ import type { Group, PointLight } from "three/webgpu";
 import type { MineCell } from "@/sim/mine";
 import { DEFAULT_GEAR, hitsFor, oreReserveAt } from "@/sim/mine";
 import { useHolodeckStore } from "@/state/holodeck-store";
+import {
+  type GraphicsFeatures,
+  graphicsFeaturesFor,
+  hasCoarsePointer,
+  readStoredGraphicsQuality,
+  resolveGraphicsQualityTier,
+} from "./graphics-quality";
 import { CrackMarks, OreCrystals } from "./mine-block-render";
 import { MinerBot } from "./mine-miner-render";
 import {
@@ -26,6 +33,7 @@ import {
   minerClipInputs,
 } from "./miner-rig";
 import { createWebGPU } from "./part-visuals";
+import { StudioEnvironment } from "./studio-environment";
 
 /** One solid block body, mirroring the mine canvas for the kinds the
  * Holodeck uses. Cracks ride on top as the block takes damage. */
@@ -42,7 +50,16 @@ function HolodeckBlock({
   const y = -row;
   const damage = blockDamage(cell);
   return (
-    <group position={[x, y, 0]}>
+    <group
+      position={[x, y, 0]}
+      onUpdate={(group) => {
+        // Stage blocks catch the bench shadows so the model grounds.
+        group.traverse((child) => {
+          child.receiveShadow = true;
+          child.castShadow = true;
+        });
+      }}
+    >
       <BlockBody cell={cell} col={col} row={row} />
       {damage !== null ? (
         <CrackMarks col={col} row={row} damage={damage} />
@@ -139,7 +156,7 @@ function BlockBody({
   );
 }
 
-function HolodeckScene() {
+function HolodeckScene({ features }: { features: GraphicsFeatures }) {
   const scenarioId = useHolodeckStore((s) => s.scenarioId);
   const settings = useHolodeckStore((s) => s.settings);
   const scene = useHolodeckStore((s) => s.scene);
@@ -250,7 +267,20 @@ function HolodeckScene() {
       <color attach="background" args={["#0a0c12"]} />
       <ambientLight intensity={0.6} color="#cdd8f4" />
       <hemisphereLight args={["#8fb4e8", "#2a2017", 0.5]} />
-      <directionalLight position={[3, 6, 8]} intensity={1.1} />
+      <directionalLight
+        position={[3, 6, 8]}
+        intensity={1.1}
+        castShadow={features.shadows}
+        shadow-mapSize={[features.sunShadowMapSize, features.sunShadowMapSize]}
+        shadow-camera-left={-10}
+        shadow-camera-right={10}
+        shadow-camera-top={8}
+        shadow-camera-bottom={-10}
+        shadow-camera-near={0.5}
+        shadow-camera-far={30}
+        shadow-bias={-0.0004}
+      />
+      <StudioEnvironment intensity={features.environmentIntensity} />
       <pointLight
         position={[cellX(miner.col), -miner.row + 0.4, 1.6]}
         color="#ffdca8"
@@ -279,13 +309,17 @@ function HolodeckScene() {
 }
 
 export default function HolodeckCanvas() {
+  const features = graphicsFeaturesFor(
+    resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
+  );
   return (
     <Canvas
       camera={{ position: [0, 0, 11], fov: 42 }}
       dpr={[1, 2]}
       gl={createWebGPU}
+      shadows={features.shadows ? "soft" : false}
     >
-      <HolodeckScene />
+      <HolodeckScene features={features} />
     </Canvas>
   );
 }

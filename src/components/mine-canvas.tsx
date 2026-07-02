@@ -78,7 +78,9 @@ import {
   spawnDirtBreakBurst,
   spawnDust,
   spawnFallWarning,
+  spawnGasHiss,
   spawnLadderFall,
+  spawnOreGlitter,
   spawnSparks,
 } from "./mine-particles";
 import {
@@ -90,6 +92,7 @@ import {
   cellX,
   DARK_DEPTH,
   GAS_COLOR,
+  GLOWING_ORES,
   MAGMA_COLOR,
   ORE_COLORS,
   rockColorsForBiome,
@@ -365,6 +368,18 @@ function MineScene({
           color,
           lastResult.dug === "rock" ? 16 : 11,
         );
+      }
+      if (lastResult.dugOre != null) {
+        spawnOreGlitter(
+          j,
+          cellX(at.col),
+          -at.row,
+          ORE_COLORS[lastResult.dugOre],
+          GLOWING_ORES.has(lastResult.dugOre),
+        );
+      }
+      if (lastResult.dug === "gas") {
+        spawnGasHiss(j, cellX(at.col), -at.row);
       }
       spawnSparks(
         j,

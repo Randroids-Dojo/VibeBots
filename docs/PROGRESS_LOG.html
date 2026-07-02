@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="w3-effects-and-release" data-date="2026-07-02">
+    <h3>W3 Increment: Ore Glitter, Gas Hiss, And The 0.1.158 Release</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed flow).</dd>
+      <dt>PR</dt><dd>None (direct main).</dd>
+      <dt>Changed</dt><dd>Two event effects on the instanced renderer: <code>spawnOreGlitter</code> (slow-falling sparkle in the broken ore's color, richer for glowing tiers) on any ore dug, and <code>spawnGasHiss</code> (rising wisps on negative gravity) when a gas pocket vents. The transient-animation lifetime contract's spawner roster gains both. Pool cap 260 to 360 (instancing made headroom cheap). Package version <code>0.1.158</code> with a release note covering the effects and the instanced engine; <code>MINE_VERSION</code> 48 and <code>SIM_VERSION</code> 3 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome (unpiped), release/notification suites, transient lifetime contract (5 passed), full unit suite, <code>pnpm build</code>, crack-burst smoke. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: gas hiss triggers on the dug event only; ambient venting animation for intact gas pockets stays future work. Rule 13: tips reviewed for 0.1.158, no change. Rule 14: no stamp.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed. <code>docs/gdd/06-mining.html</code> build log gains the entry below.</dd>
+      <dt>Followups</dt><dd>None new. W3 core is complete; W3 stretch (dynamite plume, crush dust column) can ride any later slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="w3-instanced-particles" data-date="2026-07-02">
     <h3>W3 Increment: Instanced Particle Rendering</h3>
     <dl>

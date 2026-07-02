@@ -36,8 +36,10 @@ export interface JuiceState {
 
 export function pushParticle(juice: JuiceState, p: Omit<Particle, "id">): void {
   juice.particles.push({ ...p, id: juice.nextId++ });
-  if (juice.particles.length > 260)
-    juice.particles.splice(0, juice.particles.length - 260);
+  // Cap sized to the instanced render pools (W3); oldest are dropped
+  // first so fresh bursts always show.
+  if (juice.particles.length > 360)
+    juice.particles.splice(0, juice.particles.length - 360);
 }
 
 /** Chunky debris in the struck block's color. */
@@ -219,6 +221,49 @@ export function spawnLadderFall(
       size: 0.08 + Math.random() * 0.05,
       color: "#806a4e",
       life: 0.45 + Math.random() * 0.35,
+    });
+  }
+}
+
+/** Slow-falling sparkle in the broken ore's color: the treasure moment
+ * lingers a beat longer than the dirt around it. */
+export function spawnOreGlitter(
+  juice: JuiceState,
+  x: number,
+  y: number,
+  color: string,
+  glow: boolean,
+): void {
+  const count = glow ? 14 : 9;
+  for (let i = 0; i < count; i++) {
+    pushParticle(juice, {
+      kind: "spark",
+      x: x + (Math.random() - 0.5) * 0.6,
+      y: y + (Math.random() - 0.5) * 0.5,
+      vx: (Math.random() - 0.5) * 1.4,
+      vy: 0.5 + Math.random() * 1.4,
+      gravity: 2.6,
+      size: 0.035 + Math.random() * 0.045,
+      color,
+      life: 0.6 + Math.random() * 0.5,
+    });
+  }
+}
+
+/** Rising sickly wisps when a gas pocket vents. */
+export function spawnGasHiss(juice: JuiceState, x: number, y: number): void {
+  for (let i = 0; i < 12; i++) {
+    pushParticle(juice, {
+      kind: "dust",
+      x: x + (Math.random() - 0.5) * 0.5,
+      y: y + (Math.random() - 0.5) * 0.3,
+      vx: (Math.random() - 0.5) * 0.8,
+      vy: 0.8 + Math.random() * 1.2,
+      // Negative pull: the cloud keeps climbing as it fades.
+      gravity: -1.4 - Math.random() * 0.8,
+      size: 0.1 + Math.random() * 0.12,
+      color: i % 3 === 0 ? "#c8dc5a" : "#8fa32e",
+      life: 0.8 + Math.random() * 0.5,
     });
   }
 }

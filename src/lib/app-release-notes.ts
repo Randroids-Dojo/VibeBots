@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-02-0.1.157-village-dressed-up";
+export const RELEASE_NOTICE_ID = "2026-07-02-0.1.158-juicier-breaks";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.158",
+      date: "2026-07-02",
+      title: "Juicier breaks",
+      intro: "Digging feedback got richer and faster.",
+      changes: [
+        {
+          build,
+          text: "Breaking an ore now showers sparkles in its color, with the rare glowing tiers lingering longest, and venting a gas pocket sends up a rising hiss of fumes.",
+        },
+        {
+          build,
+          text: "The particle engine was rebuilt to draw every burst in three batches instead of hundreds of separate pieces, so heavy digging stays smooth.",
+        },
+        {
+          build,
+          text: "Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.157",
       date: "2026-07-02",

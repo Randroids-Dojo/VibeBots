@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-02-0.1.157-village-dressed-up",
-      releaseSummary:
-        "The village dressed up: Surface shops got real materials and lived-in clutter.",
+      releaseNoticeId: "2026-07-02-0.1.158-juicier-breaks",
+      releaseSummary: "Juicier breaks: Digging feedback got richer and faster.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-02-0.1.157-village-dressed-up",
+      releaseNoticeId: "2026-07-02-0.1.158-juicier-breaks",
       attempted: 2,
       sent: 1,
       expired: 1,

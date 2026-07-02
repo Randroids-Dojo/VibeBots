@@ -68,6 +68,8 @@ describe("mine transient animation lifetime contract", () => {
       "spawnDust",
       "spawnFallWarning",
       "spawnLadderFall",
+      "spawnOreGlitter",
+      "spawnGasHiss",
     ]);
     for (const { name, body } of spawnBodies) {
       expect(body, `${name} must assign particle life`).toMatch(/\blife:\s*/);

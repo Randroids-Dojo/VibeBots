@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest village note complete", () => {
+  it("keeps the latest juicier breaks note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-02-0.1.157-village-dressed-up");
+    expect(release.noticeId).toBe("2026-07-02-0.1.158-juicier-breaks");
     expect(latestNote).toMatchObject({
+      version: "0.1.158",
+      title: "Juicier breaks",
+      intro: "Digging feedback got richer and faster.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Breaking an ore now showers sparkles in its color, with the rare glowing tiers lingering longest, and venting a gas pocket sends up a rising hiss of fumes.",
+      "The particle engine was rebuilt to draw every burst in three batches instead of hundreds of separate pieces, so heavy digging stays smooth.",
+      "Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived village note complete", () => {
+    const release = getAppRelease();
+    const villageNote = release.notes.find(
+      (note) => note.version === "0.1.157",
+    );
+
+    expect(villageNote).toMatchObject({
       version: "0.1.157",
       title: "The village dressed up",
       intro: "Surface shops got real materials and lived-in clutter.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(villageNote?.changes.map((change) => change.text)).toEqual([
       "Shop walls now read as quarried stone, sawn timber shows its wood grain, and metal trim catches the light.",
       "Crates, barrels, and grain sacks settle between the stalls, each cluster a little different.",
       "Same fast path on phones. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",

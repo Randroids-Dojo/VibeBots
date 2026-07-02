@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.158" data-date="2026-07-02">
+    <h2>0.1.158</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.158</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Digging feedback got richer and faster.</dd>
+      <dt>New effects</dt><dd>Ore breaks shower slow-falling glitter in the ore's color (glowing tiers linger longest); venting a gas pocket sends up a rising hiss on negative-gravity wisps.</dd>
+      <dt>Particle engine</dt><dd>Juice particles render through three <code>InstancedMesh</code> pools written imperatively per frame (one draw per kind, zero React reconciliation on spawn or expiry), replacing up to 260 individually reconciled meshes; the pool cap rises to 360.</dd>
+      <dt>Verification</dt><dd>Transient-animation lifetime contract extended to the new spawners, full unit suite, crack-burst smoke, live dig capture, clean-runner branch CI. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.157" data-date="2026-07-02">
     <h2>0.1.157</h2>
     <dl>

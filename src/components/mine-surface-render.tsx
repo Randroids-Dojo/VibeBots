@@ -16,7 +16,11 @@ import {
   variedColor,
 } from "./mine-render-palette";
 import { STALLS, type StallDef } from "./mine-stalls";
-import { surfaceStone, surfaceTimber } from "./mine-surface-materials";
+import {
+  surfaceMetal,
+  surfaceStone,
+  surfaceTimber,
+} from "./mine-surface-materials";
 
 export const CAMP_WIDTH = 60;
 
@@ -877,6 +881,49 @@ function NightStars() {
  * move tick. The per-step rebuild of this tree (heavier since the
  * detailed buildings landed) was the surface walk-by stutter.
  */
+/** Small prop clusters set between the stalls: a stacked crate pair, a
+ * barrel, and a grain sack, hash-varied per slot so no two clusters sit
+ * identically. Shares the structural TSL materials. */
+function VillageProps({ x, seed }: { x: number; seed: number }) {
+  const detail = useBlockDetail();
+  const a = cellHash(seed, 71, 3);
+  const b = cellHash(seed, 73, 9);
+  const spin = a * 1.2 - 0.6;
+  return (
+    <group position={[x, -1.5, -0.15 - b * 0.35]}>
+      {/* Crate pair, the top one skewed */}
+      <mesh position={[0, 1.11, 0]} rotation={[0, spin, 0]}>
+        <boxGeometry args={[0.26, 0.22, 0.26]} />
+        <primitive object={surfaceTimber(TIMBER, detail)} attach="material" />
+      </mesh>
+      <mesh position={[0.04, 1.32, 0.02]} rotation={[0, spin + 0.5, 0]}>
+        <boxGeometry args={[0.2, 0.18, 0.2]} />
+        <primitive
+          object={surfaceTimber(WOOD_POST, detail)}
+          attach="material"
+        />
+      </mesh>
+      {/* Barrel with metal hoops */}
+      <mesh position={[0.34, 1.14, 0.1]}>
+        <cylinderGeometry args={[0.11, 0.13, 0.28, 9]} />
+        <primitive
+          object={surfaceTimber(TIMBER_DARK, detail)}
+          attach="material"
+        />
+      </mesh>
+      <mesh position={[0.34, 1.2, 0.1]}>
+        <cylinderGeometry args={[0.125, 0.125, 0.03, 9]} />
+        <primitive object={surfaceMetal(METAL, detail)} attach="material" />
+      </mesh>
+      {/* Grain sack slumped against the crates */}
+      <mesh position={[-0.26, 1.08, 0.08]} scale={[1, 0.78, 0.9]}>
+        <sphereGeometry args={[0.13, 8, 6]} />
+        <meshStandardMaterial color="#a68b5f" roughness={0.95} flatShading />
+      </mesh>
+    </group>
+  );
+}
+
 export const SurfaceDressing = memo(function SurfaceDressing() {
   const tufts = [];
   for (let i = 0; i < 14; i++) {
@@ -957,6 +1004,16 @@ export const SurfaceDressing = memo(function SurfaceDressing() {
           id={stall.id}
           x={cellX(stall.col)}
           color={stall.color}
+        />
+      ))}
+      {/* Ground clutter between the stalls: crates, barrels, and sacks
+          give the frontage depth (W2). Explicit per-slot offsets keep
+          neighboring clusters from colliding in the tight gaps. */}
+      {STALLS.map((stall, index) => (
+        <VillageProps
+          key={`props:${stall.id}`}
+          x={cellX(stall.col) + [-1.0, 1.0, -1.05, 1.0, 1.1][index]}
+          seed={index}
         />
       ))}
       {/* Enter-a-screen destination buildings (Workshop, Battles) */}

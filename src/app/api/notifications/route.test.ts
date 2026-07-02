@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-02-0.1.156-gem-grade-ores",
+      releaseNoticeId: "2026-07-02-0.1.157-village-dressed-up",
       releaseSummary:
-        "Gem-grade ores: Ore crystals now look worth digging for.",
+        "The village dressed up: Surface shops got real materials and lived-in clutter.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-02-0.1.156-gem-grade-ores",
+      releaseNoticeId: "2026-07-02-0.1.157-village-dressed-up",
       attempted: 2,
       sent: 1,
       expired: 1,

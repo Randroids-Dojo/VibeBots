@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.157" data-date="2026-07-02">
+    <h2>0.1.157</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.157</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Surface shops got real materials and lived-in clutter.</dd>
+      <dt>Village materials</dt><dd>Shared TSL structure materials (quarried stone mottle, sawn timber ring striations, brushed metal trim) across 22 structural surfaces of the shop models, detail-gated to the high tier and live WebGPU backend.</dd>
+      <dt>Village clutter</dt><dd>Deterministic prop clusters (crates, barrel with metal hoops, grain sack) between the stalls with explicit per-slot offsets so neighbors never collide.</dd>
+      <dt>Rendering architecture</dt><dd>Every base tint in the shared block, crystal, and surface materials moved from a shader constant to a uniform, collapsing per-tint program compilation into one program per material shape; this fixed a first-paint compile stall that broke the critical motion smoke on software-GL runners.</dd>
+      <dt>Verification</dt><dd>Unit suites, production build, clean-runner branch CI, village captures with crop verification of the prop clusters. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.156" data-date="2026-07-02">
     <h2>0.1.156</h2>
     <dl>

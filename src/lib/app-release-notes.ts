@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-02-0.1.156-gem-grade-ores";
+export const RELEASE_NOTICE_ID = "2026-07-02-0.1.157-village-dressed-up";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.157",
+      date: "2026-07-02",
+      title: "The village dressed up",
+      intro: "Surface shops got real materials and lived-in clutter.",
+      changes: [
+        {
+          build,
+          text: "Shop walls now read as quarried stone, sawn timber shows its wood grain, and metal trim catches the light.",
+        },
+        {
+          build,
+          text: "Crates, barrels, and grain sacks settle between the stalls, each cluster a little different.",
+        },
+        {
+          build,
+          text: "Same fast path on phones. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.156",
       date: "2026-07-02",

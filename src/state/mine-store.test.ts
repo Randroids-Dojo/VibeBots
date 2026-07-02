@@ -71,7 +71,22 @@ describe("mine store upgrade flow", () => {
       activeSlot: 1,
       saveSlots: { state: "unknown", activeSlot: 1, slots: [] },
       worldLoaded: true,
+      fallVisualImpactKey: null,
     });
+  });
+
+  it("records the latest fall playback impact key", () => {
+    expect(useMineStore.getState().fallVisualImpactKey).toBeNull();
+    useMineStore.getState().markFallVisualImpact(7);
+    expect(useMineStore.getState().fallVisualImpactKey).toBe(7);
+    // Re-marking the same key is a no-op; a later playback replaces it.
+    useMineStore.getState().markFallVisualImpact(7);
+    useMineStore.getState().markFallVisualImpact(9);
+    expect(useMineStore.getState().fallVisualImpactKey).toBe(9);
+    // Ticks reset across trips, so the playback bridge clears the mark
+    // when a new playback begins; a stale key must never gate a new trip.
+    useMineStore.getState().clearFallVisualImpact();
+    expect(useMineStore.getState().fallVisualImpactKey).toBeNull();
   });
 
   it("banks a surfaced trip before buying an upgrade", async () => {

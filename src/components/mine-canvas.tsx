@@ -439,6 +439,9 @@ function MineScene({
       [visualTargetX, visualTargetY] = sampleMotion(activeFall.track, t);
       if (motionProgress(activeFall.track, t) >= 1 && !activeFall.impacted) {
         activeFall.impacted = true;
+        // Signal the panel that the impact frame has rendered; the trip
+        // report waits on this instead of racing the visuals wall-clock.
+        useMineStore.getState().markFallVisualImpact(activeFall.key);
         activeFall.doneAt =
           t +
           (activeFall.kind === "crush"

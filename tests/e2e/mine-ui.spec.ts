@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   applyAction,
+  awaitMineSceneReady,
   createMine,
   DEFAULT_GEAR,
   dismissReleaseNotes,
@@ -136,6 +137,7 @@ test("mine falling-rock alert can be dismissed or permanently hidden", async ({
     "data-depth",
     "6",
   );
+  await awaitMineSceneReady(page);
 
   await pressMineKey(page, "ArrowRight");
   const alert = page.getByRole("dialog", { name: "Falling rock" });
@@ -265,6 +267,7 @@ test("ladder gravity prompt opens mechanic feedback after the fall settles", asy
     "data-depth",
     "2",
   );
+  await awaitMineSceneReady(page);
   await pressMineKey(page, "ArrowRight");
 
   const prompt = page.getByRole("dialog", {
@@ -557,6 +560,7 @@ test("auto sell result replaces tips and wraps in the status chip", async ({
   await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "1");
+  await awaitMineSceneReady(page);
 
   await pressMineKey(page, "ArrowUp");
   await expect(status).toHaveAttribute("data-depth", "0");

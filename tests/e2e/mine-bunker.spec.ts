@@ -264,14 +264,20 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
       beaconLimit: 3,
     },
   };
+  let collectAttempts = 0;
   await page.route("**/api/bunker", async (route) => {
+    // Mirror the collect route: once the second collect has landed, any
+    // bunker refetch must agree, or a poll can revert the collected
+    // pickup and hide the builder button behind a phantom active raid.
+    const collected = collectAttempts >= 2;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(bunkerView),
+      body: JSON.stringify(
+        collected ? { ...bunkerView, activeRaid: collectedRaid } : bunkerView,
+      ),
     });
   });
-  let collectAttempts = 0;
   const firstCollectRequest = deferredSignal();
   const releaseFirstCollect = deferredSignal();
   await page.route("**/api/bunker/raid/collect", async (route) => {
@@ -301,10 +307,17 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await expect(xpLocator).toHaveAttribute("data-raid-xp-direction", "here");
   await expect(xpLocator).toContainText("XP here");
   const canvas = page.locator("canvas");
+  // The pixel crop assumes the camera has settled on the miner at row 1;
+  // a frame-starved runner can lag the rig near the surface for a while.
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {
+      timeout: 20_000,
+    })
+    .toBeLessThan(-0.9);
   await expect
     .poll(async () => countRaidXpPixels(page, await canvas.screenshot()), {
       message: "the raid XP pickup should render as a visible world marker",
-      timeout: 3_000,
+      timeout: 10_000,
     })
     .toBeGreaterThan(1_000);
   const pendingXpPixels = await countRaidXpPixels(
@@ -325,7 +338,7 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await expect
     .poll(async () => countRaidXpPixels(page, await canvas.screenshot()), {
       message: "the raid XP pickup world marker should clear after collection",
-      timeout: 3_000,
+      timeout: 10_000,
     })
     .toBeLessThan(pendingXpPixels - 500);
   await expect(

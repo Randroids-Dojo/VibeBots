@@ -13,6 +13,31 @@
 
 <main id="entries">
 
+  <article data-version="0.1.151" data-date="2026-07-01">
+    <h2>0.1.151</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.151</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Fatal falls and crushes finish on screen before the report.</dd>
+      <dt>Crash reports</dt><dd>The trip report after a fatal fall or falling-rock crush now waits for the visible impact instead of racing it on a timer, so slow devices no longer see the report before the crash lands.</dd>
+      <dt>Safety ceiling</dt><dd>If the scene cannot render the impact at all, the report still arrives after a short safety delay.</dd>
+      <dt>Stability</dt><dd>The scheduled full Playwright matrix was red on every visible run; the five failing tests now pass natively and under a software-GL CI simulation. Mine rules, world generation, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Full unit suite, release and notification suites, production build, the five previously failing Playwright tests under both native and software-GL runs, and the full local Playwright suite on an isolated port. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
+  <article data-version="0.1.150" data-date="2026-06-29">
+    <h2>0.1.150</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.150</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>A new Holodeck mode loads focused, looping mine test scenes.</dd>
+      <dt>Holodeck</dt><dd>A new Holodeck entry in the mine options menu loads small, controlled test scenes through a scenario selector. The first scenario auto-mines a single block on a deterministic loop, with live controls for pickaxe level and block type.</dd>
+      <dt>Isolation</dt><dd>Holodeck runs in its own isolated session, so it never touches your live mine trip. Mine rules, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Verification</dt><dd>Holodeck unit and Playwright coverage: reachable from options, auto-mines with visible motion and a completed loop, controls reconfigure without reload, pause freezes the scene. This archive entry was backfilled in the 0.1.151 slice; the shipping entry lives in <code>src/lib/app-release-notes.ts</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.149" data-date="2026-06-29">
     <h2>0.1.149</h2>
     <dl>

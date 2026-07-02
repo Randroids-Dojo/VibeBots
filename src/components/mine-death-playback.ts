@@ -44,6 +44,20 @@ export function fatalFallPlaybackSeconds(fell: number): number {
   return Math.max(0.42, fell * FATAL_FALL_SECONDS_PER_ROW);
 }
 
+/** Trip-report delay after the rendered impact frame. Sized against the
+ * hold windows above: the fall report lands just past the short fall
+ * hold; the crush report sits inside the long crush hold so the flattened
+ * bot stays on camera under the report. */
+export const FALL_REPORT_AFTER_IMPACT_MS = 430;
+export const CRUSH_REPORT_AFTER_IMPACT_MS = 950;
+
+/** Wall-clock report ceiling when the canvas never renders the impact
+ * (context lost, hidden tab, scene error). Scales with the fall length
+ * because long falls legitimately take fell * 0.11s to reach impact. */
+export function wreckReportCeilingMs(fell: number | undefined): number {
+  return 4000 + Math.ceil(fatalFallPlaybackSeconds(fell ?? 0) * 1000);
+}
+
 function fallPlaybackFromResult(
   result: MoveResult | null,
   key: number,
@@ -105,6 +119,18 @@ function clearMsForPlayback(playback: FallPlayback): number {
     : 4300;
 }
 
+/** Fallback clear window measured from the rendered impact, used when the
+ * impact frame arrives later than the move-relative estimate assumed (a
+ * frame-starved device). Must outlast the report-after-impact delays so
+ * the wreck never vanishes before the report lands. */
+export function clearMsAfterImpact(
+  playback: Pick<FallPlayback, "kind">,
+): number {
+  return playback.kind === "fall"
+    ? Math.ceil(FATAL_FALL_HOLD_SECONDS * 1000) + 400
+    : Math.ceil(CRUSH_HOLD_SECONDS * 1000) + 700;
+}
+
 export function useMineDeathPlaybackBridge(
   lastResult: MoveResult | null,
   tick: number,
@@ -115,6 +141,7 @@ export function useMineDeathPlaybackBridge(
 } {
   const fallPlayback = useRef<FallPlayback | null>(null);
   const fallClearTimeout = useRef<number | null>(null);
+  const impactUnsub = useRef<(() => void) | null>(null);
   const [fallWindow, setFallWindow] = useState<FallWindow | null>(null);
 
   const clearPendingTimeout = useCallback(() => {
@@ -123,16 +150,32 @@ export function useMineDeathPlaybackBridge(
     fallClearTimeout.current = null;
   }, []);
 
+  const clearImpactSubscription = useCallback(() => {
+    impactUnsub.current?.();
+    impactUnsub.current = null;
+  }, []);
+
   const clearFallPlayback = useCallback(
     (key: number) => {
-      clearPendingTimeout();
-      if (fallPlayback.current?.key === key) fallPlayback.current = null;
+      // Timers and the impact subscription belong to the active playback;
+      // a stale caller clearing an old key must not disarm them.
+      if (fallPlayback.current === null || fallPlayback.current.key === key) {
+        clearPendingTimeout();
+        clearImpactSubscription();
+        fallPlayback.current = null;
+      }
       setFallWindow((prev) => (prev?.key === key ? null : prev));
     },
-    [clearPendingTimeout],
+    [clearPendingTimeout, clearImpactSubscription],
   );
 
-  useEffect(() => () => clearPendingTimeout(), [clearPendingTimeout]);
+  useEffect(
+    () => () => {
+      clearPendingTimeout();
+      clearImpactSubscription();
+    },
+    [clearPendingTimeout, clearImpactSubscription],
+  );
 
   useLayoutEffect(() => {
     return useMineStore.subscribe((state, prev) => {
@@ -141,6 +184,10 @@ export function useMineDeathPlaybackBridge(
       if (playback) {
         fallPlayback.current = playback;
         setFallWindow(fallWindowFromPlayback(playback));
+        // Ticks reset to 0 across trips, so a leftover impact mark from a
+        // previous trip could collide with this playback's key. Every new
+        // playback starts unmarked.
+        useMineStore.getState().clearFallVisualImpact();
       } else if (!(state.lastResult?.ok && state.lastResult.collapsed)) {
         fallPlayback.current = null;
         setFallWindow(null);
@@ -153,6 +200,7 @@ export function useMineDeathPlaybackBridge(
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the result is read at the same tick.
   useLayoutEffect(() => {
     clearPendingTimeout();
+    clearImpactSubscription();
     const playback = fallPlaybackFromResult(lastResult, tick);
     if (playback) {
       const activePlayback =
@@ -161,10 +209,23 @@ export function useMineDeathPlaybackBridge(
           : playback;
       fallPlayback.current = activePlayback;
       setFallWindow(fallWindowFromPlayback(activePlayback));
-      fallClearTimeout.current = window.setTimeout(() => {
-        clearFallPlayback(activePlayback.key);
-        fallClearTimeout.current = null;
-      }, clearMsForPlayback(activePlayback));
+      const armClear = (delayMs: number) => {
+        clearPendingTimeout();
+        fallClearTimeout.current = window.setTimeout(() => {
+          clearFallPlayback(activePlayback.key);
+          fallClearTimeout.current = null;
+        }, delayMs);
+      };
+      armClear(clearMsForPlayback(activePlayback));
+      // A frame-starved device can render the impact later than the
+      // move-relative estimate assumed; once the impact frame is real,
+      // re-arm the fallback from the impact so the wreck never clears
+      // before the impact-gated trip report lands.
+      impactUnsub.current = useMineStore.subscribe((state) => {
+        if (state.fallVisualImpactKey !== activePlayback.key) return;
+        clearImpactSubscription();
+        armClear(clearMsAfterImpact(activePlayback));
+      });
     } else if (!(lastResult?.ok && lastResult.collapsed)) {
       fallPlayback.current = null;
       setFallWindow(null);

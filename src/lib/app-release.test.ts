@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest holodeck note complete", () => {
+  it("keeps the latest crash report timing note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-06-29-0.1.150-holodeck");
+    expect(release.noticeId).toBe("2026-07-01-0.1.151-crash-report-timing");
     expect(latestNote).toMatchObject({
+      version: "0.1.151",
+      title: "Crash reports wait for the crash",
+      intro: "Fatal falls and crushes finish on screen before the report.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The trip report after a fatal fall or falling-rock crush now waits for the visible impact instead of racing it on a timer, so slow devices no longer see the report before the crash lands.",
+      "If the scene cannot render the impact at all, the report still arrives after a short safety delay.",
+      "Mine rules, world generation, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived holodeck note complete", () => {
+    const release = getAppRelease();
+    const holodeckNote = release.notes.find(
+      (note) => note.version === "0.1.150",
+    );
+
+    expect(holodeckNote).toMatchObject({
       version: "0.1.150",
       title: "Holodeck test scenes",
       intro: "A new Holodeck mode loads focused, looping mine test scenes.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(holodeckNote?.changes.map((change) => change.text)).toEqual([
       "A new Holodeck entry in the mine options menu loads small, controlled test scenes through a scenario selector.",
       "The first scenario auto-mines a single block on a deterministic loop, with live controls for pickaxe level and block type that reconfigure the scene without a reload.",
       "Holodeck runs in its own isolated session, so it never touches your live mine trip. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",

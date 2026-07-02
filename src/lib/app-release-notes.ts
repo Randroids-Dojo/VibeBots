@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-06-29-0.1.150-holodeck";
+export const RELEASE_NOTICE_ID = "2026-07-01-0.1.151-crash-report-timing";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.151",
+      date: "2026-07-01",
+      title: "Crash reports wait for the crash",
+      intro: "Fatal falls and crushes finish on screen before the report.",
+      changes: [
+        {
+          build,
+          text: "The trip report after a fatal fall or falling-rock crush now waits for the visible impact instead of racing it on a timer, so slow devices no longer see the report before the crash lands.",
+        },
+        {
+          build,
+          text: "If the scene cannot render the impact at all, the report still arrives after a short safety delay.",
+        },
+        {
+          build,
+          text: "Mine rules, world generation, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.150",
       date: "2026-06-29",

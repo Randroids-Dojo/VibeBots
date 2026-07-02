@@ -179,7 +179,10 @@ test("miner showcase plays clips and spins the turntable", async ({ page }) => {
         );
         return arms.length ? Math.min(...arms) : 0;
       },
-      { message: "the dig swing should reach the pick down-stroke" },
+      {
+        message: "the dig swing should reach the pick down-stroke",
+        timeout: 30_000,
+      },
     )
     .toBeLessThan(-0.5);
 

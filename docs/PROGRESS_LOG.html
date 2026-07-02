@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="deps-three-0-185-1" data-date="2026-07-01">
+    <h3>Dependency Bump: three 0.185.0 to 0.185.1</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/deps/three-0.185.0-to-0.185.1</code>, created from current <code>origin/main</code> (<code>8e9be60</code>).</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/81">#81</a></dd>
+      <dt>Changed</dt><dd>Dependency Upgrade Gate bump: <code>three</code> moved from <code>0.185.0</code> to <code>0.185.1</code> (npm-only hotfix on the r185 line, published 2026-07-01, no separate upstream tag or changelog entry). <code>@types/three</code> stays at <code>0.185.0</code>, the latest for the minor. Lockfile rethreads the three peer everywhere; no code changes. Ledger pinned line updated in the same diff.</dd>
+      <dt>Verification</dt><dd><code>pnpm typecheck</code>, full unit suite (511 passed), <code>pnpm build</code>, and canvas smoke on an isolated port in a fresh worktree: holodeck + routes specs (7 passed, one known pre-existing holodeck arm-sampling flake passed on retry) and canvas-heavy mine cases (dig/track, dirt cracks, falling-rock crush; 3 passed). WebGPU init and TSL-compiled materials exercised through the WebGPURenderer factory in those runs.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: a same-minor npm hotfix needs no app package version bump or release note, matching the 0.184.0 to 0.185.0 bump. Rule 13: mine tips reviewed, no change needed (no player-facing mine rule changed). Rule 14: no stamp (dependency maintenance).</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed.</dd>
+      <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
+
   <article data-slice="full-e2e-slow-ci-stability" data-date="2026-07-01">
     <h3>Full E2E Slow-CI Stability And Impact-Gated Crash Reports</h3>
     <dl>

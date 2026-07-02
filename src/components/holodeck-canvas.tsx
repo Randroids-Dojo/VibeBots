@@ -223,6 +223,7 @@ function HolodeckScene() {
     el.dataset.holodeckLoops = String(loops);
     el.dataset.holodeckClip = showcase ? clip : "";
     el.dataset.holodeckYaw = (minerGroup?.rotation.y ?? 0).toFixed(3);
+    el.dataset.holodeckCamZ = camera.position.z.toFixed(2);
     el.dataset.holodeckBodyY = pose.body.posY.toFixed(4);
     // Per-frame draw calls: the phone budget the model must respect. The
     // WebGPU backend's counter can accumulate, so expose the delta.

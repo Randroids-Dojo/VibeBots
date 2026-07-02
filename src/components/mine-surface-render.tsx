@@ -6,6 +6,7 @@ import {
   type MineState,
   START_COL,
 } from "@/sim/mine";
+import { useBlockDetail } from "./mine-block-render";
 import { DESTINATIONS, type DestinationDef } from "./mine-destinations";
 import {
   cellHash,
@@ -15,6 +16,7 @@ import {
   variedColor,
 } from "./mine-render-palette";
 import { STALLS, type StallDef } from "./mine-stalls";
+import { surfaceStone, surfaceTimber } from "./mine-surface-materials";
 
 export const CAMP_WIDTH = 60;
 
@@ -206,6 +208,7 @@ function PorchLamp({ position }: { position: [number, number, number] }) {
 
 /** Elevator: timber derrick with a sheave wheel over a drum cabin. */
 function ElevatorModel({ color }: { color: string }) {
+  const detail = useBlockDetail();
   return (
     <>
       <RoundedBox
@@ -214,31 +217,46 @@ function ElevatorModel({ color }: { color: string }) {
         smoothness={2}
         position={[0, 1.48, 0]}
       >
-        <meshStandardMaterial color={TIMBER} roughness={0.9} flatShading />
+        <primitive object={surfaceTimber(TIMBER, detail)} attach="material" />
       </RoundedBox>
       <DoorGlow position={[0.3, 1.4, 0.41]} />
       <PorchLamp position={[0.62, 1.78, 0.4]} />
       {/* Derrick legs and cross-braces rising off the cabin roof */}
       <mesh position={[-0.46, 2.55, 0]} rotation={[0, 0, 0.16]}>
         <boxGeometry args={[0.12, 1.6, 0.12]} />
-        <meshStandardMaterial color={WOOD_POST} roughness={0.9} flatShading />
+        <primitive
+          object={surfaceTimber(WOOD_POST, detail)}
+          attach="material"
+        />
       </mesh>
       <mesh position={[0.46, 2.55, 0]} rotation={[0, 0, -0.16]}>
         <boxGeometry args={[0.12, 1.6, 0.12]} />
-        <meshStandardMaterial color={WOOD_POST} roughness={0.9} flatShading />
+        <primitive
+          object={surfaceTimber(WOOD_POST, detail)}
+          attach="material"
+        />
       </mesh>
       <mesh position={[0, 2.32, 0]} rotation={[0, 0, 0.55]}>
         <boxGeometry args={[0.95, 0.07, 0.07]} />
-        <meshStandardMaterial color={TIMBER_DARK} roughness={0.9} flatShading />
+        <primitive
+          object={surfaceTimber(TIMBER_DARK, detail)}
+          attach="material"
+        />
       </mesh>
       <mesh position={[0, 2.32, 0]} rotation={[0, 0, -0.55]}>
         <boxGeometry args={[0.95, 0.07, 0.07]} />
-        <meshStandardMaterial color={TIMBER_DARK} roughness={0.9} flatShading />
+        <primitive
+          object={surfaceTimber(TIMBER_DARK, detail)}
+          attach="material"
+        />
       </mesh>
       {/* Crown platform, pulley wheel, cable, and the cable drum */}
       <mesh position={[0, 3.36, 0]}>
         <boxGeometry args={[0.74, 0.1, 0.4]} />
-        <meshStandardMaterial color={TIMBER_DARK} roughness={0.9} flatShading />
+        <primitive
+          object={surfaceTimber(TIMBER_DARK, detail)}
+          attach="material"
+        />
       </mesh>
       <mesh position={[0, 3.6, 0]}>
         <torusGeometry args={[0.26, 0.05, 8, 18]} />
@@ -278,6 +296,7 @@ function ElevatorModel({ color }: { color: string }) {
 
 /** Hardware Store: a stone shop with columns and a gold emblem. */
 function HardwareStoreModel({ color }: { color: string }) {
+  const detail = useBlockDetail();
   return (
     <>
       <RoundedBox
@@ -286,12 +305,15 @@ function HardwareStoreModel({ color }: { color: string }) {
         smoothness={2}
         position={[0, 1.62, 0]}
       >
-        <meshStandardMaterial color={STONE} roughness={0.85} flatShading />
+        <primitive object={surfaceStone(STONE, detail)} attach="material" />
       </RoundedBox>
       {/* Cornice and pediment */}
       <mesh position={[0, 2.26, 0]}>
         <boxGeometry args={[1.66, 0.14, 1.0]} />
-        <meshStandardMaterial color={STONE_LIGHT} roughness={0.8} flatShading />
+        <primitive
+          object={surfaceStone(STONE_LIGHT, detail)}
+          attach="material"
+        />
       </mesh>
       <mesh
         position={[0, 2.45, 0]}
@@ -299,7 +321,10 @@ function HardwareStoreModel({ color }: { color: string }) {
         scale={[1, 1, 0.55]}
       >
         <cylinderGeometry args={[0.62, 0.62, 0.7, 3, 1, false, Math.PI]} />
-        <meshStandardMaterial color={STONE_LIGHT} roughness={0.8} flatShading />
+        <primitive
+          object={surfaceStone(STONE_LIGHT, detail)}
+          attach="material"
+        />
       </mesh>
       {/* Gold emblem on the pediment face */}
       <mesh position={[0, 2.45, 0.4]} rotation={[Math.PI / 2, 0, 0]}>
@@ -316,15 +341,24 @@ function HardwareStoreModel({ color }: { color: string }) {
       {/* Portico: columns and architrave around the door */}
       <mesh position={[-0.4, 1.56, 0.42]}>
         <cylinderGeometry args={[0.085, 0.1, 0.92, 8]} />
-        <meshStandardMaterial color={STONE_LIGHT} roughness={0.7} flatShading />
+        <primitive
+          object={surfaceStone(STONE_LIGHT, detail)}
+          attach="material"
+        />
       </mesh>
       <mesh position={[0.4, 1.56, 0.42]}>
         <cylinderGeometry args={[0.085, 0.1, 0.92, 8]} />
-        <meshStandardMaterial color={STONE_LIGHT} roughness={0.7} flatShading />
+        <primitive
+          object={surfaceStone(STONE_LIGHT, detail)}
+          attach="material"
+        />
       </mesh>
       <mesh position={[0, 2.08, 0.42]}>
         <boxGeometry args={[1.06, 0.12, 0.2]} />
-        <meshStandardMaterial color={STONE_LIGHT} roughness={0.7} flatShading />
+        <primitive
+          object={surfaceStone(STONE_LIGHT, detail)}
+          attach="material"
+        />
       </mesh>
       <DoorGlow position={[0, 1.42, 0.47]} size={[0.44, 0.68]} />
       <PorchLamp position={[0, 1.9, 0.52]} />
@@ -350,11 +384,11 @@ function HardwareStoreModel({ color }: { color: string }) {
       {/* Entry steps down to the boardwalk */}
       <mesh position={[0, 1.1, 0.6]}>
         <boxGeometry args={[0.86, 0.09, 0.46]} />
-        <meshStandardMaterial color={STONE} roughness={0.9} flatShading />
+        <primitive object={surfaceStone(STONE, detail)} attach="material" />
       </mesh>
       <mesh position={[0, 1.19, 0.52]}>
         <boxGeometry args={[0.64, 0.09, 0.3]} />
-        <meshStandardMaterial color={STONE} roughness={0.9} flatShading />
+        <primitive object={surfaceStone(STONE, detail)} attach="material" />
       </mesh>
       <SignBoard color={color} position={[0, 2.26, 0.55]} width={0.8} />
     </>
@@ -363,6 +397,7 @@ function HardwareStoreModel({ color }: { color: string }) {
 
 /** Supply Depot: open-front trade post with goods on the counter. */
 function SupplyDepotModel({ color }: { color: string }) {
+  const detail = useBlockDetail();
   return (
     <>
       <RoundedBox
@@ -371,7 +406,7 @@ function SupplyDepotModel({ color }: { color: string }) {
         smoothness={2}
         position={[0, 1.55, 0]}
       >
-        <meshStandardMaterial color={TIMBER} roughness={0.9} flatShading />
+        <primitive object={surfaceTimber(TIMBER, detail)} attach="material" />
       </RoundedBox>
       <mesh position={[0, 2.1, 0]} rotation={[0, 0, 0.05]}>
         <boxGeometry args={[1.75, 0.08, 1.0]} />
@@ -394,7 +429,10 @@ function SupplyDepotModel({ color }: { color: string }) {
       </mesh>
       <mesh position={[0, 1.24, 0.5]}>
         <boxGeometry args={[1.05, 0.08, 0.18]} />
-        <meshStandardMaterial color={WOOD_POST} roughness={0.9} flatShading />
+        <primitive
+          object={surfaceTimber(WOOD_POST, detail)}
+          attach="material"
+        />
       </mesh>
       {/* Counter goods: dynamite, rope coil, crate */}
       <mesh position={[-0.3, 1.37, 0.48]}>
@@ -417,11 +455,17 @@ function SupplyDepotModel({ color }: { color: string }) {
       <PorchLamp position={[0, 1.74, 0.62]} />
       <mesh position={[-0.62, 1.42, 0.66]}>
         <cylinderGeometry args={[0.03, 0.03, 0.75, 6]} />
-        <meshStandardMaterial color={WOOD_POST} roughness={0.9} flatShading />
+        <primitive
+          object={surfaceTimber(WOOD_POST, detail)}
+          attach="material"
+        />
       </mesh>
       <mesh position={[0.62, 1.42, 0.66]}>
         <cylinderGeometry args={[0.03, 0.03, 0.75, 6]} />
-        <meshStandardMaterial color={WOOD_POST} roughness={0.9} flatShading />
+        <primitive
+          object={surfaceTimber(WOOD_POST, detail)}
+          attach="material"
+        />
       </mesh>
       {/* Stock spilling out beside the shopfront */}
       <RoundedBox
@@ -430,7 +474,7 @@ function SupplyDepotModel({ color }: { color: string }) {
         smoothness={2}
         position={[-0.95, 1.2, 0.25]}
       >
-        <meshStandardMaterial color={TIMBER} roughness={0.85} flatShading />
+        <primitive object={surfaceTimber(TIMBER, detail)} attach="material" />
       </RoundedBox>
       <mesh position={[0.95, 1.2, 0.25]}>
         <cylinderGeometry args={[0.14, 0.17, 0.3, 9]} />
@@ -443,6 +487,7 @@ function SupplyDepotModel({ color }: { color: string }) {
 
 /** Upgrades: a smithy with a glowing forge window and chimney. */
 function UpgradesModel({ color }: { color: string }) {
+  const detail = useBlockDetail();
   return (
     <>
       <RoundedBox
@@ -460,7 +505,7 @@ function UpgradesModel({ color }: { color: string }) {
       {/* Chimney with embers on the high side of the shed roof */}
       <mesh position={[-0.42, 2.5, -0.05]}>
         <boxGeometry args={[0.22, 0.8, 0.22]} />
-        <meshStandardMaterial color={STONE} roughness={0.9} flatShading />
+        <primitive object={surfaceStone(STONE, detail)} attach="material" />
       </mesh>
       <mesh position={[-0.42, 2.92, -0.05]}>
         <boxGeometry args={[0.15, 0.05, 0.15]} />
@@ -709,16 +754,20 @@ function WorkshopModel({ color }: { color: string }) {
 
 /** Battles: a small colosseum drum with banners over a lit floor. */
 function BattlesModel({ color }: { color: string }) {
+  const detail = useBlockDetail();
   return (
     <>
       <mesh position={[0, 1.5, 0]}>
         <cylinderGeometry args={[0.85, 0.92, 1.0, 16]} />
-        <meshStandardMaterial color={STONE} roughness={0.9} flatShading />
+        <primitive object={surfaceStone(STONE, detail)} attach="material" />
       </mesh>
       {/* Rim */}
       <mesh position={[0, 2.02, 0]}>
         <torusGeometry args={[0.86, 0.08, 8, 18]} />
-        <meshStandardMaterial color={STONE_LIGHT} roughness={0.8} flatShading />
+        <primitive
+          object={surfaceStone(STONE_LIGHT, detail)}
+          attach="material"
+        />
       </mesh>
       {/* Glowing arched entrance */}
       <mesh position={[0, 1.34, 0.88]}>

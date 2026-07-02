@@ -27,6 +27,12 @@ import {
   TEETER_EMISSIVE,
 } from "./mine-render-palette";
 
+/** Shader detail gate shared by every scene consumer: high quality tier
+ * AND the live WebGPU backend. */
+export function useBlockDetail(): boolean {
+  return useThree((state) => blockDetailEnabled(isWebGPUBackend(state.gl)));
+}
+
 /**
  * The solid body for a mine cell (F-046: one source of truth for the
  * mine canvas and the Holodeck). Materials are shared TSL singletons
@@ -45,11 +51,7 @@ export function MineBlockBody({
   row: number;
   biome?: MineBiomeId;
 }) {
-  // Detail requires both the high tier and the live WebGPU backend:
-  // per-fragment noise on software GL costs real frame time.
-  const detail = useThree((state) =>
-    blockDetailEnabled(isWebGPUBackend(state.gl)),
-  );
+  const detail = useBlockDetail();
   if (cell.kind === "ore" && cell.ore) {
     return (
       <>
@@ -327,9 +329,7 @@ export function OreCrystals({
   color: string;
   glow: boolean;
 }) {
-  const detail = useThree((state) =>
-    blockDetailEnabled(isWebGPUBackend(state.gl)),
-  );
+  const detail = useBlockDetail();
   const material = crystalMaterial(color, glow, detail);
   const count = 3 + Math.floor(cellHash(col, row, 7) * 3);
   const crystals = [];

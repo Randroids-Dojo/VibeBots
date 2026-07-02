@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="w2-shared-surface-materials" data-date="2026-07-02">
+    <h3>W2 Increment: Shared TSL Materials For The Village Structures</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed flow).</dd>
+      <dt>PR</dt><dd>None (direct main).</dd>
+      <dt>Changed</dt><dd>Opens the W2 shop overhaul with the W1 recipe applied to the surface village: new <code>mine-surface-materials.ts</code> (quarried stone with mottle, sawn timber with ring striations, brushed structural metal; detail gated on the shared <code>useBlockDetail()</code> hook, flat on the low tier and non-WebGPU backends), and 22 plain structural materials across the shop models swapped onto the shared singletons via <code>primitive attach</code>. The W1 helpers (<code>cached</code>, <code>grainNoise</code>, <code>jitteredColor</code>, <code>cellHashNode</code>) are exported for reuse, and the block/crystal consumers moved to the same hook. Colored, emissive, and sign materials stay per-mesh (they vary per stall). No version bump; the player-facing release note ships with the W2 geometry increment.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome (unpiped exit code), full unit suite, <code>pnpm build</code>, the surface-village stalls smoke (passed), and a village capture with zero page errors. The local first-canvas-mount 5s timeouts reproduce on unchanged code and under software GL with passing retries (the documented local GPU-stack degradation), so the clean-runner branch CI gate is the authoritative check for this push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: structural materials share one roughness base with spatial variation in-shader; per-site roughness constants (0.7 to 0.9) collapse into it. Rule 13 and Rule 14: reviewed, no changes.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed.</dd>
+      <dt>Followups</dt><dd>None new; W2 geometry upgrades (awnings, rooflines, prop dressing per shop) are the next increment.</dd>
+    </dl>
+  </article>
+
   <article data-slice="w1-gem-grade-ores" data-date="2026-07-02">
     <h3>W1 Increment: Gem-Grade Ore Crystals</h3>
     <dl>

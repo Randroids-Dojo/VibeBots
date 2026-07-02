@@ -29,10 +29,11 @@ import {
   positionWorld,
   sin,
   time,
+  uniform,
   vec2,
   vec3,
 } from "three/tsl";
-import { MeshStandardNodeMaterial } from "three/webgpu";
+import { Color, MeshStandardNodeMaterial } from "three/webgpu";
 import {
   hasCoarsePointer,
   readStoredGraphicsQuality,
@@ -57,24 +58,33 @@ export function blockDetailEnabled(webgpuBackend: boolean): boolean {
 
 /** Stable in-shader hash of the cell's integer world coordinate, the
  * TSL twin of cellHash(): same cell, same value, no shimmer. */
-function cellHashNode() {
+export function cellHashNode() {
   const cell = floor(add(positionWorld.xy, vec2(0.5, 0.5)));
   return fract(sin(dot(cell, vec2(127.1, 311.7))).mul(43758.5453));
 }
 
-/** The old variedColor() lightness jitter, in-shader. */
-function jitteredColor(baseHex: string) {
-  const jitter = cellHashNode().sub(0.5).mul(0.16).add(1.0);
-  return color(baseHex).mul(jitter);
+/** Base tints enter the shader as uniforms, not constants: a constant
+ * hex bakes into the program source, so every distinct tint would
+ * compile its own program. Uniforms keep one program per material
+ * shape, which is what makes first paint survive software GL (CI) and
+ * cheap GPUs. */
+export function tintUniform(baseHex: string) {
+  return uniform(new Color(baseHex));
 }
 
-function grainNoise(scale: number) {
+/** The old variedColor() lightness jitter, in-shader. */
+export function jitteredColor(baseHex: string) {
+  const jitter = cellHashNode().sub(0.5).mul(0.16).add(1.0);
+  return tintUniform(baseHex).mul(jitter);
+}
+
+export function grainNoise(scale: number) {
   return mx_noise_float(positionWorld.xyz.mul(scale));
 }
 
 const cache = new Map<string, MeshStandardNodeMaterial>();
 
-function cached(
+export function cached(
   key: string,
   build: () => MeshStandardNodeMaterial,
 ): MeshStandardNodeMaterial {
@@ -203,9 +213,9 @@ export function crystalMaterial(
     material.flatShading = true;
     material.metalness = 0.1;
     material.roughness = 0.18;
-    material.colorNode = color(baseHex);
+    material.colorNode = tintUniform(baseHex);
     if (!detail) {
-      material.emissiveNode = color(baseHex).mul(glow ? 1.1 : 0.4);
+      material.emissiveNode = tintUniform(baseHex).mul(glow ? 1.1 : 0.4);
       return material;
     }
     const rim = oneMinus(abs(dot(normalView, positionViewDirection)));
@@ -215,7 +225,7 @@ export function crystalMaterial(
           .mul(0.25)
           .add(1.0)
       : float(1.0);
-    material.emissiveNode = color(baseHex)
+    material.emissiveNode = tintUniform(baseHex)
       .mul(float(glow ? 0.85 : 0.3).add(facetRim))
       .mul(breath);
     return material;
@@ -234,14 +244,14 @@ export function gasBlockMaterial(
     material.roughness = 0.55;
     if (!detail) {
       material.colorNode = jitteredColor(baseHex);
-      material.emissiveNode = color(baseHex).mul(0.25);
+      material.emissiveNode = tintUniform(baseHex).mul(0.25);
       return material;
     }
     const churn = grainNoise(5);
     material.colorNode = jitteredColor(baseHex).mul(
       float(0.85).add(churn.mul(0.3)),
     );
-    material.emissiveNode = color(baseHex).mul(churn.mul(0.35).add(0.15));
+    material.emissiveNode = tintUniform(baseHex).mul(churn.mul(0.35).add(0.15));
     return material;
   });
 }

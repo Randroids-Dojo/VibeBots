@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { dismissReleaseNotes, openSettings } from "./support/mine-helpers";
 
 test("holodeck is reachable from the mine options menu", async ({ page }) => {
@@ -112,7 +112,37 @@ test("holodeck pause freezes the mining animation, play resumes it", async ({
     .not.toBe(armPaused);
 });
 
+/** Sample a canvas data attribute across rendered frames, in-page: rAF
+ * fires once per real frame, so this sees short animation pulses that
+ * round-trip polling misses entirely on slow runners. */
+async function sampleCanvasAttrOverFrames(
+  page: Page,
+  attr: string,
+  windowMs: number,
+): Promise<number[]> {
+  return page.evaluate(
+    ([attrName, ms]) =>
+      new Promise<number[]>((resolve) => {
+        const canvas = document.querySelector("canvas");
+        const seen: number[] = [];
+        const startedAt = performance.now();
+        const tick = () => {
+          const raw = canvas?.getAttribute(attrName);
+          if (raw !== null && raw !== undefined) seen.push(Number(raw));
+          if (performance.now() - startedAt < ms) {
+            requestAnimationFrame(tick);
+          } else {
+            resolve(seen);
+          }
+        };
+        requestAnimationFrame(tick);
+      }),
+    [attr, windowMs] as [string, number],
+  );
+}
+
 test("miner showcase plays clips and spins the turntable", async ({ page }) => {
+  test.setTimeout(120_000);
   await page.goto("/holodeck");
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
@@ -121,7 +151,7 @@ test("miner showcase plays clips and spins the turntable", async ({ page }) => {
   await expect(page.getByLabel("Animation")).toBeVisible();
   await expect(page.getByLabel("Turntable")).toBeVisible();
   await expect(canvas).toHaveAttribute("data-holodeck-clip", "idle", {
-    timeout: 15_000,
+    timeout: 30_000,
   });
 
   // Idle still renders live motion: the hover bob moves the body (Rule 10).
@@ -132,13 +162,25 @@ test("miner showcase plays clips and spins the turntable", async ({ page }) => {
     })
     .not.toBe(bobA);
 
-  // The dig clip drives the pick arm.
+  // The dig clip drives the pick arm. The swing is a 0.18s pulse per
+  // 0.62s loop: sample in-page across rendered frames so a slow runner
+  // that renders few frames still catches the pulse when it draws one.
   await page.getByLabel("Animation").selectOption("dig");
-  await expect(canvas).toHaveAttribute("data-holodeck-clip", "dig");
+  await expect(canvas).toHaveAttribute("data-holodeck-clip", "dig", {
+    timeout: 30_000,
+  });
   await expect
-    .poll(async () => Number(await canvas.getAttribute("data-holodeck-arm")), {
-      timeout: 5_000,
-    })
+    .poll(
+      async () => {
+        const arms = await sampleCanvasAttrOverFrames(
+          page,
+          "data-holodeck-arm",
+          3_000,
+        );
+        return arms.length ? Math.min(...arms) : 0;
+      },
+      { message: "the dig swing should reach the pick down-stroke" },
+    )
     .toBeLessThan(-0.5);
 
   // The turntable accumulates yaw while spinning and holds when off.

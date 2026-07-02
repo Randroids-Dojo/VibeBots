@@ -21,6 +21,7 @@ import {
 } from "./support/mine-helpers";
 
 test("mine digs and tracks depth and energy", async ({ page }) => {
+  test.setTimeout(120_000);
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await expect(page.locator("canvas")).toBeVisible();
@@ -213,6 +214,9 @@ test("dirt cracks grow before a heavy break burst", async ({ page }) => {
 });
 
 test("stratum entry banners fade after continued descent", async ({ page }) => {
+  // Deep digs cost ~0.62s per swing at sim cadence; slow runners also pay
+  // a first-frame shader-compile stall, so the default 60s budget is tight.
+  test.setTimeout(120_000);
   const seed = 2026062801;
   const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
   for (let row = 1; row <= 12; row += 1) {
@@ -274,7 +278,7 @@ test("stratum entry banners fade after continued descent", async ({ page }) => {
           b !== null && (b.opacity !== a.opacity || b.transform !== a.transform)
         );
       },
-      { message: "stratum banner should visibly animate", timeout: 10_000 },
+      { message: "stratum banner should visibly animate", timeout: 20_000 },
     )
     .toBe(true);
   // Continued descent leaves no lingering banner behind.
@@ -529,6 +533,7 @@ test("mine shows the needed pickaxe level on gated rock hits", async ({
 test("falling-rock crush stays on camera before the report", async ({
   page,
 }) => {
+  test.setTimeout(120_000);
   await page.route("**/api/mine/world", async (route) => {
     await route.fulfill({ status: 503, body: "{}" });
   });
@@ -570,10 +575,12 @@ test("falling-rock crush stays on camera before the report", async ({
   await expect(canvas).toBeVisible();
 
   const status = page.getByLabel("Mine status");
+  await awaitMineSceneReady(page);
   await pressMineKey(page, "ArrowRight");
+  // The first frames on a cold runner also pay the shader-compile stall.
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 5_000,
+      timeout: 30_000,
     })
     .toBeGreaterThan(0.5);
   await digTo(page, 7);
@@ -584,7 +591,7 @@ test("falling-rock crush stays on camera before the report", async ({
   // The rig lands on exactly -7.00 at depth 7, so the threshold sits above.
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {
-      timeout: 20_000,
+      timeout: 45_000,
     })
     .toBeLessThan(-6.9);
   const beforeCrushShot = await canvas.screenshot();
@@ -645,8 +652,17 @@ test("falling-rock crush stays on camera before the report", async ({
   await expect(report).toContainText("Crushed by falling rock");
   await expect(report).toContainText("where the rock fell");
   await expect(report).not.toContainText("battery died");
-  await expect(canvas).toHaveAttribute("data-fall-visual-active", "true");
-  expect(Number(await canvas.getAttribute("data-cam-y"))).toBeLessThan(-7);
+  // On a frame-starved runner the attributes lag the store by however
+  // long the canvas goes between frames; the playback stays alive until
+  // impact + 4.3s, so give the next rendered frame time to say so.
+  await expect(canvas).toHaveAttribute("data-fall-visual-active", "true", {
+    timeout: 15_000,
+  });
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {
+      timeout: 10_000,
+    })
+    .toBeLessThan(-7);
   expect(
     Number(await canvas.getAttribute("data-rendered-cell-count")),
   ).toBeGreaterThan(20);

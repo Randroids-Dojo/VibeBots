@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Miner Model V2: Art Review Evidence</title>
+</head>
+<body>
+
+<header>
+  <h1>Miner Model V2: Art Review Evidence</h1>
+  <p>Character pipeline slices 1 and 2 (PR #83 and the model v2 PR). Captures produced by <code>scripts/capture-miner-showcase.mjs</code> and a mine-context driver against a local production build, 2026-07-02. No desktop or browser-session captures; every image is a scripted canvas screenshot.</p>
+</header>
+
+<main>
+  <figure>
+    <img src="captures/miner-v2-desktop-idle.png" alt="Miner model v2, idle clip, Holodeck showcase, desktop viewport" width="640">
+    <figcaption>Showcase idle, desktop, WebGPU: hull rims, visor and chest-screen emissives, lamp lens, off arm, twin-blade pick.</figcaption>
+  </figure>
+  <figure>
+    <img src="captures/miner-v2-desktop-angled.png" alt="Miner model v2 on the turntable at a three-quarter angle" width="640">
+    <figcaption>Turntable three-quarter view: silhouette and backpack read; no face artifacts after the brim/lens/intake fixes.</figcaption>
+  </figure>
+  <figure>
+    <img src="captures/miner-v2-portrait-dig.png" alt="Miner model v2, dig clip, 390x760 portrait" width="320">
+    <figcaption>Dig clip at the primary Android portrait viewport with the aspect-aware showcase dolly.</figcaption>
+  </figure>
+  <figure>
+    <img src="captures/miner-v2-forced-webgl.png" alt="Miner model v2 under the forced WebGL2 phone path" width="320">
+    <figcaption>Pixel 7 emulation, <code>data-renderer="webgl2-forced"</code>: TSL materials compiled to GLSL, zero console errors, identical render.</figcaption>
+  </figure>
+  <figure>
+    <img src="captures/mine-underground-portrait.png" alt="Miner model v2 underground in the real mine at portrait" width="320">
+    <figcaption>Real gameplay context at depth 3, 390x760: the character reads at gameplay zoom against the dirt.</figcaption>
+  </figure>
+</main>
+
+</body>
+</html>

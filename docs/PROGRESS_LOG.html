@@ -40,7 +40,7 @@
       <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome on touched files, <code>scripts/check-sim-purity.sh</code>, full unit suite (512 passed) plus release/notification suites after the bump (80 passed), <code>pnpm build</code>, the five previously failing tests green natively and under a software-GL CI simulation config (<code>--disable-gpu</code>), and the full local Playwright suite on an isolated port.</dd>
       <dt>Assumptions</dt><dd>Recommended default: report pacing after the impact stays close to the old feel (fall 430ms, crush 950ms after impact; the old timers were 850ms and 1300ms from the action). Recommended default: a 4000ms ceiling still shows the report when the canvas cannot render the impact at all. Rule 13: tips reviewed for 0.1.151, no change needed (no mining rule changed). Rule 14: stamp review done, no stamp (stability fix).</dd>
       <dt>GDD coverage</dt><dd>No coverage status changed. <code>docs/gdd/06-mining.html</code> gained a build-log entry for the impact-gated trip report.</dd>
-      <dt>Followups</dt><dd>New F-047: schedule-only Full E2E redness has no notification path; decide whether scheduled failures should page or open an issue automatically.</dd>
+      <dt>Followups</dt><dd>New F-047: schedule-only Full E2E redness has no notification path; decide whether scheduled failures should page or open an issue automatically. New F-048: local runs with real storage attached diverge from CI (workshop palette reports None owned, single-press mine tests race the slower scene-ready gate); three single-press races got awaitMineSceneReady in this slice, the workshop ownership question stays open.</dd>
     </dl>
   </article>
 

@@ -21,17 +21,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "A new Holodeck mode loads focused, looping mine test scenes.",
+    "Fatal falls and crushes finish on screen before the report.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "loads small, controlled test scenes through a scenario selector",
+    "waits for the visible impact instead of racing it on a timer",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "auto-mines a single block on a deterministic loop",
+    "the report still arrives after a short safety delay",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "runs in its own isolated session",
+    "MINE_VERSION, and SIM_VERSION are unchanged",
   );
 
   await page.mouse.click(8, 8);
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.151", "Crash reports wait for the crash"],
     ["0.1.150", "Holodeck test scenes"],
     ["0.1.149", "Route-aware ladders"],
     ["0.1.148", "Visible raid XP pickups"],

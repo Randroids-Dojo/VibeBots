@@ -543,6 +543,16 @@
   </dl>
 </section>
 
+<section id="F-048" data-f="F-048" data-priority="polish">
+  <h3>F-048: Local Playwright runs behave differently with real storage attached</h3>
+  <dl>
+    <dt>Context</dt><dd>Slow-CI stability slice 2026-07-01: running the suite in a checkout with <code>.env.local</code> (real Neon storage) reproduces failures that CI (storage offline) never sees, on unchanged <code>origin/main</code>: <code>workshop builds and undoes parts</code> reports every palette part as <code>None owned</code>, the garage storage test flips between skip and fail, and single-keypress mine tests race the slower scene-ready gate because world/gear/bunker fetches hit the real database. Three of those single-press races were hardened with <code>awaitMineSceneReady</code> in this slice, but the workshop ownership behavior under real storage is unexplained: it may be a real bug where a fresh guest owns no starter parts when storage is online.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: reproduce the workshop <code>None owned</code> palette against a real storage backend with a fresh guest cookie, decide whether fresh players are meant to own starter parts there, and fix the seed path or the test assumptions. Also decide whether the local suite should force-offline storage so local runs match the CI contract. Acceptance: a full local run in a storage-attached checkout matches CI results, or the difference is documented as intended with a forced-offline switch for parity runs.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
 <section id="F-047" data-f="F-047" data-priority="polish">
   <h3>F-047: Surface scheduled Full E2E failures instead of letting them rot</h3>
   <dl>

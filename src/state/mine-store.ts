@@ -138,9 +138,13 @@ export interface MineSessionState {
   worldLoaded: boolean;
   /** Tick key of the fall/crush playback whose impact frame has rendered.
    * Written by the mine canvas frame loop so the trip report can wait for
-   * the visible impact instead of racing it on a wall-clock timer. */
+   * the visible impact instead of racing it on a wall-clock timer. Keys
+   * are store ticks and ticks reset to 0 on trip/world resets, so the
+   * playback bridge clears this when a new playback begins; a stale key
+   * from a previous trip must never satisfy a later trip's gate. */
   fallVisualImpactKey: number | null;
   markFallVisualImpact: (key: number) => void;
+  clearFallVisualImpact: () => void;
   move: (action: MineAction) => void;
   clearTerminalResult: () => void;
   loadWorld: () => Promise<void>;
@@ -245,6 +249,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     markFallVisualImpact: (key) => {
       if (get().fallVisualImpactKey === key) return;
       set({ fallVisualImpactKey: key });
+    },
+    clearFallVisualImpact: () => {
+      if (get().fallVisualImpactKey === null) return;
+      set({ fallVisualImpactKey: null });
     },
 
     saveCurrentTrip: persistCurrentTrip,

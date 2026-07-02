@@ -89,6 +89,11 @@ import {
   type BunkerBuildMode,
   BunkerControlPanel,
 } from "./mine-bunker-control-panel";
+import {
+  CRUSH_REPORT_AFTER_IMPACT_MS,
+  FALL_REPORT_AFTER_IMPACT_MS,
+  wreckReportCeilingMs,
+} from "./mine-death-playback";
 import { DESTINATIONS, destinationAt } from "./mine-destinations";
 import {
   createDirectionCadenceController,
@@ -814,6 +819,16 @@ function JuiceOverlays() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the event stream; the rest is read-at-fire
   useEffect(() => {
+    // Cancel any pending wreck report BEFORE the ok-gate: a trip reset
+    // (restart, slot switch, world reload) arrives as a tick change with
+    // a null result, and it must not leave a previous trip's report timer
+    // or impact subscription alive to fire over the fresh trip.
+    if (wreckTimeout.current != null) {
+      window.clearTimeout(wreckTimeout.current);
+      wreckTimeout.current = null;
+    }
+    wreckImpactUnsub.current?.();
+    wreckImpactUnsub.current = null;
     if (!lastResult?.ok) return;
     if (lastResult.oreHarvested) {
       const ore = oreDef(lastResult.oreHarvested.ore);
@@ -840,12 +855,6 @@ function JuiceOverlays() {
       setFanfare(`Cache cracked: ${name}!`);
       setTimeout(() => setFanfare(null), 2800);
     }
-    if (wreckTimeout.current != null) {
-      window.clearTimeout(wreckTimeout.current);
-      wreckTimeout.current = null;
-    }
-    wreckImpactUnsub.current?.();
-    wreckImpactUnsub.current = null;
     if (lastResult.collapsed && lastResult.lost) {
       const nextWreck = {
         crushed: lastResult.crushed ?? false,
@@ -869,9 +878,12 @@ function JuiceOverlays() {
         // The report must not beat the visible impact: the canvas frame
         // loop marks the impact frame in the store, and the report holds
         // for a beat after it. The ceiling timer covers a canvas that
-        // never renders the impact (context lost, scene error).
-        const afterImpactMs = lastResult.fallFatal ? 430 : 950;
-        const ceilingMs = 4000;
+        // never renders the impact (context lost, scene error); it scales
+        // with the fall length because long falls take that long to land.
+        const afterImpactMs = lastResult.fallFatal
+          ? FALL_REPORT_AFTER_IMPACT_MS
+          : CRUSH_REPORT_AFTER_IMPACT_MS;
+        const ceilingMs = wreckReportCeilingMs(lastResult.fell);
         const scheduleWreck = (delayMs: number) => {
           if (wreckTimeout.current != null) {
             window.clearTimeout(wreckTimeout.current);

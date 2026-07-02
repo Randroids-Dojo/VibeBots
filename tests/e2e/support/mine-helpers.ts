@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import packageJson from "../../../package.json";
+import { START_ACTION_REPEAT_MS } from "../../../src/components/mine-pacing";
 import { getAppRelease } from "../../../src/lib/app-release";
 import {
   applyAction,
@@ -17,10 +18,12 @@ import {
 } from "../../../src/sim/mine";
 
 export const MINE_KEY_CADENCE_MS = 190;
-/** Spacing that clears the start-gear action repeat window (620ms), so a
- * paced walking/digging loop lands every press instead of one in three.
- * Fewer round trips keeps long walks inside the test budget on slow CI. */
-export const MINE_KEY_STEP_MS = 660;
+/** Spacing that clears the start-gear action repeat window, so a paced
+ * walking/digging loop lands every press instead of one in three. Derived
+ * from the app's own pacing constant so a rebalance cannot silently break
+ * every paced test loop. Fewer round trips keeps long walks inside the
+ * test budget on slow CI. */
+export const MINE_KEY_STEP_MS = START_ACTION_REPEAT_MS + 40;
 export const APP_VERSION_PATTERN = new RegExp(
   `^${packageJson.version.replaceAll(".", "\\.")}([.+]|$)`,
 );
@@ -161,8 +164,14 @@ export async function digTo(page: Page, depth: number): Promise<void> {
   if ((await current()) < depth - 1) {
     await page.keyboard.down("ArrowDown");
     try {
+      // Sample fast: expect.poll's default backoff reaches 1s between
+      // checks, which lets the held repeat overshoot past depth - 1 on
+      // one-swing rows (high pickaxe or pre-carved shafts) before keyup.
       await expect
-        .poll(current, { timeout: Math.max(30_000, depth * 5_000) })
+        .poll(current, {
+          intervals: [100],
+          timeout: Math.max(30_000, depth * 5_000),
+        })
         .toBeGreaterThanOrEqual(depth - 1);
     } finally {
       await page.keyboard.up("ArrowDown");

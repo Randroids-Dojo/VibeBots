@@ -269,10 +269,14 @@ test("stratum entry banners fade after continued descent", async ({ page }) => {
             };
           })
           .catch(() => null);
+        // A mid-fade entry sample already proves motion; otherwise a
+        // second attached sample must differ. Unmounting alone is not
+        // motion evidence, so a null sample keeps polling.
+        if (entryFrame.opacity > 0 && entryFrame.opacity < 1) return true;
         return (
-          laterFrame === null ||
-          laterFrame.opacity !== entryFrame.opacity ||
-          laterFrame.transform !== entryFrame.transform
+          laterFrame !== null &&
+          (laterFrame.opacity !== entryFrame.opacity ||
+            laterFrame.transform !== entryFrame.transform)
         );
       },
       { message: "stratum banner should visibly animate" },
@@ -609,11 +613,16 @@ test("falling-rock crush stays on camera before the report", async ({
   expect(firstActiveFrame?.minerY).toBeLessThan(-7);
   // The report never precedes the rendered impact. On a frame-starved
   // runner the first observed active frame can already be post-impact,
-  // so assert the ordering rather than a wall-clock "not yet".
+  // so assert the ordering rather than a wall-clock "not yet". The
+  // impact attribute is transient (it resets when the playback clears
+  // while the report stays up), so only a live playback that has NOT
+  // impacted yet may fail this check.
   if (
     await page.getByRole("button", { name: "Dismiss trip report" }).isVisible()
   ) {
-    expect(await canvas.getAttribute("data-fall-visual-impact")).toBe("true");
+    const active = await canvas.getAttribute("data-fall-visual-active");
+    const impacted = await canvas.getAttribute("data-fall-visual-impact");
+    expect(active === "true" && impacted === "false").toBe(false);
   }
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {

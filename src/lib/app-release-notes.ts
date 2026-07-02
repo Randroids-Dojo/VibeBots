@@ -20,7 +20,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "The Holodeck Miner Showcase camera now dollies in close for inspection. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+          text: "The Holodeck Miner Showcase camera now dollies in close for inspection, and stratum banners always finish their fade on slow devices. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
         },
       ],
     },

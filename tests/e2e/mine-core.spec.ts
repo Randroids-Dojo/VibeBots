@@ -251,35 +251,30 @@ test("stratum entry banners fade after continued descent", async ({ page }) => {
     .filter({ hasText: "Entering Clay Beds" });
   await expect(banner).toBeVisible();
   // The banner is a one-shot 2.6s CSS animation, so prove it visibly
-  // animates while it is alive (Rule 10) instead of racing its lifetime
-  // against another full dig row on a slow runner.
-  const entryFrame = await banner.evaluate((element) => {
-    const style = window.getComputedStyle(element);
-    return { opacity: Number(style.opacity), transform: style.transform };
-  });
+  // animates while it is alive (Rule 10) without anchoring on a single
+  // early sample: under suite load the first sample can land late in
+  // the banner's life, so each poll tick takes its own pair of samples.
+  const sampleBanner = () =>
+    banner
+      .evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return { opacity: Number(style.opacity), transform: style.transform };
+      })
+      .catch(() => null);
   await expect
     .poll(
       async () => {
-        const laterFrame = await banner
-          .evaluate((element) => {
-            const style = window.getComputedStyle(element);
-            return {
-              opacity: Number(style.opacity),
-              transform: style.transform,
-            };
-          })
-          .catch(() => null);
-        // A mid-fade entry sample already proves motion; otherwise a
-        // second attached sample must differ. Unmounting alone is not
-        // motion evidence, so a null sample keeps polling.
-        if (entryFrame.opacity > 0 && entryFrame.opacity < 1) return true;
+        const a = await sampleBanner();
+        if (a === null) return false;
+        // Any mid-fade sample is motion evidence on its own.
+        if (a.opacity > 0 && a.opacity < 1) return true;
+        await page.waitForTimeout(120);
+        const b = await sampleBanner();
         return (
-          laterFrame !== null &&
-          (laterFrame.opacity !== entryFrame.opacity ||
-            laterFrame.transform !== entryFrame.transform)
+          b !== null && (b.opacity !== a.opacity || b.transform !== a.transform)
         );
       },
-      { message: "stratum banner should visibly animate" },
+      { message: "stratum banner should visibly animate", timeout: 10_000 },
     )
     .toBe(true);
   // Continued descent leaves no lingering banner behind.

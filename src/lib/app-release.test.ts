@@ -15,7 +15,7 @@ describe("app release notes", () => {
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "The miner was rebuilt: armored hull with rim lighting, an animated chest screen and breathing visor, a bright headlamp lens, a backpack battery with glowing charge bars, a blinking beacon, toe caps, and a second arm bracing the walk.",
       "The pick gained a twin-blade steel head, and every surface uses new materials that read in the dark on both the WebGPU and WebGL paths.",
-      "The Holodeck Miner Showcase camera now dollies in close for inspection. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+      "The Holodeck Miner Showcase camera now dollies in close for inspection, and stratum banners always finish their fade on slow devices. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
     ]);
   });
 

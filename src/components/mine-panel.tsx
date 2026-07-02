@@ -694,22 +694,34 @@ function StratumBanner({ row }: { row: number }) {
     };
   }, []);
 
+  // The fade animation owns the banner's lifetime (onAnimationEnd). The
+  // timer is only the stuck-banner reaper for environments where the
+  // animation never runs, so it must outlast a late-starting animation:
+  // entering a new stratum re-skins every block and can stall the main
+  // thread past the mount, deferring the animation's start. A timer cut
+  // to the animation length used to reap the banner mid-plateau, so the
+  // fade-out never rendered on slow devices. Re-arming from the real
+  // animationstart keeps the reaper tight without racing the fade.
+  const armBannerTimer = useCallback((key: number, delayMs: number) => {
+    if (bannerTimer.current !== null) {
+      clearTimeout(bannerTimer.current);
+    }
+    bannerTimer.current = setTimeout(() => {
+      setBanner((current) => (current?.key === key ? null : current));
+      bannerTimer.current = null;
+    }, delayMs);
+  }, []);
+
   useEffect(() => {
     if (row <= deepestSeen.current) return;
     const wasStratum = stratumAt(deepestSeen.current);
     deepestSeen.current = row;
     if (stratum.name === wasStratum.name) return;
-    if (bannerTimer.current !== null) {
-      clearTimeout(bannerTimer.current);
-    }
     const nextKey = bannerKey.current + 1;
     bannerKey.current = nextKey;
     setBanner({ key: nextKey, text: `Entering ${stratum.name}` });
-    bannerTimer.current = setTimeout(() => {
-      setBanner((current) => (current?.key === nextKey ? null : current));
-      bannerTimer.current = null;
-    }, STRATUM_BANNER_MS);
-  }, [row, stratum.name]);
+    armBannerTimer(nextKey, STRATUM_BANNER_MS * 2);
+  }, [row, stratum.name, armBannerTimer]);
 
   if (!banner) return null;
   return (
@@ -717,6 +729,9 @@ function StratumBanner({ row }: { row: number }) {
       key={banner.key}
       className="mine-stratum-banner"
       role="status"
+      onAnimationStart={() =>
+        armBannerTimer(banner.key, STRATUM_BANNER_MS + 400)
+      }
       onAnimationEnd={() =>
         setBanner((current) => (current?.key === banner.key ? null : current))
       }

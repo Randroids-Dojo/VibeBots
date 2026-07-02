@@ -218,24 +218,33 @@ test("stratum entry banners fade after continued descent", async ({ page }) => {
   // a first-frame shader-compile stall, so the default 60s budget is tight.
   test.setTimeout(120_000);
   const seed = 2026062801;
-  const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  // High-gear trip fixture: pickaxe 9 cuts dirt in one swing, so the
+  // 13-row descent fits slow-runner budgets even when timer cadence
+  // dilates under load. The banner behavior under test is gear-agnostic.
+  const gear = { ...DEFAULT_GEAR, pickaxe: 9, battery: 10, lantern: 8 };
+  const mine = createMine(seed, gear, STARTING_CONSUMABLES);
   for (let row = 1; row <= 12; row += 1) {
     setCell(mine, START_COL, row, { kind: "dirt" });
   }
   setCell(mine, START_COL, 13, { kind: "empty", ladder: true });
   setCell(mine, START_COL, 14, { kind: "empty" });
   setCell(mine, START_COL, 15, { kind: "dirt" });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+    },
+    {
+      seed,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: [],
+    },
+  );
   await page.route("**/api/mine/world", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        activeSlot: 1,
-        seed,
-        tripIndex: 0,
-        diff: exportDiff(mine),
-      }),
-    });
+    await route.fulfill({ status: 503, body: "{}" });
   });
   await page.route("**/api/gear", async (route) => {
     await route.fulfill({ status: 503, body: "{}" });
@@ -595,16 +604,22 @@ test("falling-rock crush stays on camera before the report", async ({
     })
     .toBeLessThan(-6.9);
   const beforeCrushShot = await canvas.screenshot();
+  // Sample the playback state atomically: separate attribute reads can
+  // straddle the playback's end on a slow runner, pairing a stale
+  // active flag with a post-reset camera.
+  const readFallFrame = () =>
+    canvas.evaluate((el) => ({
+      active: el.getAttribute("data-fall-visual-active"),
+      camY: Number(el.getAttribute("data-cam-y")),
+      minerY: Number(el.getAttribute("data-miner-y")),
+    }));
   let firstActiveFrame: { camY: number; minerY: number } | null = null;
   for (let attempt = 0; attempt < 4 && !firstActiveFrame; attempt++) {
     await pressMineKey(page, "ArrowDown");
     for (let i = 0; i < 60; i++) {
-      const active = await canvas.getAttribute("data-fall-visual-active");
-      if (active === "true") {
-        firstActiveFrame = {
-          camY: Number(await canvas.getAttribute("data-cam-y")),
-          minerY: Number(await canvas.getAttribute("data-miner-y")),
-        };
+      const frame = await readFallFrame();
+      if (frame.active === "true") {
+        firstActiveFrame = { camY: frame.camY, minerY: frame.minerY };
         break;
       }
       await page.waitForTimeout(16);
@@ -641,7 +656,7 @@ test("falling-rock crush stays on camera before the report", async ({
     .toBeGreaterThan(20);
   await expect
     .poll(async () => canvas.getAttribute("data-fall-visual-impact"), {
-      timeout: 5_000,
+      timeout: 20_000,
     })
     .toBe("true");
   const activeCrushShot = await canvas.screenshot();

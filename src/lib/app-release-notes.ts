@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-02-0.1.152-miner-showcase";
+export const RELEASE_NOTICE_ID = "2026-07-02-0.1.153-miner-model-v2";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.153",
+      date: "2026-07-02",
+      title: "Miner glow-up",
+      intro: "The mining robot got a full visual overhaul.",
+      changes: [
+        {
+          build,
+          text: "The miner was rebuilt: armored hull with rim lighting, an animated chest screen and breathing visor, a bright headlamp lens, a backpack battery with glowing charge bars, a blinking beacon, toe caps, and a second arm bracing the walk.",
+        },
+        {
+          build,
+          text: "The pick gained a twin-blade steel head, and every surface uses new materials that read in the dark on both the WebGPU and WebGL paths.",
+        },
+        {
+          build,
+          text: "The Holodeck Miner Showcase camera now dollies in close for inspection. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.152",
       date: "2026-07-02",

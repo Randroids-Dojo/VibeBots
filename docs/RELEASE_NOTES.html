@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.153" data-date="2026-07-02">
+    <h2>0.1.153</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.153</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>The mining robot got a full visual overhaul.</dd>
+      <dt>Model v2</dt><dd>Armored hull with fresnel rim lighting, an animated scanline chest screen, a breathing visor glow, a bright headlamp lens, a backpack battery with glowing charge bars, a blinking beacon, toe caps, hip guards, and a second arm bracing the walk. The pick gained a twin-blade steel head.</dd>
+      <dt>Materials</dt><dd>All miner surfaces moved to shared TSL node materials (<code>src/components/miner-materials.ts</code>) that compile on both the WebGPU backend and the forced-WebGL2 phone path, verified with captures on both.</dd>
+      <dt>Showcase camera</dt><dd>The Holodeck Miner Showcase now dollies in close (aspect-aware for portrait phones) and exposes a per-frame draw-call counter for the model budget.</dd>
+      <dt>Verification</dt><dd>Showcase captures across every clip at desktop and 390x760 portrait on WebGPU, forced-WebGL2 phone-emulation capture, real-mine portrait context captures, plus the full unit and focused Playwright suites. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.152" data-date="2026-07-02">
     <h2>0.1.152</h2>
     <dl>

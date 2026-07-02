@@ -2,15 +2,42 @@ import { RoundedBox } from "@react-three/drei";
 import type { RefObject } from "react";
 import type { Group, PointLight } from "three/webgpu";
 import { cellHash } from "./mine-render-palette";
+import {
+  MINER_BATTERY,
+  MINER_BEACON,
+  MINER_CHASSIS,
+  MINER_HANDLE,
+  MINER_HAT,
+  MINER_HULL,
+  MINER_HULL_LIGHT,
+  MINER_JOINT,
+  MINER_KNEE_GLOW,
+  MINER_LAMP_LENS,
+  MINER_PICK_STEEL,
+  MINER_RUBBER,
+  MINER_SCREEN,
+  MINER_VISOR,
+} from "./miner-materials";
 
 /**
- * The miner robot: treaded chassis, orange torso with a glowing chest
- * screen, visored head under a hard hat with a working headlamp, and a
- * pickaxe arm that swings on digs. Animated parts get refs; the outer
- * group's transform belongs to useFrame in MineScene.
+ * The miner robot, model v2 (character pipeline slice 2): armored orange
+ * hull over a gunmetal chassis, a glowing chest screen and visor, a
+ * working headlamp under the hard hat, a backpack battery with charge
+ * bars, and two arms: the pick arm that swings on digs plus an off arm
+ * that braces. Materials are shared TSL node materials
+ * (miner-materials.ts): fresnel rims for silhouette readability in the
+ * dark, animated emissives for life. Animated parts get refs; the outer
+ * group's transform belongs to useFrame in the owning scene, driven by
+ * the shared rig (miner-rig.ts).
+ *
+ * Every mesh attaches a shared material via `material={...}` so programs
+ * are reused across the model and across canvases.
  */
+
 /** One articulated leg: a hip pivot (ref'd, swung by useFrame) holding
- * a thigh, a shin, and a chunky foot. Mirror with `side` = -1 or 1. */
+ * armored thigh, glowing knee, piston shin, and a toe-capped foot.
+ * Mirror with `side` = -1 or 1. The foot bottoms at child-space
+ * y ~ -0.36, the old tread floor. */
 function MinerLeg({
   side,
   legRef,
@@ -19,43 +46,77 @@ function MinerLeg({
   legRef: RefObject<Group | null>;
 }) {
   return (
-    // Hip pivot. useFrame swings this group's X rotation for the stride;
-    // the foot bottoms at child-space y ~ -0.36, the old tread floor.
     <group ref={legRef} position={[0.12 * side, -0.14, 0]}>
       {/* Hip servo */}
-      <mesh>
+      <mesh material={MINER_JOINT} dispose={null}>
         <cylinderGeometry args={[0.055, 0.055, 0.12, 8]} />
-        <meshStandardMaterial
-          color="#3a3f4d"
-          metalness={0.4}
-          roughness={0.6}
-          flatShading
-        />
       </mesh>
-      {/* Thigh */}
-      <mesh position={[0, -0.06, 0]}>
+      {/* Thigh armor plate over the dark thigh */}
+      <mesh position={[0, -0.06, 0]} material={MINER_CHASSIS} dispose={null}>
         <boxGeometry args={[0.08, 0.11, 0.09]} />
-        <meshStandardMaterial color="#2b2f3a" roughness={0.8} flatShading />
       </mesh>
-      {/* Knee */}
-      <mesh position={[0, -0.115, 0]}>
+      <mesh position={[0, -0.055, 0.01]} material={MINER_HULL} dispose={null}>
+        <boxGeometry args={[0.095, 0.07, 0.1]} />
+      </mesh>
+      {/* Knee lens */}
+      <mesh position={[0, -0.115, 0]} material={MINER_KNEE_GLOW} dispose={null}>
         <icosahedronGeometry args={[0.04, 0]} />
-        <meshStandardMaterial
-          color="#54e0c7"
-          emissive="#1a4f47"
-          roughness={0.5}
-          flatShading
-        />
       </mesh>
-      {/* Shin */}
-      <mesh position={[0, -0.15, 0.005]}>
+      {/* Shin piston */}
+      <mesh position={[0, -0.15, 0.005]} material={MINER_JOINT} dispose={null}>
         <boxGeometry args={[0.07, 0.1, 0.08]} />
-        <meshStandardMaterial color="#3a3f4d" roughness={0.8} flatShading />
       </mesh>
-      {/* Foot */}
-      <mesh position={[0, -0.195, 0.03]}>
+      {/* Ankle strut */}
+      <mesh position={[0, -0.185, 0.02]} material={MINER_JOINT} dispose={null}>
+        <cylinderGeometry args={[0.02, 0.02, 0.05, 6]} />
+      </mesh>
+      {/* Foot with a toe cap */}
+      <mesh position={[0, -0.195, 0.03]} material={MINER_RUBBER} dispose={null}>
         <boxGeometry args={[0.12, 0.05, 0.16]} />
-        <meshStandardMaterial color="#23262f" roughness={0.9} flatShading />
+      </mesh>
+      <mesh position={[0, -0.19, 0.1]} material={MINER_HULL} dispose={null}>
+        <boxGeometry args={[0.11, 0.045, 0.05]} />
+      </mesh>
+    </group>
+  );
+}
+
+/** The braced off arm: shoulder, angled upper arm, forearm, fist. */
+function MinerOffArm() {
+  return (
+    <group position={[-0.24, 0.08, 0.02]}>
+      <mesh material={MINER_HULL} dispose={null}>
+        <icosahedronGeometry args={[0.07, 0]} />
+      </mesh>
+      <mesh
+        position={[-0.045, -0.09, 0]}
+        rotation={[0, 0, 0.42]}
+        material={MINER_CHASSIS}
+        dispose={null}
+      >
+        <boxGeometry args={[0.07, 0.18, 0.07]} />
+      </mesh>
+      <mesh
+        position={[-0.085, -0.175, 0]}
+        material={MINER_JOINT}
+        dispose={null}
+      >
+        <icosahedronGeometry args={[0.035, 0]} />
+      </mesh>
+      <mesh
+        position={[-0.1, -0.24, 0.02]}
+        rotation={[0.25, 0, 0.15]}
+        material={MINER_JOINT}
+        dispose={null}
+      >
+        <boxGeometry args={[0.06, 0.13, 0.06]} />
+      </mesh>
+      <mesh
+        position={[-0.105, -0.31, 0.04]}
+        material={MINER_RUBBER}
+        dispose={null}
+      >
+        <icosahedronGeometry args={[0.045, 0]} />
       </mesh>
     </group>
   );
@@ -100,36 +161,69 @@ export function MinerBot({
       {/* Dust motes drifting in the lamp light (hidden on the surface). */}
       <group ref={motesRef}>{motes}</group>
       <group ref={bodyRef}>
-        {/* Pelvis the legs hang from (replaces the old tread chassis) */}
-        <mesh position={[0, -0.13, 0]}>
+        {/* Pelvis the legs hang from, with hip guard flares */}
+        <mesh position={[0, -0.13, 0]} material={MINER_CHASSIS} dispose={null}>
           <boxGeometry args={[0.34, 0.12, 0.26]} />
-          <meshStandardMaterial color="#2b2f3a" roughness={0.85} flatShading />
+        </mesh>
+        <mesh position={[0, -0.1, 0]} material={MINER_HULL} dispose={null}>
+          <boxGeometry args={[0.4, 0.05, 0.28]} />
         </mesh>
         <MinerLeg side={-1} legRef={legLRef} />
         <MinerLeg side={1} legRef={legRRef} />
-        {/* Torso */}
+        {/* Torso hull */}
         <RoundedBox
           args={[0.42, 0.34, 0.32]}
           radius={0.06}
           smoothness={2}
           position={[0, -0.03, 0]}
+          material={MINER_HULL}
+          dispose={null}
+        />
+        {/* Collar ring under the head */}
+        <mesh position={[0, 0.15, 0]} material={MINER_JOINT} dispose={null}>
+          <cylinderGeometry args={[0.11, 0.13, 0.05, 10]} />
+        </mesh>
+        {/* Shoulder pads */}
+        <mesh
+          position={[0.235, 0.1, 0]}
+          material={MINER_HULL_LIGHT}
+          dispose={null}
         >
-          <meshStandardMaterial
-            color="#ff9f43"
-            roughness={0.5}
-            metalness={0.25}
-            flatShading
-          />
-        </RoundedBox>
-        {/* Chest screen */}
-        <mesh position={[0, -0.03, 0.17]}>
+          <boxGeometry args={[0.1, 0.09, 0.2]} />
+        </mesh>
+        <mesh
+          position={[-0.235, 0.1, 0]}
+          material={MINER_HULL_LIGHT}
+          dispose={null}
+        >
+          <boxGeometry args={[0.1, 0.09, 0.2]} />
+        </mesh>
+        {/* Chest screen with its animated scanline */}
+        <mesh
+          position={[0, -0.03, 0.17]}
+          material={MINER_SCREEN}
+          dispose={null}
+        >
           <boxGeometry args={[0.18, 0.12, 0.02]} />
-          <meshStandardMaterial
-            color="#0d2b26"
-            emissive="#54e0c7"
-            emissiveIntensity={0.9}
-            flatShading
-          />
+        </mesh>
+        {/* Chest vent slats */}
+        <mesh
+          position={[0, -0.14, 0.165]}
+          material={MINER_CHASSIS}
+          dispose={null}
+        >
+          <boxGeometry args={[0.2, 0.045, 0.015]} />
+        </mesh>
+        {/* Backpack: power unit with glowing charge bars */}
+        <mesh position={[0, 0.0, -0.2]} material={MINER_CHASSIS} dispose={null}>
+          <boxGeometry args={[0.26, 0.24, 0.09]} />
+        </mesh>
+        <mesh
+          position={[0, 0.0, -0.25]}
+          material={MINER_BATTERY}
+          dispose={null}
+        >
+          <boxGeometry args={[0.14, 0.18, 0.03]} />
         </mesh>
         {/* Head */}
         <RoundedBox
@@ -137,80 +231,117 @@ export function MinerBot({
           radius={0.06}
           smoothness={2}
           position={[0, 0.26, 0]}
-        >
-          <meshStandardMaterial
-            color="#ffb066"
-            roughness={0.45}
-            metalness={0.25}
-            flatShading
-          />
-        </RoundedBox>
+          material={MINER_HULL_LIGHT}
+          dispose={null}
+        />
         {/* Visor */}
-        <mesh position={[0, 0.26, 0.13]}>
+        <mesh position={[0, 0.26, 0.13]} material={MINER_VISOR} dispose={null}>
           <boxGeometry args={[0.22, 0.08, 0.03]} />
-          <meshStandardMaterial
-            color="#101820"
-            emissive="#7df9ff"
-            emissiveIntensity={1.2}
-            flatShading
-          />
         </mesh>
-        {/* Hard hat */}
-        <mesh position={[0, 0.39, 0]}>
+        {/* Cheek intakes */}
+        <mesh
+          position={[0.15, 0.24, -0.02]}
+          material={MINER_JOINT}
+          dispose={null}
+        >
+          <boxGeometry args={[0.03, 0.07, 0.08]} />
+        </mesh>
+        <mesh
+          position={[-0.15, 0.24, -0.02]}
+          material={MINER_JOINT}
+          dispose={null}
+        >
+          <boxGeometry args={[0.03, 0.07, 0.08]} />
+        </mesh>
+        {/* Hard hat with a brim */}
+        <mesh position={[0, 0.39, 0]} material={MINER_HAT} dispose={null}>
           <cylinderGeometry args={[0.18, 0.2, 0.09, 12]} />
-          <meshStandardMaterial
-            color="#f5c542"
-            roughness={0.4}
-            metalness={0.2}
-            flatShading
-          />
         </mesh>
-        {/* Headlamp housing and glow */}
-        <mesh position={[0, 0.38, 0.16]}>
-          <cylinderGeometry args={[0.05, 0.06, 0.07, 10]} />
-          <meshStandardMaterial
-            color="#fff3c4"
-            emissive="#ffe9a8"
-            emissiveIntensity={2.2}
-            flatShading
-          />
+        <mesh position={[0, 0.35, 0.14]} material={MINER_HAT} dispose={null}>
+          <boxGeometry args={[0.3, 0.02, 0.12]} />
         </mesh>
-        {/* Antenna */}
-        <mesh position={[0.12, 0.47, 0]}>
-          <cylinderGeometry args={[0.012, 0.012, 0.14, 6]} />
-          <meshStandardMaterial color="#3a3f4d" flatShading />
+        {/* Headlamp housing and lens */}
+        <mesh position={[0, 0.4, 0.15]} material={MINER_JOINT} dispose={null}>
+          <cylinderGeometry args={[0.05, 0.06, 0.06, 10]} />
         </mesh>
-        <mesh position={[0.12, 0.55, 0]}>
+        <mesh
+          position={[0, 0.4, 0.19]}
+          rotation={[Math.PI / 2, 0, 0]}
+          material={MINER_LAMP_LENS}
+          dispose={null}
+        >
+          <cylinderGeometry args={[0.05, 0.05, 0.03, 12]} />
+        </mesh>
+        {/* Beacon antenna on the pack */}
+        <mesh
+          position={[0.12, 0.2, -0.22]}
+          material={MINER_JOINT}
+          dispose={null}
+        >
+          <cylinderGeometry args={[0.012, 0.012, 0.16, 6]} />
+        </mesh>
+        <mesh
+          position={[0.12, 0.3, -0.22]}
+          material={MINER_BEACON}
+          dispose={null}
+        >
           <icosahedronGeometry args={[0.03, 0]} />
-          <meshStandardMaterial
-            color="#ff6b6b"
-            emissive="#ff6b6b"
-            emissiveIntensity={1.6}
-            flatShading
-          />
         </mesh>
+        {/* Off arm bracing the walk */}
+        <MinerOffArm />
         {/* Pick arm: shoulder pivot so the swing reads as a chop */}
         <group ref={armRef} position={[0.24, 0.08, 0.06]}>
-          <mesh position={[0.05, -0.08, 0]} rotation={[0, 0, -0.5]}>
+          <mesh material={MINER_HULL} dispose={null}>
+            <icosahedronGeometry args={[0.07, 0]} />
+          </mesh>
+          <mesh
+            position={[0.05, -0.08, 0]}
+            rotation={[0, 0, -0.5]}
+            material={MINER_HULL}
+            dispose={null}
+          >
             <boxGeometry args={[0.08, 0.22, 0.08]} />
-            <meshStandardMaterial
-              color="#e08a32"
-              roughness={0.55}
-              flatShading
-            />
           </mesh>
-          <mesh position={[0.13, -0.2, 0]} rotation={[0, 0, 0.5]}>
+          {/* Elbow */}
+          <mesh
+            position={[0.11, -0.16, 0]}
+            material={MINER_JOINT}
+            dispose={null}
+          >
+            <icosahedronGeometry args={[0.04, 0]} />
+          </mesh>
+          {/* Grip hand on the handle */}
+          <mesh
+            position={[0.14, -0.21, 0]}
+            material={MINER_RUBBER}
+            dispose={null}
+          >
+            <icosahedronGeometry args={[0.042, 0]} />
+          </mesh>
+          <mesh
+            position={[0.13, -0.2, 0]}
+            rotation={[0, 0, 0.5]}
+            material={MINER_HANDLE}
+            dispose={null}
+          >
             <cylinderGeometry args={[0.02, 0.02, 0.3, 8]} />
-            <meshStandardMaterial color="#6b4a2a" roughness={0.9} flatShading />
           </mesh>
-          <mesh position={[0.2, -0.31, 0]} rotation={[0, 0, 1.05]}>
-            <boxGeometry args={[0.2, 0.05, 0.05]} />
-            <meshStandardMaterial
-              color="#aeb6c4"
-              metalness={0.6}
-              roughness={0.3}
-              flatShading
-            />
+          {/* Twin-blade pick head with a steel rim */}
+          <mesh
+            position={[0.2, -0.31, 0]}
+            rotation={[0, 0, 1.05]}
+            material={MINER_PICK_STEEL}
+            dispose={null}
+          >
+            <boxGeometry args={[0.24, 0.05, 0.05]} />
+          </mesh>
+          <mesh
+            position={[0.3, -0.27, 0]}
+            rotation={[0, 0, 1.45]}
+            material={MINER_PICK_STEEL}
+            dispose={null}
+          >
+            <boxGeometry args={[0.1, 0.035, 0.04]} />
           </mesh>
         </group>
       </group>

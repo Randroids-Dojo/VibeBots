@@ -799,6 +799,7 @@ function JuiceOverlays() {
   } | null>(null);
   const nextId = useRef(1);
   const wreckTimeout = useRef<number | null>(null);
+  const wreckImpactUnsub = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return () => {
@@ -806,6 +807,8 @@ function JuiceOverlays() {
         window.clearTimeout(wreckTimeout.current);
         wreckTimeout.current = null;
       }
+      wreckImpactUnsub.current?.();
+      wreckImpactUnsub.current = null;
     };
   }, []);
 
@@ -841,6 +844,8 @@ function JuiceOverlays() {
       window.clearTimeout(wreckTimeout.current);
       wreckTimeout.current = null;
     }
+    wreckImpactUnsub.current?.();
+    wreckImpactUnsub.current = null;
     if (lastResult.collapsed && lastResult.lost) {
       const nextWreck = {
         crushed: lastResult.crushed ?? false,
@@ -861,13 +866,35 @@ function JuiceOverlays() {
         ),
       };
       if (lastResult.fallFatal || lastResult.crushed) {
-        wreckTimeout.current = window.setTimeout(
-          () => {
+        // The report must not beat the visible impact: the canvas frame
+        // loop marks the impact frame in the store, and the report holds
+        // for a beat after it. The ceiling timer covers a canvas that
+        // never renders the impact (context lost, scene error).
+        const afterImpactMs = lastResult.fallFatal ? 430 : 950;
+        const ceilingMs = 4000;
+        const scheduleWreck = (delayMs: number) => {
+          if (wreckTimeout.current != null) {
+            window.clearTimeout(wreckTimeout.current);
+          }
+          wreckTimeout.current = window.setTimeout(() => {
             setWreck(nextWreck);
             wreckTimeout.current = null;
-          },
-          lastResult.fallFatal ? 850 : 1300,
-        );
+            wreckImpactUnsub.current?.();
+            wreckImpactUnsub.current = null;
+          }, delayMs);
+        };
+        const impactKey = tick;
+        if (useMineStore.getState().fallVisualImpactKey === impactKey) {
+          scheduleWreck(afterImpactMs);
+        } else {
+          scheduleWreck(ceilingMs);
+          wreckImpactUnsub.current = useMineStore.subscribe((state) => {
+            if (state.fallVisualImpactKey !== impactKey) return;
+            wreckImpactUnsub.current?.();
+            wreckImpactUnsub.current = null;
+            scheduleWreck(afterImpactMs);
+          });
+        }
       } else {
         setWreck(nextWreck);
       }
@@ -3208,6 +3235,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       <section
         aria-label="Mine status"
         data-depth={miner.row}
+        data-scene-ready={mineSceneReady ? "true" : "false"}
         data-horizontal-distance={horizontalDistance}
         data-energy={miner.energy.toFixed(1)}
         data-ladders={mine.consumables.ladder}

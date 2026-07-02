@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="full-e2e-slow-ci-stability" data-date="2026-07-01">
+    <h3>Full E2E Slow-CI Stability And Impact-Gated Crash Reports</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/full-e2e-slow-ci-stability</code>, created from current <code>origin/main</code> (<code>8e9be60</code>).</dd>
+      <dt>PR</dt><dd>(to be opened)</dd>
+      <dt>Changed</dt><dd>Fixed the five tests that kept the scheduled Full E2E matrix red on <code>main</code> (every scheduled run in visible history was failing; the required parallel gate stayed green). Two product changes: the fatal-fall and falling-rock-crush trip report is now gated on the rendered impact frame instead of a wall-clock timer, so frame-starved devices no longer see the report before the crash lands (canvas marks the impact via a new <code>fallVisualImpactKey</code> in <code>src/state/mine-store.ts</code>, <code>JuiceOverlays</code> waits for it with a 4s safety ceiling), and the Mine status HUD exposes <code>data-scene-ready</code> so tests can wait for the input gate that silently drops movement keys during load. Test-side: <code>digTo</code> holds the key for the bulk of a descent and finishes with paced presses (dirt takes 4 swings per row at pickaxe 1; the old 190ms press loop dropped 2 of 3 presses against the 620ms action cadence and blew the 60s budget on CI), <code>walkUntilBaseIndicator</code> is hold-based, <code>walkToStallPrompt</code> paces at the cadence, the held-cadence burst test asserts "four synchronous taps yield exactly one step" instead of racing the previous repeat window, the stratum banner test proves the one-shot 2.6s animation animates while alive instead of racing its lifetime, the crush test waits for camera settle before triggering and asserts report-after-impact ordering, and the raid XP pickup test waits for camera framing, mirrors the collected state in the <code>/api/bunker</code> mock after the second collect (a background refetch could revert the pickup), and extends pixel-poll timeouts. Package version moved to <code>0.1.151</code> with a release note; <code>MINE_VERSION</code> stays <code>48</code> and <code>SIM_VERSION</code> stays <code>3</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome on touched files, <code>scripts/check-sim-purity.sh</code>, full unit suite (512 passed) plus release/notification suites after the bump (80 passed), <code>pnpm build</code>, the five previously failing tests green natively and under a software-GL CI simulation config (<code>--disable-gpu</code>), and the full local Playwright suite on an isolated port.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: report pacing after the impact stays close to the old feel (fall 430ms, crush 950ms after impact; the old timers were 850ms and 1300ms from the action). Recommended default: a 4000ms ceiling still shows the report when the canvas cannot render the impact at all. Rule 13: tips reviewed for 0.1.151, no change needed (no mining rule changed). Rule 14: stamp review done, no stamp (stability fix).</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed. <code>docs/gdd/06-mining.html</code> gained a build-log entry for the impact-gated trip report.</dd>
+      <dt>Followups</dt><dd>New F-047: schedule-only Full E2E redness has no notification path; decide whether scheduled failures should page or open an issue automatically.</dd>
+    </dl>
+  </article>
+
   <article data-slice="holodeck-pause-freeze" data-date="2026-06-30">
     <h3>Holodeck Pause Freezes The Mining Animation</h3>
     <dl>

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-06-29-0.1.150-holodeck",
+      releaseNoticeId: "2026-07-01-0.1.151-crash-report-timing",
       releaseSummary:
-        "Holodeck test scenes: A new Holodeck mode loads focused, looping mine test scenes.",
+        "Crash reports wait for the crash: Fatal falls and crushes finish on screen before the report.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-06-29-0.1.150-holodeck",
+      releaseNoticeId: "2026-07-01-0.1.151-crash-report-timing",
       attempted: 2,
       sent: 1,
       expired: 1,

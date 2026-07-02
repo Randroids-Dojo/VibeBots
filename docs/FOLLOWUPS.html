@@ -543,6 +543,16 @@
   </dl>
 </section>
 
+<section id="F-047" data-f="F-047" data-priority="polish">
+  <h3>F-047: Surface scheduled Full E2E failures instead of letting them rot</h3>
+  <dl>
+    <dt>Context</dt><dd>Slow-CI stability slice 2026-07-01: every scheduled Full E2E run in visible history (June 20 through July 1) was red while the required parallel gate stayed green, and nothing surfaced it. The failure set shrank from 13+ tests to 5 only because unrelated slices kept fixing them incidentally. Schedule-only failures have no notification path and no loop trigger, so they do not count as "red main" in slice selection priority 1 until someone happens to look.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: decide how scheduled full-matrix failures should surface (a workflow step that opens or updates a pinned issue, a notification, or including "latest scheduled run conclusion" in the loop's monitoring contract in <code>docs/CI_WORKFLOW.html</code> and <code>AGENTS.md</code>). Acceptance: a red scheduled run within the last day is visible to the next agent's slice selection without manually listing workflow runs.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
 <section id="F-046" data-f="F-046" data-priority="nice-to-have">
   <h3>F-046: Extract a shared block-mesh component for the mine and Holodeck canvases</h3>
   <dl>

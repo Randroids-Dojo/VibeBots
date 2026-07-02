@@ -136,6 +136,11 @@ export interface MineSessionState {
   activeSlot: SaveSlotId;
   saveSlots: SaveSlotsState;
   worldLoaded: boolean;
+  /** Tick key of the fall/crush playback whose impact frame has rendered.
+   * Written by the mine canvas frame loop so the trip report can wait for
+   * the visible impact instead of racing it on a wall-clock timer. */
+  fallVisualImpactKey: number | null;
+  markFallVisualImpact: (key: number) => void;
   move: (action: MineAction) => void;
   clearTerminalResult: () => void;
   loadWorld: () => Promise<void>;
@@ -236,6 +241,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     activeSlot: 1,
     saveSlots: initialSlots,
     worldLoaded: false,
+    fallVisualImpactKey: null,
+    markFallVisualImpact: (key) => {
+      if (get().fallVisualImpactKey === key) return;
+      set({ fallVisualImpactKey: key });
+    },
 
     saveCurrentTrip: persistCurrentTrip,
 

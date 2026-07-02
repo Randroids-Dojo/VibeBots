@@ -17,6 +17,10 @@ import {
 } from "../../../src/sim/mine";
 
 export const MINE_KEY_CADENCE_MS = 190;
+/** Spacing that clears the start-gear action repeat window (620ms), so a
+ * paced walking/digging loop lands every press instead of one in three.
+ * Fewer round trips keeps long walks inside the test budget on slow CI. */
+export const MINE_KEY_STEP_MS = 660;
 export const APP_VERSION_PATTERN = new RegExp(
   `^${packageJson.version.replaceAll(".", "\\.")}([.+]|$)`,
 );
@@ -28,6 +32,17 @@ export async function pressMineKey(
 ): Promise<void> {
   await page.keyboard.press(key);
   await page.waitForTimeout(MINE_KEY_CADENCE_MS);
+}
+
+/** Movement keys are dropped until the world, gear, and bunker fetches
+ * settle (the input gate behind data-scene-ready). Tests that press keys
+ * right after load must wait for this, or the first press vanishes. */
+export async function awaitMineSceneReady(page: Page): Promise<void> {
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-scene-ready",
+    "true",
+    { timeout: 20_000 },
+  );
 }
 
 export async function pressMineKeyUntilStatus(
@@ -136,9 +151,27 @@ export async function touchPinchOut(
 /** Multi-hit digging (REQ-013): swing down until the depth is reached. */
 export async function digTo(page: Page, depth: number): Promise<void> {
   const status = page.getByLabel("Mine status");
-  for (let i = 0; i < 8 * depth + 8; i++) {
-    if (Number(await status.getAttribute("data-depth")) >= depth) return;
-    await pressMineKey(page, "ArrowDown");
+  const current = async () => Number(await status.getAttribute("data-depth"));
+  if ((await current()) >= depth) return;
+  await awaitMineSceneReady(page);
+  // Dirt takes several swings per row, so deep digs need dozens of
+  // accepted actions. Hold the key for the bulk of the descent (the app
+  // repeats at its own cadence with no test round trips), then finish
+  // the last row with paced presses so the dig cannot overshoot.
+  if ((await current()) < depth - 1) {
+    await page.keyboard.down("ArrowDown");
+    try {
+      await expect
+        .poll(current, { timeout: Math.max(30_000, depth * 5_000) })
+        .toBeGreaterThanOrEqual(depth - 1);
+    } finally {
+      await page.keyboard.up("ArrowDown");
+    }
+  }
+  for (let i = 0; i < 8; i++) {
+    if ((await current()) >= depth) return;
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(MINE_KEY_STEP_MS);
   }
 }
 
@@ -166,9 +199,14 @@ export async function walkToStallPrompt(
   name: string,
 ): Promise<void> {
   const prompt = page.getByRole("button", { name: `Open ${name}` });
+  if (await prompt.isVisible().catch(() => false)) return;
+  await awaitMineSceneReady(page);
+  // Paced steps (not a held walk): the prompt only shows while standing
+  // on the stall, so overshooting past it would hide the target.
   for (let i = 0; i < 20; i++) {
     if (await prompt.isVisible().catch(() => false)) return;
-    await pressMineKey(page, key);
+    await page.keyboard.press(key);
+    await page.waitForTimeout(MINE_KEY_STEP_MS);
   }
   await expect(prompt).toBeVisible();
 }
@@ -373,11 +411,16 @@ export async function enterBuilding(
 
 export async function walkUntilBaseIndicator(page: Page) {
   const indicator = page.getByRole("button", { name: "Base is left" });
-  for (let i = 0; i < 72; i++) {
-    if (await indicator.isVisible().catch(() => false)) break;
-    await pressMineKey(page, "ArrowRight");
+  if (await indicator.isVisible().catch(() => false)) return indicator;
+  await awaitMineSceneReady(page);
+  // Hold the key and let the app's own cadence repeat the walk; discrete
+  // press loops pay a round trip per attempt and blow the budget on CI.
+  await page.keyboard.down("ArrowRight");
+  try {
+    await expect(indicator).toBeVisible({ timeout: 45_000 });
+  } finally {
+    await page.keyboard.up("ArrowRight");
   }
-  await expect(indicator).toBeVisible();
   return indicator;
 }
 

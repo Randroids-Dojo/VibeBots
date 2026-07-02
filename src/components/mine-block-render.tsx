@@ -2,13 +2,129 @@ import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group, Mesh, PointLight } from "three/webgpu";
-import type { MineCell, OreId } from "@/sim/mine";
+import type { MineBiomeId, MineCell, OreId } from "@/sim/mine";
 import {
+  boulderBlockMaterial,
+  dirtBlockMaterial,
+  gasBlockMaterial,
+  metalBlockMaterial,
+  rockBlockMaterial,
+} from "./mine-block-materials";
+import {
+  BOULDER_COLOR,
+  biomeDirtColorAt,
   CACHE_COLOR,
   cellHash,
   cellX,
+  GAS_COLOR,
+  GLOWING_ORES,
+  METAL_COLOR,
+  ORE_COLORS,
+  rockColorsForBiome,
   TEETER_EMISSIVE,
 } from "./mine-render-palette";
+
+/**
+ * The solid body for a mine cell (F-046: one source of truth for the
+ * mine canvas and the Holodeck). Materials are shared TSL singletons
+ * from mine-block-materials.ts: per-cell tint variation happens in the
+ * shader off the world position, so this component stays prop-light and
+ * the canvases stop duplicating per-kind branches.
+ */
+export function MineBlockBody({
+  cell,
+  col,
+  row,
+  biome = "default",
+}: {
+  cell: MineCell;
+  col: number;
+  row: number;
+  biome?: MineBiomeId;
+}) {
+  if (cell.kind === "ore" && cell.ore) {
+    return (
+      <>
+        <RoundedBox
+          args={[0.94, 0.94, 0.94]}
+          radius={0.07}
+          smoothness={2}
+          material={dirtBlockMaterial(biomeDirtColorAt(col, row))}
+          dispose={null}
+        />
+        <OreCrystals
+          col={col}
+          row={row}
+          color={ORE_COLORS[cell.ore]}
+          glow={GLOWING_ORES.has(cell.ore)}
+        />
+      </>
+    );
+  }
+  if (cell.kind === "rock") {
+    const rockColors = rockColorsForBiome(biome);
+    const tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
+    return (
+      <mesh
+        rotation={[
+          cellHash(col, row, 13) * 3.1,
+          cellHash(col, row, 17) * 3.1,
+          cellHash(col, row, 19) * 3.1,
+        ]}
+        material={rockBlockMaterial(rockColors[tier])}
+        dispose={null}
+      >
+        <dodecahedronGeometry args={[0.62, 0]} />
+      </mesh>
+    );
+  }
+  if (cell.kind === "metal") {
+    return (
+      <RoundedBox
+        args={[0.98, 0.98, 1.02]}
+        radius={0.04}
+        smoothness={1}
+        material={metalBlockMaterial(METAL_COLOR)}
+        dispose={null}
+      />
+    );
+  }
+  if (cell.kind === "part-cache") {
+    return <CacheCrate col={col} row={row} />;
+  }
+  if (cell.kind === "gas") {
+    return (
+      <RoundedBox
+        args={[0.94, 0.94, 0.94]}
+        radius={0.07}
+        smoothness={2}
+        material={gasBlockMaterial(GAS_COLOR)}
+        dispose={null}
+      />
+    );
+  }
+  if (cell.kind === "boulder") {
+    return (
+      <mesh
+        rotation={[0, cellHash(col, row, 29) * 3.1, 0]}
+        material={boulderBlockMaterial(BOULDER_COLOR)}
+        dispose={null}
+      >
+        <icosahedronGeometry args={[0.56, 0]} />
+      </mesh>
+    );
+  }
+  // Dirt and anything else: chunky beveled cube.
+  return (
+    <RoundedBox
+      args={[0.94, 0.94, 0.94]}
+      radius={0.07}
+      smoothness={2}
+      material={dirtBlockMaterial(biomeDirtColorAt(col, row))}
+      dispose={null}
+    />
+  );
+}
 
 export function dropPileStats(cell: MineCell): {
   count: number;

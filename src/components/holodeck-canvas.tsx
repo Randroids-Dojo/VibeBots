@@ -1,6 +1,5 @@
 "use client";
 
-import { RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group, PointLight } from "three/webgpu";
@@ -15,18 +14,9 @@ import {
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
-import { CrackMarks, OreCrystals } from "./mine-block-render";
+import { CrackMarks, MineBlockBody } from "./mine-block-render";
 import { MinerBot } from "./mine-miner-render";
-import {
-  biomeDirtColorAt,
-  cellHash,
-  cellX,
-  GLOWING_ORES,
-  METAL_COLOR,
-  ORE_COLORS,
-  rockColorsForBiome,
-  variedColor,
-} from "./mine-render-palette";
+import { cellX } from "./mine-render-palette";
 import {
   advanceMinerRig,
   createMinerRigState,
@@ -61,7 +51,7 @@ function HolodeckBlock({
         });
       }}
     >
-      <BlockBody cell={cell} col={col} row={row} />
+      <MineBlockBody cell={cell} col={col} row={row} />
       {damage !== null ? (
         <CrackMarks col={col} row={row} damage={damage} />
       ) : null}
@@ -80,81 +70,6 @@ function blockDamage(cell: MineCell): number | null {
     return 1 - cell.hp / full;
   }
   return null;
-}
-
-function BlockBody({
-  cell,
-  col,
-  row,
-}: {
-  cell: MineCell;
-  col: number;
-  row: number;
-}) {
-  if (cell.kind === "ore" && cell.ore) {
-    return (
-      <>
-        <RoundedBox args={[0.94, 0.94, 0.94]} radius={0.07} smoothness={2}>
-          <meshStandardMaterial
-            color={variedColor(biomeDirtColorAt(col, row), col, row)}
-            roughness={0.95}
-            flatShading
-          />
-        </RoundedBox>
-        <OreCrystals
-          col={col}
-          row={row}
-          color={ORE_COLORS[cell.ore]}
-          glow={GLOWING_ORES.has(cell.ore)}
-        />
-      </>
-    );
-  }
-  if (cell.kind === "rock") {
-    const rockColors = rockColorsForBiome("default");
-    const tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
-    return (
-      <mesh
-        rotation={[
-          cellHash(col, row, 13) * 3.1,
-          cellHash(col, row, 17) * 3.1,
-          cellHash(col, row, 19) * 3.1,
-        ]}
-      >
-        <dodecahedronGeometry args={[0.62, 0]} />
-        <meshStandardMaterial
-          color={variedColor(rockColors[tier], col, row)}
-          roughness={0.6}
-          metalness={0.15}
-          flatShading
-        />
-      </mesh>
-    );
-  }
-  if (cell.kind === "metal") {
-    return (
-      <RoundedBox args={[0.98, 0.98, 1.02]} radius={0.04} smoothness={1}>
-        <meshStandardMaterial
-          color={variedColor(METAL_COLOR, col, row)}
-          emissive="#101820"
-          emissiveIntensity={0.14}
-          roughness={0.28}
-          metalness={0.85}
-          flatShading
-        />
-      </RoundedBox>
-    );
-  }
-  // Dirt and anything else: chunky beveled cube.
-  return (
-    <RoundedBox args={[0.94, 0.94, 0.94]} radius={0.07} smoothness={2}>
-      <meshStandardMaterial
-        color={variedColor(biomeDirtColorAt(col, row), col, row)}
-        roughness={0.95}
-        flatShading
-      />
-    </RoundedBox>
-  );
 }
 
 function HolodeckScene({ features }: { features: GraphicsFeatures }) {
@@ -287,6 +202,17 @@ function HolodeckScene({ features }: { features: GraphicsFeatures }) {
         shadow-bias={-0.0004}
       />
       <StudioEnvironment intensity={features.environmentIntensity} />
+      {gallery ? (
+        // The gallery is a review bench: a soft even fill across the
+        // whole row so materials are judged fairly, not by lamp falloff.
+        <pointLight
+          position={[0, 4.5 - miner.row + 1.2, 4.5]}
+          color="#f4ede2"
+          intensity={2.2}
+          distance={22}
+          decay={1.1}
+        />
+      ) : null}
       <pointLight
         position={[cellX(miner.col), -miner.row + 0.4, 1.6]}
         color="#ffdca8"

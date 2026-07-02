@@ -123,7 +123,9 @@ function clearMsForPlayback(playback: FallPlayback): number {
  * impact frame arrives later than the move-relative estimate assumed (a
  * frame-starved device). Must outlast the report-after-impact delays so
  * the wreck never vanishes before the report lands. */
-function clearMsAfterImpact(playback: FallPlayback): number {
+export function clearMsAfterImpact(
+  playback: Pick<FallPlayback, "kind">,
+): number {
   return playback.kind === "fall"
     ? Math.ceil(FATAL_FALL_HOLD_SECONDS * 1000) + 400
     : Math.ceil(CRUSH_HOLD_SECONDS * 1000) + 700;
@@ -155,9 +157,13 @@ export function useMineDeathPlaybackBridge(
 
   const clearFallPlayback = useCallback(
     (key: number) => {
-      clearPendingTimeout();
-      clearImpactSubscription();
-      if (fallPlayback.current?.key === key) fallPlayback.current = null;
+      // Timers and the impact subscription belong to the active playback;
+      // a stale caller clearing an old key must not disarm them.
+      if (fallPlayback.current === null || fallPlayback.current.key === key) {
+        clearPendingTimeout();
+        clearImpactSubscription();
+        fallPlayback.current = null;
+      }
       setFallWindow((prev) => (prev?.key === key ? null : prev));
     },
     [clearPendingTimeout, clearImpactSubscription],

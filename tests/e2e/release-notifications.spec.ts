@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Fatal falls and crushes finish on screen before the report.",
+    "A Holodeck stage shows off the miner's moves.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "waits for the visible impact instead of racing it on a timer",
+    "Miner Showcase scenario",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "the report still arrives after a short safety delay",
+    "one shared rig everywhere",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION, and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.152", "Miner Showcase"],
     ["0.1.151", "Crash reports wait for the crash"],
     ["0.1.150", "Holodeck test scenes"],
     ["0.1.149", "Route-aware ladders"],

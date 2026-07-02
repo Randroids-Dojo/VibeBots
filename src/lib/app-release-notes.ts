@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-01-0.1.151-crash-report-timing";
+export const RELEASE_NOTICE_ID = "2026-07-02-0.1.152-miner-showcase";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.152",
+      date: "2026-07-02",
+      title: "Miner Showcase",
+      intro: "A Holodeck stage shows off the miner's moves.",
+      changes: [
+        {
+          build,
+          text: "The Holodeck gained a Miner Showcase scenario: the robot on an empty stage with an animation selector (idle, walk, dig, rebuff, crush) and a turntable to inspect it from every angle.",
+        },
+        {
+          build,
+          text: "The miner's animation now runs through one shared rig everywhere, so the Holodeck plays the exact moves you see in the mine.",
+        },
+        {
+          build,
+          text: "Mine rules, world generation, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.151",
       date: "2026-07-01",

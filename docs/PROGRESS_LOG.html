@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="w3-instanced-particles" data-date="2026-07-02">
+    <h3>W3 Increment: Instanced Particle Rendering</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed flow).</dd>
+      <dt>PR</dt><dd>None (direct main).</dd>
+      <dt>Changed</dt><dd>Opens the W3 particle overhaul with the renderer: every juice particle was its own React-reconciled mesh with a fresh material instance (up to 260 meshes churning per spawn tick). Particles now render through three <code>InstancedMesh</code> pools (sparks fullbright and un-tonemapped, debris and dust scene-lit), written imperatively in the frame loop with per-instance matrices and colors: one draw call per kind and zero reconciliation on spawn or expiry. The CPU pool, spawners, and the <code>data-particle-count</code> test surface are unchanged. No version bump; the player-facing note ships with the richer-effects increment.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome (unpiped), <code>pnpm build</code>, the crack-burst and held-cadence smokes (both assert live particle counts mid-burst), and a live dig capture with zero page errors. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: per-kind capacities spark 96, debris 192, dust 96 against the existing 260-particle pool cap. Rule 13 and Rule 14: reviewed, no changes.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed.</dd>
+      <dt>Followups</dt><dd>None new; richer per-event effects (ore glitter, gas wisps, spinning rock shards) ride the instanced renderer next.</dd>
+    </dl>
+  </article>
+
   <article data-slice="w2-village-props-and-release" data-date="2026-07-02">
     <h3>W2 Increment: Village Prop Clutter And The 0.1.157 Release</h3>
     <dl>

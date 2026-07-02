@@ -8,10 +8,11 @@ import type {
   DirectionalLight,
   Group,
   HemisphereLight,
+  InstancedMesh,
   Mesh,
   PointLight,
 } from "three/webgpu";
-import { Color } from "three/webgpu";
+import { Color, Matrix4 } from "three/webgpu";
 import {
   clampMineCameraZoom,
   maxMineCameraZoom,
@@ -128,6 +129,9 @@ interface MotionTrack {
 }
 
 const CAMERA_STEP_SECONDS = 0.28;
+/** Instance pool sizes per particle kind; spawners cap the live pool at
+ * 260 total, so these bound the per-kind bursts. */
+const PARTICLE_CAPACITY = { spark: 96, debris: 192, dust: 96 } as const;
 const EDGE_DARKNESS_COLOR = "#02040a";
 
 const easeStep = (t: number) => 0.5 - Math.cos(t * Math.PI) * 0.5;
@@ -235,7 +239,11 @@ function MineScene({
   const ambientRef = useRef<AmbientLight>(null);
   const hemiRef = useRef<HemisphereLight>(null);
   const dirRef = useRef<DirectionalLight>(null);
-  const particlesRef = useRef<Group>(null);
+  const sparkInstRef = useRef<InstancedMesh>(null);
+  const debrisInstRef = useRef<InstancedMesh>(null);
+  const dustInstRef = useRef<InstancedMesh>(null);
+  const particleMatrix = useRef(new Matrix4());
+  const particleColor = useRef(new Color());
   const wobbleRefs = useRef<Map<string, Group | Mesh>>(new Map());
   const juice = useRef<JuiceState>({
     particles: [],
@@ -699,18 +707,34 @@ function MineScene({
       p.vy -= p.gravity * delta;
     }
     j.particles = j.particles.filter((p) => p.life > 0);
-    const group = particlesRef.current;
-    if (group) {
-      const byId = new Map(j.particles.map((q) => [q.id, q]));
-      for (const child of group.children) {
-        const p = byId.get(child.userData.id as number);
-        if (p) {
-          child.position.set(p.x, p.y, 0.4);
-          child.scale.setScalar(Math.max(0.05, p.life));
-        } else {
-          child.scale.setScalar(0);
-        }
-      }
+    // Instanced particle write-out: one draw per kind, no React
+    // reconciliation on spawn or expiry (W3).
+    const instFor = {
+      spark: sparkInstRef.current,
+      debris: debrisInstRef.current,
+      dust: dustInstRef.current,
+    } as const;
+    const counts = { spark: 0, debris: 0, dust: 0 };
+    const matrix = particleMatrix.current;
+    const colorScratch = particleColor.current;
+    for (const p of j.particles) {
+      const inst = instFor[p.kind];
+      if (!inst) continue;
+      const index = counts[p.kind];
+      if (index >= PARTICLE_CAPACITY[p.kind]) continue;
+      counts[p.kind] = index + 1;
+      const scale = p.size * Math.max(0.05, Math.min(1, p.life * 2.2));
+      matrix.makeScale(scale, scale, scale);
+      matrix.setPosition(p.x, p.y, 0.4);
+      inst.setMatrixAt(index, matrix);
+      inst.setColorAt(index, colorScratch.set(p.color));
+    }
+    for (const kind of ["spark", "debris", "dust"] as const) {
+      const inst = instFor[kind];
+      if (!inst) continue;
+      inst.count = counts[kind];
+      inst.instanceMatrix.needsUpdate = true;
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
     }
   });
 
@@ -1356,21 +1380,35 @@ function MineScene({
         onBunkerDragTarget={onBunkerDragTarget}
         onBunkerDragEnd={onBunkerDragEnd}
       />
-      <group ref={particlesRef}>
-        {juice.current.particles.map((p) => (
-          <mesh key={p.id} position={[p.x, p.y, 0.4]} userData={{ id: p.id }}>
-            <boxGeometry args={[p.size, p.size, p.size]} />
-            <meshStandardMaterial
-              color={p.color}
-              emissive={p.color}
-              emissiveIntensity={
-                p.kind === "spark" ? 1.8 : p.kind === "debris" ? 0.4 : 0.05
-              }
-              flatShading
-            />
-          </mesh>
-        ))}
-      </group>
+      {/* Instanced particles: sparks render fullbright, debris and dust
+          take the scene light. Unit cube scaled per instance (W3). */}
+      <instancedMesh
+        ref={sparkInstRef}
+        args={[undefined, undefined, PARTICLE_CAPACITY.spark]}
+        count={0}
+        frustumCulled={false}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh
+        ref={debrisInstRef}
+        args={[undefined, undefined, PARTICLE_CAPACITY.debris]}
+        count={0}
+        frustumCulled={false}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial flatShading roughness={0.7} />
+      </instancedMesh>
+      <instancedMesh
+        ref={dustInstRef}
+        args={[undefined, undefined, PARTICLE_CAPACITY.dust]}
+        count={0}
+        frustumCulled={false}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial flatShading roughness={1} />
+      </instancedMesh>
       {/* Night meadow backdrop behind the village row: the bot, the
           stalls, and the grass all share one ground line now (the old
           raised shelf made the surface read as a pit). Sits behind the

@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest miner showcase note complete", () => {
+  it("keeps the latest miner model note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-02-0.1.152-miner-showcase");
+    expect(release.noticeId).toBe("2026-07-02-0.1.153-miner-model-v2");
     expect(latestNote).toMatchObject({
+      version: "0.1.153",
+      title: "Miner glow-up",
+      intro: "The mining robot got a full visual overhaul.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The miner was rebuilt: armored hull with rim lighting, an animated chest screen and breathing visor, a bright headlamp lens, a backpack battery with glowing charge bars, a blinking beacon, toe caps, and a second arm bracing the walk.",
+      "The pick gained a twin-blade steel head, and every surface uses new materials that read in the dark on both the WebGPU and WebGL paths.",
+      "The Holodeck Miner Showcase camera now dollies in close for inspection, and stratum banners always finish their fade on slow devices. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived miner showcase note complete", () => {
+    const release = getAppRelease();
+    const showcaseNote = release.notes.find(
+      (note) => note.version === "0.1.152",
+    );
+
+    expect(showcaseNote).toMatchObject({
       version: "0.1.152",
       title: "Miner Showcase",
       intro: "A Holodeck stage shows off the miner's moves.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(showcaseNote?.changes.map((change) => change.text)).toEqual([
       "The Holodeck gained a Miner Showcase scenario: the robot on an empty stage with an animation selector (idle, walk, dig, rebuff, crush) and a turntable to inspect it from every angle.",
       "The miner's animation now runs through one shared rig everywhere, so the Holodeck plays the exact moves you see in the mine.",
       "Mine rules, world generation, MINE_VERSION, and SIM_VERSION are unchanged.",

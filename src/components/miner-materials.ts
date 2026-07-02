@@ -55,8 +55,10 @@ export const MINER_CHASSIS = hullMaterial("#2b2f3a", "#54e0c7", 0.22);
 export const MINER_JOINT = (() => {
   const material = new MeshStandardNodeMaterial();
   material.colorNode = color("#3a3f4d");
-  material.roughness = 0.32;
-  material.metalness = 0.75;
+  material.roughness = 0.38;
+  // Tempered until the environment-lighting slice: full metalness has
+  // nothing to reflect yet and reads black from unlit angles.
+  material.metalness = 0.5;
   material.flatShading = true;
   material.emissiveNode = color("#9fb4d8").mul(rimNode(0.5, 3.2));
   return material;
@@ -65,8 +67,9 @@ export const MINER_JOINT = (() => {
 export const MINER_PICK_STEEL = (() => {
   const material = new MeshStandardNodeMaterial();
   material.colorNode = color("#c3cbd9");
-  material.roughness = 0.22;
-  material.metalness = 0.85;
+  material.roughness = 0.3;
+  // Tempered until the environment-lighting slice (see MINER_JOINT).
+  material.metalness = 0.55;
   material.flatShading = true;
   material.emissiveNode = color("#e8f1ff").mul(rimNode(0.8, 2.2));
   return material;

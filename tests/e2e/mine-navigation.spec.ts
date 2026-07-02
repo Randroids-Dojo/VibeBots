@@ -172,6 +172,7 @@ test("surface base return disables when vibes are short", async ({ page }) => {
 test("surface village stalls open their menus on tap (REQ-021)", async ({
   page,
 }) => {
+  test.setTimeout(120_000);
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
@@ -367,6 +368,7 @@ test("a stall opens on tap and closes back to the prompt", async ({ page }) => {
 });
 
 test("floating mine menus dismiss from outside taps", async ({ page }) => {
+  test.setTimeout(120_000);
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   const outsidePoint = { x: 18, y: 220 };

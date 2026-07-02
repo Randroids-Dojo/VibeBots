@@ -158,6 +158,7 @@ function HolodeckScene() {
   const legRRef = useRef<Group>(null);
   const rig = useRef(createMinerRigState());
   const turntableYaw = useRef(0);
+  const lastDrawTotal = useRef(0);
 
   const miner = scene.state.miner;
   const showcase = scenarioId === "miner-showcase";
@@ -167,7 +168,7 @@ function HolodeckScene() {
     scene.state.cells.get(`${scene.target.col},${scene.target.row}`)?.kind !==
     "empty";
 
-  useFrame(({ clock, gl }, delta) => {
+  useFrame(({ camera, clock, gl }, delta) => {
     const t = clock.elapsedTime;
     const minerGroup = minerRef.current;
     if (minerGroup) {
@@ -176,6 +177,21 @@ function HolodeckScene() {
       if (spinning) turntableYaw.current += delta * 0.7;
       minerGroup.rotation.y = showcase ? turntableYaw.current : 0;
     }
+    // The showcase is an inspection bench: dolly in on the character.
+    // The scene group sits at y + 4.5, so world y = 4.5 - minerRow.
+    const focusX = cellX(miner.col);
+    const focusY = 4.5 - miner.row + 0.1;
+    // Narrow phone viewports need a longer dolly to keep the model framed.
+    const aspect = gl.domElement.clientWidth / gl.domElement.clientHeight;
+    const showcaseZ = aspect >= 1 ? 3.4 : 5.4;
+    const camTarget = showcase
+      ? { x: focusX, y: focusY + 0.35, z: showcaseZ }
+      : { x: 0, y: 0, z: 11 };
+    const ease = Math.min(1, delta * 5);
+    camera.position.x += (camTarget.x - camera.position.x) * ease;
+    camera.position.y += (camTarget.y - camera.position.y) * ease;
+    camera.position.z += (camTarget.z - camera.position.z) * ease;
+    camera.lookAt(showcase ? focusX : 0, showcase ? focusY : 0, 0);
     // The shared rig drives every joint: the single-block scenario plays
     // the real dig clip while its target block survives, the showcase
     // plays whichever clip is selected, and pause is a full still frame.
@@ -207,7 +223,16 @@ function HolodeckScene() {
     el.dataset.holodeckLoops = String(loops);
     el.dataset.holodeckClip = showcase ? clip : "";
     el.dataset.holodeckYaw = (minerGroup?.rotation.y ?? 0).toFixed(3);
+    el.dataset.holodeckCamZ = camera.position.z.toFixed(2);
     el.dataset.holodeckBodyY = pose.body.posY.toFixed(4);
+    // Per-frame draw calls: the phone budget the model must respect. The
+    // WebGPU backend's counter can accumulate, so expose the delta.
+    const totalDraws = gl.info.render.calls;
+    const frameDraws = totalDraws - lastDrawTotal.current;
+    lastDrawTotal.current = totalDraws;
+    el.dataset.holodeckDrawCalls = String(
+      frameDraws > 0 ? frameDraws : totalDraws,
+    );
   });
 
   // Render only the solid cells the scenario placed (the void stays empty).

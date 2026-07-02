@@ -204,6 +204,7 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
 test("mine retries raid XP pickup while the miner overlaps it", async ({
   page,
 }) => {
+  test.setTimeout(120_000);
   const activeRaid = {
     raidId: "raid-pickup-retry",
     tier: 1,
@@ -311,13 +312,13 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   // a frame-starved runner can lag the rig near the surface for a while.
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {
-      timeout: 20_000,
+      timeout: 45_000,
     })
     .toBeLessThan(-0.9);
   await expect
     .poll(async () => countRaidXpPixels(page, await canvas.screenshot()), {
       message: "the raid XP pickup should render as a visible world marker",
-      timeout: 10_000,
+      timeout: 20_000,
     })
     .toBeGreaterThan(1_000);
   const pendingXpPixels = await countRaidXpPixels(

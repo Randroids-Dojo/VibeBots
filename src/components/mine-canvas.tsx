@@ -1,7 +1,7 @@
 "use client";
 
 import { RoundedBox } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useLayoutEffect, useRef } from "react";
 import type {
   AmbientLight,
@@ -46,6 +46,7 @@ import {
   type GraphicsFeatures,
   graphicsFeaturesFor,
   hasCoarsePointer,
+  isWebGPUBackend,
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
@@ -252,6 +253,10 @@ function MineScene({
   // Smoothed frame time (ms), exposed for performance QA. A surface walk
   // must not spike this the way the per-step village rebuild used to.
   const frameMsRef = useRef(16);
+  // Capability gate: shadow passes only when the real WebGPU backend is
+  // driving; the WebGL2 fallback (headless CI, software GL, weak GPUs)
+  // cannot afford them regardless of the pointer-derived tier.
+  const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
   const { fallPlayback, fallWindow, clearFallPlayback } =
     useMineDeathPlaybackBridge(lastResult, tick);
   const renderedCellCountRef = useRef(0);
@@ -1318,7 +1323,7 @@ function MineScene({
         ref={dirRef}
         position={[3, 6, 8]}
         intensity={1.1}
-        castShadow={graphicsFeatures.shadows}
+        castShadow={graphicsFeatures.shadows && webgpuBackend}
         shadow-mapSize={[
           graphicsFeatures.sunShadowMapSize,
           graphicsFeatures.sunShadowMapSize,

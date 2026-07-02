@@ -87,6 +87,17 @@ export function persistGraphicsQuality(setting: GraphicsQualitySetting): void {
   }
 }
 
+/** True when the renderer is actually running on the WebGPU backend.
+ * Pointer type approximates the device class, but capability gates
+ * (shadow passes, runtime PMREM) must check the real backend: headless
+ * and software-GL environments are fine-pointer yet GPU-weak, and the
+ * WebGL2 fallback serves exactly the machines that cannot afford the
+ * extra passes. */
+export function isWebGPUBackend(gl: object): boolean {
+  const backend = (gl as { backend?: { isWebGPUBackend?: boolean } }).backend;
+  return backend?.isWebGPUBackend === true;
+}
+
 /** Matches the coarse-pointer probe used by the renderer factory. */
 export function hasCoarsePointer(): boolean {
   return (

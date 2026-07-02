@@ -1,7 +1,7 @@
 "use client";
 
 import { RoundedBox } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group, PointLight } from "three/webgpu";
 import type { MineCell } from "@/sim/mine";
@@ -11,6 +11,7 @@ import {
   type GraphicsFeatures,
   graphicsFeaturesFor,
   hasCoarsePointer,
+  isWebGPUBackend,
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
@@ -173,12 +174,14 @@ function HolodeckScene({ features }: { features: GraphicsFeatures }) {
   const motesRef = useRef<Group>(null);
   const legLRef = useRef<Group>(null);
   const legRRef = useRef<Group>(null);
+  const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
   const rig = useRef(createMinerRigState());
   const turntableYaw = useRef(0);
   const lastDrawTotal = useRef(0);
 
   const miner = scene.state.miner;
   const showcase = scenarioId === "miner-showcase";
+  const gallery = scenarioId === "block-gallery";
   const clip = minerClipId(settings.clip);
   const spinning = showcase && settings.turntable === "spin" && !paused;
   const targetSolid =
@@ -201,14 +204,17 @@ function HolodeckScene({ features }: { features: GraphicsFeatures }) {
     // Narrow phone viewports need a longer dolly to keep the model framed.
     const aspect = gl.domElement.clientWidth / gl.domElement.clientHeight;
     const showcaseZ = aspect >= 1 ? 3.4 : 5.4;
+    // The gallery frames the whole block row from a step further back.
     const camTarget = showcase
       ? { x: focusX, y: focusY + 0.35, z: showcaseZ }
-      : { x: 0, y: 0, z: 11 };
+      : gallery
+        ? { x: 0, y: focusY + 0.4, z: aspect >= 1 ? 8.5 : 13 }
+        : { x: 0, y: 0, z: 11 };
     const ease = Math.min(1, delta * 5);
     camera.position.x += (camTarget.x - camera.position.x) * ease;
     camera.position.y += (camTarget.y - camera.position.y) * ease;
     camera.position.z += (camTarget.z - camera.position.z) * ease;
-    camera.lookAt(showcase ? focusX : 0, showcase ? focusY : 0, 0);
+    camera.lookAt(showcase ? focusX : 0, showcase || gallery ? focusY : 0, 0);
     // The shared rig drives every joint: the single-block scenario plays
     // the real dig clip while its target block survives, the showcase
     // plays whichever clip is selected, and pause is a full still frame.
@@ -270,7 +276,7 @@ function HolodeckScene({ features }: { features: GraphicsFeatures }) {
       <directionalLight
         position={[3, 6, 8]}
         intensity={1.1}
-        castShadow={features.shadows}
+        castShadow={features.shadows && webgpuBackend}
         shadow-mapSize={[features.sunShadowMapSize, features.sunShadowMapSize]}
         shadow-camera-left={-10}
         shadow-camera-right={10}

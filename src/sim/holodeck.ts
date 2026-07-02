@@ -34,6 +34,8 @@ export interface HolodeckSettings {
   clip?: string;
   /** Miner Showcase: stage rotation ("off" | "spin"). */
   turntable?: string;
+  /** Block Gallery: which block set lines up on the stage. */
+  gallerySet?: string;
 }
 
 export interface HolodeckControlOption {
@@ -252,9 +254,120 @@ export const MINER_SHOWCASE_SCENARIO: HolodeckScenario = {
   build: buildMinerShowcase,
 };
 
+/** The block kinds the gallery lines up, left to right. Strings rather
+ * than cell literals so the control schema stays declarative. */
+export const BLOCK_GALLERY_SETS: Record<
+  string,
+  readonly { label: string; cell: MineCell }[]
+> = {
+  terrain: [
+    { label: "dirt", cell: { kind: "dirt" } },
+    { label: "rock t1", cell: { kind: "rock", rockTier: 1 } },
+    { label: "rock t4", cell: { kind: "rock", rockTier: 4 } },
+    { label: "rock t8", cell: { kind: "rock", rockTier: 8 } },
+    { label: "metal", cell: { kind: "metal" } },
+    { label: "cache", cell: { kind: "part-cache" } },
+    { label: "gas", cell: { kind: "gas" } },
+    { label: "boulder", cell: { kind: "boulder" } },
+  ],
+  "ores-classic": [
+    { label: "coal", cell: { kind: "ore", ore: "coal" } },
+    { label: "copper", cell: { kind: "ore", ore: "copper" } },
+    { label: "silver", cell: { kind: "ore", ore: "silver" } },
+    { label: "emerald", cell: { kind: "ore", ore: "emerald" } },
+    { label: "ruby", cell: { kind: "ore", ore: "ruby" } },
+    { label: "diamond", cell: { kind: "ore", ore: "diamond" } },
+    { label: "core", cell: { kind: "ore", ore: "core-crystal" } },
+  ],
+  "ores-frost": [
+    { label: "frozen coal", cell: { kind: "ore", ore: "frozen-coal" } },
+    { label: "frost copper", cell: { kind: "ore", ore: "frost-copper" } },
+    { label: "rime silver", cell: { kind: "ore", ore: "rime-silver" } },
+    { label: "aurora emerald", cell: { kind: "ore", ore: "aurora-emerald" } },
+    { label: "glacier ruby", cell: { kind: "ore", ore: "glacier-ruby" } },
+    { label: "blue diamond", cell: { kind: "ore", ore: "blue-diamond" } },
+    { label: "permafrost", cell: { kind: "ore", ore: "permafrost-core" } },
+  ],
+  "ores-tech": [
+    { label: "brass knob", cell: { kind: "ore", ore: "brass-knob" } },
+    { label: "wire spool", cell: { kind: "ore", ore: "wire-spool" } },
+    { label: "logic chip", cell: { kind: "ore", ore: "logic-chip" } },
+    { label: "micro monitor", cell: { kind: "ore", ore: "micro-monitor" } },
+    { label: "keyboard", cell: { kind: "ore", ore: "keyboard-matrix" } },
+    { label: "servo", cell: { kind: "ore", ore: "servo-motor" } },
+    { label: "quantum core", cell: { kind: "ore", ore: "quantum-core" } },
+  ],
+};
+
+function buildBlockGallery(settings: HolodeckSettings): HolodeckScene {
+  const gear: MineGear = { ...DEFAULT_GEAR, battery: 10, lantern: 8 };
+  const state = createMine(settings.seed, gear);
+  const set =
+    BLOCK_GALLERY_SETS[settings.gallerySet ?? "terrain"] ??
+    BLOCK_GALLERY_SETS.terrain;
+
+  const minerRow = SHOWCASE_MINER_ROW;
+  const floorRow = minerRow + 1;
+  const half = Math.floor(set.length / 2);
+  const firstCol = SINGLE_BLOCK_COL - half - 2;
+  const lastCol = SINGLE_BLOCK_COL + (set.length - half) + 2;
+
+  // Void the stage, floor it in metal, then line the kinds up on top.
+  for (let row = 1; row <= floorRow + 1; row++) {
+    for (let col = firstCol; col <= lastCol; col++) {
+      setCell(state, col, row, { kind: "empty" });
+    }
+  }
+  for (let col = firstCol; col <= lastCol; col++) {
+    setCell(state, col, floorRow, { kind: "metal" });
+  }
+  set.forEach((entry, index) => {
+    setCell(state, firstCol + 2 + index, minerRow, { ...entry.cell });
+  });
+
+  state.miner.col = firstCol + 1;
+  state.miner.row = minerRow;
+
+  return {
+    state,
+    target: { col: firstCol, row: floorRow },
+    plan: [],
+    maxSteps: Number.MAX_SAFE_INTEGER,
+  };
+}
+
+export const BLOCK_GALLERY_SCENARIO: HolodeckScenario = {
+  id: "block-gallery",
+  name: "Block Gallery",
+  icon: "🧊",
+  description:
+    "Every block kind lined up on a stage: terrain, ores by biome. The art review bench for cell materials.",
+  controls: [
+    {
+      key: "gallerySet",
+      label: "Block set",
+      kind: "select",
+      options: [
+        { value: "terrain", label: "Terrain" },
+        { value: "ores-classic", label: "Ores: classic" },
+        { value: "ores-frost", label: "Ores: frost" },
+        { value: "ores-tech", label: "Ores: tech" },
+      ],
+    },
+  ],
+  defaults: {
+    pickaxe: 3,
+    blockType: "dirt",
+    seed: 1,
+    gallerySet: "terrain",
+  },
+  build: buildBlockGallery,
+};
+
 export const HOLODECK_SCENARIOS: readonly HolodeckScenario[] = [
   SINGLE_BLOCK_SCENARIO,
   MINER_SHOWCASE_SCENARIO,
+  BLOCK_GALLERY_SCENARIO,
 ];
 
 export function holodeckScenario(id: string): HolodeckScenario {

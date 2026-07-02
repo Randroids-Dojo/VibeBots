@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BLOCK_GALLERY_SCENARIO,
   HOLODECK_SCENARIOS,
   type HolodeckSettings,
   holodeckComplete,
@@ -109,6 +110,69 @@ describe("holodeck registry", () => {
     expect(HOLODECK_SCENARIOS.length).toBeGreaterThan(0);
     expect(holodeckScenario("does-not-exist")).toBe(SINGLE_BLOCK_SCENARIO);
     expect(holodeckScenario("miner-showcase")).toBe(MINER_SHOWCASE_SCENARIO);
+  });
+});
+
+describe("holodeck block gallery scenario", () => {
+  it("lines up every kind in the selected set on a metal stage", () => {
+    const scene = BLOCK_GALLERY_SCENARIO.build(BLOCK_GALLERY_SCENARIO.defaults);
+    const row = scene.state.miner.row;
+    const kinds = new Set<string>();
+    for (let col = -12; col <= 12; col++) {
+      const cell = cellAt(scene.state, col, row);
+      if (cell && cell.kind !== "empty") kinds.add(cell.kind);
+    }
+    for (const kind of [
+      "dirt",
+      "rock",
+      "metal",
+      "part-cache",
+      "gas",
+      "boulder",
+    ]) {
+      expect(kinds).toContain(kind);
+    }
+    expect(cellAt(scene.state, scene.state.miner.col, row + 1)?.kind).toBe(
+      "metal",
+    );
+  });
+
+  it("switches sets through the gallerySet control", () => {
+    const scene = BLOCK_GALLERY_SCENARIO.build({
+      ...BLOCK_GALLERY_SCENARIO.defaults,
+      gallerySet: "ores-frost",
+    });
+    const row = scene.state.miner.row;
+    const ores = new Set<string>();
+    for (let col = -12; col <= 12; col++) {
+      const cell = cellAt(scene.state, col, row);
+      if (cell?.kind === "ore" && cell.ore) ores.add(cell.ore);
+    }
+    // The scan range can catch procedural ore outside the carved stage,
+    // so assert the staged set is present rather than an exact count.
+    for (const ore of [
+      "frozen-coal",
+      "frost-copper",
+      "rime-silver",
+      "aurora-emerald",
+      "glacier-ruby",
+      "blue-diamond",
+      "permafrost-core",
+    ]) {
+      expect(ores).toContain(ore);
+    }
+  });
+
+  it("idles the driver like the showcase (planless stage)", () => {
+    const scene = BLOCK_GALLERY_SCENARIO.build(BLOCK_GALLERY_SCENARIO.defaults);
+    const driven = holodeckDrive(
+      BLOCK_GALLERY_SCENARIO,
+      BLOCK_GALLERY_SCENARIO.defaults,
+      scene,
+      5,
+    );
+    expect(driven.scene).toBe(scene);
+    expect(driven.reset).toBe(false);
   });
 });
 

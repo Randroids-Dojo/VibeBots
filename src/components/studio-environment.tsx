@@ -8,6 +8,7 @@ import {
   type Texture,
   type WebGPURenderer,
 } from "three/webgpu";
+import { isWebGPUBackend } from "./graphics-quality";
 
 /** One filtered environment per renderer lifetime: canvases remount far
  * more often than renderers change, and regenerating the PMREM on every
@@ -21,8 +22,7 @@ function environmentFor(gl: object): Texture | null {
   // synchronous ReadPixels stalls that can freeze the main thread for
   // seconds on weak GPUs (exactly the devices the fallback serves). The
   // fallback path gets a prebaked environment in the G2 slice instead.
-  const backend = (gl as { backend?: { isWebGPUBackend?: boolean } }).backend;
-  if (!backend?.isWebGPUBackend) return null;
+  if (!isWebGPUBackend(gl)) return null;
   try {
     const generator = new PMREMGenerator(gl as WebGPURenderer);
     const target = generator.fromScene(new RoomEnvironment(), 0.04);

@@ -48,12 +48,20 @@ export function createDirectionCadenceController<T>({
   const scheduleHeld = (repeatMs: number) => {
     clearTimer();
     if (heldInput === null) return;
-    const delayMs = Math.max(0, nextActionAt - clock.now());
+    // Always make forward progress: a zero-delay reschedule after an
+    // early-fired timer would otherwise spin without advancing time.
+    const delayMs = Math.max(1, nextActionAt - clock.now());
     timer = clock.setTimeout(() => {
       timer = null;
       if (heldInput === null) return;
-      const attempted = tryAction(heldInput, repeatMs);
-      if (attempted) scheduleHeld(repeatMs);
+      tryAction(heldInput, repeatMs);
+      // Reschedule while the input is still held, even when this firing
+      // attempted nothing: timers can fire a hair before nextActionAt
+      // (clock jitter, dilated timers on loaded devices), and treating
+      // that as the end of the chain silently killed the held repeat. A
+      // rejected action clears heldInput via cancel(), so a dead hold
+      // still stops the chain here.
+      if (heldInput !== null) scheduleHeld(repeatMs);
     }, delayMs);
   };
 

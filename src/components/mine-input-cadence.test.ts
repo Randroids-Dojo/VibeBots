@@ -155,6 +155,59 @@ describe("mine input cadence", () => {
     expect(actions).toEqual(["right", "down"]);
   });
 
+  it("survives timers that fire a hair early while held", () => {
+    // Real browsers under load can run a timer callback fractionally
+    // before its due time. The held chain must reschedule through the
+    // miss instead of silently dying (a stalled dig on loaded devices).
+    let now = 0;
+    let nextTimerId = 1;
+    const timers = new Map<number, { at: number; callback: () => void }>();
+    const jitteryClock: CadenceClock = {
+      now: () => now,
+      setTimeout: (callback, delayMs) => {
+        const id = nextTimerId++;
+        // Fire 1ms before the requested delay, but like real browsers,
+        // never at zero delay (timers always advance the clock).
+        timers.set(id, { at: now + Math.max(1, delayMs - 1), callback });
+        return id;
+      },
+      clearTimeout: (timer) => {
+        timers.delete(timer);
+      },
+    };
+    const advance = (ms: number) => {
+      const target = now + ms;
+      while (true) {
+        let next: { id: number; at: number; callback: () => void } | undefined;
+        for (const [id, timer] of timers) {
+          if (timer.at > target) continue;
+          if (!next || timer.at < next.at) {
+            next = { id, at: timer.at, callback: timer.callback };
+          }
+        }
+        if (!next) break;
+        now = next.at;
+        timers.delete(next.id);
+        next.callback();
+      }
+      now = target;
+    };
+    const actions: number[] = [];
+    const controller = createDirectionCadenceController<string>({
+      clock: jitteryClock,
+      onAction: () => {
+        actions.push(now);
+        return true;
+      },
+    });
+    controller.press("down", 100);
+    advance(1000);
+    controller.release("down");
+    // One immediate action plus repeats roughly every 100ms; the early
+    // firings must not kill the chain after the first repeat.
+    expect(actions.length).toBeGreaterThanOrEqual(9);
+  });
+
   it("release cancels the pending held action", () => {
     const actions: string[] = [];
     const { clock, advance } = testClock();

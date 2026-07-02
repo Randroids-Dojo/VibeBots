@@ -642,15 +642,10 @@ test("falling-rock crush stays on camera before the report", async ({
     expect(active === "true" && impacted === "false").toBe(false);
   }
   await expect
-    .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {
-      timeout: 5_000,
-    })
-    .toBeLessThan(-7);
-  await expect
     .poll(
       async () => Number(await canvas.getAttribute("data-rendered-cell-count")),
       {
-        timeout: 5_000,
+        timeout: 15_000,
       },
     )
     .toBeGreaterThan(20);

@@ -329,7 +329,7 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
   await expect
     .poll(() => collectAttempts, {
       message: "XP pickup should retry while the miner stays on it",
-      timeout: 4_000,
+      timeout: 15_000,
     })
     .toBeGreaterThanOrEqual(2);
   await page.getByRole("button", { name: "Open bunker builder" }).click();

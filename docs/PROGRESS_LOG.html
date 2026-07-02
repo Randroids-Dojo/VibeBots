@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="held-cadence-jitter-fix" data-date="2026-07-02">
+    <h3>Held-Input Cadence Survives Timer Jitter</h3>
+    <dl>
+      <dt>Branch</dt><dd>Direct push to <code>main</code> under the user-directed test-locally-then-push flow, following the PR #84 merge.</dd>
+      <dt>PR</dt><dd>None (direct main). Originated from full-matrix round 3 on the #84 branch.</dd>
+      <dt>Changed</dt><dd>Product fix in <code>src/components/mine-input-cadence.ts</code>: the held-input repeat chain died silently when a repeat timer fired a hair before its due time (the time guard rejected the attempt and the chain never rescheduled), which is why held digs stalled partway on loaded devices and CI runners. The chain now reschedules through a missed window with guaranteed forward progress (minimum 1ms delay), while a rejected action still ends the chain because <code>cancel()</code> clears the held input. Covered by a jittery-clock regression test whose first draft hot-looped by firing zero-delay timers with no time progress; both the product and the synthetic clock now guarantee progress. Test-side: the crush test drops a redundant post-activation camera poll that raced the playback's end, and the raid XP retry window widens to the same stall allowance as its siblings. No version bumps (input reliability fix; <code>MINE_VERSION</code> 48, <code>SIM_VERSION</code> 3, package <code>0.1.153</code> unchanged).</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome (scoped), full unit suite (534 passed, including the new jitter regression), <code>pnpm build</code>, and the touched-surface Playwright set on an isolated port: held-cadence, digs-and-tracks, stratum banners, crush camera, raid XP retry, floating menus, miner showcase (7 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: no release note because the fix restores intended held-input behavior rather than changing a rule; tips (Rule 13) and stamps (Rule 14) reviewed with the 0.1.153 copy unchanged.</dd>
+      <dt>GDD coverage</dt><dd>No coverage status changed.</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="miner-model-v2" data-date="2026-07-02">
     <h3>Miner Model V2: High-End Geometry And TSL Materials</h3>
     <dl>

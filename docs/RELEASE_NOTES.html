@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.164" data-date="2026-07-03">
+    <h2>0.1.164</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.164</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>4</code>.</dd>
+      <dt>Highlights</dt><dd>Verified fight records and the first battle stamps (battle program slice B4).</dd>
+      <dt>Records</dt><dd>New <code>match_records</code> table (additive schema); the resolve route persists a record for every verified player fight (outcome, hash, sim version, duration, unique part ids) and returns the running summary, which the workshop shows as a record chip. Anonymous and exhibition resolves persist nothing.</dd>
+      <dt>Stamps</dt><dd>New battle category: First Blood (one verified win), Pit Veteran (ten), Buzzkill (win with a saw blade mounted). Counters derive from the records table (durable, backfillable per Rule 14) and merge into the achievement snapshot via max with stored stats.</dd>
+      <dt>Verification</dt><dd>Route persistence contracts (records on enforced resolves, nothing on anonymous), achievements roster tests, full unit suite, fresh-build release smoke. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.163" data-date="2026-07-03">
     <h2>0.1.163</h2>
     <dl>

@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { storageConfigured } from "@/server/db";
+import { refreshPlayerAchievements } from "@/server/achievements";
+import { db, storageConfigured } from "@/server/db";
+import {
+  loadMatchRecordSummary,
+  type MatchRecordSummary,
+  recordMatchResult,
+} from "@/server/match-records";
 import { validatePlayerDesignInventory } from "@/server/part-inventory";
 import { getOrCreatePlayerId } from "@/server/player";
 import { DEFAULT_TIME_LIMIT_TICKS } from "@/sim/combat";
@@ -92,5 +98,29 @@ export async function POST(request: Request): Promise<Response> {
     parsed.data.designs,
     parsed.data.timeLimitTicks,
   );
-  return Response.json(result);
+  // Verified player fights become durable records (B4): the workshop
+  // record chip and the battle stamps read from them. Exhibition and
+  // anonymous resolves persist nothing.
+  let record: MatchRecordSummary | null = null;
+  if (parsed.data.enforceInventory && storageConfigured()) {
+    const sql = await db();
+    const playerId = await getOrCreatePlayerId();
+    const playerIndex = parsed.data.inventoryDesignIndex ?? 0;
+    const playerDesign = parsed.data.designs[playerIndex];
+    const opponent = parsed.data.designs[1 - playerIndex];
+    const winner = result.status.over ? result.status.winner : null;
+    await recordMatchResult(sql, playerId, {
+      botName: playerDesign.name,
+      opponentName: opponent.name,
+      outcome:
+        winner === null ? "draw" : winner === playerIndex ? "win" : "loss",
+      resultHash: result.hash,
+      simVersion: result.simVersion,
+      durationTicks: result.tick,
+      usedPartIds: [...new Set(playerDesign.parts.map((p) => p.partId))],
+    });
+    await refreshPlayerAchievements(sql, playerId);
+    record = await loadMatchRecordSummary(sql, playerId);
+  }
+  return Response.json({ ...result, record });
 }

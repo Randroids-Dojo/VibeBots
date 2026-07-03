@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="battle-b4-fight-records" data-date="2026-07-03">
+    <h3>Battle B4: Fight Records And Battle Stamps</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed program).</dd>
+      <dt>PR</dt><dd>None (direct main).</dd>
+      <dt>Changed</dt><dd>REQ-005's record-keeping half: an additive <code>match_records</code> table, persistence in the resolve route for verified player fights only (outcome relative to the enforced design index, result hash, sim version, duration, unique part ids), a <code>GET /api/match/records</code> summary, a workshop record chip after verification, and a new battle stamp category (First Blood, Pit Veteran, Buzzkill) whose counters derive from the records table and fold into the achievement snapshot with max-merge (Rule 14 durable-source requirement). Package version <code>0.1.164</code> with a release note; <code>MINE_VERSION</code> 48 and <code>SIM_VERSION</code> 4 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, Biome (unpiped), route persistence contracts (record on enforced resolve with correct player attribution; nothing on anonymous), achievements suite, full unit suite, <code>pnpm build</code>, fresh-build release smoke (8 passed). Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: records only from verified fights (the server's answer is the one that counts, Q-003); local exhibition results never persist. Rule 13: tips reviewed, no change. Rule 14: three stamps added with a durable backfillable source.</dd>
+      <dt>GDD coverage</dt><dd>REQ-005 advances (score-based judgment now leaves a record). Build log entry added to <code>docs/gdd/04-match-resolution-and-scoring.html</code>.</dd>
+      <dt>Followups</dt><dd>B5 online vibe matches remains the battle program's tail.</dd>
+    </dl>
+  </article>
+
   <article data-slice="battle-b3-temperament" data-date="2026-07-03">
     <h3>Battle B3: Bot Temperament</h3>
     <dl>

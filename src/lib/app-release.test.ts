@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest temperament note complete", () => {
+  it("keeps the latest fight records note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.163-bot-temperament");
+    expect(release.noticeId).toBe("2026-07-03-0.1.164-fight-records");
     expect(latestNote).toMatchObject({
+      version: "0.1.164",
+      title: "Fight records",
+      intro: "Verified wins go on the books.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Every server-verified workshop fight is recorded, and your win-loss record shows up right after verification.",
+      "Three battle stamps join the Stamp Book: First Blood, Pit Veteran, and Buzzkill for winning with a saw blade mounted.",
+      "Records only count verified fights; exhibitions stay casual. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived temperament note complete", () => {
+    const release = getAppRelease();
+    const temperNote = release.notes.find((note) => note.version === "0.1.163");
+
+    expect(temperNote).toMatchObject({
       version: "0.1.163",
       title: "Bot temperament",
       intro: "Your bot fights its own way now.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(temperNote?.changes.map((change) => change.text)).toEqual([
       "Three temperament sliders in the workshop shape how your bot fights on its own: aggression, flanking, and patience.",
       "The stock fighters got personalities to match their builds: the Bulldozer shoves relentlessly while the Whirligig darts wide to bring its saw in.",
       "Neutral sliders reproduce the classic fighting style exactly, so existing bots behave the same until you tune them. MINE_VERSION and SIM_VERSION are unchanged.",

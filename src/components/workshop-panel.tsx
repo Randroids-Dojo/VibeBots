@@ -28,10 +28,21 @@ const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
 });
 const ArenaCanvas = dynamic(() => import("./arena-canvas"), { ssr: false });
 
+interface MatchRecordChip {
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
 type Verification =
   | { state: "idle" }
   | { state: "pending" }
-  | { state: "done"; agrees: boolean; hash: string }
+  | {
+      state: "done";
+      agrees: boolean;
+      hash: string;
+      record: MatchRecordChip | null;
+    }
   | { state: "error" };
 
 type WorkshopInventory =
@@ -110,6 +121,7 @@ export function WorkshopPanel() {
         state: "done",
         agrees: official.hash === endInfo.hash,
         hash: official.hash,
+        record: official.record ?? null,
       });
     } catch {
       setVerification({ state: "error" });
@@ -208,6 +220,15 @@ export function WorkshopPanel() {
                 {verification.agrees
                   ? `Official result matches (hash ${verification.hash.slice(0, 8)}...)`
                   : "Mismatch: the server saw a different fight."}
+              </p>
+            )}
+            {verification.state === "done" && verification.record && (
+              <p
+                data-testid="match-record-chip"
+                style={{ margin: "4px 0 0", fontSize: "0.8rem", opacity: 0.85 }}
+              >
+                Record: {verification.record.wins}W {verification.record.losses}
+                L {verification.record.draws}D
               </p>
             )}
             {verification.state === "error" && (

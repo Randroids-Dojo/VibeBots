@@ -1,4 +1,9 @@
-export type AchievementCategory = "depth" | "haul" | "tools" | "survival";
+export type AchievementCategory =
+  | "depth"
+  | "haul"
+  | "tools"
+  | "survival"
+  | "battle";
 
 export interface AchievementDefinition {
   id: string;
@@ -32,7 +37,9 @@ export type AchievementMetric =
   | "recoveries"
   | "beaconsPlanted"
   | "elevatorRides"
-  | "bunkerRaidsSurvived";
+  | "bunkerRaidsSurvived"
+  | "matchWins"
+  | "sawMatchWins";
 
 export interface AchievementStats {
   sales: number;
@@ -47,6 +54,10 @@ export interface AchievementStats {
   beaconsPlanted: number;
   elevatorRides: number;
   bunkerRaidsSurvived: number;
+  /** Server-verified arena match wins (durable: match_records). */
+  matchWins: number;
+  /** Verified wins by a design carrying a saw blade. */
+  sawMatchWins: number;
 }
 
 export interface AchievementSnapshot {
@@ -88,6 +99,8 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   beaconsPlanted: 0,
   elevatorRides: 0,
   bunkerRaidsSurvived: 0,
+  matchWins: 0,
+  sawMatchWins: 0,
 };
 
 export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
@@ -406,6 +419,33 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     metric: "bunkerRaidsSurvived",
     target: 1,
   },
+  {
+    id: "battle-first-blood",
+    category: "battle",
+    title: "First Blood",
+    description: "Win a server-verified arena match.",
+    stamp: "W1",
+    metric: "matchWins",
+    target: 1,
+  },
+  {
+    id: "battle-veteran",
+    category: "battle",
+    title: "Pit Veteran",
+    description: "Win ten server-verified arena matches.",
+    stamp: "W10",
+    metric: "matchWins",
+    target: 10,
+  },
+  {
+    id: "battle-buzzkill",
+    category: "battle",
+    title: "Buzzkill",
+    description: "Win a verified match with a saw blade mounted.",
+    stamp: "SAW",
+    metric: "sawMatchWins",
+    target: 1,
+  },
 ];
 
 export function normalizeAchievementStats(
@@ -433,6 +473,8 @@ export function mergeAchievementStats(
     elevatorRides: current.elevatorRides + (patch.elevatorRides ?? 0),
     bunkerRaidsSurvived:
       current.bunkerRaidsSurvived + (patch.bunkerRaidsSurvived ?? 0),
+    matchWins: current.matchWins + (patch.matchWins ?? 0),
+    sawMatchWins: current.sawMatchWins + (patch.sawMatchWins ?? 0),
   };
 }
 

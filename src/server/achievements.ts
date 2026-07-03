@@ -9,6 +9,7 @@ import {
 } from "@/lib/achievements";
 import { countActiveBiomePortalsInDiff, type WorldDiff } from "@/sim/mine";
 import type { db } from "./db";
+import { matchAchievementCounters } from "./match-records";
 
 type Sql = Awaited<ReturnType<typeof db>>;
 
@@ -100,8 +101,11 @@ async function achievementSnapshot(
   const worldDiff = Array.isArray(row?.mine_diff)
     ? (row.mine_diff as WorldDiff)
     : [];
+  const matchCounters = await matchAchievementCounters(sql, playerId);
   const retroStats = normalizeAchievementStats({
     ...stats,
+    matchWins: Math.max(stats.matchWins, matchCounters.matchWins),
+    sawMatchWins: Math.max(stats.sawMatchWins, matchCounters.sawMatchWins),
     sales: Math.max(
       stats.sales,
       row && (row.emeralds > 0 || row.parts_owned > 0) ? 1 : 0,

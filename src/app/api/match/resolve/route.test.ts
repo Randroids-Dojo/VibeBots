@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { refreshPlayerAchievements } from "@/server/achievements";
 import { storageConfigured } from "@/server/db";
+import { recordMatchResult } from "@/server/match-records";
 import { validatePlayerDesignInventory } from "@/server/part-inventory";
 import { SIM_VERSION } from "@/sim/constants";
 import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "@/sim/design";
@@ -8,6 +10,21 @@ import { POST } from "./route";
 
 vi.mock("@/server/db", () => ({
   storageConfigured: vi.fn(() => true),
+  db: vi.fn(async () => vi.fn(async () => [])),
+}));
+
+vi.mock("@/server/match-records", () => ({
+  recordMatchResult: vi.fn(async () => undefined),
+  loadMatchRecordSummary: vi.fn(async () => ({
+    wins: 1,
+    losses: 0,
+    draws: 0,
+    recent: [],
+  })),
+}));
+
+vi.mock("@/server/achievements", () => ({
+  refreshPlayerAchievements: vi.fn(async () => []),
 }));
 
 vi.mock("@/server/player", () => ({
@@ -19,6 +36,8 @@ vi.mock("@/server/part-inventory", () => ({
 }));
 
 const mockedStorageConfigured = vi.mocked(storageConfigured);
+const mockedRecordMatchResult = vi.mocked(recordMatchResult);
+const mockedRefreshPlayerAchievements = vi.mocked(refreshPlayerAchievements);
 const mockedValidatePlayerDesignInventory = vi.mocked(
   validatePlayerDesignInventory,
 );
@@ -106,5 +125,48 @@ describe("POST /api/match/resolve", () => {
   it("rejects malformed bodies", async () => {
     const res = await post({ nope: true });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("match record persistence (B4)", () => {
+  it("records verified player fights and returns the summary", async () => {
+    mockedStorageConfigured.mockReturnValue(true);
+    mockedRecordMatchResult.mockClear();
+    mockedRefreshPlayerAchievements.mockClear();
+    const res = await post({
+      designs: [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN],
+      simVersion: SIM_VERSION,
+      timeLimitTicks: 120,
+      enforceInventory: true,
+      inventoryDesignIndex: 1,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      hash: string;
+      record: { wins: number } | null;
+    };
+    expect(body.record).toEqual({ wins: 1, losses: 0, draws: 0, recent: [] });
+    expect(mockedRecordMatchResult).toHaveBeenCalledTimes(1);
+    const [, playerId, record] = mockedRecordMatchResult.mock.calls[0];
+    expect(playerId).toBe("player-1");
+    expect(record.botName).toBe(TEST_BOT_DESIGN.name);
+    expect(record.opponentName).toBe(CPU_BRAWLER_DESIGN.name);
+    expect(["win", "loss", "draw"]).toContain(record.outcome);
+    expect(record.resultHash).toBe(body.hash);
+    expect(record.usedPartIds).toContain("ram-spike");
+    expect(mockedRefreshPlayerAchievements).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists nothing for anonymous resolves", async () => {
+    mockedRecordMatchResult.mockClear();
+    const res = await post({
+      designs: [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN],
+      simVersion: SIM_VERSION,
+      timeLimitTicks: 120,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { record: unknown };
+    expect(body.record).toBeNull();
+    expect(mockedRecordMatchResult).not.toHaveBeenCalled();
   });
 });

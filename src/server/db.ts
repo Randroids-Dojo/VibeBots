@@ -129,6 +129,22 @@ async function applySchema(sql: Sql): Promise<void> {
       PRIMARY KEY (player_id, raid_id)
     )`;
   await sql`
+    CREATE TABLE IF NOT EXISTS match_records (
+      id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      bot_name text NOT NULL,
+      opponent_name text NOT NULL,
+      outcome text NOT NULL,
+      result_hash text NOT NULL,
+      sim_version integer NOT NULL,
+      duration_ticks integer NOT NULL,
+      used_part_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS match_records_player_created
+    ON match_records (player_id, created_at DESC)`;
+  await sql`
     CREATE TABLE IF NOT EXISTS mine_runs (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
       seed bigint NOT NULL,

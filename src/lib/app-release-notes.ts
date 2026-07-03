@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.163-bot-temperament";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.164-fight-records";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.164",
+      date: "2026-07-03",
+      title: "Fight records",
+      intro: "Verified wins go on the books.",
+      changes: [
+        {
+          build,
+          text: "Every server-verified workshop fight is recorded, and your win-loss record shows up right after verification.",
+        },
+        {
+          build,
+          text: "Three battle stamps join the Stamp Book: First Blood, Pit Veteran, and Buzzkill for winning with a saw blade mounted.",
+        },
+        {
+          build,
+          text: "Records only count verified fights; exhibitions stay casual. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.163",
       date: "2026-07-03",

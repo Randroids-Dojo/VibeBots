@@ -125,6 +125,7 @@ import {
   type MinerPose,
   PICK_SWING_SECONDS,
 } from "./miner-rig";
+import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
 
 interface MotionTrack {
@@ -1460,6 +1461,10 @@ function MineScene({
           surface; the frame loop scales it with daylight so descending
           into the dark still reads dark. */}
       <StudioEnvironment intensity={graphicsFeatures.environmentIntensity} />
+      {/* G3 post stack: only where the real WebGPU backend pays for it. */}
+      {graphicsFeatures.postBloom && webgpuBackend ? (
+        <ScenePostProcessing />
+      ) : null}
       <group ref={rigRef}>
         {/* Cave backdrop tracks the camera so depth never shows raw void. */}
         <mesh position={[0, 0, -5]}>

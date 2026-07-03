@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.169-shinier-treasure";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.170-mine-glow";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.170",
+      date: "2026-07-03",
+      title: "Mine glow",
+      intro: "Everything that glows finally casts its light.",
+      changes: [
+        {
+          build,
+          text: "A new post-processing stack makes glowing things bloom: the headlamp halos in the dark, magma smolders, gas membranes pulse, and crystal light spills onto the rock around it.",
+        },
+        {
+          build,
+          text: "A soft vignette grades the frame edges down so the lamp-lit center of the tunnel holds your eye.",
+        },
+        {
+          build,
+          text: "Runs only where the hardware pays for it easily; phones and battery-saver mode keep their exact current cost. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.169",
       date: "2026-07-03",

@@ -30,6 +30,7 @@ import {
   minerClipInputs,
 } from "./miner-rig";
 import { createWebGPU } from "./part-visuals";
+import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
 
 /** One solid block body, mirroring the mine canvas for the kinds the
@@ -255,6 +256,7 @@ function HolodeckScene({
         shadow-bias={-0.0004}
       />
       <StudioEnvironment intensity={features.environmentIntensity} />
+      {features.postBloom && webgpuBackend ? <ScenePostProcessing /> : null}
       {gallery ? (
         // The gallery is a review bench: a soft even fill across the
         // whole row so materials are judged fairly, not by lamp falloff.

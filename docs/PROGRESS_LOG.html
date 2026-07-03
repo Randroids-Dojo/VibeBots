@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="graphics-g3-post-stack" data-date="2026-07-03">
+    <h3>Graphics G3: TSL post stack (bloom + vignette grade)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed program).</dd>
+      <dt>PR</dt><dd>None (direct main). Graphics program slice 3.</dd>
+      <dt>Changed</dt><dd>New <code>src/components/scene-post.tsx</code>: three's native <code>PostProcessing</code> with the TSL <code>bloom</code> node (strength 0.32, radius 0.35, threshold 0.82) plus a radial vignette grade, mounted in the mine and Holodeck scenes behind a double gate: the new <code>GraphicsFeatures.postBloom</code> flag (high tier only) AND the live <code>isWebGPUBackend</code> check, per the G2 lesson that the fallback affords nothing extra. While mounted it takes over the frame's final render through a priority-1 <code>useFrame</code> (no other prioritized subscribers exist, verified); unmounted scenes keep R3F's default render, so the WebGL2/low path is byte-identical. Every emissive authored since G1 now reads as cast light: headlamp halo, magma smolder, gas membranes, crystal spill. GTAO, TRAA, god rays, and FSR1 from the roadmap stay deferred as their own slices. QA surface: <code>data-post-stack</code>. Package version <code>0.1.170</code>; <code>MINE_VERSION</code> 50 and <code>SIM_VERSION</code> 4 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (unpiped), full unit suite 584 passing, <code>pnpm build</code>, headed Playwright run on the real WebGPU backend confirming <code>data-engine "three.js r185 webgpu"</code>, <code>data-post-stack "bloom"</code>, ~37ms headed frame time, and a reviewed capture (lamp halo, magma bloom, vignette, no blowout); headless fallback regression pass (Holodeck 6/6, crack/collapse/gas mine smokes 3/3, release smoke 8/8). Note for future graphics QA: headless Chromium reports "No available adapters", so every prior "desktop" capture in this program was actually the WebGL2 fallback; real-backend evidence needs a headed run.</dd>
+      <dt>Assumptions</dt><dd>Recommended default (Rule 7): one post stack shape for every WebGPU-tier scene rather than per-route stacks. Rule 13: tips reviewed, no change (presentation only). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (presentation). Build log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Next: G4 atmosphere, then the process force-multipliers.</dd>
+    </dl>
+  </article>
+
   <article data-slice="graphics-g2-material-response" data-date="2026-07-03">
     <h3>Graphics G2: environment and material response</h3>
     <dl>

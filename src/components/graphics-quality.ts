@@ -54,6 +54,10 @@ export interface GraphicsFeatures {
   sunShadowMapSize: number;
   /** Environment (IBL) intensity applied to scenes. */
   environmentIntensity: number;
+  /** TSL post stack (bloom + vignette grade), G3. WebGPU-backend
+   * scenes additionally require the live backend check before
+   * mounting it. */
+  postBloom: boolean;
 }
 
 export function graphicsFeaturesFor(
@@ -64,9 +68,19 @@ export function graphicsFeaturesFor(
     // environment texture triggers a runtime pre-filter stall, and even
     // an in-shader fresnel stand-in proved too heavy for the weakest
     // GPUs this tier serves (G2). Reflectivity is a high-tier feature.
-    return { shadows: false, sunShadowMapSize: 512, environmentIntensity: 0 };
+    return {
+      shadows: false,
+      sunShadowMapSize: 512,
+      environmentIntensity: 0,
+      postBloom: false,
+    };
   }
-  return { shadows: true, sunShadowMapSize: 2048, environmentIntensity: 0.6 };
+  return {
+    shadows: true,
+    sunShadowMapSize: 2048,
+    environmentIntensity: 0.6,
+    postBloom: true,
+  };
 }
 
 export function readStoredGraphicsQuality(): GraphicsQualitySetting {

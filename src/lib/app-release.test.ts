@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest shinier treasure note complete", () => {
+  it("keeps the latest mine glow note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.169-shinier-treasure");
+    expect(release.noticeId).toBe("2026-07-03-0.1.170-mine-glow");
     expect(latestNote).toMatchObject({
-      version: "0.1.169",
-      title: "Shinier treasure",
-      intro: "Ore crystals catch the light like real gems now.",
+      version: "0.1.170",
+      title: "Mine glow",
+      intro: "Everything that glows finally casts its light.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Crystals are smooth-shaded and answer the studio lighting like curved glass, while metal and rock pick up stronger reflections against soil that stays matte.",
-      "The reflectivity pass is tuned per material, so treasure pops out of the tunnel wall instead of blending into it.",
-      "Phones and battery-saver mode keep their exact current cost: the response pass only runs where the hardware pays for it easily. MINE_VERSION and SIM_VERSION are unchanged.",
+      "A new post-processing stack makes glowing things bloom: the headlamp halos in the dark, magma smolders, gas membranes pulse, and crystal light spills onto the rock around it.",
+      "A soft vignette grades the frame edges down so the lamp-lit center of the tunnel holds your eye.",
+      "Runs only where the hardware pays for it easily; phones and battery-saver mode keep their exact current cost. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });
 

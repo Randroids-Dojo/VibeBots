@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="graphics-g2-material-response" data-date="2026-07-03">
+    <h3>Graphics G2: environment and material response</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed program).</dd>
+      <dt>PR</dt><dd>None (direct main). Graphics program slice 2 of the realistic-graphics roadmap.</dd>
+      <dt>Changed</dt><dd>Material response pass on the block materials: ore crystals are smooth-shaded hero surfaces (<code>flatShading false</code>, roughness 0.15, <code>envMapIntensity</code> 1.45) so they answer the G1 studio environment as curved glass; metal 1.2, rock 0.55, boulder 0.3, dirt 0.25 keep soil matte so treasure pops. Two G2 roadmap items were investigated and rejected with the evidence recorded: (1) a baked environment for the WebGL2 fallback is unsafe because any <code>scene.environment</code>, even a tiny equirect, triggers the renderer's runtime pre-filter on first use (the same stall class G1 hit with PMREM); (2) an in-shader fresnel stand-in for the fallback was implemented and then reverted after the holodeck pause smoke froze on software GL with just one extra dot product per fragment in the always-compiled branches, and a clean-baseline bisect pinned it to that node. Reflectivity is a WebGPU-tier feature; the low tier keeps byte-identical material cost. Triplanar normal detail deferred: flat-shaded cubes gain little from normal perturbation and roughness variation already shipped in W1. Package version <code>0.1.169</code>; <code>MINE_VERSION</code> 50 and <code>SIM_VERSION</code> 4 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (unpiped), full unit suite 584 passing, <code>pnpm build</code>, full Holodeck suite 6/6 including the pause smoke that caught the fresnel regression, Block Gallery and depth-8 ore captures on both webgpu-auto and webgl2-forced (Pixel 5 emulation, portrait) reviewed with no artifacts, fresh-build release smoke. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default (Rule 7): one consistent gate, reflective response rides exactly the tier that already pays for the environment (high plus WebGPU); no per-tier special cases in the fallback shaders ever. Rule 13: tips reviewed, no change (presentation only). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (presentation). Build log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Next: graphics G3 (TSL post stack).</dd>
+    </dl>
+  </article>
+
   <article data-slice="render-crush-tumble" data-date="2026-07-03">
     <h3>Render layer: physically integrated crush tumble</h3>
     <dl>

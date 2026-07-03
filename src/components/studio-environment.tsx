@@ -20,8 +20,14 @@ function environmentFor(gl: object): Texture | null {
   if (cached) return cached;
   // WebGPU backend only: on the WebGL2 fallback the PMREM pass issues
   // synchronous ReadPixels stalls that can freeze the main thread for
-  // seconds on weak GPUs (exactly the devices the fallback serves). The
-  // fallback path gets a prebaked environment in the G2 slice instead.
+  // seconds on weak GPUs (exactly the devices the fallback serves).
+  // G2 resolution: the fallback gets NO environment texture at all,
+  // because any scene.environment (even a tiny baked equirect) still
+  // triggers the renderer's runtime pre-filter on first use, the same
+  // stall class. An in-shader fresnel stand-in was tried and rejected
+  // too: one extra dot product per fragment in the always-compiled
+  // material branches froze the software-GL runners (holodeck pause
+  // smoke). Reflective response is a WebGPU-tier feature, full stop.
   if (!isWebGPUBackend(gl)) return null;
   try {
     const generator = new PMREMGenerator(gl as WebGPURenderer);

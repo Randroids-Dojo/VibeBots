@@ -21,13 +21,13 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Getting crushed finally looks like it hurts.",
+    "Ore crystals catch the light like real gems now.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("physical tumble");
-  await expect(dialog.locator("li").nth(1)).toContainText("Holodeck");
+  await expect(dialog.locator("li").first()).toContainText("curved glass");
+  await expect(dialog.locator("li").nth(1)).toContainText("reflectivity pass");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "MINE_VERSION stays at 50",
+    "MINE_VERSION and SIM_VERSION are unchanged",
   );
 
   await page.mouse.click(8, 8);
@@ -47,6 +47,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.169", "Shinier treasure"],
     ["0.1.168", "Crush tumble"],
     ["0.1.167", "Gas leaks"],
     ["0.1.166", "Tunnel collapses"],

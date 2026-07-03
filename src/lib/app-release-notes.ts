@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.168-crush-tumble";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.169-shinier-treasure";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.169",
+      date: "2026-07-03",
+      title: "Shinier treasure",
+      intro: "Ore crystals catch the light like real gems now.",
+      changes: [
+        {
+          build,
+          text: "Crystals are smooth-shaded and answer the studio lighting like curved glass, while metal and rock pick up stronger reflections against soil that stays matte.",
+        },
+        {
+          build,
+          text: "The reflectivity pass is tuned per material, so treasure pops out of the tunnel wall instead of blending into it.",
+        },
+        {
+          build,
+          text: "Phones and battery-saver mode keep their exact current cost: the response pass only runs where the hardware pays for it easily. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.168",
       date: "2026-07-03",

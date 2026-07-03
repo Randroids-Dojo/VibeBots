@@ -60,8 +60,10 @@ export function graphicsFeaturesFor(
   tier: GraphicsQualityTier,
 ): GraphicsFeatures {
   if (tier === "low") {
-    // No IBL on the low tier yet: phones ride the WebGL2 backend, where
-    // runtime PMREM stalls; the G2 slice bakes them an environment.
+    // No IBL on the low tier: phones ride the WebGL2 backend, where any
+    // environment texture triggers a runtime pre-filter stall, and even
+    // an in-shader fresnel stand-in proved too heavy for the weakest
+    // GPUs this tier serves (G2). Reflectivity is a high-tier feature.
     return { shadows: false, sunShadowMapSize: 512, environmentIntensity: 0 };
   }
   return { shadows: true, sunShadowMapSize: 2048, environmentIntensity: 0.6 };

@@ -104,6 +104,9 @@ export function dirtBlockMaterial(
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
     material.metalness = 0;
+    // Matte soil barely answers the environment; the low response keeps
+    // tunnels grounded while ores and metal pop against them (G2).
+    material.envMapIntensity = 0.25;
     if (!detail) {
       material.colorNode = jitteredColor(baseHex);
       material.roughness = 0.95;
@@ -130,6 +133,7 @@ export function rockBlockMaterial(
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
     material.metalness = 0.15;
+    material.envMapIntensity = 0.55;
     if (!detail) {
       material.colorNode = jitteredColor(baseHex);
       material.roughness = 0.6;
@@ -157,6 +161,7 @@ export function metalBlockMaterial(
   return cached(`metal:${baseHex}:${detail}`, () => {
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
+    material.envMapIntensity = 1.2;
     if (!detail) {
       material.colorNode = jitteredColor(baseHex);
       material.metalness = 0.85;
@@ -186,6 +191,7 @@ export function boulderBlockMaterial(
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
     material.metalness = 0.05;
+    material.envMapIntensity = 0.3;
     if (!detail) {
       material.colorNode = jitteredColor(baseHex);
       material.roughness = 0.8;
@@ -210,9 +216,12 @@ export function crystalMaterial(
 ): MeshStandardNodeMaterial {
   return cached(`crystal:${baseHex}:${glow}:${detail}`, () => {
     const material = new MeshStandardNodeMaterial();
-    material.flatShading = true;
+    // Hero surface (G2): smooth-shaded so the facets catch the
+    // environment as curved glass instead of flat paint chips.
+    material.flatShading = false;
     material.metalness = 0.1;
-    material.roughness = 0.18;
+    material.roughness = 0.15;
+    material.envMapIntensity = 1.45;
     material.colorNode = tintUniform(baseHex);
     if (!detail) {
       material.emissiveNode = tintUniform(baseHex).mul(glow ? 1.1 : 0.4);

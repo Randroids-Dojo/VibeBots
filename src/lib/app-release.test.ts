@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest crush tumble note complete", () => {
+  it("keeps the latest shinier treasure note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.168-crush-tumble");
+    expect(release.noticeId).toBe("2026-07-03-0.1.169-shinier-treasure");
     expect(latestNote).toMatchObject({
-      version: "0.1.168",
-      title: "Crush tumble",
-      intro: "Getting crushed finally looks like it hurts.",
+      version: "0.1.169",
+      title: "Shinier treasure",
+      intro: "Ore crystals catch the light like real gems now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "A falling block now sends the miner into a physical tumble: the hit launches the bot, it bounces and spins out its energy, and the wreck settles right where the report finds it.",
-      "Every crush plays a little differently, seeded by where it happened, and the Holodeck's Crush clip loops the new tumble for a closer look.",
-      "Pure presentation: the sim, your odds, and your loot math are untouched. MINE_VERSION stays at 50; SIM_VERSION is unchanged.",
+      "Crystals are smooth-shaded and answer the studio lighting like curved glass, while metal and rock pick up stronger reflections against soil that stays matte.",
+      "The reflectivity pass is tuned per material, so treasure pops out of the tunnel wall instead of blending into it.",
+      "Phones and battery-saver mode keep their exact current cost: the response pass only runs where the hardware pays for it easily. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });
 

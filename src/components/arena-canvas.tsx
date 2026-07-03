@@ -42,6 +42,7 @@ import { DT } from "@/sim/constants";
 import {
   type BotDesign,
   CPU_BRAWLER_DESIGN,
+  CPU_BULLDOZER_DESIGN,
   TEST_BOT_DESIGN,
 } from "@/sim/design";
 import { PART_CATALOG, type PartCategory } from "@/sim/parts";
@@ -64,11 +65,15 @@ const RESTART_DELAY_SECONDS = 4;
 
 const BOT_COLORS = ["#ff9f43", "#54e0c7"] as const;
 const BOT_COLORS_DESTROYED = ["#6b4a26", "#2a5a52"] as const;
-/** Rammer at index 1: its spike (front connector, -z) faces the enemy. */
-const EXHIBITION_DESIGNS: [BotDesign, BotDesign] = [
-  CPU_BRAWLER_DESIGN,
-  TEST_BOT_DESIGN,
+/** Rammer at index 1: its spike (front connector, -z) faces the enemy.
+ * Exhibitions rotate through the stock matchups so every visit shows a
+ * different clash; the rotation is deterministic per page load. */
+const EXHIBITION_MATCHUPS: [BotDesign, BotDesign][] = [
+  [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN],
+  [CPU_BULLDOZER_DESIGN, TEST_BOT_DESIGN],
+  [CPU_BRAWLER_DESIGN, CPU_BULLDOZER_DESIGN],
 ];
+const EXHIBITION_DESIGNS: [BotDesign, BotDesign] = EXHIBITION_MATCHUPS[0];
 const ARENA_CAMERA_SMOOTHING = 3.2;
 /** Pre-fight countdown, seconds per step of 3..2..1..FIGHT. */
 const COUNTDOWN_STEP_SECONDS = 0.8;
@@ -257,6 +262,10 @@ function ArenaScene({
   const partHealthSnapshot = useRef(new Map<string, number>());
   /** Seconds remaining in the pre-fight countdown; sim holds until 0. */
   const countdownRef = useRef(COUNTDOWN_STEP_SECONDS * COUNTDOWN_STEPS);
+  const exhibitionCycleRef = useRef(0);
+  // The active matchup: exhibitions rotate it per restart, and the part
+  // meshes must render the same designs the sim is stepping.
+  const [activeDesigns, setActiveDesigns] = useState(designs);
   const desiredCameraPositionRef = useRef(new Vector3(8, 5, 10));
   const desiredCameraLookAtRef = useRef(new Vector3(0, 1, 0));
   const projectedBotRef = useRef<[Vector3, Vector3]>([
@@ -535,7 +544,16 @@ function ArenaScene({
         runRef.current = null;
         run.dispose();
         const generation = generationRef.current;
-        bootMatch(designs).then((next) => {
+        exhibitionCycleRef.current =
+          (exhibitionCycleRef.current + 1) % EXHIBITION_MATCHUPS.length;
+        const nextDesigns =
+          designs === EXHIBITION_DESIGNS
+            ? EXHIBITION_MATCHUPS[exhibitionCycleRef.current]
+            : designs;
+        setActiveDesigns(nextDesigns);
+        countdownRef.current = COUNTDOWN_STEP_SECONDS * COUNTDOWN_STEPS;
+        onCountdown("3");
+        bootMatch(nextDesigns).then((next) => {
           if (generationRef.current !== generation) {
             next.dispose();
             return;
@@ -591,7 +609,7 @@ function ArenaScene({
       />
       <StudioEnvironment intensity={features.environmentIntensity} />
       {([0, 1] as const).map((botIndex) =>
-        designs[botIndex].parts.map((part) => {
+        activeDesigns[botIndex].parts.map((part) => {
           const key = `${botIndex}:${part.iid}`;
           const def = PART_CATALOG[part.partId];
           const surface = CATEGORY_SURFACE[def.category];

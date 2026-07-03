@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.161" data-date="2026-07-03">
+    <h2>0.1.161</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.161</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>3</code>.</dd>
+      <dt>Highlights</dt><dd>Five new robot parts hit the workshop shop (battle program slice B2a: silhouettes, REQ-003).</dd>
+      <dt>New parts</dt><dd>Plow Blade (wide heavy pusher), Hammer Head (dense top-heavy striker), Armor Wedge (sacrificial nose plate with a pass-through face connector), Roller Drum (wide tracked mobility with side-specific inner-face hubs so the 0.22 half-width clears the chassis), Mast Pole (tall light spar for character builds). Pure catalog data; existing assembly, power, and damage mechanics carry them.</dd>
+      <dt>Stock heavy</dt><dd><code>CPU_BULLDOZER_DESIGN</code> (drums, wedge, plow) validates, assembles, and fights deterministically (new combat integration test: identical result hash across fresh runs, both bots damaged inside 1200 ticks).</dd>
+      <dt>Exhibitions</dt><dd>The arena rotates through three stock matchups per restart, with the active designs held in state so the meshes always match the sim, and the countdown replays between matches.</dd>
+      <dt>Verification</dt><dd>236-test sim suite, new design and combat contracts, workshop capture showing all ten parts, both arena smokes. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.160" data-date="2026-07-03">
     <h2>0.1.160</h2>
     <dl>

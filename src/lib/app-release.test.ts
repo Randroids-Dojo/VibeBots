@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest arena fight night note complete", () => {
+  it("keeps the latest parts shipment note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.160-arena-fight-night");
+    expect(release.noticeId).toBe("2026-07-03-0.1.161-new-parts-shipment");
     expect(latestNote).toMatchObject({
+      version: "0.1.161",
+      title: "New parts shipment",
+      intro: "Five new robot parts hit the workshop shop.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Plow Blade, Hammer Head, Armor Wedge, Roller Drum, and Mast Pole: wide pushers, top-heavy strikers, sacrificial armor, low tracked drums, and tall character masts.",
+      "A new stock heavy, the Bulldozer, joins the arena, and exhibition matches now rotate through different matchups.",
+      "Every new part fights under the same deterministic match rules. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived arena fight night note complete", () => {
+    const release = getAppRelease();
+    const fightNote = release.notes.find((note) => note.version === "0.1.160");
+
+    expect(fightNote).toMatchObject({
       version: "0.1.160",
       title: "Arena fight night",
       intro: "Battles became a show worth watching.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(fightNote?.changes.map((change) => change.text)).toEqual([
       "Matches open with a countdown, the camera rides the action close, and every hit throws sparks, with big bursts when a part is destroyed.",
       "The arena became a lit stage: a concrete pit with barrier walls, a center ring, corner glow in each fighter's color, and real material surfaces on every part that scar as they take damage.",
       "Match rules and outcomes are unchanged, and so are MINE_VERSION and SIM_VERSION.",

@@ -220,6 +220,111 @@ export const SENSOR_HEAD: PartDef = {
   ],
 };
 
+export const PLOW_BLADE: PartDef = {
+  id: "plow-blade",
+  name: "Plow Blade",
+  category: "weapon",
+  // A wide, low pusher: less reach than the spike but a broad face that
+  // lands hits across the whole frontal arc and shoves with its mass.
+  shape: { type: "cuboid", hx: 0.34, hy: 0.12, hz: 0.06 },
+  density: 2.6,
+  powerDraw: 6,
+  powerSupply: 0,
+  durability: 190,
+  priceEmeralds: 9,
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: 0, z: 0.06 } },
+  ],
+};
+
+export const HAMMER_HEAD: PartDef = {
+  id: "hammer-head",
+  name: "Hammer Head",
+  category: "weapon",
+  // Dense ball on a short mount: top-heavy, hits hard, punishes builds
+  // that cannot keep their nose on the target.
+  shape: { type: "ball", radius: 0.16 },
+  density: 4.2,
+  powerDraw: 8,
+  powerSupply: 0,
+  durability: 130,
+  priceEmeralds: 10,
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: -0.16, z: 0 } },
+  ],
+};
+
+export const ARMOR_WEDGE: PartDef = {
+  id: "armor-wedge",
+  name: "Armor Wedge",
+  category: "structure",
+  // Thick sacrificial nose plate: cheap durability that soaks frontal
+  // hits before they reach the core.
+  shape: { type: "cuboid", hx: 0.28, hy: 0.18, hz: 0.08 },
+  density: 2.2,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 220,
+  priceEmeralds: 7,
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: 0, z: 0.08 } },
+    { id: "face", kind: "rigid", position: { x: 0, y: 0, z: -0.08 } },
+  ],
+};
+
+export const ROLLER_DRUM: PartDef = {
+  id: "roller-drum",
+  name: "Roller Drum",
+  category: "mobility",
+  // A wide single drum: one axle carries the whole side, trading the
+  // wheel's agility for a low, stable tracked silhouette. The hub sits
+  // on the inner face (the axle stub is only 0.09 outboard of the core,
+  // and a center hub would sink the 0.22 half-width into the chassis);
+  // the anchor stays on the spin axis, so rotation is unaffected. The
+  // radius matches the drive wheel's ground clearance.
+  shape: { type: "cylinder", halfHeight: 0.22, radius: 0.34, axis: "x" },
+  density: 1.5,
+  powerDraw: 26,
+  powerSupply: 0,
+  durability: 130,
+  priceEmeralds: 9,
+  connectors: [
+    // Side-specific hubs on the inner face: connections place the child
+    // connector onto the parent stub, so each side needs its own inward
+    // face. Both anchors lie on the spin axis.
+    {
+      id: "hub-left",
+      kind: "axle",
+      position: { x: 0.22, y: 0, z: 0 },
+      axis: X_AXIS,
+    },
+    {
+      id: "hub-right",
+      kind: "axle",
+      position: { x: -0.22, y: 0, z: 0 },
+      axis: X_AXIS,
+    },
+  ],
+};
+
+export const MAST_POLE: PartDef = {
+  id: "mast-pole",
+  name: "Mast Pole",
+  category: "structure",
+  // A tall light spar for character builds: banners, heads, and high
+  // sensors ride on it; it adds silhouette, not strength.
+  shape: { type: "cylinder", halfHeight: 0.24, radius: 0.05, axis: "y" },
+  density: 0.8,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 45,
+  priceEmeralds: 3,
+  connectors: [
+    { id: "base", kind: "rigid", position: { x: 0, y: -0.24, z: 0 } },
+    { id: "tip", kind: "rigid", position: { x: 0, y: 0.24, z: 0 } },
+  ],
+};
+
 export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
   [
     CORE_CUBE,
@@ -228,5 +333,10 @@ export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
     RAM_SPIKE,
     CROSS_FRAME,
     SENSOR_HEAD,
+    PLOW_BLADE,
+    HAMMER_HEAD,
+    ARMOR_WEDGE,
+    ROLLER_DRUM,
+    MAST_POLE,
   ].map((p) => [p.id, p]),
 );

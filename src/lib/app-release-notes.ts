@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.160-arena-fight-night";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.161-new-parts-shipment";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.161",
+      date: "2026-07-03",
+      title: "New parts shipment",
+      intro: "Five new robot parts hit the workshop shop.",
+      changes: [
+        {
+          build,
+          text: "Plow Blade, Hammer Head, Armor Wedge, Roller Drum, and Mast Pole: wide pushers, top-heavy strikers, sacrificial armor, low tracked drums, and tall character masts.",
+        },
+        {
+          build,
+          text: "A new stock heavy, the Bulldozer, joins the arena, and exhibition matches now rotate through different matchups.",
+        },
+        {
+          build,
+          text: "Every new part fights under the same deterministic match rules. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.160",
       date: "2026-07-03",

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { type BotDesign, TEST_BOT_DESIGN, validateDesign } from "./design";
+import {
+  type BotDesign,
+  CPU_BULLDOZER_DESIGN,
+  TEST_BOT_DESIGN,
+  validateDesign,
+} from "./design";
 import { CORE_CUBE, DRIVE_WHEEL, PART_CATALOG, RAM_SPIKE } from "./parts";
 
 function expectErrors(design: BotDesign, fragment: string) {
@@ -191,6 +196,20 @@ describe("validateDesign", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors.join("\n")).toContain("power overdraw");
+    }
+  });
+});
+
+describe("B2 catalog designs", () => {
+  it("validates the bulldozer and its new parts", () => {
+    const result = validateDesign(CPU_BULLDOZER_DESIGN);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.stats.partCount).toBe(5);
+      // Keep the stock heavy inside the core's power budget.
+      expect(result.stats.powerDraw).toBeLessThanOrEqual(
+        result.stats.powerSupply,
+      );
     }
   });
 });

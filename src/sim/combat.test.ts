@@ -11,9 +11,15 @@ import {
   rankTargetCandidates,
   stepMatch,
 } from "./combat";
-import { type BotDesign, CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "./design";
+import {
+  type BotDesign,
+  CPU_BRAWLER_DESIGN,
+  CPU_BULLDOZER_DESIGN,
+  TEST_BOT_DESIGN,
+} from "./design";
 import { fnv1a64 } from "./hash";
 import { vec3Distance } from "./parts";
+import { matchResultHash } from "./resolve";
 
 async function newMatch(options?: MatchOptions): Promise<{
   world: World;
@@ -335,6 +341,38 @@ describe("autonomous combat", () => {
       expect(match.tick).toBe(1);
     } finally {
       cleanup();
+    }
+  });
+});
+
+describe("B2 bulldozer in combat", () => {
+  it("assembles, fights deterministically, and trades damage", async () => {
+    const run = async () => {
+      const world = await createArenaWorld();
+      const match = createMatch(world, [CPU_BULLDOZER_DESIGN, TEST_BOT_DESIGN]);
+      for (let i = 0; i < 1200; i++) stepMatch(match);
+      const hash = matchResultHash(match);
+      const totals = match.bots.map((bot) => {
+        let health = 0;
+        let max = 0;
+        for (const part of bot.parts.values()) {
+          health += part.destroyed ? 0 : part.health;
+          max += part.maxHealth;
+        }
+        return { health, max };
+      });
+      freeMatch(match);
+      world.free();
+      return { hash, totals };
+    };
+    const a = await run();
+    const b = await run();
+    // Same designs, same world: identical result hash across fresh runs.
+    expect(b.hash).toBe(a.hash);
+    // The clash is real: both stock builds take damage inside the window.
+    for (const t of a.totals) {
+      expect(t.health).toBeLessThan(t.max);
+      expect(t.health).toBeGreaterThan(0);
     }
   });
 });

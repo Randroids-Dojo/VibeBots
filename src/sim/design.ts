@@ -351,3 +351,45 @@ export const CPU_BRAWLER_DESIGN: BotDesign = {
     },
   ],
 };
+
+/**
+ * A stock heavy built from the B2 catalog: roller drums for a low
+ * tracked stance, an armor wedge nose, and a plow blade. Exercises the
+ * new parts in every exhibition and CPU test fight that selects it.
+ */
+export const CPU_BULLDOZER_DESIGN: BotDesign = {
+  name: "Bulldozer",
+  parts: [
+    { iid: "core", partId: "core-cube" },
+    { iid: "drum-l", partId: "roller-drum" },
+    { iid: "drum-r", partId: "roller-drum" },
+    { iid: "wedge", partId: "armor-wedge" },
+    { iid: "plow", partId: "plow-blade" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "drum-l",
+      childConnector: "hub-left",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "drum-r",
+      childConnector: "hub-right",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "front",
+      childIid: "wedge",
+      childConnector: "mount",
+    },
+    {
+      parentIid: "wedge",
+      parentConnector: "face",
+      childIid: "plow",
+      childConnector: "mount",
+    },
+  ],
+};

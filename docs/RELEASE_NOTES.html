@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.163" data-date="2026-07-03">
+    <h2>0.1.163</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.163</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>4</code> (neutral behavior is proven hash-identical to the classic controller).</dd>
+      <dt>Highlights</dt><dd>Workshop-tunable bot temperament (battle program slice B3, REQ-001's behavior parameters).</dd>
+      <dt>Behavior schema</dt><dd><code>botBehaviorSchema</code>: aggression, flankBias, and patience, normalized 0..1 around a 0.5 neutral. The controller scales its damage throttle, flank arc, and backoff cycle by 0.5x..1.5x across each range; a hash-identity test pins neutral to the classic controller.</dd>
+      <dt>Workshop</dt><dd>A Temperament panel with three sliders writes the behavior into the design through the editor history (undo works), persisting with the garage design as an optional schema field.</dd>
+      <dt>Stock personalities</dt><dd>Bulldozer: relentless, narrow, patient. Whirligig: quick resets and wide arcs to bring the saw in.</dd>
+      <dt>Verification</dt><dd>Hash-identity and divergence combat contracts, store history test, full unit suite, fresh-build release smoke. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.162" data-date="2026-07-03">
     <h2>0.1.162</h2>
     <dl>

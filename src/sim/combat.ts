@@ -5,7 +5,11 @@ import type {
 } from "@dimforge/rapier3d-deterministic-compat";
 import RAPIER from "@dimforge/rapier3d-deterministic-compat";
 import { type AssembledBot, assembleBot, setDriveVelocity } from "./assembly";
-import { type BotDesign, partInstanceDurability } from "./design";
+import {
+  type BotDesign,
+  NEUTRAL_BEHAVIOR,
+  partInstanceDurability,
+} from "./design";
 import { PART_CATALOG, type PartDef, type Vec3, vec3Distance } from "./parts";
 
 /**
@@ -549,11 +553,17 @@ function runControllers(match: MatchState): void {
     const enemyHasWeapon = hasUsableWeapon(enemy);
     const mobility = mobilityRatio(bot);
 
+    const behavior = bot.design.behavior ?? NEUTRAL_BEHAVIOR;
+    // Neutral 0.5 reproduces the classic constants exactly; the factors
+    // scale linearly to 0.5x..1.5x across the slider range.
+    const behaviorScale = (value: number) => 0.5 + value;
     if (
       bot.brain.backoffUntilTick === 0 &&
       targetDistance < BACKOFF_TRIGGER_RANGE
     ) {
-      bot.brain.backoffUntilTick = match.tick + BACKOFF_TICKS;
+      bot.brain.backoffUntilTick =
+        match.tick +
+        Math.round(BACKOFF_TICKS * behaviorScale(behavior.patience));
     } else if (
       bot.brain.backoffUntilTick !== 0 &&
       match.tick >= bot.brain.backoffUntilTick
@@ -575,8 +585,9 @@ function runControllers(match: MatchState): void {
       const enemyFrontX = -enemyPlusZ.x / enemyFrontLen;
       const enemyFrontZ = -enemyPlusZ.z / enemyFrontLen;
       const side = stableSide(index, target?.iid ?? enemy.assembled.rootIid);
-      aimX += -enemyFrontZ * FLANK_DISTANCE * side - enemyFrontX * 0.3;
-      aimZ += enemyFrontX * FLANK_DISTANCE * side - enemyFrontZ * 0.3;
+      const flank = FLANK_DISTANCE * behaviorScale(behavior.flankBias);
+      aimX += -enemyFrontZ * flank * side - enemyFrontX * 0.3;
+      aimZ += enemyFrontX * flank * side - enemyFrontZ * 0.3;
     }
 
     const toLen = Math.sqrt((aimX - me.x) ** 2 + (aimZ - me.z) ** 2) || 1;
@@ -602,7 +613,9 @@ function runControllers(match: MatchState): void {
     }
 
     const turnThrottle = aligned < -0.2 ? 0.45 : 1 - Math.abs(steer) * 0.35;
-    const damageThrottle = 0.72 + mobility * 0.28;
+    // Aggression widens or narrows the damage-aware throttle floor.
+    const damageThrottle =
+      (0.72 + mobility * 0.28) * (0.8 + behavior.aggression * 0.4);
     setDriveVelocity(
       bot.assembled,
       -DRIVE_SPEED * clamp(turnThrottle * damageThrottle, 0.35, 1),

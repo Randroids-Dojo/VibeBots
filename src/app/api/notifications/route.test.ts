@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-03-0.1.162-saw-blades",
-      releaseSummary:
-        "Saw blades: The first powered weapon spins into the arena.",
+      releaseNoticeId: "2026-07-03-0.1.163-bot-temperament",
+      releaseSummary: "Bot temperament: Your bot fights its own way now.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-03-0.1.162-saw-blades",
+      releaseNoticeId: "2026-07-03-0.1.163-bot-temperament",
       attempted: 2,
       sent: 1,
       expired: 1,

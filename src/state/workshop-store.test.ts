@@ -132,3 +132,21 @@ describe("workshop store", () => {
     }
   });
 });
+
+describe("B3 temperament", () => {
+  it("sets behavior with neutral fill and history undo", () => {
+    store().setBehavior({ aggression: 0.9 });
+    expect(store().design.behavior).toEqual({
+      aggression: 0.9,
+      flankBias: 0.5,
+      patience: 0.5,
+    });
+    store().setBehavior({ patience: 0.1 });
+    expect(store().design.behavior?.patience).toBe(0.1);
+    expect(store().design.behavior?.aggression).toBe(0.9);
+    store().undo();
+    expect(store().design.behavior?.patience).toBe(0.5);
+    // The tuned design still validates for combat.
+    expect(validateDesign(store().design).ok).toBe(true);
+  });
+});

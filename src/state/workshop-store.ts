@@ -9,8 +9,10 @@ import {
 } from "@randroids-dojo/vibekit";
 import { create } from "zustand";
 import {
+  type BotBehavior,
   type BotDesign,
   MAX_PART_MERGE_LEVEL,
+  NEUTRAL_BEHAVIOR,
   type Orientation,
   partMergeLevel,
   validateDesign,
@@ -183,6 +185,7 @@ export interface WorkshopState {
   mergeSelectedPart: () => void;
   rotateSelected: () => void;
   setName: (name: string) => void;
+  setBehavior: (patch: Partial<BotBehavior>) => void;
   loadDesign: (design: BotDesign) => void;
   select: (iid: string | null) => void;
   undo: () => void;
@@ -261,6 +264,16 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     const trimmed = name.slice(0, 60);
     if (!trimmed || trimmed === design.name) return;
     set({ ...withDesign(pushHistory(history, { ...design, name: trimmed })) });
+  },
+
+  setBehavior: (patch) => {
+    const { history, design } = get();
+    const behavior: BotBehavior = {
+      ...NEUTRAL_BEHAVIOR,
+      ...design.behavior,
+      ...patch,
+    };
+    set({ ...withDesign(pushHistory(history, { ...design, behavior })) });
   },
 
   loadDesign: (design) =>

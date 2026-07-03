@@ -16,6 +16,7 @@ import {
   CPU_BRAWLER_DESIGN,
   CPU_BULLDOZER_DESIGN,
   CPU_WHIRLIGIG_DESIGN,
+  NEUTRAL_BEHAVIOR,
   TEST_BOT_DESIGN,
 } from "./design";
 import { fnv1a64 } from "./hash";
@@ -421,5 +422,45 @@ describe("B2b saw blade in combat", () => {
       return hash;
     };
     expect(await run()).toBe(await run());
+  });
+});
+
+describe("B3 behavior parameters", () => {
+  const hashAfter = async (designs: [BotDesign, BotDesign], steps: number) => {
+    const world = await createArenaWorld();
+    const match = createMatch(world, designs);
+    for (let i = 0; i < steps; i++) stepMatch(match);
+    const hash = matchResultHash(match);
+    freeMatch(match);
+    world.free();
+    return hash;
+  };
+
+  it("neutral behavior reproduces the classic controller exactly", async () => {
+    const withNeutral: [BotDesign, BotDesign] = [
+      { ...CPU_BRAWLER_DESIGN, behavior: { ...NEUTRAL_BEHAVIOR } },
+      { ...TEST_BOT_DESIGN, behavior: { ...NEUTRAL_BEHAVIOR } },
+    ];
+    expect(await hashAfter(withNeutral, 700)).toBe(
+      await hashAfter([CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN], 700),
+    );
+  });
+
+  it("behavior extremes change the fight", async () => {
+    const hot: [BotDesign, BotDesign] = [
+      {
+        ...CPU_BRAWLER_DESIGN,
+        behavior: { aggression: 1, flankBias: 0, patience: 0 },
+      },
+      TEST_BOT_DESIGN,
+    ];
+    const cold: [BotDesign, BotDesign] = [
+      {
+        ...CPU_BRAWLER_DESIGN,
+        behavior: { aggression: 0, flankBias: 1, patience: 1 },
+      },
+      TEST_BOT_DESIGN,
+    ];
+    expect(await hashAfter(hot, 700)).not.toBe(await hashAfter(cold, 700));
   });
 });

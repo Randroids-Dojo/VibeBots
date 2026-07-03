@@ -9,6 +9,7 @@ import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
   CPU_BRAWLER_DESIGN,
+  NEUTRAL_BEHAVIOR,
   partInstanceDurability,
   partMergeLevel,
   validateDesign,
@@ -120,11 +121,13 @@ export function WorkshopPanel() {
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
   const mergeSelectedPart = useWorkshopStore((s) => s.mergeSelectedPart);
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
+  const setBehavior = useWorkshopStore((s) => s.setBehavior);
   const undo = useWorkshopStore((s) => s.undo);
   const redo = useWorkshopStore((s) => s.redo);
   const reset = useWorkshopStore((s) => s.reset);
 
   const validation = validateDesign(design);
+  const behavior = design.behavior ?? NEUTRAL_BEHAVIOR;
   const usedPartCounts = designPartCounts(design);
   const selectedPart = design.parts.find((p) => p.iid === selectedIid);
   const selectedDef = selectedPart ? PART_CATALOG[selectedPart.partId] : null;
@@ -339,6 +342,55 @@ export function WorkshopPanel() {
               ))}
             </ul>
           )}
+        </section>
+
+        <section style={panelStyle} aria-label="Temperament">
+          <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+            Temperament
+          </h2>
+          {(
+            [
+              ["aggression", "Aggression", "cautious", "relentless"],
+              ["flankBias", "Flanking", "hugs close", "swings wide"],
+              ["patience", "Patience", "brief resets", "long resets"],
+            ] as const
+          ).map(([key, label, low, high]) => (
+            <label
+              key={key}
+              style={{
+                display: "block",
+                fontSize: "0.78rem",
+                marginBottom: 8,
+              }}
+            >
+              {label}
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={behavior[key]}
+                aria-label={`${label} slider`}
+                onChange={(event) =>
+                  setBehavior({ [key]: Number(event.target.value) })
+                }
+                style={{ width: "100%", display: "block" }}
+              />
+              <span
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  opacity: 0.6,
+                }}
+              >
+                <span>{low}</span>
+                <span>{high}</span>
+              </span>
+            </label>
+          ))}
+          <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.65 }}>
+            Bots fight on their own; temperament biases how this one does it.
+          </p>
         </section>
 
         <section style={panelStyle} aria-label="Actions">

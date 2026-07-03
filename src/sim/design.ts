@@ -43,6 +43,28 @@ export type Connection = z.infer<typeof connectionSchema>;
 /** Hard cap on parts per design: sim cost is the server's to control. */
 export const MAX_DESIGN_PARTS = 32;
 
+/**
+ * Behavior tuning baked into the design (B3, REQ-001): the controller
+ * is still fully autonomous; these bias its decisions. All values are
+ * normalized 0..1 around a 0.5 neutral that reproduces the classic
+ * controller exactly, so designs without behavior are byte-identical.
+ */
+export const botBehaviorSchema = z.object({
+  /** Throttle bias: 0 cautious, 1 relentless. */
+  aggression: z.number().min(0).max(1),
+  /** Flank arc width when out-weaponed: 0 hugs, 1 swings wide. */
+  flankBias: z.number().min(0).max(1),
+  /** Backoff cycle length after closing in: 0 brief, 1 long resets. */
+  patience: z.number().min(0).max(1),
+});
+export type BotBehavior = z.infer<typeof botBehaviorSchema>;
+
+export const NEUTRAL_BEHAVIOR: BotBehavior = {
+  aggression: 0.5,
+  flankBias: 0.5,
+  patience: 0.5,
+};
+
 export const botDesignSchema = z.object({
   name: z.string().min(1).max(60),
   parts: z
@@ -50,6 +72,7 @@ export const botDesignSchema = z.object({
     .min(1)
     .max(MAX_DESIGN_PARTS * 2),
   connections: z.array(connectionSchema).max(MAX_DESIGN_PARTS * 2),
+  behavior: botBehaviorSchema.optional(),
 });
 export type BotDesign = z.infer<typeof botDesignSchema>;
 
@@ -359,6 +382,8 @@ export const CPU_BRAWLER_DESIGN: BotDesign = {
  */
 export const CPU_BULLDOZER_DESIGN: BotDesign = {
   name: "Bulldozer",
+  // Heavy and unhurried: shoves relentlessly, never swings wide.
+  behavior: { aggression: 0.85, flankBias: 0.15, patience: 0.7 },
   parts: [
     { iid: "core", partId: "core-cube" },
     { iid: "drum-l", partId: "roller-drum" },
@@ -401,6 +426,8 @@ export const CPU_BULLDOZER_DESIGN: BotDesign = {
  */
 export const CPU_WHIRLIGIG_DESIGN: BotDesign = {
   name: "Whirligig",
+  // Darting saw-carrier: quick resets, wide arcs to bring the blade in.
+  behavior: { aggression: 0.6, flankBias: 0.8, patience: 0.2 },
   parts: [
     { iid: "core", partId: "core-cube" },
     { iid: "wheel-l", partId: "drive-wheel" },

@@ -20,14 +20,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText(
-    "The first powered weapon spins into the arena.",
-  );
+  await expect(dialog).toContainText("Your bot fights its own way now.");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("Spin Mount");
-  await expect(dialog.locator("li").nth(1)).toContainText("the Whirligig");
+  await expect(dialog.locator("li").first()).toContainText(
+    "temperament sliders",
+  );
+  await expect(dialog.locator("li").nth(1)).toContainText("personalities");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "SIM_VERSION steps to 4",
+    "reproduce the classic fighting style",
   );
 
   await page.mouse.click(8, 8);
@@ -47,6 +47,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.163", "Bot temperament"],
     ["0.1.162", "Saw blades"],
     ["0.1.161", "New parts shipment"],
     ["0.1.160", "Arena fight night"],

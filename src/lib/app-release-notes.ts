@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.162-saw-blades";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.163-bot-temperament";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.163",
+      date: "2026-07-03",
+      title: "Bot temperament",
+      intro: "Your bot fights its own way now.",
+      changes: [
+        {
+          build,
+          text: "Three temperament sliders in the workshop shape how your bot fights on its own: aggression, flanking, and patience.",
+        },
+        {
+          build,
+          text: "The stock fighters got personalities to match their builds: the Bulldozer shoves relentlessly while the Whirligig darts wide to bring its saw in.",
+        },
+        {
+          build,
+          text: "Neutral sliders reproduce the classic fighting style exactly, so existing bots behave the same until you tune them. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.162",
       date: "2026-07-03",

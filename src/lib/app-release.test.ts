@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest saw blades note complete", () => {
+  it("keeps the latest temperament note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.162-saw-blades");
+    expect(release.noticeId).toBe("2026-07-03-0.1.163-bot-temperament");
     expect(latestNote).toMatchObject({
+      version: "0.1.163",
+      title: "Bot temperament",
+      intro: "Your bot fights its own way now.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Three temperament sliders in the workshop shape how your bot fights on its own: aggression, flanking, and patience.",
+      "The stock fighters got personalities to match their builds: the Bulldozer shoves relentlessly while the Whirligig darts wide to bring its saw in.",
+      "Neutral sliders reproduce the classic fighting style exactly, so existing bots behave the same until you tune them. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived saw blades note complete", () => {
+    const release = getAppRelease();
+    const sawNote = release.notes.find((note) => note.version === "0.1.162");
+
+    expect(sawNote).toMatchObject({
       version: "0.1.162",
       title: "Saw blades",
       intro: "The first powered weapon spins into the arena.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(sawNote?.changes.map((change) => change.text)).toEqual([
       "The Spin Mount and Saw Blade arrive in the shop: bolt the mount to your bot's nose and its blade spins up on its own motor, shredding whatever it touches.",
       "A new stock fighter, the Whirligig, brings the saw to exhibition matches, which now rotate through four matchups.",
       "Powered axles are a new simulation capability, so SIM_VERSION steps to 4; older replays re-simulate under their original version. MINE_VERSION is unchanged.",

@@ -83,8 +83,11 @@ export function arenaCameraFrameForBounds(
   const spanY = bounds.maxY - bounds.minY;
   const spanZ = bounds.maxZ - bounds.minZ;
   const horizontalSpan = Math.max(spanX, spanZ);
-  const paddedWidth = horizontalSpan + 4.5 + horizontalSpan * 0.24;
-  const paddedHeight = spanY + 3.5;
+  // Broadcast framing: tight on the clash, pulling back as the bots
+  // separate. The old padding (+4.5 flat, 1.2x, min 10) held a wide
+  // establishing shot for the whole match and the fight read tiny.
+  const paddedWidth = horizontalSpan + 2.2 + horizontalSpan * 0.18;
+  const paddedHeight = spanY + 2.2;
   const halfFovRadians = (ARENA_CAMERA_FOV_DEGREES * Math.PI) / 360;
   const framingDistance =
     Math.max(paddedWidth, paddedHeight) / (2 * Math.tan(halfFovRadians));
@@ -97,7 +100,7 @@ export function arenaCameraFrameForBounds(
     targetY: Math.max(0.8, center.y),
     targetZ: center.z,
     yaw: Math.atan2(dx, dz) + Math.PI / 2,
-    height: Math.min(8.5, Math.max(5.2, 4.8 + horizontalSpan * 0.12)),
-    distance: Math.min(28, Math.max(10, framingDistance * 1.2)),
+    height: Math.min(7.5, Math.max(3.2, 2.9 + horizontalSpan * 0.14)),
+    distance: Math.min(24, Math.max(6.5, framingDistance * 1.05)),
   };
 }

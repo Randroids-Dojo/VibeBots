@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-02-0.1.159-playtest-polish";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.160-arena-fight-night";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.160",
+      date: "2026-07-03",
+      title: "Arena fight night",
+      intro: "Battles became a show worth watching.",
+      changes: [
+        {
+          build,
+          text: "Matches open with a countdown, the camera rides the action close, and every hit throws sparks, with big bursts when a part is destroyed.",
+        },
+        {
+          build,
+          text: "The arena became a lit stage: a concrete pit with barrier walls, a center ring, corner glow in each fighter's color, and real material surfaces on every part that scar as they take damage.",
+        },
+        {
+          build,
+          text: "Match rules and outcomes are unchanged, and so are MINE_VERSION and SIM_VERSION.",
+        },
+      ],
+    },
     {
       version: "0.1.159",
       date: "2026-07-02",

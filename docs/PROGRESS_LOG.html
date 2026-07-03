@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="battle-b1-arena-broadcast" data-date="2026-07-03">
+    <h3>Battle B1: The Arena Becomes A Broadcast</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed flow, goal: implement the full improvement program).</dd>
+      <dt>PR</dt><dd>None (direct main). First slice of the battle program (REQ-001..010 audit ranked it top: the sim was real, the show was absent).</dd>
+      <dt>Changed</dt><dd>Arena render only, zero sim risk. Countdown intro gating the accumulator (3-2-1-FIGHT, sim holds at tick 0). Instanced damage sparks from render-side per-part health-drop detection, big bursts on destruction edges, per-part scarring via color char. Stage dressing: matte concrete deck (a metallic deck mirrored the void and read black), barrier walls on the shared surface materials, center ring, per-fighter corner rim lights, studio IBL, backend-gated shadows, per-category part surfaces. Broadcast camera framing (tight on the clash; the old +4.5-unit flat padding held an establishing shot all match) with the camera unit contract retuned. Package version <code>0.1.160</code> with a release note; <code>MINE_VERSION</code> 48 and <code>SIM_VERSION</code> 3 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, <code>pnpm typecheck</code>, Biome (unpiped), camera and release unit suites, full unit suite, <code>pnpm build</code>, both arena smokes (motion QA plus a new countdown-holds-the-sim test), and staged captures at countdown, first clash, and late match. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: countdown runs on every match including exhibition restarts. Rule 13: tips reviewed for 0.1.160, no change. Rule 14: stamp review done; battle stamps belong with B4 match flow, not this render slice.</dd>
+      <dt>GDD coverage</dt><dd>REQ-005 presentation half advances (banner, countdown, readable damage); rows stay partial pending B2-B5. Build log entry added to <code>docs/gdd/03-combat-damage-and-disable.html</code>.</dd>
+      <dt>Followups</dt><dd>B2 part catalog and silhouettes is next.</dd>
+    </dl>
+  </article>
+
   <article data-slice="playtest-polish-crush-feet-gestures" data-date="2026-07-02">
     <h3>Playtest Polish: Crush Crumple, Surface Footing, Holodeck Gestures</h3>
     <dl>

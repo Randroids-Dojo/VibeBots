@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest playtest polish note complete", () => {
+  it("keeps the latest arena fight night note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-02-0.1.159-playtest-polish");
+    expect(release.noticeId).toBe("2026-07-03-0.1.160-arena-fight-night");
     expect(latestNote).toMatchObject({
+      version: "0.1.160",
+      title: "Arena fight night",
+      intro: "Battles became a show worth watching.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Matches open with a countdown, the camera rides the action close, and every hit throws sparks, with big bursts when a part is destroyed.",
+      "The arena became a lit stage: a concrete pit with barrier walls, a center ring, corner glow in each fighter's color, and real material surfaces on every part that scar as they take damage.",
+      "Match rules and outcomes are unchanged, and so are MINE_VERSION and SIM_VERSION.",
+    ]);
+  });
+
+  it("keeps the archived playtest polish note complete", () => {
+    const release = getAppRelease();
+    const polishNote = release.notes.find((note) => note.version === "0.1.159");
+
+    expect(polishNote).toMatchObject({
       version: "0.1.159",
       title: "Playtest polish",
       intro: "Three fixes straight from playtesting.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(polishNote?.changes.map((change) => change.text)).toEqual([
       "Getting crushed no longer squashes the miner into a pancake: the bot crumples with buckled knees and a dropped pick.",
       "The miner's feet now stand on the surface grass instead of sinking shin-deep into the first row of dirt.",
       "The Holodeck camera is yours on mobile: pinch to zoom, swipe to pan, double-tap to recenter. Mine rules, MINE_VERSION, and SIM_VERSION are unchanged.",

@@ -110,8 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-02-0.1.159-playtest-polish",
-      releaseSummary: "Playtest polish: Three fixes straight from playtesting.",
+      releaseNoticeId: "2026-07-03-0.1.160-arena-fight-night",
+      releaseSummary:
+        "Arena fight night: Battles became a show worth watching.",
     });
   });
 
@@ -171,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-02-0.1.159-playtest-polish",
+      releaseNoticeId: "2026-07-03-0.1.160-arena-fight-night",
       attempted: 2,
       sent: 1,
       expired: 1,

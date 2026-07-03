@@ -62,3 +62,25 @@ test("arena page renders a moving match (Rule 10 motion QA)", async ({
   expect(await stage.getAttribute("data-bots-in-frame")).toBe("true");
   expect(Buffer.compare(shotBefore, shotAfter)).not.toBe(0);
 });
+
+test("arena match opens with a countdown before the sim starts", async ({
+  page,
+}) => {
+  await page.goto("/arena");
+  const stage = page.locator("[data-sim-tick]");
+  await expect(page.getByTestId("arena-countdown")).toBeVisible();
+  // The sim holds at tick 0 while the countdown runs.
+  expect(Number(await stage.getAttribute("data-sim-tick"))).toBe(0);
+  // FIGHT flashes, then the overlay clears and the sim advances.
+  await expect(page.getByTestId("arena-countdown")).toContainText("FIGHT", {
+    timeout: 15_000,
+  });
+  await expect(page.getByTestId("arena-countdown")).not.toBeVisible({
+    timeout: 10_000,
+  });
+  await expect
+    .poll(async () => Number(await stage.getAttribute("data-sim-tick")), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(0);
+});

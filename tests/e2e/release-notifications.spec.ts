@@ -20,16 +20,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("Three fixes straight from playtesting.");
+  await expect(dialog).toContainText("Battles became a show worth watching.");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "crumples with buckled knees",
+    "open with a countdown",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "stand on the surface grass",
+    "concrete pit with barrier walls",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "pinch to zoom, swipe to pan",
+    "MINE_VERSION and SIM_VERSION",
   );
 
   await page.mouse.click(8, 8);
@@ -49,6 +49,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.160", "Arena fight night"],
     ["0.1.159", "Playtest polish"],
     ["0.1.158", "Juicier breaks"],
     ["0.1.157", "The village dressed up"],

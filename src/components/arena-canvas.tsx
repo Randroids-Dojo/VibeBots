@@ -1,6 +1,6 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   type RefObject,
   useCallback,
@@ -9,7 +9,10 @@ import {
   useState,
 } from "react";
 import {
+  Color,
   type Group,
+  type InstancedMesh,
+  Matrix4,
   type MeshStandardMaterial,
   Quaternion,
   Vector3,
@@ -41,8 +44,18 @@ import {
   CPU_BRAWLER_DESIGN,
   TEST_BOT_DESIGN,
 } from "@/sim/design";
-import { PART_CATALOG } from "@/sim/parts";
+import { PART_CATALOG, type PartCategory } from "@/sim/parts";
 import { matchResultHash } from "@/sim/resolve";
+import {
+  graphicsFeaturesFor,
+  hasCoarsePointer,
+  isWebGPUBackend,
+  readStoredGraphicsQuality,
+  resolveGraphicsQualityTier,
+} from "./graphics-quality";
+import { useBlockDetail } from "./mine-block-render";
+import { surfaceMetal, surfaceStone } from "./mine-surface-materials";
+import { StudioEnvironment } from "./studio-environment";
 
 /** Clamp on accumulated frame time so a background tab cannot spiral. */
 const MAX_FRAME_DELTA = 0.25;
@@ -57,6 +70,32 @@ const EXHIBITION_DESIGNS: [BotDesign, BotDesign] = [
   TEST_BOT_DESIGN,
 ];
 const ARENA_CAMERA_SMOOTHING = 3.2;
+/** Pre-fight countdown, seconds per step of 3..2..1..FIGHT. */
+const COUNTDOWN_STEP_SECONDS = 0.8;
+const COUNTDOWN_STEPS = 4;
+const SPARK_CAPACITY = 96;
+/** Per-category surface response; tint stays the bot color. */
+const CATEGORY_SURFACE: Record<
+  PartCategory,
+  { metalness: number; roughness: number; emissiveBoost: number }
+> = {
+  core: { metalness: 0.45, roughness: 0.35, emissiveBoost: 0.35 },
+  structure: { metalness: 0.6, roughness: 0.42, emissiveBoost: 0 },
+  mobility: { metalness: 0.1, roughness: 0.85, emissiveBoost: 0 },
+  weapon: { metalness: 0.85, roughness: 0.2, emissiveBoost: 0.08 },
+};
+
+interface ArenaSpark {
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  life: number;
+  size: number;
+  color: string;
+}
 const ARENA_CAMERA_PART_PADDING = 1.2;
 
 interface ArenaRun {
@@ -192,11 +231,13 @@ function ArenaScene({
   stageRef,
   onHud,
   onMatchEnd,
+  onCountdown,
 }: {
   designs: [BotDesign, BotDesign];
   stageRef: RefObject<HTMLDivElement | null>;
   onHud: (hud: HudState) => void;
   onMatchEnd?: (info: MatchEndInfo) => void;
+  onCountdown: (label: string | null) => void;
 }) {
   const runRef = useRef<ArenaRun | null>(null);
   /** Bumped on every effect (re)run and cleanup; stale async boots check it. */
@@ -209,6 +250,13 @@ function ArenaScene({
   const viewsRef = useRef(new Map<string, PartView>());
   const groupRefs = useRef(new Map<string, Group | null>());
   const materialRefs = useRef(new Map<string, MeshStandardMaterial | null>());
+  const sparkInstRef = useRef<InstancedMesh>(null);
+  const sparks = useRef<ArenaSpark[]>([]);
+  const sparkMatrix = useRef(new Matrix4());
+  const sparkColor = useRef(new Color());
+  const partHealthSnapshot = useRef(new Map<string, number>());
+  /** Seconds remaining in the pre-fight countdown; sim holds until 0. */
+  const countdownRef = useRef(COUNTDOWN_STEP_SECONDS * COUNTDOWN_STEPS);
   const desiredCameraPositionRef = useRef(new Vector3(8, 5, 10));
   const desiredCameraLookAtRef = useRef(new Vector3(0, 1, 0));
   const projectedBotRef = useRef<[Vector3, Vector3]>([
@@ -260,8 +308,34 @@ function ArenaScene({
     if (!run) return;
     const match = run.match;
 
+    // Pre-fight countdown: the sim holds while the HUD counts down, so
+    // both bots present their builds before the first hit.
+    if (countdownRef.current > 0) {
+      const before = Math.ceil(countdownRef.current / COUNTDOWN_STEP_SECONDS);
+      countdownRef.current = Math.max(0, countdownRef.current - delta);
+      const after = Math.ceil(countdownRef.current / COUNTDOWN_STEP_SECONDS);
+      if (before !== after || countdownRef.current === 0) {
+        onCountdown(
+          countdownRef.current === 0
+            ? null
+            : after === 1
+              ? "FIGHT"
+              : String(after - 1),
+        );
+        onHud(readHud(match));
+      }
+      const stage = stageRef.current;
+      if (stage) {
+        stage.dataset.countdown =
+          countdownRef.current === 0
+            ? "over"
+            : String(Math.ceil(countdownRef.current / COUNTDOWN_STEP_SECONDS));
+      }
+      accumulatorRef.current = 0;
+    }
+
     accumulatorRef.current = Math.min(
-      accumulatorRef.current + delta,
+      accumulatorRef.current + (countdownRef.current > 0 ? 0 : delta),
       MAX_FRAME_DELTA,
     );
     let stepped = false;
@@ -276,6 +350,65 @@ function ArenaScene({
       stepped = true;
     }
 
+    // Damage juice: per-part health drops spawn sparks at the part, a
+    // destruction edge bursts big. Render-only; the sim is untouched.
+    if (stepped) {
+      for (const [index, bot] of match.bots.entries()) {
+        for (const [iid, part] of bot.parts) {
+          const key = `${index}:${iid}`;
+          const prev = partHealthSnapshot.current.get(key);
+          const curr = part.destroyed ? -1 : part.health;
+          if (prev !== undefined && curr < prev) {
+            const view = viewsRef.current.get(key);
+            if (view) {
+              const big = curr < 0;
+              const count = big ? 22 : 6;
+              const tint = big ? "#ffd9a0" : "#ffe9a8";
+              for (let i = 0; i < count; i++) {
+                if (sparks.current.length >= SPARK_CAPACITY) break;
+                sparks.current.push({
+                  x: view.currPos.x,
+                  y: view.currPos.y + 0.1,
+                  z: view.currPos.z,
+                  vx: (Math.random() - 0.5) * (big ? 7 : 4),
+                  vy: Math.random() * (big ? 5 : 3) + 1,
+                  vz: (Math.random() - 0.5) * (big ? 7 : 4),
+                  life: 0.18 + Math.random() * (big ? 0.35 : 0.18),
+                  size: big ? 0.07 + Math.random() * 0.06 : 0.045,
+                  color: i % 3 === 0 ? "#cfe1ff" : tint,
+                });
+              }
+            }
+          }
+          partHealthSnapshot.current.set(key, curr);
+        }
+      }
+    }
+    for (const p of sparks.current) {
+      p.life -= delta;
+      p.x += p.vx * delta;
+      p.y += p.vy * delta;
+      p.z += p.vz * delta;
+      p.vy -= 12 * delta;
+    }
+    sparks.current = sparks.current.filter((p) => p.life > 0);
+    const inst = sparkInstRef.current;
+    if (inst) {
+      let count = 0;
+      for (const p of sparks.current) {
+        if (count >= SPARK_CAPACITY) break;
+        const scale = p.size * Math.max(0.1, Math.min(1, p.life * 4));
+        sparkMatrix.current.makeScale(scale, scale, scale);
+        sparkMatrix.current.setPosition(p.x, p.y, p.z);
+        inst.setMatrixAt(count, sparkMatrix.current);
+        inst.setColorAt(count, sparkColor.current.set(p.color));
+        count += 1;
+      }
+      inst.count = count;
+      inst.instanceMatrix.needsUpdate = true;
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    }
+
     const alpha = accumulatorRef.current / DT;
     for (const [index, bot] of match.bots.entries()) {
       for (const iid of bot.assembled.bodies.keys()) {
@@ -287,10 +420,20 @@ function ArenaScene({
         group.quaternion.slerpQuaternions(view.prevRot, view.currRot, alpha);
         const material = materialRefs.current.get(key);
         if (material) {
-          const destroyed = bot.parts.get(iid)?.destroyed ?? false;
-          material.color.set(
-            destroyed ? BOT_COLORS_DESTROYED[index] : BOT_COLORS[index],
-          );
+          const part = bot.parts.get(iid);
+          const destroyed = part?.destroyed ?? false;
+          if (destroyed) {
+            material.color.set(BOT_COLORS_DESTROYED[index]);
+            material.emissiveIntensity = 0;
+            material.roughness = 0.9;
+          } else {
+            const ratio =
+              part && part.maxHealth > 0 ? part.health / part.maxHealth : 1;
+            // Battle scars: darkening char as a part wears down.
+            material.color
+              .set(BOT_COLORS[index])
+              .multiplyScalar(0.45 + 0.55 * ratio);
+          }
         }
       }
     }
@@ -408,14 +551,50 @@ function ArenaScene({
     }
   });
 
+  const detail = useBlockDetail();
+  const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
+  const features = graphicsFeaturesFor(
+    resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
+  );
+  const shadowsOn = features.shadows && webgpuBackend;
+
   return (
     <>
-      <ambientLight intensity={0.45} />
-      <directionalLight position={[6, 10, 4]} intensity={1.5} />
+      <ambientLight intensity={0.55} color="#cdd8f4" />
+      <directionalLight
+        position={[6, 10, 4]}
+        intensity={1.7}
+        castShadow={shadowsOn}
+        shadow-mapSize={[features.sunShadowMapSize, features.sunShadowMapSize]}
+        shadow-camera-left={-16}
+        shadow-camera-right={16}
+        shadow-camera-top={16}
+        shadow-camera-bottom={-16}
+        shadow-camera-near={0.5}
+        shadow-camera-far={40}
+        shadow-bias={-0.0004}
+      />
+      {/* Corner rim lights tint each bot's home side. */}
+      <pointLight
+        position={[-9, 4, -9]}
+        color={BOT_COLORS[0]}
+        intensity={1.4}
+        distance={22}
+        decay={1.6}
+      />
+      <pointLight
+        position={[9, 4, 9]}
+        color={BOT_COLORS[1]}
+        intensity={1.4}
+        distance={22}
+        decay={1.6}
+      />
+      <StudioEnvironment intensity={features.environmentIntensity} />
       {([0, 1] as const).map((botIndex) =>
         designs[botIndex].parts.map((part) => {
           const key = `${botIndex}:${part.iid}`;
-          const shape = PART_CATALOG[part.partId].shape;
+          const def = PART_CATALOG[part.partId];
+          const surface = CATEGORY_SURFACE[def.category];
           return (
             <group
               key={key}
@@ -423,13 +602,21 @@ function ArenaScene({
                 groupRefs.current.set(key, node);
               }}
             >
-              <mesh rotation={shapeRotation(shape)}>
-                {partGeometry(shape)}
+              <mesh
+                rotation={shapeRotation(def.shape)}
+                castShadow
+                receiveShadow
+              >
+                {partGeometry(def.shape)}
                 <meshStandardMaterial
                   ref={(node) => {
                     materialRefs.current.set(key, node);
                   }}
                   color={BOT_COLORS[botIndex]}
+                  metalness={surface.metalness}
+                  roughness={surface.roughness}
+                  emissive={BOT_COLORS[botIndex]}
+                  emissiveIntensity={surface.emissiveBoost}
                   flatShading
                 />
               </mesh>
@@ -437,9 +624,47 @@ function ArenaScene({
           );
         }),
       )}
-      <mesh position={[0, -0.5, 0]}>
+      {/* Damage sparks: one instanced draw, fullbright. */}
+      <instancedMesh
+        ref={sparkInstRef}
+        args={[undefined, undefined, SPARK_CAPACITY]}
+        count={0}
+        frustumCulled={false}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial toneMapped={false} />
+      </instancedMesh>
+      {/* The pit: matte concrete deck inside a low barrier wall (a
+          metallic deck mirrors the dark void and reads black). */}
+      <mesh
+        position={[0, -0.5, 0]}
+        receiveShadow
+        material={surfaceStone("#5f6875", detail)}
+        dispose={null}
+      >
         <boxGeometry args={[26, 1, 26]} />
-        <meshStandardMaterial color="#2f3640" flatShading />
+      </mesh>
+      {[
+        { pos: [0, 0.55, -13.4] as const, size: [27.6, 1.1, 0.8] as const },
+        { pos: [0, 0.55, 13.4] as const, size: [27.6, 1.1, 0.8] as const },
+        { pos: [-13.4, 0.55, 0] as const, size: [0.8, 1.1, 26] as const },
+        { pos: [13.4, 0.55, 0] as const, size: [0.8, 1.1, 26] as const },
+      ].map((wall) => (
+        <mesh
+          key={`${wall.pos[0]}:${wall.pos[2]}`}
+          position={[wall.pos[0], wall.pos[1], wall.pos[2]]}
+          castShadow
+          receiveShadow
+          material={surfaceMetal("#4a5262", detail)}
+          dispose={null}
+        >
+          <boxGeometry args={[wall.size[0], wall.size[1], wall.size[2]]} />
+        </mesh>
+      ))}
+      {/* Center ring accent on the deck. */}
+      <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[3.4, 3.6, 48]} />
+        <meshBasicMaterial color="#3d5a8f" toneMapped={false} />
       </mesh>
     </>
   );
@@ -454,6 +679,10 @@ export default function ArenaCanvas({
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [hud, setHud] = useState<HudState | null>(null);
+  const [countdown, setCountdown] = useState<string | null>("3");
+  const features = graphicsFeaturesFor(
+    resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
+  );
 
   return (
     <div
@@ -461,15 +690,46 @@ export default function ArenaCanvas({
       data-sim-tick="0"
       style={{ position: "relative", width: "100%", height: "100dvh" }}
     >
-      <Canvas camera={{ position: [8, 5, 10], fov: 42 }} gl={createWebGPU}>
+      <Canvas
+        camera={{ position: [8, 5, 10], fov: 42 }}
+        gl={createWebGPU}
+        shadows={features.shadows ? "soft" : false}
+      >
         <color attach="background" args={["#0b0e14"]} />
         <ArenaScene
           designs={designs}
           stageRef={stageRef}
           onHud={setHud}
           onMatchEnd={onMatchEnd}
+          onCountdown={setCountdown}
         />
       </Canvas>
+
+      {countdown && (
+        <div
+          data-testid="arena-countdown"
+          style={{
+            position: "absolute",
+            top: "30%",
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <span
+            style={{
+              fontSize: countdown === "FIGHT" ? "3.4rem" : "4.4rem",
+              fontWeight: 800,
+              color: countdown === "FIGHT" ? "#54e0c7" : "#f5f7fb",
+              textShadow: "0 2px 18px rgba(84, 224, 199, 0.35)",
+              letterSpacing: "0.08em",
+            }}
+          >
+            {countdown}
+          </span>
+        </div>
+      )}
 
       {hud && (
         <div

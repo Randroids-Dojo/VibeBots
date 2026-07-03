@@ -20,7 +20,10 @@ describe("arena camera framing", () => {
 
     expect(frame.targetX).toBeCloseTo(1);
     expect(frame.targetZ).toBeCloseTo(1);
-    expect(frame.height).toBeGreaterThan(5);
+    // Broadcast framing keeps the rig lower and closer than the old
+    // establishing shot; height still scales up with separation.
+    expect(frame.height).toBeGreaterThan(3);
+    expect(frame.height).toBeLessThan(7.6);
   });
 
   it("combines bounds and exposes their center", () => {

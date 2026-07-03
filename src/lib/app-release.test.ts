@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest living atmosphere note complete", () => {
+  it("keeps the latest workshop glow-up note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.171-living-atmosphere");
+    expect(release.noticeId).toBe("2026-07-03-0.1.172-workshop-glow-up");
     expect(latestNote).toMatchObject({
-      version: "0.1.171",
-      title: "Living atmosphere",
-      intro: "The village follows your clock now.",
+      version: "0.1.172",
+      title: "Workshop glow-up",
+      intro: "The build bench finally got the pit's lighting.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Surface light follows your real time of day: warm gold at dawn and dusk, bright at noon, cool and moody after dark, always bright enough to play.",
-      "The deep strata press the fog in closer the farther you descend, so the deep tunnels feel like deep tunnels.",
-      "Lamp-lit dust drifts through the air instead of just spinning in place. All presentation: MINE_VERSION and SIM_VERSION are unchanged.",
+      "Your bot under construction now uses the arena's material language: weapons shine like polished steel, cores glow, and a studio light rig with cool and warm accents rakes the hull.",
+      "On phones the part panels no longer bury the bench: the lists pin to the top and bottom with your bot always visible between them.",
+      "Reflections and bloom join in where the hardware pays for them easily. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });
 

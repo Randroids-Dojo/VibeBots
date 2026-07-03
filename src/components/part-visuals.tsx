@@ -2,9 +2,24 @@
 
 import type { ReactElement } from "react";
 import { WebGPURenderer } from "three/webgpu";
-import type { PartShape } from "@/sim/parts";
+import type { PartCategory, PartShape } from "@/sim/parts";
 
 /** Geometry element matching a part's collider shape. */
+/**
+ * Physical response per part category (battle slice B2a, shared with the
+ * workshop in the glow-up slice): weapons read as polished steel, cores
+ * glow, mobility parts stay rubbery, structure sits between.
+ */
+export const CATEGORY_SURFACE: Record<
+  PartCategory,
+  { metalness: number; roughness: number; emissiveBoost: number }
+> = {
+  core: { metalness: 0.45, roughness: 0.35, emissiveBoost: 0.35 },
+  structure: { metalness: 0.6, roughness: 0.42, emissiveBoost: 0 },
+  mobility: { metalness: 0.1, roughness: 0.85, emissiveBoost: 0 },
+  weapon: { metalness: 0.85, roughness: 0.2, emissiveBoost: 0.08 },
+};
+
 export function partGeometry(shape: PartShape): ReactElement {
   switch (shape.type) {
     case "cuboid":

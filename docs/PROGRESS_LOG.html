@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-glow-up" data-date="2026-07-03">
+    <h3>Workshop glow-up: bench graphics and portrait visibility (user-reported)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). User-reported after the graphics program: "I don't see any improvements to the workshop."</dd>
+      <dt>Changed</dt><dd>Two real gaps. (1) The workshop canvas was still the walking skeleton: two lights and flat solid-color parts. It now shares the arena's <code>CATEGORY_SURFACE</code> material language (extracted to <code>part-visuals</code> and imported by both canvases instead of duplicated), a studio light rig with cool and warm point accents, a grounding disc that catches the key light's shadow, plus the G1 environment and G3 bloom behind the same tier-and-backend gates as every other canvas; the fallback keeps its cost with only the richer light rig. (2) On portrait phones the two panel stacks covered 58dvh + 42dvh, the whole viewport, leaving the bot as invisible wallpaper; the lists now pin to the top (40dvh) and bottom (from 72dvh) with the bot always visible in the band between. Package version <code>0.1.172</code>; <code>MINE_VERSION</code> 50 and <code>SIM_VERSION</code> 4 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (unpiped), full unit suite 593 passing, <code>pnpm build</code>, Pixel 5 portrait capture reviewed (bot centered in the clear band, lit hull, accents visible on the fallback), workshop e2e suite 2/2, fresh-build release smoke. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Rule 7: one consistent gate story: reflections and bloom ride exactly the tier-plus-backend gates the mine and Holodeck use. Rule 13: tips reviewed, no change (workshop copy is not the mine tips rotation). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (presentation and layout). Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="refactor-mine-motion" data-date="2026-07-03">
     <h3>Refactor: shared motion tracks (mine-canvas decomposition, round 1)</h3>
     <dl>

@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.171-living-atmosphere";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.172-workshop-glow-up";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.172",
+      date: "2026-07-03",
+      title: "Workshop glow-up",
+      intro: "The build bench finally got the pit's lighting.",
+      changes: [
+        {
+          build,
+          text: "Your bot under construction now uses the arena's material language: weapons shine like polished steel, cores glow, and a studio light rig with cool and warm accents rakes the hull.",
+        },
+        {
+          build,
+          text: "On phones the part panels no longer bury the bench: the lists pin to the top and bottom with your bot always visible between them.",
+        },
+        {
+          build,
+          text: "Reflections and bloom join in where the hardware pays for them easily. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.171",
       date: "2026-07-03",

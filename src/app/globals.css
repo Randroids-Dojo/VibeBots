@@ -165,20 +165,24 @@ a {
 }
 
 @media (max-width: 700px) and (orientation: portrait) {
+  /* The two panel stacks used to cover the whole viewport, leaving the
+   * build canvas as invisible wallpaper (user-reported). They now pin to
+   * the top and bottom with a clear band between 40dvh and 72dvh, so the
+   * bot under construction stays on screen while both lists scroll. */
   .workshop-build-panels {
     position: fixed;
     top: 64px;
     right: 12px;
     left: 12px;
     width: auto;
-    max-height: calc(58dvh - 72px);
+    max-height: calc(40dvh - 72px);
   }
 
   .parts-shop-panel {
-    top: 58dvh;
+    top: 72dvh;
     right: 12px;
     left: 12px;
     width: auto;
-    max-height: calc(42dvh - 16px);
+    max-height: calc(28dvh - 16px);
   }
 }

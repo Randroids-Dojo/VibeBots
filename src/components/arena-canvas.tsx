@@ -27,6 +27,7 @@ import {
   includeArenaCameraPoint,
 } from "@/components/arena-camera";
 import {
+  CATEGORY_SURFACE,
   createWebGPU,
   partGeometry,
   shapeRotation,
@@ -82,16 +83,6 @@ const COUNTDOWN_STEP_SECONDS = 0.8;
 const COUNTDOWN_STEPS = 4;
 const SPARK_CAPACITY = 96;
 /** Per-category surface response; tint stays the bot color. */
-const CATEGORY_SURFACE: Record<
-  PartCategory,
-  { metalness: number; roughness: number; emissiveBoost: number }
-> = {
-  core: { metalness: 0.45, roughness: 0.35, emissiveBoost: 0.35 },
-  structure: { metalness: 0.6, roughness: 0.42, emissiveBoost: 0 },
-  mobility: { metalness: 0.1, roughness: 0.85, emissiveBoost: 0 },
-  weapon: { metalness: 0.85, roughness: 0.2, emissiveBoost: 0.08 },
-};
-
 interface ArenaSpark {
   x: number;
   y: number;

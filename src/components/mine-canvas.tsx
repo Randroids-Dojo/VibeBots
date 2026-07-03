@@ -70,6 +70,13 @@ import {
   useMineDeathPlaybackBridge,
 } from "./mine-death-playback";
 import { MinerBot } from "./mine-miner-render";
+import {
+  type MotionTrack,
+  motionProgress,
+  retargetMotion,
+  sampleMotion,
+  snapMotion,
+} from "./mine-motion";
 import { minerStepSeconds } from "./mine-pacing";
 import {
   type JuiceState,
@@ -129,75 +136,11 @@ import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
 import { daylightGradeFor, fogRangeForStratum } from "./time-of-day";
 
-interface MotionTrack {
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-  startedAt: number;
-  duration: number;
-  frames: number;
-}
-
 const CAMERA_STEP_SECONDS = 0.28;
 /** Instance pool sizes per particle kind; spawners cap the live pool at
  * 260 total, so these bound the per-kind bursts. */
 const PARTICLE_CAPACITY = { spark: 96, debris: 192, dust: 96 } as const;
 const EDGE_DARKNESS_COLOR = "#02040a";
-
-const easeStep = (t: number) => 0.5 - Math.cos(t * Math.PI) * 0.5;
-
-function snapMotion(
-  now: number,
-  targetX: number,
-  targetY: number,
-  duration: number,
-): MotionTrack {
-  return {
-    fromX: targetX,
-    fromY: targetY,
-    toX: targetX,
-    toY: targetY,
-    startedAt: now,
-    duration,
-    frames: 0,
-  };
-}
-
-function retargetMotion(
-  track: MotionTrack | null,
-  now: number,
-  currentX: number,
-  currentY: number,
-  targetX: number,
-  targetY: number,
-  duration: number,
-): MotionTrack {
-  if (track && track.toX === targetX && track.toY === targetY) return track;
-  return {
-    fromX: currentX,
-    fromY: currentY,
-    toX: targetX,
-    toY: targetY,
-    startedAt: now,
-    duration,
-    frames: 0,
-  };
-}
-
-function motionProgress(track: MotionTrack, now: number): number {
-  const raw = (now - track.startedAt) / track.duration;
-  return Math.max(0, Math.min(1, raw));
-}
-
-function sampleMotion(track: MotionTrack, now: number): [number, number] {
-  const t = motionProgress(track, now);
-  const eased = easeStep(t);
-  return [
-    track.fromX + (track.toX - track.fromX) * eased,
-    track.fromY + (track.toY - track.fromY) * eased,
-  ];
-}
 
 /* ---- Village building kit (REQ-021): one distinct model per stall.
  * Shared frame: every group sits at z -0.85 so the boardwalk and the

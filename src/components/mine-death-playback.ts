@@ -11,15 +11,7 @@ import {
 import type { MoveResult } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
 
-export interface DeathPlaybackMotionTrack {
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-  startedAt: number;
-  duration: number;
-  frames: number;
-}
+import type { MotionTrack } from "./mine-motion";
 
 export interface FallWindow {
   key: number;
@@ -31,7 +23,7 @@ export interface FallWindow {
 
 export interface FallPlayback extends FallWindow {
   kind: "fall" | "crush";
-  track: DeathPlaybackMotionTrack | null;
+  track: MotionTrack | null;
   impacted: boolean;
   doneAt: number | null;
 }

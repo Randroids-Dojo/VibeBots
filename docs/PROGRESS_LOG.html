@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="world-sim-structural-integrity" data-date="2026-07-03">
+    <h3>World sim: structural integrity collapses (wide-span tunnels)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed program).</dd>
+      <dt>PR</dt><dd>None (direct main). First world-sim depth slice after the battle program.</dd>
+      <dt>Changed</dt><dd>REQ-015 extension: a contiguous unpropped empty span of <code>SPAN_COLLAPSE_WIDTH</code> (5) cells destabilizes the ceiling directly above it, dirt and ore included, on the longer <code>SPAN_COLLAPSE_DELAY_ACTIONS</code> (4) countdown. New <code>refreshSpanInstability</code> reconciler marks and rescues both ways; condemned cells carry <code>spanUnstable</code> so a plank rescue never cancels a direct undercut teeter. Planks now place on solid ground as roof props (placement no longer requires a void below). Fall-emptied cells are excluded from the span rule so a collapse settles its cavity instead of unzipping the overburden. <code>tickFalls</code> preserves ore identity/reserve/drop on relocation. Root-caused and fixed a pre-existing render regression: React 19 does not re-invoke callback refs on closure identity change, so <code>wobbleRefs.current.clear()</code> during render had silently killed the teeter tremble for rocks and boulders; the wobble system now registers mesh handles once and drives urgency through a render-rebuilt targets map, with <code>data-teeter-count</code> and <code>data-teeter-motion-frames</code> as QA surfaces. New Rule 13 tip for the span rule. Package version <code>0.1.166</code>; <code>MINE_VERSION</code> 48 -&gt; 49 (payout-relevant world rules changed); <code>SIM_VERSION</code> 4 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (unpiped), 7 new replay unit tests (condemn, 4-wide stable, plank rescue, plank break re-condemns, undercut not rescued, crush with ore preservation and no cascade, replayTrip determinism), full unit suite 572 passing, <code>pnpm build</code>, new e2e (five-wide tunnel condemns roof, tremble displaces meshes per Rule 10, plank rescue) green on a fresh build, fresh-build release smoke. Two local <code>mine-ui</code> timing failures were root-caused to the documented storage-attached local env (F-048 class): the ladder-gravity dialog appears ~500ms after the dig but local GPU-stack stalls push it past the test's 3s window; the sim contract was proven unchanged by a dedicated unit test. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default (Rule 7): one consistent span rule everywhere: planks are the only span-breaking prop, ceilings in the hazard-free top rows never condemn, and collapse cavities stay inert until the player carves them again. Rule 13: tip rotation reviewed; added the wide-tunnel prop tip, existing falling-rock tip still accurate. Rule 14: stamp review done, none added; a collapse-survival or roof-rescue stamp has no durable server counter yet (see F-049).</dd>
+      <dt>GDD coverage</dt><dd>REQ-015 deepens (structural integrity added to hazards). Build log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>F-049 filed: durable collapse/rescue counters for future stamps. Next world-sim slice: fluid and gas propagation.</dd>
+    </dl>
+  </article>
+
   <article data-slice="battle-b5-rival-fights" data-date="2026-07-03">
     <h3>Battle B5: Rival Fights (Online Vibe Matches)</h3>
     <dl>

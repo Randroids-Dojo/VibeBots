@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   activatePortalAction,
   collectAction,
+  type MineAction,
   portalWarpAction,
 } from "./actions";
 import type { MineState } from "./cells";
@@ -10,7 +11,14 @@ import { START_COL } from "./digging";
 import { DEFAULT_GEAR, ELEVATOR_COL } from "./gear";
 import { oreDef } from "./ores";
 import { applyAction, replayTrip } from "./replay";
-import { cellAt, createMine, FALL_DELAY_ACTIONS, setCell } from "./world";
+import {
+  cellAt,
+  createMine,
+  exportDiff,
+  FALL_DELAY_ACTIONS,
+  SPAN_COLLAPSE_DELAY_ACTIONS,
+  setCell,
+} from "./world";
 
 function stock(over: Partial<MineConsumables>): MineConsumables {
   return {
@@ -287,5 +295,184 @@ describe("mine replay orchestration", () => {
     expect(cellAt(elevator, ELEVATOR_COL + 1, 5)?.fallIn).toBe(
       FALL_DELAY_ACTIONS - 1,
     );
+  });
+});
+
+/**
+ * Fabricated wide tunnel at row 8: cols START_COL..START_COL+width-2 are
+ * pre-dug, the last cell is one swing from breaking, and the ceiling,
+ * floor, upper rows, and side walls are pinned so pristine rolls (gas,
+ * caches, boulders) cannot blur the contracts. The miner stands one cell
+ * short of the final dig.
+ */
+function wideTunnelState(width: number): MineState {
+  const state = createMine(77, DEFAULT_GEAR, stock({ plank: 2 }));
+  for (let i = 0; i < width - 1; i++)
+    setCell(state, START_COL + i, 8, { kind: "empty" });
+  setCell(state, START_COL + width - 1, 8, { kind: "dirt", hp: 1 });
+  for (let i = 0; i < width; i++) {
+    setCell(state, START_COL + i, 7, { kind: "dirt" });
+    setCell(state, START_COL + i, 6, { kind: "dirt" });
+  }
+  setCell(state, START_COL - 1, 8, { kind: "metal" });
+  setCell(state, START_COL + width, 8, { kind: "metal" });
+  for (let i = -1; i <= width; i++)
+    setCell(state, START_COL + i, 9, { kind: "dirt" });
+  state.miner.col = START_COL + width - 2;
+  state.miner.row = 8;
+  return state;
+}
+
+describe("structural integrity (wide spans)", () => {
+  it("destabilizes the whole ceiling above a five-wide unpropped span", () => {
+    const state = wideTunnelState(5);
+    const result = applyAction(state, "right");
+    expect(result.ok && result.fallingRockTriggered).toBe(true);
+    expect(result.ok && result.fallingRockWarnings).toHaveLength(5);
+    for (let i = 0; i < 5; i++) {
+      const ceiling = cellAt(state, START_COL + i, 7);
+      expect(ceiling?.fallIn).toBe(SPAN_COLLAPSE_DELAY_ACTIONS);
+      expect(ceiling?.spanUnstable).toBe(true);
+    }
+  });
+
+  it("leaves a four-wide span stable", () => {
+    const state = wideTunnelState(4);
+    const result = applyAction(state, "right");
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.fallingRockTriggered).toBeUndefined();
+    for (let i = 0; i < 4; i++)
+      expect(cellAt(state, START_COL + i, 7)?.fallIn).toBeUndefined();
+  });
+
+  it("re-stabilizes the condemned roof when a plank splits the span", () => {
+    const state = wideTunnelState(5);
+    applyAction(state, "right");
+    // The miner stands in the freshly dug fifth cell; a plank one cell
+    // left splits the span into runs of 3 and 1 and props its own
+    // ceiling, so every condemned cell is rescued.
+    const planked = applyAction(state, "plank-left");
+    expect(planked.ok && planked.plankPlaced).toEqual({
+      col: START_COL + 3,
+      row: 8,
+    });
+    for (let i = 0; i < 5; i++) {
+      const ceiling = cellAt(state, START_COL + i, 7);
+      expect(ceiling?.fallIn).toBeUndefined();
+      expect(ceiling?.spanUnstable).toBeUndefined();
+    }
+  });
+
+  it("re-condemns the roof when the propping plank breaks", () => {
+    const state = wideTunnelState(5);
+    applyAction(state, "right");
+    applyAction(state, "plank-left");
+    applyAction(state, "left");
+    // Standing on the plank, smash through it (PLANK_HITS swings).
+    let broke = false;
+    for (let swing = 0; swing < 5 && !broke; swing++) {
+      const result = applyAction(state, "down");
+      broke = result.ok && result.supportCollected?.plank === 1;
+    }
+    expect(broke).toBe(true);
+    for (let i = 0; i < 5; i++) {
+      const ceiling = cellAt(state, START_COL + i, 7);
+      expect(ceiling?.fallIn).toBe(SPAN_COLLAPSE_DELAY_ACTIONS);
+      expect(ceiling?.spanUnstable).toBe(true);
+    }
+  });
+
+  it("keeps a direct undercut teeter through a plank rescue", () => {
+    const state = createMine(99, DEFAULT_GEAR, stock({ plank: 1 }));
+    setCell(state, START_COL, 8, { kind: "empty" });
+    setCell(state, START_COL + 1, 8, { kind: "dirt", hp: 1 });
+    setCell(state, START_COL + 1, 7, { kind: "rock", rockTier: 1 });
+    setCell(state, START_COL, 7, { kind: "dirt" });
+    setCell(state, START_COL - 1, 8, { kind: "metal" });
+    setCell(state, START_COL + 2, 8, { kind: "metal" });
+    setCell(state, START_COL, 9, { kind: "dirt" });
+    setCell(state, START_COL + 1, 9, { kind: "dirt" });
+    state.miner.col = START_COL;
+    state.miner.row = 8;
+    const dug = applyAction(state, "right");
+    expect(dug.ok && dug.fallingRockWarnings).toEqual([
+      { col: START_COL + 1, row: 7 },
+    ]);
+    expect(cellAt(state, START_COL + 1, 7)?.spanUnstable).toBeUndefined();
+    const planked = applyAction(state, "plank-left");
+    expect(planked.ok).toBe(true);
+    // The plank action ticks the countdown but never cancels a real
+    // undercut: only span-condemned cells are rescuable.
+    expect(cellAt(state, START_COL + 1, 7)?.fallIn).toBe(
+      FALL_DELAY_ACTIONS - 1,
+    );
+  });
+
+  it("drops the condemned roof on schedule, crushing and preserving ore", () => {
+    const state = wideTunnelState(5);
+    setCell(state, START_COL + 1, 7, {
+      kind: "ore",
+      ore: "coal",
+      oreRemaining: 3,
+    });
+    applyAction(state, "right");
+    applyAction(state, "left");
+    applyAction(state, "right");
+    applyAction(state, "left");
+    const last = applyAction(state, "right");
+    expect(last.ok && last.collapsed).toBe(true);
+    expect(last.ok && last.crushed).toBe(true);
+    // The roof landed in the tunnel: dirt filled row 8, the ore deposit
+    // relocated intact, and the vacated row did not cascade upward.
+    expect(cellAt(state, START_COL + 1, 8)).toMatchObject({
+      kind: "ore",
+      ore: "coal",
+      oreRemaining: 3,
+    });
+    expect(cellAt(state, START_COL, 8)?.kind).toBe("dirt");
+    for (let i = 0; i < 5; i++) {
+      expect(cellAt(state, START_COL + i, 7)?.kind).toBe("empty");
+      expect(cellAt(state, START_COL + i, 6)?.fallIn).toBeUndefined();
+    }
+  });
+
+  it("replays a span collapse identically from the same log", () => {
+    const fabricated = createMine(4242);
+    // Shaft down to row 7; the tunnel row 8 cells all take one swing.
+    // The shaft column's ceiling is the shaft hole itself, so the
+    // condemned roof is the four dirt cells over cols +1..+4.
+    for (let row = 1; row <= 7; row++)
+      setCell(fabricated, START_COL, row, { kind: "dirt", hp: 1 });
+    for (let i = 0; i < 5; i++) {
+      setCell(fabricated, START_COL + i, 8, { kind: "dirt", hp: 1 });
+      if (i > 0) {
+        setCell(fabricated, START_COL + i, 7, { kind: "dirt" });
+        setCell(fabricated, START_COL + i, 6, { kind: "dirt" });
+      }
+      setCell(fabricated, START_COL + i, 9, { kind: "dirt" });
+    }
+    setCell(fabricated, START_COL - 1, 8, { kind: "metal" });
+    setCell(fabricated, START_COL + 5, 8, { kind: "metal" });
+    const diff = exportDiff(fabricated);
+    const actions: MineAction[] = [
+      ...Array.from({ length: 8 }, () => "down" as const),
+      ...Array.from({ length: 4 }, () => "right" as const),
+      "left",
+      "right",
+      "left",
+      "right",
+    ];
+    const a = replayTrip(4242, actions, DEFAULT_GEAR, stock({}), diff);
+    const b = replayTrip(4242, actions, DEFAULT_GEAR, stock({}), diff);
+    expect(a.moves).toBe(actions.length);
+    expect(b).toEqual(a);
+    // The collapse is visible in the persisted diff: the vacated ceiling
+    // cells survive as empties.
+    expect(
+      a.diff.some(
+        ([col, row, cell]) =>
+          col === START_COL + 2 && row === 7 && cell.kind === "empty",
+      ),
+    ).toBe(true);
   });
 });

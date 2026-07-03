@@ -543,6 +543,16 @@
   </dl>
 </section>
 
+<section id="F-049" data-f="F-049" data-priority="nice-to-have">
+  <h3>F-049: Durable collapse and roof-rescue counters for future stamps</h3>
+  <dl>
+    <dt>Context</dt><dd>Structural integrity slice (0.1.166): wide-span tunnel collapses and plank roof rescues are dramatic survival moments that would make good Stamp Book goals (Rule 14), but no durable server-side record of them exists. Mine trips are replayed server-side at cash-out, so per-trip counters (roofs condemned, roofs rescued by planks, collapses survived) could be derived in <code>replayTrip</code> and persisted with the checkpoint, giving stamps a trustworthy backfillable source.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: thread the counters through <code>TripResult</code>, persist alongside the trip checkpoint, fold into the achievement snapshot with max-merge like match records, then add stamps (for example: survive a roof collapse; rescue a condemned roof with a plank). Acceptance: counters survive replay verification and a new stamp unlocks from a real trip.</dd>
+    <dt>PR / Dot reference</dt><dd>(not started)</dd>
+  </dl>
+</section>
+
 <section id="F-048" data-f="F-048" data-priority="polish">
   <h3>F-048: Local Playwright runs behave differently with real storage attached</h3>
   <dl>

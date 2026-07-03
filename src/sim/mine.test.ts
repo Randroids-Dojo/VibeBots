@@ -1389,7 +1389,9 @@ describe("mine", () => {
     setCell(state, c + 1, 9, { kind: "empty" });
     setCell(state, c + 1, 10, { kind: "empty" });
     setCell(state, c + 1, 11, { kind: "dirt" });
-    for (let dc = 2; dc <= 4; dc++) {
+    // Keep the corridor under SPAN_COLLAPSE_WIDTH so the wide-span rule
+    // stays quiet and this test isolates the direct undercut chain.
+    for (let dc = 2; dc <= 3; dc++) {
       setCell(state, c + dc, 8, { kind: "empty" });
       setCell(state, c + dc, 9, { kind: "dirt" });
     }

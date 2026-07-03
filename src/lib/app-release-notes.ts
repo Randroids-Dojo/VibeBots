@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.165-rival-fights";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.166-tunnel-collapses";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.166",
+      date: "2026-07-03",
+      title: "Tunnel collapses",
+      intro: "Wide tunnels shake their roof loose now.",
+      changes: [
+        {
+          build,
+          text: "Carve an unpropped tunnel five cells wide and the whole ceiling starts to shake: dirt and ore fall too, not just rock, on a slower countdown that gives you time to react.",
+        },
+        {
+          build,
+          text: "Planks now place on solid ground as roof props: one plank splits the span, steadies the cell above it, and calms a shaking roof before it drops.",
+        },
+        {
+          build,
+          text: "Teetering blocks visibly tremble again: a rendering regression had silenced the escalating shake that warns of a fall. MINE_VERSION bumps to 49; SIM_VERSION is unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.165",
       date: "2026-07-03",

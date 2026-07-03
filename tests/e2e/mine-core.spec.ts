@@ -213,6 +213,93 @@ test("dirt cracks grow before a heavy break burst", async ({ page }) => {
   );
 });
 
+test("a five-wide tunnel condemns its roof and a plank rescues it", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const seed = 2026070301;
+  const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  // Shaft to row 8, then a tunnel one dig short of five wide. Ceiling,
+  // floor, and side walls are pinned so pristine rolls stay out of it.
+  for (let row = 1; row <= 7; row++) {
+    setCell(mine, START_COL, row, { kind: "dirt", hp: 1 });
+  }
+  for (let i = 0; i < 5; i++) {
+    setCell(mine, START_COL + i, 8, { kind: "dirt", hp: 1 });
+    if (i > 0) {
+      setCell(mine, START_COL + i, 7, { kind: "dirt" });
+      setCell(mine, START_COL + i, 6, { kind: "dirt" });
+    }
+    setCell(mine, START_COL + i, 9, { kind: "dirt" });
+  }
+  setCell(mine, START_COL - 1, 8, { kind: "metal" });
+  setCell(mine, START_COL + 5, 8, { kind: "metal" });
+  const moves: MineAction[] = [
+    ...Array.from({ length: 8 }, () => "down" as const),
+    "right",
+    "right",
+    "right",
+  ];
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+      localStorage.setItem("vibebots-falling-rock-alert-dismissed", "true");
+    },
+    {
+      seed,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves,
+    },
+  );
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "8");
+  await expect(canvas).toHaveAttribute("data-teeter-count", "0");
+
+  // The fifth dig condemns the roof: four ceiling cells teeter (the
+  // fifth sits over the entry shaft hole).
+  await pressMineKey(page, "ArrowRight");
+  await expect(canvas).toHaveAttribute("data-teeter-count", "4", {
+    timeout: 5_000,
+  });
+  // The tremble must displace real meshes, not just set flags (Rule 10).
+  const motionBefore = Number(
+    await canvas.getAttribute("data-teeter-motion-frames"),
+  );
+  await expect
+    .poll(
+      async () =>
+        Number(await canvas.getAttribute("data-teeter-motion-frames")),
+      { timeout: 3_000 },
+    )
+    .toBeGreaterThan(motionBefore);
+
+  // A plank one cell back splits the span and props its own ceiling:
+  // every condemned cell is rescued before the countdown lands.
+  await page.waitForTimeout(650);
+  await page.getByRole("button", { name: "Place plank left" }).click();
+  await expect(canvas).toHaveAttribute("data-teeter-count", "0", {
+    timeout: 5_000,
+  });
+});
+
 test("stratum entry banners fade after continued descent", async ({ page }) => {
   // Deep digs cost ~0.62s per swing at sim cadence; slow runners also pay
   // a first-frame shader-compile stall, so the default 60s budget is tight.
@@ -952,6 +1039,13 @@ test("plank controls always show both sides with side-specific disabled state", 
   await pressMineKeyUntilStatus(page, "ArrowUp", "data-depth", "1");
   await expect(placePlankLeft).toBeVisible();
   await expect(placePlankRight).toBeVisible();
+  // Planks brace both voids and solid ground now (roof props), so both
+  // sides are placeable underground. An occupied cell still disables
+  // its side: place left, and only the right side stays available.
+  await expect(placePlankLeft).toBeEnabled();
+  await expect(placePlankRight).toBeEnabled();
+  await page.waitForTimeout(650);
+  await placePlankLeft.click();
   await expect(placePlankLeft).toBeDisabled();
   await expect(placePlankRight).toBeEnabled();
 });

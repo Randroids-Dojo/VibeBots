@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest rival fights note complete", () => {
+  it("keeps the latest tunnel collapses note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.165-rival-fights");
+    expect(release.noticeId).toBe("2026-07-03-0.1.166-tunnel-collapses");
     expect(latestNote).toMatchObject({
-      version: "0.1.165",
-      title: "Rival fights",
-      intro: "Your bot can fight other players' bots.",
+      version: "0.1.166",
+      title: "Tunnel collapses",
+      intro: "Wide tunnels shake their roof loose now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "A Fight a rival button in the workshop pulls another player's saved design into the pit; verified results count on your record and toward stamps.",
-      "Rival fights run under the same deterministic rules as everything else, so the server's verdict is the one that counts.",
-      "No rivals saved yet? The stock bots keep the pit warm. MINE_VERSION and SIM_VERSION are unchanged.",
+      "Carve an unpropped tunnel five cells wide and the whole ceiling starts to shake: dirt and ore fall too, not just rock, on a slower countdown that gives you time to react.",
+      "Planks now place on solid ground as roof props: one plank splits the span, steadies the cell above it, and calms a shaking roof before it drops.",
+      "Teetering blocks visibly tremble again: a rendering regression had silenced the escalating shake that warns of a fall. MINE_VERSION bumps to 49; SIM_VERSION is unchanged.",
     ]);
   });
 

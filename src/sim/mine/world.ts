@@ -87,6 +87,22 @@ export const HAZARD_FREE_ROWS = 4;
  */
 export const FALL_DELAY_ACTIONS = 2;
 
+/**
+ * Structural integrity (REQ-015 extension): a contiguous unpropped
+ * empty span this wide destabilizes the ceiling directly above it,
+ * dirt and ore included, not just rock. Planks split spans and prop
+ * the cell above them, so tunnels stay safe when braced every few
+ * cells.
+ */
+export const SPAN_COLLAPSE_WIDTH = 5;
+
+/**
+ * Actions a wide-span ceiling teeters before it drops: double the
+ * undercut teeter, because a roof failure threatens the whole tunnel
+ * and the miner needs time to place a prop or clear out.
+ */
+export const SPAN_COLLAPSE_DELAY_ACTIONS = 4;
+
 function rollCell(seed: number, row: number, col: number): MineCell {
   const biome = biomeAt(col);
   // Depth scaling: rock, treasure, and hazards all grow with depth.

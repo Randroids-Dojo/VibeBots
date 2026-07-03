@@ -232,6 +232,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: rich ore may need several hits. Every swing still costs battery.",
   "Tip: press up into solid ground to dig overhead without using a ladder.",
   "Tip: falling rocks drop after two moves and need at least two hits to break.",
+  "Tip: tunnels five cells wide shake their roof loose. A plank props the ceiling above it.",
   "Tip: Lantern upgrades reveal more rows and let you zoom out farther.",
   "Tip: Buy ladders and planks at the Supply Depot before heading deeper.",
   "Tip: Dynamite collects the ore and parts it breaks if your hold has room.",

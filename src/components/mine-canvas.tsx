@@ -248,6 +248,10 @@ function MineScene({
   const particleMatrix = useRef(new Matrix4());
   const particleColor = useRef(new Color());
   const wobbleRefs = useRef<Map<string, Group | Mesh>>(new Map());
+  const wobbleTargets = useRef<
+    Map<string, { x: number; y: number; urgency: number }>
+  >(new Map());
+  const teeterMotionFrames = useRef(0);
   const juice = useRef<JuiceState>({
     particles: [],
     nextId: 1,
@@ -270,6 +274,7 @@ function MineScene({
     useMineDeathPlaybackBridge(lastResult, tick);
   const renderedCellCountRef = useRef(0);
   const renderedCrackSegmentCountRef = useRef(0);
+  const renderedTeeterCountRef = useRef(0);
 
   const displayCol = fallWindow?.col ?? mine.miner.col;
   const minerRow = fallWindow?.toRow ?? mine.miner.row;
@@ -578,6 +583,15 @@ function MineScene({
       state.gl.domElement.dataset.crackSegmentCount = String(
         renderedCrackSegmentCountRef.current,
       );
+      // Live teetering blocks (undercut or span-condemned) plus proof the
+      // tremble is really displacing meshes, for QA on collapse warnings
+      // and plank rescues (Rule 10: pixels must move, not just flags).
+      state.gl.domElement.dataset.teeterCount = String(
+        renderedTeeterCountRef.current,
+      );
+      state.gl.domElement.dataset.teeterMotionFrames = String(
+        teeterMotionFrames.current,
+      );
       state.gl.domElement.dataset.particleCount = String(j.particles.length);
       state.gl.domElement.dataset.darknessOpacityMin = hasDarknessOverlay
         ? minDarknessOpacity.toFixed(2)
@@ -709,15 +723,25 @@ function MineScene({
       motes.visible = minerRow > 0;
       motes.rotation.z = t * 0.12;
     }
-    // Teetering rock and boulders tremble every frame, harder and faster
-    // the closer they are to dropping (the escalating tell).
-    for (const mesh of wobbleRefs.current.values()) {
-      const urgency = (mesh.userData.urgency as number) ?? 1;
+    // Teetering blocks tremble every frame, harder and faster the closer
+    // they are to dropping (the escalating tell). Rescued or dropped
+    // blocks leave the targets map: their mesh snaps back to rest.
+    let teeterMoved = false;
+    for (const [wobbleKey, mesh] of wobbleRefs.current) {
+      const target = wobbleTargets.current.get(wobbleKey);
+      if (!target) {
+        mesh.position.x = (mesh.userData.baseX as number) ?? mesh.position.x;
+        wobbleRefs.current.delete(wobbleKey);
+        continue;
+      }
+      const prevX = mesh.position.x;
       mesh.position.x =
-        (mesh.userData.baseX as number) +
-        Math.sin(t * (22 + 16 * urgency) + (mesh.userData.baseY as number)) *
-          (0.015 + 0.05 * urgency);
+        target.x +
+        Math.sin(t * (22 + 16 * target.urgency) + target.y) *
+          (0.015 + 0.05 * target.urgency);
+      if (Math.abs(mesh.position.x - prevX) > 0.0005) teeterMoved = true;
     }
+    if (teeterMoved) teeterMotionFrames.current += 1;
     // Particles: integrate, gravity, expire; positions sync imperatively
     // (creation/removal re-renders on tick).
     for (const p of j.particles) {
@@ -764,23 +788,32 @@ function MineScene({
   );
   const bg = STRATA_BG[stratumIndex];
 
-  wobbleRefs.current.clear();
   // Register a teetering block's mesh so useFrame can tremble it; the
   // urgency (0..1, rising as the countdown nears zero) drives the shake.
-  const teeterRef =
-    (key: string, x: number, y: number, urgency: number) =>
-    (mesh: Group | Mesh | null) => {
+  // The mesh handle registers once via the mount ref; the per-render
+  // targets map carries the live urgency. React 19 does not re-invoke a
+  // callback ref just because its closure identity changed, so clearing
+  // the handle map during render silently killed the tremble.
+  wobbleTargets.current.clear();
+  const teeterRef = (key: string, x: number, y: number, urgency: number) => {
+    wobbleTargets.current.set(key, { x, y, urgency });
+    return (mesh: Group | Mesh | null) => {
       if (mesh) {
         mesh.userData.baseX = x;
-        mesh.userData.baseY = y;
-        mesh.userData.urgency = urgency;
         wobbleRefs.current.set(key, mesh);
       } else {
         wobbleRefs.current.delete(key);
       }
     };
+  };
+  // Span-destabilized ceilings start on a longer countdown than the
+  // undercut teeter, so the ramp clamps to a gentle floor instead of
+  // going negative: distant dooms tremble softly, imminent ones shake.
   const teeterUrgency = (fallIn: number) =>
-    (FALL_DELAY_ACTIONS - fallIn + 1) / FALL_DELAY_ACTIONS;
+    Math.min(
+      1,
+      Math.max(0.2, (FALL_DELAY_ACTIONS - fallIn + 1) / FALL_DELAY_ACTIONS),
+    );
   const blockMeshes = [];
   const tunnelMeshes = [];
   const cargoMeshes = [];
@@ -790,6 +823,7 @@ function MineScene({
   let minDarknessOpacity = 1;
   let maxDarknessOpacity = 0;
   let renderedCellCount = 0;
+  let renderedTeeterCount = 0;
   let renderedCrackSegmentCount = 0;
   const selectedSupportSet = new Set(selectedSupportKeys ?? []);
   const dynamitePreviewSet = new Set(
@@ -804,6 +838,7 @@ function MineScene({
       const cell = cellAt(mine, col, row);
       if (!cell) continue;
       renderedCellCount += 1;
+      if (cell.fallIn !== undefined) renderedTeeterCount += 1;
       const key = `${col}:${row}`;
       const x = cellX(col);
       const y = -row;
@@ -1116,8 +1151,17 @@ function MineScene({
         continue;
       }
       if (cell.kind === "ore" && cell.ore) {
+        const oreTeeter = cell.fallIn;
         blockMeshes.push(
-          <group key={key} position={[x, y, 0]}>
+          <group
+            key={key}
+            position={[x, y, 0]}
+            ref={
+              oreTeeter !== undefined
+                ? teeterRef(key, x, y, teeterUrgency(oreTeeter))
+                : undefined
+            }
+          >
             <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
           </group>,
         );
@@ -1271,9 +1315,19 @@ function MineScene({
         continue;
       }
       // Dirt and anything else: the shared body (per-cell tone variation
-      // and soil grain live in the shader now).
+      // and soil grain live in the shader now). A wide-span ceiling cell
+      // teeters like a rock: the tremble is the collapse warning.
+      const dirtTeeter = cell.fallIn;
       blockMeshes.push(
-        <group key={key} position={[x, y, 0]}>
+        <group
+          key={key}
+          position={[x, y, 0]}
+          ref={
+            dirtTeeter !== undefined
+              ? teeterRef(key, x, y, teeterUrgency(dirtTeeter))
+              : undefined
+          }
+        >
           <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
         </group>,
       );
@@ -1301,6 +1355,7 @@ function MineScene({
   }
   renderedCellCountRef.current = renderedCellCount;
   renderedCrackSegmentCountRef.current = renderedCrackSegmentCount;
+  renderedTeeterCountRef.current = renderedTeeterCount;
   const hasDarknessOverlay = maxDarknessOpacity > 0;
 
   return (

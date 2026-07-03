@@ -20,14 +20,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("Your bot can fight other players' bots.");
-  await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("Fight a rival");
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "deterministic rules",
+  await expect(dialog).toContainText(
+    "Wide tunnels shake their roof loose now.",
   );
+  await expect(dialog.locator("li")).toHaveCount(3);
+  await expect(dialog.locator("li").first()).toContainText("five cells wide");
+  await expect(dialog.locator("li").nth(1)).toContainText("roof props");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "stock bots keep the pit warm",
+    "MINE_VERSION bumps to 49",
   );
 
   await page.mouse.click(8, 8);
@@ -47,6 +47,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.166", "Tunnel collapses"],
     ["0.1.165", "Rival fights"],
     ["0.1.164", "Fight records"],
     ["0.1.163", "Bot temperament"],

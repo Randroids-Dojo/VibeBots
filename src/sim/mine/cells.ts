@@ -84,6 +84,12 @@ export interface MineCell {
   bag?: DroppedBag;
   /** A rock that entered the falling-rock hazard system. Render-layer cue. */
   fallen?: boolean;
+  /**
+   * Set when fallIn came from the wide-span structural rule rather than
+   * a direct undercut: a plank that shortens the span (or props the cell
+   * below) clears the countdown. Direct undercut teeters never clear.
+   */
+  spanUnstable?: boolean;
 }
 
 export interface DroppedBag {

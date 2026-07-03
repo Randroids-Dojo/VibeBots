@@ -110,8 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-03-0.1.165-rival-fights",
-      releaseSummary: "Rival fights: Your bot can fight other players' bots.",
+      releaseNoticeId: "2026-07-03-0.1.166-tunnel-collapses",
+      releaseSummary:
+        "Tunnel collapses: Wide tunnels shake their roof loose now.",
     });
   });
 
@@ -171,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-03-0.1.165-rival-fights",
+      releaseNoticeId: "2026-07-03-0.1.166-tunnel-collapses",
       attempted: 2,
       sent: 1,
       expired: 1,

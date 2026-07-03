@@ -98,6 +98,8 @@ import {
   exportDiff,
   FALL_DELAY_ACTIONS,
   HAZARD_FREE_ROWS,
+  SPAN_COLLAPSE_DELAY_ACTIONS,
+  SPAN_COLLAPSE_WIDTH,
   setCell,
 } from "./world";
 
@@ -379,6 +381,13 @@ function tickFalls(
     const placed: MineCell = { kind: cell.kind };
     if (cell.kind === "rock") placed.rockTier = rockTierAt(rest);
     if (cell.kind === "rock" || cell.kind === "boulder") placed.fallen = true;
+    // A fallen ore cell keeps its deposit: the reserve locks to the
+    // origin row so the drop neither mints nor destroys ore.
+    if (cell.kind === "ore" && cell.ore) {
+      placed.ore = cell.ore;
+      placed.oreRemaining = cell.oreRemaining ?? oreReserveAt(cell.ore, row);
+      if (cell.drop) placed.drop = cell.drop;
+    }
     setCell(state, col, rest, placed);
     if (crushedByThisBlock) {
       crushed = true;
@@ -462,6 +471,75 @@ function markUnstable(
   return warnings;
 }
 
+/** Planks prop the roof directly above them; solid cells end a span. */
+function isOpenSpanCell(cell: MineCell | null): boolean {
+  return cell?.kind === "empty" && !cell.plank;
+}
+
+/** Ceiling kinds a wide-span collapse can bring down. */
+const SPAN_FALL_KINDS: ReadonlySet<CellKind> = new Set([
+  "dirt",
+  "ore",
+  "rock",
+  "boulder",
+]);
+
+/**
+ * Structural integrity: a contiguous unpropped empty span
+ * SPAN_COLLAPSE_WIDTH cells wide destabilizes its ceiling, dirt and ore
+ * included, on the longer SPAN_COLLAPSE_DELAY_ACTIONS countdown. Cells
+ * destabilized here carry `spanUnstable`, so shortening the span with a
+ * plank rescues exactly the roof this rule condemned and never cancels
+ * a direct undercut teeter. Reconciles both ways: widening marks,
+ * propping clears.
+ */
+function refreshSpanInstability(
+  state: MineState,
+  changed: MineCoord[],
+): MineCoord[] {
+  const warnings: MineCoord[] = [];
+  const seen = new Set<string>();
+  const reconcile = (col: number, row: number) => {
+    const key = cellKey(col, row);
+    if (seen.has(key)) return;
+    seen.add(key);
+    let unstable = false;
+    if (isOpenSpanCell(cellAt(state, col, row))) {
+      let span = 1;
+      for (let c = col - 1; isOpenSpanCell(cellAt(state, c, row)); c--) span++;
+      for (let c = col + 1; isOpenSpanCell(cellAt(state, c, row)); c++) span++;
+      unstable = span >= SPAN_COLLAPSE_WIDTH;
+    }
+    const ceiling = cellAt(state, col, row - 1);
+    if (!ceiling) return;
+    if (unstable && SPAN_FALL_KINDS.has(ceiling.kind)) {
+      if (ceiling.fallIn === undefined) {
+        const marked = cellMut(state, col, row - 1);
+        marked.fallIn = SPAN_COLLAPSE_DELAY_ACTIONS;
+        marked.spanUnstable = true;
+        warnings.push({ col, row: row - 1 });
+      }
+    } else if (ceiling.spanUnstable) {
+      const rescued = cellMut(state, col, row - 1);
+      rescued.fallIn = undefined;
+      rescued.spanUnstable = undefined;
+    }
+  };
+  for (const { col, row } of changed) {
+    // Ceilings in the hazard-free rows never destabilize; skipping the
+    // row here also keeps the walk off the endless empty surface row.
+    if (row - 1 <= HAZARD_FREE_ROWS) continue;
+    // The changed cell shifts span math for the whole contiguous run it
+    // joined or split, so every open cell of that run reconciles.
+    reconcile(col, row);
+    for (let c = col - 1; isOpenSpanCell(cellAt(state, c, row)); c--)
+      reconcile(c, row);
+    for (let c = col + 1; isOpenSpanCell(cellAt(state, c, row)); c++)
+      reconcile(c, row);
+  }
+  return warnings;
+}
+
 function isFallingRock(cell: MineCell): boolean {
   return (
     (cell.kind === "rock" || cell.kind === "boulder") &&
@@ -487,15 +565,25 @@ function hitsForDig(cell: MineCell, gear: MineGear): number {
 function settleAfterEmptied(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
+  fallEmptied: Array<{ col: number; row: number }> = [],
   changedSupports: MineCoord[] = [],
+  spanChanged: MineCoord[] = [],
 ): {
   fallingRockTriggered: boolean;
   fallingRockWarnings: MineCoord[];
   ladderFalls: LadderFall[];
 } {
-  const fallingRockWarnings = markUnstable(state, emptied);
+  const allEmptied = [...emptied, ...fallEmptied];
+  const fallingRockWarnings = markUnstable(state, allEmptied);
+  // Fall-emptied cells feed the direct undercut rule above but never the
+  // span rule: a collapse settles the cavity it carved instead of
+  // unzipping the overburden row by row. Only player-carved width (digs,
+  // blasts, vents) and plank changes re-measure spans.
+  fallingRockWarnings.push(
+    ...refreshSpanInstability(state, [...emptied, ...spanChanged]),
+  );
   const ladderFalls = settleUnsupportedLadders(state, [
-    ...emptied,
+    ...allEmptied,
     ...changedSupports,
   ]);
   settleUnsupportedDrops(state);
@@ -603,8 +691,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
       miner.row = t.row;
       if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
     }
-    const fallTick = tickFalls(state, emptied);
-    const settled = settleAfterEmptied(state, emptied);
+    const fallEmptied: Array<{ col: number; row: number }> = [];
+    const fallTick = tickFalls(state, fallEmptied);
+    const settled = settleAfterEmptied(state, emptied, fallEmptied);
     const fell = settleMiner(state);
     const fellTooFar = isFatalMinerFall(state, fell);
     const oreHarvested = {
@@ -683,9 +772,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
       );
       // A swing is a full action: teetering blocks count down and drop,
       // and the battery can still run out mid-block.
-      const emptiedMid: Array<{ col: number; row: number }> = [];
-      const fallTickMid = tickFalls(state, emptiedMid);
-      const settledMid = settleAfterEmptied(state, emptiedMid);
+      const fallEmptiedMid: Array<{ col: number; row: number }> = [];
+      const fallTickMid = tickFalls(state, fallEmptiedMid);
+      const settledMid = settleAfterEmptied(state, [], fallEmptiedMid);
       const fellMid = settleMiner(state);
       const fellTooFarMid = isFatalMinerFall(state, fellMid);
       if (
@@ -795,8 +884,9 @@ export function step(state: MineState, dir: Direction): MoveResult {
     if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
   }
 
-  const fallTick = tickFalls(state, emptied);
-  const settled = settleAfterEmptied(state, emptied);
+  const fallEmptied: Array<{ col: number; row: number }> = [];
+  const fallTick = tickFalls(state, fallEmptied);
+  const settled = settleAfterEmptied(state, emptied, fallEmptied);
   const fell = settleMiner(state);
   const fellTooFar = isFatalMinerFall(state, fell);
   const { pickedUp, pickedUpBag } = pickupAtMiner(state);
@@ -896,9 +986,9 @@ function jumpJets(state: MineState): MoveResult {
   miner.row--;
   state.jumpHover = true;
   const jumped = { col: miner.col, row: miner.row };
-  const emptied: Array<{ col: number; row: number }> = [];
-  const fallTick = tickFalls(state, emptied);
-  const settled = settleAfterEmptied(state, emptied);
+  const fallEmptied: Array<{ col: number; row: number }> = [];
+  const fallTick = tickFalls(state, fallEmptied);
+  const settled = settleAfterEmptied(state, [], fallEmptied);
   if (fallTick.crushed || (miner.row > 0 && miner.energy <= 0)) {
     const lost = minerLostCargo(miner, fallTick.crushRest);
     state.jumpHover = false;
@@ -947,8 +1037,9 @@ function plankPlacementTarget(
   if (cell?.kind === "metal") return { ok: false, reason: "blocked" };
   const below = cellAt(state, t.col, t.row + 1);
   if (!cell || !below) return { ok: false, reason: "edge" };
-  if (cell.ladder || cell.plank || below.kind !== "empty")
-    return { ok: false, reason: "blocked" };
+  // Planks bridge voids AND prop roofs: solid ground below is fine, the
+  // brace still splits a wide span and steadies the ceiling above it.
+  if (cell.ladder || cell.plank) return { ok: false, reason: "blocked" };
   if (cell.kind === "boulder" || cell.kind === "gas" || cell.kind === "magma")
     return { ok: false, reason: "blocked" };
   return { ok: true, col: t.col, row: t.row };
@@ -958,11 +1049,18 @@ function finishStationaryAction(
   state: MineState,
   base: Extract<MoveResult, { ok: true }>,
   changedSupports: MineCoord[] = [],
+  spanChanged: MineCoord[] = [],
 ): MoveResult {
   clearJumpHover(state);
-  const emptied: Array<{ col: number; row: number }> = [];
-  const fallTick = tickFalls(state, emptied);
-  const settled = settleAfterEmptied(state, emptied, changedSupports);
+  const fallEmptied: Array<{ col: number; row: number }> = [];
+  const fallTick = tickFalls(state, fallEmptied);
+  const settled = settleAfterEmptied(
+    state,
+    [],
+    fallEmptied,
+    changedSupports,
+    spanChanged,
+  );
   const fell = settleMiner(state);
   const fellTooFar = isFatalMinerFall(state, fell);
   if (fallTick.crushed || fellTooFar) {
@@ -1003,14 +1101,19 @@ function placePlank(state: MineState, dir: "left" | "right"): MoveResult {
   state.consumables.plank--;
   state.used.plank++;
   cellMut(state, placement.col, placement.row).plank = true;
-  return finishStationaryAction(state, {
-    ok: true,
-    dug: null,
-    dugOre: null,
-    found: null,
-    collapsed: false,
-    plankPlaced: { col: placement.col, row: placement.row },
-  });
+  return finishStationaryAction(
+    state,
+    {
+      ok: true,
+      dug: null,
+      dugOre: null,
+      found: null,
+      collapsed: false,
+      plankPlaced: { col: placement.col, row: placement.row },
+    },
+    [],
+    [{ col: placement.col, row: placement.row }],
+  );
 }
 
 function breakCurrentPlank(state: MineState): MoveResult {
@@ -1062,7 +1165,13 @@ function breakCurrentPlank(state: MineState): MoveResult {
       lost,
     };
   }
-  return finishStationaryAction(state, base);
+  // Removing the prop can merge two safe spans into one wide one.
+  return finishStationaryAction(
+    state,
+    base,
+    [],
+    [{ col: miner.col, row: miner.row }],
+  );
 }
 
 export function collectablePlacements(state: MineState): CollectTarget[] {
@@ -1097,12 +1206,15 @@ function collectPlaced(state: MineState, action: MineAction): MoveResult {
   }
   const collected: Partial<Record<SalvageablePlacement, number>> = {};
   const changedSupports: MineCoord[] = [];
+  const spanChanged: MineCoord[] = [];
   let salvageValue = 0;
   for (const item of targets) {
     const cell = cellMut(state, item.col, item.row);
     cell[item.type] = undefined;
     if (item.type === "ladder")
       changedSupports.push({ col: item.col, row: item.row });
+    if (item.type === "plank")
+      spanChanged.push({ col: item.col, row: item.row });
     if (item.type === "beacon") {
       cell.beaconOrder = undefined;
       cell.beaconLabel = undefined;
@@ -1123,6 +1235,7 @@ function collectPlaced(state: MineState, action: MineAction): MoveResult {
       supportSalvageValue: salvageValue,
     },
     changedSupports,
+    spanChanged,
   );
 }
 
@@ -1397,9 +1510,9 @@ function plantDynamite(state: MineState, tier: DynamiteTier): MoveResult {
   state.consumables.dynamite--;
   state.used.dynamite++;
   state.pendingDynamite = t;
-  const emptied: Array<{ col: number; row: number }> = [];
-  const fallTick = tickFalls(state, emptied);
-  const settled = settleAfterEmptied(state, emptied);
+  const fallEmptied: Array<{ col: number; row: number }> = [];
+  const fallTick = tickFalls(state, fallEmptied);
+  const settled = settleAfterEmptied(state, [], fallEmptied);
   const fell = settleMiner(state);
   const fellTooFar = isFatalMinerFall(state, fell);
   if (fallTick.crushed || fellTooFar) {
@@ -1551,8 +1664,9 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
     }
     miner.row = target;
     if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
-    const fallTick = tickFalls(state, emptied);
-    const settled = settleAfterEmptied(state, emptied);
+    const fallEmptied: Array<{ col: number; row: number }> = [];
+    const fallTick = tickFalls(state, fallEmptied);
+    const settled = settleAfterEmptied(state, emptied, fallEmptied);
     if (fallTick.crushed) {
       const lost = minerLostCargo(miner, fallTick.crushRest);
       collapse(state, true, lost);

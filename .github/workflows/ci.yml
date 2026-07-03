@@ -10,6 +10,10 @@ on:
         description: Run the full Playwright smoke matrix
         required: false
         default: "true"
+      update_visual_baselines:
+        description: Regenerate visual regression baselines (uploads artifact)
+        required: false
+        default: "false"
   schedule:
     - cron: "17 9 * * *"
 
@@ -210,3 +214,45 @@ jobs:
           name: playwright-full-${{ matrix.shard_name }}
           path: playwright-report/
           retention-days: 7
+
+  visual-baselines-update:
+    name: Update Visual Baselines
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_visual_baselines == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Build
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Regenerate visual baselines
+        run: pnpm exec playwright test tests/e2e/visual-baselines.spec.ts --project=chromium --workers=1 --update-snapshots
+        env:
+          UPDATE_VISUAL_BASELINES: "1"
+
+      - name: Upload baselines artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baselines
+          path: tests/e2e/visual-baselines.spec.ts-snapshots/
+          retention-days: 14

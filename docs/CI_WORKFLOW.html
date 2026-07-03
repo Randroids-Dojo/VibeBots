@@ -69,6 +69,11 @@
       <li>Do not point the standard Playwright suite at protected production Vercel URLs with <code>PLAYWRIGHT_BASE_URL</code>. Use local or CI Playwright for app behavior, and use GitHub deployment status plus Vercel metadata for production deploy readiness.</li>
     </ul>
   </section>
+<section>
+    <h2>Visual Regression Baselines</h2>
+    <p>The full smoke suite includes <code>tests/e2e/visual-baselines.spec.ts</code>: paused Block Gallery scenes (terrain and classic ores), clipped to the block rows and screenshotted against committed per-platform baselines with <code>toHaveScreenshot</code> (maxDiffPixelRatio 0.02). The clip excludes the miner: its time-driven emissives (chest screen, visor, beacon) never pixel-stabilize, which fails Playwright's stable-capture check. The tests skip when the running platform has no committed baselines, so they never block a suite on a fresh platform.</p>
+    <p>Bootstrap or refresh: dispatch the CI workflow with <code>update_visual_baselines=true</code>. The dedicated job rebuilds, regenerates the snapshots with <code>UPDATE_VISUAL_BASELINES=1</code> and <code>--update-snapshots</code> (the env opt-in exists because Playwright's default missing-snapshot policy silently writes and passes, which would make an uncommitted suite green while comparing nothing), and uploads the snapshot directory as the <code>visual-baselines</code> artifact to commit. When a slice intentionally changes the look, refresh the baselines inside that same slice.</p>
+  </section>
 </main>
 
 </body>

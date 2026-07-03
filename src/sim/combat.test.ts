@@ -15,6 +15,7 @@ import {
   type BotDesign,
   CPU_BRAWLER_DESIGN,
   CPU_BULLDOZER_DESIGN,
+  CPU_WHIRLIGIG_DESIGN,
   TEST_BOT_DESIGN,
 } from "./design";
 import { fnv1a64 } from "./hash";
@@ -374,5 +375,51 @@ describe("B2 bulldozer in combat", () => {
       expect(t.health).toBeLessThan(t.max);
       expect(t.health).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("B2b saw blade in combat", () => {
+  it("spins from assembly and out-damages what it takes", async () => {
+    const world = await createArenaWorld();
+    const match = createMatch(world, [
+      CPU_WHIRLIGIG_DESIGN,
+      CPU_BRAWLER_DESIGN,
+    ]);
+    // The blade spins up from the first steps without any controller.
+    for (let i = 0; i < 30; i++) stepMatch(match);
+    const blade = match.bots[0].assembled.bodies.get("blade");
+    expect(blade).toBeTruthy();
+    const spin = blade ? Math.abs(blade.angvel().z) : 0;
+    expect(spin).toBeGreaterThan(8);
+    for (let i = 0; i < 1400; i++) stepMatch(match);
+    const totals = match.bots.map((bot) => {
+      let health = 0;
+      let max = 0;
+      for (const part of bot.parts.values()) {
+        health += part.destroyed ? 0 : part.health;
+        max += part.maxHealth;
+      }
+      return { health, max };
+    });
+    // The saw carries the matchup: the brawler loses more of its build.
+    const sawLoss = 1 - totals[0].health / totals[0].max;
+    const brawlerLoss = 1 - totals[1].health / totals[1].max;
+    expect(brawlerLoss).toBeGreaterThan(0.02);
+    expect(brawlerLoss).toBeGreaterThan(sawLoss);
+    freeMatch(match);
+    world.free();
+  });
+
+  it("stays deterministic with a spin motor in the world", async () => {
+    const run = async () => {
+      const world = await createArenaWorld();
+      const match = createMatch(world, [CPU_WHIRLIGIG_DESIGN, TEST_BOT_DESIGN]);
+      for (let i = 0; i < 900; i++) stepMatch(match);
+      const hash = matchResultHash(match);
+      freeMatch(match);
+      world.free();
+      return hash;
+    };
+    expect(await run()).toBe(await run());
   });
 });

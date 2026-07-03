@@ -28,6 +28,9 @@ export const connectorSchema = z
   .object({
     id: z.string().min(1),
     kind: connectorKindSchema,
+    /** Axle motor role: "drive" joins the differential drive (default);
+     * "spin" runs at a constant motor velocity (spinner weapons). */
+    motor: z.enum(["drive", "spin"]).optional(),
     /** Attachment point in the part's local frame. */
     position: vec3Schema,
     /** Rotation axis in the part's local frame. Required for axle. */
@@ -325,6 +328,57 @@ export const MAST_POLE: PartDef = {
   ],
 };
 
+export const SPIN_MOUNT: PartDef = {
+  id: "spin-mount",
+  name: "Spin Mount",
+  category: "structure",
+  // A stout housing whose forward stub is a constant-velocity axle: the
+  // mount for saw weapons. The rear face bolts flush to a rigid
+  // connector; the stub sits outboard so a mounted blade clears the
+  // housing.
+  shape: { type: "cuboid", hx: 0.12, hy: 0.12, hz: 0.12 },
+  density: 2,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 120,
+  priceEmeralds: 6,
+  connectors: [
+    { id: "base", kind: "rigid", position: { x: 0, y: 0, z: 0.12 } },
+    {
+      id: "spindle",
+      kind: "axle",
+      motor: "spin",
+      position: { x: 0, y: 0, z: -0.18 },
+      axis: { x: 0, y: 0, z: 1 },
+    },
+  ],
+};
+
+export const SAW_BLADE: PartDef = {
+  id: "saw-blade",
+  name: "Saw Blade",
+  category: "weapon",
+  // A thin face-on blade spinning about the forward axis: the rim meets
+  // the enemy at every hull height, and rim speed times mass is what
+  // the contact-force damage model rewards. Radius clears the ground
+  // from wheel-carried ride height (0.34).
+  shape: { type: "cylinder", halfHeight: 0.04, radius: 0.28, axis: "z" },
+  density: 2.6,
+  powerDraw: 30,
+  powerSupply: 0,
+  durability: 110,
+  priceEmeralds: 14,
+  connectors: [
+    {
+      id: "hub",
+      kind: "axle",
+      motor: "spin",
+      position: { x: 0, y: 0, z: 0.06 },
+      axis: { x: 0, y: 0, z: 1 },
+    },
+  ],
+};
+
 export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
   [
     CORE_CUBE,
@@ -338,5 +392,7 @@ export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
     ARMOR_WEDGE,
     ROLLER_DRUM,
     MAST_POLE,
+    SPIN_MOUNT,
+    SAW_BLADE,
   ].map((p) => [p.id, p]),
 );

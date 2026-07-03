@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.161-new-parts-shipment";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.162-saw-blades";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.162",
+      date: "2026-07-03",
+      title: "Saw blades",
+      intro: "The first powered weapon spins into the arena.",
+      changes: [
+        {
+          build,
+          text: "The Spin Mount and Saw Blade arrive in the shop: bolt the mount to your bot's nose and its blade spins up on its own motor, shredding whatever it touches.",
+        },
+        {
+          build,
+          text: "A new stock fighter, the Whirligig, brings the saw to exhibition matches, which now rotate through four matchups.",
+        },
+        {
+          build,
+          text: "Powered axles are a new simulation capability, so SIM_VERSION steps to 4; older replays re-simulate under their original version. MINE_VERSION is unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.161",
       date: "2026-07-03",

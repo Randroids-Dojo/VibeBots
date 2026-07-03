@@ -43,6 +43,7 @@ import {
   type BotDesign,
   CPU_BRAWLER_DESIGN,
   CPU_BULLDOZER_DESIGN,
+  CPU_WHIRLIGIG_DESIGN,
   TEST_BOT_DESIGN,
 } from "@/sim/design";
 import { PART_CATALOG, type PartCategory } from "@/sim/parts";
@@ -70,8 +71,9 @@ const BOT_COLORS_DESTROYED = ["#6b4a26", "#2a5a52"] as const;
  * different clash; the rotation is deterministic per page load. */
 const EXHIBITION_MATCHUPS: [BotDesign, BotDesign][] = [
   [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN],
+  [CPU_WHIRLIGIG_DESIGN, CPU_BULLDOZER_DESIGN],
   [CPU_BULLDOZER_DESIGN, TEST_BOT_DESIGN],
-  [CPU_BRAWLER_DESIGN, CPU_BULLDOZER_DESIGN],
+  [CPU_WHIRLIGIG_DESIGN, CPU_BRAWLER_DESIGN],
 ];
 const EXHIBITION_DESIGNS: [BotDesign, BotDesign] = EXHIBITION_MATCHUPS[0];
 const ARENA_CAMERA_SMOOTHING = 3.2;

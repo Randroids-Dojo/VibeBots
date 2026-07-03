@@ -41,6 +41,8 @@ export interface AssembledBot {
   joints: ImpulseJoint[];
   /** Motorized axle connections with their side, for differential drive. */
   axleJoints: AxleMotor[];
+  /** Constant-velocity spinner axles, driven from assembly, never steered. */
+  spinJoints: RevoluteImpulseJoint[];
   /** The joint attaching each non-root instance to its parent (detach point). */
   jointToParent: Map<string, ImpulseJoint>;
 }
@@ -118,6 +120,7 @@ export function assembleBot(
   const colliders = new Map<string, Collider>();
   const joints: ImpulseJoint[] = [];
   const axleJoints: AxleMotor[] = [];
+  const spinJoints: RevoluteImpulseJoint[] = [];
   const jointToParent = new Map<string, ImpulseJoint>();
   // Shared with the workshop preview: what you build is what fights.
   const placements = computeLayout(design, catalog, origin);
@@ -176,10 +179,20 @@ export function assembleBot(
       joint.setContactsEnabled(false);
       joints.push(joint);
       jointToParent.set(conn.childIid, joint);
-      axleJoints.push({
-        joint: joint as RevoluteImpulseJoint,
-        side: parentAnchor.position.x < 0 ? -1 : 1,
-      });
+      if (parentAnchor.motor === "spin" || childAnchor.motor === "spin") {
+        // Spinner axle: constant motor velocity from the first step,
+        // never part of the differential drive.
+        (joint as RevoluteImpulseJoint).configureMotorVelocity(
+          SPIN_MOTOR_VELOCITY,
+          SPIN_MOTOR_FACTOR,
+        );
+        spinJoints.push(joint as RevoluteImpulseJoint);
+      } else {
+        axleJoints.push({
+          joint: joint as RevoluteImpulseJoint,
+          side: parentAnchor.position.x < 0 ? -1 : 1,
+        });
+      }
     } else {
       const identity = { x: 0, y: 0, z: 0, w: 1 };
       // The fixed joint pins body2's identity frame to body1's yaw frame,
@@ -198,8 +211,22 @@ export function assembleBot(
     }
   }
 
-  return { rootIid, bodies, colliders, joints, axleJoints, jointToParent };
+  return {
+    rootIid,
+    bodies,
+    colliders,
+    joints,
+    axleJoints,
+    spinJoints,
+    jointToParent,
+  };
 }
+
+/** Spinner motor speed (rad/s) and stiffness. Rim speed at radius 0.42
+ * is about 13 m/s: fast enough that a rim touch spikes contact force
+ * past the weapon threshold, slow enough to keep the sim stable at DT. */
+export const SPIN_MOTOR_VELOCITY = 31;
+export const SPIN_MOTOR_FACTOR = 120;
 
 /**
  * Differential drive: every axle motor runs at the base angular velocity

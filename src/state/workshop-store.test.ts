@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { validateDesign } from "@/sim/design";
-import { DRIVE_WHEEL, PART_CATALOG } from "@/sim/parts";
+import { DRIVE_WHEEL, PART_CATALOG, SPIN_MOUNT } from "@/sim/parts";
 import {
   findFreeConnectors,
   planAddPart,
@@ -119,9 +119,16 @@ describe("workshop store", () => {
   });
 
   it("keeps every reachable catalog part addable somewhere", () => {
+    // Some parts need their enabling mount placed first (the saw blade
+    // only fits a spin-mount spindle); those must be addable one step
+    // deep, so no shop item is ever a dead end.
+    const mounted = planAddPart(STARTER_DESIGN, SPIN_MOUNT);
+    expect(mounted).not.toBeNull();
     for (const part of Object.values(PART_CATALOG)) {
       if (part.category === "core") continue;
-      expect(planAddPart(STARTER_DESIGN, part)).not.toBeNull();
+      const direct = planAddPart(STARTER_DESIGN, part);
+      const viaMount = mounted ? planAddPart(mounted.next, part) : null;
+      expect(direct ?? viaMount, `${part.id} has no legal slot`).not.toBeNull();
     }
   });
 });

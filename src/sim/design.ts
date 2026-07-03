@@ -393,3 +393,45 @@ export const CPU_BULLDOZER_DESIGN: BotDesign = {
     },
   ],
 };
+
+/**
+ * The saw archetype (B2b): a spin-mounted blade on the nose, driven by
+ * a constant-velocity axle motor from assembly. Rim hits massively
+ * outdamage shoving, at the cost of a fragile blade.
+ */
+export const CPU_WHIRLIGIG_DESIGN: BotDesign = {
+  name: "Whirligig",
+  parts: [
+    { iid: "core", partId: "core-cube" },
+    { iid: "wheel-l", partId: "drive-wheel" },
+    { iid: "wheel-r", partId: "drive-wheel" },
+    { iid: "mount", partId: "spin-mount" },
+    { iid: "blade", partId: "saw-blade" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "wheel-l",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "wheel-r",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "front",
+      childIid: "mount",
+      childConnector: "base",
+    },
+    {
+      parentIid: "mount",
+      parentConnector: "spindle",
+      childIid: "blade",
+      childConnector: "hub",
+    },
+  ],
+};

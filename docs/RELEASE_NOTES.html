@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.162" data-date="2026-07-03">
+    <h2>0.1.162</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.162</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> steps to <code>4</code> (new assembly capability; replays re-simulate under their recorded version and the resolve route rejects stale-version submissions by design).</dd>
+      <dt>Highlights</dt><dd>The first powered weapon (battle program slice B2b).</dd>
+      <dt>Spin motors</dt><dd>Axle connectors gain a <code>motor</code> role: <code>drive</code> joins the differential drive as before; <code>spin</code> runs a constant-velocity motor configured at assembly (31 rad/s, factor 120), never steered. Contact-force damage needs no changes: rim speed times mass is what the model already rewards.</dd>
+      <dt>New parts</dt><dd>Spin Mount (housing with a forward spindle) and Saw Blade (thin face-on disc, radius sized to clear the ground at ride height). The workshop reachability contract now allows mount-first parts: every shop item is addable within one enabling step.</dd>
+      <dt>Stock fighter</dt><dd><code>CPU_WHIRLIGIG_DESIGN</code>: the blade spins above 8 rad/s by step 30 with no controller input, out-damages the Brawler over 1400 ticks, and the match hash is identical across fresh runs. Exhibitions rotate four matchups.</dd>
+      <dt>Verification</dt><dd>Sim purity, 238-test sim suite including the new spin and determinism contracts, full unit suite, build, arena and release smokes. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.161" data-date="2026-07-03">
     <h2>0.1.161</h2>
     <dl>

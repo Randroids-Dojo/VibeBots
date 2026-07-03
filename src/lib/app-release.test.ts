@@ -2,17 +2,33 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest parts shipment note complete", () => {
+  it("keeps the latest saw blades note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.161-new-parts-shipment");
+    expect(release.noticeId).toBe("2026-07-03-0.1.162-saw-blades");
     expect(latestNote).toMatchObject({
+      version: "0.1.162",
+      title: "Saw blades",
+      intro: "The first powered weapon spins into the arena.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Spin Mount and Saw Blade arrive in the shop: bolt the mount to your bot's nose and its blade spins up on its own motor, shredding whatever it touches.",
+      "A new stock fighter, the Whirligig, brings the saw to exhibition matches, which now rotate through four matchups.",
+      "Powered axles are a new simulation capability, so SIM_VERSION steps to 4; older replays re-simulate under their original version. MINE_VERSION is unchanged.",
+    ]);
+  });
+
+  it("keeps the archived parts shipment note complete", () => {
+    const release = getAppRelease();
+    const partsNote = release.notes.find((note) => note.version === "0.1.161");
+
+    expect(partsNote).toMatchObject({
       version: "0.1.161",
       title: "New parts shipment",
       intro: "Five new robot parts hit the workshop shop.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(partsNote?.changes.map((change) => change.text)).toEqual([
       "Plow Blade, Hammer Head, Armor Wedge, Roller Drum, and Mast Pole: wide pushers, top-heavy strikers, sacrificial armor, low tracked drums, and tall character masts.",
       "A new stock heavy, the Bulldozer, joins the arena, and exhibition matches now rotate through different matchups.",
       "Every new part fights under the same deterministic match rules. MINE_VERSION and SIM_VERSION are unchanged.",

@@ -2,17 +2,35 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest fight records note complete", () => {
+  it("keeps the latest rival fights note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.164-fight-records");
+    expect(release.noticeId).toBe("2026-07-03-0.1.165-rival-fights");
     expect(latestNote).toMatchObject({
+      version: "0.1.165",
+      title: "Rival fights",
+      intro: "Your bot can fight other players' bots.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A Fight a rival button in the workshop pulls another player's saved design into the pit; verified results count on your record and toward stamps.",
+      "Rival fights run under the same deterministic rules as everything else, so the server's verdict is the one that counts.",
+      "No rivals saved yet? The stock bots keep the pit warm. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived fight records note complete", () => {
+    const release = getAppRelease();
+    const recordsNote = release.notes.find(
+      (note) => note.version === "0.1.164",
+    );
+
+    expect(recordsNote).toMatchObject({
       version: "0.1.164",
       title: "Fight records",
       intro: "Verified wins go on the books.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(recordsNote?.changes.map((change) => change.text)).toEqual([
       "Every server-verified workshop fight is recorded, and your win-loss record shows up right after verification.",
       "Three battle stamps join the Stamp Book: First Blood, Pit Veteran, and Buzzkill for winning with a saw blade mounted.",
       "Records only count verified fights; exhibitions stay casual. MINE_VERSION and SIM_VERSION are unchanged.",

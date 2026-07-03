@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="battle-b5-rival-fights" data-date="2026-07-03">
+    <h3>Battle B5: Rival Fights (Online Vibe Matches)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed program).</dd>
+      <dt>PR</dt><dd>None (direct main). Completes the battle program's five slices.</dd>
+      <dt>Changed</dt><dd>REQ-010's async form: a rival-opponent API serving another player's most recent valid saved design (schema-validated, invalid rows skipped, 404 pre-community), and a workshop Fight a rival button that pulls the rival into the local pit where the existing local-preview-plus-server-verify flow (Q-003) and B4's records and stamps already apply. Deliberately deterministic opponent ordering: no SQL randomness, rotation comes from players saving designs. Package version <code>0.1.165</code> with a release note; <code>MINE_VERSION</code> 48 and <code>SIM_VERSION</code> 4 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, Biome (unpiped), opponent route contracts, full unit suite, <code>pnpm build</code>, fresh-build release smoke (8 passed), live workshop button check with zero page errors. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: newest-valid-design opponent selection this slice; ranked or ELO-bucketed matchmaking is future work once the community exists. Rule 13: tips reviewed, no change. Rule 14: B4's stamps already cover rival wins (they count as verified wins).</dd>
+      <dt>GDD coverage</dt><dd>REQ-010 advances substantially (player-built vs player-built through the project's verify pipeline). Build log entry added to <code>docs/gdd/04-match-resolution-and-scoring.html</code>.</dd>
+      <dt>Followups</dt><dd>The battle program (B1-B5) is complete; the improvement program moves to world-sim.</dd>
+    </dl>
+  </article>
+
   <article data-slice="battle-b4-fight-records" data-date="2026-07-03">
     <h3>Battle B4: Fight Records And Battle Stamps</h3>
     <dl>

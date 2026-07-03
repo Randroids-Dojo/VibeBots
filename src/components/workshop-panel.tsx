@@ -63,6 +63,9 @@ export function WorkshopPanel() {
   // render does can reboot a running test fight.
   const [matchup, setMatchup] = useState<[BotDesign, BotDesign] | null>(null);
   const [endInfo, setEndInfo] = useState<MatchEndInfo | null>(null);
+  const [rivalState, setRivalState] = useState<
+    "idle" | "pending" | "none" | "error"
+  >("idle");
   const [verification, setVerification] = useState<Verification>({
     state: "idle",
   });
@@ -481,7 +484,56 @@ export function WorkshopPanel() {
             >
               Test fight vs Brawler
             </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setEndInfo(null);
+                setVerification({ state: "idle" });
+                setRivalState("pending");
+                try {
+                  const res = await fetch("/api/match/opponent");
+                  if (!res.ok) {
+                    setRivalState(res.status === 404 ? "none" : "error");
+                    return;
+                  }
+                  const body = (await res.json()) as { design: BotDesign };
+                  setRivalState("idle");
+                  setMatchup([body.design, design]);
+                } catch {
+                  setRivalState("error");
+                }
+              }}
+              disabled={!validation.ok || rivalState === "pending"}
+              title={validation.ok ? undefined : "fix validity errors first"}
+              style={{
+                background: validation.ok ? "#7aa8ff" : "#161b28",
+                color: validation.ok ? "#0b0e14" : "#5a6378",
+                border: "1px solid #344061",
+                borderRadius: 6,
+                padding: "4px 12px",
+                fontWeight: 600,
+                cursor: validation.ok ? "pointer" : "not-allowed",
+              }}
+            >
+              {rivalState === "pending" ? "Finding rival..." : "Fight a rival"}
+            </button>
           </div>
+          {rivalState === "none" && (
+            <p style={{ margin: "8px 0 0", fontSize: "0.8rem", opacity: 0.7 }}>
+              No rival designs saved yet; fight the stock bots meanwhile.
+            </p>
+          )}
+          {rivalState === "error" && (
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: "0.8rem",
+                color: "#ff6b6b",
+              }}
+            >
+              Could not reach the rival ladder.
+            </p>
+          )}
           {selectedDef && (
             <p style={{ margin: "8px 0 0", fontSize: "0.8rem", opacity: 0.75 }}>
               selected: {selectedDef.name} ({selectedIid}), level{" "}

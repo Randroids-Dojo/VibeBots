@@ -13,6 +13,17 @@
 
 <main id="entries">
 
+  <article data-version="0.1.165" data-date="2026-07-03">
+    <h2>0.1.165</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.165</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>48</code>. <code>SIM_VERSION</code> stays at <code>4</code>.</dd>
+      <dt>Highlights</dt><dd>Online vibe matches (battle program slice B5, REQ-010).</dd>
+      <dt>Rival ladder</dt><dd><code>GET /api/match/opponent</code> serves the most recently updated valid design from another player (deterministic ordering, schema-validated, broken rows skipped, 404 before any rival exists). The workshop's Fight a rival button pulls it into the local pit; the existing verify flow makes the result official and it lands on the record and stamp counters from B4.</dd>
+      <dt>Verification</dt><dd>Opponent route contracts (503/404/valid-skip), full unit suite, fresh-build release smoke, live workshop button check. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.164" data-date="2026-07-03">
     <h2>0.1.164</h2>
     <dl>

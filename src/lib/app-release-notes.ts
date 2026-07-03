@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.164-fight-records";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.165-rival-fights";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.165",
+      date: "2026-07-03",
+      title: "Rival fights",
+      intro: "Your bot can fight other players' bots.",
+      changes: [
+        {
+          build,
+          text: "A Fight a rival button in the workshop pulls another player's saved design into the pit; verified results count on your record and toward stamps.",
+        },
+        {
+          build,
+          text: "Rival fights run under the same deterministic rules as everything else, so the server's verdict is the one that counts.",
+        },
+        {
+          build,
+          text: "No rivals saved yet? The stock bots keep the pit warm. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.164",
       date: "2026-07-03",

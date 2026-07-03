@@ -270,6 +270,8 @@ VibeReview (skill `randroid:vibereview`) is the qualitative-gate evidence pipeli
 
 ### Scripted playtest drivers
 
+- **Autonomous soak**: `node scripts/autoplay-mine.mjs <out-dir> [actions]` plays a seeded, policy-driven guest session against an isolated local server (build first), checks invariants after every action (HUD readable, canvas alive, no stuck states the game's own escape valve cannot clear), and exits nonzero with screenshots plus `autoplay-report.json` on any anomaly or console error. `AUTOPLAY_SEED` reproduces a session; `AUTOPLAY_BASE` targets an existing server. Run it after risky mine slices as a soak beyond the scripted e2es.
+
 - Verify moves against HUD numbers (energy always drops on a real action, depth is exact), never against full status-text diffs; render lag desyncs text comparisons.
 - Production sits behind Vercel bot protection. Do not point the standard Playwright test suite at production with `PLAYWRIGHT_BASE_URL`; it creates a fresh unauthenticated context and may only prove that Vercel showed a login page. Use a real authenticated browser context with `waitForSelector` and a generous timeout for the app shell when a slice explicitly needs production playtest evidence. Do not hammer `curl` at the page, because it can trigger the security checkpoint for the whole IP and block headless runs too. For deploy-readiness checks, poll Vercel or GitHub deployment metadata for the commit sha instead of scraping HTML.
 - Prove motion per Rule 10 with consecutive-frame screenshot diffs after an input.

@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest part inspector note complete", () => {
+  it("keeps the latest merge-on-bench note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.175-part-inspector");
+    expect(release.noticeId).toBe("2026-07-03-0.1.176-merge-on-bench");
     expect(latestNote).toMatchObject({
-      version: "0.1.175",
-      title: "Part inspector",
-      intro: "Every part shows its stats now.",
+      version: "0.1.176",
+      title: "Merge on the bench",
+      intro: "Upgrade a part without leaving the build.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Selecting a part on the bench opens a compact inspector with its level pips, a durability bar, and Rotate, Merge, and Remove right there, so you act on the part you are looking at instead of hunting a menu.",
-      "Merged parts wear glowing level pips on the bench, so a stronger part reads at a glance without opening anything.",
+      "While you are placing a part, any matching part already on the bot glows gold: tap it to merge the two into a stronger one instead of adding another.",
+      "The placement list offers the merge right beside the open spots, and it works even when the bot has no room left for a new part.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

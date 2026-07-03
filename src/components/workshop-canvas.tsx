@@ -11,7 +11,11 @@ import {
 import { partMergeLevel } from "@/sim/design";
 import { computeLayout } from "@/sim/layout";
 import { PART_CATALOG, type PartCategory } from "@/sim/parts";
-import { useWorkshopStore, validSlotsFor } from "@/state/workshop-store";
+import {
+  planMergeSelectedPart,
+  useWorkshopStore,
+  validSlotsFor,
+} from "@/state/workshop-store";
 import {
   graphicsFeaturesFor,
   hasCoarsePointer,
@@ -47,6 +51,7 @@ function WorkshopScene() {
   const select = useWorkshopStore((s) => s.select);
   const armedPartId = useWorkshopStore((s) => s.armedPartId);
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
+  const mergePart = useWorkshopStore((s) => s.mergePart);
   const layout = computeLayout(design);
   // Placement ghosts: one translucent preview at each legal slot for the
   // armed part, tappable to commit that exact connection (W2).
@@ -119,6 +124,12 @@ function WorkshopScene() {
         const { position, rotation } = placement;
         const selected = instance.iid === selectedIid;
         const surface = CATEGORY_SURFACE[def.category];
+        // While armed, a placed part of the same kind that can still level
+        // up is a merge target: tapping it merges instead of placing (W4).
+        const mergeTarget =
+          armedDef !== null &&
+          instance.partId === armedPartId &&
+          planMergeSelectedPart(design, instance.iid) !== null;
         return (
           // biome-ignore lint/a11y/noStaticElementInteractions: R3F scene graph node, not a DOM element
           <group
@@ -129,6 +140,10 @@ function WorkshopScene() {
               // Camera drags that end on a part are not selections.
               if (event.delta > 2) return;
               event.stopPropagation();
+              if (mergeTarget) {
+                mergePart(instance.iid);
+                return;
+              }
               select(selected ? null : instance.iid);
             }}
           >
@@ -143,8 +158,16 @@ function WorkshopScene() {
                 metalness={surface.metalness}
                 roughness={surface.roughness}
                 flatShading
-                emissive={selected ? "#ffffff" : CATEGORY_COLORS[def.category]}
-                emissiveIntensity={selected ? 0.35 : surface.emissiveBoost}
+                emissive={
+                  mergeTarget
+                    ? "#ffe08a"
+                    : selected
+                      ? "#ffffff"
+                      : CATEGORY_COLORS[def.category]
+                }
+                emissiveIntensity={
+                  mergeTarget ? 0.7 : selected ? 0.35 : surface.emissiveBoost
+                }
               />
             </mesh>
           </group>

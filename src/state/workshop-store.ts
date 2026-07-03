@@ -224,6 +224,7 @@ export interface WorkshopState {
   addPart: (partId: string) => void;
   armPart: (partId: string | null) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
+  mergePart: (iid: string) => void;
   removeSelected: () => void;
   mergeSelectedPart: () => void;
   rotateSelected: () => void;
@@ -290,6 +291,19 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       ],
     };
     if (!validateDesign(next).ok) return;
+    set({
+      ...withDesign(pushHistory(history, next)),
+      selectedIid: iid,
+      armedPartId: null,
+    });
+  },
+
+  // Merge-as-placement (W4): while armed, tapping an already-placed part
+  // of the same kind spends the copy on a level-up instead of a new part.
+  mergePart: (iid) => {
+    const { history, design } = get();
+    const next = planMergeSelectedPart(design, iid);
+    if (!next) return;
     set({
       ...withDesign(pushHistory(history, next)),
       selectedIid: iid,

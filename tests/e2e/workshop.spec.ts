@@ -87,6 +87,58 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await expect(page.getByLabel("Part palette")).toBeVisible();
 });
 
+test("workshop merges a placed part by arming its twin", async ({ page }) => {
+  // Two owned copies: one goes into the placed wheel, the second into the
+  // merge that levels it up (matches CI's storage-offline sandbox, F-048).
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 2 }],
+        catalog: [
+          {
+            id: DRIVE_WHEEL.id,
+            name: DRIVE_WHEEL.name,
+            category: DRIVE_WHEEL.category,
+            priceEmeralds: DRIVE_WHEEL.priceEmeralds,
+          },
+        ],
+      },
+    });
+  });
+
+  await page.goto("/workshop");
+  await expect(page.locator("canvas")).toBeVisible();
+
+  const place = page
+    .getByLabel("Part palette")
+    .locator("div")
+    .filter({ hasText: "Drive Wheel" })
+    .getByRole("button");
+  // Place one wheel.
+  await place.click();
+  const slots = page.getByLabel("Placement slots");
+  await slots
+    .getByRole("button", { name: /^Place on/ })
+    .first()
+    .click();
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+
+  // Arm the same part again: the placed wheel is now a merge target (W4),
+  // offered as a gold slot instead of (or beside) an empty placement spot.
+  await place.click();
+  const mergeButton = slots.getByRole("button", {
+    name: /^Merge into Drive Wheel/,
+  });
+  await expect(mergeButton).toBeVisible();
+  await mergeButton.click();
+  // The merge disarms and levels the existing wheel; no new part appears.
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  await expect(slots).not.toBeVisible();
+  const inspector = page.getByRole("region", { name: "Selected part" });
+  await expect(inspector.getByText("Lv 2")).toBeVisible();
+});
+
 test("workshop tabs keep panels on-screen on portrait phones", async ({
   page,
 }) => {

@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.175-part-inspector";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.176-merge-on-bench";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.176",
+      date: "2026-07-03",
+      title: "Merge on the bench",
+      intro: "Upgrade a part without leaving the build.",
+      changes: [
+        {
+          build,
+          text: "While you are placing a part, any matching part already on the bot glows gold: tap it to merge the two into a stronger one instead of adding another.",
+        },
+        {
+          build,
+          text: "The placement list offers the merge right beside the open spots, and it works even when the bot has no room left for a new part.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.175",
       date: "2026-07-03",

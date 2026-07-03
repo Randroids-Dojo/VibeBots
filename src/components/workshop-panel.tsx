@@ -143,6 +143,7 @@ export function WorkshopPanel() {
   const history = useWorkshopStore((s) => s.history);
   const armPart = useWorkshopStore((s) => s.armPart);
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
+  const mergePart = useWorkshopStore((s) => s.mergePart);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
   const mergeSelectedPart = useWorkshopStore((s) => s.mergeSelectedPart);
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
@@ -188,6 +189,15 @@ export function WorkshopPanel() {
   const mergeEnabled = selectedMergePlan !== null && mergeInventoryAllows;
   const armedDef = armedPartId ? PART_CATALOG[armedPartId] : null;
   const placementSlots = armedDef ? validSlotsFor(design, armedDef) : [];
+  // Merge targets for the armed part: placed copies that can still level
+  // up. Tapping one spends the armed copy on a merge instead of a place.
+  const mergeTargets = armedDef
+    ? design.parts.filter(
+        (p) =>
+          p.partId === armedPartId &&
+          planMergeSelectedPart(design, p.iid) !== null,
+      )
+    : [];
 
   if (matchup) {
     return (
@@ -415,13 +425,14 @@ export function WorkshopPanel() {
                     opacity: 0.7,
                   }}
                 >
-                  Tap a glowing spot on the bot, or a slot below.
+                  Tap a glowing spot to place, or a gold part on the bot to
+                  merge.
                 </p>
-                {placementSlots.length === 0 ? (
+                {placementSlots.length === 0 && mergeTargets.length === 0 ? (
                   <p
                     style={{ margin: 0, fontSize: "0.8rem", color: "#ff6b6b" }}
                   >
-                    No open spot fits this part right now.
+                    No open spot or merge for this part right now.
                   </p>
                 ) : (
                   <div
@@ -454,6 +465,27 @@ export function WorkshopPanel() {
                         </button>
                       );
                     })}
+                    {mergeTargets.map((target) => {
+                      const level = partMergeLevel(target);
+                      return (
+                        <button
+                          key={`merge:${target.iid}`}
+                          type="button"
+                          onClick={() => mergePart(target.iid)}
+                          style={{
+                            textAlign: "left",
+                            background: "#2b2517",
+                            color: "#ffe08a",
+                            border: "1px solid #6b5a2a",
+                            borderRadius: 6,
+                            padding: "5px 10px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Merge into {armedDef.name} (Lv {level} to {level + 1})
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 <button
@@ -480,8 +512,16 @@ export function WorkshopPanel() {
                   const inventoryAllows =
                     inventory.state === "sandbox" ||
                     (inventory.state === "ready" && available > 0);
+                  // Armable when a copy can be placed OR an existing copy
+                  // can be merged (a full bot still upgrades in place, W4).
+                  const canMergeExisting = design.parts.some(
+                    (p) =>
+                      p.partId === part.id &&
+                      planMergeSelectedPart(design, p.iid) !== null,
+                  );
                   const free =
-                    planAddPart(design, part) !== null && inventoryAllows;
+                    (planAddPart(design, part) !== null || canMergeExisting) &&
+                    inventoryAllows;
                   const armedHere = armedPartId === part.id;
                   return (
                     <div

@@ -203,6 +203,46 @@ describe("W2 tap-to-place slots", () => {
   });
 });
 
+describe("W4 merge as placement", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("merges a specific placed part by iid and disarms", () => {
+    store().addPart("drive-wheel");
+    const wheelIid = store().selectedIid;
+    expect(wheelIid).not.toBeNull();
+    if (!wheelIid) return;
+    // Arm the same part, then merge the existing copy instead of placing.
+    store().armPart("drive-wheel");
+    store().mergePart(wheelIid);
+    const merged = store().design.parts.find((p) => p.iid === wheelIid);
+    expect(merged?.mergeLevel).toBe(2);
+    // The merge spends the arming and selects the upgraded part.
+    expect(store().armedPartId).toBeNull();
+    expect(store().selectedIid).toBe(wheelIid);
+    // History captured it: undo returns to level 1.
+    store().undo();
+    expect(
+      store().design.parts.find((p) => p.iid === wheelIid)?.mergeLevel,
+    ).toBeUndefined();
+  });
+
+  it("refuses to merge a maxed or non-mergeable part", () => {
+    store().addPart("ram-spike");
+    const spikeIid = store().selectedIid;
+    if (!spikeIid) return;
+    store().mergePart(spikeIid); // level 2
+    store().mergePart(spikeIid); // level 3 (max)
+    const before = store().design;
+    store().mergePart(spikeIid); // no-op at max
+    expect(store().design).toBe(before);
+    // The core never merges.
+    store().mergePart("core");
+    expect(store().design.parts[0].mergeLevel).toBeUndefined();
+  });
+});
+
 describe("B3 temperament", () => {
   it("sets behavior with neutral fill and history undo", () => {
     store().setBehavior({ aggression: 0.9 });

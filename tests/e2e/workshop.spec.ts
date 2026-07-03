@@ -2,11 +2,40 @@ import { expect, test } from "@playwright/test";
 import { DRIVE_WHEEL } from "../../src/sim/parts";
 
 test("workshop builds and undoes parts", async ({ page }) => {
+  // Pin inventory so the run does not depend on real storage: placing a
+  // Drive Wheel spends one owned copy and merging it spends a second, so
+  // stock two. Matches CI's storage-offline sandbox (memory F-048: a
+  // local .env.local attaches real Neon and leaves the palette
+  // "Checking inventory" past the test timeout).
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 2 }],
+        catalog: [
+          {
+            id: DRIVE_WHEEL.id,
+            name: DRIVE_WHEEL.name,
+            category: DRIVE_WHEEL.category,
+            priceEmeralds: DRIVE_WHEEL.priceEmeralds,
+          },
+        ],
+      },
+    });
+  });
+
   await page.goto("/workshop");
   await expect(page.locator("canvas")).toBeVisible();
   await expect(page.getByRole("link", { name: "Back to mine" })).toBeVisible();
-  await expect(page.getByText("My Bot: 1 part", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("My Bot: 1 part", { exact: false }),
+  ).toBeVisible();
 
+  // The Build tab is the default: palette and part actions live there.
+  await expect(page.getByRole("tab", { name: "Build" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   const palette = page.getByLabel("Part palette");
   const driveWheelAdd = palette
     .locator("div")
@@ -21,7 +50,16 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect(page.getByText("My Bot: 1 part", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("My Bot: 1 part", { exact: false }),
+  ).toBeVisible();
+
+  // Tabs swap panels: Tune shows temperament, Build hides it.
+  await page.getByRole("tab", { name: "Tune" }).click();
+  await expect(page.getByLabel("Temperament")).toBeVisible();
+  await expect(page.getByLabel("Part palette")).not.toBeVisible();
+  await page.getByRole("tab", { name: "Build" }).click();
+  await expect(page.getByLabel("Part palette")).toBeVisible();
 
   // Test arena (REQ-009): fight the current bot against the CPU Brawler.
   await page.getByRole("button", { name: "Test fight vs Brawler" }).click();
@@ -31,25 +69,25 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await expect(page.getByLabel("Part palette")).toBeVisible();
 });
 
-test("workshop panels stack on portrait phones", async ({ page }) => {
+test("workshop tabs keep panels on-screen on portrait phones", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/workshop");
   const controls = page.getByLabel("Workshop build controls");
-  const shop = page.getByLabel("Parts shop");
   await expect(controls).toBeVisible();
-  await expect(shop).toBeVisible();
-
   const controlsBox = await controls.boundingBox();
-  const shopBox = await shop.boundingBox();
   expect(controlsBox).not.toBeNull();
-  expect(shopBox).not.toBeNull();
-  if (!controlsBox || !shopBox) return;
-
+  if (!controlsBox) return;
   expect(controlsBox.x).toBeGreaterThanOrEqual(0);
-  expect(shopBox.x).toBeGreaterThanOrEqual(0);
   expect(controlsBox.x + controlsBox.width).toBeLessThanOrEqual(390);
-  expect(shopBox.x + shopBox.width).toBeLessThanOrEqual(390);
-  expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(shopBox.y + 1);
+  // The active panel stops above the lower half so the bot stays visible.
+  expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(844 * 0.62);
+
+  // One panel at a time: switching to Shop replaces the palette.
+  await page.getByRole("tab", { name: "Shop" }).click();
+  await expect(page.getByLabel("Parts shop")).toBeVisible();
+  await expect(page.getByLabel("Part palette")).not.toBeVisible();
 });
 
 test("workshop buys parts and refreshes balance", async ({ page }) => {
@@ -82,8 +120,9 @@ test("workshop buys parts and refreshes balance", async ({ page }) => {
     });
   });
 
-  // Parts buying lives inside the Workshop now; the standalone /shop is gone.
+  // Parts buying lives in the workshop's Shop tab.
   await page.goto("/workshop");
+  await page.getByRole("tab", { name: "Shop" }).click();
   const shop = page.getByLabel("Parts shop");
   await expect(shop).toBeVisible();
   await expect(shop.locator("p").first()).toContainText("20 vibes");
@@ -111,6 +150,7 @@ test("garage saves and lists designs (needs storage)", async ({
   );
 
   await page.goto("/workshop");
+  await page.getByRole("tab", { name: "Garage" }).click();
   const garage = page.getByLabel("Saved designs");
   await expect(garage).toBeVisible();
   const name = `E2E Bot ${Date.now()}`;

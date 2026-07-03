@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest workshop glow-up note complete", () => {
+  it("keeps the latest workshop tabs note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.172-workshop-glow-up");
+    expect(release.noticeId).toBe("2026-07-03-0.1.173-workshop-tabs");
     expect(latestNote).toMatchObject({
-      version: "0.1.172",
-      title: "Workshop glow-up",
-      intro: "The build bench finally got the pit's lighting.",
+      version: "0.1.173",
+      title: "Workshop tabs",
+      intro: "The build bench is organized now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Your bot under construction now uses the arena's material language: weapons shine like polished steel, cores glow, and a studio light rig with cool and warm accents rakes the hull.",
-      "On phones the part panels no longer bury the bench: the lists pin to the top and bottom with your bot always visible between them.",
-      "Reflections and bloom join in where the hardware pays for them easily. MINE_VERSION and SIM_VERSION are unchanged.",
+      "The workshop's controls are sorted into Build, Tune, Garage, and Shop tabs, so you see one clear set of options at a time instead of a stack of panels.",
+      "A slim header stays pinned above your bot with its name, whether it is arena-legal, Undo and Redo, and the buttons to test a fight, all in reach on every tab.",
+      "The parts shop moved into its own tab inside the workshop instead of floating over the bench. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });
 

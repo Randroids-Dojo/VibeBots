@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.172-workshop-glow-up";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.173-workshop-tabs";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.173",
+      date: "2026-07-03",
+      title: "Workshop tabs",
+      intro: "The build bench is organized now.",
+      changes: [
+        {
+          build,
+          text: "The workshop's controls are sorted into Build, Tune, Garage, and Shop tabs, so you see one clear set of options at a time instead of a stack of panels.",
+        },
+        {
+          build,
+          text: "A slim header stays pinned above your bot with its name, whether it is arena-legal, Undo and Redo, and the buttons to test a fight, all in reach on every tab.",
+        },
+        {
+          build,
+          text: "The parts shop moved into its own tab inside the workshop instead of floating over the bench. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.172",
       date: "2026-07-03",

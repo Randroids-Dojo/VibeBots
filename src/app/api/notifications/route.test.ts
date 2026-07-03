@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-03-0.1.172-workshop-glow-up",
-      releaseSummary:
-        "Workshop glow-up: The build bench finally got the pit's lighting.",
+      releaseNoticeId: "2026-07-03-0.1.173-workshop-tabs",
+      releaseSummary: "Workshop tabs: The build bench is organized now.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-03-0.1.172-workshop-glow-up",
+      releaseNoticeId: "2026-07-03-0.1.173-workshop-tabs",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves } from "@/components/design-saves";
+import { PartsShop } from "@/components/parts-shop";
 import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
@@ -72,6 +73,7 @@ export function WorkshopPanel() {
   const [inventory, setInventory] = useState<WorkshopInventory>({
     state: "loading",
   });
+  const [tab, setTab] = useState<"build" | "tune" | "garage" | "shop">("build");
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -266,284 +268,339 @@ export function WorkshopPanel() {
     );
   }
 
+  const tabs = [
+    ["build", "Build"],
+    ["tune", "Tune"],
+    ["garage", "Garage"],
+    ["shop", "Shop"],
+  ] as const;
+
   return (
     <div className="workshop-stage">
       <WorkshopCanvas />
+
+      <header className="workshop-header">
+        <span className="workshop-header-title">
+          {design.name}: {design.parts.length}{" "}
+          {design.parts.length === 1 ? "part" : "parts"}
+          {validation.ok ? (
+            <span style={{ color: "#54e0c7", marginLeft: 8 }}>valid</span>
+          ) : (
+            <span style={{ color: "#ff6b6b", marginLeft: 8 }}>
+              {validation.errors.length}{" "}
+              {validation.errors.length === 1 ? "issue" : "issues"}
+            </span>
+          )}
+        </span>
+        <div className="workshop-header-actions">
+          <button type="button" onClick={undo} disabled={!canUndo(history)}>
+            Undo
+          </button>
+          <button type="button" onClick={redo} disabled={!canRedo(history)}>
+            Redo
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEndInfo(null);
+              setVerification({ state: "idle" });
+              setMatchup([CPU_BRAWLER_DESIGN, design]);
+            }}
+            disabled={!validation.ok}
+            title={validation.ok ? undefined : "fix validity errors first"}
+            style={{
+              background: validation.ok ? "#54e0c7" : "#161b28",
+              color: validation.ok ? "#0b0e14" : "#5a6378",
+              border: "1px solid #344061",
+              borderRadius: 6,
+              padding: "4px 12px",
+              fontWeight: 600,
+              cursor: validation.ok ? "pointer" : "not-allowed",
+            }}
+          >
+            Test fight vs Brawler
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              setEndInfo(null);
+              setVerification({ state: "idle" });
+              setRivalState("pending");
+              try {
+                const res = await fetch("/api/match/opponent");
+                if (!res.ok) {
+                  setRivalState(res.status === 404 ? "none" : "error");
+                  return;
+                }
+                const body = (await res.json()) as { design: BotDesign };
+                setRivalState("idle");
+                setMatchup([body.design, design]);
+              } catch {
+                setRivalState("error");
+              }
+            }}
+            disabled={!validation.ok || rivalState === "pending"}
+            title={validation.ok ? undefined : "fix validity errors first"}
+            style={{
+              background: validation.ok ? "#7aa8ff" : "#161b28",
+              color: validation.ok ? "#0b0e14" : "#5a6378",
+              border: "1px solid #344061",
+              borderRadius: 6,
+              padding: "4px 12px",
+              fontWeight: 600,
+              cursor: validation.ok ? "pointer" : "not-allowed",
+            }}
+          >
+            {rivalState === "pending" ? "Finding rival..." : "Fight a rival"}
+          </button>
+        </div>
+        {rivalState === "none" && (
+          <p style={{ margin: 0, fontSize: "0.78rem", opacity: 0.7 }}>
+            No rival designs saved yet; fight the stock bots meanwhile.
+          </p>
+        )}
+        {rivalState === "error" && (
+          <p style={{ margin: 0, fontSize: "0.78rem", color: "#ff6b6b" }}>
+            Could not reach the rival ladder.
+          </p>
+        )}
+      </header>
+
+      <div className="workshop-tabs" role="tablist" aria-label="Workshop tabs">
+        {tabs.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={tab === id ? "workshop-tab-active" : undefined}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       <aside
         className="workshop-build-panels"
         aria-label="Workshop build controls"
       >
-        <section style={panelStyle} aria-label="Part palette">
-          <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>Parts</h2>
-          {Object.values(PART_CATALOG)
-            .filter((p) => p.category !== "core")
-            .map((part) => {
-              const owned =
-                inventory.state === "ready"
-                  ? (inventory.counts.get(part.id) ?? 0)
-                  : 0;
-              const used = usedPartCounts.get(part.id) ?? 0;
-              const available = Math.max(0, owned - used);
-              const inventoryAllows =
-                inventory.state === "sandbox" ||
-                (inventory.state === "ready" && available > 0);
-              const free =
-                planAddPart(design, part) !== null && inventoryAllows;
-              return (
-                <div
-                  key={part.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 6,
-                  }}
-                >
-                  <span style={{ fontSize: "0.85rem" }}>
-                    {part.name}
-                    <span style={{ opacity: 0.5 }}> ({part.category})</span>
-                    {inventory.state === "ready" ? (
-                      <span
+        {tab === "build" && (
+          <>
+            <section style={panelStyle} aria-label="Part palette">
+              <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>Parts</h2>
+              {Object.values(PART_CATALOG)
+                .filter((p) => p.category !== "core")
+                .map((part) => {
+                  const owned =
+                    inventory.state === "ready"
+                      ? (inventory.counts.get(part.id) ?? 0)
+                      : 0;
+                  const used = usedPartCounts.get(part.id) ?? 0;
+                  const available = Math.max(0, owned - used);
+                  const inventoryAllows =
+                    inventory.state === "sandbox" ||
+                    (inventory.state === "ready" && available > 0);
+                  const free =
+                    planAddPart(design, part) !== null && inventoryAllows;
+                  return (
+                    <div
+                      key={part.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 6,
+                      }}
+                    >
+                      <span style={{ fontSize: "0.85rem" }}>
+                        {part.name}
+                        <span style={{ opacity: 0.5 }}> ({part.category})</span>
+                        {inventory.state === "ready" ? (
+                          <span
+                            style={{
+                              color: available > 0 ? "#54e0c7" : "#7f879a",
+                            }}
+                          >
+                            {" "}
+                            x{available}
+                          </span>
+                        ) : null}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => addPart(part.id)}
+                        disabled={!free}
+                        title={
+                          inventory.state === "loading"
+                            ? "Checking inventory"
+                            : inventory.state === "ready" && available <= 0
+                              ? "None owned"
+                              : undefined
+                        }
                         style={{
-                          color: available > 0 ? "#54e0c7" : "#7f879a",
+                          cursor: free ? "pointer" : "not-allowed",
+                          background: free ? "#26304a" : "#161b28",
+                          color: free ? "#e6e8ee" : "#5a6378",
+                          border: "1px solid #344061",
+                          borderRadius: 6,
+                          padding: "3px 10px",
                         }}
                       >
-                        {" "}
-                        x{available}
-                      </span>
-                    ) : null}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => addPart(part.id)}
-                    disabled={!free}
-                    title={
-                      inventory.state === "loading"
-                        ? "Checking inventory"
-                        : inventory.state === "ready" && available <= 0
-                          ? "None owned"
-                          : undefined
+                        Add
+                      </button>
+                    </div>
+                  );
+                })}
+            </section>
+
+            <section style={panelStyle} aria-label="Actions">
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={removeSelected}
+                  disabled={!selectedRemovable}
+                  title={selectedIid ? undefined : "select a part in the scene"}
+                >
+                  Remove selected
+                </button>
+                <button
+                  type="button"
+                  onClick={mergeSelectedPart}
+                  disabled={!mergeEnabled}
+                  title={
+                    selectedIid === null
+                      ? "select a part in the scene"
+                      : selectedMergePlan === null
+                        ? "selected part cannot merge"
+                        : inventory.state === "loading"
+                          ? "Checking inventory"
+                          : inventory.state === "ready" &&
+                              selectedAvailableAfterUse <= 0
+                            ? "Needs another owned copy"
+                            : undefined
+                  }
+                >
+                  Merge selected
+                </button>
+                <button
+                  type="button"
+                  onClick={rotateSelected}
+                  disabled={planRotateSelected(design, selectedIid) === null}
+                  title="quarter-turn the selected part around its mount"
+                >
+                  Rotate
+                </button>
+              </div>
+              {selectedDef && (
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: "0.8rem",
+                    opacity: 0.75,
+                  }}
+                >
+                  selected: {selectedDef.name} ({selectedIid}), level{" "}
+                  {selectedMergeLevel}, durability {selectedDurability}/
+                  {selectedDef.durability}
+                </p>
+              )}
+            </section>
+          </>
+        )}
+
+        {tab === "tune" && (
+          <>
+            <section style={panelStyle} aria-label="Design stats">
+              <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                Design stats
+              </h2>
+              {validation.ok ? (
+                <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.8 }}>
+                  mass {validation.stats.totalMass.toFixed(2)}, power{" "}
+                  {validation.stats.powerDraw}/{validation.stats.powerSupply}
+                  <span style={{ color: "#54e0c7" }}> valid</span>
+                </p>
+              ) : (
+                <ul
+                  style={{
+                    margin: 0,
+                    paddingLeft: 16,
+                    fontSize: "0.8rem",
+                    color: "#ff6b6b",
+                  }}
+                >
+                  {validation.errors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section style={panelStyle} aria-label="Temperament">
+              <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                Temperament
+              </h2>
+              {(
+                [
+                  ["aggression", "Aggression", "cautious", "relentless"],
+                  ["flankBias", "Flanking", "hugs close", "swings wide"],
+                  ["patience", "Patience", "brief resets", "long resets"],
+                ] as const
+              ).map(([key, label, low, high]) => (
+                <label
+                  key={key}
+                  style={{
+                    display: "block",
+                    fontSize: "0.78rem",
+                    marginBottom: 8,
+                  }}
+                >
+                  {label}
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={behavior[key]}
+                    aria-label={`${label} slider`}
+                    onChange={(event) =>
+                      setBehavior({ [key]: Number(event.target.value) })
                     }
+                    style={{ width: "100%", display: "block" }}
+                  />
+                  <span
                     style={{
-                      cursor: free ? "pointer" : "not-allowed",
-                      background: free ? "#26304a" : "#161b28",
-                      color: free ? "#e6e8ee" : "#5a6378",
-                      border: "1px solid #344061",
-                      borderRadius: 6,
-                      padding: "3px 10px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      opacity: 0.6,
                     }}
                   >
-                    Add
-                  </button>
-                </div>
-              );
-            })}
-        </section>
-
-        <section style={panelStyle} aria-label="Design stats">
-          <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
-            {design.name}: {design.parts.length}{" "}
-            {design.parts.length === 1 ? "part" : "parts"}
-          </h2>
-          {validation.ok ? (
-            <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.8 }}>
-              mass {validation.stats.totalMass.toFixed(2)}, power{" "}
-              {validation.stats.powerDraw}/{validation.stats.powerSupply}
-              <span style={{ color: "#54e0c7" }}> valid</span>
-            </p>
-          ) : (
-            <ul
-              style={{
-                margin: 0,
-                paddingLeft: 16,
-                fontSize: "0.8rem",
-                color: "#ff6b6b",
-              }}
-            >
-              {validation.errors.map((error) => (
-                <li key={error}>{error}</li>
+                    <span>{low}</span>
+                    <span>{high}</span>
+                  </span>
+                </label>
               ))}
-            </ul>
-          )}
-        </section>
+              <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.65 }}>
+                Bots fight on their own; temperament biases how this one does
+                it.
+              </p>
+            </section>
+          </>
+        )}
 
-        <section style={panelStyle} aria-label="Temperament">
-          <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
-            Temperament
-          </h2>
-          {(
-            [
-              ["aggression", "Aggression", "cautious", "relentless"],
-              ["flankBias", "Flanking", "hugs close", "swings wide"],
-              ["patience", "Patience", "brief resets", "long resets"],
-            ] as const
-          ).map(([key, label, low, high]) => (
-            <label
-              key={key}
-              style={{
-                display: "block",
-                fontSize: "0.78rem",
-                marginBottom: 8,
-              }}
-            >
-              {label}
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={behavior[key]}
-                aria-label={`${label} slider`}
-                onChange={(event) =>
-                  setBehavior({ [key]: Number(event.target.value) })
-                }
-                style={{ width: "100%", display: "block" }}
-              />
-              <span
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  opacity: 0.6,
-                }}
-              >
-                <span>{low}</span>
-                <span>{high}</span>
-              </span>
-            </label>
-          ))}
-          <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.65 }}>
-            Bots fight on their own; temperament biases how this one does it.
-          </p>
-        </section>
+        {tab === "garage" && (
+          <>
+            <DesignSaves />
+            <section style={panelStyle} aria-label="Danger zone">
+              <button type="button" onClick={reset}>
+                Reset to starter bot
+              </button>
+            </section>
+          </>
+        )}
 
-        <section style={panelStyle} aria-label="Actions">
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" onClick={undo} disabled={!canUndo(history)}>
-              Undo
-            </button>
-            <button type="button" onClick={redo} disabled={!canRedo(history)}>
-              Redo
-            </button>
-            <button
-              type="button"
-              onClick={removeSelected}
-              disabled={!selectedRemovable}
-              title={selectedIid ? undefined : "select a part in the scene"}
-            >
-              Remove selected
-            </button>
-            <button
-              type="button"
-              onClick={mergeSelectedPart}
-              disabled={!mergeEnabled}
-              title={
-                selectedIid === null
-                  ? "select a part in the scene"
-                  : selectedMergePlan === null
-                    ? "selected part cannot merge"
-                    : inventory.state === "loading"
-                      ? "Checking inventory"
-                      : inventory.state === "ready" &&
-                          selectedAvailableAfterUse <= 0
-                        ? "Needs another owned copy"
-                        : undefined
-              }
-            >
-              Merge selected
-            </button>
-            <button
-              type="button"
-              onClick={rotateSelected}
-              disabled={planRotateSelected(design, selectedIid) === null}
-              title="quarter-turn the selected part around its mount"
-            >
-              Rotate
-            </button>
-            <button type="button" onClick={reset}>
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEndInfo(null);
-                setVerification({ state: "idle" });
-                setMatchup([CPU_BRAWLER_DESIGN, design]);
-              }}
-              disabled={!validation.ok}
-              title={validation.ok ? undefined : "fix validity errors first"}
-              style={{
-                background: validation.ok ? "#54e0c7" : "#161b28",
-                color: validation.ok ? "#0b0e14" : "#5a6378",
-                border: "1px solid #344061",
-                borderRadius: 6,
-                padding: "4px 12px",
-                fontWeight: 600,
-                cursor: validation.ok ? "pointer" : "not-allowed",
-              }}
-            >
-              Test fight vs Brawler
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                setEndInfo(null);
-                setVerification({ state: "idle" });
-                setRivalState("pending");
-                try {
-                  const res = await fetch("/api/match/opponent");
-                  if (!res.ok) {
-                    setRivalState(res.status === 404 ? "none" : "error");
-                    return;
-                  }
-                  const body = (await res.json()) as { design: BotDesign };
-                  setRivalState("idle");
-                  setMatchup([body.design, design]);
-                } catch {
-                  setRivalState("error");
-                }
-              }}
-              disabled={!validation.ok || rivalState === "pending"}
-              title={validation.ok ? undefined : "fix validity errors first"}
-              style={{
-                background: validation.ok ? "#7aa8ff" : "#161b28",
-                color: validation.ok ? "#0b0e14" : "#5a6378",
-                border: "1px solid #344061",
-                borderRadius: 6,
-                padding: "4px 12px",
-                fontWeight: 600,
-                cursor: validation.ok ? "pointer" : "not-allowed",
-              }}
-            >
-              {rivalState === "pending" ? "Finding rival..." : "Fight a rival"}
-            </button>
-          </div>
-          {rivalState === "none" && (
-            <p style={{ margin: "8px 0 0", fontSize: "0.8rem", opacity: 0.7 }}>
-              No rival designs saved yet; fight the stock bots meanwhile.
-            </p>
-          )}
-          {rivalState === "error" && (
-            <p
-              style={{
-                margin: "8px 0 0",
-                fontSize: "0.8rem",
-                color: "#ff6b6b",
-              }}
-            >
-              Could not reach the rival ladder.
-            </p>
-          )}
-          {selectedDef && (
-            <p style={{ margin: "8px 0 0", fontSize: "0.8rem", opacity: 0.75 }}>
-              selected: {selectedDef.name} ({selectedIid}), level{" "}
-              {selectedMergeLevel}, durability {selectedDurability}/
-              {selectedDef.durability}
-            </p>
-          )}
-        </section>
-
-        <DesignSaves />
+        {tab === "shop" && <PartsShop />}
       </aside>
     </div>
   );

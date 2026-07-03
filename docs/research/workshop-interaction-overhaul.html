@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Workshop Interaction Overhaul</title>
+</head>
+<body>
+<main>
+  <h1>Workshop Interaction Overhaul</h1>
+  <p>Research and slice plan, 2026-07-03 (user-directed: "streamline and make the workshop not only more intuitive, but interactive. Maybe tabs for clearer navigation of options. Intuitive merge for upgrading. Easily see and pick your parts and their exact placement instead of menu driven.").</p>
+
+  <section>
+    <h2>Current state (what the code actually does)</h2>
+    <ul>
+      <li><strong>Placement is blind.</strong> The palette's Add button calls <code>planAddPart</code>, which commits the FIRST free connector (in design traversal order) whose result validates. The player has no preview and no choice of slot; building a specific silhouette (REQ-003) means add-remove-add roulette.</li>
+      <li><strong>Merge is opaque.</strong> Merging (REQ-002: spend an owned duplicate to raise a part instance's durability, cap level 3) requires selecting a part in the scene, then finding the "Merge selected" button in a separate Actions card. No preview of the durability gain, no signal for which parts can merge, no visual tell of merge level on the mesh.</li>
+      <li><strong>Selection feedback is displaced.</strong> The selected part's name, level, and durability render as a text line at the bottom of the Actions card, far from the 3D selection; Rotate is a blind cycle button.</li>
+      <li><strong>Six stacked cards, no hierarchy.</strong> Parts palette, Design stats, Temperament, Actions, Garage, plus the separate parts-shop panel. On portrait everything shares two pinned scroll stacks (0.1.172 gave the canvas a band, but the panels are still one long pile).</li>
+      <li><strong>Foundations are good.</strong> The design is a validated tree with deterministic layout (<code>computeLayout</code>: exact quaternions, shared with assembly), pure planners (<code>planAddPart</code>, <code>planRotateSelected</code>, <code>planMergeSelectedPart</code>), full undo history, an inventory budget, and 3D click-selection already works. The overhaul is UI plumbing over solid sim data; no schema, SIM_VERSION, or MINE_VERSION changes anywhere in the plan.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Design principles</h2>
+    <ul>
+      <li>The canvas is the primary surface: choose slots, inspect, and merge on the bot itself; panels become secondary chrome.</li>
+      <li>Every 3D affordance keeps a DOM mirror (labeled buttons) for accessibility and deterministic e2e, per the pinned-controls lesson in Rule 12.</li>
+      <li>Pure planners stay the truth: new interactions only add <code>validSlotsFor</code>-style pure functions plus thin canvas glue, all unit-testable.</li>
+      <li>Phone-first: verified at 390x760 portrait every slice (project memory: desktop aspect has hidden mobile breakage before).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Slices</h2>
+    <article>
+      <h3>W1: Tabs and persistent header (streamline)</h3>
+      <p>Reorganize the panel pile into tabs: <strong>Build</strong> (palette + selected-part inspector), <strong>Tune</strong> (temperament + design stats), <strong>Garage</strong> (saves, record), <strong>Shop</strong> (absorbs the separate parts-shop panel). A slim persistent header keeps the bot name, validity chip, Undo/Redo, and the Test fight / Fight a rival CTAs always reachable. One tab visible at a time doubles the canvas on portrait. Pure layout; no behavior change, so it lands first and everything later slots into its tab home.</p>
+    </article>
+    <article>
+      <h3>W2: Tap-to-place with slot ghosts (the headline)</h3>
+      <p>Tapping a palette part ARMS it instead of instantly placing: the canvas renders translucent ghost previews of the part at every valid slot (new pure <code>validSlotsFor(design, part)</code> = all free compatible connectors whose resulting design validates, with world poses from <code>computeLayout</code> math). Tapping a ghost commits that exact connection; tapping empty space or the part again disarms. The Build tab simultaneously lists the same slots as labeled buttons ("Place on Core Cube front") as the accessible/e2e mirror. Armed state respects the inventory budget exactly as Add does today.</p>
+    </article>
+    <article>
+      <h3>W3: Part inspector (see what you selected, act where you look)</h3>
+      <p>Selecting a part opens a compact inspector chip (DOM overlay near the canvas band): part name, merge-level pips, durability bar, and the three contextual actions with previews: Rotate (shows which quarter-turn comes next), Merge ("+N durability, consumes 1 of x3 owned"), Remove (disabled with reason when the part has children). The buried "selected: ..." text line and the global Remove/Merge/Rotate buttons retire. Merge level also becomes visible on the mesh itself (emissive tier or edge badge) so upgrades read in the scene.</p>
+    </article>
+    <article>
+      <h3>W4: Merge as a placement gesture (intuitive upgrading)</h3>
+      <p>While a part is armed (W2), any placed instance of the SAME part highlights as a merge target alongside the empty-slot ghosts; tapping it consumes the armed copy as a merge instead of a placement, with the durability preview from W3. Upgrading becomes "put the duplicate onto the part it upgrades", one consistent motion with placement, and the inspector's Merge button stays as the second path.</p>
+    </article>
+    <article>
+      <h3>W5: Feel polish (cut line)</h3>
+      <p>Placement snap animation and SFX, hover/selection highlighting of the joining connector pair, ghost hit-target sizing pass for thumbs. Optional; ship only if W1-W4 land clean.</p>
+    </article>
+  </section>
+
+  <section>
+    <h2>Testing and risk</h2>
+    <ul>
+      <li>Unit: <code>validSlotsFor</code> completeness vs <code>planAddPart</code> (its first slot must be in the set), slot commit equivalence, merge-target enumeration, inventory gating.</li>
+      <li>E2E: workshop spec grows tab navigation, arm-and-place through the DOM slot list, merge-by-gesture, inspector actions; portrait captures at 390x760 each slice.</li>
+      <li>Risk: ghost tap precision on phones (mitigated by the DOM slot mirror and enlarged hit meshes); e2e churn in workshop.spec (rewritten once in W2, stable after); no determinism risk anywhere (BotDesign schema and sim untouched).</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

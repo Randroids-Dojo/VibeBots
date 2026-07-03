@@ -67,11 +67,7 @@ export function PartsShop() {
   if (shop.state === "loading") return null;
   if (shop.state === "unavailable") {
     return (
-      <aside
-        className="parts-shop-panel"
-        style={panelStyle}
-        aria-label="Parts shop"
-      >
+      <aside style={panelStyle} aria-label="Parts shop">
         <p style={{ margin: 0, opacity: 0.7, fontSize: "0.85rem" }}>
           Buying parts needs storage; it is not configured in this environment.
         </p>
@@ -104,11 +100,7 @@ export function PartsShop() {
   };
 
   return (
-    <aside
-      className="parts-shop-panel"
-      style={panelStyle}
-      aria-label="Parts shop"
-    >
+    <aside style={panelStyle} aria-label="Parts shop">
       <p style={{ margin: "0 0 12px", fontSize: "0.95rem" }}>
         <span style={{ color: "#f5c542", fontWeight: 700 }}>
           {data.emeralds} vibes

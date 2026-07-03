@@ -141,48 +141,105 @@ a {
   height: 100dvh;
 }
 
-.workshop-build-panels {
+.workshop-header {
+  position: absolute;
+  top: 14px;
+  left: 170px;
+  right: 20px;
+  z-index: 11;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(17, 21, 31, 0.92);
+  border: 1px solid #26304a;
+  border-radius: 10px;
+}
+
+.workshop-header-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.workshop-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workshop-tabs {
   position: absolute;
   top: 70px;
   left: 20px;
+  z-index: 11;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(17, 21, 31, 0.92);
+  border: 1px solid #26304a;
+  border-radius: 10px;
+}
+
+.workshop-tabs button {
+  background: transparent;
+  color: #aeb6c8;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.workshop-tabs button.workshop-tab-active {
+  background: #26304a;
+  color: #e6e8ee;
+  border-color: #344061;
+}
+
+.workshop-build-panels {
+  position: absolute;
+  top: 118px;
+  left: 20px;
   z-index: 10;
   display: flex;
-  width: 250px;
-  max-height: calc(100dvh - 90px);
+  width: 280px;
+  max-height: calc(100dvh - 138px);
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
 }
 
-.parts-shop-panel {
-  position: fixed;
-  top: 70px;
-  right: 20px;
-  z-index: 10;
-  width: 270px;
-  max-height: calc(100dvh - 90px);
-  overflow-y: auto;
-}
-
 @media (max-width: 700px) and (orientation: portrait) {
-  /* The two panel stacks used to cover the whole viewport, leaving the
-   * build canvas as invisible wallpaper (user-reported). They now pin to
-   * the top and bottom with a clear band between 40dvh and 72dvh, so the
-   * bot under construction stays on screen while both lists scroll. */
-  .workshop-build-panels {
+  /* One tab panel at a time (W1): header pins under the back link, the
+   * tab bar under it, and the single active panel caps at 38dvh so the
+   * bot under construction always keeps the lower half of the screen. */
+  .workshop-header {
     position: fixed;
-    top: 64px;
-    right: 12px;
+    top: 60px;
     left: 12px;
-    width: auto;
-    max-height: calc(40dvh - 72px);
+    right: 12px;
   }
 
-  .parts-shop-panel {
-    top: 72dvh;
+  .workshop-tabs {
+    position: fixed;
+    top: 148px;
+    left: 12px;
+    right: 12px;
+    justify-content: space-between;
+  }
+
+  .workshop-tabs button {
+    flex: 1;
+    padding: 6px 0;
+  }
+
+  .workshop-build-panels {
+    position: fixed;
+    top: 196px;
     right: 12px;
     left: 12px;
     width: auto;
-    max-height: calc(28dvh - 16px);
+    max-height: 38dvh;
   }
 }

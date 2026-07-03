@@ -210,6 +210,101 @@ a {
   overflow-y: auto;
 }
 
+/* Part inspector chip (W3): floats near the bottom of the bench, in the
+ * clear band below the bot on portrait, so a selected part's stats and
+ * its Rotate/Merge/Remove actions sit under the thumb. */
+.workshop-inspector {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  z-index: 11;
+  display: flex;
+  min-width: 248px;
+  max-width: 340px;
+  transform: translateX(-50%);
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(17, 21, 31, 0.95);
+  border: 1px solid #344061;
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+.inspector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inspector-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.inspector-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+.inspector-pips {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.inspector-pip {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #3d496b;
+  border-radius: 50%;
+  background: #2b3450;
+}
+
+.inspector-pip-on {
+  border-color: #ffe08a;
+  background: #ffe08a;
+  box-shadow: 0 0 6px rgba(255, 224, 138, 0.7);
+}
+
+.inspector-durability {
+  position: relative;
+  height: 15px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #1b2233;
+}
+
+.inspector-durability-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  background: linear-gradient(90deg, #54e0c7, #7aa8ff);
+}
+
+.inspector-durability-text {
+  position: relative;
+  display: block;
+  color: #0b0e14;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 15px;
+  text-align: center;
+}
+
+.inspector-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.inspector-actions button {
+  flex: 1;
+  padding: 6px 8px;
+}
+
 @media (max-width: 700px) and (orientation: portrait) {
   /* One tab panel at a time (W1): header pins under the back link, the
    * tab bar under it, and the single active panel caps at 38dvh so the
@@ -241,5 +336,15 @@ a {
     left: 12px;
     width: auto;
     max-height: 38dvh;
+  }
+
+  .workshop-inspector {
+    position: fixed;
+    right: 12px;
+    bottom: 16px;
+    left: 12px;
+    min-width: 0;
+    max-width: none;
+    transform: none;
   }
 }

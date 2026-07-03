@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest tap-to-place note complete", () => {
+  it("keeps the latest part inspector note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.174-tap-to-place");
+    expect(release.noticeId).toBe("2026-07-03-0.1.175-part-inspector");
     expect(latestNote).toMatchObject({
-      version: "0.1.174",
-      title: "Tap to place parts",
-      intro: "Building a bot is hands-on now.",
+      version: "0.1.175",
+      title: "Part inspector",
+      intro: "Every part shows its stats now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Pick a part and the bot lights up every spot it can go; tap a glowing ghost, or a slot in the list, to drop it exactly there instead of letting the workshop choose the spot for you.",
-      "The placement list names each open mount, so you always know where a part will land before you commit to it.",
+      "Selecting a part on the bench opens a compact inspector with its level pips, a durability bar, and Rotate, Merge, and Remove right there, so you act on the part you are looking at instead of hunting a menu.",
+      "Merged parts wear glowing level pips on the bench, so a stronger part reads at a glance without opening anything.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

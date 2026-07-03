@@ -8,6 +8,7 @@ import {
   partGeometry,
   shapeRotation,
 } from "@/components/part-visuals";
+import { partMergeLevel } from "@/sim/design";
 import { computeLayout } from "@/sim/layout";
 import { PART_CATALOG, type PartCategory } from "@/sim/parts";
 import { useWorkshopStore, validSlotsFor } from "@/state/workshop-store";
@@ -27,6 +28,10 @@ const CATEGORY_COLORS: Record<PartCategory, string> = {
   mobility: "#54e0c7",
   weapon: "#ff6b6b",
 };
+
+// Stable pip keys (one per merge level) so the level markers never key on
+// a bare array index. Length covers MAX_PART_MERGE_LEVEL.
+const MERGE_PIP_IDS = ["i", "ii", "iii"] as const;
 
 /**
  * The build bench (workshop glow-up slice, user-reported): the bot under
@@ -144,6 +149,35 @@ function WorkshopScene() {
             </mesh>
           </group>
         );
+      })}
+      {/* Merge-level markers (W3): a merged part carries one glowing pip
+          per level, floated in world-up above it so the upgrade reads at
+          a glance. Mesh markers, not 3D text (mine-canvas glyph rule). */}
+      {design.parts.map((instance) => {
+        const def = PART_CATALOG[instance.partId];
+        const placement = layout.get(instance.iid);
+        if (!def || !placement) return null;
+        const level = partMergeLevel(instance);
+        if (level <= 1) return null;
+        const { position } = placement;
+        return MERGE_PIP_IDS.slice(0, level).map((pipId, i) => (
+          <mesh
+            key={`pip:${instance.iid}:${pipId}`}
+            position={[
+              position.x + (i - (level - 1) / 2) * 0.16,
+              position.y + 0.62,
+              position.z,
+            ]}
+          >
+            <sphereGeometry args={[0.05, 12, 12]} />
+            <meshStandardMaterial
+              color="#ffe08a"
+              emissive="#ffe08a"
+              emissiveIntensity={0.9}
+              toneMapped={false}
+            />
+          </mesh>
+        ));
       })}
       {armedDef &&
         ghostSlots.map((slot) => {

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-part-inspector" data-date="2026-07-03">
+    <h3>Workshop W3: part inspector chip (workshop interaction overhaul, slice 3 of 5)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Third slice of the workshop interaction overhaul (<code>docs/research/workshop-interaction-overhaul.html</code>).</dd>
+      <dt>Changed</dt><dd>Selecting a part now opens a compact inspector chip anchored to the bench (bottom-centre on desktop, pinned in the clear band below the bot on portrait) instead of a fixed Actions card. The chip shows the part name, merge-level pips with a "Lv N" readout, a durability bar (HP over the level-3 maximum), and contextual Rotate / Merge / Remove buttons whose labels preview the outcome (for example "Merge to Lv 2") and whose disabled titles explain why. The old global Actions card and the "selected: ..." text line are retired. On the bench, a merged part now carries one glowing world-up pip per level (mesh spheres, not 3D text, per the mine-canvas glyph rule) so an upgraded part reads at a glance. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.175</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (0 errors, a11y worked through: the chip is a labelled <code>section</code> region, pips are keyed by stable ids not array indices, stats read as visible text rather than unsupported <code>aria-label</code>s), full unit suite 597 passing, <code>pnpm build</code>, workshop e2e (builds test rewritten to open the inspector, merge to Lv 2 through it, and read the pips), release note tests updated, 390x760 portrait capture reviewed (inspector shows Drive Wheel, two lit pips + Lv 2, a 120 HP bar, Rotate disabled for the axle mount, Merge to Lv 3 and Remove live; mesh pips visible over the bot). The garage e2e is storage-gated and skips in CI; it is flaky locally because a real Neon store is attached (memory F-048). A stale-build trap surfaced mid-slice: a <code>git stash</code> plus <code>pnpm build</code> during unrelated debugging rebuilt <code>.next</code> without the slice, so captures ran old code until a rebuild; always rebuild after un-stashing before checking a running server (memory restart-next-start-after-rebuild). Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Rule 7: one inspector, one consistent anchor rule across viewports. Rule 13: mine tips reviewed, no change. Rule 14: stamp review done, none added (surfaces the existing merge mechanic more legibly rather than adding a new milestone).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (selection and presentation). Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>Slices W4-W5 remain: merge-as-placement gesture, and feel polish.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-tap-to-place" data-date="2026-07-03">
     <h3>Workshop W2: tap-to-place slot ghosts (workshop interaction overhaul, slice 2 of 5)</h3>
     <dl>

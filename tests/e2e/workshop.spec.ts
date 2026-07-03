@@ -58,8 +58,12 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
   // Placing disarms: the slot list goes away.
   await expect(slots).not.toBeVisible();
-  await page.getByRole("button", { name: "Merge selected" }).click();
-  await expect(page.getByText("level 2")).toBeVisible();
+
+  // Placing selects the new part, so its inspector chip appears (W3).
+  const inspector = page.getByRole("region", { name: "Selected part" });
+  await expect(inspector).toBeVisible();
+  await inspector.getByRole("button", { name: "Merge to Lv 2" }).click();
+  await expect(inspector.getByText("Lv 2")).toBeVisible();
 
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();

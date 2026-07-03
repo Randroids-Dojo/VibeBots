@@ -10,6 +10,7 @@ import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
   CPU_BRAWLER_DESIGN,
+  MAX_PART_MERGE_LEVEL,
   NEUTRAL_BEHAVIOR,
   partInstanceDurability,
   partMergeLevel,
@@ -58,6 +59,10 @@ const panelStyle: React.CSSProperties = {
   borderRadius: 10,
   padding: 14,
 };
+
+// One inspector pip per merge level, keyed by a stable id (never a bare
+// array index). Length matches MAX_PART_MERGE_LEVEL.
+const MERGE_PIP_IDS = ["i", "ii", "iii"] as const;
 
 export function WorkshopPanel() {
   const design = useWorkshopStore((s) => s.design);
@@ -540,59 +545,6 @@ export function WorkshopPanel() {
                   );
                 })}
             </section>
-
-            <section style={panelStyle} aria-label="Actions">
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={removeSelected}
-                  disabled={!selectedRemovable}
-                  title={selectedIid ? undefined : "select a part in the scene"}
-                >
-                  Remove selected
-                </button>
-                <button
-                  type="button"
-                  onClick={mergeSelectedPart}
-                  disabled={!mergeEnabled}
-                  title={
-                    selectedIid === null
-                      ? "select a part in the scene"
-                      : selectedMergePlan === null
-                        ? "selected part cannot merge"
-                        : inventory.state === "loading"
-                          ? "Checking inventory"
-                          : inventory.state === "ready" &&
-                              selectedAvailableAfterUse <= 0
-                            ? "Needs another owned copy"
-                            : undefined
-                  }
-                >
-                  Merge selected
-                </button>
-                <button
-                  type="button"
-                  onClick={rotateSelected}
-                  disabled={planRotateSelected(design, selectedIid) === null}
-                  title="quarter-turn the selected part around its mount"
-                >
-                  Rotate
-                </button>
-              </div>
-              {selectedDef && (
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                    fontSize: "0.8rem",
-                    opacity: 0.75,
-                  }}
-                >
-                  selected: {selectedDef.name} ({selectedIid}), level{" "}
-                  {selectedMergeLevel}, durability {selectedDurability}/
-                  {selectedDef.durability}
-                </p>
-              )}
-            </section>
           </>
         )}
 
@@ -689,6 +641,85 @@ export function WorkshopPanel() {
 
         {tab === "shop" && <PartsShop />}
       </aside>
+
+      {selectedDef && selectedIid && (
+        <section className="workshop-inspector" aria-label="Selected part">
+          <div className="inspector-head">
+            <span className="inspector-name">{selectedDef.name}</span>
+            <span className="inspector-level">
+              <span className="inspector-pips" aria-hidden="true">
+                {MERGE_PIP_IDS.map((pipId, i) => (
+                  <span
+                    key={`pip-${selectedIid}-${pipId}`}
+                    className={
+                      i < selectedMergeLevel
+                        ? "inspector-pip inspector-pip-on"
+                        : "inspector-pip"
+                    }
+                  />
+                ))}
+              </span>
+              Lv {selectedMergeLevel}
+            </span>
+          </div>
+          {selectedDef.category !== "core" && selectedDurability !== null && (
+            <div className="inspector-durability">
+              <div
+                className="inspector-durability-fill"
+                style={{
+                  width: `${Math.min(100, (selectedDurability / (selectedDef.durability * ((MAX_PART_MERGE_LEVEL + 1) / 2))) * 100)}%`,
+                }}
+              />
+              <span className="inspector-durability-text">
+                {Math.round(selectedDurability)} HP
+              </span>
+            </div>
+          )}
+          <div className="inspector-actions">
+            <button
+              type="button"
+              onClick={rotateSelected}
+              disabled={planRotateSelected(design, selectedIid) === null}
+              title="Quarter-turn this part around its mount"
+            >
+              Rotate
+            </button>
+            <button
+              type="button"
+              onClick={mergeSelectedPart}
+              disabled={!mergeEnabled}
+              title={
+                selectedMergePlan === null
+                  ? "This part is already at max level"
+                  : inventory.state === "loading"
+                    ? "Checking inventory"
+                    : inventory.state === "ready" &&
+                        selectedAvailableAfterUse <= 0
+                      ? "Needs another owned copy"
+                      : undefined
+              }
+            >
+              {selectedMergeLevel >= MAX_PART_MERGE_LEVEL
+                ? "Max level"
+                : `Merge to Lv ${selectedMergeLevel + 1}`}
+            </button>
+            <button
+              type="button"
+              onClick={removeSelected}
+              disabled={!selectedRemovable}
+              title={
+                selectedDef.category === "core"
+                  ? "The core cannot be removed"
+                  : !selectedRemovable
+                    ? "Remove this part's attachments first"
+                    : undefined
+              }
+            >
+              Remove
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

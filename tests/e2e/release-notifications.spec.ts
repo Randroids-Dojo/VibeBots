@@ -20,14 +20,10 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("Building a bot is hands-on now.");
+  await expect(dialog).toContainText("Every part shows its stats now.");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "lights up every spot it can go",
-  );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "placement list names each open mount",
-  );
+  await expect(dialog.locator("li").first()).toContainText("compact inspector");
+  await expect(dialog.locator("li").nth(1)).toContainText("glowing level pips");
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
@@ -49,6 +45,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.175", "Part inspector"],
     ["0.1.174", "Tap to place parts"],
     ["0.1.173", "Workshop tabs"],
     ["0.1.172", "Workshop glow-up"],

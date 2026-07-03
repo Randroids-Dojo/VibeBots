@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.174-tap-to-place";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.175-part-inspector";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.175",
+      date: "2026-07-03",
+      title: "Part inspector",
+      intro: "Every part shows its stats now.",
+      changes: [
+        {
+          build,
+          text: "Selecting a part on the bench opens a compact inspector with its level pips, a durability bar, and Rotate, Merge, and Remove right there, so you act on the part you are looking at instead of hunting a menu.",
+        },
+        {
+          build,
+          text: "Merged parts wear glowing level pips on the bench, so a stronger part reads at a glance without opening anything.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.174",
       date: "2026-07-03",

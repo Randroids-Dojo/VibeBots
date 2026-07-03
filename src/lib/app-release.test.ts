@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest gas leaks note complete", () => {
+  it("keeps the latest crush tumble note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.167-gas-leaks");
+    expect(release.noticeId).toBe("2026-07-03-0.1.168-crush-tumble");
     expect(latestNote).toMatchObject({
-      version: "0.1.167",
-      title: "Gas leaks",
-      intro: "Cave-ins can uncork gas pockets now.",
+      version: "0.1.168",
+      title: "Crush tumble",
+      intro: "Getting crushed finally looks like it hurts.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "A falling block that opens a path past a gas pocket uncorks it: the pocket leaks glowing wisps into your tunnel, one cell per move, until its pressure is spent.",
-      "Wisps are survivable: push through one for a little battery, vent the whole leak with a single dig, or wall it off, since gas never crosses ladders, planks, or beacons.",
-      "Leaked wisps thin out on their own after a while, and falling rocks smash straight through them. MINE_VERSION bumps to 50; SIM_VERSION is unchanged.",
+      "A falling block now sends the miner into a physical tumble: the hit launches the bot, it bounces and spins out its energy, and the wreck settles right where the report finds it.",
+      "Every crush plays a little differently, seeded by where it happened, and the Holodeck's Crush clip loops the new tumble for a closer look.",
+      "Pure presentation: the sim, your odds, and your loot math are untouched. MINE_VERSION stays at 50; SIM_VERSION is unchanged.",
     ]);
   });
 

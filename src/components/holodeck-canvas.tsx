@@ -18,6 +18,12 @@ import { CrackMarks, MineBlockBody } from "./mine-block-render";
 import { MinerBot } from "./mine-miner-render";
 import { cellX } from "./mine-render-palette";
 import {
+  advanceCrushTumble,
+  type CrushTumbleState,
+  createCrushTumble,
+  crushTumbleSettled,
+} from "./miner-crush-tumble";
+import {
   advanceMinerRig,
   createMinerRigState,
   minerClipId,
@@ -97,6 +103,8 @@ function HolodeckScene({
   const legRRef = useRef<Group>(null);
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
   const rig = useRef(createMinerRigState());
+  const crushTumble = useRef<CrushTumbleState | null>(null);
+  const crushLoopHold = useRef(0);
   const turntableYaw = useRef(0);
   const lastDrawTotal = useRef(0);
 
@@ -156,7 +164,32 @@ function HolodeckScene({
     const inputs = showcase
       ? minerClipInputs(clip, t, delta, paused)
       : minerClipInputs(targetSolid ? "dig" : "idle", t, delta, paused);
-    const pose = advanceMinerRig(rig.current, inputs);
+    let pose = advanceMinerRig(rig.current, inputs);
+    // The crush clip plays the physically integrated tumble on a loop so
+    // the death animation is reviewable on the art-QA bench like every
+    // other clip. Pause holds whatever frame the tumble reached.
+    if (showcase && clip === "crush") {
+      if (!crushTumble.current) {
+        crushTumble.current = createCrushTumble(0.37);
+      }
+      if (!paused) {
+        pose = advanceCrushTumble(crushTumble.current, delta);
+        if (crushTumbleSettled(crushTumble.current)) {
+          crushLoopHold.current += delta;
+          if (crushLoopHold.current > 1.2) {
+            crushTumble.current = createCrushTumble(
+              crushTumble.current.seed + 0.31,
+            );
+            crushLoopHold.current = 0;
+          }
+        }
+      } else {
+        pose = advanceCrushTumble(crushTumble.current, 0);
+      }
+    } else if (crushTumble.current) {
+      crushTumble.current = null;
+      crushLoopHold.current = 0;
+    }
     const body = bodyRef.current;
     if (body) {
       body.position.x = pose.body.posX;

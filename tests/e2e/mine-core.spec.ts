@@ -824,6 +824,17 @@ test("falling-rock crush stays on camera before the report", async ({
       timeout: 20_000,
     })
     .toBe("true");
+  // The wreck must physically tumble after the hit (Rule 10): the frame
+  // counter only advances while the body's pose is really displacing.
+  const tumbleStart = Number(
+    await canvas.getAttribute("data-crush-tumble-frames"),
+  );
+  await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-crush-tumble-frames")),
+      { timeout: 5_000 },
+    )
+    .toBeGreaterThan(tumbleStart);
   const activeCrushShot = await canvas.screenshot();
   expect(Buffer.compare(beforeCrushShot, activeCrushShot)).not.toBe(0);
 

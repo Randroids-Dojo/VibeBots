@@ -113,10 +113,16 @@ import {
   SurfaceSkin,
 } from "./mine-surface-render";
 import {
+  advanceCrushTumble,
+  type CrushTumbleState,
+  createCrushTumble,
+} from "./miner-crush-tumble";
+import {
   advanceMinerRig,
   BOUNCE_SECONDS,
   createMinerRigState,
   DIG_LUNGE_SECONDS,
+  type MinerPose,
   PICK_SWING_SECONDS,
 } from "./miner-rig";
 import { StudioEnvironment } from "./studio-environment";
@@ -252,6 +258,10 @@ function MineScene({
     Map<string, { x: number; y: number; urgency: number }>
   >(new Map());
   const teeterMotionFrames = useRef(0);
+  const crushTumble = useRef<{ key: number; state: CrushTumbleState } | null>(
+    null,
+  );
+  const crushTumbleFrames = useRef(0);
   const juice = useRef<JuiceState>({
     particles: [],
     nextId: 1,
@@ -596,6 +606,9 @@ function MineScene({
       state.gl.domElement.dataset.gasWispCount = String(
         renderedGasWispCountRef.current,
       );
+      state.gl.domElement.dataset.crushTumbleFrames = String(
+        crushTumbleFrames.current,
+      );
       state.gl.domElement.dataset.particleCount = String(j.particles.length);
       state.gl.domElement.dataset.darknessOpacityMin = hasDarknessOverlay
         ? minDarknessOpacity.toFixed(2)
@@ -698,18 +711,42 @@ function MineScene({
       const dx = prev ? miner.position.x - prev.x : 0;
       const dy = prev ? miner.position.y - prev.y : 0;
       prevMinerPos.current = { x: miner.position.x, y: miner.position.y };
-      const pose = advanceMinerRig(minerRig.current, {
-        t,
-        delta,
-        facing: j.facing,
-        stepDistance: Math.sqrt(dx * dx + dy * dy),
-        leanVx: visualTargetX - miner.position.x,
-        swing: j.swing,
-        bounce: j.bounce,
-        lunge: j.lunge,
-        crushed: activeFall?.kind === "crush" ? activeFall.impacted : false,
-        still: false,
-      });
+      // A landed crush plays the physically integrated tumble instead of
+      // the static crumple: the block's hit launches the wreck, it
+      // bounces out its energy, and the pose settles into the designed
+      // crumple the trip report has always framed.
+      const crushLanded =
+        activeFall?.kind === "crush" ? activeFall.impacted : false;
+      let pose: MinerPose;
+      if (crushLanded && activeFall) {
+        if (crushTumble.current?.key !== activeFall.key) {
+          crushTumble.current = {
+            key: activeFall.key,
+            state: createCrushTumble(
+              cellHash(activeFall.col, activeFall.toRow, 83),
+            ),
+          };
+        }
+        const beforeY = crushTumble.current.state.y;
+        pose = advanceCrushTumble(crushTumble.current.state, delta);
+        if (Math.abs(crushTumble.current.state.y - beforeY) > 0.0004) {
+          crushTumbleFrames.current += 1;
+        }
+      } else {
+        if (!activeFall) crushTumble.current = null;
+        pose = advanceMinerRig(minerRig.current, {
+          t,
+          delta,
+          facing: j.facing,
+          stepDistance: Math.sqrt(dx * dx + dy * dy),
+          leanVx: visualTargetX - miner.position.x,
+          swing: j.swing,
+          bounce: j.bounce,
+          lunge: j.lunge,
+          crushed: false,
+          still: false,
+        });
+      }
       body.position.x = pose.body.posX;
       body.position.y = pose.body.posY;
       body.rotation.y = pose.body.rotY;

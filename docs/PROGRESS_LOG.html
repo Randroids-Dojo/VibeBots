@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="render-crush-tumble" data-date="2026-07-03">
+    <h3>Render layer: physically integrated crush tumble</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed program).</dd>
+      <dt>PR</dt><dd>None (direct main). Third world-sim program slice; render-only.</dd>
+      <dt>Changed</dt><dd>The crush death now plays a physical tumble instead of snapping to the static crumple frame: the new pure module <code>src/components/miner-crush-tumble.ts</code> integrates the body as a rigid slab (gravity, ground bounces with restitution and friction, decaying spin, squash pulses on contact) with damped-oscillator limb flail, seeded by the crush cell so each death reads a little different, and blends into the exact rig crumple pose before the trip report frames the wreck. The mine canvas swaps the tumble pose in at the rendered impact frame through the existing rig plumbing, and the Holodeck's Crush clip loops the tumble as the art-QA bench. Deliberate deviation from the original "ragdoll via rapier" suggestion: the mine page never loads the physics WASM today and the rig's four animated pieces bound the visible fidelity anyway, so a ~160-line pure integrator delivers the same read with zero added download on the mobile-critical path. QA surface: <code>data-crush-tumble-frames</code> counts frames of real pose displacement (Rule 10). Package version <code>0.1.168</code>; <code>MINE_VERSION</code> stays at 50; <code>SIM_VERSION</code> stays at 4 (no sim change).</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (unpiped), 6 unit tests on the pure tumble (determinism, seed variance, launch/bounce/bounds, per-frame motion, exact crumple settle, runaway-delta clamp), full unit suite 584 passing, <code>pnpm build</code>, the existing crush e2e extended with a tumble-motion-frames assertion (green on a fresh build), full Holodeck suite 6/6 green, fresh-build release smoke. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default (Rule 7): the tumble always settles into the designed crumple within 2.0s, inside the existing 3.6s crush hold, so report framing and clear timers needed no changes. Rule 13: tip rotation reviewed, no change needed (presentation only). Rule 14: stamp review done, none added (cosmetic).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (presentation). Build log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Next: graphics G2 (baked environment + material response).</dd>
+    </dl>
+  </article>
+
   <article data-slice="world-sim-gas-propagation" data-date="2026-07-03">
     <h3>World sim: gas propagation (uncorked pockets and wisps)</h3>
     <dl>

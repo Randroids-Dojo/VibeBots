@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.167-gas-leaks";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.168-crush-tumble";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.168",
+      date: "2026-07-03",
+      title: "Crush tumble",
+      intro: "Getting crushed finally looks like it hurts.",
+      changes: [
+        {
+          build,
+          text: "A falling block now sends the miner into a physical tumble: the hit launches the bot, it bounces and spins out its energy, and the wreck settles right where the report finds it.",
+        },
+        {
+          build,
+          text: "Every crush plays a little differently, seeded by where it happened, and the Holodeck's Crush clip loops the new tumble for a closer look.",
+        },
+        {
+          build,
+          text: "Pure presentation: the sim, your odds, and your loot math are untouched. MINE_VERSION stays at 50; SIM_VERSION is unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.167",
       date: "2026-07-03",

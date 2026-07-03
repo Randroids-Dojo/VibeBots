@@ -127,6 +127,7 @@ import {
 } from "./miner-rig";
 import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
+import { daylightGradeFor, fogRangeForStratum } from "./time-of-day";
 
 interface MotionTrack {
   fromX: number;
@@ -263,6 +264,10 @@ function MineScene({
     null,
   );
   const crushTumbleFrames = useRef(0);
+  const timeOfDay = useRef({
+    grade: daylightGradeFor(12),
+    nextCheck: 0,
+  });
   const juice = useRef<JuiceState>({
     particles: [],
     nextId: 1,
@@ -623,10 +628,31 @@ function MineScene({
       depthT = Math.min(1, Math.max(0, -rig.position.y / DARK_DEPTH));
     }
     // Daylight dies with depth; the lamp takes over as the key light.
+    // The surface sun also follows the player's real clock (G4): warm at
+    // the edges of the day, cool and dim at night, full at noon. The
+    // grade re-reads the clock once a minute and never blocks a frame.
+    if (t >= timeOfDay.current.nextCheck) {
+      const now = new Date();
+      const override = (
+        window as unknown as { __vibebotsTimeOfDayHour?: number }
+      ).__vibebotsTimeOfDayHour;
+      timeOfDay.current.grade = daylightGradeFor(
+        override ?? now.getHours() + now.getMinutes() / 60,
+      );
+      timeOfDay.current.nextCheck = t + 60;
+    }
+    const grade = timeOfDay.current.grade;
     const day = (1 - depthT) ** 1.7;
     if (ambientRef.current) ambientRef.current.intensity = 0.07 + 0.48 * day;
-    if (hemiRef.current) hemiRef.current.intensity = 0.5 * day * day;
-    if (dirRef.current) dirRef.current.intensity = 0.06 + 1.04 * day;
+    if (hemiRef.current) {
+      hemiRef.current.intensity = 0.5 * day * day;
+      hemiRef.current.color.set(grade.skyColor);
+    }
+    if (dirRef.current) {
+      dirRef.current.intensity = (0.06 + 1.04 * day) * grade.sunStrength;
+      dirRef.current.color.set(grade.sunColor);
+    }
+    state.gl.domElement.dataset.timeOfDay = grade.phase;
     // The studio environment is a surface phenomenon: it fades with the
     // daylight so the underground keeps its lamp-lit darkness.
     state.scene.environmentIntensity =
@@ -764,6 +790,10 @@ function MineScene({
     if (motes) {
       motes.visible = minerRow > 0;
       motes.rotation.z = t * 0.12;
+      // G4: the dust drifts instead of only spinning, so the lamp-lit
+      // air reads as air.
+      motes.position.x = Math.sin(t * 0.21) * 0.4;
+      motes.position.y = Math.sin(t * 0.35) * 0.3;
     }
     // Teetering blocks tremble every frame, harder and faster the closer
     // they are to dropping (the escalating tell). Rescued or dropped
@@ -1433,11 +1463,13 @@ function MineScene({
   renderedTeeterCountRef.current = renderedTeeterCount;
   renderedGasWispCountRef.current = renderedGasWispCount;
   const hasDarknessOverlay = maxDarknessOpacity > 0;
+  // G4: the deep strata press the fog in close; the surface breathes.
+  const fogRange = fogRangeForStratum(stratumIndex);
 
   return (
     <>
       <color attach="background" args={[bg]} />
-      <fog attach="fog" args={[bg, 12, 26]} />
+      <fog attach="fog" args={[bg, fogRange.near, fogRange.far]} />
       <ambientLight ref={ambientRef} intensity={0.55} color="#cdd8f4" />
       <hemisphereLight ref={hemiRef} args={["#8fb4e8", "#2a2017", 0.5]} />
       <directionalLight

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="graphics-g4-atmosphere" data-date="2026-07-03">
+    <h3>Graphics G4: atmosphere and time-of-day</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed program).</dd>
+      <dt>PR</dt><dd>None (direct main). Graphics program slice 4; closes the visual roadmap's atmosphere phase.</dd>
+      <dt>Changed</dt><dd>New pure <code>src/components/time-of-day.ts</code>: <code>daylightGradeFor(hour)</code> interpolates sun tint, sun strength, and hemisphere sky tint through anchored stops (night 0.62 strength stays playable by design; dawn and dusk run warm; noon full), and <code>fogRangeForStratum</code> tightens the fog from 13/29 at the surface toward a 7.5/17 floor in the deep strata. The mine canvas re-reads the local clock once a minute (test hook <code>__vibebotsTimeOfDayHour</code>, QA surface <code>data-time-of-day</code>), tints the sun and sky, and the lamp-lit dust motes drift on two slow sines instead of only spinning. All transform-and-uniform level, so every backend and tier affords it; underground is untouched because depth already kills the daylight. Surface sky-color tinting was deliberately left out: the background drives fog and the darkness overlay, and re-grading those is its own slice if ever wanted. Package version <code>0.1.171</code>; <code>MINE_VERSION</code> 50 and <code>SIM_VERSION</code> 4 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (unpiped), 6 unit tests on the pure module (noon plateau, playable night floor, dawn/dusk warmth and monotonic climb, hour wrap, fog curve and floors), full unit suite 590 passing, <code>pnpm build</code>, headed captures at forced noon/dusk/night hours reviewed (distinct dirt-wall grading per phase, <code>data-time-of-day</code> reports day/dusk/night), fresh-build release smoke. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default (Rule 7): real-clock cosmetics only, no sim or economy coupling to the hour, ever (a time-gated mechanic would violate the pure-replay contract). Rule 13: tips reviewed, no change. Rule 14: stamp review done, none added (no durable, cheat-proof record of play hour, and a "play at night" stamp would reward clock fiddling).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (presentation). Build log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. The graphics program's authored phases (G1-G4) are complete; G5 pipeline hardening folds into the process force-multiplier tasks next.</dd>
+    </dl>
+  </article>
+
   <article data-slice="graphics-g3-post-stack" data-date="2026-07-03">
     <h3>Graphics G3: TSL post stack (bloom + vignette grade)</h3>
     <dl>

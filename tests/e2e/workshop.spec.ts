@@ -36,14 +36,28 @@ test("workshop builds and undoes parts", async ({ page }) => {
     "aria-selected",
     "true",
   );
+  // Tap-to-place (W2): arming a palette part opens its placement slots;
+  // tapping a slot commits that exact connection.
   const palette = page.getByLabel("Part palette");
-  const driveWheelAdd = palette
+  // The row button flips Place -> Cancel when armed, so target it by role
+  // (one button per row) rather than by its changing accessible name.
+  const driveWheelPlace = palette
     .locator("div")
     .filter({ hasText: "Drive Wheel" })
-    .getByRole("button", { name: "Add" });
-  await expect(driveWheelAdd).toBeEnabled();
-  await driveWheelAdd.click();
+    .getByRole("button");
+  await expect(driveWheelPlace).toHaveText("Place");
+  await expect(driveWheelPlace).toBeEnabled();
+  await driveWheelPlace.click();
+  await expect(driveWheelPlace).toHaveText("Cancel");
+  await expect(driveWheelPlace).toHaveAttribute("aria-pressed", "true");
+  const slots = page.getByLabel("Placement slots");
+  await expect(slots).toBeVisible();
+  const slotButtons = slots.getByRole("button", { name: /^Place on/ });
+  expect(await slotButtons.count()).toBeGreaterThan(0);
+  await slotButtons.first().click();
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  // Placing disarms: the slot list goes away.
+  await expect(slots).not.toBeVisible();
   await page.getByRole("button", { name: "Merge selected" }).click();
   await expect(page.getByText("level 2")).toBeVisible();
 

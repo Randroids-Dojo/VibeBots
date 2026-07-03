@@ -83,17 +83,33 @@ export function findFreeConnectors(
 }
 
 /**
- * The full add precondition: a slot exists AND the resulting design
- * validates. The palette and addPart share this so the button state
- * never lies about what a click will do.
+ * A concrete place-this-part-here option: the parent connector to mount
+ * on, the child connector to mount by, the iid the new part would take,
+ * and the whole validated design that results. The workshop renders one
+ * ghost per slot and commits the exact connection the player taps.
  */
-export function planAddPart(
+export interface PlacementSlot {
+  partId: string;
+  parentIid: string;
+  parentConnector: string;
+  childConnector: string;
+  iid: string;
+  next: BotDesign;
+}
+
+/**
+ * Every legal placement of the part on the current design: each free
+ * connector that yields a design which still validates (overlap and
+ * budget rules included). Pure and deterministic (design order), so the
+ * ghosts and the slot list agree with what a tap will actually do.
+ */
+export function validSlotsFor(
   design: BotDesign,
   part: PartDef,
   catalog: Record<string, PartDef> = PART_CATALOG,
-): { next: BotDesign; iid: string } | null {
+): PlacementSlot[] {
   const iid = nextIid(design, part.id);
-  // First slot whose resulting design validates (overlap rules included).
+  const slots: PlacementSlot[] = [];
   for (const slot of findFreeConnectors(design, part, catalog)) {
     const next: BotDesign = {
       ...design,
@@ -108,9 +124,32 @@ export function planAddPart(
         },
       ],
     };
-    if (validateDesign(next, catalog).ok) return { next, iid };
+    if (validateDesign(next, catalog).ok) {
+      slots.push({
+        partId: part.id,
+        parentIid: slot.parentIid,
+        parentConnector: slot.parentConnector,
+        childConnector: slot.childConnector,
+        iid,
+        next,
+      });
+    }
   }
-  return null;
+  return slots;
+}
+
+/**
+ * The full add precondition: at least one valid slot exists. The palette
+ * gate shares this with the placement flow so the button state never
+ * lies about whether a part can go down.
+ */
+export function planAddPart(
+  design: BotDesign,
+  part: PartDef,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): { next: BotDesign; iid: string } | null {
+  const slot = validSlotsFor(design, part, catalog)[0];
+  return slot ? { next: slot.next, iid: slot.iid } : null;
 }
 
 /** The full rotate precondition; null when no legal quarter-turn exists. */
@@ -180,7 +219,11 @@ export interface WorkshopState {
   history: EditorHistory<BotDesign>;
   design: BotDesign;
   selectedIid: string | null;
+  /** The palette part whose placement ghosts are showing, if any. */
+  armedPartId: string | null;
   addPart: (partId: string) => void;
+  armPart: (partId: string | null) => void;
+  placeAtSlot: (slot: PlacementSlot) => void;
   removeSelected: () => void;
   mergeSelectedPart: () => void;
   rotateSelected: () => void;
@@ -200,6 +243,7 @@ function withDesign(history: EditorHistory<BotDesign>) {
 export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
   selectedIid: null,
+  armedPartId: null,
 
   addPart: (partId) => {
     const { history, design } = get();
@@ -210,6 +254,46 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(pushHistory(history, plan.next)),
       selectedIid: plan.iid,
+    });
+  },
+
+  // Arming toggles: tapping the armed part again puts the palette away.
+  armPart: (partId) =>
+    set((s) => ({
+      armedPartId: partId === null || s.armedPartId === partId ? null : partId,
+    })),
+
+  // Commit the exact connection the tapped ghost (or slot button) named,
+  // rebuilt against the live design so it cannot land a stale placement.
+  placeAtSlot: (slot) => {
+    const { history, design } = get();
+    const def = PART_CATALOG[slot.partId];
+    if (!def) return;
+    const parentUsed = design.connections.some(
+      (c) =>
+        `${c.parentIid}:${c.parentConnector}` ===
+        `${slot.parentIid}:${slot.parentConnector}`,
+    );
+    if (parentUsed) return;
+    const iid = nextIid(design, slot.partId);
+    const next: BotDesign = {
+      ...design,
+      parts: [...design.parts, { iid, partId: slot.partId }],
+      connections: [
+        ...design.connections,
+        {
+          parentIid: slot.parentIid,
+          parentConnector: slot.parentConnector,
+          childIid: iid,
+          childConnector: slot.childConnector,
+        },
+      ],
+    };
+    if (!validateDesign(next).ok) return;
+    set({
+      ...withDesign(pushHistory(history, next)),
+      selectedIid: iid,
+      armedPartId: null,
     });
   },
 
@@ -250,13 +334,21 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   undo: () => {
     const { history } = get();
     if (!canUndo(history)) return;
-    set({ ...withDesign(undoHistory(history)), selectedIid: null });
+    set({
+      ...withDesign(undoHistory(history)),
+      selectedIid: null,
+      armedPartId: null,
+    });
   },
 
   redo: () => {
     const { history } = get();
     if (!canRedo(history)) return;
-    set({ ...withDesign(redoHistory(history)), selectedIid: null });
+    set({
+      ...withDesign(redoHistory(history)),
+      selectedIid: null,
+      armedPartId: null,
+    });
   },
 
   setName: (name) => {
@@ -280,11 +372,13 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(createHistory<BotDesign>(design)),
       selectedIid: null,
+      armedPartId: null,
     }),
 
   reset: () =>
     set({
       ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
       selectedIid: null,
+      armedPartId: null,
     }),
 }));

@@ -10,7 +10,7 @@ import {
 } from "@/components/part-visuals";
 import { computeLayout } from "@/sim/layout";
 import { PART_CATALOG, type PartCategory } from "@/sim/parts";
-import { useWorkshopStore } from "@/state/workshop-store";
+import { useWorkshopStore, validSlotsFor } from "@/state/workshop-store";
 import {
   graphicsFeaturesFor,
   hasCoarsePointer,
@@ -40,7 +40,13 @@ function WorkshopScene() {
   const design = useWorkshopStore((s) => s.design);
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const select = useWorkshopStore((s) => s.select);
+  const armedPartId = useWorkshopStore((s) => s.armedPartId);
+  const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
   const layout = computeLayout(design);
+  // Placement ghosts: one translucent preview at each legal slot for the
+  // armed part, tappable to commit that exact connection (W2).
+  const armedDef = armedPartId ? PART_CATALOG[armedPartId] : null;
+  const ghostSlots = armedDef ? validSlotsFor(design, armedDef) : [];
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
   const features = graphicsFeaturesFor(
     resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
@@ -139,6 +145,41 @@ function WorkshopScene() {
           </group>
         );
       })}
+      {armedDef &&
+        ghostSlots.map((slot) => {
+          const placement = computeLayout(slot.next).get(slot.iid);
+          if (!placement) return null;
+          const { position, rotation } = placement;
+          const surface = CATEGORY_SURFACE[armedDef.category];
+          return (
+            // biome-ignore lint/a11y/noStaticElementInteractions: R3F scene graph node, not a DOM element
+            <group
+              key={`ghost:${slot.parentIid}:${slot.parentConnector}`}
+              position={[position.x, position.y, position.z]}
+              quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
+              onClick={(event) => {
+                if (event.delta > 2) return;
+                event.stopPropagation();
+                placeAtSlot(slot);
+              }}
+            >
+              <mesh rotation={shapeRotation(armedDef.shape)}>
+                {partGeometry(armedDef.shape)}
+                <meshStandardMaterial
+                  color={CATEGORY_COLORS[armedDef.category]}
+                  metalness={surface.metalness}
+                  roughness={surface.roughness}
+                  flatShading
+                  transparent
+                  opacity={0.34}
+                  depthWrite={false}
+                  emissive={CATEGORY_COLORS[armedDef.category]}
+                  emissiveIntensity={0.55}
+                />
+              </mesh>
+            </group>
+          );
+        })}
     </>
   );
 }

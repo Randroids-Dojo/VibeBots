@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.173-workshop-tabs";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.174-tap-to-place";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.174",
+      date: "2026-07-03",
+      title: "Tap to place parts",
+      intro: "Building a bot is hands-on now.",
+      changes: [
+        {
+          build,
+          text: "Pick a part and the bot lights up every spot it can go; tap a glowing ghost, or a slot in the list, to drop it exactly there instead of letting the workshop choose the spot for you.",
+        },
+        {
+          build,
+          text: "The placement list names each open mount, so you always know where a part will land before you commit to it.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.173",
       date: "2026-07-03",

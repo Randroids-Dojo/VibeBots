@@ -7,6 +7,7 @@ import {
   planMergeSelectedPart,
   STARTER_DESIGN,
   useWorkshopStore,
+  validSlotsFor,
 } from "./workshop-store";
 
 const store = () => useWorkshopStore.getState();
@@ -130,6 +131,75 @@ describe("workshop store", () => {
       const viaMount = mounted ? planAddPart(mounted.next, part) : null;
       expect(direct ?? viaMount, `${part.id} has no legal slot`).not.toBeNull();
     }
+  });
+});
+
+describe("W2 tap-to-place slots", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("enumerates every valid slot, each a distinct validated design", () => {
+    const slots = validSlotsFor(STARTER_DESIGN, DRIVE_WHEEL);
+    // The starter core exposes more than one axle mount for a wheel.
+    expect(slots.length).toBeGreaterThan(1);
+    for (const slot of slots) {
+      expect(validateDesign(slot.next).ok).toBe(true);
+      expect(slot.next.parts).toHaveLength(STARTER_DESIGN.parts.length + 1);
+      expect(slot.next.parts.some((p) => p.iid === slot.iid)).toBe(true);
+    }
+    // Distinct parent connectors: no two ghosts point at the same mount.
+    const mounts = new Set(
+      slots.map((s) => `${s.parentIid}:${s.parentConnector}`),
+    );
+    expect(mounts.size).toBe(slots.length);
+    // planAddPart agrees with the first enumerated slot.
+    expect(planAddPart(STARTER_DESIGN, DRIVE_WHEEL)?.iid).toBe(slots[0].iid);
+  });
+
+  it("arms and toggles the placement part", () => {
+    store().armPart("drive-wheel");
+    expect(store().armedPartId).toBe("drive-wheel");
+    // Re-arming the same part disarms it.
+    store().armPart("drive-wheel");
+    expect(store().armedPartId).toBeNull();
+    // A different part swaps the armed selection.
+    store().armPart("drive-wheel");
+    store().armPart("ram-spike");
+    expect(store().armedPartId).toBe("ram-spike");
+    store().armPart(null);
+    expect(store().armedPartId).toBeNull();
+  });
+
+  it("places a part at the exact tapped slot and disarms", () => {
+    store().armPart("drive-wheel");
+    const slots = validSlotsFor(store().design, DRIVE_WHEEL);
+    const target = slots[slots.length - 1];
+    store().placeAtSlot(target);
+    const design = store().design;
+    expect(design.parts).toHaveLength(2);
+    // The new part hangs off exactly the connector the slot named.
+    expect(
+      design.connections.some(
+        (c) =>
+          c.parentIid === target.parentIid &&
+          c.parentConnector === target.parentConnector &&
+          c.childIid === store().selectedIid,
+      ),
+    ).toBe(true);
+    expect(store().armedPartId).toBeNull();
+    store().undo();
+    expect(store().design.parts).toHaveLength(1);
+  });
+
+  it("refuses a slot whose parent connector is already taken", () => {
+    store().armPart("drive-wheel");
+    const slot = validSlotsFor(store().design, DRIVE_WHEEL)[0];
+    store().placeAtSlot(slot);
+    expect(store().design.parts).toHaveLength(2);
+    // Replaying the same slot (now occupied) is a no-op, not a double-mount.
+    store().placeAtSlot(slot);
+    expect(store().design.parts).toHaveLength(2);
   });
 });
 

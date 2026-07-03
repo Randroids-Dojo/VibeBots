@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest workshop tabs note complete", () => {
+  it("keeps the latest tap-to-place note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.173-workshop-tabs");
+    expect(release.noticeId).toBe("2026-07-03-0.1.174-tap-to-place");
     expect(latestNote).toMatchObject({
-      version: "0.1.173",
-      title: "Workshop tabs",
-      intro: "The build bench is organized now.",
+      version: "0.1.174",
+      title: "Tap to place parts",
+      intro: "Building a bot is hands-on now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The workshop's controls are sorted into Build, Tune, Garage, and Shop tabs, so you see one clear set of options at a time instead of a stack of panels.",
-      "A slim header stays pinned above your bot with its name, whether it is arena-legal, Undo and Redo, and the buttons to test a fight, all in reach on every tab.",
-      "The parts shop moved into its own tab inside the workshop instead of floating over the bench. MINE_VERSION and SIM_VERSION are unchanged.",
+      "Pick a part and the bot lights up every spot it can go; tap a glowing ghost, or a slot in the list, to drop it exactly there instead of letting the workshop choose the spot for you.",
+      "The placement list names each open mount, so you always know where a part will land before you commit to it.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });
 

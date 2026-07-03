@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-tap-to-place" data-date="2026-07-03">
+    <h3>Workshop W2: tap-to-place slot ghosts (workshop interaction overhaul, slice 2 of 5)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Second slice of the workshop interaction overhaul (<code>docs/research/workshop-interaction-overhaul.html</code>).</dd>
+      <dt>Changed</dt><dd>Adding a part is now a choose-the-spot gesture instead of a blind auto-place. A new pure <code>validSlotsFor(design, part)</code> enumerates every legal mount (each a distinct validated design, deterministic in design order); <code>planAddPart</code> is refactored to return its first slot so the palette gate and the placement flow share one truth. Arming a palette part (the button now reads Place, then Cancel with <code>aria-pressed</code>) renders a translucent ghost of the part at each valid slot on the bench, tappable to commit that exact connection, and a DOM "Placement slots" list mirrors the ghosts (named by parent mount) for a11y and e2e. The slot list sits at the top of the Build panel so it is visible immediately on portrait, above the parts list. Store gains <code>armedPartId</code>, <code>armPart</code> (toggle), and <code>placeAtSlot</code> (rebuilds against the live design and re-validates so a stale ghost can never double-mount); arming clears on undo/redo/reset/load and when leaving the Build tab. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.174</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (0 errors), full unit suite 597 passing (four new store tests: slot enumeration is distinct and all-valid, arm toggles, place commits the exact tapped connection and disarms, an occupied slot is a no-op), <code>pnpm build</code>, workshop e2e 4/4 (rewritten arm-then-place flow, asserts ghosts' DOM slot list appears and clears), release note tests updated, 390x760 portrait capture reviewed (Place-armed row highlighted, "Place on Cube Core (axle-left/right)" slots listed at top, two ghost wheels visible on the bot). The garage e2e is storage-gated and skips in CI. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Rule 7: one consistent placement gesture on every viewport (ghost on the bot and named slot in the list are the same commit). Rule 13: mine tips reviewed, no change (workshop building, not the mine tip rotation). Rule 14: stamp review done, none added (core building interaction, not a milestone worth a cosmetic stamp).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (interaction model over the existing validated-tree data). Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>Slices W3-W5 remain: part inspector chip, merge-as-placement gesture, and feel polish.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-tabs" data-date="2026-07-03">
     <h3>Workshop W1: tabs and a persistent header (workshop interaction overhaul, slice 1 of 5)</h3>
     <dl>

@@ -110,8 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-03-0.1.173-workshop-tabs",
-      releaseSummary: "Workshop tabs: The build bench is organized now.",
+      releaseNoticeId: "2026-07-03-0.1.174-tap-to-place",
+      releaseSummary: "Tap to place parts: Building a bot is hands-on now.",
     });
   });
 
@@ -171,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-03-0.1.173-workshop-tabs",
+      releaseNoticeId: "2026-07-03-0.1.174-tap-to-place",
       attempted: 2,
       sent: 1,
       expired: 1,

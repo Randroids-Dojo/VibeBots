@@ -22,6 +22,7 @@ import {
   planMergeSelectedPart,
   planRotateSelected,
   useWorkshopStore,
+  validSlotsFor,
 } from "@/state/workshop-store";
 
 const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
@@ -133,8 +134,10 @@ export function WorkshopPanel() {
     }
   };
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
+  const armedPartId = useWorkshopStore((s) => s.armedPartId);
   const history = useWorkshopStore((s) => s.history);
-  const addPart = useWorkshopStore((s) => s.addPart);
+  const armPart = useWorkshopStore((s) => s.armPart);
+  const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
   const mergeSelectedPart = useWorkshopStore((s) => s.mergeSelectedPart);
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
@@ -142,6 +145,12 @@ export function WorkshopPanel() {
   const undo = useWorkshopStore((s) => s.undo);
   const redo = useWorkshopStore((s) => s.redo);
   const reset = useWorkshopStore((s) => s.reset);
+
+  // Placement ghosts belong to the Build tab; leaving it puts them away
+  // so they never hover over the bench while another tab is up.
+  useEffect(() => {
+    if (tab !== "build") armPart(null);
+  }, [tab, armPart]);
 
   const validation = validateDesign(design);
   const behavior = design.behavior ?? NEUTRAL_BEHAVIOR;
@@ -172,6 +181,8 @@ export function WorkshopPanel() {
     inventory.state === "sandbox" ||
     (inventory.state === "ready" && selectedAvailableAfterUse > 0);
   const mergeEnabled = selectedMergePlan !== null && mergeInventoryAllows;
+  const armedDef = armedPartId ? PART_CATALOG[armedPartId] : null;
+  const placementSlots = armedDef ? validSlotsFor(design, armedDef) : [];
 
   if (matchup) {
     return (
@@ -387,6 +398,69 @@ export function WorkshopPanel() {
       >
         {tab === "build" && (
           <>
+            {armedDef && (
+              <section style={panelStyle} aria-label="Placement slots">
+                <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>
+                  Place {armedDef.name}
+                </h2>
+                <p
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: "0.78rem",
+                    opacity: 0.7,
+                  }}
+                >
+                  Tap a glowing spot on the bot, or a slot below.
+                </p>
+                {placementSlots.length === 0 ? (
+                  <p
+                    style={{ margin: 0, fontSize: "0.8rem", color: "#ff6b6b" }}
+                  >
+                    No open spot fits this part right now.
+                  </p>
+                ) : (
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: 6 }}
+                  >
+                    {placementSlots.map((slot) => {
+                      const parentPart = design.parts.find(
+                        (p) => p.iid === slot.parentIid,
+                      );
+                      const parentDef = parentPart
+                        ? PART_CATALOG[parentPart.partId]
+                        : null;
+                      return (
+                        <button
+                          key={`${slot.parentIid}:${slot.parentConnector}`}
+                          type="button"
+                          onClick={() => placeAtSlot(slot)}
+                          style={{
+                            textAlign: "left",
+                            background: "#26304a",
+                            color: "#e6e8ee",
+                            border: "1px solid #344061",
+                            borderRadius: 6,
+                            padding: "5px 10px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Place on {parentDef?.name ?? slot.parentIid} (
+                          {slot.parentConnector})
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => armPart(null)}
+                  style={{ marginTop: 8 }}
+                >
+                  Cancel placement
+                </button>
+              </section>
+            )}
+
             <section style={panelStyle} aria-label="Part palette">
               <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>Parts</h2>
               {Object.values(PART_CATALOG)
@@ -403,6 +477,7 @@ export function WorkshopPanel() {
                     (inventory.state === "ready" && available > 0);
                   const free =
                     planAddPart(design, part) !== null && inventoryAllows;
+                  const armedHere = armedPartId === part.id;
                   return (
                     <div
                       key={part.id}
@@ -429,25 +504,37 @@ export function WorkshopPanel() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => addPart(part.id)}
-                        disabled={!free}
+                        onClick={() => armPart(part.id)}
+                        disabled={!free && !armedHere}
+                        aria-pressed={armedHere}
                         title={
-                          inventory.state === "loading"
-                            ? "Checking inventory"
-                            : inventory.state === "ready" && available <= 0
-                              ? "None owned"
-                              : undefined
+                          armedHere
+                            ? "Stop placing"
+                            : inventory.state === "loading"
+                              ? "Checking inventory"
+                              : inventory.state === "ready" && available <= 0
+                                ? "None owned"
+                                : "Show placement spots"
                         }
                         style={{
-                          cursor: free ? "pointer" : "not-allowed",
-                          background: free ? "#26304a" : "#161b28",
-                          color: free ? "#e6e8ee" : "#5a6378",
+                          cursor: free || armedHere ? "pointer" : "not-allowed",
+                          background: armedHere
+                            ? "#54e0c7"
+                            : free
+                              ? "#26304a"
+                              : "#161b28",
+                          color: armedHere
+                            ? "#0b0e14"
+                            : free
+                              ? "#e6e8ee"
+                              : "#5a6378",
                           border: "1px solid #344061",
                           borderRadius: 6,
                           padding: "3px 10px",
+                          fontWeight: armedHere ? 600 : 400,
                         }}
                       >
-                        Add
+                        {armedHere ? "Cancel" : "Place"}
                       </button>
                     </div>
                   );

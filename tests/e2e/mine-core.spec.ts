@@ -300,6 +300,89 @@ test("a five-wide tunnel condemns its roof and a plank rescues it", async ({
   });
 });
 
+test("a cave-in uncorks a gas pocket and the miner disperses the wisp", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const seed = 2026070303;
+  const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  const c = START_COL;
+  // Shaft to a gallery at row 6. A teetering boulder sits beside a gas
+  // pocket over a deep pit: its countdown outlasts the replayed descent,
+  // so the fall lands on the player's watch. Every touched cell is
+  // pinned so pristine rolls stay out of the contract.
+  for (let row = 1; row <= 5; row++) {
+    setCell(mine, c, row, { kind: "dirt", hp: 1 });
+  }
+  setCell(mine, c - 1, 6, { kind: "empty" });
+  setCell(mine, c - 1, 7, { kind: "dirt" });
+  setCell(mine, c, 6, { kind: "empty" });
+  setCell(mine, c, 7, { kind: "dirt" });
+  setCell(mine, c + 1, 5, { kind: "dirt" });
+  setCell(mine, c + 1, 6, { kind: "boulder", fallIn: 8 });
+  setCell(mine, c + 1, 7, { kind: "empty" });
+  setCell(mine, c + 1, 8, { kind: "empty" });
+  setCell(mine, c + 1, 9, { kind: "dirt" });
+  setCell(mine, c + 2, 5, { kind: "dirt" });
+  setCell(mine, c + 2, 6, { kind: "gas" });
+  setCell(mine, c + 2, 7, { kind: "dirt" });
+  setCell(mine, c + 3, 6, { kind: "dirt" });
+  const moves: MineAction[] = Array.from({ length: 6 }, () => "down" as const);
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+      localStorage.setItem("vibebots-falling-rock-alert-dismissed", "true");
+    },
+    {
+      seed,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves,
+    },
+  );
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "6");
+  await expect(canvas).toHaveAttribute("data-gas-wisp-count", "0");
+
+  // Two paced steps run out the boulder's countdown: it drops into the
+  // pit, the vacated cell uncorks the pocket, and a wisp leaks into the
+  // tunnel row.
+  await pressMineKey(page, "ArrowLeft");
+  await page.waitForTimeout(650);
+  await pressMineKey(page, "ArrowRight");
+  await expect(canvas).toHaveAttribute("data-gas-wisp-count", "1", {
+    timeout: 5_000,
+  });
+
+  // Shouldering through the wisp disperses it and costs extra battery.
+  const energyBefore = Number(await status.getAttribute("data-energy"));
+  await page.waitForTimeout(650);
+  await pressMineKey(page, "ArrowRight");
+  await expect(status).toHaveAttribute("data-horizontal-distance", "1", {
+    timeout: 5_000,
+  });
+  await expect(canvas).toHaveAttribute("data-gas-wisp-count", "0");
+  const energyAfter = Number(await status.getAttribute("data-energy"));
+  expect(energyBefore - energyAfter).toBeGreaterThanOrEqual(4);
+});
+
 test("stratum entry banners fade after continued descent", async ({ page }) => {
   // Deep digs cost ~0.62s per swing at sim cadence; slow runners also pay
   // a first-frame shader-compile stall, so the default 60s budget is tight.

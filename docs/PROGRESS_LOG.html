@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="world-sim-gas-propagation" data-date="2026-07-03">
+    <h3>World sim: gas propagation (uncorked pockets and wisps)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code> (user-directed program).</dd>
+      <dt>PR</dt><dd>None (direct main). Second world-sim depth slice; composes with the structural-integrity collapses shipped in <code>0.1.166</code>.</dd>
+      <dt>Changed</dt><dd>REQ-015 extension: a fall that vacates a cell beside a gas pocket uncorks it (dig adjacency still vents instantly, so falls are the only un-vented exposure). An uncorked pocket carries a <code>gasSeepBudget</code> (3) and leaks one wisp per finalized action into adjacent open tunnel, rising first, never into cells holding ladders, planks, beacons, portals, drops, or bags (placements double as gas breaks), and never into the miner's cell. Wisps (<code>gasSeeped</code>) fade back to empty after <code>GAS_SEEPED_FADE_ACTIONS</code> (10), add zero drain inside a vent chain, can be shouldered through for <code>GAS_WISP_DISPERSE_DRAIN</code> (4) battery, and are thin air to falling blocks. Seep processing sorts by position, never map insertion order, so live sessions and diff-restored replays agree. Wisps render as translucent glowing haze with <code>data-gas-wisp-count</code> as the QA surface. New Rule 13 tip. Fluids (water) deliberately deferred: no GDD water system exists, so the propagation suggestion ships as gas; a water table would be new design needing its own approval. Package version <code>0.1.167</code>; <code>MINE_VERSION</code> 49 -&gt; 50; <code>SIM_VERSION</code> 4 unchanged.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (unpiped), 6 new replay unit tests (uncork on fall, supports block seep, wisp walk-through drain, one-dig vent chain with wisps free, orphan fade, replayTrip determinism), full unit suite 578 passing, <code>pnpm build</code>, new e2e (cave-in uncorks pocket, wisp appears by count, dispersal costs battery) plus the collapse e2e green on a fresh build, fresh-build release smoke. Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Recommended default (Rule 7): wisps are survivable pressure, not a death wall: budget-bounded leaks, support-blocked spread, walk-through dispersal, and free-in-chain venting keep the hazard readable and the miner never trapped. Rule 13: tip rotation reviewed; added the uncorked-gas tip, existing gas tip untouched. Rule 14: stamp review done, none added; durable hazard counters stay tracked as F-049.</dd>
+      <dt>GDD coverage</dt><dd>REQ-015 deepens again (gas propagation added to hazards). Build log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>F-049 widened to include gas-survival counters. Next: ragdoll crush death on the render layer.</dd>
+    </dl>
+  </article>
+
   <article data-slice="world-sim-structural-integrity" data-date="2026-07-03">
     <h3>World sim: structural integrity collapses (wide-span tunnels)</h3>
     <dl>

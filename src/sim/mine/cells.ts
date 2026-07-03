@@ -90,6 +90,20 @@ export interface MineCell {
    * below) clears the countdown. Direct undercut teeters never clear.
    */
   spanUnstable?: boolean;
+  /**
+   * Wisp cells an uncorked gas pocket may still leak into open tunnel
+   * (one per action). Set when a fall vacates an adjacent cell; cleared
+   * when spent or the pocket is vented.
+   */
+  gasSeepBudget?: number;
+  /**
+   * A leaked wisp, only meaningful on gas cells. Wisps add no drain in a
+   * vent chain, can be walked through for a small battery cost, and fade
+   * back to empty when gasFadeIn runs out.
+   */
+  gasSeeped?: boolean;
+  /** Actions remaining before a seeped wisp fades back to empty. */
+  gasFadeIn?: number;
 }
 
 export interface DroppedBag {

@@ -275,6 +275,7 @@ function MineScene({
   const renderedCellCountRef = useRef(0);
   const renderedCrackSegmentCountRef = useRef(0);
   const renderedTeeterCountRef = useRef(0);
+  const renderedGasWispCountRef = useRef(0);
 
   const displayCol = fallWindow?.col ?? mine.miner.col;
   const minerRow = fallWindow?.toRow ?? mine.miner.row;
@@ -592,6 +593,9 @@ function MineScene({
       state.gl.domElement.dataset.teeterMotionFrames = String(
         teeterMotionFrames.current,
       );
+      state.gl.domElement.dataset.gasWispCount = String(
+        renderedGasWispCountRef.current,
+      );
       state.gl.domElement.dataset.particleCount = String(j.particles.length);
       state.gl.domElement.dataset.darknessOpacityMin = hasDarknessOverlay
         ? minDarknessOpacity.toFixed(2)
@@ -824,6 +828,7 @@ function MineScene({
   let maxDarknessOpacity = 0;
   let renderedCellCount = 0;
   let renderedTeeterCount = 0;
+  let renderedGasWispCount = 0;
   let renderedCrackSegmentCount = 0;
   const selectedSupportSet = new Set(selectedSupportKeys ?? []);
   const dynamitePreviewSet = new Set(
@@ -1272,6 +1277,38 @@ function MineScene({
         continue;
       }
       if (cell.kind === "gas") {
+        // A seeped wisp reads as haze, not rock: translucent, smaller,
+        // glowing brighter so a leak stands out from the pocket it left.
+        if (cell.gasSeeped) {
+          renderedGasWispCount += 1;
+          blockMeshes.push(
+            <mesh key={key} position={[x, y, 0]}>
+              <sphereGeometry args={[0.42, 10, 8]} />
+              <meshStandardMaterial
+                color={
+                  biome === "winter"
+                    ? "#9ee7ff"
+                    : biome === "highTech"
+                      ? "#65ffb8"
+                      : GAS_COLOR
+                }
+                emissive={
+                  biome === "winter"
+                    ? "#9ee7ff"
+                    : biome === "highTech"
+                      ? "#65ffb8"
+                      : GAS_COLOR
+                }
+                emissiveIntensity={0.4}
+                transparent
+                opacity={0.42}
+                depthWrite={false}
+                roughness={0.9}
+              />
+            </mesh>,
+          );
+          continue;
+        }
         blockMeshes.push(
           <RoundedBox
             key={key}
@@ -1356,6 +1393,7 @@ function MineScene({
   renderedCellCountRef.current = renderedCellCount;
   renderedCrackSegmentCountRef.current = renderedCrackSegmentCount;
   renderedTeeterCountRef.current = renderedTeeterCount;
+  renderedGasWispCountRef.current = renderedGasWispCount;
   const hasDarknessOverlay = maxDarknessOpacity > 0;
 
   return (

@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.166-tunnel-collapses";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.167-gas-leaks";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.167",
+      date: "2026-07-03",
+      title: "Gas leaks",
+      intro: "Cave-ins can uncork gas pockets now.",
+      changes: [
+        {
+          build,
+          text: "A falling block that opens a path past a gas pocket uncorks it: the pocket leaks glowing wisps into your tunnel, one cell per move, until its pressure is spent.",
+        },
+        {
+          build,
+          text: "Wisps are survivable: push through one for a little battery, vent the whole leak with a single dig, or wall it off, since gas never crosses ladders, planks, or beacons.",
+        },
+        {
+          build,
+          text: "Leaked wisps thin out on their own after a while, and falling rocks smash straight through them. MINE_VERSION bumps to 50; SIM_VERSION is unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.166",
       date: "2026-07-03",

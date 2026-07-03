@@ -16,6 +16,9 @@ import {
   createMine,
   exportDiff,
   FALL_DELAY_ACTIONS,
+  GAS_SEEP_BUDGET,
+  GAS_SEEPED_FADE_ACTIONS,
+  GAS_WISP_DISPERSE_DRAIN,
   SPAN_COLLAPSE_DELAY_ACTIONS,
   setCell,
 } from "./world";
@@ -474,5 +477,157 @@ describe("structural integrity (wide spans)", () => {
           col === START_COL + 2 && row === 7 && cell.kind === "empty",
       ),
     ).toBe(true);
+  });
+});
+
+/**
+ * A teetering boulder one action from dropping past a gas pocket: the
+ * fall vacates the cell beside the gas and uncorks it. Every cell the
+ * scenario touches is pinned so pristine rolls stay out of the way.
+ */
+function uncorkedGasState(): MineState {
+  const state = createMine(555, DEFAULT_GEAR, stock({}));
+  const c = START_COL;
+  state.miner.col = c;
+  state.miner.row = 6;
+  setCell(state, c - 1, 6, { kind: "empty" });
+  setCell(state, c - 1, 7, { kind: "dirt" });
+  setCell(state, c, 6, { kind: "empty" });
+  setCell(state, c, 7, { kind: "dirt" });
+  setCell(state, c + 1, 5, { kind: "dirt" });
+  setCell(state, c + 1, 6, { kind: "boulder", fallIn: 1 });
+  setCell(state, c + 1, 7, { kind: "empty" });
+  setCell(state, c + 1, 8, { kind: "dirt" });
+  setCell(state, c + 2, 5, { kind: "dirt" });
+  setCell(state, c + 2, 6, { kind: "gas" });
+  setCell(state, c + 2, 7, { kind: "dirt" });
+  setCell(state, c + 3, 6, { kind: "dirt" });
+  return state;
+}
+
+describe("gas propagation (uncorked pockets)", () => {
+  it("uncorks a pocket when a fall vacates its neighbor and leaks a wisp", () => {
+    const state = uncorkedGasState();
+    const c = START_COL;
+    expect(applyAction(state, "left")).toMatchObject({ ok: true });
+    // The boulder dropped from (c+1,6) to (c+1,7); the vacated cell sits
+    // beside the pocket, which uncorked and leaked its first wisp back
+    // into that opening.
+    expect(cellAt(state, c + 1, 7)?.kind).toBe("boulder");
+    expect(cellAt(state, c + 1, 6)).toMatchObject({
+      kind: "gas",
+      gasSeeped: true,
+      gasFadeIn: GAS_SEEPED_FADE_ACTIONS,
+    });
+    expect(cellAt(state, c + 2, 6)?.gasSeepBudget).toBe(GAS_SEEP_BUDGET - 1);
+  });
+
+  it("keeps wisps out of cells holding supports", () => {
+    const state = createMine(558, DEFAULT_GEAR, stock({}));
+    const c = START_COL;
+    state.miner.col = c;
+    state.miner.row = 6;
+    setCell(state, c - 1, 6, { kind: "empty" });
+    setCell(state, c - 1, 7, { kind: "dirt" });
+    setCell(state, c, 6, { kind: "empty" });
+    setCell(state, c, 7, { kind: "dirt" });
+    // The uncorked pocket's only open neighbor holds a plank: the leak
+    // stalls against the support and the budget waits, unspent.
+    setCell(state, c + 1, 5, { kind: "dirt" });
+    setCell(state, c + 1, 6, { kind: "empty", plank: true });
+    setCell(state, c + 1, 7, { kind: "dirt" });
+    setCell(state, c + 2, 5, { kind: "dirt" });
+    setCell(state, c + 2, 6, { kind: "gas", gasSeepBudget: GAS_SEEP_BUDGET });
+    setCell(state, c + 2, 7, { kind: "dirt" });
+    setCell(state, c + 3, 6, { kind: "dirt" });
+    applyAction(state, "left");
+    expect(cellAt(state, c + 1, 6)).toMatchObject({
+      kind: "empty",
+      plank: true,
+    });
+    expect(cellAt(state, c + 2, 6)?.gasSeepBudget).toBe(GAS_SEEP_BUDGET);
+  });
+
+  it("lets the miner shoulder through a wisp for extra battery drain", () => {
+    const state = uncorkedGasState();
+    const c = START_COL;
+    applyAction(state, "left");
+    applyAction(state, "right");
+    const before = state.miner.energy;
+    const through = applyAction(state, "right");
+    expect(through).toMatchObject({ ok: true });
+    expect(state.miner).toMatchObject({ col: c + 1, row: 6 });
+    expect(cellAt(state, c + 1, 6)?.kind).toBe("empty");
+    expect(before - state.miner.energy).toBeGreaterThanOrEqual(
+      GAS_WISP_DISPERSE_DRAIN,
+    );
+  });
+
+  it("vents a whole leak through one dig, wisps free of charge", () => {
+    const state = createMine(556, DEFAULT_GEAR, stock({}));
+    const c = START_COL;
+    state.miner.col = c;
+    state.miner.row = 6;
+    setCell(state, c, 6, { kind: "empty" });
+    setCell(state, c, 7, { kind: "dirt" });
+    setCell(state, c + 1, 5, { kind: "dirt" });
+    setCell(state, c + 1, 6, { kind: "dirt", hp: 1 });
+    setCell(state, c + 1, 7, { kind: "dirt" });
+    setCell(state, c + 2, 5, { kind: "dirt" });
+    setCell(state, c + 2, 6, {
+      kind: "gas",
+      gasSeeped: true,
+      gasFadeIn: GAS_SEEPED_FADE_ACTIONS,
+    });
+    setCell(state, c + 2, 7, { kind: "dirt" });
+    setCell(state, c + 3, 6, { kind: "gas" });
+    setCell(state, c + 3, 5, { kind: "dirt" });
+    setCell(state, c + 3, 7, { kind: "dirt" });
+    setCell(state, c + 4, 6, { kind: "dirt" });
+    const dug = applyAction(state, "right");
+    expect(dug).toMatchObject({ ok: true, vented: 1 });
+    expect(cellAt(state, c + 2, 6)?.kind).toBe("empty");
+    expect(cellAt(state, c + 3, 6)?.kind).toBe("empty");
+  });
+
+  it("fades an orphaned wisp back to clear air", () => {
+    const state = createMine(557, DEFAULT_GEAR, stock({}));
+    const c = START_COL;
+    state.miner.col = c;
+    state.miner.row = 6;
+    setCell(state, c - 1, 6, { kind: "empty" });
+    setCell(state, c - 1, 7, { kind: "dirt" });
+    setCell(state, c, 6, { kind: "empty" });
+    setCell(state, c, 7, { kind: "dirt" });
+    setCell(state, c + 1, 6, {
+      kind: "gas",
+      gasSeeped: true,
+      gasFadeIn: 2,
+    });
+    applyAction(state, "left");
+    expect(cellAt(state, c + 1, 6)?.kind).toBe("gas");
+    applyAction(state, "right");
+    expect(cellAt(state, c + 1, 6)?.kind).toBe("empty");
+  });
+
+  it("replays a gas leak identically from the same log", () => {
+    const fixture = uncorkedGasState();
+    fixture.miner.col = START_COL;
+    fixture.miner.row = 0;
+    // Shaft down to the gallery so the replay reaches the scenario.
+    for (let row = 1; row <= 5; row++)
+      setCell(fixture, START_COL, row, { kind: "dirt", hp: 1 });
+    const diff = exportDiff(fixture);
+    const actions: MineAction[] = [
+      ...Array.from({ length: 6 }, () => "down" as const),
+      "left",
+      "right",
+      "right",
+      "left",
+    ];
+    const a = replayTrip(555, actions, DEFAULT_GEAR, stock({}), diff);
+    const b = replayTrip(555, actions, DEFAULT_GEAR, stock({}), diff);
+    expect(a.moves).toBe(actions.length);
+    expect(b).toEqual(a);
   });
 });

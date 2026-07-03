@@ -304,7 +304,7 @@
     },
     {
       "id": "REQ-015",
-      "requirement": "Deterministic positional hazards and falling rules grow with depth: undermined rock and boulders teeter then fall, wide unpropped tunnel spans collapse their ceiling (dirt and ore included) unless planks prop the roof, gas pockets chain, and unsupported miner free falls can become fatal past the safe-fall gear limit.",
+      "requirement": "Deterministic positional hazards and falling rules grow with depth: undermined rock and boulders teeter then fall, wide unpropped tunnel spans collapse their ceiling (dirt and ore included) unless planks prop the roof, gas pockets chain when vented and leak wisps when a cave-in uncorks them, and unsupported miner free falls can become fatal past the safe-fall gear limit.",
       "gddRef": "docs/gdd/06-mining.html#hazards",
       "status": "done",
       "implementationRefs": [

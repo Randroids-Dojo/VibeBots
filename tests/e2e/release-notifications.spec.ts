@@ -20,14 +20,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText(
-    "Wide tunnels shake their roof loose now.",
-  );
+  await expect(dialog).toContainText("Cave-ins can uncork gas pockets now.");
   await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText("five cells wide");
-  await expect(dialog.locator("li").nth(1)).toContainText("roof props");
+  await expect(dialog.locator("li").first()).toContainText("uncorks it");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "Wisps are survivable",
+  );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "MINE_VERSION bumps to 49",
+    "MINE_VERSION bumps to 50",
   );
 
   await page.mouse.click(8, 8);
@@ -47,6 +47,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.167", "Gas leaks"],
     ["0.1.166", "Tunnel collapses"],
     ["0.1.165", "Rival fights"],
     ["0.1.164", "Fight records"],

@@ -97,6 +97,9 @@ import {
   createMine,
   exportDiff,
   FALL_DELAY_ACTIONS,
+  GAS_SEEP_BUDGET,
+  GAS_SEEPED_FADE_ACTIONS,
+  GAS_WISP_DISPERSE_DRAIN,
   HAZARD_FREE_ROWS,
   SPAN_COLLAPSE_DELAY_ACTIONS,
   SPAN_COLLAPSE_WIDTH,
@@ -311,7 +314,8 @@ function ventGasAround(
     setCell(state, g.col, g.row, { kind: "empty" });
     emptied.push({ col: g.col, row: g.row });
     // Magma burns triple: it counts as three gas-equivalent vents.
-    vented += gasCell.kind === "magma" ? 3 : 1;
+    // Seeped wisps are thin: the chain clears them for free.
+    vented += gasCell.kind === "magma" ? 3 : gasCell.gasSeeped ? 0 : 1;
     for (const [dc, dr] of [
       [0, 0],
       [0, 1],
@@ -369,7 +373,12 @@ function tickFalls(
     while (true) {
       const below = cellAt(state, col, rest + 1);
       const belowKey = cellKey(col, rest + 1);
-      if (below?.kind !== "empty" && !droppingKeys.has(belowKey)) break;
+      // Seeped wisps are thin air to a falling block: it smashes through
+      // and the landing overwrites whichever wisp it rests in.
+      const passable =
+        below?.kind === "empty" ||
+        (below?.kind === "gas" && below.gasSeeped === true);
+      if (!passable && !droppingKeys.has(belowKey)) break;
       rest++;
     }
     const crushedByThisBlock =
@@ -474,6 +483,101 @@ function markUnstable(
 /** Planks prop the roof directly above them; solid cells end a span. */
 function isOpenSpanCell(cell: MineCell | null): boolean {
   return cell?.kind === "empty" && !cell.plank;
+}
+
+/** Wisps rise first, then drift sideways, then settle down. */
+const SEEP_NEIGHBOR_ORDER = [
+  [0, -1],
+  [-1, 0],
+  [1, 0],
+  [0, 1],
+] as const;
+
+/**
+ * Gas propagation: a fall that vacates a cell beside a gas pocket
+ * uncorks it (digging beside gas still vents instantly, so falls are
+ * the only exposure that leaves a pocket sitting open). The pocket
+ * gains a seep budget and starts leaking wisps.
+ */
+function markGasExposure(
+  state: MineState,
+  fallEmptied: Array<{ col: number; row: number }>,
+): void {
+  for (const { col, row } of fallEmptied) {
+    if (cellAt(state, col, row)?.kind !== "empty") continue;
+    for (const [dc, dr] of SEEP_NEIGHBOR_ORDER) {
+      const cell = cellAt(state, col + dc, row + dr);
+      if (cell?.kind !== "gas" || cell.gasSeeped) continue;
+      const pocket = cellMut(state, col + dc, row + dr);
+      if (pocket.gasSeepBudget === undefined) {
+        pocket.gasSeepBudget = GAS_SEEP_BUDGET;
+      }
+    }
+  }
+}
+
+/**
+ * One propagation step per finalized action: seeped wisps age toward
+ * fading back to clear air, and every uncorked pocket leaks one wisp
+ * into adjacent open tunnel. Wisps never enter cells holding supports,
+ * beacons, portals, drops, or bags (placements double as gas breaks)
+ * and never the miner's cell, so a leak cannot trap or bury anything.
+ * Processing is sorted by position, never by map insertion order, so a
+ * live session and a diff-restored replay agree.
+ */
+function tickGasSeep(state: MineState): void {
+  const miner = state.miner;
+  const fading: MineCoord[] = [];
+  const sources: MineCoord[] = [];
+  for (const [key, cell] of state.cells) {
+    if (cell.kind !== "gas") continue;
+    if (cell.gasSeeped) {
+      if (cell.gasFadeIn !== undefined) {
+        const [col, row] = key.split(",").map(Number);
+        fading.push({ col, row });
+      }
+    } else if ((cell.gasSeepBudget ?? 0) > 0) {
+      const [col, row] = key.split(",").map(Number);
+      sources.push({ col, row });
+    }
+  }
+  fading.sort((a, b) => a.row - b.row || a.col - b.col);
+  sources.sort((a, b) => a.row - b.row || a.col - b.col);
+  for (const { col, row } of fading) {
+    const wisp = cellMut(state, col, row);
+    wisp.gasFadeIn = (wisp.gasFadeIn ?? 1) - 1;
+    if (wisp.gasFadeIn <= 0) setCell(state, col, row, { kind: "empty" });
+  }
+  for (const { col, row } of sources) {
+    const pocket = cellMut(state, col, row);
+    for (const [dc, dr] of SEEP_NEIGHBOR_ORDER) {
+      const nc = col + dc;
+      const nr = row + dr;
+      if (nr < 1 || nr >= MINE_BOTTOM_ROW) continue;
+      if (miner.col === nc && miner.row === nr) continue;
+      const open = cellAt(state, nc, nr);
+      if (
+        !open ||
+        open.kind !== "empty" ||
+        open.ladder ||
+        open.plank ||
+        open.beacon ||
+        open.portal ||
+        open.drop ||
+        open.bag
+      ) {
+        continue;
+      }
+      setCell(state, nc, nr, {
+        kind: "gas",
+        gasSeeped: true,
+        gasFadeIn: GAS_SEEPED_FADE_ACTIONS,
+      });
+      pocket.gasSeepBudget = (pocket.gasSeepBudget ?? 1) - 1;
+      break;
+    }
+    if ((pocket.gasSeepBudget ?? 0) <= 0) pocket.gasSeepBudget = undefined;
+  }
 }
 
 /** Ceiling kinds a wide-span collapse can bring down. */
@@ -587,6 +691,10 @@ function settleAfterEmptied(
     ...changedSupports,
   ]);
   settleUnsupportedDrops(state);
+  // Gas runs after span accounting so wisps never masquerade as props:
+  // falls uncork adjacent pockets, then every leak advances one step.
+  markGasExposure(state, fallEmptied);
+  tickGasSeep(state);
   return {
     fallingRockTriggered: fallingRockWarnings.length > 0,
     fallingRockWarnings,
@@ -626,8 +734,16 @@ export function step(state: MineState, dir: Direction): MoveResult {
   const t = target(state, dir);
   if (isPendingDynamiteAt(state, t.col, t.row))
     return { ok: false, reason: "blocked" };
-  const cell = cellAt(state, t.col, t.row);
+  let cell = cellAt(state, t.col, t.row);
   if (!cell) return { ok: false, reason: "edge" };
+  // A seeped wisp disperses when the miner shoulders through: the step
+  // continues into clear air with an extra puff of battery drain. Real
+  // pockets still block and only vent through a dig or blast.
+  if (cell.kind === "gas" && cell.gasSeeped) {
+    setCell(state, t.col, t.row, { kind: "empty" });
+    cell = cellAt(state, t.col, t.row) ?? { kind: "empty" };
+    miner.energy = Math.max(0, miner.energy - GAS_WISP_DISPERSE_DRAIN);
+  }
   const isRockLike = cell.kind === "rock" || isFallingRock(cell);
   if (isRockLike) {
     const rockTier = rockTierForDig(cell, t.row);
@@ -1365,7 +1481,8 @@ function detonateDynamiteAt(
       setCell(state, nc, nr, { kind: "empty" });
       emptied.push({ col: nc, row: nr });
       vented +=
-        (cell.kind === "magma" ? 3 : 1) + ventGasAround(state, nc, nr, emptied);
+        (cell.kind === "magma" ? 3 : cell.gasSeeped ? 0 : 1) +
+        ventGasAround(state, nc, nr, emptied);
       blasted++;
       continue;
     }

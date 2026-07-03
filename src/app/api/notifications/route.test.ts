@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-03-0.1.166-tunnel-collapses",
-      releaseSummary:
-        "Tunnel collapses: Wide tunnels shake their roof loose now.",
+      releaseNoticeId: "2026-07-03-0.1.167-gas-leaks",
+      releaseSummary: "Gas leaks: Cave-ins can uncork gas pockets now.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-03-0.1.166-tunnel-collapses",
+      releaseNoticeId: "2026-07-03-0.1.167-gas-leaks",
       attempted: 2,
       sent: 1,
       expired: 1,

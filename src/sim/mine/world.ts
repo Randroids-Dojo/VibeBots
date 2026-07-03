@@ -103,6 +103,21 @@ export const SPAN_COLLAPSE_WIDTH = 5;
  */
 export const SPAN_COLLAPSE_DELAY_ACTIONS = 4;
 
+/**
+ * Gas propagation (REQ-015 extension): a fall or collapse that vacates
+ * a cell beside a gas pocket uncorks it (digging beside gas still vents
+ * instantly, so falls are the only un-vented exposure). An uncorked
+ * pocket leaks up to this many wisp cells into open tunnel, one per
+ * action.
+ */
+export const GAS_SEEP_BUDGET = 3;
+
+/** Actions a seeped wisp lingers before fading back to clear air. */
+export const GAS_SEEPED_FADE_ACTIONS = 10;
+
+/** Battery drain for shouldering through a wisp cell (dispersing it). */
+export const GAS_WISP_DISPERSE_DRAIN = 4;
+
 function rollCell(seed: number, row: number, col: number): MineCell {
   const biome = biomeAt(col);
   // Depth scaling: rock, treasure, and hazards all grow with depth.

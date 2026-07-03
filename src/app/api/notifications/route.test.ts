@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-03-0.1.176-merge-on-bench",
-      releaseSummary:
-        "Merge on the bench: Upgrade a part without leaving the build.",
+      releaseNoticeId: "2026-07-03-0.1.177-workshop-feel",
+      releaseSummary: "Workshop feel: The build bench feels alive now.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-03-0.1.176-merge-on-bench",
+      releaseNoticeId: "2026-07-03-0.1.177-workshop-feel",
       attempted: 2,
       sent: 1,
       expired: 1,

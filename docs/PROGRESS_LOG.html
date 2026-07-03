@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-feel-polish" data-date="2026-07-03">
+    <h3>Workshop W5: bench feel polish (workshop interaction overhaul, slice 5 of 5, closes the overhaul)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Final slice of the workshop interaction overhaul (<code>docs/research/workshop-interaction-overhaul.html</code>).</dd>
+      <dt>Changed</dt><dd>The bench now animates. A new pure curves module (<code>workshop-animation.ts</code>, no three/react imports) drives a mount pop when a part is placed and a quick scale bump when it merges up a level, plus a gentle opacity breathe on the placement ghosts so valid slots read as interactive. The canvas part and ghost rendering are refactored into small <code>PlacedPart</code> and <code>GhostSlot</code> components that own their per-frame animation via <code>useFrame</code> and refs; ghosts also carry an invisible larger hit sphere so the placement tap is thumb-sized on phones. Audio SFX was considered and deferred (the existing <code>mine-sfx</code> synth is tightly coupled to mine events; a workshop tone belongs in its own slice) and logged as a followup. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.177</code>. This slice closes the five-slice overhaul (tabs, tap-to-place, inspector, merge gesture, feel).</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (0 errors), full unit suite 603 passing including four new curve tests (smoothstep clamps and eases, the snap scale pops from small and settles to exactly 1 with a merge overshoot, ghost opacity stays in a subtle band, and the advance/decay timers clamp), <code>pnpm build</code>, workshop e2e 4/4 after the component refactor, release note tests updated. Rule 10 motion evidence: the curve math is unit-tested, and a scripted 390x760 run sampled two consecutive armed frames and measured changing canvas pixels (57 sampled byte diffs, 0 would mean static), confirming the ghosts actually breathe. Portrait capture reviewed. The garage e2e stays storage-gated (skips in CI, flaky locally per F-048). Clean-runner branch CI gates the main push.</dd>
+      <dt>Assumptions</dt><dd>Rule 7: one consistent animation language on the bench. Rule 10: motion proven by a changing canvas-pixel measure over time, not just a claim. Rule 13: mine tips reviewed, no change (workshop feel, not the mine tip rotation). Rule 14: stamp review done, none added: the overhaul reworks the interaction over existing build and merge mechanics rather than introducing a new milestone, and a build/merge stamp would need its own server progress plumbing (logged as a followup rather than rushed into a polish slice).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (presentation and feel). Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>New: workshop snap/merge SFX (own slice, avoid coupling the mine synth); a build/merge cosmetic stamp with a trustworthy server progress source. The workshop interaction overhaul (W1-W5) is complete.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-merge-gesture" data-date="2026-07-03">
     <h3>Workshop W4: merge as a placement gesture (workshop interaction overhaul, slice 4 of 5)</h3>
     <dl>

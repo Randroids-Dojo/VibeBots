@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.176-merge-on-bench";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.177-workshop-feel";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.177",
+      date: "2026-07-03",
+      title: "Workshop feel",
+      intro: "The build bench feels alive now.",
+      changes: [
+        {
+          build,
+          text: "Parts pop into place when you add them and give a satisfying bump when they merge, so every edit lands with a snap.",
+        },
+        {
+          build,
+          text: "Placement ghosts gently glow so the open spots are easy to spot, and their tap targets are bigger for thumbs.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.176",
       date: "2026-07-03",

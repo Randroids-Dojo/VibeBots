@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest merge-on-bench note complete", () => {
+  it("keeps the latest workshop feel note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.176-merge-on-bench");
+    expect(release.noticeId).toBe("2026-07-03-0.1.177-workshop-feel");
     expect(latestNote).toMatchObject({
-      version: "0.1.176",
-      title: "Merge on the bench",
-      intro: "Upgrade a part without leaving the build.",
+      version: "0.1.177",
+      title: "Workshop feel",
+      intro: "The build bench feels alive now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "While you are placing a part, any matching part already on the bot glows gold: tap it to merge the two into a stronger one instead of adding another.",
-      "The placement list offers the merge right beside the open spots, and it works even when the bot has no room left for a new part.",
+      "Parts pop into place when you add them and give a satisfying bump when they merge, so every edit lands with a snap.",
+      "Placement ghosts gently glow so the open spots are easy to spot, and their tap targets are bigger for thumbs.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

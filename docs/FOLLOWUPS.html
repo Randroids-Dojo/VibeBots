@@ -52,6 +52,26 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-050" data-f="F-050" data-priority="nice-to-have">
+    <h3>F-050: Workshop snap and merge sound effects</h3>
+    <dl>
+      <dt>Context</dt><dd>The workshop interaction overhaul (W1-W5) added a visual snap when a part is placed and a bump when it merges, but no audio. The existing <code>src/components/mine-sfx.ts</code> synth is tightly coupled to typed <code>MineSfxEvent</code>s, so wiring a workshop tone was deferred out of the W5 feel-polish slice to avoid coupling the mine synth into the bench.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add a small workshop-scoped SFX helper (or generalize the shared AudioContext out of <code>mine-sfx</code> without importing mine events) that plays a short snap on place and a brighter chime on merge, gesture-resumed and respecting any global mute. Acceptance: placing and merging in the workshop each play a distinct sound, with a unit test on the tone/event selection and no import of mine-specific event types into the workshop.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the W5 workshop feel slice)</dd>
+    </dl>
+  </section>
+
+  <section id="F-051" data-f="F-051" data-priority="nice-to-have">
+    <h3>F-051: Cosmetic stamp for building or maxing a bot part</h3>
+    <dl>
+      <dt>Context</dt><dd>The workshop overhaul made building and merging far more legible (inspector pips, on-bench merge markers), which surfaces natural milestones (first custom build, first maxed part at Lv 3). Rule 14 stamp review during W1-W5 added none, because a trustworthy server progress source is needed and the overhaul reworked interaction over existing mechanics rather than adding one.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: pick a durable, server-recorded proof (for example a saved design in the designs table, or a maxed part fielded in a resolved match) and add a cosmetic-only stamp in <code>src/lib/achievements.ts</code> with backfill, achievement tests, server progress plumbing, GDD coverage, release notes, and a progress-log entry per Rule 14. Acceptance: the stamp unlocks from a trustworthy record, grants no gameplay power, and is covered by tests.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the W5 workshop feel slice)</dd>
+    </dl>
+  </section>
+
   <section id="F-030" data-f="F-030" data-priority="nice-to-have">
     <h3>F-030: Deeply analyze mine death playback architecture</h3>
     <dl>

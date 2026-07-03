@@ -1,16 +1,23 @@
 "use client";
 
 import { OrbitControls } from "@react-three/drei";
-import { Canvas, useThree } from "@react-three/fiber";
+import {
+  Canvas,
+  type ThreeEvent,
+  useFrame,
+  useThree,
+} from "@react-three/fiber";
+import { useRef } from "react";
+import type { Group, MeshStandardMaterial } from "three";
 import {
   CATEGORY_SURFACE,
   createWebGPU,
   partGeometry,
   shapeRotation,
 } from "@/components/part-visuals";
-import { partMergeLevel } from "@/sim/design";
-import { computeLayout } from "@/sim/layout";
-import { PART_CATALOG, type PartCategory } from "@/sim/parts";
+import { type PartInstance, partMergeLevel } from "@/sim/design";
+import { computeLayout, type Placement } from "@/sim/layout";
+import { PART_CATALOG, type PartCategory, type PartDef } from "@/sim/parts";
 import {
   planMergeSelectedPart,
   useWorkshopStore,
@@ -25,6 +32,14 @@ import {
 } from "./graphics-quality";
 import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
+import {
+  advance,
+  decay,
+  ghostOpacity,
+  MOUNT_SECONDS,
+  PULSE_SECONDS,
+  snapScale,
+} from "./workshop-animation";
 
 const CATEGORY_COLORS: Record<PartCategory, string> = {
   core: "#ff9f43",
@@ -36,6 +51,142 @@ const CATEGORY_COLORS: Record<PartCategory, string> = {
 // Stable pip keys (one per merge level) so the level markers never key on
 // a bare array index. Length covers MAX_PART_MERGE_LEVEL.
 const MERGE_PIP_IDS = ["i", "ii", "iii"] as const;
+
+/**
+ * One placed part on the bench (W5 feel polish): it pops in when first
+ * placed and gives a quick scale bump when it merges up a level, so an
+ * edit lands with a snap instead of appearing instantly. The scale math
+ * lives in workshop-animation so it stays unit-tested.
+ */
+function PlacedPart({
+  instance,
+  def,
+  placement,
+  selected,
+  mergeTarget,
+  shadows,
+  onActivate,
+}: {
+  instance: PartInstance;
+  def: PartDef;
+  placement: Placement;
+  selected: boolean;
+  mergeTarget: boolean;
+  shadows: boolean;
+  onActivate: () => void;
+}) {
+  const groupRef = useRef<Group>(null);
+  const mountT = useRef(0);
+  const pulseT = useRef(0);
+  const level = partMergeLevel(instance);
+  const prevLevel = useRef(level);
+  useFrame((_, dt) => {
+    if (level > prevLevel.current) pulseT.current = 1;
+    prevLevel.current = level;
+    mountT.current = advance(mountT.current, dt, MOUNT_SECONDS);
+    pulseT.current = decay(pulseT.current, dt, PULSE_SECONDS);
+    groupRef.current?.scale.setScalar(
+      snapScale(mountT.current, pulseT.current),
+    );
+  });
+  const { position, rotation } = placement;
+  const surface = CATEGORY_SURFACE[def.category];
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: R3F scene graph node, not a DOM element
+    <group
+      ref={groupRef}
+      position={[position.x, position.y, position.z]}
+      quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
+      onClick={(event: ThreeEvent<MouseEvent>) => {
+        // Camera drags that end on a part are not activations.
+        if (event.delta > 2) return;
+        event.stopPropagation();
+        onActivate();
+      }}
+    >
+      <mesh
+        rotation={shapeRotation(def.shape)}
+        castShadow={shadows}
+        receiveShadow={shadows}
+      >
+        {partGeometry(def.shape)}
+        <meshStandardMaterial
+          color={CATEGORY_COLORS[def.category]}
+          metalness={surface.metalness}
+          roughness={surface.roughness}
+          flatShading
+          emissive={
+            mergeTarget
+              ? "#ffe08a"
+              : selected
+                ? "#ffffff"
+                : CATEGORY_COLORS[def.category]
+          }
+          emissiveIntensity={
+            mergeTarget ? 0.7 : selected ? 0.35 : surface.emissiveBoost
+          }
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * A translucent placement ghost (W5 feel polish): it breathes its opacity
+ * so a valid slot reads as interactive, and carries an invisible larger
+ * hit sphere so the placement tap is thumb-sized on phones.
+ */
+function GhostSlot({
+  def,
+  placement,
+  onPlace,
+}: {
+  def: PartDef;
+  placement: Placement;
+  onPlace: () => void;
+}) {
+  const matRef = useRef<MeshStandardMaterial>(null);
+  useFrame((state) => {
+    if (matRef.current) {
+      matRef.current.opacity = ghostOpacity(state.clock.elapsedTime);
+    }
+  });
+  const { position, rotation } = placement;
+  const surface = CATEGORY_SURFACE[def.category];
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: R3F scene graph node, not a DOM element
+    <group
+      position={[position.x, position.y, position.z]}
+      quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
+      onClick={(event: ThreeEvent<MouseEvent>) => {
+        if (event.delta > 2) return;
+        event.stopPropagation();
+        onPlace();
+      }}
+    >
+      <mesh rotation={shapeRotation(def.shape)}>
+        {partGeometry(def.shape)}
+        <meshStandardMaterial
+          ref={matRef}
+          color={CATEGORY_COLORS[def.category]}
+          metalness={surface.metalness}
+          roughness={surface.roughness}
+          flatShading
+          transparent
+          opacity={0.34}
+          depthWrite={false}
+          emissive={CATEGORY_COLORS[def.category]}
+          emissiveIntensity={0.55}
+        />
+      </mesh>
+      {/* Thumb-sized tap target: invisible but still raycast. */}
+      <mesh>
+        <sphereGeometry args={[0.6, 8, 8]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
 
 /**
  * The build bench (workshop glow-up slice, user-reported): the bot under
@@ -121,9 +272,7 @@ function WorkshopScene() {
         const def = PART_CATALOG[instance.partId];
         const placement = layout.get(instance.iid);
         if (!def || !placement) return null;
-        const { position, rotation } = placement;
         const selected = instance.iid === selectedIid;
-        const surface = CATEGORY_SURFACE[def.category];
         // While armed, a placed part of the same kind that can still level
         // up is a merge target: tapping it merges instead of placing (W4).
         const mergeTarget =
@@ -131,46 +280,22 @@ function WorkshopScene() {
           instance.partId === armedPartId &&
           planMergeSelectedPart(design, instance.iid) !== null;
         return (
-          // biome-ignore lint/a11y/noStaticElementInteractions: R3F scene graph node, not a DOM element
-          <group
+          <PlacedPart
             key={instance.iid}
-            position={[position.x, position.y, position.z]}
-            quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
-            onClick={(event) => {
-              // Camera drags that end on a part are not selections.
-              if (event.delta > 2) return;
-              event.stopPropagation();
+            instance={instance}
+            def={def}
+            placement={placement}
+            selected={selected}
+            mergeTarget={mergeTarget}
+            shadows={shadows}
+            onActivate={() => {
               if (mergeTarget) {
                 mergePart(instance.iid);
                 return;
               }
               select(selected ? null : instance.iid);
             }}
-          >
-            <mesh
-              rotation={shapeRotation(def.shape)}
-              castShadow={shadows}
-              receiveShadow={shadows}
-            >
-              {partGeometry(def.shape)}
-              <meshStandardMaterial
-                color={CATEGORY_COLORS[def.category]}
-                metalness={surface.metalness}
-                roughness={surface.roughness}
-                flatShading
-                emissive={
-                  mergeTarget
-                    ? "#ffe08a"
-                    : selected
-                      ? "#ffffff"
-                      : CATEGORY_COLORS[def.category]
-                }
-                emissiveIntensity={
-                  mergeTarget ? 0.7 : selected ? 0.35 : surface.emissiveBoost
-                }
-              />
-            </mesh>
-          </group>
+          />
         );
       })}
       {/* Merge-level markers (W3): a merged part carries one glowing pip
@@ -206,35 +331,13 @@ function WorkshopScene() {
         ghostSlots.map((slot) => {
           const placement = computeLayout(slot.next).get(slot.iid);
           if (!placement) return null;
-          const { position, rotation } = placement;
-          const surface = CATEGORY_SURFACE[armedDef.category];
           return (
-            // biome-ignore lint/a11y/noStaticElementInteractions: R3F scene graph node, not a DOM element
-            <group
+            <GhostSlot
               key={`ghost:${slot.parentIid}:${slot.parentConnector}`}
-              position={[position.x, position.y, position.z]}
-              quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
-              onClick={(event) => {
-                if (event.delta > 2) return;
-                event.stopPropagation();
-                placeAtSlot(slot);
-              }}
-            >
-              <mesh rotation={shapeRotation(armedDef.shape)}>
-                {partGeometry(armedDef.shape)}
-                <meshStandardMaterial
-                  color={CATEGORY_COLORS[armedDef.category]}
-                  metalness={surface.metalness}
-                  roughness={surface.roughness}
-                  flatShading
-                  transparent
-                  opacity={0.34}
-                  depthWrite={false}
-                  emissive={CATEGORY_COLORS[armedDef.category]}
-                  emissiveIntensity={0.55}
-                />
-              </mesh>
-            </group>
+              def={armedDef}
+              placement={placement}
+              onPlace={() => placeAtSlot(slot)}
+            />
           );
         })}
     </>

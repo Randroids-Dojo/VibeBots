@@ -21,12 +21,18 @@ type SaveStatus =
  * Save/load panel for the player's designs. Hidden entirely when the
  * server reports storage unavailable (previews without secrets, CI).
  */
+// Remember the last storage check and save list across mounts, so re-opening
+// the Garage tab shows the previous list instantly (revalidated in the
+// background) instead of dropping back to a spinner.
+let availableCache: boolean | null = null;
+let savesCache: SavedDesign[] = [];
+
 export function DesignSaves() {
   const design = useWorkshopStore((s) => s.design);
   const setName = useWorkshopStore((s) => s.setName);
   const loadDesign = useWorkshopStore((s) => s.loadDesign);
-  const [available, setAvailable] = useState<boolean | null>(null);
-  const [saves, setSaves] = useState<SavedDesign[]>([]);
+  const [available, setAvailable] = useState<boolean | null>(availableCache);
+  const [saves, setSaves] = useState<SavedDesign[]>(savesCache);
   const [status, setStatus] = useState<SaveStatus>({ state: "idle" });
   const [nameDraft, setNameDraft] = useState(design.name);
 
@@ -34,18 +40,23 @@ export function DesignSaves() {
     try {
       const res = await fetch("/api/designs");
       if (res.status === 503) {
+        availableCache = false;
         setAvailable(false);
         return;
       }
       if (!res.ok) {
         // Storage is configured; only the list failed. Keep the panel.
+        availableCache = true;
         setAvailable(true);
         return;
       }
       const body = await res.json();
+      availableCache = true;
+      savesCache = body.designs ?? [];
       setAvailable(true);
-      setSaves(body.designs ?? []);
+      setSaves(savesCache);
     } catch {
+      availableCache = false;
       setAvailable(false);
     }
   }, []);

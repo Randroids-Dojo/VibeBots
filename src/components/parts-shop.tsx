@@ -42,20 +42,37 @@ const buyButtonStyle = (affordable: boolean): React.CSSProperties => ({
  * parts to snap onto a bot. Gear and supplies are bought in-world at the
  * mine stalls, so this panel is parts only.
  */
+// Remember the last loaded shop across mounts. Re-opening the Shop tab then
+// shows the previous catalog instantly (revalidated in the background) instead
+// of dropping back to a spinner, so switching to an already-loaded tab does
+// not blink.
+let shopDataCache: ShopData | null = null;
+let shopUnavailableCache = false;
+
 export function PartsShop() {
-  const [shop, setShop] = useState<ShopState>({ state: "loading" });
+  const [shop, setShop] = useState<ShopState>(() =>
+    shopDataCache
+      ? { state: "ready", data: shopDataCache, notice: null }
+      : shopUnavailableCache
+        ? { state: "unavailable" }
+        : { state: "loading" },
+  );
 
   const refresh = useCallback(async (notice: string | null = null) => {
     try {
       const res = await fetch("/api/shop");
       if (res.status === 503) {
+        shopUnavailableCache = true;
         setShop({ state: "unavailable" });
         return;
       }
       if (!res.ok) return;
-      const data = await res.json();
+      const data = (await res.json()) as ShopData;
+      shopDataCache = data;
+      shopUnavailableCache = false;
       setShop({ state: "ready", data, notice });
     } catch {
+      shopUnavailableCache = true;
       setShop({ state: "unavailable" });
     }
   }, []);

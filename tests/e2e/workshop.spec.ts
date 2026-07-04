@@ -574,6 +574,50 @@ test("menu opens instantly and streams content behind a spinner (perf)", async (
   await expect(spinner).toHaveCount(0);
 });
 
+test("bot clears a tall menu after it loads, and re-opening does not blink (perf)", async ({
+  page,
+}) => {
+  // A tall catalog that arrives after a short delay: the bot lift must
+  // re-measure once the real height lands (not stay stuck at the spinner
+  // height), and re-opening the tab must show the cached catalog with no
+  // spinner collapse.
+  const catalog = Array.from({ length: 14 }, (_, i) => ({
+    id: `p${i}`,
+    name: `Part ${i}`,
+    category: "mobility",
+    priceEmeralds: i + 1,
+  }));
+  await page.route("**/api/shop", async (route) => {
+    await new Promise((r) => setTimeout(r, 400));
+    await route.fulfill({
+      json: { emeralds: 999, inventory: [], catalog },
+    });
+  });
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  const lift = () =>
+    canvas.evaluate((c: HTMLCanvasElement) =>
+      Number(c.dataset.menuLift ?? "0"),
+    );
+  const spinner = page.locator(".workshop-build-panels .workshop-spinner");
+
+  // Open Shop: the spinner shows first (small lift), then the tall catalog
+  // lands and the bot lifts further to clear it.
+  await page.getByRole("tab", { name: "Shop" }).click();
+  await expect(spinner).toBeVisible();
+  const liftDuringSpinner = await lift();
+  await expect(page.getByText("999 vibes")).toBeVisible();
+  await expect.poll(lift).toBeGreaterThan(liftDuringSpinner + 0.05);
+
+  // Switch away and back: the cached catalog shows instantly, no spinner.
+  await page.getByRole("tab", { name: "Tune" }).click();
+  await expect(page.getByText("999 vibes")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Shop" }).click();
+  await expect(page.getByText("999 vibes")).toBeVisible();
+  await expect(spinner).toHaveCount(0);
+});
+
 test("workshop tabs press in when held (H)", async ({ page }) => {
   // Buttons should feel tactile: holding a control presses it in (Rule 10,
   // prove the pixels move, not just that a style exists).

@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.186-workshop-ground";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.187-workshop-cascade-remove";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.187",
+      date: "2026-07-04",
+      title: "Remove a part, remove its stack",
+      intro: "Pull a part from the middle of a stack.",
+      changes: [
+        {
+          build,
+          text: "Removing a part now also removes everything attached to it, so you can pull a part from the middle of a stack without clearing the tip first. Removed parts return to your inventory, and undo puts them back.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.186",
       date: "2026-07-04",

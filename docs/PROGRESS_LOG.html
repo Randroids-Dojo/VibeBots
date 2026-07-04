@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-cascade-remove" data-date="2026-07-04">
+    <h3>Workshop remove cascades to the subtree, refund verified (user feedback, slice F of 5)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Feedback: removing a part in a stack should also remove everything attached after it, and refunds on remove/undo should be double-checked.</dd>
+      <dt>Changed</dt><dd><code>removeSelected</code> no longer refuses parts with children; it removes the selected part plus its whole subtree via a new pure <code>subtreeIids(design, rootIid)</code> helper (BFS over parent-to-child connections), dropping every removed part and any connection touching one. The core is still never removable. The panel's <code>selectedRemovable</code> gate dropped its "no children" clause too (it was disabling the Remove button for any mid-stack part, which would have blocked the cascade in the UI), and the Remove button title now reads "Remove this part and anything attached to it". <strong>Refund audit:</strong> the workshop never mutates server inventory on place; owned counts come from a GET <code>/api/shop</code> and the available count is <code>owned - designPartCounts(design)</code>, enforced server-side only at match-resolve. So removing parts (and undo restoring them) refunds automatically by recomputing the used count, no refund call needed. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.187</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome, full unit suite. New store tests: <code>subtreeIids</code> collects a part plus its descendants (and just itself for a leaf, everything for the core); removing a spin-mount with a saw blade on it drops both parts, <code>designPartCounts</code> shows both refunded, and undo restores both parts and their used counts. The Remove button (now enabled for any non-core part) drives <code>removeSelected</code>. <code>pnpm build</code>.</dd>
+      <dt>Assumptions</dt><dd>Refund is derived, not transactional (Rule 7: one consistent rule). Because the client never eagerly spends server inventory, there is nothing to "give back" on remove; the used count simply drops. If a future slice makes placement spend server inventory eagerly, this note flags where the explicit refund would go. Rule 13: mine tips reviewed, no change (workshop surface). Rule 14: stamp review done, none added (a build-flow fix).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change. Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>Remaining in this batch: carousel redesign (G), button press feel (H). Still open: keyboard-accessible placement (a11y), F-052 (bottom hero tray), F-051 (build/merge stamp).</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-ground" data-date="2026-07-04">
     <h3>Workshop parts stop clipping the bench floor (user feedback, slice E of 5)</h3>
     <dl>

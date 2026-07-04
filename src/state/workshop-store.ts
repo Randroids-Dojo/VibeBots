@@ -209,6 +209,29 @@ export function planRotateSelected(
   return null;
 }
 
+/**
+ * A part plus every part hung off it, transitively. Removing a part in a
+ * stack takes its whole subtree so no child is left floating without its
+ * parent.
+ */
+export function subtreeIids(design: BotDesign, rootIid: string): Set<string> {
+  const childrenOf = new Map<string, string[]>();
+  for (const conn of design.connections) {
+    const list = childrenOf.get(conn.parentIid);
+    if (list) list.push(conn.childIid);
+    else childrenOf.set(conn.parentIid, [conn.childIid]);
+  }
+  const removed = new Set<string>();
+  const stack = [rootIid];
+  while (stack.length > 0) {
+    const iid = stack.pop();
+    if (iid === undefined || removed.has(iid)) continue;
+    removed.add(iid);
+    for (const child of childrenOf.get(iid) ?? []) stack.push(child);
+  }
+  return removed;
+}
+
 export function planMergeSelectedPart(
   design: BotDesign,
   selectedIid: string | null,
@@ -382,12 +405,17 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
         design.parts.find((p) => p.iid === selectedIid)?.partId ?? ""
       ];
     if (!def || def.category === "core") return;
-    // Leaves only: a part with children must lose its subtree first.
-    if (design.connections.some((c) => c.parentIid === selectedIid)) return;
+    // Removing a part in a stack takes its whole subtree with it, so no child
+    // is left floating. Every removed part frees its inventory automatically:
+    // the available count is owned minus what the design uses, so dropping
+    // the parts (and undo restoring them) refunds without a server call.
+    const removed = subtreeIids(design, selectedIid);
     const next: BotDesign = {
       ...design,
-      parts: design.parts.filter((p) => p.iid !== selectedIid),
-      connections: design.connections.filter((c) => c.childIid !== selectedIid),
+      parts: design.parts.filter((p) => !removed.has(p.iid)),
+      connections: design.connections.filter(
+        (c) => !removed.has(c.childIid) && !removed.has(c.parentIid),
+      ),
     };
     set({ ...withDesign(pushHistory(history, next)), selectedIid: null });
   },

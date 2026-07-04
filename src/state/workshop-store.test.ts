@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { validateDesign } from "@/sim/design";
-import { DRIVE_WHEEL, PART_CATALOG, SPIN_MOUNT } from "@/sim/parts";
+import { designPartCounts } from "@/sim/inventory";
+import { DRIVE_WHEEL, PART_CATALOG, SAW_BLADE, SPIN_MOUNT } from "@/sim/parts";
 import {
   CAROUSEL_PART_IDS,
   findFreeConnectors,
   planAddPart,
   planMergeSelectedPart,
   STARTER_DESIGN,
+  subtreeIids,
   useWorkshopStore,
   validSlotsFor,
 } from "./workshop-store";
@@ -46,7 +48,7 @@ describe("workshop store", () => {
     expect(validateDesign(store().design).ok).toBe(true);
   });
 
-  it("removes only selected leaf parts, never the core", () => {
+  it("removes a selected part, never the core", () => {
     store().addPart("ram-spike");
     const spikeIid = store().selectedIid;
     expect(spikeIid).not.toBeNull();
@@ -56,6 +58,81 @@ describe("workshop store", () => {
     store().select("core");
     store().removeSelected();
     expect(store().design.parts).toHaveLength(1);
+  });
+
+  it("collects a part plus everything hung off it (subtreeIids)", () => {
+    // core -> A -> B, core -> C. Removing A must take B; removing the core
+    // takes everything.
+    const design = {
+      ...STARTER_DESIGN,
+      parts: [
+        { iid: "core", partId: "core-cube" },
+        { iid: "A", partId: "spin-mount" },
+        { iid: "B", partId: "sensor-head" },
+        { iid: "C", partId: "ram-spike" },
+      ],
+      connections: [
+        {
+          parentIid: "core",
+          parentConnector: "top",
+          childIid: "A",
+          childConnector: "base",
+        },
+        {
+          parentIid: "A",
+          parentConnector: "mount",
+          childIid: "B",
+          childConnector: "base",
+        },
+        {
+          parentIid: "core",
+          parentConnector: "front",
+          childIid: "C",
+          childConnector: "base",
+        },
+      ],
+    };
+    expect([...subtreeIids(design, "A")].sort()).toEqual(["A", "B"]);
+    expect([...subtreeIids(design, "C")]).toEqual(["C"]);
+    expect([...subtreeIids(design, "core")].sort()).toEqual([
+      "A",
+      "B",
+      "C",
+      "core",
+    ]);
+  });
+
+  it("removing a part in a stack drops its subtree and refunds it", () => {
+    // Build core -> spin mount -> saw blade (the blade only fits the mount's
+    // spindle), then remove the mount: the blade rides along, and both parts
+    // return to available inventory (the used count is what the design
+    // consumes, so dropping them refunds).
+    store().addPart("spin-mount");
+    const mountIid = store().selectedIid;
+    expect(mountIid).not.toBeNull();
+    const mountSlot = validSlotsFor(store().design, SAW_BLADE).find(
+      (s) => s.parentIid === mountIid,
+    );
+    expect(mountSlot).toBeDefined();
+    if (mountSlot) store().placeAtSlot(mountSlot);
+    expect(store().design.parts).toHaveLength(3);
+    const used = designPartCounts(store().design);
+    expect(used.get(SPIN_MOUNT.id)).toBe(1);
+    expect(used.get(SAW_BLADE.id)).toBe(1);
+
+    store().select(mountIid);
+    store().removeSelected();
+    expect(store().design.parts).toHaveLength(1);
+    const refunded = designPartCounts(store().design);
+    expect(refunded.get(SPIN_MOUNT.id)).toBeUndefined();
+    expect(refunded.get(SAW_BLADE.id)).toBeUndefined();
+
+    // Undo restores the whole subtree and its used counts.
+    store().undo();
+    expect(store().design.parts).toHaveLength(3);
+    const restored = designPartCounts(store().design);
+    expect(restored.get(SPIN_MOUNT.id)).toBe(1);
+    expect(restored.get(SAW_BLADE.id)).toBe(1);
   });
 
   it("undoes and redoes whole design snapshots", () => {

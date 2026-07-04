@@ -167,11 +167,12 @@ export function WorkshopPanel() {
   const selectedMergeLevel = selectedPart ? partMergeLevel(selectedPart) : 1;
   const selectedDurability =
     selectedPart && selectedDef ? partInstanceDurability(selectedPart) : null;
+  // Any non-core part can be removed: removing one takes its whole subtree
+  // with it, so a part with children is no longer a dead end.
   const selectedRemovable =
-    selectedDef &&
+    selectedDef != null &&
     selectedDef.category !== "core" &&
-    selectedIid !== null &&
-    !design.connections.some((c) => c.parentIid === selectedIid);
+    selectedIid !== null;
   const selectedMergePlan = planMergeSelectedPart(design, selectedIid);
   const selectedUsed = selectedPart
     ? (usedPartCounts.get(selectedPart.partId) ?? 0)
@@ -696,9 +697,7 @@ export function WorkshopPanel() {
               title={
                 selectedDef.category === "core"
                   ? "The core cannot be removed"
-                  : !selectedRemovable
-                    ? "Remove this part's attachments first"
-                    : undefined
+                  : "Remove this part and anything attached to it"
               }
             >
               Remove

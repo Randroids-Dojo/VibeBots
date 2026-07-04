@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="button-feel" data-date="2026-07-04">
+    <h3>Tactile button press feel across the app (user feedback, slice H of 5)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Feedback: "buttons appear and feel unsatisfactory to press."</dd>
+      <dt>Changed</dt><dd>Global CSS press feel in <code>src/app/globals.css</code>: every <code>button</code> darkens on <code>:active</code> (<code>filter: brightness</code>, layout-safe so it does not disturb transform-positioned controls) with a smooth transition and a keyboard <code>:focus-visible</code> ring. The main workshop controls (tabs, carousel arrows, inspector actions, header actions) additionally push in on press (<code>translateY(1px) scale(0.97)</code>); those classes were verified not to use transform for layout. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.189</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome, full unit suite, <code>pnpm build</code>. New e2e "workshop tabs press in when held (H)" (Rule 10): a control's computed transform is <code>none</code> at rest and a real matrix while the pointer is held, proving the press visibly moves the button rather than only defining a style.</dd>
+      <dt>Assumptions</dt><dd>Used <code>filter</code> for the universal press so it never breaks the many centered/absolute controls that rely on <code>transform: translateX(-50%)</code>; reserved the transform push-in for the enumerated workshop button classes that are layout-safe. Rule 13: mine tips reviewed, no change (global polish, no mine rule change). Rule 14: stamp review done, none added (polish).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (cross-cutting UI polish; no single GDD section owns it).</dd>
+      <dt>Followups</dt><dd>This closes the 5-part feedback batch (D-H). Still open: keyboard-accessible placement (a11y), F-052 (bottom hero tray), F-051 (build/merge stamp). Next: the BattleBots / Nuts &amp; Bolts research and the core-variants workshop expansion.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-carousel" data-date="2026-07-04">
     <h3>Workshop part picker redesign: overlay arrows, tap for stats (user feedback, slice G of 5)</h3>
     <dl>

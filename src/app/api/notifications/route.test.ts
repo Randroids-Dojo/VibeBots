@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-04-0.1.188-workshop-carousel",
-      releaseSummary:
-        "A cleaner part picker: Flip parts with arrows, tap for stats.",
+      releaseNoticeId: "2026-07-04-0.1.189-button-feel",
+      releaseSummary: "Buttons that press back: Controls feel tactile now.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-04-0.1.188-workshop-carousel",
+      releaseNoticeId: "2026-07-04-0.1.189-button-feel",
       attempted: 2,
       sent: 1,
       expired: 1,

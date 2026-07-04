@@ -29,6 +29,49 @@ a {
   touch-action: manipulation;
 }
 
+/* Tactile press feel across every control (H): a quick darken while held and
+ * a clear keyboard focus ring. Uses filter, not transform, so it is safe on
+ * buttons that use transform for layout (centered/absolute controls). */
+button {
+  transition:
+    filter 120ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+button:not(:disabled):active {
+  filter: brightness(0.84);
+}
+
+button:focus-visible {
+  outline: 2px solid #54e0c7;
+  outline-offset: 2px;
+}
+
+/* The main workshop controls also press in when held: a small push-down plus
+ * darken reads as a physical button. These classes do not use transform for
+ * layout, so the transform is safe here. */
+.workshop-tabs button,
+.carousel-arrow,
+.inspector-actions button,
+.workshop-header-actions button {
+  transition:
+    transform 90ms ease,
+    filter 120ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.workshop-tabs button:not(:disabled):active,
+.carousel-arrow:not(:disabled):active,
+.inspector-actions button:not(:disabled):active,
+.workshop-header-actions button:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+  filter: brightness(0.92);
+}
+
 .app-error-screen {
   display: grid;
   min-height: 100dvh;

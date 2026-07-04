@@ -408,6 +408,29 @@ test("workshop tabs keep panels on-screen on portrait phones", async ({
   await expect(page.getByLabel("Part carousel")).not.toBeVisible();
 });
 
+test("workshop tabs press in when held (H)", async ({ page }) => {
+  // Buttons should feel tactile: holding a control presses it in (Rule 10,
+  // prove the pixels move, not just that a style exists).
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const tab = page.getByRole("tab", { name: "Tune" });
+  await expect(tab).toBeVisible();
+  const box = await tab.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  const readTransform = () =>
+    tab.evaluate((el) => getComputedStyle(el).transform);
+  // At rest the button is untransformed.
+  expect(await readTransform()).toBe("none");
+  // While held (:active), it presses in, so the transform is a real matrix.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  const held = await readTransform();
+  await page.mouse.up();
+  expect(held).not.toBe("none");
+  expect(held).toContain("matrix");
+});
+
 test("workshop buys parts and refreshes balance", async ({ page }) => {
   let boughtDriveWheel = false;
   let buyRequests = 0;

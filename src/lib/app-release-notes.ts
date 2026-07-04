@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.188-workshop-carousel";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.189-button-feel";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.189",
+      date: "2026-07-04",
+      title: "Buttons that press back",
+      intro: "Controls feel tactile now.",
+      changes: [
+        {
+          build,
+          text: "Every button darkens the moment you press it, and the main workshop controls push in like a physical button, so a tap feels like it lands.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.188",
       date: "2026-07-04",

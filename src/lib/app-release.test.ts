@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest carousel note complete", () => {
+  it("keeps the latest button-feel note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.188-workshop-carousel");
+    expect(release.noticeId).toBe("2026-07-04-0.1.189-button-feel");
     expect(latestNote).toMatchObject({
-      version: "0.1.188",
-      title: "A cleaner part picker",
-      intro: "Flip parts with arrows, tap for stats.",
+      version: "0.1.189",
+      title: "Buttons that press back",
+      intro: "Controls feel tactile now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The part picker is now a thin overlay on the bench: the part name sits above it with arrows on either side to flip through parts. Tap the part to see its stats and the Rotate control, just like a placed part.",
+      "Every button darkens the moment you press it, and the main workshop controls push in like a physical button, so a tap feels like it lands.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

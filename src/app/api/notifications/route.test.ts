@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-04-0.1.187-workshop-cascade-remove",
+      releaseNoticeId: "2026-07-04-0.1.188-workshop-carousel",
       releaseSummary:
-        "Remove a part, remove its stack: Pull a part from the middle of a stack.",
+        "A cleaner part picker: Flip parts with arrows, tap for stats.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-04-0.1.187-workshop-cascade-remove",
+      releaseNoticeId: "2026-07-04-0.1.188-workshop-carousel",
       attempted: 2,
       sent: 1,
       expired: 1,

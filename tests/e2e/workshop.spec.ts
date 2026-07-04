@@ -30,6 +30,15 @@ async function dragHeroOntoCore(page: Page) {
   await page.mouse.up();
 }
 
+// Tap the hero part (press and release, no movement) to toggle its stats in
+// the bottom inspector (G). The part must be owned so the hero is grabbable.
+async function tapHero(page: Page) {
+  await page.mouse.move(195, 545);
+  await page.mouse.down();
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+}
+
 test("workshop builds and undoes parts", async ({ page }) => {
   // Pin inventory so the run does not depend on real storage: placing a
   // Drive Wheel spends one owned copy and merging it spends a second, so
@@ -309,18 +318,68 @@ test("rotate the mount orientation before placing (N4)", async ({ page }) => {
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
   await selectCarouselPart(page, "Drive Wheel");
-  const carousel = page.getByLabel("Part carousel");
-  const rotate = carousel.getByRole("button", { name: /Rotate mount/ });
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+  // Rotate lives in the part-details inspector, revealed by tapping the hero.
+  await tapHero(page);
+  const details = page.getByRole("region", { name: "Part details" });
+  const rotate = details.getByRole("button", { name: /Rotate mount/ });
   await expect(rotate).toHaveText("Rotate 0°");
   await rotate.click();
   await expect(rotate).toHaveText("Rotate 90°");
 
   // Placement still works after rotating the mount: drag the hero onto the bot.
+  await dragHeroOntoCore(page);
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+});
+
+test("carousel shows part stats on tap, arrows flank the part (G)", async ({
+  page,
+}) => {
+  // Stats are hidden until you tap the part; the carousel is a thin overlay
+  // (name + prev/next arrows) instead of a menu box (user feedback).
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await selectCarouselPart(page, "Drive Wheel");
   await expect
     .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
     .not.toBeUndefined();
-  await dragHeroOntoCore(page);
-  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+
+  // The overlay shows the name and both arrows; stats stay hidden.
+  const carousel = page.getByLabel("Part carousel");
+  await expect(carousel.getByTestId("carousel-part-name")).toHaveText(
+    "Drive Wheel",
+  );
+  await expect(
+    carousel.getByRole("button", { name: "Previous part" }),
+  ).toBeVisible();
+  await expect(
+    carousel.getByRole("button", { name: "Next part" }),
+  ).toBeVisible();
+  const details = page.getByRole("region", { name: "Part details" });
+  await expect(details).toBeHidden();
+
+  // Tap the part: its stats appear in the bottom inspector.
+  await tapHero(page);
+  await expect(details).toBeVisible();
+  await expect(details).toContainText("80 HP");
+  await expect(details).toContainText("20 power");
+
+  // Tap again to hide them.
+  await tapHero(page);
+  await expect(details).toBeHidden();
 });
 
 test("workshop tabs keep panels on-screen on portrait phones", async ({
@@ -328,6 +387,10 @@ test("workshop tabs keep panels on-screen on portrait phones", async ({
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/workshop");
+  // The Build tab's carousel is a thin overlay on the bench; the top-left
+  // panel column carries the other tabs. Check the Tune panels stay within
+  // the viewport bounds on portrait.
+  await page.getByRole("tab", { name: "Tune" }).click();
   const controls = page.getByLabel("Workshop build controls");
   await expect(controls).toBeVisible();
   const controlsBox = await controls.boundingBox();
@@ -335,12 +398,13 @@ test("workshop tabs keep panels on-screen on portrait phones", async ({
   if (!controlsBox) return;
   expect(controlsBox.x).toBeGreaterThanOrEqual(0);
   expect(controlsBox.x + controlsBox.width).toBeLessThanOrEqual(390);
-  // The active panel stops above the lower half so the bot stays visible.
-  expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(844 * 0.62);
+  expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(844);
 
-  // One panel at a time: switching to Shop replaces the carousel.
+  // One panel at a time: switching to Shop replaces the tune panels, and the
+  // build overlay only shows on the Build tab.
   await page.getByRole("tab", { name: "Shop" }).click();
   await expect(page.getByLabel("Parts shop")).toBeVisible();
+  await expect(page.getByLabel("Temperament")).not.toBeVisible();
   await expect(page.getByLabel("Part carousel")).not.toBeVisible();
 });
 

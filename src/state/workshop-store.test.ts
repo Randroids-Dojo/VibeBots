@@ -135,6 +135,34 @@ describe("workshop store", () => {
     expect(restored.get(SAW_BLADE.id)).toBe(1);
   });
 
+  it("toggles browse-part stats and clears any placed selection (G)", () => {
+    store().addPart("drive-wheel");
+    expect(store().selectedIid).not.toBeNull();
+    expect(store().browseStatsOpen).toBe(false);
+
+    // Tapping the hero opens its stats and drops the placed selection, so
+    // only one bottom panel shows at a time.
+    store().toggleBrowseStats();
+    expect(store().browseStatsOpen).toBe(true);
+    expect(store().selectedIid).toBeNull();
+
+    // Tapping again hides the stats.
+    store().toggleBrowseStats();
+    expect(store().browseStatsOpen).toBe(false);
+  });
+
+  it("closes browse stats when a placed part is selected or added (G)", () => {
+    store().toggleBrowseStats();
+    expect(store().browseStatsOpen).toBe(true);
+    store().select("core");
+    expect(store().browseStatsOpen).toBe(false);
+
+    store().toggleBrowseStats();
+    store().addPart("drive-wheel");
+    expect(store().browseStatsOpen).toBe(false);
+    expect(store().selectedIid).not.toBeNull();
+  });
+
   it("undoes and redoes whole design snapshots", () => {
     store().addPart("drive-wheel");
     store().addPart("ram-spike");

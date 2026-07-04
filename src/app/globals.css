@@ -324,6 +324,58 @@ a {
   background: #303c5c;
 }
 
+/* Carousel overlay (G): the part name floats above the hero part and the
+ * prev/next arrows flank it, so browsing is a thin overlay on the bench
+ * instead of a menu box. Stats live in the bottom inspector on tap. */
+.carousel-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+}
+
+.carousel-overlay-name {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 4px 14px;
+  background: rgba(17, 21, 31, 0.72);
+  border: 1px solid #26304a;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.carousel-overlay-arrows {
+  position: absolute;
+  top: 68%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 28px;
+}
+
+.carousel-overlay-arrows .carousel-arrow {
+  pointer-events: auto;
+}
+
+/* Browse-part stats in the bottom inspector (G), shown when the hero part
+ * is tapped. Mirrors the placed-part inspector layout. */
+.inspector-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.inspector-stats {
+  margin: 0;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
 /* Spend cue for the carousel owned-count (Slice B): a quick gold pop when a
  * place or merge consumes a copy of the part in hand. */
 @keyframes count-consumed {

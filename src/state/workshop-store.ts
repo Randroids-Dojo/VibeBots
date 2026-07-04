@@ -274,6 +274,12 @@ export interface WorkshopState {
   /** True when the carousel part is owned-out, so the hero renders grayed. */
   browseDimmed: boolean;
   /**
+   * True when the player tapped the hero part to reveal its stats in the
+   * bottom inspector (G). Mutually exclusive with a selected placed part:
+   * only one bottom panel shows at a time.
+   */
+  browseStatsOpen: boolean;
+  /**
    * While a drag hovers a merge twin, the level the drop would produce, so
    * the panel can show a "release to merge" banner (Slice B). Null when the
    * drag is over an empty slot or not dragging.
@@ -284,6 +290,8 @@ export interface WorkshopState {
   rotateBrowse: () => void;
   setBuildActive: (active: boolean) => void;
   setBrowseDimmed: (dimmed: boolean) => void;
+  /** Tap the hero part: reveal/hide its stats, clearing any placed selection. */
+  toggleBrowseStats: () => void;
   setMergePreviewLevel: (level: number | null) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
   mergePart: (iid: string) => void;
@@ -310,6 +318,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   browseOrientation: 0,
   buildActive: true,
   browseDimmed: false,
+  browseStatsOpen: false,
   mergePreviewLevel: null,
 
   addPart: (partId) => {
@@ -321,6 +330,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(pushHistory(history, plan.next)),
       selectedIid: plan.iid,
+      browseStatsOpen: false,
     });
   },
 
@@ -350,6 +360,9 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   setBuildActive: (active) => set({ buildActive: active }),
 
   setBrowseDimmed: (dimmed) => set({ browseDimmed: dimmed }),
+
+  toggleBrowseStats: () =>
+    set((s) => ({ browseStatsOpen: !s.browseStatsOpen, selectedIid: null })),
 
   setMergePreviewLevel: (level) => set({ mergePreviewLevel: level }),
 
@@ -382,6 +395,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(pushHistory(history, next)),
       selectedIid: iid,
+      browseStatsOpen: false,
     });
   },
 
@@ -394,6 +408,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(pushHistory(history, next)),
       selectedIid: iid,
+      browseStatsOpen: false,
     });
   },
 
@@ -434,7 +449,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({ ...withDesign(pushHistory(history, next)) });
   },
 
-  select: (iid) => set({ selectedIid: iid }),
+  select: (iid) => set({ selectedIid: iid, browseStatsOpen: false }),
 
   undo: () => {
     const { history } = get();
@@ -475,6 +490,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(createHistory<BotDesign>(design)),
       selectedIid: null,
+      browseStatsOpen: false,
     }),
 
   reset: () =>
@@ -484,5 +500,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       browsePartId: CAROUSEL_PART_IDS[0],
       browseOrientation: 0,
       browseDimmed: false,
+      browseStatsOpen: false,
     }),
 }));

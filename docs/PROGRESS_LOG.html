@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-carousel" data-date="2026-07-04">
+    <h3>Workshop part picker redesign: overlay arrows, tap for stats (user feedback, slice G of 5)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Feedback: the carousel felt wordy; the player wanted arrows flanking the displayed part, stats shown only on tap (like a placed part), and the verbose drag language dropped.</dd>
+      <dt>Changed</dt><dd>Removed the top-left carousel panel box (name, stats line, drag hint, Rotate). The Build tab now shows a thin overlay on the bench: the part name floats above the hero part with prev/next arrows flanking it (<code>.carousel-overlay</code>, pointer-events pass through to the canvas except the arrows). Tapping the hero part toggles a bottom "Part details" inspector (mirroring the placed-part inspector) with the category/HP/power stats, the owned count, and the Rotate control. New store state <code>browseStatsOpen</code> plus <code>toggleBrowseStats</code>, wired from the canvas tap path (a tap that never became a drag now toggles stats instead of doing nothing). <code>browseStatsOpen</code> and a placed <code>selectedIid</code> are mutually exclusive, so only one bottom panel shows. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.188</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome, full unit suite including 2 new store cases (tap toggles stats and clears the placed selection; selecting or adding a part closes stats). New e2e "carousel shows part stats on tap, arrows flank the part (G)": the overlay shows the name and both arrows with stats hidden, tapping reveals the Part details stats, tapping again hides them. N4 rotate updated to reach Rotate via the tap-opened inspector; the portrait-panels test moved to the Tune tab (Build no longer has a top panel). <code>pnpm build</code>, plus a 390x760 capture confirming the name labels the hero and the arrows flank it.</dd>
+      <dt>Assumptions</dt><dd>Stats hidden until tap means the owned-count and its spend flash only show while the Part details panel is open; the hero still grays out when owned-out (P3), so unavailability still reads without the count. The arrows sit near the screen edges at the hero's height (thumb-reachable) rather than hugging the silhouette, since the part is a 3D object and the arrows are DOM. Rule 13: mine tips reviewed, no change (workshop surface). Rule 14: stamp review done, none added (a UI redesign, not a new mechanic).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change. Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>Remaining in this batch: button press feel (H). Still open: keyboard-accessible placement (a11y; the tap-to-stats path is pointer-only), F-052 (bottom hero tray), F-051 (build/merge stamp).</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-cascade-remove" data-date="2026-07-04">
     <h3>Workshop remove cascades to the subtree, refund verified (user feedback, slice F of 5)</h3>
     <dl>

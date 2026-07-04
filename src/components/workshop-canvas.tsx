@@ -375,6 +375,7 @@ function WorkshopScene() {
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
   const mergePart = useWorkshopStore((s) => s.mergePart);
   const setMergePreviewLevel = useWorkshopStore((s) => s.setMergePreviewLevel);
+  const toggleBrowseStats = useWorkshopStore((s) => s.toggleBrowseStats);
   const browsePartId = useWorkshopStore((s) => s.browsePartId);
   const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
   const buildActive = useWorkshopStore((s) => s.buildActive);
@@ -532,6 +533,10 @@ function WorkshopScene() {
           if (target.kind === "place") placeAtSlot(target.slot);
           else mergePart(target.iid);
         }
+      } else {
+        // A tap on the hero part reveals (or hides) its stats in the bottom
+        // inspector instead of placing anything (G).
+        toggleBrowseStats();
       }
       setGrabbing(false);
       setDragging(false);
@@ -547,7 +552,15 @@ function WorkshopScene() {
       window.removeEventListener("pointerup", drop);
       window.removeEventListener("pointercancel", drop);
     };
-  }, [grabbing, gl, placeAtSlot, mergePart, camera, setMergePreviewLevel]);
+  }, [
+    grabbing,
+    gl,
+    placeAtSlot,
+    mergePart,
+    camera,
+    setMergePreviewLevel,
+    toggleBrowseStats,
+  ]);
 
   const projScratch = useRef(new Vector3());
   useFrame(() => {

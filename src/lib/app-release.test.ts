@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest cascade-remove note complete", () => {
+  it("keeps the latest carousel note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.187-workshop-cascade-remove");
+    expect(release.noticeId).toBe("2026-07-04-0.1.188-workshop-carousel");
     expect(latestNote).toMatchObject({
-      version: "0.1.187",
-      title: "Remove a part, remove its stack",
-      intro: "Pull a part from the middle of a stack.",
+      version: "0.1.188",
+      title: "A cleaner part picker",
+      intro: "Flip parts with arrows, tap for stats.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Removing a part now also removes everything attached to it, so you can pull a part from the middle of a stack without clearing the tip first. Removed parts return to your inventory, and undo puts them back.",
+      "The part picker is now a thin overlay on the bench: the part name sits above it with arrows on either side to flip through parts. Tap the part to see its stats and the Rotate control, just like a placed part.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

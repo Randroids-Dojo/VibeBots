@@ -143,6 +143,7 @@ export function WorkshopPanel() {
   const rotateBrowse = useWorkshopStore((s) => s.rotateBrowse);
   const setBuildActive = useWorkshopStore((s) => s.setBuildActive);
   const setBrowseDimmed = useWorkshopStore((s) => s.setBrowseDimmed);
+  const browseStatsOpen = useWorkshopStore((s) => s.browseStatsOpen);
   const mergePreviewLevel = useWorkshopStore((s) => s.mergePreviewLevel);
   const history = useWorkshopStore((s) => s.history);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
@@ -328,6 +329,35 @@ export function WorkshopPanel() {
     <div className="workshop-stage">
       <WorkshopCanvas />
 
+      {tab === "build" && (
+        <section className="carousel-overlay" aria-label="Part carousel">
+          <div
+            className="carousel-overlay-name"
+            data-testid="carousel-part-name"
+          >
+            {browseDef.name}
+          </div>
+          <div className="carousel-overlay-arrows">
+            <button
+              type="button"
+              aria-label="Previous part"
+              onClick={() => browseBy(-1)}
+              className="carousel-arrow"
+            >
+              {"◀"}
+            </button>
+            <button
+              type="button"
+              aria-label="Next part"
+              onClick={() => browseBy(1)}
+              className="carousel-arrow"
+            >
+              {"▶"}
+            </button>
+          </div>
+        </section>
+      )}
+
       <header className="workshop-header">
         <span className="workshop-header-title">
           {design.name}: {design.parts.length}{" "}
@@ -452,86 +482,6 @@ export function WorkshopPanel() {
                 {`↑ Release to merge into Lv ${mergePreviewLevel}`}
               </div>
             )}
-
-            <section style={panelStyle} aria-label="Part carousel">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 8,
-                }}
-              >
-                <button
-                  type="button"
-                  aria-label="Previous part"
-                  onClick={() => browseBy(-1)}
-                  className="carousel-arrow"
-                >
-                  {"◀"}
-                </button>
-                <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
-                  <div
-                    data-testid="carousel-part-name"
-                    style={{ fontSize: "1rem", fontWeight: 600 }}
-                  >
-                    {browseDef.name}
-                  </div>
-                  <div style={{ fontSize: "0.72rem", opacity: 0.7 }}>
-                    {`${browseDef.category} · ${browseDef.durability} HP · ${browseDef.powerDraw} power`}
-                    {inventory.state === "ready" ? (
-                      <span
-                        data-testid="carousel-part-count"
-                        className={countConsumed ? "count-consumed" : undefined}
-                        style={{
-                          display: "inline-block",
-                          color: browseAvailable > 0 ? "#54e0c7" : "#7f879a",
-                        }}
-                      >
-                        {` · x${browseAvailable}`}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Next part"
-                  onClick={() => browseBy(1)}
-                  className="carousel-arrow"
-                >
-                  {"▶"}
-                </button>
-              </div>
-              <p
-                style={{
-                  margin: "0 0 8px",
-                  fontSize: "0.78rem",
-                  opacity: 0.7,
-                  textAlign: "center",
-                }}
-              >
-                Drag this part onto the bot to place it, or onto a matching part
-                to merge.
-              </p>
-              <button
-                type="button"
-                onClick={rotateBrowse}
-                aria-label={`Rotate mount, currently ${browseOrientation} degrees`}
-                title="Turn how this part mounts (rigid mounts only)"
-                style={{
-                  width: "100%",
-                  background: "#26304a",
-                  color: "#e6e8ee",
-                  border: "1px solid #344061",
-                  borderRadius: 6,
-                  padding: "7px 12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {`Rotate ${browseOrientation}°`}
-              </button>
-            </section>
           </>
         )}
 
@@ -701,6 +651,40 @@ export function WorkshopPanel() {
               }
             >
               Remove
+            </button>
+          </div>
+        </section>
+      )}
+
+      {tab === "build" && browseStatsOpen && !selectedIid && (
+        <section className="workshop-inspector" aria-label="Part details">
+          <div className="inspector-head">
+            <span className="inspector-name">{browseDef.name}</span>
+            {inventory.state === "ready" ? (
+              <span
+                data-testid="carousel-part-count"
+                className={
+                  countConsumed
+                    ? "inspector-count count-consumed"
+                    : "inspector-count"
+                }
+                style={{ color: browseAvailable > 0 ? "#54e0c7" : "#7f879a" }}
+              >
+                {`x${browseAvailable}`}
+              </span>
+            ) : null}
+          </div>
+          <p className="inspector-stats">
+            {`${browseDef.category} · ${browseDef.durability} HP · ${browseDef.powerDraw} power`}
+          </p>
+          <div className="inspector-actions">
+            <button
+              type="button"
+              onClick={rotateBrowse}
+              aria-label={`Rotate mount, currently ${browseOrientation} degrees`}
+              title="Turn how this part mounts (rigid mounts only)"
+            >
+              {`Rotate ${browseOrientation}°`}
             </button>
           </div>
         </section>

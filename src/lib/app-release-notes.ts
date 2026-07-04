@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.187-workshop-cascade-remove";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.188-workshop-carousel";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.188",
+      date: "2026-07-04",
+      title: "A cleaner part picker",
+      intro: "Flip parts with arrows, tap for stats.",
+      changes: [
+        {
+          build,
+          text: "The part picker is now a thin overlay on the bench: the part name sits above it with arrows on either side to flip through parts. Tap the part to see its stats and the Rotate control, just like a placed part.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.187",
       date: "2026-07-04",

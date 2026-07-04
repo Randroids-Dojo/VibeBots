@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-tap-fix" data-date="2026-07-03">
+    <h3>Workshop tap no longer places a part (user feedback, slice D of 5)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Feedback batch after the drag-only slice: on a phone, tapping the displayed part placed it below the core. Cause: the drag drop snapped to the nearest slot within a generous radius, and a tap is a zero-distance drag whose release sits near the bottom slot, so it placed. The user asked that placing require actually dragging the part onto the attachment point.</dd>
+      <dt>Changed</dt><dd>Split the hero-part pointer lifecycle into a <em>grab</em> (pointer down) and a <em>drag</em> (grab that has moved past <code>DRAG_START_NDC</code> = 0.06 in NDC). The hero only rides the finger, lights slots, and can place/merge once promoted to a drag; a grab that never moves is a tap and commits nothing. Camera orbit is suppressed for the whole grab (<code>enableRotate/Zoom={!grabbing}</code>), not just the drag, so the pre-promotion window cannot rotate the view. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.185</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome, full unit suite, <code>pnpm build</code>. New e2e "tapping the hero part does not place it (D)": tap (down+up, no move) leaves the bot at 1 part. All existing drag place/merge/cycle/rotate e2es still pass (their stepped moves clear the threshold and promote).</dd>
+      <dt>Assumptions</dt><dd>Kept the snap radius generous (0.5 NDC) so an intentional drag onto the bot still lands forgivingly; the tap-vs-drag split is what fixes the accidental placement, and the threshold is tunable if the feel needs it. Rule 13: mine tips reviewed, no change (workshop surface). Rule 14: stamp review done, none added (a bug fix).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change. Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>Remaining in this batch: ground-plane clipping (E), cascade-remove + refund check (F), carousel redesign (G), button press feel (H). Still open: keyboard-accessible placement (a11y), F-052 (bottom hero tray), F-051 (build/merge stamp).</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-drag-only" data-date="2026-07-03">
     <h3>Workshop drag-only build: remove the redundant tap-to-place system (user feedback)</h3>
     <dl>

@@ -120,10 +120,9 @@ test("build carousel hero part spins on a turntable (N1)", async ({ page }) => {
 });
 
 test("drag the hero part onto the bot places it (N2)", async ({ page }) => {
-  // Direct manipulation: grab the hero part and drop it on the bot. The
-  // deterministic tap-to-place path is covered elsewhere; this drives the
-  // real pointer drag. Camera is fixed, so screen positions are stable
-  // across GPU backends at a pinned viewport.
+  // Direct manipulation: grab the hero part and drop it on the bot. Drag is
+  // now the only placement path. Camera is fixed, so screen positions are
+  // stable across GPU backends at a pinned viewport.
   await page.setViewportSize({ width: 390, height: 760 });
   await page.route("**/api/shop", async (route) => {
     await route.fulfill({
@@ -161,6 +160,44 @@ test("drag the hero part onto the bot places it (N2)", async ({ page }) => {
   }
   await page.mouse.up();
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+});
+
+test("tapping the hero part does not place it (D)", async ({ page }) => {
+  // A grab only becomes a drag past a movement threshold, so a tap on the
+  // hero must place nothing (previously a zero-distance drag snapped it onto
+  // the nearest slot).
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await selectCarouselPart(page, "Drive Wheel");
+  await expect(
+    page.getByText("My Bot: 1 part", { exact: false }),
+  ).toBeVisible();
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+
+  // Tap the hero: press and release at the same point, no movement.
+  await page.mouse.move(195, 545);
+  await page.mouse.down();
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+
+  // Still one part: the tap placed nothing.
+  await expect(
+    page.getByText("My Bot: 1 part", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText("My Bot: 2 parts")).toBeHidden();
 });
 
 test("drag the hero part onto a twin merges it (N3)", async ({ page }) => {

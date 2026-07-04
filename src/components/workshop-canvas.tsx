@@ -171,6 +171,9 @@ const HERO_DRAG_DEPTH = 2.6;
 // How close (in NDC, so screen-fraction) the finger must be to a slot's
 // projected point for it to snap. Generous so a drop over the bot lands.
 const DRAG_SNAP_NDC = 0.5;
+// A grab only becomes a drag once the pointer travels this far in NDC, so a
+// tap on the hero part never places (it has to be dragged onto a slot).
+const DRAG_START_NDC = 0.06;
 
 function HeroPart({
   def,
@@ -394,8 +397,13 @@ function WorkshopScene() {
   // target (extends W4). The nearest to the finger is the snap target, and
   // releasing there either places a new part or merges into the twin.
   const browseDef = PART_CATALOG[browsePartId];
+  // `grabbing`: pointer is down on the hero. `dragging`: it has moved far
+  // enough to count as a drag (promoted from a grab). A grab that never
+  // promotes is a tap and places nothing.
+  const [grabbing, setGrabbing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const pointerNdc = useRef({ x: 0, y: 0 });
+  const grabStartNdc = useRef({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(-1);
   const hoveredRef = useRef(-1);
   const dragTargets = useMemo<DragTarget[]>(() => {
@@ -460,18 +468,20 @@ function WorkshopScene() {
     browseOrientation,
   ]);
 
-  const startDrag = (event: ThreeEvent<PointerEvent>) => {
+  const startGrab = (event: ThreeEvent<PointerEvent>) => {
     if (!buildActive || browseDimmed) return;
-    pointerNdc.current = { x: event.pointer.x, y: event.pointer.y };
+    const ndc = { x: event.pointer.x, y: event.pointer.y };
+    grabStartNdc.current = ndc;
+    pointerNdc.current = ndc;
     hoveredRef.current = -1;
     setHovered(-1);
-    draggingRef.current = true;
-    setDragging(true);
+    draggingRef.current = false;
+    setGrabbing(true);
     (gl.domElement as HTMLElement).setPointerCapture?.(event.pointerId);
   };
 
   useEffect(() => {
-    if (!dragging) return;
+    if (!grabbing) return;
     const el = gl.domElement as HTMLElement;
     const move = (event: PointerEvent) => {
       pointerNdc.current = clientToNdc(
@@ -479,29 +489,44 @@ function WorkshopScene() {
         event.clientY,
         el.getBoundingClientRect(),
       );
+      // Promote a grab to a real drag once it travels past the tap
+      // threshold; only then does the hero ride the finger and slots light.
+      if (!draggingRef.current) {
+        const dx = pointerNdc.current.x - grabStartNdc.current.x;
+        const dy = pointerNdc.current.y - grabStartNdc.current.y;
+        if (dx * dx + dy * dy > DRAG_START_NDC * DRAG_START_NDC) {
+          draggingRef.current = true;
+          setDragging(true);
+        }
+      }
     };
     const drop = () => {
       // Stop the hover frame first (synchronously) so it cannot re-derive
       // the merge banner from the post-merge design before React re-renders.
+      const wasDragging = draggingRef.current;
       draggingRef.current = false;
-      // Recompute the snap target from the live pointer at release, so the
-      // commit never depends on whether a frame ran for the final move
-      // (fast drags can outrun useFrame).
-      const projected = dragTargetsRef.current.map((target) => {
-        const p = target.placement.position;
-        const v = new Vector3(p.x, p.y, p.z).project(camera);
-        return { x: v.x, y: v.y, z: v.z };
-      });
-      const index = pickNearestSlot(
-        projected,
-        pointerNdc.current,
-        DRAG_SNAP_NDC,
-      );
-      const target = dragTargetsRef.current[index];
-      if (index >= 0 && target) {
-        if (target.kind === "place") placeAtSlot(target.slot);
-        else mergePart(target.iid);
+      // A grab that never became a drag is a tap: place nothing.
+      if (wasDragging) {
+        // Recompute the snap target from the live pointer at release, so the
+        // commit never depends on whether a frame ran for the final move
+        // (fast drags can outrun useFrame).
+        const projected = dragTargetsRef.current.map((target) => {
+          const p = target.placement.position;
+          const v = new Vector3(p.x, p.y, p.z).project(camera);
+          return { x: v.x, y: v.y, z: v.z };
+        });
+        const index = pickNearestSlot(
+          projected,
+          pointerNdc.current,
+          DRAG_SNAP_NDC,
+        );
+        const target = dragTargetsRef.current[index];
+        if (index >= 0 && target) {
+          if (target.kind === "place") placeAtSlot(target.slot);
+          else mergePart(target.iid);
+        }
       }
+      setGrabbing(false);
       setDragging(false);
       setHovered(-1);
       hoveredRef.current = -1;
@@ -515,7 +540,7 @@ function WorkshopScene() {
       window.removeEventListener("pointerup", drop);
       window.removeEventListener("pointercancel", drop);
     };
-  }, [dragging, gl, placeAtSlot, mergePart, camera, setMergePreviewLevel]);
+  }, [grabbing, gl, placeAtSlot, mergePart, camera, setMergePreviewLevel]);
 
   const projScratch = useRef(new Vector3());
   useFrame(() => {
@@ -579,8 +604,8 @@ function WorkshopScene() {
       <OrbitControls
         makeDefault
         enablePan={false}
-        enableRotate={!dragging}
-        enableZoom={!dragging}
+        enableRotate={!grabbing}
+        enableZoom={!grabbing}
         minDistance={2}
         maxDistance={10}
       />
@@ -604,7 +629,7 @@ function WorkshopScene() {
           dragging={dragging}
           dimmed={browseDimmed}
           pointerNdc={pointerNdc}
-          onGrab={startDrag}
+          onGrab={startGrab}
         />
       )}
       {idleSlots.map((slot) => (

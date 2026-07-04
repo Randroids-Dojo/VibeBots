@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest drag-only build note complete", () => {
+  it("keeps the latest tap-fix note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.184-workshop-drag-only");
+    expect(release.noticeId).toBe("2026-07-03-0.1.185-workshop-tap-fix");
     expect(latestNote).toMatchObject({
-      version: "0.1.184",
-      title: "Just drag to build",
-      intro: "One way to build: drag.",
+      version: "0.1.185",
+      title: "A tap won't misplace a part",
+      intro: "Placing takes a real drag now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The extra Place step is gone. Drag the part in your hand onto the bot to place it, or onto a matching part to merge. That is the whole flow.",
+      "Tapping the part in your hand no longer snaps it onto the nearest slot by accident. Placing a part now takes a deliberate drag onto the spot.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

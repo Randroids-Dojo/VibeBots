@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.184-workshop-drag-only";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.185-workshop-tap-fix";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.185",
+      date: "2026-07-03",
+      title: "A tap won't misplace a part",
+      intro: "Placing takes a real drag now.",
+      changes: [
+        {
+          build,
+          text: "Tapping the part in your hand no longer snaps it onto the nearest slot by accident. Placing a part now takes a deliberate drag onto the spot.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.184",
       date: "2026-07-03",

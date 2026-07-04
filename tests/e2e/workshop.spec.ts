@@ -1,5 +1,17 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { DRIVE_WHEEL } from "../../src/sim/parts";
+
+// The Build tab shows one part at a time (N1 carousel); step Next until the
+// named part is in hand. Bounded so a missing part fails loudly.
+async function selectCarouselPart(page: Page, name: string) {
+  const carousel = page.getByLabel("Part carousel");
+  const nameEl = carousel.getByTestId("carousel-part-name");
+  for (let i = 0; i < 30; i++) {
+    if ((await nameEl.textContent())?.trim() === name) return;
+    await carousel.getByRole("button", { name: "Next part" }).click();
+  }
+  throw new Error(`carousel never reached ${name}`);
+}
 
 test("workshop builds and undoes parts", async ({ page }) => {
   // Pin inventory so the run does not depend on real storage: placing a
@@ -31,25 +43,22 @@ test("workshop builds and undoes parts", async ({ page }) => {
     page.getByText("My Bot: 1 part", { exact: false }),
   ).toBeVisible();
 
-  // The Build tab is the default: palette and part actions live there.
+  // The Build tab is the default: the carousel and part actions live there.
   await expect(page.getByRole("tab", { name: "Build" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  // Tap-to-place (W2): arming a palette part opens its placement slots;
-  // tapping a slot commits that exact connection.
-  const palette = page.getByLabel("Part palette");
-  // The row button flips Place -> Cancel when armed, so target it by role
-  // (one button per row) rather than by its changing accessible name.
-  const driveWheelPlace = palette
-    .locator("div")
-    .filter({ hasText: "Drive Wheel" })
-    .getByRole("button");
-  await expect(driveWheelPlace).toHaveText("Place");
+  // Direct-manipulation build (N1): parts are a one-at-a-time carousel.
+  // Step to the Drive Wheel, then tap-to-place (W2) opens its placement
+  // slots and tapping a slot commits that exact connection.
+  const carousel = page.getByLabel("Part carousel");
+  await selectCarouselPart(page, "Drive Wheel");
+  const driveWheelPlace = carousel.getByRole("button", { name: "Place" });
   await expect(driveWheelPlace).toBeEnabled();
   await driveWheelPlace.click();
-  await expect(driveWheelPlace).toHaveText("Cancel");
-  await expect(driveWheelPlace).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    carousel.getByRole("button", { name: "Cancel" }),
+  ).toHaveAttribute("aria-pressed", "true");
   const slots = page.getByLabel("Placement slots");
   await expect(slots).toBeVisible();
   const slotButtons = slots.getByRole("button", { name: /^Place on/ });
@@ -75,16 +84,30 @@ test("workshop builds and undoes parts", async ({ page }) => {
   // Tabs swap panels: Tune shows temperament, Build hides it.
   await page.getByRole("tab", { name: "Tune" }).click();
   await expect(page.getByLabel("Temperament")).toBeVisible();
-  await expect(page.getByLabel("Part palette")).not.toBeVisible();
+  await expect(page.getByLabel("Part carousel")).not.toBeVisible();
   await page.getByRole("tab", { name: "Build" }).click();
-  await expect(page.getByLabel("Part palette")).toBeVisible();
+  await expect(page.getByLabel("Part carousel")).toBeVisible();
 
   // Test arena (REQ-009): fight the current bot against the CPU Brawler.
   await page.getByRole("button", { name: "Test fight vs Brawler" }).click();
   await expect(page.getByText("My Bot", { exact: true })).toBeVisible();
   await expect(page.getByText("Brawler", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Back to build" }).click();
-  await expect(page.getByLabel("Part palette")).toBeVisible();
+  await expect(page.getByLabel("Part carousel")).toBeVisible();
+});
+
+test("build carousel hero part spins on a turntable (N1)", async ({ page }) => {
+  // The hero part rides in front of the bench and turntables so the player
+  // sees a real 3D part. Its yaw is published to the canvas dataset; assert
+  // it actually advances (Rule 10: prove the pixels move, not just a flag).
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  const readYaw = () =>
+    canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw);
+  await expect.poll(readYaw).not.toBeUndefined();
+  const first = await readYaw();
+  await expect.poll(readYaw).not.toBe(first);
 });
 
 test("workshop merges a placed part by arming its twin", async ({ page }) => {
@@ -110,11 +133,9 @@ test("workshop merges a placed part by arming its twin", async ({ page }) => {
   await page.goto("/workshop");
   await expect(page.locator("canvas")).toBeVisible();
 
-  const place = page
-    .getByLabel("Part palette")
-    .locator("div")
-    .filter({ hasText: "Drive Wheel" })
-    .getByRole("button");
+  const carousel = page.getByLabel("Part carousel");
+  await selectCarouselPart(page, "Drive Wheel");
+  const place = carousel.getByRole("button", { name: "Place" });
   // Place one wheel.
   await place.click();
   const slots = page.getByLabel("Placement slots");
@@ -154,10 +175,10 @@ test("workshop tabs keep panels on-screen on portrait phones", async ({
   // The active panel stops above the lower half so the bot stays visible.
   expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(844 * 0.62);
 
-  // One panel at a time: switching to Shop replaces the palette.
+  // One panel at a time: switching to Shop replaces the carousel.
   await page.getByRole("tab", { name: "Shop" }).click();
   await expect(page.getByLabel("Parts shop")).toBeVisible();
-  await expect(page.getByLabel("Part palette")).not.toBeVisible();
+  await expect(page.getByLabel("Part carousel")).not.toBeVisible();
 });
 
 test("workshop buys parts and refreshes balance", async ({ page }) => {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { validateDesign } from "@/sim/design";
 import { DRIVE_WHEEL, PART_CATALOG, SPIN_MOUNT } from "@/sim/parts";
 import {
+  CAROUSEL_PART_IDS,
   findFreeConnectors,
   planAddPart,
   planMergeSelectedPart,
@@ -258,5 +259,43 @@ describe("B3 temperament", () => {
     expect(store().design.behavior?.patience).toBe(0.5);
     // The tuned design still validates for combat.
     expect(validateDesign(store().design).ok).toBe(true);
+  });
+});
+
+describe("N1 build carousel", () => {
+  beforeEach(() => {
+    useWorkshopStore.setState({
+      browsePartId: CAROUSEL_PART_IDS[0],
+      buildActive: true,
+    });
+  });
+
+  it("lists every non-core part and starts on the first", () => {
+    expect(CAROUSEL_PART_IDS.length).toBeGreaterThan(0);
+    for (const id of CAROUSEL_PART_IDS) {
+      expect(PART_CATALOG[id].category).not.toBe("core");
+    }
+    expect(store().browsePartId).toBe(CAROUSEL_PART_IDS[0]);
+  });
+
+  it("steps forward and backward and wraps at both ends", () => {
+    const last = CAROUSEL_PART_IDS[CAROUSEL_PART_IDS.length - 1];
+    store().browseBy(1);
+    expect(store().browsePartId).toBe(CAROUSEL_PART_IDS[1]);
+    // Wrap past the start when stepping back from the first entry.
+    store().browseBy(-1);
+    store().browseBy(-1);
+    expect(store().browsePartId).toBe(last);
+    // And wrap past the end back to the first.
+    store().browseBy(1);
+    expect(store().browsePartId).toBe(CAROUSEL_PART_IDS[0]);
+  });
+
+  it("toggles the build-active flag for the hero part", () => {
+    expect(store().buildActive).toBe(true);
+    store().setBuildActive(false);
+    expect(store().buildActive).toBe(false);
+    store().setBuildActive(true);
+    expect(store().buildActive).toBe(true);
   });
 });

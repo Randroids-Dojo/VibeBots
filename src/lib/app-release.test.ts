@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest workshop feel note complete", () => {
+  it("keeps the latest build carousel note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.177-workshop-feel");
+    expect(release.noticeId).toBe("2026-07-03-0.1.178-workshop-carousel");
     expect(latestNote).toMatchObject({
-      version: "0.1.177",
-      title: "Workshop feel",
-      intro: "The build bench feels alive now.",
+      version: "0.1.178",
+      title: "One part in hand",
+      intro: "Picking a part feels like holding it now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Parts pop into place when you add them and give a satisfying bump when they merge, so every edit lands with a snap.",
-      "Placement ghosts gently glow so the open spots are easy to spot, and their tap targets are bigger for thumbs.",
+      "The Build tab shows one real part at a time on a slow spin, so you can look it over instead of scanning a long list.",
+      "Step through parts with the arrows to find the one you want; the part in your hand shows its stats and how many you own.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

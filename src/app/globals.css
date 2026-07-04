@@ -305,6 +305,25 @@ a {
   padding: 6px 8px;
 }
 
+/* Build carousel arrows (N1): thumb-sized prev/next around the hero part,
+ * so part selection is one part at a time instead of a scrolling list. */
+.carousel-arrow {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #344061;
+  border-radius: 8px;
+  background: #26304a;
+  color: #e6e8ee;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.carousel-arrow:hover {
+  background: #303c5c;
+}
+
 @media (max-width: 700px) and (orientation: portrait) {
   /* One tab panel at a time (W1): header pins under the back link, the
    * tab bar under it, and the single active panel caps at 38dvh so the

@@ -31,6 +31,16 @@ export const STARTER_DESIGN: BotDesign = {
   connections: [],
 };
 
+/**
+ * The non-core catalog in a stable order: the build carousel shows one of
+ * these at a time (N1 direct-manipulation build), and prev/next steps
+ * through this list. Cores never appear (a design has exactly one, the
+ * starter root).
+ */
+export const CAROUSEL_PART_IDS: string[] = Object.values(PART_CATALOG)
+  .filter((p) => p.category !== "core")
+  .map((p) => p.id);
+
 interface FreeConnector {
   parentIid: string;
   parentConnector: string;
@@ -221,8 +231,14 @@ export interface WorkshopState {
   selectedIid: string | null;
   /** The palette part whose placement ghosts are showing, if any. */
   armedPartId: string | null;
+  /** The part shown in the build carousel (N1); prev/next steps it. */
+  browsePartId: string;
+  /** True while the Build tab is up, so the canvas shows the hero part. */
+  buildActive: boolean;
   addPart: (partId: string) => void;
   armPart: (partId: string | null) => void;
+  browseBy: (dir: number) => void;
+  setBuildActive: (active: boolean) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
   mergePart: (iid: string) => void;
   removeSelected: () => void;
@@ -245,6 +261,8 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
   selectedIid: null,
   armedPartId: null,
+  browsePartId: CAROUSEL_PART_IDS[0],
+  buildActive: true,
 
   addPart: (partId) => {
     const { history, design } = get();
@@ -263,6 +281,18 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set((s) => ({
       armedPartId: partId === null || s.armedPartId === partId ? null : partId,
     })),
+
+  // Step the build carousel to the next/previous non-core part, wrapping
+  // at the ends so the list is a loop (N1).
+  browseBy: (dir) =>
+    set((s) => {
+      const list = CAROUSEL_PART_IDS;
+      const index = list.indexOf(s.browsePartId);
+      const next = (index + dir + list.length) % list.length;
+      return { browsePartId: list[next] };
+    }),
+
+  setBuildActive: (active) => set({ buildActive: active }),
 
   // Commit the exact connection the tapped ghost (or slot button) named,
   // rebuilt against the live design so it cannot land a stale placement.

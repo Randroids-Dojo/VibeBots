@@ -189,6 +189,57 @@ function GhostSlot({
 }
 
 /**
+ * The hero part (N1 direct-manipulation build): the part currently in the
+ * build carousel, shown large on a slow turntable so the player sees a
+ * real 3D part instead of a menu row. It rides in front of the camera
+ * (matched to the camera transform each frame, then offset into the lower
+ * view band) so it stays a stable "part in hand" no matter how the bench
+ * orbits. The turntable yaw is published to the canvas dataset for motion
+ * checks, mirroring the holodeck showcase.
+ */
+function HeroPart({ def }: { def: PartDef }) {
+  const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
+  const anchorRef = useRef<Group>(null);
+  const spinRef = useRef<Group>(null);
+  const yaw = useRef(0);
+  useFrame((_, dt) => {
+    const anchor = anchorRef.current;
+    if (anchor) {
+      anchor.position.copy(camera.position);
+      anchor.quaternion.copy(camera.quaternion);
+      // Move into camera-local space: down into the empty lower band and
+      // back so the whole part stays clear of the bottom edge on tall
+      // portrait viewports while reading as a "part in hand".
+      anchor.translateY(-0.5);
+      anchor.translateZ(-2.75);
+    }
+    yaw.current += dt * 0.7;
+    spinRef.current?.rotation.set(0, yaw.current, 0);
+    const canvas = gl.domElement as HTMLCanvasElement;
+    canvas.dataset.heroYaw = (yaw.current % (Math.PI * 2)).toFixed(2);
+  });
+  const surface = CATEGORY_SURFACE[def.category];
+  return (
+    <group ref={anchorRef}>
+      <group ref={spinRef} scale={0.65}>
+        <mesh rotation={shapeRotation(def.shape)}>
+          {partGeometry(def.shape)}
+          <meshStandardMaterial
+            color={CATEGORY_COLORS[def.category]}
+            metalness={surface.metalness}
+            roughness={surface.roughness}
+            flatShading
+            emissive={CATEGORY_COLORS[def.category]}
+            emissiveIntensity={surface.emissiveBoost + 0.18}
+          />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/**
  * The build bench (workshop glow-up slice, user-reported): the bot under
  * construction gets the arena's material language (shared
  * CATEGORY_SURFACE), a studio light rig with cool and warm accents, the
@@ -203,7 +254,13 @@ function WorkshopScene() {
   const armedPartId = useWorkshopStore((s) => s.armedPartId);
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
   const mergePart = useWorkshopStore((s) => s.mergePart);
+  const browsePartId = useWorkshopStore((s) => s.browsePartId);
+  const buildActive = useWorkshopStore((s) => s.buildActive);
   const layout = computeLayout(design);
+  // The hero part rides the Build tab only, and gives way to the ghost
+  // preview while a part is armed for placement so the bench reads clean.
+  const heroDef =
+    buildActive && !armedPartId ? PART_CATALOG[browsePartId] : null;
   // Placement ghosts: one translucent preview at each legal slot for the
   // armed part, tappable to commit that exact connection (W2).
   const armedDef = armedPartId ? PART_CATALOG[armedPartId] : null;
@@ -268,6 +325,7 @@ function WorkshopScene() {
         args={[8, 16, "#26304a", "#1a2133"]}
         position={[0, -0.75, 0]}
       />
+      {heroDef && <HeroPart def={heroDef} />}
       {design.parts.map((instance) => {
         const def = PART_CATALOG[instance.partId];
         const placement = layout.get(instance.iid);

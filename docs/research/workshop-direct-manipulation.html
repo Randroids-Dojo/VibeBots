@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Workshop next generation: direct-manipulation build</title>
+</head>
+<body>
+
+<h1>Workshop next generation: direct-manipulation build</h1>
+<p><strong>Status:</strong> research and plan (not started). Successor to the completed five-slice interaction overhaul in <code>docs/research/workshop-interaction-overhaul.html</code> (shipped as W1-W5, versions 0.1.173 through 0.1.177).</p>
+
+<section data-role="the-ask">
+  <h2>The ask</h2>
+  <p>User feedback on the shipped W1-W5 workshop (Android portrait): "It's still too menu driven. What about a visual, interactive, draggable, rotatable part selection. On small screens we could have a single part at a time displayed that you can interact with and drag onto any part of the bot that is visually highlighted as attachable."</p>
+  <p>The screenshot shows the problem exactly: the top half is a scrolling text list of parts with "Place" buttons (Frame Plate x9, Drive Wheel x3, Ram Spike x6, and a dozen greyed rows), and the bot itself is a thin sliver peeking out behind the panel. W1-W5 fixed the plumbing (tabs, tap-to-place ghosts, inspector, merge gesture, snap feel) but kept a list-first mental model. The next generation replaces the list with direct manipulation: one real, rotatable 3D part in hand, dragged onto a bot whose attachable surfaces light up.</p>
+</section>
+
+<section data-role="gdd-alignment">
+  <h2>This is the GDD's stated intent, not a departure</h2>
+  <p>From <code>docs/gdd/01-vision-and-pillars.html</code>: construction "should feel like block and hardpoint attachment systems from vehicle or ship builders: parts snap to connectors, have orientation, consume capacity or power." From <code>02-parts-and-connectors.html</code>: a design is a validated tree of part instances joined at typed connectors (rigid becomes a fixed joint, axle becomes a powered revolute), each connector used at most once, rigid connections carry yaw quarter-turns (F-006, shipped). The direct-manipulation build finally delivers the hardpoint-builder feel the pillars promised. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change is required: this is presentation and interaction over the same validated-tree data.</p>
+</section>
+
+<section data-role="principles">
+  <h2>Design principles</h2>
+  <ul>
+    <li><strong>One part in hand, shown for real.</strong> A single 3D part at a time, large, lit, slowly turntabling so you see all sides without a gesture. Prev/next to change part, owned count and key stats attached.</li>
+    <li><strong>Direct manipulation over menus.</strong> Grab the part and drag it onto the bot. The bot answers by lighting up where the part can attach. Drop to commit the exact connection under your thumb.</li>
+    <li><strong>The bot is the hero, not wallpaper.</strong> The bench is the biggest thing on screen. Controls are a slim tray, not a panel stack that buries the canvas.</li>
+    <li><strong>One consistent gesture rule</strong> (Rule 7): touching the part grabs it (drag to place); touching empty space or the bot orbits the camera. No mode toggles.</li>
+    <li><strong>Keep a non-drag path</strong> for accessibility, keyboard, and deterministic e2e: the W2 tap-to-place DOM slot list stays as the mirror of the drag. Drag is the primary feel; the list is the fallback and the test seam.</li>
+    <li><strong>Mobile portrait first</strong> (the user's device). Validate at 390x760 on the WebGL2 backend, the fragile path the codebase documents.</li>
+    <li><strong>Build on W1-W5, do not rewrite.</strong> The validated-tree model, <code>validSlotsFor</code>, <code>placeAtSlot</code>, <code>mergePart</code>, <code>computeLayout</code>, ghosts, and the inspector are the foundation.</li>
+  </ul>
+</section>
+
+<section data-role="architecture">
+  <h2>Core architecture decision: one WebGL context</h2>
+  <p><strong>Decision: the hero part and the bot share a single R3F canvas and WebGL context. Never a second <code>&lt;Canvas&gt;</code>.</strong> Evidence from the codebase (research, 2026-07-04):</p>
+  <ul>
+    <li>Every canvas is route-isolated; the app runs exactly one live context at a time today. The only file importing two canvas components (<code>workshop-panel.tsx</code>) gates them by early return, never mounting both.</li>
+    <li><code>createWebGPU</code> (<code>part-visuals.tsx:56-73</code>) forces the WebGL2 backend on any coarse-pointer device (<code>forceWebGL: coarsePointer</code>). The user's Android portrait is always WebGL2.</li>
+    <li>The WebGL2 fallback is documented as the fragile path: environment/PMREM passes cause multi-second main-thread stalls (<code>studio-environment.tsx:21-30</code>), and canvas churn "churned GPU memory enough to kill canvas creation" (<code>studio-environment.tsx:13-16</code>, memory <code>graphics-capability-gating</code>). There is no <code>webglcontextlost</code> handler anywhere in <code>src/</code>.</li>
+    <li>A second simultaneous WebGL2 context is untested territory that cuts against documented fragility, on exactly the devices least able to afford it. The risk is asymmetric: one context stays on the proven path.</li>
+  </ul>
+  <p><strong>Two layout candidates within one context</strong> (a spike in N1 picks one):</p>
+  <ol>
+    <li><strong>Preferred: drei <code>&lt;View&gt;</code> regions.</strong> One canvas, one WebGL context, two scissored viewports with independent scenes and cameras: bench on top (orbit), hero tray on the bottom (turntable). Cleanest interaction isolation. <strong>Risk:</strong> drei <code>&lt;View&gt;</code> uses <code>gl.setScissor</code> and a managed frameloop; its compatibility with the <code>three/webgpu</code> renderer running in WebGL2-compat mode is unverified in this repo and must be spiked before committing.</li>
+    <li><strong>Fallback: single scene, foreground pedestal.</strong> The hero part sits on a pedestal in the lower-front of the same scene as the bot, framed so both read on portrait. No scissor, no second camera. Simpler and guaranteed compatible, but the bot's orbit and the hero turntable share one camera, so the tray must be visually and interactively fenced (the hero part is the only grabbable object down there; orbit is disabled while a part is in hand).</li>
+  </ol>
+  <p>If the <code>&lt;View&gt;</code> spike fails, ship the fallback: it delivers the same product with less isolation. Do not let the spike block the slice.</p>
+</section>
+
+<section data-role="interaction">
+  <h2>The interaction model</h2>
+
+  <h3>Hero carousel (part selection)</h3>
+  <p>The scrolling text list is gone. In its place, one part shown in 3D on a slowly turntabling pedestal (reuse the holodeck <code>turntableYaw</code> ref plus <code>useFrame</code> yaw integration, <code>holodeck-canvas.tsx:121-129</code>). Around it: the part name and category, its owned count (x3), key stats (mass, power, durability, whether it is a weapon or mobility), and prev/next affordances to cycle the catalog. Explicit prev/next (not a swipe) keeps part-cycling unambiguous against the grab-to-place drag and stays keyboard and screen-reader friendly. Owned-count and affordability come straight from the existing inventory plumbing (<code>partInventoryCounts</code>, <code>designPartCounts</code>).</p>
+
+  <h3>Grab and drag to place</h3>
+  <p>Pointerdown on the 3D hero part grabs it: set a <code>draggingPart</code> ref and disable OrbitControls through the <code>makeDefault</code> seam (<code>controls.enabled = false</code>, re-enabled on release). As the finger moves over the bench, the bot answers:</p>
+  <ul>
+    <li><strong>Attachable highlight.</strong> Compute <code>validSlotsFor(design, heldPart)</code> once on grab. Each slot has a resolved world placement via <code>computeLayout(slot.next).get(slot.iid)</code>. Highlight all valid parent connectors and the parent parts that can accept the held part (reuse the emissive highlight style already used for selected and merge-target parts, <code>workshop-canvas.tsx:118-127</code>).</li>
+    <li><strong>Nearest-slot snapping without a raycaster.</strong> The repo has no <code>Raycaster</code>/<code>unproject</code> for placement; it does not need one. Project each candidate slot's world position to screen with <code>vec.project(camera)</code> (the exact call already in <code>arena-canvas.tsx:499</code>), then pick the slot whose screen point is nearest the finger. That slot glows strongest and shows a solid ghost preview of the held part in its final pose. This is O(number of valid slots) per pointer move, tiny.</li>
+    <li><strong>Drop.</strong> Pointerup commits the nearest slot through the existing <code>placeAtSlot(slot)</code> (which rebuilds and re-validates against the live design, so nothing stale lands). If the finger is not near any valid slot, the part returns to the tray (no-op). Re-enable orbit.</li>
+  </ul>
+
+  <h3>Drag onto a twin to merge</h3>
+  <p>W4 already made a same-kind placed part a merge target. Carry it into the drag: if the nearest thing under the finger is a placed part of the same id that can still level up (<code>planMergeSelectedPart(design, iid) !== null</code>), it glows gold and drop merges via <code>mergePart(iid)</code> instead of placing. One gesture, three outcomes chosen by where you release: empty slot places, gold twin merges, nowhere returns.</p>
+
+  <h3>Rotate</h3>
+  <p>Two distinct rotations, kept separate so neither fights the drag:</p>
+  <ul>
+    <li><strong>Inspect rotation</strong> is automatic: the hero part turntables so you see it without a gesture.</li>
+    <li><strong>Mount orientation</strong> (which way a rigid part faces) is an explicit Rotate control on the held part and in the inspector, cycling the yaw quarter-turns already modeled (<code>planRotateSelected</code>, orientation 0/90/180/270; axle mounts stay unoriented by validity rule). The held ghost preview updates as you rotate, so you see the final pose before dropping.</li>
+  </ul>
+
+  <h3>Gesture disambiguation (the crux)</h3>
+  <p>The repo has pointer-count gesture stacks (holodeck pan/pinch, mine joystick) but no drag-object-vs-orbit-camera arbitration, and OrbitControls lives only in the workshop. The clean seam: because the hero part is a distinct grabbable object, touching it is unambiguous. Pointerdown on the hero mesh starts a part drag and disables orbit; pointerdown anywhere else falls through to OrbitControls (orbit the bot, pinch to zoom, pan stays off as today). The W1-W5 <code>event.delta &gt; 2</code> tap-vs-drag threshold (<code>workshop-canvas.tsx:102</code>) distinguishes a tap on a placed part (select, open inspector) from a drag (reposition later, out of scope for now).</p>
+
+  <h3>Accessibility and e2e fallback</h3>
+  <p>Drag is the primary feel but a poor test and a11y surface. Keep the W2 tap-to-place path as the mirror: selecting the hero part still exposes the named DOM slot list ("Place on Cube Core (axle-left)") and the merge targets, so keyboard users and Playwright commit deterministically without simulating a pixel-perfect drag. Every drag outcome must be reachable by the list too. This is the Rule 7 "one consistent rule" applied across input modes.</p>
+</section>
+
+<section data-role="reuse">
+  <h2>What we get for free (reuse map)</h2>
+  <table>
+    <thead><tr><th>Need</th><th>Already exists</th></tr></thead>
+    <tbody>
+      <tr><td>Legal attach points for a part</td><td><code>validSlotsFor(design, part)</code> (workshop-store)</td></tr>
+      <tr><td>World transform of any part or slot</td><td><code>computeLayout</code> (sim/layout), exact quaternions</td></tr>
+      <tr><td>Connector world position</td><td><code>part.position + quatRotate(part.rotation, connector.position)</code></td></tr>
+      <tr><td>Commit a placement</td><td><code>placeAtSlot(slot)</code> (rebuilds and re-validates)</td></tr>
+      <tr><td>Commit a merge</td><td><code>mergePart(iid)</code> (W4)</td></tr>
+      <tr><td>Mount orientation</td><td><code>planRotateSelected</code>, <code>YAW_QUATS</code></td></tr>
+      <tr><td>Spinning hero part</td><td>turntable pattern (holodeck-canvas)</td></tr>
+      <tr><td>3D to screen projection</td><td><code>vec.project(camera)</code> (arena-canvas:499)</td></tr>
+      <tr><td>Disable orbit during drag</td><td>OrbitControls <code>makeDefault</code> + <code>controls.enabled</code></td></tr>
+      <tr><td>Highlight styles</td><td>emissive selected/merge-target/ghost material (workshop-canvas)</td></tr>
+      <tr><td>Owned counts and budget</td><td><code>partInventoryCounts</code>, <code>designPartCounts</code></td></tr>
+      <tr><td>Undo/redo, inspector, snap animation</td><td>W1-W5 store and canvas</td></tr>
+    </tbody>
+  </table>
+  <p>The genuinely new code is small: the hero carousel component, a grab-drag pointer handler with project-to-screen nearest-slot selection, and the layout choice (View tray vs foreground pedestal).</p>
+</section>
+
+<section data-role="slices">
+  <h2>Slice plan</h2>
+  <p>Each slice ships through the verify-main to main workflow with unit tests, e2e (drag simulated plus the DOM-list fallback asserted), 390x760 portrait captures, a version bump with a release note, and the ledger updates, exactly as W1-W5 did.</p>
+
+  <h3>N1: Hero carousel replaces the parts list</h3>
+  <p>One 3D part at a time on an auto-turntable, prev/next to cycle, owned count and stats attached. Placement still uses the existing tap-to-place ghost flow (tap the hero to arm, tap a slot or ghost to place). This de-menus <em>selection</em> without touching the drag gesture yet, the single biggest visual change, at low risk. Includes the one-context layout spike: try drei <code>&lt;View&gt;</code> for a scissored tray; fall back to an in-scene foreground pedestal if it does not cooperate with the WebGPU-in-WebGL2 renderer. Retire the scrolling text list.</p>
+
+  <h3>N2: Grab and drag to place</h3>
+  <p>Pointerdown on the hero part grabs it, orbit disables, valid slots light up, the nearest slot (project-to-screen) glows and shows a solid ghost, drop commits via <code>placeAtSlot</code>. Keep the DOM slot list as the a11y and e2e mirror. This is the core of the user's request.</p>
+
+  <h3>N3: Drag onto a twin to merge, and mount rotation in hand</h3>
+  <p>Same-kind placed parts glow gold during the drag; drop merges via <code>mergePart</code>. A Rotate control on the held part cycles mount orientation with a live ghost preview. Completes the "three outcomes, one gesture" model.</p>
+
+  <h3>N4: Attachable-surface polish and feedback</h3>
+  <p>Make "highlighted as attachable" unmistakable: pulse valid connectors, dim invalid regions, a snap animation and haptic-style visual pop on drop, a subtle magnet feel as the ghost snaps to the nearest slot. Connector markers at free hardpoints so the bot reads as "here are the sockets" even before you grab a part. Reuse the W5 <code>workshop-animation</code> curves.</p>
+
+  <h3>N5 (cut line): feel, reposition, and close-out</h3>
+  <p>Optional depth if N1-N4 land well: drag an already-placed part to a new slot (reposition), drag off the bot to remove, richer part stats on the pedestal, and a full test battery plus playtest evidence. Everything below N4 can be deferred without leaving the feature half-built.</p>
+</section>
+
+<section data-role="risks">
+  <h2>Risks and mitigations</h2>
+  <ul>
+    <li><strong>drei <code>&lt;View&gt;</code> vs three/webgpu.</strong> Unverified. Mitigation: N1 spike with a hard fallback to the single-scene pedestal; never block on it.</li>
+    <li><strong>Nearest-slot projection accuracy.</strong> Projecting to screen and picking nearest can pick an occluded or behind-camera slot. Mitigation: reject slots with projected z outside [-1, 1] or behind the camera, and require the finger within a screen-space radius before highlighting.</li>
+    <li><strong>Gesture ambiguity on touch.</strong> Grab-the-part vs orbit must never cross. Mitigation: grab only starts on a pointerdown that hits the hero mesh; a global capture plus <code>controls.enabled=false</code> for the drag's lifetime; the <code>event.delta</code> threshold separates tap from drag on placed parts.</li>
+    <li><strong>Mobile WebGL2 budget.</strong> A turntabling hero part plus the bot plus per-move projection on the fragile backend. Mitigation: the projection loop is O(valid slots) and cheap; keep heavy passes (bloom, shadows, env) on their existing backend gates; profile at 390x760 on the WebGL2 path (memory <code>graphics-capability-gating</code>).</li>
+    <li><strong>Drag is hard to e2e.</strong> Mitigation: the DOM slot-list fallback carries the deterministic assertions; drag gets a lighter Playwright pointer-drag smoke plus a unit test on the pure nearest-slot selection (extract it as a pure function like W5's <code>workshop-animation</code>).</li>
+    <li><strong>Two live contexts creeping back in.</strong> The test-fight still swaps to <code>ArenaCanvas</code>; that is fine because it is mutually exclusive (early return), never simultaneous. Do not add a second always-on canvas.</li>
+  </ul>
+</section>
+
+<section data-role="testing">
+  <h2>Testing and QA</h2>
+  <ul>
+    <li><strong>Pure logic unit-tested:</strong> nearest-slot selection (screen distance, behind-camera rejection) extracted as a pure function with a unit test, following the W5 <code>workshop-animation</code> precedent. <code>validSlotsFor</code>/<code>placeAtSlot</code>/<code>mergePart</code> already covered.</li>
+    <li><strong>e2e:</strong> the DOM slot-list path asserts placement, merge, and rotation deterministically (as W2-W4 do). A separate lighter test simulates a Playwright pointer drag from the hero to a bench region and asserts the part count and inspector, tolerant of exact pixels.</li>
+    <li><strong>Rule 10 motion:</strong> prove the turntable moves (consecutive-frame canvas-pixel diff, as W5 did) and that the attachable highlight changes as the finger moves.</li>
+    <li><strong>Mobile portrait:</strong> every slice reviewed at 390x760 on the WebGL2 backend; the bot must stay the dominant element with the hero tray slim.</li>
+    <li><strong>Playtest evidence</strong> per Rule 12 once N1-N4 are in: can a new player build a valid bot by dragging, without reading a menu?</li>
+  </ul>
+</section>
+
+<section data-role="open-questions">
+  <h2>Open questions (with recommended defaults)</h2>
+  <ol>
+    <li><strong>How much of the tab shell survives?</strong> Recommended default: keep Tune, Garage, and Shop as tabs, but the Build tab becomes the new bench-plus-hero-tray direct-manipulation surface (no parts list). The persistent header stays. This keeps the W1 navigation while replacing only the Build content.</li>
+    <li><strong>Tray layout: drei <code>&lt;View&gt;</code> or foreground pedestal?</strong> Recommended default: spike <code>&lt;View&gt;</code> in N1, ship the foreground pedestal if the spike is not clean. Decide by evidence, not up front.</li>
+    <li><strong>Part cycling: prev/next buttons or horizontal swipe?</strong> Recommended default: explicit prev/next (plus a small category filter), because swipe collides with the grab-to-place drag and is worse for a11y and e2e. A swipe can be added later as an accelerator.</li>
+    <li><strong>Does the hero part stay docked while dragging, or does the whole part leave the tray?</strong> Recommended default: a lightweight ghost of the part follows the finger into the bench while the pedestal keeps the source part, so the carousel context is never lost.</li>
+  </ol>
+</section>
+
+<section data-role="non-goals">
+  <h2>Non-goals</h2>
+  <ul>
+    <li>No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. This is interaction over the validated tree.</li>
+    <li>No second always-on WebGL context.</li>
+    <li>No new part mechanics, connectors, or economy. Prismatic connectors and new locomotion stay out.</li>
+    <li>No desktop-only interactions that leave the Android portrait player behind.</li>
+  </ul>
+</section>
+
+</body>
+</html>

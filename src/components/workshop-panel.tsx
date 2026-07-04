@@ -140,6 +140,9 @@ export function WorkshopPanel() {
   };
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const armedPartId = useWorkshopStore((s) => s.armedPartId);
+  const browsePartId = useWorkshopStore((s) => s.browsePartId);
+  const browseBy = useWorkshopStore((s) => s.browseBy);
+  const setBuildActive = useWorkshopStore((s) => s.setBuildActive);
   const history = useWorkshopStore((s) => s.history);
   const armPart = useWorkshopStore((s) => s.armPart);
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
@@ -152,11 +155,13 @@ export function WorkshopPanel() {
   const redo = useWorkshopStore((s) => s.redo);
   const reset = useWorkshopStore((s) => s.reset);
 
-  // Placement ghosts belong to the Build tab; leaving it puts them away
-  // so they never hover over the bench while another tab is up.
+  // Placement ghosts and the hero part belong to the Build tab; leaving it
+  // puts the ghosts away and hides the hero so neither hovers over the
+  // bench while another tab is up.
   useEffect(() => {
+    setBuildActive(tab === "build");
     if (tab !== "build") armPart(null);
-  }, [tab, armPart]);
+  }, [tab, armPart, setBuildActive]);
 
   const validation = validateDesign(design);
   const behavior = design.behavior ?? NEUTRAL_BEHAVIOR;
@@ -198,6 +203,27 @@ export function WorkshopPanel() {
           planMergeSelectedPart(design, p.iid) !== null,
       )
     : [];
+
+  // The build carousel (N1): one part at a time. Placeable when a copy can
+  // go down or an existing copy can still merge, and inventory allows it,
+  // reusing the exact gate the old per-row palette used.
+  const browseDef = PART_CATALOG[browsePartId];
+  const browseOwned =
+    inventory.state === "ready" ? (inventory.counts.get(browsePartId) ?? 0) : 0;
+  const browseUsed = usedPartCounts.get(browsePartId) ?? 0;
+  const browseAvailable = Math.max(0, browseOwned - browseUsed);
+  const browseInventoryAllows =
+    inventory.state === "sandbox" ||
+    (inventory.state === "ready" && browseAvailable > 0);
+  const browseCanMergeExisting = design.parts.some(
+    (p) =>
+      p.partId === browsePartId &&
+      planMergeSelectedPart(design, p.iid) !== null,
+  );
+  const browseArmed = armedPartId === browsePartId;
+  const browsePlaceable =
+    (planAddPart(design, browseDef) !== null || browseCanMergeExisting) &&
+    browseInventoryAllows;
 
   if (matchup) {
     return (
@@ -498,92 +524,88 @@ export function WorkshopPanel() {
               </section>
             )}
 
-            <section style={panelStyle} aria-label="Part palette">
-              <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>Parts</h2>
-              {Object.values(PART_CATALOG)
-                .filter((p) => p.category !== "core")
-                .map((part) => {
-                  const owned =
-                    inventory.state === "ready"
-                      ? (inventory.counts.get(part.id) ?? 0)
-                      : 0;
-                  const used = usedPartCounts.get(part.id) ?? 0;
-                  const available = Math.max(0, owned - used);
-                  const inventoryAllows =
-                    inventory.state === "sandbox" ||
-                    (inventory.state === "ready" && available > 0);
-                  // Armable when a copy can be placed OR an existing copy
-                  // can be merged (a full bot still upgrades in place, W4).
-                  const canMergeExisting = design.parts.some(
-                    (p) =>
-                      p.partId === part.id &&
-                      planMergeSelectedPart(design, p.iid) !== null,
-                  );
-                  const free =
-                    (planAddPart(design, part) !== null || canMergeExisting) &&
-                    inventoryAllows;
-                  const armedHere = armedPartId === part.id;
-                  return (
-                    <div
-                      key={part.id}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 6,
-                      }}
-                    >
-                      <span style={{ fontSize: "0.85rem" }}>
-                        {part.name}
-                        <span style={{ opacity: 0.5 }}> ({part.category})</span>
-                        {inventory.state === "ready" ? (
-                          <span
-                            style={{
-                              color: available > 0 ? "#54e0c7" : "#7f879a",
-                            }}
-                          >
-                            {" "}
-                            x{available}
-                          </span>
-                        ) : null}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => armPart(part.id)}
-                        disabled={!free && !armedHere}
-                        aria-pressed={armedHere}
-                        title={
-                          armedHere
-                            ? "Stop placing"
-                            : inventory.state === "loading"
-                              ? "Checking inventory"
-                              : inventory.state === "ready" && available <= 0
-                                ? "None owned"
-                                : "Show placement spots"
-                        }
+            <section style={panelStyle} aria-label="Part carousel">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label="Previous part"
+                  onClick={() => browseBy(-1)}
+                  className="carousel-arrow"
+                >
+                  {"◀"}
+                </button>
+                <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+                  <div
+                    data-testid="carousel-part-name"
+                    style={{ fontSize: "1rem", fontWeight: 600 }}
+                  >
+                    {browseDef.name}
+                  </div>
+                  <div style={{ fontSize: "0.72rem", opacity: 0.7 }}>
+                    {`${browseDef.category} · ${browseDef.durability} HP · ${browseDef.powerDraw} power`}
+                    {inventory.state === "ready" ? (
+                      <span
                         style={{
-                          cursor: free || armedHere ? "pointer" : "not-allowed",
-                          background: armedHere
-                            ? "#54e0c7"
-                            : free
-                              ? "#26304a"
-                              : "#161b28",
-                          color: armedHere
-                            ? "#0b0e14"
-                            : free
-                              ? "#e6e8ee"
-                              : "#5a6378",
-                          border: "1px solid #344061",
-                          borderRadius: 6,
-                          padding: "3px 10px",
-                          fontWeight: armedHere ? 600 : 400,
+                          color: browseAvailable > 0 ? "#54e0c7" : "#7f879a",
                         }}
                       >
-                        {armedHere ? "Cancel" : "Place"}
-                      </button>
-                    </div>
-                  );
-                })}
+                        {` · x${browseAvailable}`}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Next part"
+                  onClick={() => browseBy(1)}
+                  className="carousel-arrow"
+                >
+                  {"▶"}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => armPart(browsePartId)}
+                disabled={!browsePlaceable && !browseArmed}
+                aria-pressed={browseArmed}
+                title={
+                  browseArmed
+                    ? "Stop placing"
+                    : inventory.state === "loading"
+                      ? "Checking inventory"
+                      : inventory.state === "ready" && browseAvailable <= 0
+                        ? "None owned"
+                        : "Show placement spots"
+                }
+                style={{
+                  width: "100%",
+                  cursor:
+                    browsePlaceable || browseArmed ? "pointer" : "not-allowed",
+                  background: browseArmed
+                    ? "#54e0c7"
+                    : browsePlaceable
+                      ? "#26304a"
+                      : "#161b28",
+                  color: browseArmed
+                    ? "#0b0e14"
+                    : browsePlaceable
+                      ? "#e6e8ee"
+                      : "#5a6378",
+                  border: "1px solid #344061",
+                  borderRadius: 6,
+                  padding: "7px 10px",
+                  fontWeight: 600,
+                }}
+              >
+                {browseArmed ? "Cancel" : "Place"}
+              </button>
             </section>
           </>
         )}

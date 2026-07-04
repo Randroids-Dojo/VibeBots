@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.177-workshop-feel";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.178-workshop-carousel";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.178",
+      date: "2026-07-03",
+      title: "One part in hand",
+      intro: "Picking a part feels like holding it now.",
+      changes: [
+        {
+          build,
+          text: "The Build tab shows one real part at a time on a slow spin, so you can look it over instead of scanning a long list.",
+        },
+        {
+          build,
+          text: "Step through parts with the arrows to find the one you want; the part in your hand shows its stats and how many you own.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.177",
       date: "2026-07-03",

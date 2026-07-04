@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-052" data-f="F-052" data-priority="nice-to-have">
+    <h3>F-052: Co-locate the build carousel controls with the hero part</h3>
+    <dl>
+      <dt>Context</dt><dd>N1 shipped the one-part-at-a-time carousel, but its DOM controls (prev/next, name, stats, Place) sit in the top Build panel while the 3D hero part floats in the lower view band, so the control and the object it describes are visually separated. A bottom "tray" that docks the controls under the hero part would make it read as one thing you hold.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready, and folded into the N4 attachable-surface polish slice: add a bottom-docked hero tray (near the existing <code>.workshop-inspector</code> docking) that holds the carousel controls, and reconcile it with the inspector chip so the two never overlap on portrait. Acceptance: on 390x760 the hero part and its controls sit together in the lower band and neither overlaps the inspector.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the N1 hero carousel slice)</dd>
+    </dl>
+  </section>
+
   <section id="F-050" data-f="F-050" data-priority="nice-to-have">
     <h3>F-050: Workshop snap and merge sound effects</h3>
     <dl>

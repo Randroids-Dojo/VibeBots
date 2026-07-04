@@ -86,6 +86,20 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-07-04" data-audit-state="workshop-overhaul-confirmation">
+    <h3>Confirmation 2026-07-04 (workshop overhaul I-M live: chassis variants, blueprints, juice, mirror, new parts; versions 0.1.190 to 0.1.194)</h3>
+    <p>Source: a scripted Playwright probe at Android portrait (390x760) against a production build, driven by <code>scripts/playtest-workshop.mjs</code> (screenshots <code>captures/wf-01-chassis.png</code>, <code>captures/wf-02-blueprint.png</code>, <code>captures/wf-03-spinner-bar.png</code>, <code>captures/wf-04-shop.png</code>). Follows the research and slice plan in <code>docs/research/workshop-overhaul-2026-07.html</code> (BattleBots, Banjo Nuts and Bolts, and AAA build UX).</p>
+    <ul>
+      <li><strong>Chassis variants (slice I) confirmed:</strong> the Build tab shows a Chassis selector with three cores (Cube, Wedge, Tower). Each has its own connector layout, power, and durability, and swapping resets to a fresh undoable build. This delivers the user's explicit requirement: players choose from at least three core designs. The three cores render as visibly distinct silhouettes (balanced box, wide low wedge, tall tower).</li>
+      <li><strong>Starter blueprints (slice J) confirmed:</strong> loading Tower Basher from the Garage yields a valid six-part bot ("Tower Basher: 6 parts valid"), which then edits freely. The blank bench is gone for a new player.</li>
+      <li><strong>Merge and place juice plus haptics (slice K) confirmed:</strong> a merge now overshoots to a ~30% scale pop with a brighter gold flash, and place, merge, and remove fire distinct short vibration patterns on supporting devices (unit-tested; haptics are a no-op in headless CI so the probe cannot feel them).</li>
+      <li><strong>Mirror mode (slice L) confirmed:</strong> the Build tab carries a Mirror toggle; with it on, one drag of a wheel fills both axles, so a symmetric bot is one action. Center and non-core mounts correctly have no twin.</li>
+      <li><strong>New parts (slice M) confirmed:</strong> the Spinner Bar appears in the build carousel (rendered as a red bar) and both the Hardened Plate (18 vibes) and Spinner Bar (20 vibes) list in the shop. Combat handles them generically, so no sim-version change.</li>
+      <li>Zero console errors across the probe.</li>
+      <li><strong>Verdict:</strong> the workshop overhaul is a real jump in build creativity and feel. The headline requirement (three-plus chassis) is met and the two Banjo/AAA fundamentals that most reduce phone friction (one-tap editable blueprints and mirror placement) are live, on top of a punchier merge moment and two new archetype parts. It is meaningfully more fun to build a bot now. Still weak, tracked as backlog not softened: the fixed bench camera clips the tall Tower core and the top of mast-mounted weapons (auto-focus/fit camera is the top remaining AAA item), there is still no audio channel to complete the visual-plus-audio-plus-haptic trio (F-050), and the deeper weapon archetypes (drum, flipper, crusher) plus self-righting and gyroscopic recoil from the BattleBots research are combat-behavior work not yet started.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-06-13" data-audit-state="legs-speed-prompt-perf-confirmation">
     <h3>Confirmation 2026-06-13 (legs, slower walk, tap-to-open shops, and the surface stutter fix live: PRs #63, #64, #65)</h3>
     <p>Source: a scripted production probe at phone viewport (screenshots <code>captures/perf-prod-01-village.png</code>, <code>captures/prompt-prod-01-onstall.png</code>, <code>captures/prompt-prod-02-opened.png</code>).</p>

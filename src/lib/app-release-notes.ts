@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.192-merge-juice";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.193-mirror-mode";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.193",
+      date: "2026-07-04",
+      title: "Mirror mode",
+      intro: "Build balanced bots in half the drags.",
+      changes: [
+        {
+          build,
+          text: "Turn on Mirror in the Build tab and placing a part on one side of the core drops its twin on the other side too, so a symmetric bot comes together in one drag.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.192",
       date: "2026-07-04",

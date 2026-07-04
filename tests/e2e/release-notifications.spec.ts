@@ -20,10 +20,10 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("Building has more punch.");
+  await expect(dialog).toContainText("Build balanced bots in half the drags.");
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "Placing and merging parts now give a quick buzz",
+    "Turn on Mirror in the Build tab",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -46,6 +46,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.193", "Mirror mode"],
     ["0.1.192", "Merges that land"],
     ["0.1.191", "Starter blueprints"],
     ["0.1.190", "Pick your chassis"],

@@ -175,6 +175,48 @@ export function validSlotsFor(
 }
 
 /**
+ * The mirror twin of a placement (L): given a slot already committed to
+ * `design`, find the valid placement of the same part on the core's
+ * left-right mirror connector. Only the core is mirrored (it is centered on
+ * the x=0 plane, so its connectors have well-defined twins); a connector on
+ * the mirror plane (x approximately 0) or on a non-core parent has no twin.
+ * Returns null when there is no free, valid twin slot.
+ */
+export function mirrorSlotFor(
+  design: BotDesign,
+  slot: {
+    partId: string;
+    parentIid: string;
+    parentConnector: string;
+    orientation: Orientation;
+  },
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): PlacementSlot | null {
+  const parent = design.parts.find((p) => p.iid === slot.parentIid);
+  const parentDef = parent ? catalog[parent.partId] : undefined;
+  if (!parentDef || parentDef.category !== "core") return null;
+  const conn = parentDef.connectors.find((c) => c.id === slot.parentConnector);
+  if (!conn || Math.abs(conn.position.x) < 1e-6) return null;
+  const twinConn = parentDef.connectors.find(
+    (c) =>
+      c.kind === conn.kind &&
+      Math.abs(c.position.x + conn.position.x) < 1e-6 &&
+      Math.abs(c.position.y - conn.position.y) < 1e-6 &&
+      Math.abs(c.position.z - conn.position.z) < 1e-6,
+  );
+  if (!twinConn) return null;
+  const def = catalog[slot.partId];
+  if (!def) return null;
+  const slots = validSlotsFor(design, def, catalog, slot.orientation);
+  return (
+    slots.find(
+      (s) =>
+        s.parentIid === slot.parentIid && s.parentConnector === twinConn.id,
+    ) ?? null
+  );
+}
+
+/**
  * The full add precondition: at least one valid slot exists. The palette
  * gate shares this with the placement flow so the button state never
  * lies about whether a part can go down.
@@ -307,6 +349,9 @@ export interface WorkshopState {
   toggleBrowseStats: () => void;
   /** Swap the chassis: reset to a fresh bot on the given core (I). */
   setCore: (coreId: string) => void;
+  /** Mirror mode (L): a place on a core side connector also fills its twin. */
+  mirrorEnabled: boolean;
+  toggleMirror: () => void;
   setMergePreviewLevel: (level: number | null) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
   mergePart: (iid: string) => void;
@@ -335,6 +380,9 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   browseDimmed: false,
   browseStatsOpen: false,
   mergePreviewLevel: null,
+  mirrorEnabled: false,
+
+  toggleMirror: () => set((s) => ({ mirrorEnabled: !s.mirrorEnabled })),
 
   addPart: (partId) => {
     const { history, design } = get();
@@ -428,8 +476,15 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       connections: [...design.connections, connection],
     };
     if (!validateDesign(next).ok) return;
+    // Mirror mode (L): also fill the core's twin connector so a symmetric
+    // bot is one drag. Both parts land in one history entry (one Undo).
+    let finalDesign = next;
+    if (get().mirrorEnabled) {
+      const twin = mirrorSlotFor(next, slot);
+      if (twin) finalDesign = twin.next;
+    }
     set({
-      ...withDesign(pushHistory(history, next)),
+      ...withDesign(pushHistory(history, finalDesign)),
       selectedIid: iid,
       browseStatsOpen: false,
     });

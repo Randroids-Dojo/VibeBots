@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest merge-juice note complete", () => {
+  it("keeps the latest mirror-mode note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.192-merge-juice");
+    expect(release.noticeId).toBe("2026-07-04-0.1.193-mirror-mode");
     expect(latestNote).toMatchObject({
-      version: "0.1.192",
-      title: "Merges that land",
-      intro: "Building has more punch.",
+      version: "0.1.193",
+      title: "Mirror mode",
+      intro: "Build balanced bots in half the drags.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Placing and merging parts now give a quick buzz on phones that support it, and a merge pops harder with a brighter gold flash, so leveling a part up feels like a real beat.",
+      "Turn on Mirror in the Build tab and placing a part on one side of the core drops its twin on the other side too, so a symmetric bot comes together in one drag.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

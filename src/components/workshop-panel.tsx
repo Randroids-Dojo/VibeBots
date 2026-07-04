@@ -149,6 +149,8 @@ export function WorkshopPanel() {
   const setBrowseDimmed = useWorkshopStore((s) => s.setBrowseDimmed);
   const browseStatsOpen = useWorkshopStore((s) => s.browseStatsOpen);
   const setCore = useWorkshopStore((s) => s.setCore);
+  const mirrorEnabled = useWorkshopStore((s) => s.mirrorEnabled);
+  const toggleMirror = useWorkshopStore((s) => s.toggleMirror);
   const mergePreviewLevel = useWorkshopStore((s) => s.mergePreviewLevel);
   const history = useWorkshopStore((s) => s.history);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
@@ -524,6 +526,19 @@ export function WorkshopPanel() {
               >
                 Swapping the chassis starts a fresh build. Undo brings it back.
               </p>
+              <button
+                type="button"
+                className={
+                  mirrorEnabled
+                    ? "mirror-toggle mirror-active"
+                    : "mirror-toggle"
+                }
+                aria-pressed={mirrorEnabled}
+                onClick={toggleMirror}
+                title="Placing a part on a side mount also fills its mirror"
+              >
+                {mirrorEnabled ? "Mirror: on" : "Mirror: off"}
+              </button>
             </section>
           </>
         )}

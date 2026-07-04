@@ -397,6 +397,37 @@ button:focus-visible {
   border-color: #8ff4e4;
 }
 
+/* Mirror toggle (L): when on, placing a part on a core side mount also fills
+ * its left-right twin. A pressed pill so the mode is obvious. */
+.mirror-toggle {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #aeb6c8;
+  background: #1a2133;
+  border: 1px solid #2b3550;
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    transform 90ms ease,
+    filter 120ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.mirror-toggle:not(:disabled):active {
+  transform: translateY(1px) scale(0.98);
+  filter: brightness(0.92);
+}
+
+.mirror-toggle.mirror-active {
+  color: #0b0e14;
+  background: #7aa8ff;
+  border-color: #a9c6ff;
+}
+
 /* Blueprint picker (J): one-tap loadable starter bots in the Garage tab.
  * Each is a stacked label + one-line blurb, sized for a thumb. */
 .blueprint-option {

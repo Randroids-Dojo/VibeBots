@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mirror-placement" data-date="2026-07-04">
+    <h3>Mirror placement mode (slice L, workshop overhaul)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>workshop-l-mirror</code>, from <code>origin/main</code>. Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Banjo and AAA lesson: symmetry halves placement work and makes balanced, stable bots the default, which matters most on a phone.</dd>
+      <dt>Changed</dt><dd>New pure helper <code>mirrorSlotFor(design, slot)</code> in <code>src/state/workshop-store.ts</code>: given a committed placement, it returns the valid placement of the same part on the core's left-right twin connector. Only the core is mirrored (it is centered on the x=0 plane), and a connector on that plane (top/front/back) or on a non-core parent has no twin. New store state <code>mirrorEnabled</code> plus <code>toggleMirror</code>; <code>placeAtSlot</code> now, when mirror is on, also fills the twin so both parts land in one history entry (one Undo). A "Mirror: on/off" toggle in the Build tab Chassis section with an <code>aria-pressed</code> state and a blue active pill (<code>.mirror-toggle</code>). No sim change. <code>SIM_VERSION</code> stays <code>4</code>, <code>MINE_VERSION</code> stays <code>50</code>. Package version <code>0.1.193</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome, purity, store tests (mirrorSlotFor twins a side connector but not a center or non-core mount; a mirrored place fills both axles in one undoable step; mirror off places one), release and notification unit tests updated, full unit suite, <code>pnpm build</code>. New e2e "mirror mode fills both twin mounts from one drag (L)" at 390x760: with Mirror on, one drag of a Drive Wheel yields a three-part bot (both axles filled).</dd>
+      <dt>Assumptions</dt><dd>Mirror is limited to the core, whose connectors have well-defined x-reflections; mirroring across an off-center non-core parent is ambiguous and out of scope. The twin keeps the same mount orientation (fine for the symmetric parts players mirror; asymmetric-part orientation mirroring is a later refinement). Mirror mode is a UI preference that persists across a chassis swap or reset. Rule 13: mine tips reviewed, no change (workshop-only slice). Rule 14: stamp review done, none added (a build-mode toggle, not a milestone).</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/02-parts-and-connectors.html</code> gained a build-log entry. <code>docs/GDD_COVERAGE.json</code> REQ-002 gained the mirror test ref.</dd>
+      <dt>Followups</dt><dd>Next slice: new BattleBots weapons and armor parts (M). Mirroring asymmetric parts with reflected orientation is a possible refinement if it ever matters.</dd>
+    </dl>
+  </article>
+
   <article data-slice="merge-juice" data-date="2026-07-04">
     <h3>Merge and place juice plus haptics (slice K, workshop overhaul)</h3>
     <dl>

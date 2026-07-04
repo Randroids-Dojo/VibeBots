@@ -551,3 +551,36 @@ test("load a starter blueprint and its chassis follows (J)", async ({
     "true",
   );
 });
+
+test("mirror mode fills both twin mounts from one drag (L)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 4 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+
+  // Turn Mirror on, then put a Drive Wheel in hand.
+  const chassis = page.getByRole("region", { name: "Chassis" });
+  const mirror = chassis.getByRole("button", { name: /Mirror/ });
+  await expect(mirror).toHaveAttribute("aria-pressed", "false");
+  await mirror.click();
+  await expect(mirror).toHaveAttribute("aria-pressed", "true");
+  await selectCarouselPart(page, "Drive Wheel");
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+
+  // One drag onto an axle fills both axles, so the bot gains two wheels.
+  await dragHeroOntoCore(page);
+  await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
+});

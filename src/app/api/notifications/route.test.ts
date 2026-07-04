@@ -110,8 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-04-0.1.192-merge-juice",
-      releaseSummary: "Merges that land: Building has more punch.",
+      releaseNoticeId: "2026-07-04-0.1.193-mirror-mode",
+      releaseSummary: "Mirror mode: Build balanced bots in half the drags.",
     });
   });
 
@@ -171,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-04-0.1.192-merge-juice",
+      releaseNoticeId: "2026-07-04-0.1.193-mirror-mode",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -7,6 +7,7 @@ import {
   CORE_PART_IDS,
   currentCoreId,
   findFreeConnectors,
+  mirrorSlotFor,
   planAddPart,
   planMergeSelectedPart,
   STARTER_DESIGN,
@@ -499,5 +500,54 @@ describe("I chassis variants", () => {
     expect(store().history).toBe(before);
     store().setCore("drive-wheel");
     expect(store().history).toBe(before);
+  });
+});
+
+describe("L mirror placement", () => {
+  beforeEach(() => {
+    store().reset();
+    if (store().mirrorEnabled) store().toggleMirror();
+  });
+
+  it("finds the twin of a core side connector, but not of a center mount", () => {
+    // A wheel on axle-left mirrors to axle-right.
+    const axleSlots = validSlotsFor(store().design, DRIVE_WHEEL);
+    const left = axleSlots.find((s) => s.parentConnector === "axle-left");
+    expect(left).toBeDefined();
+    if (left) {
+      const twin = mirrorSlotFor(left.next, left);
+      expect(twin?.parentConnector).toBe("axle-right");
+    }
+    // A front-mounted spike sits on the x=0 plane, so it has no twin.
+    const spikeSlots = validSlotsFor(store().design, PART_CATALOG["ram-spike"]);
+    const front = spikeSlots.find((s) => s.parentConnector === "front");
+    expect(front).toBeDefined();
+    if (front) expect(mirrorSlotFor(front.next, front)).toBeNull();
+  });
+
+  it("mirrors a side placement into both twins in one undoable step", () => {
+    store().toggleMirror();
+    expect(store().mirrorEnabled).toBe(true);
+    const axleSlots = validSlotsFor(store().design, DRIVE_WHEEL);
+    const left = axleSlots.find((s) => s.parentConnector === "axle-left");
+    expect(left).toBeDefined();
+    if (left) store().placeAtSlot(left);
+    // Core plus both wheels: the twin filled automatically.
+    expect(store().design.parts).toHaveLength(3);
+    const usedAxles = store().design.connections.map((c) => c.parentConnector);
+    expect(usedAxles).toContain("axle-left");
+    expect(usedAxles).toContain("axle-right");
+    expect(validateDesign(store().design).ok).toBe(true);
+
+    // One Undo removes both mirrored parts.
+    store().undo();
+    expect(store().design.parts).toHaveLength(1);
+  });
+
+  it("places only one part when mirror is off", () => {
+    const axleSlots = validSlotsFor(store().design, DRIVE_WHEEL);
+    const left = axleSlots.find((s) => s.parentConnector === "axle-left");
+    if (left) store().placeAtSlot(left);
+    expect(store().design.parts).toHaveLength(2);
   });
 });

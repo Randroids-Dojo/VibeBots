@@ -2,17 +2,32 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest armor-and-bar note complete", () => {
+  it("keeps the latest bot-first workshop note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.194-armor-and-bar");
+    expect(release.noticeId).toBe("2026-07-04-0.1.195-bot-first-workshop");
     expect(latestNote).toMatchObject({
+      version: "0.1.195",
+      title: "The workshop is bot-first",
+      intro: "See your whole bot, not a stack of menus.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Build, Tune, Garage, and Shop controls now live in a bottom sheet you can slide down (or tap the handle) to reveal your whole bot. Build lands with the sheet tucked away so the bot, the part carousel, and the drag-to-build band are always clear.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived armor-and-bar note complete", () => {
+    const release = getAppRelease();
+    const barNote = release.notes.find((note) => note.version === "0.1.194");
+
+    expect(barNote).toMatchObject({
       version: "0.1.194",
       title: "Armor and a bar spinner",
       intro: "Two new parts in the shop.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(barNote?.changes.map((change) => change.text)).toEqual([
       "The shop now stocks a Hardened Plate, a tough heavy armor deck that soaks hits before they reach the core, and a Spinner Bar, a dense steel bar that mounts on a Spin Mount and hits harder than the saw disc at the cost of more power to spin.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

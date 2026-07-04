@@ -211,25 +211,68 @@ button:focus-visible {
   gap: 8px;
 }
 
+/* Bot-first bottom sheet (N): the tab bar and the active tab's controls live
+ * in a sheet anchored to the bottom, over a full-screen bot. A handle collapses
+ * it (tap or drag down) so the bot is never buried by a menu. */
+.workshop-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12;
+  margin: 0 auto;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px calc(8px + env(safe-area-inset-bottom));
+  background: rgba(13, 17, 26, 0.97);
+  border: 1px solid #26304a;
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  transition: transform 200ms ease;
+}
+
+.workshop-sheet-handle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 0 6px;
+  background: transparent;
+  border: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.workshop-sheet-grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: #4a5578;
+}
+
+.workshop-sheet-hint {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #8b93a7;
+}
+
 .workshop-tabs {
-  position: absolute;
-  top: 70px;
-  left: 20px;
-  z-index: 11;
   display: flex;
   gap: 4px;
-  padding: 4px;
-  background: rgba(17, 21, 31, 0.92);
-  border: 1px solid #26304a;
-  border-radius: 10px;
+  padding: 2px;
 }
 
 .workshop-tabs button {
+  flex: 1;
   background: transparent;
   color: #aeb6c8;
   border: 1px solid transparent;
   border-radius: 7px;
-  padding: 6px 14px;
+  padding: 8px 6px;
   font-size: 0.85rem;
   cursor: pointer;
 }
@@ -241,16 +284,25 @@ button:focus-visible {
 }
 
 .workshop-build-panels {
-  position: absolute;
-  top: 118px;
-  left: 20px;
-  z-index: 10;
   display: flex;
-  width: 280px;
-  max-height: calc(100dvh - 138px);
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  max-height: 52dvh;
+  padding: 8px 2px;
+  transition:
+    max-height 220ms ease,
+    opacity 160ms ease,
+    padding 220ms ease;
+}
+
+.workshop-sheet-collapsed .workshop-build-panels {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 /* Part inspector chip (W3): floats near the bottom of the bench, in the
@@ -258,9 +310,9 @@ button:focus-visible {
  * its Rotate/Merge/Remove actions sit under the thumb. */
 .workshop-inspector {
   position: absolute;
-  bottom: 24px;
+  bottom: 96px;
   left: 50%;
-  z-index: 11;
+  z-index: 13;
   display: flex;
   min-width: 248px;
   max-width: 340px;
@@ -538,9 +590,10 @@ button:focus-visible {
 }
 
 @media (max-width: 700px) and (orientation: portrait) {
-  /* One tab panel at a time (W1): header pins under the back link, the
-   * tab bar under it, and the single active panel caps at 38dvh so the
-   * bot under construction always keeps the lower half of the screen. */
+  /* Bot-first (N): the header pins under the back link and the controls live
+   * in the bottom sheet; everything else is the full-screen bot. The tab bar
+   * and panels are now sheet children (see .workshop-sheet), not fixed
+   * overlays, so they no longer need portrait positioning here. */
   .workshop-header {
     position: fixed;
     top: 60px;
@@ -548,32 +601,10 @@ button:focus-visible {
     right: 12px;
   }
 
-  .workshop-tabs {
-    position: fixed;
-    top: 148px;
-    left: 12px;
-    right: 12px;
-    justify-content: space-between;
-  }
-
-  .workshop-tabs button {
-    flex: 1;
-    padding: 6px 0;
-  }
-
-  .workshop-build-panels {
-    position: fixed;
-    top: 196px;
-    right: 12px;
-    left: 12px;
-    width: auto;
-    max-height: 38dvh;
-  }
-
+  /* The selected-part inspector floats just above the collapsed sheet peek
+   * (handle + tab bar), centered over the bot. */
   .workshop-inspector {
-    position: fixed;
     right: 12px;
-    bottom: 16px;
     left: 12px;
     min-width: 0;
     max-width: none;

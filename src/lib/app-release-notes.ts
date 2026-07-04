@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.194-armor-and-bar";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.195-bot-first-workshop";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.195",
+      date: "2026-07-04",
+      title: "The workshop is bot-first",
+      intro: "See your whole bot, not a stack of menus.",
+      changes: [
+        {
+          build,
+          text: "The Build, Tune, Garage, and Shop controls now live in a bottom sheet you can slide down (or tap the handle) to reveal your whole bot. Build lands with the sheet tucked away so the bot, the part carousel, and the drag-to-build band are always clear.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.194",
       date: "2026-07-04",

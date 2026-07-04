@@ -82,6 +82,59 @@ export function WorkshopPanel() {
     state: "loading",
   });
   const [tab, setTab] = useState<"build" | "tune" | "garage" | "shop">("build");
+  // Bot-first sheet (N): the tab controls live in a bottom sheet the player
+  // can collapse (tap the handle or drag it down) to reveal the whole bot.
+  // Build defaults collapsed so the bot, carousel, and hero-drag band stay
+  // clear (direct manipulation); the menu tabs default open.
+  const [sheetCollapsed, setSheetCollapsed] = useState(true);
+  const [sheetDragY, setSheetDragY] = useState(0);
+  const sheetDrag = useRef<{
+    pointerId: number;
+    y: number;
+    dy: number;
+    moved: boolean;
+  } | null>(null);
+
+  const onSheetHandleDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    sheetDrag.current = {
+      pointerId: e.pointerId,
+      y: e.clientY,
+      dy: 0,
+      moved: false,
+    };
+  };
+  const onSheetHandleMove = (e: React.PointerEvent) => {
+    const s = sheetDrag.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    s.dy = e.clientY - s.y;
+    if (!s.moved && Math.abs(s.dy) > 8) {
+      s.moved = true;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    }
+    // Only a downward pull on the expanded sheet moves it (collapse gesture).
+    if (s.moved && !sheetCollapsed) {
+      e.preventDefault();
+      setSheetDragY(Math.max(0, s.dy));
+    }
+  };
+  const onSheetHandleUp = (e: React.PointerEvent) => {
+    const s = sheetDrag.current;
+    sheetDrag.current = null;
+    setSheetDragY(0);
+    if (!s || s.pointerId !== e.pointerId) return;
+    if (!s.moved) {
+      // A tap toggles the sheet either way.
+      setSheetCollapsed((c) => !c);
+      return;
+    }
+    // A real drag down past the threshold collapses an open sheet.
+    if (!sheetCollapsed && s.dy > 60) setSheetCollapsed(true);
+  };
+  const onSheetHandleCancel = () => {
+    sheetDrag.current = null;
+    setSheetDragY(0);
+  };
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -454,215 +507,259 @@ export function WorkshopPanel() {
         )}
       </header>
 
-      <div className="workshop-tabs" role="tablist" aria-label="Workshop tabs">
-        {tabs.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={tab === id ? "workshop-tab-active" : undefined}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <aside
-        className="workshop-build-panels"
-        aria-label="Workshop build controls"
+      <div
+        className={
+          sheetCollapsed
+            ? "workshop-sheet workshop-sheet-collapsed"
+            : "workshop-sheet"
+        }
+        style={
+          sheetDragY > 0
+            ? { transform: `translateY(${sheetDragY}px)`, transition: "none" }
+            : undefined
+        }
       >
-        {tab === "build" && (
-          <>
-            {mergePreviewLevel !== null && (
-              <div
-                data-testid="merge-banner"
-                style={{
-                  background: "#ffe08a",
-                  color: "#0b0e14",
-                  borderRadius: 8,
-                  padding: "8px 12px",
-                  fontWeight: 700,
-                  textAlign: "center",
-                  boxShadow: "0 0 16px rgba(255, 224, 138, 0.55)",
-                }}
-              >
-                {`↑ Release to merge into Lv ${mergePreviewLevel}`}
-              </div>
-            )}
+        <button
+          type="button"
+          className="workshop-sheet-handle"
+          aria-label={
+            sheetCollapsed
+              ? "Show the workshop controls"
+              : "Hide the controls to see the bot"
+          }
+          aria-expanded={!sheetCollapsed}
+          onPointerDown={onSheetHandleDown}
+          onPointerMove={onSheetHandleMove}
+          onPointerUp={onSheetHandleUp}
+          onPointerCancel={onSheetHandleCancel}
+        >
+          <span className="workshop-sheet-grip" />
+          <span className="workshop-sheet-hint">
+            {sheetCollapsed ? "▲ controls" : "▼ see bot"}
+          </span>
+        </button>
 
-            <section style={panelStyle} aria-label="Chassis">
-              <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
-                Chassis
-              </h2>
-              <div style={{ display: "flex", gap: 6 }}>
-                {CORE_PART_IDS.map((id) => {
-                  const core = PART_CATALOG[id];
-                  const active = activeCoreId === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setCore(id)}
-                      aria-pressed={active}
-                      className={
-                        active
-                          ? "chassis-option chassis-active"
-                          : "chassis-option"
-                      }
-                    >
-                      {core.name.replace(" Core", "")}
-                    </button>
-                  );
-                })}
-              </div>
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  fontSize: "0.72rem",
-                  opacity: 0.65,
-                }}
-              >
-                Swapping the chassis starts a fresh build. Undo brings it back.
-              </p>
-              <button
-                type="button"
-                className={
-                  mirrorEnabled
-                    ? "mirror-toggle mirror-active"
-                    : "mirror-toggle"
-                }
-                aria-pressed={mirrorEnabled}
-                onClick={toggleMirror}
-                title="Placing a part on a side mount also fills its mirror"
-              >
-                {mirrorEnabled ? "Mirror: on" : "Mirror: off"}
-              </button>
-            </section>
-          </>
-        )}
+        <div
+          className="workshop-tabs"
+          role="tablist"
+          aria-label="Workshop tabs"
+        >
+          {tabs.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => {
+                setTab(id);
+                // The menu tabs open on select; Build stays bot-first.
+                setSheetCollapsed(id === "build");
+              }}
+              className={tab === id ? "workshop-tab-active" : undefined}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-        {tab === "tune" && (
-          <>
-            <section style={panelStyle} aria-label="Design stats">
-              <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
-                Design stats
-              </h2>
-              {validation.ok ? (
-                <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.8 }}>
-                  mass {validation.stats.totalMass.toFixed(2)}, power{" "}
-                  {validation.stats.powerDraw}/{validation.stats.powerSupply}
-                  <span style={{ color: "#54e0c7" }}> valid</span>
-                </p>
-              ) : (
-                <ul
+        <aside
+          className="workshop-build-panels"
+          aria-label="Workshop build controls"
+        >
+          {tab === "build" && (
+            <>
+              {mergePreviewLevel !== null && (
+                <div
+                  data-testid="merge-banner"
                   style={{
-                    margin: 0,
-                    paddingLeft: 16,
-                    fontSize: "0.8rem",
-                    color: "#ff6b6b",
+                    background: "#ffe08a",
+                    color: "#0b0e14",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    fontWeight: 700,
+                    textAlign: "center",
+                    boxShadow: "0 0 16px rgba(255, 224, 138, 0.55)",
                   }}
                 >
-                  {validation.errors.map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
+                  {`↑ Release to merge into Lv ${mergePreviewLevel}`}
+                </div>
               )}
-            </section>
 
-            <section style={panelStyle} aria-label="Temperament">
-              <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
-                Temperament
-              </h2>
-              {(
-                [
-                  ["aggression", "Aggression", "cautious", "relentless"],
-                  ["flankBias", "Flanking", "hugs close", "swings wide"],
-                  ["patience", "Patience", "brief resets", "long resets"],
-                ] as const
-              ).map(([key, label, low, high]) => (
-                <label
-                  key={key}
+              <section style={panelStyle} aria-label="Chassis">
+                <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                  Chassis
+                </h2>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {CORE_PART_IDS.map((id) => {
+                    const core = PART_CATALOG[id];
+                    const active = activeCoreId === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setCore(id)}
+                        aria-pressed={active}
+                        className={
+                          active
+                            ? "chassis-option chassis-active"
+                            : "chassis-option"
+                        }
+                      >
+                        {core.name.replace(" Core", "")}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p
                   style={{
-                    display: "block",
-                    fontSize: "0.78rem",
-                    marginBottom: 8,
+                    margin: "8px 0 0",
+                    fontSize: "0.72rem",
+                    opacity: 0.65,
                   }}
                 >
-                  {label}
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={behavior[key]}
-                    aria-label={`${label} slider`}
-                    onChange={(event) =>
-                      setBehavior({ [key]: Number(event.target.value) })
-                    }
-                    style={{ width: "100%", display: "block" }}
-                  />
-                  <span
+                  Swapping the chassis starts a fresh build. Undo brings it
+                  back.
+                </p>
+                <button
+                  type="button"
+                  className={
+                    mirrorEnabled
+                      ? "mirror-toggle mirror-active"
+                      : "mirror-toggle"
+                  }
+                  aria-pressed={mirrorEnabled}
+                  onClick={toggleMirror}
+                  title="Placing a part on a side mount also fills its mirror"
+                >
+                  {mirrorEnabled ? "Mirror: on" : "Mirror: off"}
+                </button>
+              </section>
+            </>
+          )}
+
+          {tab === "tune" && (
+            <>
+              <section style={panelStyle} aria-label="Design stats">
+                <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                  Design stats
+                </h2>
+                {validation.ok ? (
+                  <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.8 }}>
+                    mass {validation.stats.totalMass.toFixed(2)}, power{" "}
+                    {validation.stats.powerDraw}/{validation.stats.powerSupply}
+                    <span style={{ color: "#54e0c7" }}> valid</span>
+                  </p>
+                ) : (
+                  <ul
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      opacity: 0.6,
+                      margin: 0,
+                      paddingLeft: 16,
+                      fontSize: "0.8rem",
+                      color: "#ff6b6b",
                     }}
                   >
-                    <span>{low}</span>
-                    <span>{high}</span>
-                  </span>
-                </label>
-              ))}
-              <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.65 }}>
-                Bots fight on their own; temperament biases how this one does
-                it.
-              </p>
-            </section>
-          </>
-        )}
+                    {validation.errors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                )}
+              </section>
 
-        {tab === "garage" && (
-          <>
-            <section style={panelStyle} aria-label="Blueprints">
-              <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>
-                Blueprints
-              </h2>
-              <p
-                style={{
-                  margin: "0 0 10px",
-                  fontSize: "0.72rem",
-                  opacity: 0.65,
-                }}
-              >
-                Load a ready-made bot, then make it yours.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {BLUEPRINTS.map((bp) => (
-                  <button
-                    key={bp.id}
-                    type="button"
-                    className="blueprint-option"
-                    onClick={() => loadDesign(bp.design)}
+              <section style={panelStyle} aria-label="Temperament">
+                <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                  Temperament
+                </h2>
+                {(
+                  [
+                    ["aggression", "Aggression", "cautious", "relentless"],
+                    ["flankBias", "Flanking", "hugs close", "swings wide"],
+                    ["patience", "Patience", "brief resets", "long resets"],
+                  ] as const
+                ).map(([key, label, low, high]) => (
+                  <label
+                    key={key}
+                    style={{
+                      display: "block",
+                      fontSize: "0.78rem",
+                      marginBottom: 8,
+                    }}
                   >
-                    <span className="blueprint-label">{bp.label}</span>
-                    <span className="blueprint-blurb">{bp.blurb}</span>
-                  </button>
+                    {label}
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={behavior[key]}
+                      aria-label={`${label} slider`}
+                      onChange={(event) =>
+                        setBehavior({ [key]: Number(event.target.value) })
+                      }
+                      style={{ width: "100%", display: "block" }}
+                    />
+                    <span
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        opacity: 0.6,
+                      }}
+                    >
+                      <span>{low}</span>
+                      <span>{high}</span>
+                    </span>
+                  </label>
                 ))}
-              </div>
-            </section>
-            <DesignSaves />
-            <section style={panelStyle} aria-label="Danger zone">
-              <button type="button" onClick={reset}>
-                Reset to starter bot
-              </button>
-            </section>
-          </>
-        )}
+                <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.65 }}>
+                  Bots fight on their own; temperament biases how this one does
+                  it.
+                </p>
+              </section>
+            </>
+          )}
 
-        {tab === "shop" && <PartsShop />}
-      </aside>
+          {tab === "garage" && (
+            <>
+              <section style={panelStyle} aria-label="Blueprints">
+                <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>
+                  Blueprints
+                </h2>
+                <p
+                  style={{
+                    margin: "0 0 10px",
+                    fontSize: "0.72rem",
+                    opacity: 0.65,
+                  }}
+                >
+                  Load a ready-made bot, then make it yours.
+                </p>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  {BLUEPRINTS.map((bp) => (
+                    <button
+                      key={bp.id}
+                      type="button"
+                      className="blueprint-option"
+                      onClick={() => loadDesign(bp.design)}
+                    >
+                      <span className="blueprint-label">{bp.label}</span>
+                      <span className="blueprint-blurb">{bp.blurb}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <DesignSaves />
+              <section style={panelStyle} aria-label="Danger zone">
+                <button type="button" onClick={reset}>
+                  Reset to starter bot
+                </button>
+              </section>
+            </>
+          )}
+
+          {tab === "shop" && <PartsShop />}
+        </aside>
+      </div>
 
       {selectedDef && selectedIid && (
         <section className="workshop-inspector" aria-label="Selected part">

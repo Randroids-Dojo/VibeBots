@@ -30,6 +30,26 @@ async function dragHeroOntoCore(page: Page) {
   await page.mouse.up();
 }
 
+// Bot-first sheet (N): the tab controls live in a bottom sheet that defaults
+// collapsed on Build (so the bot, carousel, and hero-drag band stay clear).
+// These helpers expand or collapse it so a test can reach Build-tab controls
+// (Chassis, Mirror) and then get the sheet out of the way to drag the hero.
+function sheetCollapsed(page: Page) {
+  return page
+    .locator(".workshop-sheet")
+    .evaluate((el) => el.classList.contains("workshop-sheet-collapsed"));
+}
+async function openSheet(page: Page) {
+  if (await sheetCollapsed(page)) {
+    await page.locator(".workshop-sheet-handle").click();
+  }
+}
+async function collapseSheet(page: Page) {
+  if (!(await sheetCollapsed(page))) {
+    await page.locator(".workshop-sheet-handle").click();
+  }
+}
+
 // Tap the hero part (press and release, no movement) to toggle its stats in
 // the bottom inspector (G). The part must be owned so the hero is grabbable.
 async function tapHero(page: Page) {
@@ -387,9 +407,9 @@ test("workshop tabs keep panels on-screen on portrait phones", async ({
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/workshop");
-  // The Build tab's carousel is a thin overlay on the bench; the top-left
-  // panel column carries the other tabs. Check the Tune panels stay within
-  // the viewport bounds on portrait.
+  // Bot-first (N): the tab controls live in a bottom sheet. Opening a menu
+  // tab expands the sheet; its panel must stay within the viewport bounds on
+  // portrait (never wider than the screen, never below the bottom edge).
   await page.getByRole("tab", { name: "Tune" }).click();
   const controls = page.getByLabel("Workshop build controls");
   await expect(controls).toBeVisible();
@@ -406,6 +426,28 @@ test("workshop tabs keep panels on-screen on portrait phones", async ({
   await expect(page.getByLabel("Parts shop")).toBeVisible();
   await expect(page.getByLabel("Temperament")).not.toBeVisible();
   await expect(page.getByLabel("Part carousel")).not.toBeVisible();
+});
+
+test("bot-first sheet collapses to reveal the bot (N)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const sheet = page.locator(".workshop-sheet");
+  const handle = page.locator(".workshop-sheet-handle");
+  await expect(sheet).toBeVisible();
+  // Build lands collapsed so the bot is the hero, not a stack of menus.
+  await expect(sheet).toHaveClass(/workshop-sheet-collapsed/);
+  // The tab bar still peeks when collapsed, so tabs stay reachable.
+  await expect(page.getByRole("tab", { name: "Garage" })).toBeVisible();
+  // Tapping the handle opens the Build controls.
+  await handle.click();
+  await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
+  await expect(page.getByRole("region", { name: "Chassis" })).toBeVisible();
+  // A menu tab opens the sheet on select; collapsing it reveals the whole bot.
+  await page.getByRole("tab", { name: "Garage" }).click();
+  await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
+  await expect(page.getByRole("region", { name: "Blueprints" })).toBeVisible();
+  await handle.click();
+  await expect(sheet).toHaveClass(/workshop-sheet-collapsed/);
 });
 
 test("workshop tabs press in when held (H)", async ({ page }) => {
@@ -509,6 +551,8 @@ test("choose a chassis variant, resetting to a fresh bot (I)", async ({
   await page.goto("/workshop");
   await expect(page.getByRole("link", { name: "Back to mine" })).toBeVisible();
 
+  // Build lands bot-first with the sheet collapsed; open it to reach Chassis.
+  await openSheet(page);
   const chassis = page.getByRole("region", { name: "Chassis" });
   await expect(chassis).toBeVisible();
   const cube = chassis.getByRole("button", { name: "Cube" });
@@ -543,8 +587,9 @@ test("load a starter blueprint and its chassis follows (J)", async ({
   // The loaded bot replaces the design (5 parts: core, two wheels, plow, spike).
   await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
 
-  // Its chassis is reflected on the Build tab.
+  // Its chassis is reflected on the Build tab (open the sheet to see it).
   await page.getByRole("tab", { name: "Build" }).click();
+  await openSheet(page);
   const chassis = page.getByRole("region", { name: "Chassis" });
   await expect(chassis.getByRole("button", { name: "Wedge" })).toHaveAttribute(
     "aria-pressed",
@@ -569,12 +614,15 @@ test("mirror mode fills both twin mounts from one drag (L)", async ({
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
 
-  // Turn Mirror on, then put a Drive Wheel in hand.
+  // Turn Mirror on (open the sheet for the Build controls), then collapse the
+  // sheet so it clears the carousel and hero-drag band.
+  await openSheet(page);
   const chassis = page.getByRole("region", { name: "Chassis" });
   const mirror = chassis.getByRole("button", { name: /Mirror/ });
   await expect(mirror).toHaveAttribute("aria-pressed", "false");
   await mirror.click();
   await expect(mirror).toHaveAttribute("aria-pressed", "true");
+  await collapseSheet(page);
   await selectCarouselPart(page, "Drive Wheel");
   await expect
     .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))

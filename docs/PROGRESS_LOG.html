@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bot-first-sheet-workshop" data-date="2026-07-04">
+    <h3>Bot-first workshop: tab controls collapse into a bottom sheet (slice N)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>workshop-n-sheet</code>, from <code>origin/main</code>. Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Direct response to playtest feedback with a Garage-tab screenshot: "The workshop is still too menu driven. I can't even see the bot very well on some tabs." User chose the "bot-first sheets" direction from three offered options.</dd>
+      <dt>Changed</dt><dd>The workshop is now bot-first: the 3D bot canvas is the full-screen hero and the four tab panels (Build/Tune/Garage/Shop) live in a single bottom sheet you can collapse to reveal the whole bot. In <code>src/components/workshop-panel.tsx</code> the previously separate <code>.workshop-tabs</code> and <code>.workshop-build-panels</code> overlays are wrapped in one <code>.workshop-sheet</code> with a drag handle (tap the handle to toggle, or drag it down past 60px to collapse; pointer logic mirrors the mine <code>StallMenu</code> pattern). Build lands with the sheet collapsed so the bot, the part carousel, and the hero drag-to-place band stay clear (direct manipulation is unchanged); selecting a menu tab opens the sheet. Menu-heavy tabs (Garage especially) no longer stack three cards over the bot. CSS in <code>src/app/globals.css</code> rewrites the tab bar and panels as static sheet children, adds the sheet/handle/grip/hint styles and the collapsed <code>max-height:0</code> transition, and raises the part inspector to <code>bottom:96px</code> so it floats above the collapsed peek. UI-only: no <code>SIM_VERSION</code>/<code>MINE_VERSION</code> change. Package version <code>0.1.195</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome. A new scripted 390x760 probe (<code>scripts/playtest-sheet.mjs</code>) confirms Build lands collapsed, the handle expands/collapses, menu tabs open the sheet, and collapsing reveals the bot, with zero console errors; screenshots reviewed by eye. New e2e "bot-first sheet collapses to reveal the bot (N)" plus updated chassis (I), blueprint (J), and mirror (L) tests that now open/collapse the sheet to reach Build-tab controls: full 16-test <code>workshop.spec.ts</code> green. Release-note plumbing (<code>app-release-notes.ts</code>, <code>app-release.test.ts</code>, <code>notifications/route.test.ts</code>, <code>release-notifications.spec.ts</code> in both the fresh-browser assertions and the recent-notes list) updated and the fresh-browser e2e re-run against a fresh prod build. Full unit suite green (90 release/notification tests).</dd>
+      <dt>Assumptions</dt><dd>Build defaults collapsed and menu tabs default open, because the Build tab is direct-manipulation (the bot is the interface) while the menu tabs are where panels buried the bot. The sheet is one consistent control at all viewport widths (bottom-anchored, max-width 560 centered on desktop), per the "one consistent flow" rule. Rule 13: mine surface tips reviewed, no change (this slice touches no mine rule). Rule 14: stamp review done, none added; a workshop layout change is UI polish, not a new mechanic or milestone.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/</code> workshop UX is unchanged in mechanics; no coverage row flips. Recorded here per the build-log rule.</dd>
+      <dt>Followups</dt><dd>Next: slice O, an auto-fit camera that frames the whole bot into the space above the sheet and re-frames on design change (fixes the fixed-camera clipping of tall Tower and mast weapons, the top remaining AAA-backlog item).</dd>
+    </dl>
+  </article>
+
   <article data-slice="armor-and-bar-spinner" data-date="2026-07-04">
     <h3>New parts: hardened plate and spinner bar (slice M, workshop overhaul)</h3>
     <dl>

@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest starter-blueprints note complete", () => {
+  it("keeps the latest merge-juice note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.191-starter-blueprints");
+    expect(release.noticeId).toBe("2026-07-04-0.1.192-merge-juice");
     expect(latestNote).toMatchObject({
-      version: "0.1.191",
-      title: "Starter blueprints",
-      intro: "Load a ready-made bot and make it yours.",
+      version: "0.1.192",
+      title: "Merges that land",
+      intro: "Building has more punch.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The Garage tab now has Blueprints: load the Cube Rammer, Wedge Razor, or Tower Basher in one tap, then edit it however you like. No more staring at an empty bench.",
+      "Placing and merging parts now give a quick buzz on phones that support it, and a merge pops harder with a brighter gold flash, so leveling a part up feels like a real beat.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

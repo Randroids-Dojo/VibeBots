@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves } from "@/components/design-saves";
 import { PartsShop } from "@/components/parts-shop";
+import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
 import {
@@ -692,7 +693,10 @@ export function WorkshopPanel() {
             </button>
             <button
               type="button"
-              onClick={mergeSelectedPart}
+              onClick={() => {
+                mergeSelectedPart();
+                buzz(HAPTIC_MERGE);
+              }}
               disabled={!mergeEnabled}
               title={
                 selectedMergePlan === null
@@ -711,7 +715,10 @@ export function WorkshopPanel() {
             </button>
             <button
               type="button"
-              onClick={removeSelected}
+              onClick={() => {
+                removeSelected();
+                buzz(HAPTIC_REMOVE);
+              }}
               disabled={!selectedRemovable}
               title={
                 selectedDef.category === "core"

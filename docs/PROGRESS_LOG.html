@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="merge-juice" data-date="2026-07-04">
+    <h3>Merge and place juice plus haptics (slice K, workshop overhaul)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>workshop-k-juice</code>, from <code>origin/main</code>. Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). AAA UX research: the merge is the signature moment and should fire visual plus haptic feedback together.</dd>
+      <dt>Changed</dt><dd>New guarded helper <code>src/lib/haptics.ts</code> (<code>buzz</code> plus <code>HAPTIC_PLACE</code>/<code>HAPTIC_MERGE</code>/<code>HAPTIC_REMOVE</code>) that calls <code>navigator.vibrate</code> where supported (Android Chrome; a safe no-op on iOS and during SSR, and it swallows engine throws). Wired into the workshop-canvas drop handler (place vs merge) and the panel Merge and Remove buttons, so each edit taps back on a phone. Amplified the merge beat: <code>snapScale</code> pulse coefficient 0.18 to 0.3 (a punchier ~30% overshoot) and the gold level-up flash from <code>0.5 + 2.5f</code> to <code>0.6 + 3.4f</code>. No sim change. <code>SIM_VERSION</code> stays <code>4</code>, <code>MINE_VERSION</code> stays <code>50</code>. Package version <code>0.1.192</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome, purity (haptics lives in <code>src/lib</code>, not the pure sim), <code>src/lib/haptics.test.ts</code> (mocked navigator: fires the pattern, no-ops without vibrate, swallows throws, distinct patterns) and updated <code>workshop-animation.test.ts</code> (a full merge pulse now reads as a ~1.3 overshoot). Release and notification unit tests updated for the new note; full unit suite; <code>pnpm build</code>; place/merge/undo e2e re-run green. Haptics cannot be asserted headless (no vibrate in CI), so the unit test covers the logic; the bigger merge bump is a magnitude change to the already unit-tested snapScale curve (Rule 10).</dd>
+      <dt>Assumptions</dt><dd>Vibration patterns are intentionally brief (place 12ms, remove 22ms, merge a 16/26/34 double-tap) so building never feels buzzy. Kept the flash a material emissive change (GPU-cheap, safe on the WebGL2 fallback), not a new post pass. Rule 13: mine tips reviewed, no change (workshop-only slice). Rule 14: stamp review done, none added (feel polish).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (cross-cutting workshop feel; no single GDD section owns juice/haptics).</dd>
+      <dt>Followups</dt><dd>Next slices: mirror/symmetry placement (L), new BattleBots weapons and armor parts (M). A shared audio system (snap/merge sound, F-050) would complete the visual+audio+haptic trio.</dd>
+    </dl>
+  </article>
+
   <article data-slice="starter-blueprints" data-date="2026-07-04">
     <h3>Starter blueprints in the Garage (slice J, workshop overhaul)</h3>
     <dl>

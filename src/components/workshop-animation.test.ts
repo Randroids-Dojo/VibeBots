@@ -27,8 +27,10 @@ describe("workshop bench animation curves", () => {
     expect(snapScale(1, 0)).toBeCloseTo(1);
     // Mid-mount grows monotonically.
     expect(snapScale(0.5, 0)).toBeGreaterThan(snapScale(0.25, 0));
-    // A live merge pulse overshoots past 1, then settles as it decays.
-    expect(snapScale(1, 1)).toBeGreaterThan(1);
+    // A live merge pulse overshoots past 1, then settles as it decays. The
+    // pulse (K) is punchy: a full pulse reads as a clear ~30% bump.
+    expect(snapScale(1, 1)).toBeCloseTo(1.3);
+    expect(snapScale(1, 1)).toBeGreaterThan(1.2);
     expect(snapScale(1, 0)).toBeCloseTo(1);
   });
 

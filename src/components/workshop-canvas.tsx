@@ -20,6 +20,7 @@ import {
   partGeometry,
   shapeRotation,
 } from "@/components/part-visuals";
+import { buzz, HAPTIC_MERGE, HAPTIC_PLACE } from "@/lib/haptics";
 import { type PartInstance, partMergeLevel } from "@/sim/design";
 import { computeLayout, type Placement } from "@/sim/layout";
 import {
@@ -113,7 +114,7 @@ function PlacedPart({
     if (mat) {
       if (flash > 0.001) {
         mat.emissive.set("#ffe08a");
-        mat.emissiveIntensity = 0.5 + flash * 2.5;
+        mat.emissiveIntensity = 0.6 + flash * 3.4;
       } else if (selected) {
         mat.emissive.set("#ffffff");
         mat.emissiveIntensity = 0.35;
@@ -530,8 +531,13 @@ function WorkshopScene() {
         );
         const target = dragTargetsRef.current[index];
         if (index >= 0 && target) {
-          if (target.kind === "place") placeAtSlot(target.slot);
-          else mergePart(target.iid);
+          if (target.kind === "place") {
+            placeAtSlot(target.slot);
+            buzz(HAPTIC_PLACE);
+          } else {
+            mergePart(target.iid);
+            buzz(HAPTIC_MERGE);
+          }
         }
       } else {
         // A tap on the hero part reveals (or hides) its stats in the bottom

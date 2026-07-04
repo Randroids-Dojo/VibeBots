@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.191-starter-blueprints";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.192-merge-juice";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.192",
+      date: "2026-07-04",
+      title: "Merges that land",
+      intro: "Building has more punch.",
+      changes: [
+        {
+          build,
+          text: "Placing and merging parts now give a quick buzz on phones that support it, and a merge pops harder with a brighter gold flash, so leveling a part up feels like a real beat.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.191",
       date: "2026-07-04",

@@ -22,7 +22,9 @@ export function smoothstep(t: number): number {
  * to exactly 1 once mounted and the pulse has decayed.
  */
 export function snapScale(mountT: number, pulseT: number): number {
-  return 0.4 + 0.6 * smoothstep(mountT) + 0.18 * clamp01(pulseT);
+  // The merge pulse (K) overshoots harder so a level-up reads as the biggest
+  // beat on the bench, then settles back to exactly 1 as it decays.
+  return 0.4 + 0.6 * smoothstep(mountT) + 0.3 * clamp01(pulseT);
 }
 
 /**

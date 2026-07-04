@@ -110,6 +110,50 @@ test("build carousel hero part spins on a turntable (N1)", async ({ page }) => {
   await expect.poll(readYaw).not.toBe(first);
 });
 
+test("drag the hero part onto the bot places it (N2)", async ({ page }) => {
+  // Direct manipulation: grab the hero part and drop it on the bot. The
+  // deterministic tap-to-place path is covered elsewhere; this drives the
+  // real pointer drag. Camera is fixed, so screen positions are stable
+  // across GPU backends at a pinned viewport.
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await selectCarouselPart(page, "Drive Wheel");
+  await expect(
+    page.getByText("My Bot: 1 part", { exact: false }),
+  ).toBeVisible();
+  // Wait until the hero part is mounted and its turntable is running, so
+  // the grab lands on the mesh rather than an empty canvas.
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+
+  // The hero part docks in the lower band (~y 545); the core sits near the
+  // middle (~y 405). Grab the part and drag it up onto the core.
+  const heroX = 195;
+  const heroY = 545;
+  const coreY = 405;
+  await page.mouse.move(heroX, heroY);
+  await page.mouse.down();
+  await page.waitForTimeout(80);
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(heroX, heroY + ((coreY - heroY) * i) / 8);
+    await page.waitForTimeout(30);
+  }
+  await page.mouse.up();
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+});
+
 test("workshop merges a placed part by arming its twin", async ({ page }) => {
   // Two owned copies: one goes into the placed wheel, the second into the
   // merge that levels it up (matches CI's storage-offline sandbox, F-048).

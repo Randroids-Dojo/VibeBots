@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest build carousel note complete", () => {
+  it("keeps the latest drag-to-build note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.178-workshop-carousel");
+    expect(release.noticeId).toBe("2026-07-03-0.1.179-workshop-drag");
     expect(latestNote).toMatchObject({
-      version: "0.1.178",
-      title: "One part in hand",
-      intro: "Picking a part feels like holding it now.",
+      version: "0.1.179",
+      title: "Drag parts onto the bot",
+      intro: "Build by dragging now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The Build tab shows one real part at a time on a slow spin, so you can look it over instead of scanning a long list.",
-      "Step through parts with the arrows to find the one you want; the part in your hand shows its stats and how many you own.",
+      "Grab the part in your hand and drag it right onto the bot: every spot it can attach lights up, and the one under your finger snaps in when you let go.",
+      "The bot holds still while you drag, so dropping a part exactly where you want it is easy.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

@@ -7,8 +7,13 @@ import {
   useFrame,
   useThree,
 } from "@react-three/fiber";
-import { useRef } from "react";
-import type { Group, MeshStandardMaterial } from "three";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Group,
+  type MeshStandardMaterial,
+  type PerspectiveCamera,
+  Vector3,
+} from "three";
 import {
   CATEGORY_SURFACE,
   createWebGPU,
@@ -40,6 +45,7 @@ import {
   PULSE_SECONDS,
   snapScale,
 } from "./workshop-animation";
+import { clientToNdc, pickNearestSlot } from "./workshop-drag";
 
 const CATEGORY_COLORS: Record<PartCategory, string> = {
   core: "#ff9f43",
@@ -197,8 +203,23 @@ function GhostSlot({
  * orbits. The turntable yaw is published to the canvas dataset for motion
  * checks, mirroring the holodeck showcase.
  */
-function HeroPart({ def }: { def: PartDef }) {
-  const camera = useThree((state) => state.camera);
+const HERO_DRAG_DEPTH = 2.6;
+// How close (in NDC, so screen-fraction) the finger must be to a slot's
+// projected point for it to snap. Generous so a drop over the bot lands.
+const DRAG_SNAP_NDC = 0.5;
+
+function HeroPart({
+  def,
+  dragging,
+  pointerNdc,
+  onGrab,
+}: {
+  def: PartDef;
+  dragging: boolean;
+  pointerNdc: RefObject<{ x: number; y: number }>;
+  onGrab: (event: ThreeEvent<PointerEvent>) => void;
+}) {
+  const camera = useThree((state) => state.camera) as PerspectiveCamera;
   const gl = useThree((state) => state.gl);
   const anchorRef = useRef<Group>(null);
   const spinRef = useRef<Group>(null);
@@ -208,11 +229,22 @@ function HeroPart({ def }: { def: PartDef }) {
     if (anchor) {
       anchor.position.copy(camera.position);
       anchor.quaternion.copy(camera.quaternion);
-      // Move into camera-local space: down into the empty lower band and
-      // back so the whole part stays clear of the bottom edge on tall
-      // portrait viewports while reading as a "part in hand".
-      anchor.translateY(-0.5);
-      anchor.translateZ(-2.75);
+      if (dragging) {
+        // Carried: ride under the finger at a fixed depth so the part
+        // reads as held. Screen NDC maps to camera-space x/y through the
+        // half-extents of the frustum at that depth.
+        const halfV =
+          Math.tan((camera.fov * Math.PI) / 180 / 2) * HERO_DRAG_DEPTH;
+        const p = pointerNdc.current;
+        anchor.translateX(p.x * halfV * camera.aspect);
+        anchor.translateY(p.y * halfV);
+        anchor.translateZ(-HERO_DRAG_DEPTH);
+      } else {
+        // Docked: down into the empty lower band and back so the whole
+        // part clears the bottom edge on tall portrait viewports.
+        anchor.translateY(-0.5);
+        anchor.translateZ(-2.75);
+      }
     }
     yaw.current += dt * 0.7;
     spinRef.current?.rotation.set(0, yaw.current, 0);
@@ -221,8 +253,14 @@ function HeroPart({ def }: { def: PartDef }) {
   });
   const surface = CATEGORY_SURFACE[def.category];
   return (
-    <group ref={anchorRef}>
-      <group ref={spinRef} scale={0.65}>
+    <group
+      ref={anchorRef}
+      onPointerDown={(event: ThreeEvent<PointerEvent>) => {
+        event.stopPropagation();
+        onGrab(event);
+      }}
+    >
+      <group ref={spinRef} scale={dragging ? 0.72 : 0.65}>
         <mesh rotation={shapeRotation(def.shape)}>
           {partGeometry(def.shape)}
           <meshStandardMaterial
@@ -231,10 +269,51 @@ function HeroPart({ def }: { def: PartDef }) {
             roughness={surface.roughness}
             flatShading
             emissive={CATEGORY_COLORS[def.category]}
-            emissiveIntensity={surface.emissiveBoost + 0.18}
+            emissiveIntensity={surface.emissiveBoost + (dragging ? 0.4 : 0.18)}
           />
         </mesh>
       </group>
+    </group>
+  );
+}
+
+/**
+ * A drag highlight (N2): a translucent preview of the held part at one
+ * valid slot while a grab-drag is in flight. The slot nearest the finger
+ * is the snap target: it turns solid and bright so the drop point is
+ * unmistakable; the rest stay faint so the whole set of attach points
+ * still reads as "here is where this can go".
+ */
+function DragGhost({
+  def,
+  placement,
+  active,
+}: {
+  def: PartDef;
+  placement: Placement;
+  active: boolean;
+}) {
+  const { position, rotation } = placement;
+  const surface = CATEGORY_SURFACE[def.category];
+  return (
+    <group
+      position={[position.x, position.y, position.z]}
+      quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
+    >
+      <mesh rotation={shapeRotation(def.shape)}>
+        {partGeometry(def.shape)}
+        <meshStandardMaterial
+          color={CATEGORY_COLORS[def.category]}
+          metalness={surface.metalness}
+          roughness={surface.roughness}
+          flatShading
+          transparent
+          opacity={active ? 0.85 : 0.22}
+          depthWrite={active}
+          emissive={active ? "#ffffff" : CATEGORY_COLORS[def.category]}
+          emissiveIntensity={active ? 0.6 : 0.4}
+        />
+      </mesh>
     </group>
   );
 }
@@ -266,10 +345,106 @@ function WorkshopScene() {
   const armedDef = armedPartId ? PART_CATALOG[armedPartId] : null;
   const ghostSlots = armedDef ? validSlotsFor(design, armedDef) : [];
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
+  const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
+  const armPart = useWorkshopStore((s) => s.armPart);
   const features = graphicsFeaturesFor(
     resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
   );
   const shadows = features.shadows && webgpuBackend;
+
+  // Grab-and-drag placement (N2): pick up the hero part and drop it on the
+  // bot. While dragging, orbit is off, the part rides the finger, and every
+  // valid slot lights up with the one nearest the finger as the snap target.
+  const browseDef = PART_CATALOG[browsePartId];
+  const [dragging, setDragging] = useState(false);
+  const pointerNdc = useRef({ x: 0, y: 0 });
+  const [hovered, setHovered] = useState(-1);
+  const hoveredRef = useRef(-1);
+  const dragSlots = useMemo(
+    () => (dragging ? validSlotsFor(design, browseDef) : []),
+    [dragging, design, browseDef],
+  );
+  const dragSlotsRef = useRef(dragSlots);
+  dragSlotsRef.current = dragSlots;
+  const dragSlotWorld = useMemo(
+    () =>
+      dragSlots.map(
+        (slot) =>
+          computeLayout(slot.next).get(slot.iid)?.position ?? {
+            x: 0,
+            y: 0,
+            z: 0,
+          },
+      ),
+    [dragSlots],
+  );
+
+  const startDrag = (event: ThreeEvent<PointerEvent>) => {
+    if (!buildActive) return;
+    // Drag owns placement; put away any tap-to-place ghosts first.
+    armPart(null);
+    pointerNdc.current = { x: event.pointer.x, y: event.pointer.y };
+    hoveredRef.current = -1;
+    setHovered(-1);
+    setDragging(true);
+    (gl.domElement as HTMLElement).setPointerCapture?.(event.pointerId);
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+    const el = gl.domElement as HTMLElement;
+    const move = (event: PointerEvent) => {
+      pointerNdc.current = clientToNdc(
+        event.clientX,
+        event.clientY,
+        el.getBoundingClientRect(),
+      );
+    };
+    const drop = () => {
+      // Recompute the snap target from the live pointer at release, so the
+      // commit never depends on whether a frame ran for the final move
+      // (fast drags can outrun useFrame).
+      const projected = dragSlotWorld.map((point) => {
+        const v = new Vector3(point.x, point.y, point.z).project(camera);
+        return { x: v.x, y: v.y, z: v.z };
+      });
+      const index = pickNearestSlot(
+        projected,
+        pointerNdc.current,
+        DRAG_SNAP_NDC,
+      );
+      const slot = dragSlotsRef.current[index];
+      if (index >= 0 && slot) placeAtSlot(slot);
+      setDragging(false);
+      setHovered(-1);
+      hoveredRef.current = -1;
+    };
+    el.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", drop);
+    window.addEventListener("pointercancel", drop);
+    return () => {
+      el.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", drop);
+      window.removeEventListener("pointercancel", drop);
+    };
+  }, [dragging, gl, placeAtSlot, camera, dragSlotWorld]);
+
+  const projScratch = useRef(new Vector3());
+  useFrame(() => {
+    if (!dragging) return;
+    const projected = dragSlotWorld.map((point) => {
+      const v = projScratch.current
+        .set(point.x, point.y, point.z)
+        .project(camera);
+      return { x: v.x, y: v.y, z: v.z };
+    });
+    const next = pickNearestSlot(projected, pointerNdc.current, DRAG_SNAP_NDC);
+    if (next !== hoveredRef.current) {
+      hoveredRef.current = next;
+      setHovered(next);
+    }
+  });
 
   return (
     <>
@@ -308,6 +483,8 @@ function WorkshopScene() {
       <OrbitControls
         makeDefault
         enablePan={false}
+        enableRotate={!dragging}
+        enableZoom={!dragging}
         minDistance={2}
         maxDistance={10}
       />
@@ -325,7 +502,27 @@ function WorkshopScene() {
         args={[8, 16, "#26304a", "#1a2133"]}
         position={[0, -0.75, 0]}
       />
-      {heroDef && <HeroPart def={heroDef} />}
+      {heroDef && (
+        <HeroPart
+          def={heroDef}
+          dragging={dragging}
+          pointerNdc={pointerNdc}
+          onGrab={startDrag}
+        />
+      )}
+      {dragging &&
+        dragSlots.map((slot, i) => {
+          const placement = computeLayout(slot.next).get(slot.iid);
+          if (!placement) return null;
+          return (
+            <DragGhost
+              key={`drag:${slot.parentIid}:${slot.parentConnector}`}
+              def={browseDef}
+              placement={placement}
+              active={i === hovered}
+            />
+          );
+        })}
       {design.parts.map((instance) => {
         const def = PART_CATALOG[instance.partId];
         const placement = layout.get(instance.iid);

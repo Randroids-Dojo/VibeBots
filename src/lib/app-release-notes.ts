@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.178-workshop-carousel";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.179-workshop-drag";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.179",
+      date: "2026-07-03",
+      title: "Drag parts onto the bot",
+      intro: "Build by dragging now.",
+      changes: [
+        {
+          build,
+          text: "Grab the part in your hand and drag it right onto the bot: every spot it can attach lights up, and the one under your finger snaps in when you let go.",
+        },
+        {
+          build,
+          text: "The bot holds still while you drag, so dropping a part exactly where you want it is easy.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.178",
       date: "2026-07-03",

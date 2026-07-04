@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-drag-place" data-date="2026-07-03">
+    <h3>Workshop N2: grab-and-drag to place (direct-manipulation build, slice 2 of 4)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Second slice of the direct-manipulation build (<code>docs/research/workshop-direct-manipulation.html</code>).</dd>
+      <dt>Changed</dt><dd>The hero part is now grabbable: press it and it lifts to ride under the finger, orbit is suspended, and every valid attach point on the bot lights up as a translucent ghost with the one nearest the finger turning solid and bright as the snap target. Releasing commits that exact connection through the existing <code>placeAtSlot</code>. The nearest-slot pick avoids the repo's missing raycaster by projecting each valid slot to screen with <code>camera.project</code> (the arena HUD pattern) and choosing the closest in NDC. A new pure <code>workshop-drag.ts</code> (<code>pickNearestSlot</code> with frustum-depth rejection, and <code>clientToNdc</code>) holds the geometry so the pick is unit-tested. The commit recomputes the snap target from the live pointer at release rather than reading the last animation frame, so a fast drag cannot outrun <code>useFrame</code> and drop nothing. Orbit and zoom are gated off while dragging via OrbitControls props. The W2 tap-to-place path (Place button plus the DOM "Placement slots" list) is untouched and stays the deterministic a11y and keyboard route. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.179</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (0 errors), full unit suite passing including eight new drag-helper tests (nearest pick, maxDist cutoff, behind-camera rejection, deterministic tie, and the client-to-NDC mapping), <code>pnpm build</code>. A new e2e drives the real pointer drag at a pinned 390x760 viewport (grab the hero, drag onto the core, assert the part count rises) and stays green run 4/4 under <code>--repeat-each</code>; the rest of the workshop suite passes (garage stays storage-gated per F-048). A scripted 390x760 capture confirmed the carried part rides the finger, the nearest slot highlights white, and the drop places. Clean-runner branch CI gated the main push.</dd>
+      <dt>Assumptions</dt><dd>Rule 3: still one live WebGL context (drag reuses the single bench canvas). Rule 7: one gesture rule, grab the part to place and touch empty space or the bot to orbit; the tap-to-place list mirrors every drag outcome for a11y and e2e. Rule 10: motion proven by the carried-part capture and the placement outcome; the hero turntable motion test from N1 still guards the frameloop. Rule 13: mine tips reviewed, no change (workshop build surface). Rule 14: stamp review done, none added (a build-by-drag milestone is deferred until the drag feel is complete after N3/N4, per F-051).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (interaction over the validated tree). Delivers the pillar language ("parts snap to connectors") as a true drag-and-snap. Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>N3 next: drag onto a same-kind part to merge (extends W4), and rotate the held part's mount orientation with a live preview. F-052 (co-locate the carousel controls with the hero part into a bottom tray) still open for the N4 polish slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-hero-carousel" data-date="2026-07-03">
     <h3>Workshop N1: hero part carousel (direct-manipulation build, slice 1 of 4)</h3>
     <dl>

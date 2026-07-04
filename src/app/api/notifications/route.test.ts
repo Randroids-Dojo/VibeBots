@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-03-0.1.178-workshop-carousel",
-      releaseSummary:
-        "One part in hand: Picking a part feels like holding it now.",
+      releaseNoticeId: "2026-07-03-0.1.179-workshop-drag",
+      releaseSummary: "Drag parts onto the bot: Build by dragging now.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-03-0.1.178-workshop-carousel",
+      releaseNoticeId: "2026-07-03-0.1.179-workshop-drag",
       attempted: 2,
       sent: 1,
       expired: 1,

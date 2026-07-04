@@ -13,6 +13,23 @@ async function selectCarouselPart(page: Page, name: string) {
   throw new Error(`carousel never reached ${name}`);
 }
 
+// Drag the hero part straight up onto the core to place it on the nearest
+// open slot. Tap-to-place was removed, so drag is the only placement path.
+// Requires a 390x760 viewport and the hero turntable running (heroYaw set).
+async function dragHeroOntoCore(page: Page) {
+  const heroX = 195;
+  const heroY = 545;
+  const coreY = 405;
+  await page.mouse.move(heroX, heroY);
+  await page.mouse.down();
+  await page.waitForTimeout(80);
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(heroX, heroY + ((coreY - heroY) * i) / 8);
+    await page.waitForTimeout(30);
+  }
+  await page.mouse.up();
+}
+
 test("workshop builds and undoes parts", async ({ page }) => {
   // Pin inventory so the run does not depend on real storage: placing a
   // Drive Wheel spends one owned copy and merging it spends a second, so
@@ -36,8 +53,10 @@ test("workshop builds and undoes parts", async ({ page }) => {
     });
   });
 
+  await page.setViewportSize({ width: 390, height: 760 });
   await page.goto("/workshop");
-  await expect(page.locator("canvas")).toBeVisible();
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
   await expect(page.getByRole("link", { name: "Back to mine" })).toBeVisible();
   await expect(
     page.getByText("My Bot: 1 part", { exact: false }),
@@ -48,25 +67,15 @@ test("workshop builds and undoes parts", async ({ page }) => {
     "aria-selected",
     "true",
   );
-  // Direct-manipulation build (N1): parts are a one-at-a-time carousel.
-  // Step to the Drive Wheel, then tap-to-place (W2) opens its placement
-  // slots and tapping a slot commits that exact connection.
-  const carousel = page.getByLabel("Part carousel");
+  // Direct-manipulation build (N1): parts are a one-at-a-time carousel. Step
+  // to the Drive Wheel, then drag the hero part onto the bot to place it
+  // (tap-to-place was removed as redundant).
   await selectCarouselPart(page, "Drive Wheel");
-  const driveWheelPlace = carousel.getByRole("button", { name: "Place" });
-  await expect(driveWheelPlace).toBeEnabled();
-  await driveWheelPlace.click();
-  await expect(
-    carousel.getByRole("button", { name: "Cancel" }),
-  ).toHaveAttribute("aria-pressed", "true");
-  const slots = page.getByLabel("Placement slots");
-  await expect(slots).toBeVisible();
-  const slotButtons = slots.getByRole("button", { name: /^Place on/ });
-  expect(await slotButtons.count()).toBeGreaterThan(0);
-  await slotButtons.first().click();
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+  await dragHeroOntoCore(page);
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-  // Placing disarms: the slot list goes away.
-  await expect(slots).not.toBeVisible();
 
   // Placing selects the new part, so its inspector chip appears (W3).
   const inspector = page.getByRole("region", { name: "Selected part" });
@@ -155,7 +164,7 @@ test("drag the hero part onto the bot places it (N2)", async ({ page }) => {
 });
 
 test("drag the hero part onto a twin merges it (N3)", async ({ page }) => {
-  // Place one wheel via the deterministic tap path, then drag the hero
+  // Place one wheel on the left axle by dragging there, then drag the hero
   // wheel onto that twin: it should level up (no third part appears).
   await page.setViewportSize({ width: 390, height: 760 });
   await page.route("**/api/shop", async (route) => {
@@ -171,31 +180,33 @@ test("drag the hero part onto a twin merges it (N3)", async ({ page }) => {
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
   await selectCarouselPart(page, "Drive Wheel");
-  const carousel = page.getByLabel("Part carousel");
-  await carousel.getByRole("button", { name: "Place" }).click();
-  await page
-    .getByLabel("Placement slots")
-    .getByRole("button", { name: /^Place on/ })
-    .first()
-    .click();
-  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
   await expect
     .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
     .not.toBeUndefined();
 
-  // Grab the hero wheel and drag it onto the placed twin (left axle).
-  await page.mouse.move(195, 545);
-  await page.mouse.down();
-  await page.waitForTimeout(80);
-  for (const [x, y] of [
-    [180, 500],
-    [150, 470],
-    [120, 440],
-    [110, 430],
-  ]) {
-    await page.mouse.move(x, y);
-    await page.waitForTimeout(30);
-  }
+  // A helper drag from the docked hero up-left onto the left axle.
+  const dragToLeftAxle = async () => {
+    await page.mouse.move(195, 545);
+    await page.mouse.down();
+    await page.waitForTimeout(80);
+    for (const [x, y] of [
+      [180, 500],
+      [150, 470],
+      [120, 440],
+      [110, 430],
+    ]) {
+      await page.mouse.move(x, y);
+      await page.waitForTimeout(30);
+    }
+  };
+
+  // First wheel: drag it onto the left axle to place it.
+  await dragToLeftAxle();
+  await page.mouse.up();
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+
+  // Second wheel: drag it onto the same twin to merge.
+  await dragToLeftAxle();
 
   // Hovering the twin: the release-to-merge banner names the resulting level
   // (Slice B), so the merge intent reads in always-visible DOM.
@@ -213,59 +224,10 @@ test("drag the hero part onto a twin merges it (N3)", async ({ page }) => {
   await expect(mergeBanner).toBeHidden();
 });
 
-test("workshop merges a placed part by arming its twin", async ({ page }) => {
-  // Two owned copies: one goes into the placed wheel, the second into the
-  // merge that levels it up (matches CI's storage-offline sandbox, F-048).
-  await page.route("**/api/shop", async (route) => {
-    await route.fulfill({
-      json: {
-        emeralds: 20,
-        inventory: [{ part_id: DRIVE_WHEEL.id, count: 2 }],
-        catalog: [
-          {
-            id: DRIVE_WHEEL.id,
-            name: DRIVE_WHEEL.name,
-            category: DRIVE_WHEEL.category,
-            priceEmeralds: DRIVE_WHEEL.priceEmeralds,
-          },
-        ],
-      },
-    });
-  });
-
-  await page.goto("/workshop");
-  await expect(page.locator("canvas")).toBeVisible();
-
-  const carousel = page.getByLabel("Part carousel");
-  await selectCarouselPart(page, "Drive Wheel");
-  const place = carousel.getByRole("button", { name: "Place" });
-  // Place one wheel.
-  await place.click();
-  const slots = page.getByLabel("Placement slots");
-  await slots
-    .getByRole("button", { name: /^Place on/ })
-    .first()
-    .click();
-  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-
-  // Arm the same part again: the placed wheel is now a merge target (W4),
-  // offered as a gold slot instead of (or beside) an empty placement spot.
-  await place.click();
-  const mergeButton = slots.getByRole("button", {
-    name: /^Merge into Drive Wheel/,
-  });
-  await expect(mergeButton).toBeVisible();
-  await mergeButton.click();
-  // The merge disarms and levels the existing wheel; no new part appears.
-  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-  await expect(slots).not.toBeVisible();
-  const inspector = page.getByRole("region", { name: "Selected part" });
-  await expect(inspector.getByText("Lv 2")).toBeVisible();
-});
-
 test("cycling the carousel clears the selected placed part (P1)", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
   await page.route("**/api/shop", async (route) => {
     await route.fulfill({
       json: {
@@ -276,19 +238,15 @@ test("cycling the carousel clears the selected placed part (P1)", async ({
     });
   });
   await page.goto("/workshop");
-  await expect(page.locator("canvas")).toBeVisible();
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
   await selectCarouselPart(page, "Drive Wheel");
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
 
-  // Placing selects the new part, so the placed-part inspector (Remove) shows.
-  await page
-    .getByLabel("Part carousel")
-    .getByRole("button", { name: "Place" })
-    .click();
-  await page
-    .getByLabel("Placement slots")
-    .getByRole("button", { name: /^Place on/ })
-    .first()
-    .click();
+  // Dragging a part on selects it, so the placed-part inspector (Remove) shows.
+  await dragHeroOntoCore(page);
   await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
 
   // Cycling to another part clears the selection, so the inspector goes away.
@@ -300,6 +258,7 @@ test("cycling the carousel clears the selected placed part (P1)", async ({
 });
 
 test("rotate the mount orientation before placing (N4)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
   await page.route("**/api/shop", async (route) => {
     await route.fulfill({
       json: {
@@ -310,7 +269,8 @@ test("rotate the mount orientation before placing (N4)", async ({ page }) => {
     });
   });
   await page.goto("/workshop");
-  await expect(page.locator("canvas")).toBeVisible();
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
   await selectCarouselPart(page, "Drive Wheel");
   const carousel = page.getByLabel("Part carousel");
   const rotate = carousel.getByRole("button", { name: /Rotate mount/ });
@@ -318,13 +278,11 @@ test("rotate the mount orientation before placing (N4)", async ({ page }) => {
   await rotate.click();
   await expect(rotate).toHaveText("Rotate 90°");
 
-  // Placement still works after rotating the mount.
-  await carousel.getByRole("button", { name: "Place" }).click();
-  await page
-    .getByLabel("Placement slots")
-    .getByRole("button", { name: /^Place on/ })
-    .first()
-    .click();
+  // Placement still works after rotating the mount: drag the hero onto the bot.
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+  await dragHeroOntoCore(page);
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
 });
 

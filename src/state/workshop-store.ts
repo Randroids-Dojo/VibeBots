@@ -242,8 +242,6 @@ export interface WorkshopState {
   history: EditorHistory<BotDesign>;
   design: BotDesign;
   selectedIid: string | null;
-  /** The palette part whose placement ghosts are showing, if any. */
-  armedPartId: string | null;
   /** The part shown in the build carousel (N1); prev/next steps it. */
   browsePartId: string;
   /** Mount orientation the carousel part will place with (N4, rigid only). */
@@ -259,7 +257,6 @@ export interface WorkshopState {
    */
   mergePreviewLevel: number | null;
   addPart: (partId: string) => void;
-  armPart: (partId: string | null) => void;
   browseBy: (dir: number) => void;
   rotateBrowse: () => void;
   setBuildActive: (active: boolean) => void;
@@ -286,7 +283,6 @@ function withDesign(history: EditorHistory<BotDesign>) {
 export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
   selectedIid: null,
-  armedPartId: null,
   browsePartId: CAROUSEL_PART_IDS[0],
   browseOrientation: 0,
   buildActive: true,
@@ -305,16 +301,10 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     });
   },
 
-  // Arming toggles: tapping the armed part again puts the palette away.
-  armPart: (partId) =>
-    set((s) => ({
-      armedPartId: partId === null || s.armedPartId === partId ? null : partId,
-    })),
-
   // Step the build carousel to the next/previous non-core part, wrapping
   // at the ends so the list is a loop (N1). A fresh part starts unrotated,
-  // and cycling clears any selected placed part and stale armed part so
-  // viewing a new part starts from a clean bench (user feedback).
+  // and cycling clears any selected placed part so viewing a new part
+  // starts from a clean bench (user feedback).
   browseBy: (dir) =>
     set((s) => {
       const list = CAROUSEL_PART_IDS;
@@ -324,7 +314,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
         browsePartId: list[next],
         browseOrientation: 0,
         selectedIid: null,
-        armedPartId: null,
       };
     }),
 
@@ -370,7 +359,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(pushHistory(history, next)),
       selectedIid: iid,
-      armedPartId: null,
     });
   },
 
@@ -383,7 +371,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(pushHistory(history, next)),
       selectedIid: iid,
-      armedPartId: null,
     });
   },
 
@@ -427,7 +414,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(undoHistory(history)),
       selectedIid: null,
-      armedPartId: null,
     });
   },
 
@@ -437,7 +423,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(redoHistory(history)),
       selectedIid: null,
-      armedPartId: null,
     });
   },
 
@@ -462,14 +447,12 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({
       ...withDesign(createHistory<BotDesign>(design)),
       selectedIid: null,
-      armedPartId: null,
     }),
 
   reset: () =>
     set({
       ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
       selectedIid: null,
-      armedPartId: null,
       browsePartId: CAROUSEL_PART_IDS[0],
       browseOrientation: 0,
       browseDimmed: false,

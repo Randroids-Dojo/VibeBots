@@ -2,19 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest merge-cue note complete", () => {
+  it("keeps the latest drag-only build note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.183-workshop-merge-cue");
+    expect(release.noticeId).toBe("2026-07-03-0.1.184-workshop-drag-only");
     expect(latestNote).toMatchObject({
-      version: "0.1.183",
-      title: "Merges read at a glance",
-      intro: "A merge upgrade is unmistakable now.",
+      version: "0.1.184",
+      title: "Just drag to build",
+      intro: "One way to build: drag.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Drag a part over a matching one and a gold banner names the level you will reach, so a merge upgrade is never mistaken for adding another part.",
-      "The part flashes gold as it levels up, and the owned-count ticks down so you can see the copy being spent.",
+      "The extra Place step is gone. Drag the part in your hand onto the bot to place it, or onto a matching part to merge. That is the whole flow.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

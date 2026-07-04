@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.183-workshop-merge-cue";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.184-workshop-drag-only";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.184",
+      date: "2026-07-03",
+      title: "Just drag to build",
+      intro: "One way to build: drag.",
+      changes: [
+        {
+          build,
+          text: "The extra Place step is gone. Drag the part in your hand onto the bot to place it, or onto a matching part to merge. That is the whole flow.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.183",
       date: "2026-07-03",

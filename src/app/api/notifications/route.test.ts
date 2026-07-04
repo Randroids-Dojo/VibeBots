@@ -110,9 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-03-0.1.183-workshop-merge-cue",
-      releaseSummary:
-        "Merges read at a glance: A merge upgrade is unmistakable now.",
+      releaseNoticeId: "2026-07-03-0.1.184-workshop-drag-only",
+      releaseSummary: "Just drag to build: One way to build: drag.",
     });
   });
 
@@ -172,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-03-0.1.183-workshop-merge-cue",
+      releaseNoticeId: "2026-07-03-0.1.184-workshop-drag-only",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -19,11 +19,9 @@ import {
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
 import { PART_CATALOG } from "@/sim/parts";
 import {
-  planAddPart,
   planMergeSelectedPart,
   planRotateSelected,
   useWorkshopStore,
-  validSlotsFor,
 } from "@/state/workshop-store";
 
 const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
@@ -139,7 +137,6 @@ export function WorkshopPanel() {
     }
   };
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
-  const armedPartId = useWorkshopStore((s) => s.armedPartId);
   const browsePartId = useWorkshopStore((s) => s.browsePartId);
   const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
   const browseBy = useWorkshopStore((s) => s.browseBy);
@@ -148,9 +145,6 @@ export function WorkshopPanel() {
   const setBrowseDimmed = useWorkshopStore((s) => s.setBrowseDimmed);
   const mergePreviewLevel = useWorkshopStore((s) => s.mergePreviewLevel);
   const history = useWorkshopStore((s) => s.history);
-  const armPart = useWorkshopStore((s) => s.armPart);
-  const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
-  const mergePart = useWorkshopStore((s) => s.mergePart);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
   const mergeSelectedPart = useWorkshopStore((s) => s.mergeSelectedPart);
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
@@ -159,13 +153,11 @@ export function WorkshopPanel() {
   const redo = useWorkshopStore((s) => s.redo);
   const reset = useWorkshopStore((s) => s.reset);
 
-  // Placement ghosts and the hero part belong to the Build tab; leaving it
-  // puts the ghosts away and hides the hero so neither hovers over the
-  // bench while another tab is up.
+  // The hero part belongs to the Build tab; leaving it hides the hero so it
+  // does not hover over the bench while another tab is up.
   useEffect(() => {
     setBuildActive(tab === "build");
-    if (tab !== "build") armPart(null);
-  }, [tab, armPart, setBuildActive]);
+  }, [tab, setBuildActive]);
 
   const validation = validateDesign(design);
   const behavior = design.behavior ?? NEUTRAL_BEHAVIOR;
@@ -196,43 +188,17 @@ export function WorkshopPanel() {
     inventory.state === "sandbox" ||
     (inventory.state === "ready" && selectedAvailableAfterUse > 0);
   const mergeEnabled = selectedMergePlan !== null && mergeInventoryAllows;
-  const armedDef = armedPartId ? PART_CATALOG[armedPartId] : null;
-  const placementSlots = armedDef
-    ? validSlotsFor(design, armedDef, PART_CATALOG, browseOrientation)
-    : [];
-  // Merge targets for the armed part: placed copies that can still level
-  // up. Tapping one spends the armed copy on a merge instead of a place.
-  const mergeTargets = armedDef
-    ? design.parts.filter(
-        (p) =>
-          p.partId === armedPartId &&
-          planMergeSelectedPart(design, p.iid) !== null,
-      )
-    : [];
 
-  // The build carousel (N1): one part at a time. Placeable when a copy can
-  // go down or an existing copy can still merge, and inventory allows it,
-  // reusing the exact gate the old per-row palette used.
+  // The build carousel (N1): one non-core part at a time, dragged onto the
+  // bot to place or merge (tap-to-place was removed as redundant).
   const browseDef = PART_CATALOG[browsePartId];
   const browseOwned =
     inventory.state === "ready" ? (inventory.counts.get(browsePartId) ?? 0) : 0;
   const browseUsed = usedPartCounts.get(browsePartId) ?? 0;
   const browseAvailable = Math.max(0, browseOwned - browseUsed);
-  const browseInventoryAllows =
-    inventory.state === "sandbox" ||
-    (inventory.state === "ready" && browseAvailable > 0);
-  const browseCanMergeExisting = design.parts.some(
-    (p) =>
-      p.partId === browsePartId &&
-      planMergeSelectedPart(design, p.iid) !== null,
-  );
-  const browseArmed = armedPartId === browsePartId;
-  const browsePlaceable =
-    (planAddPart(design, browseDef) !== null || browseCanMergeExisting) &&
-    browseInventoryAllows;
 
   // Gray the hero part in the canvas when the shop says you own none to
-  // place (P3, user feedback): matches the disabled Place button exactly.
+  // place (P3, user feedback), so an unplaceable part reads as unavailable.
   // Sandbox and still-loading states never dim (ownership is unknown).
   useEffect(() => {
     setBrowseDimmed(inventory.state === "ready" && browseAvailable <= 0);
@@ -469,91 +435,6 @@ export function WorkshopPanel() {
       >
         {tab === "build" && (
           <>
-            {armedDef && (
-              <section style={panelStyle} aria-label="Placement slots">
-                <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>
-                  Place {armedDef.name}
-                </h2>
-                <p
-                  style={{
-                    margin: "0 0 8px",
-                    fontSize: "0.78rem",
-                    opacity: 0.7,
-                  }}
-                >
-                  Tap a glowing spot to place, or a gold part on the bot to
-                  merge.
-                </p>
-                {placementSlots.length === 0 && mergeTargets.length === 0 ? (
-                  <p
-                    style={{ margin: 0, fontSize: "0.8rem", color: "#ff6b6b" }}
-                  >
-                    No open spot or merge for this part right now.
-                  </p>
-                ) : (
-                  <div
-                    style={{ display: "flex", flexDirection: "column", gap: 6 }}
-                  >
-                    {placementSlots.map((slot) => {
-                      const parentPart = design.parts.find(
-                        (p) => p.iid === slot.parentIid,
-                      );
-                      const parentDef = parentPart
-                        ? PART_CATALOG[parentPart.partId]
-                        : null;
-                      return (
-                        <button
-                          key={`${slot.parentIid}:${slot.parentConnector}`}
-                          type="button"
-                          onClick={() => placeAtSlot(slot)}
-                          style={{
-                            textAlign: "left",
-                            background: "#26304a",
-                            color: "#e6e8ee",
-                            border: "1px solid #344061",
-                            borderRadius: 6,
-                            padding: "5px 10px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Place on {parentDef?.name ?? slot.parentIid} (
-                          {slot.parentConnector})
-                        </button>
-                      );
-                    })}
-                    {mergeTargets.map((target) => {
-                      const level = partMergeLevel(target);
-                      return (
-                        <button
-                          key={`merge:${target.iid}`}
-                          type="button"
-                          onClick={() => mergePart(target.iid)}
-                          style={{
-                            textAlign: "left",
-                            background: "#2b2517",
-                            color: "#ffe08a",
-                            border: "1px solid #6b5a2a",
-                            borderRadius: 6,
-                            padding: "5px 10px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Merge into {armedDef.name} (Lv {level} to {level + 1})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => armPart(null)}
-                  style={{ marginTop: 8 }}
-                >
-                  Cancel placement
-                </button>
-              </section>
-            )}
-
             {mergePreviewLevel !== null && (
               <div
                 data-testid="merge-banner"
@@ -620,64 +501,35 @@ export function WorkshopPanel() {
                   {"▶"}
                 </button>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => armPart(browsePartId)}
-                  disabled={!browsePlaceable && !browseArmed}
-                  aria-pressed={browseArmed}
-                  title={
-                    browseArmed
-                      ? "Stop placing"
-                      : inventory.state === "loading"
-                        ? "Checking inventory"
-                        : inventory.state === "ready" && browseAvailable <= 0
-                          ? "None owned"
-                          : "Show placement spots"
-                  }
-                  style={{
-                    flex: 1,
-                    cursor:
-                      browsePlaceable || browseArmed
-                        ? "pointer"
-                        : "not-allowed",
-                    background: browseArmed
-                      ? "#54e0c7"
-                      : browsePlaceable
-                        ? "#26304a"
-                        : "#161b28",
-                    color: browseArmed
-                      ? "#0b0e14"
-                      : browsePlaceable
-                        ? "#e6e8ee"
-                        : "#5a6378",
-                    border: "1px solid #344061",
-                    borderRadius: 6,
-                    padding: "7px 10px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {browseArmed ? "Cancel" : "Place"}
-                </button>
-                <button
-                  type="button"
-                  onClick={rotateBrowse}
-                  aria-label={`Rotate mount, currently ${browseOrientation} degrees`}
-                  title="Turn how this part mounts (rigid mounts only)"
-                  style={{
-                    flex: "0 0 auto",
-                    background: "#26304a",
-                    color: "#e6e8ee",
-                    border: "1px solid #344061",
-                    borderRadius: 6,
-                    padding: "7px 12px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {`Rotate ${browseOrientation}°`}
-                </button>
-              </div>
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: "0.78rem",
+                  opacity: 0.7,
+                  textAlign: "center",
+                }}
+              >
+                Drag this part onto the bot to place it, or onto a matching part
+                to merge.
+              </p>
+              <button
+                type="button"
+                onClick={rotateBrowse}
+                aria-label={`Rotate mount, currently ${browseOrientation} degrees`}
+                title="Turn how this part mounts (rigid mounts only)"
+                style={{
+                  width: "100%",
+                  background: "#26304a",
+                  color: "#e6e8ee",
+                  border: "1px solid #344061",
+                  borderRadius: 6,
+                  padding: "7px 12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {`Rotate ${browseOrientation}°`}
+              </button>
             </section>
           </>
         )}

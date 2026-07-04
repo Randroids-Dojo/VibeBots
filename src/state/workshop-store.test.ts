@@ -158,22 +158,7 @@ describe("W2 tap-to-place slots", () => {
     expect(planAddPart(STARTER_DESIGN, DRIVE_WHEEL)?.iid).toBe(slots[0].iid);
   });
 
-  it("arms and toggles the placement part", () => {
-    store().armPart("drive-wheel");
-    expect(store().armedPartId).toBe("drive-wheel");
-    // Re-arming the same part disarms it.
-    store().armPart("drive-wheel");
-    expect(store().armedPartId).toBeNull();
-    // A different part swaps the armed selection.
-    store().armPart("drive-wheel");
-    store().armPart("ram-spike");
-    expect(store().armedPartId).toBe("ram-spike");
-    store().armPart(null);
-    expect(store().armedPartId).toBeNull();
-  });
-
-  it("places a part at the exact tapped slot and disarms", () => {
-    store().armPart("drive-wheel");
+  it("places a part at the exact dropped slot", () => {
     const slots = validSlotsFor(store().design, DRIVE_WHEEL);
     const target = slots[slots.length - 1];
     store().placeAtSlot(target);
@@ -188,13 +173,11 @@ describe("W2 tap-to-place slots", () => {
           c.childIid === store().selectedIid,
       ),
     ).toBe(true);
-    expect(store().armedPartId).toBeNull();
     store().undo();
     expect(store().design.parts).toHaveLength(1);
   });
 
   it("refuses a slot whose parent connector is already taken", () => {
-    store().armPart("drive-wheel");
     const slot = validSlotsFor(store().design, DRIVE_WHEEL)[0];
     store().placeAtSlot(slot);
     expect(store().design.parts).toHaveLength(2);
@@ -209,18 +192,16 @@ describe("W4 merge as placement", () => {
     store().reset();
   });
 
-  it("merges a specific placed part by iid and disarms", () => {
+  it("merges a specific placed part by iid", () => {
     store().addPart("drive-wheel");
     const wheelIid = store().selectedIid;
     expect(wheelIid).not.toBeNull();
     if (!wheelIid) return;
-    // Arm the same part, then merge the existing copy instead of placing.
-    store().armPart("drive-wheel");
+    // Merge the existing copy instead of placing a new one.
     store().mergePart(wheelIid);
     const merged = store().design.parts.find((p) => p.iid === wheelIid);
     expect(merged?.mergeLevel).toBe(2);
-    // The merge spends the arming and selects the upgraded part.
-    expect(store().armedPartId).toBeNull();
+    // The merge selects the upgraded part.
     expect(store().selectedIid).toBe(wheelIid);
     // History captured it: undo returns to level 1.
     store().undo();
@@ -317,14 +298,11 @@ describe("N1 build carousel", () => {
     expect(store().browseOrientation).toBe(0);
   });
 
-  it("clears a selected and armed part when cycling the carousel (P1)", () => {
+  it("clears a selected placed part when cycling the carousel (P1)", () => {
     store().select("core");
-    store().armPart(CAROUSEL_PART_IDS[0]);
     expect(store().selectedIid).toBe("core");
-    expect(store().armedPartId).toBe(CAROUSEL_PART_IDS[0]);
     store().browseBy(1);
     expect(store().selectedIid).toBeNull();
-    expect(store().armedPartId).toBeNull();
   });
 
   it("tracks the owned-out dim flag for the hero part (P3)", () => {

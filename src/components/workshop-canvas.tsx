@@ -46,7 +46,6 @@ import { StudioEnvironment } from "./studio-environment";
 import {
   advance,
   decay,
-  ghostOpacity,
   MOUNT_SECONDS,
   PULSE_SECONDS,
   snapScale,
@@ -81,7 +80,6 @@ function PlacedPart({
   def,
   placement,
   selected,
-  mergeTarget,
   shadows,
   onActivate,
 }: {
@@ -89,7 +87,6 @@ function PlacedPart({
   def: PartDef;
   placement: Placement;
   selected: boolean;
-  mergeTarget: boolean;
   shadows: boolean;
   onActivate: () => void;
 }) {
@@ -110,16 +107,13 @@ function PlacedPart({
     );
     // Gold flash on level-up (Slice B), fading with the same pulse the pop
     // rides, so a merge lands as a clear "leveled up" beat over the base
-    // merge-target / selected / idle emissive.
+    // selected / idle emissive.
     const flash = pulseT.current;
     const mat = matRef.current;
     if (mat) {
       if (flash > 0.001) {
         mat.emissive.set("#ffe08a");
         mat.emissiveIntensity = 0.5 + flash * 2.5;
-      } else if (mergeTarget) {
-        mat.emissive.set("#ffe08a");
-        mat.emissiveIntensity = 0.7;
       } else if (selected) {
         mat.emissive.set("#ffffff");
         mat.emissiveIntensity = 0.35;
@@ -160,63 +154,6 @@ function PlacedPart({
           />
         </mesh>
       </group>
-    </group>
-  );
-}
-
-/**
- * A translucent placement ghost (W5 feel polish): it breathes its opacity
- * so a valid slot reads as interactive, and carries an invisible larger
- * hit sphere so the placement tap is thumb-sized on phones.
- */
-function GhostSlot({
-  def,
-  placement,
-  onPlace,
-}: {
-  def: PartDef;
-  placement: Placement;
-  onPlace: () => void;
-}) {
-  const matRef = useRef<MeshStandardMaterial>(null);
-  useFrame((state) => {
-    if (matRef.current) {
-      matRef.current.opacity = ghostOpacity(state.clock.elapsedTime);
-    }
-  });
-  const { position, rotation } = placement;
-  const surface = CATEGORY_SURFACE[def.category];
-  return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: R3F scene graph node, not a DOM element
-    <group
-      position={[position.x, position.y, position.z]}
-      quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
-      onClick={(event: ThreeEvent<MouseEvent>) => {
-        if (event.delta > 2) return;
-        event.stopPropagation();
-        onPlace();
-      }}
-    >
-      <mesh rotation={shapeRotation(def.shape)}>
-        {partGeometry(def.shape)}
-        <meshStandardMaterial
-          ref={matRef}
-          color={CATEGORY_COLORS[def.category]}
-          metalness={surface.metalness}
-          roughness={surface.roughness}
-          flatShading
-          transparent
-          opacity={0.34}
-          depthWrite={false}
-          emissive={CATEGORY_COLORS[def.category]}
-          emissiveIntensity={0.55}
-        />
-      </mesh>
-      {/* Thumb-sized tap target: invisible but still raycast. */}
-      <mesh>
-        <sphereGeometry args={[0.6, 8, 8]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
     </group>
   );
 }
@@ -282,8 +219,8 @@ function HeroPart({
   });
   const surface = CATEGORY_SURFACE[def.category];
   // Owned-out (P3): render the part gray and non-glowing so it reads as
-  // "you have none", and swallow the grab so it cannot be dragged on,
-  // matching the disabled Place button.
+  // "you have none", and swallow the grab so an unavailable part cannot be
+  // dragged onto the bot.
   const color = dimmed ? "#8b93a6" : CATEGORY_COLORS[def.category];
   return (
     <group
@@ -432,7 +369,6 @@ function WorkshopScene() {
   const design = useWorkshopStore((s) => s.design);
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const select = useWorkshopStore((s) => s.select);
-  const armedPartId = useWorkshopStore((s) => s.armedPartId);
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
   const mergePart = useWorkshopStore((s) => s.mergePart);
   const setMergePreviewLevel = useWorkshopStore((s) => s.setMergePreviewLevel);
@@ -441,20 +377,12 @@ function WorkshopScene() {
   const buildActive = useWorkshopStore((s) => s.buildActive);
   const browseDimmed = useWorkshopStore((s) => s.browseDimmed);
   const layout = computeLayout(design);
-  // The hero part rides the Build tab only, and gives way to the ghost
-  // preview while a part is armed for placement so the bench reads clean.
-  const heroDef =
-    buildActive && !armedPartId ? PART_CATALOG[browsePartId] : null;
-  // Placement ghosts: one translucent preview at each legal slot for the
-  // armed part, tappable to commit that exact connection (W2).
-  const armedDef = armedPartId ? PART_CATALOG[armedPartId] : null;
-  const ghostSlots = armedDef
-    ? validSlotsFor(design, armedDef, PART_CATALOG, browseOrientation)
-    : [];
+  // The hero part rides the Build tab: the one part in hand, dragged onto
+  // the bot to place or merge (tap-to-place was removed as redundant).
+  const heroDef = buildActive ? PART_CATALOG[browsePartId] : null;
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
-  const armPart = useWorkshopStore((s) => s.armPart);
   const features = graphicsFeaturesFor(
     resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
   );
@@ -504,7 +432,7 @@ function WorkshopScene() {
   // takes over (their own ghosts show then), and while the part is
   // owned-out (you cannot place it).
   const idleSlots = useMemo(() => {
-    if (!buildActive || dragging || armedPartId || browseDimmed || !browseDef) {
+    if (!buildActive || dragging || browseDimmed || !browseDef) {
       return [] as { key: string; placement: Placement }[];
     }
     const slots: { key: string; placement: Placement }[] = [];
@@ -526,7 +454,6 @@ function WorkshopScene() {
   }, [
     buildActive,
     dragging,
-    armedPartId,
     browseDimmed,
     browseDef,
     design,
@@ -535,8 +462,6 @@ function WorkshopScene() {
 
   const startDrag = (event: ThreeEvent<PointerEvent>) => {
     if (!buildActive || browseDimmed) return;
-    // Drag owns placement; put away any tap-to-place ghosts first.
-    armPart(null);
     pointerNdc.current = { x: event.pointer.x, y: event.pointer.y };
     hoveredRef.current = -1;
     setHovered(-1);
@@ -713,12 +638,6 @@ function WorkshopScene() {
         const placement = layout.get(instance.iid);
         if (!def || !placement) return null;
         const selected = instance.iid === selectedIid;
-        // While armed, a placed part of the same kind that can still level
-        // up is a merge target: tapping it merges instead of placing (W4).
-        const mergeTarget =
-          armedDef !== null &&
-          instance.partId === armedPartId &&
-          planMergeSelectedPart(design, instance.iid) !== null;
         return (
           <PlacedPart
             key={instance.iid}
@@ -726,15 +645,8 @@ function WorkshopScene() {
             def={def}
             placement={placement}
             selected={selected}
-            mergeTarget={mergeTarget}
             shadows={shadows}
-            onActivate={() => {
-              if (mergeTarget) {
-                mergePart(instance.iid);
-                return;
-              }
-              select(selected ? null : instance.iid);
-            }}
+            onActivate={() => select(selected ? null : instance.iid)}
           />
         );
       })}
@@ -767,19 +679,6 @@ function WorkshopScene() {
           </mesh>
         ));
       })}
-      {armedDef &&
-        ghostSlots.map((slot) => {
-          const placement = computeLayout(slot.next).get(slot.iid);
-          if (!placement) return null;
-          return (
-            <GhostSlot
-              key={`ghost:${slot.parentIid}:${slot.parentConnector}`}
-              def={armedDef}
-              placement={placement}
-              onPlace={() => placeAtSlot(slot)}
-            />
-          );
-        })}
     </>
   );
 }

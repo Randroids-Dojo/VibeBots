@@ -739,7 +739,38 @@ function WorkshopScene() {
   );
 }
 
-export default function WorkshopCanvas() {
+// Lift the rendered bot up when a tall menu sheet is open (O), so it rises
+// above the sheet instead of hiding behind it. A camera view offset shifts
+// the image without moving the camera, so raycasting (drag targeting) stays
+// consistent. Driven only on the menu tabs, where the hero-drag band is idle,
+// so the Build drag coordinates never move.
+function MenuLift({ lift }: { lift: number }) {
+  const camera = useThree((s) => s.camera) as PerspectiveCamera;
+  const gl = useThree((s) => s.gl);
+  const width = useThree((s) => s.size.width);
+  const height = useThree((s) => s.size.height);
+  useEffect(() => {
+    if (lift > 0.001) {
+      // A positive vertical view offset shifts the whole image upward.
+      camera.setViewOffset(width, height, 0, lift * height, width, height);
+    } else {
+      camera.clearViewOffset();
+    }
+    // Expose the applied lift so tests can assert the bot rises on menu tabs.
+    gl.domElement.dataset.menuLift = String(lift > 0.001 ? lift : 0);
+    return () => {
+      camera.clearViewOffset();
+      camera.updateProjectionMatrix();
+    };
+  }, [camera, gl, width, height, lift]);
+  return null;
+}
+
+export default function WorkshopCanvas({
+  menuLift = 0,
+}: {
+  menuLift?: number;
+}) {
   return (
     <Canvas
       camera={{ position: [2.6, 1.8, 3.2], fov: 45 }}
@@ -747,6 +778,7 @@ export default function WorkshopCanvas() {
       shadows
     >
       <WorkshopScene />
+      <MenuLift lift={menuLift} />
     </Canvas>
   );
 }

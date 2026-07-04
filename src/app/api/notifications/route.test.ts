@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-04-0.1.195-bot-first-workshop",
+      releaseNoticeId: "2026-07-04-0.1.196-bot-lifts-for-menus",
       releaseSummary:
-        "The workshop is bot-first: See your whole bot, not a stack of menus.",
+        "Your bot rises for menus: See the bot while a menu is open.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-04-0.1.195-bot-first-workshop",
+      releaseNoticeId: "2026-07-04-0.1.196-bot-lifts-for-menus",
       attempted: 2,
       sent: 1,
       expired: 1,

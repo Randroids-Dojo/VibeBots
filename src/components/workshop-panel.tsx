@@ -88,6 +88,11 @@ export function WorkshopPanel() {
   // clear (direct manipulation); the menu tabs default open.
   const [sheetCollapsed, setSheetCollapsed] = useState(true);
   const [sheetDragY, setSheetDragY] = useState(0);
+  // Lift the bot up in the canvas (O) by how much an open menu sheet covers,
+  // so a tall menu (Garage/Tune/Shop) does not hide the bot behind it. Build
+  // is excluded: its sheet is short and its hero-drag band must stay put.
+  const [menuLift, setMenuLift] = useState(0);
+  const panelsRef = useRef<HTMLDivElement | null>(null);
   const sheetDrag = useRef<{
     pointerId: number;
     y: number;
@@ -135,6 +140,25 @@ export function WorkshopPanel() {
     sheetDrag.current = null;
     setSheetDragY(0);
   };
+
+  useEffect(() => {
+    // Build's hero-drag band must never shift, and its sheet is short, so it
+    // never lifts. On the menu tabs, lift so the bot centers in the space
+    // above the open sheet; a taller menu covers more, so it lifts more.
+    if (sheetCollapsed || tab === "build") {
+      setMenuLift(0);
+      return;
+    }
+    const panel = panelsRef.current;
+    const vh = window.innerHeight || 1;
+    const peekPx = 100; // handle + tab bar always showing at the sheet top
+    const headerPx = 175; // top header block the bot must stay clear of
+    const contentPx = Math.min(panel?.scrollHeight ?? 0, vh * 0.52);
+    // Center the bot in the band between the header and the open sheet top,
+    // not in the whole upper area, so lifting never tucks it behind the header.
+    const lift = (peekPx + contentPx - headerPx) / (2 * vh);
+    setMenuLift(Math.max(0, Math.min(0.22, lift)));
+  }, [sheetCollapsed, tab]);
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -389,7 +413,7 @@ export function WorkshopPanel() {
 
   return (
     <div className="workshop-stage">
-      <WorkshopCanvas />
+      <WorkshopCanvas menuLift={menuLift} />
 
       {tab === "build" && (
         <section className="carousel-overlay" aria-label="Part carousel">
@@ -563,6 +587,7 @@ export function WorkshopPanel() {
         </div>
 
         <aside
+          ref={panelsRef}
           className="workshop-build-panels"
           aria-label="Workshop build controls"
         >

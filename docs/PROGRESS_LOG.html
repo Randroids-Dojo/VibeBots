@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bot-lifts-for-menus" data-date="2026-07-04">
+    <h3>Menu lift: the bot rises above an open sheet (slice O)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>workshop-o-lift</code>, from <code>origin/main</code>. Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Direct response to follow-up feedback after trying slice N: "we definitely need to move the bot and displayed part higher when larger menus are open."</dd>
+      <dt>Changed</dt><dd>When a tall menu sheet is open (Tune/Garage/Shop), the bot now lifts up into the band between the top header and the sheet, instead of hiding behind the sheet. Implemented as a camera view offset, not a camera move: a new <code>MenuLift</code> component in <code>src/components/workshop-canvas.tsx</code> calls <code>camera.setViewOffset</code> to shift the rendered image upward by a fraction of the viewport. Because the offset lives in the projection matrix, raycasting (drag targeting) stays consistent with what is drawn. <code>src/components/workshop-panel.tsx</code> computes the lift from the open sheet's measured content height (taller menu covers more, so it lifts more), centering the bot in the band between the header and the sheet top, and passes it as the <code>menuLift</code> prop. The lift is forced to zero on the Build tab and whenever the sheet is collapsed, so the hero-drag band and its pinned screen coordinates never move. The applied lift is published on the canvas <code>dataset.menuLift</code> for tests. UI-only: no <code>SIM_VERSION</code>/<code>MINE_VERSION</code> change. Package version <code>0.1.196</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome. The scripted 390x760 probe (<code>scripts/playtest-sheet.mjs</code>) now asserts the lift too: Build lift is exactly 0 and the Garage lift is 0.165 (&gt;0.05), with zero console errors. Before/after captures reviewed by eye confirm the visible pixels move: the bot goes from mostly behind the Garage sheet to fully framed above it, clear of the header (Rule 10, pixel movement confirmed visually; a WebGL framebuffer read is not reliable across the WebGPU fallback, so the automated guard is the projection param that feeds <code>setViewOffset</code>). New e2e "the bot lifts above an open menu sheet (O)" asserts <code>dataset.menuLift</code> is 0 on Build/collapsed and &gt;0.05 on Garage. Full 17-test <code>workshop.spec.ts</code> green (the drag tests still pass because they drag with the sheet collapsed, lift 0). Release-note plumbing updated across the four files and the fresh-browser e2e re-run against a fresh prod build. Full unit suite green.</dd>
+      <dt>Assumptions</dt><dd>The lift is capped at 0.22 of the viewport and only applies on the menu tabs, because those are the "larger menus" the feedback named and the Build hero/carousel are canvas overlays whose screen anchors must stay fixed. A view offset was chosen over a camera move so drag raycasting stays correct and the fixed-camera drag e2e keep their pinned coordinates. Rule 13: mine tips reviewed, no change (no mine rule touched). Rule 14: stamp review done, none added (a camera-framing refinement is not a milestone).</dd>
+      <dt>GDD coverage</dt><dd>Workshop UX refinement; no coverage row flips. Recorded here per the build-log rule.</dd>
+      <dt>Followups</dt><dd>A true auto-fit camera (framing the whole bot, fixing tall-Tower/mast clipping) remains a larger backlog item: it needs the hero turntable decoupled from the bot's camera or resolution-independent drag targets before it can move the shared camera without regressing drag-to-build.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bot-first-sheet-workshop" data-date="2026-07-04">
     <h3>Bot-first workshop: tab controls collapse into a bottom sheet (slice N)</h3>
     <dl>

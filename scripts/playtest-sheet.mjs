@@ -41,6 +41,8 @@ const sheet = pg.locator(".workshop-sheet");
 const handle = pg.locator(".workshop-sheet-handle");
 const collapsed = () =>
   sheet.evaluate((el) => el.classList.contains("workshop-sheet-collapsed"));
+const menuLift = () =>
+  pg.locator("canvas").evaluate((c) => Number(c.dataset.menuLift ?? "0"));
 
 // 1. Build lands collapsed: bot is the hero, only the peek shows.
 await pg.screenshot({ path: `${OUT}/sheet-01-build-collapsed.png` });
@@ -52,11 +54,15 @@ await pg.waitForTimeout(400);
 await pg.screenshot({ path: `${OUT}/sheet-02-build-open.png` });
 const buildOpen = !(await collapsed());
 
-// 3. Garage opens as a sheet over the bot.
+// Build never lifts the bot: the hero-drag band must stay put.
+const buildLift = await menuLift();
+
+// 3. Garage opens as a sheet over the bot, and the bot lifts above it.
 await pg.getByRole("tab", { name: "Garage" }).click();
 await pg.waitForTimeout(400);
 await pg.screenshot({ path: `${OUT}/sheet-03-garage-open.png` });
 const garageOpen = !(await collapsed());
+const garageLift = await menuLift();
 
 // 4. Collapse the Garage sheet: the bot fills the screen.
 await handle.click();
@@ -69,6 +75,8 @@ const summary = {
   buildOpen,
   garageOpen,
   garageCollapsed,
+  buildLift,
+  garageLift,
   consoleErrors: errors,
 };
 console.log(JSON.stringify(summary, null, 2));
@@ -79,5 +87,7 @@ const ok =
   buildOpen &&
   garageOpen &&
   garageCollapsed &&
+  buildLift === 0 &&
+  garageLift > 0.05 &&
   errors.length === 0;
 process.exit(ok ? 0 : 1);

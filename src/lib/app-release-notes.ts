@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.195-bot-first-workshop";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.196-bot-lifts-for-menus";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.196",
+      date: "2026-07-04",
+      title: "Your bot rises for menus",
+      intro: "See the bot while a menu is open.",
+      changes: [
+        {
+          build,
+          text: "When you open a taller menu (Tune, Garage, or Shop), your bot now lifts up into the space above the sheet instead of hiding behind it, so you can see the whole bot while you work. Build is unchanged: the bot and the part in hand stay exactly where they were.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.195",
       date: "2026-07-04",

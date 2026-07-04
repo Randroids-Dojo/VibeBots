@@ -2,17 +2,32 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest bot-first workshop note complete", () => {
+  it("keeps the latest bot-lifts-for-menus note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.195-bot-first-workshop");
+    expect(release.noticeId).toBe("2026-07-04-0.1.196-bot-lifts-for-menus");
     expect(latestNote).toMatchObject({
+      version: "0.1.196",
+      title: "Your bot rises for menus",
+      intro: "See the bot while a menu is open.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "When you open a taller menu (Tune, Garage, or Shop), your bot now lifts up into the space above the sheet instead of hiding behind it, so you can see the whole bot while you work. Build is unchanged: the bot and the part in hand stay exactly where they were.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bot-first workshop note complete", () => {
+    const release = getAppRelease();
+    const sheetNote = release.notes.find((note) => note.version === "0.1.195");
+
+    expect(sheetNote).toMatchObject({
       version: "0.1.195",
       title: "The workshop is bot-first",
       intro: "See your whole bot, not a stack of menus.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(sheetNote?.changes.map((change) => change.text)).toEqual([
       "The Build, Tune, Garage, and Shop controls now live in a bottom sheet you can slide down (or tap the handle) to reveal your whole bot. Build lands with the sheet tucked away so the bot, the part carousel, and the drag-to-build band are always clear.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

@@ -450,6 +450,25 @@ test("bot-first sheet collapses to reveal the bot (N)", async ({ page }) => {
   await expect(sheet).toHaveClass(/workshop-sheet-collapsed/);
 });
 
+test("the bot lifts above an open menu sheet (O)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  const lift = () =>
+    canvas.evaluate((c: HTMLCanvasElement) =>
+      Number(c.dataset.menuLift ?? "0"),
+    );
+  // Build lands collapsed: no lift, so the hero-drag band never shifts.
+  await expect.poll(lift).toBe(0);
+  // Opening a tall menu tab lifts the bot up into the band above the sheet.
+  await page.getByRole("tab", { name: "Garage" }).click();
+  await expect.poll(lift).toBeGreaterThan(0.05);
+  // Returning to Build releases the lift, restoring the drag band.
+  await page.getByRole("tab", { name: "Build" }).click();
+  await expect.poll(lift).toBe(0);
+});
+
 test("workshop tabs press in when held (H)", async ({ page }) => {
   // Buttons should feel tactile: holding a control presses it in (Rule 10,
   // prove the pixels move, not just that a style exists).

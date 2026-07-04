@@ -2,7 +2,13 @@
 
 import { canRedo, canUndo } from "@randroids-dojo/vibekit";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves } from "@/components/design-saves";
 import { PartsShop } from "@/components/parts-shop";
@@ -82,6 +88,12 @@ export function WorkshopPanel() {
     state: "loading",
   });
   const [tab, setTab] = useState<"build" | "tune" | "garage" | "shop">("build");
+  // Perf: render the tab bar and sheet open immediately, but mount the tab's
+  // (sometimes heavy, fetch-backed) content at lower priority so the toggle
+  // never blocks on it. While the deferred value lags the live tab, we show a
+  // spinner instead of stale content, so switching stays seamless.
+  const deferredTab = useDeferredValue(tab);
+  const tabSwitching = deferredTab !== tab;
   // Bot-first sheet (N): the tab controls live in a bottom sheet over the bot.
   // Open/closed is one clean state. Tapping the active tab or the handle
   // toggles it; tapping another tab switches to it and keeps it open; dragging
@@ -169,7 +181,7 @@ export function WorkshopPanel() {
     // Build's hero-drag band must never shift, and its sheet is short, so it
     // never lifts. On the menu tabs, lift so the bot centers in the space
     // above the open sheet; a taller menu covers more, so it lifts more.
-    if (!sheetOpen || tab === "build") {
+    if (!sheetOpen || deferredTab === "build" || tabSwitching) {
       setMenuLift(0);
       return;
     }
@@ -182,7 +194,8 @@ export function WorkshopPanel() {
     // not in the whole upper area, so lifting never tucks it behind the header.
     const lift = (peekPx + contentPx - headerPx) / (2 * vh);
     setMenuLift(Math.max(0, Math.min(0.22, lift)));
-  }, [sheetOpen, tab]);
+    // Measure after the deferred content has actually rendered.
+  }, [sheetOpen, deferredTab, tabSwitching]);
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -623,198 +636,219 @@ export function WorkshopPanel() {
               : undefined
           }
         >
-          {tab === "build" && (
+          {tabSwitching ? (
+            <div
+              className="workshop-sheet-loading"
+              role="status"
+              aria-label="Loading controls"
+            >
+              <span className="workshop-spinner" aria-hidden="true" />
+            </div>
+          ) : (
             <>
-              {mergePreviewLevel !== null && (
-                <div
-                  data-testid="merge-banner"
-                  style={{
-                    background: "#ffe08a",
-                    color: "#0b0e14",
-                    borderRadius: 8,
-                    padding: "8px 12px",
-                    fontWeight: 700,
-                    textAlign: "center",
-                    boxShadow: "0 0 16px rgba(255, 224, 138, 0.55)",
-                  }}
-                >
-                  {`↑ Release to merge into Lv ${mergePreviewLevel}`}
-                </div>
-              )}
-
-              <section style={panelStyle} aria-label="Chassis">
-                <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
-                  Chassis
-                </h2>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {CORE_PART_IDS.map((id) => {
-                    const core = PART_CATALOG[id];
-                    const active = activeCoreId === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setCore(id)}
-                        aria-pressed={active}
-                        className={
-                          active
-                            ? "chassis-option chassis-active"
-                            : "chassis-option"
-                        }
-                      >
-                        {core.name.replace(" Core", "")}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                    fontSize: "0.72rem",
-                    opacity: 0.65,
-                  }}
-                >
-                  Swapping the chassis starts a fresh build. Undo brings it
-                  back.
-                </p>
-                <button
-                  type="button"
-                  className={
-                    mirrorEnabled
-                      ? "mirror-toggle mirror-active"
-                      : "mirror-toggle"
-                  }
-                  aria-pressed={mirrorEnabled}
-                  onClick={toggleMirror}
-                  title="Placing a part on a side mount also fills its mirror"
-                >
-                  {mirrorEnabled ? "Mirror: on" : "Mirror: off"}
-                </button>
-              </section>
-            </>
-          )}
-
-          {tab === "tune" && (
-            <>
-              <section style={panelStyle} aria-label="Design stats">
-                <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
-                  Design stats
-                </h2>
-                {validation.ok ? (
-                  <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.8 }}>
-                    mass {validation.stats.totalMass.toFixed(2)}, power{" "}
-                    {validation.stats.powerDraw}/{validation.stats.powerSupply}
-                    <span style={{ color: "#54e0c7" }}> valid</span>
-                  </p>
-                ) : (
-                  <ul
-                    style={{
-                      margin: 0,
-                      paddingLeft: 16,
-                      fontSize: "0.8rem",
-                      color: "#ff6b6b",
-                    }}
-                  >
-                    {validation.errors.map((error) => (
-                      <li key={error}>{error}</li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              <section style={panelStyle} aria-label="Temperament">
-                <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
-                  Temperament
-                </h2>
-                {(
-                  [
-                    ["aggression", "Aggression", "cautious", "relentless"],
-                    ["flankBias", "Flanking", "hugs close", "swings wide"],
-                    ["patience", "Patience", "brief resets", "long resets"],
-                  ] as const
-                ).map(([key, label, low, high]) => (
-                  <label
-                    key={key}
-                    style={{
-                      display: "block",
-                      fontSize: "0.78rem",
-                      marginBottom: 8,
-                    }}
-                  >
-                    {label}
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={behavior[key]}
-                      aria-label={`${label} slider`}
-                      onChange={(event) =>
-                        setBehavior({ [key]: Number(event.target.value) })
-                      }
-                      style={{ width: "100%", display: "block" }}
-                    />
-                    <span
+              {deferredTab === "build" && (
+                <>
+                  {mergePreviewLevel !== null && (
+                    <div
+                      data-testid="merge-banner"
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        opacity: 0.6,
+                        background: "#ffe08a",
+                        color: "#0b0e14",
+                        borderRadius: 8,
+                        padding: "8px 12px",
+                        fontWeight: 700,
+                        textAlign: "center",
+                        boxShadow: "0 0 16px rgba(255, 224, 138, 0.55)",
                       }}
                     >
-                      <span>{low}</span>
-                      <span>{high}</span>
-                    </span>
-                  </label>
-                ))}
-                <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.65 }}>
-                  Bots fight on their own; temperament biases how this one does
-                  it.
-                </p>
-              </section>
-            </>
-          )}
+                      {`↑ Release to merge into Lv ${mergePreviewLevel}`}
+                    </div>
+                  )}
 
-          {tab === "garage" && (
-            <>
-              <section style={panelStyle} aria-label="Blueprints">
-                <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>
-                  Blueprints
-                </h2>
-                <p
-                  style={{
-                    margin: "0 0 10px",
-                    fontSize: "0.72rem",
-                    opacity: 0.65,
-                  }}
-                >
-                  Load a ready-made bot, then make it yours.
-                </p>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                >
-                  {BLUEPRINTS.map((bp) => (
-                    <button
-                      key={bp.id}
-                      type="button"
-                      className="blueprint-option"
-                      onClick={() => loadDesign(bp.design)}
+                  <section style={panelStyle} aria-label="Chassis">
+                    <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                      Chassis
+                    </h2>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {CORE_PART_IDS.map((id) => {
+                        const core = PART_CATALOG[id];
+                        const active = activeCoreId === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setCore(id)}
+                            aria-pressed={active}
+                            className={
+                              active
+                                ? "chassis-option chassis-active"
+                                : "chassis-option"
+                            }
+                          >
+                            {core.name.replace(" Core", "")}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        fontSize: "0.72rem",
+                        opacity: 0.65,
+                      }}
                     >
-                      <span className="blueprint-label">{bp.label}</span>
-                      <span className="blueprint-blurb">{bp.blurb}</span>
+                      Swapping the chassis starts a fresh build. Undo brings it
+                      back.
+                    </p>
+                    <button
+                      type="button"
+                      className={
+                        mirrorEnabled
+                          ? "mirror-toggle mirror-active"
+                          : "mirror-toggle"
+                      }
+                      aria-pressed={mirrorEnabled}
+                      onClick={toggleMirror}
+                      title="Placing a part on a side mount also fills its mirror"
+                    >
+                      {mirrorEnabled ? "Mirror: on" : "Mirror: off"}
                     </button>
-                  ))}
-                </div>
-              </section>
-              <DesignSaves />
-              <section style={panelStyle} aria-label="Danger zone">
-                <button type="button" onClick={reset}>
-                  Reset to starter bot
-                </button>
-              </section>
+                  </section>
+                </>
+              )}
+
+              {deferredTab === "tune" && (
+                <>
+                  <section style={panelStyle} aria-label="Design stats">
+                    <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                      Design stats
+                    </h2>
+                    {validation.ok ? (
+                      <p
+                        style={{ margin: 0, fontSize: "0.8rem", opacity: 0.8 }}
+                      >
+                        mass {validation.stats.totalMass.toFixed(2)}, power{" "}
+                        {validation.stats.powerDraw}/
+                        {validation.stats.powerSupply}
+                        <span style={{ color: "#54e0c7" }}> valid</span>
+                      </p>
+                    ) : (
+                      <ul
+                        style={{
+                          margin: 0,
+                          paddingLeft: 16,
+                          fontSize: "0.8rem",
+                          color: "#ff6b6b",
+                        }}
+                      >
+                        {validation.errors.map((error) => (
+                          <li key={error}>{error}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+
+                  <section style={panelStyle} aria-label="Temperament">
+                    <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                      Temperament
+                    </h2>
+                    {(
+                      [
+                        ["aggression", "Aggression", "cautious", "relentless"],
+                        ["flankBias", "Flanking", "hugs close", "swings wide"],
+                        ["patience", "Patience", "brief resets", "long resets"],
+                      ] as const
+                    ).map(([key, label, low, high]) => (
+                      <label
+                        key={key}
+                        style={{
+                          display: "block",
+                          fontSize: "0.78rem",
+                          marginBottom: 8,
+                        }}
+                      >
+                        {label}
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={behavior[key]}
+                          aria-label={`${label} slider`}
+                          onChange={(event) =>
+                            setBehavior({ [key]: Number(event.target.value) })
+                          }
+                          style={{ width: "100%", display: "block" }}
+                        />
+                        <span
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            opacity: 0.6,
+                          }}
+                        >
+                          <span>{low}</span>
+                          <span>{high}</span>
+                        </span>
+                      </label>
+                    ))}
+                    <p
+                      style={{ margin: 0, fontSize: "0.72rem", opacity: 0.65 }}
+                    >
+                      Bots fight on their own; temperament biases how this one
+                      does it.
+                    </p>
+                  </section>
+                </>
+              )}
+
+              {deferredTab === "garage" && (
+                <>
+                  <section style={panelStyle} aria-label="Blueprints">
+                    <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>
+                      Blueprints
+                    </h2>
+                    <p
+                      style={{
+                        margin: "0 0 10px",
+                        fontSize: "0.72rem",
+                        opacity: 0.65,
+                      }}
+                    >
+                      Load a ready-made bot, then make it yours.
+                    </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      {BLUEPRINTS.map((bp) => (
+                        <button
+                          key={bp.id}
+                          type="button"
+                          className="blueprint-option"
+                          onClick={() => loadDesign(bp.design)}
+                        >
+                          <span className="blueprint-label">{bp.label}</span>
+                          <span className="blueprint-blurb">{bp.blurb}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                  <DesignSaves />
+                  <section style={panelStyle} aria-label="Danger zone">
+                    <button type="button" onClick={reset}>
+                      Reset to starter bot
+                    </button>
+                  </section>
+                </>
+              )}
+
+              {deferredTab === "shop" && <PartsShop />}
             </>
           )}
-
-          {tab === "shop" && <PartsShop />}
         </aside>
       </div>
 

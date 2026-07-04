@@ -64,7 +64,17 @@ export function PartsShop() {
     void refresh();
   }, [refresh]);
 
-  if (shop.state === "loading") return null;
+  if (shop.state === "loading") {
+    return (
+      <div
+        className="workshop-sheet-loading"
+        role="status"
+        aria-label="Loading the parts shop"
+      >
+        <span className="workshop-spinner" aria-hidden="true" />
+      </div>
+    );
+  }
   if (shop.state === "unavailable") {
     return (
       <aside style={panelStyle} aria-label="Parts shop">

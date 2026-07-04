@@ -532,6 +532,48 @@ test("the bot lifts above an open menu sheet (O)", async ({ page }) => {
   await expect.poll(lift).toBe(0);
 });
 
+test("menu opens instantly and streams content behind a spinner (perf)", async ({
+  page,
+}) => {
+  // Hold the shop fetch open so the loading state is observable: the sheet
+  // must open immediately without waiting on it, then a spinner streams the
+  // content in.
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => {
+    release = r;
+  });
+  await page.route("**/api/shop", async (route) => {
+    await gate;
+    await route.fulfill({
+      json: {
+        emeralds: 50,
+        inventory: [],
+        catalog: [
+          {
+            id: "drive-wheel",
+            name: "Drive Wheel",
+            category: "mobility",
+            priceEmeralds: 5,
+          },
+        ],
+      },
+    });
+  });
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const sheet = page.locator(".workshop-sheet");
+  // Tapping Shop opens the sheet right away, before the fetch resolves.
+  await page.getByRole("tab", { name: "Shop" }).click();
+  await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
+  // A spinner covers the still-loading parts shop.
+  const spinner = page.getByRole("status", { name: /parts shop/i });
+  await expect(spinner).toBeVisible();
+  // Releasing the fetch swaps the spinner for the real content.
+  release();
+  await expect(page.getByText("50 vibes")).toBeVisible();
+  await expect(spinner).toHaveCount(0);
+});
+
 test("workshop tabs press in when held (H)", async ({ page }) => {
   // Buttons should feel tactile: holding a control presses it in (Rule 10,
   // prove the pixels move, not just that a style exists).

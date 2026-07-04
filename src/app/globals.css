@@ -253,6 +253,31 @@ button:focus-visible {
   background: #4a5578;
 }
 
+/* Loading spinner shown while a tab's content mounts, so switching tabs opens
+ * the sheet instantly and streams the (sometimes fetch-backed) content in. */
+.workshop-sheet-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 20px;
+}
+
+.workshop-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #26304a;
+  border-top-color: #54e0c7;
+  border-radius: 50%;
+  animation: workshop-spin 0.7s linear infinite;
+}
+
+@keyframes workshop-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .workshop-sheet-hint {
   font-size: 0.68rem;
   font-weight: 600;

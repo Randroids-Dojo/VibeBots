@@ -58,7 +58,18 @@ export function DesignSaves() {
     setNameDraft(design.name);
   }, [design.name]);
 
-  if (available === false || available === null) return null;
+  if (available === false) return null;
+  if (available === null) {
+    return (
+      <div
+        className="workshop-sheet-loading"
+        role="status"
+        aria-label="Loading saved designs"
+      >
+        <span className="workshop-spinner" aria-hidden="true" />
+      </div>
+    );
+  }
 
   const save = async () => {
     setStatus({ state: "saving" });

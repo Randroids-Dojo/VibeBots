@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Workshop Overhaul Research and Slice Plan (2026-07)</title>
+</head>
+<body>
+
+  <h1>Workshop Overhaul: Research and Slice Plan (2026-07)</h1>
+  <p data-status="in_progress">Status: research complete, slices in flight.</p>
+
+  <section data-role="purpose">
+    <h2>Purpose and method</h2>
+    <p>The user asked for deep research into what makes robot-building fun, then a plan to raise the VibeBots workshop toward AAA quality, with a hard requirement: players must be able to choose from at least three core (chassis) designs. Three parallel research streams were run:</p>
+    <ol>
+      <li>BattleBots (the TV show) winners and fan favorites: how they looked and operated, distilled into game-ready chassis, weapon, and armor archetypes.</li>
+      <li>Banjo-Kazooie: Nuts &amp; Bolts building and collecting mechanics: what to adopt, what to avoid.</li>
+      <li>AAA build/customization UX patterns across many games: the feel and flow that make creation fun.</li>
+    </ol>
+    <p>The full raw reports live alongside this file as appendices: <code>battlebots.md</code>, <code>banjo-nuts-bolts.md</code>, <code>aaa-workshop-ux.md</code> (all source-cited).</p>
+  </section>
+
+  <section data-role="battlebots">
+    <h2>1. BattleBots archetypes</h2>
+    <p>Eighteen bots were studied across both eras (winners Bite Force, Tombstone, End Game, Tantrum, SawBlaze, HUGE; classic champs BioHazard, Hazard, Son of Whyachi; fan favorites Minotaur, Hydra, Witch Doctor, Whiplash, Copperhead, Icewave, Bronco, Vlad, Razer). They reduce to a small set of reusable archetypes.</p>
+
+    <h3>Chassis body archetypes (drives the core-variant work)</h3>
+    <ul>
+      <li><strong>C1 Low invertible wedge/box</strong> (Tombstone, Bite Force, Copperhead): flat, low, symmetric top and bottom so it works upside down, wheels often exposed. Best weapon energy, hardest to get under, low CG. Suits horizontal spinners, drums, low flippers.</li>
+      <li><strong>C2 Tall brick</strong> (Hazard, Tantrum, Witch Doctor, Vlad): taller box, enclosed wheels, room for armor and battery, higher CG so easier to flip, wants a self-right. Suits overhead spinners, lifters, crushers.</li>
+      <li><strong>C3 Wide low horizontal-spinner platform</strong> (Icewave, Son of Whyachi): broad, weapon mass dominates, huge reach and recoil, fragile once the weapon stops. Offense is defense.</li>
+      <li><strong>C4 Six-wheel control brick</strong> (BioHazard, Vlad): ultra-low, long, many small wheels, floor skirts. Unbeatable get-under game, low damage, the control archetype.</li>
+      <li><strong>C5 Two-wheel self-righting egg</strong> (End Game, drum bots): narrow, two big wheels, weapon self-rights it, only two contact points so shoved around easily.</li>
+      <li><strong>C6 Big-wheel slung body</strong> (HUGE): two oversized compliant wheels with a thin body between, near-immune to horizontal spinners, awful pushing, weird handling. A flavor pick, ship last.</li>
+    </ul>
+    <p>For the game, the first three cores to ship map to C1, C2, and the existing balanced box (a middle ground between C1 and C2). C4/C5/C6 are later presets.</p>
+
+    <h3>Weapon archetypes</h3>
+    <p>Model kinetic weapons as a stored-energy flywheel (E = 0.5 I w^2, capped tip speed mirroring the real 250 mph rule): a hit converts some E into an impulse on both bots plus attacker recoil, spent from a spin-up budget.</p>
+    <ul>
+      <li><strong>Vertical spinner</strong>: upward-throwing, self-rights the attacker. (Have a saw-blade spin already.)</li>
+      <li><strong>Horizontal spinner (bar/shell/ring)</strong>: sideways-throwing, biggest reach and recoil, gyro drift as a downside.</li>
+      <li><strong>Drum</strong>: high bite, short reach, controllable, fast spin-up.</li>
+      <li><strong>Flipper/launcher</strong>: instant vertical impulse, limited shots, no material damage but great control.</li>
+      <li><strong>Wedge/control</strong>: no active weapon, a low front ramp that redirects the opponent's velocity. Free to compute, the legible hard-counter to spinners.</li>
+      <li>Second wave: lifter, hammer, hammer-saw, crusher/clamp, saw, full-body rotor, multibot.</li>
+    </ul>
+
+    <h3>Armor archetypes</h3>
+    <ul>
+      <li><strong>Forks/wedges</strong>: pure geometry, front-arc only, free weight.</li>
+      <li><strong>Hardened plate</strong>: high HP per panel, heavy, trades speed and weapon budget.</li>
+      <li><strong>UHMW/poly</strong>: absorbs kinetic hits, great vs spinners, weak vs piercers.</li>
+      <li><strong>Sacrificial/modular panels</strong>: destructible sub-parts that pop off, a natural repair-economy hook.</li>
+      <li><strong>Shock isolation</strong>: internal damage-reduction modifier, distinct from panel HP.</li>
+    </ul>
+    <p>Two cross-cutting mechanics worth first-class treatment later: self-righting (many matches hinge on it) and gyroscopic recoil/drift on big horizontal spinners.</p>
+  </section>
+
+  <section data-role="banjo">
+    <h2>2. Banjo-Kazooie: Nuts &amp; Bolts lessons</h2>
+    <p>Nuts &amp; Bolts (Rare, 2008) built from ~1,600 parts on a Lego-like grid and was praised for its editor and criticized for repetitive objectives and unfair physics. The editor is the treasure; the challenge and physics design are the warnings.</p>
+    <h3>Adopt</h3>
+    <ul>
+      <li><strong>Lego-not-glue building with instant green/red validity.</strong> Parts snap to connectors and never fall in the editor; a hovered part flashes valid or invalid before commit. We have ghosts and validity already; keep leaning in.</li>
+      <li><strong>Editable blueprints/presets.</strong> Ship working starter bots deployable in one tap, then editable. The accessibility ramp, doubly important on a phone where a blank bench intimidates.</li>
+      <li><strong>Legible tier ladder</strong> (Standard, Heavy, Super), not random-drop rarity. Maps onto our merge-to-upgrade economy.</li>
+      <li><strong>One-tap build, test, tweak loop.</strong> A dry-run test bout that bounces straight back to editing drives "just one more tweak".</li>
+      <li><strong>Weight/power/energy budget triangle</strong> with a live stat HUD. Interesting bots come from tradeoffs.</li>
+      <li><strong>Symmetry/mirror place</strong> (an opportunity N&amp;B under-delivered): halves placement work and makes balanced, stable bots the default.</li>
+      <li><strong>Progression-paced unlock cadence</strong>: front-load breadth, back-load power.</li>
+    </ul>
+    <h3>Avoid</h3>
+    <ul>
+      <li>Objective repetition (N&amp;B's number-one complaint).</li>
+      <li>Unpredictable/unfair physics losses (fatal for an autonomous battler; lean on the pinned deterministic Rapier sim and telegraph why a bot lost).</li>
+      <li>Fiddly free-3D camera and gizmo editing (use constrained connector-driven tap-to-snap, always show real part models, validate at 390x760).</li>
+      <li>Collecting grind and dumping the full catalog on new players.</li>
+    </ul>
+  </section>
+
+  <section data-role="aaa-ux">
+    <h2>3. AAA workshop UX backlog</h2>
+    <p>Two forces make building fun: the IKEA effect (players over-value what they assemble, so every personal step builds attachment) and juice (layered visual, audio, and haptic feedback fired together on each action). Merges are dopamine: each is a small completion with a pop, a sound, and a number going up. That maps onto our merge-to-level-up loop, which should be the juiciest moment in the app.</p>
+    <h3>Top improvements (high-impact first)</h3>
+    <ol>
+      <li>Ghost preview plus valid/invalid connector highlight on drag (partly done).</li>
+      <li>Snap-on-proximity to the nearest valid connector (partly done via nearest-slot).</li>
+      <li>Merge/level-up juice pass, including chain merges: our signature moment.</li>
+      <li>Place/delete juice pass.</li>
+      <li>Bullet-proof undo/redo (have VibeKit editor history).</li>
+      <li>Auto-focus camera to the selection (mobile 3D's biggest frustration).</li>
+      <li>Bot naming: the cheapest ownership lever (have setName; surface it).</li>
+      <li>Live budget meters that flash the specific violated constraint and explain why.</li>
+      <li>Mirror mode across the bot's center plane.</li>
+      <li>Standardized touch camera grammar (orbit/pinch) plus recenter and a thumb action bar.</li>
+    </ol>
+  </section>
+
+  <section data-role="direction">
+    <h2>Consolidated direction</h2>
+    <p>The through-line across all three streams: give players meaningful, legible choices (chassis and weapon archetypes with real tradeoffs), remove friction (snapping, presets, undo, one consistent gesture), and make the moments of creation feel great (juice on place and merge, ownership through naming and chassis identity). The workshop already has drag-to-place, drag-to-merge, tap-for-stats, and a clean overlay picker from the D-H batch. The overhaul builds on that.</p>
+  </section>
+
+  <section data-role="plan">
+    <h2>Slice plan</h2>
+
+    <h3>Slice I (headline): three-plus core chassis variants and a chassis selector</h3>
+    <p>Add at least two new core parts so players choose from three, grounded in the chassis archetypes. Concrete first three:</p>
+    <ul>
+      <li><strong>Cube Core</strong> (existing, balanced box): hx/hy/hz 0.3, power 100, durability 180. Top/bottom/front/back rigid plus two axles. The all-rounder.</li>
+      <li><strong>Wedge Core</strong> (C1 low invertible): wide and low (about hx 0.42, hy 0.18, hz 0.34), lower power (about 90), lower durability (about 150), low CG. Two front rigid mounts (a weapon/wedge feed) plus top plus two axles. The aggressive front-loaded default.</li>
+      <li><strong>Tower Core</strong> (C2 tall brick): tall (about hx 0.28, hy 0.5, hz 0.28), higher power (about 130) and durability (about 240), higher CG. Top/front/back/left/right rigid (five mounts) plus two axles. The heavy multi-mount platform for overhead weapons and lifters.</li>
+    </ul>
+    <p>A chassis selector in the Build tab lets the player pick the core. Swapping the core resets the design to a fresh bot on that chassis (connector layouts differ), preserving the bot name and temperament. The swap is undoable (pushes editor history), so no modal is needed; the assumption is logged in OPEN_QUESTIONS with a recommended default. Cores stay free (no inventory cost), per the parts spec. Tests: store setCore behavior and an e2e for choosing a variant. Update the parts GDD and coverage.</p>
+
+    <h3>Slice J: starter blueprints/presets</h3>
+    <p>One-tap loadable, editable starter bots, at least one per chassis archetype, so the bench is never a blank intimidation. Uses loadDesign; each preset is a small valid design literal.</p>
+
+    <h3>Slice K: merge/place juice and haptics</h3>
+    <p>Amplify the signature merge moment (bigger pop, chain-merge feel) and add navigator.vibrate haptics on place, merge, and remove for mobile, kept GPU-cheap for the WebGL2 fallback.</p>
+
+    <h3>Slice L: mirror/symmetry placement</h3>
+    <p>An optional mirror toggle that places a part and its mirror across the bot's center plane, so balanced bots are the default and placement work halves on a phone.</p>
+
+    <h3>Slice M: new BattleBots weapons and armor parts</h3>
+    <p>Add archetype parts that give the chassis variants real build diversity: a vertical spinner disc, a drum, a flipper (limited-shot vertical impulse), a wedge/control front, and a hardened armor plate. This touches the combat sim and may bump SIM_VERSION; ship incrementally with determinism and damage integration tests.</p>
+
+    <h3>Sequencing and iteration</h3>
+    <p>Ship I first (the explicit requirement), then J and K (cheap, high-fun), then L, then M in pieces. After each risky slice, run a scripted playtest capture at 390x760 and, when a feature loop is far enough along, a VibeReview fun-factor pass. Iterate until the build loop is fun, not just complete.</p>
+  </section>
+
+  <section data-role="sources">
+    <h2>Sources</h2>
+    <p>Full citations are in the appendix reports. Primary sources include the BattleBots Fandom wiki and battlebots.com, Wikipedia, NHRL's robot-type wiki, RareGamer and Jiggywikki for Nuts &amp; Bolts, and design writing on game juice, the IKEA effect, and merge mechanics for the UX stream.</p>
+  </section>
+
+</body>
+</html>

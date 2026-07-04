@@ -19,6 +19,8 @@ import {
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
 import { PART_CATALOG } from "@/sim/parts";
 import {
+  CORE_PART_IDS,
+  currentCoreId,
   planMergeSelectedPart,
   planRotateSelected,
   useWorkshopStore,
@@ -144,6 +146,7 @@ export function WorkshopPanel() {
   const setBuildActive = useWorkshopStore((s) => s.setBuildActive);
   const setBrowseDimmed = useWorkshopStore((s) => s.setBrowseDimmed);
   const browseStatsOpen = useWorkshopStore((s) => s.browseStatsOpen);
+  const setCore = useWorkshopStore((s) => s.setCore);
   const mergePreviewLevel = useWorkshopStore((s) => s.mergePreviewLevel);
   const history = useWorkshopStore((s) => s.history);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
@@ -193,6 +196,7 @@ export function WorkshopPanel() {
 
   // The build carousel (N1): one non-core part at a time, dragged onto the
   // bot to place or merge (tap-to-place was removed as redundant).
+  const activeCoreId = currentCoreId(design);
   const browseDef = PART_CATALOG[browsePartId];
   const browseOwned =
     inventory.state === "ready" ? (inventory.counts.get(browsePartId) ?? 0) : 0;
@@ -482,6 +486,42 @@ export function WorkshopPanel() {
                 {`↑ Release to merge into Lv ${mergePreviewLevel}`}
               </div>
             )}
+
+            <section style={panelStyle} aria-label="Chassis">
+              <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                Chassis
+              </h2>
+              <div style={{ display: "flex", gap: 6 }}>
+                {CORE_PART_IDS.map((id) => {
+                  const core = PART_CATALOG[id];
+                  const active = activeCoreId === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setCore(id)}
+                      aria-pressed={active}
+                      className={
+                        active
+                          ? "chassis-option chassis-active"
+                          : "chassis-option"
+                      }
+                    >
+                      {core.name.replace(" Core", "")}
+                    </button>
+                  );
+                })}
+              </div>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: "0.72rem",
+                  opacity: 0.65,
+                }}
+              >
+                Swapping the chassis starts a fresh build. Undo brings it back.
+              </p>
+            </section>
           </>
         )}
 

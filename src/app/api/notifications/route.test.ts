@@ -110,8 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-04-0.1.189-button-feel",
-      releaseSummary: "Buttons that press back: Controls feel tactile now.",
+      releaseNoticeId: "2026-07-04-0.1.190-chassis-variants",
+      releaseSummary:
+        "Pick your chassis: Three core bodies, three fighting styles.",
     });
   });
 
@@ -171,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-04-0.1.189-button-feel",
+      releaseNoticeId: "2026-07-04-0.1.190-chassis-variants",
       attempted: 2,
       sent: 1,
       expired: 1,

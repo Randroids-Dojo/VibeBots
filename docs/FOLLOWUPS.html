@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-053" data-f="F-053" data-priority="nice-to-have">
+    <h3>F-053: Chassis mastery stamp</h3>
+    <dl>
+      <dt>Context</dt><dd>Slice I added three core chassis (Cube, Wedge, Tower). A "build and fight a bot on each chassis" Stamp Book entry would give a clear optional goal (Rule 14), but a trustworthy progress source does not exist yet: match records do not store which core the fought design used, so the stamp cannot be backfilled or verified safely.</dd>
+      <dt>Blocker (if any)</dt><dd>match records must persist the core part id of each fought design (server progress plumbing).</dd>
+      <dt>Unblock condition</dt><dd>Once match resolution records the core id per fight, add a cosmetic-only stamp that lights when a player has won or fought with each chassis, backfilled from durable records. Update <code>src/lib/achievements.ts</code>, the achievement tests, release notes, GDD coverage, and the progress log.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the chassis-variants slice I)</dd>
+    </dl>
+  </section>
+
   <section id="F-052" data-f="F-052" data-priority="nice-to-have">
     <h3>F-052: Co-locate the build carousel controls with the hero part</h3>
     <dl>

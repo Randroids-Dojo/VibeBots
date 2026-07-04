@@ -367,6 +367,36 @@ button:focus-visible {
   background: #303c5c;
 }
 
+/* Chassis selector (I): pick from the core body variants in the Build tab.
+ * Reads like a segmented control; the active chassis is highlighted. */
+.chassis-option {
+  flex: 1;
+  padding: 8px 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #aeb6c8;
+  background: #1a2133;
+  border: 1px solid #2b3550;
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    transform 90ms ease,
+    filter 120ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.chassis-option:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+  filter: brightness(0.92);
+}
+
+.chassis-option.chassis-active {
+  color: #0b0e14;
+  background: #54e0c7;
+  border-color: #8ff4e4;
+}
+
 /* Carousel overlay (G): the part name floats above the hero part and the
  * prev/next arrows flank it, so browsing is a thin overlay on the bench
  * instead of a menu box. Stats live in the bottom inspector on tap. */

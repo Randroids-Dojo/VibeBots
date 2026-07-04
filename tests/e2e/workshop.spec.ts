@@ -501,3 +501,29 @@ test("garage saves and lists designs (needs storage)", async ({
   await expect(page.getByText("saved to the garage")).toBeVisible();
   await expect(garage.getByRole("button", { name })).toBeVisible();
 });
+
+test("choose a chassis variant, resetting to a fresh bot (I)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  await expect(page.getByRole("link", { name: "Back to mine" })).toBeVisible();
+
+  const chassis = page.getByRole("region", { name: "Chassis" });
+  await expect(chassis).toBeVisible();
+  const cube = chassis.getByRole("button", { name: "Cube" });
+  const tower = chassis.getByRole("button", { name: "Tower" });
+  await expect(cube).toHaveAttribute("aria-pressed", "true");
+  await expect(tower).toHaveAttribute("aria-pressed", "false");
+
+  // Swap to the Tower chassis: it becomes the active core and the bot resets
+  // to a fresh one-part build (name preserved).
+  await tower.click();
+  await expect(tower).toHaveAttribute("aria-pressed", "true");
+  await expect(cube).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByText("My Bot: 1 part")).toBeVisible();
+
+  // The swap is undoable: one Undo restores the Cube chassis.
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(cube).toHaveAttribute("aria-pressed", "true");
+});

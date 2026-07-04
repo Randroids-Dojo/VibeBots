@@ -42,6 +42,19 @@ export const CAROUSEL_PART_IDS: string[] = Object.values(PART_CATALOG)
   .filter((p) => p.category !== "core")
   .map((p) => p.id);
 
+// The chassis options for the Build tab core selector (I), in catalog order.
+export const CORE_PART_IDS: string[] = Object.values(PART_CATALOG)
+  .filter((p) => p.category === "core")
+  .map((p) => p.id);
+
+/** The design's current core part id (the root, found by category). */
+export function currentCoreId(design: BotDesign): string | null {
+  return (
+    design.parts.find((p) => PART_CATALOG[p.partId]?.category === "core")
+      ?.partId ?? null
+  );
+}
+
 interface FreeConnector {
   parentIid: string;
   parentConnector: string;
@@ -292,6 +305,8 @@ export interface WorkshopState {
   setBrowseDimmed: (dimmed: boolean) => void;
   /** Tap the hero part: reveal/hide its stats, clearing any placed selection. */
   toggleBrowseStats: () => void;
+  /** Swap the chassis: reset to a fresh bot on the given core (I). */
+  setCore: (coreId: string) => void;
   setMergePreviewLevel: (level: number | null) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
   mergePart: (iid: string) => void;
@@ -363,6 +378,27 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
 
   toggleBrowseStats: () =>
     set((s) => ({ browseStatsOpen: !s.browseStatsOpen, selectedIid: null })),
+
+  // Swap the chassis (I). Connector layouts differ per core, so this resets
+  // to a fresh bot rooted at the chosen core, keeping the bot's name and
+  // temperament. Undoable (pushes history), so a mistaken swap is one Undo
+  // away; no confirm modal (Rule 7, one consistent flow).
+  setCore: (coreId) => {
+    const { history, design } = get();
+    if (PART_CATALOG[coreId]?.category !== "core") return;
+    if (currentCoreId(design) === coreId) return;
+    const next: BotDesign = {
+      name: design.name,
+      parts: [{ iid: "core", partId: coreId }],
+      connections: [],
+      ...(design.behavior ? { behavior: design.behavior } : {}),
+    };
+    set({
+      ...withDesign(pushHistory(history, next)),
+      selectedIid: null,
+      browseStatsOpen: false,
+    });
+  },
 
   setMergePreviewLevel: (level) => set({ mergePreviewLevel: level }),
 

@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.189-button-feel";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.190-chassis-variants";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.190",
+      date: "2026-07-04",
+      title: "Pick your chassis",
+      intro: "Three core bodies, three fighting styles.",
+      changes: [
+        {
+          build,
+          text: "The Build tab now has a Chassis picker. Choose the balanced Cube, the low front-loaded Wedge, or the tall heavy Tower. Each has its own mounts, power, and durability, so the body you pick shapes the bot you can build.",
+        },
+        {
+          build,
+          text: "Swapping the chassis starts a fresh build on that body. Undo brings the old one back.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.189",
       date: "2026-07-04",

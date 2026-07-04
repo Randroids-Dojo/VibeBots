@@ -138,6 +138,74 @@ export const CORE_CUBE: PartDef = {
   ],
 };
 
+// C1 low invertible wedge (Tombstone/Bite Force archetype): wide and low
+// with a front-loaded weapon feed. Low CG, lighter, less power than the cube,
+// two front mounts for a wide weapon or wedge, no bottom/back mounts (it runs
+// flush to the floor and works inverted).
+export const CORE_WEDGE: PartDef = {
+  id: "wedge-core",
+  name: "Wedge Core",
+  category: "core",
+  shape: { type: "cuboid", hx: 0.42, hy: 0.18, hz: 0.34 },
+  density: 2,
+  powerDraw: 0,
+  powerSupply: 90,
+  durability: 150,
+  priceEmeralds: 0,
+  connectors: [
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.18, z: 0 } },
+    { id: "front-left", kind: "rigid", position: { x: -0.22, y: 0, z: -0.34 } },
+    { id: "front-right", kind: "rigid", position: { x: 0.22, y: 0, z: -0.34 } },
+    {
+      id: "axle-left",
+      kind: "axle",
+      position: { x: -0.51, y: 0, z: 0 },
+      axis: X_AXIS,
+    },
+    {
+      id: "axle-right",
+      kind: "axle",
+      position: { x: 0.51, y: 0, z: 0 },
+      axis: X_AXIS,
+    },
+  ],
+};
+
+// C2 tall brick (Hazard/Tantrum/Vlad archetype): a heavy multi-mount platform.
+// More power and durability at the cost of mass and a higher CG. Five rigid
+// faces (top/front/back/left/right) for overhead weapons and lifters, plus the
+// two drive axles low for stability.
+export const CORE_TOWER: PartDef = {
+  id: "tower-core",
+  name: "Tower Core",
+  category: "core",
+  shape: { type: "cuboid", hx: 0.28, hy: 0.5, hz: 0.28 },
+  density: 2.2,
+  powerDraw: 0,
+  powerSupply: 130,
+  durability: 240,
+  priceEmeralds: 0,
+  connectors: [
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.5, z: 0 } },
+    { id: "front", kind: "rigid", position: { x: 0, y: 0.1, z: -0.28 } },
+    { id: "back", kind: "rigid", position: { x: 0, y: 0.1, z: 0.28 } },
+    { id: "left", kind: "rigid", position: { x: -0.28, y: 0.2, z: 0 } },
+    { id: "right", kind: "rigid", position: { x: 0.28, y: 0.2, z: 0 } },
+    {
+      id: "axle-left",
+      kind: "axle",
+      position: { x: -0.37, y: -0.2, z: 0 },
+      axis: X_AXIS,
+    },
+    {
+      id: "axle-right",
+      kind: "axle",
+      position: { x: 0.37, y: -0.2, z: 0 },
+      axis: X_AXIS,
+    },
+  ],
+};
+
 export const FRAME_PLATE: PartDef = {
   id: "frame-plate",
   name: "Frame Plate",
@@ -382,6 +450,8 @@ export const SAW_BLADE: PartDef = {
 export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
   [
     CORE_CUBE,
+    CORE_WEDGE,
+    CORE_TOWER,
     FRAME_PLATE,
     DRIVE_WHEEL,
     RAM_SPIKE,

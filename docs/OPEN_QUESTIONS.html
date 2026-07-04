@@ -166,6 +166,23 @@
       <dt>Resolution</dt><dd>(filled in once dev confirms or overrides)</dd>
     </dl>
   </section>
+
+  <section data-q="Q-015" data-status="open">
+    <h3>Q-015: How should a chassis swap treat the existing build?</h3>
+    <dl>
+      <dt>Context</dt><dd>Slice I lets a player pick one of three core chassis in the workshop. The cores have different connector layouts, so a swap cannot keep the placed parts as-is. What should happen to the current build when the player switches chassis?</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Reset to a fresh bot on the new core, undoable, no confirm modal (one consistent flow).</li>
+          <li>Show a confirm modal ("this clears your build") before swapping.</li>
+          <li>Try to re-home compatible parts onto the new core's connectors, dropping the rest.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The swap pushes editor history, so a mistaken swap is a single Undo away, and avoiding a modal keeps the flow consistent (Rule 7). Shipped under A.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(filled in once dev confirms or overrides)</dd>
+    </dl>
+  </section>
 </main>
 
 <aside id="resolved">

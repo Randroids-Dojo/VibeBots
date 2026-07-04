@@ -4,6 +4,8 @@ import { designPartCounts } from "@/sim/inventory";
 import { DRIVE_WHEEL, PART_CATALOG, SAW_BLADE, SPIN_MOUNT } from "@/sim/parts";
 import {
   CAROUSEL_PART_IDS,
+  CORE_PART_IDS,
+  currentCoreId,
   findFreeConnectors,
   planAddPart,
   planMergeSelectedPart,
@@ -446,5 +448,56 @@ describe("N4 oriented placement", () => {
     for (const slot of slots) {
       expect(slot.orientation).toBe(0);
     }
+  });
+});
+
+describe("I chassis variants", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("offers at least three cores, all valid roots", () => {
+    expect(CORE_PART_IDS.length).toBeGreaterThanOrEqual(3);
+    expect(CORE_PART_IDS).toContain("core-cube");
+    expect(CORE_PART_IDS).toContain("wedge-core");
+    expect(CORE_PART_IDS).toContain("tower-core");
+    for (const id of CORE_PART_IDS) {
+      const design = {
+        name: "X",
+        parts: [{ iid: "core", partId: id }],
+        connections: [],
+      };
+      expect(validateDesign(design).ok).toBe(true);
+    }
+  });
+
+  it("swaps the chassis to a fresh bot, keeping name and temperament, undoably", () => {
+    store().setName("Chomper");
+    store().setBehavior({ aggression: 0.9, flankBias: 0.1, patience: 0.4 });
+    // Build past the bare core so the reset is observable.
+    const wheelSlots = validSlotsFor(store().design, DRIVE_WHEEL);
+    store().placeAtSlot(wheelSlots[0]);
+    expect(store().design.parts.length).toBe(2);
+    expect(currentCoreId(store().design)).toBe("core-cube");
+
+    store().setCore("tower-core");
+    expect(currentCoreId(store().design)).toBe("tower-core");
+    expect(store().design.parts).toHaveLength(1);
+    expect(store().design.name).toBe("Chomper");
+    expect(store().design.behavior?.aggression).toBe(0.9);
+    expect(store().selectedIid).toBeNull();
+
+    // One Undo restores the full pre-swap build.
+    store().undo();
+    expect(currentCoreId(store().design)).toBe("core-cube");
+    expect(store().design.parts).toHaveLength(2);
+  });
+
+  it("ignores setCore for the current core or a non-core id", () => {
+    const before = store().history;
+    store().setCore("core-cube");
+    expect(store().history).toBe(before);
+    store().setCore("drive-wheel");
+    expect(store().history).toBe(before);
   });
 });

@@ -2,18 +2,19 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest button-feel note complete", () => {
+  it("keeps the latest chassis-variants note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.189-button-feel");
+    expect(release.noticeId).toBe("2026-07-04-0.1.190-chassis-variants");
     expect(latestNote).toMatchObject({
-      version: "0.1.189",
-      title: "Buttons that press back",
-      intro: "Controls feel tactile now.",
+      version: "0.1.190",
+      title: "Pick your chassis",
+      intro: "Three core bodies, three fighting styles.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Every button darkens the moment you press it, and the main workshop controls push in like a physical button, so a tap feels like it lands.",
+      "The Build tab now has a Chassis picker. Choose the balanced Cube, the low front-loaded Wedge, or the tall heavy Tower. Each has its own mounts, power, and durability, so the body you pick shapes the bot you can build.",
+      "Swapping the chassis starts a fresh build on that body. Undo brings the old one back.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

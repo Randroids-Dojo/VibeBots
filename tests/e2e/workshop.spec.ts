@@ -196,12 +196,21 @@ test("drag the hero part onto a twin merges it (N3)", async ({ page }) => {
     await page.mouse.move(x, y);
     await page.waitForTimeout(30);
   }
+
+  // Hovering the twin: the release-to-merge banner names the resulting level
+  // (Slice B), so the merge intent reads in always-visible DOM.
+  const mergeBanner = page.getByTestId("merge-banner");
+  await expect(mergeBanner).toBeVisible();
+  await expect(mergeBanner).toHaveText("↑ Release to merge into Lv 2");
+
   await page.mouse.up();
 
   // Merged, not added: still two parts, and the wheel is now level 2.
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
   const inspector = page.getByRole("region", { name: "Selected part" });
   await expect(inspector.getByText("Lv 2")).toBeVisible();
+  // The banner clears once the drop resolves.
+  await expect(mergeBanner).toBeHidden();
 });
 
 test("workshop merges a placed part by arming its twin", async ({ page }) => {

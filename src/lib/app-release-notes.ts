@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.182-workshop-browsing";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.183-workshop-merge-cue";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.183",
+      date: "2026-07-03",
+      title: "Merges read at a glance",
+      intro: "A merge upgrade is unmistakable now.",
+      changes: [
+        {
+          build,
+          text: "Drag a part over a matching one and a gold banner names the level you will reach, so a merge upgrade is never mistaken for adding another part.",
+        },
+        {
+          build,
+          text: "The part flashes gold as it levels up, and the owned-count ticks down so you can see the copy being spent.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.182",
       date: "2026-07-03",

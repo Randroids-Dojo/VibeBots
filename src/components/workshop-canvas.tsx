@@ -93,26 +93,46 @@ function PlacedPart({
   shadows: boolean;
   onActivate: () => void;
 }) {
-  const groupRef = useRef<Group>(null);
+  const scaleRef = useRef<Group>(null);
+  const matRef = useRef<MeshStandardMaterial>(null);
   const mountT = useRef(0);
   const pulseT = useRef(0);
   const level = partMergeLevel(instance);
   const prevLevel = useRef(level);
+  const surface = CATEGORY_SURFACE[def.category];
   useFrame((_, dt) => {
     if (level > prevLevel.current) pulseT.current = 1;
     prevLevel.current = level;
     mountT.current = advance(mountT.current, dt, MOUNT_SECONDS);
     pulseT.current = decay(pulseT.current, dt, PULSE_SECONDS);
-    groupRef.current?.scale.setScalar(
+    scaleRef.current?.scale.setScalar(
       snapScale(mountT.current, pulseT.current),
     );
+    // Gold flash on level-up (Slice B), fading with the same pulse the pop
+    // rides, so a merge lands as a clear "leveled up" beat over the base
+    // merge-target / selected / idle emissive.
+    const flash = pulseT.current;
+    const mat = matRef.current;
+    if (mat) {
+      if (flash > 0.001) {
+        mat.emissive.set("#ffe08a");
+        mat.emissiveIntensity = 0.5 + flash * 2.5;
+      } else if (mergeTarget) {
+        mat.emissive.set("#ffe08a");
+        mat.emissiveIntensity = 0.7;
+      } else if (selected) {
+        mat.emissive.set("#ffffff");
+        mat.emissiveIntensity = 0.35;
+      } else {
+        mat.emissive.set(CATEGORY_COLORS[def.category]);
+        mat.emissiveIntensity = surface.emissiveBoost;
+      }
+    }
   });
   const { position, rotation } = placement;
-  const surface = CATEGORY_SURFACE[def.category];
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: R3F scene graph node, not a DOM element
     <group
-      ref={groupRef}
       position={[position.x, position.y, position.z]}
       quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
       onClick={(event: ThreeEvent<MouseEvent>) => {
@@ -122,29 +142,24 @@ function PlacedPart({
         onActivate();
       }}
     >
-      <mesh
-        rotation={shapeRotation(def.shape)}
-        castShadow={shadows}
-        receiveShadow={shadows}
-      >
-        {partGeometry(def.shape)}
-        <meshStandardMaterial
-          color={CATEGORY_COLORS[def.category]}
-          metalness={surface.metalness}
-          roughness={surface.roughness}
-          flatShading
-          emissive={
-            mergeTarget
-              ? "#ffe08a"
-              : selected
-                ? "#ffffff"
-                : CATEGORY_COLORS[def.category]
-          }
-          emissiveIntensity={
-            mergeTarget ? 0.7 : selected ? 0.35 : surface.emissiveBoost
-          }
-        />
-      </mesh>
+      <group ref={scaleRef}>
+        <mesh
+          rotation={shapeRotation(def.shape)}
+          castShadow={shadows}
+          receiveShadow={shadows}
+        >
+          {partGeometry(def.shape)}
+          <meshStandardMaterial
+            ref={matRef}
+            color={CATEGORY_COLORS[def.category]}
+            metalness={surface.metalness}
+            roughness={surface.roughness}
+            flatShading
+            emissive={CATEGORY_COLORS[def.category]}
+            emissiveIntensity={surface.emissiveBoost}
+          />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -367,34 +382,6 @@ function DragGhost({
 }
 
 /**
- * A floating gold marker over a merge twin (N4). The gold ghost can be
- * hidden behind the carried part at the moment of the drop, so this bead
- * rides above the twin as an always-visible "drop here to merge" cue,
- * bobbing when it is the snap target.
- */
-function MergeHalo({ position, active }: { position: Vec3; active: boolean }) {
-  const ref = useRef<Group>(null);
-  useFrame((state) => {
-    const bob = Math.sin(state.clock.elapsedTime * 5);
-    ref.current?.scale.setScalar(active ? 1.1 + bob * 0.18 : 0.85);
-  });
-  return (
-    <group ref={ref} position={[position.x, position.y + 0.5, position.z]}>
-      <mesh>
-        <sphereGeometry args={[0.12, 16, 16]} />
-        <meshStandardMaterial
-          color="#ffe08a"
-          emissive="#ffe08a"
-          emissiveIntensity={active ? 1.3 : 0.8}
-          toneMapped={false}
-          depthTest={false}
-        />
-      </mesh>
-    </group>
-  );
-}
-
-/**
  * An idle attach marker (P2, user feedback): a soft pulsing node parked at
  * a legal slot for the part you are currently viewing, so the bot's open
  * attach points read at a glance before any drag begins. The full-part
@@ -448,6 +435,7 @@ function WorkshopScene() {
   const armedPartId = useWorkshopStore((s) => s.armedPartId);
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
   const mergePart = useWorkshopStore((s) => s.mergePart);
+  const setMergePreviewLevel = useWorkshopStore((s) => s.setMergePreviewLevel);
   const browsePartId = useWorkshopStore((s) => s.browsePartId);
   const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
   const buildActive = useWorkshopStore((s) => s.buildActive);
@@ -505,6 +493,10 @@ function WorkshopScene() {
   }, [dragging, design, browseDef, browsePartId, browseOrientation]);
   const dragTargetsRef = useRef(dragTargets);
   dragTargetsRef.current = dragTargets;
+  // Synchronous drag flag: the hover frame checks this rather than the
+  // async `dragging` state, so the drop (which merges and clears the merge
+  // banner) is not undone by one more frame running the stale closure.
+  const draggingRef = useRef(false);
 
   // Idle attach markers (P2, user feedback): the moment you are viewing a
   // part in the carousel, show a soft node at every legal slot so the open
@@ -548,6 +540,7 @@ function WorkshopScene() {
     pointerNdc.current = { x: event.pointer.x, y: event.pointer.y };
     hoveredRef.current = -1;
     setHovered(-1);
+    draggingRef.current = true;
     setDragging(true);
     (gl.domElement as HTMLElement).setPointerCapture?.(event.pointerId);
   };
@@ -563,6 +556,9 @@ function WorkshopScene() {
       );
     };
     const drop = () => {
+      // Stop the hover frame first (synchronously) so it cannot re-derive
+      // the merge banner from the post-merge design before React re-renders.
+      draggingRef.current = false;
       // Recompute the snap target from the live pointer at release, so the
       // commit never depends on whether a frame ran for the final move
       // (fast drags can outrun useFrame).
@@ -584,6 +580,7 @@ function WorkshopScene() {
       setDragging(false);
       setHovered(-1);
       hoveredRef.current = -1;
+      setMergePreviewLevel(null);
     };
     el.addEventListener("pointermove", move);
     window.addEventListener("pointerup", drop);
@@ -593,11 +590,11 @@ function WorkshopScene() {
       window.removeEventListener("pointerup", drop);
       window.removeEventListener("pointercancel", drop);
     };
-  }, [dragging, gl, placeAtSlot, mergePart, camera]);
+  }, [dragging, gl, placeAtSlot, mergePart, camera, setMergePreviewLevel]);
 
   const projScratch = useRef(new Vector3());
   useFrame(() => {
-    if (!dragging) return;
+    if (!draggingRef.current) return;
     const projected = dragTargets.map((target) => {
       const p = target.placement.position;
       const v = projScratch.current.set(p.x, p.y, p.z).project(camera);
@@ -607,6 +604,16 @@ function WorkshopScene() {
     if (next !== hoveredRef.current) {
       hoveredRef.current = next;
       setHovered(next);
+      // Surface a "release to merge" preview to the panel when the snap
+      // target is a twin, so the merge intent reads in always-visible DOM
+      // instead of an in-world marker the top panel can hide (Slice B).
+      const target = dragTargets[next];
+      if (target && target.kind === "merge") {
+        const part = design.parts.find((p) => p.iid === target.iid);
+        setMergePreviewLevel(part ? partMergeLevel(part) + 1 : null);
+      } else {
+        setMergePreviewLevel(null);
+      }
     }
   });
 
@@ -692,18 +699,13 @@ function WorkshopScene() {
               active={i === hovered}
             />
           ) : (
-            <group key={`merge:${target.iid}`}>
-              <DragGhost
-                def={browseDef}
-                placement={target.placement}
-                active={i === hovered}
-                merge
-              />
-              <MergeHalo
-                position={target.placement.position}
-                active={i === hovered}
-              />
-            </group>
+            <DragGhost
+              key={`merge:${target.iid}`}
+              def={browseDef}
+              placement={target.placement}
+              active={i === hovered}
+              merge
+            />
           ),
         )}
       {design.parts.map((instance) => {

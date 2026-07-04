@@ -334,6 +334,14 @@ describe("N1 build carousel", () => {
     store().setBrowseDimmed(false);
     expect(store().browseDimmed).toBe(false);
   });
+
+  it("tracks the release-to-merge preview level (Slice B)", () => {
+    expect(store().mergePreviewLevel).toBeNull();
+    store().setMergePreviewLevel(2);
+    expect(store().mergePreviewLevel).toBe(2);
+    store().setMergePreviewLevel(null);
+    expect(store().mergePreviewLevel).toBeNull();
+  });
 });
 
 describe("N4 oriented placement", () => {

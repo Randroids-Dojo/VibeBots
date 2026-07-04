@@ -2,7 +2,7 @@
 
 import { canRedo, canUndo } from "@randroids-dojo/vibekit";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves } from "@/components/design-saves";
 import { PartsShop } from "@/components/parts-shop";
@@ -146,6 +146,7 @@ export function WorkshopPanel() {
   const rotateBrowse = useWorkshopStore((s) => s.rotateBrowse);
   const setBuildActive = useWorkshopStore((s) => s.setBuildActive);
   const setBrowseDimmed = useWorkshopStore((s) => s.setBrowseDimmed);
+  const mergePreviewLevel = useWorkshopStore((s) => s.mergePreviewLevel);
   const history = useWorkshopStore((s) => s.history);
   const armPart = useWorkshopStore((s) => s.armPart);
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
@@ -236,6 +237,23 @@ export function WorkshopPanel() {
   useEffect(() => {
     setBrowseDimmed(inventory.state === "ready" && browseAvailable <= 0);
   }, [inventory.state, browseAvailable, setBrowseDimmed]);
+
+  // Flash the owned-count when a place or merge spends a copy of the part
+  // currently in hand (Slice B, user feedback), so the drop reads as
+  // "consumed one" and not just a silent number change. Only the same
+  // part's count dropping counts; cycling to a different part rebaselines
+  // without flashing.
+  const [countConsumed, setCountConsumed] = useState(false);
+  const prevBrowse = useRef({ id: browsePartId, avail: browseAvailable });
+  useEffect(() => {
+    const prev = prevBrowse.current;
+    const consumed = prev.id === browsePartId && browseAvailable < prev.avail;
+    prevBrowse.current = { id: browsePartId, avail: browseAvailable };
+    if (!consumed) return;
+    setCountConsumed(true);
+    const timer = setTimeout(() => setCountConsumed(false), 650);
+    return () => clearTimeout(timer);
+  }, [browsePartId, browseAvailable]);
 
   if (matchup) {
     return (
@@ -536,6 +554,23 @@ export function WorkshopPanel() {
               </section>
             )}
 
+            {mergePreviewLevel !== null && (
+              <div
+                data-testid="merge-banner"
+                style={{
+                  background: "#ffe08a",
+                  color: "#0b0e14",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  fontWeight: 700,
+                  textAlign: "center",
+                  boxShadow: "0 0 16px rgba(255, 224, 138, 0.55)",
+                }}
+              >
+                {`↑ Release to merge into Lv ${mergePreviewLevel}`}
+              </div>
+            )}
+
             <section style={panelStyle} aria-label="Part carousel">
               <div
                 style={{
@@ -564,7 +599,10 @@ export function WorkshopPanel() {
                     {`${browseDef.category} · ${browseDef.durability} HP · ${browseDef.powerDraw} power`}
                     {inventory.state === "ready" ? (
                       <span
+                        data-testid="carousel-part-count"
+                        className={countConsumed ? "count-consumed" : undefined}
                         style={{
+                          display: "inline-block",
                           color: browseAvailable > 0 ? "#54e0c7" : "#7f879a",
                         }}
                       >

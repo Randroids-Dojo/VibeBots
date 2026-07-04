@@ -252,12 +252,19 @@ export interface WorkshopState {
   buildActive: boolean;
   /** True when the carousel part is owned-out, so the hero renders grayed. */
   browseDimmed: boolean;
+  /**
+   * While a drag hovers a merge twin, the level the drop would produce, so
+   * the panel can show a "release to merge" banner (Slice B). Null when the
+   * drag is over an empty slot or not dragging.
+   */
+  mergePreviewLevel: number | null;
   addPart: (partId: string) => void;
   armPart: (partId: string | null) => void;
   browseBy: (dir: number) => void;
   rotateBrowse: () => void;
   setBuildActive: (active: boolean) => void;
   setBrowseDimmed: (dimmed: boolean) => void;
+  setMergePreviewLevel: (level: number | null) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
   mergePart: (iid: string) => void;
   removeSelected: () => void;
@@ -284,6 +291,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   browseOrientation: 0,
   buildActive: true,
   browseDimmed: false,
+  mergePreviewLevel: null,
 
   addPart: (partId) => {
     const { history, design } = get();
@@ -330,6 +338,8 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   setBuildActive: (active) => set({ buildActive: active }),
 
   setBrowseDimmed: (dimmed) => set({ browseDimmed: dimmed }),
+
+  setMergePreviewLevel: (level) => set({ mergePreviewLevel: level }),
 
   // Commit the exact connection the tapped ghost (or slot button) named,
   // rebuilt against the live design so it cannot land a stale placement.

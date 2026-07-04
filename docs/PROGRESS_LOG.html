@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-merge-cue" data-date="2026-07-03">
+    <h3>Workshop merge cue: release-to-merge banner, level-up flash, spend tick (user feedback, slice B of 2)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Second of two feedback slices; the user found the level-dot pips unintuitive as a merge signal and asked for a clearer symbol or text plus a level-up-and-consume animation.</dd>
+      <dt>Changed</dt><dd>The merge intent now reads in always-visible DOM instead of an in-world marker the top control panel can hide. While a drag hovers a merge twin, the canvas publishes the resulting level to a new <code>mergePreviewLevel</code> store field, and the panel shows a prominent gold banner: "Release to merge into Lv N". On drop the merged part flashes gold (imperative emissive on the level-up pulse the W5 pop already rides), and the carousel owned-count flashes gold and ticks down (a merge spends a copy, since <code>designPartCounts</code> counts a part by its merge level), so the spend is visible. The N4 floating gold bead and an experimental chevron and ring-burst were tried and removed: on portrait the top panel and the busy bench hid above-part markers (the F-052 occlusion), so the DOM banner is the reliable cue. The hover frame now gates on a synchronous <code>draggingRef</code> so the drop that clears the banner is not undone by one more stale-closure frame. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.183</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (0 errors), full unit suite (new store test: the preview level tracks and clears), <code>pnpm build</code>. The N3 drag-merge e2e was extended to assert the banner shows with the exact "Lv 2" text while hovering the twin and clears after the drop; the N2/P1/N4 drag, place, cycle, and rotate e2es still pass. A scripted 390x760 capture confirmed the banner renders during the drag and the count ticks x3 to x2 on merge.</dd>
+      <dt>Assumptions</dt><dd>Rule 7: one consistent cue. Every merge target drives the same banner, and the banner names the exact level so there is no ambiguity with adding a part. Rule 10: the level-up flash is a per-frame emissive curve, not 3D text; the DOM banner carries the words, avoiding the mobile glyph-atlas risk entirely. The banner is DOM, so it is never hidden by the canvas. Rule 13: mine tips reviewed, no change (workshop surface). Rule 14: stamp review done, none added (merge legibility, not a new milestone; a build/merge mastery stamp stays F-051 pending a server progress source).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (merge itself shipped with W4; this is legibility). Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>Both feedback slices (A and B) are shipped. F-052 (bottom hero tray) would let an in-world merge marker sit above the twin without the top panel hiding it, at which point the banner could become a secondary cue. F-051 (build/merge cosmetic stamp) still needs a server progress source.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-browsing-feel" data-date="2026-07-03">
     <h3>Workshop browsing feel: attach previews, cycle hygiene, owned-out dimming (user feedback, slice A of 2)</h3>
     <dl>

@@ -2,20 +2,19 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest browsing-feel note complete", () => {
+  it("keeps the latest merge-cue note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.182-workshop-browsing");
+    expect(release.noticeId).toBe("2026-07-03-0.1.183-workshop-merge-cue");
     expect(latestNote).toMatchObject({
-      version: "0.1.182",
-      title: "See where parts fit",
-      intro: "The bench shows the fit before you drag.",
+      version: "0.1.183",
+      title: "Merges read at a glance",
+      intro: "A merge upgrade is unmistakable now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Open attach points on your bot light up the moment you are viewing a part, so you can see where it fits before dragging.",
-      "Cycling to another part clears the last selection and starts the bench clean.",
-      "A part you own none of shows grayed out and will not drag onto the bot.",
+      "Drag a part over a matching one and a gold banner names the level you will reach, so a merge upgrade is never mistaken for adding another part.",
+      "The part flashes gold as it levels up, and the owned-count ticks down so you can see the copy being spent.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

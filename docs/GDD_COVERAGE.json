@@ -30,14 +30,16 @@
         "src/sim/inventory.ts",
         "src/state/workshop-store.ts",
         "src/app/workshop/page.tsx",
-        "src/app/globals.css"
+        "src/app/globals.css",
+        "src/sim/blueprints.ts"
       ],
       "testRefs": [
         "src/sim/design.test.ts",
         "src/sim/assembly.test.ts",
         "src/sim/combat.test.ts",
         "src/state/workshop-store.test.ts",
-        "tests/e2e/workshop.spec.ts"
+        "tests/e2e/workshop.spec.ts",
+        "src/sim/blueprints.test.ts"
       ],
       "followupRefs": [
         "F-006"
@@ -51,13 +53,15 @@
       "implementationRefs": [
         "src/sim/parts.ts",
         "src/sim/layout.ts",
-        "src/state/workshop-store.ts"
+        "src/state/workshop-store.ts",
+        "src/sim/blueprints.ts"
       ],
       "testRefs": [
         "src/sim/layout.test.ts",
         "src/sim/assembly.test.ts",
         "src/state/workshop-store.test.ts",
-        "tests/e2e/workshop.spec.ts"
+        "tests/e2e/workshop.spec.ts",
+        "src/sim/blueprints.test.ts"
       ],
       "followupRefs": [
         "F-053"

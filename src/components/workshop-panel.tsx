@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves } from "@/components/design-saves";
 import { PartsShop } from "@/components/parts-shop";
+import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
@@ -156,6 +157,7 @@ export function WorkshopPanel() {
   const undo = useWorkshopStore((s) => s.undo);
   const redo = useWorkshopStore((s) => s.redo);
   const reset = useWorkshopStore((s) => s.reset);
+  const loadDesign = useWorkshopStore((s) => s.loadDesign);
 
   // The hero part belongs to the Build tab; leaving it hides the hero so it
   // does not hover over the bench while another tab is up.
@@ -607,6 +609,33 @@ export function WorkshopPanel() {
 
         {tab === "garage" && (
           <>
+            <section style={panelStyle} aria-label="Blueprints">
+              <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>
+                Blueprints
+              </h2>
+              <p
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: "0.72rem",
+                  opacity: 0.65,
+                }}
+              >
+                Load a ready-made bot, then make it yours.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {BLUEPRINTS.map((bp) => (
+                  <button
+                    key={bp.id}
+                    type="button"
+                    className="blueprint-option"
+                    onClick={() => loadDesign(bp.design)}
+                  >
+                    <span className="blueprint-label">{bp.label}</span>
+                    <span className="blueprint-blurb">{bp.blurb}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
             <DesignSaves />
             <section style={panelStyle} aria-label="Danger zone">
               <button type="button" onClick={reset}>

@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.190-chassis-variants";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.191-starter-blueprints";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.191",
+      date: "2026-07-04",
+      title: "Starter blueprints",
+      intro: "Load a ready-made bot and make it yours.",
+      changes: [
+        {
+          build,
+          text: "The Garage tab now has Blueprints: load the Cube Rammer, Wedge Razor, or Tower Basher in one tap, then edit it however you like. No more staring at an empty bench.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.190",
       date: "2026-07-04",

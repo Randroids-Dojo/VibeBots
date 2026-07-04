@@ -2,19 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest chassis-variants note complete", () => {
+  it("keeps the latest starter-blueprints note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.190-chassis-variants");
+    expect(release.noticeId).toBe("2026-07-04-0.1.191-starter-blueprints");
     expect(latestNote).toMatchObject({
-      version: "0.1.190",
-      title: "Pick your chassis",
-      intro: "Three core bodies, three fighting styles.",
+      version: "0.1.191",
+      title: "Starter blueprints",
+      intro: "Load a ready-made bot and make it yours.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The Build tab now has a Chassis picker. Choose the balanced Cube, the low front-loaded Wedge, or the tall heavy Tower. Each has its own mounts, power, and durability, so the body you pick shapes the bot you can build.",
-      "Swapping the chassis starts a fresh build on that body. Undo brings the old one back.",
+      "The Garage tab now has Blueprints: load the Cube Rammer, Wedge Razor, or Tower Basher in one tap, then edit it however you like. No more staring at an empty bench.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

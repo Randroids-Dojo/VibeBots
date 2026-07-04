@@ -527,3 +527,27 @@ test("choose a chassis variant, resetting to a fresh bot (I)", async ({
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(cube).toHaveAttribute("aria-pressed", "true");
 });
+
+test("load a starter blueprint and its chassis follows (J)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  await expect(page.getByRole("link", { name: "Back to mine" })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Garage" }).click();
+  const blueprints = page.getByRole("region", { name: "Blueprints" });
+  await expect(blueprints).toBeVisible();
+  await blueprints.getByRole("button", { name: /Wedge Razor/ }).click();
+
+  // The loaded bot replaces the design (5 parts: core, two wheels, plow, spike).
+  await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+
+  // Its chassis is reflected on the Build tab.
+  await page.getByRole("tab", { name: "Build" }).click();
+  const chassis = page.getByRole("region", { name: "Chassis" });
+  await expect(chassis.getByRole("button", { name: "Wedge" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});

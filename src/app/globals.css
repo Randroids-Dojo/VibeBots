@@ -397,6 +397,44 @@ button:focus-visible {
   border-color: #8ff4e4;
 }
 
+/* Blueprint picker (J): one-tap loadable starter bots in the Garage tab.
+ * Each is a stacked label + one-line blurb, sized for a thumb. */
+.blueprint-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  color: #e6e8ee;
+  background: #1a2133;
+  border: 1px solid #2b3550;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    transform 90ms ease,
+    filter 120ms ease,
+    border-color 140ms ease;
+}
+
+.blueprint-option:not(:disabled):active {
+  transform: translateY(1px) scale(0.99);
+  filter: brightness(0.92);
+}
+
+.blueprint-option:hover {
+  border-color: #3d496b;
+}
+
+.blueprint-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.blueprint-blurb {
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+
 /* Carousel overlay (G): the part name floats above the hero part and the
  * prev/next arrows flank it, so browsing is a thin overlay on the bench
  * instead of a menu box. Stats live in the bottom inspector on tap. */

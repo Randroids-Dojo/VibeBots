@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="starter-blueprints" data-date="2026-07-04">
+    <h3>Starter blueprints in the Garage (slice J, workshop overhaul)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>workshop-j-blueprints</code>, from <code>origin/main</code>. Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Banjo Nuts and Bolts lesson: ship working presets to lower the blank-bench intimidation on a phone.</dd>
+      <dt>Changed</dt><dd>New pure-data module <code>src/sim/blueprints.ts</code> with three valid starter designs, one per chassis: Cube Rammer (cube, two wheels, front spike), Wedge Razor (wedge, two wheels, front plow and spike, kept front-loaded because the low wedge top clips vertical stacks), and Tower Basher (tower, two wheels, mast-mounted hammer, front armor). The Garage tab gained a "Blueprints" section that loads any of them in one tap via the existing <code>loadDesign</code>, then the player edits freely. CSS <code>.blueprint-option</code>. No sim change: blueprints are data. <code>SIM_VERSION</code> stays <code>4</code>, <code>MINE_VERSION</code> stays <code>50</code>. Package version <code>0.1.191</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome, purity, <code>src/sim/blueprints.test.ts</code> (each blueprint validates, is at least four parts, and covers each core), release and notification unit tests updated for the new note, full unit suite, <code>pnpm build</code>. New e2e "load a starter blueprint and its chassis follows (J)": loading Wedge Razor from the Garage yields a 5-part bot and the Build tab shows the Wedge chassis active. Scripted 390x760 capture confirmed a loaded Tower Basher renders as a full six-part bot with the Tower chassis active.</dd>
+      <dt>Assumptions</dt><dd>Blueprints are aspirational templates: they may include parts the player does not yet own, which is fine because inventory is only enforced at match-resolve, and the non-core parts read as a shopping list. Spinner-on-wedge and spinner-on-tower stacks overlap in the layout (the spin-mount geometry sinks into short or occluded tops), so the presets avoid the spin-mount and showcase spike, plow, and hammer weapons instead; the vertical spinner stays a manual build. Rule 13: mine tips reviewed, no change (workshop-only slice). Rule 14: stamp review done, none added (a "load a blueprint" stamp would reward a trivial one-tap action).</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/02-parts-and-connectors.html</code> gained a build-log entry. <code>docs/GDD_COVERAGE.json</code> REQ-002/REQ-003 gained the blueprint implementation and test refs.</dd>
+      <dt>Followups</dt><dd>Next slices: merge/place juice and haptics (K), mirror placement (L), new BattleBots weapons and armor parts (M). Auto-focus/fit camera would help the tall Tower preset read fully in the bench (AAA backlog).</dd>
+    </dl>
+  </article>
+
   <article data-slice="chassis-variants" data-date="2026-07-04">
     <h3>Three chassis core variants and a chassis selector (slice I, workshop overhaul)</h3>
     <dl>

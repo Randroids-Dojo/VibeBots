@@ -119,10 +119,11 @@ test("workshop builds and undoes parts", async ({ page }) => {
     page.getByText("My Bot: 1 part", { exact: false }),
   ).toBeVisible();
 
-  // Tabs swap panels: Tune shows temperament, Build hides it.
+  // Tabs swap panels: Tune shows temperament, Build hides it. The part
+  // carousel now stays live on every tab (the bench is always buildable).
   await page.getByRole("tab", { name: "Tune" }).click();
   await expect(page.getByLabel("Temperament")).toBeVisible();
-  await expect(page.getByLabel("Part carousel")).not.toBeVisible();
+  await expect(page.getByLabel("Part carousel")).toBeVisible();
   await page.getByRole("tab", { name: "Build" }).click();
   await expect(page.getByLabel("Part carousel")).toBeVisible();
 
@@ -420,12 +421,12 @@ test("workshop tabs keep panels on-screen on portrait phones", async ({
   expect(controlsBox.x + controlsBox.width).toBeLessThanOrEqual(390);
   expect(controlsBox.y + controlsBox.height).toBeLessThanOrEqual(844);
 
-  // One panel at a time: switching to Shop replaces the tune panels, and the
-  // build overlay only shows on the Build tab.
+  // One panel at a time: switching to Shop replaces the tune panels. The part
+  // carousel stays live on every tab so the bench is always buildable.
   await page.getByRole("tab", { name: "Shop" }).click();
   await expect(page.getByLabel("Parts shop")).toBeVisible();
   await expect(page.getByLabel("Temperament")).not.toBeVisible();
-  await expect(page.getByLabel("Part carousel")).not.toBeVisible();
+  await expect(page.getByLabel("Part carousel")).toBeVisible();
 });
 
 test("sheet: tab and handle toggle, switching keeps it open (N)", async ({
@@ -513,6 +514,123 @@ test("sheet drag: down closes, up opens (N)", async ({ page }) => {
   await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
 });
 
+test("the whole top strip drags the sheet, tabs included", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const sheet = page.locator(".workshop-sheet");
+  await page.getByRole("tab", { name: "Garage" }).click();
+  await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
+
+  // Dragging vertically starting on a TAB button (not the grip) still slides
+  // the sheet: the whole top strip is one drag surface. Dispatch on the tab so
+  // the drag is deterministic; capture throws on the synthetic id and is
+  // swallowed by the handler.
+  const dragFromTab = (delta: number) =>
+    page.getByRole("tab", { name: "Garage" }).evaluate((el, dy) => {
+      const y0 = 300;
+      const fire = (type: string, y: number) =>
+        el.dispatchEvent(
+          new PointerEvent(type, {
+            pointerId: 1,
+            clientX: 120,
+            clientY: y,
+            button: 0,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      fire("pointerdown", y0);
+      for (let i = 1; i <= 6; i++) fire("pointermove", y0 + (dy * i) / 6);
+      fire("pointerup", y0 + dy);
+    }, delta);
+
+  // Drag down from the tab closes it; a tap on the tab would just select it.
+  await dragFromTab(140);
+  await expect(sheet).toHaveClass(/workshop-sheet-collapsed/);
+  // Drag up from the tab opens it again.
+  await dragFromTab(-140);
+  await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
+});
+
+test("the carousel filters to owned parts; the Build toggle reveals the rest (P)", async ({
+  page,
+}) => {
+  // Only the Drive Wheel is owned, so the owned-only carousel (default) is
+  // pinned to it. Storage-ready inventory drives the filter.
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 50,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 2 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const carousel = page.getByLabel("Part carousel");
+  const nameEl = carousel.getByTestId("carousel-part-name");
+  // Owned-only: the pool is just the Drive Wheel, so Next cannot leave it.
+  await expect(nameEl).toHaveText("Drive Wheel");
+  await carousel.getByRole("button", { name: "Next part" }).click();
+  await expect(nameEl).toHaveText("Drive Wheel");
+
+  // Flip the Build-tab toggle to "all parts". The toggle lives in the sheet,
+  // so open it, flip, then collapse it again (Build never lifts, so an open
+  // sheet covers the carousel arrows).
+  const buildTab = page.getByRole("tab", { name: "Build" });
+  await buildTab.click(); // opens the sheet
+  const toggle = page.getByRole("button", { name: /Carousel:/ });
+  await expect(toggle).toHaveText("Carousel: owned only");
+  await toggle.click();
+  await expect(toggle).toHaveText("Carousel: all parts");
+  await buildTab.click(); // collapse so the arrows are reachable again
+  await expect(page.locator(".workshop-sheet")).toHaveClass(
+    /workshop-sheet-collapsed/,
+  );
+  // Now Next reaches a part the player does not own.
+  await carousel.getByRole("button", { name: "Next part" }).click();
+  await expect(nameEl).not.toHaveText("Drive Wheel");
+});
+
+test("parts still attach while a menu tab is selected", async ({ page }) => {
+  // The hero and drag-to-attach stay live off the Build tab. Own two Drive
+  // Wheels so placing one is allowed.
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 2 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await expect(
+    page.getByText("My Bot: 1 part", { exact: false }),
+  ).toBeVisible();
+
+  // Select the Tune tab, then collapse its sheet so the hero-drag band is
+  // clear. The carousel and hero must still be live here (not just on Build).
+  const tune = page.getByRole("tab", { name: "Tune" });
+  await tune.click();
+  await tune.click(); // collapse the sheet
+  await expect(page.locator(".workshop-sheet")).toHaveClass(
+    /workshop-sheet-collapsed/,
+  );
+  await selectCarouselPart(page, "Drive Wheel");
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+
+  // Dragging the hero onto the bot places it, even though Tune is the open tab.
+  await dragHeroOntoCore(page);
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+});
+
 test("the bot lifts above an open menu sheet (O)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 760 });
   await page.goto("/workshop");
@@ -587,8 +705,14 @@ test("bot clears a tall menu after it loads, and re-opening does not blink (perf
     category: "mobility",
     priceEmeralds: i + 1,
   }));
+  // Gate the fetch so the spinner phase is deterministic: the lift can be
+  // sampled while the spinner is guaranteed to still be showing.
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => {
+    release = r;
+  });
   await page.route("**/api/shop", async (route) => {
-    await new Promise((r) => setTimeout(r, 400));
+    await gate;
     await route.fulfill({
       json: { emeralds: 999, inventory: [], catalog },
     });
@@ -602,13 +726,15 @@ test("bot clears a tall menu after it loads, and re-opening does not blink (perf
     );
   const spinner = page.locator(".workshop-build-panels .workshop-spinner");
 
-  // Open Shop: the spinner shows first (small lift), then the tall catalog
+  // Open Shop: the spinner shows first at a small lift, then the tall catalog
   // lands and the bot lifts further to clear it.
   await page.getByRole("tab", { name: "Shop" }).click();
   await expect(spinner).toBeVisible();
-  const liftDuringSpinner = await lift();
+  expect(await lift()).toBeLessThan(0.1);
+  release();
   await expect(page.getByText("999 vibes")).toBeVisible();
-  await expect.poll(lift).toBeGreaterThan(liftDuringSpinner + 0.05);
+  // The re-measure lifts the bot clear of the tall menu.
+  await expect.poll(lift).toBeGreaterThan(0.15);
 
   // Switch away and back: the cached catalog shows instantly, no spinner.
   await page.getByRole("tab", { name: "Tune" }).click();

@@ -233,6 +233,18 @@ button:focus-visible {
   transition: transform 200ms ease;
 }
 
+/* The whole top strip drags the sheet: grip, hint, and the tab row. Touch
+ * actions are disabled across it so a vertical drag slides the sheet instead
+ * of scrolling the page, while taps still reach the buttons underneath. */
+.workshop-sheet-drag {
+  touch-action: none;
+  cursor: grab;
+}
+
+.workshop-sheet-drag button {
+  touch-action: none;
+}
+
 .workshop-sheet-handle {
   display: flex;
   flex-direction: column;
@@ -577,6 +589,7 @@ button:focus-visible {
   border: 1px solid #26304a;
   border-radius: 999px;
   white-space: nowrap;
+  transition: top 200ms ease;
 }
 
 .carousel-overlay-arrows {
@@ -587,6 +600,17 @@ button:focus-visible {
   display: flex;
   justify-content: space-between;
   padding: 0 28px;
+  transition: top 200ms ease;
+}
+
+/* When a menu tab's sheet covers the lower screen the bot lifts, so the
+ * carousel rises into the band above the sheet to stay reachable. */
+.carousel-overlay-lifted .carousel-overlay-name {
+  top: 25%;
+}
+
+.carousel-overlay-lifted .carousel-overlay-arrows {
+  top: 33%;
 }
 
 .carousel-overlay-arrows .carousel-arrow {

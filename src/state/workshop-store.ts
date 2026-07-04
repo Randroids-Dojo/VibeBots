@@ -322,6 +322,12 @@ export interface WorkshopState {
   selectedIid: string | null;
   /** The part shown in the build carousel (N1); prev/next steps it. */
   browsePartId: string;
+  /**
+   * The parts the carousel cycles through, in catalog order. Defaults to every
+   * non-core part; the Build tab narrows it to owned parts when the "show parts
+   * I don't own" toggle is off. Empty when the player owns nothing to show.
+   */
+  browsableIds: string[];
   /** Mount orientation the carousel part will place with (N4, rigid only). */
   browseOrientation: Orientation;
   /** True while the Build tab is up, so the canvas shows the hero part. */
@@ -342,6 +348,8 @@ export interface WorkshopState {
   mergePreviewLevel: number | null;
   addPart: (partId: string) => void;
   browseBy: (dir: number) => void;
+  /** Set the carousel's part pool; snaps the shown part back in when needed. */
+  setBrowsableIds: (ids: string[]) => void;
   rotateBrowse: () => void;
   setBuildActive: (active: boolean) => void;
   setBrowseDimmed: (dimmed: boolean) => void;
@@ -375,6 +383,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
   selectedIid: null,
   browsePartId: CAROUSEL_PART_IDS[0],
+  browsableIds: CAROUSEL_PART_IDS,
   browseOrientation: 0,
   buildActive: true,
   browseDimmed: false,
@@ -403,13 +412,28 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   // starts from a clean bench (user feedback).
   browseBy: (dir) =>
     set((s) => {
-      const list = CAROUSEL_PART_IDS;
+      const list = s.browsableIds;
+      if (list.length === 0) return {};
       const index = list.indexOf(s.browsePartId);
-      const next = (index + dir + list.length) % list.length;
+      const from = index < 0 ? 0 : index;
+      const next = (from + dir + list.length) % list.length;
       return {
         browsePartId: list[next],
         browseOrientation: 0,
         selectedIid: null,
+      };
+    }),
+
+  // The Build tab sets which parts the carousel offers (owned-only vs all).
+  // Keep the shown part if it survives the filter; otherwise snap to the first
+  // browsable part, or clear it when the pool is empty (owns nothing to show).
+  setBrowsableIds: (ids) =>
+    set((s) => {
+      if (ids.includes(s.browsePartId)) return { browsableIds: ids };
+      return {
+        browsableIds: ids,
+        browsePartId: ids[0] ?? "",
+        browseOrientation: 0,
       };
     }),
 
@@ -585,12 +609,15 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     }),
 
   reset: () =>
-    set({
+    set((s) => ({
       ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
       selectedIid: null,
-      browsePartId: CAROUSEL_PART_IDS[0],
+      // Keep the carousel on a part that is still in the (owned-filtered) pool.
+      browsePartId: s.browsableIds.includes(CAROUSEL_PART_IDS[0])
+        ? CAROUSEL_PART_IDS[0]
+        : (s.browsableIds[0] ?? ""),
       browseOrientation: 0,
       browseDimmed: false,
       browseStatsOpen: false,
-    }),
+    })),
 }));

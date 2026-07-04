@@ -6,6 +6,7 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -27,6 +28,7 @@ import {
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
 import { PART_CATALOG } from "@/sim/parts";
 import {
+  CAROUSEL_PART_IDS,
   CORE_PART_IDS,
   currentCoreId,
   planMergeSelectedPart,
@@ -94,6 +96,9 @@ export function WorkshopPanel() {
   // the deferred value catches up, so switching swaps in place without a
   // collapse or blink.
   const deferredTab = useDeferredValue(tab);
+  // Build-tab toggle: off by default, so the carousel only offers parts the
+  // player actually owns. On, it also offers parts not yet in the inventory.
+  const [includeUnowned, setIncludeUnowned] = useState(false);
   // Bot-first sheet (N): the tab controls live in a bottom sheet over the bot.
   // Open/closed is one clean state. Tapping the active tab or the handle
   // toggles it; tapping another tab switches to it and keeps it open; dragging
@@ -124,8 +129,15 @@ export function WorkshopPanel() {
       (window.innerHeight || 1) * 0.52,
     );
 
-  const onSheetHandleDown = (e: React.PointerEvent) => {
+  // The whole top strip (grip + hint + tab row) is one drag surface, so a
+  // finger anywhere on it can slide the sheet. Taps still fall through to the
+  // grip (toggle) or a tab button (select); a drag sets this flag so the click
+  // that a real pointer may fire afterward is swallowed.
+  const suppressTapRef = useRef(false);
+
+  const onSheetDragDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    suppressTapRef.current = false;
     dragRef.current = {
       pointerId: e.pointerId,
       y: e.clientY,
@@ -134,40 +146,53 @@ export function WorkshopPanel() {
       moved: false,
     };
   };
-  const onSheetHandleMove = (e: React.PointerEvent) => {
+  const onSheetDragMove = (e: React.PointerEvent) => {
     const s = dragRef.current;
     if (!s || s.pointerId !== e.pointerId) return;
     s.dy = e.clientY - s.y;
     if (!s.moved && Math.abs(s.dy) > 8) {
       s.moved = true;
       s.h = contentHeight();
-      e.currentTarget.setPointerCapture?.(e.pointerId);
+      // A synthetic pointerId (tests) is not a live pointer, so capture throws.
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {}
     }
     if (s.moved) {
       e.preventDefault();
       setSheetDrag({ dy: s.dy, h: s.h });
     }
   };
-  const onSheetHandleUp = (e: React.PointerEvent) => {
+  const onSheetDragUp = (e: React.PointerEvent) => {
     const s = dragRef.current;
     dragRef.current = null;
     setSheetDrag(null);
     if (!s || s.pointerId !== e.pointerId) return;
-    if (!s.moved) {
-      setSheetOpen((o) => !o); // a tap toggles either way
-      return;
-    }
+    if (!s.moved) return; // a tap: the grip or tab button's onClick handles it
+    suppressTapRef.current = true; // a drag: swallow the click that may follow
     if (sheetOpen && s.dy > 60)
       setSheetOpen(false); // drag down closes
     else if (!sheetOpen && s.dy < -60) setSheetOpen(true); // drag up opens
     // otherwise it snaps back to where it was
   };
-  const onSheetHandleCancel = () => {
+  const onSheetDragCancel = () => {
     dragRef.current = null;
     setSheetDrag(null);
   };
 
+  const toggleSheetTap = () => {
+    if (suppressTapRef.current) {
+      suppressTapRef.current = false;
+      return;
+    }
+    setSheetOpen((o) => !o);
+  };
+
   const selectTab = (id: "build" | "tune" | "garage" | "shop") => {
+    if (suppressTapRef.current) {
+      suppressTapRef.current = false;
+      return;
+    }
     // Tapping the active tab toggles the sheet; tapping another tab switches
     // to it and keeps the sheet open (switching never closes it).
     if (id === tab) setSheetOpen((o) => !o);
@@ -269,6 +294,7 @@ export function WorkshopPanel() {
   const browsePartId = useWorkshopStore((s) => s.browsePartId);
   const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
   const browseBy = useWorkshopStore((s) => s.browseBy);
+  const setBrowsableIds = useWorkshopStore((s) => s.setBrowsableIds);
   const rotateBrowse = useWorkshopStore((s) => s.rotateBrowse);
   const setBuildActive = useWorkshopStore((s) => s.setBuildActive);
   const setBrowseDimmed = useWorkshopStore((s) => s.setBrowseDimmed);
@@ -287,15 +313,29 @@ export function WorkshopPanel() {
   const reset = useWorkshopStore((s) => s.reset);
   const loadDesign = useWorkshopStore((s) => s.loadDesign);
 
-  // The hero part belongs to the Build tab; leaving it hides the hero so it
-  // does not hover over the bench while another tab is up.
+  // The displayed part, its carousel, and drag-to-attach stay live on every
+  // tab, not just Build, so the bench is always buildable. The hero lifts with
+  // the bot when a menu covers the lower screen (menuLift).
   useEffect(() => {
-    setBuildActive(tab === "build");
-  }, [tab, setBuildActive]);
+    setBuildActive(true);
+  }, [setBuildActive]);
 
   const validation = validateDesign(design);
   const behavior = design.behavior ?? NEUTRAL_BEHAVIOR;
   const usedPartCounts = designPartCounts(design);
+
+  // The carousel pool: with the toggle off (default) it is only the parts the
+  // player owns; with it on, or when ownership is unknown (sandbox/loading), it
+  // is every non-core part. Push it into the store so browseBy cycles the same
+  // list and the shown part snaps back in when the filter removes it.
+  const browsableIds = useMemo(() => {
+    if (includeUnowned || inventory.state !== "ready") return CAROUSEL_PART_IDS;
+    const counts = inventory.counts;
+    return CAROUSEL_PART_IDS.filter((id) => (counts.get(id) ?? 0) > 0);
+  }, [includeUnowned, inventory]);
+  useEffect(() => {
+    setBrowsableIds(browsableIds);
+  }, [browsableIds, setBrowsableIds]);
   const selectedPart = design.parts.find((p) => p.iid === selectedIid);
   const selectedDef = selectedPart ? PART_CATALOG[selectedPart.partId] : null;
   const selectedMergeLevel = selectedPart ? partMergeLevel(selectedPart) : 1;
@@ -463,34 +503,36 @@ export function WorkshopPanel() {
     <div className="workshop-stage">
       <WorkshopCanvas menuLift={menuLift} />
 
-      {tab === "build" && (
-        <section className="carousel-overlay" aria-label="Part carousel">
-          <div
-            className="carousel-overlay-name"
-            data-testid="carousel-part-name"
+      {/* The carousel stays live on every tab. When a menu covers the lower
+          screen the bot lifts, so the carousel lifts with it to stay clear. */}
+      <section
+        className={`carousel-overlay${
+          menuLift > 0.05 ? " carousel-overlay-lifted" : ""
+        }`}
+        aria-label="Part carousel"
+      >
+        <div className="carousel-overlay-name" data-testid="carousel-part-name">
+          {browseDef?.name ?? "No parts owned"}
+        </div>
+        <div className="carousel-overlay-arrows">
+          <button
+            type="button"
+            aria-label="Previous part"
+            onClick={() => browseBy(-1)}
+            className="carousel-arrow"
           >
-            {browseDef.name}
-          </div>
-          <div className="carousel-overlay-arrows">
-            <button
-              type="button"
-              aria-label="Previous part"
-              onClick={() => browseBy(-1)}
-              className="carousel-arrow"
-            >
-              {"◀"}
-            </button>
-            <button
-              type="button"
-              aria-label="Next part"
-              onClick={() => browseBy(1)}
-              className="carousel-arrow"
-            >
-              {"▶"}
-            </button>
-          </div>
-        </section>
-      )}
+            {"◀"}
+          </button>
+          <button
+            type="button"
+            aria-label="Next part"
+            onClick={() => browseBy(1)}
+            className="carousel-arrow"
+          >
+            {"▶"}
+          </button>
+        </div>
+      </section>
 
       <header className="workshop-header">
         <span className="workshop-header-title">
@@ -598,43 +640,51 @@ export function WorkshopPanel() {
             : undefined
         }
       >
-        <button
-          type="button"
-          className="workshop-sheet-handle"
-          aria-label={
-            sheetOpen
-              ? "Hide the controls to see the bot"
-              : "Show the workshop controls"
-          }
-          aria-expanded={sheetOpen}
-          onPointerDown={onSheetHandleDown}
-          onPointerMove={onSheetHandleMove}
-          onPointerUp={onSheetHandleUp}
-          onPointerCancel={onSheetHandleCancel}
-        >
-          <span className="workshop-sheet-grip" />
-          <span className="workshop-sheet-hint">
-            {sheetOpen ? "▼ see bot" : "▲ controls"}
-          </span>
-        </button>
-
+        {/* One drag surface over the grip and the tab row: dragging anywhere
+            on it slides the sheet, while taps still reach the grip button
+            (toggle) or a tab button (select). */}
         <div
-          className="workshop-tabs"
-          role="tablist"
-          aria-label="Workshop tabs"
+          className="workshop-sheet-drag"
+          onPointerDown={onSheetDragDown}
+          onPointerMove={onSheetDragMove}
+          onPointerUp={onSheetDragUp}
+          onPointerCancel={onSheetDragCancel}
         >
-          {tabs.map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              onClick={() => selectTab(id)}
-              className={tab === id ? "workshop-tab-active" : undefined}
-            >
-              {label}
-            </button>
-          ))}
+          <button
+            type="button"
+            className="workshop-sheet-handle"
+            aria-label={
+              sheetOpen
+                ? "Hide the controls to see the bot"
+                : "Show the workshop controls"
+            }
+            aria-expanded={sheetOpen}
+            onClick={toggleSheetTap}
+          >
+            <span className="workshop-sheet-grip" />
+            <span className="workshop-sheet-hint">
+              {sheetOpen ? "▼ see bot" : "▲ controls"}
+            </span>
+          </button>
+
+          <div
+            className="workshop-tabs"
+            role="tablist"
+            aria-label="Workshop tabs"
+          >
+            {tabs.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => selectTab(id)}
+                className={tab === id ? "workshop-tab-active" : undefined}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <aside
@@ -718,6 +768,38 @@ export function WorkshopPanel() {
                 >
                   {mirrorEnabled ? "Mirror: on" : "Mirror: off"}
                 </button>
+              </section>
+
+              <section style={panelStyle} aria-label="Parts">
+                <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                  Parts
+                </h2>
+                <button
+                  type="button"
+                  className={
+                    includeUnowned
+                      ? "mirror-toggle mirror-active"
+                      : "mirror-toggle"
+                  }
+                  aria-pressed={includeUnowned}
+                  onClick={() => setIncludeUnowned((v) => !v)}
+                  title="Show parts you have not bought yet in the carousel"
+                >
+                  {includeUnowned
+                    ? "Carousel: all parts"
+                    : "Carousel: owned only"}
+                </button>
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: "0.72rem",
+                    opacity: 0.65,
+                  }}
+                >
+                  {includeUnowned
+                    ? "The carousel includes parts not in your inventory."
+                    : "The carousel shows only parts you own. Buy more in the Shop."}
+                </p>
               </section>
             </>
           )}

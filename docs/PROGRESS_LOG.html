@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-ground" data-date="2026-07-04">
+    <h3>Workshop parts stop clipping the bench floor (user feedback, slice E of 5)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Feedback: the grounding disc and grid sat at a fixed height, so a bot with parts hung under the core clipped through the floor, and the camera-anchored held part sometimes dipped through it too.</dd>
+      <dt>Changed</dt><dd>The grounding disc and grid now sit at <code>groundFloorY(layout)</code>: below the design's lowest part center by a clearance, but never above the single-core base height, so a downward stack cannot clip through and a single-core bot looks unchanged. Extracted the calc as a pure helper in <code>src/components/workshop-drag.ts</code> (with <code>BASE_GROUND_Y</code>/<code>GROUND_CLEARANCE</code>) and unit-tested it. Clamped OrbitControls <code>maxPolarAngle</code> to <code>Math.PI * 0.56</code> so the camera cannot orbit under the floor and reveal the held part dipping through the disc. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.186</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome, full unit suite including 4 new <code>groundFloorY</code> cases (single-core keeps base height, drops below the lowest part by the clearance, ignores upward parts, empty design). <code>pnpm build</code>. Visual sanity capture at 390x760 confirms the default single-core view is unchanged (core and held part clear the grid).</dd>
+      <dt>Assumptions</dt><dd>Clearance 0.5 covers the tallest part's half-height plus margin without measuring per-part colliders (Rule 7: simplest consistent rule). The floor follows part centers, not exact colliders, which is enough because no part's half-height exceeds the clearance. Rule 13: mine tips reviewed, no change (workshop surface). Rule 14: stamp review done, none added (a rendering fix).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change. Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>Remaining in this batch: cascade-remove + refund check (F), carousel redesign (G), button press feel (H). Still open: keyboard-accessible placement (a11y), F-052 (bottom hero tray), F-051 (build/merge stamp).</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-tap-fix" data-date="2026-07-03">
     <h3>Workshop tap no longer places a part (user feedback, slice D of 5)</h3>
     <dl>

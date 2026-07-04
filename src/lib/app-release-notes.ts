@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.185-workshop-tap-fix";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.186-workshop-ground";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.186",
+      date: "2026-07-04",
+      title: "Parts stop clipping the floor",
+      intro: "The bench floor sits under your whole bot now.",
+      changes: [
+        {
+          build,
+          text: "The bench floor drops below your lowest part, so a bot with parts hung under the core no longer clips through the ground, and the camera stops just above the bot so the held part cannot dip under the floor.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.185",
       date: "2026-07-03",

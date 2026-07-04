@@ -40,6 +40,26 @@ export function pickNearestSlot(
   return best;
 }
 
+// The grounding disc sits at least this low (a single-core bot's look), and
+// drops below the design's lowest part so a downward stack never clips it.
+export const BASE_GROUND_Y = -0.78;
+// Clearance below the lowest part center, covering the tallest part's
+// half-height plus a small margin so the ground stays under the geometry.
+export const GROUND_CLEARANCE = 0.5;
+
+/**
+ * Y for the grounding disc and grid: below the lowest part center by a
+ * clearance, but never above the single-core base height. Keeps a downward
+ * stack of parts from clipping through the floor.
+ */
+export function groundFloorY(centers: Iterable<{ y: number }>): number {
+  let minY = 0;
+  for (const center of centers) {
+    if (center.y < minY) minY = center.y;
+  }
+  return Math.min(BASE_GROUND_Y, minY - GROUND_CLEARANCE);
+}
+
 /**
  * Client pixel coordinates to NDC within an element's bounding rect, with
  * the y axis flipped (NDC up is positive, screen down is positive).

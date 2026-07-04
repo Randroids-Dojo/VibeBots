@@ -20,10 +20,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("Placing takes a real drag now.");
+  await expect(dialog).toContainText(
+    "The bench floor sits under your whole bot now.",
+  );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "no longer snaps it onto the nearest slot",
+    "no longer clips through the ground",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -46,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.186", "Parts stop clipping the floor"],
     ["0.1.185", "A tap won't misplace a part"],
     ["0.1.184", "Just drag to build"],
     ["0.1.183", "Merges read at a glance"],

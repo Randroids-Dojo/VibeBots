@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { clientToNdc, pickNearestSlot } from "./workshop-drag";
+import {
+  BASE_GROUND_Y,
+  clientToNdc,
+  GROUND_CLEARANCE,
+  groundFloorY,
+  pickNearestSlot,
+} from "./workshop-drag";
 
 describe("pickNearestSlot", () => {
   it("returns -1 when there are no slots", () => {
@@ -55,5 +61,32 @@ describe("clientToNdc", () => {
     const ndc = clientToNdc(200, 100, offset);
     expect(ndc.x).toBeCloseTo(0);
     expect(ndc.y).toBeCloseTo(0);
+  });
+});
+
+describe("groundFloorY", () => {
+  it("keeps the base height for a single-core bot (no downward parts)", () => {
+    // Core at the origin, wheels at axle height: nothing dips below 0, so the
+    // floor stays at the single-core base height.
+    expect(groundFloorY([{ y: 0 }, { y: 0 }, { y: 0 }])).toBe(BASE_GROUND_Y);
+  });
+
+  it("drops below the lowest part center by the clearance", () => {
+    // A frame plate hung off the core's bottom pushes the floor down so the
+    // stack cannot clip through it.
+    expect(groundFloorY([{ y: 0 }, { y: -0.6 }, { y: -1.2 }])).toBeCloseTo(
+      -1.2 - GROUND_CLEARANCE,
+    );
+  });
+
+  it("ignores parts that only rise above the core", () => {
+    // Upward parts never lower the floor.
+    expect(groundFloorY([{ y: 0 }, { y: 0.8 }, { y: 1.5 }])).toBe(
+      BASE_GROUND_Y,
+    );
+  });
+
+  it("treats an empty design as the base height", () => {
+    expect(groundFloorY([])).toBe(BASE_GROUND_Y);
   });
 });

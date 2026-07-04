@@ -50,7 +50,7 @@ import {
   PULSE_SECONDS,
   snapScale,
 } from "./workshop-animation";
-import { clientToNdc, pickNearestSlot } from "./workshop-drag";
+import { clientToNdc, groundFloorY, pickNearestSlot } from "./workshop-drag";
 
 const CATEGORY_COLORS: Record<PartCategory, string> = {
   core: "#ff9f43",
@@ -380,6 +380,13 @@ function WorkshopScene() {
   const buildActive = useWorkshopStore((s) => s.buildActive);
   const browseDimmed = useWorkshopStore((s) => s.browseDimmed);
   const layout = computeLayout(design);
+  // Drop the grounding disc and grid below the design's lowest part so a
+  // downward stack (frame plates hung off the core's bottom) never clips
+  // through the floor. A single-core bot keeps the default height.
+  const groundY = useMemo(
+    () => groundFloorY(Array.from(layout.values(), (p) => p.position)),
+    [layout],
+  );
   // The hero part rides the Build tab: the one part in hand, dragged onto
   // the bot to place or merge (tap-to-place was removed as redundant).
   const heroDef = buildActive ? PART_CATALOG[browsePartId] : null;
@@ -608,11 +615,16 @@ function WorkshopScene() {
         enableZoom={!grabbing}
         minDistance={2}
         maxDistance={10}
+        // Keep the camera at or above the bot's waist so you cannot orbit
+        // under the floor and see the camera-anchored hero part dip through
+        // the grounding disc.
+        maxPolarAngle={Math.PI * 0.56}
       />
       {/* Grounding disc under the build grid so the bot stops floating
-          in the void; it also catches the key light's shadow. */}
+          in the void; it also catches the key light's shadow. It tracks the
+          design's lowest part so a downward stack never clips through it. */}
       <mesh
-        position={[0, -0.78, 0]}
+        position={[0, groundY, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow
       >
@@ -621,7 +633,7 @@ function WorkshopScene() {
       </mesh>
       <gridHelper
         args={[8, 16, "#26304a", "#1a2133"]}
-        position={[0, -0.75, 0]}
+        position={[0, groundY + 0.03, 0]}
       />
       {heroDef && (
         <HeroPart

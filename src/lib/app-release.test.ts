@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest tap-fix note complete", () => {
+  it("keeps the latest ground-clip note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.185-workshop-tap-fix");
+    expect(release.noticeId).toBe("2026-07-04-0.1.186-workshop-ground");
     expect(latestNote).toMatchObject({
-      version: "0.1.185",
-      title: "A tap won't misplace a part",
-      intro: "Placing takes a real drag now.",
+      version: "0.1.186",
+      title: "Parts stop clipping the floor",
+      intro: "The bench floor sits under your whole bot now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Tapping the part in your hand no longer snaps it onto the nearest slot by accident. Placing a part now takes a deliberate drag onto the spot.",
+      "The bench floor drops below your lowest part, so a bot with parts hung under the core no longer clips through the ground, and the camera stops just above the bot so the held part cannot dip under the floor.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

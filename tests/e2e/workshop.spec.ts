@@ -154,6 +154,56 @@ test("drag the hero part onto the bot places it (N2)", async ({ page }) => {
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
 });
 
+test("drag the hero part onto a twin merges it (N3)", async ({ page }) => {
+  // Place one wheel via the deterministic tap path, then drag the hero
+  // wheel onto that twin: it should level up (no third part appears).
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await selectCarouselPart(page, "Drive Wheel");
+  const carousel = page.getByLabel("Part carousel");
+  await carousel.getByRole("button", { name: "Place" }).click();
+  await page
+    .getByLabel("Placement slots")
+    .getByRole("button", { name: /^Place on/ })
+    .first()
+    .click();
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+
+  // Grab the hero wheel and drag it onto the placed twin (left axle).
+  await page.mouse.move(195, 545);
+  await page.mouse.down();
+  await page.waitForTimeout(80);
+  for (const [x, y] of [
+    [180, 500],
+    [150, 470],
+    [120, 440],
+    [110, 430],
+  ]) {
+    await page.mouse.move(x, y);
+    await page.waitForTimeout(30);
+  }
+  await page.mouse.up();
+
+  // Merged, not added: still two parts, and the wheel is now level 2.
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  const inspector = page.getByRole("region", { name: "Selected part" });
+  await expect(inspector.getByText("Lv 2")).toBeVisible();
+});
+
 test("workshop merges a placed part by arming its twin", async ({ page }) => {
   // Two owned copies: one goes into the placed wheel, the second into the
   // merge that levels it up (matches CI's storage-offline sandbox, F-048).

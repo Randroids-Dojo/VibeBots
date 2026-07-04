@@ -24,6 +24,7 @@ import { type PartInstance, partMergeLevel } from "@/sim/design";
 import { computeLayout, type Placement } from "@/sim/layout";
 import { PART_CATALOG, type PartCategory, type PartDef } from "@/sim/parts";
 import {
+  type PlacementSlot,
   planMergeSelectedPart,
   useWorkshopStore,
   validSlotsFor,
@@ -57,6 +58,12 @@ const CATEGORY_COLORS: Record<PartCategory, string> = {
 // Stable pip keys (one per merge level) so the level markers never key on
 // a bare array index. Length covers MAX_PART_MERGE_LEVEL.
 const MERGE_PIP_IDS = ["i", "ii", "iii"] as const;
+
+// A place to drop the held part while dragging (N2/N3): an empty connector
+// slot to place a new part, or an existing same-kind part to merge into.
+type DragTarget =
+  | { kind: "place"; slot: PlacementSlot; placement: Placement }
+  | { kind: "merge"; iid: string; placement: Placement };
 
 /**
  * One placed part on the bench (W5 feel polish): it pops in when first
@@ -288,13 +295,25 @@ function DragGhost({
   def,
   placement,
   active,
+  merge = false,
 }: {
   def: PartDef;
   placement: Placement;
   active: boolean;
+  merge?: boolean;
 }) {
   const { position, rotation } = placement;
   const surface = CATEGORY_SURFACE[def.category];
+  // Merge targets read gold (matching the W4 merge language); place targets
+  // read in the part's own colour and go white-hot when they are the snap.
+  const color = merge ? "#ffe08a" : CATEGORY_COLORS[def.category];
+  const emissive = merge
+    ? active
+      ? "#fff0b0"
+      : "#ffe08a"
+    : active
+      ? "#ffffff"
+      : CATEGORY_COLORS[def.category];
   return (
     <group
       position={[position.x, position.y, position.z]}
@@ -303,15 +322,15 @@ function DragGhost({
       <mesh rotation={shapeRotation(def.shape)}>
         {partGeometry(def.shape)}
         <meshStandardMaterial
-          color={CATEGORY_COLORS[def.category]}
+          color={color}
           metalness={surface.metalness}
           roughness={surface.roughness}
           flatShading
           transparent
-          opacity={active ? 0.85 : 0.22}
+          opacity={active ? 0.85 : merge ? 0.32 : 0.22}
           depthWrite={active}
-          emissive={active ? "#ffffff" : CATEGORY_COLORS[def.category]}
-          emissiveIntensity={active ? 0.6 : 0.4}
+          emissive={emissive}
+          emissiveIntensity={active ? 0.7 : 0.4}
         />
       </mesh>
     </group>
@@ -353,32 +372,34 @@ function WorkshopScene() {
   );
   const shadows = features.shadows && webgpuBackend;
 
-  // Grab-and-drag placement (N2): pick up the hero part and drop it on the
-  // bot. While dragging, orbit is off, the part rides the finger, and every
-  // valid slot lights up with the one nearest the finger as the snap target.
+  // Grab-and-drag placement (N2) plus drag-to-merge (N3): pick up the hero
+  // part and drop it on the bot. Every valid empty slot is a place target;
+  // every placed same-kind part that can still level up is a gold merge
+  // target (extends W4). The nearest to the finger is the snap target, and
+  // releasing there either places a new part or merges into the twin.
   const browseDef = PART_CATALOG[browsePartId];
   const [dragging, setDragging] = useState(false);
   const pointerNdc = useRef({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(-1);
   const hoveredRef = useRef(-1);
-  const dragSlots = useMemo(
-    () => (dragging ? validSlotsFor(design, browseDef) : []),
-    [dragging, design, browseDef],
-  );
-  const dragSlotsRef = useRef(dragSlots);
-  dragSlotsRef.current = dragSlots;
-  const dragSlotWorld = useMemo(
-    () =>
-      dragSlots.map(
-        (slot) =>
-          computeLayout(slot.next).get(slot.iid)?.position ?? {
-            x: 0,
-            y: 0,
-            z: 0,
-          },
-      ),
-    [dragSlots],
-  );
+  const dragTargets = useMemo<DragTarget[]>(() => {
+    if (!dragging) return [];
+    const baseLayout = computeLayout(design);
+    const targets: DragTarget[] = [];
+    for (const slot of validSlotsFor(design, browseDef)) {
+      const placement = computeLayout(slot.next).get(slot.iid);
+      if (placement) targets.push({ kind: "place", slot, placement });
+    }
+    for (const part of design.parts) {
+      if (part.partId !== browsePartId) continue;
+      if (planMergeSelectedPart(design, part.iid) === null) continue;
+      const placement = baseLayout.get(part.iid);
+      if (placement) targets.push({ kind: "merge", iid: part.iid, placement });
+    }
+    return targets;
+  }, [dragging, design, browseDef, browsePartId]);
+  const dragTargetsRef = useRef(dragTargets);
+  dragTargetsRef.current = dragTargets;
 
   const startDrag = (event: ThreeEvent<PointerEvent>) => {
     if (!buildActive) return;
@@ -405,8 +426,9 @@ function WorkshopScene() {
       // Recompute the snap target from the live pointer at release, so the
       // commit never depends on whether a frame ran for the final move
       // (fast drags can outrun useFrame).
-      const projected = dragSlotWorld.map((point) => {
-        const v = new Vector3(point.x, point.y, point.z).project(camera);
+      const projected = dragTargetsRef.current.map((target) => {
+        const p = target.placement.position;
+        const v = new Vector3(p.x, p.y, p.z).project(camera);
         return { x: v.x, y: v.y, z: v.z };
       });
       const index = pickNearestSlot(
@@ -414,8 +436,11 @@ function WorkshopScene() {
         pointerNdc.current,
         DRAG_SNAP_NDC,
       );
-      const slot = dragSlotsRef.current[index];
-      if (index >= 0 && slot) placeAtSlot(slot);
+      const target = dragTargetsRef.current[index];
+      if (index >= 0 && target) {
+        if (target.kind === "place") placeAtSlot(target.slot);
+        else mergePart(target.iid);
+      }
       setDragging(false);
       setHovered(-1);
       hoveredRef.current = -1;
@@ -428,15 +453,14 @@ function WorkshopScene() {
       window.removeEventListener("pointerup", drop);
       window.removeEventListener("pointercancel", drop);
     };
-  }, [dragging, gl, placeAtSlot, camera, dragSlotWorld]);
+  }, [dragging, gl, placeAtSlot, mergePart, camera]);
 
   const projScratch = useRef(new Vector3());
   useFrame(() => {
     if (!dragging) return;
-    const projected = dragSlotWorld.map((point) => {
-      const v = projScratch.current
-        .set(point.x, point.y, point.z)
-        .project(camera);
+    const projected = dragTargets.map((target) => {
+      const p = target.placement.position;
+      const v = projScratch.current.set(p.x, p.y, p.z).project(camera);
       return { x: v.x, y: v.y, z: v.z };
     });
     const next = pickNearestSlot(projected, pointerNdc.current, DRAG_SNAP_NDC);
@@ -511,18 +535,24 @@ function WorkshopScene() {
         />
       )}
       {dragging &&
-        dragSlots.map((slot, i) => {
-          const placement = computeLayout(slot.next).get(slot.iid);
-          if (!placement) return null;
-          return (
+        dragTargets.map((target, i) =>
+          target.kind === "place" ? (
             <DragGhost
-              key={`drag:${slot.parentIid}:${slot.parentConnector}`}
+              key={`place:${target.slot.parentIid}:${target.slot.parentConnector}`}
               def={browseDef}
-              placement={placement}
+              placement={target.placement}
               active={i === hovered}
             />
-          );
-        })}
+          ) : (
+            <DragGhost
+              key={`merge:${target.iid}`}
+              def={browseDef}
+              placement={target.placement}
+              active={i === hovered}
+              merge
+            />
+          ),
+        )}
       {design.parts.map((instance) => {
         const def = PART_CATALOG[instance.partId];
         const placement = layout.get(instance.iid);

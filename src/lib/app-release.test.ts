@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest drag-to-build note complete", () => {
+  it("keeps the latest drag-to-merge note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.179-workshop-drag");
+    expect(release.noticeId).toBe("2026-07-03-0.1.180-workshop-drag-merge");
     expect(latestNote).toMatchObject({
-      version: "0.1.179",
-      title: "Drag parts onto the bot",
-      intro: "Build by dragging now.",
+      version: "0.1.180",
+      title: "Drag to merge parts",
+      intro: "Level up a part by dragging.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Grab the part in your hand and drag it right onto the bot: every spot it can attach lights up, and the one under your finger snaps in when you let go.",
-      "The bot holds still while you drag, so dropping a part exactly where you want it is easy.",
+      "Drag a part onto a matching one already on your bot and the two merge into a stronger part, right where you drop it, instead of adding another.",
+      "The matching part glows gold while you drag, so you can see the merge coming before you let go.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

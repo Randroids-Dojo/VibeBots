@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.179-workshop-drag";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.180-workshop-drag-merge";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.180",
+      date: "2026-07-03",
+      title: "Drag to merge parts",
+      intro: "Level up a part by dragging.",
+      changes: [
+        {
+          build,
+          text: "Drag a part onto a matching one already on your bot and the two merge into a stronger part, right where you drop it, instead of adding another.",
+        },
+        {
+          build,
+          text: "The matching part glows gold while you drag, so you can see the merge coming before you let go.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.179",
       date: "2026-07-03",

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-drag-merge" data-date="2026-07-03">
+    <h3>Workshop N3: drag onto a twin to merge (direct-manipulation build, slice 3 of 4)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). Third slice of the direct-manipulation build (<code>docs/research/workshop-direct-manipulation.html</code>). In-hand mount rotation was moved into the N4 polish slice (it threads an orientation through the store's placement core and pairs with the feel work); N3 is the merge gesture only.</dd>
+      <dt>Changed</dt><dd>The grab-drag now has two kinds of drop target. Empty connector slots still place a new part; a placed part of the same kind that can still level up is a gold merge target, and dropping the held part on it merges the two (through the existing <code>mergePart</code>) instead of adding a third part, extending the W4 tap-to-merge gesture into the drag. The drag pick is generalised: the canvas builds one <code>DragTarget[]</code> (place slots plus merge twins, each with its world placement), projects them all, and the nearest to the finger wins; the release dispatches place or merge by the target kind. Merge ghosts render in the W4 gold language and go bright when they are the snap target. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.180</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (0 errors), full unit suite passing (the pure drag helper and store merge logic already covered), <code>pnpm build</code>. A new e2e places one wheel via the deterministic tap path then drags the hero wheel onto that twin and asserts the bot stays at two parts while the wheel reaches Lv 2; it and the N2 place-drag pass 3/3 each under <code>--repeat-each</code>. A scripted 390x760 capture confirmed the drop onto a twin merges (two parts, Lv 2, 120 HP) rather than adding a part. The existing W4 tap-to-merge test still guards the deterministic path. Clean-runner branch CI gated the main push.</dd>
+      <dt>Assumptions</dt><dd>Rule 7: one gesture with the drop point choosing the outcome (empty slot places, gold twin merges, nowhere returns), mirroring the tap-to-place and tap-to-merge fallbacks. Rule 10: motion shown by the carried part and gold highlight capture; the N1 turntable motion test still guards the frameloop. Rule 13: mine tips reviewed, no change. Rule 14: stamp review done, none added yet (a build/merge milestone stays deferred to F-051 until the drag feel is complete after N4). Slice discipline: the merge gold highlight can be occluded by the carried part at the moment of drop; making merge targets unmistakable is folded into the N4 attachable-surface polish, not patched here.</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (interaction over the validated tree; merging itself is unchanged). Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>N4 next: attachable-surface polish (pulse valid connectors, free-hardpoint markers, snap-magnet feel, drop pop) plus in-hand mount rotation (a Rotate control threaded through <code>validSlotsFor</code>/<code>placeAtSlot</code> for rigid connectors, previewed on the ghosts). F-052 (bottom hero tray) still open for N4.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-drag-place" data-date="2026-07-03">
     <h3>Workshop N2: grab-and-drag to place (direct-manipulation build, slice 2 of 4)</h3>
     <dl>

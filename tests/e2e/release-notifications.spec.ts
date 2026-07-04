@@ -20,14 +20,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("Build by dragging now.");
+  await expect(dialog).toContainText("Level up a part by dragging.");
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "drag it right onto the bot",
+    "merge into a stronger part",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "bot holds still while you drag",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("glows gold");
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
@@ -49,6 +47,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.180", "Drag to merge parts"],
     ["0.1.179", "Drag parts onto the bot"],
     ["0.1.178", "One part in hand"],
     ["0.1.177", "Workshop feel"],

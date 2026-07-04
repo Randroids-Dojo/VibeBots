@@ -223,11 +223,13 @@ const DRAG_SNAP_NDC = 0.5;
 function HeroPart({
   def,
   dragging,
+  dimmed,
   pointerNdc,
   onGrab,
 }: {
   def: PartDef;
   dragging: boolean;
+  dimmed: boolean;
   pointerNdc: RefObject<{ x: number; y: number }>;
   onGrab: (event: ThreeEvent<PointerEvent>) => void;
 }) {
@@ -264,24 +266,32 @@ function HeroPart({
     canvas.dataset.heroYaw = (yaw.current % (Math.PI * 2)).toFixed(2);
   });
   const surface = CATEGORY_SURFACE[def.category];
+  // Owned-out (P3): render the part gray and non-glowing so it reads as
+  // "you have none", and swallow the grab so it cannot be dragged on,
+  // matching the disabled Place button.
+  const color = dimmed ? "#8b93a6" : CATEGORY_COLORS[def.category];
   return (
     <group
       ref={anchorRef}
       onPointerDown={(event: ThreeEvent<PointerEvent>) => {
         event.stopPropagation();
-        onGrab(event);
+        if (!dimmed) onGrab(event);
       }}
     >
       <group ref={spinRef} scale={dragging ? 0.72 : 0.65}>
         <mesh rotation={shapeRotation(def.shape)}>
           {partGeometry(def.shape)}
           <meshStandardMaterial
-            color={CATEGORY_COLORS[def.category]}
+            color={color}
             metalness={surface.metalness}
-            roughness={surface.roughness}
+            roughness={dimmed ? 0.95 : surface.roughness}
             flatShading
-            emissive={CATEGORY_COLORS[def.category]}
-            emissiveIntensity={surface.emissiveBoost + (dragging ? 0.4 : 0.18)}
+            transparent={dimmed}
+            opacity={dimmed ? 0.72 : 1}
+            emissive={color}
+            emissiveIntensity={
+              dimmed ? 0.12 : surface.emissiveBoost + (dragging ? 0.4 : 0.18)
+            }
           />
         </mesh>
       </group>
@@ -385,6 +395,45 @@ function MergeHalo({ position, active }: { position: Vec3; active: boolean }) {
 }
 
 /**
+ * An idle attach marker (P2, user feedback): a soft pulsing node parked at
+ * a legal slot for the part you are currently viewing, so the bot's open
+ * attach points read at a glance before any drag begins. The full-part
+ * drag ghosts replace these the moment a grab starts.
+ */
+function IdleSlotMarker({
+  position,
+  color,
+}: {
+  position: Vec3;
+  color: string;
+}) {
+  const groupRef = useRef<Group>(null);
+  const matRef = useRef<MeshStandardMaterial>(null);
+  useFrame((state) => {
+    const pulse = Math.sin(state.clock.elapsedTime * 3);
+    groupRef.current?.scale.setScalar(1 + pulse * 0.16);
+    if (matRef.current) matRef.current.emissiveIntensity = 0.7 + pulse * 0.3;
+  });
+  return (
+    <group ref={groupRef} position={[position.x, position.y, position.z]}>
+      <mesh>
+        <sphereGeometry args={[0.1, 16, 16]} />
+        <meshStandardMaterial
+          ref={matRef}
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.7}
+          transparent
+          opacity={0.7}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/**
  * The build bench (workshop glow-up slice, user-reported): the bot under
  * construction gets the arena's material language (shared
  * CATEGORY_SURFACE), a studio light rig with cool and warm accents, the
@@ -402,6 +451,7 @@ function WorkshopScene() {
   const browsePartId = useWorkshopStore((s) => s.browsePartId);
   const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
   const buildActive = useWorkshopStore((s) => s.buildActive);
+  const browseDimmed = useWorkshopStore((s) => s.browseDimmed);
   const layout = computeLayout(design);
   // The hero part rides the Build tab only, and gives way to the ghost
   // preview while a part is armed for placement so the bench reads clean.
@@ -456,8 +506,43 @@ function WorkshopScene() {
   const dragTargetsRef = useRef(dragTargets);
   dragTargetsRef.current = dragTargets;
 
+  // Idle attach markers (P2, user feedback): the moment you are viewing a
+  // part in the carousel, show a soft node at every legal slot so the open
+  // attach points read before any drag. Hidden once a drag or tap-to-place
+  // takes over (their own ghosts show then), and while the part is
+  // owned-out (you cannot place it).
+  const idleSlots = useMemo(() => {
+    if (!buildActive || dragging || armedPartId || browseDimmed || !browseDef) {
+      return [] as { key: string; placement: Placement }[];
+    }
+    const slots: { key: string; placement: Placement }[] = [];
+    for (const slot of validSlotsFor(
+      design,
+      browseDef,
+      PART_CATALOG,
+      browseOrientation,
+    )) {
+      const placement = computeLayout(slot.next).get(slot.iid);
+      if (placement) {
+        slots.push({
+          key: `${slot.parentIid}:${slot.parentConnector}`,
+          placement,
+        });
+      }
+    }
+    return slots;
+  }, [
+    buildActive,
+    dragging,
+    armedPartId,
+    browseDimmed,
+    browseDef,
+    design,
+    browseOrientation,
+  ]);
+
   const startDrag = (event: ThreeEvent<PointerEvent>) => {
-    if (!buildActive) return;
+    if (!buildActive || browseDimmed) return;
     // Drag owns placement; put away any tap-to-place ghosts first.
     armPart(null);
     pointerNdc.current = { x: event.pointer.x, y: event.pointer.y };
@@ -585,10 +670,18 @@ function WorkshopScene() {
         <HeroPart
           def={heroDef}
           dragging={dragging}
+          dimmed={browseDimmed}
           pointerNdc={pointerNdc}
           onGrab={startDrag}
         />
       )}
+      {idleSlots.map((slot) => (
+        <IdleSlotMarker
+          key={`idle:${slot.key}`}
+          position={slot.placement.position}
+          color={CATEGORY_COLORS[browseDef.category]}
+        />
+      ))}
       {dragging &&
         dragTargets.map((target, i) =>
           target.kind === "place" ? (

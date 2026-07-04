@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-browsing-feel" data-date="2026-07-03">
+    <h3>Workshop browsing feel: attach previews, cycle hygiene, owned-out dimming (user feedback, slice A of 2)</h3>
+    <dl>
+      <dt>Branch</dt><dd>Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). First of two feedback slices after the direct-manipulation build shipped; the user asked for a less menu-driven build feel.</dd>
+      <dt>Changed</dt><dd>Three browsing improvements. P1: cycling the carousel to another part now clears any selected placed part and any stale armed part (<code>browseBy</code> in the store), so viewing a new part starts from a clean bench. P2: the bot's open attach points show a soft pulsing node at every legal slot for the part you are currently viewing (new <code>IdleSlotMarker</code>), so the fit reads before any drag; the full-part drag ghosts still take over once a grab starts, and the markers hide while a part is armed or owned-out. P3: a part the shop says you own none of renders the hero grayed and non-glowing (new <code>browseDimmed</code> store flag set by the panel from the same inventory gate the Place button uses) and can no longer be grabbed for a drag, closing the pre-existing N2 gap where the drag path skipped the inventory check that the tap-to-place path enforced. <code>reset</code> now also restores the carousel view state. No sim, schema, <code>SIM_VERSION</code>, or <code>MINE_VERSION</code> change. Package version <code>0.1.182</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome (0 errors), full unit suite (two new store tests: cycling clears selection and arm; the dim flag tracks), <code>pnpm build</code>. A new deterministic e2e places a part, confirms the placed-part inspector shows, then cycles the carousel and confirms the inspector clears (P1). Scripted 390x760 captures confirmed the idle attach node appears for an owned part (P2) and the hero grays with Place disabled for an owned-out part (P3). The N2/N3/N4 drag, merge, and rotate e2es still pass.</dd>
+      <dt>Assumptions</dt><dd>Rule 7: the owned-out rule is one consistent gate. The hero dims, the idle markers hide, the drag is blocked, and the Place button disables all off the same condition (inventory ready and none available). Sandbox and still-loading inventory never dim, since ownership is unknown. Rule 10: the idle marker and hero use per-frame pulse curves; the N1 turntable motion test still guards the frameloop. Rule 13: mine tips reviewed, no change (workshop surface). Rule 14: stamp review done, none added (browsing polish, no new milestone).</dd>
+      <dt>GDD coverage</dt><dd>No requirement rows change (interaction polish over the validated tree). Build log entry added to <code>docs/gdd/02-parts-and-connectors.html</code>.</dd>
+      <dt>Followups</dt><dd>Slice B (next): the merge affordance. The level-dot cue is not intuitive as a merge signal, so add an explicit merge label above a mergeable twin during drag plus a level-up pop on drop that shows the inventory being spent.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-rotate-polish" data-date="2026-07-03">
     <h3>Workshop N4: mount rotation and attach-surface polish (direct-manipulation build, slice 4 of 4, closes the build)</h3>
     <dl>

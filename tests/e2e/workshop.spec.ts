@@ -254,6 +254,42 @@ test("workshop merges a placed part by arming its twin", async ({ page }) => {
   await expect(inspector.getByText("Lv 2")).toBeVisible();
 });
 
+test("cycling the carousel clears the selected placed part (P1)", async ({
+  page,
+}) => {
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.goto("/workshop");
+  await expect(page.locator("canvas")).toBeVisible();
+  await selectCarouselPart(page, "Drive Wheel");
+
+  // Placing selects the new part, so the placed-part inspector (Remove) shows.
+  await page
+    .getByLabel("Part carousel")
+    .getByRole("button", { name: "Place" })
+    .click();
+  await page
+    .getByLabel("Placement slots")
+    .getByRole("button", { name: /^Place on/ })
+    .first()
+    .click();
+  await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
+
+  // Cycling to another part clears the selection, so the inspector goes away.
+  await page
+    .getByLabel("Part carousel")
+    .getByRole("button", { name: "Next part" })
+    .click();
+  await expect(page.getByRole("button", { name: "Remove" })).toBeHidden();
+});
+
 test("rotate the mount orientation before placing (N4)", async ({ page }) => {
   await page.route("**/api/shop", async (route) => {
     await route.fulfill({

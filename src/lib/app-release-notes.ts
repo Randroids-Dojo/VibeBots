@@ -1,9 +1,33 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.181-workshop-rotate-polish";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.182-workshop-browsing";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.182",
+      date: "2026-07-03",
+      title: "See where parts fit",
+      intro: "The bench shows the fit before you drag.",
+      changes: [
+        {
+          build,
+          text: "Open attach points on your bot light up the moment you are viewing a part, so you can see where it fits before dragging.",
+        },
+        {
+          build,
+          text: "Cycling to another part clears the last selection and starts the bench clean.",
+        },
+        {
+          build,
+          text: "A part you own none of shows grayed out and will not drag onto the bot.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.181",
       date: "2026-07-03",

@@ -316,6 +316,24 @@ describe("N1 build carousel", () => {
     store().browseBy(1);
     expect(store().browseOrientation).toBe(0);
   });
+
+  it("clears a selected and armed part when cycling the carousel (P1)", () => {
+    store().select("core");
+    store().armPart(CAROUSEL_PART_IDS[0]);
+    expect(store().selectedIid).toBe("core");
+    expect(store().armedPartId).toBe(CAROUSEL_PART_IDS[0]);
+    store().browseBy(1);
+    expect(store().selectedIid).toBeNull();
+    expect(store().armedPartId).toBeNull();
+  });
+
+  it("tracks the owned-out dim flag for the hero part (P3)", () => {
+    expect(store().browseDimmed).toBe(false);
+    store().setBrowseDimmed(true);
+    expect(store().browseDimmed).toBe(true);
+    store().setBrowseDimmed(false);
+    expect(store().browseDimmed).toBe(false);
+  });
 });
 
 describe("N4 oriented placement", () => {

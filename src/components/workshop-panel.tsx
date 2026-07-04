@@ -145,6 +145,7 @@ export function WorkshopPanel() {
   const browseBy = useWorkshopStore((s) => s.browseBy);
   const rotateBrowse = useWorkshopStore((s) => s.rotateBrowse);
   const setBuildActive = useWorkshopStore((s) => s.setBuildActive);
+  const setBrowseDimmed = useWorkshopStore((s) => s.setBrowseDimmed);
   const history = useWorkshopStore((s) => s.history);
   const armPart = useWorkshopStore((s) => s.armPart);
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
@@ -228,6 +229,13 @@ export function WorkshopPanel() {
   const browsePlaceable =
     (planAddPart(design, browseDef) !== null || browseCanMergeExisting) &&
     browseInventoryAllows;
+
+  // Gray the hero part in the canvas when the shop says you own none to
+  // place (P3, user feedback): matches the disabled Place button exactly.
+  // Sandbox and still-loading states never dim (ownership is unknown).
+  useEffect(() => {
+    setBrowseDimmed(inventory.state === "ready" && browseAvailable <= 0);
+  }, [inventory.state, browseAvailable, setBrowseDimmed]);
 
   if (matchup) {
     return (

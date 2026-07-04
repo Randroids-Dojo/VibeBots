@@ -2,19 +2,20 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest rotate-and-polish note complete", () => {
+  it("keeps the latest browsing-feel note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-03-0.1.181-workshop-rotate-polish");
+    expect(release.noticeId).toBe("2026-07-03-0.1.182-workshop-browsing");
     expect(latestNote).toMatchObject({
-      version: "0.1.181",
-      title: "Turn parts before you place",
-      intro: "Aim a part, and always see where it lands.",
+      version: "0.1.182",
+      title: "See where parts fit",
+      intro: "The bench shows the fit before you drag.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Turn how a part will mount before you place it, using the Rotate control on the part in your hand.",
-      "The spot under your finger pulses as you drag, and a part you can merge into shows a gold marker, so the drop point is always clear.",
+      "Open attach points on your bot light up the moment you are viewing a part, so you can see where it fits before dragging.",
+      "Cycling to another part clears the last selection and starts the bench clean.",
+      "A part you own none of shows grayed out and will not drag onto the bot.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

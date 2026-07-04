@@ -250,11 +250,14 @@ export interface WorkshopState {
   browseOrientation: Orientation;
   /** True while the Build tab is up, so the canvas shows the hero part. */
   buildActive: boolean;
+  /** True when the carousel part is owned-out, so the hero renders grayed. */
+  browseDimmed: boolean;
   addPart: (partId: string) => void;
   armPart: (partId: string | null) => void;
   browseBy: (dir: number) => void;
   rotateBrowse: () => void;
   setBuildActive: (active: boolean) => void;
+  setBrowseDimmed: (dimmed: boolean) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
   mergePart: (iid: string) => void;
   removeSelected: () => void;
@@ -280,6 +283,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   browsePartId: CAROUSEL_PART_IDS[0],
   browseOrientation: 0,
   buildActive: true,
+  browseDimmed: false,
 
   addPart: (partId) => {
     const { history, design } = get();
@@ -300,13 +304,20 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     })),
 
   // Step the build carousel to the next/previous non-core part, wrapping
-  // at the ends so the list is a loop (N1). A fresh part starts unrotated.
+  // at the ends so the list is a loop (N1). A fresh part starts unrotated,
+  // and cycling clears any selected placed part and stale armed part so
+  // viewing a new part starts from a clean bench (user feedback).
   browseBy: (dir) =>
     set((s) => {
       const list = CAROUSEL_PART_IDS;
       const index = list.indexOf(s.browsePartId);
       const next = (index + dir + list.length) % list.length;
-      return { browsePartId: list[next], browseOrientation: 0 };
+      return {
+        browsePartId: list[next],
+        browseOrientation: 0,
+        selectedIid: null,
+        armedPartId: null,
+      };
     }),
 
   // Cycle the carousel part's mount orientation a quarter turn (N4). Only
@@ -317,6 +328,8 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     })),
 
   setBuildActive: (active) => set({ buildActive: active }),
+
+  setBrowseDimmed: (dimmed) => set({ browseDimmed: dimmed }),
 
   // Commit the exact connection the tapped ghost (or slot button) named,
   // rebuilt against the live design so it cannot land a stale placement.
@@ -447,5 +460,8 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
       selectedIid: null,
       armedPartId: null,
+      browsePartId: CAROUSEL_PART_IDS[0],
+      browseOrientation: 0,
+      browseDimmed: false,
     }),
 }));

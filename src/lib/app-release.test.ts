@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest mirror-mode note complete", () => {
+  it("keeps the latest armor-and-bar note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.193-mirror-mode");
+    expect(release.noticeId).toBe("2026-07-04-0.1.194-armor-and-bar");
     expect(latestNote).toMatchObject({
-      version: "0.1.193",
-      title: "Mirror mode",
-      intro: "Build balanced bots in half the drags.",
+      version: "0.1.194",
+      title: "Armor and a bar spinner",
+      intro: "Two new parts in the shop.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Turn on Mirror in the Build tab and placing a part on one side of the core drops its twin on the other side too, so a symmetric bot comes together in one drag.",
+      "The shop now stocks a Hardened Plate, a tough heavy armor deck that soaks hits before they reach the core, and a Spinner Bar, a dense steel bar that mounts on a Spin Mount and hits harder than the saw disc at the cost of more power to spin.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

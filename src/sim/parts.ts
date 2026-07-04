@@ -447,6 +447,51 @@ export const SAW_BLADE: PartDef = {
   ],
 };
 
+// A2 hardened plate (M): a thick, heavy steel deck that soaks hits before
+// they reach the core. High durability for its size, no power cost, and it
+// extends the connector surface like a frame plate but much tougher (and
+// heavier, so it trades top speed for protection). BattleBots armor archetype.
+export const HARDENED_PLATE: PartDef = {
+  id: "hardened-plate",
+  name: "Hardened Plate",
+  category: "structure",
+  shape: { type: "cuboid", hx: 0.28, hy: 0.08, hz: 0.28 },
+  density: 3.6,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 320,
+  priceEmeralds: 18,
+  connectors: [
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.08, z: 0 } },
+    { id: "bottom", kind: "rigid", position: { x: 0, y: -0.08, z: 0 } },
+  ],
+};
+
+// W2 horizontal bar spinner (M): a dense steel bar on the spin mount's
+// constant-velocity spindle, same footprint as the saw disc but heavier, so
+// it hits harder at the cost of more power to spin. The Tombstone/Icewave
+// archetype in bar form (a distinct silhouette from the round Saw Blade).
+export const SPINNER_BAR: PartDef = {
+  id: "spinner-bar",
+  name: "Spinner Bar",
+  category: "weapon",
+  shape: { type: "cuboid", hx: 0.28, hy: 0.06, hz: 0.08 },
+  density: 6.5,
+  powerDraw: 36,
+  powerSupply: 0,
+  durability: 150,
+  priceEmeralds: 20,
+  connectors: [
+    {
+      id: "hub",
+      kind: "axle",
+      motor: "spin",
+      position: { x: 0, y: 0, z: 0.06 },
+      axis: { x: 0, y: 0, z: 1 },
+    },
+  ],
+};
+
 export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
   [
     CORE_CUBE,
@@ -464,5 +509,7 @@ export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
     MAST_POLE,
     SPIN_MOUNT,
     SAW_BLADE,
+    HARDENED_PLATE,
+    SPINNER_BAR,
   ].map((p) => [p.id, p]),
 );

@@ -61,7 +61,8 @@
         "src/sim/assembly.test.ts",
         "src/state/workshop-store.test.ts",
         "tests/e2e/workshop.spec.ts",
-        "src/sim/blueprints.test.ts"
+        "src/sim/blueprints.test.ts",
+        "src/sim/parts.test.ts"
       ],
       "followupRefs": [
         "F-053"

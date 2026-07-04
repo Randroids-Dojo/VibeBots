@@ -110,8 +110,8 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-04-0.1.193-mirror-mode",
-      releaseSummary: "Mirror mode: Build balanced bots in half the drags.",
+      releaseNoticeId: "2026-07-04-0.1.194-armor-and-bar",
+      releaseSummary: "Armor and a bar spinner: Two new parts in the shop.",
     });
   });
 
@@ -171,7 +171,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-04-0.1.193-mirror-mode",
+      releaseNoticeId: "2026-07-04-0.1.194-armor-and-bar",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.193-mirror-mode";
+export const RELEASE_NOTICE_ID = "2026-07-04-0.1.194-armor-and-bar";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.194",
+      date: "2026-07-04",
+      title: "Armor and a bar spinner",
+      intro: "Two new parts in the shop.",
+      changes: [
+        {
+          build,
+          text: "The shop now stocks a Hardened Plate, a tough heavy armor deck that soaks hits before they reach the core, and a Spinner Bar, a dense steel bar that mounts on a Spin Mount and hits harder than the saw disc at the cost of more power to spin.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.193",
       date: "2026-07-04",

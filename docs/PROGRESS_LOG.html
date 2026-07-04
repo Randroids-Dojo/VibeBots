@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="armor-and-bar-spinner" data-date="2026-07-04">
+    <h3>New parts: hardened plate and spinner bar (slice M, workshop overhaul)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>workshop-m-parts</code>, from <code>origin/main</code>. Verified on a temporary CI branch, then fast-forwarded to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None (direct main). BattleBots armor (A2 hardened plate) and weapon (W2 horizontal bar) archetypes, to give the chassis variants more build diversity.</dd>
+      <dt>Changed</dt><dd>Two additive part definitions in <code>src/sim/parts.ts</code>, registered in <code>PART_CATALOG</code>: <code>HARDENED_PLATE</code> (structure; thick heavy steel deck, durability 320, no power cost, mounts flush like a frame plate but far tougher and heavier) and <code>SPINNER_BAR</code> (weapon; a dense steel bar that mounts on a Spin Mount spindle like the saw, heavier than the saw disc so the contact-force model rewards it more, power draw 36). Both are non-core with a price, so they auto-appear in the build carousel and the shop with no UI change. Combat treats them generically (it keys off <code>category === "weapon"</code>, not part ids), so this is pure catalog data: <code>SIM_VERSION</code> stays <code>4</code> and <code>MINE_VERSION</code> stays <code>50</code> (matching the earlier additive-parts precedent). Package version <code>0.1.194</code>.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, tsc, Biome, purity, new <code>src/sim/parts.test.ts</code> (both parts registered and sold; the plate outlasts a frame plate and the bar outweighs the saw disc; a cube bot carrying both validates; <code>assembleBot</code> builds six bodies with the bar on its own spin motor), release and notification unit tests updated, full unit suite (646), <code>pnpm build</code>. A pre-slice probe confirmed the geometry validates (no overlap) before the parts were added.</dd>
+      <dt>Assumptions</dt><dd>New parts are additive catalog data only; existing designs and replays are untouched, so no <code>SIM_VERSION</code> bump. The Spinner Bar keeps the saw's mounting footprint (same reach) and differs by mass and power, a legible "heavier hits, more power" tradeoff. Rule 13: mine surface tips reviewed against the shipment, no change (the tips are mining-mechanic copy; new bot parts touch no mine rule). Rule 14: stamp review done, none added; a "first spinner knockout" style stamp would need combat to record the finishing weapon, which is a larger progress-plumbing change (candidate followup, not this slice).</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/02-parts-and-connectors.html</code> gained a build-log entry. <code>docs/GDD_COVERAGE.json</code> REQ-003 (varied silhouettes) gained the parts test ref.</dd>
+      <dt>Followups</dt><dd>This closes the planned workshop-overhaul slice sequence (I through M). Remaining research-backed ideas stay in the AAA backlog: auto-focus/fit camera, a shared audio system (F-050), and more weapon archetypes (drum, flipper, crusher) that would want real combat-behavior work.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mirror-placement" data-date="2026-07-04">
     <h3>Mirror placement mode (slice L, workshop overhaul)</h3>
     <dl>

@@ -82,70 +82,94 @@ export function WorkshopPanel() {
     state: "loading",
   });
   const [tab, setTab] = useState<"build" | "tune" | "garage" | "shop">("build");
-  // Bot-first sheet (N): the tab controls live in a bottom sheet the player
-  // can collapse (tap the handle or drag it down) to reveal the whole bot.
-  // Build defaults collapsed so the bot, carousel, and hero-drag band stay
-  // clear (direct manipulation); the menu tabs default open.
-  const [sheetCollapsed, setSheetCollapsed] = useState(true);
-  const [sheetDragY, setSheetDragY] = useState(0);
+  // Bot-first sheet (N): the tab controls live in a bottom sheet over the bot.
+  // Open/closed is one clean state. Tapping the active tab or the handle
+  // toggles it; tapping another tab switches to it and keeps it open; dragging
+  // the handle down closes and up opens, with the content sliding live under
+  // the finger. Build lands closed so the bot and hero-drag band stay clear.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  // While dragging, preview the slide with a transform: `dy` is the finger
+  // travel and `h` the open content height measured at drag start.
+  const [sheetDrag, setSheetDrag] = useState<{ dy: number; h: number } | null>(
+    null,
+  );
   // Lift the bot up in the canvas (O) by how much an open menu sheet covers,
   // so a tall menu (Garage/Tune/Shop) does not hide the bot behind it. Build
   // is excluded: its sheet is short and its hero-drag band must stay put.
   const [menuLift, setMenuLift] = useState(0);
   const panelsRef = useRef<HTMLDivElement | null>(null);
-  const sheetDrag = useRef<{
+  const dragRef = useRef<{
     pointerId: number;
     y: number;
     dy: number;
+    h: number;
     moved: boolean;
   } | null>(null);
 
+  const contentHeight = () =>
+    Math.min(
+      panelsRef.current?.scrollHeight ?? 0,
+      (window.innerHeight || 1) * 0.52,
+    );
+
   const onSheetHandleDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
-    sheetDrag.current = {
+    dragRef.current = {
       pointerId: e.pointerId,
       y: e.clientY,
       dy: 0,
+      h: 0,
       moved: false,
     };
   };
   const onSheetHandleMove = (e: React.PointerEvent) => {
-    const s = sheetDrag.current;
+    const s = dragRef.current;
     if (!s || s.pointerId !== e.pointerId) return;
     s.dy = e.clientY - s.y;
     if (!s.moved && Math.abs(s.dy) > 8) {
       s.moved = true;
+      s.h = contentHeight();
       e.currentTarget.setPointerCapture?.(e.pointerId);
     }
-    // Only a downward pull on the expanded sheet moves it (collapse gesture).
-    if (s.moved && !sheetCollapsed) {
+    if (s.moved) {
       e.preventDefault();
-      setSheetDragY(Math.max(0, s.dy));
+      setSheetDrag({ dy: s.dy, h: s.h });
     }
   };
   const onSheetHandleUp = (e: React.PointerEvent) => {
-    const s = sheetDrag.current;
-    sheetDrag.current = null;
-    setSheetDragY(0);
+    const s = dragRef.current;
+    dragRef.current = null;
+    setSheetDrag(null);
     if (!s || s.pointerId !== e.pointerId) return;
     if (!s.moved) {
-      // A tap toggles the sheet either way.
-      setSheetCollapsed((c) => !c);
+      setSheetOpen((o) => !o); // a tap toggles either way
       return;
     }
-    // A real drag down past the threshold collapses an open sheet.
-    if (!sheetCollapsed && s.dy > 60) setSheetCollapsed(true);
+    if (sheetOpen && s.dy > 60)
+      setSheetOpen(false); // drag down closes
+    else if (!sheetOpen && s.dy < -60) setSheetOpen(true); // drag up opens
+    // otherwise it snaps back to where it was
   };
   const onSheetHandleCancel = () => {
-    sheetDrag.current = null;
-    setSheetDragY(0);
+    dragRef.current = null;
+    setSheetDrag(null);
+  };
+
+  const selectTab = (id: "build" | "tune" | "garage" | "shop") => {
+    // Tapping the active tab toggles the sheet; tapping another tab switches
+    // to it and keeps the sheet open (switching never closes it).
+    if (id === tab) setSheetOpen((o) => !o);
+    else {
+      setTab(id);
+      setSheetOpen(true);
+    }
   };
 
   useEffect(() => {
     // Build's hero-drag band must never shift, and its sheet is short, so it
     // never lifts. On the menu tabs, lift so the bot centers in the space
     // above the open sheet; a taller menu covers more, so it lifts more.
-    if (sheetCollapsed || tab === "build") {
+    if (!sheetOpen || tab === "build") {
       setMenuLift(0);
       return;
     }
@@ -158,7 +182,7 @@ export function WorkshopPanel() {
     // not in the whole upper area, so lifting never tucks it behind the header.
     const lift = (peekPx + contentPx - headerPx) / (2 * vh);
     setMenuLift(Math.max(0, Math.min(0.22, lift)));
-  }, [sheetCollapsed, tab]);
+  }, [sheetOpen, tab]);
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -532,14 +556,21 @@ export function WorkshopPanel() {
       </header>
 
       <div
-        className={
-          sheetCollapsed
-            ? "workshop-sheet workshop-sheet-collapsed"
-            : "workshop-sheet"
-        }
+        className={`workshop-sheet${sheetOpen ? "" : " workshop-sheet-collapsed"}${
+          sheetDrag ? " workshop-sheet-dragging" : ""
+        }`}
         style={
-          sheetDragY > 0
-            ? { transform: `translateY(${sheetDragY}px)`, transition: "none" }
+          sheetDrag
+            ? {
+                transform: `translateY(${Math.max(
+                  0,
+                  Math.min(
+                    sheetDrag.h,
+                    (sheetOpen ? 0 : sheetDrag.h) + sheetDrag.dy,
+                  ),
+                )}px)`,
+                transition: "none",
+              }
             : undefined
         }
       >
@@ -547,11 +578,11 @@ export function WorkshopPanel() {
           type="button"
           className="workshop-sheet-handle"
           aria-label={
-            sheetCollapsed
-              ? "Show the workshop controls"
-              : "Hide the controls to see the bot"
+            sheetOpen
+              ? "Hide the controls to see the bot"
+              : "Show the workshop controls"
           }
-          aria-expanded={!sheetCollapsed}
+          aria-expanded={sheetOpen}
           onPointerDown={onSheetHandleDown}
           onPointerMove={onSheetHandleMove}
           onPointerUp={onSheetHandleUp}
@@ -559,7 +590,7 @@ export function WorkshopPanel() {
         >
           <span className="workshop-sheet-grip" />
           <span className="workshop-sheet-hint">
-            {sheetCollapsed ? "▲ controls" : "▼ see bot"}
+            {sheetOpen ? "▼ see bot" : "▲ controls"}
           </span>
         </button>
 
@@ -574,11 +605,7 @@ export function WorkshopPanel() {
               type="button"
               role="tab"
               aria-selected={tab === id}
-              onClick={() => {
-                setTab(id);
-                // The menu tabs open on select; Build stays bot-first.
-                setSheetCollapsed(id === "build");
-              }}
+              onClick={() => selectTab(id)}
               className={tab === id ? "workshop-tab-active" : undefined}
             >
               {label}
@@ -590,6 +617,11 @@ export function WorkshopPanel() {
           ref={panelsRef}
           className="workshop-build-panels"
           aria-label="Workshop build controls"
+          style={
+            sheetDrag
+              ? { maxHeight: sheetDrag.h, transition: "none" }
+              : undefined
+          }
         >
           {tab === "build" && (
             <>

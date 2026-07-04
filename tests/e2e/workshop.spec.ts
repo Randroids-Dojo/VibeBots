@@ -428,26 +428,89 @@ test("workshop tabs keep panels on-screen on portrait phones", async ({
   await expect(page.getByLabel("Part carousel")).not.toBeVisible();
 });
 
-test("bot-first sheet collapses to reveal the bot (N)", async ({ page }) => {
+test("sheet: tab and handle toggle, switching keeps it open (N)", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 760 });
   await page.goto("/workshop");
   const sheet = page.locator(".workshop-sheet");
   const handle = page.locator(".workshop-sheet-handle");
+  const build = page.getByRole("tab", { name: "Build" });
+  const garage = page.getByRole("tab", { name: "Garage" });
+  const tune = page.getByRole("tab", { name: "Tune" });
   await expect(sheet).toBeVisible();
-  // Build lands collapsed so the bot is the hero, not a stack of menus.
+  // Build lands closed so the bot is the hero, not a stack of menus.
   await expect(sheet).toHaveClass(/workshop-sheet-collapsed/);
-  // The tab bar still peeks when collapsed, so tabs stay reachable.
-  await expect(page.getByRole("tab", { name: "Garage" })).toBeVisible();
-  // Tapping the handle opens the Build controls.
-  await handle.click();
+
+  // Tapping the active tab always toggles the sheet: open, then closed.
+  await build.click();
   await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
   await expect(page.getByRole("region", { name: "Chassis" })).toBeVisible();
-  // A menu tab opens the sheet on select; collapsing it reveals the whole bot.
-  await page.getByRole("tab", { name: "Garage" }).click();
+  await build.click();
+  await expect(sheet).toHaveClass(/workshop-sheet-collapsed/);
+
+  // Tapping a different tab opens and switches to it.
+  await garage.click();
   await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
   await expect(page.getByRole("region", { name: "Blueprints" })).toBeVisible();
-  await handle.click();
+  // Tapping ANOTHER tab while open switches without closing (never toggles).
+  await tune.click();
+  await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
+  await expect(page.getByLabel("Temperament")).toBeVisible();
+  // Tapping the now-active tab toggles it closed.
+  await tune.click();
   await expect(sheet).toHaveClass(/workshop-sheet-collapsed/);
+
+  // The handle toggles too.
+  await handle.click();
+  await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
+});
+
+test("sheet drag: down closes, up opens (N)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const sheet = page.locator(".workshop-sheet");
+  const handle = page.locator(".workshop-sheet-handle");
+  // Open a menu tab so the sheet has content to slide.
+  await page.getByRole("tab", { name: "Garage" }).click();
+  await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
+
+  // Drive the drag by dispatching pointer events straight at the handle. A
+  // real finger keeps events on the handle via pointer capture, but a
+  // synthetic mouse drag that leaves the small handle loses that capture, so
+  // dispatching on the element is the deterministic way to exercise the
+  // handler's open/close thresholds.
+  const dragHandle = (delta: number) =>
+    handle.evaluate((el, dy) => {
+      const target = el as HTMLElement & {
+        setPointerCapture: (id: number) => void;
+      };
+      const orig = target.setPointerCapture;
+      target.setPointerCapture = () => {};
+      const y0 = 300;
+      const fire = (type: string, y: number) =>
+        el.dispatchEvent(
+          new PointerEvent(type, {
+            pointerId: 1,
+            clientX: 120,
+            clientY: y,
+            button: 0,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      fire("pointerdown", y0);
+      for (let i = 1; i <= 6; i++) fire("pointermove", y0 + (dy * i) / 6);
+      fire("pointerup", y0 + dy);
+      target.setPointerCapture = orig;
+    }, delta);
+
+  // Drag the handle down past the threshold to close it.
+  await dragHandle(140);
+  await expect(sheet).toHaveClass(/workshop-sheet-collapsed/);
+  // Drag the handle up to open it again.
+  await dragHandle(-140);
+  await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
 });
 
 test("the bot lifts above an open menu sheet (O)", async ({ page }) => {
@@ -464,7 +527,7 @@ test("the bot lifts above an open menu sheet (O)", async ({ page }) => {
   // Opening a tall menu tab lifts the bot up into the band above the sheet.
   await page.getByRole("tab", { name: "Garage" }).click();
   await expect.poll(lift).toBeGreaterThan(0.05);
-  // Returning to Build releases the lift, restoring the drag band.
+  // Build never lifts (lift 0), even with its own controls open.
   await page.getByRole("tab", { name: "Build" }).click();
   await expect.poll(lift).toBe(0);
 });

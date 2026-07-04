@@ -305,6 +305,17 @@ button:focus-visible {
   pointer-events: none;
 }
 
+/* While dragging, the sheet previews the slide with a transform and the panel
+ * is shown at full height (max-height set inline), so the content must be
+ * visible even from the collapsed state. This rule must follow the collapsed
+ * rule so it wins on equal specificity. */
+.workshop-sheet-dragging .workshop-build-panels {
+  opacity: 1;
+  overflow: hidden;
+  pointer-events: auto;
+  padding: 8px 2px;
+}
+
 /* Part inspector chip (W3): floats near the bottom of the bench, in the
  * clear band below the bot on portrait, so a selected part's stats and
  * its Rotate/Merge/Remove actions sit under the thumb. */

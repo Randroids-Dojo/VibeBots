@@ -110,8 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-03-0.1.180-workshop-drag-merge",
-      releaseSummary: "Drag to merge parts: Level up a part by dragging.",
+      releaseNoticeId: "2026-07-03-0.1.181-workshop-rotate-polish",
+      releaseSummary:
+        "Turn parts before you place: Aim a part, and always see where it lands.",
     });
   });
 
@@ -171,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-03-0.1.180-workshop-drag-merge",
+      releaseNoticeId: "2026-07-03-0.1.181-workshop-rotate-polish",
       attempted: 2,
       sent: 1,
       expired: 1,

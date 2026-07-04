@@ -298,4 +298,44 @@ describe("N1 build carousel", () => {
     store().setBuildActive(true);
     expect(store().buildActive).toBe(true);
   });
+
+  it("cycles the mount orientation a quarter turn and wraps (N4)", () => {
+    expect(store().browseOrientation).toBe(0);
+    store().rotateBrowse();
+    expect(store().browseOrientation).toBe(90);
+    store().rotateBrowse();
+    store().rotateBrowse();
+    expect(store().browseOrientation).toBe(270);
+    store().rotateBrowse();
+    expect(store().browseOrientation).toBe(0);
+  });
+
+  it("resets the mount orientation when browsing to another part (N4)", () => {
+    store().rotateBrowse();
+    expect(store().browseOrientation).toBe(90);
+    store().browseBy(1);
+    expect(store().browseOrientation).toBe(0);
+  });
+});
+
+describe("N4 oriented placement", () => {
+  it("applies a rigid mount orientation to the resulting slots", () => {
+    const framePlate = PART_CATALOG["frame-plate"];
+    const slots = validSlotsFor(STARTER_DESIGN, framePlate, PART_CATALOG, 90);
+    expect(slots.length).toBeGreaterThan(0);
+    // Frame Plate mounts on the core's rigid faces, so every slot carries
+    // the requested quarter turn and the built design still validates.
+    for (const slot of slots) {
+      expect(slot.orientation).toBe(90);
+      expect(validateDesign(slot.next).ok).toBe(true);
+    }
+  });
+
+  it("ignores orientation on axle mounts (a rotated wheel still places)", () => {
+    const slots = validSlotsFor(STARTER_DESIGN, DRIVE_WHEEL, PART_CATALOG, 90);
+    expect(slots.length).toBeGreaterThan(0);
+    for (const slot of slots) {
+      expect(slot.orientation).toBe(0);
+    }
+  });
 });

@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-03-0.1.180-workshop-drag-merge";
+export const RELEASE_NOTICE_ID = "2026-07-03-0.1.181-workshop-rotate-polish";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.181",
+      date: "2026-07-03",
+      title: "Turn parts before you place",
+      intro: "Aim a part, and always see where it lands.",
+      changes: [
+        {
+          build,
+          text: "Turn how a part will mount before you place it, using the Rotate control on the part in your hand.",
+        },
+        {
+          build,
+          text: "The spot under your finger pulses as you drag, and a part you can merge into shows a gold marker, so the drop point is always clear.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.180",
       date: "2026-07-03",

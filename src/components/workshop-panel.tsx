@@ -141,7 +141,9 @@ export function WorkshopPanel() {
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const armedPartId = useWorkshopStore((s) => s.armedPartId);
   const browsePartId = useWorkshopStore((s) => s.browsePartId);
+  const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
   const browseBy = useWorkshopStore((s) => s.browseBy);
+  const rotateBrowse = useWorkshopStore((s) => s.rotateBrowse);
   const setBuildActive = useWorkshopStore((s) => s.setBuildActive);
   const history = useWorkshopStore((s) => s.history);
   const armPart = useWorkshopStore((s) => s.armPart);
@@ -193,7 +195,9 @@ export function WorkshopPanel() {
     (inventory.state === "ready" && selectedAvailableAfterUse > 0);
   const mergeEnabled = selectedMergePlan !== null && mergeInventoryAllows;
   const armedDef = armedPartId ? PART_CATALOG[armedPartId] : null;
-  const placementSlots = armedDef ? validSlotsFor(design, armedDef) : [];
+  const placementSlots = armedDef
+    ? validSlotsFor(design, armedDef, PART_CATALOG, browseOrientation)
+    : [];
   // Merge targets for the armed part: placed copies that can still level
   // up. Tapping one spends the armed copy on a merge instead of a place.
   const mergeTargets = armedDef
@@ -570,42 +574,64 @@ export function WorkshopPanel() {
                   {"▶"}
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => armPart(browsePartId)}
-                disabled={!browsePlaceable && !browseArmed}
-                aria-pressed={browseArmed}
-                title={
-                  browseArmed
-                    ? "Stop placing"
-                    : inventory.state === "loading"
-                      ? "Checking inventory"
-                      : inventory.state === "ready" && browseAvailable <= 0
-                        ? "None owned"
-                        : "Show placement spots"
-                }
-                style={{
-                  width: "100%",
-                  cursor:
-                    browsePlaceable || browseArmed ? "pointer" : "not-allowed",
-                  background: browseArmed
-                    ? "#54e0c7"
-                    : browsePlaceable
-                      ? "#26304a"
-                      : "#161b28",
-                  color: browseArmed
-                    ? "#0b0e14"
-                    : browsePlaceable
-                      ? "#e6e8ee"
-                      : "#5a6378",
-                  border: "1px solid #344061",
-                  borderRadius: 6,
-                  padding: "7px 10px",
-                  fontWeight: 600,
-                }}
-              >
-                {browseArmed ? "Cancel" : "Place"}
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => armPart(browsePartId)}
+                  disabled={!browsePlaceable && !browseArmed}
+                  aria-pressed={browseArmed}
+                  title={
+                    browseArmed
+                      ? "Stop placing"
+                      : inventory.state === "loading"
+                        ? "Checking inventory"
+                        : inventory.state === "ready" && browseAvailable <= 0
+                          ? "None owned"
+                          : "Show placement spots"
+                  }
+                  style={{
+                    flex: 1,
+                    cursor:
+                      browsePlaceable || browseArmed
+                        ? "pointer"
+                        : "not-allowed",
+                    background: browseArmed
+                      ? "#54e0c7"
+                      : browsePlaceable
+                        ? "#26304a"
+                        : "#161b28",
+                    color: browseArmed
+                      ? "#0b0e14"
+                      : browsePlaceable
+                        ? "#e6e8ee"
+                        : "#5a6378",
+                    border: "1px solid #344061",
+                    borderRadius: 6,
+                    padding: "7px 10px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {browseArmed ? "Cancel" : "Place"}
+                </button>
+                <button
+                  type="button"
+                  onClick={rotateBrowse}
+                  aria-label={`Rotate mount, currently ${browseOrientation} degrees`}
+                  title="Turn how this part mounts (rigid mounts only)"
+                  style={{
+                    flex: "0 0 auto",
+                    background: "#26304a",
+                    color: "#e6e8ee",
+                    border: "1px solid #344061",
+                    borderRadius: 6,
+                    padding: "7px 12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {`Rotate ${browseOrientation}°`}
+                </button>
+              </div>
             </section>
           </>
         )}

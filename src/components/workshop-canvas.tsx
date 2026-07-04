@@ -22,7 +22,12 @@ import {
 } from "@/components/part-visuals";
 import { type PartInstance, partMergeLevel } from "@/sim/design";
 import { computeLayout, type Placement } from "@/sim/layout";
-import { PART_CATALOG, type PartCategory, type PartDef } from "@/sim/parts";
+import {
+  PART_CATALOG,
+  type PartCategory,
+  type PartDef,
+  type Vec3,
+} from "@/sim/parts";
 import {
   type PlacementSlot,
   planMergeSelectedPart,
@@ -302,6 +307,18 @@ function DragGhost({
   active: boolean;
   merge?: boolean;
 }) {
+  const groupRef = useRef<Group>(null);
+  const matRef = useRef<MeshStandardMaterial>(null);
+  // Snap-magnet feel (N4): the target under the finger breathes its scale
+  // and emissive so it reads as "this is where it lands"; the rest hold
+  // still and faint.
+  useFrame((state) => {
+    const wobble = Math.sin(state.clock.elapsedTime * 6);
+    groupRef.current?.scale.setScalar(active ? 1 + wobble * 0.05 : 1);
+    if (matRef.current) {
+      matRef.current.emissiveIntensity = active ? 0.7 + wobble * 0.25 : 0.4;
+    }
+  });
   const { position, rotation } = placement;
   const surface = CATEGORY_SURFACE[def.category];
   // Merge targets read gold (matching the W4 merge language); place targets
@@ -316,12 +333,14 @@ function DragGhost({
       : CATEGORY_COLORS[def.category];
   return (
     <group
+      ref={groupRef}
       position={[position.x, position.y, position.z]}
       quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
     >
       <mesh rotation={shapeRotation(def.shape)}>
         {partGeometry(def.shape)}
         <meshStandardMaterial
+          ref={matRef}
           color={color}
           metalness={surface.metalness}
           roughness={surface.roughness}
@@ -331,6 +350,34 @@ function DragGhost({
           depthWrite={active}
           emissive={emissive}
           emissiveIntensity={active ? 0.7 : 0.4}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * A floating gold marker over a merge twin (N4). The gold ghost can be
+ * hidden behind the carried part at the moment of the drop, so this bead
+ * rides above the twin as an always-visible "drop here to merge" cue,
+ * bobbing when it is the snap target.
+ */
+function MergeHalo({ position, active }: { position: Vec3; active: boolean }) {
+  const ref = useRef<Group>(null);
+  useFrame((state) => {
+    const bob = Math.sin(state.clock.elapsedTime * 5);
+    ref.current?.scale.setScalar(active ? 1.1 + bob * 0.18 : 0.85);
+  });
+  return (
+    <group ref={ref} position={[position.x, position.y + 0.5, position.z]}>
+      <mesh>
+        <sphereGeometry args={[0.12, 16, 16]} />
+        <meshStandardMaterial
+          color="#ffe08a"
+          emissive="#ffe08a"
+          emissiveIntensity={active ? 1.3 : 0.8}
+          toneMapped={false}
+          depthTest={false}
         />
       </mesh>
     </group>
@@ -353,6 +400,7 @@ function WorkshopScene() {
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
   const mergePart = useWorkshopStore((s) => s.mergePart);
   const browsePartId = useWorkshopStore((s) => s.browsePartId);
+  const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
   const buildActive = useWorkshopStore((s) => s.buildActive);
   const layout = computeLayout(design);
   // The hero part rides the Build tab only, and gives way to the ghost
@@ -362,7 +410,9 @@ function WorkshopScene() {
   // Placement ghosts: one translucent preview at each legal slot for the
   // armed part, tappable to commit that exact connection (W2).
   const armedDef = armedPartId ? PART_CATALOG[armedPartId] : null;
-  const ghostSlots = armedDef ? validSlotsFor(design, armedDef) : [];
+  const ghostSlots = armedDef
+    ? validSlotsFor(design, armedDef, PART_CATALOG, browseOrientation)
+    : [];
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -386,7 +436,12 @@ function WorkshopScene() {
     if (!dragging) return [];
     const baseLayout = computeLayout(design);
     const targets: DragTarget[] = [];
-    for (const slot of validSlotsFor(design, browseDef)) {
+    for (const slot of validSlotsFor(
+      design,
+      browseDef,
+      PART_CATALOG,
+      browseOrientation,
+    )) {
       const placement = computeLayout(slot.next).get(slot.iid);
       if (placement) targets.push({ kind: "place", slot, placement });
     }
@@ -397,7 +452,7 @@ function WorkshopScene() {
       if (placement) targets.push({ kind: "merge", iid: part.iid, placement });
     }
     return targets;
-  }, [dragging, design, browseDef, browsePartId]);
+  }, [dragging, design, browseDef, browsePartId, browseOrientation]);
   const dragTargetsRef = useRef(dragTargets);
   dragTargetsRef.current = dragTargets;
 
@@ -544,13 +599,18 @@ function WorkshopScene() {
               active={i === hovered}
             />
           ) : (
-            <DragGhost
-              key={`merge:${target.iid}`}
-              def={browseDef}
-              placement={target.placement}
-              active={i === hovered}
-              merge
-            />
+            <group key={`merge:${target.iid}`}>
+              <DragGhost
+                def={browseDef}
+                placement={target.placement}
+                active={i === hovered}
+                merge
+              />
+              <MergeHalo
+                position={target.placement.position}
+                active={i === hovered}
+              />
+            </group>
           ),
         )}
       {design.parts.map((instance) => {

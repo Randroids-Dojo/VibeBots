@@ -11,6 +11,7 @@ import { create } from "zustand";
 import {
   type BotBehavior,
   type BotDesign,
+  type Connection,
   MAX_PART_MERGE_LEVEL,
   NEUTRAL_BEHAVIOR,
   type Orientation,
@@ -103,6 +104,8 @@ export interface PlacementSlot {
   parentIid: string;
   parentConnector: string;
   childConnector: string;
+  /** Mount orientation applied at this slot (rigid mounts only; N4). */
+  orientation: Orientation;
   iid: string;
   next: BotDesign;
 }
@@ -117,22 +120,31 @@ export function validSlotsFor(
   design: BotDesign,
   part: PartDef,
   catalog: Record<string, PartDef> = PART_CATALOG,
+  orientation: Orientation = 0,
 ): PlacementSlot[] {
   const iid = nextIid(design, part.id);
   const slots: PlacementSlot[] = [];
   for (const slot of findFreeConnectors(design, part, catalog)) {
+    // Orientation only applies to rigid mounts; axle connections stay
+    // unoriented by the validity rule, so a rotated wheel still places.
+    const parentPart = design.parts.find((p) => p.iid === slot.parentIid);
+    const parentConn = parentPart
+      ? catalog[parentPart.partId]?.connectors.find(
+          (c) => c.id === slot.parentConnector,
+        )
+      : undefined;
+    const orient: Orientation = parentConn?.kind === "rigid" ? orientation : 0;
+    const connection: Connection = {
+      parentIid: slot.parentIid,
+      parentConnector: slot.parentConnector,
+      childIid: iid,
+      childConnector: slot.childConnector,
+      ...(orient ? { orientation: orient } : {}),
+    };
     const next: BotDesign = {
       ...design,
       parts: [...design.parts, { iid, partId: part.id }],
-      connections: [
-        ...design.connections,
-        {
-          parentIid: slot.parentIid,
-          parentConnector: slot.parentConnector,
-          childIid: iid,
-          childConnector: slot.childConnector,
-        },
-      ],
+      connections: [...design.connections, connection],
     };
     if (validateDesign(next, catalog).ok) {
       slots.push({
@@ -140,6 +152,7 @@ export function validSlotsFor(
         parentIid: slot.parentIid,
         parentConnector: slot.parentConnector,
         childConnector: slot.childConnector,
+        orientation: orient,
         iid,
         next,
       });
@@ -233,11 +246,14 @@ export interface WorkshopState {
   armedPartId: string | null;
   /** The part shown in the build carousel (N1); prev/next steps it. */
   browsePartId: string;
+  /** Mount orientation the carousel part will place with (N4, rigid only). */
+  browseOrientation: Orientation;
   /** True while the Build tab is up, so the canvas shows the hero part. */
   buildActive: boolean;
   addPart: (partId: string) => void;
   armPart: (partId: string | null) => void;
   browseBy: (dir: number) => void;
+  rotateBrowse: () => void;
   setBuildActive: (active: boolean) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
   mergePart: (iid: string) => void;
@@ -262,6 +278,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   selectedIid: null,
   armedPartId: null,
   browsePartId: CAROUSEL_PART_IDS[0],
+  browseOrientation: 0,
   buildActive: true,
 
   addPart: (partId) => {
@@ -283,14 +300,21 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     })),
 
   // Step the build carousel to the next/previous non-core part, wrapping
-  // at the ends so the list is a loop (N1).
+  // at the ends so the list is a loop (N1). A fresh part starts unrotated.
   browseBy: (dir) =>
     set((s) => {
       const list = CAROUSEL_PART_IDS;
       const index = list.indexOf(s.browsePartId);
       const next = (index + dir + list.length) % list.length;
-      return { browsePartId: list[next] };
+      return { browsePartId: list[next], browseOrientation: 0 };
     }),
+
+  // Cycle the carousel part's mount orientation a quarter turn (N4). Only
+  // rigid mounts honour it; axle mounts ignore it by the validity rule.
+  rotateBrowse: () =>
+    set((s) => ({
+      browseOrientation: ((s.browseOrientation + 90) % 360) as Orientation,
+    })),
 
   setBuildActive: (active) => set({ buildActive: active }),
 
@@ -307,18 +331,17 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     );
     if (parentUsed) return;
     const iid = nextIid(design, slot.partId);
+    const connection: Connection = {
+      parentIid: slot.parentIid,
+      parentConnector: slot.parentConnector,
+      childIid: iid,
+      childConnector: slot.childConnector,
+      ...(slot.orientation ? { orientation: slot.orientation } : {}),
+    };
     const next: BotDesign = {
       ...design,
       parts: [...design.parts, { iid, partId: slot.partId }],
-      connections: [
-        ...design.connections,
-        {
-          parentIid: slot.parentIid,
-          parentConnector: slot.parentConnector,
-          childIid: iid,
-          childConnector: slot.childConnector,
-        },
-      ],
+      connections: [...design.connections, connection],
     };
     if (!validateDesign(next).ok) return;
     set({

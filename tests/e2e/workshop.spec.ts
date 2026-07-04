@@ -254,6 +254,35 @@ test("workshop merges a placed part by arming its twin", async ({ page }) => {
   await expect(inspector.getByText("Lv 2")).toBeVisible();
 });
 
+test("rotate the mount orientation before placing (N4)", async ({ page }) => {
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 2 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.goto("/workshop");
+  await expect(page.locator("canvas")).toBeVisible();
+  await selectCarouselPart(page, "Drive Wheel");
+  const carousel = page.getByLabel("Part carousel");
+  const rotate = carousel.getByRole("button", { name: /Rotate mount/ });
+  await expect(rotate).toHaveText("Rotate 0°");
+  await rotate.click();
+  await expect(rotate).toHaveText("Rotate 90°");
+
+  // Placement still works after rotating the mount.
+  await carousel.getByRole("button", { name: "Place" }).click();
+  await page
+    .getByLabel("Placement slots")
+    .getByRole("button", { name: /^Place on/ })
+    .first()
+    .click();
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+});
+
 test("workshop tabs keep panels on-screen on portrait phones", async ({
   page,
 }) => {

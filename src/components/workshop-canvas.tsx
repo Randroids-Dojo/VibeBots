@@ -202,15 +202,23 @@ function HeroPart({
       anchor.position.copy(camera.position);
       anchor.quaternion.copy(camera.quaternion);
       if (dragging) {
-        // Carried: ride under the finger at a fixed depth so the part
-        // reads as held. Screen NDC maps to camera-space x/y through the
-        // half-extents of the frustum at that depth.
-        const halfV =
-          Math.tan((camera.fov * Math.PI) / 180 / 2) * HERO_DRAG_DEPTH;
+        // Carried: ride under the finger. Unproject the pointer through the
+        // live camera projection, which includes the menu-lift view offset, so
+        // the held part tracks the finger even when an open menu has shifted
+        // the whole view up. A hand-rolled frustum formula would assume a
+        // symmetric, unshifted frustum and leave the part offset from the
+        // finger by the lift. Pull the part to a fixed depth along that ray so
+        // its held size stays constant.
         const p = pointerNdc.current;
-        anchor.translateX(p.x * halfV * camera.aspect);
-        anchor.translateY(p.y * halfV);
-        anchor.translateZ(-HERO_DRAG_DEPTH);
+        const dir = projScratch.current.set(p.x, p.y, 0.5).unproject(camera);
+        dir.sub(camera.position).normalize();
+        anchor.position.addScaledVector(dir, HERO_DRAG_DEPTH);
+        // Publish the held part's on-screen position (fractions from the
+        // top-left) so a test can assert it stays under the pointer.
+        anchor.updateWorldMatrix(true, false);
+        const dv = projScratch.current.copy(anchor.position).project(camera);
+        canvasEl.dataset.dragScreenX = ((dv.x + 1) / 2).toFixed(3);
+        canvasEl.dataset.dragScreenY = ((1 - dv.y) / 2).toFixed(3);
       } else {
         // Docked: down into the empty lower band and back so the whole part
         // clears the bottom edge on tall portrait viewports. When a menu is

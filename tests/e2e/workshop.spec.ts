@@ -1075,6 +1075,56 @@ test("mirror mode fills both twin mounts from one drag (L)", async ({
   await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
 });
 
+test("the held part tracks the finger while a menu lifts the view", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  // Open the Build sheet so the menu-lift view offset is active.
+  await page.getByRole("tab", { name: "Build" }).click();
+  await expect
+    .poll(() =>
+      canvas.evaluate((c: HTMLCanvasElement) =>
+        Number(c.dataset.menuLift ?? "0"),
+      ),
+    )
+    .toBeGreaterThan(0.05);
+  const rect = await canvas.evaluate((c: HTMLCanvasElement) => {
+    const r = c.getBoundingClientRect();
+    return { x: r.x, y: r.y, w: r.width, h: r.height };
+  });
+  const heroY = await canvas.evaluate((c: HTMLCanvasElement) =>
+    Number(c.dataset.heroScreenY ?? "0.5"),
+  );
+  // Grab the lifted hero and promote the grab to a drag.
+  await page.mouse.move(rect.x + rect.w * 0.5, rect.y + rect.h * heroY);
+  await page.mouse.down();
+  await page.mouse.move(rect.x + rect.w * 0.5, rect.y + rect.h * heroY - 24);
+  // Carry it to an off-center point; the held part must be drawn there, under
+  // the finger, not offset upward by the view lift.
+  const tx = 0.4;
+  const ty = 0.4;
+  await page.mouse.move(rect.x + rect.w * tx, rect.y + rect.h * ty, {
+    steps: 5,
+  });
+  await expect
+    .poll(() =>
+      canvas.evaluate((c: HTMLCanvasElement) =>
+        Number(c.dataset.dragScreenY ?? "-1"),
+      ),
+    )
+    .toBeGreaterThan(0);
+  const part = await canvas.evaluate((c: HTMLCanvasElement) => ({
+    x: Number(c.dataset.dragScreenX),
+    y: Number(c.dataset.dragScreenY),
+  }));
+  await page.mouse.up();
+  expect(Math.abs(part.x - tx) * rect.w).toBeLessThan(12);
+  expect(Math.abs(part.y - ty) * rect.h).toBeLessThan(12);
+});
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

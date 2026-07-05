@@ -49,6 +49,26 @@ const buyButtonStyle = (affordable: boolean): React.CSSProperties => ({
 let shopDataCache: ShopData | null = null;
 let shopUnavailableCache = false;
 
+// Warm the cache once from the workshop mount, so the first time the player
+// opens the Shop tab it renders the catalog immediately instead of dropping
+// the sheet to a spinner and springing back (the tab-switch blink). No-op once
+// a result is cached.
+export async function prefetchShop() {
+  if (shopDataCache || shopUnavailableCache) return;
+  try {
+    const res = await fetch("/api/shop");
+    if (res.status === 503) {
+      shopUnavailableCache = true;
+      return;
+    }
+    if (!res.ok) return;
+    shopDataCache = (await res.json()) as ShopData;
+    shopUnavailableCache = false;
+  } catch {
+    shopUnavailableCache = true;
+  }
+}
+
 export function PartsShop() {
   const [shop, setShop] = useState<ShopState>(() =>
     shopDataCache

@@ -27,6 +27,29 @@ type SaveStatus =
 let availableCache: boolean | null = null;
 let savesCache: SavedDesign[] = [];
 
+// Warm the cache once from the workshop mount so the first Garage open renders
+// its list immediately instead of collapsing the sheet to a spinner (the
+// tab-switch blink). No-op once the storage check has resolved.
+export async function prefetchDesigns() {
+  if (availableCache !== null) return;
+  try {
+    const res = await fetch("/api/designs");
+    if (res.status === 503) {
+      availableCache = false;
+      return;
+    }
+    if (!res.ok) {
+      availableCache = true;
+      return;
+    }
+    const body = await res.json();
+    availableCache = true;
+    savesCache = body.designs ?? [];
+  } catch {
+    availableCache = false;
+  }
+}
+
 export function DesignSaves() {
   const design = useWorkshopStore((s) => s.design);
   const setName = useWorkshopStore((s) => s.setName);

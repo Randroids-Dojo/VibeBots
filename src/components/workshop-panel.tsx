@@ -11,8 +11,8 @@ import {
   useState,
 } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
-import { DesignSaves } from "@/components/design-saves";
-import { PartsShop } from "@/components/parts-shop";
+import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
+import { PartsShop, prefetchShop } from "@/components/parts-shop";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
@@ -292,6 +292,14 @@ export function WorkshopPanel() {
     } catch {
       setInventory({ state: "sandbox" });
     }
+  }, []);
+
+  // Warm the fetch-backed tabs' caches on mount, so the first time the player
+  // opens Shop or Garage the sheet shows their content immediately instead of
+  // collapsing to a spinner and springing back (the tab-switch blink).
+  useEffect(() => {
+    void prefetchShop();
+    void prefetchDesigns();
   }, []);
 
   useEffect(() => {

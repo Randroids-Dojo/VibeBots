@@ -770,6 +770,49 @@ test("menu opens instantly and streams content behind a spinner (perf)", async (
   await expect(spinner).toHaveCount(0);
 });
 
+test("a warmed fetch-backed tab opens without the spinner blink", async ({
+  page,
+}) => {
+  // The mount prefetch warms the shop cache, so opening Shop later shows the
+  // catalog immediately instead of collapsing the sheet to a spinner and
+  // springing back. A slow fetch makes the (absent) spinner observable.
+  const catalog = Array.from({ length: 14 }, (_, i) => ({
+    id: `p${i}`,
+    name: `Part ${i}`,
+    category: "mobility",
+    priceEmeralds: i + 1,
+  }));
+  await page.route("**/api/shop", async (route) => {
+    await new Promise((r) => setTimeout(r, 150));
+    await route.fulfill({ json: { emeralds: 999, inventory: [], catalog } });
+  });
+  await page.route("**/api/designs", async (route) => {
+    await new Promise((r) => setTimeout(r, 150));
+    await route.fulfill({ json: { designs: [] } });
+  });
+  await page.setViewportSize({ width: 412, height: 915 });
+  await page.goto("/workshop");
+  // Let the mount prefetch settle so the cache is warm before Shop is opened.
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("tab", { name: "Tune" }).click();
+  await page.getByRole("tab", { name: "Garage" }).click();
+  // Open Shop and watch every frame until its content appears: the loading
+  // spinner (which collapses the sheet and blinks) must never show.
+  await page.getByRole("tab", { name: "Shop" }).click();
+  let spinnerSeen = false;
+  for (let i = 0; i < 25; i++) {
+    const [hasSpinner, hasContent] = await page.evaluate(() => [
+      !!document.querySelector(".workshop-sheet-loading"),
+      !!document.querySelector('aside[aria-label="Parts shop"]'),
+    ]);
+    if (hasSpinner) spinnerSeen = true;
+    if (hasContent) break;
+    await page.waitForTimeout(15);
+  }
+  expect(spinnerSeen).toBe(false);
+  await expect(page.getByText("999 vibes")).toBeVisible();
+});
+
 test("bot clears a tall menu after it loads, and re-opening does not blink (perf)", async ({
   page,
 }) => {

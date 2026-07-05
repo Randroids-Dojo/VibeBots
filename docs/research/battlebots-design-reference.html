@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>BattleBots Design Reference for Part Art</title>
+</head>
+<body>
+
+<header>
+  <h1>BattleBots Design Reference for Part Art</h1>
+  <p>Market research (2026-07-05, user-directed) into the iconic Comedy Central era BattleBots (2000-2002), gathered to ground VibeBots part art in real, recognizable robot-combat silhouettes. The 2026-07-05 shaping pass (commit 4872965) rounded parts uniformly and the result read blobby and generic. These machines are the opposite of blobby: hard wedges, exposed spinners with real teeth, cocked hammers. This doc captures the reference and the design language, then maps it onto our part catalog. Pipeline and constraints: <code>docs/PART_ART_PIPELINE.html</code> (art is render-only over unchanged colliders).</p>
+  <p>Sourcing note: <code>battlebots.fandom.com</code> (the richest text source) blocks automated image fetch (HTTP 402), so per-bot links point at the canonical wiki article (each infobox holds the hero shot). Where clean direct image files exist they are from <code>robotcombatarchive.com</code>.</p>
+</header>
+
+<section id="principles">
+  <h2>1. The design language (the actionable synthesis)</h2>
+  <p>Six cross-cutting rules emerged across all four archetype families. These are the correction to the blobby pass.</p>
+  <ol>
+    <li><strong>Weapon = a huge exposed single-purpose mass; body = a compact sled to carry and aim it.</strong> Exaggerate the weapon-to-body size contrast. A heavy weapon on a small body reads as dangerous.</li>
+    <li><strong>The motion axis must be legible in the model.</strong> A horizontal bar across the top (Hazard), a vertical front disc taller than the chassis (Nightmare), an overhead hammer arc (Deadblow, The Judge) read as completely different weapons. Shape the mount so a player sees whether it sweeps horizontally, chops vertically, or spins.</li>
+    <li><strong>Bare raw-metal strikers against a painted body.</strong> Teeth, blades, hammer heads, forks stay bare aluminum/steel (silvery or dark hardened). The body carries the color and one bold decal. Impact surfaces always read as raw and dangerous.</li>
+    <li><strong>The low aggressive wedge, not the rounded box.</strong> Structure and armor are ground-hugging angular prisms with a thin raked front lip engineered to win the floor (BioHazard's near-zero-gap slab, Little Sister, Voltronic's manta-flat wedge). Minimal vertical bulk. Bevels are shallow machined chamfers, never soft fillets that round the whole silhouette.</li>
+    <li><strong>Character = one bold silhouette + one owned color + one gimmick appendage.</strong> Tentoumushi (red ladybug dome), Mouser (pink cat dome), El Diablo (tracks plus flames), Diesector (purple, twin hammers plus jaws). Voltronic proves extreme proportions alone can be the identity.</li>
+    <li><strong>Cocked, loaded pose for melee weapons.</strong> The arm sits raised and ready (OverKill's upright sword, The Judge's reared hammer, Tazbot's scorpion tail), telegraphing stored energy before it swings. Low surface detail so the silhouette survives at small in-world scale.</li>
+  </ol>
+</section>
+
+<section id="spinners">
+  <h2>2. Spinners (bar, disc, drum, shell)</h2>
+  <ul>
+    <li><strong>Hazard</strong> (horizontal bar spinner): a low tidy aluminum box with a single long flat chromoly blade laid across the top like a clock hand, span visibly exceeding the body. Bare-steel blade, machined-aluminum body. <a href="https://battlebots.fandom.com/wiki/Hazard">wiki</a></li>
+    <li><strong>Nightmare</strong> (vertical disc, the archetype): a giant upright front disc TALLER than the tiny two-wheel body behind it, a few large bolt-on teeth around the rim, raw aluminum/titanium. The disc-to-body ratio is the whole read. <a href="https://battlebots.fandom.com/wiki/Nightmare">wiki</a></li>
+    <li><strong>Backlash</strong> (vertical flywheel): Nightmare's tidy little brother, a compact box with a front vertical disc and a downturned rear balancing wedge. <a href="https://battlebots.fandom.com/wiki/Backlash">wiki</a></li>
+    <li><strong>Son of Whyachi</strong> (overhead horizontal tri-bar): three arms radiating from a central hub, each tipped with a heavy S7 tool-steel hammer, hovering over a small hidden turret base. A spinning tripod. Dark industrial steel. <a href="https://battlebots.fandom.com/wiki/Son_of_Whyachi">wiki</a></li>
+    <li><strong>Ziggo</strong> (shell spinner): a smooth steel half-egg dome that is all weapon, with just two small teeth at the widest diameter, no visible chassis. <a href="https://battlebots.fandom.com/wiki/Ziggo">wiki</a></li>
+    <li><strong>Mauler</strong> (full-body shell): a broad flat spinning platter over a small base with dangling flails and chisel weights at the rim. Famous for vibrantly painted shells: color is the identity. <a href="https://battlebots.fandom.com/wiki/Mauler">wiki</a></li>
+  </ul>
+  <p>Also researched and reclassified: Frenzy (powered overhead hammer, not a spinner), OverKill (pendulum knife, see section 4), Blade Runner (thwackbot with a single swinging arm).</p>
+  <p><strong>Takeaway for weapon parts:</strong> expose the spinning mass, give it a few large visible teeth or bolt-on strikers (never a smooth featureless ring), commit to one obvious rotation axis, and contrast a heavy bare-metal rotor against a compact body.</p>
+</section>
+
+<section id="wedges">
+  <h2>3. Wedges, lifters, flippers, forks</h2>
+  <ul>
+    <li><strong>BioHazard</strong> (lifter): the archetype of impossibly flat. A long low titanium slab only 4-4.5 inches tall, a full-width flat lifting lid flush with the deck that pivots up on four-bar links into a tall wall, hinged triangular skirts sealing all four floor gaps. Black body, yellow-black biohazard trefoil decal. <a href="https://battlebots.fandom.com/wiki/BioHazard">wiki</a>, <a href="https://en.wikipedia.org/wiki/BioHazard_(robot)">wikipedia</a></li>
+    <li><strong>Toro</strong> (flipper): wide low box, a full-length rear-hinged pneumatic flipping plate with a kink, a narrow wedge tip at the front, two curved bull horns on the nose. Black and silver. <a href="https://battlebots.fandom.com/wiki/Toro">wiki</a></li>
+    <li><strong>Little Sister / Bigger Brother</strong> (flipper): the textbook clean doorstop wedge, whole top face is the hinged flipping plate, thin sharp front lip, two big exposed side wheels. Plate-metal and Lexan. <a href="https://battlebots.fandom.com/wiki/Little_Sister">wiki</a></li>
+    <li><strong>T-Minus</strong> (flipper): an extremely low flat wedge, spring-loaded top, bright red wheels as the accent. <a href="https://battlebots.fandom.com/wiki/T-Minus">wiki</a></li>
+    <li><strong>Vlad the Impaler</strong> (forks): a box with a forklift snout, long flat fork tines projecting forward at floor level that swing up to lift and impale. Bare-steel prongs, dark vampire theming. <a href="https://battlebots.fandom.com/wiki/Vlad_the_Impaler">wiki</a></li>
+    <li><strong>Atomic Wedgie</strong> (invertible tracked wedge): a symmetric double-wedge on top-and-bottom tank tracks, tri-foil shuriken side blades. Bare-metal blades, hazard-yellow spikes. <a href="https://battlebots.fandom.com/wiki/Atomic_Wedgie">wiki</a></li>
+  </ul>
+  <p><strong>Takeaway for structure and lifter parts:</strong> angular low wedges, thick raked front plates, sealed or skirted floor edges, minimal height, bare-metal-plus-hazard-stripe finishes, chunky exposed wheels or treads. Lifter weapons are a wide flat plate on a visible hinge that rotates up into a wall, or forward fork tines at ground level, always with aggressive forward rake.</p>
+</section>
+
+<section id="hammers">
+  <h2>4. Hammers, axes, articulated, multi-weapon</h2>
+  <ul>
+    <li><strong>Deadblow</strong> (fast pneumatic hammer): a compact polished-aluminum box with a short spike/sledge hammer that pecks in a tight fast arc close over the body. Bare titanium head, precision-machined silver look. <a href="https://battlebots.fandom.com/wiki/Deadblow">wiki</a></li>
+    <li><strong>The Judge</strong> (heavy overhead hammer): a squat box with one long straight arm pivoting from the rear top, arcing high and slamming a spiked pike head down on the nose (punched holes through the steel floor). Courtroom theme, bare-metal head. <a href="https://battlebots.fandom.com/wiki/The_Judge">wiki</a>, <a href="https://www.robotcombatarchive.com/media/robot_images/2022/1256_TheJudge.jpeg">image</a></li>
+    <li><strong>KillerHurtz</strong> (pneumatic axe): a long low arrow-pointed body with a bladed axe on a rack-and-pinion arm arcing forward over the nose. Translucent Lexan chassis showing internals, Union Jack. <a href="https://battlebots.fandom.com/wiki/KillerHurtz">wiki</a>, <a href="https://www.robotcombatarchive.com/media/robot_images/2022/1231_Killerhurtz.jpeg">image</a></li>
+    <li><strong>OverKill</strong> (pendulum knife): a classic low front wedge with two big rear drive wheels and a tall single Rambo-knife blade that sweeps 180 degrees overhead, nearly as tall as the bot is long. At rest a raised sword. Bare-steel blade. <a href="https://battlebots.fandom.com/wiki/OverKill">wiki</a>, <a href="https://www.robotcombatarchive.com/media/robot_images/2022/813_OverKill.jpeg">image</a></li>
+    <li><strong>Tazbot</strong> (articulated pickaxe): the creature silhouette. A hunched asymmetric shell, a tall rotating turret with a curved pickaxe arm arcing up like a scorpion tail, wheels splayed out at 60 degrees, bristly deflector brackets. Hand-built mutant look. <a href="https://battlebots.fandom.com/wiki/Tazbot">wiki</a></li>
+    <li><strong>Diesector</strong> (multi-weapon beast): a wide squat purple-steel box with two 360-degree hammer arms on the sides plus big hydraulic crocodile jaws at the front. Four large wheels. Reads as a beast with two arms and a mouth. <a href="https://battlebots.fandom.com/wiki/Diesector">wiki</a></li>
+  </ul>
+  <p><strong>Takeaway for melee weapon parts:</strong> a rigid arm pivoting from a shoulder at the back or side, arcing to a heavy head at the tip, cocked and raised at rest. Head is bare metal and visually distinct from the arm: spike, bladed axe, pike, knife, pickaxe hook, or mallet. Head scale and arc length communicate weight class. Expose the pivot joint.</p>
+</section>
+
+<section id="oddballs">
+  <h2>5. Themed, multibot, oddball (character lessons)</h2>
+  <ul>
+    <li><strong>Tentoumushi</strong>: a giant red ladybug, an oversized hemispherical spotted dome that drops as a smothering lid over a tiny V chassis. Glossy red, black spots, unmistakable. <a href="https://battlebots.fandom.com/wiki/Tentoumushi">wiki</a></li>
+    <li><strong>Mouser Mecha-Catbot</strong>: a pink cartoon-cat dome (eyes, whiskers on the curved surface) with side-throwing forks and a spiked tail. Mascot-forward, high saturation. <a href="https://battlebots.fandom.com/wiki/Mouser_Mecha-Catbot">wiki</a></li>
+    <li><strong>Dr. Inferno Jr.</strong>: a flat saw-bot base with a small vintage toy robot riding on top holding the weapons in its arms, the cute-plus-lethal gag. <a href="https://battlebots.fandom.com/wiki/Dr._Inferno_Jr.">wiki</a></li>
+    <li><strong>El Diablo</strong>: a blocky tank, full-length side tracks, a horizontal spinning spiked drum across the front, rear lifting spikes, flame decals on the track guards. <a href="https://battlebots.fandom.com/wiki/El_Diablo">wiki</a>, <a href="https://www.robotcombatarchive.com/media/robot_images/2022/847_ElDiablo.jpeg">image</a></li>
+    <li><strong>Voltronic</strong>: an ultra-low wide brushed-aluminum wedge (a manta ray slab) with a wide sweeping front lifter, invertible so top and bottom mirror. Personality purely from extreme proportions. <a href="https://battlebots.fandom.com/wiki/Voltronic">wiki</a>, <a href="https://www.robotcombatarchive.com/media/robot_images/2022/809_Voltronic.jpeg">image</a></li>
+    <li><strong>Alpha / Beta / Gamma Raptor</strong>: same low wedge-lifter chassis re-armored and repainted across seasons; Gamma adds an over-arm claw and a bright orange body. <a href="https://battlebots.fandom.com/wiki/Alpha_Raptor">wiki</a></li>
+  </ul>
+  <p><strong>Takeaway for cores and identity:</strong> give each core a decisive silhouette archetype, an owned bold color, and a one-line gimmick. Let flat color and a couple of decals do the character work; keep surface detail low so the silhouette survives at small scale.</p>
+</section>
+
+<section id="mapping">
+  <h2>6. Mapping onto the VibeBots part catalog</h2>
+  <p>Each current part gets a BattleBots archetype anchor and the specific shaping change to de-blob it. Colliders stay unchanged (render-only, per the pipeline doc); these are mesh and material directions.</p>
+  <h3>Weapons</h3>
+  <ul>
+    <li><strong>Saw Blade</strong> (cylinder) to Nightmare vertical disc / Hazard bar: fewer, LARGER bolt-on teeth (not a fine gear), raw metal, a clearly readable spin axis, exaggerated diameter versus thickness.</li>
+    <li><strong>Spinner Bar</strong> (cuboid) to Hazard / Son of Whyachi: a long flat bare-steel bar that overhangs the body, hard rectangular edges with only a tiny edge-break, mounted to read as a horizontal sweep.</li>
+    <li><strong>Hammer Head</strong> (ball to reshape) to Deadblow / The Judge: a blunt or spiked bare-metal head at the end of a short rigid arm, not a smooth sphere. Head visually distinct and heavy.</li>
+    <li><strong>Ram Spike</strong> (elongated cuboid) to Vlad forks / OverKill point: a sharp tapered bare-metal spike or paired fork tines with an aggressive point, minimal rounding.</li>
+    <li><strong>Plow Blade</strong> (cuboid) to BioHazard scoop / Little Sister lip: a thin flat raked plate with a sharp leading edge, not a rounded slab.</li>
+  </ul>
+  <h3>Structure and armor</h3>
+  <ul>
+    <li><strong>Armor Wedge</strong> (cuboid) to the low wedge (BioHazard, Voltronic): a hard angular doorstop with a thin sharp front lip and shallow chamfer only, NOT a soft-filleted box. This part is the poster child for the fix.</li>
+    <li><strong>Frame Plate / Hardened Plate / Cross Frame</strong> (cuboids) to titanium armor plate: flat plates with crisp machined chamfers, panel-line insets, optional hazard-stripe edge. Hard, not pillowy.</li>
+    <li><strong>Sensor Head</strong> (ball) to a themed dome (Tentoumushi, Mouser): keep the dome but treat it as a character surface (bold color, a simple face or lens), a deliberate round in a sea of hard edges.</li>
+    <li><strong>Mast Pole / Spin Mount</strong>: structural mounts read as machined collars and posts, bare metal, minimal.</li>
+  </ul>
+  <h3>Mobility</h3>
+  <ul>
+    <li><strong>Drive Wheel</strong> (cylinder) to a chunky exposed combat wheel: deep tread, recessed hub with visible bolts, matte rubber ring against a metal hub.</li>
+    <li><strong>Roller Drum</strong> (cylinder) to El Diablo drum: a horizontal spiked/toothed drum roller, bare metal strikers on a wide cylinder.</li>
+  </ul>
+  <h3>Cores</h3>
+  <ul>
+    <li><strong>Cube / Wedge / Tower Core</strong>: give each an owned color and hard chamfers plus a hazard-stripe or decal, not a soft fillet. Wedge Core especially should be the aggressive low wedge; Tower Core reads tall and boxy; Cube Core the neutral chassis. Color and one graphic carry identity.</li>
+  </ul>
+</section>
+
+<section id="correction">
+  <h2>7. The correction to the current shaping pass</h2>
+  <p>The 4872965 pass applied a uniform fillet to everything, which is what reads as blobby. Per this reference, the direction is:</p>
+  <ul>
+    <li>Cut fillet radii hard on weapons and structure. Replace soft fillets with small 45-degree machined chamfers (edge breaks), reserving any real rounding for the one intentional dome (Sensor Head) and the core corners.</li>
+    <li>Add rake and flat faceting: wedges get a real sloped face and a thin sharp lip, plates get flat faces with crisp chamfered edges and panel-line insets.</li>
+    <li>Push weapon silhouettes further: bigger, fewer teeth on the saw; a longer overhanging bar; a distinct heavy head on the hammer; a sharper spike; a thin raked plow.</li>
+    <li>Material split: bare raw metal on all strikers and blades, painted color plus one decal on bodies and cores. Keep the smooth-shaded fillet-normal approach only where an edge is intentionally rounded.</li>
+    <li>Stay render-only and inside collider bounds (pipeline doc, section 6 checklist). No collider or SIM_VERSION change.</li>
+  </ul>
+</section>
+
+</body>
+</html>

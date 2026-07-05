@@ -650,6 +650,39 @@ test("the bot lifts above an open menu sheet (O)", async ({ page }) => {
   await expect.poll(lift).toBe(0);
 });
 
+test("the hero part clears the open menu sheet, not hidden behind it", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  const heroY = () =>
+    canvas.evaluate((c: HTMLCanvasElement) =>
+      Number(c.dataset.heroScreenY ?? "-1"),
+    );
+  // Wait for the docked hero to publish its screen position.
+  await expect.poll(heroY).toBeGreaterThan(0);
+
+  // Open a tall menu tab: the sheet covers the lower screen and the bot lifts.
+  await page.getByRole("tab", { name: "Garage" }).click();
+  await expect
+    .poll(() =>
+      canvas.evaluate((c: HTMLCanvasElement) =>
+        Number(c.dataset.menuLift ?? "0"),
+      ),
+    )
+    .toBeGreaterThan(0.05);
+
+  // The docked part must sit above the sheet's top edge, with margin, so the
+  // player can see and grab the part they are browsing while a menu is open.
+  const sheetTopFrac = await page
+    .locator(".workshop-sheet")
+    .evaluate((el) => el.getBoundingClientRect().top / window.innerHeight);
+  await expect.poll(heroY).toBeLessThan(sheetTopFrac - 0.03);
+  expect(await heroY()).toBeGreaterThan(0);
+});
+
 test("menu opens instantly and streams content behind a spinner (perf)", async ({
   page,
 }) => {

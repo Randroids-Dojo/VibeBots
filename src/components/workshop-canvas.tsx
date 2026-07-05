@@ -180,12 +180,14 @@ function HeroPart({
   def,
   dragging,
   dimmed,
+  menuLift,
   pointerNdc,
   onGrab,
 }: {
   def: PartDef;
   dragging: boolean;
   dimmed: boolean;
+  menuLift: number;
   pointerNdc: RefObject<{ x: number; y: number }>;
   onGrab: (event: ThreeEvent<PointerEvent>) => void;
 }) {
@@ -194,8 +196,10 @@ function HeroPart({
   const anchorRef = useRef<Group>(null);
   const spinRef = useRef<Group>(null);
   const yaw = useRef(0);
+  const projScratch = useRef(new Vector3());
   useFrame((_, dt) => {
     const anchor = anchorRef.current;
+    const canvasEl = gl.domElement as HTMLCanvasElement;
     if (anchor) {
       anchor.position.copy(camera.position);
       anchor.quaternion.copy(camera.quaternion);
@@ -211,15 +215,23 @@ function HeroPart({
         anchor.translateZ(-HERO_DRAG_DEPTH);
       } else {
         // Docked: down into the empty lower band and back so the whole
-        // part clears the bottom edge on tall portrait viewports.
-        anchor.translateY(-0.5);
+        // part clears the bottom edge on tall portrait viewports. When a
+        // menu sheet is open (menuLift > 0) the part would otherwise sit
+        // behind the sheet, so raise its dock toward the bot to keep it in
+        // the visible band above the menu (it stays grabbable there).
+        anchor.translateY(-0.5 + menuLift * 2.4);
         anchor.translateZ(-2.75);
+        // Publish the docked part's on-screen Y (fraction from the top,
+        // including the menu-lift view offset) so a test can assert the part
+        // clears the open sheet instead of hiding behind it.
+        anchor.updateWorldMatrix(true, false);
+        const v = anchor.getWorldPosition(projScratch.current).project(camera);
+        canvasEl.dataset.heroScreenY = ((1 - v.y) / 2).toFixed(3);
       }
     }
     yaw.current += dt * 0.7;
     spinRef.current?.rotation.set(0, yaw.current, 0);
-    const canvas = gl.domElement as HTMLCanvasElement;
-    canvas.dataset.heroYaw = (yaw.current % (Math.PI * 2)).toFixed(2);
+    canvasEl.dataset.heroYaw = (yaw.current % (Math.PI * 2)).toFixed(2);
   });
   const surface = CATEGORY_SURFACE[def.category];
   // Owned-out (P3): render the part gray and non-glowing so it reads as
@@ -369,7 +381,7 @@ function IdleSlotMarker({
  * tier-plus-backend gates every other canvas uses. The fallback keeps
  * the current cost with a richer light rig only.
  */
-function WorkshopScene() {
+function WorkshopScene({ menuLift }: { menuLift: number }) {
   const design = useWorkshopStore((s) => s.design);
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const select = useWorkshopStore((s) => s.select);
@@ -659,6 +671,7 @@ function WorkshopScene() {
           def={heroDef}
           dragging={dragging}
           dimmed={browseDimmed}
+          menuLift={menuLift}
           pointerNdc={pointerNdc}
           onGrab={startGrab}
         />
@@ -777,7 +790,7 @@ export default function WorkshopCanvas({
       gl={createWebGPU}
       shadows
     >
-      <WorkshopScene />
+      <WorkshopScene menuLift={menuLift} />
       <MenuLift lift={menuLift} />
     </Canvas>
   );

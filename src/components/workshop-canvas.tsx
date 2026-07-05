@@ -611,6 +611,31 @@ function WorkshopScene() {
     }
   });
 
+  // Publish the selected part's projected screen point so the panel can float
+  // the on-part remove handle (the X) exactly over it. Projecting through the
+  // camera includes the menu-lift view offset, so the X rides up with the bot
+  // when the sheet opens (same reason the drag ghost uses .project(camera)).
+  const selScratch = useRef(new Vector3());
+  useFrame(() => {
+    const el = gl.domElement as HTMLElement;
+    const placement = selectedIid ? layout.get(selectedIid) : undefined;
+    if (!placement) {
+      if (el.dataset.selectedScreenX !== undefined) {
+        delete el.dataset.selectedScreenX;
+        delete el.dataset.selectedScreenY;
+      }
+      return;
+    }
+    const p = placement.position;
+    // Sit just above the part, not far over it: tapping a part opens the sheet
+    // and lifts the whole bot, so a tall offset would sail the X up into the
+    // top header. A small offset plus a top clamp keeps it on the part and
+    // below the header in that lifted state.
+    const v = selScratch.current.set(p.x, p.y + 0.22, p.z).project(camera);
+    el.dataset.selectedScreenX = ((v.x + 1) / 2).toFixed(4);
+    el.dataset.selectedScreenY = Math.max(0.16, (1 - v.y) / 2).toFixed(4);
+  });
+
   return (
     <>
       <color attach="background" args={["#0b0e14"]} />

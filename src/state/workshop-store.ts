@@ -320,6 +320,13 @@ export interface WorkshopState {
   history: EditorHistory<BotDesign>;
   design: BotDesign;
   selectedIid: string | null;
+  /**
+   * Bumped every time a placed part is TAPPED (via `select` with a non-null
+   * id), so the panel can auto-focus the Build tab and open the sheet to show
+   * the part's stats. Placement and merge set `selectedIid` directly WITHOUT
+   * bumping this, so building a bot never pops the sheet open mid-drag.
+   */
+  inspectNonce: number;
   /** The part shown in the build carousel (N1); prev/next steps it. */
   browsePartId: string;
   /**
@@ -382,6 +389,7 @@ function withDesign(history: EditorHistory<BotDesign>) {
 export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   ...withDesign(createHistory<BotDesign>(STARTER_DESIGN)),
   selectedIid: null,
+  inspectNonce: 0,
   browsePartId: CAROUSEL_PART_IDS[0],
   browsableIds: CAROUSEL_PART_IDS,
   browseOrientation: 0,
@@ -564,7 +572,14 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({ ...withDesign(pushHistory(history, next)) });
   },
 
-  select: (iid) => set({ selectedIid: iid, browseStatsOpen: false }),
+  select: (iid) =>
+    set((s) => ({
+      selectedIid: iid,
+      browseStatsOpen: false,
+      // Only a real tap on a placed part focuses the inspector; deselecting
+      // (iid null) leaves the sheet where it is.
+      inspectNonce: iid ? s.inspectNonce + 1 : s.inspectNonce,
+    })),
 
   undo: () => {
     const { history } = get();

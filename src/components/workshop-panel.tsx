@@ -131,6 +131,8 @@ export function WorkshopPanel() {
   const [menuLift, setMenuLift] = useState(0);
   const panelsRef = useRef<HTMLDivElement | null>(null);
   const actionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const removeHandleRef = useRef<HTMLButtonElement | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     y: number;
@@ -347,6 +349,7 @@ export function WorkshopPanel() {
     }
   };
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
+  const inspectNonce = useWorkshopStore((s) => s.inspectNonce);
   const browsePartId = useWorkshopStore((s) => s.browsePartId);
   const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
   const browseBy = useWorkshopStore((s) => s.browseBy);
@@ -419,6 +422,43 @@ export function WorkshopPanel() {
     inventory.state === "sandbox" ||
     (inventory.state === "ready" && selectedAvailableAfterUse > 0);
   const mergeEnabled = selectedMergePlan !== null && mergeInventoryAllows;
+
+  // Tapping a placed part focuses its stats: jump to the Build tab and open the
+  // sheet so the selected-part panel (level, HP, Merge, Rotate) is on screen.
+  // Keyed on the tap nonce, not selectedIid, so placing or merging a part while
+  // building (which also selects it) never pops the sheet open mid-drag.
+  useEffect(() => {
+    if (inspectNonce === 0) return;
+    setTab("build");
+    setSheetOpen(true);
+  }, [inspectNonce]);
+
+  // The on-part remove handle (the X) is a DOM button floated over the canvas
+  // at the selected part's projected screen point, which the scene publishes on
+  // the canvas dataset each frame (it rides the camera view-offset lift, so the
+  // X tracks the part exactly like the drag ghost does). A rAF loop positions
+  // it without churning React state as the bench orbits.
+  useEffect(() => {
+    if (!selectedIid || !selectedRemovable) return;
+    const btn = removeHandleRef.current;
+    const canvas = stageRef.current?.querySelector("canvas");
+    if (!btn || !canvas) return;
+    let raf = 0;
+    const tick = () => {
+      const x = Number.parseFloat(canvas.dataset.selectedScreenX ?? "");
+      const y = Number.parseFloat(canvas.dataset.selectedScreenY ?? "");
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        btn.style.left = `${x * 100}%`;
+        btn.style.top = `${y * 100}%`;
+        btn.style.visibility = "visible";
+      } else {
+        btn.style.visibility = "hidden";
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [selectedIid, selectedRemovable]);
 
   // The build carousel (N1): one non-core part at a time, dragged onto the
   // bot to place or merge (tap-to-place was removed as redundant).
@@ -556,8 +596,29 @@ export function WorkshopPanel() {
   ] as const;
 
   return (
-    <div className="workshop-stage">
+    <div className="workshop-stage" ref={stageRef}>
       <WorkshopCanvas menuLift={menuLift} />
+
+      {/* The on-part remove control: a single X floated over the selected part
+          in the 3D view (positioned each frame by the effect above), so
+          removing a part is one tap on the part itself instead of a button in
+          a floating menu. Only non-core parts can be removed. */}
+      {selectedIid && selectedRemovable && selectedDef && (
+        <button
+          type="button"
+          ref={removeHandleRef}
+          className="part-remove-handle"
+          style={{ visibility: "hidden" }}
+          aria-label={`Remove ${selectedDef.name}`}
+          title="Remove this part and anything attached to it"
+          onClick={() => {
+            removeSelected();
+            buzz(HAPTIC_REMOVE);
+          }}
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
+      )}
 
       {/* The carousel stays live on every tab. When a menu covers the lower
           screen the bot lifts, so the carousel lifts with it to stay clear. */}
@@ -798,6 +859,80 @@ export function WorkshopPanel() {
                 </div>
               )}
 
+              {/* A tapped placed part shows its stats and build actions here in
+                  the sheet, in place of the carousel browse details. Removal
+                  lives on the on-part X, not a button in this panel. */}
+              {selectedDef && selectedIid && (
+                <section style={panelStyle} aria-label="Selected part">
+                  <div className="inspector-head">
+                    <span className="inspector-name">{selectedDef.name}</span>
+                    <span className="inspector-level">
+                      <span className="inspector-pips" aria-hidden="true">
+                        {MERGE_PIP_IDS.map((pipId, i) => (
+                          <span
+                            key={`pip-${selectedIid}-${pipId}`}
+                            className={
+                              i < selectedMergeLevel
+                                ? "inspector-pip inspector-pip-on"
+                                : "inspector-pip"
+                            }
+                          />
+                        ))}
+                      </span>
+                      Lv {selectedMergeLevel}
+                    </span>
+                  </div>
+                  {selectedDef.category !== "core" &&
+                    selectedDurability !== null && (
+                      <div className="inspector-durability">
+                        <div
+                          className="inspector-durability-fill"
+                          style={{
+                            width: `${Math.min(100, (selectedDurability / (selectedDef.durability * ((MAX_PART_MERGE_LEVEL + 1) / 2))) * 100)}%`,
+                          }}
+                        />
+                        <span className="inspector-durability-text">
+                          {Math.round(selectedDurability)} HP
+                        </span>
+                      </div>
+                    )}
+                  <div className="inspector-actions">
+                    <button
+                      type="button"
+                      onClick={rotateSelected}
+                      disabled={
+                        planRotateSelected(design, selectedIid) === null
+                      }
+                      title="Quarter-turn this part around its mount"
+                    >
+                      Rotate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        mergeSelectedPart();
+                        buzz(HAPTIC_MERGE);
+                      }}
+                      disabled={!mergeEnabled}
+                      title={
+                        selectedMergePlan === null
+                          ? "This part is already at max level"
+                          : inventory.state === "loading"
+                            ? "Checking inventory"
+                            : inventory.state === "ready" &&
+                                selectedAvailableAfterUse <= 0
+                              ? "Needs another owned copy"
+                              : undefined
+                      }
+                    >
+                      {selectedMergeLevel >= MAX_PART_MERGE_LEVEL
+                        ? "Max level"
+                        : `Merge to Lv ${selectedMergeLevel + 1}`}
+                    </button>
+                  </div>
+                </section>
+              )}
+
               <section style={panelStyle} aria-label="Chassis">
                 <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
                   Chassis
@@ -1009,89 +1144,6 @@ export function WorkshopPanel() {
           {deferredTab === "shop" && <PartsShop />}
         </aside>
       </div>
-
-      {selectedDef && selectedIid && (
-        <section className="workshop-inspector" aria-label="Selected part">
-          <div className="inspector-head">
-            <span className="inspector-name">{selectedDef.name}</span>
-            <span className="inspector-level">
-              <span className="inspector-pips" aria-hidden="true">
-                {MERGE_PIP_IDS.map((pipId, i) => (
-                  <span
-                    key={`pip-${selectedIid}-${pipId}`}
-                    className={
-                      i < selectedMergeLevel
-                        ? "inspector-pip inspector-pip-on"
-                        : "inspector-pip"
-                    }
-                  />
-                ))}
-              </span>
-              Lv {selectedMergeLevel}
-            </span>
-          </div>
-          {selectedDef.category !== "core" && selectedDurability !== null && (
-            <div className="inspector-durability">
-              <div
-                className="inspector-durability-fill"
-                style={{
-                  width: `${Math.min(100, (selectedDurability / (selectedDef.durability * ((MAX_PART_MERGE_LEVEL + 1) / 2))) * 100)}%`,
-                }}
-              />
-              <span className="inspector-durability-text">
-                {Math.round(selectedDurability)} HP
-              </span>
-            </div>
-          )}
-          <div className="inspector-actions">
-            <button
-              type="button"
-              onClick={rotateSelected}
-              disabled={planRotateSelected(design, selectedIid) === null}
-              title="Quarter-turn this part around its mount"
-            >
-              Rotate
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                mergeSelectedPart();
-                buzz(HAPTIC_MERGE);
-              }}
-              disabled={!mergeEnabled}
-              title={
-                selectedMergePlan === null
-                  ? "This part is already at max level"
-                  : inventory.state === "loading"
-                    ? "Checking inventory"
-                    : inventory.state === "ready" &&
-                        selectedAvailableAfterUse <= 0
-                      ? "Needs another owned copy"
-                      : undefined
-              }
-            >
-              {selectedMergeLevel >= MAX_PART_MERGE_LEVEL
-                ? "Max level"
-                : `Merge to Lv ${selectedMergeLevel + 1}`}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                removeSelected();
-                buzz(HAPTIC_REMOVE);
-              }}
-              disabled={!selectedRemovable}
-              title={
-                selectedDef.category === "core"
-                  ? "The core cannot be removed"
-                  : "Remove this part and anything attached to it"
-              }
-            >
-              Remove
-            </button>
-          </div>
-        </section>
-      )}
 
       {tab === "build" && browseStatsOpen && !selectedIid && (
         <section className="workshop-inspector" aria-label="Part details">

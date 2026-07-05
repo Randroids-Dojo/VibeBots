@@ -116,7 +116,10 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await dragHeroOntoCore(page);
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
 
-  // Placing selects the new part, so its inspector chip appears (W3).
+  // Placing selects the new part. Its stats live in the Build sheet now, so
+  // open the sheet to reach them and merge it up (removal moved to the on-part
+  // X, so this panel only rotates and merges).
+  await openSheet(page);
   const inspector = page.getByRole("region", { name: "Selected part" });
   await expect(inspector).toBeVisible();
   await inspector.getByRole("button", { name: "Merge to Lv 2" }).click();
@@ -295,8 +298,10 @@ test("drag the hero part onto a twin merges it (N3)", async ({ page }) => {
 
   await page.mouse.up();
 
-  // Merged, not added: still two parts, and the wheel is now level 2.
+  // Merged, not added: still two parts, and the wheel is now level 2. The
+  // merged part is selected; open the sheet to read its stats in the Build tab.
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  await openSheet(page);
   const inspector = page.getByRole("region", { name: "Selected part" });
   await expect(inspector.getByText("Lv 2")).toBeVisible();
   // The banner clears once the drop resolves.
@@ -324,16 +329,48 @@ test("cycling the carousel clears the selected placed part (P1)", async ({
     .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
     .not.toBeUndefined();
 
-  // Dragging a part on selects it, so the placed-part inspector (Remove) shows.
+  // Dragging a part on selects it, so the on-part remove handle (X) floats
+  // over it in the 3D view.
   await dragHeroOntoCore(page);
-  await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Remove / })).toBeVisible();
 
-  // Cycling to another part clears the selection, so the inspector goes away.
+  // Cycling to another part clears the selection, so the handle goes away.
   await page
     .getByLabel("Part carousel")
     .getByRole("button", { name: "Next part" })
     .click();
-  await expect(page.getByRole("button", { name: "Remove" })).toBeHidden();
+  await expect(page.getByRole("button", { name: /^Remove / })).toBeHidden();
+});
+
+test("the on-part X removes the placed part", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.route("**/api/shop", async (route) => {
+    await route.fulfill({
+      json: {
+        emeralds: 20,
+        inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+        catalog: [],
+      },
+    });
+  });
+  await page.goto("/workshop");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await selectCarouselPart(page, "Drive Wheel");
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+  await dragHeroOntoCore(page);
+  await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+
+  // Removal is one tap on the X floated over the part, no menu button.
+  const removeX = page.getByRole("button", { name: /^Remove / });
+  await expect(removeX).toBeVisible();
+  await removeX.click();
+  await expect(
+    page.getByText("My Bot: 1 part", { exact: false }),
+  ).toBeVisible();
+  await expect(removeX).toBeHidden();
 });
 
 test("rotate the mount orientation before placing (N4)", async ({ page }) => {

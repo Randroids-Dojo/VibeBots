@@ -1074,3 +1074,30 @@ test("mirror mode fills both twin mounts from one drag (L)", async ({
   await dragHeroOntoCore(page);
   await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
 });
+
+test.describe("phone", () => {
+  test.use({
+    viewport: { width: 412, height: 915 },
+    deviceScaleFactor: 2.6,
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("the workshop canvas caps its render resolution on phones", async ({
+    page,
+  }) => {
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const size = await canvas.evaluate((c: HTMLCanvasElement) => ({
+      buf: c.width,
+      css: c.clientWidth,
+    }));
+    // The low (phone) tier caps the device pixel ratio at 1.5, so the drawing
+    // buffer must stay well under the 2.6 device ratio. This keeps the
+    // continuously animating canvas from saturating a mobile GPU (perf).
+    expect(size.buf).toBeGreaterThan(0);
+    expect(size.buf).toBeLessThanOrEqual(Math.ceil(size.css * 1.5) + 2);
+    expect(size.buf).toBeLessThan(size.css * 2);
+  });
+});

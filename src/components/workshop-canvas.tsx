@@ -781,10 +781,23 @@ export default function WorkshopCanvas({
 }: {
   menuLift?: number;
 }) {
+  // Cap the render resolution on the low (phone) tier. The workshop canvas
+  // animates every frame (the hero turntable), so an uncapped 2x+ device pixel
+  // ratio makes each frame's fill work dominate a mobile GPU and the whole UI
+  // feels laggy, tab taps included. 1.5x stays crisp enough while roughly
+  // halving the pixels. Desktop keeps up to 2x.
+  const dpr = useMemo<[number, number]>(() => {
+    const tier = resolveGraphicsQualityTier(
+      readStoredGraphicsQuality(),
+      hasCoarsePointer(),
+    );
+    return tier === "low" ? [1, 1.5] : [1, 2];
+  }, []);
   return (
     <Canvas
       camera={{ position: [2.6, 1.8, 3.2], fov: 45 }}
       gl={createWebGPU}
+      dpr={dpr}
       shadows
     >
       <WorkshopScene />

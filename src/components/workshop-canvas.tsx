@@ -219,7 +219,7 @@ function HeroPart({
         // menu sheet is open (menuLift > 0) the part would otherwise sit
         // behind the sheet, so raise its dock toward the bot to keep it in
         // the visible band above the menu (it stays grabbable there).
-        anchor.translateY(-0.5 + menuLift * 2.4);
+        anchor.translateY(-0.5 + menuLift * 1.2);
         anchor.translateZ(-2.75);
         // Publish the docked part's on-screen Y (fraction from the top,
         // including the menu-lift view offset) so a test can assert the part

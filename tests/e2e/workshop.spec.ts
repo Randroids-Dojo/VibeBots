@@ -59,6 +59,16 @@ async function tapHero(page: Page) {
   await page.mouse.up();
 }
 
+// The bot actions (undo/redo, fights) live in the top-bar "Actions" options
+// menu now. Open it (idempotent) before clicking one of its menu items.
+async function openActions(page: Page) {
+  const btn = page.getByRole("button", { name: "Bot actions" });
+  if ((await btn.getAttribute("aria-expanded")) !== "true") {
+    await btn.click();
+  }
+  await expect(page.getByRole("menu")).toBeVisible();
+}
+
 test("workshop builds and undoes parts", async ({ page }) => {
   // Pin inventory so the run does not depend on real storage: placing a
   // Drive Wheel spends one owned copy and merging it spends a second, so
@@ -112,9 +122,10 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await inspector.getByRole("button", { name: "Merge to Lv 2" }).click();
   await expect(inspector.getByText("Lv 2")).toBeVisible();
 
-  await page.getByRole("button", { name: "Undo" }).click();
+  await openActions(page);
+  await page.getByRole("menuitem", { name: "Undo" }).click();
   await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("menuitem", { name: "Undo" }).click();
   await expect(
     page.getByText("My Bot: 1 part", { exact: false }),
   ).toBeVisible();
@@ -128,7 +139,8 @@ test("workshop builds and undoes parts", async ({ page }) => {
   await expect(page.getByLabel("Part carousel")).toBeVisible();
 
   // Test arena (REQ-009): fight the current bot against the CPU Brawler.
-  await page.getByRole("button", { name: "Test fight vs Brawler" }).click();
+  await openActions(page);
+  await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
   await expect(page.getByText("My Bot", { exact: true })).toBeVisible();
   await expect(page.getByText("Brawler", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Back to build" }).click();
@@ -552,6 +564,35 @@ test("the whole top strip drags the sheet, tabs included", async ({ page }) => {
   await expect(sheet).not.toHaveClass(/workshop-sheet-collapsed/);
 });
 
+test("the top bar collapses the bot actions into an options menu", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto("/workshop");
+  const actions = page.getByRole("button", { name: "Bot actions" });
+  await expect(actions).toBeVisible();
+  // Closed by default: the actions are not in the DOM until opened.
+  await expect(
+    page.getByRole("menuitem", { name: "Test fight vs Brawler" }),
+  ).toHaveCount(0);
+
+  // Open: undo/redo and both fight actions appear.
+  await actions.click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Undo" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Redo" })).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Test fight vs Brawler" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Fight a rival" }),
+  ).toBeVisible();
+
+  // A tap outside the menu closes it.
+  await page.mouse.click(196, 250);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+});
+
 test("the carousel filters to owned parts; the Build toggle reveals the rest (P)", async ({
   page,
 }) => {
@@ -766,8 +807,9 @@ test("bot clears a tall menu after it loads, and re-opening does not blink (perf
   expect(await lift()).toBeLessThan(0.1);
   release();
   await expect(page.getByText("999 vibes")).toBeVisible();
-  // The re-measure lifts the bot clear of the tall menu.
-  await expect.poll(lift).toBeGreaterThan(0.15);
+  // The re-measure lifts the bot clear of the tall menu (the shorter menu
+  // needs less lift than before, but still clearly more than the spinner).
+  await expect.poll(lift).toBeGreaterThan(0.11);
 
   // Switch away and back: the cached catalog shows instantly, no spinner.
   await page.getByRole("tab", { name: "Tune" }).click();
@@ -895,7 +937,8 @@ test("choose a chassis variant, resetting to a fresh bot (I)", async ({
   await expect(page.getByText("My Bot: 1 part")).toBeVisible();
 
   // The swap is undoable: one Undo restores the Cube chassis.
-  await page.getByRole("button", { name: "Undo" }).click();
+  await openActions(page);
+  await page.getByRole("menuitem", { name: "Undo" }).click();
   await expect(cube).toHaveAttribute("aria-pressed", "true");
 });
 

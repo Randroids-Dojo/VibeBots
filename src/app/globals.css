@@ -55,7 +55,7 @@ button:focus-visible {
 .workshop-tabs button,
 .carousel-arrow,
 .inspector-actions button,
-.workshop-header-actions button {
+.workshop-header-menu button {
   transition:
     transform 90ms ease,
     filter 120ms ease,
@@ -67,7 +67,7 @@ button:focus-visible {
 .workshop-tabs button:not(:disabled):active,
 .carousel-arrow:not(:disabled):active,
 .inspector-actions button:not(:disabled):active,
-.workshop-header-actions button:not(:disabled):active {
+.workshop-header-menu button:not(:disabled):active {
   transform: translateY(1px) scale(0.97);
   filter: brightness(0.92);
 }
@@ -205,10 +205,77 @@ button:focus-visible {
   font-weight: 600;
 }
 
-.workshop-header-actions {
+/* Compact options menu: a single button in the top bar opens a dropdown with
+ * the bot actions, so the bar stays a thin strip and frees room for the bot. */
+.workshop-header-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.workshop-header-menu-button {
+  background: transparent;
+  color: #cdd4e4;
+  border: 1px solid #344061;
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workshop-header-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 19;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+  width: 220px;
+  padding: 8px;
+  background: rgba(17, 21, 31, 0.98);
+  border: 1px solid #344061;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.workshop-header-menu-row {
+  display: flex;
+  gap: 6px;
+}
+
+.workshop-header-menu-row button {
+  flex: 1;
+  background: #26304a;
+  color: #e6e8ee;
+  border: 1px solid #344061;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.workshop-fight-action {
+  width: 100%;
+  background: #54e0c7;
+  color: #0b0e14;
+  border: 1px solid #344061;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workshop-fight-rival {
+  background: #7aa8ff;
+}
+
+.workshop-header-menu-row button:disabled,
+.workshop-fight-action:disabled {
+  background: #161b28;
+  color: #5a6378;
+  cursor: not-allowed;
 }
 
 /* Bot-first bottom sheet (N): the tab bar and the active tab's controls live
@@ -325,7 +392,7 @@ button:focus-visible {
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
-  max-height: 52dvh;
+  max-height: 30dvh;
   padding: 8px 2px;
   transition:
     max-height 220ms ease,
@@ -607,11 +674,11 @@ button:focus-visible {
  * lift into the band above the sheet; the carousel label and arrows follow so
  * they stay with the raised part. */
 .carousel-overlay-lifted .carousel-overlay-name {
-  top: 34%;
+  top: 40%;
 }
 
 .carousel-overlay-lifted .carousel-overlay-arrows {
-  top: 42%;
+  top: 48%;
 }
 
 .carousel-overlay-arrows .carousel-arrow {

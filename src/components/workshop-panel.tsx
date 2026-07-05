@@ -74,6 +74,12 @@ const panelStyle: React.CSSProperties = {
 // array index). Length matches MAX_PART_MERGE_LEVEL.
 const MERGE_PIP_IDS = ["i", "ii", "iii"] as const;
 
+// The open menu's content is capped to this fraction of the viewport and
+// scrolls past it, so the sheet stays short and leaves room above it for the
+// bot and the part being browsed. Must match `max-height` on
+// `.workshop-build-panels` in globals.css.
+const MENU_MAX_VH = 0.3;
+
 export function WorkshopPanel() {
   const design = useWorkshopStore((s) => s.design);
   // Captured at click time: the matchup identity is state, so nothing a
@@ -99,6 +105,10 @@ export function WorkshopPanel() {
   // Build-tab toggle: off by default, so the carousel only offers parts the
   // player actually owns. On, it also offers parts not yet in the inventory.
   const [includeUnowned, setIncludeUnowned] = useState(false);
+  // The top bar is a compact options menu: the bot actions (undo/redo, fights)
+  // live in a dropdown so the bar stays a thin strip and leaves room for the
+  // bot below it.
+  const [actionsOpen, setActionsOpen] = useState(false);
   // Bot-first sheet (N): the tab controls live in a bottom sheet over the bot.
   // Open/closed is one clean state. Tapping the active tab or the handle
   // toggles it; tapping another tab switches to it and keeps it open; dragging
@@ -115,6 +125,7 @@ export function WorkshopPanel() {
   // is excluded: its sheet is short and its hero-drag band must stay put.
   const [menuLift, setMenuLift] = useState(0);
   const panelsRef = useRef<HTMLDivElement | null>(null);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     y: number;
@@ -126,7 +137,7 @@ export function WorkshopPanel() {
   const contentHeight = () =>
     Math.min(
       panelsRef.current?.scrollHeight ?? 0,
-      (window.innerHeight || 1) * 0.52,
+      (window.innerHeight || 1) * MENU_MAX_VH,
     );
 
   // The whole top strip (grip + hint + tab row) is one drag surface, so a
@@ -180,6 +191,20 @@ export function WorkshopPanel() {
     setSheetDrag(null);
   };
 
+  // Close the options menu when a pointer goes down outside it (tap a tab, the
+  // bot, anywhere). Actions inside the menu keep it open until they choose to
+  // close (the fights navigate away and close it themselves).
+  useEffect(() => {
+    if (!actionsOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!actionsMenuRef.current?.contains(e.target as Node)) {
+        setActionsOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [actionsOpen]);
+
   const toggleSheetTap = () => {
     if (suppressTapRef.current) {
       suppressTapRef.current = false;
@@ -214,8 +239,8 @@ export function WorkshopPanel() {
       const panel = panelsRef.current;
       const vh = window.innerHeight || 1;
       const peekPx = 100; // handle + tab bar always showing at the sheet top
-      const headerPx = 175; // top header block the bot must stay clear of
-      const contentPx = Math.min(panel?.scrollHeight ?? 0, vh * 0.52);
+      const headerPx = 118; // compact top header the bot must stay clear of
+      const contentPx = Math.min(panel?.scrollHeight ?? 0, vh * MENU_MAX_VH);
       // Center the bot in the band between the header and the open sheet top,
       // not in the whole upper area, so lifting never tucks it behind the
       // header.
@@ -547,78 +572,100 @@ export function WorkshopPanel() {
             </span>
           )}
         </span>
-        <div className="workshop-header-actions">
-          <button type="button" onClick={undo} disabled={!canUndo(history)}>
-            Undo
-          </button>
-          <button type="button" onClick={redo} disabled={!canRedo(history)}>
-            Redo
-          </button>
+        <div className="workshop-header-menu" ref={actionsMenuRef}>
           <button
             type="button"
-            onClick={() => {
-              setEndInfo(null);
-              setVerification({ state: "idle" });
-              setMatchup([CPU_BRAWLER_DESIGN, design]);
-            }}
-            disabled={!validation.ok}
-            title={validation.ok ? undefined : "fix validity errors first"}
-            style={{
-              background: validation.ok ? "#54e0c7" : "#161b28",
-              color: validation.ok ? "#0b0e14" : "#5a6378",
-              border: "1px solid #344061",
-              borderRadius: 6,
-              padding: "4px 12px",
-              fontWeight: 600,
-              cursor: validation.ok ? "pointer" : "not-allowed",
-            }}
+            className="workshop-header-menu-button"
+            aria-haspopup="true"
+            aria-expanded={actionsOpen}
+            aria-label="Bot actions"
+            onClick={() => setActionsOpen((o) => !o)}
           >
-            Test fight vs Brawler
+            Actions
           </button>
-          <button
-            type="button"
-            onClick={async () => {
-              setEndInfo(null);
-              setVerification({ state: "idle" });
-              setRivalState("pending");
-              try {
-                const res = await fetch("/api/match/opponent");
-                if (!res.ok) {
-                  setRivalState(res.status === 404 ? "none" : "error");
-                  return;
-                }
-                const body = (await res.json()) as { design: BotDesign };
-                setRivalState("idle");
-                setMatchup([body.design, design]);
-              } catch {
-                setRivalState("error");
-              }
-            }}
-            disabled={!validation.ok || rivalState === "pending"}
-            title={validation.ok ? undefined : "fix validity errors first"}
-            style={{
-              background: validation.ok ? "#7aa8ff" : "#161b28",
-              color: validation.ok ? "#0b0e14" : "#5a6378",
-              border: "1px solid #344061",
-              borderRadius: 6,
-              padding: "4px 12px",
-              fontWeight: 600,
-              cursor: validation.ok ? "pointer" : "not-allowed",
-            }}
-          >
-            {rivalState === "pending" ? "Finding rival..." : "Fight a rival"}
-          </button>
+          {actionsOpen && (
+            <div className="workshop-header-menu-panel" role="menu">
+              <div className="workshop-header-menu-row">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={undo}
+                  disabled={!canUndo(history)}
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={redo}
+                  disabled={!canRedo(history)}
+                >
+                  Redo
+                </button>
+              </div>
+              <button
+                type="button"
+                role="menuitem"
+                className="workshop-fight-action"
+                onClick={() => {
+                  setActionsOpen(false);
+                  setEndInfo(null);
+                  setVerification({ state: "idle" });
+                  setMatchup([CPU_BRAWLER_DESIGN, design]);
+                }}
+                disabled={!validation.ok}
+                title={validation.ok ? undefined : "fix validity errors first"}
+              >
+                Test fight vs Brawler
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="workshop-fight-action workshop-fight-rival"
+                onClick={async () => {
+                  setEndInfo(null);
+                  setVerification({ state: "idle" });
+                  setRivalState("pending");
+                  try {
+                    const res = await fetch("/api/match/opponent");
+                    if (!res.ok) {
+                      setRivalState(res.status === 404 ? "none" : "error");
+                      return;
+                    }
+                    const body = (await res.json()) as { design: BotDesign };
+                    setRivalState("idle");
+                    setActionsOpen(false);
+                    setMatchup([body.design, design]);
+                  } catch {
+                    setRivalState("error");
+                  }
+                }}
+                disabled={!validation.ok || rivalState === "pending"}
+                title={validation.ok ? undefined : "fix validity errors first"}
+              >
+                {rivalState === "pending"
+                  ? "Finding rival..."
+                  : "Fight a rival"}
+              </button>
+              {rivalState === "none" && (
+                <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.7 }}>
+                  No rival designs saved yet; fight the stock bots meanwhile.
+                </p>
+              )}
+              {rivalState === "error" && (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.72rem",
+                    color: "#ff6b6b",
+                  }}
+                >
+                  Could not reach the rival ladder.
+                </p>
+              )}
+            </div>
+          )}
         </div>
-        {rivalState === "none" && (
-          <p style={{ margin: 0, fontSize: "0.78rem", opacity: 0.7 }}>
-            No rival designs saved yet; fight the stock bots meanwhile.
-          </p>
-        )}
-        {rivalState === "error" && (
-          <p style={{ margin: 0, fontSize: "0.78rem", color: "#ff6b6b" }}>
-            Could not reach the rival ladder.
-          </p>
-        )}
       </header>
 
       <div

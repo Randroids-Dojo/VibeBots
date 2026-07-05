@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Account Link VibeKit Extraction Contract</title>
+</head>
+<body>
+<main>
+  <h1>Account Link VibeKit Extraction Contract</h1>
+  <p>Status: staged after the VibeBots account-sync spike. The current reusable shape lives in <code>src/lib/account-link-core.ts</code>, outside the VibeBots server adapter.</p>
+
+  <section id="why">
+    <h2>Why Extract</h2>
+    <p>VibeBots needs optional Google sign-in now, but the durable part is not Clerk. The reusable part is the claim policy: normalize a provider identity, check whether that account already owns a save, claim an unlinked guest save, and return a non-destructive conflict when needed.</p>
+  </section>
+
+  <section id="package-boundary">
+    <h2>Package Boundary</h2>
+    <p>The VibeKit package should export only provider-neutral account-link primitives. It should not import Clerk, Next.js, Neon, Vercel, React, cookies, request objects, or a specific database driver.</p>
+    <pre><code>export interface AccountIdentity {
+  provider: string;
+  subject: string;
+  email?: string;
+}
+
+export type AccountClaimResult =
+  | { status: "claimed"; playerId: string }
+  | { status: "already-linked"; playerId: string }
+  | { status: "conflict"; playerId: string }
+  | { status: "invalid-identity" }
+  | { status: "player-not-found" };
+
+export type AccountLinkAttempt =
+  | { status: "claimed"; playerId: string }
+  | { status: "already-linked"; playerId: string }
+  | { status: "linked-to-other-account"; playerId: string }
+  | { status: "invalid-identity" }
+  | { status: "player-not-found" };
+
+export type AccountLoadResult&lt;Session&gt; =
+  | { status: "loaded"; playerId: string; session: Session }
+  | { status: "invalid-identity" }
+  | { status: "not-found" };
+
+export type AccountLinkedSaveStatus =
+  | { status: "signed-in-unlinked" }
+  | { status: "cloud-loaded"; playerId: string }
+  | { status: "conflict"; playerId: string };
+
+export interface AccountLinkStore {
+  findLinkedPlayer(identity: AccountIdentity): Promise&lt;string | null&gt;;
+  claimUnlinkedPlayer(identity: AccountIdentity, playerId: string): Promise&lt;AccountLinkAttempt&gt;;
+}
+
+export interface AccountSessionWriter&lt;Session&gt; {
+  writeActivePlayer(playerId: string): Promise&lt;Session&gt;;
+}</code></pre>
+    <p>The package should also export <code>normalizeAccountIdentity</code>, <code>claimAccountPlayer</code>, <code>loadLinkedAccountPlayer</code>, and <code>accountLinkedSaveStatus</code>.</p>
+    <p><code>normalizeAccountIdentity</code> should keep provider identities stable before an app-owned store sees them: provider names are lower-case ASCII tokens up to 64 characters, subjects are trimmed non-empty non-control strings up to 256 characters, and optional email is trimmed non-control display metadata capped at 320 characters. Provider subject remains the authority; email must never be used as the account-link key.</p>
+    <p><code>invalid-identity</code> is distinct from <code>player-not-found</code>. Malformed provider identities or app-unsupported provider identities must not be reported as missing saves, because another app reusing the claim helper needs to distinguish account input rejection from game-row lookup failure.</p>
+    <p><code>loadLinkedAccountPlayer</code> is the reusable cross-device load primitive. It normalizes the account identity, finds the linked player through the app-owned store, and calls an injected <code>AccountSessionWriter</code> to make that player active. VibeBots passes its save-slot cookie writer; another app can pass its own session mechanism without sharing cookies or tables.</p>
+    <p><code>accountLinkedSaveStatus</code> is the reusable status classifier. It reports an unlinked signed-in account, a loaded cloud save when the active player already matches the linked player, or a non-destructive conflict when the linked player differs from the active player. Apps still decide when to write a session, such as VibeBots' same-origin fresh-browser auto-load rule.</p>
+    <p>The OAuth handoff URL contract is now staged as <code>src/lib/account-handoff-contract.ts</code>. It owns bounded handoff ids and local return-path sanitization for server storage, browser response parsing, callback posting, and redirect construction without importing Clerk, Next.js, React, cookies, requests, or storage. <code>safeLocalAccountReturnTo</code> is the provider-neutral helper: an app supplies the fallback path and route allowlist. The helper accepts only local forward-slash paths, rejects protocol-relative URLs, backslashes, ASCII control characters, and overlong paths, then applies the app-owned allowlist. <code>safeAccountReturnTo</code> is the VibeBots wrapper that allowlists only the mine route for account callbacks. The browser account API parser also runs handoff start <code>returnTo</code> values through this wrapper before the Account dialog builds a Clerk redirect.</p>
+    <p>Provider readiness status can also be extracted later as a small provider-neutral contract if another project needs setup gates. The VibeBots staging module is <code>src/lib/account-provider-status.ts</code>, backed by <code>src/lib/account-provider-status-codes.json</code>; together they own the known Clerk readiness issue codes and shared provider-status type without importing Clerk, Next.js, React, cookies, requests, or storage. App routes remain app-owned: VibeBots requires one local <code>/sign-in</code> sign-in-or-up route, an installed <code>@clerk/nextjs</code> dependency before the SDK-backed provider can report ready, Clerk key prefixes that match their public or secret role, rejects a separate public sign-up URL, requires <code>/mine?account=1</code> for both sign-in and sign-up fallback redirects, rejects public and server sign-in or sign-up force redirect env vars because they would bypass the app-owned handoff token, and rejects public and server deprecated after-redirect env vars because the app uses Clerk fallback redirects for new setup. Another app should provide its own local paths, dependency policy, key-shape policy, and redirect policy.</p>
+    <p>The provider-session resolver stays app-owned. VibeBots stages the Clerk-specific adapter in <code>src/server/clerk-account-session.ts</code>: it accepts injected Clerk-like server helpers, only maps string user ids and string email metadata, verifies auth and user helpers agree on the same user id, and treats helper errors as signed out. VibeKit should not absorb that Clerk helper shape; it should only receive a normalized <code>AccountIdentity</code> from the app-owned resolver.</p>
+    <p>The Google identity-scope contract is also staged for VibeKit reuse. The reusable package can export <code>ACCOUNT_GOOGLE_IDENTITY_SCOPES</code>, <code>accountGoogleIdentityScopeString</code>, <code>accountGoogleScopeListFromString</code>, <code>accountGoogleScopeStringIsIdentityOnly</code>, <code>isAccountGoogleIdentityScope</code>, and <code>accountGoogleScopesAreIdentityOnly</code> from a provider-neutral module backed by the same minimal JSON data shape as <code>src/lib/account-google-scopes.json</code>. The package should keep this contract limited to <code>openid</code>, <code>email</code>, and <code>profile</code>; app-specific setup tools can require operators to declare dashboard scopes and validate that declaration against the shared helper.</p>
+  </section>
+
+  <section id="app-owned">
+    <h2>App-Owned Pieces</h2>
+    <ul>
+      <li>Provider session resolver. In VibeBots, Clerk will produce <code>{ provider: "clerk", subject: userId, email }</code>.</li>
+      <li>Provider-specific readiness evaluation. VibeBots decides which Clerk env keys, key-prefix checks, local sign-in route, sign-up route exclusions, local sign-in plus sign-up account fallback routes, public and server force redirect exclusions, and public and server deprecated after-redirect exclusions are required before exposing Google sign-in.</li>
+      <li>Storage adapter. VibeBots currently adapts <code>players.clerk_user_id</code> in <code>src/server/account-linking.ts</code>; another app can use a generic <code>account_links</code> table.</li>
+      <li>Cookie or session-slot write. VibeBots owns <code>setActiveSaveSlotPlayer</code>.</li>
+      <li>HTTP routes, OAuth handoff token storage, and UI state.</li>
+      <li>Telemetry and alerting policy.</li>
+    </ul>
+  </section>
+
+  <section id="migration">
+    <h2>Extraction Steps</h2>
+    <ol>
+      <li>Copy <code>src/lib/account-link-core.ts</code> into VibeKit under a server-safe export path.</li>
+      <li>Port <code>src/lib/account-link-core.test.ts</code>, including the purity guard that forbids app, provider, and framework imports.</li>
+      <li>Release VibeKit with those exports, then update VibeBots to import them from <code>@randroids-dojo/vibekit</code>.</li>
+      <li>Keep <code>src/server/account-linking.ts</code> in VibeBots as the Clerk-column adapter until a generic account-links table is worth adding.</li>
+      <li>Do not extract the handoff table yet. It is more app-specific because it depends on browser embedding, cookie partitioning, and active save-slot semantics. The shared URL safety helper can remain a staging contract until another project proves reuse.</li>
+      <li>If extracting the handoff URL helper, move <code>safeLocalAccountReturnTo</code> and <code>safeAccountHandoffId</code> into VibeKit while keeping each app's callback route allowlist local. Another project should not be forced to use VibeBots' mine route.</li>
+      <li>Extract the Google identity-scope helper before any second app wires Google sign-in, so each project can share the same no-Drive, no-Gmail, no-Contacts consent rule while keeping its provider SDK and dashboard checks app-owned.</li>
+    </ol>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance Criteria</h2>
+    <ul>
+      <li>VibeKit exports no Clerk, Next.js, Neon, Vercel, React, cookie, or request types for account linking.</li>
+      <li>VibeBots tests still prove claim success, idempotence, account-conflict, player-conflict, invalid-identity, and missing-player behavior.</li>
+      <li>VibeBots tests still prove linked account load success, not-found, invalid-identity, and app-owned session writing through <code>loadLinkedAccountPlayer</code>.</li>
+      <li>VibeBots tests still prove account status classification for unlinked, loaded, conflict, and no-active-player states through <code>accountLinkedSaveStatus</code>.</li>
+      <li>Any extracted provider-status helper keeps a purity guard like <code>src/lib/account-provider-status.test.ts</code>, proving it imports no provider, framework, storage, app, state, or component modules.</li>
+      <li>Any extracted Google scope helper keeps a data-shape guard like <code>src/lib/account-google-scopes.test.ts</code>, proving the shared data exposes only the identity scope list and rejects Drive, Gmail, Contacts, duplicates, missing scopes, and other non-identity scopes.</li>
+      <li>VibeBots can switch from the local core import to the VibeKit export without changing account route responses.</li>
+      <li>Another project can provide its own <code>AccountLinkStore</code> and reuse <code>claimAccountPlayer</code> without sharing VibeBots tables or cookies.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

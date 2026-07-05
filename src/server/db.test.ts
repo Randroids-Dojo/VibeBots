@@ -21,6 +21,35 @@ describe("compatibility migration markers", () => {
     expect(source).toContain("status text NOT NULL DEFAULT 'sending'");
   });
 
+  it("creates the account-linking uniqueness guard", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+
+    expect(source).toContain("players_clerk_user_id_unique");
+    expect(source).toContain("ON players (clerk_user_id)");
+    expect(source).toContain("WHERE clerk_user_id IS NOT NULL");
+  });
+
+  it("creates the account handoff table", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+
+    expect(source).toContain("CREATE TABLE IF NOT EXISTS account_handoffs");
+    expect(source).toContain("token text PRIMARY KEY");
+    expect(source).toContain("consumed_at timestamptz");
+    expect(source).toContain("account_handoffs_player_created_at_idx");
+    expect(source).toContain("account_handoffs_expires_at_idx");
+    expect(source).toContain("ON account_handoffs (expires_at)");
+  });
+
+  it("creates the mine trip checkpoint table", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+
+    expect(source).toContain(
+      "CREATE TABLE IF NOT EXISTS mine_trip_checkpoints",
+    );
+    expect(source).toContain("trip jsonb NOT NULL");
+    expect(source).toContain("PRIMARY KEY REFERENCES players(id)");
+  });
+
   it("creates the player performance sample table", () => {
     const source = readFileSync("src/server/db.ts", "utf8");
 

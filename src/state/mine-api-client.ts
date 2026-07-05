@@ -1,9 +1,25 @@
 import {
+  safeAccountHandoffId,
+  safeAccountReturnTo,
+} from "@/lib/account-handoff-contract";
+import {
+  type AccountProviderIssue,
+  type AccountProviderStatus,
+  isAccountProviderIssue,
+} from "@/lib/account-provider-status";
+import {
+  isMineAction,
   MINE_VERSION,
   type MineConsumables,
+  type MineGearSnapshot,
   type MineGearTrack,
+  normalizeGear,
 } from "@/sim/mine";
-import { type SaveSlotId, validSaveSlot } from "./mine-trip-persistence";
+import {
+  type SavedTrip,
+  type SaveSlotId,
+  validSaveSlot,
+} from "./mine-trip-persistence";
 
 export interface SaveSlotSummary {
   slot: SaveSlotId;
@@ -17,10 +33,70 @@ export interface SaveSlotSummary {
   stamps: number;
 }
 
+export interface AccountSaveSummary {
+  exists: boolean;
+  createdAt: string | null;
+  balance: number;
+  deepestDepth: number;
+  partsOwned: number;
+  designs: number;
+  stamps: number;
+}
+
+export type AccountStatusMode =
+  | "guest"
+  | "signed_in"
+  | "cloud_loaded"
+  | "conflict";
+
+export type { AccountProviderIssue, AccountProviderStatus };
+
+export interface AccountStatus {
+  mode: AccountStatusMode;
+  providerReady: boolean;
+  providerStatus: AccountProviderStatus;
+  activeSlot: SaveSlotId;
+  account: { provider: string; email: string | null } | null;
+  currentSave: AccountSaveSummary | null;
+  accountSave: AccountSaveSummary | null;
+}
+
+export interface AccountHandoffStart {
+  handoffId: string;
+  expiresAt: string;
+  returnTo: string;
+}
+
+export interface AccountCloudLoadResult {
+  mode: "cloud_loaded";
+  activeSlot: SaveSlotId;
+  accountSave: AccountSaveSummary;
+}
+
 export type MineApiResult<T> =
   | { ok: true; status: number; body: T }
   | { ok: false; status: number; body: unknown }
   | { ok: false; status: null; body: null };
+
+const ACCOUNT_ERROR_MESSAGES = new Set([
+  "account sign-in required",
+  "guest save required",
+  "guest save not found",
+  "account already has a cloud save",
+  "same-origin request required",
+  "storage not configured",
+]);
+
+export function accountErrorMessageFromResponse(
+  body: unknown,
+  fallback: string,
+): string {
+  if (!body || typeof body !== "object") return fallback;
+  const error = (body as { error?: unknown }).error;
+  return typeof error === "string" && ACCOUNT_ERROR_MESSAGES.has(error)
+    ? error
+    : fallback;
+}
 
 async function mineApi<T>(
   url: string,
@@ -47,6 +123,16 @@ function jsonPost(body: unknown): RequestInit {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
+  };
+}
+
+function accountMutation(init: RequestInit = {}): RequestInit {
+  return {
+    ...init,
+    headers: {
+      ...(init.headers as Record<string, string> | undefined),
+      "x-vibebots-account-mutation": "1",
+    },
   };
 }
 
@@ -83,6 +169,239 @@ export function saveSlotSummariesFromResponse(value: unknown): {
     ];
   });
   return { activeSlot, slots };
+}
+
+function accountSaveSummaryFromResponse(
+  value: unknown,
+): AccountSaveSummary | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<Record<keyof AccountSaveSummary, unknown>>;
+  return {
+    exists: raw.exists === true,
+    createdAt: typeof raw.createdAt === "string" ? raw.createdAt : null,
+    balance: typeof raw.balance === "number" ? raw.balance : 0,
+    deepestDepth: typeof raw.deepestDepth === "number" ? raw.deepestDepth : 0,
+    partsOwned: typeof raw.partsOwned === "number" ? raw.partsOwned : 0,
+    designs: typeof raw.designs === "number" ? raw.designs : 0,
+    stamps: typeof raw.stamps === "number" ? raw.stamps : 0,
+  };
+}
+
+const MAX_ACCOUNT_PROVIDER_LENGTH = 64;
+const MAX_ACCOUNT_EMAIL_LENGTH = 320;
+const ACCOUNT_PROVIDER_RE = /^[a-z0-9][a-z0-9._-]*$/;
+
+function hasControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code < 32 || code === 127) return true;
+  }
+  return false;
+}
+
+function accountMetadataTextFromResponse(
+  value: unknown,
+  maxLength: number,
+  pattern?: RegExp,
+  lower = false,
+): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const normalized = lower ? trimmed.toLowerCase() : trimmed;
+  if (!normalized || normalized.length > maxLength) return null;
+  if (hasControlCharacter(normalized)) return null;
+  if (pattern && !pattern.test(normalized)) return null;
+  return normalized;
+}
+
+function accountFromResponse(
+  value: unknown,
+): { provider: string; email: string | null } | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const provider = accountMetadataTextFromResponse(
+    raw.provider,
+    MAX_ACCOUNT_PROVIDER_LENGTH,
+    ACCOUNT_PROVIDER_RE,
+    true,
+  );
+  if (!provider) return null;
+  const email =
+    raw.email === null || raw.email === undefined
+      ? null
+      : accountMetadataTextFromResponse(raw.email, MAX_ACCOUNT_EMAIL_LENGTH);
+  if (email === null && typeof raw.email === "string") return null;
+  return {
+    provider,
+    email,
+  };
+}
+
+function accountProviderStatusFromResponse(
+  value: unknown,
+  providerReady: boolean,
+): AccountProviderStatus {
+  if (!value || typeof value !== "object") {
+    return {
+      provider: "clerk",
+      ready: false,
+      reason: null,
+      issues: [],
+    };
+  }
+  const raw = value as Record<string, unknown>;
+  const provider = raw.provider === "clerk" ? "clerk" : null;
+  const reason =
+    typeof raw.reason === "string" && isAccountProviderIssue(raw.reason)
+      ? raw.reason
+      : null;
+  const rawIssueValues = Array.isArray(raw.issues)
+    ? raw.issues
+    : typeof raw.reason === "string"
+      ? [raw.reason]
+      : [];
+  const hasUnknownIssue = rawIssueValues.some(
+    (issue) => typeof issue !== "string" || !isAccountProviderIssue(issue),
+  );
+  const issues = rawIssueValues.filter(isAccountProviderIssue);
+  const normalizedIssues = issues.length ? issues : reason ? [reason] : [];
+  const ready =
+    provider === "clerk" &&
+    providerReady &&
+    raw.ready === true &&
+    !reason &&
+    !normalizedIssues.length &&
+    !hasUnknownIssue;
+  if (ready) {
+    return {
+      provider: "clerk",
+      ready: true,
+      reason: null,
+      issues: [],
+    };
+  }
+  return {
+    provider: "clerk",
+    ready: false,
+    reason,
+    issues: normalizedIssues,
+  };
+}
+
+export function accountStatusFromResponse(
+  value: unknown,
+): AccountStatus | null {
+  if (!value || typeof value !== "object") return null;
+  const body = value as Record<string, unknown>;
+  const mode = body.mode;
+  if (
+    mode !== "guest" &&
+    mode !== "signed_in" &&
+    mode !== "cloud_loaded" &&
+    mode !== "conflict"
+  ) {
+    return null;
+  }
+  const activeSlot = validSaveSlot(body.activeSlot) ?? 1;
+  const account = accountFromResponse(body.account);
+  const providerReady = body.providerReady === true;
+  const currentSave = accountSaveSummaryFromResponse(body.currentSave);
+  const accountSave = accountSaveSummaryFromResponse(body.accountSave);
+  if (mode !== "guest" && !account) return null;
+  if (
+    (mode === "cloud_loaded" || mode === "conflict") &&
+    accountSave?.exists !== true
+  ) {
+    return null;
+  }
+  return {
+    mode,
+    providerReady,
+    providerStatus: accountProviderStatusFromResponse(
+      body.providerStatus,
+      providerReady,
+    ),
+    activeSlot,
+    account,
+    currentSave,
+    accountSave,
+  };
+}
+
+export function accountHandoffStartFromResponse(
+  value: unknown,
+): AccountHandoffStart | null {
+  if (!value || typeof value !== "object") return null;
+  const body = value as Record<string, unknown>;
+  const handoffId =
+    typeof body.handoffId === "string"
+      ? safeAccountHandoffId(body.handoffId)
+      : null;
+  if (
+    !handoffId ||
+    typeof body.expiresAt !== "string" ||
+    typeof body.returnTo !== "string"
+  ) {
+    return null;
+  }
+  return {
+    handoffId,
+    expiresAt: body.expiresAt,
+    returnTo: safeAccountReturnTo(body.returnTo),
+  };
+}
+
+export function accountCloudLoadFromResponse(
+  value: unknown,
+): AccountCloudLoadResult | null {
+  if (!value || typeof value !== "object") return null;
+  const body = value as Record<string, unknown>;
+  const activeSlot = validSaveSlot(body.activeSlot);
+  const accountSave = accountSaveSummaryFromResponse(body.accountSave);
+  if (body.mode !== "cloud_loaded" || !activeSlot || !accountSave?.exists) {
+    return null;
+  }
+  return {
+    mode: "cloud_loaded",
+    activeSlot,
+    accountSave,
+  };
+}
+
+export function accountTripFromResponse(value: unknown): SavedTrip | null {
+  if (!value || typeof value !== "object") return null;
+  const body = value as Record<string, unknown>;
+  const trip = body.trip;
+  if (!trip || typeof trip !== "object") return null;
+  const raw = trip as Partial<Record<keyof SavedTrip, unknown>>;
+  if (
+    raw.mineVersion !== MINE_VERSION ||
+    typeof raw.seed !== "number" ||
+    typeof raw.tripIndex !== "number" ||
+    !raw.gear ||
+    typeof raw.gear !== "object" ||
+    !raw.consumables ||
+    typeof raw.consumables !== "object" ||
+    !Array.isArray(raw.baseDiff) ||
+    !Array.isArray(raw.moves) ||
+    !raw.moves.every((move) => typeof move === "string" && isMineAction(move))
+  ) {
+    return null;
+  }
+  return {
+    mineVersion: MINE_VERSION,
+    seed: raw.seed,
+    tripIndex: raw.tripIndex,
+    gear: normalizeGear(raw.gear as MineGearSnapshot),
+    consumables: raw.consumables as SavedTrip["consumables"],
+    baseDiff: raw.baseDiff as SavedTrip["baseDiff"],
+    moves: raw.moves as SavedTrip["moves"],
+    pendingBunker: raw.pendingBunker as SavedTrip["pendingBunker"],
+    terminalReplayConsumed:
+      typeof raw.terminalReplayConsumed === "boolean"
+        ? raw.terminalReplayConsumed
+        : undefined,
+  };
 }
 
 export function consumablesFromResponse(
@@ -137,6 +456,67 @@ export function loadMineGear() {
 
 export function loadSaveSlotSummaries() {
   return mineApi<unknown>("/api/save-slots");
+}
+
+export function loadAccountStatus() {
+  return mineApi<unknown>("/api/account/status");
+}
+
+export function claimRemoteAccountSave() {
+  return mineApi<unknown>(
+    "/api/account/claim",
+    accountMutation({ method: "POST" }),
+  );
+}
+
+export function startRemoteAccountHandoff(returnTo = "/mine") {
+  return mineApi<unknown>(
+    "/api/account/handoff/start",
+    accountMutation(jsonPost({ returnTo })),
+  );
+}
+
+export function finishRemoteAccountHandoff(handoffId: string) {
+  const safeHandoffId = safeAccountHandoffId(handoffId);
+  if (!safeHandoffId) {
+    return Promise.resolve({
+      ok: false,
+      status: 400,
+      body: { error: "handoff id required" },
+    } as const satisfies MineApiResult<unknown>);
+  }
+  return mineApi<unknown>(
+    "/api/account/handoff/finish",
+    accountMutation(jsonPost({ handoffId: safeHandoffId })),
+  );
+}
+
+export function loadRemoteAccountSave() {
+  return mineApi<unknown>(
+    "/api/account/load",
+    accountMutation({ method: "POST" }),
+  );
+}
+
+export function loadRemoteAccountTrip() {
+  return mineApi<unknown>("/api/account/trip");
+}
+
+export function storeRemoteAccountTrip(trip: SavedTrip) {
+  return mineApi<unknown>(
+    "/api/account/trip",
+    accountMutation({
+      ...jsonPost({ trip }),
+      method: "PUT",
+    }),
+  );
+}
+
+export function clearRemoteAccountTrip() {
+  return mineApi<unknown>(
+    "/api/account/trip",
+    accountMutation({ method: "DELETE" }),
+  );
 }
 
 export function switchRemoteSaveSlot(

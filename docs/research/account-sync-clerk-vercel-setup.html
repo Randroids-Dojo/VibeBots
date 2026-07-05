@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Clerk and Vercel Setup Checklist for Account Sync</title>
+</head>
+<body>
+<main>
+  <h1>Clerk and Vercel Setup Checklist for Account Sync</h1>
+  <p>Status: approved Clerk CLI development setup and SDK wiring landed locally. Production Clerk setup remains open; do not promote, upload production settings, or enable paid Clerk features without separate approval.</p>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Give VibeBots optional Google sign-in without changing guest-first play. A player can keep a local guest save, start sign-in from the mine Account dialog, and claim that active save through the existing one-time handoff routes.</p>
+  </section>
+
+  <section id="cost-guard">
+    <h2>Cost Guard</h2>
+    <ol>
+      <li>Use Clerk's Hobby plan for the first account-sync release. Clerk's pricing page still lists Hobby as free, no credit card required, with a 50,000 monthly retained user limit per app, as checked on 2026-07-05.</li>
+      <li>Do not enable paid Clerk add-ons, organizations, enterprise SSO, custom domains, SMS-heavy auth, or machine-to-machine features for this release.</li>
+      <li>Use only Google social sign-in from the Account dialog. Do not enable Google One Tap for the first release, because it can prompt sign-in before the player chooses to save to an account.</li>
+      <li>Before enabling Clerk in production, record the current Clerk plan, retained-user limit, and any dashboard billing warnings in the PR body. If the free-tier terms changed, stop and ask before wiring the SDK.</li>
+      <li>After launch, review Clerk monthly retained users during release checks. If usage approaches the free-tier limit, log a followup before any paid plan change.</li>
+    </ol>
+  </section>
+
+  <section id="vercel-marketplace">
+    <h2>Vercel Marketplace Setup</h2>
+    <ol>
+      <li>Install Clerk through the Vercel Marketplace for only the <code>vibe-bots</code> Vercel project.</li>
+      <li>Confirm Vercel synced <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> and <code>CLERK_SECRET_KEY</code> into the project environments. Clerk's Marketplace guide still says those two variables are auto-synced when the project is connected, as checked on 2026-07-05. The publishable key must start with <code>pk_test_</code> or <code>pk_live_</code>, and the secret key must start with <code>sk_test_</code> or <code>sk_live_</code>.</li>
+      <li>Do not copy Clerk keys from another project. This follows Rule 11's one-backing-store-per-project shape and keeps account identity blast radius isolated.</li>
+      <li>Pull development env only into a local ignored file when needed: <code>vercel env pull</code>. Never commit pulled values.</li>
+      <li>Run <code>pnpm ops:check-account-env</code> before setup to confirm the current no-SDK state is safely pending, then run <code>pnpm ops:check-account-env -- --require-ready --google-scopes "openid email profile"</code> after SDK wiring, env sync, and Clerk dashboard scope review. The preflight prints booleans, issue codes, and the required identity scope list only, never Clerk key values; tests cover both the evaluator result and CLI stdout plus stderr.</li>
+      <li>Keep <code>src/server/account-env-preflight.test.ts</code> passing when changing readiness rules. It compares the CLI preflight with runtime <code>accountProviderStatusFromConfig</code> for ready, missing-key, and wrong-sign-in-url cases.</li>
+    </ol>
+  </section>
+
+  <section id="clerk-dashboard">
+    <h2>Clerk Dashboard Setup</h2>
+    <ol>
+      <li>Enable Google as the only social connection for the first account-sync release.</li>
+      <li>Keep Google scopes to identity only: <code>openid</code>, <code>email</code>, and <code>profile</code>. This set is pinned in <code>src/lib/account-google-scopes.ts</code>; do not add Drive, Gmail, Contacts, or other non-identity scopes for account sync.</li>
+      <li>Leave Google One Tap off for the first release. Clerk's Google social connection guide still documents One Tap as an optional component after Google is added, as checked on 2026-07-05. The only sign-in entrypoint should be the Account dialog button so guest-first play remains quiet until the player asks to save to Google.</li>
+      <li>Set the app sign-in route to <code>/sign-in</code>. It exists today as a no-SDK optional catch-all placeholder at <code>src/app/sign-in/[[...sign-in]]/page.tsx</code> that redirects to <code>/mine?account=1</code>; the approved Clerk SDK slice should replace that page with Clerk's sign-in-or-up component. The public client env should be <code>NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in</code>.</li>
+      <li>Do not set <code>NEXT_PUBLIC_CLERK_SIGN_UP_URL</code> for the first release. The Account dialog has one Google entrypoint and Clerk's sign-in-or-up page should keep account creation on the same <code>/sign-in</code> handoff path.</li>
+      <li>Do not use a hosted Clerk sign-in URL for <code>NEXT_PUBLIC_CLERK_SIGN_IN_URL</code>. The setup preflight and Account dialog both require the local app route so guest-first play and the one-time handoff stay under VibeBots routing.</li>
+      <li>Set the sign-in fallback redirect to <code>/mine?account=1</code> with <code>NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/mine?account=1</code>. Direct visits to the sign-in page without a one-time handoff token must return to the Account dialog.</li>
+      <li>Set the sign-up fallback redirect to <code>/mine?account=1</code> with <code>NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/mine?account=1</code>. Account creation reached from Clerk's sign-in component without a one-time handoff token must return to the Account dialog.</li>
+      <li>Do not set sign-in or sign-up force redirect URLs for this flow. The Account dialog sends a one-time <code>redirect_url</code> containing <code>accountHandoff</code>, and a force redirect would bypass that handoff.</li>
+      <li>Leave <code>NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL</code>, <code>NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL</code>, <code>CLERK_SIGN_IN_FORCE_REDIRECT_URL</code>, and <code>CLERK_SIGN_UP_FORCE_REDIRECT_URL</code> unset in Vercel. The setup preflight and runtime provider readiness reject any of these values when present.</li>
+      <li>Leave <code>NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL</code>, <code>NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL</code>, <code>CLERK_AFTER_SIGN_IN_URL</code>, and <code>CLERK_AFTER_SIGN_UP_URL</code> unset. Clerk marks these after-redirect variables deprecated for new apps, and VibeBots uses the fallback redirect variables instead.</li>
+      <li>Keep handoff callback targets on the mine route. The app contract accepts only <code>/mine</code>, <code>/mine?...</code>, and <code>/mine#...</code> return paths before appending <code>accountHandoff</code>.</li>
+    </ol>
+  </section>
+
+  <section id="code-slice">
+    <h2>Implemented Code Slice</h2>
+    <ol>
+      <li>Clerk CLI setup was approved on 2026-07-05 and linked this checkout to Clerk app <code>app_3G4IGPPwHQPsNjcWfGKUfzFh2u3</code>.</li>
+      <li><code>@clerk/nextjs</code> is installed through pnpm and recorded in <code>package.json</code> plus <code>pnpm-lock.yaml</code>.</li>
+      <li>The app wraps content in Clerk's provider only when <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> is configured, so fresh worktrees and CI can still run the guest-first shell without local Clerk keys.</li>
+      <li><code>src/proxy.ts</code> runs Clerk middleware only for Clerk's <code>/__clerk</code> frontend bridge when both public and secret keys are configured, protects no gameplay routes by default, and includes Clerk's <code>/__clerk/(.*)</code> matcher after the API matcher.</li>
+      <li>The current <code>/sign-in</code> optional catch-all now renders Clerk's <code>&lt;SignIn /&gt;</code> component when a public key exists and otherwise falls back to <code>/mine?account=1</code>.</li>
+      <li>The Clerk CLI also created a guarded <code>/sign-up</code> page. VibeBots does not set <code>NEXT_PUBLIC_CLERK_SIGN_UP_URL</code>; account creation should still start from the Account dialog handoff or Clerk's sign-in component.</li>
+      <li><code>currentAccountSessionProvider</code> in <code>src/server/account-session.ts</code> now returns <code>clerkAccountProvider({ auth, currentUser })</code>. The provider verifies that Clerk auth state and current-user profile point at the same user id before account routes see a provider-neutral identity.</li>
+      <li>Keep identity resolution and provider readiness in that one provider object so <code>providerReady</code> cannot drift away from the actual resolver wiring.</li>
+      <li>Keep account routes on <code>currentReadyAccountIdentity</code>. If the provider status is not ready, status, claim, cloud-load, handoff finish, and account trip checkpoint load must behave as signed out and must not attach or mutate cloud-save ownership.</li>
+      <li>Flip <code>accountProviderStatus()</code> through <code>accountProviderStatusFromConfig({ resolverWired: true, sdkDependencyInstalled: true, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_SIGN_IN_URL, NEXT_PUBLIC_CLERK_SIGN_UP_URL, NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL, NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL, NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL, NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL, CLERK_SIGN_IN_FORCE_REDIRECT_URL, CLERK_SIGN_UP_FORCE_REDIRECT_URL, NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL, NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL, CLERK_AFTER_SIGN_IN_URL, CLERK_AFTER_SIGN_UP_URL })</code> only after the SDK-backed resolver, <code>@clerk/nextjs</code> dependency, Clerk keys with expected prefixes, public sign-in URL, unset public sign-up URL, account-dialog fallback URLs, unset public and server force redirect URLs, and unset public and server deprecated after-redirect URLs are present. Until then, keep the non-secret <code>providerStatus.issues</code> checklist accurate so preview and local builds can explain missing setup without exposing keys.</li>
+      <li>Keep all save ownership changes in the existing account routes: <code>/api/account/handoff/start</code>, <code>/api/account/handoff/finish</code>, <code>/api/account/claim</code>, and <code>/api/account/load</code>.</li>
+      <li>Add route tests for the real resolver shape, but keep provider-independent account-route tests and the no-SDK adapter tests in place.</li>
+    </ol>
+  </section>
+
+  <section id="verification">
+    <h2>Verification</h2>
+    <ul>
+      <li>Local with Clerk env unset: guest play works and the Account dialog keeps Google sign-in disabled.</li>
+      <li>Provider status with Clerk env unset after SDK wiring: <code>/api/account/status</code> reports <code>providerReady: false</code> and includes <code>publishable_key_missing</code>, <code>secret_key_missing</code>, <code>public_sign_in_url_missing</code>, <code>public_sign_in_fallback_url_missing</code>, and <code>public_sign_up_fallback_url_missing</code> in <code>providerStatus.issues</code>, without printing secret env values.</li>
+      <li>Ready-gated identity: if a future injected resolver can return a Clerk identity while <code>providerStatus.ready</code> is false, account routes still report signed out and do not attach or mutate cloud-save ownership.</li>
+      <li>Preflight after SDK wiring: run <code>pnpm ops:check-account-env -- --require-ready --google-scopes "openid email profile"</code> with Clerk env loaded from the target environment. The command should fail when keys or redirect settings are missing and should never print key values.</li>
+      <li>Preflight after approved wiring: <code>pnpm ops:check-account-env -- --require-ready --google-scopes "openid email profile"</code> exits 0 only when <code>@clerk/nextjs</code>, the public key has a <code>pk_test_</code> or <code>pk_live_</code> prefix, the secret key has an <code>sk_test_</code> or <code>sk_live_</code> prefix, <code>NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in</code>, unset <code>NEXT_PUBLIC_CLERK_SIGN_UP_URL</code>, <code>NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/mine?account=1</code>, <code>NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/mine?account=1</code>, unset public and server force redirect env vars, unset public and server deprecated after-redirect env vars, and the identity-only Google scope declaration are all present.</li>
+      <li>Local or preview with Clerk env set: clicking Sign in with Google creates a handoff, redirects through Clerk, returns to <code>/mine?accountHandoff=...</code>, consumes the handoff, claims the guest row, and clears the query param.</li>
+      <li>Handoff return route guard: API paths, <code>/sign-in</code>, workshop paths, nested mine paths, and external URLs normalize back to <code>/mine</code> before the callback token is stored or used for Clerk's redirect URL.</li>
+      <li>Sign-in route catch-all: direct visits to <code>/sign-in</code> and nested Clerk sign-in subpaths render Clerk when a public key exists, and fall back to <code>/mine?account=1</code> when no public key is configured.</li>
+      <li>Fallback redirect: direct sign-in visits without a handoff return to <code>/mine?account=1</code>, open the Account dialog, and clear the query param without a route reload.</li>
+      <li>Sign-up fallback redirect: account creation reached from Clerk without a handoff return to <code>/mine?account=1</code>, open the Account dialog, and clear the query param without a route reload.</li>
+      <li>Conflict case: if the Google account already owns another player row, finish returns conflict and does not overwrite the current guest row.</li>
+      <li>Cross-device case: a fresh browser signed in with the same Google account can load the claimed cloud save into its active save slot.</li>
+      <li>Guest-first quiet start: a fresh guest session does not show Google One Tap, Clerk overlays, or sign-in prompts before the player opens the Account dialog.</li>
+      <li>Cost check: stay on Clerk Hobby until retained-user usage approaches the free-tier limit recorded in <a href="account-sync-google-signin.html">the research document</a>.</li>
+    </ul>
+  </section>
+
+  <section id="sources">
+    <h2>Sources Checked</h2>
+    <ul>
+      <li><a href="https://clerk.com/docs/guides/development/integrations/platforms/vercel-marketplace">Clerk Vercel Marketplace integration</a>, refreshed 2026-07-05.</li>
+      <li><a href="https://clerk.com/pricing">Clerk pricing</a>, refreshed 2026-07-05.</li>
+      <li><a href="https://clerk.com/docs/guides/configure/auth-strategies/social-connections/google">Clerk Google social connection</a>, refreshed 2026-07-05.</li>
+      <li><a href="https://clerk.com/docs/guides/development/customize-redirect-urls">Clerk redirect URL customization</a>, checked 2026-07-04.</li>
+      <li><a href="https://clerk.com/docs/guides/development/clerk-environment-variables">Clerk environment variables</a>, refreshed 2026-07-04.</li>
+      <li><a href="https://clerk.com/docs/nextjs/guides/development/custom-sign-in-or-up-page">Clerk custom sign-in or sign-up page for Next.js</a>, checked 2026-07-04.</li>
+      <li><a href="https://developers.google.com/identity/openid-connect/openid-connect">Google OpenID Connect</a>, refreshed 2026-07-05.</li>
+      <li><a href="https://clerk.com/docs/cli">Clerk CLI</a>, checked 2026-07-05.</li>
+      <li><a href="https://clerk.com/docs/nextjs/getting-started/quickstart">Clerk Next.js quickstart</a>, checked 2026-07-05.</li>
+      <li><a href="https://clerk.com/docs/reference/nextjs/clerk-middleware">Clerk middleware reference</a>, checked 2026-07-05.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  logAccountLinkEvent,
   logAppClientErrorEvent,
   logMineCashOutEvent,
   logMineClientDiagnosticEvent,
@@ -146,6 +147,44 @@ describe("app client error monitoring", () => {
       path: "/mine",
       digest: "digest-1",
     });
+
+    spy.mockRestore();
+  });
+});
+
+describe("account link monitoring", () => {
+  it("hashes account and player ids without logging profile data", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    logAccountLinkEvent({
+      code: "claim_conflict",
+      severity: "warn",
+      provider: "clerk",
+      subject: "clerk-user-1",
+      playerId: "guest-player",
+      targetPlayerId: "cloud-player",
+      result: "conflict",
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const raw = String(spy.mock.calls[0][0]);
+    expect(raw).not.toContain("clerk-user-1");
+    expect(raw).not.toContain("guest-player");
+    expect(raw).not.toContain("cloud-player");
+    const parsed = JSON.parse(raw);
+    expect(parsed).toMatchObject({
+      source: "vibebots",
+      component: "account.link",
+      event: "account.link.claim_conflict",
+      alert: true,
+      severity: "warn",
+      code: "claim_conflict",
+      provider: "clerk",
+      result: "conflict",
+    });
+    expect(parsed.account).toMatch(/^[0-9a-f]{16}$/);
+    expect(parsed.player).toMatch(/^[0-9a-f]{16}$/);
+    expect(parsed.targetPlayer).toMatch(/^[0-9a-f]{16}$/);
 
     spy.mockRestore();
   });

@@ -1,18 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MINE_VERSION, NO_CONSUMABLES } from "@/sim/mine";
+import { DEFAULT_GEAR, MINE_VERSION, NO_CONSUMABLES } from "@/sim/mine";
 import {
+  accountCloudLoadFromResponse,
+  accountErrorMessageFromResponse,
+  accountHandoffStartFromResponse,
+  accountStatusFromResponse,
+  accountTripFromResponse,
   buyRemoteConsumable,
   buyRemoteElevator,
   buyRemoteGearUpgrade,
   cashOutErrorMessage,
+  claimRemoteAccountSave,
+  clearRemoteAccountTrip,
   consumablesFromResponse,
   deleteRemoteSaveSlot,
   deleteSaveSlotConfirmation,
+  finishRemoteAccountHandoff,
   isMineVersionMismatch,
+  loadAccountStatus,
   loadMineGear,
   loadMineWorld,
+  loadRemoteAccountSave,
+  loadRemoteAccountTrip,
   loadSaveSlotSummaries,
   saveSlotSummariesFromResponse,
+  startRemoteAccountHandoff,
+  storeRemoteAccountTrip,
   submitMineBank,
   switchRemoteSaveSlot,
   teleportRemoteBase,
@@ -30,6 +43,24 @@ describe("mine API client", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(jsonResponse({ ok: true })),
+    );
+  });
+
+  it("normalizes account route errors from response bodies", () => {
+    expect(
+      accountErrorMessageFromResponse(
+        { error: "guest save not found" },
+        "claim failed",
+      ),
+    ).toBe("guest save not found");
+    expect(
+      accountErrorMessageFromResponse(
+        { error: "internal database stack" },
+        "claim failed",
+      ),
+    ).toBe("claim failed");
+    expect(accountErrorMessageFromResponse(null, "claim failed")).toBe(
+      "claim failed",
     );
   });
 
@@ -78,6 +109,396 @@ describe("mine API client", () => {
     expect(saveSlotSummariesFromResponse({ activeSlot: 1 })).toBeNull();
   });
 
+  it("parses account status responses", () => {
+    expect(
+      accountStatusFromResponse({
+        mode: "conflict",
+        providerReady: true,
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: null,
+          issues: [],
+        },
+        activeSlot: 2,
+        account: { provider: "clerk", email: "pilot@example.com" },
+        currentSave: {
+          exists: true,
+          createdAt: "2026-07-04T00:00:00.000Z",
+          balance: 12,
+          deepestDepth: 4,
+          partsOwned: 3,
+          designs: 2,
+          stamps: 1,
+        },
+        accountSave: {
+          exists: true,
+          createdAt: "2026-07-03T00:00:00.000Z",
+          balance: 20,
+          deepestDepth: 9,
+          partsOwned: 5,
+          designs: 4,
+          stamps: 3,
+        },
+      }),
+    ).toEqual({
+      mode: "conflict",
+      providerReady: true,
+      providerStatus: {
+        provider: "clerk",
+        ready: true,
+        reason: null,
+        issues: [],
+      },
+      activeSlot: 2,
+      account: { provider: "clerk", email: "pilot@example.com" },
+      currentSave: {
+        exists: true,
+        createdAt: "2026-07-04T00:00:00.000Z",
+        balance: 12,
+        deepestDepth: 4,
+        partsOwned: 3,
+        designs: 2,
+        stamps: 1,
+      },
+      accountSave: {
+        exists: true,
+        createdAt: "2026-07-03T00:00:00.000Z",
+        balance: 20,
+        deepestDepth: 9,
+        partsOwned: 5,
+        designs: 4,
+        stamps: 3,
+      },
+    });
+    expect(accountStatusFromResponse({ mode: "guest" })).toMatchObject({
+      providerReady: false,
+      providerStatus: {
+        provider: "clerk",
+        ready: false,
+        reason: null,
+        issues: [],
+      },
+    });
+    expect(
+      accountStatusFromResponse({
+        mode: "guest",
+        providerStatus: {
+          provider: "clerk",
+          ready: false,
+          reason: "sdk_not_wired",
+          issues: [
+            "sdk_not_wired",
+            "publishable_key_missing",
+            "secret_key_missing",
+            "public_sign_in_url_missing",
+            "public_sign_in_fallback_url_missing",
+            "public_sign_up_fallback_url_missing",
+          ],
+        },
+      }),
+    ).toMatchObject({
+      providerStatus: {
+        provider: "clerk",
+        ready: false,
+        reason: "sdk_not_wired",
+        issues: [
+          "sdk_not_wired",
+          "publishable_key_missing",
+          "secret_key_missing",
+          "public_sign_in_url_missing",
+          "public_sign_in_fallback_url_missing",
+          "public_sign_up_fallback_url_missing",
+        ],
+      },
+    });
+    expect(
+      accountStatusFromResponse({
+        mode: "guest",
+        providerStatus: {
+          provider: "clerk",
+          ready: false,
+          reason: "sdk_not_wired",
+        },
+      }),
+    ).toMatchObject({
+      providerStatus: {
+        reason: "sdk_not_wired",
+        issues: ["sdk_not_wired"],
+      },
+    });
+    expect(
+      accountStatusFromResponse({ mode: "guest", providerReady: true }),
+    ).toMatchObject({
+      providerReady: true,
+      providerStatus: {
+        provider: "clerk",
+        ready: false,
+        reason: null,
+        issues: [],
+      },
+    });
+    expect(
+      accountStatusFromResponse({
+        mode: "guest",
+        providerReady: true,
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: "sdk_not_wired",
+          issues: ["sdk_not_wired"],
+        },
+      }),
+    ).toMatchObject({
+      providerStatus: {
+        ready: false,
+        reason: "sdk_not_wired",
+        issues: ["sdk_not_wired"],
+      },
+    });
+    expect(
+      accountStatusFromResponse({
+        mode: "guest",
+        providerReady: true,
+        providerStatus: {
+          provider: "other",
+          ready: true,
+          reason: null,
+          issues: [],
+        },
+      }),
+    ).toMatchObject({
+      providerStatus: {
+        provider: "clerk",
+        ready: false,
+        reason: null,
+        issues: [],
+      },
+    });
+    expect(
+      accountStatusFromResponse({
+        mode: "guest",
+        providerReady: true,
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: "unexpected_setup_issue",
+          issues: ["unexpected_setup_issue"],
+        },
+      }),
+    ).toMatchObject({
+      providerStatus: {
+        provider: "clerk",
+        ready: false,
+        reason: null,
+        issues: [],
+      },
+    });
+  });
+
+  it("rejects invalid account status roots", () => {
+    expect(accountStatusFromResponse({ mode: "other" })).toBeNull();
+    expect(accountStatusFromResponse(null)).toBeNull();
+  });
+
+  it("rejects account-owned status modes without their required fields", () => {
+    expect(
+      accountStatusFromResponse({
+        mode: "signed_in",
+        activeSlot: 1,
+        currentSave: { exists: true },
+      }),
+    ).toBeNull();
+    expect(
+      accountStatusFromResponse({
+        mode: "cloud_loaded",
+        activeSlot: 1,
+        account: { provider: "clerk", email: "pilot@example.com" },
+        currentSave: { exists: true },
+      }),
+    ).toBeNull();
+    expect(
+      accountStatusFromResponse({
+        mode: "conflict",
+        activeSlot: 1,
+        account: { provider: "clerk", email: "pilot@example.com" },
+        accountSave: { exists: false },
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects malformed account metadata before rendering status", () => {
+    expect(
+      accountStatusFromResponse({
+        mode: "signed_in",
+        activeSlot: 1,
+        account: { provider: "clerk auth", email: "pilot@example.com" },
+      }),
+    ).toBeNull();
+    expect(
+      accountStatusFromResponse({
+        mode: "signed_in",
+        activeSlot: 1,
+        account: {
+          provider: "clerk",
+          email: "pilot@example.com\ncc@example.com",
+        },
+      }),
+    ).toBeNull();
+    expect(
+      accountStatusFromResponse({
+        mode: "signed_in",
+        activeSlot: 1,
+        account: {
+          provider: " Clerk ",
+          email: " Pilot@Example.com ",
+        },
+      }),
+    ).toMatchObject({
+      account: { provider: "clerk", email: "Pilot@Example.com" },
+    });
+  });
+
+  it("parses account handoff start responses", () => {
+    expect(
+      accountHandoffStartFromResponse({
+        handoffId: " handoff-1 ",
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "/mine",
+      }),
+    ).toEqual({
+      handoffId: "handoff-1",
+      expiresAt: "2026-07-04T00:10:00.000Z",
+      returnTo: "/mine",
+    });
+    expect(
+      accountHandoffStartFromResponse({ handoffId: "handoff-1" }),
+    ).toBeNull();
+    expect(
+      accountHandoffStartFromResponse({
+        handoffId: "handoff-2",
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "https://evil.test/capture",
+      }),
+    ).toEqual({
+      handoffId: "handoff-2",
+      expiresAt: "2026-07-04T00:10:00.000Z",
+      returnTo: "/mine",
+    });
+    expect(
+      accountHandoffStartFromResponse({
+        handoffId: "handoff-3",
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "/mine\n?accountHandoff=bad",
+      }),
+    ).toEqual({
+      handoffId: "handoff-3",
+      expiresAt: "2026-07-04T00:10:00.000Z",
+      returnTo: "/mine",
+    });
+    expect(
+      accountHandoffStartFromResponse({
+        handoffId: "handoff/1",
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "/mine",
+      }),
+    ).toBeNull();
+    expect(
+      accountHandoffStartFromResponse({
+        handoffId: "h".repeat(129),
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "/mine",
+      }),
+    ).toBeNull();
+  });
+
+  it("parses cloud-load responses only when the account save is present", () => {
+    expect(
+      accountCloudLoadFromResponse({
+        mode: "cloud_loaded",
+        activeSlot: 2,
+        accountSave: {
+          exists: true,
+          createdAt: "2026-07-04T00:00:00.000Z",
+          balance: 20,
+          deepestDepth: 9,
+          partsOwned: 5,
+          designs: 4,
+          stamps: 3,
+        },
+      }),
+    ).toEqual({
+      mode: "cloud_loaded",
+      activeSlot: 2,
+      accountSave: {
+        exists: true,
+        createdAt: "2026-07-04T00:00:00.000Z",
+        balance: 20,
+        deepestDepth: 9,
+        partsOwned: 5,
+        designs: 4,
+        stamps: 3,
+      },
+    });
+    expect(
+      accountCloudLoadFromResponse({
+        mode: "cloud_loaded",
+        activeSlot: 4,
+        accountSave: { exists: true },
+      }),
+    ).toBeNull();
+    expect(
+      accountCloudLoadFromResponse({
+        mode: "cloud_loaded",
+        activeSlot: 1,
+        accountSave: { exists: false },
+      }),
+    ).toBeNull();
+    expect(
+      accountCloudLoadFromResponse({
+        mode: "conflict",
+        activeSlot: 1,
+        accountSave: { exists: true },
+      }),
+    ).toBeNull();
+  });
+
+  it("parses account trip checkpoint responses", () => {
+    expect(
+      accountTripFromResponse({
+        trip: {
+          mineVersion: MINE_VERSION,
+          seed: 123,
+          tripIndex: 2,
+          gear: { ...DEFAULT_GEAR, pickaxe: 2 },
+          consumables: NO_CONSUMABLES,
+          baseDiff: [],
+          moves: ["down"],
+        },
+      }),
+    ).toMatchObject({
+      mineVersion: MINE_VERSION,
+      seed: 123,
+      tripIndex: 2,
+      moves: ["down"],
+      gear: { pickaxe: 2, warpcoil: 1, recall: 1 },
+    });
+    expect(accountTripFromResponse({ trip: null })).toBeNull();
+    expect(
+      accountTripFromResponse({
+        trip: {
+          mineVersion: MINE_VERSION,
+          seed: 123,
+          tripIndex: 2,
+          gear: {},
+          consumables: NO_CONSUMABLES,
+          baseDiff: [],
+          moves: ["bad"],
+        },
+      }),
+    ).toBeNull();
+  });
+
   it("parses complete consumable bodies only", () => {
     expect(consumablesFromResponse({ ...NO_CONSUMABLES, ladder: 2 })).toEqual({
       ...NO_CONSUMABLES,
@@ -111,6 +532,95 @@ describe("mine API client", () => {
     await loadSaveSlotSummaries();
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/save-slots");
     expect(fetchMock.mock.calls.at(-1)?.[1]).toBeUndefined();
+
+    await loadAccountStatus();
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/account/status");
+    expect(fetchMock.mock.calls.at(-1)?.[1]).toBeUndefined();
+
+    await claimRemoteAccountSave();
+    expect(fetchMock.mock.calls.at(-1)).toEqual([
+      "/api/account/claim",
+      {
+        method: "POST",
+        headers: { "x-vibebots-account-mutation": "1" },
+      },
+    ]);
+
+    await loadRemoteAccountSave();
+    expect(fetchMock.mock.calls.at(-1)).toEqual([
+      "/api/account/load",
+      {
+        method: "POST",
+        headers: { "x-vibebots-account-mutation": "1" },
+      },
+    ]);
+
+    await loadRemoteAccountTrip();
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/account/trip");
+    expect(fetchMock.mock.calls.at(-1)?.[1]).toBeUndefined();
+
+    await storeRemoteAccountTrip({
+      mineVersion: MINE_VERSION,
+      seed: 123,
+      tripIndex: 2,
+      gear: DEFAULT_GEAR,
+      consumables: NO_CONSUMABLES,
+      baseDiff: [],
+      moves: ["down"],
+    });
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/account/trip");
+    expect(fetchMock.mock.calls.at(-1)?.[1]).toMatchObject({
+      method: "PUT",
+      headers: expect.objectContaining({
+        "x-vibebots-account-mutation": "1",
+      }),
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      trip: expect.objectContaining({
+        mineVersion: MINE_VERSION,
+        seed: 123,
+        moves: ["down"],
+      }),
+    });
+
+    await clearRemoteAccountTrip();
+    expect(fetchMock.mock.calls.at(-1)).toEqual([
+      "/api/account/trip",
+      {
+        method: "DELETE",
+        headers: { "x-vibebots-account-mutation": "1" },
+      },
+    ]);
+
+    await startRemoteAccountHandoff("/mine?panel=account");
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/account/handoff/start");
+    expect(fetchMock.mock.calls.at(-1)?.[1]?.headers).toMatchObject({
+      "content-type": "application/json",
+      "x-vibebots-account-mutation": "1",
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      returnTo: "/mine?panel=account",
+    });
+
+    await finishRemoteAccountHandoff(" handoff-1 ");
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe(
+      "/api/account/handoff/finish",
+    );
+    expect(fetchMock.mock.calls.at(-1)?.[1]?.headers).toMatchObject({
+      "content-type": "application/json",
+      "x-vibebots-account-mutation": "1",
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      handoffId: "handoff-1",
+    });
+
+    const callsBeforeInvalidHandoff = fetchMock.mock.calls.length;
+    await expect(finishRemoteAccountHandoff("handoff/1")).resolves.toEqual({
+      ok: false,
+      status: 400,
+      body: { error: "handoff id required" },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(callsBeforeInvalidHandoff);
 
     await switchRemoteSaveSlot(2, { create: true });
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/save-slots");

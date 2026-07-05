@@ -32,6 +32,7 @@ import {
   mineGearFromProfile,
   mineGearLevelFromProfile,
   normalizeSaveSlotSessionPayload,
+  setActiveSaveSlotPlayer,
   switchActiveSaveSlot,
 } from "./player";
 
@@ -205,6 +206,30 @@ describe("mine player profile helpers", () => {
       "vb_player",
       JSON.stringify(result.session),
       expect.objectContaining({ httpOnly: true, path: "/" }),
+    );
+  });
+
+  it("writes a cloud account player into the active save slot", async () => {
+    mocks.cookieValue = JSON.stringify({
+      activeSlot: 2,
+      slots: { "1": "initial-player", "2": "local-player" },
+    });
+
+    const result = await setActiveSaveSlotPlayer("cloud-player");
+
+    expect(result).toEqual({
+      activeSlot: 2,
+      slots: { "1": "initial-player", "2": "cloud-player" },
+    });
+    expect(mocks.cookieSet).toHaveBeenCalledWith(
+      "vb_player",
+      JSON.stringify(result),
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "none",
+        partitioned: true,
+        path: "/",
+      }),
     );
   });
 });

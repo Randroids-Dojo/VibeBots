@@ -51,6 +51,25 @@ async function applySchema(sql: Sql): Promise<void> {
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS deepest_depth integer NOT NULL DEFAULT 0`;
   await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS players_clerk_user_id_unique
+    ON players (clerk_user_id)
+    WHERE clerk_user_id IS NOT NULL`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS account_handoffs (
+      token text PRIMARY KEY,
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      return_to text NOT NULL DEFAULT '/mine',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      expires_at timestamptz NOT NULL,
+      consumed_at timestamptz
+    )`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS account_handoffs_player_created_at_idx
+    ON account_handoffs (player_id, created_at DESC)`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS account_handoffs_expires_at_idx
+    ON account_handoffs (expires_at)`;
+  await sql`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS defense_xp integer NOT NULL DEFAULT 0`;
   // Gear tracks (REQ-013); levels start at 1.
@@ -161,6 +180,12 @@ async function applySchema(sql: Sql): Promise<void> {
       seed bigint NOT NULL,
       diff jsonb NOT NULL DEFAULT '[]'::jsonb,
       trip_count integer NOT NULL DEFAULT 0,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS mine_trip_checkpoints (
+      player_id uuid PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+      trip jsonb NOT NULL,
       updated_at timestamptz NOT NULL DEFAULT now()
     )`;
   await sql`

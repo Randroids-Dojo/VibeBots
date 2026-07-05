@@ -1,0 +1,336 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import type { AccountSaveSummary, AccountSyncState } from "@/state/mine-store";
+import {
+  AccountSyncPopup,
+  accountDialogControls,
+  accountSignInRedirectUrl,
+  accountSignInUrlIsExpectedRoute,
+} from "./mine-account-popup";
+
+const localSave: AccountSaveSummary = {
+  exists: true,
+  createdAt: null,
+  balance: 18,
+  deepestDepth: 7,
+  partsOwned: 4,
+  designs: 2,
+  stamps: 1,
+};
+
+const cloudSave: AccountSaveSummary = {
+  exists: true,
+  createdAt: null,
+  balance: 42,
+  deepestDepth: 9,
+  partsOwned: 8,
+  designs: 3,
+  stamps: 2,
+};
+
+type AccountStateOverrides = Partial<
+  Pick<
+    AccountSyncState,
+    | "providerReady"
+    | "providerStatus"
+    | "mode"
+    | "accountEmail"
+    | "currentSave"
+    | "accountSave"
+  >
+>;
+
+function accountState(overrides: AccountStateOverrides = {}): AccountSyncState {
+  const providerReady = overrides.providerReady ?? false;
+  const providerStatus =
+    overrides.providerStatus ??
+    (providerReady
+      ? {
+          provider: "clerk",
+          ready: true,
+          reason: null,
+          issues: [],
+        }
+      : {
+          provider: "clerk",
+          ready: false,
+          reason: "sdk_not_wired",
+          issues: [
+            "sdk_not_wired",
+            "publishable_key_missing",
+            "secret_key_missing",
+            "public_sign_in_url_missing",
+            "public_sign_in_fallback_url_missing",
+            "public_sign_up_fallback_url_missing",
+          ],
+        });
+  return {
+    state: "ready",
+    providerReady,
+    providerStatus,
+    mode: "guest",
+    accountEmail: null,
+    currentSave: localSave,
+    accountSave: null,
+    ...overrides,
+  };
+}
+
+describe("accountSignInRedirectUrl", () => {
+  it("adds the one-time handoff to Clerk's return redirect", () => {
+    const url = accountSignInRedirectUrl({
+      signInUrl: "/sign-in",
+      origin: "https://vibebots.test",
+      handoff: {
+        handoffId: "handoff-123",
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "/mine?panel=account",
+      },
+    });
+
+    const signIn = new URL(url);
+    expect(signIn.origin).toBe("https://vibebots.test");
+    expect(signIn.pathname).toBe("/sign-in");
+
+    const redirectUrl = signIn.searchParams.get("redirect_url");
+    expect(redirectUrl).toBeTruthy();
+    const redirect = new URL(redirectUrl ?? "");
+    expect(redirect.origin).toBe("https://vibebots.test");
+    expect(redirect.pathname).toBe("/mine");
+    expect(redirect.searchParams.get("panel")).toBe("account");
+    expect(redirect.searchParams.get("accountHandoff")).toBe("handoff-123");
+  });
+
+  it("normalizes hosted Clerk sign-in URLs back to the app sign-in route", () => {
+    const url = accountSignInRedirectUrl({
+      signInUrl: "https://accounts.vibebots.test/sign-in",
+      origin: "https://vibebots.test",
+      handoff: {
+        handoffId: "handoff-456",
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "/mine",
+      },
+    });
+
+    const signIn = new URL(url);
+    expect(signIn.origin).toBe("https://vibebots.test");
+    expect(signIn.pathname).toBe("/sign-in");
+    const redirectUrl = signIn.searchParams.get("redirect_url");
+    expect(new URL(redirectUrl ?? "").searchParams.get("accountHandoff")).toBe(
+      "handoff-456",
+    );
+  });
+
+  it("keeps Clerk return redirects on the app origin", () => {
+    const url = accountSignInRedirectUrl({
+      signInUrl: "https://accounts.vibebots.test/sign-in",
+      origin: "https://vibebots.test",
+      handoff: {
+        handoffId: "handoff-789",
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "https://evil.test/capture",
+      },
+    });
+
+    const redirectUrl = new URL(url).searchParams.get("redirect_url");
+    const redirect = new URL(redirectUrl ?? "");
+    expect(redirect.origin).toBe("https://vibebots.test");
+    expect(redirect.pathname).toBe("/mine");
+    expect(redirect.searchParams.get("accountHandoff")).toBe("handoff-789");
+  });
+});
+
+describe("accountSignInUrlIsExpectedRoute", () => {
+  it("accepts only the local app sign-in route", () => {
+    expect(accountSignInUrlIsExpectedRoute("/sign-in")).toBe(true);
+    expect(accountSignInUrlIsExpectedRoute(" /sign-in ")).toBe(true);
+    expect(accountSignInUrlIsExpectedRoute("")).toBe(false);
+    expect(accountSignInUrlIsExpectedRoute("/mine?account=1")).toBe(false);
+    expect(
+      accountSignInUrlIsExpectedRoute("https://accounts.vibebots.test/sign-in"),
+    ).toBe(false);
+  });
+});
+
+describe("accountDialogControls", () => {
+  it("keeps Google sign-in disabled until the provider URL is configured", () => {
+    const controls = accountDialogControls({
+      state: accountState(),
+      signInUrl: "",
+      pending: null,
+    });
+
+    expect(controls.signInDisabled).toBe(true);
+    expect(controls.signInLabel).toBe("Google sign-in pending");
+    expect(controls.canClaim).toBe(false);
+    expect(controls.canLoadCloud).toBe(false);
+    expect(controls.canKeepDevice).toBe(false);
+  });
+
+  it("enables Google sign-in for a guest once the provider URL exists", () => {
+    const controls = accountDialogControls({
+      state: accountState({ providerReady: true }),
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+
+    expect(controls.signInDisabled).toBe(false);
+    expect(controls.signInLabel).toBe("Sign in or create account with Google");
+  });
+
+  it("keeps Google sign-in disabled when only the public URL is configured", () => {
+    const controls = accountDialogControls({
+      state: accountState({ providerReady: false }),
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+
+    expect(controls.signInDisabled).toBe(true);
+    expect(controls.signInLabel).toBe("Google sign-in pending");
+  });
+
+  it("keeps Google sign-in disabled for hosted sign-in URLs", () => {
+    const controls = accountDialogControls({
+      state: accountState({ providerReady: true }),
+      signInUrl: "https://accounts.vibebots.test/sign-in",
+      pending: null,
+    });
+
+    expect(controls.signInDisabled).toBe(true);
+    expect(controls.signInLabel).toBe("Google sign-in pending");
+  });
+
+  it("requires the explicit provider status before enabling Google sign-in", () => {
+    const controls = accountDialogControls({
+      state: accountState({
+        providerReady: true,
+        providerStatus: {
+          provider: "clerk",
+          ready: false,
+          reason: "sdk_not_wired",
+          issues: ["sdk_not_wired"],
+        },
+      }),
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+
+    expect(controls.signInDisabled).toBe(true);
+    expect(controls.signInLabel).toBe("Google sign-in pending");
+  });
+
+  it("enables Save this run only for signed-in local progress", () => {
+    const controls = accountDialogControls({
+      state: accountState({
+        mode: "signed_in",
+        accountEmail: "pilot@example.com",
+      }),
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+
+    expect(controls.signedIn).toBe(true);
+    expect(controls.signInDisabled).toBe(true);
+    expect(controls.canClaim).toBe(true);
+    expect(controls.canLoadCloud).toBe(false);
+  });
+
+  it("keeps Save this run disabled without an existing local save", () => {
+    const controls = accountDialogControls({
+      state: accountState({
+        mode: "signed_in",
+        accountEmail: "pilot@example.com",
+        currentSave: null,
+      }),
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+
+    expect(controls.canClaim).toBe(false);
+  });
+
+  it("requires an explicit cloud-load action when both saves exist", () => {
+    const controls = accountDialogControls({
+      state: accountState({
+        mode: "conflict",
+        accountEmail: "pilot@example.com",
+        accountSave: cloudSave,
+      }),
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+
+    expect(controls.canClaim).toBe(false);
+    expect(controls.canLoadCloud).toBe(true);
+    expect(controls.canKeepDevice).toBe(true);
+  });
+
+  it("locks every account action while a handoff is starting", () => {
+    const controls = accountDialogControls({
+      state: accountState({
+        mode: "conflict",
+        accountEmail: "pilot@example.com",
+        accountSave: cloudSave,
+      }),
+      signInUrl: "/sign-in",
+      pending: "sign-in",
+    });
+
+    expect(controls.busy).toBe(true);
+    expect(controls.signInDisabled).toBe(true);
+    expect(controls.canClaim).toBe(false);
+    expect(controls.canLoadCloud).toBe(false);
+    expect(controls.canKeepDevice).toBe(false);
+  });
+});
+
+describe("AccountSyncPopup", () => {
+  it("renders the guest account dialog with disabled pending Google sign-in", () => {
+    const html = renderToStaticMarkup(
+      createElement(AccountSyncPopup, {
+        open: true,
+        state: accountState(),
+        onClose: vi.fn(),
+        onRefresh: vi.fn(),
+        onStartSignIn: vi.fn(),
+        onClaim: vi.fn(),
+        onLoadCloud: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-modal="true"');
+    expect(html).toContain("Guest save is local to this device.");
+    expect(html).toContain("Google sign-in pending");
+    expect(html).toContain("Close Account");
+    expect(html).toContain("18 vibes");
+  });
+
+  it("renders both save summaries for conflict review", () => {
+    const html = renderToStaticMarkup(
+      createElement(AccountSyncPopup, {
+        open: true,
+        state: accountState({
+          mode: "conflict",
+          accountEmail: "pilot@example.com",
+          accountSave: cloudSave,
+        }),
+        onClose: vi.fn(),
+        onRefresh: vi.fn(),
+        onStartSignIn: vi.fn(),
+        onClaim: vi.fn(),
+        onLoadCloud: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain("Choose which save to use.");
+    expect(html).toContain("pilot@example.com");
+    expect(html).toContain("This device");
+    expect(html).toContain("Google account");
+    expect(html).toContain("18 vibes");
+    expect(html).toContain("42 vibes");
+    expect(html).toContain("Load cloud save");
+    expect(html).toContain("Keep this device save");
+  });
+});

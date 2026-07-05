@@ -36,18 +36,36 @@ import {
   type WorldDiff,
 } from "@/sim/mine";
 import {
+  type AccountHandoffStart,
+  type AccountProviderStatus,
+  type AccountSaveSummary,
+  type AccountStatus,
+  type AccountStatusMode,
+  accountCloudLoadFromResponse,
+  accountErrorMessageFromResponse,
+  accountHandoffStartFromResponse,
+  accountStatusFromResponse,
+  accountTripFromResponse,
   buyRemoteConsumable,
   buyRemoteElevator,
   buyRemoteGearUpgrade,
   cashOutErrorMessage,
+  claimRemoteAccountSave,
+  clearRemoteAccountTrip,
   consumablesFromResponse,
   deleteRemoteSaveSlot,
+  finishRemoteAccountHandoff,
   isMineVersionMismatch,
   loadMineGear,
   loadMineWorld,
+  loadRemoteAccountSave,
+  loadAccountStatus as loadRemoteAccountStatus,
+  loadRemoteAccountTrip,
   loadSaveSlotSummaries,
   type SaveSlotSummary,
   saveSlotSummariesFromResponse,
+  startRemoteAccountHandoff,
+  storeRemoteAccountTrip,
   submitMineBank,
   switchRemoteSaveSlot,
   teleportRemoteBase,
@@ -56,12 +74,18 @@ import {
   loadLocalTrip,
   removeLocalTrip,
   replaySavedTrip,
+  type SavedTrip,
   type SaveSlotId,
   saveLocalTrip,
   validSaveSlot,
 } from "./mine-trip-persistence";
 
-export type { SaveSlotSummary } from "./mine-api-client";
+export type {
+  AccountHandoffStart,
+  AccountProviderStatus,
+  AccountSaveSummary,
+  SaveSlotSummary,
+} from "./mine-api-client";
 
 export type SaveSlotsState =
   | { state: "unknown"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
@@ -76,6 +100,58 @@ export type SaveSlotsState =
       slots: SaveSlotSummary[];
       message: string;
     };
+
+export type AccountSyncState =
+  | {
+      state:
+        | "unknown"
+        | "loading"
+        | "ready"
+        | "claiming"
+        | "starting-sign-in"
+        | "finishing-sign-in"
+        | "loading-cloud"
+        | "unavailable";
+      providerReady: boolean;
+      providerStatus: AccountProviderStatus;
+      mode: AccountStatusMode;
+      accountEmail: string | null;
+      currentSave: AccountSaveSummary | null;
+      accountSave: AccountSaveSummary | null;
+    }
+  | {
+      state: "error";
+      providerReady: boolean;
+      providerStatus: AccountProviderStatus;
+      mode: AccountStatusMode;
+      accountEmail: string | null;
+      currentSave: AccountSaveSummary | null;
+      accountSave: AccountSaveSummary | null;
+      message: string;
+    };
+
+function accountSyncFromStatus(
+  status: AccountStatus,
+  state: Extract<AccountSyncState["state"], "ready" | "loading"> = "ready",
+): AccountSyncState {
+  return {
+    state,
+    providerReady: status.providerReady,
+    providerStatus: status.providerStatus,
+    mode: status.mode,
+    accountEmail: status.account?.email ?? null,
+    currentSave: status.currentSave,
+    accountSave: status.accountSave,
+  };
+}
+
+function accountStatusShouldAutoClaim(status: AccountStatus): boolean {
+  return (
+    status.mode === "signed_in" &&
+    status.currentSave?.exists === true &&
+    status.accountSave?.exists !== true
+  );
+}
 
 /**
  * Mining session state. The MineState object is mutated in place by the
@@ -135,6 +211,7 @@ export interface MineSessionState {
   cashOut: CashOutState;
   activeSlot: SaveSlotId;
   saveSlots: SaveSlotsState;
+  accountSync: AccountSyncState;
   worldLoaded: boolean;
   /** Tick key of the fall/crush playback whose impact frame has rendered.
    * Written by the mine canvas frame loop so the trip report can wait for
@@ -150,6 +227,13 @@ export interface MineSessionState {
   loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
   loadSaveSlots: () => Promise<void>;
+  loadAccountStatus: (options?: { silent?: boolean }) => Promise<void>;
+  startAccountSignIn: (
+    returnTo?: string,
+  ) => Promise<AccountHandoffStart | null>;
+  finishAccountSignIn: (handoffId: string) => Promise<boolean>;
+  claimAccountSave: () => Promise<boolean>;
+  loadAccountSave: () => Promise<boolean>;
   switchSaveSlot: (
     slot: SaveSlotId,
     options?: { create?: boolean },
@@ -210,10 +294,31 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     activeSlot: 1,
     slots: [],
   };
-  const persistCurrentTrip = () => {
+  const initialAccountSync: AccountSyncState = {
+    state: "unknown",
+    providerReady: false,
+    providerStatus: {
+      provider: "clerk",
+      ready: false,
+      reason: "sdk_not_wired",
+      issues: [
+        "sdk_not_wired",
+        "publishable_key_missing",
+        "secret_key_missing",
+        "public_sign_in_url_missing",
+        "public_sign_in_fallback_url_missing",
+        "public_sign_up_fallback_url_missing",
+      ],
+    },
+    mode: "guest",
+    accountEmail: null,
+    currentSave: null,
+    accountSave: null,
+  };
+  const currentTripSnapshot = (): SavedTrip | null => {
     const st = get();
-    if (!st.worldLoaded) return;
-    saveLocalTrip(st.activeSlot, {
+    if (!st.worldLoaded) return null;
+    return {
       mineVersion: MINE_VERSION,
       seed: st.seed,
       tripIndex: st.tripIndex,
@@ -222,7 +327,30 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       baseDiff: st.tripBaseDiff,
       moves: [...st.moves],
       pendingBunker: st.pendingBunker,
-    });
+    };
+  };
+  const persistCurrentTrip = () => {
+    const trip = currentTripSnapshot();
+    if (!trip) return null;
+    saveLocalTrip(get().activeSlot, trip);
+    return trip;
+  };
+  const storeAccountTripCheckpoint = async () => {
+    const trip = persistCurrentTrip();
+    if (!trip) return true;
+    const res = await storeRemoteAccountTrip(trip);
+    return res.ok;
+  };
+  const checkpointFailureCanContinue = (state: AccountSyncState) =>
+    state.currentSave?.exists === true;
+  const loadAccountTripCheckpoint = async (slot: SaveSlotId) => {
+    const res = await loadRemoteAccountTrip();
+    if (!res.ok) return;
+    const trip = accountTripFromResponse(res.body);
+    if (trip) saveLocalTrip(slot, trip);
+  };
+  const clearAccountTripCheckpoint = async () => {
+    await clearRemoteAccountTrip();
   };
   return {
     mine: createMine(seed),
@@ -244,6 +372,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     cashOut: { state: "idle" },
     activeSlot: 1,
     saveSlots: initialSlots,
+    accountSync: initialAccountSync,
     worldLoaded: false,
     fallVisualImpactKey: null,
     markFallVisualImpact: (key) => {
@@ -486,6 +615,319 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         activeSlot: parsed.activeSlot,
         saveSlots: { state: "ready", ...parsed },
       });
+    },
+
+    loadAccountStatus: async (options = {}) => {
+      persistCurrentTrip();
+      const current = get().accountSync;
+      if (!options.silent) {
+        set({
+          accountSync: {
+            ...current,
+            state: "loading",
+          },
+        });
+      }
+      const res = await loadRemoteAccountStatus();
+      if (res.status === 503) {
+        set({
+          accountSync: {
+            ...current,
+            state: "unavailable",
+            mode: "guest",
+            accountEmail: null,
+            currentSave: null,
+            accountSave: null,
+          },
+        });
+        return;
+      }
+      if (!res.ok) {
+        set({
+          accountSync: {
+            ...current,
+            state: "error",
+            message: "could not load account",
+          },
+        });
+        return;
+      }
+      const parsed = accountStatusFromResponse(res.body);
+      if (!parsed) {
+        set({
+          accountSync: {
+            ...current,
+            state: "error",
+            message: "could not read account",
+          },
+        });
+        return;
+      }
+      set({ accountSync: accountSyncFromStatus(parsed) });
+      if (accountStatusShouldAutoClaim(parsed)) {
+        await get().claimAccountSave();
+      }
+    },
+
+    startAccountSignIn: async (returnTo = "/mine") => {
+      const current = get().accountSync;
+      if (!current.providerReady || !current.providerStatus.ready) {
+        set({
+          accountSync: {
+            ...current,
+            state: "error",
+            message: "Google sign-in pending",
+          },
+        });
+        return null;
+      }
+      const checkpointed = await storeAccountTripCheckpoint();
+      if (!checkpointed) {
+        if (checkpointFailureCanContinue(current)) {
+          set({
+            accountSync: {
+              ...current,
+              state: "ready",
+            },
+          });
+        } else {
+          set({
+            accountSync: {
+              ...current,
+              state: "error",
+              message: "could not save current trip",
+            },
+          });
+          return null;
+        }
+      }
+      set({
+        accountSync: {
+          ...current,
+          state: "starting-sign-in",
+        },
+      });
+      const res = await startRemoteAccountHandoff(returnTo);
+      if (res.status === 503) {
+        set({
+          accountSync: {
+            ...current,
+            state: "unavailable",
+            mode: "guest",
+            accountEmail: null,
+            currentSave: null,
+            accountSave: null,
+          },
+        });
+        return null;
+      }
+      if (!res.ok) {
+        set({
+          accountSync: {
+            ...current,
+            state: "error",
+            message:
+              res.status === 409
+                ? "guest save required"
+                : "sign-in start failed",
+          },
+        });
+        return null;
+      }
+      const parsed = accountHandoffStartFromResponse(res.body);
+      if (!parsed) {
+        set({
+          accountSync: {
+            ...current,
+            state: "error",
+            message: "could not read sign-in handoff",
+          },
+        });
+        return null;
+      }
+      set({
+        accountSync: {
+          ...current,
+          state: "ready",
+        },
+      });
+      return parsed;
+    },
+
+    finishAccountSignIn: async (handoffId) => {
+      persistCurrentTrip();
+      const current = get().accountSync;
+      set({
+        accountSync: {
+          ...current,
+          state: "finishing-sign-in",
+        },
+      });
+      const res = await finishRemoteAccountHandoff(handoffId);
+      if (res.status === 503) {
+        set({
+          accountSync: {
+            ...current,
+            state: "unavailable",
+            mode: "guest",
+            accountEmail: null,
+            currentSave: null,
+            accountSave: null,
+          },
+        });
+        return false;
+      }
+      if (!res.ok) {
+        if (res.status === 409) {
+          await get().loadAccountStatus();
+          return false;
+        }
+        set({
+          accountSync: {
+            ...current,
+            state: "error",
+            message:
+              res.status === 401
+                ? "sign-in required"
+                : res.status === 410
+                  ? "sign-in handoff expired"
+                  : "sign-in finish failed",
+          },
+        });
+        return false;
+      }
+      await get().loadAccountStatus();
+      await get().loadSaveSlots();
+      return true;
+    },
+
+    claimAccountSave: async () => {
+      const current = get().accountSync;
+      const checkpointed = await storeAccountTripCheckpoint();
+      if (!checkpointed) {
+        if (checkpointFailureCanContinue(current)) {
+          set({
+            accountSync: {
+              ...current,
+              state: "ready",
+            },
+          });
+        } else {
+          set({
+            accountSync: {
+              ...current,
+              state: "error",
+              message: "could not save current trip",
+            },
+          });
+          return false;
+        }
+      }
+      set({
+        accountSync: {
+          ...current,
+          state: "claiming",
+        },
+      });
+      const res = await claimRemoteAccountSave();
+      if (res.status === 503) {
+        set({
+          accountSync: {
+            ...current,
+            state: "unavailable",
+            mode: "guest",
+            accountEmail: null,
+            currentSave: null,
+            accountSave: null,
+          },
+        });
+        return false;
+      }
+      if (!res.ok) {
+        if (res.status === 409) {
+          await get().loadAccountStatus();
+          return false;
+        }
+        set({
+          accountSync: {
+            ...current,
+            state: "error",
+            message:
+              res.status === 401
+                ? "sign-in required"
+                : accountErrorMessageFromResponse(res.body, "claim failed"),
+          },
+        });
+        return false;
+      }
+      await storeAccountTripCheckpoint();
+      await get().loadAccountStatus();
+      await get().loadSaveSlots();
+      return true;
+    },
+
+    loadAccountSave: async () => {
+      persistCurrentTrip();
+      const current = get().accountSync;
+      set({
+        accountSync: {
+          ...current,
+          state: "loading-cloud",
+        },
+      });
+      const res = await loadRemoteAccountSave();
+      if (res.status === 503) {
+        set({
+          accountSync: {
+            ...current,
+            state: "unavailable",
+            mode: "guest",
+            accountEmail: null,
+            currentSave: null,
+            accountSave: null,
+          },
+        });
+        return false;
+      }
+      if (!res.ok) {
+        set({
+          accountSync: {
+            ...current,
+            state: "error",
+            message:
+              res.status === 404 ? "cloud save not found" : "load failed",
+          },
+        });
+        return false;
+      }
+      const parsed = accountCloudLoadFromResponse(res.body);
+      if (!parsed) {
+        set({
+          accountSync: {
+            ...current,
+            state: "error",
+            message: "could not read cloud save",
+          },
+        });
+        return false;
+      }
+      const nextSlot = parsed.activeSlot;
+      removeLocalTrip(nextSlot);
+      await loadAccountTripCheckpoint(nextSlot);
+      await get().loadWorld();
+      await get().loadGear();
+      await get().loadSaveSlots();
+      set({
+        accountSync: {
+          ...current,
+          state: "ready",
+          mode: "cloud_loaded",
+          currentSave: parsed.accountSave,
+          accountSave: parsed.accountSave,
+        },
+      });
+      void get().loadAccountStatus({ silent: true });
+      return true;
     },
 
     switchSaveSlot: async (slot, options = {}) => {
@@ -763,6 +1205,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         moves: walk,
         pendingBunker: null,
       });
+      await clearAccountTripCheckpoint();
       const credited = body.credited as Record<string, unknown>;
       set({
         tripBaseDiff: worldDiff,
@@ -1034,6 +1477,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         moves: [],
         pendingBunker: null,
       });
+      await clearAccountTripCheckpoint();
       set({
         mine: rebuilt,
         moves: [],

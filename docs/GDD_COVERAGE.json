@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-07-04",
+  "updatedAt": "2026-07-05",
   "rows": [
     {
       "id": "REQ-001",
@@ -905,6 +905,79 @@
         "tests/e2e/mine-viewport.spec.ts"
       ],
       "followupRefs": []
+    },
+    {
+      "id": "REQ-042",
+      "requirement": "Players can keep playing as guests, then optionally attach the active save to Google sign-in so the same server-owned progress can be loaded on another machine without overwriting an existing guest or cloud save automatically.",
+      "gddRef": "docs/gdd/10-account-sync.html#google-sign-in",
+      "status": "partial",
+      "implementationRefs": [
+        "src/app/api/account/status/route.ts",
+        "src/app/api/account/claim/route.ts",
+        "src/app/api/account/load/route.ts",
+        "src/app/api/account/trip/route.ts",
+        "src/app/api/account/handoff/start/route.ts",
+        "src/app/api/account/handoff/finish/route.ts",
+        "src/components/mine-account-popup.tsx",
+        "src/components/mine-panel.tsx",
+        "src/lib/account-handoff-contract.ts",
+        "src/lib/account-google-scopes.json",
+        "src/lib/account-google-scopes.ts",
+        "src/lib/account-provider-status-codes.json",
+        "src/lib/account-provider-status.ts",
+        "src/state/mine-api-client.ts",
+        "src/state/mine-store.ts",
+        "src/server/account-handoff.ts",
+        "src/lib/account-link-core.ts",
+        "src/server/account-linking.ts",
+        "src/server/clerk-account-session.ts",
+        "src/server/account-response.ts",
+        "src/server/account-session.ts",
+        "src/server/account-summary.ts",
+        "src/server/monitoring.ts",
+        "src/server/player.ts",
+        "src/server/request-guards.ts",
+        "src/server/db.ts",
+        "scripts/check-account-env.mjs",
+        "package.json",
+        "README.md",
+        ".env.example",
+        "docs/research/account-sync-google-signin.html",
+        "docs/research/account-sync-clerk-vercel-setup.html",
+        "docs/research/account-link-vibekit-extraction.html",
+        "src/app/sign-in/[[...sign-in]]/page.tsx",
+        "src/proxy.ts",
+        "src/app/layout.tsx",
+        "src/app/sign-up/[[...sign-up]]/page.tsx",
+        "pnpm-lock.yaml"
+      ],
+      "testRefs": [
+        "src/app/api/account/account-routes.test.ts",
+        "src/app/api/account/trip/route.test.ts",
+        "src/app/api/account/handoff-routes.test.ts",
+        "src/components/mine-account-popup.test.ts",
+        "src/lib/account-handoff-contract.test.ts",
+        "src/lib/account-google-scopes.test.ts",
+        "src/lib/account-provider-status.test.ts",
+        "src/state/mine-api-client.test.ts",
+        "src/state/mine-store.test.ts",
+        "src/server/account-handoff.test.ts",
+        "src/server/account-env-preflight.test.ts",
+        "src/lib/account-link-core.test.ts",
+        "src/server/account-linking.test.ts",
+        "src/server/clerk-account-session.test.ts",
+        "src/server/account-response.test.ts",
+        "src/server/account-session.test.ts",
+        "src/server/monitoring.test.ts",
+        "src/server/player.test.ts",
+        "src/server/request-guards.test.ts",
+        "src/server/db.test.ts",
+        "tests/e2e/mine-account-sync.spec.ts",
+        "tests/e2e/account-sign-in-route.spec.ts"
+      ],
+      "followupRefs": [
+        "docs/FOLLOWUPS.html#F-003"
+      ]
     }
   ]
 }

@@ -250,6 +250,20 @@ export async function switchActiveSaveSlot(
   };
 }
 
+export async function setActiveSaveSlotPlayer(
+  playerId: string,
+): Promise<SaveSlotSession> {
+  const normalized = await readSaveSlotSession();
+  const session = normalized?.session ?? { activeSlot: 1, slots: {} };
+  const activeKey = saveSlotKey(session.activeSlot);
+  const nextSession = {
+    activeSlot: session.activeSlot,
+    slots: { ...session.slots, [activeKey]: playerId },
+  };
+  await writeSaveSlotSession(nextSession);
+  return nextSession;
+}
+
 export async function deleteSaveSlot(
   slot: SaveSlotId,
 ): Promise<SaveSlotSession> {

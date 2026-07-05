@@ -233,6 +233,12 @@ export function WorkshopPanel() {
   };
 
   useEffect(() => {
+    // A test fight swaps this whole view out for the arena (the sheet and the
+    // workshop canvas unmount), which strands the measure: the old
+    // ResizeObserver fires as the panel leaves and pins the lift to 0. Skip
+    // while a fight is up, then re-run when it ends so the panel is measured
+    // fresh and the view-offset lift the open menu needs is restored.
+    if (matchup) return;
     // Whenever the sheet is open (any tab, Build included), lift the bot and
     // its hero part into the space above the sheet so an open menu never
     // buries them; a taller menu covers more, so it lifts more. Collapsed, the
@@ -270,9 +276,10 @@ export function WorkshopPanel() {
     const ro = new ResizeObserver(measure);
     ro.observe(panel);
     return () => ro.disconnect();
-    // Re-runs on open/close; a tab switch changes the panel's height, which the
-    // ResizeObserver catches, so deferredTab is not needed as a dep here.
-  }, [sheetOpen]);
+    // Re-runs on open/close and when a fight ends (the panel remounts); a tab
+    // switch changes the panel's height, which the ResizeObserver catches, so
+    // deferredTab is not needed as a dep here.
+  }, [sheetOpen, matchup]);
 
   const refreshInventory = useCallback(async () => {
     try {

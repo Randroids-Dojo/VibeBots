@@ -695,6 +695,31 @@ test("the bot lifts above an open menu sheet (O)", async ({ page }) => {
   await expect.poll(lift).toBe(0);
 });
 
+test("the menu lift is restored after returning from a test fight", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await page.goto("/workshop");
+  await expect(page.locator("canvas")).toBeVisible();
+  // Non-strict: the arena and workshop canvases overlap for a beat across the
+  // fight transition, so read the first one's dataset directly.
+  const lift = () =>
+    page.evaluate(() =>
+      Number(document.querySelector("canvas")?.dataset.menuLift ?? "0"),
+    );
+  // Open a menu tab so the bot lifts above the sheet.
+  await page.getByRole("tab", { name: "Garage" }).click();
+  await expect.poll(lift).toBeGreaterThan(0.05);
+  // Run a test fight (this unmounts the whole workshop view for the arena),
+  // then come straight back.
+  await page.getByRole("button", { name: "Bot actions" }).click();
+  await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
+  await page.getByRole("button", { name: "Back to build" }).click();
+  // The sheet is still open, so the lift must be re-measured and restored, not
+  // stranded at 0 by the arena view unmounting the panel mid-measure.
+  await expect.poll(lift).toBeGreaterThan(0.05);
+});
+
 test("the hero part clears the open menu sheet, not hidden behind it", async ({
   page,
 }) => {

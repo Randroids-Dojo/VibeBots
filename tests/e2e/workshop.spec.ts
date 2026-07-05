@@ -617,8 +617,8 @@ test("the carousel filters to owned parts; the Build toggle reveals the rest (P)
   await expect(nameEl).toHaveText("Drive Wheel");
 
   // Flip the Build-tab toggle to "all parts". The toggle lives in the sheet,
-  // so open it, flip, then collapse it again (Build never lifts, so an open
-  // sheet covers the carousel arrows).
+  // so open it, flip, then collapse it again to bring the carousel arrows back
+  // to their resting position for the click below.
   const buildTab = page.getByRole("tab", { name: "Build" });
   await buildTab.click(); // opens the sheet
   const toggle = page.getByRole("button", { name: /Carousel:/ });
@@ -686,7 +686,11 @@ test("the bot lifts above an open menu sheet (O)", async ({ page }) => {
   // Opening a tall menu tab lifts the bot up into the band above the sheet.
   await page.getByRole("tab", { name: "Garage" }).click();
   await expect.poll(lift).toBeGreaterThan(0.05);
-  // Build never lifts (lift 0), even with its own controls open.
+  // Build lifts too when its sheet is open (its Chassis/Parts would otherwise
+  // bury the bot); switching to it keeps the sheet open, so it stays lifted.
+  await page.getByRole("tab", { name: "Build" }).click();
+  await expect.poll(lift).toBeGreaterThan(0.05);
+  // Collapsing the sheet drops the lift back to 0, restoring the drag band.
   await page.getByRole("tab", { name: "Build" }).click();
   await expect.poll(lift).toBe(0);
 });

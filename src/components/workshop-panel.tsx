@@ -228,11 +228,12 @@ export function WorkshopPanel() {
   };
 
   useEffect(() => {
-    // Build's hero-drag band must never shift, and its sheet is short, so it
-    // never lifts. On the menu tabs, lift so the bot centers in the space
-    // above the open sheet; a taller menu covers more, so it lifts more.
+    // Whenever the sheet is open (any tab, Build included), lift the bot and
+    // its hero part into the space above the sheet so an open menu never
+    // buries them; a taller menu covers more, so it lifts more. Collapsed, the
+    // lift is 0, which keeps the Build hero-drag band exactly where it was.
     const measure = () => {
-      if (!sheetOpen || deferredTab === "build") {
+      if (!sheetOpen) {
         setMenuLift(0);
         return;
       }
@@ -256,7 +257,9 @@ export function WorkshopPanel() {
     const ro = new ResizeObserver(measure);
     ro.observe(panel);
     return () => ro.disconnect();
-  }, [sheetOpen, deferredTab]);
+    // Re-runs on open/close; a tab switch changes the panel's height, which the
+    // ResizeObserver catches, so deferredTab is not needed as a dep here.
+  }, [sheetOpen]);
 
   const refreshInventory = useCallback(async () => {
     try {

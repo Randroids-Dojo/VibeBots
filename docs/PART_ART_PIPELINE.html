@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Part Art Pipeline</title>
+</head>
+<body>
+
+<header>
+  <h1>Part Art Pipeline</h1>
+  <p>How bot part geometry and materials are built, how to add or reshape a part without breaking the deterministic sim, and the workflow for driving 3D art work with the Fable 5 model. Established 2026-07-05 with the shaping overhaul (commit 4872965) that took parts from flat-shaded collider primitives to beveled, manufactured-looking components. Companion enforcement rule: <code>.claude/rules/part-visuals.md</code>. Related: <code>docs/research/realistic-graphics-pipeline.html</code> (the lighting/post roadmap).</p>
+</header>
+
+<section id="split">
+  <h2>1. The render / sim split (read this first)</h2>
+  <p>Every part has two independent representations. Keeping them separate is the load-bearing idea of this whole pipeline.</p>
+  <ul>
+    <li><strong>The collider</strong> (<code>shape</code> in <code>src/sim/parts.ts</code>): one of <code>{type:"cuboid",hx,hy,hz}</code>, <code>{type:"ball",radius}</code>, <code>{type:"cylinder",halfHeight,radius,axis}</code>. This is the deterministic Rapier body. It drives physics, the layout solver, drag targeting, world snapshot hashes, and server-side replay. It is gameplay, not art.</li>
+    <li><strong>The render mesh</strong> (<code>src/components/part-geometry.ts</code> + <code>partGeometry()</code> in <code>part-visuals.tsx</code>): the visual geometry drawn for that collider. This is art, not gameplay.</li>
+  </ul>
+  <p><strong>The rule that follows from this:</strong> shape parts by editing the render mesh only. Never touch a collider to change how a part looks. A collider edit bumps <code>SIM_VERSION</code> (Rule 3), changes match outcomes, and invalidates every saved replay <code>{seed, design, simVersion}</code>. There is no art reason worth that. If a look seems to need a different collider, that is a gameplay decision: log it in <code>docs/OPEN_QUESTIONS.html</code> and get sign-off.</p>
+</section>
+
+<section id="architecture">
+  <h2>2. Architecture</h2>
+  <ul>
+    <li><code>src/components/part-geometry.ts</code>: pure three (no JSX, no React), so it runs in the node vitest env and is unit tested. Exposes <code>partShapeGeometry(shape, category, detail)</code> and the detail tiers <code>HIGH_DETAIL</code> / <code>LOW_DETAIL</code>. Internally it dispatches per collider type and category to a set of builders (see section 3), and caches every result in a never-disposed module map keyed by shape params + treatment + tier, so all meshes showing the same part share one <code>BufferGeometry</code> and the every-frame workshop turntable pays zero per-frame geometry cost.</li>
+    <li><code>src/components/part-visuals.tsx</code>: the thin React seam. <code>partGeometry(shape, category)</code> resolves the current detail tier and returns a <code>&lt;primitive object={...} attach="geometry" dispose={null} /&gt;</code>. It is used identically at four call sites, so one change upgrades everywhere: workshop <code>PlacedPart</code>, <code>HeroPart</code> (carousel), <code>DragGhost</code>, and the arena part render. Also holds <code>CATEGORY_SURFACE</code> (material params) and <code>shapeRotation()</code> (mesh-local reorientation matching a cylinder's axis).</li>
+    <li>Call sites pass <code>def.category</code> and set a <code>meshStandardMaterial</code> with the category color plus the emissive refs that animate selection (white glow) and merge (gold flash). Those refs are why the base material must stay <code>meshStandardMaterial</code>.</li>
+  </ul>
+</section>
+
+<section id="builders">
+  <h2>3. The geometry builders</h2>
+  <p>Dispatch lives in <code>buildShape()</code>. Current treatments:</p>
+  <ul>
+    <li><strong>Rounded box</strong> (<code>buildRoundedBox</code>): a subdivided box whose corner vertices are pulled onto the fillet of an inset core box. Flat faces keep exact normals, edges get true fillet normals, so smooth shading gives crisp faces with a bright rolled-edge highlight. Per-category edge size (<code>CUBOID_BEVEL</code>): soft fillet on cores, machined chamfer on structure/mobility, tight edge-break on weapons.</li>
+    <li><strong>Spike</strong> (<code>buildSpike</code>): elongated weapon cuboids (depth &gt;= 2x the larger cross-axis) taper to a small flat tip. This is the Ram Spike and any future forward spikes. Mounts are +z, tip forward at -z (matching the cores' -z front).</li>
+    <li><strong>Machined ball</strong> (<code>buildMachinedBall</code>): a lathe with polar mount-boss flats and an equatorial seam groove (two shells bolted together). Used for sensor / hammer heads.</li>
+    <li><strong>Tire</strong> (<code>buildTire</code>, mobility cylinders): chamfered tread shoulders and a recessed hub with a raised lip on both faces. The recess shading separates rubber ring from hub with one material.</li>
+    <li><strong>Toothed disc</strong> (<code>buildToothedDisc</code>, weapon cylinders): teeth cut into the rim via extrude with a thin bevel and an arbor hole. Teeth sit AT the collider radius, gullets carve inward, so the aimed silhouette matches physics.</li>
+    <li><strong>Column</strong> (<code>buildColumn</code>, other cylinders): chamfered caps; slender spars like the mast get a thinner shaft between two full-radius collars.</li>
+  </ul>
+  <p>Cylindrical builders build along local Y exactly like <code>CylinderGeometry</code>, so <code>shapeRotation</code>, layout, and drag targeting are untouched. Watch the three r185 <code>LatheGeometry</code> gotcha: it pushes an unnormalized normal for the last profile point, shading cap centers black. Every lathed form runs through a normal-repair pass (<code>lathe()</code>); reuse it for new lathed builders.</p>
+</section>
+
+<section id="howto">
+  <h2>4. How to add or reshape a part</h2>
+  <ol>
+    <li>Define or keep the collider in <code>src/sim/parts.ts</code> (gameplay-driven: mass, reach, connectors). Do not tune it for looks.</li>
+    <li>Pick or add a builder in <code>part-geometry.ts</code> for that collider type + category. Keep all vertices inside the collider half-extents (carve inward). Add a cache key branch if the treatment is new.</li>
+    <li>If the new treatment needs a category signal, it already receives <code>category</code>; thread any new param through <code>partShapeGeometry</code> and the cache key.</li>
+    <li>Extend <code>part-geometry.test.ts</code>: it iterates the whole catalog at both tiers and asserts vertices in-bounds, finite unit-ish normals, and a triangle budget. New builders must pass it.</li>
+    <li>Do not touch the four call sites unless you are changing the <code>partGeometry</code> signature. Do not re-add <code>flatShading</code>.</li>
+    <li>Verify visually per section 6.</li>
+  </ol>
+</section>
+
+<section id="perf">
+  <h2>5. Materials, mobile, and performance</h2>
+  <ul>
+    <li>Base material is <code>meshStandardMaterial</code> (cheapest on the WebGL2 backend, preserves emissive refs). <code>CATEGORY_SURFACE</code> keeps identity legible: core glows soft and round, weapon is glossy tight-edged steel, mobility is matte rubber, structure sits between. Smooth shading lets metals be glossier because fillet edges carry the highlight instead of facet sparkle.</li>
+    <li>Detail is tiered off <code>resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer())</code>: LOW (coarse-pointer / forced-WebGL2 phones) uses fewer radial segments and box subdivisions, HIGH (desktop WebGPU) uses more. No <code>isWebGPUBackend</code> gate is needed for plain geometry; both backends chew it identically. Gate only actual render passes on the live backend (see <code>graphics-quality.ts</code> and the realistic-graphics-pipeline research doc).</li>
+    <li>Budget: keep each part under ~2000 tris. A full 10-part bot is ~4-6k tris (was ~1k), still one material per part, no textures, no extra passes, no per-frame allocation. Geometry is module-cached, so cost is paid once per unique shape.</li>
+    <li>Deferred, high-tier-only work (a future separate slice): sibling greeble meshes (bolt heads, an emissive core window) and a TSL procedural panel-line node material gated behind <code>isWebGPUBackend</code> + high tier. Keep the WebGL2 path free of it.</li>
+  </ul>
+</section>
+
+<section id="verify">
+  <h2>6. Verification checklist (before shipping any part-art change)</h2>
+  <ul>
+    <li><code>pnpm typecheck</code>, <code>pnpm exec biome check</code> on the touched files, and no em/en-dashes (Rule 1).</li>
+    <li><code>pnpm exec vitest run src/components/part-geometry.test.ts</code> (in-bounds + budget) and the full unit suite green.</li>
+    <li>Build, then <code>pnpm exec playwright test arena.spec.ts workshop.spec.ts</code> on an isolated port (Rule 9 local isolation). Render changes can throw at runtime; these render real canvases.</li>
+    <li>Screenshot the workshop part carousel and an arena match at desktop AND 390x760 Android portrait (project memory: validate mine/bot changes at 390x760). Eyeball every category: core, structure, mobility, weapon.</li>
+    <li>Confirm <code>src/sim/parts.ts</code> is unchanged in the diff and <code>SIM_VERSION</code> is untouched.</li>
+  </ul>
+</section>
+
+<section id="fable">
+  <h2>7. Driving 3D art with the Fable 5 model</h2>
+  <p>The shaping overhaul was produced by delegating to the Fable 5 model (<code>claude-fable-5</code>, available via the Agent/Workflow <code>model: 'fable'</code> override) acting as an autonomous 3D technical artist. It performed well: it independently found and worked around the r185 LatheGeometry normal bug, chose fillet-baked normals, respected the render-only contract, and self-verified with Playwright and a vertex-budget test. Reusable recipe for the next 3D task:</p>
+  <ol>
+    <li><strong>Spell out the hard constraints</strong> up front: render-only over unchanged colliders, three/webgpu with WebGL2 mobile fallback and a triangle budget, no new dependencies, keep category identity and the emissive refs, no dashes.</li>
+    <li><strong>Name the exact files to read</strong> (the four in section 2 plus <code>sim/parts.ts</code> and <code>graphics-quality.ts</code>), so it grounds in the real code instead of inventing an API.</li>
+    <li><strong>Demand a concrete deliverable format</strong>: an art-direction statement, drop-in code, a mobile-safety note, and a prioritized rollout. Tell it the final message is data for the lead engineer, not chat.</li>
+    <li><strong>Verify its claims yourself.</strong> It tends to over-deliver (it edits the worktree, not just proposes), so review the actual diff and re-run the full section 6 checklist before shipping. Do not trust a subagent's "tests pass" without rerunning them.</li>
+  </ol>
+</section>
+
+</body>
+</html>

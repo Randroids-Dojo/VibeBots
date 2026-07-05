@@ -39,21 +39,23 @@ Before each implementation slice, read:
 - `docs/GDD_COVERAGE.json`
 - `docs/DEPENDENCY_LEDGER.html` (and run the Dependency Upgrade Gate from `docs/IMPLEMENTATION_PLAN.html`)
 - `docs/CI_WORKFLOW.html` when touching CI, verification policy, release process, or monitoring behavior
+- `docs/PART_ART_PIPELINE.html` when touching bot part geometry, materials, or any 3D part art (render-only over unchanged colliders; also the Fable 5 3D-art workflow)
 - `docs/PLAYTEST.html` and `docs/FUN_FACTOR_AUDIT.html` when coverage is >=80% done
 - the current task backlog (HTML Dots via `dot-html`, stored under `.dots/`)
 
 ### Path-scoped Rules
 
-Three additional rule files live under `.claude/rules/`. They are loaded automatically:
+Four additional rule files live under `.claude/rules/`. They are loaded automatically:
 
 - **Claude Code** loads them based on the `paths:` glob in their frontmatter.
 - **Codex** loads them via per-directory `AGENTS.md` symlinks (`docs/AGENTS.md`, `docs/gdd/AGENTS.md`) on its root-down walk.
 
-The three rules:
+The four rules:
 
 - `.claude/rules/slice-discipline.md` (paths: source-code globs): no drive-by refactors, no speculative abstractions, refactor-in-slice.
 - `.claude/rules/ledger-append-only.md` (paths: the four ledger files): never delete past entries.
 - `.claude/rules/gdd-build-log.md` (paths: GDD section files): append a build log entry on every shipped feature.
+- `.claude/rules/part-visuals.md` (paths: the part geometry/material files and `src/sim/parts.ts`): bot part art is render-only geometry over unchanged physics colliders; never reshape a part by editing its collider. Full pipeline in `docs/PART_ART_PIPELINE.html`.
 
 When you add a source directory (`src/`, `app/`, `lib/`, `components/`, `pages/`, `tests/`, etc.) to this project, run this once to make slice-discipline visible to Codex inside that tree:
 

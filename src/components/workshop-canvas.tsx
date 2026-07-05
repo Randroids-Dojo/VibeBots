@@ -180,14 +180,12 @@ function HeroPart({
   def,
   dragging,
   dimmed,
-  menuLift,
   pointerNdc,
   onGrab,
 }: {
   def: PartDef;
   dragging: boolean;
   dimmed: boolean;
-  menuLift: number;
   pointerNdc: RefObject<{ x: number; y: number }>;
   onGrab: (event: ThreeEvent<PointerEvent>) => void;
 }) {
@@ -214,12 +212,12 @@ function HeroPart({
         anchor.translateY(p.y * halfV);
         anchor.translateZ(-HERO_DRAG_DEPTH);
       } else {
-        // Docked: down into the empty lower band and back so the whole
-        // part clears the bottom edge on tall portrait viewports. When a
-        // menu sheet is open (menuLift > 0) the part would otherwise sit
-        // behind the sheet, so raise its dock toward the bot to keep it in
-        // the visible band above the menu (it stays grabbable there).
-        anchor.translateY(-0.5 + menuLift * 1.2);
+        // Docked: down into the empty lower band and back so the whole part
+        // clears the bottom edge on tall portrait viewports. When a menu is
+        // open the whole scene rides up via the camera view offset (MenuLift),
+        // carrying this camera-anchored part with it, so no separate raise is
+        // needed here; the panel's lift bias is what keeps it above the sheet.
+        anchor.translateY(-0.5);
         anchor.translateZ(-2.75);
         // Publish the docked part's on-screen Y (fraction from the top,
         // including the menu-lift view offset) so a test can assert the part
@@ -381,7 +379,7 @@ function IdleSlotMarker({
  * tier-plus-backend gates every other canvas uses. The fallback keeps
  * the current cost with a richer light rig only.
  */
-function WorkshopScene({ menuLift }: { menuLift: number }) {
+function WorkshopScene() {
   const design = useWorkshopStore((s) => s.design);
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const select = useWorkshopStore((s) => s.select);
@@ -671,7 +669,6 @@ function WorkshopScene({ menuLift }: { menuLift: number }) {
           def={heroDef}
           dragging={dragging}
           dimmed={browseDimmed}
-          menuLift={menuLift}
           pointerNdc={pointerNdc}
           onGrab={startGrab}
         />
@@ -790,7 +787,7 @@ export default function WorkshopCanvas({
       gl={createWebGPU}
       shadows
     >
-      <WorkshopScene menuLift={menuLift} />
+      <WorkshopScene />
       <MenuLift lift={menuLift} />
     </Canvas>
   );

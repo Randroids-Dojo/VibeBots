@@ -80,6 +80,11 @@ const MERGE_PIP_IDS = ["i", "ii", "iii"] as const;
 // `.workshop-build-panels` in globals.css.
 const MENU_MAX_VH = 0.3;
 
+// Extra upward lift (viewport fraction) added on top of centering the bot when
+// a real menu is open, so the whole composition (bot plus the part hanging
+// below it) rises into the empty room above and clears the sheet.
+const LIFT_BIAS = 0.1;
+
 export function WorkshopPanel() {
   const design = useWorkshopStore((s) => s.design);
   // Captured at click time: the matchup identity is state, so nothing a
@@ -245,8 +250,16 @@ export function WorkshopPanel() {
       // Center the bot in the band between the header and the open sheet top,
       // not in the whole upper area, so lifting never tucks it behind the
       // header.
-      const lift = (peekPx + contentPx - headerPx) / (2 * vh);
-      setMenuLift(Math.max(0, Math.min(0.22, lift)));
+      const centered = (peekPx + contentPx - headerPx) / (2 * vh);
+      // The browsed part hangs below the bot, so centering the bot's pivot
+      // leaves the composition bottom-heavy: empty room above, the part
+      // crowding the sheet below. A real open menu (near the 30dvh cap) adds a
+      // bias that lifts the whole thing up to use that room and clear the
+      // sheet. A tiny sandbox sheet (centered ~0) gets no bias, so it never
+      // floats the bot for an almost-empty sheet.
+      const lift =
+        centered < 0.08 ? Math.max(0, centered) : centered + LIFT_BIAS;
+      setMenuLift(Math.min(0.3, lift));
     };
     measure();
     // Fetch-backed tabs (Garage/Shop) grow after their data loads, so a one

@@ -3,36 +3,65 @@
 import type { ReactElement } from "react";
 import { WebGPURenderer } from "three/webgpu";
 import type { PartCategory, PartShape } from "@/sim/parts";
+import {
+  hasCoarsePointer,
+  readStoredGraphicsQuality,
+  resolveGraphicsQualityTier,
+} from "./graphics-quality";
+import { HIGH_DETAIL, LOW_DETAIL, partShapeGeometry } from "./part-geometry";
 
-/** Geometry element matching a part's collider shape. */
 /**
  * Physical response per part category (battle slice B2a, shared with the
  * workshop in the glow-up slice): weapons read as polished steel, cores
- * glow, mobility parts stay rubbery, structure sits between.
+ * glow, mobility parts stay rubbery, structure sits between. Tuned for
+ * smooth shading over the beveled part geometry: edge fillets carry the
+ * specular highlight, so metals can sit glossier without facet sparkle.
  */
 export const CATEGORY_SURFACE: Record<
   PartCategory,
   { metalness: number; roughness: number; emissiveBoost: number }
 > = {
-  core: { metalness: 0.45, roughness: 0.35, emissiveBoost: 0.35 },
-  structure: { metalness: 0.6, roughness: 0.42, emissiveBoost: 0 },
-  mobility: { metalness: 0.1, roughness: 0.85, emissiveBoost: 0 },
-  weapon: { metalness: 0.85, roughness: 0.2, emissiveBoost: 0.08 },
+  core: { metalness: 0.5, roughness: 0.3, emissiveBoost: 0.35 },
+  structure: { metalness: 0.72, roughness: 0.38, emissiveBoost: 0 },
+  mobility: { metalness: 0.05, roughness: 0.9, emissiveBoost: 0 },
+  weapon: { metalness: 0.9, roughness: 0.18, emissiveBoost: 0.08 },
 };
 
-export function partGeometry(shape: PartShape): ReactElement {
-  switch (shape.type) {
-    case "cuboid":
-      return <boxGeometry args={[shape.hx * 2, shape.hy * 2, shape.hz * 2]} />;
-    case "ball":
-      return <icosahedronGeometry args={[shape.radius, 1]} />;
-    case "cylinder":
-      return (
-        <cylinderGeometry
-          args={[shape.radius, shape.radius, shape.halfHeight * 2, 14]}
-        />
-      );
-  }
+/**
+ * Geometry element for a part's collider shape (render-only: the sim
+ * collider in src/sim/parts.ts is untouched). Instead of raw primitives,
+ * parts get manufactured forms from part-geometry.ts: filleted boxes,
+ * machined spheres, hub-and-tread wheels, toothed weapon discs, tapered
+ * ram spikes, collared struts. All forms stay inside the collider bounds
+ * and keep the cylinder-along-Y convention, so shapeRotation and every
+ * drag or layout computation behave exactly as before.
+ *
+ * Geometries come from a shared module cache (one instance per unique
+ * shape and treatment), so pass dispose={null} semantics for free: the
+ * returned primitive never disposes the shared geometry.
+ *
+ * `category` picks the treatment (weapon cylinders grow teeth, mobility
+ * cylinders become tires); omitting it falls back to a neutral machined
+ * look.
+ */
+export function partGeometry(
+  shape: PartShape,
+  category?: PartCategory,
+): ReactElement {
+  const detail =
+    resolveGraphicsQualityTier(
+      readStoredGraphicsQuality(),
+      hasCoarsePointer(),
+    ) === "low"
+      ? LOW_DETAIL
+      : HIGH_DETAIL;
+  return (
+    <primitive
+      object={partShapeGeometry(shape, category, detail)}
+      attach="geometry"
+      dispose={null}
+    />
+  );
 }
 
 /** Mesh-local rotation matching the collider's axis reorientation. */

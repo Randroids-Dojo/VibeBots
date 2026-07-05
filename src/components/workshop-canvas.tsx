@@ -143,13 +143,12 @@ function PlacedPart({
           castShadow={shadows}
           receiveShadow={shadows}
         >
-          {partGeometry(def.shape)}
+          {partGeometry(def.shape, def.category)}
           <meshStandardMaterial
             ref={matRef}
             color={CATEGORY_COLORS[def.category]}
             metalness={surface.metalness}
             roughness={surface.roughness}
-            flatShading
             emissive={CATEGORY_COLORS[def.category]}
             emissiveIntensity={surface.emissiveBoost}
           />
@@ -254,12 +253,11 @@ function HeroPart({
     >
       <group ref={spinRef} scale={dragging ? 0.72 : 0.65}>
         <mesh rotation={shapeRotation(def.shape)}>
-          {partGeometry(def.shape)}
+          {partGeometry(def.shape, def.category)}
           <meshStandardMaterial
             color={color}
             metalness={surface.metalness}
             roughness={dimmed ? 0.95 : surface.roughness}
-            flatShading
             transparent={dimmed}
             opacity={dimmed ? 0.72 : 1}
             emissive={color}
@@ -322,13 +320,12 @@ function DragGhost({
       quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
     >
       <mesh rotation={shapeRotation(def.shape)}>
-        {partGeometry(def.shape)}
+        {partGeometry(def.shape, def.category)}
         <meshStandardMaterial
           ref={matRef}
           color={color}
           metalness={surface.metalness}
           roughness={surface.roughness}
-          flatShading
           transparent
           opacity={active ? 0.85 : merge ? 0.32 : 0.22}
           depthWrite={active}

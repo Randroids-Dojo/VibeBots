@@ -47,7 +47,7 @@ import {
   CPU_WHIRLIGIG_DESIGN,
   TEST_BOT_DESIGN,
 } from "@/sim/design";
-import { PART_CATALOG, type PartCategory } from "@/sim/parts";
+import { PART_CATALOG } from "@/sim/parts";
 import { matchResultHash } from "@/sim/resolve";
 import {
   graphicsFeaturesFor,
@@ -618,7 +618,7 @@ function ArenaScene({
                 castShadow
                 receiveShadow
               >
-                {partGeometry(def.shape)}
+                {partGeometry(def.shape, def.category)}
                 <meshStandardMaterial
                   ref={(node) => {
                     materialRefs.current.set(key, node);
@@ -628,7 +628,6 @@ function ArenaScene({
                   roughness={surface.roughness}
                   emissive={BOT_COLORS[botIndex]}
                   emissiveIntensity={surface.emissiveBoost}
-                  flatShading
                 />
               </mesh>
             </group>

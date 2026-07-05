@@ -613,11 +613,20 @@ test("the top bar collapses the bot actions into an options menu", async ({
     page.getByRole("menuitem", { name: "Test fight vs Brawler" }),
   ).toHaveCount(0);
 
-  // Open: undo/redo and both fight actions appear.
+  // Open: undo/redo, the replica opponent roster, and both fight actions appear.
   await actions.click();
   await expect(page.getByRole("menu")).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Undo" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Redo" })).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Fight Contagion" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Fight Night Terror" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Fight Impaler" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: "Test fight vs Brawler" }),
   ).toBeVisible();

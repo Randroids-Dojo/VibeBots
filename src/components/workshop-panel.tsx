@@ -26,6 +26,7 @@ import {
   validateDesign,
 } from "@/sim/design";
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
+import { REPLICA_OPPONENTS } from "@/sim/opponents";
 import { PART_CATALOG } from "@/sim/parts";
 import {
   CAROUSEL_PART_IDS,
@@ -695,6 +696,28 @@ export function WorkshopPanel() {
                   Redo
                 </button>
               </div>
+              {REPLICA_OPPONENTS.map((opponent) => (
+                <button
+                  key={opponent.id}
+                  type="button"
+                  role="menuitem"
+                  className="workshop-fight-action"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setEndInfo(null);
+                    setVerification({ state: "idle" });
+                    setMatchup([opponent.design, design]);
+                  }}
+                  disabled={!validation.ok}
+                  title={
+                    validation.ok
+                      ? `${opponent.blurb} (in the style of ${opponent.inspiredBy})`
+                      : "fix validity errors first"
+                  }
+                >
+                  Fight {opponent.name}
+                </button>
+              ))}
               <button
                 type="button"
                 role="menuitem"

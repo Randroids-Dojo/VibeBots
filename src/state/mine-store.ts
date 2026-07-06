@@ -821,7 +821,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     claimAccountSave: async () => {
-      let current = get().accountSync;
+      let current: AccountSyncState;
       const checkpointResult = await storeAccountTripCheckpoint();
       current = get().accountSync;
       if (checkpointResult !== "stored") {

@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-066" data-f="F-066" data-priority="nice-to-have">
+    <h3>F-066: Enable Clerk Google sign-in on Vercel preview deployments</h3>
+    <dl>
+      <dt>Context</dt><dd>PR preview deployments currently show failed Clerk frontend script loads on raw <code>*.vercel.app</code> preview URLs, so the Account dialog cannot exercise the Google sign-in and cloud-save claim flow before merge. Clerk's current Vercel guidance says raw Vercel preview domains should use Clerk development instances and <code>pk_test_</code> / <code>sk_test_</code> keys. Production Clerk keys and production users require a same-root-domain preview setup such as Vercel Preview Deployment Suffix on a paid Vercel plan.</dd>
+      <dt>Blocker (if any)</dt><dd>Needs dashboard configuration, not app code first: add Clerk development keys and redirect env vars to the Vercel Preview environment, and confirm the Clerk development instance has Google enabled with identity-only scopes.</dd>
+      <dt>Unblock condition</dt><dd>Set the Vercel Preview env to <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...</code>, <code>CLERK_SECRET_KEY=sk_test_...</code>, <code>NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in</code>, <code>NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/mine?account=1</code>, and <code>NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/mine?account=1</code>. Leave <code>NEXT_PUBLIC_CLERK_SIGN_UP_URL</code>, <code>NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL</code>, <code>NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL</code>, <code>CLERK_SIGN_IN_FORCE_REDIRECT_URL</code>, <code>CLERK_SIGN_UP_FORCE_REDIRECT_URL</code>, <code>NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL</code>, <code>NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL</code>, <code>CLERK_AFTER_SIGN_IN_URL</code>, and <code>CLERK_AFTER_SIGN_UP_URL</code> unset. In the Clerk development dashboard, keep Google as the social connection, scopes limited to <code>openid email profile</code>, Google One Tap off, and the app sign-in route on the local app path <code>/sign-in</code>. After env changes, redeploy a PR preview and run <code>pnpm ops:check-account-env -- --require-ready --google-scopes "openid email profile"</code> against the same environment without printing key values. Acceptance: on a Vercel preview URL, clicking the Account dialog's Google sign-in creates a handoff, renders Clerk at <code>/sign-in</code>, completes Google sign-in with a Clerk development user, returns to <code>/mine?accountHandoff=...</code>, consumes the handoff, claims the guest row, clears the query param, and lets a fresh browser signed into the same development Google account load the claimed cloud save.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised while testing PR #85 preview auth)</dd>
+    </dl>
+  </section>
+
   <section id="F-065" data-f="F-065" data-priority="nice-to-have">
     <h3>F-065: Restore desktop circular lantern fog of war</h3>
     <dl>

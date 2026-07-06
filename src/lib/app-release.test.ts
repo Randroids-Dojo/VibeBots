@@ -2,17 +2,32 @@ import { describe, expect, it } from "vitest";
 import { getAppRelease } from "./app-release";
 
 describe("app release notes", () => {
-  it("keeps the latest bot-lifts-for-menus note complete", () => {
+  it("keeps the latest performance-telemetry note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-04-0.1.196-bot-lifts-for-menus");
+    expect(release.noticeId).toBe("2026-07-06-0.1.197-performance-telemetry");
     expect(latestNote).toMatchObject({
+      version: "0.1.197",
+      title: "Help us fix slowdowns",
+      intro: "An optional performance telemetry toggle.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The settings menu has a new optional Performance telemetry toggle. It is off by default. When you turn it on, the game records frame timings, scene statistics, and device info while you play and sends them back so slowdowns on your exact device can be found and fixed. Turn it off any time from the same menu.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bot-lifts-for-menus note complete", () => {
+    const release = getAppRelease();
+    const liftNote = release.notes.find((note) => note.version === "0.1.196");
+
+    expect(liftNote).toMatchObject({
       version: "0.1.196",
       title: "Your bot rises for menus",
       intro: "See the bot while a menu is open.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(liftNote?.changes.map((change) => change.text)).toEqual([
       "When you open a taller menu (Tune, Garage, or Shop), your bot now lifts up into the space above the sheet instead of hiding behind it, so you can see the whole bot while you work. Build is unchanged: the bot and the part in hand stay exactly where they were.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

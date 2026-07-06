@@ -292,6 +292,72 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     CREATE INDEX IF NOT EXISTS player_performance_samples_p95_idx
     ON player_performance_samples (p95_frame_ms DESC, created_at DESC)`;
+  // Deep performance traces (F-054): one row per opt-in analyzer
+  // snapshot, pairing frame-time distribution with renderer and scene
+  // composition so bottlenecks can be attributed after the fact.
+  await sql`
+    CREATE TABLE IF NOT EXISTS player_perf_traces (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      session_id text NOT NULL,
+      seq integer NOT NULL,
+      source text NOT NULL,
+      app_version text NOT NULL,
+      app_build integer,
+      mine_version integer,
+      renderer text,
+      backend text,
+      quality_tier text,
+      ab_variant text,
+      viewport_width integer NOT NULL,
+      viewport_height integer NOT NULL,
+      device_pixel_ratio real NOT NULL,
+      hardware_concurrency integer,
+      device_memory_gb real,
+      gpu text,
+      connection_type text,
+      duration_ms integer NOT NULL,
+      frame_count integer NOT NULL,
+      avg_frame_ms real NOT NULL,
+      p50_frame_ms real NOT NULL,
+      p95_frame_ms real NOT NULL,
+      max_frame_ms real NOT NULL,
+      long_frame_count integer NOT NULL,
+      stall_count integer NOT NULL,
+      gpu_frame_ms real,
+      draw_calls integer,
+      triangles integer,
+      geometries integer,
+      textures integer,
+      mesh_count integer,
+      instanced_mesh_count integer,
+      instance_count integer,
+      light_count integer,
+      shadow_light_count integer,
+      particle_count integer,
+      visible_object_count integer,
+      material_count integer,
+      js_heap_mb real,
+      long_task_count integer,
+      long_task_total_ms real,
+      loaf_count integer,
+      loaf_total_ms real,
+      loaf_max_ms real,
+      input_event_count integer,
+      input_event_max_ms real,
+      detail jsonb NOT NULL DEFAULT '{}'::jsonb,
+      user_agent text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS player_perf_traces_created_at_idx
+    ON player_perf_traces (created_at DESC)`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS player_perf_traces_source_created_at_idx
+    ON player_perf_traces (source, created_at DESC)`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS player_perf_traces_p95_idx
+    ON player_perf_traces (p95_frame_ms DESC, created_at DESC)`;
   await sql`
     CREATE TABLE IF NOT EXISTS player_balance_events (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

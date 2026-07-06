@@ -5,6 +5,11 @@ import {
   FEEDBACK_CATEGORY_OPTIONS,
   type FeedbackCategory,
 } from "@/lib/feedback";
+import {
+  PERF_ANALYZER_CHANGED_EVENT,
+  perfAnalyzerEnabled,
+  persistPerfAnalyzerEnabled,
+} from "@/lib/perf-analyzer-settings";
 import { MINE_VERSION } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
 import { DismissibleDialogFrame } from "./dismissible-dialog-frame";
@@ -933,6 +938,66 @@ export function IosHomeScreenPrompt({ disabled }: { disabled: boolean }) {
         </div>
       </section>
     </DismissibleDialogFrame>
+  );
+}
+
+/**
+ * Opt-in deep performance telemetry toggle (F-054). Flipping it on
+ * starts the live collector immediately via the changed event; GPU
+ * pass timings additionally require a canvas created after the toggle
+ * was on (the next visit), which the note explains.
+ */
+export function PerfTelemetryControl() {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    setEnabled(perfAnalyzerEnabled());
+  }, []);
+
+  const toggle = () => {
+    const next = !enabled;
+    persistPerfAnalyzerEnabled(next);
+    setEnabled(next);
+    window.dispatchEvent(new Event(PERF_ANALYZER_CHANGED_EVENT));
+  };
+
+  return (
+    <section
+      aria-label="Performance telemetry"
+      style={{ display: "grid", gap: 6, marginTop: 8 }}
+    >
+      <button
+        type="button"
+        aria-pressed={enabled}
+        data-perf-telemetry-toggle
+        onClick={toggle}
+        style={{
+          width: "100%",
+          minHeight: 40,
+          borderRadius: 10,
+          border: "1px solid #cdd6ea",
+          background: enabled ? "#21301f" : "#20283a",
+          color: enabled ? "#8ee06f" : "#e6e8ee",
+          fontSize: "0.86rem",
+          fontWeight: 800,
+          cursor: "pointer",
+        }}
+      >
+        {enabled ? "Performance telemetry on" : "Enable performance telemetry"}
+      </button>
+      <p
+        style={{
+          margin: 0,
+          color: "#aab3c8",
+          fontSize: "0.72rem",
+          lineHeight: 1.25,
+        }}
+      >
+        {enabled
+          ? "Recording frame timings, scene stats, and device info to help fix slowdowns. GPU timings start on your next visit."
+          : "Off by default. When on, sends frame timings, scene stats, and device info so slowdowns on your device can be fixed."}
+      </p>
+    </section>
   );
 }
 

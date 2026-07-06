@@ -32,6 +32,7 @@ import {
   partGeometry,
   shapeRotation,
 } from "@/components/part-visuals";
+import { PerfProbeBridge } from "@/components/perf-probe-bridge";
 import { createArenaWorld } from "@/sim/arena";
 import {
   createMatch,
@@ -713,6 +714,7 @@ export default function ArenaCanvas({
           onMatchEnd={onMatchEnd}
           onCountdown={setCountdown}
         />
+        <PerfProbeBridge source="arena" />
       </Canvas>
 
       {countdown && (

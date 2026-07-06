@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-04-0.1.196-bot-lifts-for-menus";
+export const RELEASE_NOTICE_ID = "2026-07-06-0.1.197-performance-telemetry";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.197",
+      date: "2026-07-06",
+      title: "Help us fix slowdowns",
+      intro: "An optional performance telemetry toggle.",
+      changes: [
+        {
+          build,
+          text: "The settings menu has a new optional Performance telemetry toggle. It is off by default. When you turn it on, the game records frame timings, scene statistics, and device info while you play and sends them back so slowdowns on your exact device can be found and fixed. Turn it off any time from the same menu.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.196",
       date: "2026-07-04",

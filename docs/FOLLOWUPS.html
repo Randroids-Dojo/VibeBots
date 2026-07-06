@@ -218,6 +218,7 @@
       <dt>Context</dt><dd>User-raised followup: the mine needs an exhaustive real-time performance analysis before more visual and motion work accumulates.</dd>
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready: profile desktop and mobile-shaped runs, including Pixel 7 dimensions, and separate render cost, sim cost, network waits, input latency, memory churn, and frame pacing. Acceptance: produce a documented performance report with measurements, bottlenecks, and PR-sized followup recommendations.</dd>
+      <dt>Progress</dt><dd>2026-07-06: the measurement instrument shipped (performance-analyzer-telemetry slice). An opt-in Performance telemetry toggle records 5-second snapshots pairing frame percentiles, GPU pass time, long-animation-frame script attribution, JS heap, and scene composition (draw calls, triangles, meshes, instances, lights, particles) into <code>player_perf_traces</code>, queryable through the anonymized <code>GET /api/performance/insights</code> rollups with per-build and per-variant splits for A/B fix measurement. Design and bottleneck hypotheses in <code>docs/research/performance-analyzer.html</code>. Remaining: collect desktop and mobile traces from real play and write the analysis report with PR-sized recommendations.</dd>
       <dt>PR / Dot reference</dt><dd><code>VibeBots-mine-real-time-d58bf6e5</code></dd>
     </dl>
   </section>

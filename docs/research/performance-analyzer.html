@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Research: In-Game Performance Analyzer</title>
+</head>
+<body>
+
+<header>
+  <h1>In-Game Performance Analyzer</h1>
+  <p>Design for the opt-in deep performance telemetry system (extends REQ-041 and followup F-054). Written 2026-07-06 before the implementation slice.</p>
+</header>
+
+<section id="problem">
+  <h2>Problem</h2>
+  <p>The existing sampler (<code>src/components/mine-performance-sampling.ts</code>) records one 12-second frame-percentile summary per hour per player, mine surface only. It can tell us that a device is slow, but not why: it carries no scene composition, no GPU timing, no main-thread attribution, and no memory data. Diagnosing bottlenecks (lighting, model complexity, animations, particles, object churn) requires correlating frame cost with what the renderer was actually doing at that moment, on both desktop and mobile.</p>
+</section>
+
+<section id="prior-art">
+  <h2>Prior art and platform capabilities</h2>
+  <ul>
+    <li><strong>three.js renderer info</strong>: <code>renderer.info.render</code> (calls, triangles, points, lines) and <code>renderer.info.memory</code> (geometries, textures) are cheap per-frame counters on both the WebGPU and the WebGL2 backend. The mine canvas already publishes <code>info.render.calls</code> via <code>canvas.dataset.drawCalls</code>.</li>
+    <li><strong>GPU frame timing</strong>: three's WebGPURenderer supports <code>trackTimestamp: true</code> at construction, which requests the <code>timestamp-query</code> feature and lets <code>renderer.resolveTimestampsAsync(TimestampQuery.RENDER)</code> return the measured GPU pass time in ms. This separates GPU-bound frames (shading, overdraw, shadow passes) from CPU-bound frames. It must be requested at renderer creation, so it activates on the canvas mount after the toggle is on.</li>
+    <li><strong>Long Animation Frames (LoAF)</strong>: <code>PerformanceObserver</code> with type <code>long-animation-frame</code> reports frames over 50 ms with script attribution (which source URL burned the time). Chromium only; the observer no-ops elsewhere. Best practice is to report only summaries and the top offenders, not every entry.</li>
+    <li><strong>Long tasks</strong>: the <code>longtask</code> entry type is the wider-support fallback signal for main-thread stalls.</li>
+    <li><strong>Event timing</strong>: the <code>event</code> entry type with a duration threshold approximates INP and catches input-to-paint stalls during play.</li>
+    <li><strong>Memory</strong>: <code>performance.memory.usedJSHeapSize</code> (Chromium) plus three's geometry/texture counts give a churn signal (leaks, allocation storms) without precise-memory permissions.</li>
+    <li><strong>GPU identity</strong>: WebGPU exposes <code>GPUAdapter.info</code> (vendor, architecture); WebGL2 exposes the unmasked renderer string through <code>WEBGL_debug_renderer_info</code>. Either one turns "some phones are slow" into "Mali-G57 is slow".</li>
+  </ul>
+</section>
+
+<section id="design">
+  <h2>Design</h2>
+
+  <h3>Principles</h3>
+  <ul>
+    <li><strong>Opt-in and honest</strong>: a Performance Telemetry toggle in the mine settings menu (aria-pressed, persisted in localStorage). Off by default; the passive hourly sampler stays as the always-on baseline.</li>
+    <li><strong>Snapshot = metrics + scene state</strong>: every snapshot row carries both the frame-time distribution for its window and the renderer/scene composition during that window, so factor analysis (frame cost vs draw calls, triangles, lights, particles, memory) is a plain SQL/JS aggregation later.</li>
+    <li><strong>Render-only observation</strong>: probes read <code>renderer.info</code>, traverse the scene at snapshot boundaries, and read the diagnostics the canvases already publish on <code>canvas.dataset</code>. Nothing touches <code>src/sim</code> or deterministic state.</li>
+    <li><strong>Cheap when off, bounded when on</strong>: zero observers and zero rAF work while disabled. When enabled: one rAF delta collector, one scene traversal per snapshot (5 s), batched uploads (~20 s), capped payload sizes, flush on pagehide via <code>keepalive</code>.</li>
+    <li><strong>Comparable across builds and devices</strong>: every row records app version and build, mine version, renderer backend, graphics tier, device class, and an A/B variant tag so fixes can be measured quantitatively.</li>
+  </ul>
+
+  <h3>Client architecture</h3>
+  <ul>
+    <li><code>src/lib/perf-analyzer-settings.ts</code>: renderer-free setting storage (<code>vibebots-perf-analyzer-v1</code>), A/B variant storage (<code>vibebots-perf-ab-variant</code>, also settable with the <code>?perfVariant=</code> query param), window overrides for tests.</li>
+    <li><code>src/lib/perf-trace.ts</code>: pure snapshot/payload shaping: frame summaries (reuses <code>summarizeFrameMetrics</code>), stall counting, numeric clamping, payload caps. Unit-tested.</li>
+    <li><code>src/components/perf-probe.ts</code>: a module-level probe registry. Each R3F canvas mounts a <code>&lt;PerfProbeBridge source="mine"&gt;</code> that registers a probe closure over <code>{ gl, scene }</code>. A probe call (only at snapshot boundaries) returns renderer info, scene composition counts (meshes, instanced meshes and instances, lights by type, shadow casters, sprites, visible objects, unique materials and geometries), backend identity, and the allowlisted <code>canvas.dataset</code> diagnostics (particle count, rendered cell count, teeter/gas-wisp counts, time of day, camera depth/zoom, smoothed frame ms). The bridge also resolves GPU render-pass time about once per second when the WebGPU backend has timestamps enabled.</li>
+    <li><code>src/components/perf-telemetry.tsx</code>: the page-level collector. While the toggle is on and the page is visible it runs a rAF frame-delta loop, LoAF/longtask/event observers, and every 5 s emits a snapshot (frame summary + probe + memory + main-thread summary), buffering and posting batches to <code>POST /api/performance/trace</code>. Mounted on mine, arena, workshop, and holodeck pages with their own <code>source</code> tags.</li>
+    <li><code>createWebGPU</code> passes <code>trackTimestamp</code> when the analyzer is enabled at canvas creation, so GPU timings appear from the next canvas mount onward.</li>
+  </ul>
+
+  <h3>Storage (one dedicated Neon Postgres, Rule 11)</h3>
+  <p>New append-only table <code>player_perf_traces</code>: one row per snapshot. Queryable factor columns (frame percentiles, GPU ms, draw calls, triangles, geometries, textures, mesh/instance/light/particle counts, JS heap MB, long-task and LoAF summaries, input-event summaries) plus a capped <code>detail</code> jsonb for the long tail (lights by type, LoAF top scripts, canvas diagnostics). Session identity (random per page load) groups snapshots; player id ties devices across sessions. Indexes on <code>created_at</code>, <code>(source, created_at)</code>, and <code>(p95_frame_ms, created_at)</code>.</p>
+
+  <h3>Query path</h3>
+  <p><code>GET /api/performance/insights</code> aggregates recent traces server-side and returns anonymized rollups only (no player ids, no raw user agents): overview counts, segment breakdowns by source/renderer/tier/device class, factor buckets (avg p95 by draw-call, triangle, light, particle, and heap buckets), and the worst snapshots with their factor columns. This is the verification and triage surface for operators and agents; ad-hoc SQL against Neon stays available for deep dives.</p>
+
+  <h3>A/B measurement plan</h3>
+  <p>Every trace row records <code>ab_variant</code> (default null). To quantify a candidate fix: ship it behind a variant check (or as a build), assign variants via the query param or a randomized localStorage assignment in the fix's slice, then compare <code>p95_frame_ms</code>, <code>gpu_frame_ms</code>, and factor columns between variants (or between app builds) for the same renderer/tier segments in the insights endpoint. App build is always recorded, so before/after release comparisons work even without an explicit variant.</p>
+</section>
+
+<section id="hypotheses">
+  <h2>Bottleneck hypotheses to test with the data</h2>
+  <ul>
+    <li><strong>Draw calls on phones</strong>: the mine budget lives and dies by draw calls on forced-WebGL2 devices; correlate p95 against <code>draw_calls</code> and <code>rendered cell count</code> per tier.</li>
+    <li><strong>Shadow + IBL cost on high tier</strong>: compare GPU ms with shadows/postBloom on vs off (tier segments already encode this).</li>
+    <li><strong>Particle bursts</strong>: dynamite/collapse moments spike <code>particle_count</code>; check whether p95 spikes track them.</li>
+    <li><strong>Time-of-day lighting</strong>: surface scenes carry sun + hemisphere + ambient + IBL; underground scenes are lamp-driven. The <code>timeOfDay</code>/camera-depth diagnostics separate the two regimes.</li>
+    <li><strong>Memory churn</strong>: heap growth across a session (same <code>session_id</code>, rising <code>js_heap_mb</code>) points at allocation leaks; geometry/texture count growth points at renderer-resource leaks.</li>
+    <li><strong>Main-thread stalls vs GPU-bound frames</strong>: LoAF/longtask totals vs GPU ms decide whether to optimize scripts (React re-renders, store updates) or shading/geometry.</li>
+  </ul>
+</section>
+
+<section id="privacy">
+  <h2>Privacy and volume</h2>
+  <ul>
+    <li>Opt-in only; the toggle copy says what is collected and where it goes.</li>
+    <li>No gameplay-economy data, no text input, no identifiers beyond the existing player cookie the API routes already use.</li>
+    <li>The public insights endpoint returns aggregates and factor columns only, never player ids or raw user agents.</li>
+    <li>Volume bound: 1 row / 5 s per opted-in player (~720 rows/hour worst case), batched into ~3 POSTs/minute. Zod caps batch size and string lengths server-side.</li>
+  </ul>
+</section>
+
+<section id="sources">
+  <h2>Sources</h2>
+  <ul>
+    <li>three.js WebGPU timestamp queries: <a href="https://threejs.org/docs/pages/WebGPURenderer.html">WebGPURenderer docs</a>, <a href="https://github.com/mrdoob/three.js/pull/30359">TimestampQueryPool PR #30359</a>, <a href="https://threejsroadmap.com/blog/profiling-webgpu">Profiling WebGPU shaders in three.js</a></li>
+    <li>Long Animation Frames: <a href="https://developer.mozilla.org/en-US/docs/Web/API/Performance_API/Long_animation_frame_timing">MDN LoAF timing</a>, <a href="https://developer.chrome.com/docs/web-platform/long-animation-frames">Chrome LoAF guide</a></li>
+    <li>WebGPU timing fundamentals: <a href="https://webgpufundamentals.org/webgpu/lessons/webgpu-timing.html">webgpufundamentals timing lesson</a></li>
+  </ul>
+</section>
+
+</body>
+</html>

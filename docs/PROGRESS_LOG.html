@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="performance-analyzer-telemetry" data-date="2026-07-06">
+    <h3>Opt-in performance analyzer telemetry</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/performance-analyzer-telemetry-jtb43n</code></dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Deep performance telemetry behind a new opt-in Performance telemetry toggle in the mine settings menu (F-054, extends REQ-041). While on, a page-level collector (<code>src/components/perf-telemetry.tsx</code>, mounted on mine, arena, workshop, and holodeck) samples frame deltas each animation frame, observes long animation frames with script attribution, long tasks, and slow input events, and every 5 seconds pairs those with a canvas probe snapshot: renderer draw calls, triangles, geometry and texture counts, scene composition (meshes, instances, lights by type, shadow casters, unique materials), the mine canvas diagnostics dataset, JS heap, and GPU render-pass time via <code>trackTimestamp</code>/<code>resolveTimestampsAsync</code> when the toggle was on at canvas creation. Batches post to the new <code>POST /api/performance/trace</code> into the new <code>player_perf_traces</code> table (one row per snapshot, factor columns plus capped jsonb detail). New anonymized query surface <code>GET /api/performance/insights</code> aggregates recent traces (segments, factor buckets, worst snapshots, per-build and per-variant splits for A/B comparisons via the recorded <code>ab_variant</code> and <code>?perfVariant=</code> param). Design doc at <code>docs/research/performance-analyzer.html</code>. Key files: <code>src/lib/perf-analyzer-settings.ts</code>, <code>src/lib/perf-trace.ts</code>, <code>src/lib/perf-insights.ts</code>, <code>src/components/perf-probe.ts</code>, <code>src/components/perf-probe-bridge.tsx</code>, <code>src/components/perf-telemetry.tsx</code>, <code>src/components/mine-settings-dialogs.tsx</code>, <code>src/components/part-visuals.tsx</code>, <code>src/server/db.ts</code>, <code>src/app/api/performance/trace/route.ts</code>, <code>src/app/api/performance/insights/route.ts</code>.</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm typecheck</code>; <code>pnpm lint</code>; <code>pnpm test</code> (936 tests); <code>pnpm build</code>; <code>pnpm exec playwright test tests/e2e/perf-telemetry.spec.ts --project=chromium</code>; <code>pnpm check:dashes</code>; <code>git diff --check</code>. Dependency Upgrade Gate: Rapier <code>0.19.3</code>, Next <code>16.2.10</code>, three <code>0.185.1</code>, fiber <code>9.6.1</code> all match the ledger; the VibeKit detect-new command could not run in this session (repo access scoped to VibeBots only), pinned <code>v0.3.0</code> unchanged.</dd>
+      <dt>Assumptions</dt><dd>Recommended default (Q-016): the insights endpoint is public but returns aggregates and anonymized factor columns only, never player ids or user agents. The passive hourly sampler stays as the always-on baseline; the analyzer is additive and off by default. GPU timestamps activate on the canvas mount after the toggle is on, stated in the toggle note. Rule 13: mine tips reviewed for the 0.1.197 bump, no change because an optional diagnostics toggle is not a mine rule. Rule 14: stamp review done, none added because diagnostics are explicitly not stamp material.</dd>
+      <dt>GDD coverage</dt><dd><code>REQ-041</code> stays done with the deep-telemetry extension recorded; implementation and test refs updated. Build log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd><code>F-054</code> progress update: the measurement instrument shipped; the exhaustive analysis report over collected desktop and mobile traces remains open.</dd>
+    </dl>
+  </article>
+
   <article data-slice="clerk-account-sync-review-hardening" data-date="2026-07-05">
     <h3>Clerk account sync: review hardening</h3>
     <dl>

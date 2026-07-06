@@ -22,6 +22,7 @@ import {
   mineRenderWindow,
 } from "@/components/mine-camera";
 import { createWebGPU } from "@/components/part-visuals";
+import { PerfProbeBridge } from "@/components/perf-probe-bridge";
 import type {
   BunkerFootprint,
   BunkerRaidSnapshot,
@@ -1604,6 +1605,7 @@ export default function MineCanvas(props: MineCanvasProps) {
       onPointerMissed={props.onBunkerBackgroundTap}
     >
       <MineScene {...props} graphicsFeatures={features} />
+      <PerfProbeBridge source="mine" />
     </Canvas>
   );
 }

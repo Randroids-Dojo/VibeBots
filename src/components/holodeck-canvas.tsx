@@ -30,6 +30,7 @@ import {
   minerClipInputs,
 } from "./miner-rig";
 import { createWebGPU } from "./part-visuals";
+import { PerfProbeBridge } from "./perf-probe-bridge";
 import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
 
@@ -416,6 +417,7 @@ export default function HolodeckCanvas() {
         shadows={features.shadows ? "soft" : false}
       >
         <HolodeckScene features={features} view={view} />
+        <PerfProbeBridge source="holodeck" />
       </Canvas>
     </div>
   );

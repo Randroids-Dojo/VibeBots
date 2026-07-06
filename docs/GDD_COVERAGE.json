@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-07-05",
+  "updatedAt": "2026-07-06",
   "rows": [
     {
       "id": "REQ-001",
@@ -888,7 +888,7 @@
     },
     {
       "id": "REQ-041",
-      "requirement": "The mine collects lightweight real-session performance samples so old-device glitches and low frame rates can be diagnosed by version, renderer, viewport, hardware hints, draw calls, and frame-time percentiles.",
+      "requirement": "The mine collects lightweight real-session performance samples so old-device glitches and low frame rates can be diagnosed by version, renderer, viewport, hardware hints, draw calls, and frame-time percentiles. Extended 2026-07-06 with the opt-in deep performance analyzer: snapshot traces pairing frame distributions with renderer and scene composition, GPU pass time, main-thread attribution, and memory, across mine, arena, workshop, and holodeck, stored in player_perf_traces with anonymized aggregate insights and A/B variant splits.",
       "gddRef": "docs/gdd/06-mining.html#controls",
       "status": "done",
       "implementationRefs": [
@@ -897,12 +897,27 @@
         "src/components/part-visuals.tsx",
         "src/lib/performance-metrics.ts",
         "src/app/api/performance/route.ts",
-        "src/server/db.ts"
+        "src/server/db.ts",
+        "src/components/perf-telemetry.tsx",
+        "src/components/perf-probe.ts",
+        "src/components/perf-probe-bridge.tsx",
+        "src/lib/perf-trace.ts",
+        "src/lib/perf-insights.ts",
+        "src/lib/perf-analyzer-settings.ts",
+        "src/app/api/performance/trace/route.ts",
+        "src/app/api/performance/insights/route.ts",
+        "src/components/mine-settings-dialogs.tsx"
       ],
       "testRefs": [
         "src/lib/performance-metrics.test.ts",
         "src/app/api/performance/route.test.ts",
-        "tests/e2e/mine-viewport.spec.ts"
+        "tests/e2e/mine-viewport.spec.ts",
+        "src/lib/perf-trace.test.ts",
+        "src/lib/perf-insights.test.ts",
+        "src/components/perf-probe.test.ts",
+        "src/app/api/performance/trace/route.test.ts",
+        "src/app/api/performance/insights/route.test.ts",
+        "tests/e2e/perf-telemetry.spec.ts"
       ],
       "followupRefs": []
     },

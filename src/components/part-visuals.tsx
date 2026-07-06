@@ -2,6 +2,7 @@
 
 import type { ReactElement } from "react";
 import { WebGPURenderer } from "three/webgpu";
+import { perfAnalyzerEnabled } from "@/lib/perf-analyzer-settings";
 import type { PartCategory, PartShape } from "@/sim/parts";
 import {
   hasCoarsePointer,
@@ -96,6 +97,10 @@ export async function createWebGPU(glProps: unknown): Promise<WebGPURenderer> {
   const renderer = new WebGPURenderer({
     ...(glProps as ConstructorParameters<typeof WebGPURenderer>[0]),
     forceWebGL: coarsePointer,
+    // GPU render-pass timing for the opt-in performance analyzer. Only
+    // requested when the toggle is already on at canvas creation, so
+    // players who never opt in pay nothing.
+    trackTimestamp: perfAnalyzerEnabled(),
   });
   await renderer.init();
   return renderer;

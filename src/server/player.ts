@@ -197,13 +197,18 @@ async function createPlayer(sql: Sql): Promise<string> {
   return rows[0].id;
 }
 
+/** Player id for the session's active slot, else null. */
+export function activeSaveSlotPlayerId(
+  session: SaveSlotSession | null,
+): string | null {
+  if (!session) return null;
+  return session.slots[saveSlotKey(session.activeSlot)] ?? null;
+}
+
 /** Player id from a valid cookie, else null. Never creates rows. */
 export async function currentPlayerId(): Promise<string | null> {
   const normalized = await readSaveSlotSession();
-  if (!normalized) return null;
-  return (
-    normalized.session.slots[saveSlotKey(normalized.session.activeSlot)] ?? null
-  );
+  return activeSaveSlotPlayerId(normalized?.session ?? null);
 }
 
 export async function currentSaveSlotSession(): Promise<SaveSlotSession | null> {

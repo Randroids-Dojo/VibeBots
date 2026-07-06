@@ -2,7 +2,11 @@ import {
   createAccountHandoff,
   safeAccountReturnTo,
 } from "@/server/account-handoff";
-import { accountJson, storageUnavailable } from "@/server/account-response";
+import {
+  accountJson,
+  safeJsonBody,
+  storageUnavailable,
+} from "@/server/account-response";
 import { accountProviderReady } from "@/server/account-session";
 import { db, storageConfigured } from "@/server/db";
 import { logAccountLinkEvent } from "@/server/monitoring";
@@ -10,17 +14,6 @@ import { currentPlayerId } from "@/server/player";
 import { sameOriginMutationRequired } from "@/server/request-guards";
 
 export const runtime = "nodejs";
-
-async function readBody(request: Request): Promise<Record<string, unknown>> {
-  try {
-    const body = await request.json();
-    return body && typeof body === "object"
-      ? (body as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
 
 export async function POST(request: Request): Promise<Response> {
   const rejected = sameOriginMutationRequired(request);
@@ -40,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
     });
     return accountJson({ error: "guest save required" }, { status: 409 });
   }
-  const body = await readBody(request);
+  const body = (await safeJsonBody(request)) ?? {};
   const returnTo = safeAccountReturnTo(body.returnTo);
   const handoff = await createAccountHandoff(await db(), playerId, returnTo);
   logAccountLinkEvent({

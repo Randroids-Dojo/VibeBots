@@ -243,21 +243,7 @@ export function evaluateAccountEnv({
   const googleScopesDeclared = Boolean(googleScopesText);
   const googleScopesIdentityOnly =
     googleScopesDeclared && googleScopesAreIdentityOnly(googleScopesText);
-  const anyClerkEnv =
-    accountEnv.publishableKey || accountEnv.secretKey || accountEnv.signInUrl;
-  const anyAccountEnv =
-    anyClerkEnv ||
-    Boolean(accountEnv.signUpUrl) ||
-    Boolean(accountEnv.signInFallbackUrl) ||
-    Boolean(accountEnv.signUpFallbackUrl) ||
-    Boolean(accountEnv.signInForceUrl) ||
-    Boolean(accountEnv.signUpForceUrl) ||
-    Boolean(accountEnv.afterSignInUrl) ||
-    Boolean(accountEnv.afterSignUpUrl) ||
-    Boolean(accountEnv.serverSignInForceUrl) ||
-    Boolean(accountEnv.serverSignUpForceUrl) ||
-    Boolean(accountEnv.serverAfterSignInUrl) ||
-    Boolean(accountEnv.serverAfterSignUpUrl);
+  const anyAccountEnv = Object.values(accountEnv).some(Boolean);
   const googleScopesRequired = requireReady || anyAccountEnv || hasClerkSdk;
 
   const issues = [];
@@ -290,7 +276,7 @@ export function evaluateAccountEnv({
   const ready = issues.length === 0;
   const pending = !requireReady && !anyAccountEnv;
   return {
-    ok: ready || (!requireReady && pending),
+    ok: ready || pending,
     ready,
     pending,
     provider: "clerk",

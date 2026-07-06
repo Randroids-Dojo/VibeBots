@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { storageUnavailable } from "./account-response";
 import { db, storageConfigured } from "./db";
 import { getOrCreatePlayerId } from "./player";
 
@@ -19,10 +20,7 @@ interface JsonRouteOptions {
 }
 
 function unavailableStorageResponse(): Response | null {
-  if (!storageConfigured()) {
-    return Response.json({ error: "storage not configured" }, { status: 503 });
-  }
-  return null;
+  return storageConfigured() ? null : storageUnavailable();
 }
 
 async function loadPlayerRouteContext(): Promise<PlayerRouteContext> {

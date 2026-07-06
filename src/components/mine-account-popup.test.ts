@@ -33,48 +33,42 @@ const cloudSave: AccountSaveSummary = {
 type AccountStateOverrides = Partial<
   Pick<
     AccountSyncState,
-    | "providerReady"
-    | "providerStatus"
-    | "mode"
-    | "accountEmail"
-    | "currentSave"
-    | "accountSave"
+    "providerStatus" | "mode" | "accountEmail" | "currentSave" | "accountSave"
   >
->;
+> & { providerReady?: boolean };
 
 function accountState(overrides: AccountStateOverrides = {}): AccountSyncState {
-  const providerReady = overrides.providerReady ?? false;
+  const { providerReady = false, ...stateOverrides } = overrides;
   const providerStatus =
     overrides.providerStatus ??
     (providerReady
       ? {
-          provider: "clerk",
-          ready: true,
+          provider: "clerk" as const,
+          ready: true as const,
           reason: null,
           issues: [],
         }
       : {
-          provider: "clerk",
-          ready: false,
-          reason: "sdk_not_wired",
+          provider: "clerk" as const,
+          ready: false as const,
+          reason: "sdk_not_wired" as const,
           issues: [
-            "sdk_not_wired",
-            "publishable_key_missing",
-            "secret_key_missing",
-            "public_sign_in_url_missing",
-            "public_sign_in_fallback_url_missing",
-            "public_sign_up_fallback_url_missing",
+            "sdk_not_wired" as const,
+            "publishable_key_missing" as const,
+            "secret_key_missing" as const,
+            "public_sign_in_url_missing" as const,
+            "public_sign_in_fallback_url_missing" as const,
+            "public_sign_up_fallback_url_missing" as const,
           ],
         });
   return {
     state: "ready",
-    providerReady,
-    providerStatus,
     mode: "guest",
     accountEmail: null,
     currentSave: localSave,
     accountSave: null,
-    ...overrides,
+    ...stateOverrides,
+    providerStatus,
   };
 }
 

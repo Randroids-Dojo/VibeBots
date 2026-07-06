@@ -42,16 +42,16 @@ export interface AccountSessionWriter<Session> {
   writeActivePlayer(playerId: string): Promise<Session>;
 }
 
-const MAX_PROVIDER_LENGTH = 64;
+export const MAX_PROVIDER_LENGTH = 64;
 const MAX_SUBJECT_LENGTH = 256;
-const MAX_EMAIL_LENGTH = 320;
-const PROVIDER_TOKEN_RE = /^[a-z0-9][a-z0-9._-]*$/;
+export const MAX_EMAIL_LENGTH = 320;
+export const PROVIDER_TOKEN_RE = /^[a-z0-9][a-z0-9._-]*$/;
 
 function normalizeText(value: string): string {
   return value.trim();
 }
 
-function hasControlCharacter(value: string): boolean {
+export function hasControlCharacter(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
     if (code < 32 || code === 127) return true;

@@ -9,21 +9,12 @@ import { clerkConfigured } from "@/server/clerk-configured";
 
 let activeClerkMiddleware: NextMiddleware | null = null;
 
-export interface ClerkProxyRequest {
-  headers: Pick<Headers, "get">;
-  nextUrl: { pathname: string };
-}
-
-export function requestNeedsClerk(request: ClerkProxyRequest): boolean {
-  const pathname = request.nextUrl.pathname;
-  if (pathname === "/__clerk" || pathname.startsWith("/__clerk/")) {
-    return true;
-  }
-  return false;
+export function requestNeedsClerk(pathname: string): boolean {
+  return pathname === "/__clerk" || pathname.startsWith("/__clerk/");
 }
 
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
-  if (!clerkConfigured() || !requestNeedsClerk(request)) {
+  if (!clerkConfigured() || !requestNeedsClerk(request.nextUrl.pathname)) {
     return NextResponse.next();
   }
 
@@ -31,10 +22,9 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
   return activeClerkMiddleware(request, event);
 }
 
+// Clerk's frontend bridge is the only surface the middleware handles; account
+// routes authenticate per-request in their handlers. Keep the matcher scoped
+// so every other page and API request skips the middleware hop entirely.
 export const config = {
-  matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-    "/__clerk/(.*)",
-  ],
+  matcher: ["/__clerk", "/__clerk/(.*)"],
 };

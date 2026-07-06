@@ -46,6 +46,9 @@ vi.mock("@/server/account-summary", () => ({
 }));
 
 vi.mock("@/server/player", () => ({
+  activeSaveSlotPlayerId: (
+    session: { activeSlot: number; slots: Record<string, string> } | null,
+  ) => session?.slots[String(session.activeSlot)] ?? null,
   currentPlayerId: vi.fn(async () => "guest-player"),
   currentSaveSlotSession: vi.fn(async () => ({
     activeSlot: 1,
@@ -224,7 +227,6 @@ describe("/api/account", () => {
     );
     expect(await res.json()).toEqual({
       mode: "guest",
-      providerReady: false,
       providerStatus: {
         provider: "clerk",
         ready: false,
@@ -246,7 +248,7 @@ describe("/api/account", () => {
   });
 
   it("reports guest account status without storage summaries when no save exists", async () => {
-    mockedCurrentPlayerId.mockResolvedValue(null);
+    mockedCurrentSaveSlotSession.mockResolvedValue(null);
 
     const res = await accountStatus();
 
@@ -279,7 +281,6 @@ describe("/api/account", () => {
     expect(mockedSetActiveSaveSlotPlayer).not.toHaveBeenCalled();
     expect(await res.json()).toMatchObject({
       mode: "guest",
-      providerReady: false,
       providerStatus: {
         provider: "clerk",
         ready: false,
@@ -309,7 +310,6 @@ describe("/api/account", () => {
     expect(mockedFindLinkedPlayerId).toHaveBeenCalledWith("sql", identity);
     expect(await res.json()).toEqual({
       mode: "signed_in",
-      providerReady: true,
       providerStatus: {
         provider: "clerk",
         ready: true,
@@ -375,7 +375,6 @@ describe("/api/account", () => {
     );
     expect(await res.json()).toEqual({
       mode: "cloud_loaded",
-      providerReady: true,
       providerStatus: {
         provider: "clerk",
         ready: true,
@@ -411,7 +410,6 @@ describe("/api/account", () => {
     expect(mockedSetActiveSaveSlotPlayer).not.toHaveBeenCalled();
     expect(await res.json()).toEqual({
       mode: "conflict",
-      providerReady: true,
       providerStatus: {
         provider: "clerk",
         ready: true,

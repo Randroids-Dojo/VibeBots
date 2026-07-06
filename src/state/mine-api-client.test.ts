@@ -113,7 +113,6 @@ describe("mine API client", () => {
     expect(
       accountStatusFromResponse({
         mode: "conflict",
-        providerReady: true,
         providerStatus: {
           provider: "clerk",
           ready: true,
@@ -143,7 +142,6 @@ describe("mine API client", () => {
       }),
     ).toEqual({
       mode: "conflict",
-      providerReady: true,
       providerStatus: {
         provider: "clerk",
         ready: true,
@@ -172,7 +170,6 @@ describe("mine API client", () => {
       },
     });
     expect(accountStatusFromResponse({ mode: "guest" })).toMatchObject({
-      providerReady: false,
       providerStatus: {
         provider: "clerk",
         ready: false,
@@ -228,20 +225,8 @@ describe("mine API client", () => {
       },
     });
     expect(
-      accountStatusFromResponse({ mode: "guest", providerReady: true }),
-    ).toMatchObject({
-      providerReady: true,
-      providerStatus: {
-        provider: "clerk",
-        ready: false,
-        reason: null,
-        issues: [],
-      },
-    });
-    expect(
       accountStatusFromResponse({
         mode: "guest",
-        providerReady: true,
         providerStatus: {
           provider: "clerk",
           ready: true,
@@ -259,7 +244,6 @@ describe("mine API client", () => {
     expect(
       accountStatusFromResponse({
         mode: "guest",
-        providerReady: true,
         providerStatus: {
           provider: "other",
           ready: true,
@@ -278,7 +262,6 @@ describe("mine API client", () => {
     expect(
       accountStatusFromResponse({
         mode: "guest",
-        providerReady: true,
         providerStatus: {
           provider: "clerk",
           ready: true,

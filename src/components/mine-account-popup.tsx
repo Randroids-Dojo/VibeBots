@@ -1,6 +1,13 @@
 "use client";
 
-import { type RefObject, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { safeAccountReturnTo } from "@/lib/account-handoff-contract";
 import type {
   AccountHandoffStart,
@@ -100,7 +107,7 @@ export function accountDialogControls({
     state.accountSave?.exists === true;
   const canKeepDevice =
     !busy && state.state !== "unavailable" && state.mode === "conflict";
-  const providerReady = state.providerReady && state.providerStatus.ready;
+  const providerReady = state.providerStatus.ready;
   const signInUrlReady = accountSignInUrlIsExpectedRoute(signInUrl);
   const embedSignInBlocked = signInBlockedByEmbed && !signedIn;
   return {
@@ -144,6 +151,39 @@ function SaveSummaryRow({
         {saveMeta(summary)}
       </span>
     </div>
+  );
+}
+
+function AccountActionButton({
+  accent,
+  disabled,
+  onClick,
+  children,
+}: {
+  accent: { border: string; background: string; color: string };
+  disabled: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        minHeight: 38,
+        borderRadius: 10,
+        border: `1px solid ${accent.border}`,
+        background: disabled ? "#151a26" : accent.background,
+        color: disabled ? "#5e6880" : accent.color,
+        fontSize: "0.88rem",
+        fontWeight: 800,
+        cursor: disabled ? "default" : "pointer",
+        padding: "0 12px",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -211,7 +251,9 @@ function useFocusTrap(
   }, [active, containerRef]);
 }
 
-export function AccountSyncPopup({
+// MinePanel re-renders on every mine tick; memo keeps the closed dialog from
+// re-rendering along with it.
+export const AccountSyncPopup = memo(function AccountSyncPopup({
   open,
   state,
   onClose,
@@ -362,8 +404,12 @@ export function AccountSyncPopup({
           )}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <button
-            type="button"
+          <AccountActionButton
+            accent={{
+              border: "#cdd6ea",
+              background: "#20283a",
+              color: "#e6e8ee",
+            }}
             disabled={signInDisabled}
             onClick={async () => {
               if (SIGN_IN_URL.length === 0) return;
@@ -379,44 +425,30 @@ export function AccountSyncPopup({
                 }),
               );
             }}
-            style={{
-              minHeight: 38,
-              borderRadius: 10,
-              border: "1px solid #cdd6ea",
-              background: signInDisabled ? "#151a26" : "#20283a",
-              color: signInDisabled ? "#5e6880" : "#e6e8ee",
-              fontSize: "0.88rem",
-              fontWeight: 800,
-              cursor: signInDisabled ? "default" : "pointer",
-              padding: "0 12px",
-            }}
           >
             {signInLabel}
-          </button>
-          <button
-            type="button"
+          </AccountActionButton>
+          <AccountActionButton
+            accent={{
+              border: "#54e0c7",
+              background: "#172b30",
+              color: "#54e0c7",
+            }}
             disabled={!canClaim}
             onClick={async () => {
               setPending("claim");
               await onClaim();
               setPending(null);
             }}
-            style={{
-              minHeight: 38,
-              borderRadius: 10,
-              border: "1px solid #54e0c7",
-              background: canClaim ? "#172b30" : "#151a26",
-              color: canClaim ? "#54e0c7" : "#5e6880",
-              fontSize: "0.88rem",
-              fontWeight: 800,
-              cursor: canClaim ? "pointer" : "default",
-              padding: "0 12px",
-            }}
           >
             Save this run
-          </button>
-          <button
-            type="button"
+          </AccountActionButton>
+          <AccountActionButton
+            accent={{
+              border: "#f0c36b",
+              background: "#2d2616",
+              color: "#f0c36b",
+            }}
             disabled={!canLoadCloud}
             onClick={async () => {
               setPending("load");
@@ -424,60 +456,35 @@ export function AccountSyncPopup({
               setPending(null);
               if (loaded) onClose();
             }}
-            style={{
-              minHeight: 38,
-              borderRadius: 10,
-              border: "1px solid #f0c36b",
-              background: canLoadCloud ? "#2d2616" : "#151a26",
-              color: canLoadCloud ? "#f0c36b" : "#5e6880",
-              fontSize: "0.88rem",
-              fontWeight: 800,
-              cursor: canLoadCloud ? "pointer" : "default",
-              padding: "0 12px",
-            }}
           >
             Load cloud save
-          </button>
+          </AccountActionButton>
           {canKeepDevice && (
-            <button
-              type="button"
+            <AccountActionButton
+              accent={{
+                border: "#72809b",
+                background: "#1a2030",
+                color: "#d8deec",
+              }}
               disabled={busy}
               onClick={onClose}
-              style={{
-                minHeight: 38,
-                borderRadius: 10,
-                border: "1px solid #72809b",
-                background: busy ? "#151a26" : "#1a2030",
-                color: busy ? "#5e6880" : "#d8deec",
-                fontSize: "0.88rem",
-                fontWeight: 800,
-                cursor: busy ? "default" : "pointer",
-                padding: "0 12px",
-              }}
             >
               Keep this device save
-            </button>
+            </AccountActionButton>
           )}
-          <button
-            type="button"
+          <AccountActionButton
+            accent={{
+              border: "#9fb6ff",
+              background: "#1c2440",
+              color: "#c7d4ff",
+            }}
             disabled={busy}
             onClick={onRefresh}
-            style={{
-              minHeight: 38,
-              borderRadius: 10,
-              border: "1px solid #9fb6ff",
-              background: busy ? "#151a26" : "#1c2440",
-              color: busy ? "#5e6880" : "#c7d4ff",
-              fontSize: "0.88rem",
-              fontWeight: 800,
-              cursor: busy ? "default" : "pointer",
-              padding: "0 12px",
-            }}
           >
             Refresh
-          </button>
+          </AccountActionButton>
         </div>
       </section>
     </DismissibleDialogFrame>
   );
-}
+});

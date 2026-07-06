@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { storageUnavailable } from "@/server/account-response";
 import { db, storageConfigured } from "@/server/db";
 import { logSaveSlotEvent } from "@/server/monitoring";
 import {
@@ -21,10 +22,6 @@ const deleteBodySchema = bodySchema.extend({
 
 function deleteConfirmation(slot: 1 | 2 | 3): string {
   return `DELETE SLOT ${slot}`;
-}
-
-function storageUnavailable(): Response {
-  return Response.json({ error: "storage not configured" }, { status: 503 });
 }
 
 function saveSlotRequestContext(request: Request): {

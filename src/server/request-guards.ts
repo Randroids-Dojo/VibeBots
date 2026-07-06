@@ -1,3 +1,5 @@
+import { accountJson } from "./account-response";
+
 const ACCOUNT_MUTATION_HEADER = "x-vibebots-account-mutation";
 const ACCOUNT_MUTATION_HEADER_VALUE = "1";
 
@@ -31,8 +33,8 @@ export function sameOriginMutationAllowed(request: Request): boolean {
 
 export function sameOriginMutationRequired(request: Request): Response | null {
   if (sameOriginMutationAllowed(request)) return null;
-  return Response.json(
+  return accountJson(
     { error: "same-origin request required" },
-    { status: 403, headers: { "Cache-Control": "no-store" } },
+    { status: 403 },
   );
 }

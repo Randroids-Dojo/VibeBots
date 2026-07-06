@@ -39,8 +39,13 @@ export async function createAccountHandoff(
   playerId: string,
   returnTo: string,
 ): Promise<AccountHandoff> {
-  await pruneAccountHandoffs(sql);
-  await clearPendingAccountHandoffs(sql, playerId);
+  // One roundtrip cleans up dead rows everywhere plus this player's pending
+  // handoffs (a new sign-in supersedes any handoff still in flight).
+  await sql`
+    DELETE FROM account_handoffs
+    WHERE consumed_at IS NOT NULL
+       OR expires_at <= now()
+       OR (player_id = ${playerId} AND consumed_at IS NULL)`;
   const expiresAt = new Date(Date.now() + HANDOFF_TTL_MS).toISOString();
   const token = randomUUID();
   const rows = (await sql`
@@ -48,16 +53,6 @@ export async function createAccountHandoff(
     VALUES (${token}, ${playerId}, ${safeAccountReturnTo(returnTo)}, ${expiresAt})
     RETURNING token, player_id, return_to, expires_at`) as AccountHandoffRow[];
   return handoffFromRow(rows[0]);
-}
-
-export async function clearPendingAccountHandoffs(
-  sql: Sql,
-  playerId: string,
-): Promise<void> {
-  await sql`
-    DELETE FROM account_handoffs
-    WHERE player_id = ${playerId}
-      AND consumed_at IS NULL`;
 }
 
 export async function consumeAccountHandoff(
@@ -74,11 +69,4 @@ export async function consumeAccountHandoff(
       AND expires_at > now()
     RETURNING token, player_id, return_to, expires_at`) as AccountHandoffRow[];
   return rows[0] ? handoffFromRow(rows[0]) : null;
-}
-
-export async function pruneAccountHandoffs(sql: Sql): Promise<void> {
-  await sql`
-    DELETE FROM account_handoffs
-    WHERE consumed_at IS NOT NULL
-       OR expires_at <= now()`;
 }

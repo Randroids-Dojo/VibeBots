@@ -3,10 +3,17 @@ import {
   safeAccountReturnTo,
 } from "@/lib/account-handoff-contract";
 import {
+  hasControlCharacter,
+  MAX_EMAIL_LENGTH,
+  MAX_PROVIDER_LENGTH,
+  PROVIDER_TOKEN_RE,
+} from "@/lib/account-link-core";
+import {
   type AccountProviderIssue,
   type AccountProviderStatus,
   isAccountProviderIssue,
 } from "@/lib/account-provider-status";
+import type { AccountSaveSummary } from "@/server/account-summary";
 import type { PendingBunkerBuild } from "@/sim/bunker";
 import {
   isMineAction,
@@ -34,27 +41,16 @@ export interface SaveSlotSummary {
   stamps: number;
 }
 
-export interface AccountSaveSummary {
-  exists: boolean;
-  createdAt: string | null;
-  balance: number;
-  deepestDepth: number;
-  partsOwned: number;
-  designs: number;
-  stamps: number;
-}
-
 export type AccountStatusMode =
   | "guest"
   | "signed_in"
   | "cloud_loaded"
   | "conflict";
 
-export type { AccountProviderIssue, AccountProviderStatus };
+export type { AccountProviderIssue, AccountProviderStatus, AccountSaveSummary };
 
 export interface AccountStatus {
   mode: AccountStatusMode;
-  providerReady: boolean;
   providerStatus: AccountProviderStatus;
   activeSlot: SaveSlotId;
   account: { provider: string; email: string | null } | null;
@@ -191,18 +187,6 @@ function accountSaveSummaryFromResponse(
   };
 }
 
-const MAX_ACCOUNT_PROVIDER_LENGTH = 64;
-const MAX_ACCOUNT_EMAIL_LENGTH = 320;
-const ACCOUNT_PROVIDER_RE = /^[a-z0-9][a-z0-9._-]*$/;
-
-function hasControlCharacter(value: string): boolean {
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index);
-    if (code < 32 || code === 127) return true;
-  }
-  return false;
-}
-
 function accountMetadataTextFromResponse(
   value: unknown,
   maxLength: number,
@@ -225,14 +209,14 @@ function accountFromResponse(
   const raw = value as Record<string, unknown>;
   const provider = accountMetadataTextFromResponse(
     raw.provider,
-    MAX_ACCOUNT_PROVIDER_LENGTH,
-    ACCOUNT_PROVIDER_RE,
+    MAX_PROVIDER_LENGTH,
+    PROVIDER_TOKEN_RE,
     true,
   );
   if (!provider) return null;
   const emailPresent = raw.email !== null && raw.email !== undefined;
   const email = emailPresent
-    ? accountMetadataTextFromResponse(raw.email, MAX_ACCOUNT_EMAIL_LENGTH)
+    ? accountMetadataTextFromResponse(raw.email, MAX_EMAIL_LENGTH)
     : null;
   if (emailPresent && email === null) return null;
   return {
@@ -243,7 +227,6 @@ function accountFromResponse(
 
 function accountProviderStatusFromResponse(
   value: unknown,
-  providerReady: boolean,
 ): AccountProviderStatus {
   if (!value || typeof value !== "object") {
     return {
@@ -271,7 +254,6 @@ function accountProviderStatusFromResponse(
   const normalizedIssues = issues.length ? issues : reason ? [reason] : [];
   const ready =
     provider === "clerk" &&
-    providerReady &&
     raw.ready === true &&
     !reason &&
     !normalizedIssues.length &&
@@ -308,7 +290,6 @@ export function accountStatusFromResponse(
   }
   const activeSlot = validSaveSlot(body.activeSlot) ?? 1;
   const account = accountFromResponse(body.account);
-  const providerReady = body.providerReady === true;
   const currentSave = accountSaveSummaryFromResponse(body.currentSave);
   const accountSave = accountSaveSummaryFromResponse(body.accountSave);
   if (mode !== "guest" && !account) return null;
@@ -320,11 +301,7 @@ export function accountStatusFromResponse(
   }
   return {
     mode,
-    providerReady,
-    providerStatus: accountProviderStatusFromResponse(
-      body.providerStatus,
-      providerReady,
-    ),
+    providerStatus: accountProviderStatusFromResponse(body.providerStatus),
     activeSlot,
     account,
     currentSave,

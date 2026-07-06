@@ -103,7 +103,8 @@ describe("account linking helpers", () => {
 
   it("reports conflict when the account already owns another save", async () => {
     const sql = makeSql((query) => {
-      if (query.includes("WHERE clerk_user_id =")) return [{ id: "cloud-player" }];
+      if (query.includes("WHERE clerk_user_id ="))
+        return [{ id: "cloud-player" }];
       throw new Error("conflicted claim should not update");
     });
 

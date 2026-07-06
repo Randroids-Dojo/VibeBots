@@ -557,8 +557,7 @@ function tickGasSeep(state: MineState): void {
       if (miner.col === nc && miner.row === nr) continue;
       const open = cellAt(state, nc, nr);
       if (
-        !open ||
-        open.kind !== "empty" ||
+        open?.kind !== "empty" ||
         open.ladder ||
         open.plank ||
         open.beacon ||

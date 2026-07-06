@@ -194,7 +194,7 @@ export function mirrorSlotFor(
 ): PlacementSlot | null {
   const parent = design.parts.find((p) => p.iid === slot.parentIid);
   const parentDef = parent ? catalog[parent.partId] : undefined;
-  if (!parentDef || parentDef.category !== "core") return null;
+  if (parentDef?.category !== "core") return null;
   const conn = parentDef.connectors.find((c) => c.id === slot.parentConnector);
   if (!conn || Math.abs(conn.position.x) < 1e-6) return null;
   const twinConn = parentDef.connectors.find(

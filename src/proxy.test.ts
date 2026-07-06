@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { clerkConfigured } from "./server/clerk-configured";
 import { requestNeedsClerk } from "./proxy";
+import { clerkConfigured } from "./server/clerk-configured";
 
 function request(pathname: string, headers: Record<string, string> = {}) {
   return {

@@ -12,7 +12,11 @@ import {
 import { accountSaveSummary } from "@/server/account-summary";
 import { storageConfigured } from "@/server/db";
 import { logAccountLinkEvent } from "@/server/monitoring";
-import { currentPlayerId, setActiveSaveSlotPlayer } from "@/server/player";
+import {
+  currentPlayerId,
+  SaveSlotPreserveError,
+  setActiveSaveSlotPlayer,
+} from "@/server/player";
 import { POST as finish } from "./handoff/finish/route";
 import { POST as start } from "./handoff/start/route";
 
@@ -23,6 +27,12 @@ vi.mock("@/server/db", () => ({
 
 vi.mock("@/server/player", () => ({
   currentPlayerId: vi.fn(async () => "guest-player"),
+  SaveSlotPreserveError: class SaveSlotPreserveError extends Error {
+    constructor() {
+      super("no empty save slot available to preserve device save");
+      this.name = "SaveSlotPreserveError";
+    }
+  },
   setActiveSaveSlotPlayer: vi.fn(async (playerId: string) => ({
     activeSlot: 1,
     slots: { "1": playerId },
@@ -239,6 +249,7 @@ describe("/api/account/handoff", () => {
     expect(mockedConsumeAccountHandoff).toHaveBeenCalledWith(
       "sql",
       "handoff-1",
+      "guest-player",
     );
     expect(mockedClaimPlayerForAccount).toHaveBeenCalledWith(
       "sql",
@@ -293,6 +304,26 @@ describe("/api/account/handoff", () => {
     });
   });
 
+  it("requires the initiating guest save before consuming a handoff", async () => {
+    mockedCurrentReadyAccountIdentity.mockResolvedValue(identity);
+    mockedCurrentPlayerId.mockResolvedValue(null);
+
+    const res = await finish(jsonRequest({ handoffId: "handoff-1" }));
+
+    expect(res.status).toBe(409);
+    expect(mockedConsumeAccountHandoff).not.toHaveBeenCalled();
+    expect(mockedClaimPlayerForAccount).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({
+      error: "guest save required",
+    });
+    expect(mockedLogAccountLinkEvent).toHaveBeenCalledWith({
+      code: "handoff_missing_initiating_session",
+      severity: "warn",
+      provider: "clerk",
+      subject: "clerk-user-1",
+    });
+  });
+
   it("returns conflict without switching slots when account already has a save", async () => {
     mockedCurrentReadyAccountIdentity.mockResolvedValue(identity);
     mockedClaimPlayerForAccount.mockResolvedValue({
@@ -322,6 +353,49 @@ describe("/api/account/handoff", () => {
       playerId: "guest-player",
       targetPlayerId: "cloud-player",
       result: "conflict",
+    });
+  });
+
+  it("rejects handoffs whose device save is already linked elsewhere", async () => {
+    mockedCurrentReadyAccountIdentity.mockResolvedValue(identity);
+    mockedClaimPlayerForAccount.mockResolvedValue({
+      status: "target-linked-to-other-account",
+      playerId: "guest-player",
+    });
+
+    const res = await finish(jsonRequest({ handoffId: "handoff-1" }));
+
+    expect(res.status).toBe(409);
+    expect(mockedSetActiveSaveSlotPlayer).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({
+      error: "device save belongs to another account",
+      code: "device_save_linked_to_other_account",
+      returnTo: "/mine",
+    });
+    expect(mockedLogAccountLinkEvent).toHaveBeenCalledWith({
+      code: "handoff_target_linked_to_other_account",
+      severity: "warn",
+      provider: "clerk",
+      subject: "clerk-user-1",
+      playerId: "guest-player",
+      targetPlayerId: "guest-player",
+      result: "target-linked-to-other-account",
+    });
+  });
+
+  it("preserves the device save when loading a claimed cloud save would replace it", async () => {
+    mockedCurrentReadyAccountIdentity.mockResolvedValue(identity);
+    mockedSetActiveSaveSlotPlayer.mockRejectedValue(
+      new SaveSlotPreserveError(),
+    );
+
+    const res = await finish(jsonRequest({ handoffId: "handoff-1" }));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "no empty save slot for device save",
+      code: "device_save_slot_full",
+      returnTo: "/mine",
     });
   });
 

@@ -80,19 +80,24 @@ export interface AccountLinkMonitoringEvent {
   code:
     | "claim_already_linked"
     | "claim_conflict"
+    | "claim_failed"
     | "claim_invalid_identity"
     | "claim_player_not_found"
     | "claim_succeeded"
+    | "claim_target_linked_to_other_account"
+    | "cloud_load_invalid_identity"
     | "cloud_load_not_found"
     | "cloud_load_succeeded"
     | "handoff_already_linked"
     | "handoff_conflict"
     | "handoff_expired"
     | "handoff_invalid_identity"
+    | "handoff_missing_initiating_session"
     | "handoff_player_not_found"
     | "handoff_start_missing_player"
     | "handoff_started"
-    | "handoff_succeeded";
+    | "handoff_succeeded"
+    | "handoff_target_linked_to_other_account";
   severity: MonitoringSeverity;
   provider?: string;
   subject?: string;

@@ -1144,6 +1144,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [accountFallbackPreflightDone, setAccountFallbackPreflightDone] =
     useState(false);
   const accountHandoffHandledRef = useRef<string | null>(null);
+  const accountHandoffAttemptsRef = useRef<Record<string, number>>({});
   const accountFallbackPreflightPromiseRef = useRef<Promise<void> | null>(null);
   const [accountHandoffRetryTick, setAccountHandoffRetryTick] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -1331,6 +1332,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     const url = new URL(window.location.href);
     const handoffId = url.searchParams.get("accountHandoff");
     if (!handoffId || accountHandoffHandledRef.current === handoffId) return;
+    const attempts = (accountHandoffAttemptsRef.current[handoffId] ?? 0) + 1;
+    accountHandoffAttemptsRef.current[handoffId] = attempts;
     accountHandoffHandledRef.current = handoffId;
     setAccountOpen(true);
     void finishAccountSignIn(handoffId).then((handled) => {
@@ -1340,9 +1343,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         state.mode === "conflict" ||
         state.mode === "cloud_loaded" ||
         (state.state === "error" &&
-          state.message === "sign-in handoff expired");
+          (state.message === "sign-in handoff expired" ||
+            state.message === "sign-in required" ||
+            state.message === "device save belongs to another account" ||
+            state.message === "no empty save slot for device save")) ||
+        attempts >= 3;
       accountHandoffHandledRef.current = null;
       if (resolved) {
+        delete accountHandoffAttemptsRef.current[handoffId];
         const next = new URL(window.location.href);
         next.searchParams.delete("accountHandoff");
         window.history.replaceState(

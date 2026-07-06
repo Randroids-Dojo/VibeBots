@@ -110,7 +110,8 @@ describe("account handoff helpers", () => {
       expect(query).toContain("UPDATE account_handoffs");
       expect(query).toContain("consumed_at IS NULL");
       expect(query).toContain("expires_at > now()");
-      expect(values).toEqual(["handoff-1"]);
+      expect(query).toContain("player_id =");
+      expect(values).toEqual(["handoff-1", "player-1"]);
       return [
         {
           token: "handoff-1",
@@ -122,7 +123,7 @@ describe("account handoff helpers", () => {
     });
 
     await expect(
-      consumeAccountHandoff(sql as never, "handoff-1"),
+      consumeAccountHandoff(sql as never, "handoff-1", "player-1"),
     ).resolves.toEqual({
       token: "handoff-1",
       playerId: "player-1",

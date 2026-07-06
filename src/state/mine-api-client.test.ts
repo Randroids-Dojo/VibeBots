@@ -349,6 +349,20 @@ describe("mine API client", () => {
       accountStatusFromResponse({
         mode: "signed_in",
         activeSlot: 1,
+        account: { provider: "clerk", email: 42 },
+      }),
+    ).toBeNull();
+    expect(
+      accountStatusFromResponse({
+        mode: "signed_in",
+        activeSlot: 1,
+        account: { provider: "clerk", email: { at: "pilot@example.com" } },
+      }),
+    ).toBeNull();
+    expect(
+      accountStatusFromResponse({
+        mode: "signed_in",
+        activeSlot: 1,
         account: {
           provider: " Clerk ",
           email: " Pilot@Example.com ",
@@ -494,6 +508,72 @@ describe("mine API client", () => {
           consumables: NO_CONSUMABLES,
           baseDiff: [],
           moves: ["bad"],
+        },
+      }),
+    ).toBeNull();
+  });
+
+  it("validates the pending bunker shape on trip checkpoints", () => {
+    const validPendingBunker = {
+      claimCol: 3,
+      claimRow: 4,
+      claimedAtMoveCount: 6,
+      bunker: {
+        footprint: { col: 3, row: 4, width: 3, height: 3 },
+        core: { col: 4, row: 5, durability: 10 },
+        parts: [],
+      },
+      inventory: {
+        "wall-panel": 1,
+        "floor-panel": 2,
+        "roof-panel": 2,
+        "door-panel": 1,
+        "basic-turret": 0,
+        "floor-spikes": 0,
+      },
+    };
+    const baseTrip = {
+      mineVersion: MINE_VERSION,
+      seed: 123,
+      tripIndex: 2,
+      gear: { ...DEFAULT_GEAR },
+      consumables: NO_CONSUMABLES,
+      baseDiff: [],
+      moves: ["down"],
+    };
+
+    expect(
+      accountTripFromResponse({
+        trip: { ...baseTrip, pendingBunker: validPendingBunker },
+      }),
+    ).toMatchObject({ pendingBunker: validPendingBunker });
+    expect(
+      accountTripFromResponse({ trip: { ...baseTrip, pendingBunker: null } }),
+    ).toMatchObject({ pendingBunker: null });
+    expect(accountTripFromResponse({ trip: baseTrip })).toMatchObject({
+      pendingBunker: null,
+    });
+    expect(
+      accountTripFromResponse({
+        trip: { ...baseTrip, pendingBunker: "not-an-object" },
+      }),
+    ).toBeNull();
+    expect(
+      accountTripFromResponse({
+        trip: {
+          ...baseTrip,
+          pendingBunker: { ...validPendingBunker, claimCol: "3" },
+        },
+      }),
+    ).toBeNull();
+    expect(
+      accountTripFromResponse({
+        trip: {
+          ...baseTrip,
+          pendingBunker: {
+            ...validPendingBunker,
+            bunker: { footprint: {}, core: {}, parts: "nope" },
+          },
         },
       }),
     ).toBeNull();

@@ -8,12 +8,14 @@ export type AccountClaimResult =
   | { status: "claimed"; playerId: string }
   | { status: "already-linked"; playerId: string }
   | { status: "conflict"; playerId: string }
+  | { status: "target-linked-to-other-account"; playerId: string }
   | { status: "invalid-identity" }
   | { status: "player-not-found" };
 
 export type AccountLinkAttempt =
   | { status: "claimed"; playerId: string }
   | { status: "already-linked"; playerId: string }
+  | { status: "account-already-linked"; playerId: string }
   | { status: "linked-to-other-account"; playerId: string }
   | { status: "invalid-identity" }
   | { status: "player-not-found" };
@@ -94,8 +96,14 @@ export async function claimAccountPlayer(
   }
 
   const attempt = await store.claimUnlinkedPlayer(normalized, playerId);
-  if (attempt.status === "linked-to-other-account") {
+  if (attempt.status === "account-already-linked") {
     return { status: "conflict", playerId: attempt.playerId };
+  }
+  if (attempt.status === "linked-to-other-account") {
+    return {
+      status: "target-linked-to-other-account",
+      playerId: attempt.playerId,
+    };
   }
   return attempt;
 }

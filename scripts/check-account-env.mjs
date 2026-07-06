@@ -16,6 +16,7 @@ const SERVER_SIGN_IN_FORCE_URL = "CLERK_SIGN_IN_FORCE_REDIRECT_URL";
 const SERVER_SIGN_UP_FORCE_URL = "CLERK_SIGN_UP_FORCE_REDIRECT_URL";
 const SERVER_AFTER_SIGN_IN_URL = "CLERK_AFTER_SIGN_IN_URL";
 const SERVER_AFTER_SIGN_UP_URL = "CLERK_AFTER_SIGN_UP_URL";
+const GOOGLE_SCOPES_ENV = "CLERK_GOOGLE_SCOPES";
 const STATUS_CODES_URL = new URL(
   "../src/lib/account-provider-status-codes.json",
   import.meta.url,
@@ -208,6 +209,10 @@ function googleScopesAreIdentityOnly(value) {
   );
 }
 
+function defaultGoogleScopes() {
+  return ACCOUNT_GOOGLE_IDENTITY_SCOPES.join(" ");
+}
+
 export function evaluateAccountEnv({
   env,
   packageJson,
@@ -231,7 +236,10 @@ export function evaluateAccountEnv({
     serverAfterSignInUrl: envValue(env, SERVER_AFTER_SIGN_IN_URL),
     serverAfterSignUpUrl: envValue(env, SERVER_AFTER_SIGN_UP_URL),
   };
-  const googleScopesText = googleScopes?.trim() ?? "";
+  const googleScopesText =
+    googleScopes !== undefined
+      ? googleScopes.trim()
+      : envValue(env, GOOGLE_SCOPES_ENV) || defaultGoogleScopes();
   const googleScopesDeclared = Boolean(googleScopesText);
   const googleScopesIdentityOnly =
     googleScopesDeclared && googleScopesAreIdentityOnly(googleScopesText);
@@ -280,7 +288,7 @@ export function evaluateAccountEnv({
   }
 
   const ready = issues.length === 0;
-  const pending = !anyAccountEnv && !hasClerkSdk && !googleScopesDeclared;
+  const pending = !requireReady && !anyAccountEnv;
   return {
     ok: ready || (!requireReady && pending),
     ready,

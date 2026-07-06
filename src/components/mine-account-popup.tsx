@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { safeAccountReturnTo } from "@/lib/account-handoff-contract";
 import type {
   AccountHandoffStart,
@@ -73,10 +73,12 @@ export function accountDialogControls({
   state,
   signInUrl,
   pending,
+  signInBlockedByEmbed = false,
 }: {
   state: AccountSyncState;
   signInUrl: string;
   pending: "sign-in" | "claim" | "load" | null;
+  signInBlockedByEmbed?: boolean;
 }): AccountDialogControls {
   const busy =
     pending !== null ||
@@ -100,15 +102,22 @@ export function accountDialogControls({
     !busy && state.state !== "unavailable" && state.mode === "conflict";
   const providerReady = state.providerReady && state.providerStatus.ready;
   const signInUrlReady = accountSignInUrlIsExpectedRoute(signInUrl);
+  const embedSignInBlocked = signInBlockedByEmbed && !signedIn;
   return {
     busy,
     signedIn,
     canClaim,
     canLoadCloud,
     canKeepDevice,
-    signInDisabled: busy || signedIn || !signInUrlReady || !providerReady,
-    signInLabel:
-      signInUrlReady && providerReady
+    signInDisabled:
+      busy ||
+      signedIn ||
+      embedSignInBlocked ||
+      !signInUrlReady ||
+      !providerReady,
+    signInLabel: embedSignInBlocked
+      ? "Open full page to sign in"
+      : signInUrlReady && providerReady
         ? "Sign in or create account with Google"
         : "Google sign-in pending",
   };
@@ -138,6 +147,70 @@ function SaveSummaryRow({
   );
 }
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// Given the focusable count, the currently focused item index (-1 when focus
+// sits outside the dialog), and whether Shift was held, return the index Tab
+// should wrap to, or null to let the browser move focus normally.
+export function nextFocusTrapIndex(
+  count: number,
+  activeIndex: number,
+  shiftKey: boolean,
+): number | null {
+  if (count <= 0) return null;
+  const insideDialog = activeIndex >= 0;
+  if (shiftKey) {
+    if (!insideDialog || activeIndex === 0) return count - 1;
+    return null;
+  }
+  if (!insideDialog || activeIndex === count - 1) return 0;
+  return null;
+}
+
+function useFocusTrap(
+  active: boolean,
+  containerRef: RefObject<HTMLElement | null>,
+) {
+  useEffect(() => {
+    if (!active) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const getFocusable = () =>
+      Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+    const focusables = getFocusable();
+    (focusables[0] ?? container).focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const items = getFocusable();
+      if (items.length === 0) {
+        event.preventDefault();
+        container.focus();
+        return;
+      }
+      const activeIndex = items.indexOf(document.activeElement as HTMLElement);
+      const target = nextFocusTrapIndex(
+        items.length,
+        activeIndex,
+        event.shiftKey,
+      );
+      if (target !== null) {
+        event.preventDefault();
+        items[target].focus();
+      }
+    };
+    container.addEventListener("keydown", onKeyDown);
+    return () => {
+      container.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [active, containerRef]);
+}
+
 export function AccountSyncPopup({
   open,
   state,
@@ -158,10 +231,18 @@ export function AccountSyncPopup({
   const [pending, setPending] = useState<"sign-in" | "claim" | "load" | null>(
     null,
   );
+  const [signInBlockedByEmbed, setSignInBlockedByEmbed] = useState(false);
+  const dialogRef = useRef<HTMLElement | null>(null);
+
+  useFocusTrap(open, dialogRef);
 
   useEffect(() => {
     if (open) onRefresh();
   }, [open, onRefresh]);
+
+  useEffect(() => {
+    setSignInBlockedByEmbed(window.self !== window.top);
+  }, []);
 
   useEffect(() => {
     if (!open) setPending(null);
@@ -190,6 +271,7 @@ export function AccountSyncPopup({
     state,
     signInUrl: SIGN_IN_URL,
     pending,
+    signInBlockedByEmbed,
   });
 
   if (!open) return null;
@@ -213,6 +295,8 @@ export function AccountSyncPopup({
       }}
     >
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         style={{
           width: "min(520px, 100%)",
           maxHeight: "calc(100dvh - 48px)",

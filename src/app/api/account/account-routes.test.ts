@@ -17,6 +17,7 @@ import { logAccountLinkEvent } from "@/server/monitoring";
 import {
   currentPlayerId,
   currentSaveSlotSession,
+  SaveSlotPreserveError,
   setActiveSaveSlotPlayer,
 } from "@/server/player";
 import { POST as claim } from "./claim/route";
@@ -50,6 +51,12 @@ vi.mock("@/server/player", () => ({
     activeSlot: 1,
     slots: { "1": "guest-player" },
   })),
+  SaveSlotPreserveError: class SaveSlotPreserveError extends Error {
+    constructor() {
+      super("no empty save slot available to preserve device save");
+      this.name = "SaveSlotPreserveError";
+    }
+  },
   setActiveSaveSlotPlayer: vi.fn(async (playerId: string) => ({
     activeSlot: 1,
     slots: { "1": playerId },
@@ -505,6 +512,35 @@ describe("/api/account", () => {
     });
   });
 
+  it("rejects claiming a device save that belongs to another account", async () => {
+    mockedCurrentReadyAccountIdentity.mockResolvedValue(identity);
+    mockedClaimPlayerForAccount.mockResolvedValue({
+      status: "target-linked-to-other-account",
+      playerId: "guest-player",
+    });
+
+    const res = await claim(sameOriginPost("/api/account/claim"));
+
+    expect(res.status).toBe(409);
+    expect(mockedAccountSaveSummary).not.toHaveBeenCalledWith(
+      "sql",
+      "guest-player",
+    );
+    expect(await res.json()).toEqual({
+      error: "device save belongs to another account",
+      code: "device_save_linked_to_other_account",
+    });
+    expect(mockedLogAccountLinkEvent).toHaveBeenCalledWith({
+      code: "claim_target_linked_to_other_account",
+      severity: "warn",
+      provider: "clerk",
+      subject: "clerk-user-1",
+      playerId: "guest-player",
+      targetPlayerId: "guest-player",
+      result: "target-linked-to-other-account",
+    });
+  });
+
   it("rejects invalid account identity results during claim", async () => {
     mockedCurrentReadyAccountIdentity.mockResolvedValue(identity);
     mockedClaimPlayerForAccount.mockResolvedValue({
@@ -575,6 +611,20 @@ describe("/api/account", () => {
       provider: "clerk",
       subject: "clerk-user-1",
     });
+  });
+
+  it("does not overwrite the last local save when loading a cloud save", async () => {
+    mockedCurrentReadyAccountIdentity.mockResolvedValue(identity);
+    mockedLoadPlayerForAccount.mockRejectedValue(new SaveSlotPreserveError());
+
+    const res = await load(sameOriginPost("/api/account/load"));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "no empty save slot for device save",
+      code: "device_save_slot_full",
+    });
+    expect(mockedAccountSaveSummary).not.toHaveBeenCalled();
   });
 
   it("rejects invalid account identity results during cloud load", async () => {

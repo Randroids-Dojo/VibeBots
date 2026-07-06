@@ -7,6 +7,7 @@ import {
   type AccountProviderStatus,
   isAccountProviderIssue,
 } from "@/lib/account-provider-status";
+import type { PendingBunkerBuild } from "@/sim/bunker";
 import {
   isMineAction,
   MINE_VERSION,
@@ -83,6 +84,9 @@ const ACCOUNT_ERROR_MESSAGES = new Set([
   "guest save required",
   "guest save not found",
   "account already has a cloud save",
+  "device save belongs to another account",
+  "no empty save slot for device save",
+  "linked account saves cannot be deleted from this device",
   "same-origin request required",
   "storage not configured",
 ]);
@@ -226,11 +230,11 @@ function accountFromResponse(
     true,
   );
   if (!provider) return null;
-  const email =
-    raw.email === null || raw.email === undefined
-      ? null
-      : accountMetadataTextFromResponse(raw.email, MAX_ACCOUNT_EMAIL_LENGTH);
-  if (email === null && typeof raw.email === "string") return null;
+  const emailPresent = raw.email !== null && raw.email !== undefined;
+  const email = emailPresent
+    ? accountMetadataTextFromResponse(raw.email, MAX_ACCOUNT_EMAIL_LENGTH)
+    : null;
+  if (emailPresent && email === null) return null;
   return {
     provider,
     email,
@@ -368,12 +372,38 @@ export function accountCloudLoadFromResponse(
   };
 }
 
+function isPendingBunkerBuild(value: unknown): value is PendingBunkerBuild {
+  if (!value || typeof value !== "object") return false;
+  const raw = value as Record<string, unknown>;
+  if (
+    typeof raw.claimCol !== "number" ||
+    typeof raw.claimRow !== "number" ||
+    typeof raw.claimedAtMoveCount !== "number" ||
+    !raw.bunker ||
+    typeof raw.bunker !== "object" ||
+    !raw.inventory ||
+    typeof raw.inventory !== "object"
+  ) {
+    return false;
+  }
+  const bunker = raw.bunker as Record<string, unknown>;
+  return (
+    Boolean(bunker.footprint) &&
+    typeof bunker.footprint === "object" &&
+    Boolean(bunker.core) &&
+    typeof bunker.core === "object" &&
+    Array.isArray(bunker.parts)
+  );
+}
+
 export function accountTripFromResponse(value: unknown): SavedTrip | null {
   if (!value || typeof value !== "object") return null;
   const body = value as Record<string, unknown>;
   const trip = body.trip;
   if (!trip || typeof trip !== "object") return null;
   const raw = trip as Partial<Record<keyof SavedTrip, unknown>>;
+  const pendingBunkerPresent =
+    raw.pendingBunker !== null && raw.pendingBunker !== undefined;
   if (
     raw.mineVersion !== MINE_VERSION ||
     typeof raw.seed !== "number" ||
@@ -384,7 +414,10 @@ export function accountTripFromResponse(value: unknown): SavedTrip | null {
     typeof raw.consumables !== "object" ||
     !Array.isArray(raw.baseDiff) ||
     !Array.isArray(raw.moves) ||
-    !raw.moves.every((move) => typeof move === "string" && isMineAction(move))
+    !raw.moves.every(
+      (move) => typeof move === "string" && isMineAction(move),
+    ) ||
+    (pendingBunkerPresent && !isPendingBunkerBuild(raw.pendingBunker))
   ) {
     return null;
   }
@@ -396,7 +429,9 @@ export function accountTripFromResponse(value: unknown): SavedTrip | null {
     consumables: raw.consumables as SavedTrip["consumables"],
     baseDiff: raw.baseDiff as SavedTrip["baseDiff"],
     moves: raw.moves as SavedTrip["moves"],
-    pendingBunker: raw.pendingBunker as SavedTrip["pendingBunker"],
+    pendingBunker: pendingBunkerPresent
+      ? (raw.pendingBunker as PendingBunkerBuild)
+      : null,
     terminalReplayConsumed:
       typeof raw.terminalReplayConsumed === "boolean"
         ? raw.terminalReplayConsumed

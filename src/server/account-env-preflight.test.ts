@@ -64,8 +64,8 @@ describe("account env preflight", () => {
         serverSignUpForceRedirectUrlUnset: true,
         serverAfterSignInUrlUnset: true,
         serverAfterSignUpUrlUnset: true,
-        googleScopesDeclared: false,
-        googleScopesIdentityOnly: false,
+        googleScopesDeclared: true,
+        googleScopesIdentityOnly: true,
       },
       issues: [
         "sdk_dependency_missing",
@@ -100,7 +100,6 @@ describe("account env preflight", () => {
         "public_sign_in_url_missing",
         "public_sign_in_fallback_url_missing",
         "public_sign_up_fallback_url_missing",
-        "google_scopes_missing",
       ],
     });
   });
@@ -378,12 +377,19 @@ describe("account env preflight", () => {
   it("requires ready setup when requested", () => {
     expect(evaluate({ requireReady: true })).toMatchObject({
       ok: false,
-      pending: true,
+      pending: false,
       checks: {
-        googleScopesDeclared: false,
-        googleScopesIdentityOnly: false,
+        googleScopesDeclared: true,
+        googleScopesIdentityOnly: true,
       },
-      issues: expect.arrayContaining(["google_scopes_missing"]),
+      issues: expect.arrayContaining([
+        "sdk_dependency_missing",
+        "publishable_key_missing",
+        "secret_key_missing",
+        "public_sign_in_url_missing",
+        "public_sign_in_fallback_url_missing",
+        "public_sign_up_fallback_url_missing",
+      ]),
     });
   });
 

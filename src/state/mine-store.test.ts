@@ -150,24 +150,17 @@ describe("mine store upgrade flow", () => {
         }),
       )
       .mockResolvedValueOnce(
-        jsonResponse({
-          cleared: true,
-        }),
-      )
-      .mockResolvedValueOnce(
         jsonResponse({ track: "lantern", level: 2, balance: 5 }),
       );
     vi.stubGlobal("fetch", fetchMock);
 
     await store().buyGearUpgrade("lantern");
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/mine/bank");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).gear.lantern).toBe(1);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/account/trip");
-    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" });
-    expect(fetchMock.mock.calls[2][0]).toBe("/api/gear/upgrade");
-    expect(JSON.parse(fetchMock.mock.calls[2][1].body).track).toBe("lantern");
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/gear/upgrade");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).track).toBe("lantern");
 
     expect(store().gear.lantern).toBe(2);
     expect(store().mine.gear.lantern).toBe(2);
@@ -244,18 +237,15 @@ describe("mine store upgrade flow", () => {
     expect(store().placePendingBunkerPart("wall-panel", START_COL - 3, 1)).toBe(
       true,
     );
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          credited: { credits: 0, parts: [], milestoneBonus: 0 },
-          balance: 10,
-          tripIndex: 3,
-          consumables: STARTING_CONSUMABLES,
-          bunkerClaimed: true,
-        }),
-      )
-      .mockResolvedValueOnce(jsonResponse({ cleared: true }));
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        credited: { credits: 0, parts: [], milestoneBonus: 0 },
+        balance: 10,
+        tripIndex: 3,
+        consumables: STARTING_CONSUMABLES,
+        bunkerClaimed: true,
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await store().submitCashOut();
@@ -272,8 +262,7 @@ describe("mine store upgrade flow", () => {
       state: "done",
       bunkerClaimed: true,
     });
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/account/trip");
-    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     const lastSaved = vi.mocked(localStorage.setItem).mock.calls.at(-1);
     expect(JSON.parse(lastSaved?.[1] ?? "{}").pendingBunker).toBeNull();
   });
@@ -386,8 +375,7 @@ describe("mine store upgrade flow", () => {
   it("spends and returns a surface-only trip to the base", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ balance: 8 }))
-      .mockResolvedValueOnce(jsonResponse({ cleared: true }));
+      .mockResolvedValueOnce(jsonResponse({ balance: 8 }));
     vi.stubGlobal("fetch", fetchMock);
     const mine = store().mine;
     mine.miner.col = 36;
@@ -407,8 +395,7 @@ describe("mine store upgrade flow", () => {
         body: JSON.stringify({ cost: 2 }),
       }),
     );
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/account/trip");
-    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(store().mine.miner.col).toBe(0);
     expect(store().moves).toEqual([]);
     expect(store().balance).toBe(8);
@@ -421,8 +408,7 @@ describe("mine store upgrade flow", () => {
   it("returns a surfaced mining trip to the base without checkpointing", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ balance: 7 }))
-      .mockResolvedValueOnce(jsonResponse({ cleared: true }));
+      .mockResolvedValueOnce(jsonResponse({ balance: 7 }));
     vi.stubGlobal("fetch", fetchMock);
     const mine = store().mine;
     mine.miner.col = 36;
@@ -436,11 +422,9 @@ describe("mine store upgrade flow", () => {
     const ok = await store().teleportToBase(3);
 
     expect(ok).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/mine/base-teleport");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ cost: 3 });
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/account/trip");
-    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" });
     expect(store().tripIndex).toBe(2);
     expect(store().mine.miner.col).toBe(0);
     expect(store().moves).toEqual([]);
@@ -1065,59 +1049,29 @@ describe("mine store upgrade flow", () => {
     });
   });
 
-  it("automatically claims a signed-in device save after loading status", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          mode: "signed_in",
-          activeSlot: 1,
-          account: { provider: "clerk", email: "pilot@example.com" },
-          currentSave: savedDeviceSummary(),
-          accountSave: null,
-        }),
-      )
-      .mockResolvedValueOnce(jsonResponse({ stored: true }))
-      .mockResolvedValueOnce(
-        jsonResponse({
-          mode: "cloud_loaded",
-          result: "claimed",
-          accountSave: savedDeviceSummary(),
-        }),
-      )
-      .mockResolvedValueOnce(jsonResponse({ stored: true }))
-      .mockResolvedValueOnce(
-        jsonResponse({
-          mode: "cloud_loaded",
-          activeSlot: 1,
-          account: { provider: "clerk", email: "pilot@example.com" },
-          currentSave: savedDeviceSummary(),
-          accountSave: savedDeviceSummary(),
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          activeSlot: 1,
-          slots: [{ slot: 1, active: true, ...savedDeviceSummary() }],
-        }),
-      );
+  it("does not auto-claim a signed-in device save after loading status", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        mode: "signed_in",
+        activeSlot: 1,
+        account: { provider: "clerk", email: "pilot@example.com" },
+        currentSave: savedDeviceSummary(),
+        accountSave: null,
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await store().loadAccountStatus();
 
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       "/api/account/status",
-      "/api/account/trip",
-      "/api/account/claim",
-      "/api/account/trip",
-      "/api/account/status",
-      "/api/save-slots",
     ]);
     expect(store().accountSync).toMatchObject({
       state: "ready",
-      mode: "cloud_loaded",
+      mode: "signed_in",
       accountEmail: "pilot@example.com",
-      accountSave: { balance: 10 },
+      currentSave: { balance: 10 },
+      accountSave: null,
     });
   });
 
@@ -1380,7 +1334,6 @@ describe("mine store upgrade flow", () => {
           },
         }),
       )
-      .mockResolvedValueOnce(jsonResponse({ stored: true }))
       .mockResolvedValueOnce(
         jsonResponse({
           mode: "cloud_loaded",
@@ -1432,12 +1385,10 @@ describe("mine store upgrade flow", () => {
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       "/api/account/trip",
       "/api/account/claim",
-      "/api/account/trip",
       "/api/account/status",
       "/api/save-slots",
     ]);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "PUT" });
-    expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: "PUT" });
     expect(store().accountSync).toMatchObject({
       state: "ready",
       mode: "cloud_loaded",
@@ -1527,7 +1478,6 @@ describe("mine store upgrade flow", () => {
           accountSave: savedDeviceSummary(),
         }),
       )
-      .mockResolvedValueOnce(jsonResponse({ error: "storage offline" }, 503))
       .mockResolvedValueOnce(
         jsonResponse({
           mode: "cloud_loaded",
@@ -1557,7 +1507,6 @@ describe("mine store upgrade flow", () => {
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       "/api/account/trip",
       "/api/account/claim",
-      "/api/account/trip",
       "/api/account/status",
       "/api/save-slots",
     ]);

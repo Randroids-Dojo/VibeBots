@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="clerk-account-sync-review-hardening" data-date="2026-07-05">
+    <h3>Clerk account sync: review hardening</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/google-account-sync-design</code></dd>
+      <dt>PR</dt><dd>#85.</dd>
+      <dt>Changed</dt><dd>Addressed the verified account-sync review findings. Handoff finish now binds one-time tokens to the initiating guest session and caps stale callback retries in the client. Status refresh no longer auto-claims signed-in device saves. Explicit claim returns a separate device-save-linked error instead of showing the wrong cloud summary. Cloud load parks an unlinked local save in another empty slot or refuses when no slot is available. Save-slot deletion blocks linked account saves. Guest cash-out and teleport no longer wait on cloud checkpoint deletes. Embedded sign-in starts are blocked, and the Clerk preflight now treats omitted Google scopes as the identity-only default while still failing explicit bad scopes.</dd>
+      <dt>Verification</dt><dd>Passed: focused review-hardening tests <code>pnpm vitest run src/server/account-handoff.test.ts src/app/api/account/handoff-routes.test.ts src/server/player.test.ts src/app/api/save-slots/route.test.ts src/app/api/account/account-routes.test.ts src/state/mine-store.test.ts src/components/mine-account-popup.test.ts src/server/account-env-preflight.test.ts</code> (8 files, 149 tests); <code>pnpm typecheck</code>; <code>pnpm test</code> (86 files, 912 tests); <code>pnpm build</code>; <code>pnpm check:dashes</code>; <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: keep account upgrades explicit. A normal status refresh may report that a signed-in save is ready to claim, but only the handoff return or the Account dialog claim action may mutate ownership. Rule 13: mine tips reviewed, no change because this is account sync hardening, not a mining rule. Rule 14: stamp review done, none added because sign-in safety is not a player achievement.</dd>
+      <dt>GDD coverage</dt><dd><code>REQ-042</code> remains partial with stronger safety around guest-to-account claiming, cloud loading, and production Clerk setup preflight. Build log entry added to <code>docs/gdd/10-account-sync.html</code>.</dd>
+      <dt>Followups</dt><dd><code>F-003</code> remains open for production Clerk configuration, Google OAuth verification, Vercel production env sync, real browser sign-up and sign-in verification, and later VibeKit extraction. The original F-003 remaining-scope entry was restored and the newer state was appended as a separate update.</dd>
+    </dl>
+  </article>
+
   <article data-slice="clerk-authentication-cli-wiring" data-date="2026-07-05">
     <h3>Clerk authentication: CLI and SDK wiring</h3>
     <dl>

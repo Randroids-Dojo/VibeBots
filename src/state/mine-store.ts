@@ -145,14 +145,6 @@ function accountSyncFromStatus(
   };
 }
 
-function accountStatusShouldAutoClaim(status: AccountStatus): boolean {
-  return (
-    status.mode === "signed_in" &&
-    status.currentSave?.exists === true &&
-    status.accountSave?.exists !== true
-  );
-}
-
 /**
  * Mining session state. The MineState object is mutated in place by the
  * pure sim logic; `tick` bumps on every action so React subscribers
@@ -335,22 +327,27 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     saveLocalTrip(get().activeSlot, trip);
     return trip;
   };
-  const storeAccountTripCheckpoint = async () => {
-    const trip = persistCurrentTrip();
-    if (!trip) return true;
-    const res = await storeRemoteAccountTrip(trip);
-    return res.ok;
-  };
-  const checkpointFailureCanContinue = (state: AccountSyncState) =>
-    state.currentSave?.exists === true;
+  type AccountTripCheckpointResult = "stored" | "missing-world" | "failed";
+  const storeAccountTripCheckpoint =
+    async (): Promise<AccountTripCheckpointResult> => {
+      const trip = persistCurrentTrip();
+      if (!trip) return "missing-world";
+      const res = await storeRemoteAccountTrip(trip);
+      return res.ok ? "stored" : "failed";
+    };
+  const checkpointFailureCanContinue = (
+    state: AccountSyncState,
+    result: AccountTripCheckpointResult,
+  ) => result === "failed" && state.currentSave?.exists === true;
   const loadAccountTripCheckpoint = async (slot: SaveSlotId) => {
     const res = await loadRemoteAccountTrip();
     if (!res.ok) return;
     const trip = accountTripFromResponse(res.body);
     if (trip) saveLocalTrip(slot, trip);
   };
-  const clearAccountTripCheckpoint = async () => {
-    await clearRemoteAccountTrip();
+  const clearAccountTripCheckpoint = () => {
+    if (get().accountSync.mode === "guest") return;
+    void clearRemoteAccountTrip();
   };
   return {
     mine: createMine(seed),
@@ -664,9 +661,6 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return;
       }
       set({ accountSync: accountSyncFromStatus(parsed) });
-      if (accountStatusShouldAutoClaim(parsed)) {
-        await get().claimAccountSave();
-      }
     },
 
     startAccountSignIn: async (returnTo = "/mine") => {
@@ -681,9 +675,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         return null;
       }
-      const checkpointed = await storeAccountTripCheckpoint();
-      if (!checkpointed) {
-        if (checkpointFailureCanContinue(current)) {
+      const checkpointResult = await storeAccountTripCheckpoint();
+      if (checkpointResult !== "stored") {
+        if (checkpointFailureCanContinue(current, checkpointResult)) {
           set({
             accountSync: {
               ...current,
@@ -779,6 +773,20 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       }
       if (!res.ok) {
         if (res.status === 409) {
+          const message = accountErrorMessageFromResponse(
+            res.body,
+            "sign-in finish failed",
+          );
+          if (message !== "account already has a cloud save") {
+            set({
+              accountSync: {
+                ...current,
+                state: "error",
+                message,
+              },
+            });
+            return false;
+          }
           await get().loadAccountStatus();
           return false;
         }
@@ -803,9 +811,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
 
     claimAccountSave: async () => {
       const current = get().accountSync;
-      const checkpointed = await storeAccountTripCheckpoint();
-      if (!checkpointed) {
-        if (checkpointFailureCanContinue(current)) {
+      const checkpointResult = await storeAccountTripCheckpoint();
+      if (checkpointResult !== "stored") {
+        if (checkpointFailureCanContinue(current, checkpointResult)) {
           set({
             accountSync: {
               ...current,
@@ -845,6 +853,20 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       }
       if (!res.ok) {
         if (res.status === 409) {
+          const message = accountErrorMessageFromResponse(
+            res.body,
+            "claim failed",
+          );
+          if (message === "device save belongs to another account") {
+            set({
+              accountSync: {
+                ...current,
+                state: "error",
+                message,
+              },
+            });
+            return false;
+          }
           await get().loadAccountStatus();
           return false;
         }
@@ -860,7 +882,6 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         return false;
       }
-      await storeAccountTripCheckpoint();
       await get().loadAccountStatus();
       await get().loadSaveSlots();
       return true;
@@ -1205,7 +1226,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         moves: walk,
         pendingBunker: null,
       });
-      await clearAccountTripCheckpoint();
+      clearAccountTripCheckpoint();
       const credited = body.credited as Record<string, unknown>;
       set({
         tripBaseDiff: worldDiff,
@@ -1477,7 +1498,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         moves: [],
         pendingBunker: null,
       });
-      await clearAccountTripCheckpoint();
+      clearAccountTripCheckpoint();
       set({
         mine: rebuilt,
         moves: [],

@@ -143,7 +143,7 @@ describe("account link core", () => {
     expect(links.claimUnlinkedPlayer).not.toHaveBeenCalled();
   });
 
-  it("reports conflict when the requested player belongs to another account", async () => {
+  it("reports when the requested player belongs to another account", async () => {
     const links = store({
       claimUnlinkedPlayer: vi.fn(
         async (): Promise<AccountLinkAttempt> => ({
@@ -160,7 +160,7 @@ describe("account link core", () => {
         "guest-player",
       ),
     ).resolves.toEqual({
-      status: "conflict",
+      status: "target-linked-to-other-account",
       playerId: "guest-player",
     });
   });

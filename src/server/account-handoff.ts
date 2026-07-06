@@ -63,11 +63,13 @@ export async function clearPendingAccountHandoffs(
 export async function consumeAccountHandoff(
   sql: Sql,
   token: string,
+  playerId: string,
 ): Promise<AccountHandoff | null> {
   const rows = (await sql`
     UPDATE account_handoffs
     SET consumed_at = now()
     WHERE token = ${token}
+      AND player_id = ${playerId}
       AND consumed_at IS NULL
       AND expires_at > now()
     RETURNING token, player_id, return_to, expires_at`) as AccountHandoffRow[];

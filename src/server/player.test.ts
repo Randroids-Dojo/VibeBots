@@ -27,11 +27,13 @@ vi.mock("./db", () => ({
 }));
 
 import {
+  deleteSaveSlot,
   type MinePlayerProfile,
   mineConsumablesFromProfile,
   mineGearFromProfile,
   mineGearLevelFromProfile,
   normalizeSaveSlotSessionPayload,
+  SaveSlotPreserveError,
   setActiveSaveSlotPlayer,
   switchActiveSaveSlot,
 } from "./player";
@@ -219,7 +221,11 @@ describe("mine player profile helpers", () => {
 
     expect(result).toEqual({
       activeSlot: 2,
-      slots: { "1": "initial-player", "2": "cloud-player" },
+      slots: {
+        "1": "initial-player",
+        "2": "cloud-player",
+        "3": "local-player",
+      },
     });
     expect(mocks.cookieSet).toHaveBeenCalledWith(
       "vb_player",
@@ -231,5 +237,101 @@ describe("mine player profile helpers", () => {
         path: "/",
       }),
     );
+  });
+
+  it("does not duplicate a cloud account player already in another slot", async () => {
+    mocks.cookieValue = JSON.stringify({
+      activeSlot: 2,
+      slots: {
+        "1": "initial-player",
+        "2": "local-player",
+        "3": "cloud-player",
+      },
+    });
+
+    const result = await setActiveSaveSlotPlayer("cloud-player");
+
+    expect(result).toEqual({
+      activeSlot: 2,
+      slots: {
+        "1": "initial-player",
+        "2": "cloud-player",
+        "3": "local-player",
+      },
+    });
+  });
+
+  it("allows a linked active save to be replaced because the account can reload it", async () => {
+    mocks.cookieValue = JSON.stringify({
+      activeSlot: 2,
+      slots: { "1": "initial-player", "2": "linked-player" },
+    });
+    mocks.sql = vi.fn(async () => [{ clerk_user_id: "clerk-user-1" }]);
+    mocks.db.mockResolvedValue(mocks.sql);
+
+    const result = await setActiveSaveSlotPlayer("cloud-player");
+
+    expect(result).toEqual({
+      activeSlot: 2,
+      slots: { "1": "initial-player", "2": "cloud-player" },
+    });
+  });
+
+  it("blocks replacing an unlinked active save when no slot can preserve it", async () => {
+    mocks.cookieValue = JSON.stringify({
+      activeSlot: 2,
+      slots: {
+        "1": "initial-player",
+        "2": "local-player",
+        "3": "third-player",
+      },
+    });
+
+    await expect(
+      setActiveSaveSlotPlayer("cloud-player"),
+    ).rejects.toBeInstanceOf(SaveSlotPreserveError);
+    expect(mocks.cookieSet).not.toHaveBeenCalled();
+  });
+
+  it("deletes an unlinked save slot", async () => {
+    mocks.cookieValue = JSON.stringify({
+      activeSlot: 1,
+      slots: { "1": "initial-player", "2": "local-player" },
+    });
+
+    const result = await deleteSaveSlot(2);
+
+    expect(result).toEqual({
+      status: "deleted",
+      session: {
+        activeSlot: 1,
+        slots: { "1": "initial-player" },
+      },
+    });
+    expect(mocks.cookieSet).toHaveBeenCalledWith(
+      "vb_player",
+      JSON.stringify(result.session),
+      expect.objectContaining({ httpOnly: true, path: "/" }),
+    );
+  });
+
+  it("does not delete a save slot that is linked to an account", async () => {
+    mocks.cookieValue = JSON.stringify({
+      activeSlot: 1,
+      slots: { "1": "initial-player", "2": "linked-player" },
+    });
+    mocks.sql = vi.fn(async () => [{ clerk_user_id: "clerk-user-1" }]);
+    mocks.db.mockResolvedValue(mocks.sql);
+
+    const result = await deleteSaveSlot(2);
+
+    expect(result).toEqual({
+      status: "blocked-linked-account",
+      session: {
+        activeSlot: 1,
+        slots: { "1": "initial-player", "2": "linked-player" },
+      },
+    });
+    expect(mocks.cookieSet).not.toHaveBeenCalled();
   });
 });

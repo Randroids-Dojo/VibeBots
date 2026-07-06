@@ -48,17 +48,20 @@ function requireClerkIdentity(
 }
 
 export function clerkPlayerAccountLinkStore(sql: Sql): AccountLinkStore {
-  return {
-    async findLinkedPlayer(identity) {
-      const normalized = requireClerkIdentity(identity);
-      if (!normalized) return null;
-      const rows = (await sql`
+  const findLinkedPlayer: AccountLinkStore["findLinkedPlayer"] = async (
+    identity,
+  ) => {
+    const normalized = requireClerkIdentity(identity);
+    if (!normalized) return null;
+    const rows = (await sql`
         SELECT id
         FROM players
         WHERE clerk_user_id = ${normalized.subject}
         LIMIT 1`) as LinkedPlayerRow[];
-      return rows[0]?.id ?? null;
-    },
+    return rows[0]?.id ?? null;
+  };
+  return {
+    findLinkedPlayer,
     async claimUnlinkedPlayer(identity, playerId) {
       const normalized = requireClerkIdentity(identity);
       if (!normalized) return { status: "invalid-identity" };
@@ -72,10 +75,10 @@ export function clerkPlayerAccountLinkStore(sql: Sql): AccountLinkStore {
           RETURNING id`) as LinkedPlayerRow[];
       } catch (error) {
         if (!isUniqueConstraintError(error)) throw error;
-        const linkedPlayerId = await this.findLinkedPlayer(normalized);
+        const linkedPlayerId = await findLinkedPlayer(normalized);
         if (linkedPlayerId) {
           return {
-            status: "linked-to-other-account",
+            status: "account-already-linked",
             playerId: linkedPlayerId,
           };
         }

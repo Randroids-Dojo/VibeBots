@@ -11,7 +11,12 @@ import {
 import { accountSaveSummary } from "@/server/account-summary";
 import { db, storageConfigured } from "@/server/db";
 import { logAccountLinkEvent } from "@/server/monitoring";
-import { setActiveSaveSlotPlayer } from "@/server/player";
+import {
+  currentPlayerId,
+  SaveSlotPreserveError,
+  type SaveSlotSession,
+  setActiveSaveSlotPlayer,
+} from "@/server/player";
 import { sameOriginMutationRequired } from "@/server/request-guards";
 
 export const runtime = "nodejs";
@@ -45,9 +50,19 @@ export async function POST(request: Request): Promise<Response> {
   if (!handoffId) {
     return accountJson({ error: "handoff id required" }, { status: 400 });
   }
+  const activePlayerId = await currentPlayerId();
+  if (!activePlayerId) {
+    logAccountLinkEvent({
+      code: "handoff_missing_initiating_session",
+      severity: "warn",
+      provider: identity.provider,
+      subject: identity.subject,
+    });
+    return accountJson({ error: "guest save required" }, { status: 409 });
+  }
 
   const sql = await db();
-  const handoff = await consumeAccountHandoff(sql, handoffId);
+  const handoff = await consumeAccountHandoff(sql, handoffId, activePlayerId);
   if (!handoff) {
     logAccountLinkEvent({
       code: "handoff_expired",
@@ -84,6 +99,25 @@ export async function POST(request: Request): Promise<Response> {
     });
     return accountJson({ error: "guest save not found" }, { status: 404 });
   }
+  if (result.status === "target-linked-to-other-account") {
+    logAccountLinkEvent({
+      code: "handoff_target_linked_to_other_account",
+      severity: "warn",
+      provider: identity.provider,
+      subject: identity.subject,
+      playerId: handoff.playerId,
+      targetPlayerId: result.playerId,
+      result: result.status,
+    });
+    return accountJson(
+      {
+        error: "device save belongs to another account",
+        code: "device_save_linked_to_other_account",
+        returnTo: handoff.returnTo,
+      },
+      { status: 409 },
+    );
+  }
   const accountSave = await accountSaveSummary(sql, result.playerId);
   if (result.status === "conflict") {
     logAccountLinkEvent({
@@ -106,7 +140,22 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const session = await setActiveSaveSlotPlayer(result.playerId);
+  let session: SaveSlotSession;
+  try {
+    session = await setActiveSaveSlotPlayer(result.playerId);
+  } catch (error) {
+    if (error instanceof SaveSlotPreserveError) {
+      return accountJson(
+        {
+          error: "no empty save slot for device save",
+          code: "device_save_slot_full",
+          returnTo: handoff.returnTo,
+        },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
   logAccountLinkEvent({
     code:
       result.status === "already-linked"

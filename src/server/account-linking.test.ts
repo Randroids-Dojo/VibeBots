@@ -69,9 +69,7 @@ describe("account linking helpers", () => {
 
   it("claims an unlinked player row for the account", async () => {
     const sql = makeSql((query) => {
-      if (query.includes("SELECT id") && query.includes("clerk_user_id")) {
-        return [];
-      }
+      if (query.includes("WHERE clerk_user_id =")) return [];
       if (query.includes("UPDATE players")) return [{ id: "player-1" }];
       return [];
     });
@@ -87,9 +85,7 @@ describe("account linking helpers", () => {
 
   it("is idempotent when the account already points at the same player", async () => {
     const sql = makeSql((query) => {
-      if (query.includes("SELECT id") && query.includes("clerk_user_id")) {
-        return [{ id: "player-1" }];
-      }
+      if (query.includes("WHERE clerk_user_id =")) return [{ id: "player-1" }];
       throw new Error("same-player claim should not update");
     });
 
@@ -107,9 +103,7 @@ describe("account linking helpers", () => {
 
   it("reports conflict when the account already owns another save", async () => {
     const sql = makeSql((query) => {
-      if (query.includes("SELECT id") && query.includes("clerk_user_id")) {
-        return [{ id: "cloud-player" }];
-      }
+      if (query.includes("WHERE clerk_user_id =")) return [{ id: "cloud-player" }];
       throw new Error("conflicted claim should not update");
     });
 
@@ -125,7 +119,7 @@ describe("account linking helpers", () => {
     });
   });
 
-  it("reports conflict when the player row belongs to a different account", async () => {
+  it("reports the target save is linked to another account", async () => {
     const sql = makeSql((query) => {
       if (query.includes("WHERE clerk_user_id =")) {
         return [];
@@ -143,7 +137,31 @@ describe("account linking helpers", () => {
         { provider: "clerk", subject: "clerk-user-1" },
         "player-1",
       ),
-    ).resolves.toEqual({ status: "conflict", playerId: "player-1" });
+    ).resolves.toEqual({
+      status: "target-linked-to-other-account",
+      playerId: "player-1",
+    });
+  });
+
+  it("treats a concurrently linked same-account row as already linked", async () => {
+    const sql = makeSql((query) => {
+      if (query.includes("WHERE clerk_user_id =")) {
+        return [];
+      }
+      if (query.includes("UPDATE players")) return [];
+      if (query.includes("WHERE id =")) {
+        return [{ id: "player-1", clerk_user_id: "clerk-user-1" }];
+      }
+      return [];
+    });
+
+    await expect(
+      claimPlayerForAccount(
+        sql as never,
+        { provider: "clerk", subject: "clerk-user-1" },
+        "player-1",
+      ),
+    ).resolves.toEqual({ status: "already-linked", playerId: "player-1" });
   });
 
   it("reports conflict when a concurrent claim wins the unique account index", async () => {

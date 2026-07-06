@@ -40,6 +40,17 @@ export interface SaveSlotSummary {
   stamps: number;
 }
 
+export type DeleteSaveSlotResult =
+  | { status: "deleted"; session: SaveSlotSession }
+  | { status: "blocked-linked-account"; session: SaveSlotSession };
+
+export class SaveSlotPreserveError extends Error {
+  constructor() {
+    super("no empty save slot available to preserve device save");
+    this.name = "SaveSlotPreserveError";
+  }
+}
+
 export interface NormalizedSaveSlotSession {
   session: SaveSlotSession;
   migrated: boolean;
@@ -86,6 +97,18 @@ function secret(): string {
 
 function saveSlotKey(slot: SaveSlotId): SaveSlotKey {
   return String(slot) as SaveSlotKey;
+}
+
+async function playerHasAccountLink(
+  sql: Sql,
+  playerId: string,
+): Promise<boolean> {
+  const rows = (await sql`
+    SELECT clerk_user_id
+    FROM players
+    WHERE id = ${playerId}
+    LIMIT 1`) as { clerk_user_id: string | null }[];
+  return Boolean(rows[0]?.clerk_user_id);
 }
 
 function validSaveSlot(value: unknown): SaveSlotId | null {
@@ -256,9 +279,29 @@ export async function setActiveSaveSlotPlayer(
   const normalized = await readSaveSlotSession();
   const session = normalized?.session ?? { activeSlot: 1, slots: {} };
   const activeKey = saveSlotKey(session.activeSlot);
+  const existingPlayerId = session.slots[activeKey];
+  const nextSlots = { ...session.slots };
+  for (const slot of SAVE_SLOT_IDS) {
+    const key = saveSlotKey(slot);
+    if (key !== activeKey && nextSlots[key] === playerId) {
+      delete nextSlots[key];
+    }
+  }
+  if (existingPlayerId && existingPlayerId !== playerId) {
+    const sql = await db();
+    if (!(await playerHasAccountLink(sql, existingPlayerId))) {
+      const emptySlot = SAVE_SLOT_IDS.find((slot) => {
+        const key = saveSlotKey(slot);
+        return key !== activeKey && !nextSlots[key];
+      });
+      if (!emptySlot) throw new SaveSlotPreserveError();
+      nextSlots[saveSlotKey(emptySlot)] = existingPlayerId;
+    }
+  }
+  nextSlots[activeKey] = playerId;
   const nextSession = {
     activeSlot: session.activeSlot,
-    slots: { ...session.slots, [activeKey]: playerId },
+    slots: nextSlots,
   };
   await writeSaveSlotSession(nextSession);
   return nextSession;
@@ -266,7 +309,7 @@ export async function setActiveSaveSlotPlayer(
 
 export async function deleteSaveSlot(
   slot: SaveSlotId,
-): Promise<SaveSlotSession> {
+): Promise<DeleteSaveSlotResult> {
   const normalized = await readSaveSlotSession();
   const session = normalized?.session ?? { activeSlot: 1, slots: {} };
   const key = saveSlotKey(slot);
@@ -279,10 +322,13 @@ export async function deleteSaveSlot(
   };
   if (playerId) {
     const sql = await db();
+    if (await playerHasAccountLink(sql, playerId)) {
+      return { status: "blocked-linked-account", session };
+    }
     await sql`DELETE FROM players WHERE id = ${playerId}`;
   }
   await writeSaveSlotSession(nextSession);
-  return nextSession;
+  return { status: "deleted", session: nextSession };
 }
 
 export async function saveSlotSummaries(

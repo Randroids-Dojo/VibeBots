@@ -7,6 +7,7 @@ import {
   accountDialogControls,
   accountSignInRedirectUrl,
   accountSignInUrlIsExpectedRoute,
+  nextFocusTrapIndex,
 } from "./mine-account-popup";
 
 const localSave: AccountSaveSummary = {
@@ -179,6 +180,18 @@ describe("accountDialogControls", () => {
     expect(controls.signInLabel).toBe("Sign in or create account with Google");
   });
 
+  it("blocks embedded Google sign-in so the user can open a full page", () => {
+    const controls = accountDialogControls({
+      state: accountState({ providerReady: true }),
+      signInUrl: "/sign-in",
+      pending: null,
+      signInBlockedByEmbed: true,
+    });
+
+    expect(controls.signInDisabled).toBe(true);
+    expect(controls.signInLabel).toBe("Open full page to sign in");
+  });
+
   it("keeps Google sign-in disabled when only the public URL is configured", () => {
     const controls = accountDialogControls({
       state: accountState({ providerReady: false }),
@@ -285,6 +298,30 @@ describe("accountDialogControls", () => {
   });
 });
 
+describe("nextFocusTrapIndex", () => {
+  it("wraps Tab from the last focusable back to the first", () => {
+    expect(nextFocusTrapIndex(3, 2, false)).toBe(0);
+  });
+
+  it("wraps Shift+Tab from the first focusable to the last", () => {
+    expect(nextFocusTrapIndex(3, 0, true)).toBe(2);
+  });
+
+  it("pulls focus back inside when it sits outside the dialog", () => {
+    expect(nextFocusTrapIndex(3, -1, false)).toBe(0);
+    expect(nextFocusTrapIndex(3, -1, true)).toBe(2);
+  });
+
+  it("lets the browser move focus in the middle of the dialog", () => {
+    expect(nextFocusTrapIndex(3, 1, false)).toBeNull();
+    expect(nextFocusTrapIndex(3, 1, true)).toBeNull();
+  });
+
+  it("does nothing when the dialog has no focusable controls", () => {
+    expect(nextFocusTrapIndex(0, -1, false)).toBeNull();
+  });
+});
+
 describe("AccountSyncPopup", () => {
   it("renders the guest account dialog with disabled pending Google sign-in", () => {
     const html = renderToStaticMarkup(
@@ -301,6 +338,7 @@ describe("AccountSyncPopup", () => {
 
     expect(html).toContain('role="dialog"');
     expect(html).toContain('aria-modal="true"');
+    expect(html).toContain('tabindex="-1"');
     expect(html).toContain("Guest save is local to this device.");
     expect(html).toContain("Google sign-in pending");
     expect(html).toContain("Close Account");

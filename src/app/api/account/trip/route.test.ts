@@ -70,6 +70,16 @@ function sqlMock(rows: unknown[] = []): Awaited<ReturnType<typeof db>> {
   return sqlWithRows(rows) as unknown as Awaited<ReturnType<typeof db>>;
 }
 
+function sameOriginGet(): Request {
+  return new Request("https://vibe-bots.test/api/account/trip", {
+    method: "GET",
+    headers: {
+      origin: "https://vibe-bots.test",
+      "sec-fetch-site": "same-origin",
+    },
+  });
+}
+
 function sameOriginPut(body: unknown): Request {
   return new Request("https://vibe-bots.test/api/account/trip", {
     method: "PUT",
@@ -166,7 +176,7 @@ describe("/api/account/trip", () => {
     mockedFindLinkedPlayerId.mockResolvedValue("cloud-player");
     mockedDb.mockResolvedValue(sqlMock([{ trip }]));
 
-    const res = await GET();
+    const res = await GET(sameOriginGet());
 
     expect(res.status).toBe(200);
     expectNoStore(res);
@@ -178,7 +188,7 @@ describe("/api/account/trip", () => {
   });
 
   it("requires sign-in before loading a cloud checkpoint", async () => {
-    const res = await GET();
+    const res = await GET(sameOriginGet());
 
     expect(res.status).toBe(401);
     expectNoStore(res);

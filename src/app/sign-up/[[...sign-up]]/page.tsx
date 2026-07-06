@@ -1,9 +1,11 @@
 import { SignUp } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
+import { clerkConfigured } from "@/server/clerk-configured";
 
 export default function SignUpPage() {
-  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim()) {
+  if (!clerkConfigured()) {
     redirect("/mine?account=1");
+    return;
   }
 
   return (

@@ -5,19 +5,13 @@ import {
   type NextRequest,
   NextResponse,
 } from "next/server";
+import { clerkConfigured } from "@/server/clerk-configured";
 
 let activeClerkMiddleware: NextMiddleware | null = null;
 
 export interface ClerkProxyRequest {
   headers: Pick<Headers, "get">;
   nextUrl: { pathname: string };
-}
-
-function clerkProxyEnabled(): boolean {
-  return (
-    Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim()) &&
-    Boolean(process.env.CLERK_SECRET_KEY?.trim())
-  );
 }
 
 export function requestNeedsClerk(request: ClerkProxyRequest): boolean {
@@ -29,7 +23,7 @@ export function requestNeedsClerk(request: ClerkProxyRequest): boolean {
 }
 
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
-  if (!clerkProxyEnabled() || !requestNeedsClerk(request)) {
+  if (!clerkConfigured() || !requestNeedsClerk(request)) {
     return NextResponse.next();
   }
 

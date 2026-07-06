@@ -8,6 +8,7 @@ import {
   currentAccountIdentity,
   currentAccountSessionProvider,
   currentReadyAccountIdentity,
+  requestAccountSessionProvider,
   resolveAccountIdentity,
 } from "./account-session";
 
@@ -496,6 +497,133 @@ describe("account session resolver", () => {
     await expect(currentAccountIdentity(provider)).resolves.toEqual({
       provider: "clerk",
       subject: "user_789",
+    });
+  });
+});
+
+describe("request account session provider", () => {
+  interface FakeAuthState {
+    userId?: unknown;
+  }
+  interface FakeRequestState {
+    isAuthenticated: boolean;
+    toAuth: () => FakeAuthState | null;
+  }
+  interface FakeClerkClient {
+    authenticateRequest: () => Promise<FakeRequestState>;
+    users: { getUser: (userId: string) => Promise<unknown> };
+  }
+
+  function factoryOf(client: FakeClerkClient) {
+    return (() => client) as never;
+  }
+
+  function accountRequest(): Request {
+    return new Request("https://vibebots.test/mine");
+  }
+
+  it("returns null without constructing a client when Clerk keys are missing", async () => {
+    let clientRequested = false;
+    const provider = requestAccountSessionProvider(
+      accountRequest(),
+      {},
+      (() => {
+        clientRequested = true;
+        return {} as never;
+      }) as never,
+    );
+
+    await expect(provider.identity()).resolves.toBeNull();
+    expect(clientRequested).toBe(false);
+  });
+
+  it("returns null when the request is not authenticated", async () => {
+    const provider = requestAccountSessionProvider(
+      accountRequest(),
+      READY_ACCOUNT_ENV,
+      factoryOf({
+        authenticateRequest: async () => ({
+          isAuthenticated: false,
+          toAuth: () => null,
+        }),
+        users: { getUser: async () => ({ id: "user_1" }) },
+      }),
+    );
+
+    await expect(provider.identity()).resolves.toBeNull();
+  });
+
+  it("returns null when authenticating the request throws", async () => {
+    const provider = requestAccountSessionProvider(
+      accountRequest(),
+      READY_ACCOUNT_ENV,
+      factoryOf({
+        authenticateRequest: async () => {
+          throw new Error("clerk unreachable");
+        },
+        users: { getUser: async () => ({ id: "user_1" }) },
+      }),
+    );
+
+    await expect(provider.identity()).resolves.toBeNull();
+  });
+
+  it("returns null when reading the auth state throws", async () => {
+    const provider = requestAccountSessionProvider(
+      accountRequest(),
+      READY_ACCOUNT_ENV,
+      factoryOf({
+        authenticateRequest: async () => ({
+          isAuthenticated: true,
+          toAuth: () => {
+            throw new Error("bad auth state");
+          },
+        }),
+        users: { getUser: async () => ({ id: "user_1" }) },
+      }),
+    );
+
+    await expect(provider.identity()).resolves.toBeNull();
+  });
+
+  it("returns null when the auth state has no user id", async () => {
+    const provider = requestAccountSessionProvider(
+      accountRequest(),
+      READY_ACCOUNT_ENV,
+      factoryOf({
+        authenticateRequest: async () => ({
+          isAuthenticated: true,
+          toAuth: () => ({ userId: undefined }),
+        }),
+        users: { getUser: async () => ({ id: "user_1" }) },
+      }),
+    );
+
+    await expect(provider.identity()).resolves.toBeNull();
+  });
+
+  it("resolves the linked identity for an authenticated request", async () => {
+    const provider = requestAccountSessionProvider(
+      accountRequest(),
+      READY_ACCOUNT_ENV,
+      factoryOf({
+        authenticateRequest: async () => ({
+          isAuthenticated: true,
+          toAuth: () => ({ userId: "user_1" }),
+        }),
+        users: {
+          getUser: async () => ({
+            id: "user_1",
+            primaryEmailAddress: { emailAddress: "pilot@example.com" },
+          }),
+        },
+      }),
+    );
+
+    await expect(currentAccountIdentity(provider)).resolves.toEqual({
+      provider: "clerk",
+      subject: "user_1",
+      email: "pilot@example.com",
     });
   });
 });

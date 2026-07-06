@@ -279,6 +279,7 @@ export function currentAccountSessionProvider(
 export function requestAccountSessionProvider(
   request: Request,
   env: AccountProviderStatusEnv = currentProviderStatusEnv(),
+  createClient: typeof createClerkClient = createClerkClient,
 ): AccountSessionProvider {
   return createAccountSessionProvider({
     identity: async () => {
@@ -286,7 +287,7 @@ export function requestAccountSessionProvider(
       const secretKey = env.CLERK_SECRET_KEY?.trim();
       if (!publishableKey || !secretKey) return null;
 
-      const client = createClerkClient({ publishableKey, secretKey });
+      const client = createClient({ publishableKey, secretKey });
       let requestState: Awaited<ReturnType<typeof client.authenticateRequest>>;
       try {
         requestState = await client.authenticateRequest(request, {
@@ -299,7 +300,12 @@ export function requestAccountSessionProvider(
       }
       if (!requestState.isAuthenticated) return null;
 
-      const authState = requestState.toAuth();
+      let authState: ReturnType<typeof requestState.toAuth>;
+      try {
+        authState = requestState.toAuth();
+      } catch {
+        return null;
+      }
       const userId =
         typeof authState?.userId === "string" ? authState.userId : undefined;
       if (!userId) return null;

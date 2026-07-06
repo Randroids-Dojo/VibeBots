@@ -72,9 +72,7 @@ function storageUnavailable(): Response {
   return accountJson({ error: "storage not configured" }, { status: 503 });
 }
 
-export async function GET(
-  request: Request = new Request("https://vibe-bots.test/api/account/trip"),
-): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
   if (!storageConfigured()) return storageUnavailable();
   const identity = await currentReadyAccountIdentity(
     requestAccountSessionProvider(request),

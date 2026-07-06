@@ -24,6 +24,7 @@ describe("compatibility migration markers", () => {
   it("creates the account-linking uniqueness guard", () => {
     const source = readFileSync("src/server/db.ts", "utf8");
 
+    expect(source).toContain("ADD COLUMN IF NOT EXISTS clerk_user_id");
     expect(source).toContain("players_clerk_user_id_unique");
     expect(source).toContain("ON players (clerk_user_id)");
     expect(source).toContain("WHERE clerk_user_id IS NOT NULL");

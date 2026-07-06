@@ -50,6 +50,10 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS deepest_depth integer NOT NULL DEFAULT 0`;
+  // Existing deployments predate the account-link column (REQ-012).
+  await sql`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS clerk_user_id text`;
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS players_clerk_user_id_unique
     ON players (clerk_user_id)

@@ -976,7 +976,7 @@
         "tests/e2e/account-sign-in-route.spec.ts"
       ],
       "followupRefs": [
-        "docs/FOLLOWUPS.html#F-003"
+        "F-003"
       ]
     }
   ]

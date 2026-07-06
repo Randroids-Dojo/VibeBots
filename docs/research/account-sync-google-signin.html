@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Account Sync With Google Sign-In</title>
+</head>
+<body>
+
+<header>
+  <h1>Account Sync With Google Sign-In</h1>
+  <p data-status="partial">Status: design complete, server boundary and mine account UI implemented, Clerk development SDK wiring landed, production provider setup and real Google OAuth verification pending.</p>
+  <p>This research pass designs the optional account layer for VibeBots. The player must still be able to start with no account, keep playing with the current guest save, and later attach that save to Google sign-in so the same progress loads on another machine.</p>
+</header>
+
+<section id="goals">
+  <h2>Goals</h2>
+  <ul>
+    <li>Keep first play account-free. No sign-in wall, no onboarding form, and no email prompt before the mine is useful.</li>
+    <li>Let a guest player intentionally save the current active slot to a Google-backed account.</li>
+    <li>Load the claimed save on another browser after Google sign-in.</li>
+    <li>Keep the implementation simple enough for a solo project and cheap until real returning usage exists.</li>
+    <li>Integrate cleanly with Vercel and the existing dedicated Neon database.</li>
+    <li>Put reusable account-linking primitives behind a small VibeKit-shaped boundary.</li>
+  </ul>
+</section>
+
+<section id="current-state">
+  <h2>Current State</h2>
+  <ul>
+    <li><code>src/server/player.ts</code> already implements guest-first identity with a VibeKit-signed <code>vb_player</code> httpOnly cookie.</li>
+    <li>The cookie stores the active save slot plus up to three player row ids, with legacy guest cookies migrated into Slot 1.</li>
+    <li>The cookie uses <code>SameSite=None</code> and <code>Partitioned</code> because the game can run inside a cross-site iframe. This keeps guest slots device-local and top-level-site-local.</li>
+    <li><code>src/server/db.ts</code> creates <code>players.clerk_user_id</code> and a partial uniqueness guard for non-null linked account ids.</li>
+    <li>The account route boundary now exists. Status, claim, cloud-load, and embedded handoff routes work through a dependency-free account resolver stub that route tests can mock.</li>
+    <li><code>src/server/account-session.ts</code> now exposes a provider-object seam through <code>createAccountSessionProvider</code>, <code>currentAccountSessionProvider</code>, and <code>clerkAccountProvider</code>. The current runtime passes Clerk's real server <code>auth</code> and <code>currentUser</code> helpers into the tested factory, so one provider object supplies both identity resolution and readiness. Account routes consume identity through <code>currentReadyAccountIdentity</code>, so status, claim, cloud-load, handoff finish, and account trip checkpoint load treat any not-ready provider as signed out before mutating cloud-save ownership.</li>
+    <li><code>src/server/clerk-account-session.ts</code> now defines the no-SDK Clerk adapter and resolver seam. The approved SDK slice can pass Clerk's server <code>auth</code> and <code>currentUser</code> helpers into <code>clerkAccountIdentityResolver</code>, which verifies both helper results point at the same user id before returning the provider-neutral <code>{ provider: "clerk", subject, email }</code> identity used by the existing account routes.</li>
+    <li><code>pnpm ops:check-account-env</code> now provides a non-secret setup preflight. In the current no-SDK state it exits successfully as pending; after the approved Clerk slice, <code>pnpm ops:check-account-env -- --require-ready</code> must pass before the provider can be treated as wired.</li>
+    <li>The mine settings menu now has an Account dialog. It reads account status, saves the current signed-in device run to the account, explicitly loads an existing cloud save in conflict cases, starts the one-time handoff, and appends the handoff token to Clerk's return URL when the public sign-in URL is configured and the server reports the provider ready. Programmatic sign-in start also refuses to checkpoint the current trip or ask the server for a handoff token while provider readiness is pending. The handoff id and local return-path rules are shared by server storage, client parsing, callback posting, and redirect construction through <code>src/lib/account-handoff-contract.ts</code>. <code>/mine?account=1</code> opens the same dialog for fallback sign-in returns without a handoff token, preflights account status before the mine world route can create a guest, and the optional catch-all <code>/sign-in</code> route renders Clerk's sign-in component when a public key is configured and otherwise falls back there. Sign-in start and account claim now stop before the account action if the current in-flight trip cannot be checkpointed to the active player row.</li>
+    <li>In-flight mine trips are local browser checkpoints keyed by slot during normal guest play. Account actions now copy that checkpoint to the active player row before sign-in or claim, and cloud-load fetches the account checkpoint before reloading the mine world.</li>
+    <li>Local Clerk development wiring is installed. Real Google account verification still needs an end-to-end browser pass against the configured Clerk development app, and production setup remains unconfigured. <code>providerStatus.issues</code> records setup blockers such as <code>publishable_key_missing</code>, <code>publishable_key_malformed</code>, <code>secret_key_missing</code>, <code>secret_key_malformed</code>, <code>public_sign_in_url_missing</code>, <code>public_sign_in_url_not_sign_in_route</code>, <code>public_sign_up_url_configured</code>, <code>public_sign_in_fallback_url_missing</code>, <code>public_sign_in_fallback_url_not_account_route</code>, <code>public_sign_up_fallback_url_missing</code>, <code>public_sign_up_fallback_url_not_account_route</code>, <code>public_sign_in_force_redirect_url_configured</code>, <code>public_sign_up_force_redirect_url_configured</code>, <code>public_after_sign_in_url_configured</code>, <code>public_after_sign_up_url_configured</code>, <code>server_sign_in_force_redirect_url_configured</code>, <code>server_sign_up_force_redirect_url_configured</code>, <code>server_after_sign_in_url_configured</code>, and <code>server_after_sign_up_url_configured</code> without exposing secret env values.</li>
+  </ul>
+</section>
+
+<section id="provider-research">
+  <h2>Provider Research</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Option</th>
+        <th>Fit</th>
+        <th>Cost and risk</th>
+        <th>Decision</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Clerk through Vercel Marketplace</td>
+        <td>Best operational fit. Vercel provisions the Clerk app and syncs <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> plus <code>CLERK_SECRET_KEY</code> into the Vercel project. It matches the existing <code>clerk_user_id</code> column and F-003 plan.</td>
+        <td>As refreshed on 2026-07-05, Clerk's Hobby plan remains free, requires no credit card, and lists a 50,000 monthly retained user limit per app. Clerk bills retained users rather than first-day signups. The first release must stay on the free plan, avoid paid add-ons, and log a followup before any paid plan change.</td>
+        <td>Recommended first implementation.</td>
+      </tr>
+      <tr>
+        <td>Neon Auth with Better Auth</td>
+        <td>Strong database fit because auth state lives with Neon and branches with the database. It supports Google OAuth and has a generous included auth allowance.</td>
+        <td>As checked on 2026-07-04, Neon marks the product beta. Production setup still requires custom Google OAuth credentials, trusted domains, and auth-specific production hardening. The beta label makes it a poor first choice for player identity unless the project is willing to absorb platform churn.</td>
+        <td>Revisit when it reaches general availability.</td>
+      </tr>
+      <tr>
+        <td>Self-owned Auth.js or Better Auth</td>
+        <td>Maximum control and no per-user SaaS fee. Works with the existing Neon database and can be wrapped in VibeKit.</td>
+        <td>More custom security, migration, session, CSRF, callback, account-linking, and maintenance surface. For this repo, that is more complexity than the feature needs right now.</td>
+        <td>Fallback if hosted auth cost becomes unacceptable.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Google scope rule: use Google sign-in only with the default identity scopes <code>openid</code>, <code>email</code>, and <code>profile</code>. Do not request Drive, Gmail, Contacts, or other sensitive scopes for this feature. Google's OpenID Connect docs still frame sign-in around identity tokens and basic profile/email consent, while non-identity Google API scopes add broader consent and verification risk.</p>
+  <p>Interaction rule: do not enable Google One Tap in the first release. Clerk's Google social connection docs still present One Tap as an optional component after Google is added; VibeBots should keep sign-in Account-dialog initiated so a new player still gets a quiet guest-first start.</p>
+  <p>Sources reviewed or refreshed 2026-07-05: <a href="https://clerk.com/pricing">Clerk pricing</a>, <a href="https://clerk.com/docs/guides/development/integrations/platforms/vercel-marketplace">Clerk Vercel Marketplace docs</a>, <a href="https://clerk.com/docs/guides/configure/auth-strategies/social-connections/google">Clerk Google social connection docs</a>, and <a href="https://developers.google.com/identity/openid-connect/openid-connect">Google OpenID Connect</a>. Earlier comparison sources retained from 2026-07-04: <a href="https://neon.com/docs/auth/overview">Neon Auth overview</a>, <a href="https://neon.com/docs/auth/guides/setup-oauth">Neon OAuth setup</a>, <a href="https://neon.com/pricing">Neon pricing</a>, and <a href="https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification">Google restricted scope verification</a>.</p>
+</section>
+
+<section id="recommended-architecture">
+  <h2>Recommended Architecture</h2>
+  <ol>
+    <li>Keep the signed guest cookie as the base identity. Every new player still starts with a guest slot and can play immediately.</li>
+    <li>Add Clerk as an optional session provider. Do not protect gameplay routes globally. Public routes still work for guest players. Only report <code>providerReady</code> once the server resolver is wired, not merely when public Clerk env vars exist.</li>
+    <li>Resolve account identity at the server boundary with a provider-neutral value: <code>{ provider: "clerk", subject: clerkUserId, email }</code>. Use <code>clerkAccountIdentityResolver</code> so Clerk auth state and profile shape stay isolated from the reusable account-linking core.</li>
+    <li>Claim the current active player row by writing <code>players.clerk_user_id</code> only after the player clicks "Save to account" and the server confirms there is no conflicting existing cloud save.</li>
+    <li>When a signed-in player has a claimed row, rewrite the active slot in <code>vb_player</code> to that row id so all existing routes keep using the same player-id contract.</li>
+    <li>Keep device-local slots separate from account slots. The first implementation claims only the active slot. Multi-slot cloud sync can be a later explicit feature.</li>
+    <li>Handle iframe embedding with a top-level auth handoff. The OAuth flow runs outside the iframe, then returns a one-time claim code to the embedded game so the partitioned <code>vb_player</code> cookie is set inside the right storage partition.</li>
+    <li>Require same-origin browser requests for account mutations. Claim, cloud-load, handoff start, and handoff finish all mutate cookie-backed account state and must reject cross-site browser POSTs before storage or account lookup.</li>
+  </ol>
+</section>
+
+<section id="player-flow">
+  <h2>Player Flow</h2>
+  <ol>
+    <li>New player opens VibeBots and plays as a guest. The pause menu shows account state as "Guest save".</li>
+    <li>The player clicks "Save to account". The client saves the current in-flight trip checkpoint, flushes any required cash-out or world reload state, then starts Google sign-in. If the checkpoint write fails, sign-in does not start and the guest save remains on this device.</li>
+    <li>After Google returns, the server checks for an existing row with this provider subject.</li>
+    <li>If none exists, the server claims the active guest player row and marks the menu as "Saved to Google".</li>
+    <li>If a cloud row exists and it is the same active row, the client simply refreshes account state.</li>
+    <li>If a different cloud row exists, the client shows a non-destructive choice: "Use Google save" or "Keep this device save". The first implementation must not merge or overwrite automatically.</li>
+    <li>On another machine, signing in finds the claimed row and writes it into the active slot cookie when there is no local active player. The player continues from the cloud save without a manual conflict prompt.</li>
+  </ol>
+</section>
+
+<section id="conflict-policy">
+  <h2>Conflict Policy</h2>
+  <ul>
+    <li>Never auto-merge two player rows. The current game stores many durable row-owned tables: mine world, wallet, gear, inventory, designs, bunker, raids, achievements, performance samples, feedback, notifications, match records, and balance events.</li>
+    <li>Never delete a guest row during sign-in. If a signed-in account already has a cloud save, the guest row remains in the device cookie until the player chooses an explicit replace or delete flow.</li>
+    <li>Use account identity only as a pointer to one player row. The player row remains the game authority.</li>
+    <li>Use a database uniqueness guard so one Google account cannot claim two player rows at the same time. If two claim requests race, the loser re-reads the linked account row and returns a normal conflict instead of failing open or throwing a generic server error.</li>
+  </ul>
+</section>
+
+<section id="data-model">
+  <h2>Data Model</h2>
+  <ul>
+    <li>Keep <code>players.clerk_user_id text</code> for the first Clerk adapter.</li>
+    <li>Add a partial unique index: <code>CREATE UNIQUE INDEX IF NOT EXISTS players_clerk_user_id_unique ON players (clerk_user_id) WHERE clerk_user_id IS NOT NULL</code>.</li>
+    <li>For VibeKit reuse, prefer a future generic table: <code>account_links(provider text, subject text, player_id uuid, linked_at timestamptz, primary key(provider, subject))</code>. VibeBots can start with <code>clerk_user_id</code> because the column already exists, then migrate behind the same adapter interface later.</li>
+    <li>Account-linking telemetry logs safe hashes only: no emails, no handoff tokens, and no Google profile payloads. Landed 2026-07-04 through the <code>account.link</code> monitoring component. Handoff finish also rejects malformed or oversized handoff ids before storage lookup.</li>
+  </ul>
+</section>
+
+<section id="api-shape">
+  <h2>API Shape</h2>
+  <ul>
+    <li><code>GET /api/account/status</code>: returns <code>{ mode: "guest" | "signed_in" | "cloud_loaded" | "conflict", providerReady, providerStatus, activeSlot, account, currentSave, accountSave }</code> with safe summaries only. Guest mode includes the current active save summary when a player row exists, so the Account dialog can show what will be attached before sign-in. Browser parsing now rejects account-owned modes when the account field is missing, and rejects cloud-loaded or conflict modes without an existing account save. <code>providerStatus</code> is the typed provider readiness contract; the current no-SDK resolver reports Clerk as not ready with <code>sdk_not_wired</code> and <code>sdk_dependency_missing</code>, and includes a non-secret <code>issues</code> checklist for missing setup pieces such as missing or malformed Clerk keys, an absent <code>/sign-in</code> route, a configured separate sign-up URL, missing sign-in and sign-up fallback routes back to <code>/mine?account=1</code>, configured public or server force redirects that would bypass the account handoff token, or configured public or server deprecated after-redirect env vars. <code>accountProviderStatusFromConfig</code> is the tested helper the approved SDK slice should use to flip readiness only after the resolver, <code>@clerk/nextjs</code> dependency, Clerk keys with expected prefixes, public sign-in route, unset public sign-up URL, account-dialog fallback routes, unset public and server force redirect URLs, and unset public and server deprecated after-redirect URLs are configured. Status passes the provider and status into <code>currentReadyAccountIdentity</code>, so partial Clerk setup stays in guest mode and cannot attach a cloud save even if a test or future resolver can produce an identity. If a signed-in account has a linked cloud save and the current browser has no active local player, a same-origin app status request writes that account player into the active save-slot cookie and reports <code>cloud_loaded</code>. Cross-site browser status reads never trigger that cookie-backed attach.</li>
+    <li><code>POST /api/account/claim</code>: requires a signed-in account and a current guest player. Claims the active row or returns a conflict without mutating rows.</li>
+    <li><code>POST /api/account/load</code>: requires a signed-in account with an existing claimed row. Writes that row to the active slot cookie for this browser partition.</li>
+    <li><code>GET /api/account/trip</code>: requires a signed-in account with a linked player row and returns the account mine trip checkpoint, or <code>null</code> when none exists. The client stores this locally before loading the cloud world so the existing resume guard can replay only matching checkpoints.</li>
+    <li><code>PUT /api/account/trip</code>: requires a current guest player and same-origin browser request. Stores the current browser-local mine trip checkpoint for the active player row before sign-in start or account claim.</li>
+    <li><code>POST /api/account/handoff/start</code>: creates a short-lived state value before opening top-level sign-in from an embedded context. Landed 2026-07-04 with a database-backed token that stores the current guest player row and a sanitized local return path. The return-path sanitizer and handoff id validator now live in the shared <code>src/lib/account-handoff-contract.ts</code> module used by both server and browser code. Handoff creation prunes expired or consumed rows first, clears any still-pending handoff rows for the same player, and the table has an expiry index so this remains cheap without a scheduled cleanup job.</li>
+    <li><code>POST /api/account/handoff/finish</code>: consumes the one-time state after sign-in and sets the embedded partition's player cookie. Landed 2026-07-04 with the same non-destructive conflict policy as <code>/api/account/claim</code>.</li>
+    <li>All account mutation routes require same-origin browser requests through <code>sameOriginMutationRequired</code>. Cross-site claim, load, handoff start, handoff finish, and trip checkpoint write attempts receive <code>403</code> before storage or identity lookup.</li>
+    <li>All account route JSON uses <code>Cache-Control: no-store</code>. Account status, claim, load, handoff, and same-origin rejection responses are per-player and must not be reused across browser partitions, guests, or signed-in Google sessions.</li>
+    <li>Handoff start also requires <code>accountProviderReady()</code>. Until the Clerk resolver is approved and wired, the server refuses to mint sign-in handoff tokens and account status reports <code>providerStatus.ready: false</code>.</li>
+  </ul>
+</section>
+
+<section id="vibekit-abstraction">
+  <h2>VibeKit Abstraction</h2>
+  <p>VibeKit should not force Clerk, Neon Auth, or Better Auth as a hard dependency. It should expose account-linking primitives and let each app provide the provider resolver. VibeBots now has this shape in <code>src/lib/account-link-core.ts</code>: a provider-neutral claim coordinator plus an app-owned store adapter. The current store adapter remains <code>players.clerk_user_id</code> in <code>src/server/account-linking.ts</code>. The core reports malformed or adapter-unsupported provider input as <code>invalid-identity</code>, separate from <code>player-not-found</code>, so reusable callers can distinguish account rejection from missing game saves.</p>
+  <pre><code>export interface AccountIdentity {
+  provider: string;
+  subject: string;
+  email?: string;
+}
+
+export interface AccountLinkStore {
+  findLinkedPlayer(identity: AccountIdentity): Promise&lt;string | null&gt;;
+  claimUnlinkedPlayer(identity: AccountIdentity, playerId: string): Promise&lt;AccountLinkAttempt&gt;;
+}
+
+export interface GuestSessionStore {
+  writeActivePlayer(playerId: string): Promise&lt;void&gt;;
+}</code></pre>
+  <p>The shared core now also exposes <code>loadLinkedAccountPlayer</code>, which resolves a claimed account save and calls an injected session writer. <code>accountLinkedSaveStatus</code> classifies unlinked, loaded, and conflict account states without touching cookies. VibeBots uses those helpers for explicit cloud-save loading and status responses while keeping save-slot cookies app-owned. Another project can implement the same contract with Better Auth, Neon Auth, or a custom provider without changing game save semantics.</p>
+</section>
+
+  <section id="implementation-slices">
+    <h2>Implementation Slices</h2>
+    <ol>
+    <li>Schema and server primitives: unique guard, account identity type, account-link helper tests, and no UI. Landed 2026-07-04 in <code>src/server/account-linking.ts</code>, <code>src/server/account-linking.test.ts</code>, <code>src/server/db.ts</code>, and <code>src/server/db.test.ts</code>.</li>
+    <li>Account API boundary: status, claim, and load routes, with a dependency-free account resolver boundary that normalizes provider output before routes use it. Landed 2026-07-04 in <code>src/server/account-session.ts</code>, <code>src/server/account-session.test.ts</code>, <code>src/server/account-summary.ts</code>, <code>src/app/api/account/status/route.ts</code>, <code>src/app/api/account/claim/route.ts</code>, <code>src/app/api/account/load/route.ts</code>, <code>src/app/api/account/account-routes.test.ts</code>, and <code>src/server/player.ts</code>.</li>
+    <li>Mine pause-menu UI: guest state, sign-in affordance, signed-in claim action, conflict state, load-cloud-save action, keep-device action, handoff return handling, and account deep link. Landed 2026-07-04 in <code>src/components/mine-account-popup.tsx</code>, <code>src/components/mine-panel.tsx</code>, <code>src/state/mine-api-client.ts</code>, and <code>src/state/mine-store.ts</code>. The sign-in affordance is disabled in the current env until both a public sign-in URL is configured and account status reports <code>providerReady: true</code>. The <code>Save this run</code> action requires an existing local save summary, so empty signed-in browsers do not show a doomed claim action. Conflict state exposes both explicit choices: <code>Load cloud save</code> calls the cloud-load route, while <code>Keep this device save</code> closes the dialog without calling it. The server resolver still needs the approved Clerk SDK wiring. Redirect construction has focused coverage in <code>src/components/mine-account-popup.test.ts</code>, including same-origin fallback for malformed handoff return paths before adding Clerk's <code>redirect_url</code> query. The client parser also rejects malformed handoff ids before redirect and before posting callback tokens to the finish route. The client now parses successful cloud-load responses before replacing local trip state, requiring <code>mode: "cloud_loaded"</code>, a valid active slot, and an existing account save. The no-token fallback path <code>/mine?account=1</code> opens the Account dialog, clears the query with browser history, and preflights account status before loading the mine world so a signed-in fresh browser can attach its cloud save before guest creation. Account dialog dismissal is covered by browser smoke for outside tap, Escape, and gamepad back.</li>
+    <li>Provider-neutral claim, load, and status core: normalize identity, check existing account link, classify the account state, claim a player through an app-owned store, load a linked player through an app-owned session writer, and return provider-agnostic results. Landed 2026-07-04 and expanded 2026-07-05 in <code>src/lib/account-link-core.ts</code> and <code>src/lib/account-link-core.test.ts</code>.</li>
+    <li>Embedded sign-in handoff: database-backed one-time state token, shared local return-path and handoff-id contract, and partitioned-cookie finish route. Landed 2026-07-04 in <code>src/lib/account-handoff-contract.ts</code>, <code>src/server/account-handoff.ts</code>, <code>src/app/api/account/handoff/start/route.ts</code>, <code>src/app/api/account/handoff/finish/route.ts</code>, and their tests.</li>
+    <li>Clerk integration: Marketplace setup, SDK, provider wrapper, replacement of the <code>/sign-in</code> placeholder with Clerk's sign-in component, wiring the prepared <code>clerkAccountProvider</code> factory to Clerk's server helpers, and no protected gameplay routes. Prepared setup checklist: <a href="account-sync-clerk-vercel-setup.html">Clerk and Vercel Setup Checklist for Account Sync</a>.</li>
+    <li>VibeKit extraction: move the generic account-linking types and helper result states into VibeKit after VibeBots proves the contract. Proposed extraction contract: <a href="account-link-vibekit-extraction.html">Account Link VibeKit Extraction Contract</a>.</li>
+  </ol>
+</section>
+
+  <section id="verification-plan">
+  <h2>Verification Plan</h2>
+  <ul>
+    <li>Unit tests for account claim success, duplicate claim rejection, same-account idempotence, and existing-cloud-save conflict.</li>
+    <li>Route tests for guest status, signed-in unclaimed status, claim success, load existing cloud save, and storage-not-configured fallback.</li>
+    <li>Route tests for handoff start, unsafe return-path sanitization, signed-in handoff finish, conflict handling, and consumed or expired handoff rejection.</li>
+    <li>Client unit tests for account status parsing, request shapes, claim refresh, conflict preservation, and explicit cloud-load behavior.</li>
+    <li>Component tests for Account dialog control states: Google sign-in disabled while provider setup is pending, sign-in enabled when a provider URL exists, signed-in claim allowed, conflict cloud-load allowed only by explicit action, keep-device allowed only by explicit action, pending actions locked, and static guest or conflict summaries visible.</li>
+    <li>E2E smoke with mocked provider state: quiet guest start without account prompts, handoff success, handoff conflict, explicit cloud-load choice, explicit keep-device choice, fallback account status before guest world creation, outside tap dismissal, Escape dismissal, gamepad back dismissal, route reload, and loaded Google-save summary.</li>
+    <li>Embedded smoke after Clerk wiring: simulate the partitioned cookie path and confirm the finish route writes the player id inside the embedded request context.</li>
+    <li>Security checks: no secret values in logs, no provider access token stored in the game database, no automatic destructive overwrite, and cross-site browser account mutations rejected before storage or identity lookup.</li>
+  </ul>
+  </section>
+
+  <section id="implementation-log">
+  <h2>Implementation Log</h2>
+  <ul>
+    <li data-date="2026-07-05">Clerk CLI and SDK wiring landed: the project is linked to Clerk app <code>app_3G4IGPPwHQPsNjcWfGKUfzFh2u3</code>, <code>@clerk/nextjs</code> is installed, Clerk middleware runs through <code>src/proxy.ts</code> without protecting gameplay routes, <code>ClerkProvider</code> is inside <code>&lt;body&gt;</code> and guarded for no-key builds, <code>/sign-in</code> renders Clerk's component when configured, and the runtime account provider now uses real Clerk <code>auth</code> plus <code>currentUser</code>. <code>clerk doctor</code> passes locally and notes production is not configured.</li>
+    <li data-date="2026-07-05">Account-link shared status classifier landed: <code>accountLinkedSaveStatus</code> now classifies signed-in unlinked, loaded cloud-save, and non-destructive conflict states in <code>src/lib/account-link-core.ts</code>. <code>/api/account/status</code> uses it after the VibeBots route handles its same-origin fresh-browser attach rule, keeping status policy reusable while cookie writes stay app-owned.</li>
+    <li data-date="2026-07-05">Account-link shared cloud-load helper landed: <code>loadLinkedAccountPlayer</code> now lives beside the provider-neutral claim core in <code>src/lib/account-link-core.ts</code>. <code>/api/account/load</code> uses the VibeBots adapter wrapper to load a claimed account player through the app-owned save-slot writer, keeping the reusable cross-device load policy free of Clerk, cookies, Next.js, and database imports.</li>
+    <li data-date="2026-07-05">Account-link core shared-module staging landed: the provider-neutral claim core moved from <code>src/server/account-link-core.ts</code> into <code>src/lib/account-link-core.ts</code>, with its purity guard moving to <code>src/lib/account-link-core.test.ts</code>. VibeBots keeps the Clerk-column store adapter in <code>src/server/account-linking.ts</code>, and the next VibeKit extraction can copy a shared module rather than a server-local file.</li>
+    <li data-date="2026-07-05">Account provider source refresh landed: official Clerk pricing still supports the free Hobby plan with no credit card and 50,000 monthly retained users per app, Clerk Vercel Marketplace still auto-syncs the publishable and secret keys, and Clerk Google social sign-in still treats One Tap as optional. The recommendation remains Clerk through Vercel Marketplace, Account-dialog-only Google sign-in, no One Tap, and identity-only Google scopes.</li>
+    <li data-date="2026-07-04">Account env preflight CLI redaction guard landed: the test suite now runs <code>scripts/check-account-env.mjs</code> with fake Clerk key values and proves stdout plus stderr do not echo the publishable or secret key strings when setup fails.</li>
+    <li data-date="2026-07-04">Account env preflight redaction guard landed: setup-result tests now prove Clerk publishable and secret key values do not appear in the preflight result, leaving only booleans, issue codes, and the required identity scope list.</li>
+    <li data-date="2026-07-04">Cloud-load dialog close success effect landed: after <code>Load cloud save</code> reaches <code>cloud_loaded</code>, the Account dialog closes from a state effect so the explicit cloud-load choice does not linger on the loaded Google save while the click handler finishes.</li>
+    <li data-date="2026-07-04">Clerk SDK dependency readiness guard landed: provider readiness now exposes <code>sdk_dependency_missing</code> through the shared setup issue list, and runtime readiness plus <code>pnpm ops:check-account-env</code> agree that a resolver cannot be treated as ready unless the approved Clerk SDK dependency is present.</li>
+    <li data-date="2026-07-04">Clerk key-prefix readiness guard landed: provider readiness and <code>pnpm ops:check-account-env</code> now reject publishable keys that do not start with <code>pk_test_</code> or <code>pk_live_</code>, and secret keys that do not start with <code>sk_test_</code> or <code>sk_live_</code>, without printing key values.</li>
+    <li data-date="2026-07-04">Server redirect env parity guard landed: provider readiness and <code>pnpm ops:check-account-env</code> now reject <code>CLERK_SIGN_IN_FORCE_REDIRECT_URL</code>, <code>CLERK_SIGN_UP_FORCE_REDIRECT_URL</code>, <code>CLERK_AFTER_SIGN_IN_URL</code>, and <code>CLERK_AFTER_SIGN_UP_URL</code> in addition to their public counterparts.</li>
+    <li data-date="2026-07-04">Deprecated after-redirect readiness guard landed: provider readiness and <code>pnpm ops:check-account-env</code> now reject <code>NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL</code> and <code>NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL</code>, following Clerk's new-project guidance to use fallback redirect env vars instead.</li>
+    <li data-date="2026-07-04">Runtime provider swap point landed: <code>currentAccountSessionProvider</code> is now the single runtime boundary for the pending provider, and <code>/api/account/status</code> uses one provider object for both readiness and identity lookup before the approved Clerk SDK slice replaces it.</li>
+    <li data-date="2026-07-04">Account sign-in route guard landed: the Account dialog now enables Google sign-in only for the local <code>/sign-in</code> route and normalizes any hosted sign-in URL back to that app route before appending Clerk's <code>redirect_url</code>. This matches the setup preflight's route contract.</li>
+    <li data-date="2026-07-04">Account handoff return-route allowlist landed: <code>safeAccountReturnTo</code> now keeps OAuth callbacks on the mine route only, accepting <code>/mine</code>, query, and hash variants while normalizing API paths, <code>/sign-in</code>, workshop paths, and nested mine paths back to <code>/mine</code>.</li>
+    <li data-date="2026-07-04">First server primitive slice landed: provider-neutral account identity normalization, linked-player lookup, claim conflict results, idempotent same-player claim handling, missing-player handling, and a partial unique index on non-null <code>players.clerk_user_id</code>. This does not add Clerk SDK code or UI yet.</li>
+    <li data-date="2026-07-04">Account API boundary slice landed: <code>/api/account/status</code> reports guest, signed-in, cloud-loaded, and conflict states with safe save summaries; <code>/api/account/claim</code> claims the current guest save or returns a non-destructive conflict; <code>/api/account/load</code> loads an existing cloud save into the current active slot. The current account resolver remains a dependency-free stub until the approved Clerk integration lands.</li>
+    <li data-date="2026-07-04">Mine account UI boundary landed: the settings menu opens an Account dialog backed by client parsers and store actions for status, claim, explicit cloud-load, handoff start, and handoff finish. It keeps sign-in disabled in the current env until the public Clerk sign-in URL exists, so the current build exposes no broken OAuth route.</li>
+    <li data-date="2026-07-04">Provider-neutral account-link core landed: <code>src/server/account-link-core.ts</code> owns the reusable account identity normalization and claim flow, while <code>src/server/account-linking.ts</code> is now the VibeBots Clerk-column adapter. This keeps the later VibeKit extraction small and avoids binding the reusable contract to Clerk.</li>
+    <li data-date="2026-07-04">The VibeBots Clerk-column adapter now handles account-claim races against <code>players_clerk_user_id_unique</code>. A unique-index win by another request is translated into the same non-destructive conflict response as a pre-existing cloud save, while unrelated storage errors still surface.</li>
+    <li data-date="2026-07-04">Embedded handoff route slice landed: <code>/api/account/handoff/start</code> creates a short-lived database token for the current guest player and sanitized return path; <code>/api/account/handoff/finish</code> consumes that token after sign-in, claims the stored guest row, sets the active save-slot cookie, or returns a non-destructive cloud-save conflict. Handoff creation now prunes expired or consumed rows first, clears older pending rows for the same player, and the schema includes an expiry index, avoiding a separate cleanup worker.</li>
+    <li data-date="2026-07-04">Account UI smoke coverage now includes the explicit cloud-load choice: a mocked signed-in browser sees both the device save and Google save, does not call <code>/api/account/load</code> automatically, calls it only after <code>Load cloud save</code>, reloads world and gear, and then shows the loaded Google save summary.</li>
+    <li data-date="2026-07-04">Account-linking telemetry landed through <code>logAccountLinkEvent</code> and route calls from claim, handoff start, handoff finish, and cloud load. The logs record outcome codes and hashed account/player ids, while tests prove raw provider subjects, raw player ids, email, profile data, and handoff tokens stay out of monitoring output. Handoff finish now accepts only bounded token-shaped handoff ids before storage lookup.</li>
+    <li data-date="2026-07-04">Account dialog control coverage landed: <code>accountDialogControls</code> now isolates the provider-pending, sign-in, claim, conflict-load, and busy-state button rules, and <code>src/components/mine-account-popup.test.ts</code> server-renders the dialog summaries so the current build cannot expose a broken OAuth action before Clerk is configured.</li>
+    <li data-date="2026-07-04">Account mutation origin guard landed: <code>src/server/request-guards.ts</code> rejects cross-site browser POSTs before claim, cloud-load, handoff start, or handoff finish can touch storage, player cookies, account identity, or handoff tokens.</li>
+    <li data-date="2026-07-04">Account handoff churn control landed: starting sign-in now leaves only one pending handoff token per player, so repeated Account dialog starts replace stale unused callbacks instead of accumulating live tokens.</li>
+    <li data-date="2026-07-04">Account provider-readiness gate landed: account status now carries <code>providerReady</code>, the Account dialog requires it before enabling Google sign-in, and handoff start refuses to mint tokens while the server resolver remains stubbed.</li>
+    <li data-date="2026-07-04">Fresh-browser cloud load landed: account status now attaches the linked cloud save to the active slot when a signed-in browser has no local active player, while preserving conflicts for browsers that already have a different guest save.</li>
+    <li data-date="2026-07-04">Account dialog claim gating landed: <code>Save this run</code> now requires an existing local save summary before enabling, matching the server's guest-save requirement.</li>
+    <li data-date="2026-07-04">Account response cache guard landed: account status, claim, load, handoff, and same-origin rejection JSON now returns <code>Cache-Control: no-store</code>, keeping user-specific save and handoff responses out of intermediary caches before real Google sessions are wired.</li>
+    <li data-date="2026-07-04">Guest save summary landed: account status now reports the active guest save summary before sign-in when a player row exists, so the Account dialog can show the current device save that will be attached.</li>
+    <li data-date="2026-07-04">In-flight trip checkpoint bridge landed: <code>/api/account/trip</code> stores a browser-local mine trip snapshot on the active player row before sign-in or claim and fetches it before cloud-load world reloads. This keeps the first account upgrade path closer to the player's actual current state without adding continuous background sync.</li>
+    <li data-date="2026-07-04">Client redirect hardening landed: <code>accountSignInRedirectUrl</code> now applies the same local-path rule as the server handoff helper before giving Clerk a <code>redirect_url</code>, so a malformed handoff response falls back to <code>/mine?accountHandoff=...</code> on the app origin.</li>
+    <li data-date="2026-07-04">Client handoff-token validation landed: <code>accountHandoffStartFromResponse</code> now trims and bounds the start-route token with the same token character policy used by the finish route, and the mine store treats malformed handoff responses as sign-in start errors instead of redirecting to Clerk. The same client token guard now runs before <code>finishRemoteAccountHandoff</code> posts a callback token from the URL.</li>
+    <li data-date="2026-07-04">Clerk resolver seam landed: <code>clerkAccountIdentityResolver</code> now accepts injected Clerk-like <code>auth</code> and <code>currentUser</code> helpers, short-circuits signed-out sessions without reading the profile, rejects missing or mismatched current-user results, and reuses the existing provider-neutral identity mapper without importing the Clerk SDK.</li>
+    <li data-date="2026-07-04">Provider setup issue reporting landed: <code>providerStatus</code> now carries a non-secret <code>issues</code> array. The current build reports resolver, Clerk-key, and sign-in-route blockers while keeping <code>providerReady</code> false.</li>
+    <li data-date="2026-07-04">Provider readiness helper landed: <code>accountProviderStatusFromConfig</code> now proves the future ready state in tests. It returns ready only when the Clerk resolver is wired, Clerk keys are present, and <code>NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in</code> is configured; the current runtime wrapper still passes <code>resolverWired: false</code>.</li>
+    <li data-date="2026-07-04">Provider env-key readiness guard landed: even after the approved SDK resolver is wired, <code>providerReady</code> remains false until <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code>, <code>CLERK_SECRET_KEY</code>, and <code>NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in</code> are present.</li>
+    <li data-date="2026-07-04">Client provider-status parsing hardened: the Account dialog no longer treats <code>providerReady: true</code> by itself as enough to enable Google sign-in. The parsed account state requires an explicit ready <code>providerStatus</code> with no setup issues, so older or malformed responses keep the guest-first path safe.</li>
+    <li data-date="2026-07-04">Client provider-status issue filtering landed: parsed account state now accepts only the known Clerk readiness issue codes. Unknown providers or unknown setup issues keep Google sign-in disabled, which preserves the explicit setup contract before the approved SDK wiring.</li>
+    <li data-date="2026-07-04">Shared provider-status contract landed: <code>src/lib/account-provider-status.ts</code> now owns the known Clerk readiness issue list and provider-status type used by server readiness and the browser account parser, reducing drift before the approved Clerk SDK wiring and later VibeKit extraction.</li>
+    <li data-date="2026-07-04">Shared provider-status guard coverage landed: <code>src/lib/account-provider-status.test.ts</code> now pins the known issue list and checks that the shared module stays free of Clerk, Next.js, React, app, state, and component imports before any VibeKit extraction.</li>
+    <li data-date="2026-07-04">Shared provider-status code data landed: <code>src/lib/account-provider-status-codes.json</code> now owns the readiness issue list consumed by the TypeScript status module and the Node account-env preflight, so setup CLI and runtime/client contracts share one source of issue-code truth.</li>
+    <li data-date="2026-07-04">Sign-in fallback readiness guard landed: provider readiness and <code>pnpm ops:check-account-env</code> now require <code>NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/mine?account=1</code>, matching Clerk's fallback redirect behavior for direct sign-in visits without a one-time handoff token.</li>
+    <li data-date="2026-07-04">Sign-up fallback readiness guard landed: provider readiness and <code>pnpm ops:check-account-env</code> now require <code>NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/mine?account=1</code>, matching Clerk's sign-up fallback redirect behavior when account creation starts without a one-time handoff token.</li>
+    <li data-date="2026-07-04">Clerk force-redirect readiness guard landed: provider readiness and <code>pnpm ops:check-account-env</code> now reject <code>NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL</code> and <code>NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL</code>, because force redirects bypass the one-time handoff token used to claim the guest save.</li>
+    <li data-date="2026-07-04">Sign-in-or-up catch-all placeholder landed: the no-SDK <code>/sign-in</code> route now lives at <code>src/app/sign-in/[[...sign-in]]/page.tsx</code>, matching Clerk's recommended single sign-in-or-up page shape while still redirecting direct visits and nested sign-in subpaths to <code>/mine?account=1</code> until the SDK slice is approved.</li>
+    <li data-date="2026-07-04">Single sign-in-or-up URL guard landed: provider readiness and <code>pnpm ops:check-account-env</code> now reject <code>NEXT_PUBLIC_CLERK_SIGN_UP_URL</code>, keeping account creation on the same local <code>/sign-in</code> handoff path as sign-in for the first release.</li>
+    <li data-date="2026-07-04">Account-link email metadata guard landed: <code>normalizeAccountIdentity</code> now rejects control characters in optional email display metadata before the app-owned account-link store sees the identity, matching the provider-subject guard and tightening the future VibeKit extraction contract.</li>
+    <li data-date="2026-07-04">Google scope preflight parity guard landed: <code>src/server/account-env-preflight.test.ts</code> now compares setup preflight dashboard scope handling against <code>accountGoogleScopeStringIsIdentityOnly</code>, so the local setup command and reusable helper stay aligned.</li>
+    <li data-date="2026-07-04">Google scope string helper landed: <code>src/lib/account-google-scopes.ts</code> now parses dashboard scope strings with whitespace or comma separators and validates them against the identity-only scope set, matching the future VibeKit helper shape.</li>
+    <li data-date="2026-07-04">Google scope VibeKit extraction guard landed: <code>docs/research/account-link-vibekit-extraction.html</code> now names the reusable Google scope helper exports and the consent rule they protect, while <code>src/lib/account-google-scopes.test.ts</code> guards the shared JSON data shape.</li>
+    <li data-date="2026-07-04">Google scope preflight guard landed: <code>pnpm ops:check-account-env -- --require-ready --google-scopes "openid email profile"</code> now validates the declared Clerk dashboard scope string against the shared identity-only scope data and fails for Drive, Gmail, Contacts, duplicates, missing scopes, or omitted scopes once setup starts.</li>
+    <li data-date="2026-07-04">Google identity-scope contract landed: <code>src/lib/account-google-scopes.ts</code> owns the allowed Google sign-in scope set as exactly <code>openid</code>, <code>email</code>, and <code>profile</code>, with tests rejecting Drive, Gmail, Contacts, and other non-identity scopes.</li>
+    <li data-date="2026-07-04">Client account metadata parser guard landed: <code>accountStatusFromResponse</code> now rejects malformed account provider tokens and control-character email metadata before the Account dialog renders identity text from a response.</li>
+    <li data-date="2026-07-04">Shared handoff URL contract landed: <code>src/lib/account-handoff-contract.ts</code> now owns the handoff id and local return-path rules used by server handoff storage, client parsing, callback posting, and Account dialog redirect construction.</li>
+    <li data-date="2026-07-04">Cloud-load response parser guard landed: <code>accountCloudLoadFromResponse</code> now rejects malformed successful cloud-load bodies before the store removes a local trip checkpoint or reloads the mine world for an account save.</li>
+    <li data-date="2026-07-04">Local sign-in start readiness guard landed: <code>startAccountSignIn</code> now refuses to checkpoint the current trip or call handoff start while <code>providerReady</code> or <code>providerStatus.ready</code> is false, matching the Account dialog's disabled Google sign-in button before Clerk is configured.</li>
+    <li data-date="2026-07-04">Account-status owned-mode parser guard landed: browser parsing now rejects signed-in, cloud-loaded, or conflict account-status payloads unless they include the account and cloud-save fields implied by those modes. Claim conflicts now refresh <code>/api/account/status</code> instead of trusting the partial claim response as full status.</li>
+    <li data-date="2026-07-04">Preflight-runtime parity coverage landed: the account env preflight tests now compare ready, missing-key, and wrong-sign-in-url cases against <code>accountProviderStatusFromConfig</code> so the local setup command and runtime provider status cannot drift before Clerk is wired.</li>
+    <li data-date="2026-07-04">Account provider object seam landed: <code>createAccountSessionProvider</code> now bundles identity resolution and provider readiness into one testable object. The current runtime still uses the pending provider, while the approved Clerk slice can swap in a ready provider object.</li>
+    <li data-date="2026-07-04">Clerk provider factory landed: <code>clerkAccountProvider</code> composes injected Clerk-like server helpers with the provider readiness contract, keeping the current build dependency-free while making the approved SDK wiring slice a small provider swap.</li>
+    <li data-date="2026-07-04">Explicit keep-device conflict action landed: the Account dialog now shows <code>Keep this device save</code> beside <code>Load cloud save</code> during conflicts. Keeping the device save closes the dialog and leaves <code>/api/account/load</code> untouched, so the non-destructive conflict policy is visible instead of hidden behind the close button.</li>
+    <li data-date="2026-07-04">Account-link invalid-identity result landed: <code>src/server/account-link-core.ts</code> now reports malformed or adapter-unsupported account identities as <code>invalid-identity</code> instead of <code>player-not-found</code>. Claim and handoff routes return a safe sign-in-required error and do not read save summaries or mutate cookies for that result.</li>
+    <li data-date="2026-07-04">Account dialog dismissal smoke landed: <code>tests/e2e/mine-account-sync.spec.ts</code> now proves the Account dialog closes from outside tap, Escape, and gamepad back while preserving the guest-first account surface.</li>
+    <li data-date="2026-07-04">Clerk cost guard refreshed: the setup checklist now requires the first Google sign-in release to stay on Clerk's free plan, avoid paid add-ons, leave Google One Tap off, and stop for approval if free-tier terms change before the SDK wiring slice.</li>
+    <li data-date="2026-07-04">Account env preflight landed: <code>pnpm ops:check-account-env</code> reports the current no-SDK state as a safe pending setup, fails on partial Clerk env, and supports <code>--require-ready</code> for the approved SDK wiring slice without printing secret values.</li>
+    <li data-date="2026-07-04">Account env preflight unit coverage landed: <code>src/server/account-env-preflight.test.ts</code> now pins the preflight's pending, partial env, invalid sign-in URL, required-ready, and future ready cases.</li>
+    <li data-date="2026-07-04">Guest-first quiet-start smoke landed: <code>tests/e2e/mine-account-sync.spec.ts</code> now proves a normal fresh visit to <code>/mine</code> does not auto-open Account, does not show Google sign-in copy, and does not call account status before the player opens the Account dialog.</li>
+    <li data-date="2026-07-04">Status auto-load hardening landed: signed-in browsers with no local save still attach their linked cloud save from the app's same-origin Account status request, but cross-site browser status reads no longer set the active save-slot cookie.</li>
+    <li data-date="2026-07-04">Trip-checkpoint failure guard landed: sign-in start and account claim now abort before the account action when the current in-flight trip cannot be written to the account trip checkpoint route.</li>
+    <li data-date="2026-07-04">Account fallback preflight landed: <code>/mine?account=1</code> now checks account status before the mine world route can create a guest, so a signed-in fresh browser attaches its cloud save before the scene loads.</li>
+  </ul>
+</section>
+
+</body>
+</html>

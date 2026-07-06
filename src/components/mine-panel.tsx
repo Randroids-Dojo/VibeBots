@@ -84,6 +84,7 @@ import {
   eventInsideRef,
   useOutsidePointerDismiss,
 } from "./dismissible-dialog-frame";
+import { AccountSyncPopup } from "./mine-account-popup";
 import { MineBagPanel } from "./mine-bag-panel";
 import {
   type BunkerBuildMode,
@@ -227,6 +228,27 @@ const DYNAMITE_TIER_BLURBS: Record<DynamiteTier, string> = {
   3: "3 by 3 square around the miner",
   4: "clears blastable cells inside lamp range",
 };
+
+function accountFallbackPreflightRequired(): boolean {
+  if (typeof window === "undefined") return false;
+  const url = new URL(window.location.href);
+  return (
+    url.searchParams.get("account") === "1" &&
+    !url.searchParams.has("accountHandoff")
+  );
+}
+
+/** Drops a query param from the address bar without navigating. */
+function stripQueryParam(name: string): void {
+  const next = new URL(window.location.href);
+  if (!next.searchParams.has(name)) return;
+  next.searchParams.delete(name);
+  window.history.replaceState(
+    null,
+    "",
+    `${next.pathname}${next.search}${next.hash}`,
+  );
+}
 
 const MINE_SURFACE_TIPS = [
   "Tip: rich ore may need several hits. Every swing still costs battery.",
@@ -1085,8 +1107,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const loadGear = useMineStore((s) => s.loadGear);
   const loadWorld = useMineStore((s) => s.loadWorld);
   const saveSlots = useMineStore((s) => s.saveSlots);
+  const accountSync = useMineStore((s) => s.accountSync);
   const activeSlot = useMineStore((s) => s.activeSlot);
   const loadSaveSlots = useMineStore((s) => s.loadSaveSlots);
+  const loadAccountStatus = useMineStore((s) => s.loadAccountStatus);
+  const startAccountSignIn = useMineStore((s) => s.startAccountSignIn);
+  const finishAccountSignIn = useMineStore((s) => s.finishAccountSignIn);
+  const claimAccountSave = useMineStore((s) => s.claimAccountSave);
+  const loadAccountSave = useMineStore((s) => s.loadAccountSave);
   const switchSaveSlot = useMineStore((s) => s.switchSaveSlot);
   const deleteSaveSlot = useMineStore((s) => s.deleteSaveSlot);
   const saveCurrentTrip = useMineStore((s) => s.saveCurrentTrip);
@@ -1124,6 +1152,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stampBookOpen, setStampBookOpen] = useState(false);
   const [saveSlotsOpen, setSaveSlotsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountFallbackPreflightDone, setAccountFallbackPreflightDone] =
+    useState(false);
+  const accountHandoffHandledRef = useRef<string | null>(null);
+  const accountHandoffAttemptsRef = useRef<Record<string, number>>({});
+  const accountFallbackPreflightPromiseRef = useRef<Promise<void> | null>(null);
+  const [accountHandoffRetryTick, setAccountHandoffRetryTick] = useState(0);
+  // Stable handlers so the memoized account popup skips per-tick re-renders.
+  const closeAccountPopup = useCallback(() => setAccountOpen(false), []);
+  const startAccountSignInFromMine = useCallback(
+    () => startAccountSignIn("/mine"),
+    [startAccountSignIn],
+  );
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext>({
@@ -1244,6 +1285,25 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     [gear, persistCameraZoom],
   );
 
+  const runAccountFallbackPreflight = useCallback(async () => {
+    if (!accountFallbackPreflightRequired()) {
+      setAccountFallbackPreflightDone(true);
+      return;
+    }
+
+    if (!accountFallbackPreflightPromiseRef.current) {
+      setSettingsOpen(false);
+      accountFallbackPreflightPromiseRef.current = loadAccountStatus()
+        .then(() => undefined)
+        .catch(() => undefined)
+        .finally(() => {
+          setAccountFallbackPreflightDone(true);
+        });
+    }
+
+    await accountFallbackPreflightPromiseRef.current;
+  }, [loadAccountStatus]);
+
   const loadMineScene = useCallback(
     async (isCancelled: () => boolean = () => false) => {
       const finishIfActive = (status: MineSceneStatus, message?: string) => {
@@ -1256,8 +1316,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       setMineSceneMessage(null);
 
       try {
-        // The world first (it seeds the mine), then gear (which rebuilds
-        // the trip over that world when levels differ).
+        // Check the account fallback before the world route can create a guest.
+        await runAccountFallbackPreflight();
+        if (isCancelled()) return;
         await loadWorld();
         await loadGear();
         await loadBunker();
@@ -1272,7 +1333,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         finishIfActive("error", MINE_SCENE_LOAD_ERROR);
       }
     },
-    [loadWorld, loadGear, loadBunker],
+    [runAccountFallbackPreflight, loadWorld, loadGear, loadBunker],
   );
 
   useEffect(() => {
@@ -1283,6 +1344,81 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       cancelled = true;
     };
   }, [loadMineScene]);
+
+  useEffect(() => {
+    void accountHandoffRetryTick;
+    const url = new URL(window.location.href);
+    const handoffId = url.searchParams.get("accountHandoff");
+    if (!handoffId || accountHandoffHandledRef.current === handoffId) return;
+    const attempts = (accountHandoffAttemptsRef.current[handoffId] ?? 0) + 1;
+    accountHandoffAttemptsRef.current[handoffId] = attempts;
+    accountHandoffHandledRef.current = handoffId;
+    setAccountOpen(true);
+    void finishAccountSignIn(handoffId).then((handled) => {
+      const state = useMineStore.getState().accountSync;
+      const resolved =
+        handled ||
+        state.mode === "conflict" ||
+        state.mode === "cloud_loaded" ||
+        (state.state === "error" &&
+          (state.message === "sign-in handoff expired" ||
+            state.message === "sign-in required" ||
+            state.message === "device save belongs to another account" ||
+            state.message === "no empty save slot for device save")) ||
+        attempts >= 3;
+      accountHandoffHandledRef.current = null;
+      if (resolved) {
+        delete accountHandoffAttemptsRef.current[handoffId];
+        stripQueryParam("accountHandoff");
+        return;
+      }
+      window.setTimeout(() => {
+        setAccountHandoffRetryTick((tick) => tick + 1);
+      }, 750);
+    });
+  }, [finishAccountSignIn, accountHandoffRetryTick]);
+
+  useEffect(() => {
+    const retry = () => {
+      if (!new URL(window.location.href).searchParams.has("accountHandoff")) {
+        return;
+      }
+      setAccountHandoffRetryTick((tick) => tick + 1);
+    };
+    window.addEventListener("focus", retry);
+    window.addEventListener("pageshow", retry);
+    document.addEventListener("visibilitychange", retry);
+    return () => {
+      window.removeEventListener("focus", retry);
+      window.removeEventListener("pageshow", retry);
+      document.removeEventListener("visibilitychange", retry);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      accountSync.mode !== "conflict" &&
+      accountSync.mode !== "cloud_loaded" &&
+      accountSync.mode !== "signed_in"
+    ) {
+      return;
+    }
+    stripQueryParam("accountHandoff");
+  }, [accountSync.mode]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("account") !== "1") return;
+    if (!accountFallbackPreflightDone) return;
+    setSettingsOpen(false);
+    setAccountOpen(true);
+    const cleanupHandle = window.setTimeout(() => {
+      const next = new URL(window.location.href);
+      if (next.searchParams.get("account") !== "1") return;
+      stripQueryParam("account");
+    }, 0);
+    return () => window.clearTimeout(cleanupHandle);
+  }, [accountFallbackPreflightDone]);
 
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
@@ -2794,6 +2930,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onLoad={switchSaveSlot}
         onDelete={deleteSaveSlot}
       />
+      <AccountSyncPopup
+        open={accountOpen}
+        state={accountSync}
+        onClose={closeAccountPopup}
+        onRefresh={loadAccountStatus}
+        onStartSignIn={startAccountSignInFromMine}
+        onClaim={claimAccountSave}
+        onLoadCloud={loadAccountSave}
+      />
       <button
         ref={settingsButtonRef}
         type="button"
@@ -2922,6 +3067,27 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             }}
           >
             Load game
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen(false);
+              setAccountOpen(true);
+            }}
+            style={{
+              width: "100%",
+              minHeight: 40,
+              borderRadius: 10,
+              border: "1px solid #9fb6ff",
+              background: "#1c2440",
+              color: "#c7d4ff",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              marginBottom: 8,
+            }}
+          >
+            Account
           </button>
           <button
             type="button"

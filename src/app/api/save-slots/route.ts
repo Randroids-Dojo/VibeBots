@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { storageUnavailable } from "@/server/account-response";
 import { db, storageConfigured } from "@/server/db";
 import { logSaveSlotEvent } from "@/server/monitoring";
 import {
@@ -21,10 +22,6 @@ const deleteBodySchema = bodySchema.extend({
 
 function deleteConfirmation(slot: 1 | 2 | 3): string {
   return `DELETE SLOT ${slot}`;
-}
-
-function storageUnavailable(): Response {
-  return Response.json({ error: "storage not configured" }, { status: 503 });
 }
 
 function saveSlotRequestContext(request: Request): {
@@ -80,11 +77,22 @@ export async function DELETE(request: Request): Promise<Response> {
       { status: 400 },
     );
   }
-  const session = await deleteSaveSlot(parsed.data.slot);
+  const result = await deleteSaveSlot(parsed.data.slot);
   const sql = await db();
+  if (result.status === "blocked-linked-account") {
+    return Response.json(
+      {
+        error: "linked account saves cannot be deleted from this device",
+        code: "linked_account_save_delete_blocked",
+        activeSlot: result.session.activeSlot,
+        slots: await saveSlotSummaries(sql, result.session),
+      },
+      { status: 409 },
+    );
+  }
   return Response.json({
-    activeSlot: session.activeSlot,
-    slots: await saveSlotSummaries(sql, session),
+    activeSlot: result.session.activeSlot,
+    slots: await saveSlotSummaries(sql, result.session),
   });
 }
 

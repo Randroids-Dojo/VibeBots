@@ -25,6 +25,7 @@ pnpm test:e2e:critical # critical Playwright smoke for every CI push
 pnpm test:e2e         # playwright smoke, local defaults to 2 file-level workers (run pnpm build first)
 pnpm check:dashes     # AGENTS.md Rule 1 (no em/en-dashes)
 pnpm check:purity     # src/sim determinism contract
+pnpm ops:check-account-env # non-secret Clerk readiness preflight
 ```
 
 ## Environment variables
@@ -33,6 +34,13 @@ Set on the Vercel project (the dashboard or CLI), never committed:
 
 - `DATABASE_URL` and friends: auto-provisioned by the dedicated Neon Postgres marketplace integration (Rule 11: one backing store per project, never shared). Created as sensitive values, so they are injected at deploy time and do not `vercel env pull` locally; local dev without them degrades to 503 "storage not configured" on persistence routes.
 - `AUTH_SECRET`: HMAC secret for the signed guest cookie (Production + Preview).
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`: Clerk project keys for the approved Google sign-in integration. Local development keys can be pulled by the Clerk CLI into ignored `.env.local`; production keys should come from the Vercel project integration or dashboard. Guest-first play and local saves still work without them because the Clerk provider and proxy are guarded. Ready setup requires `@clerk/nextjs`, a publishable key that starts with `pk_test_` or `pk_live_`, and a secret key that starts with `sk_test_` or `sk_live_`.
+- `NEXT_PUBLIC_CLERK_SIGN_IN_URL`: public Clerk sign-in entrypoint used by the mine Account dialog. Set to `/sign-in` when Clerk keys are present so the Account dialog can create a one-time handoff before opening Clerk.
+- `NEXT_PUBLIC_CLERK_SIGN_UP_URL`: leave unset for the first VibeBots account-sync release. `/sign-in` is the single sign-in-or-up page, keeping account creation on the same handoff path as sign-in.
+- `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL`: Clerk fallback for direct sign-in visits without a one-time handoff. Set to `/mine?account=1` only after the Clerk provider is wired, so those visits return to the Account dialog.
+- `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL`: Clerk fallback for account creation reached from the sign-in component without a one-time handoff. Set to `/mine?account=1` with the sign-in fallback so completed account creation returns to the Account dialog.
+- `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL`, `CLERK_SIGN_IN_FORCE_REDIRECT_URL`, and `CLERK_SIGN_UP_FORCE_REDIRECT_URL`: leave unset for VibeBots account sync. Force redirects bypass the one-time account handoff token and the preflight rejects them when present.
+- `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL`, `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL`, `CLERK_AFTER_SIGN_IN_URL`, and `CLERK_AFTER_SIGN_UP_URL`: leave unset. Clerk marks these redirect variables deprecated for new apps, and VibeBots uses the fallback redirect variables instead.
 - `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`: Web Push keys for native browser release notifications. Generate and store them with `pnpm ops:setup-push-env -- --production-only`; keep the private key secret.
 - `WEB_PUSH_CONTACT_EMAIL`: optional contact email for the Web Push VAPID subject. Defaults to `support@randroid.dev`.
 - `NOTIFICATION_ADMIN_TOKEN`: bearer token required by `POST /api/notifications/release`, the manual fallback for dispatching the current release summary to enabled subscriptions. Normal release dispatch is triggered idempotently by the no-store `/api/version` check when storage and Web Push keys are configured.
@@ -149,10 +157,40 @@ the exact expected value to expected + 1 when the seed also matches. It never
 changes the durable mine diff, gear, wallet, inventory, achievements, parts,
 designs, or saved bots.
 
+### Account sign-in preflight
+
+After the approved Clerk SDK slice, run the non-secret preflight with the target
+environment loaded before treating account sync as ready:
+
+```sh
+pnpm ops:check-account-env -- --require-ready --google-scopes "openid email profile"
+```
+
+For local development, `clerk doctor` verifies the Clerk CLI login, linked app,
+and ignored `.env.local` key presence without printing key values. Production is
+not ready until the production Clerk instance and Vercel project env are
+configured.
+
+For test coverage of the preflight itself, use fake key-shaped values rather
+than real secrets:
+
+```sh
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_fake CLERK_SECRET_KEY=sk_test_fake NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL='/mine?account=1' NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL='/mine?account=1' pnpm ops:check-account-env -- --require-ready --google-scopes "openid email profile"
+```
+
+The command prints booleans, issue codes, and the required identity scope list
+only. It never prints Clerk key values. Ready setup requires
+`NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in` and
+`NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/mine?account=1` and
+`NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/mine?account=1`, with
+`NEXT_PUBLIC_CLERK_SIGN_UP_URL`, public and server Clerk force redirect env
+vars, and public and server deprecated after redirect env vars unset.
+
 ## Project docs
 
 - `AGENTS.md`: rules for all agentic tools working in this repo
 - `docs/gdd/`: the Game Design Document (source of truth for what VibeBots is)
+- `docs/research/account-sync-google-signin.html`, `docs/research/account-sync-clerk-vercel-setup.html`, `docs/research/account-link-vibekit-extraction.html`: optional Google sign-in design, Clerk setup checklist, and VibeKit extraction contract
 - `docs/IMPLEMENTATION_PLAN.html`, `docs/WORKING_AGREEMENT.html`: the loop and process contracts
 - `docs/CI_WORKFLOW.html`: parallel CI, critical smoke, full smoke, and superseded-run policy
 - `docs/RELEASE_NOTES.html`: versioned release notes

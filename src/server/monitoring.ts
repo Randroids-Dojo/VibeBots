@@ -76,6 +76,37 @@ export interface AppClientErrorEvent {
   userAgent?: string;
 }
 
+export interface AccountLinkMonitoringEvent {
+  code:
+    | "claim_already_linked"
+    | "claim_conflict"
+    | "claim_failed"
+    | "claim_invalid_identity"
+    | "claim_player_not_found"
+    | "claim_succeeded"
+    | "claim_target_linked_to_other_account"
+    | "cloud_load_invalid_identity"
+    | "cloud_load_not_found"
+    | "cloud_load_succeeded"
+    | "handoff_already_linked"
+    | "handoff_conflict"
+    | "handoff_expired"
+    | "handoff_invalid_identity"
+    | "handoff_missing_initiating_session"
+    | "handoff_player_not_found"
+    | "handoff_start_missing_player"
+    | "handoff_started"
+    | "handoff_succeeded"
+    | "handoff_target_linked_to_other_account";
+  severity: MonitoringSeverity;
+  provider?: string;
+  subject?: string;
+  playerId?: string | null;
+  targetPlayerId?: string | null;
+  activeSlot?: number;
+  result?: string;
+}
+
 function hashIdentifier(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
@@ -129,6 +160,22 @@ export function logAppClientErrorEvent(event: AppClientErrorEvent): void {
     event: `app.client_error.${event.code}`,
     player: playerId ? hashIdentifier(playerId) : undefined,
     errorSource: source,
+    ...rest,
+  });
+}
+
+export function logAccountLinkEvent(event: AccountLinkMonitoringEvent): void {
+  const { playerId, targetPlayerId, provider, subject, severity, ...rest } =
+    event;
+  writeMonitoringLog(severity, "account.link", {
+    event: `account.link.${event.code}`,
+    provider,
+    account:
+      provider && subject
+        ? hashIdentifier(`${provider}:${subject}`)
+        : undefined,
+    player: playerId ? hashIdentifier(playerId) : undefined,
+    targetPlayer: targetPlayerId ? hashIdentifier(targetPlayerId) : undefined,
     ...rest,
   });
 }

@@ -1,3 +1,4 @@
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { ClientErrorTelemetry } from "@/components/app-error-telemetry";
@@ -32,12 +33,29 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+function AppContents({ children }: { children: ReactNode }) {
+  return (
+    <>
+      <ClientErrorTelemetry />
+      {children}
+    </>
+  );
+}
+
 export default function RootLayout({ children }: { children: ReactNode }) {
+  const publishableKey =
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ?? "";
+
   return (
     <html lang="en">
       <body>
-        <ClientErrorTelemetry />
-        {children}
+        {publishableKey ? (
+          <ClerkProvider publishableKey={publishableKey}>
+            <AppContents>{children}</AppContents>
+          </ClerkProvider>
+        ) : (
+          <AppContents>{children}</AppContents>
+        )}
       </body>
     </html>
   );

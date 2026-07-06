@@ -13,7 +13,7 @@ import {
   STARTING_CONSUMABLES,
   setCell,
 } from "@/sim/mine";
-import { useMineStore } from "./mine-store";
+import { type AccountSaveSummary, useMineStore } from "./mine-store";
 
 const store = () => useMineStore.getState();
 
@@ -25,6 +25,33 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const stock = (overrides: Partial<MineConsumables> = {}): MineConsumables => ({
   ...NO_CONSUMABLES,
+  ...overrides,
+});
+
+function markAccountProviderReady(): void {
+  useMineStore.setState((state) => ({
+    accountSync: {
+      ...state.accountSync,
+      providerStatus: {
+        provider: "clerk",
+        ready: true,
+        reason: null,
+        issues: [],
+      },
+    },
+  }));
+}
+
+const savedDeviceSummary = (
+  overrides: Partial<AccountSaveSummary> = {},
+): AccountSaveSummary => ({
+  exists: true,
+  createdAt: "2026-07-04T00:00:00.000Z",
+  balance: 10,
+  deepestDepth: 3,
+  partsOwned: 1,
+  designs: 1,
+  stamps: 2,
   ...overrides,
 });
 
@@ -70,6 +97,26 @@ describe("mine store upgrade flow", () => {
       pendingBunker: null,
       activeSlot: 1,
       saveSlots: { state: "unknown", activeSlot: 1, slots: [] },
+      accountSync: {
+        state: "unknown",
+        providerStatus: {
+          provider: "clerk",
+          ready: false,
+          reason: "sdk_not_wired",
+          issues: [
+            "sdk_not_wired",
+            "publishable_key_missing",
+            "secret_key_missing",
+            "public_sign_in_url_missing",
+            "public_sign_in_fallback_url_missing",
+            "public_sign_up_fallback_url_missing",
+          ],
+        },
+        mode: "guest",
+        accountEmail: null,
+        currentSave: null,
+        accountSave: null,
+      },
       worldLoaded: true,
       fallVisualImpactKey: null,
     });
@@ -213,6 +260,7 @@ describe("mine store upgrade flow", () => {
       state: "done",
       bunkerClaimed: true,
     });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     const lastSaved = vi.mocked(localStorage.setItem).mock.calls.at(-1);
     expect(JSON.parse(lastSaved?.[1] ?? "{}").pendingBunker).toBeNull();
   });
@@ -284,23 +332,26 @@ describe("mine store upgrade flow", () => {
   });
 
   it("keeps the sold resource breakdown on successful cash-out", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      jsonResponse({
-        credited: {
-          credits: 45,
-          parts: [],
-          milestoneBonus: 0,
-          soldHaul: {
-            ores: { coal: 3, silver: 2 },
-            salvageCredits: 0,
-            totalVibes: 45,
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          credited: {
+            credits: 45,
+            parts: [],
+            milestoneBonus: 0,
+            soldHaul: {
+              ores: { coal: 3, silver: 2 },
+              salvageCredits: 0,
+              totalVibes: 45,
+            },
           },
-        },
-        balance: 55,
-        tripIndex: 3,
-        consumables: stock(),
-      }),
-    );
+          balance: 55,
+          tripIndex: 3,
+          consumables: stock(),
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ cleared: true }));
     vi.stubGlobal("fetch", fetchMock);
 
     await store().submitCashOut();
@@ -342,6 +393,7 @@ describe("mine store upgrade flow", () => {
         body: JSON.stringify({ cost: 2 }),
       }),
     );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(store().mine.miner.col).toBe(0);
     expect(store().moves).toEqual([]);
     expect(store().balance).toBe(8);
@@ -965,6 +1017,778 @@ describe("mine store upgrade flow", () => {
       expect.any(String),
     );
     expect(store().saveSlots.state).toBe("ready");
+  });
+
+  it("flushes the current trip before loading account status", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        mode: "signed_in",
+        activeSlot: 1,
+        account: { provider: "clerk", email: "pilot@example.com" },
+        currentSave: null,
+        accountSave: null,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await store().loadAccountStatus();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/account/status");
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+      expect.any(String),
+    );
+    expect(store().accountSync).toMatchObject({
+      state: "ready",
+      mode: "signed_in",
+      accountEmail: "pilot@example.com",
+      currentSave: null,
+      accountSave: null,
+    });
+  });
+
+  it("does not auto-claim a signed-in device save after loading status", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        mode: "signed_in",
+        activeSlot: 1,
+        account: { provider: "clerk", email: "pilot@example.com" },
+        currentSave: savedDeviceSummary(),
+        accountSave: null,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await store().loadAccountStatus();
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/status",
+    ]);
+    expect(store().accountSync).toMatchObject({
+      state: "ready",
+      mode: "signed_in",
+      accountEmail: "pilot@example.com",
+      currentSave: { balance: 10 },
+      accountSave: null,
+    });
+  });
+
+  it("flushes the current trip before starting account sign-in", async () => {
+    markAccountProviderReady();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ stored: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          handoffId: "handoff-1",
+          expiresAt: "2026-07-04T00:10:00.000Z",
+          returnTo: "/mine",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const handoff = await store().startAccountSignIn("/mine");
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/trip",
+      "/api/account/handoff/start",
+    ]);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "PUT" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).trip).toMatchObject({
+      mineVersion: MINE_VERSION,
+      seed: 123,
+      moves: ["down"],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/account/handoff/start",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ returnTo: "/mine" }),
+      }),
+    );
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+      expect.any(String),
+    );
+    expect(handoff).toEqual({
+      handoffId: "handoff-1",
+      expiresAt: "2026-07-04T00:10:00.000Z",
+      returnTo: "/mine",
+    });
+    expect(store().accountSync.state).toBe("ready");
+  });
+
+  it("does not checkpoint or start sign-in while the provider is pending", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const handoff = await store().startAccountSignIn("/mine");
+
+    expect(handoff).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(localStorage.setItem).not.toHaveBeenCalled();
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "Google sign-in pending",
+    });
+  });
+
+  it("does not start account sign-in when current trip checkpointing fails", async () => {
+    markAccountProviderReady();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: "storage offline" }, 503));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const handoff = await store().startAccountSignIn("/mine");
+
+    expect(handoff).toBeNull();
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/trip",
+    ]);
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "could not save current trip",
+    });
+  });
+
+  it("starts account sign-in when checkpointing fails after a device save exists", async () => {
+    markAccountProviderReady();
+    useMineStore.setState((state) => ({
+      accountSync: {
+        ...state.accountSync,
+        currentSave: savedDeviceSummary(),
+      },
+    }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: "storage offline" }, 503))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          handoffId: "handoff-1",
+          expiresAt: "2026-07-04T00:10:00.000Z",
+          returnTo: "/mine",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const handoff = await store().startAccountSignIn("/mine");
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/trip",
+      "/api/account/handoff/start",
+    ]);
+    expect(handoff).toEqual({
+      handoffId: "handoff-1",
+      expiresAt: "2026-07-04T00:10:00.000Z",
+      returnTo: "/mine",
+    });
+    expect(store().accountSync.state).toBe("ready");
+  });
+
+  it("starts account sign-in without checkpointing when no trip is loaded", async () => {
+    markAccountProviderReady();
+    useMineStore.setState({ worldLoaded: false });
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        handoffId: "handoff-1",
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "/mine",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const handoff = await store().startAccountSignIn("/mine");
+
+    // No loaded world means no trip to persist, so the checkpoint PUT is
+    // skipped and sign-in proceeds instead of aborting.
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/handoff/start",
+    ]);
+    expect(handoff).toMatchObject({ handoffId: "handoff-1" });
+    expect(store().accountSync.state).toBe("ready");
+  });
+
+  it("rejects malformed account sign-in handoff responses before redirect", async () => {
+    markAccountProviderReady();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ stored: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          handoffId: "handoff/1",
+          expiresAt: "2026-07-04T00:10:00.000Z",
+          returnTo: "/mine",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const handoff = await store().startAccountSignIn("/mine");
+
+    expect(handoff).toBeNull();
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "could not read sign-in handoff",
+    });
+  });
+
+  it("refreshes account status and save slots after sign-in finishes", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          mode: "cloud_loaded",
+          result: "claimed",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          mode: "cloud_loaded",
+          activeSlot: 1,
+          account: { provider: "clerk", email: "pilot@example.com" },
+          currentSave: {
+            exists: true,
+            createdAt: "2026-07-04T00:00:00.000Z",
+            balance: 10,
+            deepestDepth: 3,
+            partsOwned: 1,
+            designs: 1,
+            stamps: 2,
+          },
+          accountSave: {
+            exists: true,
+            createdAt: "2026-07-04T00:00:00.000Z",
+            balance: 10,
+            deepestDepth: 3,
+            partsOwned: 1,
+            designs: 1,
+            stamps: 2,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          activeSlot: 1,
+          slots: [
+            {
+              slot: 1,
+              active: true,
+              exists: true,
+              createdAt: "2026-07-04T00:00:00.000Z",
+              balance: 10,
+              deepestDepth: 3,
+              partsOwned: 1,
+              designs: 1,
+              stamps: 2,
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().finishAccountSignIn("handoff-1");
+
+    expect(ok).toBe(true);
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/handoff/finish",
+      "/api/account/status",
+      "/api/save-slots",
+    ]);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ handoffId: "handoff-1" }),
+    });
+    expect(localStorage.removeItem).not.toHaveBeenCalled();
+    expect(store().accountSync).toMatchObject({
+      state: "ready",
+      mode: "cloud_loaded",
+      accountEmail: "pilot@example.com",
+    });
+    expect(store().saveSlots.state).toBe("ready");
+  });
+
+  it("shows an expired handoff error when sign-in return is stale", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: "expired handoff" }, 410));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().finishAccountSignIn("handoff-1");
+
+    expect(ok).toBe(false);
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "sign-in handoff expired",
+    });
+  });
+
+  it("rejects malformed account sign-in callback tokens before network", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().finishAccountSignIn("handoff/1");
+
+    expect(ok).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "sign-in finish failed",
+    });
+  });
+
+  it("claims the current save for a signed-in account", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ stored: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          mode: "cloud_loaded",
+          result: "claimed",
+          accountSave: {
+            exists: true,
+            createdAt: "2026-07-04T00:00:00.000Z",
+            balance: 10,
+            deepestDepth: 3,
+            partsOwned: 1,
+            designs: 1,
+            stamps: 2,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          mode: "cloud_loaded",
+          activeSlot: 1,
+          account: { provider: "clerk", email: "pilot@example.com" },
+          currentSave: {
+            exists: true,
+            createdAt: "2026-07-04T00:00:00.000Z",
+            balance: 10,
+            deepestDepth: 3,
+            partsOwned: 1,
+            designs: 1,
+            stamps: 2,
+          },
+          accountSave: {
+            exists: true,
+            createdAt: "2026-07-04T00:00:00.000Z",
+            balance: 10,
+            deepestDepth: 3,
+            partsOwned: 1,
+            designs: 1,
+            stamps: 2,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          activeSlot: 1,
+          slots: [
+            {
+              slot: 1,
+              active: true,
+              exists: true,
+              createdAt: "2026-07-04T00:00:00.000Z",
+              balance: 10,
+              deepestDepth: 3,
+              partsOwned: 1,
+              designs: 1,
+              stamps: 2,
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().claimAccountSave();
+
+    expect(ok).toBe(true);
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/trip",
+      "/api/account/claim",
+      "/api/account/status",
+      "/api/save-slots",
+    ]);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "PUT" });
+    expect(store().accountSync).toMatchObject({
+      state: "ready",
+      mode: "cloud_loaded",
+      accountEmail: "pilot@example.com",
+    });
+    expect(store().saveSlots.state).toBe("ready");
+  });
+
+  it("does not claim an account save when current trip checkpointing fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: "storage offline" }, 503));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().claimAccountSave();
+
+    expect(ok).toBe(false);
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/trip",
+    ]);
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "could not save current trip",
+    });
+  });
+
+  it("claims without checkpointing when no trip is loaded", async () => {
+    useMineStore.setState((state) => ({
+      worldLoaded: false,
+      accountSync: {
+        ...state.accountSync,
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: null,
+          issues: [],
+        },
+        mode: "signed_in",
+        accountEmail: "pilot@example.com",
+      },
+    }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ error: "guest save not found" }, 404),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().claimAccountSave();
+
+    expect(ok).toBe(false);
+    // No loaded world means no trip to persist, so the checkpoint PUT is
+    // skipped and the claim proceeds to the claim route.
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/claim",
+    ]);
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "guest save not found",
+    });
+  });
+
+  it("shows the account claim route error when claim is rejected", async () => {
+    useMineStore.setState((state) => ({
+      accountSync: {
+        ...state.accountSync,
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: null,
+          issues: [],
+        },
+        mode: "signed_in",
+        accountEmail: "pilot@example.com",
+        currentSave: savedDeviceSummary(),
+      },
+    }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ stored: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({ error: "guest save not found" }, 404),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().claimAccountSave();
+
+    expect(ok).toBe(false);
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/trip",
+      "/api/account/claim",
+    ]);
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "guest save not found",
+    });
+  });
+
+  it("claims an account save when checkpointing fails after a device save exists", async () => {
+    useMineStore.setState((state) => ({
+      accountSync: {
+        ...state.accountSync,
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: null,
+          issues: [],
+        },
+        mode: "signed_in",
+        accountEmail: "pilot@example.com",
+        currentSave: savedDeviceSummary(),
+      },
+    }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: "storage offline" }, 503))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          mode: "cloud_loaded",
+          result: "claimed",
+          accountSave: savedDeviceSummary(),
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          mode: "cloud_loaded",
+          activeSlot: 1,
+          account: { provider: "clerk", email: "pilot@example.com" },
+          currentSave: savedDeviceSummary(),
+          accountSave: savedDeviceSummary(),
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          activeSlot: 1,
+          slots: [
+            {
+              slot: 1,
+              active: true,
+              ...savedDeviceSummary(),
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().claimAccountSave();
+
+    expect(ok).toBe(true);
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/trip",
+      "/api/account/claim",
+      "/api/account/status",
+      "/api/save-slots",
+    ]);
+    expect(store().accountSync).toMatchObject({
+      state: "ready",
+      mode: "cloud_loaded",
+      accountEmail: "pilot@example.com",
+      currentSave: { balance: 10 },
+      accountSave: { balance: 10 },
+    });
+  });
+
+  it("keeps both saves when claim finds an account conflict", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ stored: true }))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: "account already has a cloud save",
+            mode: "conflict",
+            accountSave: {
+              exists: true,
+              createdAt: "2026-07-03T00:00:00.000Z",
+              balance: 30,
+              deepestDepth: 8,
+              partsOwned: 4,
+              designs: 3,
+              stamps: 2,
+            },
+          },
+          409,
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          mode: "conflict",
+          activeSlot: 1,
+          account: { provider: "clerk", email: "pilot@example.com" },
+          currentSave: {
+            exists: true,
+            createdAt: "2026-07-04T00:00:00.000Z",
+            balance: 10,
+            deepestDepth: 3,
+            partsOwned: 1,
+            designs: 1,
+            stamps: 2,
+          },
+          accountSave: {
+            exists: true,
+            createdAt: "2026-07-03T00:00:00.000Z",
+            balance: 30,
+            deepestDepth: 8,
+            partsOwned: 4,
+            designs: 3,
+            stamps: 2,
+          },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().claimAccountSave();
+
+    expect(ok).toBe(false);
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/trip",
+      "/api/account/claim",
+      "/api/account/status",
+    ]);
+    expect(store().accountSync).toMatchObject({
+      state: "ready",
+      mode: "conflict",
+      accountEmail: "pilot@example.com",
+      currentSave: { balance: 10 },
+      accountSave: { balance: 30 },
+    });
+  });
+
+  it("loads a cloud save only after the account route succeeds", async () => {
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify({
+        mineVersion: MINE_VERSION,
+        seed: 123,
+        tripIndex: 2,
+        gear: DEFAULT_GEAR,
+        consumables: NO_CONSUMABLES,
+        baseDiff: [],
+        moves: ["down"] as MineAction[],
+      }),
+    );
+    const cloudGear = { ...DEFAULT_GEAR, pickaxe: 2 };
+    // The save-slot list loads in parallel with the world/gear chain, so the
+    // mock keys responses by URL instead of call order.
+    const responsesByUrl: Record<string, () => Response> = {
+      "/api/account/load": () =>
+        jsonResponse({
+          mode: "cloud_loaded",
+          activeSlot: 1,
+          accountSave: {
+            exists: true,
+            createdAt: "2026-07-03T00:00:00.000Z",
+            balance: 30,
+            deepestDepth: 8,
+            partsOwned: 4,
+            designs: 3,
+            stamps: 2,
+          },
+        }),
+      "/api/account/trip": () =>
+        jsonResponse({
+          trip: {
+            mineVersion: MINE_VERSION,
+            seed: 777,
+            tripIndex: 6,
+            gear: cloudGear,
+            consumables: stock({ ladder: 1 }),
+            baseDiff: [],
+            moves: ["down"],
+          },
+        }),
+      "/api/mine/world": () =>
+        jsonResponse({
+          seed: 777,
+          tripIndex: 6,
+          diff: [],
+          activeSlot: 1,
+        }),
+      "/api/gear": () =>
+        jsonResponse({
+          gear: cloudGear,
+          consumables: stock({ ladder: 1 }),
+          balance: 30,
+          deepestDepth: 8,
+        }),
+      "/api/save-slots": () =>
+        jsonResponse({
+          activeSlot: 1,
+          slots: [
+            {
+              slot: 1,
+              active: true,
+              exists: true,
+              createdAt: "2026-07-03T00:00:00.000Z",
+              balance: 30,
+              deepestDepth: 8,
+              partsOwned: 4,
+              designs: 3,
+              stamps: 2,
+            },
+          ],
+        }),
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const respond = responsesByUrl[url];
+      if (!respond) throw new Error(`unexpected fetch: ${url}`);
+      return respond();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().loadAccountSave();
+
+    expect(ok).toBe(true);
+    const calledUrls = fetchMock.mock.calls.map((call) => call[0]);
+    expect(calledUrls.slice(0, 2)).toEqual([
+      "/api/account/load",
+      "/api/account/trip",
+    ]);
+    expect([...calledUrls].sort()).toEqual([
+      "/api/account/load",
+      "/api/account/trip",
+      "/api/gear",
+      "/api/mine/world",
+      "/api/save-slots",
+    ]);
+    expect(localStorage.removeItem).toHaveBeenCalledWith(
+      "vibebots-mine-trip-v2-slot-1",
+    );
+    expect(store().seed).toBe(777);
+    expect(store().tripIndex).toBe(6);
+    expect(store().gear).toEqual(cloudGear);
+    expect(store().balance).toBe(30);
+    // The load response carries everything the popup shows; the email was
+    // already in state from the status read that revealed the conflict.
+    expect(store().accountSync).toMatchObject({
+      state: "ready",
+      mode: "cloud_loaded",
+      currentSave: { balance: 30 },
+      accountSave: { balance: 30 },
+    });
+  });
+
+  it("does not replace local trip state for malformed cloud-load success", async () => {
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify({
+        mineVersion: MINE_VERSION,
+        seed: 123,
+        tripIndex: 2,
+        gear: DEFAULT_GEAR,
+        consumables: NO_CONSUMABLES,
+        baseDiff: [],
+        moves: ["down"] as MineAction[],
+      }),
+    );
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        mode: "cloud_loaded",
+        activeSlot: 1,
+        accountSave: { exists: false },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().loadAccountSave();
+
+    expect(ok).toBe(false);
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/load",
+    ]);
+    expect(localStorage.removeItem).not.toHaveBeenCalled();
+    expect(store().seed).toBe(123);
+    expect(store().tripIndex).toBe(2);
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "could not read cloud save",
+    });
   });
 
   it("flushes the current slot and removes the deleted slot checkpoint", async () => {

@@ -74,8 +74,11 @@ vi.mock("@/server/player", () => ({
     };
   }),
   deleteSaveSlot: vi.fn(async (slot: 1 | 2 | 3) => ({
-    activeSlot: 1,
-    slots: slot === 1 ? {} : { "1": "player-1" },
+    status: "deleted",
+    session: {
+      activeSlot: 1,
+      slots: slot === 1 ? {} : { "1": "player-1" },
+    },
   })),
 }));
 
@@ -186,6 +189,29 @@ describe("/api/save-slots", () => {
     expect(mockedDeleteSaveSlot).toHaveBeenCalledWith(2);
     const body = await res.json();
     expect(body.activeSlot).toBe(1);
+  });
+
+  it("blocks deletion of a save slot linked to an account", async () => {
+    mockedDeleteSaveSlot.mockResolvedValue({
+      status: "blocked-linked-account",
+      session: {
+        activeSlot: 1,
+        slots: { "1": "player-1", "2": "cloud-player" },
+      },
+    });
+
+    const res = await deleteRequest({ slot: 2, confirm: "DELETE SLOT 2" });
+
+    expect(res.status).toBe(409);
+    expect(mockedSaveSlotSummaries).toHaveBeenCalledWith("sql", {
+      activeSlot: 1,
+      slots: { "1": "player-1", "2": "cloud-player" },
+    });
+    expect(await res.json()).toMatchObject({
+      error: "linked account saves cannot be deleted from this device",
+      code: "linked_account_save_delete_blocked",
+      activeSlot: 1,
+    });
   });
 
   it("rejects save deletion without the confirmation phrase", async () => {

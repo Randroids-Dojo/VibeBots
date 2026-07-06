@@ -12,6 +12,7 @@
       "!.next",
       "!docs",
       "!.dots",
+      "!.claude/worktrees",
       "!test-results",
       "!playwright-report",
       "!coverage"

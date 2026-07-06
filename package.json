@@ -18,11 +18,13 @@
     "test:e2e:critical": "playwright test --grep \"mine shows the latest release note|loading a save slot refreshes|mine bunker builder starts a Clanker raid|fatal free fall stays on camera|mine actions begin immediately\"",
     "check:dashes": "bash scripts/check-dashes.sh",
     "check:purity": "bash scripts/check-sim-purity.sh",
+    "ops:check-account-env": "node scripts/check-account-env.mjs",
     "ops:repair-support": "node scripts/repair-mine-support-stock.mjs",
     "ops:repair-stale-trip": "node scripts/repair-stale-mine-trip.mjs",
     "ops:setup-push-env": "node scripts/setup-vercel-push-env.mjs"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.5.12",
     "@dimforge/rapier3d-deterministic-compat": "0.19.3",
     "@neondatabase/serverless": "^1.1.0",
     "@randroids-dojo/vibekit": "github:Randroids-Dojo/VibeKit#v0.3.0",

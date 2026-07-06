@@ -621,7 +621,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
 
     loadAccountStatus: async (options = {}) => {
       persistCurrentTrip();
-      const current = get().accountSync;
+      let current = get().accountSync;
       if (!options.silent) {
         set({
           accountSync: {
@@ -631,6 +631,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
       }
       const res = await loadRemoteAccountStatus();
+      // Re-read after the await so an error branch preserves any newer state a
+      // concurrent account-sync call wrote instead of clobbering it with a
+      // pre-await snapshot.
+      current = get().accountSync;
       if (res.status === 503) {
         set({
           accountSync: {
@@ -669,7 +673,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     startAccountSignIn: async (returnTo = "/mine") => {
-      const current = get().accountSync;
+      let current = get().accountSync;
       if (!current.providerReady || !current.providerStatus.ready) {
         set({
           accountSync: {
@@ -681,6 +685,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return null;
       }
       const checkpointResult = await storeAccountTripCheckpoint();
+      current = get().accountSync;
       if (checkpointResult !== "stored") {
         if (checkpointFailureCanContinue(current, checkpointResult)) {
           set({
@@ -707,6 +712,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         },
       });
       const res = await startRemoteAccountHandoff(returnTo);
+      current = get().accountSync;
       if (res.status === 503) {
         set({
           accountSync: {
@@ -755,7 +761,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
 
     finishAccountSignIn: async (handoffId) => {
       persistCurrentTrip();
-      const current = get().accountSync;
+      let current = get().accountSync;
       set({
         accountSync: {
           ...current,
@@ -763,6 +769,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         },
       });
       const res = await finishRemoteAccountHandoff(handoffId);
+      current = get().accountSync;
       if (res.status === 503) {
         set({
           accountSync: {
@@ -814,8 +821,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     claimAccountSave: async () => {
-      const current = get().accountSync;
+      let current = get().accountSync;
       const checkpointResult = await storeAccountTripCheckpoint();
+      current = get().accountSync;
       if (checkpointResult !== "stored") {
         if (checkpointFailureCanContinue(current, checkpointResult)) {
           set({
@@ -842,6 +850,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         },
       });
       const res = await claimRemoteAccountSave();
+      current = get().accountSync;
       if (res.status === 503) {
         set({
           accountSync: {
@@ -892,7 +901,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
 
     loadAccountSave: async () => {
       persistCurrentTrip();
-      const current = get().accountSync;
+      let current = get().accountSync;
       set({
         accountSync: {
           ...current,
@@ -900,6 +909,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         },
       });
       const res = await loadRemoteAccountSave();
+      current = get().accountSync;
       if (res.status === 503) {
         set({
           accountSync: {
@@ -941,6 +951,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       await get().loadWorld();
       await get().loadGear();
       await get().loadSaveSlots();
+      current = get().accountSync;
       set({
         accountSync: {
           ...current,

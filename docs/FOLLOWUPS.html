@@ -52,6 +52,36 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-073" data-f="F-073" data-priority="nice-to-have">
+    <h3>F-073: Silence Clerk environment 400s for guest sessions</h3>
+    <dl>
+      <dt>Context</dt><dd>Perf telemetry collection 2026-07-06: every production page load in a fresh guest browser logs two console errors from <code>/__clerk/v1/environment</code> and <code>/__clerk/v1/client</code> responding 400. Guests never touch Clerk UI, so the failed boot calls are pure console noise (and two wasted requests) on the most common session type. Observed on mine, workshop, arena, and holodeck loads in both desktop and mobile profiles.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: reproduce in a real guest browser, then either defer ClerkProvider boot until the account surface needs it or configure the instance so guest boots succeed. Acceptance: a fresh guest page load logs zero Clerk 400s and account sign-in still works.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the perf-telemetry first collection pass)</dd>
+    </dl>
+  </section>
+
+  <section id="F-072" data-f="F-072" data-priority="nice-to-have">
+    <h3>F-072: Vet the holodeck first-view frame spike</h3>
+    <dl>
+      <dt>Context</dt><dd>Perf telemetry collection 2026-07-06: holodeck snapshots show the worst p95 frame time of any surface (2,133 ms worst vs about 350-400 ms elsewhere in the same software-rendered harness), consistent with a first-navigation asset or compile hitch rather than steady-state cost. The harness is SwiftShader-rendered, so absolute numbers overstate real devices, but the relative spike is surface-specific.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: reproduce with the analyzer toggle on real hardware, read the loafTopScripts attribution for the spike window, and if it is load-time work, warm up or chunk the heavy step. Acceptance: real-device traces show holodeck first-view p95 in family with the other surfaces, verified through <code>GET /api/performance/insights</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the perf-telemetry first collection pass)</dd>
+    </dl>
+  </section>
+
+  <section id="F-071" data-f="F-071" data-priority="nice-to-have">
+    <h3>F-071: Collect real-device perf baselines (GPU timings, draw calls)</h3>
+    <dl>
+      <dt>Context</dt><dd>Perf telemetry collection 2026-07-06: the first production traces came from a headless SwiftShader harness, so <code>gpuFrameMs</code> is null everywhere (no WebGPU timestamp queries) and absolute frame times reflect software rendering, not player hardware. Draw-call rows stored before the <code>render.drawCalls</code> probe fix are also inflated by the cumulative counter and should be excluded from baselines (filter to <code>app_build</code> after the fix ships).</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: enable the toggle on at least one real desktop (WebGPU) and one phone, play a few minutes of mine, workshop, arena, and holodeck each, and confirm insights rows show non-null <code>gpuFrameMs</code> on the WebGPU device plus credible per-frame draw calls. Acceptance: a written baseline (per surface, desktop vs phone) in the F-054 analysis report with the tainted pre-fix builds excluded.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the perf-telemetry first collection pass)</dd>
+    </dl>
+  </section>
+
   <section id="F-070" data-f="F-070" data-priority="nice-to-have">
     <h3>F-070: Skip redundant trip persistence on read-only account status refresh</h3>
     <dl>
@@ -219,6 +249,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready: profile desktop and mobile-shaped runs, including Pixel 7 dimensions, and separate render cost, sim cost, network waits, input latency, memory churn, and frame pacing. Acceptance: produce a documented performance report with measurements, bottlenecks, and PR-sized followup recommendations.</dd>
       <dt>Progress</dt><dd>2026-07-06: the measurement instrument shipped (performance-analyzer-telemetry slice). An opt-in Performance telemetry toggle records 5-second snapshots pairing frame percentiles, GPU pass time, long-animation-frame script attribution, JS heap, and scene composition (draw calls, triangles, meshes, instances, lights, particles) into <code>player_perf_traces</code>, queryable through the anonymized <code>GET /api/performance/insights</code> rollups with per-build and per-variant splits for A/B fix measurement. Design and bottleneck hypotheses in <code>docs/research/performance-analyzer.html</code>. Remaining: collect desktop and mobile traces from real play and write the analysis report with PR-sized recommendations.</dd>
+      <dt>Progress update</dt><dd>2026-07-06 (first collection): the instrument merged as PR #87 and the pipeline is verified end to end against production. Scripted desktop, mobile-emulated, and <code>?perfVariant=ab-demo</code> sessions played mine, workshop, arena, and holodeck, saving 76 snapshots across the three runs with every <code>POST /api/performance/trace</code> returning 200; <code>GET /api/performance/insights?hours=2</code> then returned 110 snapshots across 13 sessions (including earlier preview-session rows) with working per-source segments and variant splits. The data immediately exposed a probe bug (three's WebGPURenderer <code>info.render.calls</code> counts since app start, not per frame), fixed by preferring <code>render.drawCalls</code>. Real-device baselines, the holodeck first-view spike, and guest Clerk 400 noise are tracked as <code>F-071</code>, <code>F-072</code>, <code>F-073</code>.</dd>
       <dt>PR / Dot reference</dt><dd><code>VibeBots-mine-real-time-d58bf6e5</code></dd>
     </dl>
   </section>

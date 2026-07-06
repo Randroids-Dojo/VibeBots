@@ -82,6 +82,16 @@ describe("collectRendererInfo", () => {
       textures: null,
     });
   });
+
+  it("prefers per-frame drawCalls over the cumulative calls counter", () => {
+    // WebGPURenderer Info: render.calls accumulates since app start,
+    // render.drawCalls is the per-frame value.
+    expect(
+      collectRendererInfo({
+        render: { calls: 10_535, drawCalls: 96, triangles: 34_000 },
+      }).drawCalls,
+    ).toBe(96);
+  });
 });
 
 describe("collectCanvasDiagnostics", () => {

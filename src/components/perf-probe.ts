@@ -131,7 +131,7 @@ export function collectCanvasDiagnostics(
 }
 
 export interface RendererInfoLike {
-  render?: { calls?: unknown; triangles?: unknown };
+  render?: { calls?: unknown; drawCalls?: unknown; triangles?: unknown };
   memory?: { geometries?: unknown; textures?: unknown };
 }
 
@@ -145,8 +145,12 @@ export function collectRendererInfo(info: RendererInfoLike | undefined): {
   geometries: number | null;
   textures: number | null;
 } {
+  // three's WebGPURenderer Info counts render.calls since app start;
+  // render.drawCalls is the per-frame number this metric means. The
+  // classic WebGLRenderer shape only has per-frame render.calls.
   return {
-    drawCalls: infoNumber(info?.render?.calls),
+    drawCalls:
+      infoNumber(info?.render?.drawCalls) ?? infoNumber(info?.render?.calls),
     triangles: infoNumber(info?.render?.triangles),
     geometries: infoNumber(info?.memory?.geometries),
     textures: infoNumber(info?.memory?.textures),

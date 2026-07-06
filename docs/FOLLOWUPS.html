@@ -52,6 +52,126 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-065" data-f="F-065" data-priority="nice-to-have">
+    <h3>F-065: Restore desktop circular lantern fog of war</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: desktop mine view is missing fog of war outside a circular lantern range of blocks.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: reproduce on desktop viewports, restore the circular visibility falloff, and verify upgraded lantern ranges stay clear inside the intended radius. Acceptance: desktop captures show cells outside lantern range obscured while the playable lit circle remains readable.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-restore-desktop-circular-b148c247</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-064" data-f="F-064" data-priority="nice-to-have">
+    <h3>F-064: Tone down desktop mine lighting</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: mine lighting on desktop is too bright.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: reproduce on desktop viewports, tune render-only lighting or exposure, and verify mobile readability plus lantern progression still work. Acceptance: desktop captures are less washed out, while upgraded lantern levels still visibly improve range.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-tone-down-desktop-76984c53</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-063" data-f="F-063" data-priority="nice-to-have">
+    <h3>F-063: Make the bot arena smaller with bounce walls</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: the arena should be smaller and include walls for bots to bounce off, making fights tighter and more readable.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: adjust arena bounds and wall colliders in the deterministic combat sim, then tune fight feel and camera framing. Acceptance: tests prove bots collide with the walls deterministically, stock fights remain stable, and the rendered arena clearly shows the smaller walled space.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-make-arena-smaller-fc899f0d</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-062" data-f="F-062" data-priority="nice-to-have">
+    <h3>F-062: Add Escape keyboard return to mine</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: keyboard players should be able to press Escape from surface buildings or building views to return to the mine.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: wire Escape to the same safe back or close path used by existing controls, without stealing Escape from active dialogs that need their own close behavior. Acceptance: focused keyboard coverage proves Escape returns from buildings to mine view and existing close controls still work.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-add-escape-keyboard-cdc8674b</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-061" data-f="F-061" data-priority="nice-to-have">
+    <h3>F-061: Add Enter keyboard building entry</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: keyboard players should be able to press Enter to enter buildings from the mine surface.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: map Enter to the selected or focused building entry path while preserving pointer and touch behavior. Acceptance: focused keyboard coverage proves Enter opens the intended building and does not interfere with normal button activation or form controls.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-add-keyboard-enter-2b50c0d8</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-060" data-f="F-060" data-priority="nice-to-have">
+    <h3>F-060: Increase mineral density in the first mine rows</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: the first couple mine rows should contain more minerals so early trips surface rewards sooner.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: tune early-row generation, treat it as a deterministic balance change, and update versioning, tests, and playtest evidence. Acceptance: the first couple rows feel more rewarding without making early cash-out payouts overpowered.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-increase-first-row-0498939d</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-059" data-f="F-059" data-priority="nice-to-have">
+    <h3>F-059: Update desktop Shift controls for jump and plank drop</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: desktop keyboard controls need explicit Shift-modified movement. Shift + Up should jump instead of climbing a ladder, and Shift + Down should drop down from a plank instead of mining it.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: update the desktop input mapping while preserving existing non-Shift controls. Acceptance: focused keyboard coverage proves Shift + Up jumps, Shift + Down drops through a plank when legal, and the old ladder and mining paths still work without Shift.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-update-desktop-shift-4d6a5834</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-058" data-f="F-058" data-priority="nice-to-have">
+    <h3>F-058: Add an out-of-battery mine death animation</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: running out of battery should have a readable death animation instead of only transitioning to the terminal trip state.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add a render-only death beat for out-of-battery terminal results and keep deterministic replay semantics unchanged unless intentionally versioned. Acceptance: the trip report waits for a visible animation beat, controls are disabled during terminal playback, and smoke or focused tests verify the animation state.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-add-out-of-f2f5cc3f</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-057" data-f="F-057" data-priority="nice-to-have">
+    <h3>F-057: Add a mine fall animation</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: the miner should have a readable fall animation for ordinary falling and any existing fatal fall playback.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add render-only fall motion without changing deterministic replay rules. Acceptance: consecutive-frame evidence shows visible falling motion, fatal fall playback still holds the camera underground until impact, and existing fall tests or smoke coverage remain green.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-add-mine-fall-743b2ed3</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-056" data-f="F-056" data-priority="nice-to-have">
+    <h3>F-056: Add rocket booster animation for jumping and hovering</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: jumping and hovering should show rocket booster animation so the vertical movement reads as powered.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add render-only booster flame, smoke, or thrust cues for jump and hover states. Acceptance: the animation is visible on desktop and mobile-sized viewports, motion is verified with screenshot or canvas evidence, and movement rules stay unchanged unless separately approved.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-add-rocket-booster-90403beb</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-055" data-f="F-055" data-priority="nice-to-have">
+    <h3>F-055: Fix zoomed-out lighting after the first lantern upgrade</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: after the first lantern upgrade, zooming out makes the mine lighting look bad. Reproduce on PC and at Pixel 7 dimensions.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: inspect the zoom, lantern, camera, fog, exposure, and light-radius interaction, then tune render-only lighting without changing colliders or sim rules. Acceptance: PC and Pixel 7-sized captures show the upgraded lantern lighting remains readable after zooming out.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-fix-zoomed-out-78c01431</code></dd>
+    </dl>
+  </section>
+
+  <section id="F-054" data-f="F-054" data-priority="nice-to-have">
+    <h3>F-054: Do exhaustive real-time mine performance analysis</h3>
+    <dl>
+      <dt>Context</dt><dd>User-raised followup: the mine needs an exhaustive real-time performance analysis before more visual and motion work accumulates.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: profile desktop and mobile-shaped runs, including Pixel 7 dimensions, and separate render cost, sim cost, network waits, input latency, memory churn, and frame pacing. Acceptance: produce a documented performance report with measurements, bottlenecks, and PR-sized followup recommendations.</dd>
+      <dt>PR / Dot reference</dt><dd><code>VibeBots-mine-real-time-d58bf6e5</code></dd>
+    </dl>
+  </section>
+
   <section id="F-053" data-f="F-053" data-priority="nice-to-have">
     <h3>F-053: Chassis mastery stamp</h3>
     <dl>

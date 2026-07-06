@@ -2,7 +2,7 @@ import {
   createAccountHandoff,
   safeAccountReturnTo,
 } from "@/server/account-handoff";
-import { accountJson } from "@/server/account-response";
+import { accountJson, storageUnavailable } from "@/server/account-response";
 import { accountProviderReady } from "@/server/account-session";
 import { db, storageConfigured } from "@/server/db";
 import { logAccountLinkEvent } from "@/server/monitoring";
@@ -10,10 +10,6 @@ import { currentPlayerId } from "@/server/player";
 import { sameOriginMutationRequired } from "@/server/request-guards";
 
 export const runtime = "nodejs";
-
-function storageUnavailable(): Response {
-  return accountJson({ error: "storage not configured" }, { status: 503 });
-}
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
   try {

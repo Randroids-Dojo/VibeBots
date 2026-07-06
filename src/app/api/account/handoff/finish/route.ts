@@ -3,7 +3,7 @@ import {
   safeAccountHandoffId,
 } from "@/server/account-handoff";
 import { claimPlayerForAccount } from "@/server/account-linking";
-import { accountJson } from "@/server/account-response";
+import { accountJson, storageUnavailable } from "@/server/account-response";
 import {
   currentReadyAccountIdentity,
   requestAccountSessionProvider,
@@ -20,10 +20,6 @@ import {
 import { sameOriginMutationRequired } from "@/server/request-guards";
 
 export const runtime = "nodejs";
-
-function storageUnavailable(): Response {
-  return accountJson({ error: "storage not configured" }, { status: 503 });
-}
 
 async function handoffIdFromRequest(request: Request): Promise<string | null> {
   try {

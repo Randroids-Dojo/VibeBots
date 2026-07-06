@@ -804,8 +804,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         return false;
       }
-      await get().loadAccountStatus();
-      await get().loadSaveSlots();
+      await Promise.all([get().loadAccountStatus(), get().loadSaveSlots()]);
       return true;
     },
 
@@ -882,8 +881,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         return false;
       }
-      await get().loadAccountStatus();
-      await get().loadSaveSlots();
+      await Promise.all([get().loadAccountStatus(), get().loadSaveSlots()]);
       return true;
     },
 

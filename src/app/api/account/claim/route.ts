@@ -1,6 +1,6 @@
 import type { AccountIdentity } from "@/lib/account-link-core";
 import { claimPlayerForAccount } from "@/server/account-linking";
-import { accountJson } from "@/server/account-response";
+import { accountJson, storageUnavailable } from "@/server/account-response";
 import {
   currentReadyAccountIdentity,
   requestAccountSessionProvider,
@@ -12,10 +12,6 @@ import { currentPlayerId } from "@/server/player";
 import { sameOriginMutationRequired } from "@/server/request-guards";
 
 export const runtime = "nodejs";
-
-function storageUnavailable(): Response {
-  return accountJson({ error: "storage not configured" }, { status: 503 });
-}
 
 export async function POST(request: Request): Promise<Response> {
   const rejected = sameOriginMutationRequired(request);

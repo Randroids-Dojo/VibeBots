@@ -1,6 +1,6 @@
 import { accountLinkedSaveStatus } from "@/lib/account-link-core";
 import { findLinkedPlayerId } from "@/server/account-linking";
-import { accountJson } from "@/server/account-response";
+import { accountJson, storageUnavailable } from "@/server/account-response";
 import {
   currentReadyAccountIdentity,
   requestAccountSessionProvider,
@@ -15,10 +15,6 @@ import {
 import { sameOriginBrowserRequestAllowed } from "@/server/request-guards";
 
 export const runtime = "nodejs";
-
-function storageUnavailable(): Response {
-  return accountJson({ error: "storage not configured" }, { status: 503 });
-}
 
 export async function GET(request: Request): Promise<Response> {
   if (!storageConfigured()) return storageUnavailable();
@@ -57,10 +53,16 @@ export async function GET(request: Request): Promise<Response> {
     activeSlot = nextSession.activeSlot;
     activePlayerId = accountPlayerId;
   }
-  const [currentSave, accountSave] = await Promise.all([
+  // In the cloud_loaded state the active and account players are the same id,
+  // so avoid issuing the identical aggregate query twice.
+  const sameSummaryPlayer = activePlayerId === accountPlayerId;
+  const [currentSave, otherSave] = await Promise.all([
     accountSaveSummary(sql, activePlayerId),
-    accountSaveSummary(sql, accountPlayerId),
+    sameSummaryPlayer
+      ? Promise.resolve(null)
+      : accountSaveSummary(sql, accountPlayerId),
   ]);
+  const accountSave = sameSummaryPlayer ? currentSave : otherSave;
   const linkedStatus = accountLinkedSaveStatus({
     activePlayerId,
     linkedPlayerId: accountPlayerId,

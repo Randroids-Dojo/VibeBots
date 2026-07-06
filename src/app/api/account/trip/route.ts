@@ -1,61 +1,27 @@
 import { z } from "zod";
 import { findLinkedPlayerId } from "@/server/account-linking";
-import { accountJson } from "@/server/account-response";
+import { accountJson, storageUnavailable } from "@/server/account-response";
 import {
   currentReadyAccountIdentity,
   requestAccountSessionProvider,
 } from "@/server/account-session";
 import { db, storageConfigured } from "@/server/db";
+import {
+  mineConsumablesSchema,
+  mineGearSchema,
+} from "@/server/mine-trip-schema";
 import { currentPlayerId } from "@/server/player";
 import { sameOriginMutationRequired } from "@/server/request-guards";
-import {
-  isMineAction,
-  MAX_TRIP_MOVES,
-  MINE_VERSION,
-  maxGearLevel,
-} from "@/sim/mine";
+import { isMineAction, MAX_TRIP_MOVES, MINE_VERSION } from "@/sim/mine";
 
 export const runtime = "nodejs";
-
-const DB_INT_MAX = 2_147_483_647;
-const consumableCount = z.number().int().min(0).max(DB_INT_MAX);
-const gearLevel = (
-  track:
-    | "pickaxe"
-    | "battery"
-    | "cargo"
-    | "lantern"
-    | "warpcoil"
-    | "blast"
-    | "elevatorSpeed"
-    | "fall"
-    | "recall",
-) => z.number().int().min(1).max(maxGearLevel(track));
 
 const tripSchema = z.object({
   mineVersion: z.literal(MINE_VERSION),
   seed: z.number().int().min(0).max(4294967295),
   tripIndex: z.number().int().min(0),
-  gear: z.object({
-    pickaxe: gearLevel("pickaxe"),
-    battery: gearLevel("battery").optional(),
-    lamp: gearLevel("battery").optional(),
-    cargo: gearLevel("cargo"),
-    lantern: gearLevel("lantern"),
-    elevator: z.number().int().min(0).max(100000),
-    warpcoil: gearLevel("warpcoil"),
-    blast: gearLevel("blast").optional(),
-    elevatorSpeed: gearLevel("elevatorSpeed").optional(),
-    fall: gearLevel("fall").optional(),
-    recall: gearLevel("recall").optional(),
-  }),
-  consumables: z.object({
-    dynamite: consumableCount,
-    rope: consumableCount,
-    ladder: consumableCount,
-    plank: consumableCount,
-    beacon: consumableCount,
-  }),
+  gear: mineGearSchema,
+  consumables: mineConsumablesSchema,
   baseDiff: z.array(z.unknown()).max(20000),
   moves: z
     .array(z.string().refine(isMineAction, { message: "invalid mine action" }))
@@ -67,10 +33,6 @@ const tripSchema = z.object({
 const putBodySchema = z.object({
   trip: tripSchema,
 });
-
-function storageUnavailable(): Response {
-  return accountJson({ error: "storage not configured" }, { status: 503 });
-}
 
 export async function GET(request: Request): Promise<Response> {
   if (!storageConfigured()) return storageUnavailable();

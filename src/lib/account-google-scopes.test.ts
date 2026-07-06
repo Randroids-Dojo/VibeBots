@@ -20,8 +20,8 @@ describe("account Google scope contract", () => {
     expect(accountGoogleIdentityScopeString()).toBe("openid email profile");
   });
 
-  it("loads the scope list from shared JSON data", () => {
-    expect(ACCOUNT_GOOGLE_IDENTITY_SCOPES).toBe(googleScopes.identity);
+  it("keeps the shared JSON mirror in sync with the scope list", () => {
+    expect(googleScopes.identity).toEqual([...ACCOUNT_GOOGLE_IDENTITY_SCOPES]);
   });
 
   it("keeps shared scope data limited to identity scopes", () => {

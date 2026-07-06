@@ -2,6 +2,10 @@ import { z } from "zod";
 import { applyAchievementProgress } from "@/server/achievements";
 import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
+import {
+  mineConsumablesSchema,
+  mineGearSchema,
+} from "@/server/mine-trip-schema";
 import { logMineCashOutEvent } from "@/server/monitoring";
 import {
   currentPlayerId,
@@ -34,7 +38,6 @@ import {
   type MineConsumables,
   type MineGear,
   type MineGearTrack,
-  maxGearLevel,
   normalizeGear,
   PLANK_RECOVERY_FLOOR,
   replayTrip,
@@ -45,8 +48,6 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const DB_INT_MAX = 2_147_483_647;
-const consumableCount = z.number().int().min(0).max(DB_INT_MAX);
 const basePartIdSchema = z.enum(BASE_PART_IDS);
 const placedBasePartSchema = z.object({
   partId: basePartIdSchema,
@@ -75,19 +76,6 @@ const CONSUMABLE_LOG_FIELDS = [
   "beacon",
 ] as const;
 
-const gearLevel = (
-  track:
-    | "pickaxe"
-    | "battery"
-    | "cargo"
-    | "lantern"
-    | "warpcoil"
-    | "blast"
-    | "elevatorSpeed"
-    | "fall"
-    | "recall",
-) => z.number().int().min(1).max(maxGearLevel(track));
-
 const bodySchema = z.object({
   seed: z.number().int().min(0).max(4294967295),
   // Replay-protection: must match the stored world's trip counter.
@@ -99,31 +87,11 @@ const bodySchema = z.object({
   mineVersion: z.number().int(),
   // The gear snapshot the session was played with (Q-007 default B):
   // replay must match what the player saw, validated against ownership.
-  gear: z
-    .object({
-      pickaxe: gearLevel("pickaxe"),
-      battery: gearLevel("battery").optional(),
-      lamp: gearLevel("battery").optional(),
-      cargo: gearLevel("cargo"),
-      lantern: gearLevel("lantern"),
-      elevator: z.number().int().min(0).max(100000),
-      warpcoil: gearLevel("warpcoil"),
-      // Optional: gear snapshots that predate these tracks replay as 1.
-      blast: gearLevel("blast").optional(),
-      elevatorSpeed: gearLevel("elevatorSpeed").optional(),
-      fall: gearLevel("fall").optional(),
-      recall: gearLevel("recall").optional(),
-    })
-    .transform((gear) => normalizeGear(gear)),
+  // Optional gear tracks that predate a snapshot replay as 1 via normalizeGear.
+  gear: mineGearSchema.transform((gear) => normalizeGear(gear)),
   // Client snapshot used as an ownership upper bound. The server derives
   // replay stock from the normalized player row before crediting payout.
-  consumables: z.object({
-    dynamite: consumableCount,
-    rope: consumableCount,
-    ladder: consumableCount,
-    plank: consumableCount,
-    beacon: consumableCount,
-  }),
+  consumables: mineConsumablesSchema,
   pendingBunker: z
     .object({
       claimCol: z.number().int(),

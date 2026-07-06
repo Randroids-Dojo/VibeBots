@@ -1,7 +1,12 @@
-import googleScopes from "./account-google-scopes.json";
-
-export const ACCOUNT_GOOGLE_IDENTITY_SCOPES =
-  googleScopes.identity as unknown as readonly ["openid", "email", "profile"];
+// Source of truth for the pinned Google identity scopes and the type derived
+// from them. account-google-scopes.json mirrors this list for
+// scripts/check-account-env.mjs, which cannot import TypeScript; the scope
+// contract test asserts the two stay in sync.
+export const ACCOUNT_GOOGLE_IDENTITY_SCOPES = [
+  "openid",
+  "email",
+  "profile",
+] as const;
 
 export type AccountGoogleIdentityScope =
   (typeof ACCOUNT_GOOGLE_IDENTITY_SCOPES)[number];

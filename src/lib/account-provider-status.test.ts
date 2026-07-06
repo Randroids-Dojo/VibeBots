@@ -73,8 +73,8 @@ describe("account provider status contract", () => {
     expect(isAccountProviderIssue("")).toBe(false);
   });
 
-  it("loads the issue list from shared JSON data", () => {
-    expect(ACCOUNT_PROVIDER_ISSUES).toBe(providerStatusCodes.issues);
+  it("keeps the shared JSON mirror in sync with the issue list", () => {
+    expect(providerStatusCodes.issues).toEqual([...ACCOUNT_PROVIDER_ISSUES]);
   });
 
   it("stays free of framework, provider, storage, and app imports", () => {

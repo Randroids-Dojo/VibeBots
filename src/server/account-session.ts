@@ -53,22 +53,11 @@ export interface AccountSessionProvider {
   status: () => AccountProviderStatus;
 }
 
-export function createAccountSessionProvider({
-  identity,
-  status,
-}: AccountSessionProvider): AccountSessionProvider {
-  return { identity, status };
-}
-
 export async function resolveAccountIdentity(
   resolver: AccountIdentityResolver,
 ): Promise<AccountIdentity | null> {
   const identity = await resolver();
   return identity ? normalizeAccountIdentity(identity) : null;
-}
-
-async function pendingClerkAccountIdentity(): Promise<AccountIdentity | null> {
-  return null;
 }
 
 function envValueConfigured(value: string | undefined): boolean {
@@ -256,20 +245,6 @@ export function accountProviderReady(
   return provider.status().ready;
 }
 
-export function pendingClerkAccountProvider(
-  env: AccountProviderStatusEnv = currentProviderStatusEnv(),
-): AccountSessionProvider {
-  return createAccountSessionProvider({
-    identity: pendingClerkAccountIdentity,
-    status: () =>
-      accountProviderStatusFromConfig({
-        ...env,
-        resolverWired: false,
-        sdkDependencyInstalled: false,
-      }),
-  });
-}
-
 export function currentAccountSessionProvider(
   env: AccountProviderStatusEnv = currentProviderStatusEnv(),
 ): AccountSessionProvider {
@@ -280,8 +255,9 @@ export function requestAccountSessionProvider(
   request: Request,
   env: AccountProviderStatusEnv = currentProviderStatusEnv(),
   createClient: typeof createClerkClient = createClerkClient,
+  options: { withEmail?: boolean } = {},
 ): AccountSessionProvider {
-  return createAccountSessionProvider({
+  return {
     identity: async () => {
       const publishableKey = env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
       const secretKey = env.CLERK_SECRET_KEY?.trim();
@@ -310,6 +286,10 @@ export function requestAccountSessionProvider(
         typeof authState?.userId === "string" ? authState.userId : undefined;
       if (!userId) return null;
 
+      // The Clerk user lookup is a remote API call and only supplies the
+      // email, so skip it unless the caller actually surfaces the email.
+      if (!options.withEmail) return { provider: "clerk", subject: userId };
+
       try {
         return accountIdentityFromClerkUser(await client.users.getUser(userId));
       } catch {
@@ -322,14 +302,14 @@ export function requestAccountSessionProvider(
         resolverWired: true,
         sdkDependencyInstalled: true,
       }),
-  });
+  };
 }
 
 export function clerkAccountProvider(
   deps: ClerkAccountResolverDeps,
   env: AccountProviderStatusEnv = currentProviderStatusEnv(),
 ): AccountSessionProvider {
-  return createAccountSessionProvider({
+  return {
     identity: clerkAccountIdentityResolver(deps),
     status: () =>
       accountProviderStatusFromConfig({
@@ -337,7 +317,7 @@ export function clerkAccountProvider(
         resolverWired: true,
         sdkDependencyInstalled: true,
       }),
-  });
+  };
 }
 
 export async function currentAccountIdentity(

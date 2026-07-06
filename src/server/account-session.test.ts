@@ -4,7 +4,6 @@ import {
   accountProviderStatus,
   accountProviderStatusFromConfig,
   clerkAccountProvider,
-  createAccountSessionProvider,
   currentAccountIdentity,
   currentAccountSessionProvider,
   currentReadyAccountIdentity,
@@ -387,7 +386,7 @@ describe("account session resolver", () => {
   });
 
   it("resolves identity and readiness through an injected account provider", async () => {
-    const provider = createAccountSessionProvider({
+    const provider = {
       identity: async () => ({
         provider: " Clerk ",
         subject: " user-456 ",
@@ -399,7 +398,7 @@ describe("account session resolver", () => {
           sdkDependencyInstalled: true,
           ...READY_ACCOUNT_ENV,
         }),
-    });
+    };
 
     expect(accountProviderReady(provider)).toBe(true);
     await expect(currentAccountIdentity(provider)).resolves.toEqual({
@@ -423,7 +422,7 @@ describe("account session resolver", () => {
   });
 
   it("does not expose account identity while the provider is not ready", async () => {
-    const provider = createAccountSessionProvider({
+    const provider = {
       identity: async () => ({
         provider: "clerk",
         subject: "user_789",
@@ -438,7 +437,7 @@ describe("account session resolver", () => {
           NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: "/mine?account=1",
           NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: "/mine?account=1",
         }),
-    });
+    };
 
     await expect(currentAccountIdentity(provider)).resolves.toEqual({
       provider: "clerk",
@@ -602,7 +601,33 @@ describe("request account session provider", () => {
     await expect(provider.identity()).resolves.toBeNull();
   });
 
-  it("resolves the linked identity for an authenticated request", async () => {
+  it("resolves the linked identity without a Clerk user lookup by default", async () => {
+    let userLookups = 0;
+    const provider = requestAccountSessionProvider(
+      accountRequest(),
+      READY_ACCOUNT_ENV,
+      factoryOf({
+        authenticateRequest: async () => ({
+          isAuthenticated: true,
+          toAuth: () => ({ userId: "user_1" }),
+        }),
+        users: {
+          getUser: async () => {
+            userLookups += 1;
+            return { id: "user_1" };
+          },
+        },
+      }),
+    );
+
+    await expect(currentAccountIdentity(provider)).resolves.toEqual({
+      provider: "clerk",
+      subject: "user_1",
+    });
+    expect(userLookups).toBe(0);
+  });
+
+  it("fetches the Clerk user email only when the caller asks for it", async () => {
     const provider = requestAccountSessionProvider(
       accountRequest(),
       READY_ACCOUNT_ENV,
@@ -618,6 +643,7 @@ describe("request account session provider", () => {
           }),
         },
       }),
+      { withEmail: true },
     );
 
     await expect(currentAccountIdentity(provider)).resolves.toEqual({

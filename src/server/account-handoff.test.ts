@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  clearPendingAccountHandoffs,
   consumeAccountHandoff,
   createAccountHandoff,
-  pruneAccountHandoffs,
   safeAccountHandoffId,
   safeAccountReturnTo,
 } from "./account-handoff";
@@ -44,13 +42,11 @@ describe("account handoff helpers", () => {
     const sql = makeSql((query, values) => {
       queryIndex += 1;
       if (queryIndex === 1) {
+        // One cleanup DELETE: consumed/expired rows everywhere plus this
+        // player's still-pending handoffs.
         expect(query).toContain("DELETE FROM account_handoffs");
         expect(query).toContain("consumed_at IS NOT NULL");
         expect(query).toContain("expires_at <= now()");
-        return [];
-      }
-      if (queryIndex === 2) {
-        expect(query).toContain("DELETE FROM account_handoffs");
         expect(query).toContain("player_id =");
         expect(query).toContain("consumed_at IS NULL");
         expect(values).toEqual(["player-1"]);
@@ -79,30 +75,7 @@ describe("account handoff helpers", () => {
     expect(handoff.returnTo).toBe("/mine");
     expect(handoff.token).toEqual(expect.any(String));
     expect(handoff.expiresAt).toEqual(expect.any(String));
-    expect(queryIndex).toBe(3);
-  });
-
-  it("clears only pending handoff rows for the same player", async () => {
-    const sql = makeSql((query, values) => {
-      expect(query).toContain("DELETE FROM account_handoffs");
-      expect(query).toContain("player_id =");
-      expect(query).toContain("consumed_at IS NULL");
-      expect(values).toEqual(["player-1"]);
-      return [];
-    });
-
-    await clearPendingAccountHandoffs(sql as never, "player-1");
-  });
-
-  it("prunes expired or consumed handoff rows", async () => {
-    const sql = makeSql((query) => {
-      expect(query).toContain("DELETE FROM account_handoffs");
-      expect(query).toContain("consumed_at IS NOT NULL");
-      expect(query).toContain("expires_at <= now()");
-      return [];
-    });
-
-    await pruneAccountHandoffs(sql as never);
+    expect(queryIndex).toBe(2);
   });
 
   it("consumes only unexpired unused handoff rows", async () => {

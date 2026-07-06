@@ -32,7 +32,6 @@ function markAccountProviderReady(): void {
   useMineStore.setState((state) => ({
     accountSync: {
       ...state.accountSync,
-      providerReady: true,
       providerStatus: {
         provider: "clerk",
         ready: true,
@@ -100,7 +99,6 @@ describe("mine store upgrade flow", () => {
       saveSlots: { state: "unknown", activeSlot: 1, slots: [] },
       accountSync: {
         state: "unknown",
-        providerReady: false,
         providerStatus: {
           provider: "clerk",
           ready: false,
@@ -1443,7 +1441,6 @@ describe("mine store upgrade flow", () => {
       worldLoaded: false,
       accountSync: {
         ...state.accountSync,
-        providerReady: true,
         providerStatus: {
           provider: "clerk",
           ready: true,
@@ -1479,7 +1476,6 @@ describe("mine store upgrade flow", () => {
     useMineStore.setState((state) => ({
       accountSync: {
         ...state.accountSync,
-        providerReady: true,
         providerStatus: {
           provider: "clerk",
           ready: true,
@@ -1516,7 +1512,6 @@ describe("mine store upgrade flow", () => {
     useMineStore.setState((state) => ({
       accountSync: {
         ...state.accountSync,
-        providerReady: true,
         providerStatus: {
           provider: "clerk",
           ready: true,
@@ -1659,9 +1654,10 @@ describe("mine store upgrade flow", () => {
       }),
     );
     const cloudGear = { ...DEFAULT_GEAR, pickaxe: 2 };
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
+    // The save-slot list loads in parallel with the world/gear chain, so the
+    // mock keys responses by URL instead of call order.
+    const responsesByUrl: Record<string, () => Response> = {
+      "/api/account/load": () =>
         jsonResponse({
           mode: "cloud_loaded",
           activeSlot: 1,
@@ -1675,8 +1671,7 @@ describe("mine store upgrade flow", () => {
             stamps: 2,
           },
         }),
-      )
-      .mockResolvedValueOnce(
+      "/api/account/trip": () =>
         jsonResponse({
           trip: {
             mineVersion: MINE_VERSION,
@@ -1688,24 +1683,21 @@ describe("mine store upgrade flow", () => {
             moves: ["down"],
           },
         }),
-      )
-      .mockResolvedValueOnce(
+      "/api/mine/world": () =>
         jsonResponse({
           seed: 777,
           tripIndex: 6,
           diff: [],
           activeSlot: 1,
         }),
-      )
-      .mockResolvedValueOnce(
+      "/api/gear": () =>
         jsonResponse({
           gear: cloudGear,
           consumables: stock({ ladder: 1 }),
           balance: 30,
           deepestDepth: 8,
         }),
-      )
-      .mockResolvedValueOnce(
+      "/api/save-slots": () =>
         jsonResponse({
           activeSlot: 1,
           slots: [
@@ -1722,44 +1714,28 @@ describe("mine store upgrade flow", () => {
             },
           ],
         }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          mode: "cloud_loaded",
-          activeSlot: 1,
-          account: { provider: "clerk", email: "pilot@example.com" },
-          currentSave: {
-            exists: true,
-            createdAt: "2026-07-03T00:00:00.000Z",
-            balance: 30,
-            deepestDepth: 8,
-            partsOwned: 4,
-            designs: 3,
-            stamps: 2,
-          },
-          accountSave: {
-            exists: true,
-            createdAt: "2026-07-03T00:00:00.000Z",
-            balance: 30,
-            deepestDepth: 8,
-            partsOwned: 4,
-            designs: 3,
-            stamps: 2,
-          },
-        }),
-      );
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const respond = responsesByUrl[url];
+      if (!respond) throw new Error(`unexpected fetch: ${url}`);
+      return respond();
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const ok = await store().loadAccountSave();
 
     expect(ok).toBe(true);
-    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+    const calledUrls = fetchMock.mock.calls.map((call) => call[0]);
+    expect(calledUrls.slice(0, 2)).toEqual([
       "/api/account/load",
       "/api/account/trip",
-      "/api/mine/world",
+    ]);
+    expect([...calledUrls].sort()).toEqual([
+      "/api/account/load",
+      "/api/account/trip",
       "/api/gear",
+      "/api/mine/world",
       "/api/save-slots",
-      "/api/account/status",
     ]);
     expect(localStorage.removeItem).toHaveBeenCalledWith(
       "vibebots-mine-trip-v2-slot-1",
@@ -1768,18 +1744,13 @@ describe("mine store upgrade flow", () => {
     expect(store().tripIndex).toBe(6);
     expect(store().gear).toEqual(cloudGear);
     expect(store().balance).toBe(30);
+    // The load response carries everything the popup shows; the email was
+    // already in state from the status read that revealed the conflict.
     expect(store().accountSync).toMatchObject({
       state: "ready",
       mode: "cloud_loaded",
       currentSave: { balance: 30 },
       accountSave: { balance: 30 },
-    });
-    await vi.waitFor(() => {
-      expect(store().accountSync).toMatchObject({
-        state: "ready",
-        mode: "cloud_loaded",
-        accountEmail: "pilot@example.com",
-      });
     });
   });
 

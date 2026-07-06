@@ -8,7 +8,7 @@ import {
 import { accountSaveSummary } from "@/server/account-summary";
 import { db, storageConfigured } from "@/server/db";
 import {
-  currentPlayerId,
+  activeSaveSlotPlayerId,
   currentSaveSlotSession,
   setActiveSaveSlotPlayer,
 } from "@/server/player";
@@ -18,13 +18,20 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request): Promise<Response> {
   if (!storageConfigured()) return storageUnavailable();
-  const provider = requestAccountSessionProvider(request);
+  // The status dialog is the only account surface that shows the email, so
+  // this is the only route that pays the Clerk user lookup for it.
+  const provider = requestAccountSessionProvider(
+    request,
+    undefined,
+    undefined,
+    { withEmail: true },
+  );
   const providerStatus = provider.status();
-  const [identity, session, playerId] = await Promise.all([
+  const [identity, session] = await Promise.all([
     currentReadyAccountIdentity(provider, providerStatus),
     currentSaveSlotSession(),
-    currentPlayerId(),
   ]);
+  const playerId = activeSaveSlotPlayerId(session);
   let activeSlot = session?.activeSlot ?? 1;
   if (!identity) {
     const currentSave = playerId
@@ -32,7 +39,6 @@ export async function GET(request: Request): Promise<Response> {
       : null;
     return accountJson({
       mode: "guest",
-      providerReady: providerStatus.ready,
       providerStatus,
       activeSlot,
       account: null,
@@ -76,7 +82,6 @@ export async function GET(request: Request): Promise<Response> {
 
   return accountJson({
     mode,
-    providerReady: providerStatus.ready,
     providerStatus,
     activeSlot,
     account: { provider: identity.provider, email: identity.email ?? null },

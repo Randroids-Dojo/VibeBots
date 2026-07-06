@@ -238,6 +238,18 @@ function accountFallbackPreflightRequired(): boolean {
   );
 }
 
+/** Drops a query param from the address bar without navigating. */
+function stripQueryParam(name: string): void {
+  const next = new URL(window.location.href);
+  if (!next.searchParams.has(name)) return;
+  next.searchParams.delete(name);
+  window.history.replaceState(
+    null,
+    "",
+    `${next.pathname}${next.search}${next.hash}`,
+  );
+}
+
 const MINE_SURFACE_TIPS = [
   "Tip: rich ore may need several hits. Every swing still costs battery.",
   "Tip: press up into solid ground to dig overhead without using a ladder.",
@@ -1147,6 +1159,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const accountHandoffAttemptsRef = useRef<Record<string, number>>({});
   const accountFallbackPreflightPromiseRef = useRef<Promise<void> | null>(null);
   const [accountHandoffRetryTick, setAccountHandoffRetryTick] = useState(0);
+  // Stable handlers so the memoized account popup skips per-tick re-renders.
+  const closeAccountPopup = useCallback(() => setAccountOpen(false), []);
+  const startAccountSignInFromMine = useCallback(
+    () => startAccountSignIn("/mine"),
+    [startAccountSignIn],
+  );
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext>({
@@ -1351,13 +1369,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       accountHandoffHandledRef.current = null;
       if (resolved) {
         delete accountHandoffAttemptsRef.current[handoffId];
-        const next = new URL(window.location.href);
-        next.searchParams.delete("accountHandoff");
-        window.history.replaceState(
-          null,
-          "",
-          `${next.pathname}${next.search}${next.hash}`,
-        );
+        stripQueryParam("accountHandoff");
         return;
       }
       window.setTimeout(() => {
@@ -1391,14 +1403,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     ) {
       return;
     }
-    const next = new URL(window.location.href);
-    if (!next.searchParams.has("accountHandoff")) return;
-    next.searchParams.delete("accountHandoff");
-    window.history.replaceState(
-      null,
-      "",
-      `${next.pathname}${next.search}${next.hash}`,
-    );
+    stripQueryParam("accountHandoff");
   }, [accountSync.mode]);
 
   useEffect(() => {
@@ -1410,12 +1415,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     const cleanupHandle = window.setTimeout(() => {
       const next = new URL(window.location.href);
       if (next.searchParams.get("account") !== "1") return;
-      next.searchParams.delete("account");
-      window.history.replaceState(
-        null,
-        "",
-        `${next.pathname}${next.search}${next.hash}`,
-      );
+      stripQueryParam("account");
     }, 0);
     return () => window.clearTimeout(cleanupHandle);
   }, [accountFallbackPreflightDone]);
@@ -2933,9 +2933,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       <AccountSyncPopup
         open={accountOpen}
         state={accountSync}
-        onClose={() => setAccountOpen(false)}
+        onClose={closeAccountPopup}
         onRefresh={loadAccountStatus}
-        onStartSignIn={() => startAccountSignIn("/mine")}
+        onStartSignIn={startAccountSignInFromMine}
         onClaim={claimAccountSave}
         onLoadCloud={loadAccountSave}
       />

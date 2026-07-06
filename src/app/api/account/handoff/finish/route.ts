@@ -1,14 +1,18 @@
+import { claimFailureResponse } from "@/server/account-claim-response";
 import {
   consumeAccountHandoff,
   safeAccountHandoffId,
 } from "@/server/account-handoff";
 import { claimPlayerForAccount } from "@/server/account-linking";
-import { accountJson, storageUnavailable } from "@/server/account-response";
+import {
+  accountJson,
+  safeJsonBody,
+  storageUnavailable,
+} from "@/server/account-response";
 import {
   currentReadyAccountIdentity,
   requestAccountSessionProvider,
 } from "@/server/account-session";
-import { accountSaveSummary } from "@/server/account-summary";
 import { db, storageConfigured } from "@/server/db";
 import { logAccountLinkEvent } from "@/server/monitoring";
 import {
@@ -22,14 +26,7 @@ import { sameOriginMutationRequired } from "@/server/request-guards";
 export const runtime = "nodejs";
 
 async function handoffIdFromRequest(request: Request): Promise<string | null> {
-  try {
-    const body = await request.json();
-    if (!body || typeof body !== "object") return null;
-    const handoffId = (body as Record<string, unknown>).handoffId;
-    return safeAccountHandoffId(handoffId);
-  } catch {
-    return null;
-  }
+  return safeAccountHandoffId((await safeJsonBody(request))?.handoffId);
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -72,69 +69,18 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const result = await claimPlayerForAccount(sql, identity, handoff.playerId);
-  if (result.status === "invalid-identity") {
-    logAccountLinkEvent({
-      code: "handoff_invalid_identity",
-      severity: "warn",
-      provider: identity.provider,
-      subject: identity.subject,
+  const outcome = await claimFailureResponse(
+    sql,
+    await claimPlayerForAccount(sql, identity, handoff.playerId),
+    {
+      codePrefix: "handoff",
+      identity,
       playerId: handoff.playerId,
-      result: result.status,
-    });
-    return accountJson({ error: "account sign-in required" }, { status: 401 });
-  }
-  if (result.status === "player-not-found") {
-    logAccountLinkEvent({
-      code: "handoff_player_not_found",
-      severity: "warn",
-      provider: identity.provider,
-      subject: identity.subject,
-      playerId: handoff.playerId,
-      result: result.status,
-    });
-    return accountJson({ error: "guest save not found" }, { status: 404 });
-  }
-  if (result.status === "target-linked-to-other-account") {
-    logAccountLinkEvent({
-      code: "handoff_target_linked_to_other_account",
-      severity: "warn",
-      provider: identity.provider,
-      subject: identity.subject,
-      playerId: handoff.playerId,
-      targetPlayerId: result.playerId,
-      result: result.status,
-    });
-    return accountJson(
-      {
-        error: "device save belongs to another account",
-        code: "device_save_linked_to_other_account",
-        returnTo: handoff.returnTo,
-      },
-      { status: 409 },
-    );
-  }
-  const accountSave = await accountSaveSummary(sql, result.playerId);
-  if (result.status === "conflict") {
-    logAccountLinkEvent({
-      code: "handoff_conflict",
-      severity: "warn",
-      provider: identity.provider,
-      subject: identity.subject,
-      playerId: handoff.playerId,
-      targetPlayerId: result.playerId,
-      result: result.status,
-    });
-    return accountJson(
-      {
-        error: "account already has a cloud save",
-        mode: "conflict",
-        returnTo: handoff.returnTo,
-        accountSave,
-      },
-      { status: 409 },
-    );
-  }
+      extraBody: { returnTo: handoff.returnTo },
+    },
+  );
+  if (outcome.response) return outcome.response;
+  const { result, save: accountSave } = outcome;
 
   let session: SaveSlotSession;
   try {

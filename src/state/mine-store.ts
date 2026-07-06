@@ -112,7 +112,6 @@ export type AccountSyncState =
         | "finishing-sign-in"
         | "loading-cloud"
         | "unavailable";
-      providerReady: boolean;
       providerStatus: AccountProviderStatus;
       mode: AccountStatusMode;
       accountEmail: string | null;
@@ -121,7 +120,6 @@ export type AccountSyncState =
     }
   | {
       state: "error";
-      providerReady: boolean;
       providerStatus: AccountProviderStatus;
       mode: AccountStatusMode;
       accountEmail: string | null;
@@ -136,12 +134,23 @@ function accountSyncFromStatus(
 ): AccountSyncState {
   return {
     state,
-    providerReady: status.providerReady,
     providerStatus: status.providerStatus,
     mode: status.mode,
     accountEmail: status.account?.email ?? null,
     currentSave: status.currentSave,
     accountSave: status.accountSave,
+  };
+}
+
+/** The storage-offline reset every account action applies on a 503. */
+function unavailableAccountSync(current: AccountSyncState): AccountSyncState {
+  return {
+    ...current,
+    state: "unavailable",
+    mode: "guest",
+    accountEmail: null,
+    currentSave: null,
+    accountSave: null,
   };
 }
 
@@ -288,7 +297,6 @@ export const useMineStore = create<MineSessionState>((set, get) => {
   };
   const initialAccountSync: AccountSyncState = {
     state: "unknown",
-    providerReady: false,
     providerStatus: {
       provider: "clerk",
       ready: false,
@@ -344,6 +352,25 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     // a device save already exists to fall back on.
     result === "missing-world" ||
     (result === "failed" && state.currentSave?.exists === true);
+  // Checkpoints the in-flight trip before an account action. Returns false
+  // when the failure is terminal; accountSync then already holds the error.
+  const gateOnTripCheckpoint = async (): Promise<boolean> => {
+    const checkpointResult = await storeAccountTripCheckpoint();
+    if (checkpointResult === "stored") return true;
+    const current = get().accountSync;
+    if (checkpointFailureCanContinue(current, checkpointResult)) {
+      set({ accountSync: { ...current, state: "ready" } });
+      return true;
+    }
+    set({
+      accountSync: {
+        ...current,
+        state: "error",
+        message: "could not save current trip",
+      },
+    });
+    return false;
+  };
   const loadAccountTripCheckpoint = async (slot: SaveSlotId) => {
     const res = await loadRemoteAccountTrip();
     if (!res.ok) return;
@@ -636,16 +663,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // pre-await snapshot.
       current = get().accountSync;
       if (res.status === 503) {
-        set({
-          accountSync: {
-            ...current,
-            state: "unavailable",
-            mode: "guest",
-            accountEmail: null,
-            currentSave: null,
-            accountSave: null,
-          },
-        });
+        set({ accountSync: unavailableAccountSync(current) });
         return;
       }
       if (!res.ok) {
@@ -674,7 +692,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
 
     startAccountSignIn: async (returnTo = "/mine") => {
       let current = get().accountSync;
-      if (!current.providerReady || !current.providerStatus.ready) {
+      if (!current.providerStatus.ready) {
         set({
           accountSync: {
             ...current,
@@ -684,27 +702,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         return null;
       }
-      const checkpointResult = await storeAccountTripCheckpoint();
+      if (!(await gateOnTripCheckpoint())) return null;
       current = get().accountSync;
-      if (checkpointResult !== "stored") {
-        if (checkpointFailureCanContinue(current, checkpointResult)) {
-          set({
-            accountSync: {
-              ...current,
-              state: "ready",
-            },
-          });
-        } else {
-          set({
-            accountSync: {
-              ...current,
-              state: "error",
-              message: "could not save current trip",
-            },
-          });
-          return null;
-        }
-      }
       set({
         accountSync: {
           ...current,
@@ -714,16 +713,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const res = await startRemoteAccountHandoff(returnTo);
       current = get().accountSync;
       if (res.status === 503) {
-        set({
-          accountSync: {
-            ...current,
-            state: "unavailable",
-            mode: "guest",
-            accountEmail: null,
-            currentSave: null,
-            accountSave: null,
-          },
-        });
+        set({ accountSync: unavailableAccountSync(current) });
         return null;
       }
       if (!res.ok) {
@@ -771,16 +761,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const res = await finishRemoteAccountHandoff(handoffId);
       current = get().accountSync;
       if (res.status === 503) {
-        set({
-          accountSync: {
-            ...current,
-            state: "unavailable",
-            mode: "guest",
-            accountEmail: null,
-            currentSave: null,
-            accountSave: null,
-          },
-        });
+        set({ accountSync: unavailableAccountSync(current) });
         return false;
       }
       if (!res.ok) {
@@ -821,28 +802,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     claimAccountSave: async () => {
-      let current: AccountSyncState;
-      const checkpointResult = await storeAccountTripCheckpoint();
-      current = get().accountSync;
-      if (checkpointResult !== "stored") {
-        if (checkpointFailureCanContinue(current, checkpointResult)) {
-          set({
-            accountSync: {
-              ...current,
-              state: "ready",
-            },
-          });
-        } else {
-          set({
-            accountSync: {
-              ...current,
-              state: "error",
-              message: "could not save current trip",
-            },
-          });
-          return false;
-        }
-      }
+      if (!(await gateOnTripCheckpoint())) return false;
+      let current = get().accountSync;
       set({
         accountSync: {
           ...current,
@@ -852,16 +813,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const res = await claimRemoteAccountSave();
       current = get().accountSync;
       if (res.status === 503) {
-        set({
-          accountSync: {
-            ...current,
-            state: "unavailable",
-            mode: "guest",
-            accountEmail: null,
-            currentSave: null,
-            accountSave: null,
-          },
-        });
+        set({ accountSync: unavailableAccountSync(current) });
         return false;
       }
       if (!res.ok) {
@@ -911,16 +863,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const res = await loadRemoteAccountSave();
       current = get().accountSync;
       if (res.status === 503) {
-        set({
-          accountSync: {
-            ...current,
-            state: "unavailable",
-            mode: "guest",
-            accountEmail: null,
-            currentSave: null,
-            accountSave: null,
-          },
-        });
+        set({ accountSync: unavailableAccountSync(current) });
         return false;
       }
       if (!res.ok) {
@@ -948,9 +891,15 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const nextSlot = parsed.activeSlot;
       removeLocalTrip(nextSlot);
       await loadAccountTripCheckpoint(nextSlot);
-      await get().loadWorld();
-      await get().loadGear();
-      await get().loadSaveSlots();
+      // The world/gear chain must follow the checkpoint restore, but the
+      // save-slot list is independent and can load alongside it.
+      await Promise.all([
+        (async () => {
+          await get().loadWorld();
+          await get().loadGear();
+        })(),
+        get().loadSaveSlots(),
+      ]);
       current = get().accountSync;
       set({
         accountSync: {
@@ -961,7 +910,6 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           accountSave: parsed.accountSave,
         },
       });
-      void get().loadAccountStatus({ silent: true });
       return true;
     },
 

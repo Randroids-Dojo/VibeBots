@@ -113,7 +113,6 @@ test("mine account deep link opens the account dialog without sign-in", async ({
       json: {
         mode: "guest",
         activeSlot: 1,
-        providerReady: false,
         account: null,
         currentSave: saveSummary,
         accountSave: null,
@@ -145,7 +144,6 @@ test("mine account fallback checks account before creating a guest world", async
       json: {
         mode: "cloud_loaded",
         activeSlot: 1,
-        providerReady: true,
         providerStatus: {
           provider: "clerk",
           ready: true,
@@ -232,7 +230,6 @@ test("mine account dialog dismisses from outside tap, Escape, and gamepad back",
       json: {
         mode: "guest",
         activeSlot: 1,
-        providerReady: false,
         account: null,
         currentSave: saveSummary,
         accountSave: null,
@@ -388,7 +385,6 @@ test("mine account handoff retries when Clerk session settles late", async ({
           : {
               mode: "guest",
               activeSlot: 1,
-              providerReady: true,
               account: null,
               currentSave: saveSummary,
               accountSave: null,
@@ -669,7 +665,6 @@ test("mine account conflict loads the cloud save only after player choice", asyn
           ? {
               mode: "cloud_loaded",
               activeSlot: 1,
-              providerReady: true,
               providerStatus: {
                 provider: "clerk",
                 ready: true,
@@ -683,7 +678,6 @@ test("mine account conflict loads the cloud save only after player choice", asyn
           : {
               mode: "conflict",
               activeSlot: 1,
-              providerReady: true,
               providerStatus: {
                 provider: "clerk",
                 ready: true,

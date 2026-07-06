@@ -111,6 +111,7 @@ import {
   FeedbackDialog,
   IosHomeScreenPrompt,
   LadderGravityFeedbackPrompt,
+  PerfTelemetryControl,
   ReleaseNotificationControl,
 } from "./mine-settings-dialogs";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
@@ -119,6 +120,7 @@ import { STALL_ICONS, StallMenu } from "./mine-stall-menu";
 import { STALLS, stallAt } from "./mine-stalls";
 import { StampBookPopup } from "./mine-stamp-book-popup";
 import { MineTouchControls } from "./mine-touch-controls";
+import { PerfTelemetry } from "./perf-telemetry";
 
 type MineSceneStatus = "loading" | "ready" | "error";
 const MINE_SCENE_LOAD_ERROR =
@@ -2939,6 +2941,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onClaim={claimAccountSave}
         onLoadCloud={loadAccountSave}
       />
+      <PerfTelemetry
+        source="mine"
+        appVersion={appRelease.version}
+        appBuild={appRelease.build}
+        mineVersion={MINE_VERSION}
+      />
       <button
         ref={settingsButtonRef}
         type="button"
@@ -3173,6 +3181,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             Holodeck
           </button>
           <ReleaseNotificationControl />
+          <PerfTelemetryControl />
         </section>
       )}
       {baseReturn && (

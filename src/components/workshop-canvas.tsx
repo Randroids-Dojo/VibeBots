@@ -20,6 +20,7 @@ import {
   partGeometry,
   shapeRotation,
 } from "@/components/part-visuals";
+import { PerfProbeBridge } from "@/components/perf-probe-bridge";
 import { buzz, HAPTIC_MERGE, HAPTIC_PLACE } from "@/lib/haptics";
 import { type PartInstance, partMergeLevel } from "@/sim/design";
 import { computeLayout, type Placement } from "@/sim/layout";
@@ -832,6 +833,7 @@ export default function WorkshopCanvas({
     >
       <WorkshopScene />
       <MenuLift lift={menuLift} />
+      <PerfProbeBridge source="workshop" />
     </Canvas>
   );
 }

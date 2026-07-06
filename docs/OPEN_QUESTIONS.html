@@ -38,6 +38,23 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-016" data-status="open">
+    <h3>Q-016: Access control for the performance insights endpoint</h3>
+    <dl>
+      <dt>Context</dt><dd>The deep performance analyzer (F-054) needs a query surface to verify traces landed and to triage bottlenecks without direct database access. The Neon connection string is deploy-time-only, so an in-app endpoint is the practical path for operators and agents.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Public <code>GET /api/performance/insights</code> that returns aggregates and anonymized factor columns only (no player ids, no user agents, session ids truncated), bounded window and row limits.</li>
+          <li>Guard the endpoint behind <code>NOTIFICATION_ADMIN_TOKEN</code> or a new admin bearer token.</li>
+          <li>No endpoint; query Neon directly from the dashboard.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A (shipped). The payload is aggregate telemetry about rendering performance with nothing identifying in it, and a public read surface lets any agent session verify the pipeline end to end; tighten to B later if the rollups ever grow sensitive fields.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under default A; revisit if the insights payload ever includes per-player detail)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-013" data-status="open">
     <h3>Q-013: How literal is "rocks fall a few seconds after the dirt beneath them is mined away"?</h3>
     <dl>

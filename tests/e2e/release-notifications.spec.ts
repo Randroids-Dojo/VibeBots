@@ -20,10 +20,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(version).toBeTruthy();
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
-  await expect(dialog).toContainText("See the bot while a menu is open.");
+  await expect(dialog).toContainText(
+    "An optional performance telemetry toggle.",
+  );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "your bot now lifts up into the space above the sheet",
+    "optional Performance telemetry toggle",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -46,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.197", "Help us fix slowdowns"],
     ["0.1.196", "Your bot rises for menus"],
     ["0.1.195", "The workshop is bot-first"],
     ["0.1.194", "Armor and a bar spinner"],

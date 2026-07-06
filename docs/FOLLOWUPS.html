@@ -52,6 +52,46 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-070" data-f="F-070" data-priority="nice-to-have">
+    <h3>F-070: Skip redundant trip persistence on read-only account status refresh</h3>
+    <dl>
+      <dt>Context</dt><dd>Account-sync cleanup review 2026-07-05: <code>loadAccountStatus</code> in <code>src/state/mine-store.ts</code> begins with <code>persistCurrentTrip()</code>, which JSON-stringifies the full in-flight trip (baseDiff can reach tens of thousands of entries plus the move list) into localStorage on every Account dialog open, every Refresh click, and the silent revalidate, even when nothing changed. The write is pure overhead for a read-only action. Left in place during the cleanup because dropping it or adding a dirty check changes save timing semantics and needs its own verification.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: either give <code>persistCurrentTrip</code> a cheap dirty check (skip serialization when tick, move count, gear, and consumables match the last persisted values for the active slot) or remove the call from read-only actions while keeping it in every mutating flow (claim, sign-in, cloud load, slot switch). Acceptance: opening or refreshing the Account dialog with an unchanged trip performs no localStorage write, and the existing checkpoint/persistence unit tests still pass unchanged.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the /simplify cleanup pass on PR #85's branch)</dd>
+    </dl>
+  </section>
+
+  <section id="F-069" data-f="F-069" data-priority="nice-to-have">
+    <h3>F-069: Reconcile mine-account-sync e2e specs with the shipped no-auto-claim behavior</h3>
+    <dl>
+      <dt>Context</dt><dd>Two tests in <code>tests/e2e/mine-account-sync.spec.ts</code> fail against a local production build of the account-sync branch tip (verified at <code>24bd0fe</code>, before any cleanup changes): "mine account handoff retries when Clerk session settles late" and "mine account signed-in device save auto-claims to cloud". Both wait for a claim or finish request the app never issues without a user click; no auto-claim code path exists in <code>src/</code>, and the F-060 review-hardening pass explicitly stopped status refresh from auto-claiming saves. The specs appear to predate that hardening. The required CI shard does not run this spec, so the drift is invisible on PRs.</dd>
+      <dt>Blocker (if any)</dt><dd>Decision needed on intent: should a signed-in player with a device save auto-claim on opening the Account dialog, or is the explicit "Save this run" click the contract (as the hardening pass suggests)?</dd>
+      <dt>Unblock condition</dt><dd>Pick the intended behavior, then either implement it or rewrite the two specs to drive the dialog buttons; re-run the full spec locally against a production build until 9/9 pass, and add at least the corrected specs to a scheduled or sharded CI lane so the file cannot silently rot again.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; found by the /simplify cleanup pass while verifying PR #85's branch)</dd>
+    </dl>
+  </section>
+
+  <section id="F-068" data-f="F-068" data-priority="nice-to-have">
+    <h3>F-068: Stable machine codes for account API errors; retry policy owned by the store</h3>
+    <dl>
+      <dt>Context</dt><dd>Account errors cross four layers as prose strings: routes emit human-readable <code>error</code> text, <code>ACCOUNT_ERROR_MESSAGES</code> in <code>src/state/mine-api-client.ts</code> allowlists the exact strings, <code>mine-store.ts</code> branches on <code>message === "device save belongs to another account"</code>, and <code>mine-panel.tsx</code> sniffs store message text to decide when a handoff retry is terminal. Rewording or localizing any error silently breaks all three consumers. Some responses already carry a <code>code</code> (<code>device_save_linked_to_other_account</code>, <code>device_save_slot_full</code>, <code>claim_failed</code>) and the client already branches on <code>mine_version_mismatch</code> by code, so the right mechanism is half-built. Relatedly, the handoff completion retry loop (attempt counting, 750ms timer, give-up-after-3) lives in mine-panel effects because <code>finishAccountSignIn</code> collapses its outcome to a boolean.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: give every account error response a stable <code>code</code>; publish the code union from a <code>src/lib</code> module (same pattern as <code>account-provider-status.ts</code>); have the client parser return <code>{ code, message }</code> and branch on code in the store; keep user-facing prose in one code-to-copy map. Then have <code>finishAccountSignIn</code> return a structured outcome (<code>done | conflict | terminal | retryable</code>) and move the bounded retry loop into the store action, leaving mine-panel only the URL param read/cleanup. Acceptance: no consumer compares full error strings, and rewording server error text breaks no test.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the /simplify cleanup pass on PR #85's branch)</dd>
+    </dl>
+  </section>
+
+  <section id="F-067" data-f="F-067" data-priority="nice-to-have">
+    <h3>F-067: One env-readiness rules module shared by the preflight script and the server</h3>
+    <dl>
+      <dt>Context</dt><dd>The Clerk env readiness rules are implemented twice: <code>scripts/check-account-env.mjs</code> and <code>accountProviderStatusFromConfig</code> in <code>src/server/account-session.ts</code> re-derive the same key-prefix checks, sign-in/sign-up URL checks, fallback and force/deprecated redirect checks, and Google scope policy. Two JSON mirror files (<code>src/lib/account-provider-status-codes.json</code>, <code>src/lib/account-google-scopes.json</code>) plus parity tests exist only to hold the copies together, and the expected literals (<code>/sign-in</code>, <code>/mine?account=1</code>, key prefixes) float free in five files including <code>mine-account-popup.tsx</code>. A new readiness rule must land in two engines or the preflight and <code>/api/account/status</code> disagree, which is exactly the drift the preflight exists to prevent.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: move the issue-derivation into one dependency-free plain-JS module (e.g. <code>src/lib/account-env-rules.mjs</code> with a <code>.d.ts</code>; <code>account-env-preflight.test.ts</code> already proves TS can import the script's <code>.mjs</code>), import it from both the script and <code>account-session.ts</code>, and export shared <code>ACCOUNT_SIGN_IN_PATH</code> / <code>ACCOUNT_DIALOG_PATH</code> constants used by the server checks, the script, and <code>accountSignInUrlIsExpectedRoute</code>. Delete the JSON mirrors and their sync tests once both sides read one source. Acceptance: adding a fake new readiness rule requires exactly one code change plus tests, and grep finds a single definition of the expected sign-in route.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the /simplify cleanup pass on PR #85's branch; flagged independently by three review agents)</dd>
+    </dl>
+  </section>
+
   <section id="F-066" data-f="F-066" data-priority="nice-to-have">
     <h3>F-066: Enable Clerk Google sign-in on Vercel preview deployments</h3>
     <dl>

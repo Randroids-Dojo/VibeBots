@@ -1188,6 +1188,29 @@ describe("mine store upgrade flow", () => {
     expect(store().accountSync.state).toBe("ready");
   });
 
+  it("starts account sign-in without checkpointing when no trip is loaded", async () => {
+    markAccountProviderReady();
+    useMineStore.setState({ worldLoaded: false });
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        handoffId: "handoff-1",
+        expiresAt: "2026-07-04T00:10:00.000Z",
+        returnTo: "/mine",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const handoff = await store().startAccountSignIn("/mine");
+
+    // No loaded world means no trip to persist, so the checkpoint PUT is
+    // skipped and sign-in proceeds instead of aborting.
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/handoff/start",
+    ]);
+    expect(handoff).toMatchObject({ handoffId: "handoff-1" });
+    expect(store().accountSync.state).toBe("ready");
+  });
+
   it("rejects malformed account sign-in handoff responses before redirect", async () => {
     markAccountProviderReady();
     const fetchMock = vi
@@ -1412,6 +1435,43 @@ describe("mine store upgrade flow", () => {
     expect(store().accountSync).toMatchObject({
       state: "error",
       message: "could not save current trip",
+    });
+  });
+
+  it("claims without checkpointing when no trip is loaded", async () => {
+    useMineStore.setState((state) => ({
+      worldLoaded: false,
+      accountSync: {
+        ...state.accountSync,
+        providerReady: true,
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: null,
+          issues: [],
+        },
+        mode: "signed_in",
+        accountEmail: "pilot@example.com",
+      },
+    }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ error: "guest save not found" }, 404),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().claimAccountSave();
+
+    expect(ok).toBe(false);
+    // No loaded world means no trip to persist, so the checkpoint PUT is
+    // skipped and the claim proceeds to the claim route.
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "/api/account/claim",
+    ]);
+    expect(store().accountSync).toMatchObject({
+      state: "error",
+      message: "guest save not found",
     });
   });
 

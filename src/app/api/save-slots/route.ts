@@ -81,8 +81,8 @@ export async function DELETE(request: Request): Promise<Response> {
     );
   }
   const result = await deleteSaveSlot(parsed.data.slot);
+  const sql = await db();
   if (result.status === "blocked-linked-account") {
-    const sql = await db();
     return Response.json(
       {
         error: "linked account saves cannot be deleted from this device",
@@ -93,7 +93,6 @@ export async function DELETE(request: Request): Promise<Response> {
       { status: 409 },
     );
   }
-  const sql = await db();
   return Response.json({
     activeSlot: result.session.activeSlot,
     slots: await saveSlotSummaries(sql, result.session),

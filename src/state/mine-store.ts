@@ -338,7 +338,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
   const checkpointFailureCanContinue = (
     state: AccountSyncState,
     result: AccountTripCheckpointResult,
-  ) => result === "failed" && state.currentSave?.exists === true;
+  ) =>
+    // No loaded world means there is no in-progress trip to persist, so the
+    // claim or sign-in can proceed. A real "failed" upload only continues when
+    // a device save already exists to fall back on.
+    result === "missing-world" ||
+    (result === "failed" && state.currentSave?.exists === true);
   const loadAccountTripCheckpoint = async (slot: SaveSlotId) => {
     const res = await loadRemoteAccountTrip();
     if (!res.ok) return;

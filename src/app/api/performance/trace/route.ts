@@ -47,8 +47,12 @@ const probeSchema = z.object({
   materialCount: optionalCount,
   particleCount: optionalCount,
   gpuFrameMs: optionalMs,
-  lightsByType: z.record(z.string().max(40), z.number().int().nonnegative()),
-  canvasDiagnostics: z.record(z.string().max(40), z.string().max(32)),
+  lightsByType: z
+    .record(z.string().max(40), z.number().int().nonnegative())
+    .refine((value) => Object.keys(value).length <= 20, "too many light types"),
+  canvasDiagnostics: z
+    .record(z.string().max(40), z.string().max(32))
+    .refine((value) => Object.keys(value).length <= 20, "too many diagnostics"),
 });
 
 const snapshotSchema = z.object({
@@ -124,14 +128,14 @@ export async function POST(request: Request): Promise<Response> {
   const sql = await db();
   const playerId = await getOrCreatePlayerId();
   const userAgent = request.headers.get("user-agent") ?? "";
-  for (const snapshot of trace.snapshots) {
+  const inserts = trace.snapshots.map((snapshot) => {
     const detail = JSON.stringify({
       lightsByType: snapshot.probe?.lightsByType ?? {},
       canvasDiagnostics: snapshot.probe?.canvasDiagnostics ?? {},
       loafTopScripts: snapshot.main.loafTopScripts,
       spriteCount: snapshot.probe?.spriteCount ?? null,
     });
-    await sql`
+    return sql`
       INSERT INTO player_perf_traces (
         player_id, session_id, seq, source,
         app_version, app_build, mine_version,
@@ -183,8 +187,18 @@ export async function POST(request: Request): Promise<Response> {
         ${snapshot.main.loafMaxMs},
         ${snapshot.main.inputEventCount}, ${snapshot.main.inputEventMaxMs},
         ${detail}::jsonb, ${userAgent}
-      )`;
-  }
+      )
+      ON CONFLICT (session_id, seq) DO NOTHING`;
+  });
+  // One atomic batch: a retry or double flush cannot land a partial
+  // trace or duplicate rows. The purge bounds raw-row retention (the
+  // rows carry player-linked device info) to the analysis window.
+  await sql.transaction([
+    ...inserts,
+    sql`
+      DELETE FROM player_perf_traces
+      WHERE created_at < now() - interval '30 days'`,
+  ]);
 
   return Response.json({ saved: trace.snapshots.length });
 }

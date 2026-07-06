@@ -15,7 +15,12 @@ vi.mock("@/server/player", () => ({
 const mockedDb = vi.mocked(db);
 const mockedStorageConfigured = vi.mocked(storageConfigured);
 const mockedPlayer = vi.mocked(getOrCreatePlayerId);
-const sql = vi.fn(async () => []);
+const sql = Object.assign(
+  vi.fn(async () => []),
+  {
+    transaction: vi.fn(async (queries: unknown[]) => queries.map(() => [])),
+  },
+);
 
 function snapshot(overrides: Record<string, unknown> = {}) {
   return {
@@ -114,13 +119,21 @@ describe("performance trace API route", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ saved: 2 });
     expect(mockedPlayer).toHaveBeenCalledOnce();
-    expect(sql).toHaveBeenCalledTimes(2);
+    // One atomic batch: two snapshot inserts plus the retention purge.
+    expect(sql.transaction).toHaveBeenCalledOnce();
+    expect(sql.transaction.mock.calls[0][0]).toHaveLength(3);
+    expect(sql).toHaveBeenCalledTimes(3);
     const [strings, ...values] = sql.mock.calls[0] as unknown as [
       TemplateStringsArray,
       ...unknown[],
     ];
     const query = strings.join("");
     expect(query).toContain("INSERT INTO player_perf_traces");
+    expect(query).toContain("ON CONFLICT (session_id, seq) DO NOTHING");
+    const purge = (
+      sql.mock.calls[2] as unknown as [TemplateStringsArray]
+    )[0].join("");
+    expect(purge).toContain("DELETE FROM player_perf_traces");
     expect(values).toContain("player-1");
     expect(values).toContain("aaaabbbbccccdddd");
     expect(values).toContain("webgpu");
@@ -146,6 +159,26 @@ describe("performance trace API route", () => {
     const res = await submit(trace({ source: "menu" }));
     expect(res.status).toBe(400);
     expect(sql).not.toHaveBeenCalled();
+  });
+
+  it("rejects a probe with too many light types", async () => {
+    const base = snapshot() as { probe: Record<string, unknown> };
+    const res = await submit(
+      trace({
+        snapshots: [
+          snapshot({
+            probe: {
+              ...base.probe,
+              lightsByType: Object.fromEntries(
+                Array.from({ length: 21 }, (_, index) => [`Light${index}`, 1]),
+              ),
+            },
+          }),
+        ],
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(sql.transaction).not.toHaveBeenCalled();
   });
 
   it("rejects oversized batches", async () => {

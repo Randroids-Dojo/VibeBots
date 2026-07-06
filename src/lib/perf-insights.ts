@@ -53,7 +53,7 @@ interface SegmentSummary {
   avgLightCount: number | null;
   avgParticleCount: number | null;
   avgJsHeapMb: number | null;
-  longFrameRate: number | null;
+  avgLongFrameCount: number | null;
 }
 
 interface FactorBucket {
@@ -124,8 +124,6 @@ function summarizeGroup(
   segment: string,
   rows: PerfInsightRow[],
 ): SegmentSummary {
-  const frames = rows.reduce((sum, row) => sum + row.longFrameCount, 0);
-  const totalFrames = rows.length;
   return {
     segment,
     snapshots: rows.length,
@@ -142,7 +140,7 @@ function summarizeGroup(
     avgLightCount: avg(rows.map((row) => row.lightCount)),
     avgParticleCount: avg(rows.map((row) => row.particleCount)),
     avgJsHeapMb: avg(rows.map((row) => row.jsHeapMb)),
-    longFrameRate: totalFrames === 0 ? null : roundTenth(frames / totalFrames),
+    avgLongFrameCount: avg(rows.map((row) => row.longFrameCount)),
   };
 }
 

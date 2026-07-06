@@ -99,38 +99,21 @@ export async function GET(request: Request): Promise<Response> {
   const source = url.searchParams.get("source");
 
   const sql = await db();
-  const records = (
-    source
-      ? await sql`
-          SELECT created_at, source, renderer, backend, quality_tier,
-                 app_version, app_build, ab_variant, session_id,
-                 viewport_width, viewport_height, device_pixel_ratio,
-                 p95_frame_ms, avg_frame_ms, max_frame_ms,
-                 long_frame_count, stall_count, gpu_frame_ms,
-                 draw_calls, triangles, light_count, shadow_light_count,
-                 particle_count, mesh_count, instance_count,
-                 geometries, textures, js_heap_mb,
-                 long_task_total_ms, loaf_total_ms, gpu
-          FROM player_perf_traces
-          WHERE created_at >= now() - make_interval(hours => ${hours})
-            AND source = ${source}
-          ORDER BY created_at DESC
-          LIMIT ${MAX_ROWS}`
-      : await sql`
-          SELECT created_at, source, renderer, backend, quality_tier,
-                 app_version, app_build, ab_variant, session_id,
-                 viewport_width, viewport_height, device_pixel_ratio,
-                 p95_frame_ms, avg_frame_ms, max_frame_ms,
-                 long_frame_count, stall_count, gpu_frame_ms,
-                 draw_calls, triangles, light_count, shadow_light_count,
-                 particle_count, mesh_count, instance_count,
-                 geometries, textures, js_heap_mb,
-                 long_task_total_ms, loaf_total_ms, gpu
-          FROM player_perf_traces
-          WHERE created_at >= now() - make_interval(hours => ${hours})
-          ORDER BY created_at DESC
-          LIMIT ${MAX_ROWS}`
-  ) as TraceRecord[];
+  const records = (await sql`
+    SELECT created_at, source, renderer, backend, quality_tier,
+           app_version, app_build, ab_variant, session_id,
+           viewport_width, viewport_height, device_pixel_ratio,
+           p95_frame_ms, avg_frame_ms, max_frame_ms,
+           long_frame_count, stall_count, gpu_frame_ms,
+           draw_calls, triangles, light_count, shadow_light_count,
+           particle_count, mesh_count, instance_count,
+           geometries, textures, js_heap_mb,
+           long_task_total_ms, loaf_total_ms, gpu
+    FROM player_perf_traces
+    WHERE created_at >= now() - make_interval(hours => ${hours})
+      AND (${source}::text IS NULL OR source = ${source})
+    ORDER BY created_at DESC
+    LIMIT ${MAX_ROWS}`) as TraceRecord[];
 
   return Response.json(
     {

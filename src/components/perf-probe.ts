@@ -130,7 +130,7 @@ export function collectCanvasDiagnostics(
   return diagnostics;
 }
 
-interface RendererInfoLike {
+export interface RendererInfoLike {
   render?: { calls?: unknown; triangles?: unknown };
   memory?: { geometries?: unknown; textures?: unknown };
 }

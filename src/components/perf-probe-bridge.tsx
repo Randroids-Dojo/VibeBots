@@ -10,6 +10,7 @@ import {
   collectCanvasDiagnostics,
   collectRendererInfo,
   collectSceneStats,
+  type RendererInfoLike,
   registerPerfProbe,
   unregisterPerfProbe,
 } from "./perf-probe";
@@ -71,7 +72,7 @@ export function PerfProbeBridge({ source }: { source: PerfSource }) {
       return {
         backend: isWebGPUBackend(gl) ? "webgpu" : "webgl2",
         ...collectRendererInfo(
-          (gl as unknown as { info?: object }).info as never,
+          (gl as unknown as { info?: RendererInfoLike }).info,
         ),
         ...stats,
         particleCount: Number.isFinite(particleCount) ? particleCount : null,

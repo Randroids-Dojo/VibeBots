@@ -349,6 +349,12 @@ async function applySchema(sql: Sql): Promise<void> {
       user_agent text NOT NULL DEFAULT '',
       created_at timestamptz NOT NULL DEFAULT now()
     )`;
+  // Dedupe key: a client retry or double flush re-sends the same
+  // (session, seq) snapshot; the trace route inserts ON CONFLICT DO
+  // NOTHING against this index.
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS player_perf_traces_session_seq_unique
+    ON player_perf_traces (session_id, seq)`;
   await sql`
     CREATE INDEX IF NOT EXISTS player_perf_traces_created_at_idx
     ON player_perf_traces (created_at DESC)`;

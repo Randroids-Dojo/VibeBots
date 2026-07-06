@@ -951,7 +951,14 @@ export function PerfTelemetryControl() {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
-    setEnabled(perfAnalyzerEnabled());
+    const refresh = () => setEnabled(perfAnalyzerEnabled());
+    refresh();
+    window.addEventListener(PERF_ANALYZER_CHANGED_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(PERF_ANALYZER_CHANGED_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
   }, []);
 
   const toggle = () => {

@@ -371,11 +371,17 @@ export function PerfTelemetry({
     snapshotTimer = window.setTimeout(takeSnapshot, snapshotMs);
 
     const flushNow = () => flush(true);
-    const flushOnHide = () => {
-      if (document.visibilityState === "hidden") flush(true);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flush(true);
+        return;
+      }
+      // Resuming from background: rAF was paused, so the next frame's
+      // delta would span the whole hidden gap and corrupt the window.
+      previousFrameAt = null;
     };
     window.addEventListener("pagehide", flushNow);
-    document.addEventListener("visibilitychange", flushOnHide);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       cancelled = true;
@@ -383,7 +389,7 @@ export function PerfTelemetry({
       window.clearTimeout(snapshotTimer);
       for (const observer of observers) observer.disconnect();
       window.removeEventListener("pagehide", flushNow);
-      document.removeEventListener("visibilitychange", flushOnHide);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       flush(true);
     };
   }, [enabled, source, appVersion, appBuild, mineVersion]);

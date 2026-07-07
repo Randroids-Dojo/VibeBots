@@ -136,6 +136,21 @@ export function MineBlockBody({
   );
 }
 
+/** Fingerprint of the MineCell fields the cell visuals read: the shared
+ * body above plus the mine canvas's per-cell overlays (bag, supports,
+ * seeped gas, teeter countdown). The mine canvas caches cell elements on
+ * this plus its view-layer inputs (F-075), so extend this whenever cell
+ * JSX starts reading a new field. Damage (hp and oreRemaining against
+ * the pick) and floor-drop piles are view-computed and appended by the
+ * canvas itself. */
+export function cellRenderSignature(cell: MineCell): string {
+  return (
+    `${cell.kind}|${cell.ore ?? ""}|${cell.rockTier ?? 0}|${cell.fallIn ?? -1}|` +
+    `${cell.fallen ? 1 : 0}${cell.ladder ? 1 : 0}${cell.plank ? 1 : 0}` +
+    `${cell.beacon ? 1 : 0}${cell.gasSeeped ? 1 : 0}${cell.bag ? 1 : 0}`
+  );
+}
+
 export function dropPileStats(cell: MineCell): {
   count: number;
   ore: OreId | null;

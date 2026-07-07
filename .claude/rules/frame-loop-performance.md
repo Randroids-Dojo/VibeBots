@@ -46,6 +46,7 @@ paths:
 
 <ul>
   <li>three's WebGPURenderer <code>info.render.calls</code> accumulates since app start; per-frame draw calls are <code>info.render.drawCalls</code> (probe bug, PR #88).</li>
-  <li>The per-tick React re-render of the mine cell grid is a separate, structural churn source (F-075). Do not "fix" it with per-frame band-aids; it needs memoized cell subtrees or an imperative grid.</li>
+  <li>Per-tick React reconcile churn is a separate class from frame-loop churn and gets structural fixes, not per-frame band-aids. The mine cell grid ships the pattern (F-075): a per-cell signature cache (<code>cellRenderSignature</code> in <code>mine-block-render.tsx</code> plus quantized view-layer inputs in <code>mine-canvas.tsx</code>) hands React identical element references for unchanged cells, so reconciliation bails out per cell. If a slice adds a field that cell JSX reads, extend the signature, or cached cells will serve stale visuals. The escalation path, if telemetry still shows reconcile churn, is an imperative instanced grid.</li>
+  <li>Headless Chrome freezes <code>performance.memory</code> unless the browser is launched with <code>--enable-precise-memory-info</code>; a probe that forgets the flag reports a perfectly flat heap and silently measures nothing. <code>measure-heap-churn.mjs</code> passes the flag and warns on a flat heap; keep both in any new probe.</li>
   <li>Per-action spawn helpers may allocate (they run at input cadence, not frame cadence), but keep their loops bounded and their objects small.</li>
 </ul>

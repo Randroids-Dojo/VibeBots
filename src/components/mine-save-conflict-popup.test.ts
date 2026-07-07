@@ -29,6 +29,8 @@ describe("SaveConflictPopup", () => {
     expect(markup).toContain("cannot be merged");
     expect(markup).toContain('role="dialog"');
     expect(markup).toContain('aria-modal="true"');
+    expect(markup).toContain('aria-describedby="save-conflict-description"');
+    expect(markup).toContain('id="save-conflict-description"');
     expect(markup).toContain("data-save-conflict-dialog");
   });
 });

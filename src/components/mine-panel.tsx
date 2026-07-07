@@ -1181,6 +1181,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     [checkWorldFreshness],
   );
   useForegroundReturn(probeSaveFreshness);
+  // The conflict prompt and the Account dialog share the modal layer; close
+  // Account so the two never stack competing focus traps.
+  useEffect(() => {
+    if (saveConflict === "prompt") setAccountOpen(false);
+  }, [saveConflict]);
   // An interrupted sign-in handoff retries when the player returns.
   const retryHandoffOnReturn = useCallback(() => {
     if (!new URL(window.location.href).searchParams.has("accountHandoff")) {

@@ -34,6 +34,7 @@ export const SaveConflictPopup = memo(function SaveConflictPopup({
       role="dialog"
       aria-modal="true"
       aria-labelledby="save-conflict-title"
+      aria-describedby="save-conflict-description"
       style={DIALOG_BACKDROP_STYLE}
     >
       <section
@@ -45,7 +46,10 @@ export const SaveConflictPopup = memo(function SaveConflictPopup({
         <h2 id="save-conflict-title" style={{ margin: 0, fontSize: "1.15rem" }}>
           Save updated on another device
         </h2>
-        <p style={{ margin: "10px 0 14px", color: "#9aa6c4" }}>
+        <p
+          id="save-conflict-description"
+          style={{ margin: "10px 0 14px", color: "#9aa6c4" }}
+        >
           Your cloud save moved ahead while this run was in progress. Runs
           cannot be merged: sync now to load the newer save and discard this
           run, or keep playing knowing this run cannot be banked.

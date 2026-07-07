@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="guest-clerk-scope" data-date="2026-07-07">
+    <h3>F-073: scope Clerk to the sign-in surfaces; back-fill the mine-smoothness release note</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/performance-analyzer-telemetry-jtb43n</code> (restarted from <code>main</code> after PR #100 merged).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Resolves F-073. The root layout mounted <code>ClerkProvider</code> around every route whenever a publishable key was set, so every guest page (mine, workshop, arena, holodeck) fired the two <code>/__clerk</code> boot calls that 400 for signed-out visitors, pure console noise plus two wasted requests on the most common session type. <code>ClerkProvider</code> now lives in a new <code>src/app/(auth)/layout.tsx</code> wrapping only the sign-in and sign-up routes, which moved into an <code>(auth)</code> route group (their URLs, <code>/sign-in</code> and <code>/sign-up</code>, are unchanged). Server-side session reads (<code>src/server/account-session.ts</code>) and the proxy middleware do not depend on the client provider and are untouched. Version <code>0.1.202</code> with the "Chasing the mine hitches" release note, which also back-fills the player-facing note the F-075 cell-cache fix shipped without (that PR carried no version bump); the note is honest that phone telemetry still shows the fight is not over. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm exec tsc --noEmit</code> (after clearing stale <code>.next/types</code> from the route move); <code>pnpm test</code> (995, including the updated <code>app-release</code>, notifications-route, and release-notifications fixtures); Biome; <code>pnpm build</code>; dash and <code>git diff --check</code>. Behavior proof: a local production build carrying a dummy publishable key served a guest <code>/mine</code> load with zero Clerk requests and no Clerk in the HTML (the fix), while <code>/sign-in</code> still routed (falling back to <code>/mine?account=1</code> without a secret key, as before).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: a route-group layout over a client-side deferred boot, because the sign-in and sign-up pages are the only Clerk consumers and the group keeps their URLs stable with no conditional-mount logic. Rule 13: mine tips reviewed for the 0.1.202 bump, no change (no mine mechanic, economy, control, hazard, shop, or recovery rule changed; the release is a render-churn fix plus a guest-load cleanup). Rule 14: stamp review done, none added (infrastructure and bug-fix class work is not stamp material).</dd>
+      <dt>GDD coverage</dt><dd>No status changes; console-noise and load-cost cleanup, no requirement behavior changed. Build-log note added to <code>docs/gdd/10-account-sync.html</code>.</dd>
+      <dt>Followups</dt><dd><code>F-073</code> marked resolved in <code>docs/FOLLOWUPS.html</code> with the verification. Remaining phone lag after F-075 stays open under <code>F-074</code>/<code>F-075</code> follow-through (telemetry on build 269749 still shows multi-second <code>FrameRequestCallback</code> stalls and a 7 to 122 MB heap sawtooth); next investigation targets the WebGL2 low-tier render path.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-cell-cache" data-date="2026-07-07">
     <h3>F-075: signature-cached mine cells stop per-tick grid rebuilds</h3>
     <dl>

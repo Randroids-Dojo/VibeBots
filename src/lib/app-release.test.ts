@@ -24,18 +24,19 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest save-sync push note complete", () => {
+  it("keeps the latest mine-smoothness note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-07-0.1.201-save-sync-push");
+    expect(release.noticeId).toBe("2026-07-07-0.1.202-mine-smoothness");
     expect(latestNote).toMatchObject({
-      version: "0.1.201",
-      title: "Other devices get a heads-up",
-      intro: "Banking a run now pings your other devices.",
+      version: "0.1.202",
+      title: "Chasing the mine hitches",
+      intro: "Less churn while digging and falling; more to come.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "If notifications are on, your other devices now get a heads-up the moment a run is banked or a save is claimed elsewhere, so picking one up starts with a sync instead of a doomed run. The device that banked stays quiet, repeats replace the old alert, and another open tab in the same browser syncs instantly without any notification.",
+      "The mine no longer rebuilds every visible cell after each action and every row of a fall; only cells that actually changed re-render. This cuts the memory churn behind the multi-second garbage-collection freezes roughly in half in like-for-like measurement. Phone telemetry says the fight is not over yet, so the next update goes deeper into the renderer itself.",
+      "Guest sessions stop loading the sign-in library entirely, which trims page loads and clears two console errors logged on every visit.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

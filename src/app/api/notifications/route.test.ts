@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-07-0.1.201-save-sync-push",
+      releaseNoticeId: "2026-07-07-0.1.202-mine-smoothness",
       releaseSummary:
-        "Other devices get a heads-up: Banking a run now pings your other devices.",
+        "Chasing the mine hitches: Less churn while digging and falling; more to come.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-07-0.1.201-save-sync-push",
+      releaseNoticeId: "2026-07-07-0.1.202-mine-smoothness",
       attempted: 2,
       sent: 1,
       expired: 1,

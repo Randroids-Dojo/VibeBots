@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-07-0.1.201-save-sync-push";
+export const RELEASE_NOTICE_ID = "2026-07-07-0.1.202-mine-smoothness";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.202",
+      date: "2026-07-07",
+      title: "Chasing the mine hitches",
+      intro: "Less churn while digging and falling; more to come.",
+      changes: [
+        {
+          build,
+          text: "The mine no longer rebuilds every visible cell after each action and every row of a fall; only cells that actually changed re-render. This cuts the memory churn behind the multi-second garbage-collection freezes roughly in half in like-for-like measurement. Phone telemetry says the fight is not over yet, so the next update goes deeper into the renderer itself.",
+        },
+        {
+          build,
+          text: "Guest sessions stop loading the sign-in library entirely, which trims page loads and clears two console errors logged on every visit.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.201",
       date: "2026-07-07",

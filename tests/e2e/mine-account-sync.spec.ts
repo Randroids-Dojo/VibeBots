@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { MINE_VERSION } from "../../src/sim/mine";
+import { FRESHNESS_PROBE_MIN_INTERVAL_MS } from "../../src/state/mine-store";
 import {
   createMine,
   DEFAULT_GEAR,
@@ -825,6 +826,14 @@ test("mine warns when the cloud save advances on another device", async ({
     });
   });
 
+  // Let the test skew Date.now so the probe throttle can be stepped past
+  // without burning real wall-clock time.
+  await page.addInitScript(() => {
+    const realNow = Date.now.bind(Date);
+    const clocked = window as unknown as { __vbClockOffsetMs?: number };
+    Date.now = () => realNow() + (clocked.__vbClockOffsetMs ?? 0);
+  });
+
   await page.goto("/mine?account=1");
   await dismissReleaseNotes(page);
   const account = page.getByRole("dialog", { name: "Account" });
@@ -840,9 +849,12 @@ test("mine warns when the cloud save advances on another device", async ({
   });
   await expect(conflict).not.toBeVisible();
 
-  // The freshness probe throttles bursts; step past the window before the
-  // other device's bank becomes visible.
-  await page.waitForTimeout(10_500);
+  // Step past the probe throttle before the other device's bank becomes
+  // visible.
+  await page.evaluate((offsetMs) => {
+    (window as unknown as { __vbClockOffsetMs?: number }).__vbClockOffsetMs =
+      offsetMs;
+  }, FRESHNESS_PROBE_MIN_INTERVAL_MS + 1_000);
   staleVersion = true;
   await page.evaluate(() => {
     document.dispatchEvent(new Event("visibilitychange"));

@@ -13,6 +13,10 @@ import {
   type AccountProviderStatus,
   isAccountProviderIssue,
 } from "@/lib/account-provider-status";
+import {
+  MINE_VERSION_MISMATCH_CODE,
+  TRIP_ALREADY_CASHED_OUT_CODE,
+} from "@/lib/mine-api-codes";
 import type { AccountSaveSummary } from "@/server/account-summary";
 import type { PendingBunkerBuild } from "@/sim/bunker";
 import {
@@ -439,20 +443,18 @@ export function consumablesFromResponse(
   };
 }
 
+function responseCode(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+  const code = (body as Record<string, unknown>).code;
+  return typeof code === "string" ? code : null;
+}
+
 export function isMineVersionMismatch(body: unknown): boolean {
-  return (
-    Boolean(body) &&
-    typeof body === "object" &&
-    (body as Record<string, unknown>).code === "mine_version_mismatch"
-  );
+  return responseCode(body) === MINE_VERSION_MISMATCH_CODE;
 }
 
 export function isTripAlreadyCashedOut(body: unknown): boolean {
-  return (
-    Boolean(body) &&
-    typeof body === "object" &&
-    (body as Record<string, unknown>).code === "trip_already_cashed_out"
-  );
+  return responseCode(body) === TRIP_ALREADY_CASHED_OUT_CODE;
 }
 
 export interface MineWorldVersion {

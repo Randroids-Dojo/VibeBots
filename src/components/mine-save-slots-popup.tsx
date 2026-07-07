@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SaveSlotSummary, SaveSlotsState } from "@/state/mine-store";
+import { DIALOG_BACKDROP_STYLE, dialogCardStyle } from "./dialog-primitives";
 import { DismissibleDialogFrame } from "./dismissible-dialog-frame";
 
 function slotMeta(summary: SaveSlotSummary): string {
@@ -89,29 +90,13 @@ export function SaveSlotsPopup({
       role="dialog"
       aria-modal="true"
       aria-labelledby="save-slots-title"
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 34,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-        background: "rgba(3, 6, 12, 0.72)",
-        pointerEvents: "auto",
-      }}
+      style={DIALOG_BACKDROP_STYLE}
     >
       <section
         style={{
-          width: "min(520px, 100%)",
+          ...dialogCardStyle(520),
           maxHeight: "calc(100dvh - 48px)",
           overflowY: "auto",
-          borderRadius: 12,
-          border: "1px solid #384564",
-          background: "rgba(16, 20, 31, 0.98)",
-          boxShadow: "0 18px 60px rgba(0, 0, 0, 0.58)",
-          color: "#e6e8ee",
-          padding: 18,
         }}
       >
         <header

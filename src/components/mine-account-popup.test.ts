@@ -2,12 +2,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { AccountSaveSummary, AccountSyncState } from "@/state/mine-store";
+import { nextFocusTrapIndex } from "./dialog-primitives";
 import {
   AccountSyncPopup,
   accountDialogControls,
   accountSignInRedirectUrl,
   accountSignInUrlIsExpectedRoute,
-  nextFocusTrapIndex,
 } from "./mine-account-popup";
 
 const localSave: AccountSaveSummary = {

@@ -8,8 +8,7 @@ describe("SaveConflictPopup", () => {
     const markup = renderToStaticMarkup(
       createElement(SaveConflictPopup, {
         open: false,
-        onSync: vi.fn(),
-        onKeep: vi.fn(),
+        onResolve: vi.fn(),
       }),
     );
 
@@ -20,8 +19,7 @@ describe("SaveConflictPopup", () => {
     const markup = renderToStaticMarkup(
       createElement(SaveConflictPopup, {
         open: true,
-        onSync: vi.fn(),
-        onKeep: vi.fn(),
+        onResolve: vi.fn(),
       }),
     );
 

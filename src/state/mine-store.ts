@@ -64,6 +64,7 @@ import {
   loadAccountStatus as loadRemoteAccountStatus,
   loadRemoteAccountTrip,
   loadSaveSlotSummaries,
+  type MineWorldVersion,
   type SaveSlotSummary,
   saveSlotSummariesFromResponse,
   startRemoteAccountHandoff,
@@ -225,6 +226,9 @@ export interface MineSessionState {
   saveSlots: SaveSlotsState;
   accountSync: AccountSyncState;
   saveConflict: SaveConflictState;
+  /** Throttle bookkeeping for the multi-device freshness probe. */
+  freshnessProbeInFlight: boolean;
+  lastFreshnessProbeAt: number;
   worldLoaded: boolean;
   /** Tick key of the fall/crush playback whose impact frame has rendered.
    * Written by the mine canvas frame loop so the trip report can wait for
@@ -301,6 +305,10 @@ function pendingBunkerPayload(
     parts: pending.bunker.parts,
   };
 }
+
+// Freshness probes are throttled: lifecycle events (focus, visibility,
+// pageshow) can fire in bursts and every probe is a network roundtrip.
+export const FRESHNESS_PROBE_MIN_INTERVAL_MS = 10_000;
 
 export const useMineStore = create<MineSessionState>((set, get) => {
   const seed = randomSeed();
@@ -411,11 +419,6 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       get().loadSaveSlots(),
     ]);
   };
-  // Freshness probes are throttled: lifecycle events (focus, visibility,
-  // pageshow) can fire in bursts and every probe is a network roundtrip.
-  let freshnessProbeInFlight = false;
-  let lastFreshnessProbeAt = 0;
-  const FRESHNESS_PROBE_MIN_INTERVAL_MS = 10_000;
   return {
     mine: createMine(seed),
     seed,
@@ -438,6 +441,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     saveSlots: initialSlots,
     accountSync: initialAccountSync,
     saveConflict: "none",
+    freshnessProbeInFlight: false,
+    lastFreshnessProbeAt: 0,
     worldLoaded: false,
     fallVisualImpactKey: null,
     markFallVisualImpact: (key) => {
@@ -528,6 +533,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             pendingBunker: replay.pendingBunker,
             tick: replay.moves.length,
             lastResult: replay.lastResult,
+            // Any save conflict was about the world being replaced here.
+            saveConflict: "none",
           });
           return;
         }
@@ -543,6 +550,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           pendingBunker: null,
           tick: 0,
           lastResult: null,
+          // Any save conflict was about the world being replaced here.
+          saveConflict: "none",
         });
       };
       const res = await loadMineWorld();
@@ -938,13 +947,19 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           currentSave: parsed.accountSave,
           accountSave: parsed.accountSave,
         },
-        saveConflict: "none",
       });
       return true;
     },
 
     checkWorldFreshness: async () => {
-      const { accountSync, worldLoaded, saveConflict, cashOut } = get();
+      const {
+        accountSync,
+        worldLoaded,
+        saveConflict,
+        cashOut,
+        freshnessProbeInFlight,
+        lastFreshnessProbeAt,
+      } = get();
       // Only a cloud-linked save can advance on another device.
       if (!worldLoaded || accountSync.mode !== "cloud_loaded") return;
       if (saveConflict !== "none") return;
@@ -956,16 +971,15 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       ) {
         return;
       }
-      freshnessProbeInFlight = true;
-      lastFreshnessProbeAt = now;
-      let version: ReturnType<typeof worldVersionFromResponse> = null;
+      set({ freshnessProbeInFlight: true, lastFreshnessProbeAt: now });
+      let version: MineWorldVersion | null = null;
       try {
         const res = await loadMineWorldVersion();
         // Offline or signed out is not a conflict signal.
         if (!res.ok) return;
         version = worldVersionFromResponse(res.body);
       } finally {
-        freshnessProbeInFlight = false;
+        set({ freshnessProbeInFlight: false });
       }
       if (!version) return;
       const { seed: localSeed, tripIndex, moves } = get();

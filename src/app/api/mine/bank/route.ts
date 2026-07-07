@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  MINE_VERSION_MISMATCH_CODE,
+  TRIP_ALREADY_CASHED_OUT_CODE,
+} from "@/lib/mine-api-codes";
 import { applyAchievementProgress } from "@/server/achievements";
 import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
@@ -433,7 +437,7 @@ export async function POST(request: Request): Promise<Response> {
     // Generation rules changed under a live session; re-pricing the old
     // log would not match what the player saw.
     logMineCashOutEvent({
-      code: "mine_version_mismatch",
+      code: MINE_VERSION_MISMATCH_CODE,
       severity: "warn",
       ...requestPlayerLogContext,
       mineVersion: parsed.data.mineVersion,
@@ -442,7 +446,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(
       {
         error: "the mine has shifted since this trip started; start fresh",
-        code: "mine_version_mismatch",
+        code: MINE_VERSION_MISMATCH_CODE,
         expectedMineVersion: MINE_VERSION,
       },
       { status: 409 },
@@ -481,7 +485,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (worlds[0].trip_count !== parsed.data.tripIndex) {
     logMineCashOutEvent({
-      code: "trip_already_cashed_out",
+      code: TRIP_ALREADY_CASHED_OUT_CODE,
       severity: "warn",
       ...playerLogContext,
       worldTripIndex: worlds[0].trip_count,

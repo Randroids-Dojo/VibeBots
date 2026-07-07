@@ -1,8 +1,13 @@
 "use client";
 
 import { memo, useRef } from "react";
+import {
+  DIALOG_BACKDROP_STYLE,
+  DialogActionButton,
+  dialogCardStyle,
+  useFocusTrap,
+} from "./dialog-primitives";
 import { DismissibleDialogFrame } from "./dismissible-dialog-frame";
-import { AccountActionButton, useFocusTrap } from "./mine-account-popup";
 
 /**
  * Multi-device save conflict dialog (REQ-042): another device advanced the
@@ -13,12 +18,10 @@ import { AccountActionButton, useFocusTrap } from "./mine-account-popup";
  */
 export const SaveConflictPopup = memo(function SaveConflictPopup({
   open,
-  onSync,
-  onKeep,
+  onResolve,
 }: {
   open: boolean;
-  onSync: () => void;
-  onKeep: () => void;
+  onResolve: (choice: "sync" | "keep") => void;
 }) {
   const dialogRef = useRef<HTMLElement | null>(null);
   useFocusTrap(open, dialogRef);
@@ -27,35 +30,17 @@ export const SaveConflictPopup = memo(function SaveConflictPopup({
 
   return (
     <DismissibleDialogFrame
-      onDismiss={onKeep}
+      onDismiss={() => onResolve("keep")}
       role="dialog"
       aria-modal="true"
       aria-labelledby="save-conflict-title"
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 34,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-        background: "rgba(3, 6, 12, 0.72)",
-        pointerEvents: "auto",
-      }}
+      style={DIALOG_BACKDROP_STYLE}
     >
       <section
         ref={dialogRef}
         tabIndex={-1}
         data-save-conflict-dialog
-        style={{
-          width: "min(440px, 100%)",
-          borderRadius: 12,
-          border: "1px solid #384564",
-          background: "rgba(16, 20, 31, 0.98)",
-          boxShadow: "0 18px 60px rgba(0, 0, 0, 0.58)",
-          color: "#e6e8ee",
-          padding: 18,
-        }}
+        style={dialogCardStyle(440)}
       >
         <h2 id="save-conflict-title" style={{ margin: 0, fontSize: "1.15rem" }}>
           Save updated on another device
@@ -66,28 +51,26 @@ export const SaveConflictPopup = memo(function SaveConflictPopup({
           run, or keep playing knowing this run cannot be banked.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <AccountActionButton
+          <DialogActionButton
             accent={{
               border: "#54e0c7",
               background: "#172b30",
               color: "#54e0c7",
             }}
-            disabled={false}
-            onClick={onSync}
+            onClick={() => onResolve("sync")}
           >
             Sync now (discard this run)
-          </AccountActionButton>
-          <AccountActionButton
+          </DialogActionButton>
+          <DialogActionButton
             accent={{
               border: "#72809b",
               background: "#1a2030",
               color: "#d8deec",
             }}
-            disabled={false}
-            onClick={onKeep}
+            onClick={() => onResolve("keep")}
           >
             Keep playing
-          </AccountActionButton>
+          </DialogActionButton>
         </div>
       </section>
     </DismissibleDialogFrame>

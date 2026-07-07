@@ -122,6 +122,7 @@ import { STALLS, stallAt } from "./mine-stalls";
 import { StampBookPopup } from "./mine-stamp-book-popup";
 import { MineTouchControls } from "./mine-touch-controls";
 import { PerfTelemetry } from "./perf-telemetry";
+import { useForegroundReturn } from "./use-foreground-return";
 
 type MineSceneStatus = "loading" | "ready" | "error";
 const MINE_SCENE_LOAD_ERROR =
@@ -1172,32 +1173,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     () => startAccountSignIn("/mine"),
     [startAccountSignIn],
   );
-  const syncSaveConflict = useCallback(
-    () => void resolveSaveConflict("sync"),
-    [resolveSaveConflict],
-  );
-  const keepPlayingThroughConflict = useCallback(
-    () => void resolveSaveConflict("keep"),
-    [resolveSaveConflict],
-  );
-
   // Multi-device freshness: revalidate the cloud save whenever this device
   // comes back to the foreground (the store gates the probe to cloud-loaded
   // saves and throttles bursts).
-  useEffect(() => {
-    const probe = () => {
-      if (document.visibilityState === "hidden") return;
-      void checkWorldFreshness();
-    };
-    window.addEventListener("focus", probe);
-    window.addEventListener("pageshow", probe);
-    document.addEventListener("visibilitychange", probe);
-    return () => {
-      window.removeEventListener("focus", probe);
-      window.removeEventListener("pageshow", probe);
-      document.removeEventListener("visibilitychange", probe);
-    };
-  }, [checkWorldFreshness]);
+  const probeSaveFreshness = useCallback(
+    () => void checkWorldFreshness(),
+    [checkWorldFreshness],
+  );
+  useForegroundReturn(probeSaveFreshness);
+  // An interrupted sign-in handoff retries when the player returns.
+  const retryHandoffOnReturn = useCallback(() => {
+    if (!new URL(window.location.href).searchParams.has("accountHandoff")) {
+      return;
+    }
+    setAccountHandoffRetryTick((tick) => tick + 1);
+  }, []);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext>({
@@ -1411,22 +1401,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     });
   }, [finishAccountSignIn, accountHandoffRetryTick]);
 
-  useEffect(() => {
-    const retry = () => {
-      if (!new URL(window.location.href).searchParams.has("accountHandoff")) {
-        return;
-      }
-      setAccountHandoffRetryTick((tick) => tick + 1);
-    };
-    window.addEventListener("focus", retry);
-    window.addEventListener("pageshow", retry);
-    document.addEventListener("visibilitychange", retry);
-    return () => {
-      window.removeEventListener("focus", retry);
-      window.removeEventListener("pageshow", retry);
-      document.removeEventListener("visibilitychange", retry);
-    };
-  }, []);
+  useForegroundReturn(retryHandoffOnReturn);
 
   useEffect(() => {
     if (
@@ -2974,8 +2949,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       />
       <SaveConflictPopup
         open={saveConflict === "prompt"}
-        onSync={syncSaveConflict}
-        onKeep={keepPlayingThroughConflict}
+        onResolve={resolveSaveConflict}
       />
       <PerfTelemetry
         source="mine"

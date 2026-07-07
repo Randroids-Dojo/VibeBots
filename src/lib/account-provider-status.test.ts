@@ -4,7 +4,6 @@ import {
   ACCOUNT_PROVIDER_ISSUES,
   isAccountProviderIssue,
 } from "./account-provider-status";
-import providerStatusCodes from "./account-provider-status-codes.json";
 
 describe("account provider status contract", () => {
   it("accepts only the known Clerk readiness issue codes", () => {
@@ -73,12 +72,10 @@ describe("account provider status contract", () => {
     expect(isAccountProviderIssue("")).toBe(false);
   });
 
-  it("keeps the shared JSON mirror in sync with the issue list", () => {
-    expect(providerStatusCodes.issues).toEqual([...ACCOUNT_PROVIDER_ISSUES]);
-  });
-
   it("stays free of framework, provider, storage, and app imports", () => {
-    const source = readFileSync("src/lib/account-provider-status.ts", "utf8");
+    const source =
+      readFileSync("src/lib/account-provider-status.ts", "utf8") +
+      readFileSync("src/lib/account-env-rules.mjs", "utf8");
 
     expect(source).not.toMatch(/from ["']@clerk\/nextjs["']/);
     expect(source).not.toMatch(/from ["']next\//);

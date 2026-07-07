@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="f067-env-rules" data-date="2026-07-07">
+    <h3>F-067: one env-readiness rules module for the script and the server</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>sync/f067-env-rules</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>The Clerk env-readiness rules were implemented twice (<code>scripts/check-account-env.mjs</code> and <code>accountProviderStatusFromConfig</code>), glued together by two JSON mirror files and their sync tests, with the expected route literals free-floating in five files. The rules now live once in <code>src/lib/account-env-rules.mjs</code>: plain JavaScript the Node script imports directly, type-checked through allowJs with JSDoc const assertions so TypeScript consumers get precise literal types with no declaration shadow copy. <code>account-provider-status.ts</code> and <code>account-google-scopes.ts</code> became thin typed wrappers; the server classifier keeps only the SDK-wiring flags and calls the shared <code>accountEnvIssues</code>; the preflight script lost its duplicated rule functions and JSON reads (its report shape is unchanged, with the key-prefix booleans derived from the shared issue list). A /simplify pass then made <code>ACCOUNT_ENV_VAR_NAMES</code> the single source for the fourteen Clerk variable names: <code>AccountEnvVars</code> derives from it, the preflight builds its env object by mapping over it, and the server's <code>AccountProviderStatusEnv</code> reuses the shared type, so the name list that was spelled in four places now lives once. The JSON mirrors and their sync tests are deleted, and <code>ACCOUNT_SIGN_IN_PATH</code>/<code>ACCOUNT_DIALOG_PATH</code> replace the literals in the server checks, the script, <code>accountSignInUrlIsExpectedRoute</code>, and the sign-in/up page redirects. Acceptance holds: one definition of the expected sign-in route repo-wide; a new readiness rule is one edit plus tests.</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm exec tsc --noEmit</code>; <code>pnpm exec vitest run</code> (96 files, 992 tests; the preflight parity suite now exercises the shared engine, the lib purity tests also scan the rules module); <code>pnpm exec biome check</code>; <code>scripts/check-sim-purity.sh</code>; dash and <code>git diff --check</code>; <code>pnpm build</code>; Playwright on the account-sync and sign-in-route specs; <code>node scripts/check-account-env.mjs</code> reports the same pending shape as before.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: JSDoc const assertions over a hand-written <code>.d.ts</code>, because a declaration file would be a third copy of the issue list with nothing checking it against the runtime. The script-only Google-scope issues (<code>google_scopes_missing</code>, <code>google_scopes_non_identity</code>) stay in the script; they gate the ops flow, not the runtime classifier. Rule 13: tips reviewed, no change. Rule 14: stamp review done, none added. No version bump: internal refactor.</dd>
+      <dt>GDD coverage</dt><dd>REQ-042 stays partial; <code>docs/gdd/10-account-sync.html</code> gained a build-log entry.</dd>
+      <dt>Followups</dt><dd><code>F-067</code> marked resolved in <code>docs/FOLLOWUPS.html</code>; the /simplify-era followups are now all closed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="guest-clerk-scope" data-date="2026-07-07">
     <h3>F-073: scope Clerk to the sign-in surfaces; back-fill the mine-smoothness release note</h3>
     <dl>

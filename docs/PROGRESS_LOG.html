@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="dataset-diagnostics-adoption" data-date="2026-07-07">
+    <h3>Adopt quantize-and-cache dataset diagnostics in arena, workshop, holodeck (F-076)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/performance-analyzer-telemetry-jtb43n</code> (restarted from <code>main</code> after PR #91 merged).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Completes F-076: the three remaining canvases' per-frame dataset writes go through the shared <code>src/components/dataset-diagnostics.ts</code> helpers (write-on-change, quantized), the same churn class removed from the mine in PR #91. Arena: countdown, camera mode/target/distance, bot screen positions, bots-in-frame. Workshop: drag ghost coordinates, docked hero Y, hero yaw, and the selected-part overlay, whose attribute-delete path now also invalidates the cache so a re-selection cannot be skipped as unchanged. Holodeck: zoom, pan, rig pose fields, target/clip/loop state, and per-frame draw calls. <code>setDatasetNumber</code> gained 3- and 4-decimal quanta for projection coordinates. All keys and string formats are unchanged, so every existing smoke reads them as before. No player-facing change: no version bump, no release note.</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm exec tsc --noEmit</code>; <code>pnpm test</code> (984); Biome on touched files; <code>pnpm build</code>; <code>pnpm check:dashes</code>; <code>git diff --check</code>; Playwright <code>arena.spec.ts</code>, <code>workshop.spec.ts</code>, <code>holodeck.spec.ts</code> (34 passed; two workshop specs that failed under full-suite load pass in isolation, and the holodeck pinch-recenter spec fails identically against an unmodified <code>main</code> build in this container, so it is a pre-existing local-environment failure, not a regression from this diff).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: per-component cache refs rather than one global cache, so caches die with their canvas. Rule 13: mine tips reviewed, no change (diagnostics only). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No changes; diagnostics only.</dd>
+      <dt>Followups</dt><dd>Resolved <code>F-076</code> (progress note appended).</dd>
+    </dl>
+  </article>
+
   <article data-slice="f069-handoff-retry" data-date="2026-07-07">
     <h3>F-069: retry late-settling handoffs; claim spec drives the button</h3>
     <dl>

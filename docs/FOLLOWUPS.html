@@ -59,6 +59,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready: route the arena, workshop, and holodeck per-frame dataset writes through <code>setDatasetNumber</code>/<code>setDatasetText</code> with a per-canvas cache ref, keeping keys and formats unchanged so existing smokes read them as before. Acceptance: no unconditional per-frame dataset string writes remain in any canvas useFrame, and the canvases' e2e smokes stay green.</dd>
       <dt>PR / Dot reference</dt><dd>(not started; raised by the gc-hitches cleanup pass)</dd>
+      <dt>Progress update</dt><dd>2026-07-07: shipped. Arena (countdown, camera framing, bot screen positions), workshop (drag ghost, docked hero, hero yaw, selected-part overlay incl. cache invalidation on attribute delete), and holodeck (zoom, pan, rig pose, draw calls) now route their per-frame dataset writes through the shared <code>dataset-diagnostics</code> helpers with per-component caches; <code>setDatasetNumber</code> gained 3- and 4-decimal quanta for the projection coordinates. Keys and formats unchanged; the surface e2e suites pass (the holodeck pinch spec fails identically on an unmodified main build in this container, a pre-existing local-environment issue).</dd>
     </dl>
   </section>
 

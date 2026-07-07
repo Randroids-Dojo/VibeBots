@@ -9,14 +9,14 @@
  * ref) so caches never leak across mounts.
  */
 
-const DATASET_QUANTUM = [1, 10, 100] as const;
+const DATASET_QUANTUM = [1, 10, 100, 1_000, 10_000] as const;
 
 export function setDatasetNumber(
   cache: Record<string, number | string>,
   dataset: DOMStringMap,
   key: string,
   value: number,
-  decimals: 0 | 1 | 2,
+  decimals: 0 | 1 | 2 | 3 | 4,
 ): void {
   const quantized = Math.round(value * DATASET_QUANTUM[decimals]);
   if (cache[key] === quantized) return;

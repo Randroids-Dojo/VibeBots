@@ -201,6 +201,7 @@ function HeroPart({
   useFrame((_, dt) => {
     const anchor = anchorRef.current;
     const canvasEl = gl.domElement as HTMLCanvasElement;
+    const cache = heroDatasetCache.current;
     if (anchor) {
       anchor.position.copy(camera.position);
       anchor.quaternion.copy(camera.quaternion);
@@ -220,7 +221,6 @@ function HeroPart({
         // top-left) so a test can assert it stays under the pointer.
         anchor.updateWorldMatrix(true, false);
         const dv = projScratch.current.copy(anchor.position).project(camera);
-        const cache = heroDatasetCache.current;
         setDatasetNumber(
           cache,
           canvasEl.dataset,
@@ -249,7 +249,7 @@ function HeroPart({
         anchor.updateWorldMatrix(true, false);
         const v = anchor.getWorldPosition(projScratch.current).project(camera);
         setDatasetNumber(
-          heroDatasetCache.current,
+          cache,
           canvasEl.dataset,
           "heroScreenY",
           (1 - v.y) / 2,
@@ -260,7 +260,7 @@ function HeroPart({
     yaw.current += dt * 0.7;
     spinRef.current?.rotation.set(0, yaw.current, 0);
     setDatasetNumber(
-      heroDatasetCache.current,
+      cache,
       canvasEl.dataset,
       "heroYaw",
       yaw.current % (Math.PI * 2),

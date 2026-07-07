@@ -4,6 +4,7 @@ import {
 } from "@/server/account-handoff";
 import {
   accountJson,
+  guestSaveRequired,
   safeJsonBody,
   storageUnavailable,
 } from "@/server/account-response";
@@ -34,10 +35,7 @@ export async function POST(request: Request): Promise<Response> {
       code: "handoff_start_missing_player",
       severity: "warn",
     });
-    return accountJson(
-      { error: "guest save required", code: "guest_save_required" },
-      { status: 409 },
-    );
+    return guestSaveRequired();
   }
   const body = (await safeJsonBody(request)) ?? {};
   const returnTo = safeAccountReturnTo(body.returnTo);

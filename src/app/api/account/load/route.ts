@@ -2,7 +2,11 @@ import {
   type AccountLoadResult,
   loadPlayerForAccount,
 } from "@/server/account-linking";
-import { accountJson, storageUnavailable } from "@/server/account-response";
+import {
+  accountJson,
+  signInRequired,
+  storageUnavailable,
+} from "@/server/account-response";
 import {
   currentReadyAccountIdentity,
   requestAccountSessionProvider,
@@ -27,10 +31,7 @@ export async function POST(request: Request): Promise<Response> {
     requestAccountSessionProvider(request),
   );
   if (!identity) {
-    return accountJson(
-      { error: "account sign-in required", code: "sign_in_required" },
-      { status: 401 },
-    );
+    return signInRequired();
   }
 
   const sql = await db();
@@ -58,10 +59,7 @@ export async function POST(request: Request): Promise<Response> {
       provider: identity.provider,
       subject: identity.subject,
     });
-    return accountJson(
-      { error: "account sign-in required", code: "sign_in_required" },
-      { status: 401 },
-    );
+    return signInRequired();
   }
   if (result.status === "not-found") {
     logAccountLinkEvent({

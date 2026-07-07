@@ -6,7 +6,9 @@ import {
 import { claimPlayerForAccount } from "@/server/account-linking";
 import {
   accountJson,
+  guestSaveRequired,
   safeJsonBody,
+  signInRequired,
   storageUnavailable,
 } from "@/server/account-response";
 import {
@@ -37,10 +39,7 @@ export async function POST(request: Request): Promise<Response> {
     requestAccountSessionProvider(request),
   );
   if (!identity) {
-    return accountJson(
-      { error: "account sign-in required", code: "sign_in_required" },
-      { status: 401 },
-    );
+    return signInRequired();
   }
   const handoffId = await handoffIdFromRequest(request);
   if (!handoffId) {
@@ -57,10 +56,7 @@ export async function POST(request: Request): Promise<Response> {
       provider: identity.provider,
       subject: identity.subject,
     });
-    return accountJson(
-      { error: "guest save required", code: "guest_save_required" },
-      { status: 409 },
-    );
+    return guestSaveRequired();
   }
 
   const sql = await db();

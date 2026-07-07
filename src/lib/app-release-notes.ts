@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-07-0.1.202-mine-smoothness";
+export const RELEASE_NOTICE_ID = "2026-07-07-0.1.203-mine-geometry";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.203",
+      date: "2026-07-07",
+      title: "The freezes, at the source",
+      intro: "Digging no longer leaks graphics memory.",
+      changes: [
+        {
+          build,
+          text: "Every mine block now reuses one shared shape instead of building and then leaking its own as you dig. That growing graphics-memory use was the real cause of the multi-second freezes, especially on phones, and this removes it. Blocks look exactly the same.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.202",
       date: "2026-07-07",

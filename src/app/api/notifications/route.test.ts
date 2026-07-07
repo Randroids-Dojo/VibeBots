@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-07-0.1.202-mine-smoothness",
+      releaseNoticeId: "2026-07-07-0.1.203-mine-geometry",
       releaseSummary:
-        "Chasing the mine hitches: Less churn while digging and falling; more to come.",
+        "The freezes, at the source: Digging no longer leaks graphics memory.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-07-0.1.202-mine-smoothness",
+      releaseNoticeId: "2026-07-07-0.1.203-mine-geometry",
       attempted: 2,
       sent: 1,
       expired: 1,

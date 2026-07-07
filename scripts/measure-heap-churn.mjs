@@ -17,7 +17,10 @@ const SECONDS = Number(process.argv[4] ?? 75);
 
 const browser = await chromium.launch({ executablePath });
 const page = await browser.newPage({ viewport: { width: 448, height: 891 } });
-await page.goto(`${BASE}/mine`, { waitUntil: "domcontentloaded", timeout: 60000 });
+await page.goto(`${BASE}/mine`, {
+  waitUntil: "domcontentloaded",
+  timeout: 60000,
+});
 await page.waitForSelector("canvas", { timeout: 60000 });
 try {
   await page.getByRole("button", { name: "Got it" }).click({ timeout: 8000 });

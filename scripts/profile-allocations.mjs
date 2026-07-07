@@ -14,7 +14,10 @@ const SECONDS = Number(process.argv[3] ?? 40);
 
 const browser = await chromium.launch({ executablePath });
 const page = await browser.newPage({ viewport: { width: 448, height: 891 } });
-await page.goto(`${BASE}/mine`, { waitUntil: "domcontentloaded", timeout: 60000 });
+await page.goto(`${BASE}/mine`, {
+  waitUntil: "domcontentloaded",
+  timeout: 60000,
+});
 await page.waitForSelector("canvas", { timeout: 60000 });
 try {
   await page.getByRole("button", { name: "Got it" }).click({ timeout: 8000 });
@@ -43,17 +46,25 @@ function walk(node, stack) {
   const frame = node.callFrame;
   const label = `${frame.functionName || "(anonymous)"} @ ${frame.url.split("/").pop() || "?"}:${frame.lineNumber + 1}`;
   if (node.selfSize > 0) {
-    rows.push({ label, self: node.selfSize, stack: [...stack, label].slice(-4) });
+    rows.push({
+      label,
+      self: node.selfSize,
+      stack: [...stack, label].slice(-4),
+    });
   }
   for (const child of node.children ?? []) walk(child, [...stack, label]);
 }
 walk(profile.head, []);
 rows.sort((a, b) => b.self - a.self);
 const total = rows.reduce((t, r) => t + r.self, 0);
-console.log(`total sampled: ${(total / 1024 / 1024).toFixed(1)} MB over ${SECONDS}s`);
+console.log(
+  `total sampled: ${(total / 1024 / 1024).toFixed(1)} MB over ${SECONDS}s`,
+);
 for (const row of rows.slice(0, 25)) {
   console.log(
     `${(row.self / 1024 / 1024).toFixed(2).padStart(7)} MB  ${row.label}`,
   );
-  console.log(`           via ${row.stack.slice(0, -1).join(" <- ") || "(root)"}`);
+  console.log(
+    `           via ${row.stack.slice(0, -1).join(" <- ") || "(root)"}`,
+  );
 }

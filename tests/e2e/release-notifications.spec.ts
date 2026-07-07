@@ -21,13 +21,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Banking a run now pings your other devices.",
+    "Less churn while digging and falling; more to come.",
   );
-  await expect(dialog.locator("li")).toHaveCount(2);
+  await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "get a heads-up the moment a run is banked",
+    "only cells that actually changed re-render",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
+    "stop loading the sign-in library entirely",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
 

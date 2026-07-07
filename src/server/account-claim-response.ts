@@ -2,7 +2,7 @@ import type {
   AccountClaimResult,
   AccountIdentity,
 } from "@/lib/account-link-core";
-import { accountJson } from "./account-response";
+import { accountJson, signInRequired } from "./account-response";
 import { type AccountSaveSummary, accountSaveSummary } from "./account-summary";
 import type { db } from "./db";
 import { logAccountLinkEvent } from "./monitoring";
@@ -55,10 +55,7 @@ export async function claimFailureResponse(
       result: result.status,
     });
     return {
-      response: accountJson(
-        { error: "account sign-in required", code: "sign_in_required" },
-        { status: 401 },
-      ),
+      response: signInRequired(),
       result: null,
       save: null,
     };

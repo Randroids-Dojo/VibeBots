@@ -53,7 +53,7 @@ export const ACCOUNT_ERROR_CODES = [
   /** The uploaded trip checkpoint failed validation (400). */
   "invalid_trip_checkpoint",
   /** See STALE_TRIP_CHECKPOINT_CODE (409). */
-  "stale_trip_checkpoint",
+  STALE_TRIP_CHECKPOINT_CODE,
   /** Deleting a linked account save from a device is blocked (409). */
   "linked_account_save_delete_blocked",
 ] as const;

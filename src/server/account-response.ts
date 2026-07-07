@@ -11,6 +11,20 @@ export function storageUnavailable(): Response {
   );
 }
 
+export function signInRequired(): Response {
+  return accountJson(
+    { error: "account sign-in required", code: "sign_in_required" },
+    { status: 401 },
+  );
+}
+
+export function guestSaveRequired(): Response {
+  return accountJson(
+    { error: "guest save required", code: "guest_save_required" },
+    { status: 409 },
+  );
+}
+
 /** Request body as an object, or null for invalid JSON / non-object bodies. */
 export async function safeJsonBody(
   request: Request,

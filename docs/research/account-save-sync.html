@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Multi-Device Save Sync</title>
+</head>
+<body>
+
+<header>
+  <h1>Multi-Device Save Sync</h1>
+  <p data-status="planned">Status: research complete, implementation planned as three slices (dots <code>VibeBots-sync-freshness-*</code>, <code>VibeBots-sync-stale-checkpoint-*</code>, <code>VibeBots-sync-save-push-*</code>).</p>
+  <p>Account sync (REQ-042) lets one Google-backed save load on several devices. This pass designs how those devices stay coherent while playing, after a live two-device playtest on 2026-07-05 showed how easily they drift.</p>
+</header>
+
+<section id="problem">
+  <h2>Problem: the reproduced two-device conflict</h2>
+  <ol>
+    <li>Sign into the same account on devices A and B; both load the same cloud save (same <code>playerId</code>).</li>
+    <li>Device A mines a trip and returns to the surface. Cash-out advances <code>mine_worlds.trip_count</code> and rewrites the world diff.</li>
+    <li>Device B, still holding the old world (old <code>seed</code> plus <code>tripIndex</code>), mines a full trip.</li>
+    <li>Device B's cash-out is rejected: the server's compare-and-set on <code>trip_count</code> returns <code>trip_already_cashed_out</code>.</li>
+  </ol>
+  <p>The server state is never corrupted. The cost is entirely player-facing: device B plays a doomed trip with no warning and loses the run to a raw error message.</p>
+</section>
+
+<section id="current-state">
+  <h2>Current state (verified 2026-07-06)</h2>
+  <ul>
+    <li><code>src/app/api/mine/bank/route.ts</code> validates submitted <code>seed</code> against <code>mine_worlds.seed</code> (<code>wrong_mine_seed</code>) and <code>tripIndex</code> against <code>trip_count</code> (<code>trip_already_cashed_out</code>), and the credit UPDATE is guarded with <code>AND trip_count = tripIndex</code>. Server-side protection is already correct.</li>
+    <li><code>mine_trip_checkpoints</code> is one row per player and the PUT in <code>src/app/api/account/trip/route.ts</code> is a blind upsert: a stale device silently overwrites a fresh device's in-flight trip checkpoint.</li>
+    <li>The client (<code>src/state/mine-store.ts</code>) holds exactly the freshness token it needs: its current <code>seed</code> and <code>tripIndex</code>. It never revalidates them after the initial world load.</li>
+    <li>Web Push already exists per player (<code>push_subscriptions</code> keyed by <code>player_id</code> plus endpoint; VAPID env; <code>public/sw.js</code>). Cloud-linked devices share one <code>playerId</code>, so "this account's other devices" is already expressible. Constraint: browsers require every push to show a visible notification, so push cannot be a silent data channel.</li>
+    <li>Deterministic replay means two divergent trips on one world cannot be merged. Whichever banks first wins; the other trip is unsalvageable by design. The goal is therefore to make the losing trip short, not to recover it.</li>
+  </ul>
+</section>
+
+<section id="design">
+  <h2>Design: four layers</h2>
+
+  <section id="layer-freshness">
+    <h3>Layer 1: freshness checks at the moments that matter</h3>
+    <ul>
+      <li>Expose a cheap world-version probe returning <code>{ seed, tripCount }</code> for the current player (either a dedicated <code>GET /api/mine/world/version</code> or an extra field on an existing read). One indexed primary-key SELECT.</li>
+      <li>Cloud-loaded clients revalidate on <code>visibilitychange</code>, <code>focus</code>, and <code>pageshow</code>, and before the first move of each new trip.</li>
+      <li>Compare against local <code>seed</code>/<code>tripIndex</code>. A mismatch means another device advanced the save.</li>
+      <li>In the reproduced scenario, device B learns it is stale when it is picked back up, before mining anything.</li>
+    </ul>
+  </section>
+
+  <section id="layer-conflict-ux">
+    <h3>Layer 2: one consistent conflict flow</h3>
+    <ul>
+      <li>Every staleness discovery (probe mismatch, stale-checkpoint rejection, bank failure) funnels into one rule.</li>
+      <li>No local moves yet: resync silently (reload world, gear, account status). Nothing is lost, no prompt.</li>
+      <li>Local moves exist: modal dialog "Your cloud save advanced on another device." Primary action <strong>Sync now</strong> (discards this run's progress), secondary <strong>Keep playing</strong> (run is marked doomed; banking will be refused and the modal returns at cash-out). Honest copy: the run cannot be merged.</li>
+      <li>The existing raw <code>trip_already_cashed_out</code> cash-out error upgrades into this same flow instead of a text error.</li>
+      <li>Modal follows Rule 10: z-index above fixed surfaces, keyboard activation preserved, focus handled like the account dialog.</li>
+    </ul>
+  </section>
+
+  <section id="layer-stale-checkpoint">
+    <h3>Layer 3: reject stale trip checkpoints server-side</h3>
+    <ul>
+      <li>The trip checkpoint payload already carries <code>tripIndex</code>. The PUT compares it to <code>mine_worlds.trip_count</code> and returns 409 <code>stale_trip_checkpoint</code> on mismatch.</li>
+      <li>Stops a stale device from overwriting a fresh device's checkpoint, and doubles as an early conflict tripwire because checkpoints are written at every account interaction.</li>
+      <li>Wants the stable account error-code contract (followup F-068) so the client branches on <code>code</code>, not prose.</li>
+    </ul>
+  </section>
+
+  <section id="layer-push">
+    <h3>Layer 4: save-sync push for backgrounded devices</h3>
+    <ul>
+      <li>On save-mutating events (successful bank, cloud load, claim), send Web Push to the player's other subscriptions: tag <code>vibebots-save-sync</code> (repeats replace, never stack), body "Your save advanced on another device. Open to sync.", URL <code>/mine</code>.</li>
+      <li>Suppress the originating device: the client sends a hash of its own subscription endpoint with the mutating request; the server skips that subscription.</li>
+      <li>Rate limit per endpoint (skip if the last save-sync push was within a couple of minutes).</li>
+      <li>Stays opt-in behind the existing notifications toggle; covers only the closed or backgrounded app. The open app is covered by layer 1, which needs no permission and cannot spam.</li>
+      <li>A <code>BroadcastChannel</code> ping covers same-browser multi-tab for free.</li>
+    </ul>
+  </section>
+</section>
+
+<section id="decisions">
+  <h2>Decisions</h2>
+  <ul>
+    <li>Last bank wins; no trip merging. Deterministic replay of divergent moves over one world is unresolvable, so the design shortens the losing trip instead of recovering it.</li>
+    <li>Always prompt before dropping moves; never auto-discard player progress silently.</li>
+    <li>Polling loops are avoided; revalidation happens on lifecycle events plus trip start.</li>
+    <li>Push is a wake-up channel, not the sync mechanism. In-app freshness checks are the mechanism.</li>
+  </ul>
+</section>
+
+<section id="slices">
+  <h2>Implementation slices</h2>
+  <ol>
+    <li><strong>Slice A (layers 1 + 2):</strong> version probe, lifecycle plus trip-start revalidation, conflict modal, cash-out error upgrade. Store unit tests for conflict transitions plus an e2e that replays the two-device repro with mocked routes.</li>
+    <li><strong>Slice B (layer 3):</strong> stale-checkpoint 409 plus client handling. Route tests and store tests.</li>
+    <li><strong>Slice C (layer 4):</strong> save-sync push with tag, origin suppression, rate limit, sw.js handling, BroadcastChannel. Server unit tests plus notification route tests.</li>
+  </ol>
+</section>
+
+</body>
+</html>

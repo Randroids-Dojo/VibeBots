@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="f069-handoff-retry" data-date="2026-07-07">
+    <h3>F-069: retry late-settling handoffs; claim spec drives the button</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>sync/f069-handoff-retry</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Reconciles the two e2e specs that still described pre-hardening behavior. (1) Code fix: the handoff-finish effect in <code>src/components/mine-panel.tsx</code> treated "sign-in required" as terminal, but a 401 immediately after the OAuth redirect is usually Clerk session-cookie lag; the terminal treatment stripped the handoff param and stranded the player signed out. The 401 now retries under the existing 750ms/3-attempt cap (genuinely terminal outcomes, expired handoffs and cross-account saves, stay terminal). The "settles late" spec passes unchanged. (2) Spec rewrite: "signed-in device save auto-claims to cloud" asserted the auto-claim the F-060 hardening deliberately removed (consent: never silently bind a device save to the signed-in account); it now asserts zero claim requests until the player clicks "Save this run", then drives the button to a claimed cloud save. First fully green run of <code>mine-account-sync.spec.ts</code> (10/10).</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm exec tsc --noEmit</code>; <code>pnpm exec vitest run</code> (95 files, 992 tests); <code>pnpm build</code>; <code>pnpm exec playwright test tests/e2e/mine-account-sync.spec.ts</code> (10 passed, 0 failed); <code>pnpm exec biome check</code>; dash and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: bounded retry over instant terminal for 401s only; the cap already existed, so a genuinely signed-out player sees the same "sign-in required" error after three attempts, about 1.5 seconds later. No version bump: the recovery is invisible when it works and no player-facing rule changed. Rule 13: tips reviewed, no change. Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>REQ-042 stays partial; <code>docs/gdd/10-account-sync.html</code> gained a build-log entry for the retry fix.</dd>
+      <dt>Followups</dt><dd><code>F-069</code> marked resolved in <code>docs/FOLLOWUPS.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="f070-idle-persist" data-date="2026-07-07">
     <h3>F-070: read-only refreshes stop persisting the trip</h3>
     <dl>

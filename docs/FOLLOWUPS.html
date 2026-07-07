@@ -132,6 +132,7 @@
       <dt>Blocker (if any)</dt><dd>Decision needed on intent: should a signed-in player with a device save auto-claim on opening the Account dialog, or is the explicit "Save this run" click the contract (as the hardening pass suggests)?</dd>
       <dt>Unblock condition</dt><dd>Pick the intended behavior, then either implement it or rewrite the two specs to drive the dialog buttons; re-run the full spec locally against a production build until 9/9 pass, and add at least the corrected specs to a scheduled or sharded CI lane so the file cannot silently rot again.</dd>
       <dt>PR / Dot reference</dt><dd>(not started; found by the /simplify cleanup pass while verifying PR #85's branch)</dd>
+      <dt>Resolved</dt><dd>2026-07-07: split decision, matching the hardening's intent. Auto-claim stays dead (silently binding a device save to whichever account is signed in is a consent bug); the spec now asserts nothing is claimed until the player clicks "Save this run", then drives the button. The settles-late case was a real regression: a 401 right after the OAuth redirect is usually Clerk cookie lag, and marking "sign-in required" terminal stranded the player signed out. The 401 now retries under the existing 750ms/3-attempt cap and its spec passes unchanged. First fully green run of <code>mine-account-sync.spec.ts</code> (10/10).</dd>
     </dl>
   </section>
 

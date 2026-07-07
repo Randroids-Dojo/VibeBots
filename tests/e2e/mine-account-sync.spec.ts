@@ -433,7 +433,7 @@ test("mine account handoff retries when Clerk session settles late", async ({
     .not.toContain("accountHandoff");
 });
 
-test("mine account signed-in device save auto-claims to cloud", async ({
+test("mine account signed-in device save claims to cloud from the dialog", async ({
   page,
 }) => {
   const mine = createMine(4244, DEFAULT_GEAR, STARTING_CONSUMABLES);
@@ -510,6 +510,13 @@ test("mine account signed-in device save auto-claims to cloud", async ({
 
   const account = page.getByRole("dialog", { name: "Account" });
   await expect(account).toBeVisible();
+  await expect(account).toContainText("Ready to save this run.");
+  // Claiming is an explicit choice (the review hardening removed
+  // auto-claim); nothing is claimed until the player clicks.
+  expect(claimRequests).toBe(0);
+
+  await account.getByRole("button", { name: "Save this run" }).click();
+
   await expect.poll(() => claimRequests).toBe(1);
   await expect(account).toContainText("Cloud save loaded.");
   await expect(account).toContainText("pilot@example.com");

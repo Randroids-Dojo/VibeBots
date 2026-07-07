@@ -1396,9 +1396,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         handled ||
         state.mode === "conflict" ||
         state.mode === "cloud_loaded" ||
+        // "sign-in required" (a 401) is deliberately NOT terminal: right
+        // after the OAuth redirect the Clerk session cookie can settle a
+        // beat late, and the bounded retry below recovers the handoff
+        // instead of stranding the player signed out (F-069).
         (state.state === "error" &&
           (state.message === "sign-in handoff expired" ||
-            state.message === "sign-in required" ||
             state.message === "device save belongs to another account" ||
             state.message === "no empty save slot for device save")) ||
         attempts >= 3;

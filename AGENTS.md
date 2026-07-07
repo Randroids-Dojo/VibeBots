@@ -50,12 +50,13 @@ Four additional rule files live under `.claude/rules/`. They are loaded automati
 - **Claude Code** loads them based on the `paths:` glob in their frontmatter.
 - **Codex** loads them via per-directory `AGENTS.md` symlinks (`docs/AGENTS.md`, `docs/gdd/AGENTS.md`) on its root-down walk.
 
-The four rules:
+The five rules:
 
 - `.claude/rules/slice-discipline.md` (paths: source-code globs): no drive-by refactors, no speculative abstractions, refactor-in-slice.
 - `.claude/rules/ledger-append-only.md` (paths: the four ledger files): never delete past entries.
 - `.claude/rules/gdd-build-log.md` (paths: GDD section files): append a build log entry on every shipped feature.
 - `.claude/rules/part-visuals.md` (paths: the part geometry/material files and `src/sim/parts.ts`): bot part art is render-only geometry over unchanged physics colliders; never reshape a part by editing its collider. Full pipeline in `docs/PART_ART_PIPELINE.html`.
+- `.claude/rules/frame-loop-performance.md` (paths: canvas and render-loop files): per-frame code must not allocate. Real-phone telemetry traced 1-6 second freezes to GC pauses from frame-loop garbage (F-074); the rule lists the known allocation patterns, the scratch-object idioms that replace them, and the measurement scripts (`scripts/measure-heap-churn.mjs`, `scripts/profile-allocations.mjs`) plus the telemetry A/B (`/api/performance/insights?device=real`, `byBuild`) that verify a render slice before and after it ships. Codex and other root-walk agents: read that file whenever a slice touches a `useFrame` path; it is not symlinked into `src/`.
 
 When you add a source directory (`src/`, `app/`, `lib/`, `components/`, `pages/`, `tests/`, etc.) to this project, run this once to make slice-discipline visible to Codex inside that tree:
 
@@ -323,3 +324,4 @@ Every new stamp must have a trustworthy progress source:
 3. Tests pass locally.
 4. GDD is still accurate, or updated.
 5. No secrets in the diff.
+6. If the diff touches a frame loop (`useFrame` or anything it calls), check it against `.claude/rules/frame-loop-performance.md` and run `scripts/measure-heap-churn.mjs` against a baseline when per-frame work changed.

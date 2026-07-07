@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Save-sync slice B: reject stale trip checkpoints</title>
+<meta name="dot-title" content="Save-sync slice B: reject stale trip checkpoints">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-06T23:02:57.831398-05:00">
+</head>
+<body>
+<article>
+<h1>Save-sync slice B: reject stale trip checkpoints</h1>
+<section id="description">
+Trip checkpoint PUT returns 409 stale_trip_checkpoint when trip.tripIndex != mine_worlds.trip_count; client feeds it into the slice-A conflict flow. Design: docs/research/account-save-sync.html
+</section>
+</article>
+</body>
+</html>

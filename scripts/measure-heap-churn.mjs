@@ -15,7 +15,13 @@ const BASE = process.argv[2] ?? "http://127.0.0.1:3860";
 const LABEL = process.argv[3] ?? "run";
 const SECONDS = Number(process.argv[4] ?? 75);
 
-const browser = await chromium.launch({ executablePath });
+// Without --enable-precise-memory-info, performance.memory is quantized
+// and rate-limited: headless runs report a frozen heap size and the
+// probe silently measures nothing.
+const browser = await chromium.launch({
+  executablePath,
+  args: ["--enable-precise-memory-info"],
+});
 const page = await browser.newPage({ viewport: { width: 448, height: 891 } });
 await page.goto(`${BASE}/mine`, {
   waitUntil: "domcontentloaded",
@@ -66,6 +72,13 @@ for (let i = 1; i < samples.length; i += 1) {
   trough = Math.min(trough, samples[i].mb);
 }
 const wallSeconds = (samples.at(-1).t - samples[0].t) / 1000;
+if (samples.length > 10 && peak === trough) {
+  console.error(
+    "warning: heap size never changed across the whole run; the memory " +
+      "API is likely frozen (is --enable-precise-memory-info in effect?) " +
+      "and this measurement is meaningless.",
+  );
+}
 console.log(
   JSON.stringify(
     {

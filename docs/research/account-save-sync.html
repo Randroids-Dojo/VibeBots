@@ -70,7 +70,7 @@
   <section id="layer-push">
     <h3>Layer 4: save-sync push for backgrounded devices</h3>
     <ul>
-      <li>On save-mutating events (successful bank, cloud load, claim), send Web Push to the player's other subscriptions: tag <code>vibebots-save-sync</code> (repeats replace, never stack), body "Your save advanced on another device. Open to sync.", URL <code>/mine</code>.</li>
+      <li>On save-mutating events (successful bank, claim), send Web Push to the player's other subscriptions: tag <code>vibebots-save-sync</code> (repeats replace, never stack), body "Your save advanced on another device. Open to sync.", URL <code>/mine</code>.</li>
       <li>Suppress the originating device: the client sends a hash of its own subscription endpoint with the mutating request; the server skips that subscription.</li>
       <li>Rate limit per endpoint (skip if the last save-sync push was within a couple of minutes).</li>
       <li>Stays opt-in behind the existing notifications toggle; covers only the closed or backgrounded app. The open app is covered by layer 1, which needs no permission and cannot spam.</li>

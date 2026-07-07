@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { type PerfInsightRow, summarizePerfInsights } from "./perf-insights";
+import {
+  isSoftwareGpu,
+  type PerfInsightRow,
+  summarizePerfInsights,
+  summarizePerfSession,
+} from "./perf-insights";
 
 function row(overrides: Partial<PerfInsightRow> = {}): PerfInsightRow {
   return {
@@ -12,9 +17,11 @@ function row(overrides: Partial<PerfInsightRow> = {}): PerfInsightRow {
     appBuild: 900,
     abVariant: null,
     sessionId: "aaaabbbbccccdddd",
+    seq: 1,
     viewportWidth: 1440,
     viewportHeight: 900,
     devicePixelRatio: 2,
+    p50FrameMs: 16,
     p95FrameMs: 20,
     avgFrameMs: 16.5,
     maxFrameMs: 40,
@@ -31,8 +38,20 @@ function row(overrides: Partial<PerfInsightRow> = {}): PerfInsightRow {
     geometries: 60,
     textures: 14,
     jsHeapMb: 190,
+    heapMinMb: 170,
+    heapMaxMb: 210,
+    hiddenMs: 0,
+    visibilityChangeCount: 0,
+    netRequestCount: 2,
+    netTransferKb: 40,
+    netTotalMs: 180,
+    netMaxMs: 120,
     longTaskTotalMs: 12,
     loafTotalMs: 60,
+    loafMaxMs: 55,
+    loafTopScripts: [],
+    netTopRequests: [],
+    canvasDiagnostics: {},
     gpu: "apple m2",
     ...overrides,
   };
@@ -117,5 +136,84 @@ describe("summarizePerfInsights", () => {
         (segment) => segment.segment === "variant shadows-off",
       )?.avgP95FrameMs,
     ).toBe(12);
+  });
+
+  it("rolls up sessions with totals and a software-renderer flag", () => {
+    const insights = summarizePerfInsights([
+      row({ stallCount: 1, hiddenMs: 500, createdAt: "2026-07-06T12:00:00Z" }),
+      row({
+        stallCount: 2,
+        hiddenMs: 1500,
+        seq: 2,
+        maxFrameMs: 1441.9,
+        createdAt: "2026-07-06T12:00:05Z",
+      }),
+      row({
+        sessionId: "9999888877776666",
+        gpu: "ANGLE (Google, Vulkan (SwiftShader Device), SwiftShader driver)",
+        createdAt: "2026-07-06T13:00:00Z",
+      }),
+    ]);
+    expect(insights.sessions).toHaveLength(2);
+    const [probe, pixel] = insights.sessions;
+    expect(probe.session).toBe("999988");
+    expect(probe.softwareRenderer).toBe(true);
+    expect(pixel.session).toBe("aaaabb");
+    expect(pixel.softwareRenderer).toBe(false);
+    expect(pixel.snapshots).toBe(2);
+    expect(pixel.stallCount).toBe(3);
+    expect(pixel.hiddenMs).toBe(2000);
+    expect(pixel.maxFrameMs).toBe(1441.9);
+    expect(pixel.firstAt).toBe("2026-07-06T12:00:00Z");
+    expect(pixel.lastAt).toBe("2026-07-06T12:00:05Z");
+  });
+
+  it("expands one session into ordered attributed snapshots", () => {
+    const detail = summarizePerfSession([
+      row({
+        seq: 2,
+        createdAt: "2026-07-06T12:00:05Z",
+        loafTopScripts: [
+          { url: "https://app/chunk.js", invoker: "TimerHandler", ms: 900 },
+        ],
+        netTopRequests: [{ path: "/api/mine", ms: 420, kb: 8 }],
+        canvasDiagnostics: { renderedCellCount: "220" },
+      }),
+      row({ seq: 1, createdAt: "2026-07-06T12:00:00Z" }),
+    ]);
+    expect(detail.map((snapshot) => snapshot.seq)).toEqual([1, 2]);
+    expect(detail[1].loafTopScripts[0].invoker).toBe("TimerHandler");
+    expect(detail[1].netTopRequests[0].path).toBe("/api/mine");
+    expect(detail[1].canvasDiagnostics.renderedCellCount).toBe("220");
+  });
+
+  it("passes attribution through to worst snapshots", () => {
+    const insights = summarizePerfInsights([
+      row({
+        p95FrameMs: 300,
+        loafTopScripts: [
+          { url: "https://app/chunk.js", invoker: null, ms: 900 },
+        ],
+        netTopRequests: [{ path: "/api/mine", ms: 420, kb: 8 }],
+        hiddenMs: 1200,
+        heapMinMb: 100,
+        heapMaxMb: 400,
+      }),
+    ]);
+    expect(insights.worst[0].loafTopScripts[0].url).toBe(
+      "https://app/chunk.js",
+    );
+    expect(insights.worst[0].netTopRequests[0].ms).toBe(420);
+    expect(insights.worst[0].hiddenMs).toBe(1200);
+    expect(insights.worst[0].heapMaxMb).toBe(400);
+  });
+});
+
+describe("isSoftwareGpu", () => {
+  it("flags headless harness gpu strings only", () => {
+    expect(isSoftwareGpu("ANGLE (SwiftShader driver)")).toBe(true);
+    expect(isSoftwareGpu("Mesa llvmpipe (LLVM 15.0.7)")).toBe(true);
+    expect(isSoftwareGpu("arm valhall")).toBe(false);
+    expect(isSoftwareGpu(null)).toBe(false);
   });
 });

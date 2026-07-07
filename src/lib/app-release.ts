@@ -15,6 +15,11 @@ function git(args: string[]): string | null {
 }
 
 function currentBuild(): number | null {
+  // Baked by next.config.ts at build time; the only reliable source in
+  // a deployed runtime, where there is no git checkout to count (and
+  // the Vercel build clone is shallow, so counting there lies too).
+  const baked = Number(process.env.NEXT_PUBLIC_APP_BUILD);
+  if (Number.isInteger(baked) && baked > 0) return baked;
   const raw = git(["rev-list", "--count", "HEAD"]);
   if (!raw) return null;
   const parsed = Number(raw);

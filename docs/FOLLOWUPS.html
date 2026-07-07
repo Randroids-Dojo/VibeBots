@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-074" data-f="F-074" data-priority="nice-to-have">
+    <h3>F-074: Root-cause the first real-device mine stall with the session drilldown</h3>
+    <dl>
+      <dt>Context</dt><dd>Perf telemetry 2026-07-06 contains the first real phone sessions (GPU <code>arm valhall</code>, 448x891 at DPR 2.25, mine on webgl2/low): steady state is a locked 60 fps (avg 15.4 ms, p95 16.8 ms, draw calls 118-151, 11-16k triangles), but one snapshot recorded a 1,441.9 ms max frame with stall count 1, 2,613 ms of LoAF time, and 1,584 ms of long-task time in a 5 s window, plus roughly one long frame per 10 s of play. Rows from before the drilldown slice carry no queryable LoAF attribution, network, heap-span, or hidden-time data, so the stall cannot be attributed yet.</dd>
+      <dt>Blocker (if any)</dt><dd>Needs a fresh real-device session recorded on a build at or after the drilldown slice.</dd>
+      <dt>Unblock condition</dt><dd>Ready: after the drilldown slice deploys, play a few minutes of mine on the phone with the toggle on, find the session under <code>GET /api/performance/insights?device=real</code>, then read <code>?session=&lt;prefix&gt;</code> for <code>loafTopScripts</code>, <code>netTopRequests</code>, heap span, and <code>hiddenMs</code> on the stall windows. Acceptance: the stall attributed to script, GC, network, scene composition, or an app switch, with a fix followup filed when it is in our code.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the drilldown slice)</dd>
+    </dl>
+  </section>
+
   <section id="F-073" data-f="F-073" data-priority="nice-to-have">
     <h3>F-073: Silence Clerk environment 400s for guest sessions</h3>
     <dl>
@@ -79,6 +89,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready: enable the toggle on at least one real desktop (WebGPU) and one phone, play a few minutes of mine, workshop, arena, and holodeck each, and confirm insights rows show non-null <code>gpuFrameMs</code> on the WebGPU device plus credible per-frame draw calls. Acceptance: a written baseline (per surface, desktop vs phone) in the F-054 analysis report with the tainted pre-fix builds excluded.</dd>
       <dt>PR / Dot reference</dt><dd>(not started; raised by the perf-telemetry first collection pass)</dd>
+      <dt>Progress update</dt><dd>2026-07-07 (root-cause drilldown slice): the tainted-row filter now works. <code>app_build</code> was unreliable in production (null on dynamic pages because deployed functions have no git checkout; a constant 10 on static pages from the shallow build clone); it is now a monotonic minutes-since-2026 number baked at build time by <code>next.config.ts</code>, so post-fix builds are cleanly selectable. <code>GET /api/performance/insights</code> also gained <code>?device=real</code> to exclude the SwiftShader/llvmpipe harness GPUs, a per-session rollup with a <code>softwareRenderer</code> flag, and a <code>?session=</code> drilldown. The first real phone traces (Mali <code>arm valhall</code>, mine webgl2/low) landed on 2026-07-06; their stall analysis is <code>F-074</code>.</dd>
     </dl>
   </section>
 

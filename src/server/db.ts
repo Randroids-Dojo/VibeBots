@@ -349,6 +349,19 @@ async function applySchema(sql: Sql): Promise<void> {
       user_agent text NOT NULL DEFAULT '',
       created_at timestamptz NOT NULL DEFAULT now()
     )`;
+  // Root-cause factor columns added by the drilldown slice: heap span
+  // inside the window (GC sawtooth), hidden time and visibility flips
+  // (app switches), and resource-timing rollups (network suspects).
+  await sql`
+    ALTER TABLE player_perf_traces
+    ADD COLUMN IF NOT EXISTS heap_min_mb real,
+    ADD COLUMN IF NOT EXISTS heap_max_mb real,
+    ADD COLUMN IF NOT EXISTS hidden_ms integer,
+    ADD COLUMN IF NOT EXISTS visibility_change_count integer,
+    ADD COLUMN IF NOT EXISTS net_request_count integer,
+    ADD COLUMN IF NOT EXISTS net_transfer_kb real,
+    ADD COLUMN IF NOT EXISTS net_total_ms real,
+    ADD COLUMN IF NOT EXISTS net_max_ms real`;
   // Dedupe key: a client retry or double flush re-sends the same
   // (session, seq) snapshot; the trace route inserts ON CONFLICT DO
   // NOTHING against this index.

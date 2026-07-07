@@ -1,18 +1,57 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import packageJson from "../../package.json";
 import { getAppRelease } from "./app-release";
 
+describe("app release build id", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("prefers the baked build number over git", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_BUILD", "271234");
+    const release = getAppRelease();
+    expect(release.build).toBe(271234);
+    expect(release.version).toBe(`${packageJson.version}.271234`);
+  });
+
+  it("falls back to the git commit count when the baked value is invalid", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_BUILD", "not-a-number");
+    const release = getAppRelease();
+    // Tests run inside a git checkout, so the fallback counts commits.
+    expect(release.build).not.toBeNull();
+    expect(release.build).toBeGreaterThan(0);
+  });
+});
+
 describe("app release notes", () => {
-  it("keeps the latest performance-telemetry note complete", () => {
+  it("keeps the latest perf-root-cause note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-06-0.1.197-performance-telemetry");
+    expect(release.noticeId).toBe("2026-07-07-0.1.198-perf-root-cause");
     expect(latestNote).toMatchObject({
+      version: "0.1.198",
+      title: "Sharper slowdown reports",
+      intro: "Performance telemetry can now explain stalls.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "When the optional Performance telemetry toggle is on, reports now also include network request timing (page addresses only, never full links), memory swings, and time the game spent in the background, so one-off freezes can be traced to their real cause. The toggle stays off by default.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived performance-telemetry note complete", () => {
+    const release = getAppRelease();
+    const telemetryNote = release.notes.find(
+      (note) => note.version === "0.1.197",
+    );
+
+    expect(telemetryNote).toMatchObject({
       version: "0.1.197",
       title: "Help us fix slowdowns",
       intro: "An optional performance telemetry toggle.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(telemetryNote?.changes.map((change) => change.text)).toEqual([
       "The settings menu has a new optional Performance telemetry toggle. It is off by default. When you turn it on, the game records frame timings, scene statistics, and device info while you play and sends them back so slowdowns on your exact device can be found and fixed. Turn it off any time from the same menu.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

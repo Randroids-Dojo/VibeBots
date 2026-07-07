@@ -1001,8 +1001,8 @@ export function PerfTelemetryControl() {
         }}
       >
         {enabled
-          ? "Recording frame timings, scene stats, and device info to help fix slowdowns. GPU timings start on your next visit."
-          : "Off by default. When on, sends frame timings, scene stats, and device info so slowdowns on your device can be fixed."}
+          ? "Recording frame timings, scene stats, network request timing, memory use, time in background, and device info to help fix slowdowns. GPU timings start on your next visit."
+          : "Off by default. When on, sends frame timings, scene stats, network request timing, memory use, time in background, and device info so slowdowns on your device can be fixed."}
       </p>
     </section>
   );

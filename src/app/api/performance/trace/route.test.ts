@@ -34,15 +34,32 @@ function snapshot(overrides: Record<string, unknown> = {}) {
     longFrameCount: 2,
     stallCount: 0,
     jsHeapMb: 182.4,
+    heapMinMb: 170.2,
+    heapMaxMb: 210.8,
+    hiddenMs: 0,
+    visibilityChangeCount: 0,
     main: {
       longTaskCount: 1,
       longTaskTotalMs: 62.1,
       loafCount: 1,
       loafTotalMs: 61.2,
       loafMaxMs: 61.2,
-      loafTopScripts: [{ url: "https://app/main.js", ms: 48.5 }],
+      loafTopScripts: [
+        {
+          url: "https://app/main.js",
+          invoker: "FrameRequestCallback",
+          ms: 48.5,
+        },
+      ],
       inputEventCount: 2,
       inputEventMaxMs: 55.1,
+    },
+    net: {
+      requestCount: 3,
+      transferKb: 84.2,
+      totalMs: 420.5,
+      maxMs: 260.1,
+      topRequests: [{ path: "/api/mine", ms: 260.1, kb: 4.2 }],
     },
     probe: {
       backend: "webgpu",
@@ -139,19 +156,44 @@ describe("performance trace API route", () => {
     expect(values).toContain("webgpu");
     expect(values).toContain(130);
     expect(values).toContain("Vitest");
+    expect(values).toContain(260.1);
     const detail = values.find(
       (value) => typeof value === "string" && value.includes("lightsByType"),
     ) as string;
     expect(JSON.parse(detail)).toEqual({
       lightsByType: { PointLight: 2 },
       canvasDiagnostics: { frameMs: "16.4" },
-      loafTopScripts: [{ url: "https://app/main.js", ms: 48.5 }],
+      loafTopScripts: [
+        {
+          url: "https://app/main.js",
+          invoker: "FrameRequestCallback",
+          ms: 48.5,
+        },
+      ],
+      netTopRequests: [{ path: "/api/mine", ms: 260.1, kb: 4.2 }],
       spriteCount: 0,
     });
   });
 
   it("accepts a probe-less snapshot from a page without a canvas probe", async () => {
     const res = await submit(trace({ snapshots: [snapshot({ probe: null })] }));
+    expect(res.status).toBe(200);
+  });
+
+  it("accepts a pre-drilldown snapshot without the new fields", async () => {
+    const base = snapshot() as Record<string, unknown> & {
+      main: Record<string, unknown>;
+    };
+    delete base.heapMinMb;
+    delete base.heapMaxMb;
+    delete base.hiddenMs;
+    delete base.visibilityChangeCount;
+    delete base.net;
+    base.main = {
+      ...base.main,
+      loafTopScripts: [{ url: "https://app/main.js", ms: 48.5 }],
+    };
+    const res = await submit(trace({ snapshots: [base] }));
     expect(res.status).toBe(200);
   });
 

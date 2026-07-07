@@ -70,6 +70,23 @@ export interface MinerPose {
   arm: { rotZ: number };
 }
 
+/** Field-by-field pose copy; the pose shape's single home is this
+ * module, so create/copy live beside the type. */
+export function copyMinerPose(from: MinerPose, to: MinerPose): void {
+  to.body.posX = from.body.posX;
+  to.body.posY = from.body.posY;
+  to.body.rotY = from.body.rotY;
+  to.body.rotZ = from.body.rotZ;
+  to.body.scaleX = from.body.scaleX;
+  to.body.scaleY = from.body.scaleY;
+  to.body.scaleZ = from.body.scaleZ;
+  to.legL.rotX = from.legL.rotX;
+  to.legL.posY = from.legL.posY;
+  to.legR.rotX = from.legR.rotX;
+  to.legR.posY = from.legR.posY;
+  to.arm.rotZ = from.arm.rotZ;
+}
+
 /** Allocate a pose tree once; frame loops reuse it as the advance* out
  * parameter so posing a miner allocates nothing per frame. */
 export function createMinerPose(): MinerPose {

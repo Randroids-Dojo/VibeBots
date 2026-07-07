@@ -15,7 +15,12 @@
  * tumble does not justify fetching it on the mobile-critical path.
  */
 
-import { BODY_REST_Y, createMinerPose, type MinerPose } from "./miner-rig";
+import {
+  BODY_REST_Y,
+  copyMinerPose,
+  createMinerPose,
+  type MinerPose,
+} from "./miner-rig";
 
 /** Seconds of live physics before the pose eases into the crumple. */
 export const CRUSH_TUMBLE_SECONDS = 1.55;
@@ -124,7 +129,7 @@ export function advanceCrushTumble(
     (state.t - CRUSH_TUMBLE_SECONDS) / CRUSH_TUMBLE_SETTLE_SECONDS;
   const w = clamp(1 - settleT, 0, 1);
   if (w <= 0) {
-    copyPose(CRUMPLE_REST, out);
+    copyMinerPose(CRUMPLE_REST, out);
     return out;
   }
 
@@ -161,19 +166,4 @@ export function advanceCrushTumble(
 /** Weighted blend: w=1 keeps the live value, w=0 lands on the rest. */
 function mixToward(live: number, rest: number, w: number): number {
   return rest + (live - rest) * w;
-}
-
-function copyPose(from: MinerPose, to: MinerPose): void {
-  to.body.posX = from.body.posX;
-  to.body.posY = from.body.posY;
-  to.body.rotY = from.body.rotY;
-  to.body.rotZ = from.body.rotZ;
-  to.body.scaleX = from.body.scaleX;
-  to.body.scaleY = from.body.scaleY;
-  to.body.scaleZ = from.body.scaleZ;
-  to.legL.rotX = from.legL.rotX;
-  to.legL.posY = from.legL.posY;
-  to.legR.rotX = from.legR.rotX;
-  to.legR.posY = from.legR.posY;
-  to.arm.rotZ = from.arm.rotZ;
 }

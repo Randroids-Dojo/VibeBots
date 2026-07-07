@@ -44,6 +44,7 @@ import {
   stratumAt,
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
+import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import {
   type GraphicsFeatures,
   graphicsFeaturesFor,
@@ -81,6 +82,7 @@ import {
 import { minerStepSeconds } from "./mine-pacing";
 import {
   type JuiceState,
+  PARTICLE_KINDS,
   spawnBurst,
   spawnClang,
   spawnDirtBreakBurst,
@@ -140,39 +142,6 @@ import { StudioEnvironment } from "./studio-environment";
 import { daylightGradeFor, fogRangeForStratum } from "./time-of-day";
 
 const CAMERA_STEP_SECONDS = 0.28;
-
-/* Quantize-and-cache dataset diagnostics. The frame loop calls these
- * every frame, but a string (and a DOM attribute mutation) is only
- * produced when the rounded value actually changed. Unconditional
- * per-frame writes were the top garbage source in the real-phone GC
- * traces behind F-074. */
-const DATASET_QUANTUM = [1, 10, 100] as const;
-
-function setDatasetNumber(
-  cache: Record<string, number | string>,
-  dataset: DOMStringMap,
-  key: string,
-  value: number,
-  decimals: 0 | 1 | 2,
-): void {
-  const quantized = Math.round(value * DATASET_QUANTUM[decimals]);
-  if (cache[key] === quantized) return;
-  cache[key] = quantized;
-  dataset[key] = (quantized / DATASET_QUANTUM[decimals]).toFixed(decimals);
-}
-
-function setDatasetText(
-  cache: Record<string, number | string>,
-  dataset: DOMStringMap,
-  key: string,
-  value: string,
-): void {
-  if (cache[key] === value) return;
-  cache[key] = value;
-  dataset[key] = value;
-}
-
-const PARTICLE_KINDS = ["spark", "debris", "dust"] as const;
 /** Instance pool sizes per particle kind; spawners cap the live pool at
  * 260 total, so these bound the per-kind bursts. */
 const PARTICLE_CAPACITY = { spark: 96, debris: 192, dust: 96 } as const;
@@ -465,6 +434,10 @@ function MineScene({
   useFrame((state, delta) => {
     const j = juice.current;
     const t = state.clock.elapsedTime;
+    // One alias pair for the whole frame: every diagnostics write below
+    // goes through the same quantize-and-cache pair.
+    const dataset = state.gl.domElement.dataset;
+    const cache = datasetCache.current;
     const activeFall = fallPlayback.current;
     let visualTargetX = cellX(mine.miner.col);
     let visualTargetY = -mine.miner.row;
@@ -582,8 +555,6 @@ function MineScene({
       );
       state.camera.lookAt(sx, rig.position.y + sy, 0);
       // Rendered camera pan exposed for motion QA on narrow viewports.
-      const dataset = state.gl.domElement.dataset;
-      const cache = datasetCache.current;
       setDatasetNumber(cache, dataset, "camX", rig.position.x, 2);
       setDatasetNumber(cache, dataset, "camY", rig.position.y, 2);
       setDatasetNumber(cache, dataset, "camZoom", cameraZoom, 2);
@@ -687,12 +658,7 @@ function MineScene({
       dirRef.current.intensity = (0.06 + 1.04 * day) * grade.sunStrength;
       dirRef.current.color.set(grade.sunColor);
     }
-    setDatasetText(
-      datasetCache.current,
-      state.gl.domElement.dataset,
-      "timeOfDay",
-      grade.phase,
-    );
+    setDatasetText(cache, dataset, "timeOfDay", grade.phase);
     // The studio environment is a surface phenomenon: it fades with the
     // daylight so the underground keeps its lamp-lit darkness.
     state.scene.environmentIntensity =
@@ -753,52 +719,44 @@ function MineScene({
       }
       // Rendered position exposed for motion QA (Rule 10): e2e reads these
       // to prove the glide never lifts toward the surface on lateral steps.
-      const minerDataset = state.gl.domElement.dataset;
-      const minerCache = datasetCache.current;
-      setDatasetNumber(minerCache, minerDataset, "minerX", miner.position.x, 2);
-      setDatasetNumber(minerCache, minerDataset, "minerY", miner.position.y, 2);
+      setDatasetNumber(cache, dataset, "minerX", miner.position.x, 2);
+      setDatasetNumber(cache, dataset, "minerY", miner.position.y, 2);
       setDatasetNumber(
-        minerCache,
-        minerDataset,
+        cache,
+        dataset,
         "minerMotionFrames",
         minerMotion.current?.frames ?? 0,
         0,
       );
       setDatasetText(
-        minerCache,
-        minerDataset,
+        cache,
+        dataset,
         "fallVisualActive",
         activeFall ? "true" : "false",
       );
       setDatasetText(
-        minerCache,
-        minerDataset,
+        cache,
+        dataset,
         "fallVisualImpact",
         activeFall?.impacted ? "true" : "false",
       );
       setDatasetText(
-        minerCache,
-        minerDataset,
+        cache,
+        dataset,
         "fallingRockWarning",
         j.fallWarning > 0 ? "true" : "false",
       );
       // Last frame's draw-call count: the budget that phones live by.
       setDatasetNumber(
-        minerCache,
-        minerDataset,
+        cache,
+        dataset,
         "drawCalls",
         state.gl.info.render.calls,
         0,
       );
       // Smoothed frame time: a steady low value means no per-step hitches.
       frameMsRef.current += (delta * 1000 - frameMsRef.current) * 0.1;
-      setDatasetNumber(
-        minerCache,
-        minerDataset,
-        "frameMs",
-        frameMsRef.current,
-        1,
-      );
+      setDatasetNumber(cache, dataset, "frameMs", frameMsRef.current, 1);
     }
     // Body language, foot-locked stride, and the pick arm all come from
     // the shared rig (miner-rig.ts): the canvas owns the timers and the
@@ -890,12 +848,14 @@ function MineScene({
     // they are to dropping (the escalating tell). Rescued or dropped
     // blocks leave the targets map: their mesh snaps back to rest.
     let teeterMoved = false;
-    for (const [wobbleKey, mesh] of wobbleRefs.current) {
+    // Map.forEach: entry-tuple iteration allocates a [key, value] array
+    // per teetering block per frame; the callback form does not.
+    wobbleRefs.current.forEach((mesh, wobbleKey) => {
       const target = wobbleTargets.current.get(wobbleKey);
       if (!target) {
         mesh.position.x = (mesh.userData.baseX as number) ?? mesh.position.x;
         wobbleRefs.current.delete(wobbleKey);
-        continue;
+        return;
       }
       const prevX = mesh.position.x;
       mesh.position.x =
@@ -903,7 +863,7 @@ function MineScene({
         Math.sin(t * (22 + 16 * target.urgency) + target.y) *
           (0.015 + 0.05 * target.urgency);
       if (Math.abs(mesh.position.x - prevX) > 0.0005) teeterMoved = true;
-    }
+    });
     if (teeterMoved) teeterMotionFrames.current += 1;
     // Particles: integrate, gravity, expire; positions sync imperatively
     // (creation/removal re-renders on tick).

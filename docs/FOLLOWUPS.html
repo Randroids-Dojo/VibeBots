@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-076" data-f="F-076" data-priority="nice-to-have">
+    <h3>F-076: Adopt quantize-and-cache dataset diagnostics in the other canvases</h3>
+    <dl>
+      <dt>Context</dt><dd>GC-hitches cleanup 2026-07-07: the mine's per-frame dataset churn fix was lifted into the shared <code>src/components/dataset-diagnostics.ts</code>, but the arena (~7 writes/frame), workshop (~5/frame), and holodeck (~11/frame) useFrame loops still do unconditional <code>toFixed</code>/<code>String</code> dataset writes every frame, the same allocation class removed from the mine.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: route the arena, workshop, and holodeck per-frame dataset writes through <code>setDatasetNumber</code>/<code>setDatasetText</code> with a per-canvas cache ref, keeping keys and formats unchanged so existing smokes read them as before. Acceptance: no unconditional per-frame dataset string writes remain in any canvas useFrame, and the canvases' e2e smokes stay green.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the gc-hitches cleanup pass)</dd>
+    </dl>
+  </section>
+
   <section id="F-075" data-f="F-075" data-priority="nice-to-have">
     <h3>F-075: Reduce per-tick React reconcile churn in the mine cell grid</h3>
     <dl>

@@ -121,6 +121,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready: either give <code>persistCurrentTrip</code> a cheap dirty check (skip serialization when tick, move count, gear, and consumables match the last persisted values for the active slot) or remove the call from read-only actions while keeping it in every mutating flow (claim, sign-in, cloud load, slot switch). Acceptance: opening or refreshing the Account dialog with an unchanged trip performs no localStorage write, and the existing checkpoint/persistence unit tests still pass unchanged.</dd>
       <dt>PR / Dot reference</dt><dd>(not started; raised by the /simplify cleanup pass on PR #85's branch)</dd>
+      <dt>Resolved</dt><dd>2026-07-07: took the remove-the-call option. <code>loadAccountStatus</code> and <code>loadSaveSlots</code> no longer persist the trip; every mutating flow (moves, buys, gear changes, cash-out, slot switches, account checkpoint gates) persists it itself. The two store tests that pinned the flush-before-read behavior now pin the opposite contract (no localStorage write on read-only refreshes).</dd>
     </dl>
   </section>
 

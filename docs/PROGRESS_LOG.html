@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="f070-idle-persist" data-date="2026-07-07">
+    <h3>F-070: read-only refreshes stop persisting the trip</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>sync/f070-idle-persist</code>.</dd>
+      <dt>PR</dt><dd>#96.</dd>
+      <dt>Changed</dt><dd><code>loadAccountStatus</code> and <code>loadSaveSlots</code> in <code>src/state/mine-store.ts</code> opened with <code>persistCurrentTrip()</code>, JSON-stringifying the full in-flight trip (baseDiff up to tens of thousands of entries plus the move log) into localStorage on every Account dialog open, Refresh click, and silent revalidate. Both are pure reads; every mutating flow (moves, buys, gear changes, cash-out, slot switches, and the account checkpoint gates) persists the trip itself, so the calls were removed. The two store tests that pinned the old flush-before-read behavior now pin the new contract: no localStorage write on a read-only refresh.</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm exec tsc --noEmit</code>; <code>pnpm exec vitest run</code> (95 files, 992 tests); <code>pnpm exec biome check</code>; dash and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: removing the call beats a dirty check inside <code>persistCurrentTrip</code>; a reference-keyed staleness check risked skipping a needed write after direct <code>removeLocalTrip</code>/<code>saveLocalTrip</code> calls elsewhere, while the read-only call sites are provably redundant. Rule 13: tips reviewed, no change (no player-facing rule changed; no version bump for an internal write removal). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No status changes.</dd>
+      <dt>Followups</dt><dd><code>F-070</code> marked resolved in <code>docs/FOLLOWUPS.html</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="save-sync-push" data-date="2026-07-07">
     <h3>Save sync slice C: save-sync push wakes other devices</h3>
     <dl>

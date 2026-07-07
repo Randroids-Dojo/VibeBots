@@ -2,6 +2,7 @@ import {
   type PerfInsightLoafScript,
   type PerfInsightNetRequest,
   type PerfInsightRow,
+  SOFTWARE_GPU_PATTERN,
   summarizePerfInsights,
   summarizePerfSession,
 } from "@/lib/perf-insights";
@@ -14,7 +15,6 @@ const DEFAULT_HOURS = 24;
 const MAX_ROWS = 5000;
 const MAX_SESSION_SNAPSHOTS = 200;
 const SESSION_PREFIX = /^[0-9a-f]{4,32}$/;
-const SOFTWARE_GPU_SQL = "swiftshader|llvmpipe|software";
 
 interface TraceRecord {
   created_at: string;
@@ -213,9 +213,9 @@ export async function GET(request: Request): Promise<Response> {
       AND (${source}::text IS NULL OR source = ${source})
       AND (${session}::text IS NULL OR starts_with(session_id, ${session}))
       AND (${realOnly}::boolean IS NOT true
-           OR gpu IS NULL OR gpu !~* ${SOFTWARE_GPU_SQL})
+           OR gpu IS NULL OR gpu !~* ${SOFTWARE_GPU_PATTERN})
       AND (${softwareOnly}::boolean IS NOT true
-           OR gpu ~* ${SOFTWARE_GPU_SQL})
+           OR gpu ~* ${SOFTWARE_GPU_PATTERN})
     ORDER BY created_at DESC
     LIMIT ${MAX_ROWS}`) as TraceRecord[];
 

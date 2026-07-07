@@ -24,6 +24,7 @@ const SNAPSHOT_MS = 5_000;
 const FLUSH_MS = 20_000;
 const MAX_BUFFERED_SNAPSHOTS = 6;
 const INPUT_EVENT_THRESHOLD_MS = 40;
+const TRACE_ENDPOINT = "/api/performance/trace";
 
 interface PerfTraceWindowOverrides {
   __vibebotsPerfTraceSnapshotMs?: number;
@@ -332,7 +333,7 @@ export function PerfTelemetry({
         const resource = entry as PerformanceResourceTiming;
         const path = resourcePath(resource.name);
         // The collector's own uploads would otherwise count themselves.
-        if (path === "/api/performance/trace") continue;
+        if (path === TRACE_ENDPOINT) continue;
         const ms = resource.duration;
         const kb =
           typeof resource.transferSize === "number"
@@ -399,7 +400,7 @@ export function PerfTelemetry({
         visibilityState: document.visibilityState,
         snapshots,
       });
-      fetch("/api/performance/trace", {
+      fetch(TRACE_ENDPOINT, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body,

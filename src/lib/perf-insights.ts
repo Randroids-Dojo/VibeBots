@@ -66,8 +66,13 @@ export interface PerfInsightRow {
   gpu: string | null;
 }
 
-/** Headless harness GPUs; real-device baselines filter these out. */
-const SOFTWARE_GPU = /swiftshader|llvmpipe|software/i;
+/**
+ * Headless harness GPUs; real-device baselines filter these out. The
+ * pattern source is shared with the insights route's SQL `~*` filter
+ * so the softwareRenderer flag and the device filter cannot diverge.
+ */
+export const SOFTWARE_GPU_PATTERN = "swiftshader|llvmpipe|software";
+const SOFTWARE_GPU = new RegExp(SOFTWARE_GPU_PATTERN, "i");
 
 export function isSoftwareGpu(gpu: string | null): boolean {
   return gpu !== null && SOFTWARE_GPU.test(gpu);
@@ -220,40 +225,35 @@ function roundTenth(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function avg(values: (number | null)[]): number | null {
-  const present = values.filter(
+function finiteValues(values: (number | null)[]): number[] {
+  return values.filter(
     (value): value is number =>
       typeof value === "number" && Number.isFinite(value),
   );
+}
+
+function avg(values: (number | null)[]): number | null {
+  const present = finiteValues(values);
   if (present.length === 0) return null;
   return roundTenth(
-    present.reduce((sum, value) => sum + value, 0) / present.length,
+    present.reduce((total, value) => total + value, 0) / present.length,
   );
 }
 
 function sum(values: (number | null)[]): number | null {
-  const present = values.filter(
-    (value): value is number =>
-      typeof value === "number" && Number.isFinite(value),
-  );
+  const present = finiteValues(values);
   if (present.length === 0) return null;
   return roundTenth(present.reduce((total, value) => total + value, 0));
 }
 
 function max(values: (number | null)[]): number | null {
-  const present = values.filter(
-    (value): value is number =>
-      typeof value === "number" && Number.isFinite(value),
-  );
+  const present = finiteValues(values);
   if (present.length === 0) return null;
   return roundTenth(Math.max(...present));
 }
 
 function min(values: (number | null)[]): number | null {
-  const present = values.filter(
-    (value): value is number =>
-      typeof value === "number" && Number.isFinite(value),
-  );
+  const present = finiteValues(values);
   if (present.length === 0) return null;
   return roundTenth(Math.min(...present));
 }

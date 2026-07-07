@@ -27,7 +27,10 @@ export async function POST(request: Request): Promise<Response> {
     requestAccountSessionProvider(request),
   );
   if (!identity) {
-    return accountJson({ error: "account sign-in required" }, { status: 401 });
+    return accountJson(
+      { error: "account sign-in required", code: "sign_in_required" },
+      { status: 401 },
+    );
   }
 
   const sql = await db();
@@ -55,7 +58,10 @@ export async function POST(request: Request): Promise<Response> {
       provider: identity.provider,
       subject: identity.subject,
     });
-    return accountJson({ error: "account sign-in required" }, { status: 401 });
+    return accountJson(
+      { error: "account sign-in required", code: "sign_in_required" },
+      { status: 401 },
+    );
   }
   if (result.status === "not-found") {
     logAccountLinkEvent({
@@ -64,7 +70,10 @@ export async function POST(request: Request): Promise<Response> {
       provider: identity.provider,
       subject: identity.subject,
     });
-    return accountJson({ error: "cloud save not found" }, { status: 404 });
+    return accountJson(
+      { error: "cloud save not found", code: "cloud_save_not_found" },
+      { status: 404 },
+    );
   }
   const accountSave = await accountSaveSummary(sql, result.playerId);
   logAccountLinkEvent({

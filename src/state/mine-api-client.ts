@@ -14,11 +14,14 @@ import {
   isAccountProviderIssue,
 } from "@/lib/account-provider-status";
 import {
+  type AccountErrorCode,
+  accountErrorCode,
+  apiErrorCode,
   MINE_VERSION_MISMATCH_CODE,
   PUSH_ENDPOINT_HASH_HEADER,
   STALE_TRIP_CHECKPOINT_CODE,
   TRIP_ALREADY_CASHED_OUT_CODE,
-} from "@/lib/mine-api-codes";
+} from "@/lib/api-codes";
 import type { AccountSaveSummary } from "@/server/account-summary";
 import type { PendingBunkerBuild } from "@/sim/bunker";
 import {
@@ -81,27 +84,36 @@ export type MineApiResult<T> =
   | { ok: false; status: number; body: unknown }
   | { ok: false; status: null; body: null };
 
-const ACCOUNT_ERROR_MESSAGES = new Set([
-  "account sign-in required",
-  "guest save required",
-  "guest save not found",
-  "account already has a cloud save",
-  "device save belongs to another account",
-  "no empty save slot for device save",
-  "linked account saves cannot be deleted from this device",
-  "same-origin request required",
-  "storage not configured",
-]);
+/**
+ * Player-facing copy for every account error code (F-068). The server's
+ * prose is free to change; flow logic and this map key off the code.
+ */
+const ACCOUNT_ERROR_COPY: Record<AccountErrorCode, string> = {
+  sign_in_required: "account sign-in required",
+  guest_save_required: "guest save required",
+  guest_save_not_found: "guest save not found",
+  device_save_linked_to_other_account: "device save belongs to another account",
+  account_cloud_save_exists: "account already has a cloud save",
+  device_save_slot_full: "no empty save slot for device save",
+  handoff_id_required: "handoff id required",
+  handoff_expired: "sign-in handoff expired",
+  provider_not_configured: "account provider not configured",
+  cloud_save_not_found: "cloud save not found",
+  storage_not_configured: "storage not configured",
+  same_origin_required: "same-origin request required",
+  claim_failed: "account claim failed",
+  invalid_trip_checkpoint: "invalid trip checkpoint",
+  stale_trip_checkpoint: "trip checkpoint is stale",
+  linked_account_save_delete_blocked:
+    "linked account saves cannot be deleted from this device",
+};
 
 export function accountErrorMessageFromResponse(
   body: unknown,
   fallback: string,
 ): string {
-  if (!body || typeof body !== "object") return fallback;
-  const error = (body as { error?: unknown }).error;
-  return typeof error === "string" && ACCOUNT_ERROR_MESSAGES.has(error)
-    ? error
-    : fallback;
+  const code = accountErrorCode(body);
+  return code ? ACCOUNT_ERROR_COPY[code] : fallback;
 }
 
 async function mineApi<T>(
@@ -482,22 +494,16 @@ export function consumablesFromResponse(
   };
 }
 
-function responseCode(body: unknown): string | null {
-  if (!body || typeof body !== "object") return null;
-  const code = (body as Record<string, unknown>).code;
-  return typeof code === "string" ? code : null;
-}
-
 export function isMineVersionMismatch(body: unknown): boolean {
-  return responseCode(body) === MINE_VERSION_MISMATCH_CODE;
+  return apiErrorCode(body) === MINE_VERSION_MISMATCH_CODE;
 }
 
 export function isTripAlreadyCashedOut(body: unknown): boolean {
-  return responseCode(body) === TRIP_ALREADY_CASHED_OUT_CODE;
+  return apiErrorCode(body) === TRIP_ALREADY_CASHED_OUT_CODE;
 }
 
 export function isStaleTripCheckpoint(body: unknown): boolean {
-  return responseCode(body) === STALE_TRIP_CHECKPOINT_CODE;
+  return apiErrorCode(body) === STALE_TRIP_CHECKPOINT_CODE;
 }
 
 export interface MineWorldVersion {

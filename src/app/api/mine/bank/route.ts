@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   MINE_VERSION_MISMATCH_CODE,
   TRIP_ALREADY_CASHED_OUT_CODE,
-} from "@/lib/mine-api-codes";
+} from "@/lib/api-codes";
 import { applyAchievementProgress } from "@/server/achievements";
 import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";

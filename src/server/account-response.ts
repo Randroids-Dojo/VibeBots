@@ -5,7 +5,10 @@ export function accountJson(body: unknown, init: ResponseInit = {}): Response {
 }
 
 export function storageUnavailable(): Response {
-  return accountJson({ error: "storage not configured" }, { status: 503 });
+  return accountJson(
+    { error: "storage not configured", code: "storage_not_configured" },
+    { status: 503 },
+  );
 }
 
 /** Request body as an object, or null for invalid JSON / non-object bodies. */

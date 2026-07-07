@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="f068-error-codes" data-date="2026-07-07">
+    <h3>F-068: machine-readable account error codes; F-066: preview Clerk env</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>sync/f068-error-codes</code>.</dd>
+      <dt>PR</dt><dd>#98.</dd>
+      <dt>Changed</dt><dd>(1) F-068: every account-family error response carries a stable <code>code</code> from the shared union in <code>src/lib/api-codes.ts</code> (renamed from <code>mine-api-codes.ts</code>): sixteen documented codes covering sign-in, guest-save, claim, handoff, trip-checkpoint, storage, and same-origin failures. The shared <code>storageUnavailable</code> and same-origin guard emit codes centrally, so every consumer route gained them at once. Client side, the prose allowlist became a <code>Record&lt;AccountErrorCode, string&gt;</code> copy map (player-facing wording unchanged), <code>accountErrorMessageFromResponse</code> keys off the code, the store's conflict-reload and linked-to-other-account branches compare codes and record the code on error states, and the panel's handoff terminal list matches codes instead of message text. Rewording server prose can no longer change flow behavior. (2) F-066 (config, no code): the five Clerk vars now exist in the Vercel Preview environment for all branches using development-instance keys; verified on a live preview deployment rendering the Clerk widget in Development mode.</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm exec tsc --noEmit</code>; <code>pnpm exec vitest run</code> (95 files, 992 tests; route assertions updated for the new code fields, client test now proves prose-without-code falls back); <code>pnpm exec biome check</code>; dash and <code>git diff --check</code>; <code>pnpm build</code>; <code>pnpm exec playwright test tests/e2e/mine-account-sync.spec.ts</code> (10/10); all re-run after rebasing past the dataset-diagnostics slice.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the copy map keeps today's wording verbatim so no player-visible text changed; prose without a code intentionally yields the caller's fallback rather than echoing unvetted server text. The panel-side bounded handoff retry stays where it is, now code-driven; relocating it into the store remains optional refactoring. Rule 13: tips reviewed, no change. Rule 14: stamp review done, none added. No version bump: internal contract only.</dd>
+      <dt>GDD coverage</dt><dd>REQ-042 stays partial; <code>docs/gdd/10-account-sync.html</code> gained a build-log entry.</dd>
+      <dt>Followups</dt><dd><code>F-066</code> and <code>F-068</code> marked resolved in <code>docs/FOLLOWUPS.html</code>. Of the /simplify-era followups only <code>F-067</code> (single env-readiness rules module) remains open.</dd>
+    </dl>
+  </article>
+
   <article data-slice="dataset-diagnostics-adoption" data-date="2026-07-07">
     <h3>Adopt quantize-and-cache dataset diagnostics in arena, workshop, holodeck (F-076)</h3>
     <dl>

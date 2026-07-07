@@ -195,7 +195,10 @@ describe("/api/account/trip", () => {
     expect(res.status).toBe(400);
     expectNoStore(res);
     expect(sql).not.toHaveBeenCalled();
-    expect(await res.json()).toEqual({ error: "invalid trip checkpoint" });
+    expect(await res.json()).toEqual({
+      error: "invalid trip checkpoint",
+      code: "invalid_trip_checkpoint",
+    });
   });
 
   it("requires a current guest save before storing a checkpoint", async () => {
@@ -206,7 +209,10 @@ describe("/api/account/trip", () => {
     expect(res.status).toBe(409);
     expectNoStore(res);
     expect(mockedDb).not.toHaveBeenCalled();
-    expect(await res.json()).toEqual({ error: "guest save required" });
+    expect(await res.json()).toEqual({
+      error: "guest save required",
+      code: "guest_save_required",
+    });
   });
 
   it("blocks cross-site checkpoint writes before player lookup", async () => {

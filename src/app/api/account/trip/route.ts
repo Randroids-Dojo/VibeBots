@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { STALE_TRIP_CHECKPOINT_CODE } from "@/lib/mine-api-codes";
+import { STALE_TRIP_CHECKPOINT_CODE } from "@/lib/api-codes";
 import { findLinkedPlayerId } from "@/server/account-linking";
 import { accountJson, storageUnavailable } from "@/server/account-response";
 import {
@@ -41,12 +41,18 @@ export async function GET(request: Request): Promise<Response> {
     requestAccountSessionProvider(request),
   );
   if (!identity) {
-    return accountJson({ error: "account sign-in required" }, { status: 401 });
+    return accountJson(
+      { error: "account sign-in required", code: "sign_in_required" },
+      { status: 401 },
+    );
   }
   const sql = await db();
   const playerId = await findLinkedPlayerId(sql, identity);
   if (!playerId) {
-    return accountJson({ error: "cloud save not found" }, { status: 404 });
+    return accountJson(
+      { error: "cloud save not found", code: "cloud_save_not_found" },
+      { status: 404 },
+    );
   }
   const rows = (await sql`
     SELECT trip
@@ -61,17 +67,26 @@ export async function PUT(request: Request): Promise<Response> {
   if (!storageConfigured()) return storageUnavailable();
   const playerId = await currentPlayerId();
   if (!playerId) {
-    return accountJson({ error: "guest save required" }, { status: 409 });
+    return accountJson(
+      { error: "guest save required", code: "guest_save_required" },
+      { status: 409 },
+    );
   }
   let rawBody: unknown;
   try {
     rawBody = await request.json();
   } catch {
-    return accountJson({ error: "invalid trip checkpoint" }, { status: 400 });
+    return accountJson(
+      { error: "invalid trip checkpoint", code: "invalid_trip_checkpoint" },
+      { status: 400 },
+    );
   }
   const parsed = putBodySchema.safeParse(rawBody);
   if (!parsed.success) {
-    return accountJson({ error: "invalid trip checkpoint" }, { status: 400 });
+    return accountJson(
+      { error: "invalid trip checkpoint", code: "invalid_trip_checkpoint" },
+      { status: 400 },
+    );
   }
   const sql = await db();
   // A checkpoint from a device whose world is behind the server's must not

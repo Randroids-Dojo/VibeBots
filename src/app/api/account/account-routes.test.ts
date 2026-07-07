@@ -509,6 +509,7 @@ describe("/api/account", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({
       error: "account already has a cloud save",
+      code: "account_cloud_save_exists",
       mode: "conflict",
       accountSave: cloudSummary,
     });
@@ -565,6 +566,7 @@ describe("/api/account", () => {
     expect(mockedAccountSaveSummary).not.toHaveBeenCalled();
     expect(await res.json()).toEqual({
       error: "account sign-in required",
+      code: "sign_in_required",
     });
     expect(mockedLogAccountLinkEvent).toHaveBeenCalledWith({
       code: "claim_invalid_identity",
@@ -652,6 +654,7 @@ describe("/api/account", () => {
     expect(mockedSetActiveSaveSlotPlayer).not.toHaveBeenCalled();
     expect(await res.json()).toEqual({
       error: "account sign-in required",
+      code: "sign_in_required",
     });
   });
 
@@ -681,6 +684,7 @@ describe("/api/account", () => {
     expect(mockedClaimPlayerForAccount).not.toHaveBeenCalled();
     expect(await res.json()).toEqual({
       error: "same-origin request required",
+      code: "same_origin_required",
     });
   });
 

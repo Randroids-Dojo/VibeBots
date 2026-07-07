@@ -217,6 +217,7 @@ describe("/api/account/handoff", () => {
     expectNoStore(res);
     expect(await res.json()).toEqual({
       error: "account provider not configured",
+      code: "provider_not_configured",
     });
     expect(mockedCurrentPlayerId).not.toHaveBeenCalled();
     expect(mockedCreateAccountHandoff).not.toHaveBeenCalled();
@@ -315,6 +316,7 @@ describe("/api/account/handoff", () => {
     expect(mockedClaimPlayerForAccount).not.toHaveBeenCalled();
     expect(await res.json()).toEqual({
       error: "guest save required",
+      code: "guest_save_required",
     });
     expect(mockedLogAccountLinkEvent).toHaveBeenCalledWith({
       code: "handoff_missing_initiating_session",
@@ -413,6 +415,7 @@ describe("/api/account/handoff", () => {
     expect(mockedAccountSaveSummary).not.toHaveBeenCalled();
     expect(await res.json()).toEqual({
       error: "account sign-in required",
+      code: "sign_in_required",
     });
     expect(mockedLogAccountLinkEvent).toHaveBeenCalledWith({
       code: "handoff_invalid_identity",

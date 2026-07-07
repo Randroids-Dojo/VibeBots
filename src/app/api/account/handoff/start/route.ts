@@ -21,7 +21,10 @@ export async function POST(request: Request): Promise<Response> {
   if (!storageConfigured()) return storageUnavailable();
   if (!accountProviderReady()) {
     return accountJson(
-      { error: "account provider not configured" },
+      {
+        error: "account provider not configured",
+        code: "provider_not_configured",
+      },
       { status: 503 },
     );
   }
@@ -31,7 +34,10 @@ export async function POST(request: Request): Promise<Response> {
       code: "handoff_start_missing_player",
       severity: "warn",
     });
-    return accountJson({ error: "guest save required" }, { status: 409 });
+    return accountJson(
+      { error: "guest save required", code: "guest_save_required" },
+      { status: 409 },
+    );
   }
   const body = (await safeJsonBody(request)) ?? {};
   const returnTo = safeAccountReturnTo(body.returnTo);

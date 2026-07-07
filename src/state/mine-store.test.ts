@@ -1450,7 +1450,10 @@ describe("mine store upgrade flow", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        jsonResponse({ error: "guest save not found" }, 404),
+        jsonResponse(
+          { error: "guest save not found", code: "guest_save_not_found" },
+          404,
+        ),
       );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1487,7 +1490,10 @@ describe("mine store upgrade flow", () => {
       .fn()
       .mockResolvedValueOnce(jsonResponse({ stored: true }))
       .mockResolvedValueOnce(
-        jsonResponse({ error: "guest save not found" }, 404),
+        jsonResponse(
+          { error: "guest save not found", code: "guest_save_not_found" },
+          404,
+        ),
       );
     vi.stubGlobal("fetch", fetchMock);
 

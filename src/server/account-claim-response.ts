@@ -56,7 +56,7 @@ export async function claimFailureResponse(
     });
     return {
       response: accountJson(
-        { error: "account sign-in required" },
+        { error: "account sign-in required", code: "sign_in_required" },
         { status: 401 },
       ),
       result: null,
@@ -71,7 +71,10 @@ export async function claimFailureResponse(
       result: result.status,
     });
     return {
-      response: accountJson({ error: "guest save not found" }, { status: 404 }),
+      response: accountJson(
+        { error: "guest save not found", code: "guest_save_not_found" },
+        { status: 404 },
+      ),
       result: null,
       save: null,
     };
@@ -110,6 +113,7 @@ export async function claimFailureResponse(
       response: accountJson(
         {
           error: "account already has a cloud save",
+          code: "account_cloud_save_exists",
           mode: "conflict",
           ...extraBody,
           accountSave: save,

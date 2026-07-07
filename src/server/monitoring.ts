@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type {
   MINE_VERSION_MISMATCH_CODE,
   TRIP_ALREADY_CASHED_OUT_CODE,
-} from "@/lib/mine-api-codes";
+} from "@/lib/api-codes";
 
 type MonitoringSeverity = "info" | "warn" | "error";
 

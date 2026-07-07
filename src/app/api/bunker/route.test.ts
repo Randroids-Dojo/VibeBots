@@ -186,6 +186,7 @@ describe("bunker API routes", () => {
     expect(res.status).toBe(503);
     await expect(res.json()).resolves.toEqual({
       error: "storage not configured",
+      code: "storage_not_configured",
     });
     expect(mockedLoad).not.toHaveBeenCalled();
   });
@@ -200,6 +201,7 @@ describe("bunker API routes", () => {
     expect(res.status).toBe(503);
     await expect(res.json()).resolves.toEqual({
       error: "storage not configured",
+      code: "storage_not_configured",
     });
     expect(mockedPlayer).not.toHaveBeenCalled();
     expect(mockedBuy).not.toHaveBeenCalled();

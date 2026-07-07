@@ -575,6 +575,7 @@ test("mine account handoff conflict shows the cloud-save choice", async ({
       status: 409,
       json: {
         error: "account already has a cloud save",
+        code: "account_cloud_save_exists",
         mode: "conflict",
         returnTo: "/mine",
         accountSave: cloudSummary,

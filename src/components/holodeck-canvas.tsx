@@ -6,6 +6,7 @@ import type { Group, PointLight } from "three/webgpu";
 import type { MineCell } from "@/sim/mine";
 import { DEFAULT_GEAR, hitsFor, oreReserveAt } from "@/sim/mine";
 import { useHolodeckStore } from "@/state/holodeck-store";
+import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import {
   type GraphicsFeatures,
   graphicsFeaturesFor,
@@ -108,6 +109,8 @@ function HolodeckScene({
   const rig = useRef(createMinerRigState());
   // Reused every frame: posing the showcase miner allocates nothing.
   const poseScratch = useRef(createMinerPose());
+  // Quantize-and-cache diagnostics (frame-loop-performance rule).
+  const datasetCache = useRef<Record<string, number | string>>({});
   const crushTumble = useRef<CrushTumbleState | null>(null);
   const crushLoopHold = useRef(0);
   const turntableYaw = useRef(0);
@@ -160,9 +163,11 @@ function HolodeckScene({
       0,
     );
     v.camZ = camera.position.z;
-    gl.domElement.dataset.holodeckZoom = v.zoom.toFixed(2);
-    gl.domElement.dataset.holodeckPanX = v.panX.toFixed(2);
-    gl.domElement.dataset.holodeckPanY = v.panY.toFixed(2);
+    const cache = datasetCache.current;
+    const dataset = gl.domElement.dataset;
+    setDatasetNumber(cache, dataset, "holodeckZoom", v.zoom, 2);
+    setDatasetNumber(cache, dataset, "holodeckPanX", v.panX, 2);
+    setDatasetNumber(cache, dataset, "holodeckPanY", v.panY, 2);
     // The shared rig drives every joint: the single-block scenario plays
     // the real dig clip while its target block survives, the showcase
     // plays whichever clip is selected, and pause is a full still frame.
@@ -217,21 +222,35 @@ function HolodeckScene({
       armRef.current.rotation.z = pose.arm.rotZ;
     }
     // Expose live motion for QA (Rule 10), independent of any one ref.
-    const el = gl.domElement;
-    el.dataset.holodeckArm = pose.arm.rotZ.toFixed(3);
-    el.dataset.holodeckTargetSolid = targetSolid ? "1" : "0";
-    el.dataset.holodeckLoops = String(loops);
-    el.dataset.holodeckClip = showcase ? clip : "";
-    el.dataset.holodeckYaw = (minerGroup?.rotation.y ?? 0).toFixed(3);
-    el.dataset.holodeckCamZ = camera.position.z.toFixed(2);
-    el.dataset.holodeckBodyY = pose.body.posY.toFixed(4);
+    setDatasetNumber(cache, dataset, "holodeckArm", pose.arm.rotZ, 3);
+    setDatasetText(
+      cache,
+      dataset,
+      "holodeckTargetSolid",
+      targetSolid ? "1" : "0",
+    );
+    setDatasetNumber(cache, dataset, "holodeckLoops", loops, 0);
+    setDatasetText(cache, dataset, "holodeckClip", showcase ? clip : "");
+    setDatasetNumber(
+      cache,
+      dataset,
+      "holodeckYaw",
+      minerGroup?.rotation.y ?? 0,
+      3,
+    );
+    setDatasetNumber(cache, dataset, "holodeckCamZ", camera.position.z, 2);
+    setDatasetNumber(cache, dataset, "holodeckBodyY", pose.body.posY, 4);
     // Per-frame draw calls: the phone budget the model must respect. The
     // WebGPU backend's counter can accumulate, so expose the delta.
     const totalDraws = gl.info.render.calls;
     const frameDraws = totalDraws - lastDrawTotal.current;
     lastDrawTotal.current = totalDraws;
-    el.dataset.holodeckDrawCalls = String(
+    setDatasetNumber(
+      cache,
+      dataset,
+      "holodeckDrawCalls",
       frameDraws > 0 ? frameDraws : totalDraws,
+      0,
     );
   });
 

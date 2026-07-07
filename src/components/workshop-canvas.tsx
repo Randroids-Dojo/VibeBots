@@ -36,6 +36,7 @@ import {
   useWorkshopStore,
   validSlotsFor,
 } from "@/state/workshop-store";
+import { setDatasetNumber } from "./dataset-diagnostics";
 import {
   graphicsFeaturesFor,
   hasCoarsePointer,
@@ -195,6 +196,8 @@ function HeroPart({
   const spinRef = useRef<Group>(null);
   const yaw = useRef(0);
   const projScratch = useRef(new Vector3());
+  // Quantize-and-cache diagnostics (frame-loop-performance rule).
+  const heroDatasetCache = useRef<Record<string, number | string>>({});
   useFrame((_, dt) => {
     const anchor = anchorRef.current;
     const canvasEl = gl.domElement as HTMLCanvasElement;
@@ -217,8 +220,21 @@ function HeroPart({
         // top-left) so a test can assert it stays under the pointer.
         anchor.updateWorldMatrix(true, false);
         const dv = projScratch.current.copy(anchor.position).project(camera);
-        canvasEl.dataset.dragScreenX = ((dv.x + 1) / 2).toFixed(3);
-        canvasEl.dataset.dragScreenY = ((1 - dv.y) / 2).toFixed(3);
+        const cache = heroDatasetCache.current;
+        setDatasetNumber(
+          cache,
+          canvasEl.dataset,
+          "dragScreenX",
+          (dv.x + 1) / 2,
+          3,
+        );
+        setDatasetNumber(
+          cache,
+          canvasEl.dataset,
+          "dragScreenY",
+          (1 - dv.y) / 2,
+          3,
+        );
       } else {
         // Docked: down into the empty lower band and back so the whole part
         // clears the bottom edge on tall portrait viewports. When a menu is
@@ -232,12 +248,24 @@ function HeroPart({
         // clears the open sheet instead of hiding behind it.
         anchor.updateWorldMatrix(true, false);
         const v = anchor.getWorldPosition(projScratch.current).project(camera);
-        canvasEl.dataset.heroScreenY = ((1 - v.y) / 2).toFixed(3);
+        setDatasetNumber(
+          heroDatasetCache.current,
+          canvasEl.dataset,
+          "heroScreenY",
+          (1 - v.y) / 2,
+          3,
+        );
       }
     }
     yaw.current += dt * 0.7;
     spinRef.current?.rotation.set(0, yaw.current, 0);
-    canvasEl.dataset.heroYaw = (yaw.current % (Math.PI * 2)).toFixed(2);
+    setDatasetNumber(
+      heroDatasetCache.current,
+      canvasEl.dataset,
+      "heroYaw",
+      yaw.current % (Math.PI * 2),
+      2,
+    );
   });
   const surface = CATEGORY_SURFACE[def.category];
   // Owned-out (P3): render the part gray and non-glowing so it reads as
@@ -614,6 +642,7 @@ function WorkshopScene() {
   // camera includes the menu-lift view offset, so the X rides up with the bot
   // when the sheet opens (same reason the drag ghost uses .project(camera)).
   const selScratch = useRef(new Vector3());
+  const selDatasetCache = useRef<Record<string, number | string>>({});
   useFrame(() => {
     const el = gl.domElement as HTMLElement;
     const placement = selectedIid ? layout.get(selectedIid) : undefined;
@@ -621,6 +650,10 @@ function WorkshopScene() {
       if (el.dataset.selectedScreenX !== undefined) {
         delete el.dataset.selectedScreenX;
         delete el.dataset.selectedScreenY;
+        // The attribute is gone; the cache must forget it too or the
+        // next selection would be skipped as "unchanged".
+        delete selDatasetCache.current.selectedScreenX;
+        delete selDatasetCache.current.selectedScreenY;
       }
       return;
     }
@@ -630,8 +663,15 @@ function WorkshopScene() {
     // top header. A small offset plus a top clamp keeps it on the part and
     // below the header in that lifted state.
     const v = selScratch.current.set(p.x, p.y + 0.22, p.z).project(camera);
-    el.dataset.selectedScreenX = ((v.x + 1) / 2).toFixed(4);
-    el.dataset.selectedScreenY = Math.max(0.16, (1 - v.y) / 2).toFixed(4);
+    const cache = selDatasetCache.current;
+    setDatasetNumber(cache, el.dataset, "selectedScreenX", (v.x + 1) / 2, 4);
+    setDatasetNumber(
+      cache,
+      el.dataset,
+      "selectedScreenY",
+      Math.max(0.16, (1 - v.y) / 2),
+      4,
+    );
   });
 
   return (

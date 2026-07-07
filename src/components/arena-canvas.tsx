@@ -50,6 +50,7 @@ import {
 } from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
 import { matchResultHash } from "@/sim/resolve";
+import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import {
   graphicsFeaturesFor,
   hasCoarsePointer,
@@ -239,6 +240,8 @@ function ArenaScene({
   onCountdown: (label: string | null) => void;
 }) {
   const runRef = useRef<ArenaRun | null>(null);
+  // Quantize-and-cache diagnostics (frame-loop-performance rule).
+  const datasetCache = useRef<Record<string, number | string>>({});
   /** Bumped on every effect (re)run and cleanup; stale async boots check it. */
   const generationRef = useRef(0);
   const accumulatorRef = useRef(0);
@@ -329,10 +332,22 @@ function ArenaScene({
       }
       const stage = stageRef.current;
       if (stage) {
-        stage.dataset.countdown =
-          countdownRef.current === 0
-            ? "over"
-            : String(Math.ceil(countdownRef.current / COUNTDOWN_STEP_SECONDS));
+        if (countdownRef.current === 0) {
+          setDatasetText(
+            datasetCache.current,
+            stage.dataset,
+            "countdown",
+            "over",
+          );
+        } else {
+          setDatasetNumber(
+            datasetCache.current,
+            stage.dataset,
+            "countdown",
+            Math.ceil(countdownRef.current / COUNTDOWN_STEP_SECONDS),
+            0,
+          );
+        }
       }
       accumulatorRef.current = 0;
     }
@@ -503,13 +518,37 @@ function ArenaScene({
       const bot1InFrame = Math.abs(bot1.x) <= 0.88 && Math.abs(bot1.y) <= 0.82;
       const stage = stageRef.current;
       if (stage) {
-        stage.dataset.cameraMode = "cinematic-follow";
-        stage.dataset.cameraTargetX = frame.targetX.toFixed(2);
-        stage.dataset.cameraTargetZ = frame.targetZ.toFixed(2);
-        stage.dataset.cameraDistance = frame.distance.toFixed(2);
-        stage.dataset.bot0ScreenX = bot0.x.toFixed(3);
-        stage.dataset.bot1ScreenX = bot1.x.toFixed(3);
-        stage.dataset.botsInFrame = String(bot0InFrame && bot1InFrame);
+        const cache = datasetCache.current;
+        setDatasetText(cache, stage.dataset, "cameraMode", "cinematic-follow");
+        setDatasetNumber(
+          cache,
+          stage.dataset,
+          "cameraTargetX",
+          frame.targetX,
+          2,
+        );
+        setDatasetNumber(
+          cache,
+          stage.dataset,
+          "cameraTargetZ",
+          frame.targetZ,
+          2,
+        );
+        setDatasetNumber(
+          cache,
+          stage.dataset,
+          "cameraDistance",
+          frame.distance,
+          2,
+        );
+        setDatasetNumber(cache, stage.dataset, "bot0ScreenX", bot0.x, 3);
+        setDatasetNumber(cache, stage.dataset, "bot1ScreenX", bot1.x, 3);
+        setDatasetText(
+          cache,
+          stage.dataset,
+          "botsInFrame",
+          bot0InFrame && bot1InFrame ? "true" : "false",
+        );
       }
     }
 

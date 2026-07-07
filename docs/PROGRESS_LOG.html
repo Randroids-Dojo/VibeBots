@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="save-sync-freshness-conflict" data-date="2026-07-07">
+    <h3>Save sync slice A: multi-device freshness checks and conflict dialog</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>sync/save-freshness-conflict</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>First slice of the multi-device save-sync design (<code>docs/research/account-save-sync.html</code>, dot <code>VibeBots-save-sync-slice-f7cb1e60</code>), fixing the user-reproduced two-device drift where the second device plays a doomed trip and loses it to a raw error. (1) New <code>GET /api/mine/world/version</code> returns the player's live <code>{seed, tripCount}</code> with no-store (one primary-key SELECT; Neon's bigint-as-string seed normalized). (2) <code>mine-store</code> gained <code>saveConflict</code> ("none" / "prompt" / "dismissed"), <code>checkWorldFreshness</code> (gated to loaded cloud saves, throttled to one probe per 10s, silent resync via the extracted <code>refreshCloudWorld</code> when the local log is surface-only, prompt otherwise), and <code>resolveSaveConflict</code> (sync drops the run and adopts the cloud save; keep marks the run doomed). (3) <code>mine-panel</code> probes on focus, visibilitychange, and pageshow, and the store probes on the first real move of each trip. (4) A lost cash-out race (<code>trip_already_cashed_out</code> on a cloud-loaded save) now routes into the same dialog with <code>cashOut</code> reset to idle; guests keep the raw error. (5) New <code>SaveConflictPopup</code> (focus-trapped, dismiss counts as keep-playing so a backdrop tap never discards progress) reusing the account dialog's action button. Version <code>0.1.199</code> with the "Two devices, one save" release note; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm exec tsc --noEmit</code>; <code>pnpm exec vitest run</code> (94 files, 980 tests: new route tests, store conflict-transition tests, popup markup tests, parser tests); <code>pnpm exec biome check</code>; <code>scripts/check-sim-purity.sh</code>; dash and <code>git diff --check</code>; <code>pnpm build</code>; <code>pnpm exec playwright test tests/e2e/mine-account-sync.spec.ts tests/e2e/release-notifications.spec.ts</code> (16 passed, including a new e2e that replays the two-device repro: dig, go stale, refocus, dialog appears, Sync now refetches the world; the only failures are the two F-069 pre-existing auto-claim specs that fail identically on main).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: runs are never merged (deterministic replay of divergent logs over one world is unresolvable); the dialog says so plainly and the design shortens the losing run instead of recovering it. The 10s probe throttle trades a small detection delay for zero burst traffic; lifecycle events plus first-move cover the repro without polling. Rule 13: tips reviewed for 0.1.199; added "One cloud save on two devices? Sync when prompted; runs never merge." Rule 14: stamp review done, none added; a conflict warning is not a collectible moment.</dd>
+      <dt>GDD coverage</dt><dd>REQ-042 stays partial; <code>docs/gdd/10-account-sync.html</code> gained a build-log entry for slice A.</dd>
+      <dt>Followups</dt><dd>Slices B (stale checkpoint 409) and C (save-sync push) tracked as dots <code>VibeBots-save-sync-slice-8198540a</code> and <code>VibeBots-save-sync-slice-51234c80</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="perf-root-cause-drilldown" data-date="2026-07-07">
     <h3>Performance telemetry: root-cause drilldown, build id fix, richer collection</h3>
     <dl>

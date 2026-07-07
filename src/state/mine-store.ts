@@ -56,8 +56,10 @@ import {
   deleteRemoteSaveSlot,
   finishRemoteAccountHandoff,
   isMineVersionMismatch,
+  isTripAlreadyCashedOut,
   loadMineGear,
   loadMineWorld,
+  loadMineWorldVersion,
   loadRemoteAccountSave,
   loadAccountStatus as loadRemoteAccountStatus,
   loadRemoteAccountTrip,
@@ -69,6 +71,7 @@ import {
   submitMineBank,
   switchRemoteSaveSlot,
   teleportRemoteBase,
+  worldVersionFromResponse,
 } from "./mine-api-client";
 import {
   loadLocalTrip,
@@ -86,6 +89,14 @@ export type {
   AccountSaveSummary,
   SaveSlotSummary,
 } from "./mine-api-client";
+
+/**
+ * Multi-device conflict state (REQ-042). "prompt" means another device
+ * advanced the cloud save while this one holds real trip progress; the
+ * player must choose to sync (dropping the run) or keep playing. A
+ * "dismissed" conflict stops further probes; a failed cash-out re-prompts.
+ */
+export type SaveConflictState = "none" | "prompt" | "dismissed";
 
 export type SaveSlotsState =
   | { state: "unknown"; activeSlot: SaveSlotId; slots: SaveSlotSummary[] }
@@ -213,6 +224,7 @@ export interface MineSessionState {
   activeSlot: SaveSlotId;
   saveSlots: SaveSlotsState;
   accountSync: AccountSyncState;
+  saveConflict: SaveConflictState;
   worldLoaded: boolean;
   /** Tick key of the fall/crush playback whose impact frame has rendered.
    * Written by the mine canvas frame loop so the trip report can wait for
@@ -235,6 +247,8 @@ export interface MineSessionState {
   finishAccountSignIn: (handoffId: string) => Promise<boolean>;
   claimAccountSave: () => Promise<boolean>;
   loadAccountSave: () => Promise<boolean>;
+  checkWorldFreshness: () => Promise<void>;
+  resolveSaveConflict: (choice: "sync" | "keep") => Promise<void>;
   switchSaveSlot: (
     slot: SaveSlotId,
     options?: { create?: boolean },
@@ -381,6 +395,27 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     if (get().accountSync.mode === "guest") return;
     void clearRemoteAccountTrip();
   };
+  // Drops this device's local trip and adopts the cloud world, gear, and
+  // save slots. Used after a cloud load and whenever another device
+  // advanced the save.
+  const refreshCloudWorld = async (slot: SaveSlotId) => {
+    removeLocalTrip(slot);
+    await loadAccountTripCheckpoint(slot);
+    // The world/gear chain must follow the checkpoint restore, but the
+    // save-slot list is independent and can load alongside it.
+    await Promise.all([
+      (async () => {
+        await get().loadWorld();
+        await get().loadGear();
+      })(),
+      get().loadSaveSlots(),
+    ]);
+  };
+  // Freshness probes are throttled: lifecycle events (focus, visibility,
+  // pageshow) can fire in bursts and every probe is a network roundtrip.
+  let freshnessProbeInFlight = false;
+  let lastFreshnessProbeAt = 0;
+  const FRESHNESS_PROBE_MIN_INTERVAL_MS = 10_000;
   return {
     mine: createMine(seed),
     seed,
@@ -402,6 +437,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     activeSlot: 1,
     saveSlots: initialSlots,
     accountSync: initialAccountSync,
+    saveConflict: "none",
     worldLoaded: false,
     fallVisualImpactKey: null,
     markFallVisualImpact: (key) => {
@@ -433,6 +469,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // carry and carving intact.
       if (result.ok) {
         persistCurrentTrip();
+        // A trip is starting: catch a save that advanced on another
+        // device while real progress on this one is still tiny.
+        if (moves.length === 1) void get().checkWorldFreshness();
       }
     },
 
@@ -889,17 +928,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return false;
       }
       const nextSlot = parsed.activeSlot;
-      removeLocalTrip(nextSlot);
-      await loadAccountTripCheckpoint(nextSlot);
-      // The world/gear chain must follow the checkpoint restore, but the
-      // save-slot list is independent and can load alongside it.
-      await Promise.all([
-        (async () => {
-          await get().loadWorld();
-          await get().loadGear();
-        })(),
-        get().loadSaveSlots(),
-      ]);
+      await refreshCloudWorld(nextSlot);
       current = get().accountSync;
       set({
         accountSync: {
@@ -909,8 +938,57 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           currentSave: parsed.accountSave,
           accountSave: parsed.accountSave,
         },
+        saveConflict: "none",
       });
       return true;
+    },
+
+    checkWorldFreshness: async () => {
+      const { accountSync, worldLoaded, saveConflict, cashOut } = get();
+      // Only a cloud-linked save can advance on another device.
+      if (!worldLoaded || accountSync.mode !== "cloud_loaded") return;
+      if (saveConflict !== "none") return;
+      if (cashOut.state === "pending") return;
+      const now = Date.now();
+      if (
+        freshnessProbeInFlight ||
+        now - lastFreshnessProbeAt < FRESHNESS_PROBE_MIN_INTERVAL_MS
+      ) {
+        return;
+      }
+      freshnessProbeInFlight = true;
+      lastFreshnessProbeAt = now;
+      let version: ReturnType<typeof worldVersionFromResponse> = null;
+      try {
+        const res = await loadMineWorldVersion();
+        // Offline or signed out is not a conflict signal.
+        if (!res.ok) return;
+        version = worldVersionFromResponse(res.body);
+      } finally {
+        freshnessProbeInFlight = false;
+      }
+      if (!version) return;
+      const { seed: localSeed, tripIndex, moves } = get();
+      if (version.seed === localSeed && version.tripCount === tripIndex) {
+        return;
+      }
+      if (get().saveConflict !== "none") return;
+      if (surfaceOnlyLog(moves)) {
+        // No real progress on this device: adopt the newer save silently.
+        await refreshCloudWorld(get().activeSlot);
+        return;
+      }
+      set({ saveConflict: "prompt" });
+    },
+
+    resolveSaveConflict: async (choice) => {
+      if (get().saveConflict === "none") return;
+      if (choice === "keep") {
+        set({ saveConflict: "dismissed" });
+        return;
+      }
+      set({ saveConflict: "none" });
+      await refreshCloudWorld(get().activeSlot);
     },
 
     switchSaveSlot: async (slot, options = {}) => {
@@ -1142,6 +1220,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           removeLocalTrip(get().activeSlot);
           await get().loadWorld();
           await get().loadGear();
+        }
+        if (
+          isTripAlreadyCashedOut(body) &&
+          get().accountSync.mode === "cloud_loaded"
+        ) {
+          // Another device banked first; the run cannot be merged. Route
+          // the failure into the save-conflict flow instead of a raw error
+          // (re-prompts even after an earlier "Keep playing").
+          set({ cashOut: { state: "idle" }, saveConflict: "prompt" });
+          return false;
         }
         set({
           cashOut: {

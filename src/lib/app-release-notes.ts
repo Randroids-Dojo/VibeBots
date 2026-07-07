@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-07-0.1.198-perf-root-cause";
+export const RELEASE_NOTICE_ID = "2026-07-07-0.1.199-save-sync-warning";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.199",
+      date: "2026-07-07",
+      title: "Two devices, one save",
+      intro: "The game now warns when your cloud save moves ahead.",
+      changes: [
+        {
+          build,
+          text: "Playing the same Google-linked save on two devices no longer ends in a surprise error. When another device banks a run first, this device now notices as soon as you return to it or start digging, and asks whether to sync to the newer save (dropping the doomed run early) or keep playing. Runs still cannot be merged, so syncing sooner loses less.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.198",
       date: "2026-07-07",

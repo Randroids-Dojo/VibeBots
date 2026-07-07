@@ -154,7 +154,7 @@ function SaveSummaryRow({
   );
 }
 
-function AccountActionButton({
+export function AccountActionButton({
   accent,
   disabled,
   onClick,
@@ -208,7 +208,7 @@ export function nextFocusTrapIndex(
   return null;
 }
 
-function useFocusTrap(
+export function useFocusTrap(
   active: boolean,
   containerRef: RefObject<HTMLElement | null>,
 ) {

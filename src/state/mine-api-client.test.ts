@@ -17,6 +17,7 @@ import {
   deleteSaveSlotConfirmation,
   finishRemoteAccountHandoff,
   isMineVersionMismatch,
+  isTripAlreadyCashedOut,
   loadAccountStatus,
   loadMineGear,
   loadMineWorld,
@@ -29,6 +30,7 @@ import {
   submitMineBank,
   switchRemoteSaveSlot,
   teleportRemoteBase,
+  worldVersionFromResponse,
 } from "./mine-api-client";
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -579,6 +581,27 @@ describe("mine API client", () => {
     );
     expect(cashOutErrorMessage(null)).toBe("cash out failed");
     expect(isMineVersionMismatch({ code: "mine_version_mismatch" })).toBe(true);
+  });
+
+  it("recognizes a lost cash-out race by its code", () => {
+    expect(isTripAlreadyCashedOut({ code: "trip_already_cashed_out" })).toBe(
+      true,
+    );
+    expect(isTripAlreadyCashedOut({ error: "trip already cashed out" })).toBe(
+      false,
+    );
+    expect(isTripAlreadyCashedOut(null)).toBe(false);
+  });
+
+  it("parses world version probes and rejects malformed ones", () => {
+    expect(
+      worldVersionFromResponse({ world: { seed: 4243, tripCount: 7 } }),
+    ).toEqual({ seed: 4243, tripCount: 7 });
+    expect(worldVersionFromResponse({ world: null })).toBeNull();
+    expect(
+      worldVersionFromResponse({ world: { seed: "4243", tripCount: 7 } }),
+    ).toBeNull();
+    expect(worldVersionFromResponse(null)).toBeNull();
   });
 
   it("keeps the same request shapes for mine store wrappers", async () => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBunker, STARTER_BASE_PART_INVENTORY } from "@/sim/bunker";
 import {
   applyAction,
@@ -1897,5 +1897,177 @@ describe("mine store upgrade flow", () => {
     );
     expect(store().moves).toEqual([]);
     expect(store().tripIndex).toBe(4);
+  });
+
+  describe("multi-device save conflicts", () => {
+    // The freshness probe throttles on Date.now; each test advances a fake
+    // clock past the window so probes from earlier tests never gate later
+    // ones (the throttle timestamp lives in the store module closure).
+    let probeClock = 10_000_000;
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      probeClock += 60_000;
+      vi.setSystemTime(probeClock);
+      useMineStore.setState((state) => ({
+        accountSync: {
+          ...state.accountSync,
+          state: "ready",
+          mode: "cloud_loaded",
+        },
+        saveConflict: "none",
+      }));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function stubFetchByUrl(responses: Record<string, () => Response>) {
+      const fetchMock = vi.fn(async (url: string) => {
+        const respond = responses[url];
+        if (!respond) throw new Error(`unexpected fetch: ${url}`);
+        return respond();
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    const resyncResponses = {
+      "/api/account/trip": () => jsonResponse({ trip: null }),
+      "/api/mine/world": () =>
+        jsonResponse({ seed: 123, tripIndex: 3, diff: [], activeSlot: 1 }),
+      "/api/gear": () =>
+        jsonResponse({
+          gear: DEFAULT_GEAR,
+          consumables: NO_CONSUMABLES,
+          balance: 10,
+          deepestDepth: 3,
+        }),
+      "/api/save-slots": () => jsonResponse({ activeSlot: 1, slots: [] }),
+    };
+
+    it("prompts when the cloud save advanced under real trip progress", async () => {
+      const fetchMock = stubFetchByUrl({
+        "/api/mine/world/version": () =>
+          jsonResponse({ world: { seed: 123, tripCount: 3 } }),
+      });
+
+      await store().checkWorldFreshness();
+
+      expect(store().saveConflict).toBe("prompt");
+      // The doomed run stays on screen untouched until the player decides.
+      expect(store().moves).toEqual(["down"]);
+      expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+        "/api/mine/world/version",
+      ]);
+    });
+
+    it("stays quiet while the local world matches the server", async () => {
+      const fetchMock = stubFetchByUrl({
+        "/api/mine/world/version": () =>
+          jsonResponse({ world: { seed: 123, tripCount: 2 } }),
+      });
+
+      await store().checkWorldFreshness();
+
+      expect(store().saveConflict).toBe("none");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("adopts a newer save silently when this device has no real progress", async () => {
+      useMineStore.setState({ moves: [] });
+      const fetchMock = stubFetchByUrl({
+        "/api/mine/world/version": () =>
+          jsonResponse({ world: { seed: 123, tripCount: 3 } }),
+        ...resyncResponses,
+      });
+
+      await store().checkWorldFreshness();
+
+      expect(store().saveConflict).toBe("none");
+      expect(store().tripIndex).toBe(3);
+      expect(fetchMock.mock.calls.map((call) => call[0])).toContain(
+        "/api/mine/world",
+      );
+    });
+
+    it("does not probe for guest saves", async () => {
+      useMineStore.setState((state) => ({
+        accountSync: { ...state.accountSync, mode: "guest" },
+      }));
+      const fetchMock = stubFetchByUrl({});
+
+      await store().checkWorldFreshness();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("keeps the doomed run when the player dismisses the conflict", async () => {
+      useMineStore.setState({ saveConflict: "prompt" });
+      const fetchMock = stubFetchByUrl({});
+
+      await store().resolveSaveConflict("keep");
+
+      expect(store().saveConflict).toBe("dismissed");
+      expect(store().moves).toEqual(["down"]);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("syncs to the newer save when the player chooses to", async () => {
+      useMineStore.setState({ saveConflict: "prompt" });
+      const fetchMock = stubFetchByUrl(resyncResponses);
+
+      await store().resolveSaveConflict("sync");
+
+      expect(store().saveConflict).toBe("none");
+      expect(store().tripIndex).toBe(3);
+      expect(store().moves).toEqual([]);
+      expect(fetchMock.mock.calls.map((call) => call[0])).toContain(
+        "/api/mine/world",
+      );
+    });
+
+    it("routes a lost cash-out race into the conflict flow", async () => {
+      stubFetchByUrl({
+        "/api/mine/bank": () =>
+          jsonResponse(
+            {
+              error: "trip already cashed out",
+              code: "trip_already_cashed_out",
+            },
+            409,
+          ),
+        "/api/account/trip": () => jsonResponse({ stored: true }),
+      });
+
+      const ok = await store().submitCashOut();
+
+      expect(ok).toBe(false);
+      expect(store().saveConflict).toBe("prompt");
+      expect(store().cashOut).toEqual({ state: "idle" });
+    });
+
+    it("keeps the raw cash-out error for guest saves", async () => {
+      useMineStore.setState((state) => ({
+        accountSync: { ...state.accountSync, mode: "guest" },
+      }));
+      stubFetchByUrl({
+        "/api/mine/bank": () =>
+          jsonResponse(
+            {
+              error: "trip already cashed out",
+              code: "trip_already_cashed_out",
+            },
+            409,
+          ),
+      });
+
+      const ok = await store().submitCashOut();
+
+      expect(ok).toBe(false);
+      expect(store().saveConflict).toBe("none");
+      expect(store().cashOut).toMatchObject({ state: "error" });
+    });
   });
 });

@@ -447,6 +447,32 @@ export function isMineVersionMismatch(body: unknown): boolean {
   );
 }
 
+export function isTripAlreadyCashedOut(body: unknown): boolean {
+  return (
+    Boolean(body) &&
+    typeof body === "object" &&
+    (body as Record<string, unknown>).code === "trip_already_cashed_out"
+  );
+}
+
+export interface MineWorldVersion {
+  seed: number;
+  tripCount: number;
+}
+
+export function worldVersionFromResponse(
+  value: unknown,
+): MineWorldVersion | null {
+  if (!value || typeof value !== "object") return null;
+  const world = (value as { world?: unknown }).world;
+  if (!world || typeof world !== "object") return null;
+  const raw = world as Partial<Record<keyof MineWorldVersion, unknown>>;
+  if (typeof raw.seed !== "number" || typeof raw.tripCount !== "number") {
+    return null;
+  }
+  return { seed: raw.seed, tripCount: raw.tripCount };
+}
+
 export function cashOutErrorMessage(body: unknown): string {
   if (isMineVersionMismatch(body)) {
     return "Mine updated. Your save is restored; start a fresh trip.";
@@ -460,6 +486,10 @@ export function cashOutErrorMessage(body: unknown): string {
 
 export function loadMineWorld() {
   return mineApi<unknown>("/api/mine/world");
+}
+
+export function loadMineWorldVersion() {
+  return mineApi<unknown>("/api/mine/world/version");
 }
 
 export function loadMineGear() {

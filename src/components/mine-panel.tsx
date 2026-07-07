@@ -103,6 +103,7 @@ import {
 import { actionRepeatMs } from "./mine-pacing";
 import { useMinePerformanceSampling } from "./mine-performance-sampling";
 import { ReleaseNotesPopup } from "./mine-release-notes-popup";
+import { SaveConflictPopup } from "./mine-save-conflict-popup";
 import { SaveSlotsPopup } from "./mine-save-slots-popup";
 import {
   CreditsDialog,
@@ -268,6 +269,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
+  "Tip: One cloud save on two devices? Sync when prompted; runs never merge.",
 ] as const;
 
 const MINE_SURFACE_TIP_EMPTY_SLOTS = 3;
@@ -1117,6 +1119,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const finishAccountSignIn = useMineStore((s) => s.finishAccountSignIn);
   const claimAccountSave = useMineStore((s) => s.claimAccountSave);
   const loadAccountSave = useMineStore((s) => s.loadAccountSave);
+  const saveConflict = useMineStore((s) => s.saveConflict);
+  const checkWorldFreshness = useMineStore((s) => s.checkWorldFreshness);
+  const resolveSaveConflict = useMineStore((s) => s.resolveSaveConflict);
   const switchSaveSlot = useMineStore((s) => s.switchSaveSlot);
   const deleteSaveSlot = useMineStore((s) => s.deleteSaveSlot);
   const saveCurrentTrip = useMineStore((s) => s.saveCurrentTrip);
@@ -1167,6 +1172,32 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     () => startAccountSignIn("/mine"),
     [startAccountSignIn],
   );
+  const syncSaveConflict = useCallback(
+    () => void resolveSaveConflict("sync"),
+    [resolveSaveConflict],
+  );
+  const keepPlayingThroughConflict = useCallback(
+    () => void resolveSaveConflict("keep"),
+    [resolveSaveConflict],
+  );
+
+  // Multi-device freshness: revalidate the cloud save whenever this device
+  // comes back to the foreground (the store gates the probe to cloud-loaded
+  // saves and throttles bursts).
+  useEffect(() => {
+    const probe = () => {
+      if (document.visibilityState === "hidden") return;
+      void checkWorldFreshness();
+    };
+    window.addEventListener("focus", probe);
+    window.addEventListener("pageshow", probe);
+    document.addEventListener("visibilitychange", probe);
+    return () => {
+      window.removeEventListener("focus", probe);
+      window.removeEventListener("pageshow", probe);
+      document.removeEventListener("visibilitychange", probe);
+    };
+  }, [checkWorldFreshness]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext>({
@@ -2940,6 +2971,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onStartSignIn={startAccountSignInFromMine}
         onClaim={claimAccountSave}
         onLoadCloud={loadAccountSave}
+      />
+      <SaveConflictPopup
+        open={saveConflict === "prompt"}
+        onSync={syncSaveConflict}
+        onKeep={keepPlayingThroughConflict}
       />
       <PerfTelemetry
         source="mine"

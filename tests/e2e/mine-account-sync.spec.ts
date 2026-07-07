@@ -758,3 +758,103 @@ test("mine account conflict loads the cloud save only after player choice", asyn
   await expect(reopenedAccount).toContainText("42 vibes");
   expect(statusRequests).toBeGreaterThanOrEqual(2);
 });
+
+test("mine warns when the cloud save advances on another device", async ({
+  page,
+}) => {
+  const mine = createMine(4646, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  let worldRequests = 0;
+  let staleVersion = false;
+
+  await page.route("**/api/mine/world/version", async (route) => {
+    await route.fulfill({
+      json: { world: { seed: 4646, tripCount: staleVersion ? 1 : 0 } },
+    });
+  });
+  await page.route("**/api/mine/world", async (route) => {
+    worldRequests += 1;
+    await route.fulfill({
+      json: {
+        activeSlot: 1,
+        seed: 4646,
+        tripIndex: staleVersion ? 1 : 0,
+        diff: exportDiff(mine),
+      },
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear: DEFAULT_GEAR,
+        consumables: STARTING_CONSUMABLES,
+        balance: 12,
+        playerLevel: 1,
+        deepestDepth: 8,
+      },
+    });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/save-slots", async (route) => {
+    await route.fulfill({
+      json: {
+        activeSlot: 1,
+        slots: [{ slot: 1, active: true, ...saveSummary }],
+      },
+    });
+  });
+  await page.route("**/api/account/trip", async (route) => {
+    await route.fulfill({ json: { trip: null } });
+  });
+  await page.route("**/api/account/status", async (route) => {
+    await route.fulfill({
+      json: {
+        mode: "cloud_loaded",
+        activeSlot: 1,
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: null,
+          issues: [],
+        },
+        account: { provider: "clerk", email: "pilot@example.com" },
+        currentSave: saveSummary,
+        accountSave: saveSummary,
+      },
+    });
+  });
+
+  await page.goto("/mine?account=1");
+  await dismissReleaseNotes(page);
+  const account = page.getByRole("dialog", { name: "Account" });
+  await expect(account).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(account).not.toBeVisible();
+
+  // Dig one real move so this device holds progress worth prompting over.
+  await page.keyboard.press("ArrowDown");
+
+  const conflict = page.getByRole("dialog", {
+    name: "Save updated on another device",
+  });
+  await expect(conflict).not.toBeVisible();
+
+  // The freshness probe throttles bursts; step past the window before the
+  // other device's bank becomes visible.
+  await page.waitForTimeout(10_500);
+  staleVersion = true;
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("focus"));
+  });
+
+  await expect(conflict).toBeVisible();
+  await expect(conflict).toContainText("cannot be merged");
+
+  await conflict
+    .getByRole("button", { name: "Sync now (discard this run)" })
+    .click();
+  await expect(conflict).not.toBeVisible();
+  await expect.poll(() => worldRequests).toBeGreaterThanOrEqual(2);
+});

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-07-0.1.198-perf-root-cause",
+      releaseNoticeId: "2026-07-07-0.1.199-save-sync-warning",
       releaseSummary:
-        "Sharper slowdown reports: Performance telemetry can now explain stalls.",
+        "Two devices, one save: The game now warns when your cloud save moves ahead.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-07-0.1.198-perf-root-cause",
+      releaseNoticeId: "2026-07-07-0.1.199-save-sync-warning",
       attempted: 2,
       sent: 1,
       expired: 1,

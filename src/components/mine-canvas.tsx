@@ -2,7 +2,7 @@
 
 import { RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useLayoutEffect, useRef } from "react";
+import { type ReactElement, useCallback, useLayoutEffect, useRef } from "react";
 import type {
   AmbientLight,
   DirectionalLight,
@@ -38,7 +38,9 @@ import {
   isSupportSalvageTarget,
   lanternDistance,
   lightRadius,
+  type MineCell,
   type MineCoord,
+  type OreId,
   oreReserveAt,
   STRATA,
   stratumAt,
@@ -152,6 +154,30 @@ const EDGE_DARKNESS_COLOR = "#02040a";
  * miner's walk row (z 0) stay clearly in front of every facade; the
  * ground line is at local y ~1.06. ---- */
 
+/** Cached scene elements for one mine cell plus the render bookkeeping
+ * their construction produced (F-075). `sig` fingerprints every input
+ * the cell's JSX reads; while it matches, the tick re-render hands React
+ * the identical element references and reconciliation bails out on the
+ * whole cell subtree. The mine world mutates in place, so cell object
+ * identity can never stand in for this signature. */
+interface MineCellEntry {
+  sig: string;
+  block: ReactElement[];
+  cargo: ReactElement[];
+  darkness: ReactElement[];
+  tunnel: ReactElement[];
+  crack: ReactElement[];
+  support: ReactElement[];
+  darknessOpacity: number;
+  crackSegments: number;
+  gasWisp: boolean;
+}
+
+/** Hard cap on cached cells. A long trip visits far more cells than one
+ * render window shows; past the cap the cache clears wholesale and the
+ * next tick rebuilds just the visible window. */
+const CELL_CACHE_LIMIT = 4000;
+
 function MineScene({
   zoom,
   collectMode,
@@ -207,6 +233,17 @@ function MineScene({
   const wobbleTargets = useRef<
     Map<string, { x: number; y: number; urgency: number }>
   >(new Map());
+  // F-075 cell element cache: keyed `${col}:${row}`, dropped wholesale
+  // when the world object changes identity (new trip, restored save).
+  const cellElementCache = useRef<Map<string, MineCellEntry>>(new Map());
+  const cellCacheWorld = useRef<object | null>(null);
+  // Cached cell elements bake their click handlers in, so the handlers
+  // dispatch through a ref that always sees the latest prop.
+  const onToggleSupportRef = useRef(onToggleSupport);
+  onToggleSupportRef.current = onToggleSupport;
+  const dispatchToggleSupport = useCallback((target: CollectTarget) => {
+    onToggleSupportRef.current?.(target);
+  }, []);
   const teeterMotionFrames = useRef(0);
   const crushTumble = useRef<{ key: number; state: CrushTumbleState } | null>(
     null,
@@ -923,11 +960,12 @@ function MineScene({
   // The mesh handle registers once via the mount ref; the per-render
   // targets map carries the live urgency. React 19 does not re-invoke a
   // callback ref just because its closure identity changed, so clearing
-  // the handle map during render silently killed the tremble.
+  // the handle map during render silently killed the tremble. The ref
+  // callback bakes into cached cell elements, so it carries no per-render
+  // state; the loop below refreshes wobbleTargets every render.
   wobbleTargets.current.clear();
-  const teeterRef = (key: string, x: number, y: number, urgency: number) => {
-    wobbleTargets.current.set(key, { x, y, urgency });
-    return (mesh: Group | Mesh | null) => {
+  const teeterMeshRef =
+    (key: string, x: number) => (mesh: Group | Mesh | null) => {
       if (mesh) {
         mesh.userData.baseX = x;
         wobbleRefs.current.set(key, mesh);
@@ -935,7 +973,6 @@ function MineScene({
         wobbleRefs.current.delete(key);
       }
     };
-  };
   // Span-destabilized ceilings start on a longer countdown than the
   // undercut teeter, so the ramp clamps to a gentle floor instead of
   // going negative: distant dooms tremble softly, imminent ones shake.
@@ -960,6 +997,514 @@ function MineScene({
   const dynamitePreviewSet = new Set(
     (dynamitePreviewCells ?? []).map((coord) => `${coord.col}:${coord.row}`),
   );
+  // F-075: rebuilding every visible cell's elements on every store tick
+  // made React reconcile the whole grid per action (and per row during a
+  // fall), the per-tick churn behind the fall hitches. Cells now build
+  // through a signature-keyed cache; the loop below serves unchanged
+  // cells the previous element references and React bails out on them.
+  const cellCache = cellElementCache.current;
+  if (cellCacheWorld.current !== mine || cellCache.size > CELL_CACHE_LIMIT) {
+    cellCache.clear();
+    cellCacheWorld.current = mine;
+  }
+  const supportToggle = onToggleSupport ? dispatchToggleSupport : null;
+  const buildCellEntry = (
+    sig: string,
+    cell: MineCell,
+    col: number,
+    row: number,
+    key: string,
+    x: number,
+    y: number,
+    dynamitePreview: boolean,
+    darknessOpacity: number,
+    damage: number | null,
+    canSalvage: boolean,
+    ladderSelected: boolean,
+    beaconSelected: boolean,
+    plankSelected: boolean,
+    drop: { count: number; ore: OreId | null } | null,
+  ): MineCellEntry => {
+    const biome = biomeAt(col);
+    const entry: MineCellEntry = {
+      sig,
+      block: [],
+      cargo: [],
+      darkness: [],
+      tunnel: [],
+      crack: [],
+      support: [],
+      darknessOpacity,
+      crackSegments: damage === null ? 0 : crackSegmentCountForDamage(damage),
+      gasWisp: cell.kind === "gas" && cell.gasSeeped === true,
+    };
+    if (cell.bag) {
+      const bagOnBlock = cell.kind !== "empty";
+      entry.cargo.push(
+        <group
+          key={`bag:${key}`}
+          position={[
+            x,
+            y + (bagOnBlock ? 0.18 : -0.28),
+            bagOnBlock ? 0.92 : 0.28,
+          ]}
+          rotation={[0, cellHash(col, row, 67) * 0.35 - 0.18, 0]}
+        >
+          <DroppedBagMarker />
+        </group>,
+      );
+    }
+    if (dynamitePreview) {
+      entry.crack.push(
+        <mesh key={`dynamite-preview:${key}`} position={[x, y, 0.86]}>
+          <planeGeometry args={[1.1, 1.1]} />
+          <meshBasicMaterial
+            color="#ffe08a"
+            transparent
+            opacity={0.34}
+            depthWrite={false}
+          />
+        </mesh>,
+      );
+    }
+    if (darknessOpacity > 0) {
+      entry.darkness.push(
+        <mesh key={`dark:${key}`} position={[x, y, 0.72]}>
+          <planeGeometry args={[1.08, 1.08]} />
+          <meshBasicMaterial
+            color={EDGE_DARKNESS_COLOR}
+            transparent
+            opacity={darknessOpacity}
+            depthWrite={false}
+          />
+        </mesh>,
+      );
+    }
+    // Damaged blocks wear cracks (REQ-013); the overlay rides above
+    // whatever shape the kind renders.
+    if (damage !== null) {
+      entry.crack.push(
+        <group key={`crack:${key}`} position={[x, y, 0]}>
+          <CrackMarks col={col} row={row} damage={damage} />
+        </group>,
+      );
+    }
+    if (cell.kind === "empty") {
+      // Carved tunnels read as recessed rock, not as holes in the sky.
+      if (row >= 1) {
+        entry.tunnel.push(
+          <mesh key={key} position={[x, y, -0.42]}>
+            <boxGeometry args={[1, 1, 0.12]} />
+            <meshStandardMaterial
+              color={variedColor(tunnelColorForBiome(biome), col, row)}
+              roughness={1}
+            />
+          </mesh>,
+        );
+      }
+      // A planted ladder (REQ-020): rails and rungs against the wall.
+      if (cell.ladder) {
+        const toggleLadder = canSalvage ? supportToggle : null;
+        if (toggleLadder) {
+          entry.support.push(
+            <SupportCellHitTarget
+              key={`support-hit:ladder:${key}`}
+              target={{ type: "ladder", col, row }}
+              onToggleSupport={toggleLadder}
+            />,
+          );
+        }
+        if (ladderSelected) {
+          entry.support.push(
+            <SelectedSupportCellOutline
+              key={`selected-cell:ladder:${key}`}
+              col={col}
+              row={row}
+            />,
+          );
+        }
+        entry.tunnel.push(
+          // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+          <group
+            key={`ladder:${key}`}
+            position={[x, y, -0.28]}
+            onClick={
+              toggleLadder
+                ? (e) => {
+                    e.stopPropagation();
+                    toggleLadder({ type: "ladder", col, row });
+                  }
+                : undefined
+            }
+          >
+            {[-0.16, 0.16].map((rx) => (
+              <mesh key={rx} position={[rx, 0, 0]}>
+                <boxGeometry args={[0.05, 1, 0.05]} />
+                <meshStandardMaterial
+                  color={canSalvage ? "#d9a052" : "#a87b3e"}
+                  emissive={canSalvage ? "#5a3411" : "#000000"}
+                  emissiveIntensity={canSalvage ? 0.16 : 0}
+                  roughness={0.85}
+                  flatShading
+                />
+              </mesh>
+            ))}
+            {[-0.3, 0, 0.3].map((ry) => (
+              <mesh key={ry} position={[0, ry, 0]}>
+                <boxGeometry args={[0.36, 0.05, 0.05]} />
+                <meshStandardMaterial
+                  color={canSalvage ? "#ffd078" : "#c99a55"}
+                  emissive={canSalvage ? "#5a3411" : "#000000"}
+                  emissiveIntensity={canSalvage ? 0.18 : 0}
+                  roughness={0.85}
+                  flatShading
+                />
+              </mesh>
+            ))}
+            {ladderSelected ? (
+              <SupportSelectionOutline width={0.54} height={1.08} />
+            ) : null}
+          </group>,
+        );
+      }
+      // The warp beacon (REQ-029): a humming pylon in the dark.
+      if (cell.beacon) {
+        const toggleBeacon = canSalvage ? supportToggle : null;
+        entry.tunnel.push(
+          // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+          <group
+            key={`beacon:${key}`}
+            position={[x, y - 0.18, 0.1]}
+            onClick={
+              toggleBeacon
+                ? (e) => {
+                    e.stopPropagation();
+                    toggleBeacon({ type: "beacon", col, row });
+                  }
+                : undefined
+            }
+          >
+            <mesh>
+              <cylinderGeometry args={[0.07, 0.12, 0.5, 8]} />
+              <meshStandardMaterial
+                color={canSalvage ? "#8d58b8" : "#5a3a78"}
+                metalness={0.5}
+                roughness={0.4}
+                flatShading
+              />
+            </mesh>
+            <mesh position={[0, 0.35, 0]}>
+              <octahedronGeometry args={[0.12, 0]} />
+              <meshStandardMaterial
+                color="#e08aff"
+                emissive="#e08aff"
+                emissiveIntensity={1.6}
+                flatShading
+              />
+            </mesh>
+            <pointLight
+              position={[0, 0.4, 0.4]}
+              color="#e08aff"
+              intensity={1.4}
+              distance={4}
+              decay={1.6}
+            />
+            {beaconSelected ? (
+              <SupportSelectionOutline width={0.56} height={0.86} />
+            ) : null}
+          </group>,
+        );
+      }
+      if (drop && drop.count > 0) {
+        const oreColor = drop.ore ? ORE_COLORS[drop.ore] : CACHE_COLOR;
+        entry.tunnel.push(
+          <group key={`drop:${key}`} position={[x, y - 0.28, 0.18]}>
+            <mesh
+              rotation={[
+                cellHash(col, row, 41) * 1.2,
+                cellHash(col, row, 43) * 1.8,
+                cellHash(col, row, 47) * 1.4,
+              ]}
+            >
+              <octahedronGeometry args={[0.16, 0]} />
+              <meshStandardMaterial
+                color={oreColor}
+                emissive={oreColor}
+                emissiveIntensity={0.25}
+                roughness={0.55}
+                flatShading
+              />
+            </mesh>
+            {drop.count > 1 ? (
+              <DropPileMarkers extraCount={drop.count - 1} color={oreColor} />
+            ) : null}
+          </group>,
+        );
+      }
+      // A plank bridge (REQ-022): boards spanning the cell floor.
+      if (cell.plank) {
+        const togglePlank = canSalvage ? supportToggle : null;
+        if (togglePlank) {
+          entry.support.push(
+            <SupportCellHitTarget
+              key={`support-hit:plank:${key}`}
+              target={{ type: "plank", col, row }}
+              onToggleSupport={togglePlank}
+            />,
+          );
+        }
+        if (plankSelected) {
+          entry.support.push(
+            <SelectedSupportCellOutline
+              key={`selected-cell:plank:${key}`}
+              col={col}
+              row={row}
+            />,
+          );
+        }
+        entry.tunnel.push(
+          // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+          <group
+            key={`plank:${key}`}
+            position={[x, y - 0.42, 0.05]}
+            onClick={
+              togglePlank
+                ? (e) => {
+                    e.stopPropagation();
+                    togglePlank({ type: "plank", col, row });
+                  }
+                : undefined
+            }
+          >
+            {[-0.14, 0.14].map((pz) => (
+              <mesh key={pz} position={[0, 0, pz]}>
+                <boxGeometry args={[0.98, 0.07, 0.22]} />
+                <meshStandardMaterial
+                  color={canSalvage ? "#e4ad5b" : "#b58a4a"}
+                  emissive={canSalvage ? "#4a2d10" : "#000000"}
+                  emissiveIntensity={canSalvage ? 0.14 : 0}
+                  roughness={0.85}
+                  flatShading
+                />
+              </mesh>
+            ))}
+            <mesh position={[0, -0.05, 0]}>
+              <boxGeometry args={[0.2, 0.06, 0.56]} />
+              <meshStandardMaterial
+                color={canSalvage ? "#ba8240" : "#8a6536"}
+                emissive={canSalvage ? "#4a2d10" : "#000000"}
+                emissiveIntensity={canSalvage ? 0.12 : 0}
+                roughness={0.9}
+                flatShading
+              />
+            </mesh>
+            {plankSelected ? (
+              <SupportSelectionOutline width={1.08} height={0.44} z={0.34} />
+            ) : null}
+          </group>,
+        );
+      }
+      return entry;
+    }
+    if (cell.kind === "ore" && cell.ore) {
+      entry.block.push(
+        <group
+          key={key}
+          position={[x, y, 0]}
+          ref={cell.fallIn !== undefined ? teeterMeshRef(key, x) : undefined}
+        >
+          <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
+        </group>,
+      );
+      return entry;
+    }
+    if (cell.kind === "rock") {
+      const teeter = cell.fallIn;
+      const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
+      if (teeter !== undefined || cell.fallen) {
+        entry.block.push(
+          <group
+            key={key}
+            position={[x, y, 0]}
+            ref={teeter !== undefined ? teeterMeshRef(key, x) : undefined}
+          >
+            <FallingRockShard col={col} row={row} urgency={urgency} />
+          </group>,
+        );
+        return entry;
+      }
+      entry.block.push(
+        <group key={key} position={[x, y, 0]}>
+          <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
+        </group>,
+      );
+      return entry;
+    }
+    if (cell.kind === "boulder") {
+      const teeter = cell.fallIn;
+      const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
+      entry.block.push(
+        <mesh
+          key={key}
+          position={[x, y, 0]}
+          rotation={[0, cellHash(col, row, 29) * 3.1, 0]}
+          ref={teeter !== undefined ? teeterMeshRef(key, x) : undefined}
+        >
+          <icosahedronGeometry args={[0.56, 0]} />
+          <meshStandardMaterial
+            color={
+              biome === "winter"
+                ? teeter !== undefined
+                  ? "#c8e6f0"
+                  : "#9fb5c8"
+                : biome === "highTech"
+                  ? teeter !== undefined
+                    ? "#65ffb8"
+                    : "#3d625b"
+                  : teeter !== undefined
+                    ? BOULDER_WOBBLE_COLOR
+                    : BOULDER_COLOR
+            }
+            emissive={teeter !== undefined ? TEETER_EMISSIVE : "#000000"}
+            emissiveIntensity={teeter !== undefined ? 0.2 + 0.5 * urgency : 0}
+            roughness={0.8}
+            flatShading
+          />
+        </mesh>,
+      );
+      return entry;
+    }
+    if (cell.kind === "part-cache") {
+      entry.block.push(
+        <group key={key} position={[x, y, 0]}>
+          <CacheCrate col={col} row={row} />
+        </group>,
+      );
+      return entry;
+    }
+    if (cell.kind === "magma") {
+      entry.block.push(
+        <RoundedBox
+          key={key}
+          args={[0.94, 0.94, 0.94]}
+          radius={0.07}
+          smoothness={2}
+          position={[x, y, 0]}
+        >
+          <meshStandardMaterial
+            color={variedColor(
+              biome === "winter"
+                ? "#335568"
+                : biome === "highTech"
+                  ? "#122f28"
+                  : "#5a2418",
+              col,
+              row,
+            )}
+            emissive={
+              biome === "winter"
+                ? "#9ee7ff"
+                : biome === "highTech"
+                  ? "#65ffb8"
+                  : MAGMA_COLOR
+            }
+            emissiveIntensity={biome === "default" ? 0.55 : 0.42}
+            roughness={0.6}
+            flatShading
+          />
+        </RoundedBox>,
+      );
+      return entry;
+    }
+    if (cell.kind === "gas") {
+      // A seeped wisp reads as haze, not rock: translucent, smaller,
+      // glowing brighter so a leak stands out from the pocket it left.
+      if (cell.gasSeeped) {
+        renderedGasWispCount += 1;
+        entry.block.push(
+          <mesh key={key} position={[x, y, 0]}>
+            <sphereGeometry args={[0.42, 10, 8]} />
+            <meshStandardMaterial
+              color={
+                biome === "winter"
+                  ? "#9ee7ff"
+                  : biome === "highTech"
+                    ? "#65ffb8"
+                    : GAS_COLOR
+              }
+              emissive={
+                biome === "winter"
+                  ? "#9ee7ff"
+                  : biome === "highTech"
+                    ? "#65ffb8"
+                    : GAS_COLOR
+              }
+              emissiveIntensity={0.4}
+              transparent
+              opacity={0.42}
+              depthWrite={false}
+              roughness={0.9}
+            />
+          </mesh>,
+        );
+        return entry;
+      }
+      entry.block.push(
+        <RoundedBox
+          key={key}
+          args={[0.94, 0.94, 0.94]}
+          radius={0.07}
+          smoothness={2}
+          position={[x, y, 0]}
+        >
+          <meshStandardMaterial
+            color={variedColor(biomeDirtColorAt(col, row), col, row).lerp(
+              new Color(
+                biome === "winter"
+                  ? "#9ee7ff"
+                  : biome === "highTech"
+                    ? "#65ffb8"
+                    : GAS_COLOR,
+              ),
+              0.45,
+            )}
+            emissive={
+              biome === "winter"
+                ? "#9ee7ff"
+                : biome === "highTech"
+                  ? "#65ffb8"
+                  : GAS_COLOR
+            }
+            emissiveIntensity={0.12}
+            roughness={0.7}
+            flatShading
+          />
+        </RoundedBox>,
+      );
+      return entry;
+    }
+    if (cell.kind === "metal") {
+      entry.block.push(
+        <group key={key} position={[x, y, 0]}>
+          <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
+        </group>,
+      );
+      return entry;
+    }
+    // Dirt and anything else: the shared body (per-cell tone variation
+    // and soil grain live in the shader now). A wide-span ceiling cell
+    // teeters like a rock: the tremble is the collapse warning.
+    entry.block.push(
+      <group
+        key={key}
+        position={[x, y, 0]}
+        ref={cell.fallIn !== undefined ? teeterMeshRef(key, x) : undefined}
+      >
+        <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
+      </group>,
+    );
+    return entry;
+  };
   for (let row = firstRow; row <= lastRow; row++) {
     for (let col = firstCol; col <= lastCol; col++) {
       const distanceFromMiner = fallWindow
@@ -969,531 +1514,105 @@ function MineScene({
       const cell = cellAt(mine, col, row);
       if (!cell) continue;
       renderedCellCount += 1;
-      if (cell.fallIn !== undefined) renderedTeeterCount += 1;
       const key = `${col}:${row}`;
       const x = cellX(col);
       const y = -row;
-      const biome = biomeAt(col);
-      if (cell.bag) {
-        const bagOnBlock = cell.kind !== "empty";
-        cargoMeshes.push(
-          <group
-            key={`bag:${key}`}
-            position={[
-              x,
-              y + (bagOnBlock ? 0.18 : -0.28),
-              bagOnBlock ? 0.92 : 0.28,
-            ]}
-            rotation={[0, cellHash(col, row, 67) * 0.35 - 0.18, 0]}
-          >
-            <DroppedBagMarker />
-          </group>,
-        );
+      // Per-render bookkeeping that cache hits must still produce: the
+      // wobble targets map was cleared above and carries the live
+      // urgency to the frame loop.
+      if (cell.fallIn !== undefined) {
+        renderedTeeterCount += 1;
+        wobbleTargets.current.set(key, {
+          x,
+          y,
+          urgency: teeterUrgency(cell.fallIn),
+        });
       }
-      if (dynamitePreviewSet.has(key)) {
-        crackMeshes.push(
-          <mesh key={`dynamite-preview:${key}`} position={[x, y, 0.86]}>
-            <planeGeometry args={[1.1, 1.1]} />
-            <meshBasicMaterial
-              color="#ffe08a"
-              transparent
-              opacity={0.34}
-              depthWrite={false}
-            />
-          </mesh>,
-        );
-      }
+      // Signature inputs: everything the cell's JSX reads that can
+      // change while the cell stays on screen.
+      const dynamitePreview = dynamitePreviewSet.has(key);
       const beyondLight = Math.max(0, distanceFromMiner - litBelow);
-      if (beyondLight > 0) {
-        const opacity = mineDarknessOpacity(
-          beyondLight,
-          cameraZoom,
-          maxCameraZoom,
-        );
-        if (opacity > 0) {
-          minDarknessOpacity = Math.min(minDarknessOpacity, opacity);
-          maxDarknessOpacity = Math.max(maxDarknessOpacity, opacity);
-          darknessMeshes.push(
-            <mesh key={`dark:${key}`} position={[x, y, 0.72]}>
-              <planeGeometry args={[1.08, 1.08]} />
-              <meshBasicMaterial
-                color={EDGE_DARKNESS_COLOR}
-                transparent
-                opacity={opacity}
-                depthWrite={false}
-              />
-            </mesh>,
-          );
-        }
-      }
-      // Damaged blocks wear cracks (REQ-013); the overlay rides above
-      // whatever shape the kind renders.
+      const darknessOpacity =
+        beyondLight > 0
+          ? mineDarknessOpacity(beyondLight, cameraZoom, maxCameraZoom)
+          : 0;
       const oreDamage =
         cell.kind === "ore" && cell.ore && cell.oreRemaining !== undefined
           ? 1 - cell.oreRemaining / oreReserveAt(cell.ore, row)
           : null;
-      if (
-        oreDamage !== null ||
-        (cell.hp !== undefined && cell.kind !== "empty")
-      ) {
-        const damage =
-          oreDamage ??
-          1 -
-            (cell.hp ?? hitsFor(cell.kind, mine.gear)) /
-              hitsFor(cell.kind, mine.gear);
-        renderedCrackSegmentCount += crackSegmentCountForDamage(damage);
-        crackMeshes.push(
-          <group key={`crack:${key}`} position={[x, y, 0]}>
-            <CrackMarks col={col} row={row} damage={damage} />
-          </group>,
+      let damage = oreDamage;
+      if (damage === null && cell.hp !== undefined && cell.kind !== "empty") {
+        damage = 1 - cell.hp / hitsFor(cell.kind, mine.gear);
+      }
+      const canSalvage =
+        collectMode && (cell.ladder || cell.plank || cell.beacon)
+          ? isSupportSalvageTarget(mine, col, row)
+          : false;
+      const ladderSelected =
+        canSalvage &&
+        cell.ladder === true &&
+        selectedSupportSet.has(`ladder:${col},${row}`);
+      const beaconSelected =
+        canSalvage &&
+        cell.beacon === true &&
+        selectedSupportSet.has(`beacon:${col},${row}`);
+      const plankSelected =
+        canSalvage &&
+        cell.plank === true &&
+        selectedSupportSet.has(`plank:${col},${row}`);
+      const drop = cell.kind === "empty" ? dropPileStats(cell) : null;
+      // Sub-0.001 opacity/damage drift is invisible; quantizing it keeps
+      // camera zoom eases from rebuilding every darkened cell per tick.
+      const sig =
+        `${cell.kind}|${cell.ore ?? ""}|${cell.rockTier ?? 0}|` +
+        `${cell.fallIn ?? -1}|${cell.fallen ? 1 : 0}${cell.ladder ? 1 : 0}` +
+        `${cell.plank ? 1 : 0}${cell.beacon ? 1 : 0}` +
+        `${cell.gasSeeped ? 1 : 0}${cell.bag ? 1 : 0}|` +
+        `${drop ? drop.count : 0}:${drop?.ore ?? ""}|` +
+        `${dynamitePreview ? 1 : 0}|${Math.round(darknessOpacity * 1000)}|` +
+        `${damage === null ? "" : Math.round(damage * 1000)}|` +
+        `${canSalvage ? 1 : 0}${ladderSelected ? 1 : 0}` +
+        `${beaconSelected ? 1 : 0}${plankSelected ? 1 : 0}` +
+        `${supportToggle ? 1 : 0}`;
+      let entry = cellCache.get(key);
+      if (entry === undefined || entry.sig !== sig) {
+        entry = buildCellEntry(
+          sig,
+          cell,
+          col,
+          row,
+          key,
+          x,
+          y,
+          dynamitePreview,
+          darknessOpacity,
+          damage,
+          canSalvage,
+          ladderSelected,
+          beaconSelected,
+          plankSelected,
+          drop,
         );
+        cellCache.set(key, entry);
       }
-      if (cell.kind === "empty") {
-        // Carved tunnels read as recessed rock, not as holes in the sky.
-        if (row >= 1) {
-          tunnelMeshes.push(
-            <mesh key={key} position={[x, y, -0.42]}>
-              <boxGeometry args={[1, 1, 0.12]} />
-              <meshStandardMaterial
-                color={variedColor(tunnelColorForBiome(biome), col, row)}
-                roughness={1}
-              />
-            </mesh>,
-          );
-        }
-        // A planted ladder (REQ-020): rails and rungs against the wall.
-        if (cell.ladder) {
-          const ladderCanSalvage =
-            collectMode && isSupportSalvageTarget(mine, col, row);
-          const ladderSelected =
-            ladderCanSalvage && selectedSupportSet.has(`ladder:${col},${row}`);
-          const toggleLadder =
-            ladderCanSalvage && onToggleSupport ? onToggleSupport : null;
-          if (toggleLadder) {
-            supportSelectionMeshes.push(
-              <SupportCellHitTarget
-                key={`support-hit:ladder:${key}`}
-                target={{ type: "ladder", col, row }}
-                onToggleSupport={toggleLadder}
-              />,
-            );
-          }
-          if (ladderSelected) {
-            supportSelectionMeshes.push(
-              <SelectedSupportCellOutline
-                key={`selected-cell:ladder:${key}`}
-                col={col}
-                row={row}
-              />,
-            );
-          }
-          tunnelMeshes.push(
-            // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
-            <group
-              key={`ladder:${key}`}
-              position={[x, y, -0.28]}
-              onClick={
-                toggleLadder
-                  ? (e) => {
-                      e.stopPropagation();
-                      toggleLadder({ type: "ladder", col, row });
-                    }
-                  : undefined
-              }
-            >
-              {[-0.16, 0.16].map((rx) => (
-                <mesh key={rx} position={[rx, 0, 0]}>
-                  <boxGeometry args={[0.05, 1, 0.05]} />
-                  <meshStandardMaterial
-                    color={ladderCanSalvage ? "#d9a052" : "#a87b3e"}
-                    emissive={ladderCanSalvage ? "#5a3411" : "#000000"}
-                    emissiveIntensity={ladderCanSalvage ? 0.16 : 0}
-                    roughness={0.85}
-                    flatShading
-                  />
-                </mesh>
-              ))}
-              {[-0.3, 0, 0.3].map((ry) => (
-                <mesh key={ry} position={[0, ry, 0]}>
-                  <boxGeometry args={[0.36, 0.05, 0.05]} />
-                  <meshStandardMaterial
-                    color={ladderCanSalvage ? "#ffd078" : "#c99a55"}
-                    emissive={ladderCanSalvage ? "#5a3411" : "#000000"}
-                    emissiveIntensity={ladderCanSalvage ? 0.18 : 0}
-                    roughness={0.85}
-                    flatShading
-                  />
-                </mesh>
-              ))}
-              {ladderSelected ? (
-                <SupportSelectionOutline width={0.54} height={1.08} />
-              ) : null}
-            </group>,
-          );
-        }
-        // The warp beacon (REQ-029): a humming pylon in the dark.
-        if (cell.beacon) {
-          const beaconCanSalvage =
-            collectMode && isSupportSalvageTarget(mine, col, row);
-          const beaconSelected =
-            beaconCanSalvage && selectedSupportSet.has(`beacon:${col},${row}`);
-          const toggleBeacon =
-            beaconCanSalvage && onToggleSupport ? onToggleSupport : null;
-          tunnelMeshes.push(
-            // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
-            <group
-              key={`beacon:${key}`}
-              position={[x, y - 0.18, 0.1]}
-              onClick={
-                toggleBeacon
-                  ? (e) => {
-                      e.stopPropagation();
-                      toggleBeacon({ type: "beacon", col, row });
-                    }
-                  : undefined
-              }
-            >
-              <mesh>
-                <cylinderGeometry args={[0.07, 0.12, 0.5, 8]} />
-                <meshStandardMaterial
-                  color={beaconCanSalvage ? "#8d58b8" : "#5a3a78"}
-                  metalness={0.5}
-                  roughness={0.4}
-                  flatShading
-                />
-              </mesh>
-              <mesh position={[0, 0.35, 0]}>
-                <octahedronGeometry args={[0.12, 0]} />
-                <meshStandardMaterial
-                  color="#e08aff"
-                  emissive="#e08aff"
-                  emissiveIntensity={1.6}
-                  flatShading
-                />
-              </mesh>
-              <pointLight
-                position={[0, 0.4, 0.4]}
-                color="#e08aff"
-                intensity={1.4}
-                distance={4}
-                decay={1.6}
-              />
-              {beaconSelected ? (
-                <SupportSelectionOutline width={0.56} height={0.86} />
-              ) : null}
-            </group>,
-          );
-        }
-        const drop = dropPileStats(cell);
-        if (drop.count > 0) {
-          const oreColor = drop.ore ? ORE_COLORS[drop.ore] : CACHE_COLOR;
-          tunnelMeshes.push(
-            <group key={`drop:${key}`} position={[x, y - 0.28, 0.18]}>
-              <mesh
-                rotation={[
-                  cellHash(col, row, 41) * 1.2,
-                  cellHash(col, row, 43) * 1.8,
-                  cellHash(col, row, 47) * 1.4,
-                ]}
-              >
-                <octahedronGeometry args={[0.16, 0]} />
-                <meshStandardMaterial
-                  color={oreColor}
-                  emissive={oreColor}
-                  emissiveIntensity={0.25}
-                  roughness={0.55}
-                  flatShading
-                />
-              </mesh>
-              {drop.count > 1 ? (
-                <DropPileMarkers extraCount={drop.count - 1} color={oreColor} />
-              ) : null}
-            </group>,
-          );
-        }
-        // A plank bridge (REQ-022): boards spanning the cell floor.
-        if (cell.plank) {
-          const plankCanSalvage =
-            collectMode && isSupportSalvageTarget(mine, col, row);
-          const plankSelected =
-            plankCanSalvage && selectedSupportSet.has(`plank:${col},${row}`);
-          const togglePlank =
-            plankCanSalvage && onToggleSupport ? onToggleSupport : null;
-          if (togglePlank) {
-            supportSelectionMeshes.push(
-              <SupportCellHitTarget
-                key={`support-hit:plank:${key}`}
-                target={{ type: "plank", col, row }}
-                onToggleSupport={togglePlank}
-              />,
-            );
-          }
-          if (plankSelected) {
-            supportSelectionMeshes.push(
-              <SelectedSupportCellOutline
-                key={`selected-cell:plank:${key}`}
-                col={col}
-                row={row}
-              />,
-            );
-          }
-          tunnelMeshes.push(
-            // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
-            <group
-              key={`plank:${key}`}
-              position={[x, y - 0.42, 0.05]}
-              onClick={
-                togglePlank
-                  ? (e) => {
-                      e.stopPropagation();
-                      togglePlank({ type: "plank", col, row });
-                    }
-                  : undefined
-              }
-            >
-              {[-0.14, 0.14].map((pz) => (
-                <mesh key={pz} position={[0, 0, pz]}>
-                  <boxGeometry args={[0.98, 0.07, 0.22]} />
-                  <meshStandardMaterial
-                    color={plankCanSalvage ? "#e4ad5b" : "#b58a4a"}
-                    emissive={plankCanSalvage ? "#4a2d10" : "#000000"}
-                    emissiveIntensity={plankCanSalvage ? 0.14 : 0}
-                    roughness={0.85}
-                    flatShading
-                  />
-                </mesh>
-              ))}
-              <mesh position={[0, -0.05, 0]}>
-                <boxGeometry args={[0.2, 0.06, 0.56]} />
-                <meshStandardMaterial
-                  color={plankCanSalvage ? "#ba8240" : "#8a6536"}
-                  emissive={plankCanSalvage ? "#4a2d10" : "#000000"}
-                  emissiveIntensity={plankCanSalvage ? 0.12 : 0}
-                  roughness={0.9}
-                  flatShading
-                />
-              </mesh>
-              {plankSelected ? (
-                <SupportSelectionOutline width={1.08} height={0.44} z={0.34} />
-              ) : null}
-            </group>,
-          );
-        }
-        continue;
-      }
-      if (cell.kind === "ore" && cell.ore) {
-        const oreTeeter = cell.fallIn;
-        blockMeshes.push(
-          <group
-            key={key}
-            position={[x, y, 0]}
-            ref={
-              oreTeeter !== undefined
-                ? teeterRef(key, x, y, teeterUrgency(oreTeeter))
-                : undefined
-            }
-          >
-            <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
-          </group>,
+      for (const el of entry.cargo) cargoMeshes.push(el);
+      for (const el of entry.crack) crackMeshes.push(el);
+      for (const el of entry.darkness) {
+        minDarknessOpacity = Math.min(
+          minDarknessOpacity,
+          entry.darknessOpacity,
         );
-        continue;
-      }
-      if (cell.kind === "rock") {
-        const rockColors = rockColorsForBiome(biome);
-        const _tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
-        const teeter = cell.fallIn;
-        const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
-        if (teeter !== undefined || cell.fallen) {
-          blockMeshes.push(
-            <group
-              key={key}
-              position={[x, y, 0]}
-              ref={
-                teeter !== undefined ? teeterRef(key, x, y, urgency) : undefined
-              }
-            >
-              <FallingRockShard col={col} row={row} urgency={urgency} />
-            </group>,
-          );
-          continue;
-        }
-        blockMeshes.push(
-          <group key={key} position={[x, y, 0]}>
-            <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
-          </group>,
+        maxDarknessOpacity = Math.max(
+          maxDarknessOpacity,
+          entry.darknessOpacity,
         );
-        continue;
+        darknessMeshes.push(el);
       }
-      if (cell.kind === "boulder") {
-        const teeter = cell.fallIn;
-        const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
-        blockMeshes.push(
-          <mesh
-            key={key}
-            position={[x, y, 0]}
-            rotation={[0, cellHash(col, row, 29) * 3.1, 0]}
-            ref={
-              teeter !== undefined ? teeterRef(key, x, y, urgency) : undefined
-            }
-          >
-            <icosahedronGeometry args={[0.56, 0]} />
-            <meshStandardMaterial
-              color={
-                biome === "winter"
-                  ? teeter !== undefined
-                    ? "#c8e6f0"
-                    : "#9fb5c8"
-                  : biome === "highTech"
-                    ? teeter !== undefined
-                      ? "#65ffb8"
-                      : "#3d625b"
-                    : teeter !== undefined
-                      ? BOULDER_WOBBLE_COLOR
-                      : BOULDER_COLOR
-              }
-              emissive={teeter !== undefined ? TEETER_EMISSIVE : "#000000"}
-              emissiveIntensity={teeter !== undefined ? 0.2 + 0.5 * urgency : 0}
-              roughness={0.8}
-              flatShading
-            />
-          </mesh>,
-        );
-        continue;
-      }
-      if (cell.kind === "part-cache") {
-        blockMeshes.push(
-          <group key={key} position={[x, y, 0]}>
-            <CacheCrate col={col} row={row} />
-          </group>,
-        );
-        continue;
-      }
-      if (cell.kind === "magma") {
-        blockMeshes.push(
-          <RoundedBox
-            key={key}
-            args={[0.94, 0.94, 0.94]}
-            radius={0.07}
-            smoothness={2}
-            position={[x, y, 0]}
-          >
-            <meshStandardMaterial
-              color={variedColor(
-                biome === "winter"
-                  ? "#335568"
-                  : biome === "highTech"
-                    ? "#122f28"
-                    : "#5a2418",
-                col,
-                row,
-              )}
-              emissive={
-                biome === "winter"
-                  ? "#9ee7ff"
-                  : biome === "highTech"
-                    ? "#65ffb8"
-                    : MAGMA_COLOR
-              }
-              emissiveIntensity={biome === "default" ? 0.55 : 0.42}
-              roughness={0.6}
-              flatShading
-            />
-          </RoundedBox>,
-        );
-        continue;
-      }
-      if (cell.kind === "gas") {
-        // A seeped wisp reads as haze, not rock: translucent, smaller,
-        // glowing brighter so a leak stands out from the pocket it left.
-        if (cell.gasSeeped) {
-          renderedGasWispCount += 1;
-          blockMeshes.push(
-            <mesh key={key} position={[x, y, 0]}>
-              <sphereGeometry args={[0.42, 10, 8]} />
-              <meshStandardMaterial
-                color={
-                  biome === "winter"
-                    ? "#9ee7ff"
-                    : biome === "highTech"
-                      ? "#65ffb8"
-                      : GAS_COLOR
-                }
-                emissive={
-                  biome === "winter"
-                    ? "#9ee7ff"
-                    : biome === "highTech"
-                      ? "#65ffb8"
-                      : GAS_COLOR
-                }
-                emissiveIntensity={0.4}
-                transparent
-                opacity={0.42}
-                depthWrite={false}
-                roughness={0.9}
-              />
-            </mesh>,
-          );
-          continue;
-        }
-        blockMeshes.push(
-          <RoundedBox
-            key={key}
-            args={[0.94, 0.94, 0.94]}
-            radius={0.07}
-            smoothness={2}
-            position={[x, y, 0]}
-          >
-            <meshStandardMaterial
-              color={variedColor(biomeDirtColorAt(col, row), col, row).lerp(
-                new Color(
-                  biome === "winter"
-                    ? "#9ee7ff"
-                    : biome === "highTech"
-                      ? "#65ffb8"
-                      : GAS_COLOR,
-                ),
-                0.45,
-              )}
-              emissive={
-                biome === "winter"
-                  ? "#9ee7ff"
-                  : biome === "highTech"
-                    ? "#65ffb8"
-                    : GAS_COLOR
-              }
-              emissiveIntensity={0.12}
-              roughness={0.7}
-              flatShading
-            />
-          </RoundedBox>,
-        );
-        continue;
-      }
-      if (cell.kind === "metal") {
-        blockMeshes.push(
-          <group key={key} position={[x, y, 0]}>
-            <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
-          </group>,
-        );
-        continue;
-      }
-      // Dirt and anything else: the shared body (per-cell tone variation
-      // and soil grain live in the shader now). A wide-span ceiling cell
-      // teeters like a rock: the tremble is the collapse warning.
-      const dirtTeeter = cell.fallIn;
-      blockMeshes.push(
-        <group
-          key={key}
-          position={[x, y, 0]}
-          ref={
-            dirtTeeter !== undefined
-              ? teeterRef(key, x, y, teeterUrgency(dirtTeeter))
-              : undefined
-          }
-        >
-          <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
-        </group>,
-      );
+      for (const el of entry.tunnel) tunnelMeshes.push(el);
+      for (const el of entry.block) blockMeshes.push(el);
+      for (const el of entry.support) supportSelectionMeshes.push(el);
+      renderedCrackSegmentCount += entry.crackSegments;
+      if (entry.gasWisp) renderedGasWispCount += 1;
     }
   }
   const charge = mine.pendingDynamite;

@@ -35,7 +35,8 @@ describe("app release notes", () => {
       intro: "Less churn while digging and falling; more to come.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The mine no longer rebuilds every visible cell after each action and every row of a fall; only cells that actually changed re-render. This cuts the memory churn behind the multi-second garbage-collection freezes roughly in half in like-for-like measurement. Phone telemetry says the fight is not over yet, so the next update goes deeper into the renderer itself.",
+      "The mine no longer rebuilds every visible cell after each action and every row of a fall; only cells that actually changed re-render. This cuts the memory churn behind the multi-second garbage-collection freezes roughly in half in like-for-like measurement.",
+      "On phones, the mine now renders at a slightly lower internal resolution, trading a little sharpness for noticeably steadier frame times and less heat. Higher-end devices are unchanged.",
       "Guest sessions stop loading the sign-in library entirely, which trims page loads and clears two console errors logged on every visit.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

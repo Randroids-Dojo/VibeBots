@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-low-tier-dpr" data-date="2026-07-07">
+    <h3>Cap the low-tier mine canvas at DPR 1.5 (phone lag follow-up)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/performance-analyzer-telemetry-jtb43n</code> (same 0.1.202 slice as the guest-clerk-scope entry below; one PR).</dd>
+      <dt>PR</dt><dd>Pending (folded into the 0.1.202 PR).</dd>
+      <dt>Changed</dt><dd>User still reports "a ton of lag" on the phone after the F-075 cell cache shipped (build 269749). Fresh real-device telemetry (session 6d25c6) confirms it: steady state is fine (avg 23 ms) but multi-second <code>FrameRequestCallback</code> stalls persist with a 7 to 122 MB heap sawtooth. Local SwiftShader cannot reproduce the sawtooth (a fall-and-dig-heavy 50 s profile on this branch samples 1.8 MB total, heap 31 to 47 MB), so the dominant cost is not app-JS allocation; the top allocators are all three.js renderer internals (<code>getForRender</code>, <code>createBindings</code>, <code>createAttribute</code>) scaling with the roughly 180 draw calls the phone reports, plus pixel fill at DPR 2.25. This slice takes the highest-confidence, lowest-risk lever: <code>GraphicsFeatures</code> gained a <code>maxDpr</code> (low tier 1.5, high tier 2) and the mine <code>Canvas</code> uses <code>dpr={[1, features.maxDpr]}</code> instead of a hardcoded <code>[1, 2]</code>. The phone's <code>webgl2-forced</code> low-tier path now renders a 448-wide CSS canvas into a 672 px buffer instead of 896 px, about 44 percent fewer pixels shaded per frame, which cuts steady frame time and thermal throttling (throttling amplifies the GC stalls on a low battery). Verified locally: with the low tier pinned and a touch context, the effective DPR dropped from 2.0 to exactly 1.5; the high tier is unchanged.</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm exec tsc --noEmit</code>; <code>pnpm test</code> (graphics-quality gains a maxDpr assertion; release-note fixtures updated for the added phone-resolution line); Biome; <code>pnpm build</code>; dash and <code>git diff --check</code>. Instrumented Playwright at the phone viewport (448x923, DPR 2.25) confirmed the low-tier buffer width is 672 px (effective DPR 1.5) and the webgl2-forced renderer, matching the phone. Real verdict via the per-build telemetry A/B once a phone session lands on 0.1.202.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: 1.5 over a more aggressive 1.25, keeping legibility on a small screen while still roughly halving fill. This is one lever, not the whole fix; the remaining multi-second stalls are most likely GC of the large heap and/or first-use shader compiles, tracked for the next slice against fresh 0.1.202 telemetry (candidate deeper fix: an imperative instanced cell grid to collapse the roughly 180 draw calls, the documented F-075 escalation). Rule 13: mine tips reviewed for 0.1.202, no change (internal resolution is not a mine rule). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No status changes. Build-log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>No new followup id; the remaining phone lag stays under the <code>F-074</code>/<code>F-075</code> follow-through recorded below. The next slice targets the multi-second stalls directly (GC pressure and shader-compile warm-up, or the instanced grid).</dd>
+    </dl>
+  </article>
+
   <article data-slice="f067-env-rules" data-date="2026-07-07">
     <h3>F-067: one env-readiness rules module for the script and the server</h3>
     <dl>

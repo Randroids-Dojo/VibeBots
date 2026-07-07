@@ -23,14 +23,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog).toContainText(
     "Less churn while digging and falling; more to come.",
   );
-  await expect(dialog.locator("li")).toHaveCount(3);
+  await expect(dialog.locator("li")).toHaveCount(4);
   await expect(dialog.locator("li").first()).toContainText(
     "only cells that actually changed re-render",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "stop loading the sign-in library entirely",
+    "slightly lower internal resolution",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
+    "stop loading the sign-in library entirely",
+  );
+  await expect(dialog.locator("li").nth(3)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
 

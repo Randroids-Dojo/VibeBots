@@ -12,7 +12,11 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
       changes: [
         {
           build,
-          text: "The mine no longer rebuilds every visible cell after each action and every row of a fall; only cells that actually changed re-render. This cuts the memory churn behind the multi-second garbage-collection freezes roughly in half in like-for-like measurement. Phone telemetry says the fight is not over yet, so the next update goes deeper into the renderer itself.",
+          text: "The mine no longer rebuilds every visible cell after each action and every row of a fall; only cells that actually changed re-render. This cuts the memory churn behind the multi-second garbage-collection freezes roughly in half in like-for-like measurement.",
+        },
+        {
+          build,
+          text: "On phones, the mine now renders at a slightly lower internal resolution, trading a little sharpness for noticeably steadier frame times and less heat. Higher-end devices are unchanged.",
         },
         {
           build,

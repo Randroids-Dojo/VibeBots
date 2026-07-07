@@ -1870,7 +1870,7 @@ export default function MineCanvas(props: MineCanvasProps) {
   return (
     <Canvas
       camera={{ position: [0, 1.5, 13], fov: 42 }}
-      dpr={[1, 2]}
+      dpr={[1, features.maxDpr]}
       gl={createWebGPU}
       shadows={features.shadows ? "soft" : false}
       onPointerMissed={props.onBunkerBackgroundTap}

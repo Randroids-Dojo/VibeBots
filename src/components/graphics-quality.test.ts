@@ -37,5 +37,9 @@ describe("graphics quality tiers", () => {
     expect(high.shadows).toBe(true);
     expect(high.environmentIntensity).toBeGreaterThan(0);
     expect(high.sunShadowMapSize).toBeGreaterThan(low.sunShadowMapSize);
+    // The low tier caps device-pixel ratio below the high tier so the
+    // WebGL2 phone path shades fewer pixels per frame (F-074/F-075).
+    expect(low.maxDpr).toBeLessThan(high.maxDpr);
+    expect(low.maxDpr).toBeGreaterThanOrEqual(1);
   });
 });

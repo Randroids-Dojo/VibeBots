@@ -58,6 +58,13 @@ export interface GraphicsFeatures {
    * scenes additionally require the live backend check before
    * mounting it. */
   postBloom: boolean;
+  /** Upper bound on the canvas device-pixel ratio. The low tier serves
+   * phones on the WebGL2 backend where pixel fill is the frame-time and
+   * thermal-throttling cost (real-phone telemetry, F-074/F-075 follow-up:
+   * a 448x923 CSS viewport at DPR 2.25 shades about 2.1M pixels a frame).
+   * Capping the low tier at 1.5 roughly halves that with only a modest
+   * sharpness loss on a small screen; the high tier keeps 2. */
+  maxDpr: number;
 }
 
 export function graphicsFeaturesFor(
@@ -73,6 +80,7 @@ export function graphicsFeaturesFor(
       sunShadowMapSize: 512,
       environmentIntensity: 0,
       postBloom: false,
+      maxDpr: 1.5,
     };
   }
   return {
@@ -80,6 +88,7 @@ export function graphicsFeaturesFor(
     sunShadowMapSize: 2048,
     environmentIntensity: 0.6,
     postBloom: true,
+    maxDpr: 2,
   };
 }
 

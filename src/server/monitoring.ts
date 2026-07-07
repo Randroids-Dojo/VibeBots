@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import type {
+  MINE_VERSION_MISMATCH_CODE,
+  TRIP_ALREADY_CASHED_OUT_CODE,
+} from "@/lib/mine-api-codes";
 
 type MonitoringSeverity = "info" | "warn" | "error";
 
@@ -10,12 +14,12 @@ export interface MineCashOutMonitoringEvent {
     | "gear_not_owned"
     | "invalid_json_body"
     | "legacy_support_reconciled"
-    | "mine_version_mismatch"
+    | typeof MINE_VERSION_MISMATCH_CODE
     | "no_mine_on_file"
     | "player_not_found"
     | "request_validation_failed"
     | "storage_not_configured"
-    | "trip_already_cashed_out"
+    | typeof TRIP_ALREADY_CASHED_OUT_CODE
     | "wrong_mine_seed";
   severity: MonitoringSeverity;
   playerId?: string;

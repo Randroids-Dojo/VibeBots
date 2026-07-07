@@ -103,6 +103,7 @@ import {
 import { actionRepeatMs } from "./mine-pacing";
 import { useMinePerformanceSampling } from "./mine-performance-sampling";
 import { ReleaseNotesPopup } from "./mine-release-notes-popup";
+import { SaveConflictPopup } from "./mine-save-conflict-popup";
 import { SaveSlotsPopup } from "./mine-save-slots-popup";
 import {
   CreditsDialog,
@@ -121,6 +122,7 @@ import { STALLS, stallAt } from "./mine-stalls";
 import { StampBookPopup } from "./mine-stamp-book-popup";
 import { MineTouchControls } from "./mine-touch-controls";
 import { PerfTelemetry } from "./perf-telemetry";
+import { useForegroundReturn } from "./use-foreground-return";
 
 type MineSceneStatus = "loading" | "ready" | "error";
 const MINE_SCENE_LOAD_ERROR =
@@ -268,6 +270,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
+  "Tip: One cloud save on two devices? Sync when prompted; runs never merge.",
 ] as const;
 
 const MINE_SURFACE_TIP_EMPTY_SLOTS = 3;
@@ -1117,6 +1120,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const finishAccountSignIn = useMineStore((s) => s.finishAccountSignIn);
   const claimAccountSave = useMineStore((s) => s.claimAccountSave);
   const loadAccountSave = useMineStore((s) => s.loadAccountSave);
+  const saveConflict = useMineStore((s) => s.saveConflict);
+  const checkWorldFreshness = useMineStore((s) => s.checkWorldFreshness);
+  const resolveSaveConflict = useMineStore((s) => s.resolveSaveConflict);
   const switchSaveSlot = useMineStore((s) => s.switchSaveSlot);
   const deleteSaveSlot = useMineStore((s) => s.deleteSaveSlot);
   const saveCurrentTrip = useMineStore((s) => s.saveCurrentTrip);
@@ -1167,6 +1173,26 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     () => startAccountSignIn("/mine"),
     [startAccountSignIn],
   );
+  // Multi-device freshness: revalidate the cloud save whenever this device
+  // comes back to the foreground (the store gates the probe to cloud-loaded
+  // saves and throttles bursts).
+  const probeSaveFreshness = useCallback(
+    () => void checkWorldFreshness(),
+    [checkWorldFreshness],
+  );
+  useForegroundReturn(probeSaveFreshness);
+  // The conflict prompt and the Account dialog share the modal layer; close
+  // Account so the two never stack competing focus traps.
+  useEffect(() => {
+    if (saveConflict === "prompt") setAccountOpen(false);
+  }, [saveConflict]);
+  // An interrupted sign-in handoff retries when the player returns.
+  const retryHandoffOnReturn = useCallback(() => {
+    if (!new URL(window.location.href).searchParams.has("accountHandoff")) {
+      return;
+    }
+    setAccountHandoffRetryTick((tick) => tick + 1);
+  }, []);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext>({
@@ -1380,22 +1406,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     });
   }, [finishAccountSignIn, accountHandoffRetryTick]);
 
-  useEffect(() => {
-    const retry = () => {
-      if (!new URL(window.location.href).searchParams.has("accountHandoff")) {
-        return;
-      }
-      setAccountHandoffRetryTick((tick) => tick + 1);
-    };
-    window.addEventListener("focus", retry);
-    window.addEventListener("pageshow", retry);
-    document.addEventListener("visibilitychange", retry);
-    return () => {
-      window.removeEventListener("focus", retry);
-      window.removeEventListener("pageshow", retry);
-      document.removeEventListener("visibilitychange", retry);
-    };
-  }, []);
+  useForegroundReturn(retryHandoffOnReturn);
 
   useEffect(() => {
     if (
@@ -2940,6 +2951,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onStartSignIn={startAccountSignInFromMine}
         onClaim={claimAccountSave}
         onLoadCloud={loadAccountSave}
+      />
+      <SaveConflictPopup
+        open={saveConflict === "prompt"}
+        onResolve={resolveSaveConflict}
       />
       <PerfTelemetry
         source="mine"

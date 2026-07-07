@@ -21,11 +21,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Performance telemetry can now explain stalls.",
+    "The game now warns when your cloud save moves ahead.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "optional Performance telemetry toggle",
+    "asks whether to sync to the newer save",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.199", "Two devices, one save"],
     ["0.1.198", "Sharper slowdown reports"],
     ["0.1.197", "Help us fix slowdowns"],
     ["0.1.196", "Your bot rises for menus"],

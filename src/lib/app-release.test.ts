@@ -24,17 +24,32 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest perf-root-cause note complete", () => {
+  it("keeps the latest save-sync note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-07-0.1.198-perf-root-cause");
+    expect(release.noticeId).toBe("2026-07-07-0.1.199-save-sync-warning");
     expect(latestNote).toMatchObject({
+      version: "0.1.199",
+      title: "Two devices, one save",
+      intro: "The game now warns when your cloud save moves ahead.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Playing the same Google-linked save on two devices no longer ends in a surprise error. When another device banks a run first, this device now notices as soon as you return to it or start digging, and asks whether to sync to the newer save (dropping the doomed run early) or keep playing. Runs still cannot be merged, so syncing sooner loses less.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived perf-root-cause note complete", () => {
+    const release = getAppRelease();
+    const perfNote = release.notes.find((note) => note.version === "0.1.198");
+
+    expect(perfNote).toMatchObject({
       version: "0.1.198",
       title: "Sharper slowdown reports",
       intro: "Performance telemetry can now explain stalls.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(perfNote?.changes.map((change) => change.text)).toEqual([
       "When the optional Performance telemetry toggle is on, reports now also include network request timing (page addresses only, never full links), memory swings, and time the game spent in the background, so one-off freezes can be traced to their real cause. The toggle stays off by default.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

@@ -966,7 +966,7 @@ describe("mine store upgrade flow", () => {
     });
   });
 
-  it("flushes the current slot before loading save slot summaries", async () => {
+  it("loads save slot summaries without persisting the trip (F-070)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         activeSlot: 1,
@@ -1012,14 +1012,12 @@ describe("mine store upgrade flow", () => {
     await store().loadSaveSlots();
 
     expect(fetchMock).toHaveBeenCalledWith("/api/save-slots");
-    expect(localStorage.setItem).toHaveBeenCalledWith(
-      "vibebots-mine-trip-v2-slot-1",
-      expect.any(String),
-    );
+    // Read-only refresh: mutating flows persist the trip themselves.
+    expect(localStorage.setItem).not.toHaveBeenCalled();
     expect(store().saveSlots.state).toBe("ready");
   });
 
-  it("flushes the current trip before loading account status", async () => {
+  it("loads account status without persisting the trip (F-070)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         mode: "signed_in",
@@ -1034,10 +1032,8 @@ describe("mine store upgrade flow", () => {
     await store().loadAccountStatus();
 
     expect(fetchMock).toHaveBeenCalledWith("/api/account/status");
-    expect(localStorage.setItem).toHaveBeenCalledWith(
-      "vibebots-mine-trip-v2-slot-1",
-      expect.any(String),
-    );
+    // Read-only refresh: mutating flows persist the trip themselves.
+    expect(localStorage.setItem).not.toHaveBeenCalled();
     expect(store().accountSync).toMatchObject({
       state: "ready",
       mode: "signed_in",

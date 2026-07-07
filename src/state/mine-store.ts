@@ -676,7 +676,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     loadSaveSlots: async () => {
-      persistCurrentTrip();
+      // Read-only refresh: every mutating flow (moves, buys, gear, cash-out,
+      // slot switches) persists the trip itself, so no write happens here.
       const current = get().saveSlots;
       set({
         saveSlots: {
@@ -726,7 +727,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     loadAccountStatus: async (options = {}) => {
-      persistCurrentTrip();
+      // Read-only refresh (F-070): the full-trip serialization to
+      // localStorage on every dialog open and silent revalidate was pure
+      // overhead; mutating flows persist the trip themselves.
       let current = get().accountSync;
       if (!options.silent) {
         set({

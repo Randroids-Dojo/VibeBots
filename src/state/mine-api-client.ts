@@ -15,6 +15,7 @@ import {
 } from "@/lib/account-provider-status";
 import {
   MINE_VERSION_MISMATCH_CODE,
+  STALE_TRIP_CHECKPOINT_CODE,
   TRIP_ALREADY_CASHED_OUT_CODE,
 } from "@/lib/mine-api-codes";
 import type { AccountSaveSummary } from "@/server/account-summary";
@@ -455,6 +456,10 @@ export function isMineVersionMismatch(body: unknown): boolean {
 
 export function isTripAlreadyCashedOut(body: unknown): boolean {
   return responseCode(body) === TRIP_ALREADY_CASHED_OUT_CODE;
+}
+
+export function isStaleTripCheckpoint(body: unknown): boolean {
+  return responseCode(body) === STALE_TRIP_CHECKPOINT_CODE;
 }
 
 export interface MineWorldVersion {

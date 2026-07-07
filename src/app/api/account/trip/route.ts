@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { STALE_TRIP_CHECKPOINT_CODE } from "@/lib/mine-api-codes";
 import { findLinkedPlayerId } from "@/server/account-linking";
 import { accountJson, storageUnavailable } from "@/server/account-response";
 import {
@@ -73,6 +74,31 @@ export async function PUT(request: Request): Promise<Response> {
     return accountJson({ error: "invalid trip checkpoint" }, { status: 400 });
   }
   const sql = await db();
+  // A checkpoint from a device whose world is behind the server's must not
+  // overwrite the fresh device's checkpoint. The mismatch is also the
+  // earliest multi-device conflict signal the stale device can get.
+  const worlds = (await sql`
+    SELECT seed, trip_count
+    FROM mine_worlds
+    WHERE player_id = ${playerId}`) as Array<{
+    // Neon surfaces the bigint seed column as a string.
+    seed: number | string;
+    trip_count: number;
+  }>;
+  const world = worlds[0];
+  if (
+    world &&
+    (Number(world.seed) !== parsed.data.trip.seed ||
+      world.trip_count !== parsed.data.trip.tripIndex)
+  ) {
+    return accountJson(
+      {
+        error: "trip checkpoint is stale",
+        code: STALE_TRIP_CHECKPOINT_CODE,
+      },
+      { status: 409 },
+    );
+  }
   await sql`
     INSERT INTO mine_trip_checkpoints (player_id, trip)
     VALUES (${playerId}, ${JSON.stringify(parsed.data.trip)}::jsonb)

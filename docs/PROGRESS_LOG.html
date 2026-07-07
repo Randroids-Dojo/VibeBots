@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="save-sync-stale-checkpoint" data-date="2026-07-07">
+    <h3>Save sync slice B: reject stale trip checkpoints</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>sync/stale-checkpoint-409</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Second slice of the multi-device save-sync design (<code>docs/research/account-save-sync.html</code>, dot <code>VibeBots-save-sync-slice-8198540a</code>). The trip checkpoint PUT in <code>src/app/api/account/trip/route.ts</code> now reads the player's <code>mine_worlds</code> row and returns 409 with the new shared <code>stale_trip_checkpoint</code> code when the uploaded trip's seed or tripIndex trails the server (no world row still stores: first-trip checkpoints cannot be judged). This stops a stale device from silently overwriting the fresh device's checkpoint, the last blind write in the sync surface. Client side, <code>storeAccountTripCheckpoint</code> maps the 409 to a new "stale" result and <code>gateOnTripCheckpoint</code> aborts the account action and hands off to the slice-A conflict flow: silent <code>refreshCloudWorld</code> when the local log is surface-only, the conflict dialog otherwise. No version bump: no player-facing rule changes; the existing dialog just appears earlier.</dd>
+      <dt>Verification</dt><dd>Passed: <code>pnpm exec tsc --noEmit</code>; <code>pnpm exec vitest run</code> (full suite incl. four new trip-route cases for first-trip, matching, stale-tripIndex, and stale-seed checkpoints, two new store cases for the stale gate with and without real progress, and the client predicate); <code>pnpm exec biome check</code>; dash and <code>git diff --check</code>; <code>pnpm build</code>; targeted Playwright on the account-sync and release-notifications specs.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: a checkpoint for a world with no server row is stored unjudged rather than rejected, so brand-new saves keep checkpointing before their first bank. Rule 13: tips reviewed, no change (no new player-facing rule; the 0.1.199 tip already covers multi-device sync). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>REQ-042 stays partial; <code>docs/gdd/10-account-sync.html</code> gained the slice-B build-log entry.</dd>
+      <dt>Followups</dt><dd>Slice C (save-sync push) remains as dot <code>VibeBots-save-sync-slice-51234c80</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="save-sync-freshness-conflict" data-date="2026-07-07">
     <h3>Save sync slice A: multi-device freshness checks and conflict dialog</h3>
     <dl>

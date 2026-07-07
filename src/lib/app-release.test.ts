@@ -24,20 +24,18 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest mine-smoothness note complete", () => {
+  it("keeps the latest mine-geometry note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-07-0.1.202-mine-smoothness");
+    expect(release.noticeId).toBe("2026-07-07-0.1.203-mine-geometry");
     expect(latestNote).toMatchObject({
-      version: "0.1.202",
-      title: "Chasing the mine hitches",
-      intro: "Less churn while digging and falling; more to come.",
+      version: "0.1.203",
+      title: "The freezes, at the source",
+      intro: "Digging no longer leaks graphics memory.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The mine no longer rebuilds every visible cell after each action and every row of a fall; only cells that actually changed re-render. This cuts the memory churn behind the multi-second garbage-collection freezes roughly in half in like-for-like measurement.",
-      "On phones, the mine now renders at a slightly lower internal resolution, trading a little sharpness for noticeably steadier frame times and less heat. Higher-end devices are unchanged.",
-      "Guest sessions stop loading the sign-in library entirely, which trims page loads and clears two console errors logged on every visit.",
+      "Every mine block now reuses one shared shape instead of building and then leaking its own as you dig. That growing graphics-memory use was the real cause of the multi-second freezes, especially on phones, and this removes it. Blocks look exactly the same.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

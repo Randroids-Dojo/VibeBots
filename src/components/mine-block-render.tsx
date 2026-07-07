@@ -5,6 +5,12 @@ import type { Group, Mesh, PointLight } from "three/webgpu";
 import type { MineBiomeId, MineCell, OreId } from "@/sim/mine";
 import { isWebGPUBackend } from "./graphics-quality";
 import {
+  BOULDER_BLOCK_GEOMETRY,
+  DIRT_BLOCK_GEOMETRY,
+  METAL_BLOCK_GEOMETRY,
+  ROCK_BLOCK_GEOMETRY,
+} from "./mine-block-geometries";
+import {
   blockDetailEnabled,
   boulderBlockMaterial,
   crystalMaterial,
@@ -52,13 +58,15 @@ export function MineBlockBody({
   biome?: MineBiomeId;
 }) {
   const detail = useBlockDetail();
+  // Every block body shares one geometry per shape (see
+  // mine-block-geometries.ts): the meshes already share materials with
+  // `dispose={null}`, so a per-cell geometry leaked its GPU buffer on
+  // unmount. Rotation and material stay per cell; the geometry does not.
   if (cell.kind === "ore" && cell.ore) {
     return (
       <>
-        <RoundedBox
-          args={[0.94, 0.94, 0.94]}
-          radius={0.07}
-          smoothness={2}
+        <mesh
+          geometry={DIRT_BLOCK_GEOMETRY}
           material={dirtBlockMaterial(biomeDirtColorAt(col, row), detail)}
           dispose={null}
         />
@@ -81,19 +89,16 @@ export function MineBlockBody({
           cellHash(col, row, 17) * 3.1,
           cellHash(col, row, 19) * 3.1,
         ]}
+        geometry={ROCK_BLOCK_GEOMETRY}
         material={rockBlockMaterial(rockColors[tier], detail)}
         dispose={null}
-      >
-        <dodecahedronGeometry args={[0.62, 0]} />
-      </mesh>
+      />
     );
   }
   if (cell.kind === "metal") {
     return (
-      <RoundedBox
-        args={[0.98, 0.98, 1.02]}
-        radius={0.04}
-        smoothness={1}
+      <mesh
+        geometry={METAL_BLOCK_GEOMETRY}
         material={metalBlockMaterial(METAL_COLOR, detail)}
         dispose={null}
       />
@@ -104,10 +109,8 @@ export function MineBlockBody({
   }
   if (cell.kind === "gas") {
     return (
-      <RoundedBox
-        args={[0.94, 0.94, 0.94]}
-        radius={0.07}
-        smoothness={2}
+      <mesh
+        geometry={DIRT_BLOCK_GEOMETRY}
         material={gasBlockMaterial(GAS_COLOR, detail)}
         dispose={null}
       />
@@ -117,19 +120,16 @@ export function MineBlockBody({
     return (
       <mesh
         rotation={[0, cellHash(col, row, 29) * 3.1, 0]}
+        geometry={BOULDER_BLOCK_GEOMETRY}
         material={boulderBlockMaterial(BOULDER_COLOR, detail)}
         dispose={null}
-      >
-        <icosahedronGeometry args={[0.56, 0]} />
-      </mesh>
+      />
     );
   }
   // Dirt and anything else: chunky beveled cube.
   return (
-    <RoundedBox
-      args={[0.94, 0.94, 0.94]}
-      radius={0.07}
-      smoothness={2}
+    <mesh
+      geometry={DIRT_BLOCK_GEOMETRY}
       material={dirtBlockMaterial(biomeDirtColorAt(col, row), detail)}
       dispose={null}
     />

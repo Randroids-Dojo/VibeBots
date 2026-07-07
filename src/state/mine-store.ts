@@ -56,6 +56,7 @@ import {
   deleteRemoteSaveSlot,
   finishRemoteAccountHandoff,
   isMineVersionMismatch,
+  isStaleTripCheckpoint,
   isTripAlreadyCashedOut,
   loadMineGear,
   loadMineWorld,
@@ -357,13 +358,18 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     saveLocalTrip(get().activeSlot, trip);
     return trip;
   };
-  type AccountTripCheckpointResult = "stored" | "missing-world" | "failed";
+  type AccountTripCheckpointResult =
+    | "stored"
+    | "missing-world"
+    | "stale"
+    | "failed";
   const storeAccountTripCheckpoint =
     async (): Promise<AccountTripCheckpointResult> => {
       const trip = persistCurrentTrip();
       if (!trip) return "missing-world";
       const res = await storeRemoteAccountTrip(trip);
-      return res.ok ? "stored" : "failed";
+      if (res.ok) return "stored";
+      return isStaleTripCheckpoint(res.body) ? "stale" : "failed";
     };
   const checkpointFailureCanContinue = (
     state: AccountSyncState,
@@ -375,11 +381,23 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     result === "missing-world" ||
     (result === "failed" && state.currentSave?.exists === true);
   // Checkpoints the in-flight trip before an account action. Returns false
-  // when the failure is terminal; accountSync then already holds the error.
+  // when the failure is terminal; accountSync then already holds the error
+  // (or the save-conflict flow owns the screen for a stale checkpoint).
   const gateOnTripCheckpoint = async (): Promise<boolean> => {
     const checkpointResult = await storeAccountTripCheckpoint();
     if (checkpointResult === "stored") return true;
     const current = get().accountSync;
+    if (checkpointResult === "stale") {
+      // The server world moved under this device: the earliest multi-device
+      // conflict signal. Abort the account action and run the conflict flow.
+      set({ accountSync: { ...current, state: "ready" } });
+      if (surfaceOnlyLog(get().moves)) {
+        await refreshCloudWorld(get().activeSlot);
+      } else {
+        set({ saveConflict: "prompt" });
+      }
+      return false;
+    }
     if (checkpointFailureCanContinue(current, checkpointResult)) {
       set({ accountSync: { ...current, state: "ready" } });
       return true;

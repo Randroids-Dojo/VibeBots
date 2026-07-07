@@ -115,18 +115,73 @@ describe("/api/account/trip", () => {
     mockedDb.mockResolvedValue(sqlMock());
   });
 
-  it("stores the current guest trip checkpoint", async () => {
-    const sql = sqlWithRows();
+  function sqlForWorld(worldRows: unknown[]) {
+    const executed: string[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      executed.push(query);
+      return query.includes("FROM mine_worlds") ? worldRows : [];
+    });
     mockedDb.mockResolvedValue(
       sql as unknown as Awaited<ReturnType<typeof db>>,
     );
+    return executed;
+  }
+
+  it("stores the current guest trip checkpoint", async () => {
+    // First trip: no world row exists yet, so staleness cannot be judged.
+    const executed = sqlForWorld([]);
 
     const res = await PUT(sameOriginPut({ trip }));
 
     expect(res.status).toBe(200);
     expectNoStore(res);
-    expect(sql).toHaveBeenCalledOnce();
+    expect(
+      executed.some((query) => query.includes("mine_trip_checkpoints")),
+    ).toBe(true);
     expect(await res.json()).toEqual({ stored: true });
+  });
+
+  it("stores a checkpoint that matches the server world", async () => {
+    // Neon returns the bigint seed column as a string.
+    const executed = sqlForWorld([{ seed: "123", trip_count: 2 }]);
+
+    const res = await PUT(sameOriginPut({ trip }));
+
+    expect(res.status).toBe(200);
+    expect(
+      executed.some((query) => query.includes("mine_trip_checkpoints")),
+    ).toBe(true);
+    expect(await res.json()).toEqual({ stored: true });
+  });
+
+  it("rejects a checkpoint from an older world without overwriting", async () => {
+    // Another device banked: the server trip count moved past this trip.
+    const executed = sqlForWorld([{ seed: "123", trip_count: 3 }]);
+
+    const res = await PUT(sameOriginPut({ trip }));
+
+    expect(res.status).toBe(409);
+    expectNoStore(res);
+    expect(
+      executed.some((query) => query.includes("mine_trip_checkpoints")),
+    ).toBe(false);
+    expect(await res.json()).toEqual({
+      error: "trip checkpoint is stale",
+      code: "stale_trip_checkpoint",
+    });
+  });
+
+  it("rejects a checkpoint from a different world seed", async () => {
+    const executed = sqlForWorld([{ seed: "999", trip_count: 2 }]);
+
+    const res = await PUT(sameOriginPut({ trip }));
+
+    expect(res.status).toBe(409);
+    expect(
+      executed.some((query) => query.includes("mine_trip_checkpoints")),
+    ).toBe(false);
+    expect(await res.json()).toMatchObject({ code: "stale_trip_checkpoint" });
   });
 
   it("rejects malformed trip checkpoints before storage writes", async () => {

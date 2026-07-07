@@ -17,6 +17,7 @@ import {
   deleteSaveSlotConfirmation,
   finishRemoteAccountHandoff,
   isMineVersionMismatch,
+  isStaleTripCheckpoint,
   isTripAlreadyCashedOut,
   loadAccountStatus,
   loadMineGear,
@@ -591,6 +592,10 @@ describe("mine API client", () => {
       false,
     );
     expect(isTripAlreadyCashedOut(null)).toBe(false);
+    expect(isStaleTripCheckpoint({ code: "stale_trip_checkpoint" })).toBe(true);
+    expect(isStaleTripCheckpoint({ code: "trip_already_cashed_out" })).toBe(
+      false,
+    );
   });
 
   it("parses world version probes and rejects malformed ones", () => {

@@ -71,8 +71,10 @@ function roundedBoxGeometry(
     curveSegments: smoothness,
   });
   geometry.center();
-  toCreasedNormals(geometry, 0.4);
-  return geometry;
+  // toCreasedNormals mutates a non-indexed geometry in place (what
+  // ExtrudeGeometry produces) but returns a fresh one for indexed input;
+  // return its result so the creasing holds either way.
+  return toCreasedNormals(geometry, 0.4);
 }
 
 /** Dirt, gas, and ore bodies: a 0.94 beveled cube (radius 0.07). */

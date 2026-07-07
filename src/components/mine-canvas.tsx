@@ -128,9 +128,11 @@ import {
 import {
   advanceMinerRig,
   BOUNCE_SECONDS,
+  createMinerPose,
   createMinerRigState,
   DIG_LUNGE_SECONDS,
   type MinerPose,
+  minerRigRestInputs,
   PICK_SWING_SECONDS,
 } from "./miner-rig";
 import { ScenePostProcessing } from "./scene-post";
@@ -138,6 +140,39 @@ import { StudioEnvironment } from "./studio-environment";
 import { daylightGradeFor, fogRangeForStratum } from "./time-of-day";
 
 const CAMERA_STEP_SECONDS = 0.28;
+
+/* Quantize-and-cache dataset diagnostics. The frame loop calls these
+ * every frame, but a string (and a DOM attribute mutation) is only
+ * produced when the rounded value actually changed. Unconditional
+ * per-frame writes were the top garbage source in the real-phone GC
+ * traces behind F-074. */
+const DATASET_QUANTUM = [1, 10, 100] as const;
+
+function setDatasetNumber(
+  cache: Record<string, number | string>,
+  dataset: DOMStringMap,
+  key: string,
+  value: number,
+  decimals: 0 | 1 | 2,
+): void {
+  const quantized = Math.round(value * DATASET_QUANTUM[decimals]);
+  if (cache[key] === quantized) return;
+  cache[key] = quantized;
+  dataset[key] = (quantized / DATASET_QUANTUM[decimals]).toFixed(decimals);
+}
+
+function setDatasetText(
+  cache: Record<string, number | string>,
+  dataset: DOMStringMap,
+  key: string,
+  value: string,
+): void {
+  if (cache[key] === value) return;
+  cache[key] = value;
+  dataset[key] = value;
+}
+
+const PARTICLE_KINDS = ["spark", "debris", "dust"] as const;
 /** Instance pool sizes per particle kind; spawners cap the live pool at
  * 260 total, so these bound the per-kind bursts. */
 const PARTICLE_CAPACITY = { spark: 96, debris: 192, dust: 96 } as const;
@@ -226,6 +261,16 @@ function MineScene({
   // Smoothed frame time (ms), exposed for performance QA. A surface walk
   // must not spike this the way the per-step village rebuild used to.
   const frameMsRef = useRef(16);
+  // Frame-loop scratch: reused across frames so posing the miner,
+  // sampling glides, and writing diagnostics allocate nothing per frame.
+  const datasetCache = useRef<Record<string, number | string>>({});
+  const motionSample = useRef<[number, number]>([0, 0]);
+  const minerPoseScratch = useRef(createMinerPose());
+  const rigInputs = useRef(minerRigRestInputs());
+  const particleCounts = useRef({ spark: 0, debris: 0, dust: 0 });
+  const particleInstFor = useRef<
+    Record<(typeof PARTICLE_KINDS)[number], InstancedMesh | null>
+  >({ spark: null, debris: null, dust: null });
   // Capability gate: shadow passes only when the real WebGPU backend is
   // driving; the WebGL2 fallback (headless CI, software GL, weak GPUs)
   // cannot afford them regardless of the pointer-derived tier.
@@ -445,7 +490,11 @@ function MineScene({
         };
       }
       if (motionProgress(activeFall.track, t) < 1) activeFall.track.frames += 1;
-      [visualTargetX, visualTargetY] = sampleMotion(activeFall.track, t);
+      [visualTargetX, visualTargetY] = sampleMotion(
+        activeFall.track,
+        t,
+        motionSample.current,
+      );
       if (motionProgress(activeFall.track, t) >= 1 && !activeFall.impacted) {
         activeFall.impacted = true;
         // Signal the panel that the impact frame has rendered; the trip
@@ -516,7 +565,11 @@ function MineScene({
         );
         if (motionProgress(cameraMotion.current, t) < 1)
           cameraMotion.current.frames += 1;
-        const [cx, cy] = sampleMotion(cameraMotion.current, t);
+        const [cx, cy] = sampleMotion(
+          cameraMotion.current,
+          t,
+          motionSample.current,
+        );
         rig.position.set(cx, cy, 0);
       }
       j.shake = Math.max(0, j.shake - delta * 0.9);
@@ -529,45 +582,83 @@ function MineScene({
       );
       state.camera.lookAt(sx, rig.position.y + sy, 0);
       // Rendered camera pan exposed for motion QA on narrow viewports.
-      state.gl.domElement.dataset.camX = rig.position.x.toFixed(2);
-      state.gl.domElement.dataset.camY = rig.position.y.toFixed(2);
-      state.gl.domElement.dataset.camZoom = cameraZoom.toFixed(2);
-      state.gl.domElement.dataset.renderBelow = String(renderWindow.below);
-      state.gl.domElement.dataset.litBelow = String(litBelow);
-      state.gl.domElement.dataset.lampDistance = lampDistance.toFixed(2);
-      state.gl.domElement.dataset.renderRadius = String(renderRadius);
-      state.gl.domElement.dataset.renderMinCol = String(firstCol);
-      state.gl.domElement.dataset.renderMaxCol = String(lastCol);
-      state.gl.domElement.dataset.renderedCellCount = String(
+      const dataset = state.gl.domElement.dataset;
+      const cache = datasetCache.current;
+      setDatasetNumber(cache, dataset, "camX", rig.position.x, 2);
+      setDatasetNumber(cache, dataset, "camY", rig.position.y, 2);
+      setDatasetNumber(cache, dataset, "camZoom", cameraZoom, 2);
+      setDatasetNumber(cache, dataset, "renderBelow", renderWindow.below, 0);
+      setDatasetNumber(cache, dataset, "litBelow", litBelow, 0);
+      setDatasetNumber(cache, dataset, "lampDistance", lampDistance, 2);
+      setDatasetNumber(cache, dataset, "renderRadius", renderRadius, 0);
+      setDatasetNumber(cache, dataset, "renderMinCol", firstCol, 0);
+      setDatasetNumber(cache, dataset, "renderMaxCol", lastCol, 0);
+      setDatasetNumber(
+        cache,
+        dataset,
+        "renderedCellCount",
         renderedCellCountRef.current,
+        0,
       );
-      state.gl.domElement.dataset.crackSegmentCount = String(
+      setDatasetNumber(
+        cache,
+        dataset,
+        "crackSegmentCount",
         renderedCrackSegmentCountRef.current,
+        0,
       );
       // Live teetering blocks (undercut or span-condemned) plus proof the
       // tremble is really displacing meshes, for QA on collapse warnings
       // and plank rescues (Rule 10: pixels must move, not just flags).
-      state.gl.domElement.dataset.teeterCount = String(
+      setDatasetNumber(
+        cache,
+        dataset,
+        "teeterCount",
         renderedTeeterCountRef.current,
+        0,
       );
-      state.gl.domElement.dataset.teeterMotionFrames = String(
+      setDatasetNumber(
+        cache,
+        dataset,
+        "teeterMotionFrames",
         teeterMotionFrames.current,
+        0,
       );
-      state.gl.domElement.dataset.gasWispCount = String(
+      setDatasetNumber(
+        cache,
+        dataset,
+        "gasWispCount",
         renderedGasWispCountRef.current,
+        0,
       );
-      state.gl.domElement.dataset.crushTumbleFrames = String(
+      setDatasetNumber(
+        cache,
+        dataset,
+        "crushTumbleFrames",
         crushTumbleFrames.current,
+        0,
       );
-      state.gl.domElement.dataset.particleCount = String(j.particles.length);
-      state.gl.domElement.dataset.darknessOpacityMin = hasDarknessOverlay
-        ? minDarknessOpacity.toFixed(2)
-        : "0.00";
-      state.gl.domElement.dataset.darknessOpacityMax = hasDarknessOverlay
-        ? maxDarknessOpacity.toFixed(2)
-        : "0.00";
-      state.gl.domElement.dataset.cameraMotionFrames = String(
+      setDatasetNumber(cache, dataset, "particleCount", j.particles.length, 0);
+      setDatasetNumber(
+        cache,
+        dataset,
+        "darknessOpacityMin",
+        hasDarknessOverlay ? minDarknessOpacity : 0,
+        2,
+      );
+      setDatasetNumber(
+        cache,
+        dataset,
+        "darknessOpacityMax",
+        hasDarknessOverlay ? maxDarknessOpacity : 0,
+        2,
+      );
+      setDatasetNumber(
+        cache,
+        dataset,
+        "cameraMotionFrames",
         cameraMotion.current?.frames ?? 0,
+        0,
       );
       depthT = Math.min(1, Math.max(0, -rig.position.y / DARK_DEPTH));
     }
@@ -596,7 +687,12 @@ function MineScene({
       dirRef.current.intensity = (0.06 + 1.04 * day) * grade.sunStrength;
       dirRef.current.color.set(grade.sunColor);
     }
-    state.gl.domElement.dataset.timeOfDay = grade.phase;
+    setDatasetText(
+      datasetCache.current,
+      state.gl.domElement.dataset,
+      "timeOfDay",
+      grade.phase,
+    );
     // The studio environment is a surface phenomenon: it fades with the
     // daylight so the underground keeps its lamp-lit darkness.
     state.scene.environmentIntensity =
@@ -648,23 +744,61 @@ function MineScene({
         );
         if (motionProgress(minerMotion.current, t) < 1)
           minerMotion.current.frames += 1;
-        const [mx, my] = sampleMotion(minerMotion.current, t);
+        const [mx, my] = sampleMotion(
+          minerMotion.current,
+          t,
+          motionSample.current,
+        );
         miner.position.set(mx, my, 0.2);
       }
       // Rendered position exposed for motion QA (Rule 10): e2e reads these
       // to prove the glide never lifts toward the surface on lateral steps.
-      const el = state.gl.domElement;
-      el.dataset.minerX = miner.position.x.toFixed(2);
-      el.dataset.minerY = miner.position.y.toFixed(2);
-      el.dataset.minerMotionFrames = String(minerMotion.current?.frames ?? 0);
-      el.dataset.fallVisualActive = activeFall ? "true" : "false";
-      el.dataset.fallVisualImpact = activeFall?.impacted ? "true" : "false";
-      el.dataset.fallingRockWarning = j.fallWarning > 0 ? "true" : "false";
+      const minerDataset = state.gl.domElement.dataset;
+      const minerCache = datasetCache.current;
+      setDatasetNumber(minerCache, minerDataset, "minerX", miner.position.x, 2);
+      setDatasetNumber(minerCache, minerDataset, "minerY", miner.position.y, 2);
+      setDatasetNumber(
+        minerCache,
+        minerDataset,
+        "minerMotionFrames",
+        minerMotion.current?.frames ?? 0,
+        0,
+      );
+      setDatasetText(
+        minerCache,
+        minerDataset,
+        "fallVisualActive",
+        activeFall ? "true" : "false",
+      );
+      setDatasetText(
+        minerCache,
+        minerDataset,
+        "fallVisualImpact",
+        activeFall?.impacted ? "true" : "false",
+      );
+      setDatasetText(
+        minerCache,
+        minerDataset,
+        "fallingRockWarning",
+        j.fallWarning > 0 ? "true" : "false",
+      );
       // Last frame's draw-call count: the budget that phones live by.
-      el.dataset.drawCalls = String(state.gl.info.render.calls);
+      setDatasetNumber(
+        minerCache,
+        minerDataset,
+        "drawCalls",
+        state.gl.info.render.calls,
+        0,
+      );
       // Smoothed frame time: a steady low value means no per-step hitches.
       frameMsRef.current += (delta * 1000 - frameMsRef.current) * 0.1;
-      el.dataset.frameMs = frameMsRef.current.toFixed(1);
+      setDatasetNumber(
+        minerCache,
+        minerDataset,
+        "frameMs",
+        frameMsRef.current,
+        1,
+      );
     }
     // Body language, foot-locked stride, and the pick arm all come from
     // the shared rig (miner-rig.ts): the canvas owns the timers and the
@@ -681,7 +815,12 @@ function MineScene({
       const prev = prevMinerPos.current;
       const dx = prev ? miner.position.x - prev.x : 0;
       const dy = prev ? miner.position.y - prev.y : 0;
-      prevMinerPos.current = { x: miner.position.x, y: miner.position.y };
+      if (prev) {
+        prev.x = miner.position.x;
+        prev.y = miner.position.y;
+      } else {
+        prevMinerPos.current = { x: miner.position.x, y: miner.position.y };
+      }
       // A landed crush plays the physically integrated tumble instead of
       // the static crumple: the block's hit launches the wreck, it
       // bounces out its energy, and the pose settles into the designed
@@ -699,24 +838,32 @@ function MineScene({
           };
         }
         const beforeY = crushTumble.current.state.y;
-        pose = advanceCrushTumble(crushTumble.current.state, delta);
+        pose = advanceCrushTumble(
+          crushTumble.current.state,
+          delta,
+          minerPoseScratch.current,
+        );
         if (Math.abs(crushTumble.current.state.y - beforeY) > 0.0004) {
           crushTumbleFrames.current += 1;
         }
       } else {
         if (!activeFall) crushTumble.current = null;
-        pose = advanceMinerRig(minerRig.current, {
-          t,
-          delta,
-          facing: j.facing,
-          stepDistance: Math.sqrt(dx * dx + dy * dy),
-          leanVx: visualTargetX - miner.position.x,
-          swing: j.swing,
-          bounce: j.bounce,
-          lunge: j.lunge,
-          crushed: false,
-          still: false,
-        });
+        const inputs = rigInputs.current;
+        inputs.t = t;
+        inputs.delta = delta;
+        inputs.facing = j.facing;
+        inputs.stepDistance = Math.sqrt(dx * dx + dy * dy);
+        inputs.leanVx = visualTargetX - miner.position.x;
+        inputs.swing = j.swing;
+        inputs.bounce = j.bounce;
+        inputs.lunge = j.lunge;
+        inputs.crushed = false;
+        inputs.still = false;
+        pose = advanceMinerRig(
+          minerRig.current,
+          inputs,
+          minerPoseScratch.current,
+        );
       }
       body.position.x = pose.body.posX;
       body.position.y = pose.body.posY;
@@ -760,24 +907,31 @@ function MineScene({
     if (teeterMoved) teeterMotionFrames.current += 1;
     // Particles: integrate, gravity, expire; positions sync imperatively
     // (creation/removal re-renders on tick).
-    for (const p of j.particles) {
+    const particles = j.particles;
+    let alive = 0;
+    for (const p of particles) {
       p.life -= delta;
       p.x += p.vx * delta;
       p.y += p.vy * delta;
       p.vy -= p.gravity * delta;
+      // Compact in place: survivors slide down over the expired, so the
+      // array (and its backing store) is reused instead of refiltered.
+      if (p.life > 0) particles[alive++] = p;
     }
-    j.particles = j.particles.filter((p) => p.life > 0);
+    particles.length = alive;
     // Instanced particle write-out: one draw per kind, no React
     // reconciliation on spawn or expiry (W3).
-    const instFor = {
-      spark: sparkInstRef.current,
-      debris: debrisInstRef.current,
-      dust: dustInstRef.current,
-    } as const;
-    const counts = { spark: 0, debris: 0, dust: 0 };
+    const instFor = particleInstFor.current;
+    instFor.spark = sparkInstRef.current;
+    instFor.debris = debrisInstRef.current;
+    instFor.dust = dustInstRef.current;
+    const counts = particleCounts.current;
+    counts.spark = 0;
+    counts.debris = 0;
+    counts.dust = 0;
     const matrix = particleMatrix.current;
     const colorScratch = particleColor.current;
-    for (const p of j.particles) {
+    for (const p of particles) {
       const inst = instFor[p.kind];
       if (!inst) continue;
       const index = counts[p.kind];
@@ -789,7 +943,7 @@ function MineScene({
       inst.setMatrixAt(index, matrix);
       inst.setColorAt(index, colorScratch.set(p.color));
     }
-    for (const kind of ["spark", "debris", "dust"] as const) {
+    for (const kind of PARTICLE_KINDS) {
       const inst = instFor[kind];
       if (!inst) continue;
       inst.count = counts[kind];

@@ -69,11 +69,18 @@ export function motionProgress(track: MotionTrack, now: number): number {
 export function sampleMotion(
   track: MotionTrack,
   now: number,
+  out?: [number, number],
 ): [number, number] {
   const t = motionProgress(track, now);
   const eased = easeStep(t);
-  return [
-    track.fromX + (track.toX - track.fromX) * eased,
-    track.fromY + (track.toY - track.fromY) * eased,
-  ];
+  const x = track.fromX + (track.toX - track.fromX) * eased;
+  const y = track.fromY + (track.toY - track.fromY) * eased;
+  // Frame loops pass a reused tuple so per-frame sampling allocates
+  // nothing; without one the call returns a fresh pair.
+  if (out) {
+    out[0] = x;
+    out[1] = y;
+    return out;
+  }
+  return [x, y];
 }

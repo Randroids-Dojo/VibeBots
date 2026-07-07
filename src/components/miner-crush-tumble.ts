@@ -15,7 +15,7 @@
  * tumble does not justify fetching it on the mobile-critical path.
  */
 
-import { BODY_REST_Y, type MinerPose } from "./miner-rig";
+import { BODY_REST_Y, createMinerPose, type MinerPose } from "./miner-rig";
 
 /** Seconds of live physics before the pose eases into the crumple. */
 export const CRUSH_TUMBLE_SECONDS = 1.55;
@@ -41,23 +41,22 @@ export interface CrushTumbleState {
   seed: number;
 }
 
-/** The rig's designed crumple, the tumble's final resting pose. */
-function crumplePose(): MinerPose {
-  return {
-    body: {
-      posX: 0,
-      posY: BODY_REST_Y - 0.16,
-      rotY: 0,
-      rotZ: 0.34,
-      scaleX: 1.06,
-      scaleY: 0.82,
-      scaleZ: 1.04,
-    },
-    legL: { rotX: 0.85, posY: BODY_REST_Y },
-    legR: { rotX: -0.55, posY: BODY_REST_Y },
-    arm: { rotZ: 1.15 },
-  };
-}
+/** The rig's designed crumple, the tumble's final resting pose. Never
+ * mutated: advanceCrushTumble copies or blends it into the out pose. */
+const CRUMPLE_REST: MinerPose = {
+  body: {
+    posX: 0,
+    posY: BODY_REST_Y - 0.16,
+    rotY: 0,
+    rotZ: 0.34,
+    scaleX: 1.06,
+    scaleY: 0.82,
+    scaleZ: 1.04,
+  },
+  legL: { rotX: 0.85, posY: BODY_REST_Y },
+  legR: { rotX: -0.55, posY: BODY_REST_Y },
+  arm: { rotZ: 1.15 },
+};
 
 export function createCrushTumble(seed: number): CrushTumbleState {
   const s = seed - Math.floor(seed);
@@ -87,13 +86,15 @@ export function crushTumbleSettled(state: CrushTumbleState): boolean {
 }
 
 /**
- * Advance the tumble one frame. Mutates `state` in place (this runs
- * inside useFrame) and returns the frame's pose. Time steps are clamped
- * so a hitching device cannot launch the wreck through the floor.
+ * Advance the tumble one frame. Mutates `state` in place and writes the
+ * frame's pose into the caller-owned `out` (this runs inside useFrame,
+ * so it must not allocate). Time steps are clamped so a hitching device
+ * cannot launch the wreck through the floor. Returns `out`.
  */
 export function advanceCrushTumble(
   state: CrushTumbleState,
   delta: number,
+  out: MinerPose = createMinerPose(),
 ): MinerPose {
   const dt = clamp(delta, 0, 1 / 20);
   state.t += dt;
@@ -122,40 +123,57 @@ export function advanceCrushTumble(
   const settleT =
     (state.t - CRUSH_TUMBLE_SECONDS) / CRUSH_TUMBLE_SETTLE_SECONDS;
   const w = clamp(1 - settleT, 0, 1);
-  const rest = crumplePose();
-  if (w <= 0) return rest;
+  if (w <= 0) {
+    copyPose(CRUMPLE_REST, out);
+    return out;
+  }
 
   const squashY = 1 - state.squash * 0.3;
   const flail = Math.exp(-state.t * 2.2);
   const wave = Math.sin(state.t * 16 + state.seed * 6.28);
-  const live: MinerPose = {
-    body: {
-      posX: state.x,
-      posY: state.y - 0.02,
-      rotY: 0,
-      rotZ: state.rotZ,
-      scaleX: 1 + state.squash * 0.18,
-      scaleY: squashY,
-      scaleZ: 1 + state.squash * 0.12,
-    },
-    legL: { rotX: wave * 1.1 * flail, posY: BODY_REST_Y },
-    legR: { rotX: -wave * 0.9 * flail, posY: BODY_REST_Y },
-    arm: { rotZ: 0.6 + wave * 0.9 * flail },
-  };
-  if (w >= 1) return live;
-  const mix = (a: number, b: number) => b + (a - b) * w;
-  return {
-    body: {
-      posX: mix(live.body.posX, rest.body.posX),
-      posY: mix(live.body.posY, rest.body.posY),
-      rotY: 0,
-      rotZ: mix(live.body.rotZ, rest.body.rotZ),
-      scaleX: mix(live.body.scaleX, rest.body.scaleX),
-      scaleY: mix(live.body.scaleY, rest.body.scaleY),
-      scaleZ: mix(live.body.scaleZ, rest.body.scaleZ),
-    },
-    legL: { rotX: mix(live.legL.rotX, rest.legL.rotX), posY: BODY_REST_Y },
-    legR: { rotX: mix(live.legR.rotX, rest.legR.rotX), posY: BODY_REST_Y },
-    arm: { rotZ: mix(live.arm.rotZ, rest.arm.rotZ) },
-  };
+  const body = out.body;
+  body.posX = state.x;
+  body.posY = state.y - 0.02;
+  body.rotY = 0;
+  body.rotZ = state.rotZ;
+  body.scaleX = 1 + state.squash * 0.18;
+  body.scaleY = squashY;
+  body.scaleZ = 1 + state.squash * 0.12;
+  out.legL.rotX = wave * 1.1 * flail;
+  out.legL.posY = BODY_REST_Y;
+  out.legR.rotX = -wave * 0.9 * flail;
+  out.legR.posY = BODY_REST_Y;
+  out.arm.rotZ = 0.6 + wave * 0.9 * flail;
+  if (w >= 1) return out;
+  const rest = CRUMPLE_REST;
+  body.posX = mixToward(body.posX, rest.body.posX, w);
+  body.posY = mixToward(body.posY, rest.body.posY, w);
+  body.rotZ = mixToward(body.rotZ, rest.body.rotZ, w);
+  body.scaleX = mixToward(body.scaleX, rest.body.scaleX, w);
+  body.scaleY = mixToward(body.scaleY, rest.body.scaleY, w);
+  body.scaleZ = mixToward(body.scaleZ, rest.body.scaleZ, w);
+  out.legL.rotX = mixToward(out.legL.rotX, rest.legL.rotX, w);
+  out.legR.rotX = mixToward(out.legR.rotX, rest.legR.rotX, w);
+  out.arm.rotZ = mixToward(out.arm.rotZ, rest.arm.rotZ, w);
+  return out;
+}
+
+/** Weighted blend: w=1 keeps the live value, w=0 lands on the rest. */
+function mixToward(live: number, rest: number, w: number): number {
+  return rest + (live - rest) * w;
+}
+
+function copyPose(from: MinerPose, to: MinerPose): void {
+  to.body.posX = from.body.posX;
+  to.body.posY = from.body.posY;
+  to.body.rotY = from.body.rotY;
+  to.body.rotZ = from.body.rotZ;
+  to.body.scaleX = from.body.scaleX;
+  to.body.scaleY = from.body.scaleY;
+  to.body.scaleZ = from.body.scaleZ;
+  to.legL.rotX = from.legL.rotX;
+  to.legL.posY = from.legL.posY;
+  to.legR.rotX = from.legR.rotX;
+  to.legR.posY = from.legR.posY;
+  to.arm.rotZ = from.arm.rotZ;
 }

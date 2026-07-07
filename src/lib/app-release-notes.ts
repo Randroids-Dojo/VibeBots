@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-07-0.1.199-save-sync-warning";
+export const RELEASE_NOTICE_ID = "2026-07-07-0.1.200-gc-hitches";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.200",
+      date: "2026-07-07",
+      title: "Fewer freezes while digging",
+      intro: "A memory-churn fix for multi-second hitches.",
+      changes: [
+        {
+          build,
+          text: "Telemetry from a real phone showed the mine freezing for one to six seconds when the browser paused to collect garbage. The mine's frame loop no longer creates throwaway memory every frame (miner pose, glide sampling, particle bookkeeping, diagnostics), so those freezes hit far less often, especially on phones and on low battery.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.199",
       date: "2026-07-07",

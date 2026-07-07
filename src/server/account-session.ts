@@ -1,5 +1,10 @@
 import { auth, createClerkClient, currentUser } from "@clerk/nextjs/server";
 import {
+  ACCOUNT_SIGN_IN_PATH,
+  type AccountEnvVars,
+  accountEnvIssues,
+} from "@/lib/account-env-rules.mjs";
+import {
   type AccountIdentity,
   normalizeAccountIdentity,
 } from "@/lib/account-link-core";
@@ -26,22 +31,9 @@ export type AccountIdentityResolver = () => Promise<AccountIdentity | null>;
 
 export type { AccountProviderIssue, AccountProviderStatus };
 
-export interface AccountProviderStatusEnv {
-  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?: string;
-  CLERK_SECRET_KEY?: string;
-  NEXT_PUBLIC_CLERK_SIGN_IN_URL?: string;
-  NEXT_PUBLIC_CLERK_SIGN_UP_URL?: string;
-  NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL?: string;
-  NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL?: string;
-  NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL?: string;
-  NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL?: string;
-  NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL?: string;
-  NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL?: string;
-  CLERK_SIGN_IN_FORCE_REDIRECT_URL?: string;
-  CLERK_SIGN_UP_FORCE_REDIRECT_URL?: string;
-  CLERK_AFTER_SIGN_IN_URL?: string;
-  CLERK_AFTER_SIGN_UP_URL?: string;
-}
+// The env-variable shape lives once in the shared rules module (F-067),
+// keyed by ACCOUNT_ENV_VAR_NAMES; adding a Clerk variable is one edit there.
+export type AccountProviderStatusEnv = AccountEnvVars;
 
 export interface AccountProviderStatusConfig extends AccountProviderStatusEnv {
   resolverWired: boolean;
@@ -58,114 +50,6 @@ export async function resolveAccountIdentity(
 ): Promise<AccountIdentity | null> {
   const identity = await resolver();
   return identity ? normalizeAccountIdentity(identity) : null;
-}
-
-function envValueConfigured(value: string | undefined): boolean {
-  return (value ?? "").trim().length > 0;
-}
-
-function publishableKeyIssue(
-  env: AccountProviderStatusEnv,
-): AccountProviderIssue | null {
-  const key = (env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "").trim();
-  if (!key) return "publishable_key_missing";
-  if (!key.startsWith("pk_test_") && !key.startsWith("pk_live_")) {
-    return "publishable_key_malformed";
-  }
-  return null;
-}
-
-function secretKeyIssue(
-  env: AccountProviderStatusEnv,
-): AccountProviderIssue | null {
-  const key = (env.CLERK_SECRET_KEY ?? "").trim();
-  if (!key) return "secret_key_missing";
-  if (!key.startsWith("sk_test_") && !key.startsWith("sk_live_")) {
-    return "secret_key_malformed";
-  }
-  return null;
-}
-
-function publicSignInUrlIssue(
-  env: AccountProviderStatusEnv,
-): AccountProviderIssue | null {
-  const signInUrl = (env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? "").trim();
-  if (!signInUrl) return "public_sign_in_url_missing";
-  if (signInUrl !== "/sign-in") return "public_sign_in_url_not_sign_in_route";
-  return null;
-}
-
-function publicSignUpUrlIssue(
-  env: AccountProviderStatusEnv,
-): AccountProviderIssue | null {
-  if (envValueConfigured(env.NEXT_PUBLIC_CLERK_SIGN_UP_URL)) {
-    return "public_sign_up_url_configured";
-  }
-  return null;
-}
-
-function publicSignInFallbackUrlIssue(
-  env: AccountProviderStatusEnv,
-): AccountProviderIssue | null {
-  const fallbackUrl = (
-    env.NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL ?? ""
-  ).trim();
-  if (!fallbackUrl) return "public_sign_in_fallback_url_missing";
-  if (fallbackUrl !== "/mine?account=1") {
-    return "public_sign_in_fallback_url_not_account_route";
-  }
-  return null;
-}
-
-function publicSignUpFallbackUrlIssue(
-  env: AccountProviderStatusEnv,
-): AccountProviderIssue | null {
-  const fallbackUrl = (
-    env.NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL ?? ""
-  ).trim();
-  if (!fallbackUrl) return "public_sign_up_fallback_url_missing";
-  if (fallbackUrl !== "/mine?account=1") {
-    return "public_sign_up_fallback_url_not_account_route";
-  }
-  return null;
-}
-
-function publicForceRedirectIssues(
-  env: AccountProviderStatusEnv,
-): AccountProviderIssue[] {
-  const issues: AccountProviderIssue[] = [];
-  if (envValueConfigured(env.NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL)) {
-    issues.push("public_sign_in_force_redirect_url_configured");
-  }
-  if (envValueConfigured(env.NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL)) {
-    issues.push("public_sign_up_force_redirect_url_configured");
-  }
-  if (envValueConfigured(env.CLERK_SIGN_IN_FORCE_REDIRECT_URL)) {
-    issues.push("server_sign_in_force_redirect_url_configured");
-  }
-  if (envValueConfigured(env.CLERK_SIGN_UP_FORCE_REDIRECT_URL)) {
-    issues.push("server_sign_up_force_redirect_url_configured");
-  }
-  return issues;
-}
-
-function publicDeprecatedRedirectIssues(
-  env: AccountProviderStatusEnv,
-): AccountProviderIssue[] {
-  const issues: AccountProviderIssue[] = [];
-  if (envValueConfigured(env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL)) {
-    issues.push("public_after_sign_in_url_configured");
-  }
-  if (envValueConfigured(env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL)) {
-    issues.push("public_after_sign_up_url_configured");
-  }
-  if (envValueConfigured(env.CLERK_AFTER_SIGN_IN_URL)) {
-    issues.push("server_after_sign_in_url_configured");
-  }
-  if (envValueConfigured(env.CLERK_AFTER_SIGN_UP_URL)) {
-    issues.push("server_after_sign_up_url_configured");
-  }
-  return issues;
 }
 
 function currentProviderStatusEnv(): AccountProviderStatusEnv {
@@ -205,23 +89,12 @@ export function accountProviderStatus(
 export function accountProviderStatusFromConfig(
   config: AccountProviderStatusConfig,
 ): AccountProviderStatus {
+  // The env rules live in src/lib/account-env-rules.mjs (F-067), shared
+  // verbatim with the ops preflight so the two can never drift.
   const issues: AccountProviderIssue[] = [];
   if (!config.resolverWired) issues.push("sdk_not_wired");
   if (!config.sdkDependencyInstalled) issues.push("sdk_dependency_missing");
-  const publishableIssue = publishableKeyIssue(config);
-  if (publishableIssue) issues.push(publishableIssue);
-  const secretIssue = secretKeyIssue(config);
-  if (secretIssue) issues.push(secretIssue);
-  const signInIssue = publicSignInUrlIssue(config);
-  if (signInIssue) issues.push(signInIssue);
-  const signUpIssue = publicSignUpUrlIssue(config);
-  if (signUpIssue) issues.push(signUpIssue);
-  const fallbackIssue = publicSignInFallbackUrlIssue(config);
-  if (fallbackIssue) issues.push(fallbackIssue);
-  const signUpFallbackIssue = publicSignUpFallbackUrlIssue(config);
-  if (signUpFallbackIssue) issues.push(signUpFallbackIssue);
-  issues.push(...publicForceRedirectIssues(config));
-  issues.push(...publicDeprecatedRedirectIssues(config));
+  issues.push(...accountEnvIssues(config));
   const reason = issues[0];
   if (!reason) {
     return {
@@ -269,7 +142,7 @@ export function requestAccountSessionProvider(
         requestState = await client.authenticateRequest(request, {
           publishableKey,
           secretKey,
-          signInUrl: env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? "/sign-in",
+          signInUrl: env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? ACCOUNT_SIGN_IN_PATH,
         });
       } catch {
         return null;

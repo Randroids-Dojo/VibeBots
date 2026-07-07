@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
+import { ACCOUNT_SIGN_IN_PATH } from "@/lib/account-env-rules.mjs";
 import { safeAccountReturnTo } from "@/lib/account-handoff-contract";
 import type {
   AccountHandoffStart,
@@ -18,7 +19,7 @@ import { DismissibleDialogFrame } from "./dismissible-dialog-frame";
 const SIGN_IN_URL = process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? "";
 
 export function accountSignInUrlIsExpectedRoute(signInUrl: string): boolean {
-  return signInUrl.trim() === "/sign-in";
+  return signInUrl.trim() === ACCOUNT_SIGN_IN_PATH;
 }
 
 export function accountSignInRedirectUrl({
@@ -33,7 +34,9 @@ export function accountSignInRedirectUrl({
   const callback = new URL(safeAccountReturnTo(handoff.returnTo), origin);
   callback.searchParams.set("accountHandoff", handoff.handoffId);
   const signIn = new URL(
-    accountSignInUrlIsExpectedRoute(signInUrl) ? signInUrl.trim() : "/sign-in",
+    accountSignInUrlIsExpectedRoute(signInUrl)
+      ? signInUrl.trim()
+      : ACCOUNT_SIGN_IN_PATH,
     origin,
   );
   signIn.searchParams.set("redirect_url", callback.toString());

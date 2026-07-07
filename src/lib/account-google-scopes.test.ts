@@ -8,7 +8,6 @@ import {
   accountGoogleScopesAreIdentityOnly,
   isAccountGoogleIdentityScope,
 } from "./account-google-scopes";
-import googleScopes from "./account-google-scopes.json";
 
 describe("account Google scope contract", () => {
   it("pins Google sign-in to the default identity scopes", () => {
@@ -18,20 +17,6 @@ describe("account Google scope contract", () => {
       "profile",
     ]);
     expect(accountGoogleIdentityScopeString()).toBe("openid email profile");
-  });
-
-  it("keeps the shared JSON mirror in sync with the scope list", () => {
-    expect(googleScopes.identity).toEqual([...ACCOUNT_GOOGLE_IDENTITY_SCOPES]);
-  });
-
-  it("keeps shared scope data limited to identity scopes", () => {
-    expect(Object.keys(googleScopes).sort()).toEqual(["identity"]);
-    expect(googleScopes.identity.every(isAccountGoogleIdentityScope)).toBe(
-      true,
-    );
-    expect(new Set(googleScopes.identity).size).toBe(
-      ACCOUNT_GOOGLE_IDENTITY_SCOPES.length,
-    );
   });
 
   it("accepts only the identity scope set", () => {
@@ -90,7 +75,9 @@ describe("account Google scope contract", () => {
   });
 
   it("stays free of framework, provider, app, and storage imports", () => {
-    const source = readFileSync("src/lib/account-google-scopes.ts", "utf8");
+    const source =
+      readFileSync("src/lib/account-google-scopes.ts", "utf8") +
+      readFileSync("src/lib/account-env-rules.mjs", "utf8");
 
     expect(source).not.toMatch(/from ["']@clerk\/nextjs["']/);
     expect(source).not.toMatch(/from ["']next\//);

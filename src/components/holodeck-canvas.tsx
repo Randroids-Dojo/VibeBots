@@ -25,6 +25,7 @@ import {
 } from "./miner-crush-tumble";
 import {
   advanceMinerRig,
+  createMinerPose,
   createMinerRigState,
   minerClipId,
   minerClipInputs,
@@ -105,6 +106,8 @@ function HolodeckScene({
   const legRRef = useRef<Group>(null);
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
   const rig = useRef(createMinerRigState());
+  // Reused every frame: posing the showcase miner allocates nothing.
+  const poseScratch = useRef(createMinerPose());
   const crushTumble = useRef<CrushTumbleState | null>(null);
   const crushLoopHold = useRef(0);
   const turntableYaw = useRef(0);
@@ -166,7 +169,7 @@ function HolodeckScene({
     const inputs = showcase
       ? minerClipInputs(clip, t, delta, paused)
       : minerClipInputs(targetSolid ? "dig" : "idle", t, delta, paused);
-    let pose = advanceMinerRig(rig.current, inputs);
+    let pose = advanceMinerRig(rig.current, inputs, poseScratch.current);
     // The crush clip plays the physically integrated tumble on a loop so
     // the death animation is reviewable on the art-QA bench like every
     // other clip. Pause holds whatever frame the tumble reached.
@@ -175,7 +178,11 @@ function HolodeckScene({
         crushTumble.current = createCrushTumble(0.37);
       }
       if (!paused) {
-        pose = advanceCrushTumble(crushTumble.current, delta);
+        pose = advanceCrushTumble(
+          crushTumble.current,
+          delta,
+          poseScratch.current,
+        );
         if (crushTumbleSettled(crushTumble.current)) {
           crushLoopHold.current += delta;
           if (crushLoopHold.current > 1.2) {
@@ -186,7 +193,7 @@ function HolodeckScene({
           }
         }
       } else {
-        pose = advanceCrushTumble(crushTumble.current, 0);
+        pose = advanceCrushTumble(crushTumble.current, 0, poseScratch.current);
       }
     } else if (crushTumble.current) {
       crushTumble.current = null;

@@ -70,6 +70,42 @@ export interface MinerPose {
   arm: { rotZ: number };
 }
 
+/** Field-by-field pose copy; the pose shape's single home is this
+ * module, so create/copy live beside the type. */
+export function copyMinerPose(from: MinerPose, to: MinerPose): void {
+  to.body.posX = from.body.posX;
+  to.body.posY = from.body.posY;
+  to.body.rotY = from.body.rotY;
+  to.body.rotZ = from.body.rotZ;
+  to.body.scaleX = from.body.scaleX;
+  to.body.scaleY = from.body.scaleY;
+  to.body.scaleZ = from.body.scaleZ;
+  to.legL.rotX = from.legL.rotX;
+  to.legL.posY = from.legL.posY;
+  to.legR.rotX = from.legR.rotX;
+  to.legR.posY = from.legR.posY;
+  to.arm.rotZ = from.arm.rotZ;
+}
+
+/** Allocate a pose tree once; frame loops reuse it as the advance* out
+ * parameter so posing a miner allocates nothing per frame. */
+export function createMinerPose(): MinerPose {
+  return {
+    body: {
+      posX: 0,
+      posY: BODY_REST_Y,
+      rotY: 0,
+      rotZ: 0,
+      scaleX: 1,
+      scaleY: 1,
+      scaleZ: 1,
+    },
+    legL: { rotX: 0, posY: BODY_REST_Y },
+    legR: { rotX: 0, posY: BODY_REST_Y },
+    arm: { rotZ: 0 },
+  };
+}
+
 /** A fresh rest-pose input set. A factory rather than a shared constant:
  * inputs carry a nested lunge object, and a shared instance would alias
  * it into every naive spread. */
@@ -115,12 +151,14 @@ export function minerArmRotZ(swing: number, bounce: number): number {
 }
 
 /**
- * Advance the rig one frame. Mutates `state` in place (hot path) and
- * returns the pose to apply to the miner's animated groups.
+ * Advance the rig one frame. Mutates `state` in place and writes the
+ * frame's pose into the caller-owned `out` (both hot-path rules: this
+ * runs inside useFrame, so it must not allocate). Returns `out`.
  */
 export function advanceMinerRig(
   state: MinerRigState,
   inputs: MinerRigInputs,
+  out: MinerPose = createMinerPose(),
 ): MinerPose {
   const { t, delta } = inputs;
 
@@ -131,16 +169,15 @@ export function advanceMinerRig(
   const bob = inputs.still
     ? 0
     : Math.sin(t * IDLE_BOB_RATE) * IDLE_BOB_AMPLITUDE;
-  const body = {
-    posX: inputs.lunge.x * lk,
-    posY: BODY_REST_Y + bob + inputs.lunge.y * lk,
-    rotY: state.bodyYaw,
-    // Lean into the glide while moving between cells.
-    rotZ: clamp(-inputs.leanVx * 0.3, -0.16, 0.16),
-    scaleX: 1,
-    scaleY: 1,
-    scaleZ: 1,
-  };
+  const body = out.body;
+  body.posX = inputs.lunge.x * lk;
+  body.posY = BODY_REST_Y + bob + inputs.lunge.y * lk;
+  body.rotY = state.bodyYaw;
+  // Lean into the glide while moving between cells.
+  body.rotZ = clamp(-inputs.leanVx * 0.3, -0.16, 0.16);
+  body.scaleX = 1;
+  body.scaleY = 1;
+  body.scaleZ = 1;
   if (inputs.crushed) {
     // A designed crumple, not a pancake: the old 0.58 Y-squash drove the
     // hat and visor through the torso. Compress a little, drop and tip
@@ -165,28 +202,21 @@ export function advanceMinerRig(
   state.legRRotX += (Math.sin(ph + Math.PI) * amp - state.legRRotX) * k;
   // The leg swinging forward lifts a touch off the cell floor.
   const lift = stepping ? 0.02 : 0;
-  const legL = {
-    rotX: state.legLRotX,
-    posY: BODY_REST_Y + Math.max(0, Math.sin(ph)) * lift,
-  };
-  const legR = {
-    rotX: state.legRRotX,
-    posY: BODY_REST_Y + Math.max(0, Math.sin(ph + Math.PI)) * lift,
-  };
+  out.legL.rotX = state.legLRotX;
+  out.legL.posY = BODY_REST_Y + Math.max(0, Math.sin(ph)) * lift;
+  out.legR.rotX = state.legRRotX;
+  out.legR.posY = BODY_REST_Y + Math.max(0, Math.sin(ph + Math.PI)) * lift;
 
   if (inputs.crushed) {
     // Knees buckle outward and the pick arm drops limp.
-    legL.rotX = 0.85;
-    legR.rotX = -0.55;
-    return { body, legL, legR, arm: { rotZ: 1.15 } };
+    out.legL.rotX = 0.85;
+    out.legR.rotX = -0.55;
+    out.arm.rotZ = 1.15;
+    return out;
   }
 
-  return {
-    body,
-    legL,
-    legR,
-    arm: { rotZ: minerArmRotZ(inputs.swing, inputs.bounce) },
-  };
+  out.arm.rotZ = minerArmRotZ(inputs.swing, inputs.bounce);
+  return out;
 }
 
 /* ---- Showcase clips ----------------------------------------------------

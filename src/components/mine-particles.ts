@@ -1,6 +1,9 @@
 import { TEETER_EMISSIVE } from "./mine-render-palette";
 
-export type ParticleKind = "debris" | "spark" | "dust";
+/** Every renderable kind, in instanced write-out order. The union type
+ * derives from this tuple so the two cannot drift. */
+export const PARTICLE_KINDS = ["spark", "debris", "dust"] as const;
+export type ParticleKind = (typeof PARTICLE_KINDS)[number];
 
 export interface Particle {
   id: number;

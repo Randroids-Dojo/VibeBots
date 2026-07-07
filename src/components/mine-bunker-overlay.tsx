@@ -1,6 +1,6 @@
 import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { type RefObject, useRef } from "react";
 import type { Group, Material, Mesh } from "three/webgpu";
 import { Shape } from "three/webgpu";
 import type {
@@ -77,6 +77,67 @@ BASE_ROOF_FACE_SHAPE.lineTo(0.46, -0.1);
 BASE_ROOF_FACE_SHAPE.lineTo(0.46, -0.28);
 BASE_ROOF_FACE_SHAPE.lineTo(-0.46, -0.28);
 
+/** The animated part refs of one clanker, grouped so the per-frame
+ * animator takes named fields instead of six adjacent same-typed
+ * positional arguments. Built once per ClankerMesh (the RefObjects are
+ * stable), so passing it allocates nothing per frame. */
+interface ClankerParts {
+  body: RefObject<Group | null>;
+  legs: RefObject<Array<Group | null>>;
+  mandibles: RefObject<Array<Group | null>>;
+  sensor: RefObject<Group | null>;
+  eye: RefObject<Mesh | null>;
+}
+
+/** Per-frame clanker body language. A module-level function (not a
+ * closure rebuilt inside useFrame) with indexed loops: raids animate
+ * every clanker every frame, so this path must not allocate. */
+function animateClankerBody(
+  group: Group,
+  parts: ClankerParts,
+  elapsedSeconds: number,
+  moving: boolean,
+  travelAngle: number,
+): void {
+  const phase = elapsedSeconds * (moving ? 10.5 : 5.2);
+  const stride = moving ? 1 : 0.35;
+  group.rotation.z = travelAngle + Math.sin(phase * 0.5) * 0.035 * stride;
+  const body = parts.body.current;
+  if (body) {
+    body.position.z = 0.02 + Math.sin(phase) * 0.018 * stride;
+    body.rotation.x = Math.sin(phase * 0.72) * 0.04 * stride;
+    body.rotation.y = Math.cos(phase * 0.62) * 0.03 * stride;
+  }
+  const legs = parts.legs.current;
+  for (let index = 0; index < legs.length; index += 1) {
+    const leg = legs[index];
+    if (!leg) continue;
+    const legSpec = CLANKER_LEGS[index];
+    if (!legSpec) continue;
+    const step = Math.sin(phase + legSpec.phase) * stride;
+    const lift = Math.max(0, step) * 0.035;
+    leg.rotation.z = legSpec.side * (0.12 + step * 0.24);
+    leg.position.z = -0.04 + lift;
+  }
+  const mandibles = parts.mandibles.current;
+  for (let index = 0; index < mandibles.length; index += 1) {
+    const mandible = mandibles[index];
+    if (!mandible) continue;
+    const side = CLANKER_MANDIBLE_SIDES[index] ?? 1;
+    mandible.rotation.z =
+      side * (0.28 + Math.max(0, Math.sin(phase * 1.35)) * 0.26);
+  }
+  const sensor = parts.sensor.current;
+  if (sensor) {
+    sensor.rotation.z = Math.sin(phase * 0.7) * 0.12;
+  }
+  const eye = parts.eye.current;
+  if (eye) {
+    const pulse = 1 + Math.max(0, Math.sin(phase * 1.1)) * 0.16;
+    eye.scale.set(pulse, 1, 1);
+  }
+}
+
 function ClankerMesh({
   clanker,
   raid,
@@ -91,53 +152,30 @@ function ClankerMesh({
   const mandibleRefs = useRef<Array<Group | null>>([]);
   const sensorRef = useRef<Group>(null);
   const eyeRef = useRef<Mesh>(null);
+  const partsRef = useRef<ClankerParts>({
+    body: bodyRef,
+    legs: legRefs,
+    mandibles: mandibleRefs,
+    sensor: sensorRef,
+    eye: eyeRef,
+  });
   const localStartRef = useRef<number | null>(null);
   useFrame((state) => {
     const group = groupRef.current;
     if (!group) return;
-    const animateBody = (
-      elapsedSeconds: number,
-      moving: boolean,
-      travelAngle: number,
-    ) => {
-      const phase = elapsedSeconds * (moving ? 10.5 : 5.2);
-      const stride = moving ? 1 : 0.35;
-      group.rotation.z = travelAngle + Math.sin(phase * 0.5) * 0.035 * stride;
-      if (bodyRef.current) {
-        bodyRef.current.position.z = 0.02 + Math.sin(phase) * 0.018 * stride;
-        bodyRef.current.rotation.x = Math.sin(phase * 0.72) * 0.04 * stride;
-        bodyRef.current.rotation.y = Math.cos(phase * 0.62) * 0.03 * stride;
-      }
-      legRefs.current.forEach((leg, index) => {
-        if (!leg) return;
-        const legSpec = CLANKER_LEGS[index];
-        if (!legSpec) return;
-        const step = Math.sin(phase + legSpec.phase) * stride;
-        const lift = Math.max(0, step) * 0.035;
-        leg.rotation.z = legSpec.side * (0.12 + step * 0.24);
-        leg.position.z = -0.04 + lift;
-      });
-      mandibleRefs.current.forEach((mandible, index) => {
-        if (!mandible) return;
-        const side = CLANKER_MANDIBLE_SIDES[index] ?? 1;
-        mandible.rotation.z =
-          side * (0.28 + Math.max(0, Math.sin(phase * 1.35)) * 0.26);
-      });
-      if (sensorRef.current) {
-        sensorRef.current.rotation.z = Math.sin(phase * 0.7) * 0.12;
-      }
-      if (eyeRef.current) {
-        const pulse = 1 + Math.max(0, Math.sin(phase * 1.1)) * 0.16;
-        eyeRef.current.scale.set(pulse, 1, 1);
-      }
-    };
-    const path =
-      clanker.path && clanker.path.length > 0
-        ? clanker.path
-        : [{ col: clanker.col, row: clanker.row }];
-    if (path.length === 1) {
-      group.position.set(cellX(path[0].col), -path[0].row, 0.78);
-      animateBody(state.clock.elapsedTime, false, 0);
+    const path = clanker.path && clanker.path.length > 0 ? clanker.path : null;
+    if (!path || path.length === 1) {
+      // Idle: parked on its own cell (no fallback array; the clanker
+      // snapshot already carries the cell).
+      const cell = path ? path[0] : clanker;
+      group.position.set(cellX(cell.col), -cell.row, 0.78);
+      animateClankerBody(
+        group,
+        partsRef.current,
+        state.clock.elapsedTime,
+        false,
+        0,
+      );
       if (bodyRef.current) bodyRef.current.visible = true;
       if (burstRef.current) burstRef.current.visible = false;
       return;
@@ -173,7 +211,9 @@ function ClankerMesh({
     const x = from.col + (to.col - from.col) * t;
     const y = from.row + (to.row - from.row) * t;
     group.position.set(cellX(x), -y, 0.78);
-    animateBody(
+    animateClankerBody(
+      group,
+      partsRef.current,
       elapsedSeconds,
       true,
       Math.atan2(-(to.row - from.row), to.col - from.col),

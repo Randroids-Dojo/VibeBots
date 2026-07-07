@@ -52,6 +52,26 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-076" data-f="F-076" data-priority="nice-to-have">
+    <h3>F-076: Adopt quantize-and-cache dataset diagnostics in the other canvases</h3>
+    <dl>
+      <dt>Context</dt><dd>GC-hitches cleanup 2026-07-07: the mine's per-frame dataset churn fix was lifted into the shared <code>src/components/dataset-diagnostics.ts</code>, but the arena (~7 writes/frame), workshop (~5/frame), and holodeck (~11/frame) useFrame loops still do unconditional <code>toFixed</code>/<code>String</code> dataset writes every frame, the same allocation class removed from the mine.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: route the arena, workshop, and holodeck per-frame dataset writes through <code>setDatasetNumber</code>/<code>setDatasetText</code> with a per-canvas cache ref, keeping keys and formats unchanged so existing smokes read them as before. Acceptance: no unconditional per-frame dataset string writes remain in any canvas useFrame, and the canvases' e2e smokes stay green.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the gc-hitches cleanup pass)</dd>
+    </dl>
+  </section>
+
+  <section id="F-075" data-f="F-075" data-priority="nice-to-have">
+    <h3>F-075: Reduce per-tick React reconcile churn in the mine cell grid</h3>
+    <dl>
+      <dt>Context</dt><dd>GC-hitches slice 2026-07-07: after the frame-loop allocation fixes, a CDP sampling heap profile during scripted play shows the remaining allocation spread across React reconciliation and three.js renderer internals with no single app-level hot spot. The cause is structural: the mine canvas re-renders on every sim tick and rebuilds the entire cell loop (hundreds of JSX elements with inline position/args arrays, per-cell closures, and template-literal keys), so every action produces a burst of reconcile garbage. Local allocation rate remained about 2.9 MB/s during 2.5 actions/s play.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: memoize the per-cell subtree on primitive props (col, row, kind, damage, seed instead of inline arrays) so unchanged cells skip reconciliation, or move the grid to imperative instanced meshes like the W3 particle pass. Verify with the CDP sampling profile (React reconcile share should drop) and the heap-churn probe (allocation MB/s under scripted play), then confirm on real-device telemetry via the per-build A/B.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the gc-hitches slice)</dd>
+    </dl>
+  </section>
+
   <section id="F-074" data-f="F-074" data-priority="nice-to-have">
     <h3>F-074: Root-cause the first real-device mine stall with the session drilldown</h3>
     <dl>
@@ -59,6 +79,7 @@
       <dt>Blocker (if any)</dt><dd>Needs a fresh real-device session recorded on a build at or after the drilldown slice.</dd>
       <dt>Unblock condition</dt><dd>Ready: after the drilldown slice deploys, play a few minutes of mine on the phone with the toggle on, find the session under <code>GET /api/performance/insights?device=real</code>, then read <code>?session=&lt;prefix&gt;</code> for <code>loafTopScripts</code>, <code>netTopRequests</code>, heap span, and <code>hiddenMs</code> on the stall windows. Acceptance: the stall attributed to script, GC, network, scene composition, or an app switch, with a fix followup filed when it is in our code.</dd>
       <dt>PR / Dot reference</dt><dd>(not started; raised by the drilldown slice)</dd>
+      <dt>Progress update</dt><dd>2026-07-07 (gc-hitches slice): attributed and fixed. A real 7.5 minute low-battery phone session (build 269524) showed 55 stalls up to 5.9 s; every stall coincided with the JS heap resetting from 200-350 MB back to about 100 MB (the GC sawtooth), 115 of 116 stall seconds were LoAF-attributed to the render chunk via FrameRequestCallback, and network, scene composition, and hidden time were all ruled out. The frame-loop allocation churn was removed (see the gc-hitches progress-log entry); local like-for-like measurement halved GC pauses (21 to 10 drops per 75 s). Remaining per-action churn is <code>F-075</code>. Real-device confirmation happens via the per-build A/B once a phone session lands on the fixed build.</dd>
     </dl>
   </section>
 

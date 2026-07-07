@@ -32,6 +32,11 @@ vi.mock("@/server/achievements", () => ({
   applyAchievementProgress: vi.fn(async () => {}),
 }));
 
+vi.mock("@/server/save-sync-push", () => ({
+  pushEndpointHashFromRequest: vi.fn(() => null),
+  queueSaveSyncPush: vi.fn(),
+}));
+
 vi.mock("@/server/balance-telemetry", () => ({
   recordBalanceEvent: vi.fn(async () => undefined),
 }));

@@ -15,6 +15,7 @@ import {
 } from "@/lib/account-provider-status";
 import {
   MINE_VERSION_MISMATCH_CODE,
+  PUSH_ENDPOINT_HASH_HEADER,
   STALE_TRIP_CHECKPOINT_CODE,
   TRIP_ALREADY_CASHED_OUT_CODE,
 } from "@/lib/mine-api-codes";
@@ -128,6 +129,43 @@ function jsonPost(body: unknown): RequestInit {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
+  };
+}
+
+/**
+ * Hex sha-256 of this device's own push endpoint, so save-mutating requests
+ * can tell the server which subscription not to wake. Null whenever push is
+ * unavailable or not subscribed; the server then notifies every device.
+ */
+async function currentPushEndpointHash(): Promise<string | null> {
+  try {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+      return null;
+    }
+    const registration = await navigator.serviceWorker.getRegistration();
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return null;
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(subscription.endpoint),
+    );
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return null;
+  }
+}
+
+async function withPushEndpointHash(init: RequestInit): Promise<RequestInit> {
+  const hash = await currentPushEndpointHash();
+  if (!hash) return init;
+  return {
+    ...init,
+    headers: {
+      ...(init.headers as Record<string, string> | undefined),
+      [PUSH_ENDPOINT_HASH_HEADER]: hash,
+    },
   };
 }
 
@@ -511,10 +549,10 @@ export function loadAccountStatus() {
   return mineApi<unknown>("/api/account/status");
 }
 
-export function claimRemoteAccountSave() {
+export async function claimRemoteAccountSave() {
   return mineApi<unknown>(
     "/api/account/claim",
-    accountMutation({ method: "POST" }),
+    await withPushEndpointHash(accountMutation({ method: "POST" })),
   );
 }
 
@@ -589,7 +627,7 @@ export function deleteRemoteSaveSlot(slot: SaveSlotId) {
   });
 }
 
-export function submitMineBank(body: {
+export async function submitMineBank(body: {
   seed: number;
   tripIndex: number;
   moves: unknown;
@@ -599,10 +637,12 @@ export function submitMineBank(body: {
 }) {
   return mineApi<unknown>(
     "/api/mine/bank",
-    jsonPost({
-      ...body,
-      mineVersion: MINE_VERSION,
-    }),
+    await withPushEndpointHash(
+      jsonPost({
+        ...body,
+        mineVersion: MINE_VERSION,
+      }),
+    ),
   );
 }
 

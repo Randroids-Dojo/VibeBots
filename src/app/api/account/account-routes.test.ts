@@ -20,6 +20,7 @@ import {
   SaveSlotPreserveError,
   setActiveSaveSlotPlayer,
 } from "@/server/player";
+import { queueSaveSyncPush } from "@/server/save-sync-push";
 import { POST as claim } from "./claim/route";
 import { POST as load } from "./load/route";
 import { GET as status } from "./status/route";
@@ -66,6 +67,11 @@ vi.mock("@/server/player", () => ({
   })),
 }));
 
+vi.mock("@/server/save-sync-push", () => ({
+  pushEndpointHashFromRequest: vi.fn(() => null),
+  queueSaveSyncPush: vi.fn(),
+}));
+
 vi.mock("@/server/monitoring", () => ({
   logAccountLinkEvent: vi.fn(),
 }));
@@ -89,6 +95,7 @@ const mockedCurrentPlayerId = vi.mocked(currentPlayerId);
 const mockedCurrentSaveSlotSession = vi.mocked(currentSaveSlotSession);
 const mockedSetActiveSaveSlotPlayer = vi.mocked(setActiveSaveSlotPlayer);
 const mockedLogAccountLinkEvent = vi.mocked(logAccountLinkEvent);
+const mockedQueueSaveSyncPush = vi.mocked(queueSaveSyncPush);
 
 const identity = {
   provider: "clerk" as const,
@@ -455,6 +462,12 @@ describe("/api/account", () => {
       playerId: "guest-player",
       targetPlayerId: "guest-player",
       result: "claimed",
+    });
+    // The account's other devices get the save-sync wake-up.
+    expect(mockedQueueSaveSyncPush).toHaveBeenCalledWith({
+      sql: "sql",
+      playerId: "guest-player",
+      excludeEndpointHash: null,
     });
   });
 

@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import webpush from "web-push";
 import type { AppRelease } from "@/lib/app-release-types";
-import { dispatchReleasePushOnce } from "./web-push";
+import {
+  dispatchReleasePushOnce,
+  hashPushEndpoint,
+  sendSaveSyncPushToOtherDevices,
+} from "./web-push";
 
 vi.mock("web-push", () => ({
   default: {
@@ -161,6 +165,108 @@ describe("release web push dispatch", () => {
       calls.some((call) =>
         call.query.includes("status IN ('failed', 'partial', 'sending')"),
       ),
+    ).toBe(true);
+  });
+});
+
+describe("sendSaveSyncPushToOtherDevices", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.VAPID_PUBLIC_KEY = "public-key";
+    process.env.VAPID_PRIVATE_KEY = "private-key";
+  });
+
+  function saveSyncSql(targets: unknown[]) {
+    const calls: SqlCall[] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        calls.push({ query, values });
+        return query.includes("SELECT endpoint") ? targets : [];
+      },
+    );
+    return { sql: sql as never, calls };
+  }
+
+  const targets = [
+    { endpoint: "https://push.example/one", p256dh: "p1", auth: "a1" },
+    { endpoint: "https://push.example/two", p256dh: "p2", auth: "a2" },
+  ];
+
+  it("does nothing while web push is unconfigured", async () => {
+    delete process.env.VAPID_PUBLIC_KEY;
+    const { sql } = saveSyncSql(targets);
+
+    const result = await sendSaveSyncPushToOtherDevices({
+      sql,
+      playerId: "player-1",
+      excludeEndpointHash: null,
+    });
+
+    expect(result).toEqual({
+      attempted: 0,
+      sent: 0,
+      expired: 0,
+      failed: 0,
+      skipped: 0,
+    });
+    expect(webpush.sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("wakes the player's other devices and stamps the rate limit", async () => {
+    const { sql, calls } = saveSyncSql(targets);
+
+    const result = await sendSaveSyncPushToOtherDevices({
+      sql,
+      playerId: "player-1",
+      excludeEndpointHash: hashPushEndpoint("https://push.example/one"),
+    });
+
+    expect(result).toEqual({
+      attempted: 1,
+      sent: 1,
+      expired: 0,
+      failed: 0,
+      skipped: 1,
+    });
+    // Only the non-originating endpoint is contacted.
+    expect(webpush.sendNotification).toHaveBeenCalledTimes(1);
+    const [subscription, payload] = vi.mocked(webpush.sendNotification).mock
+      .calls[0];
+    expect(subscription).toMatchObject({
+      endpoint: "https://push.example/two",
+    });
+    expect(JSON.parse(String(payload))).toMatchObject({
+      type: "save-sync",
+      tag: "vibebots-save-sync",
+      url: "/mine",
+    });
+    expect(
+      calls.some((call) => call.query.includes("SET last_save_sync_at")),
+    ).toBe(true);
+  });
+
+  it("disables expired subscriptions instead of retrying them", async () => {
+    const { sql, calls } = saveSyncSql([targets[0]]);
+    vi.mocked(webpush.sendNotification).mockRejectedValueOnce(
+      Object.assign(new Error("gone"), { statusCode: 410 }),
+    );
+
+    const result = await sendSaveSyncPushToOtherDevices({
+      sql,
+      playerId: "player-1",
+      excludeEndpointHash: null,
+    });
+
+    expect(result).toEqual({
+      attempted: 1,
+      sent: 0,
+      expired: 1,
+      failed: 0,
+      skipped: 0,
+    });
+    expect(
+      calls.some((call) => call.query.includes("SET enabled = false")),
     ).toBe(true);
   });
 });

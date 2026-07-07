@@ -765,9 +765,11 @@ test("mine warns when the cloud save advances on another device", async ({
 }) => {
   const mine = createMine(4646, DEFAULT_GEAR, STARTING_CONSUMABLES);
   let worldRequests = 0;
+  let versionRequests = 0;
   let staleVersion = false;
 
   await page.route("**/api/mine/world/version", async (route) => {
+    versionRequests += 1;
     await route.fulfill({
       json: { world: { seed: 4646, tripCount: staleVersion ? 1 : 0 } },
     });
@@ -843,6 +845,9 @@ test("mine warns when the cloud save advances on another device", async ({
 
   // Dig one real move so this device holds progress worth prompting over.
   await page.keyboard.press("ArrowDown");
+  // The first-move probe must finish before the stale flip; a probe still
+  // in flight would swallow the forced focus probe via the in-flight guard.
+  await expect.poll(() => versionRequests).toBeGreaterThanOrEqual(1);
 
   const conflict = page.getByRole("dialog", {
     name: "Save updated on another device",

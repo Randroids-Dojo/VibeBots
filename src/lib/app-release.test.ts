@@ -24,17 +24,32 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest gc-hitches note complete", () => {
+  it("keeps the latest save-sync push note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-07-0.1.200-gc-hitches");
+    expect(release.noticeId).toBe("2026-07-07-0.1.201-save-sync-push");
     expect(latestNote).toMatchObject({
+      version: "0.1.201",
+      title: "Other devices get a heads-up",
+      intro: "Banking a run now pings your other devices.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "If notifications are on, your other devices now get a heads-up the moment a run is banked or a save is claimed elsewhere, so picking one up starts with a sync instead of a doomed run. The device that banked stays quiet, repeats replace the old alert, and another open tab in the same browser syncs instantly without any notification.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived gc-hitches note complete", () => {
+    const release = getAppRelease();
+    const gcNote = release.notes.find((note) => note.version === "0.1.200");
+
+    expect(gcNote).toMatchObject({
       version: "0.1.200",
       title: "Fewer freezes while digging",
       intro: "A memory-churn fix for multi-second hitches.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(gcNote?.changes.map((change) => change.text)).toEqual([
       "Telemetry from a real phone showed the mine freezing for one to six seconds when the browser paused to collect garbage. The mine's frame loop no longer creates throwaway memory every frame (miner pose, glide sampling, particle bookkeeping, diagnostics), so those freezes hit far less often, especially on phones and on low battery.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

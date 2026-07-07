@@ -79,7 +79,7 @@ import {
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
 import { useBunkerStore } from "@/state/bunker-store";
-import { useMineStore } from "@/state/mine-store";
+import { SAVE_SYNC_CHANNEL, useMineStore } from "@/state/mine-store";
 import {
   eventInsideRef,
   useOutsidePointerDismiss,
@@ -1181,6 +1181,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     [checkWorldFreshness],
   );
   useForegroundReturn(probeSaveFreshness);
+  // A peer tab in this browser just banked: resync immediately, skipping
+  // the lifecycle throttle.
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel(SAVE_SYNC_CHANNEL);
+    channel.onmessage = () => void checkWorldFreshness({ force: true });
+    return () => channel.close();
+  }, [checkWorldFreshness]);
   // The conflict prompt and the Account dialog share the modal layer; close
   // Account so the two never stack competing focus traps.
   useEffect(() => {

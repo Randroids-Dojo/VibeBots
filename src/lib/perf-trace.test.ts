@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPerfSnapshot,
+  clampNetworkSample,
   clampProbeSample,
   type PerfMainThreadSample,
+  type PerfNetworkSample,
   type PerfProbeSample,
 } from "./perf-trace";
 
@@ -15,12 +17,40 @@ function mainSample(
     loafCount: 1,
     loafTotalMs: 80.06,
     loafMaxMs: 80.06,
-    loafTopScripts: [{ url: "https://app/main.js", ms: 61.29 }],
+    loafTopScripts: [
+      {
+        url: "https://app/main.js",
+        invoker: "FrameRequestCallback",
+        ms: 61.29,
+      },
+    ],
     inputEventCount: 3,
     inputEventMaxMs: 72.19,
     ...overrides,
   };
 }
+
+function netSample(
+  overrides: Partial<PerfNetworkSample> = {},
+): PerfNetworkSample {
+  return {
+    requestCount: 4,
+    transferKb: 120.46,
+    totalMs: 512.33,
+    maxMs: 260.08,
+    topRequests: [{ path: "/api/mine", ms: 260.08, kb: 4.21 }],
+    ...overrides,
+  };
+}
+
+const snapshotDefaults = {
+  jsHeapMb: null,
+  heapMinMb: null,
+  heapMaxMb: null,
+  hiddenMs: 0,
+  visibilityChangeCount: 0,
+  net: null,
+};
 
 function probeSample(
   overrides: Partial<PerfProbeSample> = {},
@@ -50,11 +80,17 @@ function probeSample(
 describe("buildPerfSnapshot", () => {
   it("summarizes frames and counts stalls separately", () => {
     const snapshot = buildPerfSnapshot({
+      ...snapshotDefaults,
       seq: 3,
       durationMs: 5_001.7,
       frameMs: [16, 16, 17, 55, 300],
       jsHeapMb: 181.5,
+      heapMinMb: 160.24,
+      heapMaxMb: 205.87,
+      hiddenMs: 120.6,
+      visibilityChangeCount: 2,
       main: mainSample(),
+      net: netSample(),
       probe: probeSample(),
     });
     expect(snapshot.seq).toBe(3);
@@ -64,20 +100,35 @@ describe("buildPerfSnapshot", () => {
     expect(snapshot.stallCount).toBe(1);
     expect(snapshot.maxFrameMs).toBe(300);
     expect(snapshot.jsHeapMb).toBe(181.5);
+    expect(snapshot.heapMinMb).toBe(160.24);
+    expect(snapshot.heapMaxMb).toBe(205.87);
+    expect(snapshot.hiddenMs).toBe(121);
+    expect(snapshot.visibilityChangeCount).toBe(2);
     expect(snapshot.main.longTaskTotalMs).toBe(120.3);
     expect(snapshot.main.loafTopScripts).toEqual([
-      { url: "https://app/main.js", ms: 61.3 },
+      {
+        url: "https://app/main.js",
+        invoker: "FrameRequestCallback",
+        ms: 61.3,
+      },
     ]);
+    expect(snapshot.net).toEqual({
+      requestCount: 4,
+      transferKb: 120.5,
+      totalMs: 512.3,
+      maxMs: 260.1,
+      topRequests: [{ path: "/api/mine", ms: 260.1, kb: 4.2 }],
+    });
     expect(snapshot.probe?.drawCalls).toBe(120);
     expect(snapshot.probe?.gpuFrameMs).toBe(4.3);
   });
 
   it("tolerates missing browser capabilities", () => {
     const snapshot = buildPerfSnapshot({
+      ...snapshotDefaults,
       seq: 1,
       durationMs: 5_000,
       frameMs: [16, 17, 18],
-      jsHeapMb: null,
       main: mainSample({
         longTaskCount: null,
         longTaskTotalMs: null,
@@ -91,28 +142,50 @@ describe("buildPerfSnapshot", () => {
       probe: null,
     });
     expect(snapshot.jsHeapMb).toBeNull();
+    expect(snapshot.heapMinMb).toBeNull();
+    expect(snapshot.hiddenMs).toBe(0);
     expect(snapshot.main.loafCount).toBeNull();
+    expect(snapshot.net).toBeNull();
     expect(snapshot.probe).toBeNull();
   });
 
   it("caps loaf script attribution to three entries with bounded urls", () => {
     const snapshot = buildPerfSnapshot({
+      ...snapshotDefaults,
       seq: 1,
       durationMs: 5_000,
       frameMs: [16, 17],
-      jsHeapMb: null,
       main: mainSample({
         loafTopScripts: [
-          { url: `https://app/${"a".repeat(400)}.js`, ms: 90 },
-          { url: "https://app/b.js", ms: 50 },
-          { url: "https://app/c.js", ms: 40 },
-          { url: "https://app/d.js", ms: 30 },
+          { url: `https://app/${"a".repeat(400)}.js`, invoker: null, ms: 90 },
+          { url: "https://app/b.js", invoker: null, ms: 50 },
+          { url: "https://app/c.js", invoker: null, ms: 40 },
+          { url: "https://app/d.js", invoker: null, ms: 30 },
         ],
       }),
       probe: null,
     });
     expect(snapshot.main.loafTopScripts).toHaveLength(3);
     expect(snapshot.main.loafTopScripts[0].url.length).toBeLessThanOrEqual(160);
+  });
+});
+
+describe("clampNetworkSample", () => {
+  it("caps request lists and bounds path lengths", () => {
+    const clamped = clampNetworkSample(
+      netSample({
+        topRequests: [
+          { path: `/api/${"x".repeat(400)}`, ms: 90.55, kb: null },
+          { path: "/api/b", ms: 50, kb: 1.005 },
+          { path: "/api/c", ms: 40, kb: 2 },
+          { path: "/api/d", ms: 30, kb: 3 },
+        ],
+      }),
+    );
+    expect(clamped.topRequests).toHaveLength(3);
+    expect(clamped.topRequests[0].path.length).toBeLessThanOrEqual(120);
+    expect(clamped.topRequests[0].kb).toBeNull();
+    expect(clamped.topRequests[1].kb).toBe(1);
   });
 });
 

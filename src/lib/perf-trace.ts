@@ -43,15 +43,38 @@ export interface PerfProbeSample {
   canvasDiagnostics: Record<string, string>;
 }
 
+export interface PerfLoafScript {
+  url: string;
+  /** LoAF invoker (e.g. FrameRequestCallback, TimerHandler, listener). */
+  invoker: string | null;
+  ms: number;
+}
+
 export interface PerfMainThreadSample {
   longTaskCount: number | null;
   longTaskTotalMs: number | null;
   loafCount: number | null;
   loafTotalMs: number | null;
   loafMaxMs: number | null;
-  loafTopScripts: { url: string; ms: number }[];
+  loafTopScripts: PerfLoafScript[];
   inputEventCount: number | null;
   inputEventMaxMs: number | null;
+}
+
+export interface PerfNetworkRequest {
+  /** Same-origin pathname, or bare origin for cross-origin requests. */
+  path: string;
+  ms: number;
+  kb: number | null;
+}
+
+/** Resource timing rolled up over one snapshot window. */
+export interface PerfNetworkSample {
+  requestCount: number;
+  transferKb: number | null;
+  totalMs: number;
+  maxMs: number;
+  topRequests: PerfNetworkRequest[];
 }
 
 export interface PerfSnapshot extends FrameMetricSummary {
@@ -59,12 +82,22 @@ export interface PerfSnapshot extends FrameMetricSummary {
   durationMs: number;
   stallCount: number;
   jsHeapMb: number | null;
+  /** Heap low/high over the window; a wide span is the GC sawtooth. */
+  heapMinMb: number | null;
+  heapMaxMb: number | null;
+  /** Time the document spent hidden inside this window (app switches). */
+  hiddenMs: number;
+  visibilityChangeCount: number;
   main: PerfMainThreadSample;
+  net: PerfNetworkSample | null;
   probe: PerfProbeSample | null;
 }
 
 const MAX_LOAF_SCRIPTS = 3;
 const MAX_SCRIPT_URL_LENGTH = 160;
+const MAX_INVOKER_LENGTH = 80;
+const MAX_NET_REQUESTS = 3;
+const MAX_NET_PATH_LENGTH = 120;
 const MAX_DIAGNOSTIC_ENTRIES = 20;
 const MAX_DIAGNOSTIC_LENGTH = 32;
 
@@ -81,7 +114,12 @@ export function buildPerfSnapshot(input: {
   durationMs: number;
   frameMs: readonly number[];
   jsHeapMb: number | null;
+  heapMinMb: number | null;
+  heapMaxMb: number | null;
+  hiddenMs: number;
+  visibilityChangeCount: number;
   main: PerfMainThreadSample;
+  net: PerfNetworkSample | null;
   probe: PerfProbeSample | null;
 }): PerfSnapshot {
   const summary = summarizeFrameMetrics(input.frameMs);
@@ -93,6 +131,13 @@ export function buildPerfSnapshot(input: {
       (value) => Number.isFinite(value) && value >= PERF_STALL_FRAME_MS,
     ).length,
     jsHeapMb: finiteOrNull(input.jsHeapMb),
+    heapMinMb: finiteOrNull(input.heapMinMb),
+    heapMaxMb: finiteOrNull(input.heapMaxMb),
+    hiddenMs: Math.max(0, Math.round(finiteOrNull(input.hiddenMs) ?? 0)),
+    visibilityChangeCount: Math.max(
+      0,
+      Math.round(finiteOrNull(input.visibilityChangeCount) ?? 0),
+    ),
     main: {
       longTaskCount: finiteOrNull(input.main.longTaskCount),
       longTaskTotalMs: mapFinite(input.main.longTaskTotalMs, roundTenth),
@@ -103,12 +148,30 @@ export function buildPerfSnapshot(input: {
         .slice(0, MAX_LOAF_SCRIPTS)
         .map((script) => ({
           url: script.url.slice(0, MAX_SCRIPT_URL_LENGTH),
+          invoker: script.invoker
+            ? script.invoker.slice(0, MAX_INVOKER_LENGTH)
+            : null,
           ms: roundTenth(script.ms),
         })),
       inputEventCount: finiteOrNull(input.main.inputEventCount),
       inputEventMaxMs: mapFinite(input.main.inputEventMaxMs, roundTenth),
     },
+    net: input.net ? clampNetworkSample(input.net) : null,
     probe: input.probe ? clampProbeSample(input.probe) : null,
+  };
+}
+
+export function clampNetworkSample(net: PerfNetworkSample): PerfNetworkSample {
+  return {
+    requestCount: Math.max(0, Math.round(finiteOrNull(net.requestCount) ?? 0)),
+    transferKb: mapFinite(net.transferKb, roundTenth),
+    totalMs: roundTenth(finiteOrNull(net.totalMs) ?? 0),
+    maxMs: roundTenth(finiteOrNull(net.maxMs) ?? 0),
+    topRequests: net.topRequests.slice(0, MAX_NET_REQUESTS).map((request) => ({
+      path: request.path.slice(0, MAX_NET_PATH_LENGTH),
+      ms: roundTenth(finiteOrNull(request.ms) ?? 0),
+      kb: mapFinite(request.kb, roundTenth),
+    })),
   };
 }
 

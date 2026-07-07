@@ -66,6 +66,16 @@ const snapshotSchema = z.object({
   longFrameCount: z.number().int().nonnegative().max(100_000),
   stallCount: z.number().int().nonnegative().max(100_000),
   jsHeapMb: optionalFiniteNumber,
+  heapMinMb: optionalFiniteNumber,
+  heapMaxMb: optionalFiniteNumber,
+  hiddenMs: z.number().int().nonnegative().max(600_000).optional().default(0),
+  visibilityChangeCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(10_000)
+    .optional()
+    .default(0),
   main: z.object({
     longTaskCount: optionalCount,
     longTaskTotalMs: optionalMs,
@@ -76,6 +86,7 @@ const snapshotSchema = z.object({
       .array(
         z.object({
           url: z.string().max(160),
+          invoker: optionalShortText(80),
           ms: z.number().finite().nonnegative().max(600_000),
         }),
       )
@@ -83,6 +94,34 @@ const snapshotSchema = z.object({
     inputEventCount: optionalCount,
     inputEventMaxMs: optionalMs,
   }),
+  net: z
+    .object({
+      requestCount: z.number().int().nonnegative().max(1_000_000),
+      transferKb: z
+        .union([z.number().finite().nonnegative().max(100_000_000), z.null()])
+        .optional()
+        .transform((value) => value ?? null),
+      totalMs: z.number().finite().nonnegative().max(100_000_000),
+      maxMs: z.number().finite().nonnegative().max(600_000),
+      topRequests: z
+        .array(
+          z.object({
+            path: z.string().max(120),
+            ms: z.number().finite().nonnegative().max(600_000),
+            kb: z
+              .union([
+                z.number().finite().nonnegative().max(10_000_000),
+                z.null(),
+              ])
+              .optional()
+              .transform((value) => value ?? null),
+          }),
+        )
+        .max(3),
+    })
+    .nullable()
+    .optional()
+    .transform((value) => value ?? null),
   probe: probeSchema.nullable(),
 });
 
@@ -133,6 +172,7 @@ export async function POST(request: Request): Promise<Response> {
       lightsByType: snapshot.probe?.lightsByType ?? {},
       canvasDiagnostics: snapshot.probe?.canvasDiagnostics ?? {},
       loafTopScripts: snapshot.main.loafTopScripts,
+      netTopRequests: snapshot.net?.topRequests ?? [],
       spriteCount: snapshot.probe?.spriteCount ?? null,
     });
     return sql`
@@ -149,7 +189,9 @@ export async function POST(request: Request): Promise<Response> {
         mesh_count, instanced_mesh_count, instance_count,
         light_count, shadow_light_count, particle_count,
         visible_object_count, material_count,
-        js_heap_mb,
+        js_heap_mb, heap_min_mb, heap_max_mb,
+        hidden_ms, visibility_change_count,
+        net_request_count, net_transfer_kb, net_total_ms, net_max_ms,
         long_task_count, long_task_total_ms,
         loaf_count, loaf_total_ms, loaf_max_ms,
         input_event_count, input_event_max_ms,
@@ -181,7 +223,12 @@ export async function POST(request: Request): Promise<Response> {
         ${snapshot.probe?.particleCount ?? null},
         ${snapshot.probe?.visibleObjectCount ?? null},
         ${snapshot.probe?.materialCount ?? null},
-        ${snapshot.jsHeapMb},
+        ${snapshot.jsHeapMb}, ${snapshot.heapMinMb}, ${snapshot.heapMaxMb},
+        ${snapshot.hiddenMs}, ${snapshot.visibilityChangeCount},
+        ${snapshot.net?.requestCount ?? null},
+        ${snapshot.net?.transferKb ?? null},
+        ${snapshot.net?.totalMs ?? null},
+        ${snapshot.net?.maxMs ?? null},
         ${snapshot.main.longTaskCount}, ${snapshot.main.longTaskTotalMs},
         ${snapshot.main.loafCount}, ${snapshot.main.loafTotalMs},
         ${snapshot.main.loafMaxMs},

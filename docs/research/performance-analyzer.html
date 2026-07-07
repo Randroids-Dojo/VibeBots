@@ -82,6 +82,35 @@
   </ul>
 </section>
 
+<section id="root-cause-drilldown">
+  <h2>Root-cause drilldown (2026-07-07 slice)</h2>
+  <p>The first real data run answered "is it slow" but not "why". A real phone session (Mali <code>arm valhall</code>, mine webgl2/low) showed a locked 60 fps steady state with an isolated 1.4 s frame, and the stored rows could not say whether that stall was script, GC, network, scene load, or an app switch. This slice closes that gap.</p>
+
+  <h3>What each snapshot window now records</h3>
+  <ul>
+    <li><strong>Network</strong>: a resource-timing rollup (request count, transfer KB, total and max duration) plus the top three slowest requests. Paths are same-origin pathnames with query strings stripped; cross-origin requests record the bare origin; the collector's own <code>/api/performance/trace</code> uploads are excluded. Answers "was a fetch in flight when the frame died".</li>
+    <li><strong>GC proxy</strong>: JS heap sampled once per second inside the window, stored as <code>heap_min_mb</code>/<code>heap_max_mb</code>. A wide span whose end value falls back down is the collector-visible GC sawtooth; there is no direct GC observer on the web platform.</li>
+    <li><strong>Visibility</strong>: <code>hidden_ms</code> and <code>visibility_change_count</code> per window. A "stall" that overlaps hidden time is an app switch or screen-off, not jank, and must not be chased as a rendering bug.</li>
+    <li><strong>LoAF invoker</strong>: top scripts now carry the LoAF <code>invoker</code> (e.g. <code>FrameRequestCallback</code>, <code>TimerHandler</code>, an event listener name) beside the source URL, because hashed chunk URLs alone under-identify the culprit.</li>
+    <li>Scene composition (draw calls, triangles, meshes, instances, lights, particles, materials, mine canvas diagnostics) was already per-snapshot from the first slice; "too many objects/vertices" hypotheses read straight from those factor columns.</li>
+  </ul>
+
+  <h3>Reliable build id</h3>
+  <p><code>app_build</code> previously came from <code>git rev-list --count HEAD</code> at request time: null in deployed functions (no git checkout) and a constant 10 on statically built pages (Vercel's shallow clone). <code>next.config.ts</code> now bakes minutes-since-2026-01-01 UTC at build time and <code>getAppRelease</code> prefers it (git count remains the dev fallback). Build ids are monotonic across deploys, so "filter baselines to post-fix builds" and per-build A/B splits work; rows with <code>app_build</code> null or 10 predate the fix.</p>
+
+  <h3>Query path additions</h3>
+  <ul>
+    <li><code>sessions</code>: one rollup per session (prefix, gpu, viewport, DPR, tier, variant, build, totals for stalls, long frames, LoAF, long tasks, hidden time, network; heap range; worst/max frame) with a <code>softwareRenderer</code> flag so SwiftShader/llvmpipe harness sessions label themselves.</li>
+    <li><code>?device=real|software</code>: excludes or isolates harness GPUs in every rollup.</li>
+    <li><code>?session=&lt;hex prefix&gt;</code>: narrows the window to one session and returns <code>sessionDetail</code>, the per-snapshot expansion with LoAF scripts, network requests, heap span, hidden time, and canvas diagnostics. This is the surface that turns "session 4d2ecd had a 1.4 s frame" into "chunk X burned 900 ms inside a timer while /api/mine took 400 ms".</li>
+    <li>Worst rows carry the same attribution lists inline.</li>
+  </ul>
+  <p>Privacy stance is unchanged from Q-016 default A: aggregates and anonymized columns only, session ids truncated to 6 hex chars, no player ids, no user agents, and network paths can never carry tokens because query strings are stripped at the collector. The expanded collection is disclosed in the toggle copy and the 0.1.198 release note.</p>
+
+  <h3>Known gap</h3>
+  <p><code>gpuFrameMs</code> exists only on the WebGPU backend (timestamp queries); the webgl2 path has no equivalent wired (three's WebGLRenderer does not expose the disjoint timer query cleanly). CPU-vs-GPU attribution on webgl2 devices is inferred instead: a steady vsync-locked frame time with LoAF/long-task spikes is CPU-side; a p95 wedged above the vsync interval with quiet main-thread observers points at the GPU.</p>
+</section>
+
 <section id="sources">
   <h2>Sources</h2>
   <ul>

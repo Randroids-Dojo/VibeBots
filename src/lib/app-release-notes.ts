@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-06-0.1.197-performance-telemetry";
+export const RELEASE_NOTICE_ID = "2026-07-07-0.1.198-perf-root-cause";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.198",
+      date: "2026-07-07",
+      title: "Sharper slowdown reports",
+      intro: "Performance telemetry can now explain stalls.",
+      changes: [
+        {
+          build,
+          text: "When the optional Performance telemetry toggle is on, reports now also include network request timing (page addresses only, never full links), memory swings, and time the game spent in the background, so one-off freezes can be traced to their real cause. The toggle stays off by default.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.197",
       date: "2026-07-06",

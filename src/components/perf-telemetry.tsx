@@ -9,6 +9,7 @@ import {
 import {
   buildPerfSnapshot,
   type PerfMainThreadSample,
+  type PerfNetworkRequest,
   type PerfSnapshot,
   type PerfSource,
 } from "@/lib/perf-trace";
@@ -125,7 +126,7 @@ interface MainThreadWindow {
   loafCount: number;
   loafTotalMs: number;
   loafMaxMs: number;
-  loafScriptMs: Map<string, number>;
+  loafScripts: Map<string, { ms: number; invoker: string | null }>;
   inputEventCount: number;
   inputEventMaxMs: number;
 }
@@ -137,7 +138,7 @@ function emptyMainThreadWindow(): MainThreadWindow {
     loafCount: 0,
     loafTotalMs: 0,
     loafMaxMs: 0,
-    loafScriptMs: new Map(),
+    loafScripts: new Map(),
     inputEventCount: 0,
     inputEventMaxMs: 0,
   };
@@ -154,10 +155,14 @@ function summarizeMainThreadWindow(
     loafCount: loafSupported ? window.loafCount : null,
     loafTotalMs: loafSupported ? window.loafTotalMs : null,
     loafMaxMs: loafSupported ? window.loafMaxMs : null,
-    loafTopScripts: [...window.loafScriptMs.entries()]
-      .sort((a, b) => b[1] - a[1])
+    loafTopScripts: [...window.loafScripts.entries()]
+      .sort((a, b) => b[1].ms - a[1].ms)
       .slice(0, 3)
-      .map(([url, ms]) => ({ url, ms })),
+      .map(([url, script]) => ({
+        url,
+        invoker: script.invoker,
+        ms: script.ms,
+      })),
     inputEventCount: window.inputEventCount,
     inputEventMaxMs: window.inputEventMaxMs,
   };
@@ -167,6 +172,34 @@ interface LoafScriptEntry {
   duration?: number;
   sourceURL?: string;
   invoker?: string;
+}
+
+interface NetworkWindow {
+  requestCount: number;
+  transferKb: number;
+  totalMs: number;
+  maxMs: number;
+  topRequests: PerfNetworkRequest[];
+}
+
+function emptyNetworkWindow(): NetworkWindow {
+  return {
+    requestCount: 0,
+    transferKb: 0,
+    totalMs: 0,
+    maxMs: 0,
+    topRequests: [],
+  };
+}
+
+/** Same-origin pathname (no query, so no tokens), else bare origin. */
+function resourcePath(name: string): string {
+  try {
+    const url = new URL(name);
+    return url.origin === window.location.origin ? url.pathname : url.origin;
+  } catch {
+    return name.slice(0, 60);
+  }
 }
 
 /**
@@ -266,10 +299,11 @@ export function PerfTelemetry({
         for (const script of scripts ?? []) {
           const url = script.sourceURL || script.invoker || "unknown";
           const ms = script.duration ?? 0;
-          mainWindow.loafScriptMs.set(
-            url,
-            (mainWindow.loafScriptMs.get(url) ?? 0) + ms,
-          );
+          const known = mainWindow.loafScripts.get(url);
+          mainWindow.loafScripts.set(url, {
+            ms: (known?.ms ?? 0) + ms,
+            invoker: script.invoker ?? known?.invoker ?? null,
+          });
         }
       }
     });
@@ -292,6 +326,45 @@ export function PerfTelemetry({
       },
       { durationThreshold: INPUT_EVENT_THRESHOLD_MS } as never,
     );
+    let netWindow = emptyNetworkWindow();
+    const networkSupported = observe("resource", (entries) => {
+      for (const entry of entries) {
+        const resource = entry as PerformanceResourceTiming;
+        const path = resourcePath(resource.name);
+        // The collector's own uploads would otherwise count themselves.
+        if (path === "/api/performance/trace") continue;
+        const ms = resource.duration;
+        const kb =
+          typeof resource.transferSize === "number"
+            ? resource.transferSize / 1024
+            : null;
+        netWindow.requestCount += 1;
+        netWindow.transferKb += kb ?? 0;
+        netWindow.totalMs += ms;
+        netWindow.maxMs = Math.max(netWindow.maxMs, ms);
+        netWindow.topRequests.push({ path, ms, kb });
+        netWindow.topRequests.sort((a, b) => b.ms - a.ms);
+        if (netWindow.topRequests.length > 3) netWindow.topRequests.length = 3;
+      }
+    });
+
+    // Heap low/high inside each window: a wide span with a falling end
+    // value is the GC sawtooth, invisible in a single end-of-window read.
+    let heapMinMb: number | null = null;
+    let heapMaxMb: number | null = null;
+    const trackHeap = () => {
+      const heap = jsHeapMb();
+      if (heap === null) return;
+      heapMinMb = heapMinMb === null ? heap : Math.min(heapMinMb, heap);
+      heapMaxMb = heapMaxMb === null ? heap : Math.max(heapMaxMb, heap);
+    };
+    trackHeap();
+    const heapTimer = window.setInterval(trackHeap, 1_000);
+
+    let hiddenMs = 0;
+    let visibilityChangeCount = 0;
+    let hiddenAt: number | null =
+      document.visibilityState === "hidden" ? performance.now() : null;
 
     const flush = (useBeacon: boolean) => {
       if (buffer.length === 0) return;
@@ -337,6 +410,11 @@ export function PerfTelemetry({
     const takeSnapshot = () => {
       if (cancelled) return;
       const now = performance.now();
+      if (hiddenAt !== null) {
+        hiddenMs += now - hiddenAt;
+        hiddenAt = now;
+      }
+      trackHeap();
       // Two frames is the floor: a device crawling at under 1 fps is
       // exactly the kind of session this telemetry exists to explain.
       if (document.visibilityState === "visible" && frameSamples.length >= 2) {
@@ -347,17 +425,28 @@ export function PerfTelemetry({
             durationMs: now - windowStartedAt,
             frameMs: frameSamples,
             jsHeapMb: jsHeapMb(),
+            heapMinMb,
+            heapMaxMb,
+            hiddenMs,
+            visibilityChangeCount,
             main: summarizeMainThreadWindow(
               mainWindow,
               loafSupported,
               longTaskSupported,
             ),
+            net: networkSupported ? netWindow : null,
             probe: readPerfProbe(source),
           }),
         );
       }
       frameSamples = [];
       mainWindow = emptyMainThreadWindow();
+      netWindow = emptyNetworkWindow();
+      heapMinMb = null;
+      heapMaxMb = null;
+      trackHeap();
+      hiddenMs = 0;
+      visibilityChangeCount = 0;
       windowStartedAt = now;
       previousFrameAt = null;
       if (
@@ -372,9 +461,16 @@ export function PerfTelemetry({
 
     const flushNow = () => flush(true);
     const onVisibilityChange = () => {
+      const now = performance.now();
+      visibilityChangeCount += 1;
       if (document.visibilityState === "hidden") {
+        hiddenAt = now;
         flush(true);
         return;
+      }
+      if (hiddenAt !== null) {
+        hiddenMs += now - hiddenAt;
+        hiddenAt = null;
       }
       // Resuming from background: rAF was paused, so the next frame's
       // delta would span the whole hidden gap and corrupt the window.
@@ -387,6 +483,7 @@ export function PerfTelemetry({
       cancelled = true;
       cancelAnimationFrame(frame);
       window.clearTimeout(snapshotTimer);
+      window.clearInterval(heapTimer);
       for (const observer of observers) observer.disconnect();
       window.removeEventListener("pagehide", flushNow);
       document.removeEventListener("visibilitychange", onVisibilityChange);

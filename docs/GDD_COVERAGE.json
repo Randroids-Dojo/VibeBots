@@ -888,7 +888,7 @@
     },
     {
       "id": "REQ-041",
-      "requirement": "The mine collects lightweight real-session performance samples so old-device glitches and low frame rates can be diagnosed by version, renderer, viewport, hardware hints, draw calls, and frame-time percentiles. Extended 2026-07-06 with the opt-in deep performance analyzer: snapshot traces pairing frame distributions with renderer and scene composition, GPU pass time, main-thread attribution, and memory, across mine, arena, workshop, and holodeck, stored in player_perf_traces with anonymized aggregate insights and A/B variant splits.",
+      "requirement": "The mine collects lightweight real-session performance samples so old-device glitches and low frame rates can be diagnosed by version, renderer, viewport, hardware hints, draw calls, and frame-time percentiles. Extended 2026-07-06 with the opt-in deep performance analyzer: snapshot traces pairing frame distributions with renderer and scene composition, GPU pass time, main-thread attribution, and memory, across mine, arena, workshop, and holodeck, stored in player_perf_traces with anonymized aggregate insights and A/B variant splits. Extended 2026-07-07 with root-cause attribution: network request timing, heap span (GC sawtooth), hidden time and visibility flips, LoAF invoker attribution, a reliable build id, per-session rollups with a software-renderer flag, and session and device filters on the insights endpoint.",
       "gddRef": "docs/gdd/06-mining.html#controls",
       "status": "done",
       "implementationRefs": [

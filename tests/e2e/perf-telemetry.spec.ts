@@ -63,6 +63,21 @@ test.describe("performance telemetry", () => {
     const first = snapshots[0];
     expect(first.frameCount).toBeGreaterThanOrEqual(2);
     expect(first.p95FrameMs).toBeGreaterThan(0);
+    expect(first.hiddenMs).toBeGreaterThanOrEqual(0);
+    expect(first.visibilityChangeCount).toBeGreaterThanOrEqual(0);
+    // Chromium supports resource timing, so the network rollup must be
+    // present, and its request paths must never carry a query string.
+    const net = first.net as {
+      requestCount: number;
+      topRequests: { path: string }[];
+    } | null;
+    expect(net).not.toBeNull();
+    if (net) {
+      expect(net.requestCount).toBeGreaterThanOrEqual(0);
+      for (const request of net.topRequests) {
+        expect(request.path).not.toContain("?");
+      }
+    }
     const probe = first.probe as Record<string, unknown> | null;
     expect(probe).not.toBeNull();
     if (probe) {

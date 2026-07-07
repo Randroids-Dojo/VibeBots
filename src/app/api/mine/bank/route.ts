@@ -19,6 +19,10 @@ import {
   mineConsumablesFromProfile,
 } from "@/server/player";
 import {
+  pushEndpointHashFromRequest,
+  queueSaveSyncPush,
+} from "@/server/save-sync-push";
+import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
   type BasePartId,
@@ -786,6 +790,13 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     // Balance events support tuning, but should not fail a completed cash-out.
   }
+  // Wake the account's other devices so they resync before mining a doomed
+  // trip; the response never waits on push delivery.
+  queueSaveSyncPush({
+    sql,
+    playerId,
+    excludeEndpointHash: pushEndpointHashFromRequest(request),
+  });
   return Response.json({
     credited: {
       credits: trip.bankedCredits,

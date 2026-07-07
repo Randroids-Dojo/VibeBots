@@ -11,3 +11,9 @@ export const TRIP_ALREADY_CASHED_OUT_CODE = "trip_already_cashed_out";
 
 /** The uploaded trip checkpoint runs on an older world than the server's. */
 export const STALE_TRIP_CHECKPOINT_CODE = "stale_trip_checkpoint";
+
+/**
+ * Optional request header carrying a hex sha-256 of the sender's own push
+ * endpoint, so save-sync pushes skip the device that caused the update.
+ */
+export const PUSH_ENDPOINT_HASH_HEADER = "x-vibebots-push-endpoint-hash";

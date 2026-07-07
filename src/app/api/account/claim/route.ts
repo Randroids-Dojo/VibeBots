@@ -10,6 +10,10 @@ import { db, storageConfigured } from "@/server/db";
 import { logAccountLinkEvent } from "@/server/monitoring";
 import { currentPlayerId } from "@/server/player";
 import { sameOriginMutationRequired } from "@/server/request-guards";
+import {
+  pushEndpointHashFromRequest,
+  queueSaveSyncPush,
+} from "@/server/save-sync-push";
 
 export const runtime = "nodejs";
 
@@ -29,7 +33,11 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    return await claimForIdentity(identity, playerId);
+    return await claimForIdentity(
+      identity,
+      playerId,
+      pushEndpointHashFromRequest(request),
+    );
   } catch {
     logAccountLinkEvent({
       code: "claim_failed",
@@ -48,6 +56,7 @@ export async function POST(request: Request): Promise<Response> {
 async function claimForIdentity(
   identity: AccountIdentity,
   playerId: string,
+  excludeEndpointHash: string | null,
 ): Promise<Response> {
   const sql = await db();
   const outcome = await claimFailureResponse(
@@ -67,6 +76,12 @@ async function claimForIdentity(
     playerId,
     targetPlayerId: outcome.result.playerId,
     result: outcome.result.status,
+  });
+  // Wake the account's other devices; they now share this claimed save.
+  queueSaveSyncPush({
+    sql,
+    playerId: outcome.result.playerId,
+    excludeEndpointHash,
   });
   return accountJson({
     mode: "cloud_loaded",

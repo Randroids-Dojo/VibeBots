@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-07-0.1.200-gc-hitches";
+export const RELEASE_NOTICE_ID = "2026-07-07-0.1.201-save-sync-push";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.201",
+      date: "2026-07-07",
+      title: "Other devices get a heads-up",
+      intro: "Banking a run now pings your other devices.",
+      changes: [
+        {
+          build,
+          text: "If notifications are on, your other devices now get a heads-up the moment a run is banked or a save is claimed elsewhere, so picking one up starts with a sync instead of a doomed run. The device that banked stays quiet, repeats replace the old alert, and another open tab in the same browser syncs instantly without any notification.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.200",
       date: "2026-07-07",

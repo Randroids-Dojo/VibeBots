@@ -16,7 +16,7 @@ self.addEventListener("push", (event) => {
       body: payload.body,
       icon: "/icon-192.png",
       badge: "/icon-192.png",
-      tag: payload.noticeId || "vibebots-release",
+      tag: payload.tag || payload.noticeId || "vibebots-release",
       data: { url: payload.url || "/mine" },
     }),
   );

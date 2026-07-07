@@ -231,6 +231,10 @@ async function applySchema(sql: Sql): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     )`;
+  // Existing deployments predate the save-sync push rate-limit column.
+  await sql`
+    ALTER TABLE web_push_subscriptions
+    ADD COLUMN IF NOT EXISTS last_save_sync_at timestamptz`;
   await sql`
     CREATE TABLE IF NOT EXISTS release_push_dispatches (
       notice_id text PRIMARY KEY,

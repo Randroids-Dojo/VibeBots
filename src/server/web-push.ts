@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import webpush, { type PushSubscription } from "web-push";
 import type { AppRelease } from "@/lib/app-release-types";
 import type { db } from "./db";
@@ -245,6 +246,91 @@ export async function sendReleasePushNotifications(
     try {
       await webpush.sendNotification(toWebPushSubscription(target), payload);
       await markReleaseSent(sql, target.endpoint, release.noticeId);
+      result.sent += 1;
+    } catch (error) {
+      if (isExpiredPushError(error)) {
+        await disableWebPushSubscription(sql, target.endpoint);
+        result.expired += 1;
+      } else {
+        result.failed += 1;
+      }
+    }
+  }
+  return result;
+}
+
+export interface SaveSyncPushResult {
+  attempted: number;
+  sent: number;
+  expired: number;
+  failed: number;
+  skipped: number;
+}
+
+export function hashPushEndpoint(endpoint: string): string {
+  return createHash("sha256").update(endpoint).digest("hex");
+}
+
+function saveSyncPayload(): string {
+  return JSON.stringify({
+    type: "save-sync",
+    tag: "vibebots-save-sync",
+    title: "VibeBots save updated",
+    body: "Your save advanced on another device. Open to sync.",
+    url: "/mine",
+  });
+}
+
+/**
+ * Wakes the player's other devices after a save-mutating event (bank,
+ * claim). The tag makes repeats replace instead of stack, the SQL interval
+ * rate-limits per endpoint, and the caller may pass the hex sha-256 of the
+ * originating device's endpoint so it never notifies itself.
+ */
+export async function sendSaveSyncPushToOtherDevices({
+  sql,
+  playerId,
+  excludeEndpointHash,
+}: {
+  sql: Sql;
+  playerId: string;
+  excludeEndpointHash?: string | null;
+}): Promise<SaveSyncPushResult> {
+  const result: SaveSyncPushResult = {
+    attempted: 0,
+    sent: 0,
+    expired: 0,
+    failed: 0,
+    skipped: 0,
+  };
+  if (!configureWebPush()) return result;
+  const targets = (await sql`
+    SELECT endpoint, p256dh, auth
+    FROM web_push_subscriptions
+    WHERE player_id = ${playerId}
+      AND enabled = true
+      AND (
+        last_save_sync_at IS NULL
+        OR last_save_sync_at < now() - interval '2 minutes'
+      )
+    ORDER BY created_at ASC`) as StoredPushSubscription[];
+  const payload = saveSyncPayload();
+  for (const target of targets) {
+    if (
+      excludeEndpointHash &&
+      hashPushEndpoint(target.endpoint) === excludeEndpointHash
+    ) {
+      result.skipped += 1;
+      continue;
+    }
+    result.attempted += 1;
+    try {
+      await webpush.sendNotification(toWebPushSubscription(target), payload);
+      await sql`
+        UPDATE web_push_subscriptions
+        SET last_save_sync_at = now(),
+            updated_at = now()
+        WHERE endpoint = ${target.endpoint}`;
       result.sent += 1;
     } catch (error) {
       if (isExpiredPushError(error)) {

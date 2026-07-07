@@ -252,7 +252,7 @@ export interface MineSessionState {
   finishAccountSignIn: (handoffId: string) => Promise<boolean>;
   claimAccountSave: () => Promise<boolean>;
   loadAccountSave: () => Promise<boolean>;
-  checkWorldFreshness: () => Promise<void>;
+  checkWorldFreshness: (options?: { force?: boolean }) => Promise<void>;
   resolveSaveConflict: (choice: "sync" | "keep") => Promise<void>;
   switchSaveSlot: (
     slot: SaveSlotId,
@@ -310,6 +310,19 @@ function pendingBunkerPayload(
 // Freshness probes are throttled: lifecycle events (focus, visibility,
 // pageshow) can fire in bursts and every probe is a network roundtrip.
 export const FRESHNESS_PROBE_MIN_INTERVAL_MS = 10_000;
+
+/** Same-browser tabs share save updates instantly, no push needed. */
+export const SAVE_SYNC_CHANNEL = "vibebots-save-sync";
+
+function notifySaveSyncPeers(): void {
+  try {
+    const channel = new BroadcastChannel(SAVE_SYNC_CHANNEL);
+    channel.postMessage("save-advanced");
+    channel.close();
+  } catch {
+    // BroadcastChannel unavailable: cross-tab sync falls back to probes.
+  }
+}
 
 export const useMineStore = create<MineSessionState>((set, get) => {
   const seed = randomSeed();
@@ -969,7 +982,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       return true;
     },
 
-    checkWorldFreshness: async () => {
+    checkWorldFreshness: async (options = {}) => {
       const {
         accountSync,
         worldLoaded,
@@ -982,9 +995,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       if (!worldLoaded || accountSync.mode !== "cloud_loaded") return;
       if (saveConflict !== "none") return;
       if (cashOut.state === "pending") return;
+      if (freshnessProbeInFlight) return;
       const now = Date.now();
+      // A forced probe (a peer tab just banked) skips the lifecycle throttle.
       if (
-        freshnessProbeInFlight ||
+        !options.force &&
         now - lastFreshnessProbeAt < FRESHNESS_PROBE_MIN_INTERVAL_MS
       ) {
         return;
@@ -1309,6 +1324,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pendingBunker: null,
       });
       clearAccountTripCheckpoint();
+      // Peer tabs in this browser resync instantly; other devices get the
+      // server's save-sync push.
+      notifySaveSyncPeers();
       const credited = body.credited as Record<string, unknown>;
       set({
         tripBaseDiff: worldDiff,

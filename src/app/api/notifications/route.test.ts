@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-07-0.1.200-gc-hitches",
+      releaseNoticeId: "2026-07-07-0.1.201-save-sync-push",
       releaseSummary:
-        "Fewer freezes while digging: A memory-churn fix for multi-second hitches.",
+        "Other devices get a heads-up: Banking a run now pings your other devices.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-07-0.1.200-gc-hitches",
+      releaseNoticeId: "2026-07-07-0.1.201-save-sync-push",
       attempted: 2,
       sent: 1,
       expired: 1,

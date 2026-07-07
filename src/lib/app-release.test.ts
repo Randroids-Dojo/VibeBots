@@ -1,5 +1,27 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import packageJson from "../../package.json";
 import { getAppRelease } from "./app-release";
+
+describe("app release build id", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("prefers the baked build number over git", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_BUILD", "271234");
+    const release = getAppRelease();
+    expect(release.build).toBe(271234);
+    expect(release.version).toBe(`${packageJson.version}.271234`);
+  });
+
+  it("falls back to the git commit count when the baked value is invalid", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_BUILD", "not-a-number");
+    const release = getAppRelease();
+    // Tests run inside a git checkout, so the fallback counts commits.
+    expect(release.build).not.toBeNull();
+    expect(release.build).toBeGreaterThan(0);
+  });
+});
 
 describe("app release notes", () => {
   it("keeps the latest perf-root-cause note complete", () => {

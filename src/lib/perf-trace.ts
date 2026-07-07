@@ -133,10 +133,16 @@ export function buildPerfSnapshot(input: {
     jsHeapMb: finiteOrNull(input.jsHeapMb),
     heapMinMb: finiteOrNull(input.heapMinMb),
     heapMaxMb: finiteOrNull(input.heapMaxMb),
-    hiddenMs: Math.max(0, Math.round(finiteOrNull(input.hiddenMs) ?? 0)),
-    visibilityChangeCount: Math.max(
-      0,
-      Math.round(finiteOrNull(input.visibilityChangeCount) ?? 0),
+    // Hidden time can accumulate across skipped windows while the page
+    // is backgrounded; cap at the trace route's schema ceiling so a
+    // long app switch cannot invalidate the whole upload batch.
+    hiddenMs: Math.min(
+      600_000,
+      Math.max(0, Math.round(finiteOrNull(input.hiddenMs) ?? 0)),
+    ),
+    visibilityChangeCount: Math.min(
+      10_000,
+      Math.max(0, Math.round(finiteOrNull(input.visibilityChangeCount) ?? 0)),
     ),
     main: {
       longTaskCount: finiteOrNull(input.main.longTaskCount),

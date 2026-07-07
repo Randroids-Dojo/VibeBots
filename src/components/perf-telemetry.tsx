@@ -439,6 +439,12 @@ export function PerfTelemetry({
             probe: readPerfProbe(source),
           }),
         );
+        // Hidden time and visibility flips reset only when a snapshot
+        // actually carried them: skipped windows (backgrounded page,
+        // too few frames) would otherwise silently drop app-switch
+        // gaps that span more than one snapshot interval.
+        hiddenMs = 0;
+        visibilityChangeCount = 0;
       }
       frameSamples = [];
       mainWindow = emptyMainThreadWindow();
@@ -446,8 +452,6 @@ export function PerfTelemetry({
       heapMinMb = null;
       heapMaxMb = null;
       trackHeap();
-      hiddenMs = 0;
-      visibilityChangeCount = 0;
       windowStartedAt = now;
       previousFrameAt = null;
       if (

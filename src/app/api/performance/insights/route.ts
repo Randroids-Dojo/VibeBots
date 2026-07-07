@@ -229,7 +229,7 @@ export async function GET(request: Request): Promise<Response> {
       truncated: records.length >= MAX_ROWS,
       ...summarizePerfInsights(rows),
       sessionDetail: session
-        ? summarizePerfSession(rows).slice(0, MAX_SESSION_SNAPSHOTS)
+        ? summarizePerfSession(rows).slice(-MAX_SESSION_SNAPSHOTS)
         : null,
     },
     { headers: { "cache-control": "no-store" } },

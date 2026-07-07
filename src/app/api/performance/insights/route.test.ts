@@ -156,8 +156,23 @@ describe("performance insights API route", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.device).toBe("real");
-    const [strings] = sql.mock.calls[0] as unknown as [TemplateStringsArray];
+    const [strings, ...values] = sql.mock.calls[0] as unknown as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
     expect(strings.join("")).toContain("gpu !~*");
+    expect(values).toContain(true);
+  });
+
+  it("isolates the harness with device=software", async () => {
+    const res = await GET(
+      new Request("http://localhost/api/performance/insights?device=software"),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.device).toBe("software");
+    const [strings] = sql.mock.calls[0] as unknown as [TemplateStringsArray];
+    expect(strings.join("")).toContain("gpu ~*");
   });
 
   it("clamps the hours window and filters by source", async () => {

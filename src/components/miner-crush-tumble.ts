@@ -46,10 +46,12 @@ export interface CrushTumbleState {
   seed: number;
 }
 
-/** The rig's designed crumple, the tumble's final resting pose. Never
- * mutated: advanceCrushTumble copies or blends it into the out pose. */
-const CRUMPLE_REST: MinerPose = {
-  body: {
+/** The rig's designed crumple, the tumble's final resting pose. Deep
+ * frozen: it shares the MinerPose shape with the writable out scratch
+ * buffers, so an accidental write must throw instead of corrupting
+ * every later crush. */
+const CRUMPLE_REST: MinerPose = Object.freeze({
+  body: Object.freeze({
     posX: 0,
     posY: BODY_REST_Y - 0.16,
     rotY: 0,
@@ -57,11 +59,11 @@ const CRUMPLE_REST: MinerPose = {
     scaleX: 1.06,
     scaleY: 0.82,
     scaleZ: 1.04,
-  },
-  legL: { rotX: 0.85, posY: BODY_REST_Y },
-  legR: { rotX: -0.55, posY: BODY_REST_Y },
-  arm: { rotZ: 1.15 },
-};
+  }),
+  legL: Object.freeze({ rotX: 0.85, posY: BODY_REST_Y }),
+  legR: Object.freeze({ rotX: -0.55, posY: BODY_REST_Y }),
+  arm: Object.freeze({ rotZ: 1.15 }),
+});
 
 export function createCrushTumble(seed: number): CrushTumbleState {
   const s = seed - Math.floor(seed);

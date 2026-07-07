@@ -34,7 +34,7 @@ export function sameOriginMutationAllowed(request: Request): boolean {
 export function sameOriginMutationRequired(request: Request): Response | null {
   if (sameOriginMutationAllowed(request)) return null;
   return accountJson(
-    { error: "same-origin request required" },
+    { error: "same-origin request required", code: "same_origin_required" },
     { status: 403 },
   );
 }

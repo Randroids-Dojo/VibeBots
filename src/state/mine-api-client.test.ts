@@ -49,16 +49,23 @@ describe("mine API client", () => {
     );
   });
 
-  it("normalizes account route errors from response bodies", () => {
+  it("maps account error codes to player copy, prose to the fallback", () => {
+    expect(
+      accountErrorMessageFromResponse(
+        { error: "anything", code: "guest_save_not_found" },
+        "claim failed",
+      ),
+    ).toBe("guest save not found");
+    // Prose without a code never drives copy: the wording is not a contract.
     expect(
       accountErrorMessageFromResponse(
         { error: "guest save not found" },
         "claim failed",
       ),
-    ).toBe("guest save not found");
+    ).toBe("claim failed");
     expect(
       accountErrorMessageFromResponse(
-        { error: "internal database stack" },
+        { error: "boom", code: "not_a_real_code" },
         "claim failed",
       ),
     ).toBe("claim failed");

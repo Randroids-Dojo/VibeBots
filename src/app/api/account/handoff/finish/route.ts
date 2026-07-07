@@ -37,11 +37,17 @@ export async function POST(request: Request): Promise<Response> {
     requestAccountSessionProvider(request),
   );
   if (!identity) {
-    return accountJson({ error: "account sign-in required" }, { status: 401 });
+    return accountJson(
+      { error: "account sign-in required", code: "sign_in_required" },
+      { status: 401 },
+    );
   }
   const handoffId = await handoffIdFromRequest(request);
   if (!handoffId) {
-    return accountJson({ error: "handoff id required" }, { status: 400 });
+    return accountJson(
+      { error: "handoff id required", code: "handoff_id_required" },
+      { status: 400 },
+    );
   }
   const activePlayerId = await currentPlayerId();
   if (!activePlayerId) {
@@ -51,7 +57,10 @@ export async function POST(request: Request): Promise<Response> {
       provider: identity.provider,
       subject: identity.subject,
     });
-    return accountJson({ error: "guest save required" }, { status: 409 });
+    return accountJson(
+      { error: "guest save required", code: "guest_save_required" },
+      { status: 409 },
+    );
   }
 
   const sql = await db();
@@ -64,7 +73,7 @@ export async function POST(request: Request): Promise<Response> {
       subject: identity.subject,
     });
     return accountJson(
-      { error: "handoff expired or already used" },
+      { error: "handoff expired or already used", code: "handoff_expired" },
       { status: 410 },
     );
   }

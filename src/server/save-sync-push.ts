@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { PUSH_ENDPOINT_HASH_HEADER } from "@/lib/mine-api-codes";
+import { PUSH_ENDPOINT_HASH_HEADER } from "@/lib/api-codes";
 import type { db } from "./db";
 import { sendSaveSyncPushToOtherDevices } from "./web-push";
 

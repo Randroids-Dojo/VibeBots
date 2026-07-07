@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { type AccountErrorCode, accountErrorCode } from "@/lib/api-codes";
 import {
   type BasePartId,
   bunkerCells,
@@ -139,6 +140,8 @@ export type AccountSyncState =
       currentSave: AccountSaveSummary | null;
       accountSave: AccountSaveSummary | null;
       message: string;
+      /** Machine code from the failing response, when one was carried. */
+      code?: AccountErrorCode | null;
     };
 
 function accountSyncFromStatus(
@@ -847,22 +850,23 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return false;
       }
       if (!res.ok) {
+        const code = accountErrorCode(res.body);
         if (res.status === 409) {
-          const message = accountErrorMessageFromResponse(
-            res.body,
-            "sign-in finish failed",
-          );
-          if (message !== "account already has a cloud save") {
-            set({
-              accountSync: {
-                ...current,
-                state: "error",
-                message,
-              },
-            });
+          if (code === "account_cloud_save_exists") {
+            await get().loadAccountStatus();
             return false;
           }
-          await get().loadAccountStatus();
+          set({
+            accountSync: {
+              ...current,
+              state: "error",
+              message: accountErrorMessageFromResponse(
+                res.body,
+                "sign-in finish failed",
+              ),
+              code,
+            },
+          });
           return false;
         }
         set({
@@ -875,6 +879,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
                 : res.status === 410
                   ? "sign-in handoff expired"
                   : "sign-in finish failed",
+            code,
           },
         });
         return false;
@@ -899,17 +904,18 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return false;
       }
       if (!res.ok) {
+        const code = accountErrorCode(res.body);
         if (res.status === 409) {
-          const message = accountErrorMessageFromResponse(
-            res.body,
-            "claim failed",
-          );
-          if (message === "device save belongs to another account") {
+          if (code === "device_save_linked_to_other_account") {
             set({
               accountSync: {
                 ...current,
                 state: "error",
-                message,
+                message: accountErrorMessageFromResponse(
+                  res.body,
+                  "claim failed",
+                ),
+                code,
               },
             });
             return false;
@@ -925,6 +931,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
               res.status === 401
                 ? "sign-in required"
                 : accountErrorMessageFromResponse(res.body, "claim failed"),
+            code,
           },
         });
         return false;

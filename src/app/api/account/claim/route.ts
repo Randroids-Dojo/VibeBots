@@ -25,11 +25,17 @@ export async function POST(request: Request): Promise<Response> {
     requestAccountSessionProvider(request),
   );
   if (!identity) {
-    return accountJson({ error: "account sign-in required" }, { status: 401 });
+    return accountJson(
+      { error: "account sign-in required", code: "sign_in_required" },
+      { status: 401 },
+    );
   }
   const playerId = await currentPlayerId();
   if (!playerId) {
-    return accountJson({ error: "guest save required" }, { status: 409 });
+    return accountJson(
+      { error: "guest save required", code: "guest_save_required" },
+      { status: 409 },
+    );
   }
 
   try {

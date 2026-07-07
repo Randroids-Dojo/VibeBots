@@ -60,6 +60,7 @@ describe("sameOriginMutationAllowed", () => {
     expect(res?.headers.get("Cache-Control")).toBe("no-store");
     await expect(res?.json()).resolves.toEqual({
       error: "same-origin request required",
+      code: "same_origin_required",
     });
   });
 

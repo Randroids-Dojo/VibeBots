@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PUSH_ENDPOINT_HASH_HEADER } from "@/lib/mine-api-codes";
+import { PUSH_ENDPOINT_HASH_HEADER } from "@/lib/api-codes";
 import {
   pushEndpointHashFromRequest,
   queueSaveSyncPush,

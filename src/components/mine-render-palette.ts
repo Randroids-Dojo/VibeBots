@@ -72,11 +72,11 @@ export const STRATA_BG = [
   "#120608",
 ];
 
-/** Rock darkens by tier so the hard gates read at a glance. Exported so
- * the material warm-up can pre-compile every rock tint. */
-export const ROCK_COLORS = ["#555e6e", "#46506a", "#3b3550"];
-export const WINTER_ROCK_COLORS = ["#9fb5c8", "#7f9fb8", "#637f9a"];
-export const TECH_ROCK_COLORS = ["#23483e", "#253f58", "#2b3568"];
+/** Rock darkens by tier so the hard gates read at a glance. Reached
+ * through rockColorsForBiome; the warm-up enumerates via that accessor. */
+const ROCK_COLORS = ["#555e6e", "#46506a", "#3b3550"];
+const WINTER_ROCK_COLORS = ["#9fb5c8", "#7f9fb8", "#637f9a"];
+const TECH_ROCK_COLORS = ["#23483e", "#253f58", "#2b3568"];
 export const CACHE_COLOR = "#f5c542";
 export const BOULDER_COLOR = "#8a7f70";
 export const BOULDER_WOBBLE_COLOR = "#b59f82";

@@ -11,7 +11,12 @@ import {
   type MeshStandardNodeMaterial,
   type PointLight,
 } from "three/webgpu";
-import type { MineBiomeId, MineCell, OreId } from "@/sim/mine";
+import {
+  FALL_DELAY_ACTIONS,
+  type MineBiomeId,
+  type MineCell,
+  type OreId,
+} from "@/sim/mine";
 import { isWebGPUBackend } from "./graphics-quality";
 import {
   BOULDER_BLOCK_GEOMETRY,
@@ -429,6 +434,23 @@ export function OreCrystals({
   return <>{crystals}</>;
 }
 
+/** Actions-remaining until a block drops, mapped to teeter urgency. Clamps
+ * to a 0.2 floor so a distant doom still trembles softly while an imminent
+ * one shakes hard. Lives here with FallingRockShard so the shard glow set
+ * has one home (the mine canvas imports it for the wobble too). */
+export function teeterUrgency(fallIn: number): number {
+  return Math.min(
+    1,
+    Math.max(0.2, (FALL_DELAY_ACTIONS - fallIn + 1) / FALL_DELAY_ACTIONS),
+  );
+}
+
+/** A shard's emissive glow for a teeter urgency: bright while counting
+ * down, dim once settled. One source for FallingRockShard and the warm-up. */
+function shardGlow(urgency: number): number {
+  return urgency > 0 ? 0.2 + 0.55 * urgency : 0.05;
+}
+
 // Shared shard geometry and materials so a teetering/fallen rock mounts
 // allocation-free (dispose={null} is safe: geometry and material are both
 // shared singletons). The glow caches stay bounded because teeterUrgency,
@@ -436,7 +458,7 @@ export function OreCrystals({
 const SHARD_MAIN_GEOMETRY = new ConeGeometry(0.48, 0.92, 5);
 const SHARD_SIDE_GEOMETRY = new ConeGeometry(0.18, 0.45, 4);
 const SHARD_CHUNK_GEOMETRY = new BoxGeometry(0.18, 0.52, 0.2);
-export const SHARD_CHUNK_MATERIAL = new MeshStandardMaterial({
+const SHARD_CHUNK_MATERIAL = new MeshStandardMaterial({
   color: "#4d3637",
   roughness: 0.86,
   flatShading: true,
@@ -445,7 +467,7 @@ const shardMainMaterials = new Map<number, MeshStandardMaterial>();
 const shardSideMaterials = new Map<number, MeshStandardMaterial>();
 
 /** One shared main-shard material per distinct glow (emissive intensity). */
-export function shardMainMaterial(glow: number): MeshStandardMaterial {
+function shardMainMaterial(glow: number): MeshStandardMaterial {
   return getOrCreate(
     shardMainMaterials,
     glow,
@@ -462,7 +484,7 @@ export function shardMainMaterial(glow: number): MeshStandardMaterial {
 }
 
 /** One shared side-shard material per distinct glow (emissive intensity). */
-export function shardSideMaterial(glow: number): MeshStandardMaterial {
+function shardSideMaterial(glow: number): MeshStandardMaterial {
   return getOrCreate(
     shardSideMaterials,
     glow,
@@ -487,7 +509,7 @@ export function FallingRockShard({
   urgency: number;
 }) {
   const tilt = (cellHash(col, row, 83) - 0.5) * 0.7;
-  const glow = urgency > 0 ? 0.2 + 0.55 * urgency : 0.05;
+  const glow = shardGlow(urgency);
   return (
     <group rotation={[0.15, 0, tilt]}>
       <mesh
@@ -513,6 +535,22 @@ export function FallingRockShard({
       />
     </group>
   );
+}
+
+/** Every shard material the mine can show, for the load-time warm-up: the
+ * chunk plus the main and side materials at each glow FallingRockShard uses
+ * (settled, and across the discrete teeter countdown). Owns the glow
+ * enumeration so the warm-up never re-derives the formula. */
+export function collectShardMaterials(): MeshStandardMaterial[] {
+  const glows = new Set<number>([shardGlow(0)]);
+  for (let fallIn = 1; fallIn <= FALL_DELAY_ACTIONS + 1; fallIn++) {
+    glows.add(shardGlow(teeterUrgency(fallIn)));
+  }
+  const materials: MeshStandardMaterial[] = [SHARD_CHUNK_MATERIAL];
+  for (const glow of glows) {
+    materials.push(shardMainMaterial(glow), shardSideMaterial(glow * 0.7));
+  }
+  return materials;
 }
 
 /** A buried supply crate: timber box with glowing gold straps. */

@@ -14,6 +14,7 @@ import type {
   Camera,
   DirectionalLight,
   HemisphereLight,
+  Material,
   Object3D,
   PointLight,
 } from "three/webgpu";
@@ -30,6 +31,8 @@ import {
 } from "three/webgpu";
 import {
   clampMineCameraZoom,
+  DARKNESS_CAP_FAR_OPACITY,
+  DARKNESS_CAP_NEAR_OPACITY,
   maxMineCameraZoom,
   mineCameraDistance,
   mineDarknessOpacity,
@@ -48,7 +51,6 @@ import {
   type CollectTarget,
   cellAt,
   ELEVATOR_COL,
-  FALL_DELAY_ACTIONS,
   hitsFor,
   isSupportSalvageTarget,
   lanternDistance,
@@ -87,6 +89,7 @@ import {
   CacheCrate,
   CrackMarks,
   cellRenderSignature,
+  collectShardMaterials,
   crackSegmentCountForDamage,
   DropPileMarkers,
   DroppedBagMarker,
@@ -97,9 +100,7 @@ import {
   instancedBlockBody,
   MineBlockBody,
   OreCrystals,
-  SHARD_CHUNK_MATERIAL,
-  shardMainMaterial,
-  shardSideMaterial,
+  teeterUrgency,
 } from "./mine-block-render";
 import { type BunkerBuildMode, BunkerOverlay } from "./mine-bunker-overlay";
 import {
@@ -318,22 +319,10 @@ function darknessMaterial(opacity: number): MeshBasicMaterial {
   );
 }
 
-// Tiny offscreen warm-up meshes: one per material so the renderer compiles
-// every shader program once at mine load instead of hitching on first draw
-// mid-play. Geometry and instance matrix are shared across all of them.
+// Tiny offscreen warm-up mesh geometry, shared across every warm mesh so
+// the renderer compiles each material's program once at load, not on first
+// draw mid-play.
 const WARMUP_GEOMETRY = new BoxGeometry(0.001, 0.001, 0.001);
-const WARMUP_MATRIX = new Matrix4();
-
-/** Discrete shard glows FallingRockShard can show: 0.05 when settled, else
- * 0.2 + 0.55 * urgency across the teeter countdown. Kept in sync with
- * FallingRockShard so the warm-up compiles the exact glow materials. */
-function warmupShardGlows(): number[] {
-  const glows = new Set<number>([0.05]);
-  for (let fallIn = 1; fallIn <= 8; fallIn++) {
-    glows.add(0.2 + 0.55 * teeterUrgency(fallIn));
-  }
-  return [...glows];
-}
 
 /** Build one offscreen warm mesh per material and compile them all in one
  * pass, so first-use shader compilation is paid at load, not per action.
@@ -347,32 +336,28 @@ function warmMineMaterials(
 ): () => void {
   const group = new Group();
   group.position.set(0, 0, -500);
-  const addRegular = (material: MeshBasicMaterial | MeshStandardMaterial) => {
+  const addWarm = (material: Material) => {
     group.add(new Mesh(WARMUP_GEOMETRY, material));
   };
   for (const material of collectInstancedBodyMaterials(detail)) {
-    const mesh = new InstancedMesh(WARMUP_GEOMETRY, material, 1);
-    mesh.setMatrixAt(0, WARMUP_MATRIX);
-    group.add(mesh);
+    group.add(new InstancedMesh(WARMUP_GEOMETRY, material, 1));
   }
-  for (const material of collectBlockNodeMaterials(detail)) {
-    group.add(new Mesh(WARMUP_GEOMETRY, material));
-  }
-  addRegular(SHARD_CHUNK_MATERIAL);
-  for (const glow of warmupShardGlows()) {
-    addRegular(shardMainMaterial(glow));
-    addRegular(shardSideMaterial(glow * 0.7));
-  }
+  for (const material of collectBlockNodeMaterials(detail)) addWarm(material);
+  for (const material of collectShardMaterials()) addWarm(material);
   for (const materials of [
     LADDER_RAIL_MATERIALS,
     LADDER_RUNG_MATERIALS,
     PLANK_BOARD_MATERIALS,
     PLANK_BEAM_MATERIALS,
   ]) {
-    for (const material of materials) addRegular(material);
+    for (const material of materials) addWarm(material);
   }
-  for (let opacity = 0.3; opacity <= 0.601; opacity += 0.02) {
-    addRegular(darknessMaterial(opacity));
+  // Darkness buckets across the lamp-falloff opacity ramp, in the same 0.02
+  // steps the darkness cache buckets by, derived from the camera caps.
+  const nearBucket = Math.round(DARKNESS_CAP_NEAR_OPACITY * 50);
+  const farBucket = Math.round(DARKNESS_CAP_FAR_OPACITY * 50);
+  for (let bucket = nearBucket; bucket <= farBucket; bucket++) {
+    addWarm(darknessMaterial(bucket / 50));
   }
   scene.add(group);
   let disposed = false;
@@ -385,28 +370,16 @@ function warmMineMaterials(
         (child as InstancedMesh).dispose();
       }
     }
+    group.clear();
   };
   try {
     const compiled = gl.compileAsync?.(scene, camera);
-    if (compiled && typeof compiled.then === "function") {
-      compiled.then(dispose, dispose);
-    } else {
-      dispose();
-    }
+    if (compiled) compiled.then(dispose, dispose);
+    else dispose();
   } catch {
     dispose();
   }
   return dispose;
-}
-
-/** Span-destabilized ceilings start on a longer countdown than the
- * undercut teeter, so the ramp clamps to a gentle floor instead of
- * going negative: distant dooms tremble softly, imminent ones shake. */
-function teeterUrgency(fallIn: number): number {
-  return Math.min(
-    1,
-    Math.max(0.2, (FALL_DELAY_ACTIONS - fallIn + 1) / FALL_DELAY_ACTIONS),
-  );
 }
 
 /** Build one cell's elements. Module-scope on purpose: the closures

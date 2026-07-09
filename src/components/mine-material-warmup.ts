@@ -27,17 +27,19 @@ import {
   GLOWING_ORES,
   METAL_COLOR,
   ORE_COLORS,
-  ROCK_COLORS,
+  rockColorsForBiome,
   STRATA_DIRT,
   TECH_DIRT_BAND,
-  TECH_ROCK_COLORS,
   tunnelColorForBiome,
   WINTER_DIRT_BAND,
-  WINTER_ROCK_COLORS,
 } from "./mine-render-palette";
 
 const DIRT_TINTS = [...STRATA_DIRT, ...WINTER_DIRT_BAND, ...TECH_DIRT_BAND];
-const ROCK_TINTS = [...ROCK_COLORS, ...WINTER_ROCK_COLORS, ...TECH_ROCK_COLORS];
+const ROCK_TINTS = [
+  ...rockColorsForBiome("default"),
+  ...rockColorsForBiome("winter"),
+  ...rockColorsForBiome("highTech"),
+];
 const TUNNEL_TINTS = [
   tunnelColorForBiome("default"),
   tunnelColorForBiome("winter"),
@@ -71,13 +73,8 @@ export function collectInstancedBodyMaterials(
 export function collectBlockNodeMaterials(
   detail: boolean,
 ): MeshStandardNodeMaterial[] {
-  const materials: MeshStandardNodeMaterial[] = [];
-  for (const tint of DIRT_TINTS)
-    materials.push(dirtBlockMaterial(tint, detail));
-  for (const tint of ROCK_TINTS)
-    materials.push(rockBlockMaterial(tint, detail));
+  const materials = collectInstancedBodyMaterials(detail);
   for (const tint of TUNNEL_TINTS) materials.push(tunnelFloorMaterial(tint));
-  materials.push(metalBlockMaterial(METAL_COLOR, detail));
   materials.push(gasBlockMaterial(GAS_COLOR, detail));
   materials.push(boulderBlockMaterial(BOULDER_COLOR, detail));
   for (const ore of Object.keys(ORE_COLORS) as OreId[]) {

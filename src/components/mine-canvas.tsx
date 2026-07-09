@@ -2,20 +2,28 @@
 
 import { RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { type ReactElement, useCallback, useLayoutEffect, useRef } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import type {
   AmbientLight,
+  Camera,
   DirectionalLight,
-  Group,
   HemisphereLight,
-  InstancedMesh,
-  Mesh,
+  Object3D,
   PointLight,
 } from "three/webgpu";
 import {
   BoxGeometry,
   Color,
+  Group,
+  InstancedMesh,
   Matrix4,
+  Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
@@ -89,6 +97,9 @@ import {
   instancedBlockBody,
   MineBlockBody,
   OreCrystals,
+  SHARD_CHUNK_MATERIAL,
+  shardMainMaterial,
+  shardSideMaterial,
 } from "./mine-block-render";
 import { type BunkerBuildMode, BunkerOverlay } from "./mine-bunker-overlay";
 import {
@@ -98,6 +109,10 @@ import {
   useMineDeathPlaybackBridge,
 } from "./mine-death-playback";
 import { InstancedBlockGrid } from "./mine-instanced-grid";
+import {
+  collectBlockNodeMaterials,
+  collectInstancedBodyMaterials,
+} from "./mine-material-warmup";
 import { MinerBot } from "./mine-miner-render";
 import {
   type MotionTrack,
@@ -301,6 +316,87 @@ function darknessMaterial(opacity: number): MeshBasicMaterial {
         depthWrite: false,
       }),
   );
+}
+
+// Tiny offscreen warm-up meshes: one per material so the renderer compiles
+// every shader program once at mine load instead of hitching on first draw
+// mid-play. Geometry and instance matrix are shared across all of them.
+const WARMUP_GEOMETRY = new BoxGeometry(0.001, 0.001, 0.001);
+const WARMUP_MATRIX = new Matrix4();
+
+/** Discrete shard glows FallingRockShard can show: 0.05 when settled, else
+ * 0.2 + 0.55 * urgency across the teeter countdown. Kept in sync with
+ * FallingRockShard so the warm-up compiles the exact glow materials. */
+function warmupShardGlows(): number[] {
+  const glows = new Set<number>([0.05]);
+  for (let fallIn = 1; fallIn <= 8; fallIn++) {
+    glows.add(0.2 + 0.55 * teeterUrgency(fallIn));
+  }
+  return [...glows];
+}
+
+/** Build one offscreen warm mesh per material and compile them all in one
+ * pass, so first-use shader compilation is paid at load, not per action.
+ * Instanced-body materials warm on an InstancedMesh (a distinct program);
+ * everything else on a plain mesh. Returns a disposer for the temp group. */
+function warmMineMaterials(
+  gl: { compileAsync?: (scene: Object3D, camera: Camera) => Promise<unknown> },
+  scene: Object3D,
+  camera: Camera,
+  detail: boolean,
+): () => void {
+  const group = new Group();
+  group.position.set(0, 0, -500);
+  const addRegular = (material: MeshBasicMaterial | MeshStandardMaterial) => {
+    group.add(new Mesh(WARMUP_GEOMETRY, material));
+  };
+  for (const material of collectInstancedBodyMaterials(detail)) {
+    const mesh = new InstancedMesh(WARMUP_GEOMETRY, material, 1);
+    mesh.setMatrixAt(0, WARMUP_MATRIX);
+    group.add(mesh);
+  }
+  for (const material of collectBlockNodeMaterials(detail)) {
+    group.add(new Mesh(WARMUP_GEOMETRY, material));
+  }
+  addRegular(SHARD_CHUNK_MATERIAL);
+  for (const glow of warmupShardGlows()) {
+    addRegular(shardMainMaterial(glow));
+    addRegular(shardSideMaterial(glow * 0.7));
+  }
+  for (const materials of [
+    LADDER_RAIL_MATERIALS,
+    LADDER_RUNG_MATERIALS,
+    PLANK_BOARD_MATERIALS,
+    PLANK_BEAM_MATERIALS,
+  ]) {
+    for (const material of materials) addRegular(material);
+  }
+  for (let opacity = 0.3; opacity <= 0.601; opacity += 0.02) {
+    addRegular(darknessMaterial(opacity));
+  }
+  scene.add(group);
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    scene.remove(group);
+    for (const child of group.children) {
+      if ((child as InstancedMesh).isInstancedMesh) {
+        (child as InstancedMesh).dispose();
+      }
+    }
+  };
+  try {
+    const compiled = gl.compileAsync?.(scene, camera);
+    if (compiled && typeof compiled.then === "function") {
+      compiled.then(dispose, dispose);
+    } else {
+      dispose();
+    }
+  } catch {
+    dispose();
+  }
+  return dispose;
 }
 
 /** Span-destabilized ceilings start on a longer countdown than the
@@ -930,6 +1026,10 @@ function MineScene({
   // Shader-detail tier for the instanced block materials (matches
   // useBlockDetail: high quality AND the live WebGPU backend).
   const detail = blockDetailEnabled(webgpuBackend);
+  // Renderer/scene/camera for the one-time material warm-up below.
+  const gl = useThree((state) => state.gl);
+  const scene = useThree((state) => state.scene);
+  const camera = useThree((state) => state.camera);
   const { fallPlayback, fallWindow, clearFallPlayback } =
     useMineDeathPlaybackBridge(lastResult, tick);
   const renderedCellCountRef = useRef(0);
@@ -1620,6 +1720,16 @@ function MineScene({
       instancedGridRef.current = null;
     };
   }, []);
+
+  // Pre-compile every mine material once at load so first-use shader
+  // compilation stops hitching a frame mid-play (the residual fall/crush/
+  // descent stall real-device telemetry pinned to FrameRequestCallback,
+  // present on desktop too, i.e. compilation, not GC). Best-effort: if the
+  // renderer lacks compileAsync or it throws, materials just compile lazily
+  // as before. Re-runs only if the detail tier flips (a quality change).
+  useEffect(() => {
+    return warmMineMaterials(gl, scene, camera, detail);
+  }, [gl, scene, camera, detail]);
 
   const stratumIndex = Math.min(
     STRATA.indexOf(stratumAt(minerRow)),

@@ -436,7 +436,7 @@ export function OreCrystals({
 const SHARD_MAIN_GEOMETRY = new ConeGeometry(0.48, 0.92, 5);
 const SHARD_SIDE_GEOMETRY = new ConeGeometry(0.18, 0.45, 4);
 const SHARD_CHUNK_GEOMETRY = new BoxGeometry(0.18, 0.52, 0.2);
-const SHARD_CHUNK_MATERIAL = new MeshStandardMaterial({
+export const SHARD_CHUNK_MATERIAL = new MeshStandardMaterial({
   color: "#4d3637",
   roughness: 0.86,
   flatShading: true,
@@ -445,7 +445,7 @@ const shardMainMaterials = new Map<number, MeshStandardMaterial>();
 const shardSideMaterials = new Map<number, MeshStandardMaterial>();
 
 /** One shared main-shard material per distinct glow (emissive intensity). */
-function shardMainMaterial(glow: number): MeshStandardMaterial {
+export function shardMainMaterial(glow: number): MeshStandardMaterial {
   return getOrCreate(
     shardMainMaterials,
     glow,
@@ -462,7 +462,7 @@ function shardMainMaterial(glow: number): MeshStandardMaterial {
 }
 
 /** One shared side-shard material per distinct glow (emissive intensity). */
-function shardSideMaterial(glow: number): MeshStandardMaterial {
+export function shardSideMaterial(glow: number): MeshStandardMaterial {
   return getOrCreate(
     shardSideMaterials,
     glow,

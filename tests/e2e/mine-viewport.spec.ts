@@ -422,7 +422,20 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
     })
     .not.toBeNull();
 
+  // Underground the lantern is the only light, so the circular fog of war
+  // is on at the default view (F-055, F-065): cells past the lantern reach
+  // are obscured without waiting for the zoom-out cap.
+  await digTo(page, 6);
   const startZoom = Number(await canvas.getAttribute("data-cam-zoom"));
+  const readDarkness = async () => ({
+    min: Number(await canvas.getAttribute("data-darkness-opacity-min")),
+    max: Number(await canvas.getAttribute("data-darkness-opacity-max")),
+  });
+  await expect
+    .poll(async () => (await readDarkness()).max, { timeout: 5_000 })
+    .toBeGreaterThan(0);
+  expect((await readDarkness()).max).toBeLessThanOrEqual(0.57);
+
   await page.mouse.move(500, 380);
   await page.mouse.wheel(0, -600);
   await expect
@@ -430,8 +443,11 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
       timeout: 5_000,
     })
     .toBeLessThan(startZoom);
-  await expect(canvas).toHaveAttribute("data-darkness-opacity-min", "0.00");
-  await expect(canvas).toHaveAttribute("data-darkness-opacity-max", "0.00");
+  // Zooming in keeps the falloff on; the lit circle simply fills more of
+  // the view.
+  const zoomedInDark = await readDarkness();
+  expect(zoomedInDark.max).toBeGreaterThan(0);
+  expect(zoomedInDark.max).toBeLessThanOrEqual(0.57);
 
   for (let i = 0; i < 8; i++) {
     await page.mouse.wheel(0, 600);
@@ -452,16 +468,11 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
     "data-render-max-col",
     String(START_COL + 5),
   );
-  const minDarkness = Number(
-    await canvas.getAttribute("data-darkness-opacity-min"),
-  );
-  const maxDarkness = Number(
-    await canvas.getAttribute("data-darkness-opacity-max"),
-  );
-  expect(minDarkness).toBeGreaterThanOrEqual(0.44);
-  expect(minDarkness).toBeLessThanOrEqual(0.45);
-  expect(maxDarkness).toBeGreaterThanOrEqual(0.56);
-  expect(maxDarkness).toBeLessThanOrEqual(0.57);
+  const zoomedOutDark = await readDarkness();
+  expect(zoomedOutDark.min).toBeGreaterThan(0);
+  expect(zoomedOutDark.max).toBeGreaterThan(zoomedOutDark.min);
+  expect(zoomedOutDark.max).toBeLessThanOrEqual(0.57);
+  expect(zoomedOutDark.max).toBeGreaterThanOrEqual(0.5);
 });
 
 test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
@@ -568,17 +579,27 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
     })
     .not.toBeNull();
 
+  // Underground, the lantern fog of war is present at the default view
+  // now (F-065), not only at the zoom-out cap.
+  await digTo(page, 6);
   const startZoom = Number(await canvas.getAttribute("data-cam-zoom"));
-  await expect(canvas).toHaveAttribute("data-darkness-opacity-min", "0.00");
-  await expect(canvas).toHaveAttribute("data-darkness-opacity-max", "0.00");
+  await expect
+    .poll(
+      async () =>
+        Number(await canvas.getAttribute("data-darkness-opacity-max")),
+      { timeout: 5_000 },
+    )
+    .toBeGreaterThan(0);
   await zoomOut.click();
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-cam-zoom")), {
       timeout: 5_000,
     })
     .toBeGreaterThan(startZoom);
-  await expect(canvas).toHaveAttribute("data-darkness-opacity-min", "0.00");
-  await expect(canvas).toHaveAttribute("data-darkness-opacity-max", "0.00");
+  // The falloff stays on through the zoom step.
+  expect(
+    Number(await canvas.getAttribute("data-darkness-opacity-max")),
+  ).toBeGreaterThan(0);
 
   await zoomOut.click();
   await expect(zoomOut).toBeDisabled();
@@ -592,10 +613,10 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
   const maxDarkness = Number(
     await canvas.getAttribute("data-darkness-opacity-max"),
   );
-  expect(minDarkness).toBeGreaterThanOrEqual(0.44);
-  expect(minDarkness).toBeLessThanOrEqual(0.45);
-  expect(maxDarkness).toBeGreaterThanOrEqual(0.56);
+  expect(minDarkness).toBeGreaterThan(0);
+  expect(maxDarkness).toBeGreaterThan(minDarkness);
   expect(maxDarkness).toBeLessThanOrEqual(0.57);
+  expect(maxDarkness).toBeGreaterThanOrEqual(0.5);
   await expect(zoomControls).toHaveAttribute("data-camera-zoom-max", "1.32");
 
   await zoomIn.click();

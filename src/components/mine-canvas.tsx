@@ -33,7 +33,6 @@ import {
   clampMineCameraZoom,
   DARKNESS_CAP_FAR_OPACITY,
   DARKNESS_CAP_NEAR_OPACITY,
-  maxMineCameraZoom,
   mineCameraDistance,
   mineDarknessOpacity,
   mineLampDistanceForRadius,
@@ -185,6 +184,21 @@ import { StudioEnvironment } from "./studio-environment";
 import { daylightGradeFor, fogRangeForStratum } from "./time-of-day";
 
 const CAMERA_STEP_SECONDS = 0.28;
+/**
+ * Desktop light trim (F-064). The WebGPU high tier stacks IBL reflections
+ * and additive bloom on top of the same lamp and ambient the phone path
+ * uses, which washed the mine out. Trim the fill and environment there so
+ * the lit area reads without glare; the WebGL2/mobile path has no IBL or
+ * bloom and keeps full strength for readability.
+ */
+const DESKTOP_LIGHT_TRIM = 0.82;
+const DESKTOP_ENV_TRIM = 0.7;
+/**
+ * Rows of descent over which the lantern fog of war fades in (F-065). The
+ * daylit surface village stays clear; a few rows down the lantern is the
+ * only light and cells past its reach fall into fog.
+ */
+const MINE_FOG_FADE_ROWS = 4;
 /** Instance pool sizes per particle kind; spawners cap the live pool at
  * 260 total, so these bound the per-kind bursts. */
 const PARTICLE_CAPACITY = { spark: 96, debris: 192, dust: 96 } as const;
@@ -1008,10 +1022,12 @@ function MineScene({
   const renderDistance = (col: number, row: number) =>
     Math.max(Math.abs(col - displayCol), Math.max(0, row - minerRow));
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
-  const maxCameraZoom = maxMineCameraZoom(mine.gear);
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
   const litBelow = lightRadius(mine.gear);
   const lampDistance = mineLampDistanceForRadius(litBelow);
+  // Fog of war belongs to the lantern-lit underground; the surface is
+  // daylit, so fade the falloff in over the first rows of descent (F-065).
+  const fogDepthScale = Math.min(1, minerRow / MINE_FOG_FADE_ROWS);
   const renderRadius = renderWindow.below;
   const renderColRadius = Math.min(renderWindow.cols, renderRadius);
   const firstCol = displayCol - renderColRadius;
@@ -1401,23 +1417,31 @@ function MineScene({
     }
     const grade = timeOfDay.current.grade;
     const day = (1 - depthT) ** 1.7;
-    if (ambientRef.current) ambientRef.current.intensity = 0.07 + 0.48 * day;
+    // The IBL + bloom high tier is the washed-out one (F-064); trim its
+    // fill and environment, leave the mobile/WebGL2 path at full strength.
+    const brightTier = webgpuBackend && graphicsFeatures.postBloom;
+    const lightTrim = brightTier ? DESKTOP_LIGHT_TRIM : 1;
+    const envTrim = brightTier ? DESKTOP_ENV_TRIM : 1;
+    if (ambientRef.current)
+      ambientRef.current.intensity = (0.07 + 0.48 * day) * lightTrim;
     if (hemiRef.current) {
-      hemiRef.current.intensity = 0.5 * day * day;
+      hemiRef.current.intensity = 0.5 * day * day * lightTrim;
       hemiRef.current.color.set(grade.skyColor);
     }
     if (dirRef.current) {
-      dirRef.current.intensity = (0.06 + 1.04 * day) * grade.sunStrength;
+      dirRef.current.intensity =
+        (0.06 + 1.04 * day) * grade.sunStrength * lightTrim;
       dirRef.current.color.set(grade.sunColor);
     }
     setDatasetText(cache, dataset, "timeOfDay", grade.phase);
     // The studio environment is a surface phenomenon: it fades with the
     // daylight so the underground keeps its lamp-lit darkness.
     state.scene.environmentIntensity =
-      graphicsFeatures.environmentIntensity * (0.12 + 0.88 * day);
+      graphicsFeatures.environmentIntensity * (0.12 + 0.88 * day) * envTrim;
     const lamp = lampRef.current;
     if (lamp) {
-      let intensity = (1.0 + 3.8 * depthT) * (1 + (litBelow - 3) * 0.1);
+      let intensity =
+        (1.0 + 3.8 * depthT) * (1 + (litBelow - 3) * 0.1) * lightTrim;
       // The lamp gutters when the trip is nearly out of energy.
       const energy = mine.miner.energy;
       if (minerRow > 0 && energy < 10)
@@ -1801,11 +1825,15 @@ function MineScene({
       // Signature inputs: everything the cell's JSX reads that can
       // change while the cell stays on screen.
       const dynamitePreview = dynamitePreviewSet.has(key);
-      const beyondLight = Math.max(0, distanceFromMiner - litBelow);
+      // Fog of war uses a radial distance so the lantern-lit area reads as
+      // a circle (F-065), independent of the square lanternDistance the
+      // render window culls by.
+      const radialDistance = fallWindow
+        ? distanceFromMiner
+        : Math.hypot(col - displayCol, row - minerRow);
+      const beyondLight = Math.max(0, radialDistance - litBelow);
       const darknessOpacity =
-        beyondLight > 0
-          ? mineDarknessOpacity(beyondLight, cameraZoom, maxCameraZoom)
-          : 0;
+        beyondLight > 0 ? mineDarknessOpacity(beyondLight) * fogDepthScale : 0;
       const oreDamage =
         cell.kind === "ore" && cell.ore && cell.oreRemaining !== undefined
           ? 1 - cell.oreRemaining / oreReserveAt(cell.ore, row)

@@ -25,6 +25,7 @@ import {
   crystalMaterial,
   dirtBlockMaterial,
   gasBlockMaterial,
+  getOrCreate,
   metalBlockMaterial,
   rockBlockMaterial,
 } from "./mine-block-materials";
@@ -428,16 +429,10 @@ export function OreCrystals({
   return <>{crystals}</>;
 }
 
-/**
- * Shared shard geometry and materials (falling-rock lag fix). A teetering
- * or fallen rock renders three meshes; with inline geometry and material
- * JSX, each rock built three GPU buffers and three materials on mount, so
- * a rockfall cascade paid a creation burst in one tick and scrolling past
- * the settled rubble re-paid it. These module singletons make a shard
- * mount allocation-free, and `dispose={null}` is correct because geometry
- * and material are both shared. The emissive caches stay bounded because
- * teeterUrgency (and so glow) is discrete: fallIn is a small integer.
- */
+// Shared shard geometry and materials so a teetering/fallen rock mounts
+// allocation-free (dispose={null} is safe: geometry and material are both
+// shared singletons). The glow caches stay bounded because teeterUrgency,
+// hence glow, is discrete (fallIn is a small integer).
 const SHARD_MAIN_GEOMETRY = new ConeGeometry(0.48, 0.92, 5);
 const SHARD_SIDE_GEOMETRY = new ConeGeometry(0.18, 0.45, 4);
 const SHARD_CHUNK_GEOMETRY = new BoxGeometry(0.18, 0.52, 0.2);
@@ -451,35 +446,35 @@ const shardSideMaterials = new Map<number, MeshStandardMaterial>();
 
 /** One shared main-shard material per distinct glow (emissive intensity). */
 function shardMainMaterial(glow: number): MeshStandardMaterial {
-  let material = shardMainMaterials.get(glow);
-  if (!material) {
-    material = new MeshStandardMaterial({
-      color: "#7d4a3c",
-      emissive: TEETER_EMISSIVE,
-      emissiveIntensity: glow,
-      roughness: 0.72,
-      metalness: 0.08,
-      flatShading: true,
-    });
-    shardMainMaterials.set(glow, material);
-  }
-  return material;
+  return getOrCreate(
+    shardMainMaterials,
+    glow,
+    () =>
+      new MeshStandardMaterial({
+        color: "#7d4a3c",
+        emissive: TEETER_EMISSIVE,
+        emissiveIntensity: glow,
+        roughness: 0.72,
+        metalness: 0.08,
+        flatShading: true,
+      }),
+  );
 }
 
 /** One shared side-shard material per distinct glow (emissive intensity). */
 function shardSideMaterial(glow: number): MeshStandardMaterial {
-  let material = shardSideMaterials.get(glow);
-  if (!material) {
-    material = new MeshStandardMaterial({
-      color: "#a45f43",
-      emissive: TEETER_EMISSIVE,
-      emissiveIntensity: glow,
-      roughness: 0.7,
-      flatShading: true,
-    });
-    shardSideMaterials.set(glow, material);
-  }
-  return material;
+  return getOrCreate(
+    shardSideMaterials,
+    glow,
+    () =>
+      new MeshStandardMaterial({
+        color: "#a45f43",
+        emissive: TEETER_EMISSIVE,
+        emissiveIntensity: glow,
+        roughness: 0.7,
+        flatShading: true,
+      }),
+  );
 }
 
 export function FallingRockShard({

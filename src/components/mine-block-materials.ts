@@ -82,17 +82,24 @@ export function grainNoise(scale: number) {
   return mx_noise_float(positionWorld.xyz.mul(scale));
 }
 
+/** Get-or-build a value in a keyed cache. Shared by every mine material
+ * cache (node materials here, the plain shard and darkness materials in
+ * the render modules) so the memo idiom lives in one place. */
+export function getOrCreate<K, V>(map: Map<K, V>, key: K, build: () => V): V {
+  const hit = map.get(key);
+  if (hit !== undefined) return hit;
+  const value = build();
+  map.set(key, value);
+  return value;
+}
+
 const cache = new Map<string, MeshStandardNodeMaterial>();
 
 export function cached(
   key: string,
   build: () => MeshStandardNodeMaterial,
 ): MeshStandardNodeMaterial {
-  const hit = cache.get(key);
-  if (hit) return hit;
-  const material = build();
-  cache.set(key, material);
-  return material;
+  return getOrCreate(cache, key, build);
 }
 
 /** Recessed tunnel floor: a flat, jittered tone with no grain. Shared per

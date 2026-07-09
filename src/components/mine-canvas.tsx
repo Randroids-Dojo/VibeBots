@@ -45,6 +45,7 @@ import {
   isSupportSalvageTarget,
   lanternDistance,
   lightRadius,
+  type MineBiomeId,
   type MineCell,
   type MineCoord,
   type OreId,
@@ -64,6 +65,7 @@ import {
 } from "./graphics-quality";
 import {
   blockDetailEnabled,
+  getOrCreate,
   tunnelFloorMaterial,
 } from "./mine-block-materials";
 import {
@@ -231,17 +233,9 @@ const instanceBodyScratch: InstancedBlockBody = {
   rotZ: 0,
 };
 
-/**
- * Shared geometry and materials for the planted ladder and plank supports
- * (ladder-lag fix). A ladder cell renders five meshes (two rails, three
- * rungs) and a plank cell four; with inline geometry and material JSX each
- * cell built that many GPU buffers and materials on mount, so climbing a
- * ladder shaft, the cells scroll every action, churned a creation burst
- * per row. These module singletons make a support cell allocation-free, so
- * `dispose={null}` is correct. Each material pair is [normal, salvageable];
- * the salvage variant only appears in collect mode, but sharing both keeps
- * the meshes free of per-mount creation either way.
- */
+// Shared geometry and materials for the planted ladder and plank supports
+// so a support cell mounts allocation-free (dispose={null} safe). Each
+// material pair is [normal, salvageable], indexed by `canSalvage ? 1 : 0`.
 function supportMaterial(
   color: string,
   emissive: string,
@@ -277,36 +271,36 @@ const PLANK_BEAM_MATERIALS = [
   supportMaterial("#ba8240", "#4a2d10", 0.12, 0.9),
 ];
 
-/**
- * Shared geometry and materials for the carved-cell overlays (surface-fall
- * lag). A carved tunnel cell renders a recessed floor, and every cell past
- * the lamp renders a darkness plane; both used inline geometry and material
- * JSX, so dropping from the surface into the dark shaft, a burst of empty
- * cells appearing at once, built a geometry, a material, and (for the
- * floor) a Color per cell in one tick. These singletons make both overlays
- * allocation-free on mount. The floor tint jitter now rides the shared
- * node material's shader; the darkness plane's opacity is discrete enough
- * (it only shows at max zoom over a narrow ramp) to bucket into a bounded
- * material cache keyed by rounded opacity.
- */
+// Shared geometry and materials for the carved-cell overlays (recessed
+// tunnel floor, darkness plane) so a reveal burst mounts them without
+// building geometry/materials per cell (dispose={null} safe). The floor
+// tint jitter rides the shared node shader; one floor material per biome
+// is precomputed. Darkness opacity is bucketed to 0.02 (it only shows at
+// max zoom over a narrow ramp) so the cache stays bounded.
 const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12);
 const DARKNESS_GEOMETRY = new PlaneGeometry(1.08, 1.08);
+const TUNNEL_FLOOR_MATERIALS: Record<
+  MineBiomeId,
+  ReturnType<typeof tunnelFloorMaterial>
+> = {
+  default: tunnelFloorMaterial(tunnelColorForBiome("default")),
+  winter: tunnelFloorMaterial(tunnelColorForBiome("winter")),
+  highTech: tunnelFloorMaterial(tunnelColorForBiome("highTech")),
+};
 const darknessMaterials = new Map<number, MeshBasicMaterial>();
 function darknessMaterial(opacity: number): MeshBasicMaterial {
-  // Bucket to 0.02 so a camera-ease drift reuses one material instead of
-  // minting a new one per frame; the ramp spans about a dozen buckets.
   const bucket = Math.round(opacity * 50) / 50;
-  let material = darknessMaterials.get(bucket);
-  if (!material) {
-    material = new MeshBasicMaterial({
-      color: EDGE_DARKNESS_COLOR,
-      transparent: true,
-      opacity: bucket,
-      depthWrite: false,
-    });
-    darknessMaterials.set(bucket, material);
-  }
-  return material;
+  return getOrCreate(
+    darknessMaterials,
+    bucket,
+    () =>
+      new MeshBasicMaterial({
+        color: EDGE_DARKNESS_COLOR,
+        transparent: true,
+        opacity: bucket,
+        depthWrite: false,
+      }),
+  );
 }
 
 /** Span-destabilized ceilings start on a longer countdown than the
@@ -414,7 +408,7 @@ function buildCellEntry(
           key={key}
           position={[x, y, -0.42]}
           geometry={TUNNEL_FLOOR_GEOMETRY}
-          material={tunnelFloorMaterial(tunnelColorForBiome(biome))}
+          material={TUNNEL_FLOOR_MATERIALS[biome]}
           dispose={null}
         />,
       );

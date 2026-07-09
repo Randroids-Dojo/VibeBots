@@ -572,17 +572,10 @@ function buildCellEntry(
             <meshStandardMaterial
               color="#e08aff"
               emissive="#e08aff"
-              emissiveIntensity={1.6}
+              emissiveIntensity={1.9}
               flatShading
             />
           </mesh>
-          <pointLight
-            position={[0, 0.4, 0.4]}
-            color="#e08aff"
-            intensity={1.4}
-            distance={4}
-            decay={1.6}
-          />
           {beaconSelected ? (
             <SupportSelectionOutline width={0.56} height={0.86} />
           ) : null}

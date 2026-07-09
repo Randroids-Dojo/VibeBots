@@ -9,7 +9,6 @@ import {
   type Mesh,
   MeshStandardMaterial,
   type MeshStandardNodeMaterial,
-  type PointLight,
 } from "three/webgpu";
 import {
   FALL_DELAY_ACTIONS,
@@ -305,7 +304,6 @@ export function DroppedBagMarker() {
           roughness={0.4}
         />
       </mesh>
-      <pointLight color="#f5c542" intensity={0.45} distance={1.6} decay={1.8} />
     </>
   );
 }
@@ -317,7 +315,6 @@ export function DynamiteCharge({ col, row }: { col: number; row: number }) {
   const bodyRef = useRef<Group>(null);
   const warningRef = useRef<Mesh>(null);
   const sparkRef = useRef<Mesh>(null);
-  const lightRef = useRef<PointLight>(null);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     const pulse = 0.5 + 0.5 * Math.sin(t * 12);
@@ -336,7 +333,6 @@ export function DynamiteCharge({ col, row }: { col: number; row: number }) {
       sparkRef.current.position.y = 0.18 + Math.abs(Math.sin(t * 14)) * 0.08;
       sparkRef.current.scale.setScalar(spark);
     }
-    if (lightRef.current) lightRef.current.intensity = 0.8 + pulse * 1.4;
   });
   return (
     <group position={[cellX(col), -row, 0.78]}>
@@ -380,14 +376,6 @@ export function DynamiteCharge({ col, row }: { col: number; row: number }) {
           />
         </mesh>
       </group>
-      <pointLight
-        ref={lightRef}
-        position={[0.2, 0.2, 0.3]}
-        color={FUSE_GLOW}
-        intensity={1.2}
-        distance={3}
-        decay={1.7}
-      />
     </group>
   );
 }

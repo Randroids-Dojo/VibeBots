@@ -55,8 +55,14 @@ import {
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
-import { DIRT_BLOCK_GEOMETRY } from "./mine-block-geometries";
-import { blockDetailEnabled, dirtBlockMaterial } from "./mine-block-materials";
+import { blockDetailEnabled } from "./mine-block-materials";
+import {
+  type BlockInstancePlan,
+  beginBlockPlan,
+  createBlockInstancePlan,
+  instancedBlockDraw,
+  pushBlockInstance,
+} from "./mine-block-plan";
 import {
   CacheCrate,
   CrackMarks,
@@ -79,14 +85,7 @@ import {
   fatalFallPlaybackSeconds,
   useMineDeathPlaybackBridge,
 } from "./mine-death-playback";
-import {
-  type BlockInstancePlan,
-  beginBlockPlan,
-  createBlockInstancePlan,
-  InstancedBlockGrid,
-  instancedBlockDraw,
-  pushBlockInstance,
-} from "./mine-instanced-grid";
+import { InstancedBlockGrid } from "./mine-instanced-grid";
 import { MinerBot } from "./mine-miner-render";
 import {
   type MotionTrack,
@@ -211,12 +210,12 @@ interface MineCellViewInputs {
 }
 
 /** Module scratch the render loop fills per instanced cell before copying
- * into the block plan, so classifying a cell allocates nothing. The
- * geometry/material seeds are overwritten by instancedBlockBody before any
- * read; the seed color is a real one, so it pollutes no material cache. */
+ * into the block plan, so classifying a cell allocates nothing. Every
+ * field is written by instancedBlockBody before any read, so the geometry
+ * and material start undefined rather than seeding a throwaway material. */
 const instanceBodyScratch: InstancedBlockBody = {
-  geometry: DIRT_BLOCK_GEOMETRY,
-  material: dirtBlockMaterial(biomeDirtColorAt(0, 0), false),
+  geometry: undefined as unknown as InstancedBlockBody["geometry"],
+  material: undefined as unknown as InstancedBlockBody["material"],
   rotX: 0,
   rotY: 0,
   rotZ: 0,
@@ -722,16 +721,8 @@ function buildCellEntry(
     );
     return entry;
   }
-  if (cell.kind === "metal") {
-    entry.block.push(
-      <group key={key} position={[x, y, 0]}>
-        <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
-      </group>,
-    );
-    return entry;
-  }
-  // Dirt and anything else: the shared body (per-cell tone variation
-  // and soil grain live in the shader now). A wide-span ceiling cell
+  // Dirt and anything else (including a teetering metal, which never
+  // reaches instancing): the shared body. A wide-span ceiling cell
   // teeters like a rock: the tremble is the collapse warning.
   entry.block.push(
     <group

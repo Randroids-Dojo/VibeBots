@@ -37,15 +37,6 @@ import {
 } from "three/webgpu";
 import type { BlockInstancePlan } from "./mine-block-plan";
 
-export {
-  type BlockInstance,
-  type BlockInstancePlan,
-  beginBlockPlan,
-  createBlockInstancePlan,
-  instancedBlockDraw,
-  pushBlockInstance,
-} from "./mine-block-plan";
-
 interface BlockPool {
   mesh: InstancedMesh;
   geometry: BufferGeometry;
@@ -65,7 +56,6 @@ const SCRATCH_QUATERNION = new Quaternion();
 const SCRATCH_EULER = new Euler();
 const SCRATCH_POSITION = new Vector3();
 const SCRATCH_SCALE = new Vector3(1, 1, 1);
-const IDENTITY_QUATERNION = new Quaternion();
 
 /**
  * Owns the InstancedMeshes for the block grid, parented to one group in
@@ -151,18 +141,14 @@ export class InstancedBlockGrid {
       if (item.rotated) {
         SCRATCH_EULER.set(item.rotX, item.rotY, item.rotZ);
         SCRATCH_QUATERNION.setFromEuler(SCRATCH_EULER);
-        SCRATCH_MATRIX.compose(
-          SCRATCH_POSITION,
-          SCRATCH_QUATERNION,
-          SCRATCH_SCALE,
-        );
       } else {
-        SCRATCH_MATRIX.compose(
-          SCRATCH_POSITION,
-          IDENTITY_QUATERNION,
-          SCRATCH_SCALE,
-        );
+        SCRATCH_QUATERNION.identity();
       }
+      SCRATCH_MATRIX.compose(
+        SCRATCH_POSITION,
+        SCRATCH_QUATERNION,
+        SCRATCH_SCALE,
+      );
       pool.mesh.setMatrixAt(pool.written, SCRATCH_MATRIX);
       pool.written += 1;
     }

@@ -1,12 +1,15 @@
 import { RoundedBox } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useRef } from "react";
-import type {
-  BufferGeometry,
-  Group,
-  Mesh,
-  MeshStandardNodeMaterial,
-  PointLight,
+import {
+  BoxGeometry,
+  type BufferGeometry,
+  ConeGeometry,
+  type Group,
+  type Mesh,
+  MeshStandardMaterial,
+  type MeshStandardNodeMaterial,
+  type PointLight,
 } from "three/webgpu";
 import type { MineBiomeId, MineCell, OreId } from "@/sim/mine";
 import { isWebGPUBackend } from "./graphics-quality";
@@ -425,6 +428,60 @@ export function OreCrystals({
   return <>{crystals}</>;
 }
 
+/**
+ * Shared shard geometry and materials (falling-rock lag fix). A teetering
+ * or fallen rock renders three meshes; with inline geometry and material
+ * JSX, each rock built three GPU buffers and three materials on mount, so
+ * a rockfall cascade paid a creation burst in one tick and scrolling past
+ * the settled rubble re-paid it. These module singletons make a shard
+ * mount allocation-free, and `dispose={null}` is correct because geometry
+ * and material are both shared. The emissive caches stay bounded because
+ * teeterUrgency (and so glow) is discrete: fallIn is a small integer.
+ */
+const SHARD_MAIN_GEOMETRY = new ConeGeometry(0.48, 0.92, 5);
+const SHARD_SIDE_GEOMETRY = new ConeGeometry(0.18, 0.45, 4);
+const SHARD_CHUNK_GEOMETRY = new BoxGeometry(0.18, 0.52, 0.2);
+const SHARD_CHUNK_MATERIAL = new MeshStandardMaterial({
+  color: "#4d3637",
+  roughness: 0.86,
+  flatShading: true,
+});
+const shardMainMaterials = new Map<number, MeshStandardMaterial>();
+const shardSideMaterials = new Map<number, MeshStandardMaterial>();
+
+/** One shared main-shard material per distinct glow (emissive intensity). */
+function shardMainMaterial(glow: number): MeshStandardMaterial {
+  let material = shardMainMaterials.get(glow);
+  if (!material) {
+    material = new MeshStandardMaterial({
+      color: "#7d4a3c",
+      emissive: TEETER_EMISSIVE,
+      emissiveIntensity: glow,
+      roughness: 0.72,
+      metalness: 0.08,
+      flatShading: true,
+    });
+    shardMainMaterials.set(glow, material);
+  }
+  return material;
+}
+
+/** One shared side-shard material per distinct glow (emissive intensity). */
+function shardSideMaterial(glow: number): MeshStandardMaterial {
+  let material = shardSideMaterials.get(glow);
+  if (!material) {
+    material = new MeshStandardMaterial({
+      color: "#a45f43",
+      emissive: TEETER_EMISSIVE,
+      emissiveIntensity: glow,
+      roughness: 0.7,
+      flatShading: true,
+    });
+    shardSideMaterials.set(glow, material);
+  }
+  return material;
+}
+
 export function FallingRockShard({
   col,
   row,
@@ -438,31 +495,27 @@ export function FallingRockShard({
   const glow = urgency > 0 ? 0.2 + 0.55 * urgency : 0.05;
   return (
     <group rotation={[0.15, 0, tilt]}>
-      <mesh position={[0, -0.02, 0]} scale={[0.9, 1.08, 0.72]}>
-        <coneGeometry args={[0.48, 0.92, 5]} />
-        <meshStandardMaterial
-          color="#7d4a3c"
-          emissive={TEETER_EMISSIVE}
-          emissiveIntensity={glow}
-          roughness={0.72}
-          metalness={0.08}
-          flatShading
-        />
-      </mesh>
-      <mesh position={[-0.2, 0.2, 0.2]} rotation={[0.7, 0.4, -0.2]}>
-        <coneGeometry args={[0.18, 0.45, 4]} />
-        <meshStandardMaterial
-          color="#a45f43"
-          emissive={TEETER_EMISSIVE}
-          emissiveIntensity={glow * 0.7}
-          roughness={0.7}
-          flatShading
-        />
-      </mesh>
-      <mesh position={[0.22, -0.18, 0.24]} rotation={[-0.5, 0.2, 0.6]}>
-        <boxGeometry args={[0.18, 0.52, 0.2]} />
-        <meshStandardMaterial color="#4d3637" roughness={0.86} flatShading />
-      </mesh>
+      <mesh
+        position={[0, -0.02, 0]}
+        scale={[0.9, 1.08, 0.72]}
+        geometry={SHARD_MAIN_GEOMETRY}
+        material={shardMainMaterial(glow)}
+        dispose={null}
+      />
+      <mesh
+        position={[-0.2, 0.2, 0.2]}
+        rotation={[0.7, 0.4, -0.2]}
+        geometry={SHARD_SIDE_GEOMETRY}
+        material={shardSideMaterial(glow * 0.7)}
+        dispose={null}
+      />
+      <mesh
+        position={[0.22, -0.18, 0.24]}
+        rotation={[-0.5, 0.2, 0.6]}
+        geometry={SHARD_CHUNK_GEOMETRY}
+        material={SHARD_CHUNK_MATERIAL}
+        dispose={null}
+      />
     </group>
   );
 }

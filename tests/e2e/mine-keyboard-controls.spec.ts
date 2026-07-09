@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
 import {
   awaitMineSceneReady,
-  digTo,
+  descendLadderShaft,
   dismissReleaseNotes,
   pressMineKey,
+  routeLadderShaftWorld,
 } from "./support/mine-helpers";
 
 /**
@@ -40,25 +41,25 @@ test("Enter enters a building and Escape returns to the mine (F-061, F-062)", as
 });
 
 test("Shift modifies the vertical mine keys (F-059)", async ({ page }) => {
+  // A carved ladder shaft: empty cells overhead and a supported stance, so
+  // the descent is fast and deterministic (no mining) on the harness.
+  await routeLadderShaftWorld(page, 4242, 6);
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
-  await awaitMineSceneReady(page);
+  await descendLadderShaft(page, 4);
+  const depth = Number(await status.getAttribute("data-depth"));
+  expect(depth).toBeGreaterThanOrEqual(4);
 
-  // Dig a shaft: dug (empty) cells overhead, solid ground below.
-  await digTo(page, 3);
-  const depthAfterDig = Number(await status.getAttribute("data-depth"));
-  expect(depthAfterDig).toBeGreaterThanOrEqual(3);
-
-  // Shift + Down with no plank underfoot is a no-op: it must not mine the
-  // way a plain Down does.
+  // Shift + Down with no plank underfoot is a no-op: it must not move the
+  // miner the way a plain Down does.
   await page.keyboard.press("Shift+ArrowDown");
   await page.waitForTimeout(240);
-  expect(Number(await status.getAttribute("data-depth"))).toBe(depthAfterDig);
+  expect(Number(await status.getAttribute("data-depth"))).toBe(depth);
 
-  // Shift + Up jumps the miner up a row out of the dug shaft.
+  // Shift + Up jumps the miner up a row out of the shaft.
   await page.keyboard.press("Shift+ArrowUp");
   await expect
     .poll(async () => Number(await status.getAttribute("data-depth")))
-    .toBeLessThan(depthAfterDig);
+    .toBeLessThan(depth);
 });

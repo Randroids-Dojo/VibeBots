@@ -31,6 +31,58 @@
 
 <main id="entries">
 
+  <article data-slice="mine-followups-animations" data-date="2026-07-09">
+    <h3>Fall, jump-booster, and out-of-battery death animations (F-056, F-057, F-058)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/animation-lighting-followup-z0m94u</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Three render-only mine animation followups. F-057: the shared rig (<code>miner-rig.ts</code>) gained a fall pose (legs tuck, free arm windmills up, the body stretches with a slow sway), eased in from real downward speed via a new <code>fallBlend</code> state, plus a springy landing squash and a dust puff on the fall-to-ground edge; the canvas drives <code>inputs.fall</code>/<code>inputs.land</code> from the miner's per-frame <code>dy</code> and opens a fall-pose window on any survived drop (<code>fell &gt; 0</code>), while fatal free falls pose until impact. F-056: the miner model (<code>mine-miner-render.tsx</code>) gained a <code>boosterRef</code> flame group under the feet with twin pack thrusters, shown and flicker-animated while the jump jets hold the hover (<code>mine.jumpHover</code>), plus a throttled downward exhaust plume (<code>spawnBoosterThrust</code>). F-058: a new <code>powerdown</code> death-playback kind holds the miner at the death spot and plays a power-down slump (<code>inputs.powerDown</code> ramps the body sinking and tipping, the lamp fizzles) before the trip report, gated on the rendered beat the same way fatal falls and crushes are, so controls stay disabled during the terminal playback. Bank-route payout fixture updated for the denser early ore (F-060).</dd>
+      <dt>Verification</dt><dd>Full unit suite green (1011 tests) including new rig-pose and death-playback coverage; <code>tsc</code> clean; Biome, em-dash, and <code>git diff --check</code> clean. Playwright (against the local production build, browser pinned to the pre-installed Chromium) green on the mine keyboard-controls, viewport darkness, navigation, and the mine-core dig test. The one failing local spec ("held touch movement cancels after a fatal fall reset") fails identically on an unmodified <code>origin/main</code> build in this software-rendered container: a pre-existing local-harness timing issue, not a regression. CI runs the full gate.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: an ordinary-fall pose window keyed to the sim's <code>fell &gt; 0</code> result plus observed downward motion, rather than a new sim signal, so replay rules are untouched. The power-down beat reuses the fall/crush impact-gating machinery instead of a parallel store channel. Rule 13: mine tips reviewed, no change (animations are cosmetic). Rule 14: stamp review done, none added (motion polish, not a durable milestone).</dd>
+      <dt>GDD coverage</dt><dd>No status changes. Build-log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>Resolved <code>F-056</code>, <code>F-057</code>, <code>F-058</code>.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="mine-followups-lighting" data-date="2026-07-09">
+    <h3>Circular lantern fog of war and desktop light trim (F-055, F-064, F-065)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/animation-lighting-followup-z0m94u</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>F-065/F-055: the lantern fog of war only rendered at the zoom-out cap (<code>mineDarknessOpacity</code> returned 0 whenever <code>zoom &lt; maxZoom</code>), so the default underground view and every zoomed-out view, including after a lantern upgrade that raises the cap, showed no falloff and read flat. It now applies at any zoom, the canvas feeds it a radial (Euclidean) distance so the lit area reads as a circle rather than a square, and a per-depth <code>fogDepthScale</code> fades the falloff in over the first rows of descent so the daylit surface village stays clear. F-064: the WebGPU high tier stacked IBL reflections and additive bloom on the same lamp and ambient the phone path uses, washing the mine out; <code>DESKTOP_LIGHT_TRIM</code>/<code>DESKTOP_ENV_TRIM</code> trim the fill and environment on that tier only, leaving the WebGL2/mobile path at full strength.</dd>
+      <dt>Verification</dt><dd>Camera unit tests updated and green; <code>tsc</code>/Biome/em-dash/<code>git diff --check</code> clean. Playwright (local production build, pinned Chromium) green on the two rewritten mine-viewport darkness specs, which now dig underground via a carved ladder shaft and assert the falloff is present at any zoom and bounded by the far cap.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: drop the zoom gate entirely (the followups explicitly want the circular fog visible when zoomed out) and gate the fog by miner depth so the surface stays daylit. Rule 13: mine tips reviewed, no change. Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No status changes. Build-log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>Resolved <code>F-055</code>, <code>F-064</code>, <code>F-065</code>.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="mine-followups-controls" data-date="2026-07-09">
+    <h3>Desktop keyboard jump, plank drop, and building navigation (F-059, F-061, F-062)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/animation-lighting-followup-z0m94u</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>F-059: the mine keydown handler maps Shift+Up to the jump action and Shift+Down to a plank drop, leaving the plain arrow keys to climb and mine as before. A new <code>canDropThroughPlank</code> sim predicate gates Shift+Down so it only fires when a plank is underfoot, never mining. F-061: Enter walks the miner into the building on the current surface column (<code>router.push(destination.href)</code>), leaving pointer, touch, and focused-button activation untouched. F-062: <code>BackToMine</code> (Workshop, Battles, Holodeck) returns to <code>/mine</code> on Escape, standing down when a dialog, a text field, or another handler already owns Escape.</dd>
+      <dt>Verification</dt><dd>Sim predicate has unit coverage (plank-drop smashes through and drops, jump still fires); <code>tsc</code>/Biome/em-dash/<code>git diff --check</code> clean. Playwright (local production build, pinned Chromium) green: Enter enters the Workshop and Escape returns, and Shift+Up jumps while Shift+Down with no plank is a no-op.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: Shift+Down is an explicit plank-drop that no-ops when there is no plank, distinct from a plain Down that mines; this preserves touch's behavior (Down still drops through a plank there). Rule 13: mine tips reviewed, no change. Rule 14: stamp review done, none added (input ergonomics).</dd>
+      <dt>GDD coverage</dt><dd>No status changes. Build-log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>Resolved <code>F-059</code>, <code>F-061</code>, <code>F-062</code>.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="mine-followups-sim-balance" data-date="2026-07-09">
+    <h3>Denser first-row ore and a walled bounce arena (F-060, F-063)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/animation-lighting-followup-z0m94u</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>F-060: the tier-0 coal band now opens at row 1 (was ramping from zero) and a new <code>earlyOreBoost</code> multiplies the ore chance across the first three rows, so the opening cut of a trip surfaces a reward instead of near-guaranteed dirt. Deterministic generation change, bumps <code>MINE_VERSION</code> to 51. F-063: <code>createArenaWorld</code> builds a tight walled ring (<code>ARENA_WALL_HALF_EXTENT</code> 9) with bounce restitution so shoved bots rebound into the brawl instead of skating off the open floor, and the arena canvas deck and barriers trace the collider ring derived from the sim constants. Bumps <code>SIM_VERSION</code> to 5.</dd>
+      <dt>Verification</dt><dd>New <code>ores.test.ts</code> (boost curve and first-row density) and <code>arena.test.ts</code> (deterministic wall rebound) plus the full unit suite green (1011); the stock combat tests still hold with the walls; <code>tsc</code>/Biome/em-dash/<code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: an additive early-row ore multiplier tapering to 1 by row 3, and a generous 9-unit wall half-extent so the opening clash at center is unchanged and only wandering to the edges is contained. Rule 13: mine tips reviewed with the <code>MINE_VERSION</code> bump, no change needed (no player-facing mine rule changed; the early rows are simply richer). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No status changes. Build-log entries added to <code>docs/gdd/06-mining.html</code> and <code>docs/gdd/05-test-arena.html</code>.</dd>
+      <dt>Followups</dt><dd>Resolved <code>F-060</code>, <code>F-063</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-constant-light-count" data-date="2026-07-09">
     <h3>Remove the mine's dynamic point lights: the real cause of the mid-play freezes</h3>
     <dl>

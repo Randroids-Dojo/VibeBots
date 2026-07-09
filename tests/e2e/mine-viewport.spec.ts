@@ -3,12 +3,14 @@ import {
   APP_VERSION_PATTERN,
   createMine,
   DEFAULT_GEAR,
+  descendLadderShaft,
   digTo,
   dismissReleaseNotes,
   exportDiff,
   MINE_VERSION,
   openStall,
   pressMineKey,
+  routeLadderShaftWorld,
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
@@ -412,6 +414,9 @@ test.describe("phone viewport", () => {
 test("mine wheel zoom extends into the starter lantern falloff", async ({
   page,
 }) => {
+  // A carved shaft drops the miner underground fast, where the lantern is
+  // the only light.
+  await routeLadderShaftWorld(page, 5150, 8);
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   const canvas = page.locator("canvas");
@@ -422,10 +427,10 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
     })
     .not.toBeNull();
 
-  // Underground the lantern is the only light, so the circular fog of war
-  // is on at the default view (F-055, F-065): cells past the lantern reach
-  // are obscured without waiting for the zoom-out cap.
-  await digTo(page, 6);
+  // Underground the circular fog of war is on at the default view (F-055,
+  // F-065): cells past the lantern reach are obscured without waiting for
+  // the zoom-out cap.
+  await descendLadderShaft(page, 6);
   const startZoom = Number(await canvas.getAttribute("data-cam-zoom"));
   const readDarkness = async () => ({
     min: Number(await canvas.getAttribute("data-darkness-opacity-min")),
@@ -489,6 +494,8 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
     ];
     w.__vibebotsSurfaceTipRotationMs = 60_000;
   });
+  // A carved shaft drops the miner underground where the fog of war shows.
+  await routeLadderShaftWorld(page, 5151, 8);
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   const canvas = page.locator("canvas");
@@ -581,7 +588,7 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
 
   // Underground, the lantern fog of war is present at the default view
   // now (F-065), not only at the zoom-out cap.
-  await digTo(page, 6);
+  await descendLadderShaft(page, 6);
   const startZoom = Number(await canvas.getAttribute("data-cam-zoom"));
   await expect
     .poll(

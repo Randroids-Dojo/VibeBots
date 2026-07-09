@@ -43,8 +43,9 @@ export const GLOWING_ORES = new Set<OreId>([
 
 export const cellX = (col: number) => col;
 
-/** Dirt palette per stratum, in STRATA order (REQ-012: visible descent). */
-const STRATA_DIRT = [
+/** Dirt palette per stratum, in STRATA order (REQ-012: visible descent).
+ * Exported so the material warm-up can pre-compile every dirt tint. */
+export const STRATA_DIRT = [
   "#7a5a3a",
   "#8c5a45",
   "#6e6862",
@@ -55,6 +56,9 @@ const STRATA_DIRT = [
   "#3a4452",
   "#52303f",
 ];
+/** Winter and high-tech dirt bands, deepening every few strata. */
+export const WINTER_DIRT_BAND = ["#dcecf3", "#c9dbe5", "#b6ccd8", "#9eb7c6"];
+export const TECH_DIRT_BAND = ["#193a32", "#143742", "#202e4d", "#24305b"];
 /** Background deepens with the strata so descent reads at the edges. */
 export const STRATA_BG = [
   "#0b0e14",
@@ -68,7 +72,8 @@ export const STRATA_BG = [
   "#120608",
 ];
 
-/** Rock darkens by tier so the hard gates read at a glance. */
+/** Rock darkens by tier so the hard gates read at a glance. Reached
+ * through rockColorsForBiome; the warm-up enumerates via that accessor. */
 const ROCK_COLORS = ["#555e6e", "#46506a", "#3b3550"];
 const WINTER_ROCK_COLORS = ["#9fb5c8", "#7f9fb8", "#637f9a"];
 const TECH_ROCK_COLORS = ["#23483e", "#253f58", "#2b3568"];
@@ -92,12 +97,14 @@ function dirtColorAt(row: number): string {
 export function biomeDirtColorAt(col: number, row: number): string {
   const biome = biomeAt(col);
   if (biome === "winter") {
-    const band = ["#dcecf3", "#c9dbe5", "#b6ccd8", "#9eb7c6"];
-    return band[Math.min(Math.floor(row / 24), band.length - 1)];
+    return WINTER_DIRT_BAND[
+      Math.min(Math.floor(row / 24), WINTER_DIRT_BAND.length - 1)
+    ];
   }
   if (biome === "highTech") {
-    const band = ["#193a32", "#143742", "#202e4d", "#24305b"];
-    return band[Math.min(Math.floor(row / 28), band.length - 1)];
+    return TECH_DIRT_BAND[
+      Math.min(Math.floor(row / 28), TECH_DIRT_BAND.length - 1)
+    ];
   }
   return dirtColorAt(row);
 }

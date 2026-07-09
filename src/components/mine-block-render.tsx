@@ -1,8 +1,21 @@
 import { RoundedBox } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useRef } from "react";
-import type { Group, Mesh, PointLight } from "three/webgpu";
-import type { MineBiomeId, MineCell, OreId } from "@/sim/mine";
+import {
+  BoxGeometry,
+  type BufferGeometry,
+  ConeGeometry,
+  type Group,
+  type Mesh,
+  MeshStandardMaterial,
+  type MeshStandardNodeMaterial,
+} from "three/webgpu";
+import {
+  FALL_DELAY_ACTIONS,
+  type MineBiomeId,
+  type MineCell,
+  type OreId,
+} from "@/sim/mine";
 import { isWebGPUBackend } from "./graphics-quality";
 import {
   BOULDER_BLOCK_GEOMETRY,
@@ -16,6 +29,7 @@ import {
   crystalMaterial,
   dirtBlockMaterial,
   gasBlockMaterial,
+  getOrCreate,
   metalBlockMaterial,
   rockBlockMaterial,
 } from "./mine-block-materials";
@@ -39,12 +53,25 @@ export function useBlockDetail(): boolean {
   return useThree((state) => blockDetailEnabled(isWebGPUBackend(state.gl)));
 }
 
+/** Scratch the shared resolver fills for MineBlockBody's mesh; reused
+ * across renders (synchronous, non-reentrant) so posing a body allocates
+ * nothing. Its geometry/material are written by instancedBlockBody before
+ * any read, so they start undefined rather than seeding a real material. */
+const bodyScratch: InstancedBlockBody = {
+  geometry: undefined as unknown as BufferGeometry,
+  material: undefined as unknown as MeshStandardNodeMaterial,
+  rotX: 0,
+  rotY: 0,
+  rotZ: 0,
+};
+
 /**
  * The solid body for a mine cell (F-046: one source of truth for the
- * mine canvas and the Holodeck). Materials are shared TSL singletons
- * from mine-block-materials.ts: per-cell tint variation happens in the
- * shader off the world position, so this component stays prop-light and
- * the canvases stop duplicating per-kind branches.
+ * mine canvas and the Holodeck). The dirt/ore/rock/metal bodies come from
+ * the shared instancedBlockBody resolver, the same one the instanced grid
+ * uses, so the React path and the instanced path can never drift; the
+ * inline-material kinds (part-cache, gas, boulder) stay here. Materials are
+ * shared TSL singletons, geometry is one per shape, so `dispose={null}`.
  */
 export function MineBlockBody({
   cell,
@@ -58,52 +85,6 @@ export function MineBlockBody({
   biome?: MineBiomeId;
 }) {
   const detail = useBlockDetail();
-  // Every block body shares one geometry per shape (see
-  // mine-block-geometries.ts): the meshes already share materials with
-  // `dispose={null}`, so a per-cell geometry leaked its GPU buffer on
-  // unmount. Rotation and material stay per cell; the geometry does not.
-  if (cell.kind === "ore" && cell.ore) {
-    return (
-      <>
-        <mesh
-          geometry={DIRT_BLOCK_GEOMETRY}
-          material={dirtBlockMaterial(biomeDirtColorAt(col, row), detail)}
-          dispose={null}
-        />
-        <OreCrystals
-          col={col}
-          row={row}
-          color={ORE_COLORS[cell.ore]}
-          glow={GLOWING_ORES.has(cell.ore)}
-        />
-      </>
-    );
-  }
-  if (cell.kind === "rock") {
-    const rockColors = rockColorsForBiome(biome);
-    const tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
-    return (
-      <mesh
-        rotation={[
-          cellHash(col, row, 13) * 3.1,
-          cellHash(col, row, 17) * 3.1,
-          cellHash(col, row, 19) * 3.1,
-        ]}
-        geometry={ROCK_BLOCK_GEOMETRY}
-        material={rockBlockMaterial(rockColors[tier], detail)}
-        dispose={null}
-      />
-    );
-  }
-  if (cell.kind === "metal") {
-    return (
-      <mesh
-        geometry={METAL_BLOCK_GEOMETRY}
-        material={metalBlockMaterial(METAL_COLOR, detail)}
-        dispose={null}
-      />
-    );
-  }
   if (cell.kind === "part-cache") {
     return <CacheCrate col={col} row={row} />;
   }
@@ -126,14 +107,83 @@ export function MineBlockBody({
       />
     );
   }
-  // Dirt and anything else: chunky beveled cube.
-  return (
+  // Dirt, ore, rock, and metal share the resolver used by the instanced
+  // grid; rotation is [0,0,0] for the axis-aligned bodies (identity).
+  instancedBlockBody(cell, col, row, biome, detail, bodyScratch);
+  const body = (
     <mesh
-      geometry={DIRT_BLOCK_GEOMETRY}
-      material={dirtBlockMaterial(biomeDirtColorAt(col, row), detail)}
+      rotation={[bodyScratch.rotX, bodyScratch.rotY, bodyScratch.rotZ]}
+      geometry={bodyScratch.geometry}
+      material={bodyScratch.material}
       dispose={null}
     />
   );
+  if (cell.kind === "ore" && cell.ore) {
+    return (
+      <>
+        {body}
+        <OreCrystals
+          col={col}
+          row={row}
+          color={ORE_COLORS[cell.ore]}
+          glow={GLOWING_ORES.has(cell.ore)}
+        />
+      </>
+    );
+  }
+  return body;
+}
+
+/** The geometry, shared material, and rotation for a cell whose solid
+ * body is drawn by the instanced grid (mine-instanced-grid.ts). Written
+ * into a caller-owned scratch object so classifying a cell allocates
+ * nothing at input cadence. */
+export interface InstancedBlockBody {
+  geometry: BufferGeometry;
+  material: MeshStandardNodeMaterial;
+  rotX: number;
+  rotY: number;
+  rotZ: number;
+}
+
+/**
+ * The single source of truth for a solid block's geometry, shared
+ * material, and rotation: both the instanced grid and MineBlockBody's
+ * React path fill `out` from here, so the two can never drift and stay
+ * pixel-identical. Covers dirt, ore (the dirt base; crystals are overlaid
+ * by the caller), non-fallen rock, and metal. Caller must have confirmed
+ * instancedBlockDraw(cell), or (MineBlockBody) already handled the
+ * inline-material kinds (part-cache, gas, boulder).
+ */
+export function instancedBlockBody(
+  cell: MineCell,
+  col: number,
+  row: number,
+  biome: MineBiomeId,
+  detail: boolean,
+  out: InstancedBlockBody,
+): void {
+  out.rotX = 0;
+  out.rotY = 0;
+  out.rotZ = 0;
+  if (cell.kind === "rock") {
+    const rockColors = rockColorsForBiome(biome);
+    const tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
+    out.geometry = ROCK_BLOCK_GEOMETRY;
+    out.material = rockBlockMaterial(rockColors[tier], detail);
+    out.rotX = cellHash(col, row, 13) * 3.1;
+    out.rotY = cellHash(col, row, 17) * 3.1;
+    out.rotZ = cellHash(col, row, 19) * 3.1;
+    return;
+  }
+  if (cell.kind === "metal") {
+    out.geometry = METAL_BLOCK_GEOMETRY;
+    out.material = metalBlockMaterial(METAL_COLOR, detail);
+    return;
+  }
+  // Dirt and ore bodies: the shared beveled cube tinted by stratum/biome.
+  out.geometry = DIRT_BLOCK_GEOMETRY;
+  out.material = dirtBlockMaterial(biomeDirtColorAt(col, row), detail);
 }
 
 /** Fingerprint of the MineCell fields the cell visuals read: the shared
@@ -239,7 +289,6 @@ export function DroppedBagMarker() {
           roughness={0.4}
         />
       </mesh>
-      <pointLight color="#f5c542" intensity={0.45} distance={1.6} decay={1.8} />
     </>
   );
 }
@@ -251,7 +300,6 @@ export function DynamiteCharge({ col, row }: { col: number; row: number }) {
   const bodyRef = useRef<Group>(null);
   const warningRef = useRef<Mesh>(null);
   const sparkRef = useRef<Mesh>(null);
-  const lightRef = useRef<PointLight>(null);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     const pulse = 0.5 + 0.5 * Math.sin(t * 12);
@@ -270,7 +318,6 @@ export function DynamiteCharge({ col, row }: { col: number; row: number }) {
       sparkRef.current.position.y = 0.18 + Math.abs(Math.sin(t * 14)) * 0.08;
       sparkRef.current.scale.setScalar(spark);
     }
-    if (lightRef.current) lightRef.current.intensity = 0.8 + pulse * 1.4;
   });
   return (
     <group position={[cellX(col), -row, 0.78]}>
@@ -314,14 +361,6 @@ export function DynamiteCharge({ col, row }: { col: number; row: number }) {
           />
         </mesh>
       </group>
-      <pointLight
-        ref={lightRef}
-        position={[0.2, 0.2, 0.3]}
-        color={FUSE_GLOW}
-        intensity={1.2}
-        distance={3}
-        decay={1.7}
-      />
     </group>
   );
 }
@@ -368,6 +407,71 @@ export function OreCrystals({
   return <>{crystals}</>;
 }
 
+/** Actions-remaining until a block drops, mapped to teeter urgency. Clamps
+ * to a 0.2 floor so a distant doom still trembles softly while an imminent
+ * one shakes hard. Lives here with FallingRockShard so the shard glow set
+ * has one home (the mine canvas imports it for the wobble too). */
+export function teeterUrgency(fallIn: number): number {
+  return Math.min(
+    1,
+    Math.max(0.2, (FALL_DELAY_ACTIONS - fallIn + 1) / FALL_DELAY_ACTIONS),
+  );
+}
+
+/** A shard's emissive glow for a teeter urgency: bright while counting
+ * down, dim once settled. One source for FallingRockShard and the warm-up. */
+function shardGlow(urgency: number): number {
+  return urgency > 0 ? 0.2 + 0.55 * urgency : 0.05;
+}
+
+// Shared shard geometry and materials so a teetering/fallen rock mounts
+// allocation-free (dispose={null} is safe: geometry and material are both
+// shared singletons). The glow caches stay bounded because teeterUrgency,
+// hence glow, is discrete (fallIn is a small integer).
+const SHARD_MAIN_GEOMETRY = new ConeGeometry(0.48, 0.92, 5);
+const SHARD_SIDE_GEOMETRY = new ConeGeometry(0.18, 0.45, 4);
+const SHARD_CHUNK_GEOMETRY = new BoxGeometry(0.18, 0.52, 0.2);
+const SHARD_CHUNK_MATERIAL = new MeshStandardMaterial({
+  color: "#4d3637",
+  roughness: 0.86,
+  flatShading: true,
+});
+const shardMainMaterials = new Map<number, MeshStandardMaterial>();
+const shardSideMaterials = new Map<number, MeshStandardMaterial>();
+
+/** One shared main-shard material per distinct glow (emissive intensity). */
+function shardMainMaterial(glow: number): MeshStandardMaterial {
+  return getOrCreate(
+    shardMainMaterials,
+    glow,
+    () =>
+      new MeshStandardMaterial({
+        color: "#7d4a3c",
+        emissive: TEETER_EMISSIVE,
+        emissiveIntensity: glow,
+        roughness: 0.72,
+        metalness: 0.08,
+        flatShading: true,
+      }),
+  );
+}
+
+/** One shared side-shard material per distinct glow (emissive intensity). */
+function shardSideMaterial(glow: number): MeshStandardMaterial {
+  return getOrCreate(
+    shardSideMaterials,
+    glow,
+    () =>
+      new MeshStandardMaterial({
+        color: "#a45f43",
+        emissive: TEETER_EMISSIVE,
+        emissiveIntensity: glow,
+        roughness: 0.7,
+        flatShading: true,
+      }),
+  );
+}
+
 export function FallingRockShard({
   col,
   row,
@@ -378,36 +482,48 @@ export function FallingRockShard({
   urgency: number;
 }) {
   const tilt = (cellHash(col, row, 83) - 0.5) * 0.7;
-  const glow = urgency > 0 ? 0.2 + 0.55 * urgency : 0.05;
+  const glow = shardGlow(urgency);
   return (
     <group rotation={[0.15, 0, tilt]}>
-      <mesh position={[0, -0.02, 0]} scale={[0.9, 1.08, 0.72]}>
-        <coneGeometry args={[0.48, 0.92, 5]} />
-        <meshStandardMaterial
-          color="#7d4a3c"
-          emissive={TEETER_EMISSIVE}
-          emissiveIntensity={glow}
-          roughness={0.72}
-          metalness={0.08}
-          flatShading
-        />
-      </mesh>
-      <mesh position={[-0.2, 0.2, 0.2]} rotation={[0.7, 0.4, -0.2]}>
-        <coneGeometry args={[0.18, 0.45, 4]} />
-        <meshStandardMaterial
-          color="#a45f43"
-          emissive={TEETER_EMISSIVE}
-          emissiveIntensity={glow * 0.7}
-          roughness={0.7}
-          flatShading
-        />
-      </mesh>
-      <mesh position={[0.22, -0.18, 0.24]} rotation={[-0.5, 0.2, 0.6]}>
-        <boxGeometry args={[0.18, 0.52, 0.2]} />
-        <meshStandardMaterial color="#4d3637" roughness={0.86} flatShading />
-      </mesh>
+      <mesh
+        position={[0, -0.02, 0]}
+        scale={[0.9, 1.08, 0.72]}
+        geometry={SHARD_MAIN_GEOMETRY}
+        material={shardMainMaterial(glow)}
+        dispose={null}
+      />
+      <mesh
+        position={[-0.2, 0.2, 0.2]}
+        rotation={[0.7, 0.4, -0.2]}
+        geometry={SHARD_SIDE_GEOMETRY}
+        material={shardSideMaterial(glow * 0.7)}
+        dispose={null}
+      />
+      <mesh
+        position={[0.22, -0.18, 0.24]}
+        rotation={[-0.5, 0.2, 0.6]}
+        geometry={SHARD_CHUNK_GEOMETRY}
+        material={SHARD_CHUNK_MATERIAL}
+        dispose={null}
+      />
     </group>
   );
+}
+
+/** Every shard material the mine can show, for the load-time warm-up: the
+ * chunk plus the main and side materials at each glow FallingRockShard uses
+ * (settled, and across the discrete teeter countdown). Owns the glow
+ * enumeration so the warm-up never re-derives the formula. */
+export function collectShardMaterials(): MeshStandardMaterial[] {
+  const glows = new Set<number>([shardGlow(0)]);
+  for (let fallIn = 1; fallIn <= FALL_DELAY_ACTIONS + 1; fallIn++) {
+    glows.add(shardGlow(teeterUrgency(fallIn)));
+  }
+  const materials: MeshStandardMaterial[] = [SHARD_CHUNK_MATERIAL];
+  for (const glow of glows) {
+    materials.push(shardMainMaterial(glow), shardSideMaterial(glow * 0.7));
+  }
+  return materials;
 }
 
 /** A buried supply crate: timber box with glowing gold straps. */

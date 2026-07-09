@@ -2,19 +2,37 @@
 
 import { RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { type ReactElement, useCallback, useLayoutEffect, useRef } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import type {
   AmbientLight,
+  Camera,
   DirectionalLight,
-  Group,
   HemisphereLight,
-  InstancedMesh,
-  Mesh,
+  Material,
+  Object3D,
   PointLight,
 } from "three/webgpu";
-import { Color, Matrix4 } from "three/webgpu";
+import {
+  BoxGeometry,
+  Color,
+  Group,
+  InstancedMesh,
+  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  PlaneGeometry,
+} from "three/webgpu";
 import {
   clampMineCameraZoom,
+  DARKNESS_CAP_FAR_OPACITY,
+  DARKNESS_CAP_NEAR_OPACITY,
   maxMineCameraZoom,
   mineCameraDistance,
   mineDarknessOpacity,
@@ -33,11 +51,11 @@ import {
   type CollectTarget,
   cellAt,
   ELEVATOR_COL,
-  FALL_DELAY_ACTIONS,
   hitsFor,
   isSupportSalvageTarget,
   lanternDistance,
   lightRadius,
+  type MineBiomeId,
   type MineCell,
   type MineCoord,
   type OreId,
@@ -56,16 +74,33 @@ import {
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
 import {
+  blockDetailEnabled,
+  getOrCreate,
+  tunnelFloorMaterial,
+} from "./mine-block-materials";
+import {
+  type BlockInstancePlan,
+  beginBlockPlan,
+  createBlockInstancePlan,
+  instancedBlockDraw,
+  pushBlockInstance,
+} from "./mine-block-plan";
+import {
   CacheCrate,
   CrackMarks,
   cellRenderSignature,
+  collectShardMaterials,
   crackSegmentCountForDamage,
   DropPileMarkers,
   DroppedBagMarker,
   DynamiteCharge,
   dropPileStats,
   FallingRockShard,
+  type InstancedBlockBody,
+  instancedBlockBody,
   MineBlockBody,
+  OreCrystals,
+  teeterUrgency,
 } from "./mine-block-render";
 import { type BunkerBuildMode, BunkerOverlay } from "./mine-bunker-overlay";
 import {
@@ -74,6 +109,11 @@ import {
   fatalFallPlaybackSeconds,
   useMineDeathPlaybackBridge,
 } from "./mine-death-playback";
+import { InstancedBlockGrid } from "./mine-instanced-grid";
+import {
+  collectBlockNodeMaterials,
+  collectInstancedBodyMaterials,
+} from "./mine-material-warmup";
 import { MinerBot } from "./mine-miner-render";
 import {
   type MotionTrack,
@@ -197,14 +237,149 @@ interface MineCellViewInputs {
   ) => (mesh: Group | Mesh | null) => void;
 }
 
-/** Span-destabilized ceilings start on a longer countdown than the
- * undercut teeter, so the ramp clamps to a gentle floor instead of
- * going negative: distant dooms tremble softly, imminent ones shake. */
-function teeterUrgency(fallIn: number): number {
-  return Math.min(
-    1,
-    Math.max(0.2, (FALL_DELAY_ACTIONS - fallIn + 1) / FALL_DELAY_ACTIONS),
+/** Module scratch the render loop fills per instanced cell before copying
+ * into the block plan, so classifying a cell allocates nothing. Every
+ * field is written by instancedBlockBody before any read, so the geometry
+ * and material start undefined rather than seeding a throwaway material. */
+const instanceBodyScratch: InstancedBlockBody = {
+  geometry: undefined as unknown as InstancedBlockBody["geometry"],
+  material: undefined as unknown as InstancedBlockBody["material"],
+  rotX: 0,
+  rotY: 0,
+  rotZ: 0,
+};
+
+// Shared geometry and materials for the planted ladder and plank supports
+// so a support cell mounts allocation-free (dispose={null} safe). Each
+// material pair is [normal, salvageable], indexed by `canSalvage ? 1 : 0`.
+function supportMaterial(
+  color: string,
+  emissive: string,
+  emissiveIntensity: number,
+  roughness: number,
+): MeshStandardMaterial {
+  return new MeshStandardMaterial({
+    color,
+    emissive,
+    emissiveIntensity,
+    roughness,
+    flatShading: true,
+  });
+}
+const LADDER_RAIL_GEOMETRY = new BoxGeometry(0.05, 1, 0.05);
+const LADDER_RUNG_GEOMETRY = new BoxGeometry(0.36, 0.05, 0.05);
+const PLANK_BOARD_GEOMETRY = new BoxGeometry(0.98, 0.07, 0.22);
+const PLANK_BEAM_GEOMETRY = new BoxGeometry(0.2, 0.06, 0.56);
+const LADDER_RAIL_MATERIALS = [
+  supportMaterial("#a87b3e", "#000000", 0, 0.85),
+  supportMaterial("#d9a052", "#5a3411", 0.16, 0.85),
+];
+const LADDER_RUNG_MATERIALS = [
+  supportMaterial("#c99a55", "#000000", 0, 0.85),
+  supportMaterial("#ffd078", "#5a3411", 0.18, 0.85),
+];
+const PLANK_BOARD_MATERIALS = [
+  supportMaterial("#b58a4a", "#000000", 0, 0.85),
+  supportMaterial("#e4ad5b", "#4a2d10", 0.14, 0.85),
+];
+const PLANK_BEAM_MATERIALS = [
+  supportMaterial("#8a6536", "#000000", 0, 0.9),
+  supportMaterial("#ba8240", "#4a2d10", 0.12, 0.9),
+];
+
+// Shared geometry and materials for the carved-cell overlays (recessed
+// tunnel floor, darkness plane) so a reveal burst mounts them without
+// building geometry/materials per cell (dispose={null} safe). The floor
+// tint jitter rides the shared node shader; one floor material per biome
+// is precomputed. Darkness opacity is bucketed to 0.02 (it only shows at
+// max zoom over a narrow ramp) so the cache stays bounded.
+const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12);
+const DARKNESS_GEOMETRY = new PlaneGeometry(1.08, 1.08);
+const TUNNEL_FLOOR_MATERIALS: Record<
+  MineBiomeId,
+  ReturnType<typeof tunnelFloorMaterial>
+> = {
+  default: tunnelFloorMaterial(tunnelColorForBiome("default")),
+  winter: tunnelFloorMaterial(tunnelColorForBiome("winter")),
+  highTech: tunnelFloorMaterial(tunnelColorForBiome("highTech")),
+};
+const darknessMaterials = new Map<number, MeshBasicMaterial>();
+function darknessMaterial(opacity: number): MeshBasicMaterial {
+  const bucket = Math.round(opacity * 50) / 50;
+  return getOrCreate(
+    darknessMaterials,
+    bucket,
+    () =>
+      new MeshBasicMaterial({
+        color: EDGE_DARKNESS_COLOR,
+        transparent: true,
+        opacity: bucket,
+        depthWrite: false,
+      }),
   );
+}
+
+// Tiny offscreen warm-up mesh geometry, shared across every warm mesh so
+// the renderer compiles each material's program once at load, not on first
+// draw mid-play.
+const WARMUP_GEOMETRY = new BoxGeometry(0.001, 0.001, 0.001);
+
+/** Build one offscreen warm mesh per material and compile them all in one
+ * pass, so first-use shader compilation is paid at load, not per action.
+ * Instanced-body materials warm on an InstancedMesh (a distinct program);
+ * everything else on a plain mesh. Returns a disposer for the temp group. */
+function warmMineMaterials(
+  gl: { compileAsync?: (scene: Object3D, camera: Camera) => Promise<unknown> },
+  scene: Object3D,
+  camera: Camera,
+  detail: boolean,
+): () => void {
+  const group = new Group();
+  group.position.set(0, 0, -500);
+  const addWarm = (material: Material) => {
+    group.add(new Mesh(WARMUP_GEOMETRY, material));
+  };
+  for (const material of collectInstancedBodyMaterials(detail)) {
+    group.add(new InstancedMesh(WARMUP_GEOMETRY, material, 1));
+  }
+  for (const material of collectBlockNodeMaterials(detail)) addWarm(material);
+  for (const material of collectShardMaterials()) addWarm(material);
+  for (const materials of [
+    LADDER_RAIL_MATERIALS,
+    LADDER_RUNG_MATERIALS,
+    PLANK_BOARD_MATERIALS,
+    PLANK_BEAM_MATERIALS,
+  ]) {
+    for (const material of materials) addWarm(material);
+  }
+  // Darkness buckets across the lamp-falloff opacity ramp, in the same 0.02
+  // steps the darkness cache buckets by, derived from the camera caps.
+  const nearBucket = Math.round(DARKNESS_CAP_NEAR_OPACITY * 50);
+  const farBucket = Math.round(DARKNESS_CAP_FAR_OPACITY * 50);
+  for (let bucket = nearBucket; bucket <= farBucket; bucket++) {
+    addWarm(darknessMaterial(bucket / 50));
+  }
+  scene.add(group);
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    scene.remove(group);
+    for (const child of group.children) {
+      if ((child as InstancedMesh).isInstancedMesh) {
+        (child as InstancedMesh).dispose();
+      }
+    }
+    group.clear();
+  };
+  try {
+    const compiled = gl.compileAsync?.(scene, camera);
+    if (compiled) compiled.then(dispose, dispose);
+    else dispose();
+  } catch {
+    dispose();
+  }
+  return dispose;
 }
 
 /** Build one cell's elements. Module-scope on purpose: the closures
@@ -276,15 +451,13 @@ function buildCellEntry(
   }
   if (darknessOpacity > 0) {
     entry.darkness.push(
-      <mesh key={`dark:${key}`} position={[x, y, 0.72]}>
-        <planeGeometry args={[1.08, 1.08]} />
-        <meshBasicMaterial
-          color={EDGE_DARKNESS_COLOR}
-          transparent
-          opacity={darknessOpacity}
-          depthWrite={false}
-        />
-      </mesh>,
+      <mesh
+        key={`dark:${key}`}
+        position={[x, y, 0.72]}
+        geometry={DARKNESS_GEOMETRY}
+        material={darknessMaterial(darknessOpacity)}
+        dispose={null}
+      />,
     );
   }
   // Damaged blocks wear cracks (REQ-013); the overlay rides above
@@ -300,13 +473,13 @@ function buildCellEntry(
     // Carved tunnels read as recessed rock, not as holes in the sky.
     if (row >= 1) {
       entry.tunnel.push(
-        <mesh key={key} position={[x, y, -0.42]}>
-          <boxGeometry args={[1, 1, 0.12]} />
-          <meshStandardMaterial
-            color={variedColor(tunnelColorForBiome(biome), col, row)}
-            roughness={1}
-          />
-        </mesh>,
+        <mesh
+          key={key}
+          position={[x, y, -0.42]}
+          geometry={TUNNEL_FLOOR_GEOMETRY}
+          material={TUNNEL_FLOOR_MATERIALS[biome]}
+          dispose={null}
+        />,
       );
     }
     // A planted ladder (REQ-020): rails and rungs against the wall.
@@ -345,28 +518,22 @@ function buildCellEntry(
           }
         >
           {[-0.16, 0.16].map((rx) => (
-            <mesh key={rx} position={[rx, 0, 0]}>
-              <boxGeometry args={[0.05, 1, 0.05]} />
-              <meshStandardMaterial
-                color={canSalvage ? "#d9a052" : "#a87b3e"}
-                emissive={canSalvage ? "#5a3411" : "#000000"}
-                emissiveIntensity={canSalvage ? 0.16 : 0}
-                roughness={0.85}
-                flatShading
-              />
-            </mesh>
+            <mesh
+              key={rx}
+              position={[rx, 0, 0]}
+              geometry={LADDER_RAIL_GEOMETRY}
+              material={LADDER_RAIL_MATERIALS[canSalvage ? 1 : 0]}
+              dispose={null}
+            />
           ))}
           {[-0.3, 0, 0.3].map((ry) => (
-            <mesh key={ry} position={[0, ry, 0]}>
-              <boxGeometry args={[0.36, 0.05, 0.05]} />
-              <meshStandardMaterial
-                color={canSalvage ? "#ffd078" : "#c99a55"}
-                emissive={canSalvage ? "#5a3411" : "#000000"}
-                emissiveIntensity={canSalvage ? 0.18 : 0}
-                roughness={0.85}
-                flatShading
-              />
-            </mesh>
+            <mesh
+              key={ry}
+              position={[0, ry, 0]}
+              geometry={LADDER_RUNG_GEOMETRY}
+              material={LADDER_RUNG_MATERIALS[canSalvage ? 1 : 0]}
+              dispose={null}
+            />
           ))}
           {ladderSelected ? (
             <SupportSelectionOutline width={0.54} height={1.08} />
@@ -405,17 +572,10 @@ function buildCellEntry(
             <meshStandardMaterial
               color="#e08aff"
               emissive="#e08aff"
-              emissiveIntensity={1.6}
+              emissiveIntensity={1.9}
               flatShading
             />
           </mesh>
-          <pointLight
-            position={[0, 0.4, 0.4]}
-            color="#e08aff"
-            intensity={1.4}
-            distance={4}
-            decay={1.6}
-          />
           {beaconSelected ? (
             <SupportSelectionOutline width={0.56} height={0.86} />
           ) : null}
@@ -484,27 +644,20 @@ function buildCellEntry(
           }
         >
           {[-0.14, 0.14].map((pz) => (
-            <mesh key={pz} position={[0, 0, pz]}>
-              <boxGeometry args={[0.98, 0.07, 0.22]} />
-              <meshStandardMaterial
-                color={canSalvage ? "#e4ad5b" : "#b58a4a"}
-                emissive={canSalvage ? "#4a2d10" : "#000000"}
-                emissiveIntensity={canSalvage ? 0.14 : 0}
-                roughness={0.85}
-                flatShading
-              />
-            </mesh>
-          ))}
-          <mesh position={[0, -0.05, 0]}>
-            <boxGeometry args={[0.2, 0.06, 0.56]} />
-            <meshStandardMaterial
-              color={canSalvage ? "#ba8240" : "#8a6536"}
-              emissive={canSalvage ? "#4a2d10" : "#000000"}
-              emissiveIntensity={canSalvage ? 0.12 : 0}
-              roughness={0.9}
-              flatShading
+            <mesh
+              key={pz}
+              position={[0, 0, pz]}
+              geometry={PLANK_BOARD_GEOMETRY}
+              material={PLANK_BOARD_MATERIALS[canSalvage ? 1 : 0]}
+              dispose={null}
             />
-          </mesh>
+          ))}
+          <mesh
+            position={[0, -0.05, 0]}
+            geometry={PLANK_BEAM_GEOMETRY}
+            material={PLANK_BEAM_MATERIALS[canSalvage ? 1 : 0]}
+            dispose={null}
+          />
           {plankSelected ? (
             <SupportSelectionOutline width={1.08} height={0.44} z={0.34} />
           ) : null}
@@ -513,36 +666,44 @@ function buildCellEntry(
     }
     return entry;
   }
+  // Static solid bodies (dirt, ore, non-fallen rock, metal) are streamed
+  // by the instanced grid, not reconciled per cell. The ore cell still
+  // overlays its crystals through React; the dirt base is instanced.
+  if (instancedBlockDraw(cell)) {
+    if (cell.kind === "ore" && cell.ore) {
+      entry.block.push(
+        <group key={key} position={[x, y, 0]}>
+          <OreCrystals
+            col={col}
+            row={row}
+            color={ORE_COLORS[cell.ore]}
+            glow={GLOWING_ORES.has(cell.ore)}
+          />
+        </group>,
+      );
+    }
+    return entry;
+  }
   if (cell.kind === "ore" && cell.ore) {
+    // Reached only for a teetering ore ceiling: React owns the wobble.
     entry.block.push(
-      <group
-        key={key}
-        position={[x, y, 0]}
-        ref={cell.fallIn !== undefined ? teeterMeshRef(key, x) : undefined}
-      >
+      <group key={key} position={[x, y, 0]} ref={teeterMeshRef(key, x)}>
         <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
       </group>,
     );
     return entry;
   }
   if (cell.kind === "rock") {
+    // Reached only for a teetering or fallen rock (static rock is instanced).
     const teeter = cell.fallIn;
     const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
-    if (teeter !== undefined || cell.fallen) {
-      entry.block.push(
-        <group
-          key={key}
-          position={[x, y, 0]}
-          ref={teeter !== undefined ? teeterMeshRef(key, x) : undefined}
-        >
-          <FallingRockShard col={col} row={row} urgency={urgency} />
-        </group>,
-      );
-      return entry;
-    }
     entry.block.push(
-      <group key={key} position={[x, y, 0]}>
-        <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
+      <group
+        key={key}
+        position={[x, y, 0]}
+        ref={teeter !== undefined ? teeterMeshRef(key, x) : undefined}
+      >
+        <FallingRockShard col={col} row={row} urgency={urgency} />
       </group>,
     );
     return entry;
@@ -689,16 +850,8 @@ function buildCellEntry(
     );
     return entry;
   }
-  if (cell.kind === "metal") {
-    entry.block.push(
-      <group key={key} position={[x, y, 0]}>
-        <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
-      </group>,
-    );
-    return entry;
-  }
-  // Dirt and anything else: the shared body (per-cell tone variation
-  // and soil grain live in the shader now). A wide-span ceiling cell
+  // Dirt and anything else (including a teetering metal, which never
+  // reaches instancing): the shared body. A wide-span ceiling cell
   // teeters like a rock: the tremble is the collapse warning.
   entry.block.push(
     <group
@@ -767,6 +920,13 @@ function MineScene({
   const wobbleTargets = useRef<
     Map<string, { x: number; y: number; urgency: number }>
   >(new Map());
+  // Imperative instanced block grid (F-075 escalation): the static solid
+  // bodies stream through InstancedMeshes on this group instead of one
+  // React-reconciled mesh per cell. The render loop refills `blockPlan`;
+  // a layout effect applies it after render, off the frame path.
+  const instancedGridGroupRef = useRef<Group>(null);
+  const instancedGridRef = useRef<InstancedBlockGrid | null>(null);
+  const blockPlan = useRef<BlockInstancePlan>(createBlockInstancePlan());
   // F-075 cell element cache: keyed `${col}:${row}`, dropped wholesale
   // when the world object changes identity (new trip, restored save).
   const cellElementCache = useRef<Map<string, MineCellEntry>>(new Map());
@@ -829,6 +989,13 @@ function MineScene({
   // driving; the WebGL2 fallback (headless CI, software GL, weak GPUs)
   // cannot afford them regardless of the pointer-derived tier.
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
+  // Shader-detail tier for the instanced block materials (matches
+  // useBlockDetail: high quality AND the live WebGPU backend).
+  const detail = blockDetailEnabled(webgpuBackend);
+  // Renderer/scene/camera for the one-time material warm-up below.
+  const gl = useThree((state) => state.gl);
+  const scene = useThree((state) => state.scene);
+  const camera = useThree((state) => state.camera);
   const { fallPlayback, fallWindow, clearFallPlayback } =
     useMineDeathPlaybackBridge(lastResult, tick);
   const renderedCellCountRef = useRef(0);
@@ -1497,6 +1664,39 @@ function MineScene({
     }
   });
 
+  // Stream the block-instance plan (filled by the render loop below) into
+  // the grid after every render. Runs at input cadence, off the frame
+  // path; the grid is created lazily over its group on first commit.
+  useLayoutEffect(() => {
+    const group = instancedGridGroupRef.current;
+    if (!group) return;
+    let grid = instancedGridRef.current;
+    if (!grid) {
+      grid = new InstancedBlockGrid(group);
+      instancedGridRef.current = grid;
+    }
+    grid.apply(blockPlan.current);
+  });
+
+  // Free the instance buffers when the canvas unmounts (the shared
+  // geometry/material singletons are left alive).
+  useLayoutEffect(() => {
+    return () => {
+      instancedGridRef.current?.dispose();
+      instancedGridRef.current = null;
+    };
+  }, []);
+
+  // Pre-compile every mine material once at load so first-use shader
+  // compilation stops hitching a frame mid-play (the residual fall/crush/
+  // descent stall real-device telemetry pinned to FrameRequestCallback,
+  // present on desktop too, i.e. compilation, not GC). Best-effort: if the
+  // renderer lacks compileAsync or it throws, materials just compile lazily
+  // as before. Re-runs only if the detail tier flips (a quality change).
+  useEffect(() => {
+    return warmMineMaterials(gl, scene, camera, detail);
+  }, [gl, scene, camera, detail]);
+
   const stratumIndex = Math.min(
     STRATA.indexOf(stratumAt(minerRow)),
     STRATA_BG.length - 1,
@@ -1509,6 +1709,9 @@ function MineScene({
   // identity changed) and live urgency from wobbleTargets, which the
   // cell loop refreshes every render.
   wobbleTargets.current.clear();
+  // Fresh block-instance plan for this tick; the loop below fills it for
+  // every static solid cell, and a layout effect streams it to the grid.
+  const plan = beginBlockPlan(blockPlan.current);
   const blockMeshes = [];
   const tunnelMeshes = [];
   const cargoMeshes = [];
@@ -1572,6 +1775,29 @@ function MineScene({
           urgency: teeterUrgency(cell.fallIn),
         });
       }
+      // Static solid body: record it in the instanced plan instead of a
+      // React element. Runs on hit and miss alike (the plan is not cached),
+      // so scrolling the window only rewrites instance matrices.
+      if (instancedBlockDraw(cell)) {
+        instancedBlockBody(
+          cell,
+          col,
+          row,
+          biomeAt(col),
+          detail,
+          instanceBodyScratch,
+        );
+        pushBlockInstance(
+          plan,
+          instanceBodyScratch.geometry,
+          instanceBodyScratch.material,
+          x,
+          y,
+          instanceBodyScratch.rotX,
+          instanceBodyScratch.rotY,
+          instanceBodyScratch.rotZ,
+        );
+      }
       // Signature inputs: everything the cell's JSX reads that can
       // change while the cell stays on screen.
       const dynamitePreview = dynamitePreviewSet.has(key);
@@ -1617,7 +1843,8 @@ function MineScene({
         `${dynamitePreview ? 1 : 0}|${Math.round(darknessOpacity * 1000)}|` +
         `${damage === null ? "" : Math.round(damage * 1000)}|` +
         `${canSalvage ? 1 : 0}${ladderSelected ? 1 : 0}` +
-        `${beaconSelected ? 1 : 0}${plankSelected ? 1 : 0}${toggleBit}`;
+        `${beaconSelected ? 1 : 0}${plankSelected ? 1 : 0}${toggleBit}` +
+        `${detail ? 1 : 0}`;
       let entry = cellCache.get(key);
       if (entry === undefined || entry.sig !== sig) {
         entry = buildCellEntry(sig, cacheGen, cell, col, row, {
@@ -1720,6 +1947,10 @@ function MineScene({
         </mesh>
       </group>
       {tunnelMeshes}
+      {/* Imperative instanced block grid: the static solid bodies stream
+          here as InstancedMeshes (identity transform, world-positioned
+          instances), a sibling of the React decoration meshes below. */}
+      <group ref={instancedGridGroupRef} />
       {blockMeshes}
       {crackMeshes}
       {cargoMeshes}

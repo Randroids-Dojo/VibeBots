@@ -64,15 +64,6 @@ function PortalBeaconModel({
           flatShading
         />
       </mesh>
-      {active && (
-        <pointLight
-          position={[0, 0.28, 0.4]}
-          color={color}
-          intensity={1.5}
-          distance={4.5}
-          decay={1.7}
-        />
-      )}
     </group>
   );
 }

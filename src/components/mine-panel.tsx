@@ -39,6 +39,7 @@ import {
   authoredPortalAt,
   BAG_STACK_LIMIT,
   type CollectTarget,
+  canDropThroughPlank,
   canJump,
   canPlacePlank,
   cargoCapacity,
@@ -1778,6 +1779,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     state.move("jump");
   }, [creditsOpen, elevatorAutoDir, mineSceneReady, terminalMineState]);
 
+  // Shift + Down (F-059): drop through the plank underfoot. Only fires when
+  // a plank is actually there, so it never mines the way a plain Down does.
+  const firePlankDrop = useCallback(() => {
+    if (!mineSceneReady) return;
+    if (elevatorAutoDir) return;
+    if (terminalMineState || creditsOpen) return;
+    const state = useMineStore.getState();
+    if (!canDropThroughPlank(state.mine)) return;
+    state.move("down");
+  }, [creditsOpen, elevatorAutoDir, mineSceneReady, terminalMineState]);
+
   const releaseDirection = useCallback((dir: Direction | null) => {
     directionCadenceRef.current?.release(dir);
     if (dir === null || dir === "up") {
@@ -1902,6 +1914,41 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         if (!creditsOpen) fireJump();
         return;
       }
+      // Enter walks the miner into the building on the current surface
+      // column (F-061). A focused button keeps its own activation.
+      if (event.key === "Enter") {
+        if (targetEl?.closest("button,a,[role='button']")) return;
+        const state = useMineStore.getState();
+        const surfaceMiner = state.mine.miner;
+        const dest =
+          surfaceMiner.row === 0 ? destinationAt(surfaceMiner.col) : null;
+        if (!dest) return;
+        event.preventDefault();
+        if (terminalMineState || creditsOpen) return;
+        router.push(dest.href);
+        return;
+      }
+      // Shift modifies the vertical keys (F-059): Shift + Up jumps instead
+      // of climbing, Shift + Down drops through a plank instead of mining.
+      // Lateral keys ignore Shift and keep the normal move.
+      if (event.shiftKey) {
+        const shiftKey =
+          event.key === "ArrowUp" || event.key === "ArrowDown"
+            ? event.key
+            : event.key.length === 1
+              ? event.key.toLowerCase()
+              : event.key;
+        if (shiftKey === "ArrowUp" || shiftKey === "w") {
+          event.preventDefault();
+          if (!creditsOpen) fireJump();
+          return;
+        }
+        if (shiftKey === "ArrowDown" || shiftKey === "s") {
+          event.preventDefault();
+          if (!terminalMineState && !creditsOpen) firePlankDrop();
+          return;
+        }
+      }
       const dir = KEY_DIRECTIONS[event.key];
       if (!dir) return;
       event.preventDefault();
@@ -1926,7 +1973,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     creditsOpen,
     fireDirection,
     fireJump,
+    firePlankDrop,
     releaseDirection,
+    router,
     terminalMineState,
   ]);
 

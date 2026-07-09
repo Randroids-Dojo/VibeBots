@@ -1094,6 +1094,19 @@ export function canJump(state: MineState): boolean {
   return cell?.kind === "empty";
 }
 
+/**
+ * True when the miner is standing on a plank bridge and a `down` action
+ * would break it to drop through (the desktop Shift + Down control, F-059).
+ * The `down` step already routes a plank underfoot to breakCurrentPlank; a
+ * plain down elsewhere digs, so this predicate lets the input layer offer
+ * a plank-drop that never accidentally mines.
+ */
+export function canDropThroughPlank(state: MineState): boolean {
+  const miner = state.miner;
+  if (miner.row < 1) return false;
+  return cellAt(state, miner.col, miner.row)?.plank === true;
+}
+
 function jumpJets(state: MineState): MoveResult {
   if (!canJump(state)) return { ok: false, reason: "blocked" };
   const miner = state.miner;

@@ -55,6 +55,8 @@ import {
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
+import { DIRT_BLOCK_GEOMETRY } from "./mine-block-geometries";
+import { blockDetailEnabled, dirtBlockMaterial } from "./mine-block-materials";
 import {
   CacheCrate,
   CrackMarks,
@@ -65,7 +67,10 @@ import {
   DynamiteCharge,
   dropPileStats,
   FallingRockShard,
+  type InstancedBlockBody,
+  instancedBlockBody,
   MineBlockBody,
+  OreCrystals,
 } from "./mine-block-render";
 import { type BunkerBuildMode, BunkerOverlay } from "./mine-bunker-overlay";
 import {
@@ -74,6 +79,14 @@ import {
   fatalFallPlaybackSeconds,
   useMineDeathPlaybackBridge,
 } from "./mine-death-playback";
+import {
+  type BlockInstancePlan,
+  beginBlockPlan,
+  createBlockInstancePlan,
+  InstancedBlockGrid,
+  instancedBlockDraw,
+  pushBlockInstance,
+} from "./mine-instanced-grid";
 import { MinerBot } from "./mine-miner-render";
 import {
   type MotionTrack,
@@ -196,6 +209,18 @@ interface MineCellViewInputs {
     x: number,
   ) => (mesh: Group | Mesh | null) => void;
 }
+
+/** Module scratch the render loop fills per instanced cell before copying
+ * into the block plan, so classifying a cell allocates nothing. The
+ * geometry/material seeds are overwritten by instancedBlockBody before any
+ * read; the seed color is a real one, so it pollutes no material cache. */
+const instanceBodyScratch: InstancedBlockBody = {
+  geometry: DIRT_BLOCK_GEOMETRY,
+  material: dirtBlockMaterial(biomeDirtColorAt(0, 0), false),
+  rotX: 0,
+  rotY: 0,
+  rotZ: 0,
+};
 
 /** Span-destabilized ceilings start on a longer countdown than the
  * undercut teeter, so the ramp clamps to a gentle floor instead of
@@ -513,36 +538,44 @@ function buildCellEntry(
     }
     return entry;
   }
+  // Static solid bodies (dirt, ore, non-fallen rock, metal) are streamed
+  // by the instanced grid, not reconciled per cell. The ore cell still
+  // overlays its crystals through React; the dirt base is instanced.
+  if (instancedBlockDraw(cell)) {
+    if (cell.kind === "ore" && cell.ore) {
+      entry.block.push(
+        <group key={key} position={[x, y, 0]}>
+          <OreCrystals
+            col={col}
+            row={row}
+            color={ORE_COLORS[cell.ore]}
+            glow={GLOWING_ORES.has(cell.ore)}
+          />
+        </group>,
+      );
+    }
+    return entry;
+  }
   if (cell.kind === "ore" && cell.ore) {
+    // Reached only for a teetering ore ceiling: React owns the wobble.
     entry.block.push(
-      <group
-        key={key}
-        position={[x, y, 0]}
-        ref={cell.fallIn !== undefined ? teeterMeshRef(key, x) : undefined}
-      >
+      <group key={key} position={[x, y, 0]} ref={teeterMeshRef(key, x)}>
         <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
       </group>,
     );
     return entry;
   }
   if (cell.kind === "rock") {
+    // Reached only for a teetering or fallen rock (static rock is instanced).
     const teeter = cell.fallIn;
     const urgency = teeter !== undefined ? teeterUrgency(teeter) : 0;
-    if (teeter !== undefined || cell.fallen) {
-      entry.block.push(
-        <group
-          key={key}
-          position={[x, y, 0]}
-          ref={teeter !== undefined ? teeterMeshRef(key, x) : undefined}
-        >
-          <FallingRockShard col={col} row={row} urgency={urgency} />
-        </group>,
-      );
-      return entry;
-    }
     entry.block.push(
-      <group key={key} position={[x, y, 0]}>
-        <MineBlockBody cell={cell} col={col} row={row} biome={biome} />
+      <group
+        key={key}
+        position={[x, y, 0]}
+        ref={teeter !== undefined ? teeterMeshRef(key, x) : undefined}
+      >
+        <FallingRockShard col={col} row={row} urgency={urgency} />
       </group>,
     );
     return entry;
@@ -767,6 +800,13 @@ function MineScene({
   const wobbleTargets = useRef<
     Map<string, { x: number; y: number; urgency: number }>
   >(new Map());
+  // Imperative instanced block grid (F-075 escalation): the static solid
+  // bodies stream through InstancedMeshes on this group instead of one
+  // React-reconciled mesh per cell. The render loop refills `blockPlan`;
+  // a layout effect applies it after render, off the frame path.
+  const instancedGridGroupRef = useRef<Group>(null);
+  const instancedGridRef = useRef<InstancedBlockGrid | null>(null);
+  const blockPlan = useRef<BlockInstancePlan>(createBlockInstancePlan());
   // F-075 cell element cache: keyed `${col}:${row}`, dropped wholesale
   // when the world object changes identity (new trip, restored save).
   const cellElementCache = useRef<Map<string, MineCellEntry>>(new Map());
@@ -829,6 +869,9 @@ function MineScene({
   // driving; the WebGL2 fallback (headless CI, software GL, weak GPUs)
   // cannot afford them regardless of the pointer-derived tier.
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
+  // Shader-detail tier for the instanced block materials (matches
+  // useBlockDetail: high quality AND the live WebGPU backend).
+  const detail = blockDetailEnabled(webgpuBackend);
   const { fallPlayback, fallWindow, clearFallPlayback } =
     useMineDeathPlaybackBridge(lastResult, tick);
   const renderedCellCountRef = useRef(0);
@@ -1497,6 +1540,29 @@ function MineScene({
     }
   });
 
+  // Stream the block-instance plan (filled by the render loop below) into
+  // the grid after every render. Runs at input cadence, off the frame
+  // path; the grid is created lazily over its group on first commit.
+  useLayoutEffect(() => {
+    const group = instancedGridGroupRef.current;
+    if (!group) return;
+    let grid = instancedGridRef.current;
+    if (!grid) {
+      grid = new InstancedBlockGrid(group);
+      instancedGridRef.current = grid;
+    }
+    grid.apply(blockPlan.current);
+  });
+
+  // Free the instance buffers when the canvas unmounts (the shared
+  // geometry/material singletons are left alive).
+  useLayoutEffect(() => {
+    return () => {
+      instancedGridRef.current?.dispose();
+      instancedGridRef.current = null;
+    };
+  }, []);
+
   const stratumIndex = Math.min(
     STRATA.indexOf(stratumAt(minerRow)),
     STRATA_BG.length - 1,
@@ -1509,6 +1575,9 @@ function MineScene({
   // identity changed) and live urgency from wobbleTargets, which the
   // cell loop refreshes every render.
   wobbleTargets.current.clear();
+  // Fresh block-instance plan for this tick; the loop below fills it for
+  // every static solid cell, and a layout effect streams it to the grid.
+  const plan = beginBlockPlan(blockPlan.current);
   const blockMeshes = [];
   const tunnelMeshes = [];
   const cargoMeshes = [];
@@ -1572,6 +1641,29 @@ function MineScene({
           urgency: teeterUrgency(cell.fallIn),
         });
       }
+      // Static solid body: record it in the instanced plan instead of a
+      // React element. Runs on hit and miss alike (the plan is not cached),
+      // so scrolling the window only rewrites instance matrices.
+      if (instancedBlockDraw(cell)) {
+        instancedBlockBody(
+          cell,
+          col,
+          row,
+          biomeAt(col),
+          detail,
+          instanceBodyScratch,
+        );
+        pushBlockInstance(
+          plan,
+          instanceBodyScratch.geometry,
+          instanceBodyScratch.material,
+          x,
+          y,
+          instanceBodyScratch.rotX,
+          instanceBodyScratch.rotY,
+          instanceBodyScratch.rotZ,
+        );
+      }
       // Signature inputs: everything the cell's JSX reads that can
       // change while the cell stays on screen.
       const dynamitePreview = dynamitePreviewSet.has(key);
@@ -1617,7 +1709,8 @@ function MineScene({
         `${dynamitePreview ? 1 : 0}|${Math.round(darknessOpacity * 1000)}|` +
         `${damage === null ? "" : Math.round(damage * 1000)}|` +
         `${canSalvage ? 1 : 0}${ladderSelected ? 1 : 0}` +
-        `${beaconSelected ? 1 : 0}${plankSelected ? 1 : 0}${toggleBit}`;
+        `${beaconSelected ? 1 : 0}${plankSelected ? 1 : 0}${toggleBit}` +
+        `${detail ? 1 : 0}`;
       let entry = cellCache.get(key);
       if (entry === undefined || entry.sig !== sig) {
         entry = buildCellEntry(sig, cacheGen, cell, col, row, {
@@ -1720,6 +1813,10 @@ function MineScene({
         </mesh>
       </group>
       {tunnelMeshes}
+      {/* Imperative instanced block grid: the static solid bodies stream
+          here as InstancedMeshes (identity transform, world-positioned
+          instances), a sibling of the React decoration meshes below. */}
+      <group ref={instancedGridGroupRef} />
       {blockMeshes}
       {crackMeshes}
       {cargoMeshes}

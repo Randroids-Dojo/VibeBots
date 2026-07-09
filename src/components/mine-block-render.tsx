@@ -1,7 +1,13 @@
 import { RoundedBox } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useRef } from "react";
-import type { Group, Mesh, PointLight } from "three/webgpu";
+import type {
+  BufferGeometry,
+  Group,
+  Mesh,
+  MeshStandardNodeMaterial,
+  PointLight,
+} from "three/webgpu";
 import type { MineBiomeId, MineCell, OreId } from "@/sim/mine";
 import { isWebGPUBackend } from "./graphics-quality";
 import {
@@ -134,6 +140,57 @@ export function MineBlockBody({
       dispose={null}
     />
   );
+}
+
+/** The geometry, shared material, and rotation for a cell whose solid
+ * body is drawn by the instanced grid (mine-instanced-grid.ts). Written
+ * into a caller-owned scratch object so classifying a cell allocates
+ * nothing at input cadence. */
+export interface InstancedBlockBody {
+  geometry: BufferGeometry;
+  material: MeshStandardNodeMaterial;
+  rotX: number;
+  rotY: number;
+  rotZ: number;
+}
+
+/**
+ * Fill `out` with the geometry, shared material, and rotation for an
+ * instanced cell, mirroring MineBlockBody's solid branches exactly (same
+ * geometry, same shared material, same per-cell rotation) so the block
+ * renders pixel-identical to the React path. Caller must have confirmed
+ * instancedBlockDraw(cell); ore fills its dirt body (the canvas overlays
+ * the crystals separately).
+ */
+export function instancedBlockBody(
+  cell: MineCell,
+  col: number,
+  row: number,
+  biome: MineBiomeId,
+  detail: boolean,
+  out: InstancedBlockBody,
+): void {
+  out.rotX = 0;
+  out.rotY = 0;
+  out.rotZ = 0;
+  if (cell.kind === "rock") {
+    const rockColors = rockColorsForBiome(biome);
+    const tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
+    out.geometry = ROCK_BLOCK_GEOMETRY;
+    out.material = rockBlockMaterial(rockColors[tier], detail);
+    out.rotX = cellHash(col, row, 13) * 3.1;
+    out.rotY = cellHash(col, row, 17) * 3.1;
+    out.rotZ = cellHash(col, row, 19) * 3.1;
+    return;
+  }
+  if (cell.kind === "metal") {
+    out.geometry = METAL_BLOCK_GEOMETRY;
+    out.material = metalBlockMaterial(METAL_COLOR, detail);
+    return;
+  }
+  // Dirt and ore bodies: the shared beveled cube tinted by stratum/biome.
+  out.geometry = DIRT_BLOCK_GEOMETRY;
+  out.material = dirtBlockMaterial(biomeDirtColorAt(col, row), detail);
 }
 
 /** Fingerprint of the MineCell fields the cell visuals read: the shared

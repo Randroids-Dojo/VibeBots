@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="tunnel-darkness-overlay-sharing" data-date="2026-07-09">
+    <h3>Share the tunnel-floor and darkness-overlay geometry and materials (surface-drop and crush lag)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/instanced-grid-rewrite-es0i83</code> (follow-on to the support-sharing entry below).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>User-reported lag when dropping several levels from the surface (fatal and non-fatal) and when crushed by a falling rock. Both are one action that opens the view window onto a batch of previously-unseen cells at once: a drop from the surface reveals the shaft and the dark region below it, and a crush jumps the window to the wreck. The solid bodies are instanced, but two per-cell overlays were still inline geometry/material JSX: the recessed tunnel floor on every carved (empty) cell, and the darkness plane on every cell past the lamp. So the reveal built a geometry, a material, and, for the floor, a <code>Color</code> per cell in that single tick, an allocation burst that reads as the F-074 GC-pause lag. Applied the shipped sharing pattern: one shared box geometry and a per-biome jittered node material (<code>tunnelFloorMaterial</code> in <code>mine-block-materials.ts</code>, tint jitter in the shader like the block bodies) for the floor; one shared plane geometry and an opacity-bucketed <code>MeshBasicMaterial</code> cache for the darkness plane (opacity is discrete: it only shows at max zoom over a narrow ramp). Both meshes now carry <code>dispose={null}</code> and create nothing on mount. Visuals are effectively identical (the floor keeps a stable per-cell tint jitter; darkness buckets to 0.02 opacity, below perception). No version bump; <code>MINE_VERSION</code> stays at <code>50</code>; <code>SIM_VERSION</code> stays at <code>4</code>.</dd>
+      <dt>Verification</dt><dd>Partial in the authoring container (same egress-blocked <code>@randroids-dojo/vibekit</code> dependency prevents <code>tsc</code>/<code>vitest</code>/<code>build</code>/Playwright locally). Ran: Biome clean; em-dash and <code>git diff --check</code> clean. Manual review confirmed the shared tunnel material reproduces the recessed floor and the bucketed darkness matches the ramped overlay. CI runs the full gate; real-device confirmation via the per-build telemetry A/B after deploy.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: move the tunnel-floor tint jitter into the shared node material's shader (matching how the block bodies dropped per-cell <code>variedColor</code> Color allocation) rather than keep a per-cell material, and bucket darkness opacity rather than mint a material per exact value. Considered and skipped this pass: memoizing <code>SurfaceSkin</code> (it renders every tick and allocates a Color per column) is unsafe without a portal signature, because a portal activated mid-trip mutates the mine in place and a mine-identity memo would leave its glow stale; noted as a follow-on that needs the signature. If a multi-second freeze persists after this, the remaining suspects are JS-heap GC pressure and the sim-side <code>tickFalls</code> all-cells scan, both of which need device telemetry to confirm. Rule 13: mine tips reviewed, no change. Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No status changes. Build-log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>Memoizing or gating <code>SurfaceSkin</code> (with a portal signature) to stop its per-tick Color allocation, and profiling the <code>tickFalls</code> scan, are candidates under the <code>F-075</code> follow-through if telemetry still shows fall-time stalls.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ladder-plank-support-sharing" data-date="2026-07-09">
     <h3>Share the ladder and plank support geometry and materials (climb-shaft lag)</h3>
     <dl>

@@ -16,7 +16,9 @@ import {
   BoxGeometry,
   Color,
   Matrix4,
+  MeshBasicMaterial,
   MeshStandardMaterial,
+  PlaneGeometry,
 } from "three/webgpu";
 import {
   clampMineCameraZoom,
@@ -60,7 +62,10 @@ import {
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
-import { blockDetailEnabled } from "./mine-block-materials";
+import {
+  blockDetailEnabled,
+  tunnelFloorMaterial,
+} from "./mine-block-materials";
 import {
   type BlockInstancePlan,
   beginBlockPlan,
@@ -272,6 +277,38 @@ const PLANK_BEAM_MATERIALS = [
   supportMaterial("#ba8240", "#4a2d10", 0.12, 0.9),
 ];
 
+/**
+ * Shared geometry and materials for the carved-cell overlays (surface-fall
+ * lag). A carved tunnel cell renders a recessed floor, and every cell past
+ * the lamp renders a darkness plane; both used inline geometry and material
+ * JSX, so dropping from the surface into the dark shaft, a burst of empty
+ * cells appearing at once, built a geometry, a material, and (for the
+ * floor) a Color per cell in one tick. These singletons make both overlays
+ * allocation-free on mount. The floor tint jitter now rides the shared
+ * node material's shader; the darkness plane's opacity is discrete enough
+ * (it only shows at max zoom over a narrow ramp) to bucket into a bounded
+ * material cache keyed by rounded opacity.
+ */
+const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12);
+const DARKNESS_GEOMETRY = new PlaneGeometry(1.08, 1.08);
+const darknessMaterials = new Map<number, MeshBasicMaterial>();
+function darknessMaterial(opacity: number): MeshBasicMaterial {
+  // Bucket to 0.02 so a camera-ease drift reuses one material instead of
+  // minting a new one per frame; the ramp spans about a dozen buckets.
+  const bucket = Math.round(opacity * 50) / 50;
+  let material = darknessMaterials.get(bucket);
+  if (!material) {
+    material = new MeshBasicMaterial({
+      color: EDGE_DARKNESS_COLOR,
+      transparent: true,
+      opacity: bucket,
+      depthWrite: false,
+    });
+    darknessMaterials.set(bucket, material);
+  }
+  return material;
+}
+
 /** Span-destabilized ceilings start on a longer countdown than the
  * undercut teeter, so the ramp clamps to a gentle floor instead of
  * going negative: distant dooms tremble softly, imminent ones shake. */
@@ -351,15 +388,13 @@ function buildCellEntry(
   }
   if (darknessOpacity > 0) {
     entry.darkness.push(
-      <mesh key={`dark:${key}`} position={[x, y, 0.72]}>
-        <planeGeometry args={[1.08, 1.08]} />
-        <meshBasicMaterial
-          color={EDGE_DARKNESS_COLOR}
-          transparent
-          opacity={darknessOpacity}
-          depthWrite={false}
-        />
-      </mesh>,
+      <mesh
+        key={`dark:${key}`}
+        position={[x, y, 0.72]}
+        geometry={DARKNESS_GEOMETRY}
+        material={darknessMaterial(darknessOpacity)}
+        dispose={null}
+      />,
     );
   }
   // Damaged blocks wear cracks (REQ-013); the overlay rides above
@@ -375,13 +410,13 @@ function buildCellEntry(
     // Carved tunnels read as recessed rock, not as holes in the sky.
     if (row >= 1) {
       entry.tunnel.push(
-        <mesh key={key} position={[x, y, -0.42]}>
-          <boxGeometry args={[1, 1, 0.12]} />
-          <meshStandardMaterial
-            color={variedColor(tunnelColorForBiome(biome), col, row)}
-            roughness={1}
-          />
-        </mesh>,
+        <mesh
+          key={key}
+          position={[x, y, -0.42]}
+          geometry={TUNNEL_FLOOR_GEOMETRY}
+          material={tunnelFloorMaterial(tunnelColorForBiome(biome))}
+          dispose={null}
+        />,
       );
     }
     // A planted ladder (REQ-020): rails and rungs against the wall.

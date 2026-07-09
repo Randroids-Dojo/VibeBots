@@ -95,6 +95,19 @@ export function cached(
   return material;
 }
 
+/** Recessed tunnel floor: a flat, jittered tone with no grain. Shared per
+ * biome tunnel color (the per-cell lightness variation rides positionWorld
+ * in the shader, as the block bodies do) so a carved cell stops building a
+ * material and a Color on every mount. */
+export function tunnelFloorMaterial(baseHex: string): MeshStandardNodeMaterial {
+  return cached(`tunnel:${baseHex}`, () => {
+    const material = new MeshStandardNodeMaterial();
+    material.roughness = 1;
+    material.colorNode = jitteredColor(baseHex);
+    return material;
+  });
+}
+
 /** Soil: warm grain, pebbly speckle, matte. */
 export function dirtBlockMaterial(
   baseHex: string,

@@ -70,6 +70,8 @@ export class InstancedBlockGrid {
     this.group = group;
   }
 
+  /** The bucket for a (geometry, material) pair, created on first use.
+   * Buckets are keyed by material identity (1:1 with geometry here). */
   private poolFor(
     geometry: BufferGeometry,
     material: MeshStandardNodeMaterial,
@@ -87,6 +89,8 @@ export class InstancedBlockGrid {
     return pool;
   }
 
+  /** Build one bucket InstancedMesh, parented to the grid group and sized
+   * to `capacity`, with dynamic instance-matrix usage and no frustum cull. */
   private buildMesh(
     geometry: BufferGeometry,
     material: MeshStandardNodeMaterial,

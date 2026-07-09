@@ -34,6 +34,7 @@ export interface BlockInstancePlan {
   count: number;
 }
 
+/** A fresh, empty block-instance plan (one per canvas, kept in a ref). */
 export function createBlockInstancePlan(): BlockInstancePlan {
   return { items: [], count: 0 };
 }

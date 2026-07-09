@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-077" data-f="F-077" data-priority="polish">
+    <h3>F-077: Fixed-count accent-light pool for the mine's local glow</h3>
+    <dl>
+      <dt>Context</dt><dd>The constant-light-count fix (F-075 follow-through, PR #105) removed the decorative point lights on warp beacons, dropped bags, dynamite, and active surface portals, because a fluctuating light count made three recompile every material program and froze the frame. Their emissive meshes stayed, but the local point-light glow those emitters cast on nearby blocks is gone.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add a fixed-size pool of N point lights that are always in the scene (constant count), and each render assign them to the nearest active emitters (beacon/bag/dynamite/portal) by distance to the miner, setting position/color/intensity and parking unused ones at intensity 0. Constant count means no recompile. Acceptance: local glow returns near emitters, the scene's <code>lightCount</code> stays constant across a play session, and per-session <code>maxFrameMs</code>/<code>stallCount</code> on real-device telemetry stay at the steady state. Optional extension: instance the tunnel-floor and darkness overlays (still React) to remove their scroll-time reconcile.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started; raised by the constant-light-count slice on PR #105)</dd>
+    </dl>
+  </section>
+
   <section id="F-076" data-f="F-076" data-priority="nice-to-have">
     <h3>F-076: Adopt quantize-and-cache dataset diagnostics in the other canvases</h3>
     <dl>

@@ -53,12 +53,25 @@ export function useBlockDetail(): boolean {
   return useThree((state) => blockDetailEnabled(isWebGPUBackend(state.gl)));
 }
 
+/** Scratch the shared resolver fills for MineBlockBody's mesh; reused
+ * across renders (synchronous, non-reentrant) so posing a body allocates
+ * nothing. Its geometry/material are written by instancedBlockBody before
+ * any read, so they start undefined rather than seeding a real material. */
+const bodyScratch: InstancedBlockBody = {
+  geometry: undefined as unknown as BufferGeometry,
+  material: undefined as unknown as MeshStandardNodeMaterial,
+  rotX: 0,
+  rotY: 0,
+  rotZ: 0,
+};
+
 /**
  * The solid body for a mine cell (F-046: one source of truth for the
- * mine canvas and the Holodeck). Materials are shared TSL singletons
- * from mine-block-materials.ts: per-cell tint variation happens in the
- * shader off the world position, so this component stays prop-light and
- * the canvases stop duplicating per-kind branches.
+ * mine canvas and the Holodeck). The dirt/ore/rock/metal bodies come from
+ * the shared instancedBlockBody resolver, the same one the instanced grid
+ * uses, so the React path and the instanced path can never drift; the
+ * inline-material kinds (part-cache, gas, boulder) stay here. Materials are
+ * shared TSL singletons, geometry is one per shape, so `dispose={null}`.
  */
 export function MineBlockBody({
   cell,
@@ -72,52 +85,6 @@ export function MineBlockBody({
   biome?: MineBiomeId;
 }) {
   const detail = useBlockDetail();
-  // Every block body shares one geometry per shape (see
-  // mine-block-geometries.ts): the meshes already share materials with
-  // `dispose={null}`, so a per-cell geometry leaked its GPU buffer on
-  // unmount. Rotation and material stay per cell; the geometry does not.
-  if (cell.kind === "ore" && cell.ore) {
-    return (
-      <>
-        <mesh
-          geometry={DIRT_BLOCK_GEOMETRY}
-          material={dirtBlockMaterial(biomeDirtColorAt(col, row), detail)}
-          dispose={null}
-        />
-        <OreCrystals
-          col={col}
-          row={row}
-          color={ORE_COLORS[cell.ore]}
-          glow={GLOWING_ORES.has(cell.ore)}
-        />
-      </>
-    );
-  }
-  if (cell.kind === "rock") {
-    const rockColors = rockColorsForBiome(biome);
-    const tier = Math.min((cell.rockTier ?? 1) - 1, rockColors.length - 1);
-    return (
-      <mesh
-        rotation={[
-          cellHash(col, row, 13) * 3.1,
-          cellHash(col, row, 17) * 3.1,
-          cellHash(col, row, 19) * 3.1,
-        ]}
-        geometry={ROCK_BLOCK_GEOMETRY}
-        material={rockBlockMaterial(rockColors[tier], detail)}
-        dispose={null}
-      />
-    );
-  }
-  if (cell.kind === "metal") {
-    return (
-      <mesh
-        geometry={METAL_BLOCK_GEOMETRY}
-        material={metalBlockMaterial(METAL_COLOR, detail)}
-        dispose={null}
-      />
-    );
-  }
   if (cell.kind === "part-cache") {
     return <CacheCrate col={col} row={row} />;
   }
@@ -140,14 +107,31 @@ export function MineBlockBody({
       />
     );
   }
-  // Dirt and anything else: chunky beveled cube.
-  return (
+  // Dirt, ore, rock, and metal share the resolver used by the instanced
+  // grid; rotation is [0,0,0] for the axis-aligned bodies (identity).
+  instancedBlockBody(cell, col, row, biome, detail, bodyScratch);
+  const body = (
     <mesh
-      geometry={DIRT_BLOCK_GEOMETRY}
-      material={dirtBlockMaterial(biomeDirtColorAt(col, row), detail)}
+      rotation={[bodyScratch.rotX, bodyScratch.rotY, bodyScratch.rotZ]}
+      geometry={bodyScratch.geometry}
+      material={bodyScratch.material}
       dispose={null}
     />
   );
+  if (cell.kind === "ore" && cell.ore) {
+    return (
+      <>
+        {body}
+        <OreCrystals
+          col={col}
+          row={row}
+          color={ORE_COLORS[cell.ore]}
+          glow={GLOWING_ORES.has(cell.ore)}
+        />
+      </>
+    );
+  }
+  return body;
 }
 
 /** The geometry, shared material, and rotation for a cell whose solid
@@ -163,12 +147,13 @@ export interface InstancedBlockBody {
 }
 
 /**
- * Fill `out` with the geometry, shared material, and rotation for an
- * instanced cell, mirroring MineBlockBody's solid branches exactly (same
- * geometry, same shared material, same per-cell rotation) so the block
- * renders pixel-identical to the React path. Caller must have confirmed
- * instancedBlockDraw(cell); ore fills its dirt body (the canvas overlays
- * the crystals separately).
+ * The single source of truth for a solid block's geometry, shared
+ * material, and rotation: both the instanced grid and MineBlockBody's
+ * React path fill `out` from here, so the two can never drift and stay
+ * pixel-identical. Covers dirt, ore (the dirt base; crystals are overlaid
+ * by the caller), non-fallen rock, and metal. Caller must have confirmed
+ * instancedBlockDraw(cell), or (MineBlockBody) already handled the
+ * inline-material kinds (part-cache, gas, boulder).
  */
 export function instancedBlockBody(
   cell: MineCell,

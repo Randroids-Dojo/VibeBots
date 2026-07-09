@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="ladder-plank-support-sharing" data-date="2026-07-09">
+    <h3>Share the ladder and plank support geometry and materials (climb-shaft lag)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/instanced-grid-rewrite-es0i83</code> (follow-on to the shard-sharing entry below).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>User-reported lag around ladders, the same inline-geometry pattern as the falling-rock shards. A planted ladder renders five meshes (two rails, three rungs) and a plank four (two boards, one beam), and both used inline geometry and material JSX, so every support cell built that many GPU buffers and materials on mount. A ladder lines every climbed cell, so climbing or descending a shaft scrolls a row of ladder cells per action and churned a creation burst per row. The rails, rungs, boards, and beam now draw from four module-singleton box geometries and paired [normal, salvageable] shared materials, with <code>dispose={null}</code>; a support cell is allocation-free on mount and the visuals are identical (same box sizes, colors, positions, and the salvage-mode emissive tint). The wobble/selection wrappers and the salvage <code>onClick</code> group are untouched. No version bump; <code>MINE_VERSION</code> stays at <code>50</code>; <code>SIM_VERSION</code> stays at <code>4</code>.</dd>
+      <dt>Verification</dt><dd>Partial in the authoring container (same egress-blocked <code>@randroids-dojo/vibekit</code> dependency prevents <code>tsc</code>/<code>vitest</code>/<code>build</code>/Playwright locally). Ran: Biome clean; em-dash and <code>git diff --check</code> clean. Manual review confirmed the shared materials reproduce both the normal and salvage looks exactly (the old inline emissive of <code>#000000</code> at intensity 0 equals the new no-glow material). CI runs the full gate; real-device confirmation via the per-build telemetry A/B after deploy.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: share both the normal and salvage material variants even though salvage only shows in collect mode, so a support mesh never creates a material on mount in either mode. Scoped to ladders and planks (the two player-placed supports that line traversed cells); beacons and floor drops are rare and transient and were left inline. Rule 13: mine tips reviewed, no change (support behavior is unchanged, only its render cost). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd>No status changes. Build-log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>The recessed tunnel-floor mesh (one per empty cell, per-cell lightness jitter) is the remaining inline-geometry decoration in the carved shaft; sharing it needs a jitter decision and is noted under the <code>F-075</code> follow-through.</dd>
+    </dl>
+  </article>
+
   <article data-slice="falling-rock-shard-sharing" data-date="2026-07-09">
     <h3>Share the falling-rock shard geometry and materials; instanced-grid cleanup pass</h3>
     <dl>

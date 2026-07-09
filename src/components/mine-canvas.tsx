@@ -12,7 +12,12 @@ import type {
   Mesh,
   PointLight,
 } from "three/webgpu";
-import { Color, Matrix4 } from "three/webgpu";
+import {
+  BoxGeometry,
+  Color,
+  Matrix4,
+  MeshStandardMaterial,
+} from "three/webgpu";
 import {
   clampMineCameraZoom,
   maxMineCameraZoom,
@@ -221,6 +226,52 @@ const instanceBodyScratch: InstancedBlockBody = {
   rotZ: 0,
 };
 
+/**
+ * Shared geometry and materials for the planted ladder and plank supports
+ * (ladder-lag fix). A ladder cell renders five meshes (two rails, three
+ * rungs) and a plank cell four; with inline geometry and material JSX each
+ * cell built that many GPU buffers and materials on mount, so climbing a
+ * ladder shaft, the cells scroll every action, churned a creation burst
+ * per row. These module singletons make a support cell allocation-free, so
+ * `dispose={null}` is correct. Each material pair is [normal, salvageable];
+ * the salvage variant only appears in collect mode, but sharing both keeps
+ * the meshes free of per-mount creation either way.
+ */
+function supportMaterial(
+  color: string,
+  emissive: string,
+  emissiveIntensity: number,
+  roughness: number,
+): MeshStandardMaterial {
+  return new MeshStandardMaterial({
+    color,
+    emissive,
+    emissiveIntensity,
+    roughness,
+    flatShading: true,
+  });
+}
+const LADDER_RAIL_GEOMETRY = new BoxGeometry(0.05, 1, 0.05);
+const LADDER_RUNG_GEOMETRY = new BoxGeometry(0.36, 0.05, 0.05);
+const PLANK_BOARD_GEOMETRY = new BoxGeometry(0.98, 0.07, 0.22);
+const PLANK_BEAM_GEOMETRY = new BoxGeometry(0.2, 0.06, 0.56);
+const LADDER_RAIL_MATERIALS = [
+  supportMaterial("#a87b3e", "#000000", 0, 0.85),
+  supportMaterial("#d9a052", "#5a3411", 0.16, 0.85),
+];
+const LADDER_RUNG_MATERIALS = [
+  supportMaterial("#c99a55", "#000000", 0, 0.85),
+  supportMaterial("#ffd078", "#5a3411", 0.18, 0.85),
+];
+const PLANK_BOARD_MATERIALS = [
+  supportMaterial("#b58a4a", "#000000", 0, 0.85),
+  supportMaterial("#e4ad5b", "#4a2d10", 0.14, 0.85),
+];
+const PLANK_BEAM_MATERIALS = [
+  supportMaterial("#8a6536", "#000000", 0, 0.9),
+  supportMaterial("#ba8240", "#4a2d10", 0.12, 0.9),
+];
+
 /** Span-destabilized ceilings start on a longer countdown than the
  * undercut teeter, so the ramp clamps to a gentle floor instead of
  * going negative: distant dooms tremble softly, imminent ones shake. */
@@ -369,28 +420,22 @@ function buildCellEntry(
           }
         >
           {[-0.16, 0.16].map((rx) => (
-            <mesh key={rx} position={[rx, 0, 0]}>
-              <boxGeometry args={[0.05, 1, 0.05]} />
-              <meshStandardMaterial
-                color={canSalvage ? "#d9a052" : "#a87b3e"}
-                emissive={canSalvage ? "#5a3411" : "#000000"}
-                emissiveIntensity={canSalvage ? 0.16 : 0}
-                roughness={0.85}
-                flatShading
-              />
-            </mesh>
+            <mesh
+              key={rx}
+              position={[rx, 0, 0]}
+              geometry={LADDER_RAIL_GEOMETRY}
+              material={LADDER_RAIL_MATERIALS[canSalvage ? 1 : 0]}
+              dispose={null}
+            />
           ))}
           {[-0.3, 0, 0.3].map((ry) => (
-            <mesh key={ry} position={[0, ry, 0]}>
-              <boxGeometry args={[0.36, 0.05, 0.05]} />
-              <meshStandardMaterial
-                color={canSalvage ? "#ffd078" : "#c99a55"}
-                emissive={canSalvage ? "#5a3411" : "#000000"}
-                emissiveIntensity={canSalvage ? 0.18 : 0}
-                roughness={0.85}
-                flatShading
-              />
-            </mesh>
+            <mesh
+              key={ry}
+              position={[0, ry, 0]}
+              geometry={LADDER_RUNG_GEOMETRY}
+              material={LADDER_RUNG_MATERIALS[canSalvage ? 1 : 0]}
+              dispose={null}
+            />
           ))}
           {ladderSelected ? (
             <SupportSelectionOutline width={0.54} height={1.08} />
@@ -508,27 +553,20 @@ function buildCellEntry(
           }
         >
           {[-0.14, 0.14].map((pz) => (
-            <mesh key={pz} position={[0, 0, pz]}>
-              <boxGeometry args={[0.98, 0.07, 0.22]} />
-              <meshStandardMaterial
-                color={canSalvage ? "#e4ad5b" : "#b58a4a"}
-                emissive={canSalvage ? "#4a2d10" : "#000000"}
-                emissiveIntensity={canSalvage ? 0.14 : 0}
-                roughness={0.85}
-                flatShading
-              />
-            </mesh>
-          ))}
-          <mesh position={[0, -0.05, 0]}>
-            <boxGeometry args={[0.2, 0.06, 0.56]} />
-            <meshStandardMaterial
-              color={canSalvage ? "#ba8240" : "#8a6536"}
-              emissive={canSalvage ? "#4a2d10" : "#000000"}
-              emissiveIntensity={canSalvage ? 0.12 : 0}
-              roughness={0.9}
-              flatShading
+            <mesh
+              key={pz}
+              position={[0, 0, pz]}
+              geometry={PLANK_BOARD_GEOMETRY}
+              material={PLANK_BOARD_MATERIALS[canSalvage ? 1 : 0]}
+              dispose={null}
             />
-          </mesh>
+          ))}
+          <mesh
+            position={[0, -0.05, 0]}
+            geometry={PLANK_BEAM_GEOMETRY}
+            material={PLANK_BEAM_MATERIALS[canSalvage ? 1 : 0]}
+            dispose={null}
+          />
           {plankSelected ? (
             <SupportSelectionOutline width={1.08} height={0.44} z={0.34} />
           ) : null}

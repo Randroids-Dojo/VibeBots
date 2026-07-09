@@ -105,6 +105,7 @@ function HolodeckScene({
   const motesRef = useRef<Group>(null);
   const legLRef = useRef<Group>(null);
   const legRRef = useRef<Group>(null);
+  const boosterRef = useRef<Group>(null);
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
   const rig = useRef(createMinerRigState());
   // Reused every frame: posing the showcase miner allocates nothing.
@@ -316,6 +317,7 @@ function HolodeckScene({
           motesRef={motesRef}
           legLRef={legLRef}
           legRRef={legRRef}
+          boosterRef={boosterRef}
         />
       </group>
     </group>

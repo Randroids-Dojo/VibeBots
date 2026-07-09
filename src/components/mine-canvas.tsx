@@ -106,6 +106,8 @@ import {
   CRUSH_HOLD_SECONDS,
   FATAL_FALL_HOLD_SECONDS,
   fatalFallPlaybackSeconds,
+  POWER_DOWN_BEAT_SECONDS,
+  POWER_DOWN_HOLD_SECONDS,
   useMineDeathPlaybackBridge,
 } from "./mine-death-playback";
 import { InstancedBlockGrid } from "./mine-instanced-grid";
@@ -125,6 +127,7 @@ import { minerStepSeconds } from "./mine-pacing";
 import {
   type JuiceState,
   PARTICLE_KINDS,
+  spawnBoosterThrust,
   spawnBurst,
   spawnClang,
   spawnDirtBreakBurst,
@@ -175,6 +178,7 @@ import {
   createMinerPose,
   createMinerRigState,
   DIG_LUNGE_SECONDS,
+  LAND_SQUASH_SECONDS,
   type MinerPose,
   minerRigRestInputs,
   PICK_SWING_SECONDS,
@@ -199,6 +203,9 @@ const DESKTOP_ENV_TRIM = 0.7;
  * only light and cells past its reach fall into fog.
  */
 const MINE_FOG_FADE_ROWS = 4;
+/** How long the ordinary-fall pose window stays open after a drop (F-057).
+ * Covers the glide down plus the ease-out back to the grounded stance. */
+const FALL_ANIM_SECONDS = 0.45;
 /** Instance pool sizes per particle kind; spawners cap the live pool at
  * 260 total, so these bound the per-kind bursts. */
 const PARTICLE_CAPACITY = { spark: 96, debris: 192, dust: 96 } as const;
@@ -914,6 +921,10 @@ function MineScene({
   const pickArmRef = useRef<Group>(null);
   const legLRef = useRef<Group>(null);
   const legRRef = useRef<Group>(null);
+  const boosterRef = useRef<Group>(null);
+  // Tracks whether the miner was falling last frame, to fire the landing
+  // squash on the fall-to-ground transition (F-057).
+  const wasFallingRef = useRef(false);
   // Walk cadence: advanced by distance actually travelled so the stride
   // is foot-locked to the glide, plus the prior frame's position to
   // measure that distance.
@@ -984,6 +995,9 @@ function MineScene({
     facing: 0,
     lunge: { x: 0, y: 0, t: 0 },
     fallWarning: 0,
+    fallAnim: 0,
+    land: 0,
+    boosterSpawn: 0,
   });
   const minerPlaced = useRef(false);
   // Smoothed frame time (ms), exposed for performance QA. A surface walk
@@ -1044,6 +1058,17 @@ function MineScene({
     if (lastAction === "left") j.facing = -1;
     else if (lastAction === "right") j.facing = 1;
     else if (lastAction != null) j.facing = 0;
+    // An ordinary (survived) drop opens the fall-pose window so the miner
+    // reads as falling, not floating (F-057). Fatal falls and crushes run
+    // their own playback and must not also trip this.
+    if (
+      lastResult?.ok &&
+      !lastResult.collapsed &&
+      lastResult.fell !== undefined &&
+      lastResult.fell > 0
+    ) {
+      j.fallAnim = FALL_ANIM_SECONDS;
+    }
     // The starter pick glancing off rock it can't cut (REQ "too hard"):
     // a real swing that bounces back, a thud, a body recoil, and a cold
     // spark shower, so the wall reads as physically immovable, not just
@@ -1219,7 +1244,9 @@ function MineScene({
         const duration =
           activeFall.kind === "crush"
             ? 0.32
-            : fatalFallPlaybackSeconds(activeFall.fell);
+            : activeFall.kind === "powerdown"
+              ? POWER_DOWN_BEAT_SECONDS
+              : fatalFallPlaybackSeconds(activeFall.fell);
         activeFall.track = {
           fromX: cellX(activeFall.col),
           fromY: -activeFall.fromRow,
@@ -1245,7 +1272,9 @@ function MineScene({
           t +
           (activeFall.kind === "crush"
             ? CRUSH_HOLD_SECONDS
-            : FATAL_FALL_HOLD_SECONDS);
+            : activeFall.kind === "powerdown"
+              ? POWER_DOWN_HOLD_SECONDS
+              : FATAL_FALL_HOLD_SECONDS);
         const impactX = cellX(activeFall.col);
         const impactY = -activeFall.toRow;
         if (activeFall.kind === "crush") {
@@ -1253,6 +1282,10 @@ function MineScene({
           spawnSparks(j, impactX, impactY + 0.12, 18);
           j.shake = Math.max(j.shake, 0.9);
           playMineSfxEvent("crush");
+        } else if (activeFall.kind === "powerdown") {
+          // The lamp dies: a few cold fizzling sparks, no crash.
+          spawnSparks(j, impactX, impactY + 0.2, 8);
+          j.shake = Math.max(j.shake, 0.28);
         } else {
           spawnBurst(j, impactX, impactY, "#ff6b6b", 24);
           spawnSparks(j, impactX, impactY, 12);
@@ -1541,6 +1574,8 @@ function MineScene({
     j.fallWarning = Math.max(0, j.fallWarning - delta);
     j.swing = Math.max(0, j.swing - delta);
     j.bounce = Math.max(0, j.bounce - delta);
+    j.fallAnim = Math.max(0, j.fallAnim - delta);
+    j.land = Math.max(0, j.land - delta);
     const body = minerBodyRef.current;
     const legL = legLRef.current;
     const legR = legRRef.current;
@@ -1582,16 +1617,40 @@ function MineScene({
         }
       } else {
         if (!activeFall) crushTumble.current = null;
+        // Falling reads from real downward motion: an ordinary drop opens
+        // the fallAnim window, and a fatal free fall poses until it lands
+        // (F-057). The landing squash fires on the fall-to-ground edge.
+        const inFatalFall =
+          activeFall?.kind === "fall" ? !activeFall.impacted : false;
+        const falling = (j.fallAnim > 0 || inFatalFall) && dy < -0.002;
+        if (wasFallingRef.current && !falling && j.fallAnim > 0) {
+          j.land = LAND_SQUASH_SECONDS;
+          spawnDust(j, miner.position.x, miner.position.y);
+        }
+        wasFallingRef.current = falling;
+        const fallSpeed = falling ? -dy / Math.max(delta, 1e-4) : 0;
+        // The out-of-battery power-down slump rides its playback beat's
+        // progress (F-058).
+        const powerDown =
+          activeFall?.kind === "powerdown" && activeFall.track
+            ? motionProgress(activeFall.track, t)
+            : 0;
         const inputs = rigInputs.current;
         inputs.t = t;
         inputs.delta = delta;
         inputs.facing = j.facing;
-        inputs.stepDistance = Math.sqrt(dx * dx + dy * dy);
+        // Vertical motion must not spin the walk stride during a fall.
+        inputs.stepDistance = falling
+          ? Math.abs(dx)
+          : Math.sqrt(dx * dx + dy * dy);
         inputs.leanVx = visualTargetX - miner.position.x;
         inputs.swing = j.swing;
         inputs.bounce = j.bounce;
         inputs.lunge = j.lunge;
         inputs.crushed = false;
+        inputs.fall = fallSpeed;
+        inputs.land = j.land;
+        inputs.powerDown = powerDown;
         inputs.still = false;
         pose = advanceMinerRig(
           minerRig.current,
@@ -1609,6 +1668,29 @@ function MineScene({
       legR.rotation.x = pose.legR.rotX;
       legR.position.y = pose.legR.posY;
       arm.rotation.z = pose.arm.rotZ;
+    }
+    // Rocket booster (F-056): the jump jets hold the miner one row up until
+    // the next action (mine.jumpHover), so the flame and downward thrust
+    // read the hover as powered lift, not a float.
+    const booster = boosterRef.current;
+    if (booster) {
+      if (mine.jumpHover) {
+        booster.visible = true;
+        const flick = 0.8 + 0.35 * Math.abs(Math.sin(t * 40));
+        booster.scale.set(
+          0.9 + 0.14 * Math.sin(t * 33),
+          flick,
+          0.9 + 0.14 * Math.sin(t * 27),
+        );
+        j.boosterSpawn -= delta;
+        if (j.boosterSpawn <= 0 && miner) {
+          j.boosterSpawn = 0.045;
+          spawnBoosterThrust(j, miner.position.x, miner.position.y);
+        }
+      } else {
+        booster.visible = false;
+        j.boosterSpawn = 0;
+      }
     }
     // Lamp-lit dust drifts around the bot underground.
     const motes = motesRef.current;
@@ -2089,6 +2171,7 @@ function MineScene({
           motesRef={motesRef}
           legLRef={legLRef}
           legRRef={legRRef}
+          boosterRef={boosterRef}
         />
       </group>
     </>

@@ -94,6 +94,7 @@ import {
 import {
   CRUSH_REPORT_AFTER_IMPACT_MS,
   FALL_REPORT_AFTER_IMPACT_MS,
+  POWER_DOWN_REPORT_AFTER_IMPACT_MS,
   wreckReportCeilingMs,
 } from "./mine-death-playback";
 import { DESTINATIONS, destinationAt } from "./mine-destinations";
@@ -918,7 +919,14 @@ function JuiceOverlays() {
                 : "battery",
         ),
       };
-      if (lastResult.fallFatal || lastResult.crushed) {
+      // An out-of-battery death powers the miner down in place before the
+      // report (F-058), gated on the same impact signal as fall and crush;
+      // a deliberate abandon still reports immediately.
+      const isBatteryDeath =
+        !lastResult.fallFatal &&
+        !lastResult.crushed &&
+        !(lastResult.abandoned ?? false);
+      if (lastResult.fallFatal || lastResult.crushed || isBatteryDeath) {
         // The report must not beat the visible impact: the canvas frame
         // loop marks the impact frame in the store, and the report holds
         // for a beat after it. The ceiling timer covers a canvas that
@@ -926,7 +934,9 @@ function JuiceOverlays() {
         // with the fall length because long falls take that long to land.
         const afterImpactMs = lastResult.fallFatal
           ? FALL_REPORT_AFTER_IMPACT_MS
-          : CRUSH_REPORT_AFTER_IMPACT_MS;
+          : lastResult.crushed
+            ? CRUSH_REPORT_AFTER_IMPACT_MS
+            : POWER_DOWN_REPORT_AFTER_IMPACT_MS;
         const ceilingMs = wreckReportCeilingMs(lastResult.fell);
         const scheduleWreck = (delayMs: number) => {
           if (wreckTimeout.current != null) {

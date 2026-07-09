@@ -129,6 +129,7 @@ export function MinerBot({
   motesRef,
   legLRef,
   legRRef,
+  boosterRef,
 }: {
   bodyRef: RefObject<Group | null>;
   armRef: RefObject<Group | null>;
@@ -136,6 +137,7 @@ export function MinerBot({
   motesRef: RefObject<Group | null>;
   legLRef: RefObject<Group | null>;
   legRRef: RefObject<Group | null>;
+  boosterRef: RefObject<Group | null>;
 }) {
   const motes = [];
   for (let i = 0; i < 14; i++) {
@@ -179,6 +181,59 @@ export function MinerBot({
         </mesh>
         <MinerLeg side={-1} legRef={legLRef} />
         <MinerLeg side={1} legRef={legRRef} />
+        {/* Rocket booster flame under the feet and twin pack thrusters,
+            shown while the jump jets fire and hover (F-056). Hidden and
+            animated by the owning scene's frame loop. */}
+        <group ref={boosterRef} position={[0, -0.36, 0.02]} visible={false}>
+          <mesh rotation={[Math.PI, 0, 0]} dispose={null}>
+            <coneGeometry args={[0.14, 0.42, 12]} />
+            <meshBasicMaterial
+              color="#ff9a3c"
+              transparent
+              opacity={0.7}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh
+            position={[0, -0.02, 0]}
+            rotation={[Math.PI, 0, 0]}
+            dispose={null}
+          >
+            <coneGeometry args={[0.08, 0.3, 10]} />
+            <meshBasicMaterial
+              color="#fff2c0"
+              transparent
+              opacity={0.9}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh
+            position={[0.12, 0.05, -0.2]}
+            rotation={[Math.PI, 0, 0]}
+            dispose={null}
+          >
+            <coneGeometry args={[0.05, 0.22, 8]} />
+            <meshBasicMaterial
+              color="#ffce88"
+              transparent
+              opacity={0.8}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh
+            position={[-0.12, 0.05, -0.2]}
+            rotation={[Math.PI, 0, 0]}
+            dispose={null}
+          >
+            <coneGeometry args={[0.05, 0.22, 8]} />
+            <meshBasicMaterial
+              color="#ffce88"
+              transparent
+              opacity={0.8}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
         {/* Torso hull */}
         <RoundedBox
           args={[0.42, 0.34, 0.32]}

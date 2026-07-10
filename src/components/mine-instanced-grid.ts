@@ -17,6 +17,13 @@
  * jitter already rides positionWorld in the shader, which includes the
  * instance transform); only the allocation and the reconciliation change.
  *
+ * The high-count cell overlays stream here too (real-phone drilldowns on
+ * build 272605 pinned the residual 1-1.5 s stalls to warp/fall-sized
+ * window shifts remounting the React overlay set in one commit): the
+ * recessed tunnel floors (one material per biome) and the lamp-edge
+ * darkness veils (one MeshBasicMaterial per bucketed opacity), each as
+ * ordinary buckets with a constant per-class z offset in the plan.
+ *
  * Frame-loop rule: apply() runs at input cadence (once per store tick /
  * render), never per frame. It reuses module scratch and the caller's
  * pooled plan (mine-block-plan.ts), so steady-state application allocates
@@ -30,8 +37,8 @@ import {
   Euler,
   type Group,
   InstancedMesh,
+  type Material,
   Matrix4,
-  type MeshStandardNodeMaterial,
   Quaternion,
   Vector3,
 } from "three/webgpu";
@@ -40,7 +47,7 @@ import type { BlockInstancePlan } from "./mine-block-plan";
 interface BlockPool {
   mesh: InstancedMesh;
   geometry: BufferGeometry;
-  material: MeshStandardNodeMaterial;
+  material: Material;
   capacity: number;
   /** Instances this bucket needs this apply(): counted in pass 1, then
    * reused as the write cursor in pass 2. */
@@ -64,7 +71,7 @@ const SCRATCH_SCALE = new Vector3(1, 1, 1);
  */
 export class InstancedBlockGrid {
   private readonly group: Group;
-  private readonly pools = new Map<MeshStandardNodeMaterial, BlockPool>();
+  private readonly pools = new Map<Material, BlockPool>();
 
   constructor(group: Group) {
     this.group = group;
@@ -72,10 +79,7 @@ export class InstancedBlockGrid {
 
   /** The bucket for a (geometry, material) pair, created on first use.
    * Buckets are keyed by material identity (1:1 with geometry here). */
-  private poolFor(
-    geometry: BufferGeometry,
-    material: MeshStandardNodeMaterial,
-  ): BlockPool {
+  private poolFor(geometry: BufferGeometry, material: Material): BlockPool {
     const existing = this.pools.get(material);
     if (existing) return existing;
     const pool: BlockPool = {
@@ -93,7 +97,7 @@ export class InstancedBlockGrid {
    * to `capacity`, with dynamic instance-matrix usage and no frustum cull. */
   private buildMesh(
     geometry: BufferGeometry,
-    material: MeshStandardNodeMaterial,
+    material: Material,
     capacity: number,
   ): InstancedMesh {
     const mesh = new InstancedMesh(geometry, material, capacity);
@@ -102,6 +106,11 @@ export class InstancedBlockGrid {
     mesh.frustumCulled = false;
     mesh.count = 0;
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+    // A transparent bucket (the darkness veil) is one draw at one depth,
+    // so three cannot depth-sort its quads against other transparents the
+    // way the old per-cell meshes sorted. The veil's job is to occlude the
+    // cell's contents, so draw it after the default transparent pass.
+    if (material.transparent) mesh.renderOrder = 1;
     this.group.add(mesh);
     return mesh;
   }
@@ -141,7 +150,7 @@ export class InstancedBlockGrid {
     for (let i = 0; i < plan.count; i++) {
       const item = plan.items[i];
       const pool = this.poolFor(item.geometry, item.material);
-      SCRATCH_POSITION.set(item.x, item.y, 0);
+      SCRATCH_POSITION.set(item.x, item.y, item.z);
       if (item.rotated) {
         SCRATCH_EULER.set(item.rotX, item.rotY, item.rotZ);
         SCRATCH_QUATERNION.setFromEuler(SCRATCH_EULER);

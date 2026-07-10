@@ -35,6 +35,12 @@ export interface JuiceState {
   lunge: { x: number; y: number; t: number };
   /** Seconds left in the most recent falling-rock warning cue. */
   fallWarning: number;
+  /** Seconds left of the ordinary-fall pose window (F-057). */
+  fallAnim: number;
+  /** Seconds left of the post-landing squash (F-057). */
+  land: number;
+  /** Throttle accumulator for rocket booster thrust puffs (F-056). */
+  boosterSpawn: number;
 }
 
 export function pushParticle(juice: JuiceState, p: Omit<Particle, "id">): void {
@@ -149,6 +155,31 @@ export function spawnClang(
       size: 0.045 + Math.random() * 0.05,
       color: i % 3 === 0 ? "#fff4cc" : "#cfe1ff",
       life: 0.12 + Math.random() * 0.16,
+    });
+  }
+}
+
+/**
+ * Rocket booster exhaust: warm sparks jetting straight down under the
+ * miner while the jump jets fire and hover (F-056). Short-lived so the
+ * plume stays tight under the feet.
+ */
+export function spawnBoosterThrust(
+  juice: JuiceState,
+  x: number,
+  y: number,
+): void {
+  for (let i = 0; i < 3; i++) {
+    pushParticle(juice, {
+      kind: "spark",
+      x: x + (Math.random() - 0.5) * 0.2,
+      y: y - 0.34,
+      vx: (Math.random() - 0.5) * 0.9,
+      vy: -(1.8 + Math.random() * 1.8),
+      gravity: 3,
+      size: 0.05 + Math.random() * 0.05,
+      color: i === 0 ? "#fff2c0" : "#ff9a3c",
+      life: 0.14 + Math.random() * 0.12,
     });
   }
 }

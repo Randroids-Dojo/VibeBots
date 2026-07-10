@@ -21,6 +21,11 @@ export const IDLE_BOB_RATE = 2.4;
 export const IDLE_BOB_AMPLITUDE = 0.018;
 /** The body group's rest height above the cell floor. */
 export const BODY_REST_Y = -0.14;
+/** Downward speed (world units/sec) at which the fall pose reads full
+ * (F-057). Below it the pose eases out toward the grounded stance. */
+export const FALL_POSE_SPEED = 2.2;
+/** Seconds the landing squash takes to spring back after a fall. */
+export const LAND_SQUASH_SECONDS = 0.22;
 
 export interface MinerRigState {
   /** Foot-locked stride phase, advanced by distance actually travelled. */
@@ -30,6 +35,8 @@ export interface MinerRigState {
   /** Eased leg hip rotations. */
   legLRotX: number;
   legRRotX: number;
+  /** Eased 0..1 blend into the fall pose, so drops read as falls (F-057). */
+  fallBlend: number;
 }
 
 export interface MinerRigInputs {
@@ -51,6 +58,13 @@ export interface MinerRigInputs {
   lunge: { x: number; y: number; t: number };
   /** Crush squash frame (the falling rock has landed). */
   crushed: boolean;
+  /** Downward speed while unsupported; drives the fall pose (F-057). 0 when
+   * grounded or rising. */
+  fall: number;
+  /** Seconds left of the post-landing squash (F-057). */
+  land: number;
+  /** 0..1 progress of the out-of-battery power-down slump (F-058). */
+  powerDown: number;
   /** Freeze the idle bob for a still frame (Holodeck pause). */
   still: boolean;
 }
@@ -120,16 +134,29 @@ export function minerRigRestInputs(): MinerRigInputs {
     bounce: 0,
     lunge: { x: 0, y: 0, t: 0 },
     crushed: false,
+    fall: 0,
+    land: 0,
+    powerDown: 0,
     still: false,
   };
 }
 
 export function createMinerRigState(): MinerRigState {
-  return { walkPhase: 0, bodyYaw: 0, legLRotX: 0, legRRotX: 0 };
+  return {
+    walkPhase: 0,
+    bodyYaw: 0,
+    legLRotX: 0,
+    legRRotX: 0,
+    fallBlend: 0,
+  };
 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function lerp(from: number, to: number, amount: number): number {
+  return from + (to - from) * amount;
 }
 
 /** Pick arm rotation for the current swing/bounce timers. */
@@ -169,6 +196,10 @@ export function advanceMinerRig(
   const bob = inputs.still
     ? 0
     : Math.sin(t * IDLE_BOB_RATE) * IDLE_BOB_AMPLITUDE;
+  // Ease into the fall pose so a drop reads as a fall, not a glide (F-057).
+  const fallTarget = clamp(inputs.fall / FALL_POSE_SPEED, 0, 1);
+  state.fallBlend += (fallTarget - state.fallBlend) * Math.min(1, delta * 10);
+  const fallBlend = state.fallBlend;
   const body = out.body;
   body.posX = inputs.lunge.x * lk;
   body.posY = BODY_REST_Y + bob + inputs.lunge.y * lk;
@@ -216,6 +247,44 @@ export function advanceMinerRig(
   }
 
   out.arm.rotZ = minerArmRotZ(inputs.swing, inputs.bounce);
+
+  // Fall pose (F-057): legs tuck, the free arm windmills up, and the body
+  // stretches with a slow sway. Blended in by fallBlend so it eases on and
+  // off around the drop.
+  if (fallBlend > 0.001) {
+    out.legL.rotX = lerp(out.legL.rotX, 0.9, fallBlend);
+    out.legR.rotX = lerp(out.legR.rotX, 0.62, fallBlend);
+    out.arm.rotZ = lerp(out.arm.rotZ, -1.4, fallBlend);
+    body.scaleY = lerp(body.scaleY, 1.08, fallBlend);
+    body.scaleX = lerp(body.scaleX, 0.96, fallBlend);
+    body.scaleZ = lerp(body.scaleZ, 0.96, fallBlend);
+    body.rotZ += Math.sin(t * 12) * 0.06 * fallBlend;
+  }
+
+  // Landing squash (F-057): a brief springy compress as the fall lands.
+  if (inputs.land > 0) {
+    const l = clamp(inputs.land / LAND_SQUASH_SECONDS, 0, 1);
+    body.scaleY *= 1 - 0.2 * l;
+    body.scaleX *= 1 + 0.14 * l;
+    body.scaleZ *= 1 + 0.14 * l;
+    body.posY -= 0.05 * l;
+    out.legL.rotX = lerp(out.legL.rotX, 0.4, l);
+    out.legR.rotX = lerp(out.legR.rotX, -0.3, l);
+  }
+
+  // Out-of-battery power-down (F-058): the miner loses power and slumps.
+  // A 0..1 progress sinks and tips the body, buckles the knees, and lets
+  // the pick arm hang.
+  if (inputs.powerDown > 0) {
+    const p = clamp(inputs.powerDown, 0, 1);
+    body.posY -= 0.16 * p;
+    body.rotZ += 0.5 * p;
+    body.scaleY = lerp(body.scaleY, 0.9, p);
+    out.legL.rotX = lerp(out.legL.rotX, 0.55, p);
+    out.legR.rotX = lerp(out.legR.rotX, -0.4, p);
+    out.arm.rotZ = lerp(out.arm.rotZ, 1.2, p);
+  }
+
   return out;
 }
 

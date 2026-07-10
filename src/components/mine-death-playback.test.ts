@@ -5,6 +5,8 @@ import {
   FALL_REPORT_AFTER_IMPACT_MS,
   FATAL_FALL_SECONDS_PER_ROW,
   fatalFallPlaybackSeconds,
+  POWER_DOWN_HOLD_SECONDS,
+  POWER_DOWN_REPORT_AFTER_IMPACT_MS,
   wreckReportCeilingMs,
 } from "./mine-death-playback";
 
@@ -40,6 +42,17 @@ describe("mine death playback", () => {
     );
     expect(clearMsAfterImpact({ kind: "crush" })).toBeGreaterThan(
       CRUSH_REPORT_AFTER_IMPACT_MS,
+    );
+  });
+
+  it("holds the powered-down wreck past its report delay (F-058)", () => {
+    // The out-of-battery slump stays on camera until after the report
+    // lands, the same contract fall and crush keep.
+    expect(clearMsAfterImpact({ kind: "powerdown" })).toBeGreaterThan(
+      POWER_DOWN_REPORT_AFTER_IMPACT_MS,
+    );
+    expect(clearMsAfterImpact({ kind: "powerdown" })).toBeGreaterThan(
+      POWER_DOWN_HOLD_SECONDS * 1000,
     );
   });
 });

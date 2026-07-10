@@ -28,15 +28,15 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-07-0.1.203-mine-geometry");
+    expect(release.noticeId).toBe("2026-07-09-0.1.204-mine-animations");
     expect(latestNote).toMatchObject({
-      version: "0.1.203",
-      title: "The freezes, at the source",
-      intro: "Digging no longer leaks graphics memory.",
+      version: "0.1.204",
+      title: "Falls, boosters, and a brighter dig",
+      intro: "The miner moves like it means it, and the dark reads right.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Every mine block now reuses one shared shape instead of building and then leaking its own as you dig. That growing graphics-memory use was the real cause of the multi-second freezes, especially on phones, and this removes it. Blocks look exactly the same.",
-      "MINE_VERSION and SIM_VERSION are unchanged.",
+      "Jumps fire visible rocket boosters, an ordinary fall now reads as a fall with a landing bounce, and running out of battery plays a power-down before the trip report. The lantern glow is a proper circle again, clearer underground and calmer on desktop. Keyboard players get Shift+Up to jump, Shift+Down to drop through a plank, and Enter and Escape to walk into and out of buildings. The first rows of a dig carry more ore, and bot fights happen in a tighter walled ring that bounces the brawlers back in.",
+      "MINE_VERSION and SIM_VERSION advanced, so a run started on the old rules cannot cash out on the new ones.",
     ]);
   });
 

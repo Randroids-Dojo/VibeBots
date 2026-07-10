@@ -454,6 +454,41 @@ export async function routeStarterMineWorld(
   });
 }
 
+/**
+ * Route a world with a laddered shaft carved down the start column so a
+ * test can descend quickly and deterministically (one row per Down press,
+ * no mining), instead of digging through the ore-dense first rows which is
+ * slow and seed-dependent on the software-rendered harness. An optional
+ * setup mutates the seeded mine after the shaft is carved.
+ */
+export async function routeLadderShaftWorld(
+  page: Page,
+  seed: number,
+  depth: number,
+  setup?: (mine: MineState) => void,
+): Promise<void> {
+  await routeStarterMineWorld(page, seed, (mine) => {
+    for (let row = 1; row <= depth + 2; row++) {
+      setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+    }
+    setCell(mine, START_COL, depth + 3, { kind: "dirt" });
+    setup?.(mine);
+  });
+}
+
+/** Walk the miner down a carved ladder shaft to the target depth. */
+export async function descendLadderShaft(
+  page: Page,
+  depth: number,
+): Promise<void> {
+  const status = page.getByLabel("Mine status");
+  await awaitMineSceneReady(page);
+  for (let i = 0; i < depth + 6; i++) {
+    if (Number(await status.getAttribute("data-depth")) >= depth) return;
+    await pressMineKey(page, "ArrowDown");
+  }
+}
+
 /** Swing a lateral direction until the rendered miner crosses targetX. */
 export async function digLateral(
   page: Page,

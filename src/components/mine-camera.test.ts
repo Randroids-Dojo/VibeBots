@@ -81,15 +81,16 @@ describe("mine camera zoom", () => {
     }
   });
 
-  it("only renders falloff after zoom reaches the lantern cap", () => {
-    const defaultEdge = mineDarknessOpacity(2, 1, 1.32);
-    const availableZoomEdge = mineDarknessOpacity(2, 1.16, 1.32);
-    const zoomedEdge = mineDarknessOpacity(2, 1.32, 1.32);
-    const zoomedNear = mineDarknessOpacity(1, 1.32, 1.32);
-
-    expect(defaultEdge).toBe(0);
-    expect(availableZoomEdge).toBe(0);
-    expect(zoomedEdge).toBeCloseTo(0.57);
-    expect(zoomedNear).toBeCloseTo(0.445);
+  it("renders the lantern falloff at every zoom (F-055, F-065)", () => {
+    // Cells inside the lantern circle stay fully lit.
+    expect(mineDarknessOpacity(0)).toBe(0);
+    // Cells past the lantern fade to the dark cap, and the falloff no
+    // longer waits for the zoom-out cap: the same edge cell is obscured
+    // whether the player is zoomed in or out.
+    expect(mineDarknessOpacity(1)).toBeCloseTo(0.445);
+    expect(mineDarknessOpacity(2)).toBeCloseTo(0.57);
+    // The ramp is monotonic and saturates at the far cap.
+    expect(mineDarknessOpacity(0.5)).toBeGreaterThan(mineDarknessOpacity(0));
+    expect(mineDarknessOpacity(4)).toBeCloseTo(0.57);
   });
 });

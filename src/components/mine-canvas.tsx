@@ -33,7 +33,6 @@ import {
   clampMineCameraZoom,
   DARKNESS_CAP_FAR_OPACITY,
   DARKNESS_CAP_NEAR_OPACITY,
-  maxMineCameraZoom,
   mineCameraDistance,
   mineDarknessOpacity,
   mineLampDistanceForRadius,
@@ -107,6 +106,8 @@ import {
   CRUSH_HOLD_SECONDS,
   FATAL_FALL_HOLD_SECONDS,
   fatalFallPlaybackSeconds,
+  POWER_DOWN_BEAT_SECONDS,
+  POWER_DOWN_HOLD_SECONDS,
   useMineDeathPlaybackBridge,
 } from "./mine-death-playback";
 import { InstancedBlockGrid } from "./mine-instanced-grid";
@@ -126,6 +127,7 @@ import { minerStepSeconds } from "./mine-pacing";
 import {
   type JuiceState,
   PARTICLE_KINDS,
+  spawnBoosterThrust,
   spawnBurst,
   spawnClang,
   spawnDirtBreakBurst,
@@ -176,6 +178,7 @@ import {
   createMinerPose,
   createMinerRigState,
   DIG_LUNGE_SECONDS,
+  LAND_SQUASH_SECONDS,
   type MinerPose,
   minerRigRestInputs,
   PICK_SWING_SECONDS,
@@ -185,6 +188,24 @@ import { StudioEnvironment } from "./studio-environment";
 import { daylightGradeFor, fogRangeForStratum } from "./time-of-day";
 
 const CAMERA_STEP_SECONDS = 0.28;
+/**
+ * Desktop light trim (F-064). The WebGPU high tier stacks IBL reflections
+ * and additive bloom on top of the same lamp and ambient the phone path
+ * uses, which washed the mine out. Trim the fill and environment there so
+ * the lit area reads without glare; the WebGL2/mobile path has no IBL or
+ * bloom and keeps full strength for readability.
+ */
+const DESKTOP_LIGHT_TRIM = 0.82;
+const DESKTOP_ENV_TRIM = 0.7;
+/**
+ * Rows of descent over which the lantern fog of war fades in (F-065). The
+ * daylit surface village stays clear; a few rows down the lantern is the
+ * only light and cells past its reach fall into fog.
+ */
+const MINE_FOG_FADE_ROWS = 4;
+/** How long the ordinary-fall pose window stays open after a drop (F-057).
+ * Covers the glide down plus the ease-out back to the grounded stance. */
+const FALL_ANIM_SECONDS = 0.45;
 /** Instance pool sizes per particle kind; spawners cap the live pool at
  * 260 total, so these bound the per-kind bursts. */
 const PARTICLE_CAPACITY = { spark: 96, debris: 192, dust: 96 } as const;
@@ -900,6 +921,10 @@ function MineScene({
   const pickArmRef = useRef<Group>(null);
   const legLRef = useRef<Group>(null);
   const legRRef = useRef<Group>(null);
+  const boosterRef = useRef<Group>(null);
+  // Tracks whether the miner was falling last frame, to fire the landing
+  // squash on the fall-to-ground transition (F-057).
+  const wasFallingRef = useRef(false);
   // Walk cadence: advanced by distance actually travelled so the stride
   // is foot-locked to the glide, plus the prior frame's position to
   // measure that distance.
@@ -970,6 +995,9 @@ function MineScene({
     facing: 0,
     lunge: { x: 0, y: 0, t: 0 },
     fallWarning: 0,
+    fallAnim: 0,
+    land: 0,
+    boosterSpawn: 0,
   });
   const minerPlaced = useRef(false);
   // Smoothed frame time (ms), exposed for performance QA. A surface walk
@@ -1008,10 +1036,12 @@ function MineScene({
   const renderDistance = (col: number, row: number) =>
     Math.max(Math.abs(col - displayCol), Math.max(0, row - minerRow));
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
-  const maxCameraZoom = maxMineCameraZoom(mine.gear);
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
   const litBelow = lightRadius(mine.gear);
   const lampDistance = mineLampDistanceForRadius(litBelow);
+  // Fog of war belongs to the lantern-lit underground; the surface is
+  // daylit, so fade the falloff in over the first rows of descent (F-065).
+  const fogDepthScale = Math.min(1, minerRow / MINE_FOG_FADE_ROWS);
   const renderRadius = renderWindow.below;
   const renderColRadius = Math.min(renderWindow.cols, renderRadius);
   const firstCol = displayCol - renderColRadius;
@@ -1028,6 +1058,17 @@ function MineScene({
     if (lastAction === "left") j.facing = -1;
     else if (lastAction === "right") j.facing = 1;
     else if (lastAction != null) j.facing = 0;
+    // An ordinary (survived) drop opens the fall-pose window so the miner
+    // reads as falling, not floating (F-057). Fatal falls and crushes run
+    // their own playback and must not also trip this.
+    if (
+      lastResult?.ok &&
+      !lastResult.collapsed &&
+      lastResult.fell !== undefined &&
+      lastResult.fell > 0
+    ) {
+      j.fallAnim = FALL_ANIM_SECONDS;
+    }
     // The starter pick glancing off rock it can't cut (REQ "too hard"):
     // a real swing that bounces back, a thud, a body recoil, and a cold
     // spark shower, so the wall reads as physically immovable, not just
@@ -1203,7 +1244,9 @@ function MineScene({
         const duration =
           activeFall.kind === "crush"
             ? 0.32
-            : fatalFallPlaybackSeconds(activeFall.fell);
+            : activeFall.kind === "powerdown"
+              ? POWER_DOWN_BEAT_SECONDS
+              : fatalFallPlaybackSeconds(activeFall.fell);
         activeFall.track = {
           fromX: cellX(activeFall.col),
           fromY: -activeFall.fromRow,
@@ -1229,7 +1272,9 @@ function MineScene({
           t +
           (activeFall.kind === "crush"
             ? CRUSH_HOLD_SECONDS
-            : FATAL_FALL_HOLD_SECONDS);
+            : activeFall.kind === "powerdown"
+              ? POWER_DOWN_HOLD_SECONDS
+              : FATAL_FALL_HOLD_SECONDS);
         const impactX = cellX(activeFall.col);
         const impactY = -activeFall.toRow;
         if (activeFall.kind === "crush") {
@@ -1237,6 +1282,10 @@ function MineScene({
           spawnSparks(j, impactX, impactY + 0.12, 18);
           j.shake = Math.max(j.shake, 0.9);
           playMineSfxEvent("crush");
+        } else if (activeFall.kind === "powerdown") {
+          // The lamp dies: a few cold fizzling sparks, no crash.
+          spawnSparks(j, impactX, impactY + 0.2, 8);
+          j.shake = Math.max(j.shake, 0.28);
         } else {
           spawnBurst(j, impactX, impactY, "#ff6b6b", 24);
           spawnSparks(j, impactX, impactY, 12);
@@ -1401,23 +1450,31 @@ function MineScene({
     }
     const grade = timeOfDay.current.grade;
     const day = (1 - depthT) ** 1.7;
-    if (ambientRef.current) ambientRef.current.intensity = 0.07 + 0.48 * day;
+    // The IBL + bloom high tier is the washed-out one (F-064); trim its
+    // fill and environment, leave the mobile/WebGL2 path at full strength.
+    const brightTier = webgpuBackend && graphicsFeatures.postBloom;
+    const lightTrim = brightTier ? DESKTOP_LIGHT_TRIM : 1;
+    const envTrim = brightTier ? DESKTOP_ENV_TRIM : 1;
+    if (ambientRef.current)
+      ambientRef.current.intensity = (0.07 + 0.48 * day) * lightTrim;
     if (hemiRef.current) {
-      hemiRef.current.intensity = 0.5 * day * day;
+      hemiRef.current.intensity = 0.5 * day * day * lightTrim;
       hemiRef.current.color.set(grade.skyColor);
     }
     if (dirRef.current) {
-      dirRef.current.intensity = (0.06 + 1.04 * day) * grade.sunStrength;
+      dirRef.current.intensity =
+        (0.06 + 1.04 * day) * grade.sunStrength * lightTrim;
       dirRef.current.color.set(grade.sunColor);
     }
     setDatasetText(cache, dataset, "timeOfDay", grade.phase);
     // The studio environment is a surface phenomenon: it fades with the
     // daylight so the underground keeps its lamp-lit darkness.
     state.scene.environmentIntensity =
-      graphicsFeatures.environmentIntensity * (0.12 + 0.88 * day);
+      graphicsFeatures.environmentIntensity * (0.12 + 0.88 * day) * envTrim;
     const lamp = lampRef.current;
     if (lamp) {
-      let intensity = (1.0 + 3.8 * depthT) * (1 + (litBelow - 3) * 0.1);
+      let intensity =
+        (1.0 + 3.8 * depthT) * (1 + (litBelow - 3) * 0.1) * lightTrim;
       // The lamp gutters when the trip is nearly out of energy.
       const energy = mine.miner.energy;
       if (minerRow > 0 && energy < 10)
@@ -1517,6 +1574,8 @@ function MineScene({
     j.fallWarning = Math.max(0, j.fallWarning - delta);
     j.swing = Math.max(0, j.swing - delta);
     j.bounce = Math.max(0, j.bounce - delta);
+    j.fallAnim = Math.max(0, j.fallAnim - delta);
+    j.land = Math.max(0, j.land - delta);
     const body = minerBodyRef.current;
     const legL = legLRef.current;
     const legR = legRRef.current;
@@ -1558,16 +1617,39 @@ function MineScene({
         }
       } else {
         if (!activeFall) crushTumble.current = null;
+        // Falling reads from real downward motion: an ordinary drop opens
+        // the fallAnim window, and a fatal free fall poses until it lands
+        // (F-057). The landing squash fires on the fall-to-ground edge.
+        const inFatalFall = activeFall?.kind === "fall" && !activeFall.impacted;
+        const falling = (j.fallAnim > 0 || inFatalFall) && dy < -0.002;
+        if (wasFallingRef.current && !falling && j.fallAnim > 0) {
+          j.land = LAND_SQUASH_SECONDS;
+          spawnDust(j, miner.position.x, miner.position.y);
+        }
+        wasFallingRef.current = falling;
+        const fallSpeed = falling ? -dy / Math.max(delta, 1e-4) : 0;
+        // The out-of-battery power-down slump rides its playback beat's
+        // progress (F-058).
+        const powerDown =
+          activeFall?.kind === "powerdown" && activeFall.track
+            ? motionProgress(activeFall.track, t)
+            : 0;
         const inputs = rigInputs.current;
         inputs.t = t;
         inputs.delta = delta;
         inputs.facing = j.facing;
-        inputs.stepDistance = Math.sqrt(dx * dx + dy * dy);
+        // Vertical motion must not spin the walk stride during a fall.
+        inputs.stepDistance = falling
+          ? Math.abs(dx)
+          : Math.sqrt(dx * dx + dy * dy);
         inputs.leanVx = visualTargetX - miner.position.x;
         inputs.swing = j.swing;
         inputs.bounce = j.bounce;
         inputs.lunge = j.lunge;
         inputs.crushed = false;
+        inputs.fall = fallSpeed;
+        inputs.land = j.land;
+        inputs.powerDown = powerDown;
         inputs.still = false;
         pose = advanceMinerRig(
           minerRig.current,
@@ -1585,6 +1667,29 @@ function MineScene({
       legR.rotation.x = pose.legR.rotX;
       legR.position.y = pose.legR.posY;
       arm.rotation.z = pose.arm.rotZ;
+    }
+    // Rocket booster (F-056): the jump jets hold the miner one row up until
+    // the next action (mine.jumpHover), so the flame and downward thrust
+    // read the hover as powered lift, not a float.
+    const booster = boosterRef.current;
+    if (booster) {
+      if (mine.jumpHover) {
+        booster.visible = true;
+        const flick = 0.8 + 0.35 * Math.abs(Math.sin(t * 40));
+        booster.scale.set(
+          0.9 + 0.14 * Math.sin(t * 33),
+          flick,
+          0.9 + 0.14 * Math.sin(t * 27),
+        );
+        j.boosterSpawn -= delta;
+        if (j.boosterSpawn <= 0 && miner) {
+          j.boosterSpawn = 0.045;
+          spawnBoosterThrust(j, miner.position.x, miner.position.y);
+        }
+      } else {
+        booster.visible = false;
+        j.boosterSpawn = 0;
+      }
     }
     // Lamp-lit dust drifts around the bot underground.
     const motes = motesRef.current;
@@ -1801,11 +1906,17 @@ function MineScene({
       // Signature inputs: everything the cell's JSX reads that can
       // change while the cell stays on screen.
       const dynamitePreview = dynamitePreviewSet.has(key);
-      const beyondLight = Math.max(0, distanceFromMiner - litBelow);
+      // Fog of war uses a radial distance so the lantern-lit area reads as
+      // a circle (F-065), independent of the square lanternDistance the
+      // render window culls by.
+      const rdx = col - displayCol;
+      const rdy = row - minerRow;
+      const radialDistance = fallWindow
+        ? distanceFromMiner
+        : Math.sqrt(rdx * rdx + rdy * rdy);
+      const beyondLight = Math.max(0, radialDistance - litBelow);
       const darknessOpacity =
-        beyondLight > 0
-          ? mineDarknessOpacity(beyondLight, cameraZoom, maxCameraZoom)
-          : 0;
+        beyondLight > 0 ? mineDarknessOpacity(beyondLight) * fogDepthScale : 0;
       const oreDamage =
         cell.kind === "ore" && cell.ore && cell.oreRemaining !== undefined
           ? 1 - cell.oreRemaining / oreReserveAt(cell.ore, row)
@@ -2061,6 +2172,7 @@ function MineScene({
           motesRef={motesRef}
           legLRef={legLRef}
           legRRef={legRRef}
+          boosterRef={boosterRef}
         />
       </group>
     </>

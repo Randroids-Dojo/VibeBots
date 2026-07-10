@@ -10,7 +10,12 @@ import type { MineConsumables } from "./consumables";
 import { START_COL } from "./digging";
 import { DEFAULT_GEAR, ELEVATOR_COL } from "./gear";
 import { oreDef } from "./ores";
-import { applyAction, replayTrip } from "./replay";
+import {
+  applyAction,
+  canDropThroughPlank,
+  canJump,
+  replayTrip,
+} from "./replay";
 import {
   cellAt,
   createMine,
@@ -49,6 +54,47 @@ function pendingSideEffectState(
   setCell(state, START_COL + 1, 6, { kind: "empty" });
   return state;
 }
+
+describe("desktop Shift control predicates (F-059)", () => {
+  it("offers a plank drop only while standing on a plank", () => {
+    const state = createMine(42);
+    state.miner.row = 4;
+    setCell(state, START_COL, 4, { kind: "empty" });
+    expect(canDropThroughPlank(state)).toBe(false);
+    setCell(state, START_COL, 4, { kind: "empty", plank: true });
+    expect(canDropThroughPlank(state)).toBe(true);
+    // Never on the surface walk row.
+    state.miner.row = 0;
+    expect(canDropThroughPlank(state)).toBe(false);
+  });
+
+  it("drops through the plank when down smashes through it", () => {
+    const state = createMine(42);
+    state.miner.row = 4;
+    setCell(state, START_COL, 4, { kind: "empty", plank: true });
+    setCell(state, START_COL, 5, { kind: "empty" });
+    setCell(state, START_COL, 6, { kind: "empty" });
+    expect(canDropThroughPlank(state)).toBe(true);
+    // Down targets the plank (chips it), never the void below; smashing
+    // through it drops the miner into the emptied shaft.
+    let broke = false;
+    for (let swing = 0; swing < 5 && !broke; swing++) {
+      const result = applyAction(state, "down");
+      broke = result.ok && result.supportCollected?.plank === 1;
+    }
+    expect(broke).toBe(true);
+    expect(cellAt(state, START_COL, 4)?.plank ?? false).toBe(false);
+    expect(state.miner.row).toBeGreaterThan(4);
+  });
+
+  it("still jumps when the cell overhead is clear", () => {
+    const state = createMine(42);
+    state.miner.row = 4;
+    setCell(state, START_COL, 4, { kind: "empty" });
+    setCell(state, START_COL, 3, { kind: "empty" });
+    expect(canJump(state)).toBe(true);
+  });
+});
 
 describe("mine replay orchestration", () => {
   it("banks carried ore and parts when recall succeeds", () => {

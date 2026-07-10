@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Digging no longer leaks graphics memory.",
+    "The miner moves like it means it, and the dark reads right.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "reuses one shared shape instead of building and then leaking its own",
+    "Jumps fire visible rocket boosters",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "MINE_VERSION and SIM_VERSION are unchanged",
+    "MINE_VERSION and SIM_VERSION advanced",
   );
 
   await page.mouse.click(8, 8);
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.204", "Falls, boosters, and a brighter dig"],
     ["0.1.203", "The freezes, at the source"],
     ["0.1.202", "Chasing the mine hitches"],
     ["0.1.201", "Other devices get a heads-up"],

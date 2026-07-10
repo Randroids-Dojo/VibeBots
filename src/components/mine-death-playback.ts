@@ -22,7 +22,7 @@ export interface FallWindow {
 }
 
 export interface FallPlayback extends FallWindow {
-  kind: "fall" | "crush";
+  kind: "fall" | "crush" | "powerdown";
   track: MotionTrack | null;
   impacted: boolean;
   doneAt: number | null;
@@ -31,6 +31,13 @@ export interface FallPlayback extends FallWindow {
 export const FATAL_FALL_HOLD_SECONDS = 0.38;
 export const CRUSH_HOLD_SECONDS = 3.6;
 export const FATAL_FALL_SECONDS_PER_ROW = 0.11;
+
+/** Out-of-battery power-down (F-058): the miner slumps in place at the
+ * death spot before the trip report. The beat is the slump ramp; the hold
+ * keeps the powered-down bot on camera under the report. */
+export const POWER_DOWN_BEAT_SECONDS = 1.0;
+export const POWER_DOWN_HOLD_SECONDS = 0.7;
+export const POWER_DOWN_REPORT_AFTER_IMPACT_MS = 520;
 
 export function fatalFallPlaybackSeconds(fell: number): number {
   return Math.max(0.42, fell * FATAL_FALL_SECONDS_PER_ROW);
@@ -87,6 +94,28 @@ function fallPlaybackFromResult(
       doneAt: null,
     };
   }
+  // Out-of-battery death (F-058): collapsed with a loss, but not a fatal
+  // fall, a crush, or a deliberate abandon. The miner powers down in place.
+  if (
+    result?.ok &&
+    result.collapsed &&
+    result.lost &&
+    !result.fallFatal &&
+    !result.crushed &&
+    !result.abandoned
+  ) {
+    return {
+      key,
+      kind: "powerdown",
+      col: result.lost.col,
+      fromRow: result.lost.row,
+      toRow: result.lost.row,
+      fell: 0,
+      track: null,
+      impacted: false,
+      doneAt: null,
+    };
+  }
   return null;
 }
 
@@ -101,14 +130,20 @@ function fallWindowFromPlayback(playback: FallPlayback): FallWindow {
 }
 
 function clearMsForPlayback(playback: FallPlayback): number {
-  return playback.kind === "fall"
-    ? Math.ceil(
-        (fatalFallPlaybackSeconds(playback.fell) +
-          FATAL_FALL_HOLD_SECONDS +
-          0.4) *
-          1000,
-      )
-    : 4300;
+  if (playback.kind === "fall") {
+    return Math.ceil(
+      (fatalFallPlaybackSeconds(playback.fell) +
+        FATAL_FALL_HOLD_SECONDS +
+        0.4) *
+        1000,
+    );
+  }
+  if (playback.kind === "powerdown") {
+    return Math.ceil(
+      (POWER_DOWN_BEAT_SECONDS + POWER_DOWN_HOLD_SECONDS + 0.4) * 1000,
+    );
+  }
+  return 4300;
 }
 
 /** Fallback clear window measured from the rendered impact, used when the
@@ -118,9 +153,13 @@ function clearMsForPlayback(playback: FallPlayback): number {
 export function clearMsAfterImpact(
   playback: Pick<FallPlayback, "kind">,
 ): number {
-  return playback.kind === "fall"
-    ? Math.ceil(FATAL_FALL_HOLD_SECONDS * 1000) + 400
-    : Math.ceil(CRUSH_HOLD_SECONDS * 1000) + 700;
+  if (playback.kind === "fall") {
+    return Math.ceil(FATAL_FALL_HOLD_SECONDS * 1000) + 400;
+  }
+  if (playback.kind === "powerdown") {
+    return Math.ceil(POWER_DOWN_HOLD_SECONDS * 1000) + 400;
+  }
+  return Math.ceil(CRUSH_HOLD_SECONDS * 1000) + 700;
 }
 
 export function useMineDeathPlaybackBridge(

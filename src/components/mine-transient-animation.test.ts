@@ -65,6 +65,7 @@ describe("mine transient animation lifetime contract", () => {
       "spawnDirtBreakBurst",
       "spawnSparks",
       "spawnClang",
+      "spawnBoosterThrust",
       "spawnDust",
       "spawnFallWarning",
       "spawnLadderFall",

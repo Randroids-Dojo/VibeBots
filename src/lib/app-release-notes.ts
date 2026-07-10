@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-07-0.1.203-mine-geometry";
+export const RELEASE_NOTICE_ID = "2026-07-09-0.1.204-mine-animations";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.204",
+      date: "2026-07-09",
+      title: "Falls, boosters, and a brighter dig",
+      intro: "The miner moves like it means it, and the dark reads right.",
+      changes: [
+        {
+          build,
+          text: "Jumps fire visible rocket boosters, an ordinary fall now reads as a fall with a landing bounce, and running out of battery plays a power-down before the trip report. The lantern glow is a proper circle again, clearer underground and calmer on desktop. Keyboard players get Shift+Up to jump, Shift+Down to drop through a plank, and Enter and Escape to walk into and out of buildings. The first rows of a dig carry more ore, and bot fights happen in a tighter walled ring that bounces the brawlers back in.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION advanced, so a run started on the old rules cannot cash out on the new ones.",
+        },
+      ],
+    },
     {
       version: "0.1.203",
       date: "2026-07-07",

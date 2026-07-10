@@ -7,7 +7,7 @@ import {
 } from "./consumables";
 import { rockTierAt, START_COL } from "./digging";
 import { DEFAULT_GEAR, ELEVATOR_COL, type MineGear, maxEnergy } from "./gear";
-import { oreChanceAt, oreDef, oreIdsForBiome } from "./ores";
+import { earlyOreBoost, oreChanceAt, oreDef, oreIdsForBiome } from "./ores";
 import { cellRandom } from "./random";
 
 export const cellKey = (col: number, row: number) => `${col},${row}`;
@@ -133,9 +133,11 @@ function rollCell(seed: number, row: number, col: number): MineCell {
   const roll = cellRandom(seed, row, col, 0);
   if (roll < cacheChance(row)) return { kind: "part-cache" };
   let threshold = cacheChance(row);
+  // Early rows get a denser ore band so the first digs pay off (F-060).
+  const oreBoost = earlyOreBoost(row);
   for (const id of oreIdsForBiome(biome)) {
     const ore = oreDef(id);
-    threshold += oreChanceAt(ore, row);
+    threshold += oreChanceAt(ore, row) * oreBoost;
     if (roll < threshold) return { kind: "ore", ore: ore.id };
   }
   threshold += gasChance;

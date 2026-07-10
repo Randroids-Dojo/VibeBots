@@ -573,13 +573,13 @@ describe("POST /api/mine/bank", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({
-      credited: { credits: 4 },
+      credited: { credits: 7 },
       balance: 12,
       consumables: stock({ rope: 1 }),
       tripIndex: 1,
     });
     expect(body.credited.soldHaul).toMatchObject({
-      totalVibes: 4,
+      totalVibes: 7,
       salvageCredits: 0,
     });
     const soldOres = body.credited.soldHaul.ores as Record<string, number>;

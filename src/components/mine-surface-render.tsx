@@ -1,6 +1,23 @@
 import { useFrame } from "@react-three/fiber";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
-import type { Group } from "three/webgpu";
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  BoxGeometry,
+  Color,
+  ConeGeometry,
+  type Group,
+  type InstancedMesh,
+  Matrix4,
+  MeshStandardMaterial,
+  Quaternion,
+  Vector3,
+} from "three/webgpu";
 import { biomeAt, findPortalBeacons, type MineState } from "@/sim/mine";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import {
@@ -28,6 +45,85 @@ import {
 } from "./mine-surface-materials";
 
 export const CAMP_WIDTH = 60;
+
+const SURFACE_SOIL_GEOMETRY = new BoxGeometry(1.02, 0.08, 0.9);
+const SURFACE_TRIM_GEOMETRY = new BoxGeometry(0.94, 0.045, 0.34);
+const SURFACE_GRASS_GEOMETRY = new ConeGeometry(0.055, 0.16, 5);
+const SURFACE_SOIL_MATERIAL = new MeshStandardMaterial({
+  color: "#ffffff",
+  roughness: 1,
+  metalness: 0,
+  vertexColors: true,
+  flatShading: true,
+});
+const SURFACE_TECH_SOIL_MATERIAL = new MeshStandardMaterial({
+  color: "#ffffff",
+  roughness: 0.45,
+  metalness: 0.45,
+  vertexColors: true,
+  flatShading: true,
+});
+const SURFACE_TRIM_MATERIAL = new MeshStandardMaterial({
+  color: "#ffffff",
+  roughness: 0.9,
+  metalness: 0,
+  vertexColors: true,
+  flatShading: true,
+});
+const SURFACE_TECH_TRIM_MATERIAL = new MeshStandardMaterial({
+  color: "#ffffff",
+  roughness: 0.9,
+  metalness: 0.3,
+  emissive: "#0b4a36",
+  emissiveIntensity: 0.25,
+  vertexColors: true,
+  flatShading: true,
+});
+const SURFACE_GRASS_MATERIAL = new MeshStandardMaterial({
+  color: "#4f7a4a",
+  roughness: 1,
+  flatShading: true,
+});
+const surfaceInstanceMatrix = new Matrix4();
+const surfaceInstancePosition = new Vector3();
+const surfaceInstanceRotation = new Quaternion();
+const surfaceInstanceScale = new Vector3(1, 1, 1);
+const surfaceInstanceColor = new Color();
+const surfaceUpAxis = new Vector3(0, 1, 0);
+
+interface SurfaceInstance {
+  x: number;
+  y: number;
+  z: number;
+  color: string | Color;
+  rotationY?: number;
+}
+
+function writeSurfaceInstances(
+  mesh: InstancedMesh | null,
+  instances: readonly SurfaceInstance[],
+): void {
+  if (!mesh) return;
+  mesh.count = instances.length;
+  for (let i = 0; i < instances.length; i++) {
+    const instance = instances[i];
+    surfaceInstancePosition.set(instance.x, instance.y, instance.z);
+    surfaceInstanceRotation.setFromAxisAngle(
+      surfaceUpAxis,
+      instance.rotationY ?? 0,
+    );
+    surfaceInstanceMatrix.compose(
+      surfaceInstancePosition,
+      surfaceInstanceRotation,
+      surfaceInstanceScale,
+    );
+    mesh.setMatrixAt(i, surfaceInstanceMatrix);
+    mesh.setColorAt(i, surfaceInstanceColor.set(instance.color));
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  mesh.computeBoundingSphere();
+}
 
 function PortalBeaconModel({
   color,
@@ -82,54 +178,114 @@ export function SurfaceSkin({
   lastCol: number;
   mine: MineState;
 }) {
-  const tiles = [];
-  for (let col = firstCol - 1; col <= lastCol + 1; col++) {
-    const biome = biomeAt(col);
-    const x = cellX(col);
-    tiles.push(
-      <group key={col} position={[x, 0, -0.36]}>
-        <mesh position={[0, -0.47, 0]}>
-          <boxGeometry args={[1.02, 0.08, 0.9]} />
-          <meshStandardMaterial
-            color={variedColor(surfaceColorForBiome(biome), col, 0)}
-            roughness={biome === "highTech" ? 0.45 : 1}
-            metalness={biome === "highTech" ? 0.45 : 0}
-            flatShading
-          />
-        </mesh>
-        <mesh position={[0, -0.4, 0.1]}>
-          <boxGeometry args={[0.94, 0.045, 0.34]} />
-          <meshStandardMaterial
-            color={surfaceTrimColorForBiome(biome)}
-            roughness={0.9}
-            metalness={biome === "highTech" ? 0.3 : 0}
-            emissive={biome === "highTech" ? "#0b4a36" : "#000000"}
-            emissiveIntensity={biome === "highTech" ? 0.25 : 0}
-            flatShading
-          />
-        </mesh>
-        {biome === "default" && Math.abs(col - 0.5) > 8 && (
-          <mesh
-            position={[
-              (cellHash(col, 11, 2) - 0.5) * 0.46,
-              -0.32,
-              (cellHash(col, 13, 2) - 0.5) * 0.4,
-            ]}
-            rotation={[0, cellHash(col, 17, 2) * 3, 0]}
-          >
-            <coneGeometry args={[0.055, 0.16, 5]} />
-            <meshStandardMaterial color="#4f7a4a" roughness={1} flatShading />
-          </mesh>
-        )}
-      </group>,
-    );
-  }
+  const soilRef = useRef<InstancedMesh>(null);
+  const techSoilRef = useRef<InstancedMesh>(null);
+  const trimRef = useRef<InstancedMesh>(null);
+  const techTrimRef = useRef<InstancedMesh>(null);
+  const grassRef = useRef<InstancedMesh>(null);
+  const instances = useMemo(() => {
+    const soil: SurfaceInstance[] = [];
+    const techSoil: SurfaceInstance[] = [];
+    const trim: SurfaceInstance[] = [];
+    const techTrim: SurfaceInstance[] = [];
+    const grass: SurfaceInstance[] = [];
+    for (let col = firstCol - 1; col <= lastCol + 1; col++) {
+      const biome = biomeAt(col);
+      const x = cellX(col);
+      const isTech = biome === "highTech";
+      (isTech ? techSoil : soil).push({
+        x,
+        y: -0.47,
+        z: -0.36,
+        color: variedColor(surfaceColorForBiome(biome), col, 0),
+      });
+      (isTech ? techTrim : trim).push({
+        x,
+        y: -0.4,
+        z: -0.26,
+        color: surfaceTrimColorForBiome(biome),
+      });
+      if (biome === "default" && Math.abs(col - 0.5) > 8) {
+        grass.push({
+          x: x + (cellHash(col, 11, 2) - 0.5) * 0.46,
+          y: -0.32,
+          z: -0.36 + (cellHash(col, 13, 2) - 0.5) * 0.4,
+          color: "#4f7a4a",
+          rotationY: cellHash(col, 17, 2) * 3,
+        });
+      }
+    }
+    return { soil, techSoil, trim, techTrim, grass };
+  }, [firstCol, lastCol]);
+
+  useLayoutEffect(() => {
+    writeSurfaceInstances(soilRef.current, instances.soil);
+    writeSurfaceInstances(techSoilRef.current, instances.techSoil);
+    writeSurfaceInstances(trimRef.current, instances.trim);
+    writeSurfaceInstances(techTrimRef.current, instances.techTrim);
+    writeSurfaceInstances(grassRef.current, instances.grass);
+  }, [instances]);
+
   const portals = findPortalBeacons(mine).filter(
     (portal) => portal.col >= firstCol - 2 && portal.col <= lastCol + 2,
   );
   return (
     <group>
-      {tiles}
+      {instances.soil.length > 0 ? (
+        <instancedMesh
+          ref={soilRef}
+          args={[
+            SURFACE_SOIL_GEOMETRY,
+            SURFACE_SOIL_MATERIAL,
+            instances.soil.length,
+          ]}
+          dispose={null}
+        />
+      ) : null}
+      {instances.techSoil.length > 0 ? (
+        <instancedMesh
+          ref={techSoilRef}
+          args={[
+            SURFACE_SOIL_GEOMETRY,
+            SURFACE_TECH_SOIL_MATERIAL,
+            instances.techSoil.length,
+          ]}
+          dispose={null}
+        />
+      ) : null}
+      {instances.trim.length > 0 ? (
+        <instancedMesh
+          ref={trimRef}
+          args={[
+            SURFACE_TRIM_GEOMETRY,
+            SURFACE_TRIM_MATERIAL,
+            instances.trim.length,
+          ]}
+          dispose={null}
+        />
+      ) : null}
+      {instances.techTrim.length > 0 ? (
+        <instancedMesh
+          ref={techTrimRef}
+          args={[
+            SURFACE_TRIM_GEOMETRY,
+            SURFACE_TECH_TRIM_MATERIAL,
+            instances.techTrim.length,
+          ]}
+          dispose={null}
+        />
+      ) : null}
+      {instances.grass.length > 0 ? (
+        <instancedMesh
+          ref={grassRef}
+          args={[
+            SURFACE_GRASS_GEOMETRY,
+            SURFACE_GRASS_MATERIAL,
+            instances.grass.length,
+          ]}
+          dispose={null}
+        />
+      ) : null}
       {portals.map((portal) => (
         <group key={portal.id} position={[cellX(portal.col), -0.14, 0.55]}>
           <PortalBeaconModel color={portal.color} active={portal.active} />

@@ -28,9 +28,9 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-09-0.1.204-surface-village");
+    expect(release.noticeId).toBe("2026-07-09-0.1.205-surface-village");
     expect(latestNote).toMatchObject({
-      version: "0.1.204",
+      version: "0.1.205",
       title: "Night shift, rebuilt",
       intro: "The surface village is now one industrial future settlement.",
     });
@@ -39,6 +39,23 @@ describe("app release notes", () => {
       "A segmented service deck and visible power conduit connect the row. Readable mesh emblems replace blank sign panels, while the existing names, prompts, routes, and building columns stay exactly where players know them.",
       "The Warp Pad ring turns and pulses slowly as the village's only ambient motion. Reduced-motion settings stop it completely, and settlement-wide material batching cuts the full review scene to 10 draw calls or fewer.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived mine-animation note complete", () => {
+    const release = getAppRelease();
+    const mineAnimationNote = release.notes.find(
+      (note) => note.version === "0.1.204",
+    );
+
+    expect(mineAnimationNote).toMatchObject({
+      version: "0.1.204",
+      title: "Falls, boosters, and a brighter dig",
+      intro: "The miner moves like it means it, and the dark reads right.",
+    });
+    expect(mineAnimationNote?.changes.map((change) => change.text)).toEqual([
+      "Jumps fire visible rocket boosters, an ordinary fall now reads as a fall with a landing bounce, and running out of battery plays a power-down before the trip report. The lantern glow is a proper circle again, clearer underground and calmer on desktop. Keyboard players get Shift+Up to jump, Shift+Down to drop through a plank, and Enter and Escape to walk into and out of buildings. The first rows of a dig carry more ore, and bot fights happen in a tighter walled ring that bounces the brawlers back in.",
+      "MINE_VERSION and SIM_VERSION advanced, so a run started on the old rules cannot cash out on the new ones.",
     ]);
   });
 

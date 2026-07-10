@@ -39,6 +39,7 @@ import {
   authoredPortalAt,
   BAG_STACK_LIMIT,
   type CollectTarget,
+  canDropThroughPlank,
   canJump,
   canPlacePlank,
   cargoCapacity,
@@ -93,6 +94,7 @@ import {
 import {
   CRUSH_REPORT_AFTER_IMPACT_MS,
   FALL_REPORT_AFTER_IMPACT_MS,
+  POWER_DOWN_REPORT_AFTER_IMPACT_MS,
   wreckReportCeilingMs,
 } from "./mine-death-playback";
 import { DESTINATIONS, destinationAt } from "./mine-destinations";
@@ -218,6 +220,11 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
   a: "left",
   d: "right",
 };
+
+/** Shift uppercases letter keys; lowercase single chars so w/a/s/d still
+ * match KEY_DIRECTIONS, and leave multi-char keys (the arrows) untouched. */
+const normalizeKeyName = (key: string) =>
+  key.length === 1 ? key.toLowerCase() : key;
 
 const MINE_CAMERA_FOV_DEGREES = 42;
 const DYNAMITE_TIER_LABELS: Record<DynamiteTier, string> = {
@@ -917,7 +924,14 @@ function JuiceOverlays() {
                 : "battery",
         ),
       };
-      if (lastResult.fallFatal || lastResult.crushed) {
+      // An out-of-battery death powers the miner down in place before the
+      // report (F-058), gated on the same impact signal as fall and crush;
+      // a deliberate abandon still reports immediately.
+      const isBatteryDeath =
+        !lastResult.fallFatal &&
+        !lastResult.crushed &&
+        !(lastResult.abandoned ?? false);
+      if (lastResult.fallFatal || lastResult.crushed || isBatteryDeath) {
         // The report must not beat the visible impact: the canvas frame
         // loop marks the impact frame in the store, and the report holds
         // for a beat after it. The ceiling timer covers a canvas that
@@ -925,7 +939,9 @@ function JuiceOverlays() {
         // with the fall length because long falls take that long to land.
         const afterImpactMs = lastResult.fallFatal
           ? FALL_REPORT_AFTER_IMPACT_MS
-          : CRUSH_REPORT_AFTER_IMPACT_MS;
+          : lastResult.crushed
+            ? CRUSH_REPORT_AFTER_IMPACT_MS
+            : POWER_DOWN_REPORT_AFTER_IMPACT_MS;
         const ceilingMs = wreckReportCeilingMs(lastResult.fell);
         const scheduleWreck = (delayMs: number) => {
           if (wreckTimeout.current != null) {
@@ -1778,6 +1794,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     state.move("jump");
   }, [creditsOpen, elevatorAutoDir, mineSceneReady, terminalMineState]);
 
+  // Shift + Down (F-059): drop through the plank underfoot. Only fires when
+  // a plank is actually there, so it never mines the way a plain Down does.
+  const firePlankDrop = useCallback(() => {
+    if (!mineSceneReady) return;
+    if (elevatorAutoDir) return;
+    if (terminalMineState || creditsOpen) return;
+    const state = useMineStore.getState();
+    if (!canDropThroughPlank(state.mine)) return;
+    state.move("down");
+  }, [creditsOpen, elevatorAutoDir, mineSceneReady, terminalMineState]);
+
   const releaseDirection = useCallback((dir: Direction | null) => {
     directionCadenceRef.current?.release(dir);
     if (dir === null || dir === "up") {
@@ -1902,7 +1929,39 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         if (!creditsOpen) fireJump();
         return;
       }
-      const dir = KEY_DIRECTIONS[event.key];
+      // Enter walks the miner into the building on the current surface
+      // column (F-061). A focused button keeps its own activation.
+      if (event.key === "Enter") {
+        if (targetEl?.closest("button,a,[role='button']")) return;
+        const state = useMineStore.getState();
+        const surfaceMiner = state.mine.miner;
+        const dest =
+          surfaceMiner.row === 0 ? destinationAt(surfaceMiner.col) : null;
+        if (!dest) return;
+        event.preventDefault();
+        if (terminalMineState || creditsOpen) return;
+        router.push(dest.href);
+        return;
+      }
+      // Shift uppercases the WASD letters, so normalize before matching so
+      // Shift + a lateral letter still resolves like the arrows do.
+      const key = normalizeKeyName(event.key);
+      // Shift modifies the vertical keys (F-059): Shift + Up jumps instead
+      // of climbing, Shift + Down drops through a plank instead of mining.
+      // Lateral keys ignore Shift and keep the normal move.
+      if (event.shiftKey) {
+        if (key === "ArrowUp" || key === "w") {
+          event.preventDefault();
+          if (!creditsOpen) fireJump();
+          return;
+        }
+        if (key === "ArrowDown" || key === "s") {
+          event.preventDefault();
+          if (!terminalMineState && !creditsOpen) firePlankDrop();
+          return;
+        }
+      }
+      const dir = KEY_DIRECTIONS[key];
       if (!dir) return;
       event.preventDefault();
       if (terminalMineState) return;
@@ -1910,7 +1969,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       fireDirection(dir);
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      const dir = KEY_DIRECTIONS[event.key];
+      const dir = KEY_DIRECTIONS[normalizeKeyName(event.key)];
       if (dir) releaseDirection(dir);
     };
     const onBlur = () => releaseDirection(null);
@@ -1926,7 +1985,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     creditsOpen,
     fireDirection,
     fireJump,
+    firePlankDrop,
     releaseDirection,
+    router,
     terminalMineState,
   ]);
 

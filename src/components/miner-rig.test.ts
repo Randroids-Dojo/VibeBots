@@ -5,6 +5,8 @@ import {
   BOUNCE_SECONDS,
   createMinerRigState,
   DIG_LUNGE_SECONDS,
+  FALL_POSE_SPEED,
+  LAND_SQUASH_SECONDS,
   MINER_CLIPS,
   type MinerRigInputs,
   minerArmRotZ,
@@ -152,6 +154,57 @@ describe("miner rig kinematics", () => {
     expect(pose.legL.rotX).toBeGreaterThan(0.5);
     expect(pose.legR.rotX).toBeLessThan(-0.3);
     expect(pose.arm.rotZ).toBeGreaterThan(1);
+  });
+
+  it("eases into a fall pose while dropping and back out on landing (F-057)", () => {
+    const state = createMinerRigState();
+    let pose = advanceMinerRig(
+      state,
+      rest({ fall: FALL_POSE_SPEED * 2, still: true, delta: 1 / 60 }),
+    );
+    for (let i = 0; i < 40; i++) {
+      pose = advanceMinerRig(
+        state,
+        rest({ fall: FALL_POSE_SPEED * 2, still: true, delta: 1 / 60 }),
+      );
+    }
+    // Legs tuck, the free arm windmills up, and the body stretches.
+    expect(state.fallBlend).toBeGreaterThan(0.9);
+    expect(pose.legL.rotX).toBeGreaterThan(0.5);
+    expect(pose.arm.rotZ).toBeLessThan(-1);
+    expect(pose.body.scaleY).toBeGreaterThan(1);
+    // Landing squash compresses vertically and spreads out.
+    const landed = advanceMinerRig(
+      state,
+      rest({ land: LAND_SQUASH_SECONDS, still: true, delta: 1 / 60 }),
+    );
+    expect(landed.body.scaleY).toBeLessThan(1);
+    expect(landed.body.scaleX).toBeGreaterThan(1);
+    // Grounded again, the pose eases back to neutral.
+    for (let i = 0; i < 60; i++) {
+      pose = advanceMinerRig(state, rest({ still: true, delta: 1 / 60 }));
+    }
+    expect(state.fallBlend).toBeLessThan(0.05);
+    expect(pose.body.scaleY).toBeCloseTo(1, 2);
+  });
+
+  it("slumps the body on the out-of-battery power-down (F-058)", () => {
+    const state = createMinerRigState();
+    const pose = advanceMinerRig(
+      state,
+      rest({ powerDown: 1, still: true, delta: 1 / 60 }),
+    );
+    // Sinks, tips over, compresses, and the pick arm hangs.
+    expect(pose.body.posY).toBeLessThan(BODY_REST_Y);
+    expect(pose.body.rotZ).toBeGreaterThan(0.25);
+    expect(pose.body.scaleY).toBeLessThan(1);
+    expect(pose.arm.rotZ).toBeGreaterThan(0.8);
+    // A zero progress leaves the neutral stance untouched.
+    const upright = advanceMinerRig(
+      createMinerRigState(),
+      rest({ powerDown: 0, still: true, delta: 1 / 60 }),
+    );
+    expect(upright.body.scaleY).toBe(1);
   });
 
   it("clamps the walk lean", () => {

@@ -1,11 +1,51 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 /**
  * Floating "back to the mine village" control for screens entered from
- * the surface (Workshop, Battles). With the top nav gone, the mine
- * surface is the overworld hub and every other screen returns to it.
+ * the surface (Workshop, Battles, Holodeck). With the top nav gone, the
+ * mine surface is the overworld hub and every other screen returns to it.
+ *
+ * Keyboard players also press Escape to return (F-062). The handler bows
+ * out when a dialog, a text field, or another handler is already using
+ * Escape, so it only fires the return from the plain building view.
  */
 export function BackToMine() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.isContentEditable ||
+          /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+      ) {
+        return;
+      }
+      // A modal open on this screen owns Escape for its own close.
+      if (
+        document.querySelector(
+          '[role="dialog"], [aria-modal="true"], dialog[open]',
+        )
+      ) {
+        return;
+      }
+      event.preventDefault();
+      router.push("/mine");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
+
   return (
     <Link
       href="/mine"

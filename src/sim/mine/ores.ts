@@ -53,7 +53,7 @@ export const ORES: readonly OreDef[] = [
     value: 1,
     biome: "default",
     minRow: 1,
-    peakStart: 2,
+    peakStart: 1,
     peakEnd: 12,
     maxRow: 24,
     peakChance: 0.09,
@@ -130,7 +130,7 @@ export const ORES: readonly OreDef[] = [
     value: 1,
     biome: "winter",
     minRow: 1,
-    peakStart: 2,
+    peakStart: 1,
     peakEnd: 12,
     maxRow: 24,
     peakChance: 0.09,
@@ -207,7 +207,7 @@ export const ORES: readonly OreDef[] = [
     value: 1,
     biome: "highTech",
     minRow: 1,
-    peakStart: 2,
+    peakStart: 1,
     peakEnd: 12,
     maxRow: 24,
     peakChance: 0.09,
@@ -409,6 +409,23 @@ export function oreSwingYield(
     units++;
   }
   return units;
+}
+
+/**
+ * The shallowest rows carry an ore-density bonus so early trips surface a
+ * reward quickly (F-060). Without it the first couple rows are almost all
+ * dirt: only tier-0 coal reaches these rows, and its band barely opens.
+ * The multiplier peaks at row 1 and tapers to 1 by EARLY_ORE_BOOST_ROWS,
+ * so nothing past the opening cut is enriched.
+ */
+export const EARLY_ORE_BOOST_ROWS = 3;
+export const EARLY_ORE_BOOST_PEAK = 2.1;
+
+export function earlyOreBoost(row: number): number {
+  if (row < 1 || row > EARLY_ORE_BOOST_ROWS) return 1;
+  // 1 at row 1, 0 at EARLY_ORE_BOOST_ROWS.
+  const t = (EARLY_ORE_BOOST_ROWS - row) / (EARLY_ORE_BOOST_ROWS - 1);
+  return 1 + (EARLY_ORE_BOOST_PEAK - 1) * t;
 }
 
 /** Trapezoid band ramp: 0 outside, linear fades, 1 across the peak. */

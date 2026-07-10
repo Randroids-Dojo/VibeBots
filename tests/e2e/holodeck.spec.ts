@@ -38,9 +38,27 @@ test("holodeck auto-mines on a loop with visible motion (Rule 10)", async ({
     .not.toBeNull();
   const armA = await canvas.getAttribute("data-holodeck-arm");
   await expect
-    .poll(async () => canvas.getAttribute("data-holodeck-arm"), {
-      timeout: 5_000,
-    })
+    .poll(
+      async () =>
+        canvas.evaluate(
+          (element, previous) =>
+            new Promise<string | null>((resolve) => {
+              let framesLeft = 30;
+              const sample = () => {
+                const current = element.dataset.holodeckArm ?? null;
+                if (current !== previous || framesLeft <= 0) {
+                  resolve(current);
+                  return;
+                }
+                framesLeft -= 1;
+                requestAnimationFrame(sample);
+              };
+              requestAnimationFrame(sample);
+            }),
+          armA,
+        ),
+      { timeout: 5_000 },
+    )
     .not.toBe(armA);
 
   // The auto-driver completes at least one mine + reload cycle.
@@ -338,10 +356,19 @@ test("surface Warp ring changes visible pixels and stops for reduced motion", as
   const angleA = await canvas.getAttribute("data-surface-warp-angle");
   const movingA = await canvas.screenshot();
   await expect
-    .poll(async () => canvas.getAttribute("data-surface-warp-angle"), {
-      timeout: 5_000,
-    })
-    .not.toBe(angleA);
+    .poll(
+      async () =>
+        Math.abs(
+          Number(await canvas.getAttribute("data-surface-warp-angle")) -
+            Number(angleA),
+        ),
+      { timeout: 5_000 },
+    )
+    .toBeGreaterThan(0.2);
+  // The QA attribute updates inside the frame callback before the new frame
+  // is rasterized. Let the deliberately slow ring advance far enough to
+  // produce a stable pixel difference on software renderers.
+  await page.waitForTimeout(100);
   const movingB = await canvas.screenshot();
   expect(Buffer.compare(movingA, movingB)).not.toBe(0);
 

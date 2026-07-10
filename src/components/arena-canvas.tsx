@@ -33,7 +33,12 @@ import {
   shapeRotation,
 } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
-import { createArenaWorld } from "@/sim/arena";
+import {
+  ARENA_WALL_HALF_EXTENT,
+  ARENA_WALL_HEIGHT,
+  ARENA_WALL_THICKNESS,
+  createArenaWorld,
+} from "@/sim/arena";
 import {
   createMatch,
   freeMatch,
@@ -97,6 +102,22 @@ interface ArenaSpark {
   color: string;
 }
 const ARENA_CAMERA_PART_PADDING = 1.2;
+
+/**
+ * Deck and barrier geometry derived from the sim's bounce-wall ring
+ * (F-063), so the concrete the player sees lines up with the colliders the
+ * bots actually rebound off. The wall centers sit half a thickness past the
+ * inner ring face; the deck reaches to the walls' outer face.
+ */
+const ARENA_WALL_CENTER = ARENA_WALL_HALF_EXTENT + ARENA_WALL_THICKNESS;
+const ARENA_DECK_HALF = ARENA_WALL_CENTER + ARENA_WALL_THICKNESS;
+const ARENA_DECK_SIZE = ARENA_DECK_HALF * 2;
+const ARENA_WALL_SPAN = ARENA_DECK_SIZE;
+// Rendered wall height and center match the sim collider exactly, so the
+// bounce reads true (no visible/collider mismatch).
+const ARENA_WALL_RENDER_HEIGHT = ARENA_WALL_HEIGHT;
+const ARENA_WALL_RENDER_THICKNESS = ARENA_WALL_THICKNESS * 2;
+const ARENA_WALL_RENDER_Y = ARENA_WALL_RENDER_HEIGHT / 2;
 
 interface ArenaRun {
   match: MatchState;
@@ -684,21 +705,50 @@ function ArenaScene({
         <boxGeometry args={[1, 1, 1]} />
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
-      {/* The pit: matte concrete deck inside a low barrier wall (a
-          metallic deck mirrors the dark void and reads black). */}
+      {/* The pit: matte concrete deck inside the bounce-wall ring (a
+          metallic deck mirrors the dark void and reads black). The deck and
+          walls trace the sim's collider ring so a rebound reads true. */}
       <mesh
         position={[0, -0.5, 0]}
         receiveShadow
         material={surfaceComposite("#5f6875", detail)}
         dispose={null}
       >
-        <boxGeometry args={[26, 1, 26]} />
+        <boxGeometry args={[ARENA_DECK_SIZE, 1, ARENA_DECK_SIZE]} />
       </mesh>
       {[
-        { pos: [0, 0.55, -13.4] as const, size: [27.6, 1.1, 0.8] as const },
-        { pos: [0, 0.55, 13.4] as const, size: [27.6, 1.1, 0.8] as const },
-        { pos: [-13.4, 0.55, 0] as const, size: [0.8, 1.1, 26] as const },
-        { pos: [13.4, 0.55, 0] as const, size: [0.8, 1.1, 26] as const },
+        {
+          pos: [0, ARENA_WALL_RENDER_Y, -ARENA_WALL_CENTER] as const,
+          size: [
+            ARENA_WALL_SPAN,
+            ARENA_WALL_RENDER_HEIGHT,
+            ARENA_WALL_RENDER_THICKNESS,
+          ] as const,
+        },
+        {
+          pos: [0, ARENA_WALL_RENDER_Y, ARENA_WALL_CENTER] as const,
+          size: [
+            ARENA_WALL_SPAN,
+            ARENA_WALL_RENDER_HEIGHT,
+            ARENA_WALL_RENDER_THICKNESS,
+          ] as const,
+        },
+        {
+          pos: [-ARENA_WALL_CENTER, ARENA_WALL_RENDER_Y, 0] as const,
+          size: [
+            ARENA_WALL_RENDER_THICKNESS,
+            ARENA_WALL_RENDER_HEIGHT,
+            ARENA_WALL_SPAN,
+          ] as const,
+        },
+        {
+          pos: [ARENA_WALL_CENTER, ARENA_WALL_RENDER_Y, 0] as const,
+          size: [
+            ARENA_WALL_RENDER_THICKNESS,
+            ARENA_WALL_RENDER_HEIGHT,
+            ARENA_WALL_SPAN,
+          ] as const,
+        },
       ].map((wall) => (
         <mesh
           key={`${wall.pos[0]}:${wall.pos[2]}`}

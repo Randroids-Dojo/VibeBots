@@ -114,7 +114,7 @@ import {
 import { InstancedBlockGrid } from "./mine-instanced-grid";
 import {
   collectBlockNodeMaterials,
-  collectInstancedBodyMaterials,
+  collectInstancedGridMaterials,
 } from "./mine-material-warmup";
 import { MinerBot } from "./mine-miner-render";
 import {
@@ -229,7 +229,6 @@ interface MineCellEntry {
   gen: number;
   block: ReactElement[];
   cargo: ReactElement[];
-  darkness: ReactElement[];
   tunnel: ReactElement[];
   crack: ReactElement[];
   support: ReactElement[];
@@ -245,7 +244,6 @@ const CELL_CACHE_LIMIT = 4000;
  * into the cache signature by the render loop. */
 interface MineCellViewInputs {
   dynamitePreview: boolean;
-  darknessOpacity: number;
   damage: number | null;
   canSalvage: boolean;
   ladderSelected: boolean;
@@ -315,8 +313,16 @@ const PLANK_BEAM_MATERIALS = [
 // tint jitter rides the shared node shader; one floor material per biome
 // is precomputed. Darkness opacity is bucketed to 0.02 (it only shows at
 // max zoom over a narrow ramp) so the cache stays bounded.
-const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12);
-const DARKNESS_GEOMETRY = new PlaneGeometry(1.08, 1.08);
+// Each class's constant depth offset is baked into its shared geometry
+// (the old per-mesh position z), so the instanced path needs no per-
+// instance z: positionWorld includes the geometry translation, keeping
+// the tint jitter and the rendered output identical to the mesh path.
+const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12).translate(
+  0,
+  0,
+  -0.42,
+);
+const DARKNESS_GEOMETRY = new PlaneGeometry(1.08, 1.08).translate(0, 0, 0.72);
 const TUNNEL_FLOOR_MATERIALS: Record<
   MineBiomeId,
   ReturnType<typeof tunnelFloorMaterial>
@@ -361,8 +367,11 @@ function warmMineMaterials(
   const addWarm = (material: Material) => {
     group.add(new Mesh(WARMUP_GEOMETRY, material));
   };
-  for (const material of collectInstancedBodyMaterials(detail)) {
+  const addWarmInstanced = (material: Material) => {
     group.add(new InstancedMesh(WARMUP_GEOMETRY, material, 1));
+  };
+  for (const material of collectInstancedGridMaterials(detail)) {
+    addWarmInstanced(material);
   }
   for (const material of collectBlockNodeMaterials(detail)) addWarm(material);
   for (const material of collectShardMaterials()) addWarm(material);
@@ -375,11 +384,12 @@ function warmMineMaterials(
     for (const material of materials) addWarm(material);
   }
   // Darkness buckets across the lamp-falloff opacity ramp, in the same 0.02
-  // steps the darkness cache buckets by, derived from the camera caps.
+  // steps the darkness cache buckets by, derived from the camera caps. The
+  // veils draw through the instanced grid, so warm the instanced program.
   const nearBucket = Math.round(DARKNESS_CAP_NEAR_OPACITY * 50);
   const farBucket = Math.round(DARKNESS_CAP_FAR_OPACITY * 50);
   for (let bucket = nearBucket; bucket <= farBucket; bucket++) {
-    addWarm(darknessMaterial(bucket / 50));
+    addWarmInstanced(darknessMaterial(bucket / 50));
   }
   scene.add(group);
   let disposed = false;
@@ -418,7 +428,6 @@ function buildCellEntry(
 ): MineCellEntry {
   const {
     dynamitePreview,
-    darknessOpacity,
     damage,
     canSalvage,
     ladderSelected,
@@ -437,7 +446,6 @@ function buildCellEntry(
     gen,
     block: [],
     cargo: [],
-    darkness: [],
     tunnel: [],
     crack: [],
     support: [],
@@ -471,17 +479,6 @@ function buildCellEntry(
       </mesh>,
     );
   }
-  if (darknessOpacity > 0) {
-    entry.darkness.push(
-      <mesh
-        key={`dark:${key}`}
-        position={[x, y, 0.72]}
-        geometry={DARKNESS_GEOMETRY}
-        material={darknessMaterial(darknessOpacity)}
-        dispose={null}
-      />,
-    );
-  }
   // Damaged blocks wear cracks (REQ-013); the overlay rides above
   // whatever shape the kind renders.
   if (damage !== null) {
@@ -492,18 +489,9 @@ function buildCellEntry(
     );
   }
   if (cell.kind === "empty") {
-    // Carved tunnels read as recessed rock, not as holes in the sky.
-    if (row >= 1) {
-      entry.tunnel.push(
-        <mesh
-          key={key}
-          position={[x, y, -0.42]}
-          geometry={TUNNEL_FLOOR_GEOMETRY}
-          material={TUNNEL_FLOOR_MATERIALS[biome]}
-          dispose={null}
-        />,
-      );
-    }
+    // The recessed tunnel floor itself is streamed by the instanced grid
+    // (the render loop pushes it into the block plan); only the sparse
+    // decorations below stay React-reconciled.
     // A planted ladder (REQ-020): rails and rungs against the wall.
     if (cell.ladder) {
       const toggleLadder = canSalvage ? supportToggle : null;
@@ -1814,7 +1802,6 @@ function MineScene({
   const tunnelMeshes = [];
   const cargoMeshes = [];
   const crackMeshes = [];
-  const darknessMeshes = [];
   const supportSelectionMeshes = [];
   let minDarknessOpacity = 1;
   let maxDarknessOpacity = 0;
@@ -1848,6 +1835,12 @@ function MineScene({
   }
   const supportToggle = onToggleSupport ? dispatchToggleSupport : null;
   const toggleBit = supportToggle ? 1 : 0;
+  // biomeAt is column-pure; resolve each visible column once per pass
+  // instead of once per cell (the loop below revisits every column per row).
+  const columnBiomes: MineBiomeId[] = [];
+  for (let col = firstCol; col <= lastCol; col++) {
+    columnBiomes.push(biomeAt(col));
+  }
   const supportSelected = (type: string, col: number, row: number) =>
     selectedSupportSet.has(`${type}:${col},${row}`);
   for (let row = firstRow; row <= lastRow; row++) {
@@ -1881,7 +1874,7 @@ function MineScene({
           cell,
           col,
           row,
-          biomeAt(col),
+          columnBiomes[col - firstCol],
           detail,
           instanceBodyScratch,
         );
@@ -1894,6 +1887,20 @@ function MineScene({
           instanceBodyScratch.rotX,
           instanceBodyScratch.rotY,
           instanceBodyScratch.rotZ,
+        );
+      } else if (cell.kind === "empty" && row >= 1) {
+        // Carved tunnel floor: the highest-count overlay in dug-out areas.
+        // Instanced so a warp or a long fall rewrites matrices instead of
+        // remounting a window's worth of floor meshes in one commit.
+        pushBlockInstance(
+          plan,
+          TUNNEL_FLOOR_GEOMETRY,
+          TUNNEL_FLOOR_MATERIALS[columnBiomes[col - firstCol]],
+          x,
+          y,
+          0,
+          0,
+          0,
         );
       }
       // Signature inputs: everything the cell's JSX reads that can
@@ -1910,6 +1917,24 @@ function MineScene({
       const beyondLight = Math.max(0, radialDistance - litBelow);
       const darknessOpacity =
         beyondLight > 0 ? mineDarknessOpacity(beyondLight) * fogDepthScale : 0;
+      // Lamp-edge darkness veil: instanced (one bucket per quantized
+      // opacity), so moving the light edge never remounts quads. The grid
+      // draws transparent buckets after the default transparent pass, so
+      // the veil occludes its cell's contents.
+      if (darknessOpacity > 0) {
+        minDarknessOpacity = Math.min(minDarknessOpacity, darknessOpacity);
+        maxDarknessOpacity = Math.max(maxDarknessOpacity, darknessOpacity);
+        pushBlockInstance(
+          plan,
+          DARKNESS_GEOMETRY,
+          darknessMaterial(darknessOpacity),
+          x,
+          y,
+          0,
+          0,
+          0,
+        );
+      }
       const oreDamage =
         cell.kind === "ore" && cell.ore && cell.oreRemaining !== undefined
           ? 1 - cell.oreRemaining / oreReserveAt(cell.ore, row)
@@ -1939,12 +1964,12 @@ function MineScene({
         renderedCrackSegmentCount += crackSegmentCountForDamage(damage);
       }
       if (cell.kind === "gas" && cell.gasSeeped) renderedGasWispCount += 1;
-      // Sub-0.001 opacity/damage drift is invisible; quantizing it keeps
-      // camera zoom eases from rebuilding every darkened cell per tick.
+      // Sub-0.001 damage drift is invisible; quantizing it keeps repeated
+      // chip hits from rebuilding a cell whose cracks did not change.
       const sig =
         `${cellRenderSignature(cell)}|` +
         `${drop ? drop.count : 0}:${drop?.ore ?? ""}|` +
-        `${dynamitePreview ? 1 : 0}|${Math.round(darknessOpacity * 1000)}|` +
+        `${dynamitePreview ? 1 : 0}|` +
         `${damage === null ? "" : Math.round(damage * 1000)}|` +
         `${canSalvage ? 1 : 0}${ladderSelected ? 1 : 0}` +
         `${beaconSelected ? 1 : 0}${plankSelected ? 1 : 0}${toggleBit}` +
@@ -1953,7 +1978,6 @@ function MineScene({
       if (entry === undefined || entry.sig !== sig) {
         entry = buildCellEntry(sig, cacheGen, cell, col, row, {
           dynamitePreview,
-          darknessOpacity,
           damage,
           canSalvage,
           ladderSelected,
@@ -1967,16 +1991,9 @@ function MineScene({
       } else {
         entry.gen = cacheGen;
       }
-      const { cargo, crack, darkness, tunnel, block, support } = entry;
+      const { cargo, crack, tunnel, block, support } = entry;
       for (let i = 0; i < cargo.length; i++) cargoMeshes.push(cargo[i]);
       for (let i = 0; i < crack.length; i++) crackMeshes.push(crack[i]);
-      if (darkness.length > 0) {
-        minDarknessOpacity = Math.min(minDarknessOpacity, darknessOpacity);
-        maxDarknessOpacity = Math.max(maxDarknessOpacity, darknessOpacity);
-        for (let i = 0; i < darkness.length; i++) {
-          darknessMeshes.push(darkness[i]);
-        }
-      }
       for (let i = 0; i < tunnel.length; i++) tunnelMeshes.push(tunnel[i]);
       for (let i = 0; i < block.length; i++) blockMeshes.push(block[i]);
       for (let i = 0; i < support.length; i++) {
@@ -2098,7 +2115,6 @@ function MineScene({
             </group>
           );
         })()}
-      {darknessMeshes}
       {supportSelectionMeshes}
       <BunkerOverlay
         preview={bunkerPreview}

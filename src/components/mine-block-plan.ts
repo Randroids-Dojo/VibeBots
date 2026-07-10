@@ -10,14 +10,16 @@
  * only the tail grows, and only once.
  */
 
-import type { BufferGeometry, MeshStandardNodeMaterial } from "three/webgpu";
+import type { BufferGeometry, Material } from "three/webgpu";
 import type { MineCell } from "@/sim/mine";
 
 /** One block to draw this tick: a shared geometry + material and the
- * cell's world transform. */
+ * cell's world transform. A class's constant depth offset (recessed
+ * tunnel floor, raised darkness veil) is baked into its shared geometry,
+ * so the plan carries only the cell position. */
 export interface BlockInstance {
   geometry: BufferGeometry;
-  material: MeshStandardNodeMaterial;
+  material: Material;
   x: number;
   y: number;
   rotX: number;
@@ -50,7 +52,7 @@ export function beginBlockPlan(plan: BlockInstancePlan): BlockInstancePlan {
 export function pushBlockInstance(
   plan: BlockInstancePlan,
   geometry: BufferGeometry,
-  material: MeshStandardNodeMaterial,
+  material: Material,
   x: number,
   y: number,
   rotX: number,
@@ -82,6 +84,10 @@ export function pushBlockInstance(
  * inline-material kinds (boulder, magma, gas, part-cache) and empty
  * tunnels. buildCellEntry gates its body branches on this; the render loop
  * fills the instance plan with instancedBlockBody for the same cells.
+ * Tunnel floors and darkness veils also ride the plan (pushed directly by
+ * the render loop; their class depth offsets are baked into their shared
+ * geometries), but they are overlays on empty/edge cells, not bodies, so
+ * they do not go through this gate.
  */
 export function instancedBlockDraw(cell: MineCell): boolean {
   if (cell.fallIn !== undefined) return false;

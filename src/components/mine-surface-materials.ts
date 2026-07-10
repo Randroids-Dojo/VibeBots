@@ -1,14 +1,17 @@
 /**
- * Shared TSL materials for the surface village structures (world-art
- * slice W2). The same recipe as the block materials: one material per
- * palette role, spatial grain on the high tier, flat color on the low
- * tier and non-WebGPU backends. Meshes attach with dispose={null} (or
- * primitive attach), never dispose these singletons.
+ * Cached PBR material families for the industrial surface village.
+ * High detail adds restrained TSL variation. Low detail keeps a flat,
+ * simple metallic roughness recipe for the WebGL2 fallback. Every value
+ * is a shared singleton, so meshes that attach one must use dispose=null.
  */
 
-import { float, positionWorld, sin } from "three/tsl";
-import { MeshStandardNodeMaterial } from "three/webgpu";
+import { float, positionWorld, sin, vertexColor } from "three/tsl";
+import { Color, MeshStandardNodeMaterial } from "three/webgpu";
 import { cached, grainNoise, tintUniform } from "./mine-block-materials";
+import {
+  SURFACE_PALETTE,
+  type SurfaceMaterialRole,
+} from "./mine-surface-geometry";
 
 function build(
   key: string,
@@ -18,65 +21,120 @@ function build(
 ): MeshStandardNodeMaterial {
   return cached(`surface:${key}:${baseHex}:${detail}`, () => {
     const material = new MeshStandardNodeMaterial();
-    material.flatShading = true;
     material.colorNode = tintUniform(baseHex);
+    material.flatShading = false;
     configure(material, detail);
     return material;
   });
 }
 
-/** Quarried stone: mottled, matte. */
-export function surfaceStone(
+export function surfaceCoatedMetal(
   baseHex: string,
   detail: boolean,
 ): MeshStandardNodeMaterial {
-  return build("stone", baseHex, detail, (material, detailOn) => {
-    material.metalness = 0.02;
-    if (!detailOn) {
-      material.roughness = 0.85;
-      return;
-    }
-    const mottle = grainNoise(11);
+  return build("coated", baseHex, detail, (material, detailOn) => {
+    material.metalness = 0.68;
+    material.roughness = 0.46;
+    material.envMapIntensity = 0.85;
+    if (!detailOn) return;
+    const grain = grainNoise(28);
     material.colorNode = tintUniform(baseHex).mul(
-      float(0.9).add(mottle.mul(0.16)),
+      float(0.96).add(grain.mul(0.06)),
     );
-    material.roughnessNode = float(0.78).add(mottle.mul(0.16));
+    material.roughnessNode = float(0.42).add(grain.mul(0.08));
   });
 }
 
-/** Sawn timber: vertical wood striations. */
-export function surfaceTimber(
+export function surfaceBareMetal(
   baseHex: string,
   detail: boolean,
 ): MeshStandardNodeMaterial {
-  return build("timber", baseHex, detail, (material, detailOn) => {
-    material.metalness = 0;
-    if (!detailOn) {
-      material.roughness = 0.85;
-      return;
-    }
-    const rings = sin(positionWorld.x.mul(38).add(grainNoise(5).mul(4)))
-      .mul(0.5)
-      .add(0.5);
-    material.colorNode = tintUniform(baseHex).mul(
-      float(0.88).add(rings.mul(0.1)).add(grainNoise(13).mul(0.08)),
-    );
-    material.roughnessNode = float(0.8).add(rings.mul(0.12));
+  return build("bare", baseHex, detail, (material, detailOn) => {
+    material.metalness = 0.92;
+    material.roughness = 0.28;
+    material.envMapIntensity = 1.12;
+    if (!detailOn) return;
+    const brush = sin(positionWorld.y.mul(68)).mul(0.5).add(0.5);
+    material.roughnessNode = float(0.24).add(brush.mul(0.12));
   });
 }
 
-/** Structural metal trim: lightly brushed, catches the environment. */
-export function surfaceMetal(
+export function surfaceComposite(
   baseHex: string,
   detail: boolean,
 ): MeshStandardNodeMaterial {
-  return build("metal", baseHex, detail, (material, detailOn) => {
-    material.metalness = 0.75;
-    if (!detailOn) {
-      material.roughness = 0.35;
-      return;
+  return build("composite", baseHex, detail, (material, detailOn) => {
+    material.metalness = 0.05;
+    material.roughness = 0.78;
+    material.envMapIntensity = 0.46;
+    if (!detailOn) return;
+    const speckle = grainNoise(42);
+    material.colorNode = tintUniform(baseHex).mul(
+      float(0.94).add(speckle.mul(0.1)),
+    );
+    material.roughnessNode = float(0.72).add(speckle.mul(0.14));
+  });
+}
+
+export function surfaceEmissive(
+  baseHex: string,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  return build("emissive", baseHex, detail, (material) => {
+    material.metalness = 0.18;
+    material.roughness = 0.32;
+    material.emissive = new Color(baseHex);
+    material.emissiveIntensity = 1.55;
+    material.envMapIntensity = 0.7;
+  });
+}
+
+export function surfaceMaterial(
+  role: SurfaceMaterialRole,
+  accentHex: string,
+  emissiveHex: string,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  switch (role) {
+    case "shell":
+      return surfaceCoatedMetal(SURFACE_PALETTE.armoredShell, detail);
+    case "frame":
+      return surfaceBareMetal(SURFACE_PALETTE.brushedTitanium, detail);
+    case "composite":
+      return surfaceComposite(SURFACE_PALETTE.voidGraphite, detail);
+    case "accent":
+      return surfaceCoatedMetal(accentHex, detail);
+    case "emissive":
+      return surfaceEmissive(emissiveHex, detail);
+  }
+}
+
+export function surfaceVillageMaterial(
+  role: SurfaceMaterialRole,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  if (role !== "accent" && role !== "emissive") {
+    return surfaceMaterial(
+      role,
+      SURFACE_PALETTE.safetyOrange,
+      SURFACE_PALETTE.warmWorkLight,
+      detail,
+    );
+  }
+  return cached(`surface:village:${role}:${detail}`, () => {
+    const material = new MeshStandardNodeMaterial();
+    material.colorNode = vertexColor();
+    material.flatShading = false;
+    if (role === "accent") {
+      material.metalness = 0.68;
+      material.roughness = 0.42;
+      material.envMapIntensity = 0.85;
+    } else {
+      material.metalness = 0.18;
+      material.roughness = 0.32;
+      material.envMapIntensity = 0.7;
+      material.emissiveNode = vertexColor().mul(1.55);
     }
-    const brush = sin(positionWorld.y.mul(52)).mul(0.5).add(0.5);
-    material.roughnessNode = float(0.3).add(brush.mul(0.14));
+    return material;
   });
 }

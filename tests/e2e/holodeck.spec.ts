@@ -292,3 +292,67 @@ test("holodeck camera pans on swipe and zooms on pinch (REQ-021)", async ({
     .poll(async () => await canvas.getAttribute("data-holodeck-zoom"))
     .toBe("1.00");
 });
+
+test("surface village review bench frames the production models within budget", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.goto("/holodeck");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+
+  await page.getByLabel("Scenario").selectOption("surface-village");
+  await expect(page.getByLabel("Review framing")).toBeVisible();
+  await expect(canvas).toHaveAttribute("data-holodeck-surface-view", "wide", {
+    timeout: 30_000,
+  });
+  await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-holodeck-draw-calls")),
+      { timeout: 30_000 },
+    )
+    .toBeGreaterThan(0);
+  expect(
+    Number(await canvas.getAttribute("data-holodeck-draw-calls")),
+  ).toBeLessThanOrEqual(110);
+
+  await page.getByLabel("Review framing").selectOption("right");
+  await expect(canvas).toHaveAttribute("data-holodeck-surface-view", "right");
+});
+
+test("surface Warp ring changes visible pixels and stops for reduced motion", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/holodeck");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await page.getByLabel("Scenario").selectOption("surface-village");
+  await page.getByLabel("Review framing").selectOption("right");
+  await expect(canvas).toHaveAttribute("data-surface-warp-reduced", "0", {
+    timeout: 30_000,
+  });
+  await page.waitForTimeout(1_500);
+
+  const angleA = await canvas.getAttribute("data-surface-warp-angle");
+  const movingA = await canvas.screenshot();
+  await expect
+    .poll(async () => canvas.getAttribute("data-surface-warp-angle"), {
+      timeout: 5_000,
+    })
+    .not.toBe(angleA);
+  const movingB = await canvas.screenshot();
+  expect(Buffer.compare(movingA, movingB)).not.toBe(0);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(canvas).toHaveAttribute("data-surface-warp-reduced", "1", {
+    timeout: 10_000,
+  });
+  await expect(canvas).toHaveAttribute("data-surface-warp-angle", "0.00");
+  await page.waitForTimeout(2_000);
+  const stillA = await canvas.screenshot();
+  await page.waitForTimeout(400);
+  const stillB = await canvas.screenshot();
+  expect(Buffer.compare(stillA, stillB)).toBe(0);
+});

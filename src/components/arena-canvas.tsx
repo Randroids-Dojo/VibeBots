@@ -59,7 +59,7 @@ import {
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
 import { useBlockDetail } from "./mine-block-render";
-import { surfaceMetal, surfaceStone } from "./mine-surface-materials";
+import { surfaceBareMetal, surfaceComposite } from "./mine-surface-materials";
 import { StudioEnvironment } from "./studio-environment";
 
 /** Clamp on accumulated frame time so a background tab cannot spiral. */
@@ -689,7 +689,7 @@ function ArenaScene({
       <mesh
         position={[0, -0.5, 0]}
         receiveShadow
-        material={surfaceStone("#5f6875", detail)}
+        material={surfaceComposite("#5f6875", detail)}
         dispose={null}
       >
         <boxGeometry args={[26, 1, 26]} />
@@ -705,7 +705,7 @@ function ArenaScene({
           position={[wall.pos[0], wall.pos[1], wall.pos[2]]}
           castShadow
           receiveShadow
-          material={surfaceMetal("#4a5262", detail)}
+          material={surfaceBareMetal("#4a5262", detail)}
           dispose={null}
         >
           <boxGeometry args={[wall.size[0], wall.size[1], wall.size[2]]} />

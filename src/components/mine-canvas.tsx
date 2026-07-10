@@ -29,6 +29,7 @@ import {
   MeshStandardMaterial,
   PlaneGeometry,
 } from "three/webgpu";
+import { CanvasDrawCallProbe } from "@/components/canvas-draw-call-probe";
 import {
   clampMineCameraZoom,
   DARKNESS_CAP_FAR_OPACITY,
@@ -1498,14 +1499,6 @@ function MineScene({
         "fallingRockWarning",
         j.fallWarning > 0 ? "true" : "false",
       );
-      // Last frame's draw-call count: the budget that phones live by.
-      setDatasetNumber(
-        cache,
-        dataset,
-        "drawCalls",
-        state.gl.info.render.calls,
-        0,
-      );
       // Smoothed frame time: a steady low value means no per-step hitches.
       frameMsRef.current += (delta * 1000 - frameMsRef.current) * 0.1;
       setDatasetNumber(cache, dataset, "frameMs", frameMsRef.current, 1);
@@ -2107,6 +2100,7 @@ export default function MineCanvas(props: MineCanvasProps) {
       onPointerMissed={props.onBunkerBackgroundTap}
     >
       <MineScene {...props} graphicsFeatures={features} />
+      <CanvasDrawCallProbe />
       <PerfProbeBridge source="mine" />
     </Canvas>
   );

@@ -221,6 +221,11 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
   d: "right",
 };
 
+/** Shift uppercases letter keys; lowercase single chars so w/a/s/d still
+ * match KEY_DIRECTIONS, and leave multi-char keys (the arrows) untouched. */
+const normalizeKeyName = (key: string) =>
+  key.length === 1 ? key.toLowerCase() : key;
+
 const MINE_CAMERA_FOV_DEGREES = 42;
 const DYNAMITE_TIER_LABELS: Record<DynamiteTier, string> = {
   1: "Pulse",
@@ -1938,26 +1943,25 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         router.push(dest.href);
         return;
       }
+      // Shift uppercases the WASD letters, so normalize before matching so
+      // Shift + a lateral letter still resolves like the arrows do.
+      const key = normalizeKeyName(event.key);
       // Shift modifies the vertical keys (F-059): Shift + Up jumps instead
       // of climbing, Shift + Down drops through a plank instead of mining.
       // Lateral keys ignore Shift and keep the normal move.
       if (event.shiftKey) {
-        // Normalize the letter keys (Shift uppercases them) so w/s alias the
-        // arrows; multi-char keys like the arrows pass through unchanged.
-        const shiftKey =
-          event.key.length === 1 ? event.key.toLowerCase() : event.key;
-        if (shiftKey === "ArrowUp" || shiftKey === "w") {
+        if (key === "ArrowUp" || key === "w") {
           event.preventDefault();
           if (!creditsOpen) fireJump();
           return;
         }
-        if (shiftKey === "ArrowDown" || shiftKey === "s") {
+        if (key === "ArrowDown" || key === "s") {
           event.preventDefault();
           if (!terminalMineState && !creditsOpen) firePlankDrop();
           return;
         }
       }
-      const dir = KEY_DIRECTIONS[event.key];
+      const dir = KEY_DIRECTIONS[key];
       if (!dir) return;
       event.preventDefault();
       if (terminalMineState) return;
@@ -1965,7 +1969,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       fireDirection(dir);
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      const dir = KEY_DIRECTIONS[event.key];
+      const dir = KEY_DIRECTIONS[normalizeKeyName(event.key)];
       if (dir) releaseDirection(dir);
     };
     const onBlur = () => releaseDirection(null);

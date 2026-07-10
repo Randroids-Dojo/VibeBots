@@ -184,8 +184,11 @@ export function MinerBot({
         {/* Rocket booster flame under the feet and twin pack thrusters,
             shown while the jump jets fire and hover (F-056). Hidden and
             animated by the owning scene's frame loop. */}
+        {/* Inline (non-singleton) geometry and materials, so no
+            dispose={null}: R3F must dispose these on mine exit or they leak
+            GPU buffers (frame-loop-performance rule). */}
         <group ref={boosterRef} position={[0, -0.36, 0.02]} visible={false}>
-          <mesh rotation={[Math.PI, 0, 0]} dispose={null}>
+          <mesh rotation={[Math.PI, 0, 0]}>
             <coneGeometry args={[0.14, 0.42, 12]} />
             <meshBasicMaterial
               color="#ff9a3c"
@@ -194,11 +197,7 @@ export function MinerBot({
               toneMapped={false}
             />
           </mesh>
-          <mesh
-            position={[0, -0.02, 0]}
-            rotation={[Math.PI, 0, 0]}
-            dispose={null}
-          >
+          <mesh position={[0, -0.02, 0]} rotation={[Math.PI, 0, 0]}>
             <coneGeometry args={[0.08, 0.3, 10]} />
             <meshBasicMaterial
               color="#fff2c0"
@@ -207,11 +206,7 @@ export function MinerBot({
               toneMapped={false}
             />
           </mesh>
-          <mesh
-            position={[0.12, 0.05, -0.2]}
-            rotation={[Math.PI, 0, 0]}
-            dispose={null}
-          >
+          <mesh position={[0.12, 0.05, -0.2]} rotation={[Math.PI, 0, 0]}>
             <coneGeometry args={[0.05, 0.22, 8]} />
             <meshBasicMaterial
               color="#ffce88"
@@ -220,11 +215,7 @@ export function MinerBot({
               toneMapped={false}
             />
           </mesh>
-          <mesh
-            position={[-0.12, 0.05, -0.2]}
-            rotation={[Math.PI, 0, 0]}
-            dispose={null}
-          >
+          <mesh position={[-0.12, 0.05, -0.2]} rotation={[Math.PI, 0, 0]}>
             <coneGeometry args={[0.05, 0.22, 8]} />
             <meshBasicMaterial
               color="#ffce88"

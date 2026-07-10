@@ -1620,8 +1620,7 @@ function MineScene({
         // Falling reads from real downward motion: an ordinary drop opens
         // the fallAnim window, and a fatal free fall poses until it lands
         // (F-057). The landing squash fires on the fall-to-ground edge.
-        const inFatalFall =
-          activeFall?.kind === "fall" ? !activeFall.impacted : false;
+        const inFatalFall = activeFall?.kind === "fall" && !activeFall.impacted;
         const falling = (j.fallAnim > 0 || inFatalFall) && dy < -0.002;
         if (wasFallingRef.current && !falling && j.fallAnim > 0) {
           j.land = LAND_SQUASH_SECONDS;
@@ -1910,9 +1909,11 @@ function MineScene({
       // Fog of war uses a radial distance so the lantern-lit area reads as
       // a circle (F-065), independent of the square lanternDistance the
       // render window culls by.
+      const rdx = col - displayCol;
+      const rdy = row - minerRow;
       const radialDistance = fallWindow
         ? distanceFromMiner
-        : Math.hypot(col - displayCol, row - minerRow);
+        : Math.sqrt(rdx * rdx + rdy * rdy);
       const beyondLight = Math.max(0, radialDistance - litBelow);
       const darknessOpacity =
         beyondLight > 0 ? mineDarknessOpacity(beyondLight) * fogDepthScale : 0;

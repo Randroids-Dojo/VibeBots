@@ -1942,12 +1942,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       // of climbing, Shift + Down drops through a plank instead of mining.
       // Lateral keys ignore Shift and keep the normal move.
       if (event.shiftKey) {
+        // Normalize the letter keys (Shift uppercases them) so w/s alias the
+        // arrows; multi-char keys like the arrows pass through unchanged.
         const shiftKey =
-          event.key === "ArrowUp" || event.key === "ArrowDown"
-            ? event.key
-            : event.key.length === 1
-              ? event.key.toLowerCase()
-              : event.key;
+          event.key.length === 1 ? event.key.toLowerCase() : event.key;
         if (shiftKey === "ArrowUp" || shiftKey === "w") {
           event.preventDefault();
           if (!creditsOpen) fireJump();

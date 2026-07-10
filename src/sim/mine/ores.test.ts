@@ -20,10 +20,12 @@ describe("early ore boost (F-060)", () => {
     expect(earlyOreBoost(2)).toBeGreaterThan(earlyOreBoost(3));
   });
 
-  it("gives coal a real chance on the very first dug row", () => {
-    // The tier-0 ore band now opens at row 1 instead of ramping from zero,
-    // so the opening cut is not guaranteed dirt.
-    expect(oreChanceAt(oreDef("coal"), 1)).toBeGreaterThan(0);
+  it("gives every updated shallow ore a real chance on the first dug row", () => {
+    // The tier-0 ore band of each biome now opens at row 1 instead of
+    // ramping from zero, so the opening cut is not guaranteed dirt.
+    for (const id of ["coal", "frozen-coal", "brass-knob"] as const) {
+      expect(oreChanceAt(oreDef(id), 1)).toBeGreaterThan(0);
+    }
   });
 
   it("packs more ore into the first rows than deeper untouched rows", () => {

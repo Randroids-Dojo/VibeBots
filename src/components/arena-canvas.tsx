@@ -35,6 +35,7 @@ import {
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
 import {
   ARENA_WALL_HALF_EXTENT,
+  ARENA_WALL_HEIGHT,
   ARENA_WALL_THICKNESS,
   createArenaWorld,
 } from "@/sim/arena";
@@ -112,7 +113,9 @@ const ARENA_WALL_CENTER = ARENA_WALL_HALF_EXTENT + ARENA_WALL_THICKNESS;
 const ARENA_DECK_HALF = ARENA_WALL_CENTER + ARENA_WALL_THICKNESS;
 const ARENA_DECK_SIZE = ARENA_DECK_HALF * 2;
 const ARENA_WALL_SPAN = ARENA_DECK_SIZE;
-const ARENA_WALL_RENDER_HEIGHT = 1.4;
+// Rendered wall height and center match the sim collider exactly, so the
+// bounce reads true (no visible/collider mismatch).
+const ARENA_WALL_RENDER_HEIGHT = ARENA_WALL_HEIGHT;
 const ARENA_WALL_RENDER_THICKNESS = ARENA_WALL_THICKNESS * 2;
 const ARENA_WALL_RENDER_Y = ARENA_WALL_RENDER_HEIGHT / 2;
 

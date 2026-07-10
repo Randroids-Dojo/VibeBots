@@ -13,8 +13,13 @@ export const ARENA_HALF_EXTENT = 50;
  * framed, wide enough that the opening clash still happens at center.
  */
 export const ARENA_WALL_HALF_EXTENT = 9;
-/** Perimeter wall height and thickness. */
-export const ARENA_WALL_HEIGHT = 3;
+/**
+ * Perimeter wall height and thickness. The height matches the rendered
+ * barrier (arena-canvas derives its wall mesh from this), so a bot bounces
+ * off exactly what it sees: no phantom collision above the visible wall,
+ * and tall parts overhang the rail instead of hitting hidden geometry.
+ */
+export const ARENA_WALL_HEIGHT = 1.4;
 export const ARENA_WALL_THICKNESS = 0.5;
 /** How bouncy the walls are: enough to read as a rebound, not a trampoline. */
 export const ARENA_WALL_RESTITUTION = 0.55;

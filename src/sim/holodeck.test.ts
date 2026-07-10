@@ -8,6 +8,7 @@ import {
   holodeckScenario,
   MINER_SHOWCASE_SCENARIO,
   SINGLE_BLOCK_SCENARIO,
+  SURFACE_VILLAGE_SCENARIO,
 } from "./holodeck";
 import { applyAction, cellAt, exportDiff } from "./mine";
 
@@ -110,6 +111,8 @@ describe("holodeck registry", () => {
     expect(HOLODECK_SCENARIOS.length).toBeGreaterThan(0);
     expect(holodeckScenario("does-not-exist")).toBe(SINGLE_BLOCK_SCENARIO);
     expect(holodeckScenario("miner-showcase")).toBe(MINER_SHOWCASE_SCENARIO);
+    expect(holodeckScenario("surface-village")).toBe(SURFACE_VILLAGE_SCENARIO);
+    expect(SURFACE_VILLAGE_SCENARIO.controls[0]?.key).toBe("surfaceView");
   });
 });
 

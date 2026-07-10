@@ -1,9 +1,33 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-09-0.1.204-mine-animations";
+export const RELEASE_NOTICE_ID = "2026-07-09-0.1.205-surface-village";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.205",
+      date: "2026-07-09",
+      title: "Night shift, rebuilt",
+      intro: "The surface village is now one industrial future settlement.",
+      changes: [
+        {
+          build,
+          text: "Workshop, Elevator, Hardware Store, the mine headframe, Supply Depot, Upgrades, Warp Pad, and Battles now use one professional hard-surface language: graphite armor, titanium frames, safety-orange machinery, cyan power, warm entrances, and distinct functional silhouettes.",
+        },
+        {
+          build,
+          text: "A segmented service deck and visible power conduit connect the row. Readable mesh emblems replace blank sign panels, while the existing names, prompts, routes, and building columns stay exactly where players know them.",
+        },
+        {
+          build,
+          text: "The Warp Pad ring turns and pulses slowly as the village's only ambient motion. Reduced-motion settings stop it completely, and settlement-wide material batching cuts the full review scene to 10 draw calls or fewer.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.204",
       date: "2026-07-09",

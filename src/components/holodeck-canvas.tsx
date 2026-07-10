@@ -6,6 +6,7 @@ import type { Group, PointLight } from "three/webgpu";
 import type { MineCell } from "@/sim/mine";
 import { DEFAULT_GEAR, hitsFor, oreReserveAt } from "@/sim/mine";
 import { useHolodeckStore } from "@/state/holodeck-store";
+import { CanvasDrawCallProbe } from "./canvas-draw-call-probe";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import {
   type GraphicsFeatures,
@@ -18,6 +19,7 @@ import {
 import { CrackMarks, MineBlockBody } from "./mine-block-render";
 import { MinerBot } from "./mine-miner-render";
 import { cellX } from "./mine-render-palette";
+import { SurfaceDressing } from "./mine-surface-render";
 import {
   advanceCrushTumble,
   type CrushTumbleState,
@@ -115,11 +117,11 @@ function HolodeckScene({
   const crushTumble = useRef<CrushTumbleState | null>(null);
   const crushLoopHold = useRef(0);
   const turntableYaw = useRef(0);
-  const lastDrawTotal = useRef(0);
 
   const miner = scene.state.miner;
   const showcase = scenarioId === "miner-showcase";
   const gallery = scenarioId === "block-gallery";
+  const surfaceVillage = scenarioId === "surface-village";
   const clip = minerClipId(settings.clip);
   const spinning = showcase && settings.turntable === "spin" && !paused;
   const targetSolid =
@@ -139,36 +141,70 @@ function HolodeckScene({
     // The scene group sits at y + 4.5, so world y = 4.5 - minerRow.
     const focusX = cellX(miner.col);
     const focusY = 4.5 - miner.row + 0.1;
-    // Narrow phone viewports need a longer dolly to keep the model framed.
     const aspect = gl.domElement.clientWidth / gl.domElement.clientHeight;
-    const showcaseZ = aspect >= 1 ? 3.4 : 5.4;
-    // The gallery frames the whole block row from a step further back.
-    const camTarget = showcase
-      ? { x: focusX, y: focusY + 0.35, z: showcaseZ }
-      : gallery
-        ? { x: 0, y: focusY + 0.4, z: aspect >= 1 ? 8.5 : 13 }
-        : { x: 0, y: 0, z: 11 };
+    let baseX = 0;
+    let baseY = 0;
+    let baseZ = 11;
+    let lookX = 0;
+    let lookY = 0;
+    if (showcase) {
+      baseX = focusX;
+      baseY = focusY + 0.35;
+      baseZ = aspect >= 1 ? 3.4 : 5.4;
+      lookX = focusX;
+      lookY = focusY;
+    } else if (gallery) {
+      baseY = focusY + 0.4;
+      baseZ = aspect >= 1 ? 8.5 : 13;
+      lookY = focusY;
+    } else if (surfaceVillage) {
+      const framing = settings.surfaceView ?? "wide";
+      baseX =
+        framing === "left"
+          ? -4.9
+          : framing === "right"
+            ? 5.2
+            : framing === "center"
+              ? 0.25
+              : 0.5;
+      baseY = 0.55;
+      lookX = baseX;
+      lookY = 0.55;
+      baseX += 0.65;
+      baseZ = framing === "wide" ? (aspect >= 1 ? 17.5 : 28) : 15.5;
+    }
     // User gestures ride on top of the scenario framing: pan offsets
     // the target, zoom divides the dolly distance.
     const v = view.current;
-    const targetX = camTarget.x + v.panX;
-    const targetY = camTarget.y + v.panY;
-    const targetZ = camTarget.z / v.zoom;
+    const targetX = baseX + v.panX;
+    const targetY = baseY + v.panY;
+    const targetZ = baseZ / v.zoom;
     const ease = Math.min(1, delta * 5);
     camera.position.x += (targetX - camera.position.x) * ease;
     camera.position.y += (targetY - camera.position.y) * ease;
     camera.position.z += (targetZ - camera.position.z) * ease;
-    camera.lookAt(
-      (showcase ? focusX : 0) + v.panX,
-      (showcase || gallery ? focusY : 0) + v.panY,
-      0,
-    );
+    camera.lookAt(lookX + v.panX, lookY + v.panY, 0);
     v.camZ = camera.position.z;
     const cache = datasetCache.current;
     const dataset = gl.domElement.dataset;
     setDatasetNumber(cache, dataset, "holodeckZoom", v.zoom, 2);
     setDatasetNumber(cache, dataset, "holodeckPanX", v.panX, 2);
     setDatasetNumber(cache, dataset, "holodeckPanY", v.panY, 2);
+    setDatasetText(
+      cache,
+      dataset,
+      "holodeckBackend",
+      webgpuBackend ? "webgpu" : "webgl2",
+    );
+    if (surfaceVillage) {
+      setDatasetText(
+        cache,
+        dataset,
+        "holodeckSurfaceView",
+        settings.surfaceView ?? "wide",
+      );
+      return;
+    }
     // The shared rig drives every joint: the single-block scenario plays
     // the real dig clip while its target block survives, the showcase
     // plays whichever clip is selected, and pause is a full still frame.
@@ -241,18 +277,6 @@ function HolodeckScene({
     );
     setDatasetNumber(cache, dataset, "holodeckCamZ", camera.position.z, 2);
     setDatasetNumber(cache, dataset, "holodeckBodyY", pose.body.posY, 4);
-    // Per-frame draw calls: the phone budget the model must respect. The
-    // WebGPU backend's counter can accumulate, so expose the delta.
-    const totalDraws = gl.info.render.calls;
-    const frameDraws = totalDraws - lastDrawTotal.current;
-    lastDrawTotal.current = totalDraws;
-    setDatasetNumber(
-      cache,
-      dataset,
-      "holodeckDrawCalls",
-      frameDraws > 0 ? frameDraws : totalDraws,
-      0,
-    );
   });
 
   // Render only the solid cells the scenario placed (the void stays empty).
@@ -265,14 +289,16 @@ function HolodeckScene({
   void lastAction;
 
   return (
-    // Center the small scene in front of the fixed camera.
-    <group position={[0, 4.5, 0]}>
+    // Center the selected review scene in front of the fixed camera.
+    <group position={surfaceVillage ? [0, 0, 0] : [0, 4.5, 0]}>
       <color attach="background" args={["#0a0c12"]} />
-      <ambientLight intensity={0.6} color="#cdd8f4" />
-      <hemisphereLight args={["#8fb4e8", "#2a2017", 0.5]} />
+      <ambientLight intensity={surfaceVillage ? 1.05 : 0.6} color="#cdd8f4" />
+      <hemisphereLight
+        args={["#8fb4e8", "#2a2017", surfaceVillage ? 0.72 : 0.5]}
+      />
       <directionalLight
         position={[3, 6, 8]}
-        intensity={1.1}
+        intensity={surfaceVillage ? 1.5 : 1.1}
         castShadow={features.shadows && webgpuBackend}
         shadow-mapSize={[features.sunShadowMapSize, features.sunShadowMapSize]}
         shadow-camera-left={-10}
@@ -296,30 +322,37 @@ function HolodeckScene({
           decay={1.1}
         />
       ) : null}
-      <pointLight
-        position={[cellX(miner.col), -miner.row + 0.4, 1.6]}
-        color="#ffdca8"
-        intensity={1.6}
-        distance={9}
-        decay={1.3}
-      />
-      {/* Cave backdrop so blocks never float over raw void. */}
-      <mesh position={[0, -4, -3]}>
-        <planeGeometry args={[40, 30]} />
-        <meshStandardMaterial color="#05060a" roughness={1} />
-      </mesh>
-      {blocks}
-      <group ref={minerRef}>
-        <MinerBot
-          bodyRef={bodyRef}
-          armRef={armRef}
-          lampRef={lampRef}
-          motesRef={motesRef}
-          legLRef={legLRef}
-          legRRef={legRRef}
-          boosterRef={boosterRef}
+      {surfaceVillage ? null : (
+        <pointLight
+          position={[cellX(miner.col), -miner.row + 0.4, 1.6]}
+          color="#ffdca8"
+          intensity={1.6}
+          distance={9}
+          decay={1.3}
         />
-      </group>
+      )}
+      {surfaceVillage ? null : (
+        // Cave backdrop so blocks never float over raw void.
+        <mesh position={[0, -4, -3]}>
+          <planeGeometry args={[40, 30]} />
+          <meshStandardMaterial color="#05060a" roughness={1} />
+        </mesh>
+      )}
+      {surfaceVillage ? <SurfaceDressing /> : blocks}
+      {surfaceVillage ? null : (
+        <group ref={minerRef}>
+          <MinerBot
+            bodyRef={bodyRef}
+            armRef={armRef}
+            lampRef={lampRef}
+            motesRef={motesRef}
+            legLRef={legLRef}
+            legRRef={legRRef}
+            boosterRef={boosterRef}
+          />
+        </group>
+      )}
+      <CanvasDrawCallProbe datasetKey="holodeckDrawCalls" />
     </group>
   );
 }

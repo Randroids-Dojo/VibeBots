@@ -36,6 +36,8 @@ export interface HolodeckSettings {
   turntable?: string;
   /** Block Gallery: which block set lines up on the stage. */
   gallerySet?: string;
+  /** Surface Village: fixed art review framing. */
+  surfaceView?: string;
 }
 
 export interface HolodeckControlOption {
@@ -364,10 +366,39 @@ export const BLOCK_GALLERY_SCENARIO: HolodeckScenario = {
   build: buildBlockGallery,
 };
 
+export const SURFACE_VILLAGE_SCENARIO: HolodeckScenario = {
+  id: "surface-village",
+  name: "Surface Village",
+  icon: "🏭",
+  description:
+    "The production surface settlement under review lighting. Frame the full row or inspect each mobile walk zone.",
+  controls: [
+    {
+      key: "surfaceView",
+      label: "Review framing",
+      kind: "select",
+      options: [
+        { value: "wide", label: "Wide settlement" },
+        { value: "left", label: "Left walk" },
+        { value: "center", label: "Center walk" },
+        { value: "right", label: "Right walk" },
+      ],
+    },
+  ],
+  defaults: {
+    pickaxe: 3,
+    blockType: "dirt",
+    seed: 1,
+    surfaceView: "wide",
+  },
+  build: buildMinerShowcase,
+};
+
 export const HOLODECK_SCENARIOS: readonly HolodeckScenario[] = [
   SINGLE_BLOCK_SCENARIO,
   MINER_SHOWCASE_SCENARIO,
   BLOCK_GALLERY_SCENARIO,
+  SURFACE_VILLAGE_SCENARIO,
 ];
 
 export function holodeckScenario(id: string): HolodeckScenario {

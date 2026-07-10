@@ -741,6 +741,8 @@ const SURFACE_BUILDING_LAYOUT: Record<
   battles: [8, -1.5, -0.85],
 };
 
+export const SURFACE_WARP_POSITION = SURFACE_BUILDING_LAYOUT.warp;
+
 const SURFACE_BUILDING_ACCENTS: Record<SurfaceBuildingId, string> = {
   workshop: "#9AD0FF",
   elevator: "#9AA7FF",

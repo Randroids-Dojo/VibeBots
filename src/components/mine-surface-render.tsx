@@ -35,6 +35,7 @@ import {
 } from "./mine-render-palette";
 import {
   SURFACE_PALETTE,
+  SURFACE_WARP_POSITION,
   type SurfaceGeometryTier,
   surfaceBuildingGeometry,
   surfaceVillageGeometry,
@@ -389,7 +390,7 @@ function SurfaceVillageModel() {
           />
         </mesh>
       ))}
-      <group position={[6, -1.5, -0.85]}>
+      <group position={SURFACE_WARP_POSITION}>
         <WarpMotionLayers tier={tier} color="#E08AFF" detail={detail} />
       </group>
     </>

@@ -331,11 +331,13 @@ function HolodeckScene({
           decay={1.3}
         />
       )}
-      {/* Cave backdrop so blocks never float over raw void. */}
-      <mesh position={[0, -4, -3]}>
-        <planeGeometry args={[40, 30]} />
-        <meshStandardMaterial color="#05060a" roughness={1} />
-      </mesh>
+      {surfaceVillage ? null : (
+        // Cave backdrop so blocks never float over raw void.
+        <mesh position={[0, -4, -3]}>
+          <planeGeometry args={[40, 30]} />
+          <meshStandardMaterial color="#05060a" roughness={1} />
+        </mesh>
+      )}
       {surfaceVillage ? <SurfaceDressing /> : blocks}
       {surfaceVillage ? null : (
         <group ref={minerRef}>

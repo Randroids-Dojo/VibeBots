@@ -103,8 +103,8 @@ Do not introduce new dependencies in core categories without explicit user appro
 - Lead with the outcome someone would notice, in plain words: "Fix the mine freezing on warps and long falls", not "Stream tunnel floors and darkness veils through the instanced grid". The mechanism belongs in the body.
 - No internal tracker ids (`F-NNN`, `Q-NNN`), build numbers, version numbers, or codenames in the title. Reference them in the body.
 - A title should make sense to someone reading the PR list a month later with no session context. If it only makes sense next to the ledgers, rewrite it.
-- The first pushed commit's subject becomes GitHub's default PR title. When the branch opens with an investigation or docs commit, retitle the PR to describe the whole change before or right after opening it.
-- The same outcome-first standard applies to commit subjects on `main` (squash merges make the PR title the commit subject).
+- Never accept a defaulted title blindly. The GitHub compare page and `gh pr create --fill`/`--fill-first` all derive a default title from commit subjects (`--fill-first` specifically from the first commit), so a branch that opens with an investigation or docs commit gets a title describing that commit, not the change. Retitle the PR to describe the whole change before or right after opening it.
+- The same outcome-first standard applies to commit subjects on `main`: this repo squash-merges with the PR title as the merge-commit subject, so the PR title is the permanent history line.
 
 ---
 

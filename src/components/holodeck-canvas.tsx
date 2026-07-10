@@ -342,6 +342,14 @@ const HOLODECK_PAN_LIMIT_X = 10;
 const HOLODECK_PAN_LIMIT_Y = 8;
 /** World height covered by the viewport per camera unit (fov 42). */
 const HOLODECK_FOV_FACTOR = 2 * Math.tan((42 * Math.PI) / 360);
+/** Max gap between taps to count as a recenter double-tap. Wider than a
+ * typical 300ms double-click window: on a slow device (or the
+ * SwiftShader-rendered CI harness this scene's e2e smoke runs under,
+ * where a single main-thread frame can itself take 350-400ms per
+ * F-072) a 300ms window can be swallowed by one render frame before
+ * either pointerdown is serviced, so the second tap never lands inside
+ * it. */
+const HOLODECK_DOUBLE_TAP_MS = 500;
 
 export default function HolodeckCanvas() {
   const features = graphicsFeaturesFor(
@@ -401,7 +409,7 @@ export default function HolodeckCanvas() {
         if (pointers.current.size === 2) pinchDist.current = pinchDistance();
         if (pointers.current.size === 1) {
           const now = performance.now();
-          if (now - lastTapAt.current < 300) resetView();
+          if (now - lastTapAt.current < HOLODECK_DOUBLE_TAP_MS) resetView();
           lastTapAt.current = now;
         }
       }}

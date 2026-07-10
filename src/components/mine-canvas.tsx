@@ -113,7 +113,7 @@ import {
 import { InstancedBlockGrid } from "./mine-instanced-grid";
 import {
   collectBlockNodeMaterials,
-  collectInstancedBodyMaterials,
+  collectInstancedGridMaterials,
 } from "./mine-material-warmup";
 import { MinerBot } from "./mine-miner-render";
 import {
@@ -312,8 +312,16 @@ const PLANK_BEAM_MATERIALS = [
 // tint jitter rides the shared node shader; one floor material per biome
 // is precomputed. Darkness opacity is bucketed to 0.02 (it only shows at
 // max zoom over a narrow ramp) so the cache stays bounded.
-const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12);
-const DARKNESS_GEOMETRY = new PlaneGeometry(1.08, 1.08);
+// Each class's constant depth offset is baked into its shared geometry
+// (the old per-mesh position z), so the instanced path needs no per-
+// instance z: positionWorld includes the geometry translation, keeping
+// the tint jitter and the rendered output identical to the mesh path.
+const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12).translate(
+  0,
+  0,
+  -0.42,
+);
+const DARKNESS_GEOMETRY = new PlaneGeometry(1.08, 1.08).translate(0, 0, 0.72);
 const TUNNEL_FLOOR_MATERIALS: Record<
   MineBiomeId,
   ReturnType<typeof tunnelFloorMaterial>
@@ -361,12 +369,7 @@ function warmMineMaterials(
   const addWarmInstanced = (material: Material) => {
     group.add(new InstancedMesh(WARMUP_GEOMETRY, material, 1));
   };
-  for (const material of collectInstancedBodyMaterials(detail)) {
-    addWarmInstanced(material);
-  }
-  // Tunnel floors draw through the instanced grid, a distinct program
-  // from the plain-mesh variant collectBlockNodeMaterials warms.
-  for (const material of Object.values(TUNNEL_FLOOR_MATERIALS)) {
+  for (const material of collectInstancedGridMaterials(detail)) {
     addWarmInstanced(material);
   }
   for (const material of collectBlockNodeMaterials(detail)) addWarm(material);
@@ -1839,6 +1842,12 @@ function MineScene({
   }
   const supportToggle = onToggleSupport ? dispatchToggleSupport : null;
   const toggleBit = supportToggle ? 1 : 0;
+  // biomeAt is column-pure; resolve each visible column once per pass
+  // instead of once per cell (the loop below revisits every column per row).
+  const columnBiomes: MineBiomeId[] = [];
+  for (let col = firstCol; col <= lastCol; col++) {
+    columnBiomes.push(biomeAt(col));
+  }
   const supportSelected = (type: string, col: number, row: number) =>
     selectedSupportSet.has(`${type}:${col},${row}`);
   for (let row = firstRow; row <= lastRow; row++) {
@@ -1872,7 +1881,7 @@ function MineScene({
           cell,
           col,
           row,
-          biomeAt(col),
+          columnBiomes[col - firstCol],
           detail,
           instanceBodyScratch,
         );
@@ -1882,7 +1891,6 @@ function MineScene({
           instanceBodyScratch.material,
           x,
           y,
-          0,
           instanceBodyScratch.rotX,
           instanceBodyScratch.rotY,
           instanceBodyScratch.rotZ,
@@ -1894,10 +1902,9 @@ function MineScene({
         pushBlockInstance(
           plan,
           TUNNEL_FLOOR_GEOMETRY,
-          TUNNEL_FLOOR_MATERIALS[biomeAt(col)],
+          TUNNEL_FLOOR_MATERIALS[columnBiomes[col - firstCol]],
           x,
           y,
-          -0.42,
           0,
           0,
           0,
@@ -1918,7 +1925,9 @@ function MineScene({
       const darknessOpacity =
         beyondLight > 0 ? mineDarknessOpacity(beyondLight) * fogDepthScale : 0;
       // Lamp-edge darkness veil: instanced (one bucket per quantized
-      // opacity), so moving the light edge never remounts quads.
+      // opacity), so moving the light edge never remounts quads. The grid
+      // draws transparent buckets after the default transparent pass, so
+      // the veil occludes its cell's contents.
       if (darknessOpacity > 0) {
         minDarknessOpacity = Math.min(minDarknessOpacity, darknessOpacity);
         maxDarknessOpacity = Math.max(maxDarknessOpacity, darknessOpacity);
@@ -1928,7 +1937,6 @@ function MineScene({
           darknessMaterial(darknessOpacity),
           x,
           y,
-          0.72,
           0,
           0,
           0,

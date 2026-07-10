@@ -14,14 +14,14 @@ import type { BufferGeometry, Material } from "three/webgpu";
 import type { MineCell } from "@/sim/mine";
 
 /** One block to draw this tick: a shared geometry + material and the
- * cell's world transform. `z` is the class's constant depth offset
- * (solid bodies 0, tunnel floors recessed, darkness veils raised). */
+ * cell's world transform. A class's constant depth offset (recessed
+ * tunnel floor, raised darkness veil) is baked into its shared geometry,
+ * so the plan carries only the cell position. */
 export interface BlockInstance {
   geometry: BufferGeometry;
   material: Material;
   x: number;
   y: number;
-  z: number;
   rotX: number;
   rotY: number;
   rotZ: number;
@@ -55,21 +55,19 @@ export function pushBlockInstance(
   material: Material,
   x: number,
   y: number,
-  z: number,
   rotX: number,
   rotY: number,
   rotZ: number,
 ): void {
   let entry = plan.items[plan.count];
   if (entry === undefined) {
-    entry = { geometry, material, x, y, z, rotX, rotY, rotZ, rotated: false };
+    entry = { geometry, material, x, y, rotX, rotY, rotZ, rotated: false };
     plan.items[plan.count] = entry;
   } else {
     entry.geometry = geometry;
     entry.material = material;
     entry.x = x;
     entry.y = y;
-    entry.z = z;
     entry.rotX = rotX;
     entry.rotY = rotY;
     entry.rotZ = rotZ;
@@ -87,8 +85,9 @@ export function pushBlockInstance(
  * tunnels. buildCellEntry gates its body branches on this; the render loop
  * fills the instance plan with instancedBlockBody for the same cells.
  * Tunnel floors and darkness veils also ride the plan (pushed directly by
- * the render loop with their class z offset), but they are overlays on
- * empty/edge cells, not bodies, so they do not go through this gate.
+ * the render loop; their class depth offsets are baked into their shared
+ * geometries), but they are overlays on empty/edge cells, not bodies, so
+ * they do not go through this gate.
  */
 export function instancedBlockDraw(cell: MineCell): boolean {
   if (cell.fallIn !== undefined) return false;

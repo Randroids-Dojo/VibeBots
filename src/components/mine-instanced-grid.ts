@@ -22,7 +22,8 @@
  * window shifts remounting the React overlay set in one commit): the
  * recessed tunnel floors (one material per biome) and the lamp-edge
  * darkness veils (one MeshBasicMaterial per bucketed opacity), each as
- * ordinary buckets with a constant per-class z offset in the plan.
+ * ordinary buckets whose constant depth offset is baked into the shared
+ * class geometry.
  *
  * Frame-loop rule: apply() runs at input cadence (once per store tick /
  * render), never per frame. It reuses module scratch and the caller's
@@ -150,7 +151,7 @@ export class InstancedBlockGrid {
     for (let i = 0; i < plan.count; i++) {
       const item = plan.items[i];
       const pool = this.poolFor(item.geometry, item.material);
-      SCRATCH_POSITION.set(item.x, item.y, item.z);
+      SCRATCH_POSITION.set(item.x, item.y, 0);
       if (item.rotated) {
         SCRATCH_EULER.set(item.rotX, item.rotY, item.rotZ);
         SCRATCH_QUATERNION.setFromEuler(SCRATCH_EULER);

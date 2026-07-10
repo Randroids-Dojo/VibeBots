@@ -47,10 +47,11 @@ const TUNNEL_TINTS = [
 ];
 
 /**
- * The dirt/ore/rock/metal bodies the instanced grid streams. These must be
- * warmed on an InstancedMesh: three compiles a distinct program for the
- * instanced draw (it carries the instanceMatrix attribute), so warming
- * them on a plain mesh would miss the program the grid actually uses.
+ * The dirt/ore/rock/metal bodies the instanced grid streams. Warmed on an
+ * InstancedMesh (three compiles a distinct program for the instanced draw,
+ * which carries the instanceMatrix attribute) AND on a plain mesh via
+ * collectBlockNodeMaterials, because MineBlockBody still draws them plain
+ * for teetering/fallen cells and the Holodeck.
  */
 export function collectInstancedBodyMaterials(
   detail: boolean,
@@ -65,16 +66,29 @@ export function collectInstancedBodyMaterials(
 }
 
 /**
- * Every node-material variant a mine cell body or overlay can render at
- * the given detail tier. Returned for the canvas to compile up front; the
- * factories dedupe through their caches, so warming then playing reuses
- * the exact same singletons.
+ * Everything the instanced grid streams: the solid bodies plus the tunnel
+ * floors (instanced-only since the floors left the React path; the canvas
+ * adds its local darkness buckets itself). Warm these on an InstancedMesh.
+ */
+export function collectInstancedGridMaterials(
+  detail: boolean,
+): MeshStandardNodeMaterial[] {
+  const materials = collectInstancedBodyMaterials(detail);
+  for (const tint of TUNNEL_TINTS) materials.push(tunnelFloorMaterial(tint));
+  return materials;
+}
+
+/**
+ * Every node-material variant a mine cell body or overlay can render on a
+ * plain mesh at the given detail tier (tunnel floors are instanced-only,
+ * so they warm through collectInstancedGridMaterials instead). Returned
+ * for the canvas to compile up front; the factories dedupe through their
+ * caches, so warming then playing reuses the exact same singletons.
  */
 export function collectBlockNodeMaterials(
   detail: boolean,
 ): MeshStandardNodeMaterial[] {
   const materials = collectInstancedBodyMaterials(detail);
-  for (const tint of TUNNEL_TINTS) materials.push(tunnelFloorMaterial(tint));
   materials.push(gasBlockMaterial(GAS_COLOR, detail));
   materials.push(boulderBlockMaterial(BOULDER_COLOR, detail));
   for (const ore of Object.keys(ORE_COLORS) as OreId[]) {

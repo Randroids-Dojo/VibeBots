@@ -61,18 +61,18 @@ describe("block instance plan", () => {
 
   it("records instances and flags rotation only when non-zero", () => {
     const plan = createBlockInstancePlan();
-    pushBlockInstance(plan, GEO, MAT, 4, -7, 0, 0, 0, 0);
-    pushBlockInstance(plan, GEO, MAT, 5, -7, 0, 0.3, 0.1, 0.2);
+    pushBlockInstance(plan, GEO, MAT, 4, -7, 0, 0, 0);
+    pushBlockInstance(plan, GEO, MAT, 5, -7, 0.3, 0.1, 0.2);
     expect(plan.count).toBe(2);
-    expect(plan.items[0]).toMatchObject({ x: 4, y: -7, z: 0, rotated: false });
+    expect(plan.items[0]).toMatchObject({ x: 4, y: -7, rotated: false });
     expect(plan.items[1]).toMatchObject({ x: 5, y: -7, rotated: true });
     expect(plan.items[1].rotX).toBeCloseTo(0.3);
   });
 
   it("reuses pooled entries across ticks instead of allocating", () => {
     const plan = createBlockInstancePlan();
-    pushBlockInstance(plan, GEO, MAT, 1, -1, 0, 0, 0, 0);
-    pushBlockInstance(plan, GEO, MAT, 2, -1, 0, 0, 0, 0);
+    pushBlockInstance(plan, GEO, MAT, 1, -1, 0, 0, 0);
+    pushBlockInstance(plan, GEO, MAT, 2, -1, 0, 0, 0);
     const firstEntry = plan.items[0];
     const secondEntry = plan.items[1];
 
@@ -81,10 +81,10 @@ describe("block instance plan", () => {
     // The backing entries survive the reset for reuse.
     expect(plan.items).toHaveLength(2);
 
-    pushBlockInstance(plan, GEO, MAT, 9, -3, -0.42, 0, 0, 0);
+    pushBlockInstance(plan, GEO, MAT, 9, -3, 0, 0, 0);
     // Same object reused, not a fresh allocation.
     expect(plan.items[0]).toBe(firstEntry);
-    expect(plan.items[0]).toMatchObject({ x: 9, y: -3, z: -0.42 });
+    expect(plan.items[0]).toMatchObject({ x: 9, y: -3 });
     // The stale second entry is still parked for the next push.
     expect(plan.items[1]).toBe(secondEntry);
     expect(plan.count).toBe(1);
@@ -92,10 +92,10 @@ describe("block instance plan", () => {
 
   it("clears a previously-set rotation flag when reused axis-aligned", () => {
     const plan = createBlockInstancePlan();
-    pushBlockInstance(plan, GEO, MAT, 0, 0, 0, 1, 0, 0);
+    pushBlockInstance(plan, GEO, MAT, 0, 0, 1, 0, 0);
     expect(plan.items[0].rotated).toBe(true);
     beginBlockPlan(plan);
-    pushBlockInstance(plan, GEO, MAT, 0, 0, 0, 0, 0, 0);
+    pushBlockInstance(plan, GEO, MAT, 0, 0, 0, 0, 0);
     expect(plan.items[0].rotated).toBe(false);
   });
 });

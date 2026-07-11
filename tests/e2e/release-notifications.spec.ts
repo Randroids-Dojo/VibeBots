@@ -21,11 +21,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "No more walking through the new buildings.",
+    "Crossing a depth band no longer freezes the frame.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "Every solid now stays behind the walk line",
+    "The fog and background now update in place",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.208", "The stratum hiccup, caught red-handed"],
     ["0.1.207", "The village keeps its hands off the miner"],
     ["0.1.206", "Every stamp gets its moment"],
     ["0.1.205", "Night shift, rebuilt"],

@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Fix stratum-crossing shader recompile freezes</title>
+<meta name="dot-title" content="Fix stratum-crossing shader recompile freezes">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-10T23:30:47.168307-05:00">
+<meta name="dot-closed-at" content="2026-07-10T23:30:47.181844-05:00">
+<meta name="dot-close-reason" content="Shipped: StratumAtmosphere mutates fog/background in place; churn spec proves 62 to 0 programs on re-crossings">
+</head>
+<body>
+<article>
+<h1>Fix stratum-crossing shader recompile freezes</h1>
+<section id="description">
+Telemetry session f33f75: 2-3s frames at rows 12/24/36 and surface returns; fog/background object swap rekeyed node cache recompiling all pipelines; now mutated in place + createProgram-counting e2e.
+</section>
+</article>
+</body>
+</html>

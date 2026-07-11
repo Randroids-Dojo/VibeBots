@@ -1,4 +1,3 @@
-import type { MeshStandardNodeMaterial } from "three/webgpu";
 import { Box3, Vector3 } from "three/webgpu";
 import { BASE_PART_IDS, type BasePartId } from "@/sim/bunker";
 import {
@@ -7,17 +6,11 @@ import {
   box,
   chamferedBox,
   cylinder,
-  mergeLayer,
-  SURFACE_PALETTE,
+  mergeLayers,
   type SurfaceGeometryLayer,
   type SurfaceGeometryTier,
-  type SurfaceMaterialRole,
+  triangleCount,
 } from "./mine-surface-geometry";
-import {
-  surfaceCoatedMetal,
-  surfaceComposite,
-  surfaceEmissive,
-} from "./mine-surface-materials";
 
 /**
  * Bunker base-part geometry in the industrial settlement language
@@ -30,63 +23,13 @@ import {
  * seam line, not a gap.
  *
  * Geometry is cached per (part, tier) and drawn with the shared
- * surfaceMaterial singletons, so placing parts creates no geometry, no
- * materials, and no new shader programs (the stratum-crossing lesson).
+ * bunkerPartMaterial singletons (mine-surface-materials), so placing
+ * parts creates no geometry, no materials, and no new shader programs
+ * (the stratum-crossing lesson).
  */
 
 /** Half-extent of a bunker cell; sealing edges must reach exactly this. */
 export const BUNKER_CELL_HALF = 0.5;
-
-/**
- * Underground light is the miner's lamp plus dim ambient, so the steel
- * body reads through the DIFFUSE composite recipe with a light gunmetal
- * tint rather than the surface metals (metalness 0.68-0.92 goes near
- * black without sky light). Two extra cached material instances on
- * shaders the village already compiled; no new programs.
- */
-const BUNKER_STEEL_HEX = "#78848F";
-
-export const BASE_PART_EMISSIVES: Record<BasePartId, string> = {
-  "wall-panel": SURFACE_PALETTE.energyCyan,
-  "floor-panel": SURFACE_PALETTE.energyCyan,
-  "roof-panel": SURFACE_PALETTE.warmWorkLight,
-  "door-panel": SURFACE_PALETTE.energyCyan,
-  "floor-spikes": SURFACE_PALETTE.energyCyan,
-  "basic-turret": SURFACE_PALETTE.energyCyan,
-};
-
-export function bunkerPartMaterial(
-  role: SurfaceMaterialRole,
-  emissiveHex: string,
-  detail: boolean,
-): MeshStandardNodeMaterial {
-  switch (role) {
-    case "shell":
-      return surfaceComposite(BUNKER_STEEL_HEX, detail);
-    case "frame":
-      return surfaceCoatedMetal(SURFACE_PALETTE.brushedTitanium, detail);
-    case "composite":
-      return surfaceComposite(SURFACE_PALETTE.voidGraphite, detail);
-    case "accent":
-      return surfaceCoatedMetal(SURFACE_PALETTE.safetyOrange, detail);
-    case "emissive":
-      return surfaceEmissive(emissiveHex, detail);
-  }
-}
-
-/** Every material a bunker part can draw with, for the load warm-up. */
-export function collectBunkerPartMaterials(
-  detail: boolean,
-): MeshStandardNodeMaterial[] {
-  const emissives = new Set(Object.values(BASE_PART_EMISSIVES));
-  return [
-    bunkerPartMaterial("shell", "", detail),
-    bunkerPartMaterial("frame", "", detail),
-    bunkerPartMaterial("composite", "", detail),
-    bunkerPartMaterial("accent", "", detail),
-    ...[...emissives].map((hex) => surfaceEmissive(hex, detail)),
-  ];
-}
 
 /** Local z depth budget so parts keep the overlay's existing plane. */
 export const BUNKER_PART_MAX_DEPTH = 0.26;
@@ -107,6 +50,32 @@ export interface BunkerPartGeometry {
   triangleCount: number;
 }
 
+/** One proud rivet head on the face plane at z. */
+function rivet(ctx: BuildContext, x: number, y: number, z: number): void {
+  cylinder(ctx, "frame", 0.042, 0.05, 0.03, [x, y, z], [Math.PI / 2, 0, 0], 8);
+}
+
+const RIVET_CORNERS: readonly (readonly [number, number])[] = [
+  [-0.38, -0.38],
+  [-0.38, 0.38],
+  [0.38, -0.38],
+  [0.38, 0.38],
+];
+const RIVET_EDGE_MIDPOINTS: readonly (readonly [number, number])[] = [
+  [0, -0.38],
+  [0, 0.38],
+  [-0.38, 0],
+  [0.38, 0],
+];
+
+/** Corner rivets on both tiers: they carry the whole style. */
+function rivets(ctx: BuildContext, z: number): void {
+  for (const [x, y] of RIVET_CORNERS) rivet(ctx, x, y, z);
+  if (ctx.tier !== "high") return;
+  // Edge-midpoint rivets complete the reference's studded border rows.
+  for (const [x, y] of RIVET_EDGE_MIDPOINTS) rivet(ctx, x, y, z);
+}
+
 /**
  * Shared vocabulary of the riveted-steel look (the Fallout-Shelter-like
  * cutaway reference): a light gunmetal body slab, a dark inset seam
@@ -123,43 +92,6 @@ function steelBlock(ctx: BuildContext, depth = 0.2): void {
   box(ctx, "composite", [0.05, 1, 0.015], [0.475, 0, face]);
   box(ctx, "composite", [0.05, 1, 0.015], [-0.475, 0, face]);
   rivets(ctx, face + 0.012);
-}
-
-/** Proud corner rivets on both tiers: they carry the whole style. */
-function rivets(ctx: BuildContext, z: number): void {
-  for (const x of [-0.38, 0.38]) {
-    for (const y of [-0.38, 0.38]) {
-      cylinder(
-        ctx,
-        "frame",
-        0.042,
-        0.05,
-        0.03,
-        [x, y, z],
-        [Math.PI / 2, 0, 0],
-        8,
-      );
-    }
-  }
-  if (ctx.tier !== "high") return;
-  // Edge-midpoint rivets complete the reference's studded border rows.
-  for (const [x, y] of [
-    [0, -0.38],
-    [0, 0.38],
-    [-0.38, 0],
-    [0.38, 0],
-  ] as const) {
-    cylinder(
-      ctx,
-      "frame",
-      0.042,
-      0.05,
-      0.03,
-      [x, y, z],
-      [Math.PI / 2, 0, 0],
-      8,
-    );
-  }
 }
 
 function buildWall(ctx: BuildContext): void {
@@ -239,28 +171,10 @@ function buildSpikes(ctx: BuildContext): void {
   // motion assembly.
   box(ctx, "shell", [1, 0.12, 0.3], [0, -0.44, 0]);
   box(ctx, "composite", [1, 0.03, 0.012], [0, -0.39, 0.15]);
-  cylinder(
-    ctx,
-    "frame",
-    0.042,
-    0.05,
-    0.03,
-    [-0.4, -0.44, 0.162],
-    [Math.PI / 2, 0, 0],
-    8,
-  );
-  cylinder(
-    ctx,
-    "frame",
-    0.042,
-    0.05,
-    0.03,
-    [0.4, -0.44, 0.162],
-    [Math.PI / 2, 0, 0],
-    8,
-  );
-  box(ctx, "accent", [0.34, 0.05, 0.02], [-0.24, -0.35, 0.15]);
-  box(ctx, "accent", [0.34, 0.05, 0.02], [0.24, -0.35, 0.15]);
+  for (const side of [-1, 1]) {
+    rivet(ctx, side * 0.4, -0.44, 0.162);
+    box(ctx, "accent", [0.34, 0.05, 0.02], [side * 0.24, -0.35, 0.15]);
+  }
   const motion: BuildContext = { ...ctx, parts: ctx.motionParts };
   const xs = ctx.tier === "high" ? SPIKE_XS_HIGH : SPIKE_XS_LOW;
   for (const x of xs) {
@@ -300,21 +214,15 @@ const BUILDERS: Record<BasePartId, (ctx: BuildContext) => void> = {
   "basic-turret": buildTurret,
 };
 
-const MOTION_ANCHORS: Record<BasePartId, readonly [number, number, number]> = {
-  "wall-panel": [0, 0, 0],
-  "floor-panel": [0, 0, 0],
-  "roof-panel": [0, 0, 0],
-  "door-panel": [0, 0, 0],
+const ZERO_ANCHOR = [0, 0, 0] as const;
+
+/** Only the durability-scaled parts carry a motion assembly. */
+const MOTION_ANCHORS: Partial<
+  Record<BasePartId, readonly [number, number, number]>
+> = {
   "floor-spikes": [0, -0.38, 0.12],
   "basic-turret": [0, -0.26, 0.02],
 };
-
-function triangleCount(layer: SurfaceGeometryLayer): number {
-  const geometry = layer.geometry;
-  return geometry.index
-    ? geometry.index.count / 3
-    : (geometry.getAttribute("position")?.count ?? 0) / 3;
-}
 
 const cache = new Map<string, BunkerPartGeometry>();
 
@@ -331,16 +239,13 @@ export function bunkerPartGeometry(
     motionParts: blankParts(),
   };
   BUILDERS[id](ctx);
-  const layers = (Object.keys(ctx.parts) as SurfaceMaterialRole[])
-    .map((role) => mergeLayer(role, ctx.parts[role]))
-    .filter((layer): layer is SurfaceGeometryLayer => layer !== null);
-  const motionLayers = (Object.keys(ctx.motionParts) as SurfaceMaterialRole[])
-    .map((role) => mergeLayer(role, ctx.motionParts[role]))
-    .filter((layer): layer is SurfaceGeometryLayer => layer !== null);
+  const layers = mergeLayers(ctx.parts);
+  const motionLayers = mergeLayers(ctx.motionParts);
   // Bounds are the RENDERED extent: motion layers are authored in
   // anchor space, so translate their boxes by the anchor before
   // unioning with the cell-space static layers.
-  const anchor = MOTION_ANCHORS[id];
+  const anchor = MOTION_ANCHORS[id] ?? ZERO_ANCHOR;
+  const anchorOffset = new Vector3(anchor[0], anchor[1], anchor[2]);
   const bounds = new Box3();
   const scratch = new Box3();
   for (const layer of layers) {
@@ -349,7 +254,7 @@ export function bunkerPartGeometry(
   for (const layer of motionLayers) {
     if (!layer.geometry.boundingBox) continue;
     scratch.copy(layer.geometry.boundingBox);
-    scratch.translate(new Vector3(anchor[0], anchor[1], anchor[2]));
+    scratch.translate(anchorOffset);
     bounds.union(scratch);
   }
   const model: BunkerPartGeometry = {
@@ -357,10 +262,10 @@ export function bunkerPartGeometry(
     tier,
     layers,
     motionLayers,
-    motionAnchor: MOTION_ANCHORS[id],
+    motionAnchor: anchor,
     bounds,
     triangleCount: [...layers, ...motionLayers].reduce(
-      (sum, layer) => sum + triangleCount(layer),
+      (sum, layer) => sum + triangleCount(layer.geometry),
       0,
     ),
   };

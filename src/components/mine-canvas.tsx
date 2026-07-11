@@ -104,7 +104,6 @@ import {
   teeterUrgency,
 } from "./mine-block-render";
 import { type BunkerBuildMode, BunkerOverlay } from "./mine-bunker-overlay";
-import { collectBunkerPartMaterials } from "./mine-bunker-part-geometry";
 import {
   CRUSH_HOLD_SECONDS,
   FATAL_FALL_HOLD_SECONDS,
@@ -165,6 +164,7 @@ import {
   SupportCellHitTarget,
   SupportSelectionOutline,
 } from "./mine-support-selection";
+import { collectBunkerPartMaterials } from "./mine-surface-materials";
 import {
   applySurfaceAtmosphereVisuals,
   SurfaceDressing,

@@ -7,6 +7,7 @@
 
 import { float, positionWorld, sin, vertexColor } from "three/tsl";
 import { Color, MeshStandardNodeMaterial } from "three/webgpu";
+import type { BasePartId } from "@/sim/bunker";
 import { cached, grainNoise, tintUniform } from "./mine-block-materials";
 import {
   SURFACE_PALETTE,
@@ -137,4 +138,56 @@ export function surfaceVillageMaterial(
     }
     return material;
   });
+}
+
+/**
+ * Bunker base-part role mapping, third sibling of surfaceMaterial and
+ * surfaceVillageMaterial. Underground light is the miner's lamp plus
+ * dim ambient, so the steel body reads through the DIFFUSE composite
+ * recipe with a light gunmetal tint rather than the surface metals
+ * (metalness 0.68-0.92 goes near black without sky light). Two extra
+ * cached instances on shaders the village already compiled.
+ */
+const BUNKER_STEEL_HEX = "#78848F";
+
+export const BASE_PART_EMISSIVES: Record<BasePartId, string> = {
+  "wall-panel": SURFACE_PALETTE.energyCyan,
+  "floor-panel": SURFACE_PALETTE.energyCyan,
+  "roof-panel": SURFACE_PALETTE.warmWorkLight,
+  "door-panel": SURFACE_PALETTE.energyCyan,
+  "floor-spikes": SURFACE_PALETTE.energyCyan,
+  "basic-turret": SURFACE_PALETTE.energyCyan,
+};
+
+export function bunkerPartMaterial(
+  role: SurfaceMaterialRole,
+  emissiveHex: string,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  switch (role) {
+    case "shell":
+      return surfaceComposite(BUNKER_STEEL_HEX, detail);
+    case "frame":
+      return surfaceCoatedMetal(SURFACE_PALETTE.brushedTitanium, detail);
+    case "composite":
+      return surfaceComposite(SURFACE_PALETTE.voidGraphite, detail);
+    case "accent":
+      return surfaceCoatedMetal(SURFACE_PALETTE.safetyOrange, detail);
+    case "emissive":
+      return surfaceEmissive(emissiveHex, detail);
+  }
+}
+
+/** Every material a bunker part can draw with, for the load warm-up. */
+export function collectBunkerPartMaterials(
+  detail: boolean,
+): MeshStandardNodeMaterial[] {
+  const emissives = new Set(Object.values(BASE_PART_EMISSIVES));
+  return [
+    bunkerPartMaterial("shell", "", detail),
+    bunkerPartMaterial("frame", "", detail),
+    bunkerPartMaterial("composite", "", detail),
+    bunkerPartMaterial("accent", "", detail),
+    ...[...emissives].map((hex) => surfaceEmissive(hex, detail)),
+  ];
 }

@@ -16,20 +16,20 @@ import {
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
 import { useBlockDetail } from "./mine-block-render";
-import {
-  BASE_PART_EMISSIVES,
-  bunkerPartGeometry,
-  bunkerPartMaterial,
-} from "./mine-bunker-part-geometry";
+import { bunkerPartGeometry } from "./mine-bunker-part-geometry";
 import { cellX } from "./mine-render-palette";
 import {
   SelectedSupportCellOutline,
   SUPPORT_SELECT_RED,
 } from "./mine-support-selection";
 import type {
+  SurfaceGeometryLayer,
   SurfaceGeometryTier,
-  SurfaceMaterialRole,
 } from "./mine-surface-geometry";
+import {
+  BASE_PART_EMISSIVES,
+  bunkerPartMaterial,
+} from "./mine-surface-materials";
 import {
   CLANKER_BURST_VISIBLE_SECONDS,
   dissipatingOpacity,
@@ -543,6 +543,21 @@ const BASE_PART_MIN_WILT = 0.15;
  * neighbors; the durability-scaled motion assembly (spikes, turret
  * head) wilts toward its anchor as the part takes raid damage.
  */
+function partLayerMeshes(
+  layers: readonly SurfaceGeometryLayer[],
+  emissiveHex: string,
+  detail: boolean,
+) {
+  return layers.map((layer) => (
+    <mesh
+      key={layer.role}
+      geometry={layer.geometry}
+      material={bunkerPartMaterial(layer.role, emissiveHex, detail)}
+      dispose={null}
+    />
+  ));
+}
+
 function BasePartVisual({
   partId,
   durability,
@@ -555,33 +570,23 @@ function BasePartVisual({
   detail: boolean;
 }) {
   const model = bunkerPartGeometry(partId, tier);
-  const maxDurability = BASE_PART_CATALOG[partId].durability;
-  const wilt = Math.max(
-    BASE_PART_MIN_WILT,
-    Math.min(1, durability / maxDurability),
-  );
-  const material = (role: SurfaceMaterialRole) =>
-    bunkerPartMaterial(role, BASE_PART_EMISSIVES[partId], detail);
+  const emissiveHex = BASE_PART_EMISSIVES[partId];
   return (
     <group>
-      {model.layers.map((layer) => (
-        <mesh
-          key={layer.role}
-          geometry={layer.geometry}
-          material={material(layer.role)}
-          dispose={null}
-        />
-      ))}
+      {partLayerMeshes(model.layers, emissiveHex, detail)}
       {model.motionLayers.length > 0 && (
-        <group position={model.motionAnchor} scale={[1, wilt, 1]}>
-          {model.motionLayers.map((layer) => (
-            <mesh
-              key={layer.role}
-              geometry={layer.geometry}
-              material={material(layer.role)}
-              dispose={null}
-            />
-          ))}
+        <group
+          position={model.motionAnchor}
+          scale={[
+            1,
+            Math.max(
+              BASE_PART_MIN_WILT,
+              Math.min(1, durability / BASE_PART_CATALOG[partId].durability),
+            ),
+            1,
+          ]}
+        >
+          {partLayerMeshes(model.motionLayers, emissiveHex, detail)}
         </group>
       )}
     </group>

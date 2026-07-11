@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="stratum-fog-recompile" data-date="2026-07-10">
+    <h3>Root cause and fix the stratum-crossing freezes from tonight's telemetry</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/stratum-fog-recompile</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Queried <code>player_perf_traces</code> for the newest real-device sessions (via the production insights API in an authenticated browser). Session f33f75 (build 275150, tonight, 28 min) logged 89 stalls with 2.3-2.9 s LoAF-attributed <code>FrameRequestCallback</code> frames at exactly the stratum boundary rows (12, 24, 36) and every surface return, recurring on every crossing, with flat heap, 4 lights, normal draw calls, and 154 rendered cells. Root cause: <code>MineScene</code> rendered <code>&lt;color attach="background" args={[bg]}&gt;</code> and <code>&lt;fog args={[bg, near, far]}&gt;</code> keyed on <code>stratumIndex</code>, so R3F constructed NEW <code>Color</code>/<code>Fog</code> objects at each boundary; in three/webgpu a new fog object rekeys the scene's node cache and the renderer synchronously rebuilds and recompiles every visible material pipeline inside the frame. The pattern predates the reports, but #106/#107/#108 grew the visible program set (more ore tiers, transparent instanced veils, village PBR materials) until each crossing cost seconds on the phone. Fix: new <code>StratumAtmosphere</code> component in <code>mine-canvas.tsx</code> owns one <code>Fog</code> and one background <code>Color</code> for the canvas's life and mutates their values in a layout effect; nothing rekeys (package 0.1.208).</dd>
+      <dt>Verification</dt><dd>Root cause and fix are proven by direct measurement, not inference: new <code>tests/e2e/mine-shader-churn.spec.ts</code> wraps <code>WebGL2RenderingContext.createProgram</code> via an init script and counts real program creations across a scripted ladder-shaft descent. Unfixed baseline: +62 programs on the first Clay Beds crossing (the full pipeline set). Fixed: +23 one-time lazy compiles on first descent (warm-up gap, filed as F-078) and exactly +0 across repeated re-crossings in both directions, which is the recurring stall the telemetry showed. Dash checks, <code>git diff --check</code>, Biome, <code>tsc --noEmit</code>, 1039 unit tests, production build, and the fog-adjacent e2e (stratum banner darkness, REQ-018 responsiveness) green. Field confirmation planned via the next real-device session's <code>byBuild</code> stall counters per the frame-loop rule. Tips reviewed with no copy change; stamp review completed with none added.</dd>
+      <dt>Assumptions</dt><dd>The one-time first-descent compiles (23 programs, individually small and paid once per session) are acceptable to ship now and are tracked in F-078 rather than blocking the recurring-freeze fix. The churn spec runs in the Full E2E matrix; the critical grep set is unchanged.</dd>
+      <dt>GDD coverage</dt><dd>Build log entry in <code>docs/gdd/06-mining.html</code>. No coverage-row change (performance fix under existing REQ-018/REQ-023 behavior).</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-078">F-078</a>: close the first-descent lazy compiles the warm-up misses and tighten the churn spec's first-crossing bound.</dd>
+    </dl>
+  </article>
+
   <article data-slice="village-walk-plane-clearance" data-date="2026-07-10">
     <h3>Stop the miner clipping through the rebuilt village</h3>
     <dl>

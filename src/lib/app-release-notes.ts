@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-10-0.1.207-village-clearance";
+export const RELEASE_NOTICE_ID = "2026-07-10-0.1.208-stratum-freeze";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.208",
+      date: "2026-07-10",
+      title: "The stratum hiccup, caught red-handed",
+      intro: "Crossing a depth band no longer freezes the frame.",
+      changes: [
+        {
+          build,
+          text: "Real-phone telemetry showed a 2-3 second freeze every time the miner crossed a stratum boundary (rows 12, 24, 36) or came back to the surface, on every single crossing. The cause: the scene rebuilt its fog and background color objects at each boundary, which silently threw away and recompiled every visible shader program. The fog and background now update in place, and a new automated test counts real shader compiles across crossings to keep it that way: re-crossing a boundary now compiles exactly zero.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.207",
       date: "2026-07-10",

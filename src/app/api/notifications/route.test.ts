@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-10-0.1.207-village-clearance",
+      releaseNoticeId: "2026-07-10-0.1.208-stratum-freeze",
       releaseSummary:
-        "The village keeps its hands off the miner: No more walking through the new buildings.",
+        "The stratum hiccup, caught red-handed: Crossing a depth band no longer freezes the frame.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-10-0.1.207-village-clearance",
+      releaseNoticeId: "2026-07-10-0.1.208-stratum-freeze",
       attempted: 2,
       sent: 1,
       expired: 1,

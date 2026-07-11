@@ -110,7 +110,7 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-10-0.1.208-surface-shift-cycle",
+      releaseNoticeId: "2026-07-10-0.1.209-surface-shift-cycle",
       releaseSummary:
         "The surface keeps time: Dawn breaks over the village, and the night shift still glows.",
     });
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-10-0.1.208-surface-shift-cycle",
+      releaseNoticeId: "2026-07-10-0.1.209-surface-shift-cycle",
       attempted: 2,
       sent: 1,
       expired: 1,

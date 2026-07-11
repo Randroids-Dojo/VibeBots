@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-078" data-f="F-078" data-priority="nice-to-have">
+    <h3>F-078: Close the first-descent lazy shader compiles the warm-up misses</h3>
+    <dl>
+      <dt>Context</dt><dd>The stratum-fog recompile fix (session f33f75 root cause, 0.1.208) added <code>tests/e2e/mine-shader-churn.spec.ts</code>, which counts real <code>createProgram</code> calls. With the fix, re-crossing a stratum creates 0 programs, but the FIRST descent from the surface to row 16 still lazily compiles ~23 programs the warm-up set does not cover (one-time per session, so far cheaper than the recurring rekey, but still first-encounter hitches on phones).</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: instrument the churn spec to log which materials compile on first descent (e.g. name the warm group's meshes and diff <code>gl.info</code> or wrap program creation with shader-source capture), add the missing variants to <code>mine-material-warmup.ts</code>, and tighten the spec's first-crossing bound from 30 toward 3. Acceptance: firstCrossingDelta &lt;= 3 in <code>mine-shader-churn.spec.ts</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>(raised by the stratum-fog recompile slice)</dd>
+    </dl>
+  </section>
+
   <section id="F-077" data-f="F-077" data-priority="polish">
     <h3>F-077: Fixed-count accent-light pool for the mine's local glow</h3>
     <dl>

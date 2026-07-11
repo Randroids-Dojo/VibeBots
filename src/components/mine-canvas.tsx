@@ -13,7 +13,6 @@ import type {
   AmbientLight,
   Camera,
   DirectionalLight,
-  Fog,
   HemisphereLight,
   Material,
   Object3D,
@@ -22,6 +21,7 @@ import type {
 import {
   BoxGeometry,
   Color,
+  Fog,
   Group,
   InstancedMesh,
   Matrix4,
@@ -421,6 +421,50 @@ function warmMineMaterials(
     dispose();
   }
   return dispose;
+}
+
+/**
+ * Scene background and fog for the current stratum, mutated in place.
+ * Swapping the Fog/Color OBJECTS (what declarative
+ * `<fog args={...}>` / `<color attach="background" args={...}>` do
+ * whenever stratumIndex changes) rekeys the scene's node cache in
+ * three/webgpu, and the renderer synchronously rebuilds and recompiles
+ * every visible material's pipeline inside the frame. Real-device
+ * telemetry (session f33f75, build 275150) measured that as a 2.3-2.9 s
+ * frame at every stratum boundary and surface return, recurring on every
+ * crossing. One Fog and one Color live for the canvas's life; only
+ * their values change, which never rekeys anything.
+ */
+function StratumAtmosphere({
+  color,
+  near,
+  far,
+}: {
+  color: string;
+  near: number;
+  far: number;
+}) {
+  const scene = useThree((state) => state.scene);
+  const fogRef = useRef<Fog | null>(null);
+  const backgroundRef = useRef<Color | null>(null);
+  useLayoutEffect(() => {
+    fogRef.current ??= new Fog(color, near, far);
+    backgroundRef.current ??= new Color(color);
+    const fog = fogRef.current;
+    fog.color.set(color);
+    fog.near = near;
+    fog.far = far;
+    backgroundRef.current.set(color);
+    scene.fog = fog;
+    scene.background = backgroundRef.current;
+  }, [scene, color, near, far]);
+  useEffect(() => {
+    return () => {
+      scene.fog = null;
+      scene.background = null;
+    };
+  }, [scene]);
+  return null;
 }
 
 /** Build one cell's elements. Module-scope on purpose: the closures
@@ -934,8 +978,6 @@ function MineScene({
   const ambientRef = useRef<AmbientLight>(null);
   const hemiRef = useRef<HemisphereLight>(null);
   const dirRef = useRef<DirectionalLight>(null);
-  const backgroundRef = useRef<Color>(null);
-  const fogRef = useRef<Fog>(null);
   const stratumColorRef = useRef(new Color());
   const sparkInstRef = useRef<InstancedMesh>(null);
   const debrisInstRef = useRef<InstancedMesh>(null);
@@ -1502,10 +1544,12 @@ function MineScene({
     applySurfaceAtmosphereVisuals(grade.starOpacity * day, grade.groundColor);
     const depthColorBlend = Math.min(1, depthT * 1.65);
     const stratumColor = stratumColorRef.current.set(bg);
-    backgroundRef.current
-      ?.set(grade.skyColor)
-      .lerp(stratumColor, depthColorBlend);
-    fogRef.current?.color
+    if (state.scene.background instanceof Color) {
+      state.scene.background
+        .set(grade.skyColor)
+        .lerp(stratumColor, depthColorBlend);
+    }
+    state.scene.fog?.color
       .set(grade.fogColor)
       .lerp(stratumColor, depthColorBlend);
     // The studio environment is a surface phenomenon: it fades with the
@@ -2085,8 +2129,7 @@ function MineScene({
 
   return (
     <>
-      <color ref={backgroundRef} attach="background" args={[bg]} />
-      <fog ref={fogRef} attach="fog" args={[bg, fogRange.near, fogRange.far]} />
+      <StratumAtmosphere color={bg} near={fogRange.near} far={fogRange.far} />
       <ambientLight ref={ambientRef} intensity={0.55} color="#cdd8f4" />
       <hemisphereLight ref={hemiRef} args={["#8fb4e8", "#2a2017", 0.5]} />
       <directionalLight

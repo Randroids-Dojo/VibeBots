@@ -13,15 +13,26 @@
 
 <main id="entries">
 
-  <article data-version="0.1.208" data-date="2026-07-10">
-    <h2>0.1.208</h2>
+  <article data-version="0.1.209" data-date="2026-07-10">
+    <h2>0.1.209</h2>
     <dl>
-      <dt>Package version</dt><dd><code>0.1.208</code></dd>
+      <dt>Package version</dt><dd><code>0.1.209</code></dd>
       <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
       <dt>Highlights</dt><dd>The surface village now lives through a full day and night.</dd>
       <dt>Art direction</dt><dd>An eight-minute industrial shift cycle moves continuously through cold starlight, copper dawn, clear blue workday, safety-orange dusk, and back to night. Sky and fog color, the sun and moon key, shadow direction, ground bounce, environment reflections, and the existing batched stars all share the same authored grade.</dd>
       <dt>Performance and accessibility</dt><dd>The cycle reuses the existing ambient, hemisphere, directional, fog, environment, and star draws. Palette and celestial-orbit math run at 4 Hz with no React state, no new lights, and no production draw calls. Reduced motion freezes the accelerated cycle to the player's local hour. Underground keeps its existing lamp-led darkness.</dd>
       <dt>Verification</dt><dd>Pure grade, clock wrap, celestial orbit, and reduced-motion unit contracts; production-mine and Holodeck day/night visible-pixel checks; unchanged draw-count checks; low and high dawn, day, dusk, night, and portrait captures with frame-time reporting; full quality gate and production build. Final command output is tracked in <code>docs/PROGRESS_LOG.html</code>.</dd>
+    </dl>
+  </article>
+
+  <article data-version="0.1.208" data-date="2026-07-10">
+    <h2>0.1.208</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.208</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Crossing a depth band no longer freezes the frame.</dd>
+      <dt>Rendering fix</dt><dd>The scene now keeps one background Color and one Fog object for the canvas lifetime, mutating their values across stratum crossings instead of replacing them and recompiling every visible shader program.</dd>
+      <dt>Verification</dt><dd>A dedicated shader-churn smoke counts real WebGL program creation across scripted crossings: repeated crossings compile zero new programs. Full quality, unit, build, and fog-adjacent smoke coverage passed.</dd>
     </dl>
   </article>
 

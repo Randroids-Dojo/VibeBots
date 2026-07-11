@@ -2,7 +2,6 @@ import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { type RefObject, useRef } from "react";
 import type { Group, Material, Mesh } from "three/webgpu";
-import { Shape } from "three/webgpu";
 import type {
   BasePartId,
   BunkerFootprint,
@@ -11,11 +10,23 @@ import type {
 } from "@/sim/bunker";
 import { BASE_PART_CATALOG, containsBunkerCell } from "@/sim/bunker";
 import type { MineCoord } from "@/sim/mine";
+import {
+  hasCoarsePointer,
+  readStoredGraphicsQuality,
+  resolveGraphicsQualityTier,
+} from "./graphics-quality";
+import { useBlockDetail } from "./mine-block-render";
+import { bunkerPartGeometry } from "./mine-bunker-part-geometry";
 import { cellX } from "./mine-render-palette";
 import {
   SelectedSupportCellOutline,
   SUPPORT_SELECT_RED,
 } from "./mine-support-selection";
+import {
+  SURFACE_PALETTE,
+  type SurfaceMaterialRole,
+} from "./mine-surface-geometry";
+import { surfaceMaterial } from "./mine-surface-materials";
 import {
   CLANKER_BURST_VISIBLE_SECONDS,
   dissipatingOpacity,
@@ -25,16 +36,6 @@ import {
 
 export type BunkerBuildMode = "place" | "remove" | "move";
 
-const BASE_FLOOR_RIB_X = [-0.28, 0, 0.28] as const;
-const BASE_WALL_RAIL_Y = [-0.26, 0.26] as const;
-const BASE_ROOF_RAFTER_SIDES = [-1, 1] as const;
-const BASE_ROOF_SHINGLE_BANDS = [
-  { y: -0.17, width: 0.68 },
-  { y: -0.05, width: 0.5 },
-  { y: 0.07, width: 0.32 },
-] as const;
-const BASE_DOOR_BRACE_Y = [-0.18, 0.18] as const;
-const BASE_FLOOR_SPIKE_X = [-0.32, -0.16, 0, 0.16, 0.32] as const;
 const CLANKER_LEGS = [
   { x: -0.32, side: -1, phase: 0 },
   { x: -0.1, side: -1, phase: 2.1 },
@@ -68,14 +69,6 @@ function setGroupMaterialOpacity(group: Group, opacity: number) {
     if (mesh.material) setMaterialOpacity(mesh.material, opacity);
   });
 }
-
-const BASE_ROOF_FACE_SHAPE = new Shape();
-BASE_ROOF_FACE_SHAPE.moveTo(-0.46, -0.28);
-BASE_ROOF_FACE_SHAPE.lineTo(-0.46, -0.1);
-BASE_ROOF_FACE_SHAPE.lineTo(0, 0.34);
-BASE_ROOF_FACE_SHAPE.lineTo(0.46, -0.1);
-BASE_ROOF_FACE_SHAPE.lineTo(0.46, -0.28);
-BASE_ROOF_FACE_SHAPE.lineTo(-0.46, -0.28);
 
 /** The animated part refs of one clanker, grouped so the per-frame
  * animator takes named fields instead of six adjacent same-typed
@@ -536,301 +529,73 @@ function RaidXpPickupVisual() {
   );
 }
 
+/** Damage never scales below this, so wilted parts stay visible. */
+const BASE_PART_MIN_WILT = 0.15;
+
+const BASE_PART_EMISSIVES: Record<BasePartId, string> = {
+  "wall-panel": SURFACE_PALETTE.energyCyan,
+  "floor-panel": SURFACE_PALETTE.energyCyan,
+  "roof-panel": SURFACE_PALETTE.warmWorkLight,
+  "door-panel": SURFACE_PALETTE.energyCyan,
+  "floor-spikes": SURFACE_PALETTE.energyCyan,
+  "basic-turret": SURFACE_PALETTE.energyCyan,
+};
+
+/**
+ * One placed base part: cached industrial geometry layers (REQ-035)
+ * drawn with the shared surface material singletons, so placing parts
+ * allocates no geometry, no materials, and no new shader programs.
+ * Sealing parts fill their cell to +-0.5 and tile seamlessly with
+ * neighbors; the durability-scaled motion assembly (spikes, turret
+ * head) wilts toward its anchor as the part takes raid damage.
+ */
 function BasePartVisual({
   partId,
   durability,
-  footprint,
-  col,
 }: {
   partId: BasePartId;
   durability: number;
-  footprint: BunkerFootprint;
-  col: number;
 }) {
-  switch (partId) {
-    case "floor-panel":
-      return <BaseFloorPanel />;
-    case "wall-panel":
-      return <BaseWallPanel />;
-    case "roof-panel":
-      return <BaseRoofPanel />;
-    case "door-panel":
-      return <BaseDoorPanel side={doorSideForBunkerColumn(col, footprint)} />;
-    case "floor-spikes":
-      return <BaseFloorSpikes durability={durability} />;
-    case "basic-turret":
-      return <BaseTurret durability={durability} />;
-  }
-}
-
-function doorSideForBunkerColumn(
-  col: number,
-  footprint: BunkerFootprint,
-): -1 | 1 {
-  if (col <= footprint.col) return -1;
-  if (col >= footprint.col + footprint.width - 1) return 1;
-  const midpoint = footprint.col + (footprint.width - 1) / 2;
-  return col < midpoint ? -1 : 1;
-}
-
-function BaseFloorPanel() {
-  return (
-    <group>
-      <RoundedBox
-        args={[0.88, 0.2, 0.14]}
-        radius={0.035}
-        smoothness={1}
-        position={[0, -0.35, 0]}
-      >
-        <meshStandardMaterial
-          color="#71808c"
-          roughness={0.68}
-          metalness={0.28}
-          flatShading
-        />
-      </RoundedBox>
-      {BASE_FLOOR_RIB_X.map((x) => (
-        <mesh key={x} position={[x, -0.25, 0.08]}>
-          <boxGeometry args={[0.035, 0.12, 0.045]} />
-          <meshStandardMaterial
-            color="#9fb0bd"
-            roughness={0.6}
-            metalness={0.22}
-            flatShading
-          />
-        </mesh>
-      ))}
-    </group>
+  const detail = useBlockDetail();
+  const tier = resolveGraphicsQualityTier(
+    readStoredGraphicsQuality(),
+    hasCoarsePointer(),
   );
-}
-
-function BaseWallPanel() {
-  return (
-    <group>
-      <RoundedBox args={[0.24, 0.82, 0.18]} radius={0.035} smoothness={1}>
-        <meshStandardMaterial
-          color="#3fbda9"
-          roughness={0.64}
-          metalness={0.24}
-          flatShading
-        />
-      </RoundedBox>
-      {BASE_WALL_RAIL_Y.map((y) => (
-        <mesh key={y} position={[0, y, 0.11]}>
-          <boxGeometry args={[0.38, 0.055, 0.055]} />
-          <meshStandardMaterial
-            color="#8cf0dd"
-            roughness={0.55}
-            metalness={0.18}
-            flatShading
-          />
-        </mesh>
-      ))}
-      <mesh position={[0, 0, 0.12]}>
-        <boxGeometry args={[0.055, 0.64, 0.055]} />
-        <meshStandardMaterial
-          color="#287f77"
-          roughness={0.62}
-          metalness={0.25}
-          flatShading
-        />
-      </mesh>
-    </group>
+  const model = bunkerPartGeometry(partId, tier);
+  const maxDurability = BASE_PART_CATALOG[partId].durability;
+  const wilt = Math.max(
+    BASE_PART_MIN_WILT,
+    Math.min(1, durability / maxDurability),
   );
-}
-
-function BaseRoofPanel() {
+  const material = (role: SurfaceMaterialRole) =>
+    surfaceMaterial(
+      role,
+      SURFACE_PALETTE.safetyOrange,
+      BASE_PART_EMISSIVES[partId],
+      detail,
+    );
   return (
     <group>
-      <mesh position={[0, -0.02, 0.08]}>
-        <shapeGeometry args={[BASE_ROOF_FACE_SHAPE]} />
-        <meshStandardMaterial
-          color="#6f5e88"
-          roughness={0.72}
-          metalness={0.18}
-          flatShading
-        />
-      </mesh>
-      <mesh position={[0, -0.31, 0.15]}>
-        <boxGeometry args={[0.98, 0.085, 0.09]} />
-        <meshStandardMaterial
-          color="#c49b5c"
-          roughness={0.58}
-          metalness={0.08}
-          flatShading
-        />
-      </mesh>
-      {BASE_ROOF_RAFTER_SIDES.map((side) => (
+      {model.layers.map((layer) => (
         <mesh
-          key={side}
-          position={[side * 0.22, 0.09, 0.16]}
-          rotation={[0, 0, side * -0.77]}
-        >
-          <boxGeometry args={[0.63, 0.055, 0.075]} />
-          <meshStandardMaterial
-            color="#d8b36d"
-            roughness={0.58}
-            metalness={0.07}
-            flatShading
-          />
-        </mesh>
+          key={layer.role}
+          geometry={layer.geometry}
+          material={material(layer.role)}
+          dispose={null}
+        />
       ))}
-      {BASE_ROOF_SHINGLE_BANDS.map((band) => (
-        <mesh key={band.y} position={[0, band.y, 0.17]}>
-          <boxGeometry args={[band.width, 0.04, 0.045]} />
-          <meshStandardMaterial
-            color="#8a789d"
-            roughness={0.7}
-            metalness={0.14}
-            flatShading
-          />
-        </mesh>
-      ))}
-      <mesh position={[0, 0.31, 0.18]}>
-        <boxGeometry args={[0.18, 0.07, 0.09]} />
-        <meshStandardMaterial
-          color="#efd08a"
-          roughness={0.54}
-          metalness={0.08}
-          flatShading
-        />
-      </mesh>
-      <mesh position={[0, -0.29, 0.22]}>
-        <boxGeometry args={[0.34, 0.055, 0.055]} />
-        <meshStandardMaterial
-          color="#efd08a"
-          roughness={0.55}
-          metalness={0.08}
-          flatShading
-        />
-      </mesh>
-      {BASE_ROOF_RAFTER_SIDES.map((side) => (
-        <mesh key={`post:${side}`} position={[side * 0.42, -0.18, 0.18]}>
-          <boxGeometry args={[0.065, 0.22, 0.065]} />
-          <meshStandardMaterial
-            color="#a67b42"
-            roughness={0.62}
-            metalness={0.08}
-            flatShading
-          />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function BaseDoorPanel({ side }: { side: -1 | 1 }) {
-  const x = side * 0.36;
-  return (
-    <group>
-      <RoundedBox
-        args={[0.22, 0.82, 0.16]}
-        radius={0.03}
-        smoothness={1}
-        position={[x, 0, 0]}
-      >
-        <meshStandardMaterial
-          color="#bc8442"
-          roughness={0.64}
-          metalness={0.12}
-          flatShading
-        />
-      </RoundedBox>
-      {BASE_DOOR_BRACE_Y.map((y) => (
-        <mesh key={y} position={[x, y, 0.1]}>
-          <boxGeometry args={[0.26, 0.055, 0.045]} />
-          <meshStandardMaterial
-            color="#7f4c27"
-            roughness={0.66}
-            metalness={0.12}
-            flatShading
-          />
-        </mesh>
-      ))}
-      <mesh position={[x - side * 0.065, 0, 0.12]}>
-        <sphereGeometry args={[0.035, 8, 6]} />
-        <meshStandardMaterial
-          color="#f5d06f"
-          roughness={0.42}
-          metalness={0.32}
-          flatShading
-        />
-      </mesh>
-      <mesh position={[x - side * 0.15, 0, -0.01]}>
-        <boxGeometry args={[0.035, 0.72, 0.09]} />
-        <meshStandardMaterial
-          color="#6f3d22"
-          roughness={0.68}
-          metalness={0.08}
-          flatShading
-        />
-      </mesh>
-    </group>
-  );
-}
-
-function BaseFloorSpikes({ durability }: { durability: number }) {
-  const maxDurability = BASE_PART_CATALOG["floor-spikes"].durability;
-  const ratio = Math.max(0.15, Math.min(1, durability / maxDurability));
-  const spikeHeight = 0.48 * ratio;
-  return (
-    <group>
-      <BaseFloorPanel />
-      {BASE_FLOOR_SPIKE_X.map((x) => (
-        <mesh key={x} position={[x, -0.31 + spikeHeight * 0.5, 0.15]}>
-          <coneGeometry args={[0.09 * ratio, spikeHeight, 5]} />
-          <meshStandardMaterial
-            color={ratio > 0.5 ? "#d4dde8" : "#7b8290"}
-            emissive={ratio > 0.5 ? "#3b82f6" : "#000000"}
-            emissiveIntensity={0.08 * ratio}
-            roughness={0.5}
-            metalness={0.35}
-            flatShading
-          />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function BaseTurret({ durability }: { durability: number }) {
-  const maxDurability = BASE_PART_CATALOG["basic-turret"].durability;
-  const ratio = Math.max(0.2, Math.min(1, durability / maxDurability));
-  return (
-    <group>
-      <RoundedBox
-        args={[0.58, 0.2, 0.16]}
-        radius={0.035}
-        smoothness={1}
-        position={[0, -0.3, 0]}
-      >
-        <meshStandardMaterial
-          color="#6674a3"
-          roughness={0.62}
-          metalness={0.3}
-          flatShading
-        />
-      </RoundedBox>
-      <mesh position={[0, -0.04, 0.08]} scale={[1, ratio, 1]}>
-        <cylinderGeometry args={[0.18, 0.24, 0.3, 12]} />
-        <meshStandardMaterial
-          color="#8aa4ff"
-          emissive="#5b6cff"
-          emissiveIntensity={0.12 * ratio}
-          roughness={0.5}
-          metalness={0.35}
-          flatShading
-        />
-      </mesh>
-      <mesh position={[0, 0.18, 0.08]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.045, 0.055, 0.46, 8]} />
-        <meshStandardMaterial
-          color="#c6d1ff"
-          roughness={0.42}
-          metalness={0.38}
-          flatShading
-        />
-      </mesh>
+      {model.motionLayers.length > 0 && (
+        <group position={model.motionAnchor} scale={[1, wilt, 1]}>
+          {model.motionLayers.map((layer) => (
+            <mesh
+              key={layer.role}
+              geometry={layer.geometry}
+              material={material(layer.role)}
+              dispose={null}
+            />
+          ))}
+        </group>
+      )}
     </group>
   );
 }
@@ -1098,12 +863,7 @@ export function BunkerOverlay({
           {selected && (
             <SelectedSupportCellOutline col={part.col} row={part.row} />
           )}
-          <BasePartVisual
-            col={part.col}
-            durability={part.durability}
-            footprint={footprint}
-            partId={part.partId}
-          />
+          <BasePartVisual durability={part.durability} partId={part.partId} />
         </group>
       );
     }) ?? [];

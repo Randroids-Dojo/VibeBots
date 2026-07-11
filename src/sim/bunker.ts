@@ -106,10 +106,17 @@ export const EMPTY_BASE_PART_INVENTORY: BasePartInventory = {
   "floor-spikes": 0,
 };
 
+/**
+ * Enough to fully enclose the player cell on day one: a sealed 3x3
+ * room around the core takes 3 floors, 3 roofs, 1 wall, and the door,
+ * which leaves spare walls for layering or a roomier shape. Every
+ * granted part blocks Clankers, so a sealed starter room genuinely
+ * survives a raid (see "the starter kit seals the player cell").
+ */
 export const STARTER_BASE_PART_INVENTORY: BasePartInventory = {
-  "wall-panel": 2,
-  "floor-panel": 3,
-  "roof-panel": 3,
+  "wall-panel": 6,
+  "floor-panel": 4,
+  "roof-panel": 4,
   "door-panel": 1,
   "basic-turret": 0,
   "floor-spikes": 0,

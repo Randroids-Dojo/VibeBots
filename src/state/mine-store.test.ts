@@ -195,7 +195,7 @@ describe("mine store upgrade flow", () => {
     expect(store().placePendingBunkerPart("wall-panel", START_COL - 3, 1)).toBe(
       true,
     );
-    expect(store().pendingBunker?.inventory["wall-panel"]).toBe(1);
+    expect(store().pendingBunker?.inventory["wall-panel"]).toBe(5);
     expect(
       store().movePendingBunkerPart(START_COL - 3, 1, START_COL - 2, 1),
     ).toBe(true);
@@ -205,7 +205,7 @@ describe("mine store upgrade flow", () => {
       row: 1,
     });
     expect(store().removePendingBunkerPart(START_COL - 2, 1)).toBe(true);
-    expect(store().pendingBunker?.inventory["wall-panel"]).toBe(2);
+    expect(store().pendingBunker?.inventory["wall-panel"]).toBe(6);
   });
 
   it("refuses a pending bunker when the live footprint is blocked", () => {

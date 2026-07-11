@@ -444,8 +444,8 @@ describe("bunker server helpers", () => {
 
     expect(view.inventory).toMatchObject({
       "wall-panel": 1,
-      "floor-panel": 3,
-      "roof-panel": 3,
+      "floor-panel": 4,
+      "roof-panel": 4,
       "door-panel": 1,
       "basic-turret": 0,
       "floor-spikes": 0,

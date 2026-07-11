@@ -276,6 +276,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Distant biome beacons become free portals back to base.",
   "Tip: Follow the XP arrow to the bright pickup, then collect when it says XP here.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
+  "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
   "Tip: One cloud save on two devices? Sync when prompted; runs never merge.",

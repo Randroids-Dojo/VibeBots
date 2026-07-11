@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-079" data-f="F-079" data-priority="nice-to-have">
+    <h3>F-079: "Buttoned Up" stamp for surviving a raid fully enclosed</h3>
+    <dl>
+      <dt>Context</dt><dd>The sealed-bunkers slice (0.1.210) made full enclosure the starter-kit promise: a sealed room around the player cell turns a raid away. That is a first-use mastery moment worth a Stamp Book entry per Rule 14, and the server resolves raids deterministically so it has trustworthy proof (a raid where no clanker could target the core, i.e. the sealed case, and <code>survived</code>). Deferred from the slice to keep it reviewable.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add a <code>raidsSurvivedSealed</code> counter to <code>AchievementStats</code>, set it in the bunker raid reward pass when the resolved raid had zero core-targeting clankers and survived, add the achievement (survival category), stamp art pictogram in <code>stamp-art.tsx</code> (uniqueness test covers it), and the alert fires through the existing <code>newStamps</code> plumbing. Start from new counters; old raids cannot prove enclosure safely.</dd>
+      <dt>PR / Dot reference</dt><dd>(raised by the sealed-bunkers slice)</dd>
+    </dl>
+  </section>
+
   <section id="F-078" data-f="F-078" data-priority="nice-to-have">
     <h3>F-078: Close the first-descent lazy shader compiles the warm-up misses</h3>
     <dl>

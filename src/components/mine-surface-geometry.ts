@@ -77,9 +77,14 @@ export interface SurfaceBuildingGeometry {
   doorway: SurfaceDoorwayClearance;
 }
 
-type LayerParts = Record<SurfaceMaterialRole, BufferGeometry[]>;
+export type LayerParts = Record<SurfaceMaterialRole, BufferGeometry[]>;
 
-interface BuildContext {
+/**
+ * Shared industrial-language builder kit. The bunker part geometry
+ * module builds with the same primitives and role layers so base parts
+ * read as the same settlement fabric as the surface buildings.
+ */
+export interface BuildContext {
   tier: SurfaceGeometryTier;
   parts: LayerParts;
   motionParts: LayerParts;
@@ -96,7 +101,7 @@ const midpoint = new Vector3();
 const direction = new Vector3();
 const beamQuaternion = new Quaternion();
 
-function blankParts(): LayerParts {
+export function blankParts(): LayerParts {
   return {
     shell: [],
     frame: [],
@@ -118,7 +123,7 @@ function transform(
   return geometry;
 }
 
-function box(
+export function box(
   ctx: BuildContext,
   role: SurfaceMaterialRole,
   size: readonly [number, number, number],
@@ -134,7 +139,7 @@ function box(
   );
 }
 
-function chamferedBox(
+export function chamferedBox(
   ctx: BuildContext,
   role: SurfaceMaterialRole,
   size: readonly [number, number, number],
@@ -157,7 +162,7 @@ function chamferedBox(
   );
 }
 
-function cylinder(
+export function cylinder(
   ctx: BuildContext,
   role: SurfaceMaterialRole,
   radiusTop: number,
@@ -195,7 +200,7 @@ function torus(
   );
 }
 
-function beam(
+export function beam(
   ctx: BuildContext,
   role: SurfaceMaterialRole,
   from: readonly [number, number, number],
@@ -231,7 +236,7 @@ function panelSeams(
   }
 }
 
-function boltRow(
+export function boltRow(
   ctx: BuildContext,
   width: number,
   y: number,
@@ -640,7 +645,7 @@ function triangleCount(geometry: BufferGeometry): number {
     : (geometry.getAttribute("position")?.count ?? 0) / 3;
 }
 
-function mergeLayer(
+export function mergeLayer(
   role: SurfaceMaterialRole,
   geometries: BufferGeometry[],
 ): SurfaceGeometryLayer | null {

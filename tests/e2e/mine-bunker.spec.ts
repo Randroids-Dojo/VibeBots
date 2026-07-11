@@ -38,9 +38,9 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
       ],
     },
     inventory: {
-      "wall-panel": 2,
-      "floor-panel": 3,
-      "roof-panel": 3,
+      "wall-panel": 6,
+      "floor-panel": 4,
+      "roof-panel": 4,
       "door-panel": 1,
       "basic-turret": 0,
       "floor-spikes": 0,
@@ -176,9 +176,9 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await expect(builder.getByLabel("Player level progress")).toContainText(
     "Beacon cap 3",
   );
-  await expect(builder).toContainText("Wall x2");
-  await expect(builder).toContainText("Floor x3");
-  await expect(builder).toContainText("Roof x3");
+  await expect(builder).toContainText("Wall x6");
+  await expect(builder).toContainText("Floor x4");
+  await expect(builder).toContainText("Roof x4");
   await builder.getByRole("button", { name: "Start Clanker raid" }).click();
   await expect(builder).toBeVisible();
   await expect(builder).toContainText("1 Clanker dead");

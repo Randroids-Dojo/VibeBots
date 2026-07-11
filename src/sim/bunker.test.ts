@@ -55,15 +55,58 @@ describe("bunker vertical slice sim", () => {
     expect(footprint.row + footprint.height - 1).toBe(8);
   });
 
-  it("starts new claims with enough parts for a 3x1 starter base", () => {
+  it("starts new claims with enough parts to fully enclose the player cell", () => {
     expect(STARTER_BASE_PART_INVENTORY).toMatchObject({
-      "wall-panel": 2,
-      "floor-panel": 3,
-      "roof-panel": 3,
+      "wall-panel": 6,
+      "floor-panel": 4,
+      "roof-panel": 4,
       "door-panel": 1,
       "basic-turret": 0,
       "floor-spikes": 0,
     });
+  });
+
+  it("the starter kit seals the player cell and survives an open-field raid", () => {
+    let base = createBunker(proposedBunkerFootprint(10, 8));
+    let inventory = STARTER_BASE_PART_INVENTORY;
+    const core = base.core;
+    // The sealed 3x3 starter room built from the granted kit alone:
+    // floors underneath, roofs overhead, a wall and the door beside.
+    const room = [
+      ["floor-panel", core.col - 1, core.row + 1],
+      ["floor-panel", core.col, core.row + 1],
+      ["floor-panel", core.col + 1, core.row + 1],
+      ["roof-panel", core.col - 1, core.row - 1],
+      ["roof-panel", core.col, core.row - 1],
+      ["roof-panel", core.col + 1, core.row - 1],
+      ["wall-panel", core.col - 1, core.row],
+      ["door-panel", core.col + 1, core.row],
+    ] as const;
+    for (const [partId, col, row] of room) {
+      const placed = placeBasePart(base, inventory, partId, col, row);
+      expect(placed.ok, `${partId} at ${col},${row}`).toBe(true);
+      if (!placed.ok) return;
+      base = placed.bunker;
+      inventory = placed.inventory;
+    }
+    expect(inventory["wall-panel"]).toBeGreaterThan(0);
+
+    const raid = resolveBunkerRaid(base, 1, "sealed-starter-raid", {
+      terrainAt: openTerrain,
+    });
+
+    // With the room sealed, no clanker can even target the player
+    // cell: they fall back to the claim perimeter and never reach in.
+    expect(
+      raid.clankers.some(
+        (clanker) =>
+          clanker.targetCol === core.col && clanker.targetRow === core.row,
+      ),
+    ).toBe(false);
+    expect(raid.coreDamage).toBe(0);
+    expect(raid.minerKilled).toBe(false);
+    expect(raid.survived).toBe(true);
+    expect(raid.reward.vibes).toBeGreaterThan(0);
   });
 
   it("places and removes consumable wall parts", () => {
@@ -78,7 +121,7 @@ describe("bunker vertical slice sim", () => {
 
     expect(placed.ok).toBe(true);
     if (!placed.ok) return;
-    expect(placed.inventory["wall-panel"]).toBe(1);
+    expect(placed.inventory["wall-panel"]).toBe(5);
     expect(placed.bunker.parts).toEqual([
       {
         partId: "wall-panel",
@@ -96,7 +139,7 @@ describe("bunker vertical slice sim", () => {
     );
     expect(removed.ok).toBe(true);
     if (!removed.ok) return;
-    expect(removed.inventory["wall-panel"]).toBe(2);
+    expect(removed.inventory["wall-panel"]).toBe(6);
     expect(removed.bunker.parts).toHaveLength(0);
   });
 
@@ -120,7 +163,7 @@ describe("bunker vertical slice sim", () => {
     );
     expect(moved.ok).toBe(true);
     if (!moved.ok) return;
-    expect(placed.inventory["wall-panel"]).toBe(1);
+    expect(placed.inventory["wall-panel"]).toBe(5);
     expect(moved.bunker.parts).toEqual([
       {
         partId: "wall-panel",

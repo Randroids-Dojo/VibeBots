@@ -24,17 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest stamp-alerts note complete", () => {
+  it("keeps the latest village-clearance note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-10-0.1.206-stamp-alerts");
+    expect(release.noticeId).toBe("2026-07-10-0.1.207-village-clearance");
     expect(latestNote).toMatchObject({
+      version: "0.1.207",
+      title: "The village keeps its hands off the miner",
+      intro: "No more walking through the new buildings.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The rebuilt settlement had pieces crossing the miner's walking line: the headframe's splayed derrick legs, the lit doormats at every entrance, the warp pad's raised rim, the service deck's glow strips, and the shaft lamp posts all sliced through the robot. Every solid now stays behind the walk line, the warp pad sits flush with the deck, and a geometry test keeps anything from reaching into the miner's space again, standing or jumping.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived stamp-alerts note complete", () => {
+    const release = getAppRelease();
+    const stampAlertsNote = release.notes.find(
+      (note) => note.version === "0.1.206",
+    );
+
+    expect(stampAlertsNote).toMatchObject({
       version: "0.1.206",
       title: "Every stamp gets its moment",
       intro: "Collecting a stamp now pops a little celebration.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(stampAlertsNote?.changes.map((change) => change.text)).toEqual([
       "All 38 stamps in the Stamp Book now carry their own hand-drawn postage-stamp art instead of a lettered code, with a color per category and a unique picture per stamp.",
       "The moment you earn a stamp, an alert slams onto the screen with the stamp's art and name, holds for a beat, and clears itself. Earn several at once and they take turns.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

@@ -3,6 +3,7 @@ import {
   celestialPositionFor,
   daylightGradeFor,
   fogRangeForStratum,
+  localClockHour,
   SURFACE_CYCLE_SECONDS,
   surfaceCycleHour,
   surfaceHourFor,
@@ -48,6 +49,13 @@ describe("surface shift cycle", () => {
     expect(surfaceCycleHour(cycleMs * 0.75)).toBe(18);
     expect(surfaceCycleHour(cycleMs)).toBe(0);
     expect(surfaceCycleHour(-cycleMs / 4)).toBe(18);
+  });
+
+  it("derives a fractional hour from the local clock", () => {
+    expect(localClockHour(new Date(2024, 0, 1, 13, 30, 36))).toBeCloseTo(
+      13.51,
+      2,
+    );
   });
 
   it("freezes QA overrides and reduced motion instead of accelerating", () => {

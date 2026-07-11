@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { imagePixelDifferenceRatio } from "./support/image-pixels";
 import {
   applyAction,
   awaitMineSceneReady,
@@ -51,7 +52,9 @@ test("surface day and night grades change production pixels without new draws", 
   const nightDraws = Number(await canvas.getAttribute("data-draw-calls"));
   const night = await canvas.screenshot();
 
-  expect(Buffer.compare(day, night)).not.toBe(0);
+  expect(await imagePixelDifferenceRatio(page, day, night)).toBeGreaterThan(
+    0.08,
+  );
   expect(dayDraws).toBeLessThanOrEqual(110);
   expect(nightDraws).toBe(dayDraws);
 });

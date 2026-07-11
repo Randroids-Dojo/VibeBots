@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-11-0.1.210-sealed-bunkers",
+      releaseNoticeId: "2026-07-11-0.1.211-lantern-visibility",
       releaseSummary:
-        "A bunker that seals like it means it: Base parts lock together, and the starter kit builds a full shelter.",
+        "The lantern owns the dark: Unknown mine cells now close around the miner in a true circle.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-11-0.1.210-sealed-bunkers",
+      releaseNoticeId: "2026-07-11-0.1.211-lantern-visibility",
       attempted: 2,
       sent: 1,
       expired: 1,

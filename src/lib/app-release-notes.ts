@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-11-0.1.210-sealed-bunkers";
+export const RELEASE_NOTICE_ID = "2026-07-11-0.1.211-lantern-visibility";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.211",
+      date: "2026-07-11",
+      title: "The lantern owns the dark",
+      intro: "Unknown mine cells now close around the miner in a true circle.",
+      changes: [
+        {
+          build,
+          text: "Fog of war is now a player-centered circular mask at every depth and every lantern-unlocked zoom. The mine renders enough real cells to cover the camera before masking the unknown edge, so the bottom of the phone view reads as darkness instead of missing blocks. Stronger Lantern upgrades expand both the clear circle and the available overview.",
+        },
+        {
+          build,
+          text: "Sunlight clears the surface mask through the workday and the headlamp fades out at full daylight. Dusk brings its radius back smoothly, night gives it the same radiant role it has below ground, and underground visibility remains identical at every surface hour.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.210",
       date: "2026-07-11",

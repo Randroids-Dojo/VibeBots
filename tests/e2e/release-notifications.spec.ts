@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Base parts lock together, and the starter kit builds a full shelter.",
+    "Unknown mine cells now close around the miner in a true circle.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "stacked walls read as one continuous bulkhead",
+    "player-centered circular mask",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "fully enclose the player cell",
+    "underground visibility remains identical",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.211", "The lantern owns the dark"],
     ["0.1.210", "A bunker that seals like it means it"],
     ["0.1.209", "The surface keeps time"],
     ["0.1.208", "The stratum hiccup, caught red-handed"],

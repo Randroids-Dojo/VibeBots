@@ -13,6 +13,30 @@
 
 <main id="entries">
 
+  <article data-version="0.1.211" data-date="2026-07-11">
+    <h2>0.1.211</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.211</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>The lantern now defines one honest circle of visibility.</dd>
+      <dt>Visibility</dt><dd>Real generated cells cover the complete camera footprint before a stronger circular mask hides the unknown edge, so portrait views no longer end in a strip that looks like missing blocks. Lantern upgrades continue to expand both clear range and available zoom.</dd>
+      <dt>Day and night</dt><dd>Full daylight removes the lantern's surface influence. Its radiant mask and headlamp return through dusk and night, while every underground row keeps the same lantern visibility at every hour.</dd>
+      <dt>Performance</dt><dd>The mask remains in the existing instanced opacity buckets, surface darkness uses one shared material, and the existing single miner light changes intensity instead of adding lights. Day and night keep identical draw counts within the 110-call surface budget.</dd>
+    </dl>
+  </article>
+
+  <article data-version="0.1.210" data-date="2026-07-11">
+    <h2>0.1.210</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.210</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Base parts lock together, and the starter kit builds a full shelter.</dd>
+      <dt>Base art</dt><dd>Every base part was rebuilt as riveted gunmetal steel with continuous bulkhead seams, walkway grates, vented ceiling caps, warm work lamps, and a pressure hatch. Sealing parts now fill their cells so adjacent walls, floors, and roofs read as one structure.</dd>
+      <dt>Starter shelter</dt><dd>New bunker claims grant six walls, four floors, four roofs, and a door, enough to enclose the player cell in a small sealed room with spares. A sealed starter room turns a raid away, pinned by simulation coverage.</dd>
+      <dt>Verification</dt><dd>Geometry cache, seam, bounds, triangle, and motion-layer contracts plus the sealed-room raid test, full unit suite, quality gate, production build, and portrait visual review.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.209" data-date="2026-07-10">
     <h2>0.1.209</h2>
     <dl>

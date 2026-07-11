@@ -639,10 +639,17 @@ const builders: Record<
   battles: buildBattles,
 };
 
-function triangleCount(geometry: BufferGeometry): number {
+export function triangleCount(geometry: BufferGeometry): number {
   return geometry.index
     ? geometry.index.count / 3
     : (geometry.getAttribute("position")?.count ?? 0) / 3;
+}
+
+/** Merges each role's collected geometries into one layer per role. */
+export function mergeLayers(parts: LayerParts): SurfaceGeometryLayer[] {
+  return (Object.keys(parts) as SurfaceMaterialRole[])
+    .map((role) => mergeLayer(role, parts[role]))
+    .filter((layer): layer is SurfaceGeometryLayer => layer !== null);
 }
 
 export function mergeLayer(
@@ -690,12 +697,8 @@ export function surfaceBuildingGeometry(
     motionParts: blankParts(),
   };
   const doorway = builders[id](ctx);
-  const layers = (Object.keys(ctx.parts) as SurfaceMaterialRole[])
-    .map((role) => mergeLayer(role, ctx.parts[role]))
-    .filter((layer): layer is SurfaceGeometryLayer => layer !== null);
-  const motionLayers = (Object.keys(ctx.motionParts) as SurfaceMaterialRole[])
-    .map((role) => mergeLayer(role, ctx.motionParts[role]))
-    .filter((layer): layer is SurfaceGeometryLayer => layer !== null);
+  const layers = mergeLayers(ctx.parts);
+  const motionLayers = mergeLayers(ctx.motionParts);
   const bounds = new Box3();
   for (const layer of [...layers, ...motionLayers]) {
     const layerBounds = layer.geometry.boundingBox;
@@ -737,9 +740,7 @@ export function surfaceVillageInfrastructureGeometry(): readonly SurfaceGeometry
   for (const x of [-7, -5, -3, 0, 2, 4, 6, 8]) {
     box(ctx, "emissive", [0.18, 0.045, 0.18], [x, 1.04, 0.82]);
   }
-  infrastructureCache = (Object.keys(ctx.parts) as SurfaceMaterialRole[])
-    .map((role) => mergeLayer(role, ctx.parts[role]))
-    .filter((layer): layer is SurfaceGeometryLayer => layer !== null);
+  infrastructureCache = mergeLayers(ctx.parts);
   return infrastructureCache;
 }
 
@@ -867,9 +868,7 @@ export function surfaceVillageGeometry(
     parts.emissive.push(lamp);
   }
 
-  const layers = (Object.keys(parts) as SurfaceMaterialRole[])
-    .map((role) => mergeLayer(role, parts[role]))
-    .filter((layer): layer is SurfaceGeometryLayer => layer !== null);
+  const layers = mergeLayers(parts);
   villageCache.set(tier, layers);
   return layers;
 }

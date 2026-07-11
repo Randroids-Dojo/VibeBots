@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.211" data-date="2026-07-11">
+    <h2>0.1.211</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.211</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>The lantern now defines one honest circle of visibility.</dd>
+      <dt>Visibility</dt><dd>Real generated cells cover the complete camera footprint before a stronger circular mask hides the unknown edge, so portrait views no longer end in a strip that looks like missing blocks. Lantern upgrades continue to expand both clear range and available zoom.</dd>
+      <dt>Day and night</dt><dd>Full daylight removes the lantern's surface influence. Its radiant mask and headlamp return through dusk and night, while every underground row keeps the same lantern visibility at every hour.</dd>
+      <dt>Performance</dt><dd>The mask remains in the existing instanced opacity buckets, surface darkness uses one shared material, and the existing single miner light changes intensity instead of adding lights. Day and night keep identical draw counts within the 110-call surface budget.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.209" data-date="2026-07-10">
     <h2>0.1.209</h2>
     <dl>

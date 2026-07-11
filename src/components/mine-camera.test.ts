@@ -9,6 +9,7 @@ import {
   mineDarknessOpacity,
   mineLampDistanceForRadius,
   mineRenderWindow,
+  mineVisibilityOpacity,
 } from "./mine-camera";
 
 const MINE_CAMERA_FOV_DEGREES = 42;
@@ -51,7 +52,7 @@ describe("mine camera zoom", () => {
   });
 
   it("renders real mine cells through the lantern falloff band", () => {
-    expect(mineRenderWindow({ ...DEFAULT_GEAR, lantern: 1 }, 1).below).toBe(5);
+    expect(mineRenderWindow({ ...DEFAULT_GEAR, lantern: 1 }, 1).below).toBe(6);
     expect(mineRenderWindow({ ...DEFAULT_GEAR, lantern: 2 }, 1.1).below).toBe(
       7,
     );
@@ -87,10 +88,18 @@ describe("mine camera zoom", () => {
     // Cells past the lantern fade to the dark cap, and the falloff no
     // longer waits for the zoom-out cap: the same edge cell is obscured
     // whether the player is zoomed in or out.
-    expect(mineDarknessOpacity(1)).toBeCloseTo(0.445);
-    expect(mineDarknessOpacity(2)).toBeCloseTo(0.57);
+    expect(mineDarknessOpacity(1)).toBeCloseTo(0.6);
+    expect(mineDarknessOpacity(2)).toBeCloseTo(0.88);
     // The ramp is monotonic and saturates at the far cap.
     expect(mineDarknessOpacity(0.5)).toBeGreaterThan(mineDarknessOpacity(0));
-    expect(mineDarknessOpacity(4)).toBeCloseTo(0.57);
+    expect(mineDarknessOpacity(4)).toBeCloseTo(0.88);
+  });
+
+  it("lets daylight lift only the surface visibility mask", () => {
+    expect(mineVisibilityOpacity(2, 0, 0)).toBe(0);
+    expect(mineVisibilityOpacity(2, 0, 0.5)).toBeCloseTo(0.44);
+    expect(mineVisibilityOpacity(2, 0, 1)).toBeCloseTo(0.88);
+    expect(mineVisibilityOpacity(2, 1, 0)).toBeCloseTo(0.88);
+    expect(mineVisibilityOpacity(2, 8, 1)).toBeCloseTo(0.88);
   });
 });

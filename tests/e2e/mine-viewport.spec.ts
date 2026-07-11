@@ -439,7 +439,7 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
   await expect
     .poll(async () => (await readDarkness()).max, { timeout: 5_000 })
     .toBeGreaterThan(0);
-  expect((await readDarkness()).max).toBeLessThanOrEqual(0.57);
+  expect((await readDarkness()).max).toBeLessThanOrEqual(0.88);
 
   await page.mouse.move(500, 380);
   await page.mouse.wheel(0, -600);
@@ -452,7 +452,7 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
   // the view.
   const zoomedInDark = await readDarkness();
   expect(zoomedInDark.max).toBeGreaterThan(0);
-  expect(zoomedInDark.max).toBeLessThanOrEqual(0.57);
+  expect(zoomedInDark.max).toBeLessThanOrEqual(0.88);
 
   for (let i = 0; i < 8; i++) {
     await page.mouse.wheel(0, 600);
@@ -463,21 +463,21 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
     })
     .toBeGreaterThan(startZoom);
   await expect(canvas).toHaveAttribute("data-lit-below", "3");
-  await expect(canvas).toHaveAttribute("data-render-below", "5");
-  await expect(canvas).toHaveAttribute("data-render-radius", "5");
+  await expect(canvas).toHaveAttribute("data-render-below", "8");
+  await expect(canvas).toHaveAttribute("data-render-radius", "8");
   await expect(canvas).toHaveAttribute(
     "data-render-min-col",
-    String(START_COL - 5),
+    String(START_COL - 8),
   );
   await expect(canvas).toHaveAttribute(
     "data-render-max-col",
-    String(START_COL + 5),
+    String(START_COL + 8),
   );
   const zoomedOutDark = await readDarkness();
   expect(zoomedOutDark.min).toBeGreaterThan(0);
   expect(zoomedOutDark.max).toBeGreaterThan(zoomedOutDark.min);
-  expect(zoomedOutDark.max).toBeLessThanOrEqual(0.57);
-  expect(zoomedOutDark.max).toBeGreaterThanOrEqual(0.5);
+  expect(zoomedOutDark.max).toBeLessThanOrEqual(0.88);
+  expect(zoomedOutDark.max).toBeGreaterThanOrEqual(0.8);
 });
 
 test("mine HUD zoom buttons adjust the lantern-capped camera", async ({

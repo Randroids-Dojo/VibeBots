@@ -36,9 +36,9 @@ import {
   DARKNESS_CAP_FAR_OPACITY,
   DARKNESS_CAP_NEAR_OPACITY,
   mineCameraDistance,
-  mineDarknessOpacity,
   mineLampDistanceForRadius,
   mineRenderWindow,
+  mineVisibilityOpacity,
 } from "@/components/mine-camera";
 import { createWebGPU } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
@@ -208,12 +208,6 @@ const CAMERA_STEP_SECONDS = 0.28;
  */
 const DESKTOP_LIGHT_TRIM = 0.82;
 const DESKTOP_ENV_TRIM = 0.7;
-/**
- * Rows of descent over which the lantern fog of war fades in (F-065). The
- * daylit surface village stays clear; a few rows down the lantern is the
- * only light and cells past its reach fall into fog.
- */
-const MINE_FOG_FADE_ROWS = 4;
 /** How long the ordinary-fall pose window stays open after a drop (F-057).
  * Covers the glide down plus the ease-out back to the grounded stance. */
 const FALL_ANIM_SECONDS = 0.45;
@@ -342,6 +336,12 @@ const TUNNEL_FLOOR_MATERIALS: Record<
   highTech: tunnelFloorMaterial(tunnelColorForBiome("highTech")),
 };
 const darknessMaterials = new Map<number, MeshBasicMaterial>();
+const surfaceDarknessMaterial = new MeshBasicMaterial({
+  color: EDGE_DARKNESS_COLOR,
+  transparent: true,
+  opacity: 0,
+  depthWrite: false,
+});
 function darknessMaterial(opacity: number): MeshBasicMaterial {
   const bucket = Math.round(opacity * 50) / 50;
   return getOrCreate(
@@ -355,6 +355,11 @@ function darknessMaterial(opacity: number): MeshBasicMaterial {
         depthWrite: false,
       }),
   );
+}
+
+function applySurfaceDarkness(strength: number): void {
+  surfaceDarknessMaterial.opacity =
+    DARKNESS_CAP_FAR_OPACITY * Math.max(0, Math.min(1, strength));
 }
 
 // Tiny offscreen warm-up mesh geometry, shared across every warm mesh so
@@ -1086,9 +1091,6 @@ function MineScene({
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
   const litBelow = lightRadius(mine.gear);
   const lampDistance = mineLampDistanceForRadius(litBelow);
-  // Fog of war belongs to the lantern-lit underground; the surface is
-  // daylit, so fade the falloff in over the first rows of descent (F-065).
-  const fogDepthScale = Math.min(1, minerRow / MINE_FOG_FADE_ROWS);
   const renderRadius = renderWindow.below;
   const renderColRadius = Math.min(renderWindow.cols, renderRadius);
   const firstCol = displayCol - renderColRadius;
@@ -1500,6 +1502,7 @@ function MineScene({
       );
       timeOfDay.current.hour = hour;
       timeOfDay.current.grade = daylightGradeFor(hour);
+      applySurfaceDarkness(timeOfDay.current.grade.starOpacity);
       const celestial = celestialPositionFor(hour);
       dirRef.current?.position.set(celestial[0], celestial[1], celestial[2]);
       timeOfDay.current.nextCheck = t + SURFACE_LIGHTING_STEP_SECONDS;
@@ -1564,6 +1567,7 @@ function MineScene({
     if (lamp) {
       let intensity =
         (1.0 + 3.8 * depthT) * (1 + (litBelow - 3) * 0.1) * lightTrim;
+      if (minerRow === 0) intensity *= grade.starOpacity;
       // The lamp gutters when the trip is nearly out of energy.
       const energy = mine.miner.energy;
       if (minerRow > 0 && energy < 10)
@@ -2015,8 +2019,7 @@ function MineScene({
         ? distanceFromMiner
         : Math.sqrt(rdx * rdx + rdy * rdy);
       const beyondLight = Math.max(0, radialDistance - litBelow);
-      const darknessOpacity =
-        beyondLight > 0 ? mineDarknessOpacity(beyondLight) * fogDepthScale : 0;
+      const darknessOpacity = mineVisibilityOpacity(beyondLight, row, 1);
       // Lamp-edge darkness veil: instanced (one bucket per quantized
       // opacity), so moving the light edge never remounts quads. The grid
       // draws transparent buckets after the default transparent pass, so
@@ -2027,7 +2030,9 @@ function MineScene({
         pushBlockInstance(
           plan,
           DARKNESS_GEOMETRY,
-          darknessMaterial(darknessOpacity),
+          row === 0
+            ? surfaceDarknessMaterial
+            : darknessMaterial(darknessOpacity),
           x,
           y,
           0,

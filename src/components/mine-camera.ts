@@ -13,7 +13,7 @@ const MAX_LANTERN_RADIUS =
 const BASE_FALLOFF_ZOOM = 0.32;
 const MAX_ZOOM_STEP_PER_LANTERN_ROW = 0.16;
 export const DARKNESS_CAP_NEAR_OPACITY = 0.32;
-export const DARKNESS_CAP_FAR_OPACITY = 0.57;
+export const DARKNESS_CAP_FAR_OPACITY = 0.88;
 
 function mineCameraZoomForRadius(radius: number): number {
   return (
@@ -68,6 +68,17 @@ export function mineDarknessOpacity(beyondLight: number): number {
   );
 }
 
+/** Sunlight lifts only the surface-row mask. Underground stays lantern-lit. */
+export function mineVisibilityOpacity(
+  beyondLight: number,
+  row: number,
+  surfaceDarkness: number,
+): number {
+  const opacity = mineDarknessOpacity(beyondLight);
+  if (row > 0) return opacity;
+  return opacity * Math.max(0, Math.min(1, surfaceDarkness));
+}
+
 export function mineRenderWindow(
   gear: MineGear,
   zoom: number,
@@ -79,7 +90,10 @@ export function mineRenderWindow(
   const clamped = clampMineCameraZoom(zoom, gear);
   return {
     above: Math.ceil(8 * Math.max(1, clamped)),
-    below: lightRadius(gear) + MINE_CAMERA_FALLOFF_ROWS,
+    below: Math.max(
+      lightRadius(gear) + MINE_CAMERA_FALLOFF_ROWS,
+      Math.ceil(6 * Math.max(1, clamped)),
+    ),
     cols: Math.ceil(9 * Math.max(1, clamped)) + 1,
   };
 }

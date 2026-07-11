@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-11-0.1.211-lantern-visibility",
+      releaseNoticeId: "2026-07-11-0.1.212-artistic-lantern-veil",
       releaseSummary:
-        "The lantern owns the dark: Unknown mine cells now close around the miner in a true circle.",
+        "Light without the graph paper: The lantern now fades through one seamless pool of darkness.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-11-0.1.211-lantern-visibility",
+      releaseNoticeId: "2026-07-11-0.1.212-artistic-lantern-veil",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -24,19 +24,19 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest lantern-visibility note complete", () => {
+  it("keeps the latest artistic-lantern note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-11-0.1.211-lantern-visibility");
+    expect(release.noticeId).toBe("2026-07-11-0.1.212-artistic-lantern-veil");
     expect(latestNote).toMatchObject({
-      version: "0.1.211",
-      title: "The lantern owns the dark",
-      intro: "Unknown mine cells now close around the miner in a true circle.",
+      version: "0.1.212",
+      title: "Light without the graph paper",
+      intro: "The lantern now fades through one seamless pool of darkness.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Fog of war is now a player-centered circular mask at every depth and every lantern-unlocked zoom. The mine renders enough real cells to cover the camera before masking the unknown edge, so the bottom of the phone view reads as darkness instead of missing blocks. Stronger Lantern upgrades expand both the clear circle and the available overview.",
-      "Sunlight clears the surface mask through the workday and the headlamp fades out at full daylight. Dusk brings its radius back smoothly, night gives it the same radiant role it has below ground, and underground visibility remains identical at every surface hour.",
+      "The cell-by-cell fog cards are gone. One continuous world-space veil now follows the miner with a clear inner pool, a broad feathered penumbra, and a near-black unknown edge, so shallow mine rows no longer show bright seams, stacked rectangles, or the construction grid.",
+      "The existing warm headlamp supplies the radiant inner glow. Full daylight still clears the surface effect, night restores it, and underground range remains tied exactly to the Lantern upgrade and its available zoom. The new veil uses one draw and adds no lights.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

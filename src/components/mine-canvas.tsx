@@ -2030,6 +2030,9 @@ function MineScene({
         pushBlockInstance(
           plan,
           DARKNESS_GEOMETRY,
+          // One shared surface veil keeps night masking to one draw. The
+          // existing point light supplies its radial glow; underground keeps
+          // the graduated opacity buckets where cell depth needs the falloff.
           row === 0
             ? surfaceDarknessMaterial
             : darknessMaterial(darknessOpacity),

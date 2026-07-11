@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-11-0.1.211-lantern-visibility";
+export const RELEASE_NOTICE_ID = "2026-07-11-0.1.212-artistic-lantern-veil";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.212",
+      date: "2026-07-11",
+      title: "Light without the graph paper",
+      intro: "The lantern now fades through one seamless pool of darkness.",
+      changes: [
+        {
+          build,
+          text: "The cell-by-cell fog cards are gone. One continuous world-space veil now follows the miner with a clear inner pool, a broad feathered penumbra, and a near-black unknown edge, so shallow mine rows no longer show bright seams, stacked rectangles, or the construction grid.",
+        },
+        {
+          build,
+          text: "The existing warm headlamp supplies the radiant inner glow. Full daylight still clears the surface effect, night restores it, and underground range remains tied exactly to the Lantern upgrade and its available zoom. The new veil uses one draw and adds no lights.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.211",
       date: "2026-07-11",

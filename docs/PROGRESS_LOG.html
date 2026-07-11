@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="artistic-lantern-veil" data-date="2026-07-11">
+    <h3>Replace the fog grid with a seamless lantern veil</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/artistic-lantern-veil</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>User screenshots of package 0.1.211 showed that the visibility rule was correct but the presentation was not: overlapping 1.08-cell darkness planes exposed pale borders around shallow cells and stacked their opacity into rectangular depth bands. Package 0.1.212 removes that geometry and every darkness material bucket. New <code>mine-visibility-material.ts</code> supplies one cached <code>MeshBasicNodeMaterial</code> on a camera-covering foreground plane. World-space distance from an in-place player-center uniform produces a clear core, a 1.85-cell feathered penumbra, and a 0.94 near-black edge. A world-y mask blends the authored star opacity only above the ground line while holding underground strength at one, so daylight, night, Lantern range, and Lantern-capped zoom keep their shipped rules. The existing fixed point light becomes the warm radiant core. The veil follows interpolated miner motion and updates four primitive uniform values in place with no frame allocation. Per-cell opacity math remains only as a cached QA diagnostic; it renders no geometry.</dd>
+      <dt>Verification</dt><dd>Dash, diff, purity, Biome, typecheck, all 1,058 unit tests, production build, and five critical browser smokes pass. Day and night still change visible pixels with identical draw counts under the 110 surface cap. The ladder-shaft smoke confirms the continuous-radial QA contract at default, zoomed-in, and Lantern-capped zoom. A 390x760 forced-midnight depth-2 capture was reviewed: the block-grid light borders and rectangular opacity bands are gone, the miner and carved shaft remain readable in the warm center, and the edge falls continuously to near-black. Frame-loop A/B on identical local builds found a lower feature peak heap (61.7 MB vs 71.2 MB over 30 seconds); sampling-profile totals stayed in family (1.7 MB vs 1.6 MB over 20 seconds) with no new feature call site among the top allocators. Short-run allocation rates varied with GC timing, so the direct profile and unchanged in-place uniform identities are the stronger evidence.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: a broad physically suggestive penumbra is preferable to showing the exact cell boundary of the Lantern rule. The clear radius still matches the upgrade; only the transition outside it is softened. Rule 13: mine tips reviewed with no copy change because the Lantern progression rule is unchanged. Rule 14: stamp review completed with none added because this is visual correction.</dd>
+      <dt>GDD coverage</dt><dd>The mining light and camera requirements remain done. <code>docs/gdd/06-mining.html</code> gained a build-log entry; no coverage status changed.</dd>
+      <dt>Followups</dt><dd>Completes <code>VibeBots-polish-the-player-cac7c98e</code>. No new followup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="player-centered-visibility" data-date="2026-07-11">
     <h3>Make the lantern circle honest above and below ground</h3>
     <dl>

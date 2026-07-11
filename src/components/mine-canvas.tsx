@@ -26,15 +26,11 @@ import {
   InstancedMesh,
   Matrix4,
   Mesh,
-  MeshBasicMaterial,
   MeshStandardMaterial,
-  PlaneGeometry,
 } from "three/webgpu";
 import { CanvasDrawCallProbe } from "@/components/canvas-draw-call-probe";
 import {
   clampMineCameraZoom,
-  DARKNESS_CAP_FAR_OPACITY,
-  DARKNESS_CAP_NEAR_OPACITY,
   mineCameraDistance,
   mineLampDistanceForRadius,
   mineRenderWindow,
@@ -76,7 +72,6 @@ import {
 } from "./graphics-quality";
 import {
   blockDetailEnabled,
-  getOrCreate,
   tunnelFloorMaterial,
 } from "./mine-block-materials";
 import {
@@ -172,6 +167,10 @@ import {
   usePrefersReducedMotion,
 } from "./mine-surface-render";
 import {
+  MINE_VISIBILITY_VEIL,
+  updateMineVisibilityVeil,
+} from "./mine-visibility-material";
+import {
   advanceCrushTumble,
   type CrushTumbleState,
   createCrushTumble,
@@ -214,8 +213,6 @@ const FALL_ANIM_SECONDS = 0.45;
 /** Instance pool sizes per particle kind; spawners cap the live pool at
  * 260 total, so these bound the per-kind bursts. */
 const PARTICLE_CAPACITY = { spark: 96, debris: 192, dust: 96 } as const;
-const EDGE_DARKNESS_COLOR = "#02040a";
-
 /* ---- Village building kit (REQ-021): one distinct model per stall.
  * Shared frame: every group sits at z -0.85 so the boardwalk and the
  * miner's walk row (z 0) stay clearly in front of every facade; the
@@ -326,7 +323,6 @@ const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12).translate(
   0,
   -0.42,
 );
-const DARKNESS_GEOMETRY = new PlaneGeometry(1.08, 1.08).translate(0, 0, 0.72);
 const TUNNEL_FLOOR_MATERIALS: Record<
   MineBiomeId,
   ReturnType<typeof tunnelFloorMaterial>
@@ -335,32 +331,6 @@ const TUNNEL_FLOOR_MATERIALS: Record<
   winter: tunnelFloorMaterial(tunnelColorForBiome("winter")),
   highTech: tunnelFloorMaterial(tunnelColorForBiome("highTech")),
 };
-const darknessMaterials = new Map<number, MeshBasicMaterial>();
-const surfaceDarknessMaterial = new MeshBasicMaterial({
-  color: EDGE_DARKNESS_COLOR,
-  transparent: true,
-  opacity: 0,
-  depthWrite: false,
-});
-function darknessMaterial(opacity: number): MeshBasicMaterial {
-  const bucket = Math.round(opacity * 50) / 50;
-  return getOrCreate(
-    darknessMaterials,
-    bucket,
-    () =>
-      new MeshBasicMaterial({
-        color: EDGE_DARKNESS_COLOR,
-        transparent: true,
-        opacity: bucket,
-        depthWrite: false,
-      }),
-  );
-}
-
-function applySurfaceDarkness(strength: number): void {
-  surfaceDarknessMaterial.opacity =
-    DARKNESS_CAP_FAR_OPACITY * Math.max(0, Math.min(1, strength));
-}
 
 // Tiny offscreen warm-up mesh geometry, shared across every warm mesh so
 // the renderer compiles each material's program once at load, not on first
@@ -399,14 +369,7 @@ function warmMineMaterials(
   ]) {
     for (const material of materials) addWarm(material);
   }
-  // Darkness buckets across the lamp-falloff opacity ramp, in the same 0.02
-  // steps the darkness cache buckets by, derived from the camera caps. The
-  // veils draw through the instanced grid, so warm the instanced program.
-  const nearBucket = Math.round(DARKNESS_CAP_NEAR_OPACITY * 50);
-  const farBucket = Math.round(DARKNESS_CAP_FAR_OPACITY * 50);
-  for (let bucket = nearBucket; bucket <= farBucket; bucket++) {
-    addWarmInstanced(darknessMaterial(bucket / 50));
-  }
+  addWarm(MINE_VISIBILITY_VEIL);
   scene.add(group);
   let disposed = false;
   const dispose = () => {
@@ -982,6 +945,7 @@ function MineScene({
   const cameraMotion = useRef<MotionTrack | null>(null);
   const minerMotion = useRef<MotionTrack | null>(null);
   const lampRef = useRef<PointLight>(null);
+  const visibilityVeilRef = useRef<Mesh>(null);
   const ambientRef = useRef<AmbientLight>(null);
   const hemiRef = useRef<HemisphereLight>(null);
   const dirRef = useRef<DirectionalLight>(null);
@@ -1474,6 +1438,7 @@ function MineScene({
         hasDarknessOverlay ? maxDarknessOpacity : 0,
         2,
       );
+      setDatasetText(cache, dataset, "visibilityMask", "continuous-radial");
       setDatasetNumber(
         cache,
         dataset,
@@ -1502,12 +1467,21 @@ function MineScene({
       );
       timeOfDay.current.hour = hour;
       timeOfDay.current.grade = daylightGradeFor(hour);
-      applySurfaceDarkness(timeOfDay.current.grade.starOpacity);
       const celestial = celestialPositionFor(hour);
       dirRef.current?.position.set(celestial[0], celestial[1], celestial[2]);
       timeOfDay.current.nextCheck = t + SURFACE_LIGHTING_STEP_SECONDS;
     }
     const grade = timeOfDay.current.grade;
+    const veil = visibilityVeilRef.current;
+    if (veil) {
+      veil.position.set(visualTargetX, visualTargetY, 4.5);
+      updateMineVisibilityVeil(
+        visualTargetX,
+        visualTargetY,
+        litBelow,
+        grade.starOpacity,
+      );
+    }
     const day = (1 - depthT) ** 1.7;
     // The IBL + bloom high tier is the washed-out one (F-064); trim its
     // fill and environment, leave the mobile/WebGL2 path at full strength.
@@ -2020,28 +1994,11 @@ function MineScene({
         : Math.sqrt(rdx * rdx + rdy * rdy);
       const beyondLight = Math.max(0, radialDistance - litBelow);
       const darknessOpacity = mineVisibilityOpacity(beyondLight, row, 1);
-      // Lamp-edge darkness veil: instanced (one bucket per quantized
-      // opacity), so moving the light edge never remounts quads. The grid
-      // draws transparent buckets after the default transparent pass, so
-      // the veil occludes its cell's contents.
+      // Diagnostics retain the exact cell opacity range while one continuous
+      // shader veil handles the pixels without exposing cell borders.
       if (darknessOpacity > 0) {
         minDarknessOpacity = Math.min(minDarknessOpacity, darknessOpacity);
         maxDarknessOpacity = Math.max(maxDarknessOpacity, darknessOpacity);
-        pushBlockInstance(
-          plan,
-          DARKNESS_GEOMETRY,
-          // One shared surface veil keeps night masking to one draw. The
-          // existing point light supplies its radial glow; underground keeps
-          // the graduated opacity buckets where cell depth needs the falloff.
-          row === 0
-            ? surfaceDarknessMaterial
-            : darknessMaterial(darknessOpacity),
-          x,
-          y,
-          0,
-          0,
-          0,
-        );
       }
       const oreDamage =
         cell.kind === "ore" && cell.ore && cell.oreRemaining !== undefined
@@ -2271,6 +2228,16 @@ function MineScene({
       </instancedMesh>
       <SurfaceSkin firstCol={firstCol} lastCol={lastCol} mine={mine} />
       <SurfaceDressing />
+      <mesh
+        ref={visibilityVeilRef}
+        position={[displayCol, -minerRow, 4.5]}
+        renderOrder={100}
+        frustumCulled={false}
+        material={MINE_VISIBILITY_VEIL}
+        dispose={null}
+      >
+        <planeGeometry args={[90, 70]} />
+      </mesh>
       {/* The miner bot. No position prop: useFrame owns the transform. */}
       <group ref={minerRef}>
         <MinerBot

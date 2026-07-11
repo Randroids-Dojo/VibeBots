@@ -439,6 +439,10 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
   await expect
     .poll(async () => (await readDarkness()).max, { timeout: 5_000 })
     .toBeGreaterThan(0);
+  await expect(canvas).toHaveAttribute(
+    "data-visibility-mask",
+    "continuous-radial",
+  );
   expect((await readDarkness()).max).toBeLessThanOrEqual(0.88);
 
   await page.mouse.move(500, 380);

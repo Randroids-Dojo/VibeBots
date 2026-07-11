@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.212" data-date="2026-07-11">
+    <h2>0.1.212</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.212</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>The lantern now fades through one seamless pool of darkness.</dd>
+      <dt>Art correction</dt><dd>The cell-sized fog cards that exposed bright seams, stacked rectangles, and the underlying block grid are replaced by one continuous player-centered veil. A clear inner pool rolls through a broad penumbra into a near-black unknown edge, with the existing warm headlamp supplying the radiant core.</dd>
+      <dt>Daylight and progression</dt><dd>Full daylight still removes the surface influence, dusk and night restore it, and underground visibility remains hour-invariant. Lantern upgrades continue to define both the radius and available camera zoom.</dd>
+      <dt>Performance</dt><dd>The veil is one cached node material and one draw with in-place uniforms. It replaces the old opacity-bucket draws, adds no lights, allocates nothing per frame, and works on the WebGL2 fallback.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.211" data-date="2026-07-11">
     <h2>0.1.211</h2>
     <dl>

@@ -104,6 +104,7 @@ import {
   teeterUrgency,
 } from "./mine-block-render";
 import { type BunkerBuildMode, BunkerOverlay } from "./mine-bunker-overlay";
+import { collectBunkerPartMaterials } from "./mine-bunker-part-geometry";
 import {
   CRUSH_HOLD_SECONDS,
   FATAL_FALL_HOLD_SECONDS,
@@ -384,6 +385,7 @@ function warmMineMaterials(
   }
   for (const material of collectBlockNodeMaterials(detail)) addWarm(material);
   for (const material of collectShardMaterials()) addWarm(material);
+  for (const material of collectBunkerPartMaterials(detail)) addWarm(material);
   for (const materials of [
     LADDER_RAIL_MATERIALS,
     LADDER_RUNG_MATERIALS,

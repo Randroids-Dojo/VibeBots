@@ -1,17 +1,23 @@
+import type { MeshStandardNodeMaterial } from "three/webgpu";
 import { Box3, Vector3 } from "three/webgpu";
 import { BASE_PART_IDS, type BasePartId } from "@/sim/bunker";
 import {
   type BuildContext,
   blankParts,
-  boltRow,
   box,
   chamferedBox,
   cylinder,
   mergeLayer,
+  SURFACE_PALETTE,
   type SurfaceGeometryLayer,
   type SurfaceGeometryTier,
   type SurfaceMaterialRole,
 } from "./mine-surface-geometry";
+import {
+  surfaceCoatedMetal,
+  surfaceComposite,
+  surfaceEmissive,
+} from "./mine-surface-materials";
 
 /**
  * Bunker base-part geometry in the industrial settlement language
@@ -30,6 +36,57 @@ import {
 
 /** Half-extent of a bunker cell; sealing edges must reach exactly this. */
 export const BUNKER_CELL_HALF = 0.5;
+
+/**
+ * Underground light is the miner's lamp plus dim ambient, so the steel
+ * body reads through the DIFFUSE composite recipe with a light gunmetal
+ * tint rather than the surface metals (metalness 0.68-0.92 goes near
+ * black without sky light). Two extra cached material instances on
+ * shaders the village already compiled; no new programs.
+ */
+const BUNKER_STEEL_HEX = "#78848F";
+
+export const BASE_PART_EMISSIVES: Record<BasePartId, string> = {
+  "wall-panel": SURFACE_PALETTE.energyCyan,
+  "floor-panel": SURFACE_PALETTE.energyCyan,
+  "roof-panel": SURFACE_PALETTE.warmWorkLight,
+  "door-panel": SURFACE_PALETTE.energyCyan,
+  "floor-spikes": SURFACE_PALETTE.energyCyan,
+  "basic-turret": SURFACE_PALETTE.energyCyan,
+};
+
+export function bunkerPartMaterial(
+  role: SurfaceMaterialRole,
+  emissiveHex: string,
+  detail: boolean,
+): MeshStandardNodeMaterial {
+  switch (role) {
+    case "shell":
+      return surfaceComposite(BUNKER_STEEL_HEX, detail);
+    case "frame":
+      return surfaceCoatedMetal(SURFACE_PALETTE.brushedTitanium, detail);
+    case "composite":
+      return surfaceComposite(SURFACE_PALETTE.voidGraphite, detail);
+    case "accent":
+      return surfaceCoatedMetal(SURFACE_PALETTE.safetyOrange, detail);
+    case "emissive":
+      return surfaceEmissive(emissiveHex, detail);
+  }
+}
+
+/** Every material a bunker part can draw with, for the load warm-up. */
+export function collectBunkerPartMaterials(
+  detail: boolean,
+): MeshStandardNodeMaterial[] {
+  const emissives = new Set(Object.values(BASE_PART_EMISSIVES));
+  return [
+    bunkerPartMaterial("shell", "", detail),
+    bunkerPartMaterial("frame", "", detail),
+    bunkerPartMaterial("composite", "", detail),
+    bunkerPartMaterial("accent", "", detail),
+    ...[...emissives].map((hex) => surfaceEmissive(hex, detail)),
+  ];
+}
 
 /** Local z depth budget so parts keep the overlay's existing plane. */
 export const BUNKER_PART_MAX_DEPTH = 0.26;

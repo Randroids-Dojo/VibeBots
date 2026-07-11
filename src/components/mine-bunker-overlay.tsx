@@ -16,22 +16,20 @@ import {
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
 import { useBlockDetail } from "./mine-block-render";
-import { bunkerPartGeometry } from "./mine-bunker-part-geometry";
+import {
+  BASE_PART_EMISSIVES,
+  bunkerPartGeometry,
+  bunkerPartMaterial,
+} from "./mine-bunker-part-geometry";
 import { cellX } from "./mine-render-palette";
 import {
   SelectedSupportCellOutline,
   SUPPORT_SELECT_RED,
 } from "./mine-support-selection";
-import {
-  SURFACE_PALETTE,
-  type SurfaceGeometryTier,
-  type SurfaceMaterialRole,
+import type {
+  SurfaceGeometryTier,
+  SurfaceMaterialRole,
 } from "./mine-surface-geometry";
-import {
-  surfaceCoatedMetal,
-  surfaceComposite,
-  surfaceEmissive,
-} from "./mine-surface-materials";
 import {
   CLANKER_BURST_VISIBLE_SECONDS,
   dissipatingOpacity,
@@ -536,43 +534,6 @@ function RaidXpPickupVisual() {
 
 /** Damage never scales below this, so wilted parts stay visible. */
 const BASE_PART_MIN_WILT = 0.15;
-
-/**
- * Underground light is the miner's lamp plus dim ambient, so the steel
- * body reads through the DIFFUSE composite recipe with a light gunmetal
- * tint rather than the surface metals (metalness 0.68-0.92 goes near
- * black without sky light). Two extra cached material instances on
- * shaders the village already compiled; no new programs.
- */
-const BUNKER_STEEL_HEX = "#78848F";
-
-function bunkerPartMaterial(
-  role: SurfaceMaterialRole,
-  emissiveHex: string,
-  detail: boolean,
-) {
-  switch (role) {
-    case "shell":
-      return surfaceComposite(BUNKER_STEEL_HEX, detail);
-    case "frame":
-      return surfaceCoatedMetal(SURFACE_PALETTE.brushedTitanium, detail);
-    case "composite":
-      return surfaceComposite(SURFACE_PALETTE.voidGraphite, detail);
-    case "accent":
-      return surfaceCoatedMetal(SURFACE_PALETTE.safetyOrange, detail);
-    case "emissive":
-      return surfaceEmissive(emissiveHex, detail);
-  }
-}
-
-const BASE_PART_EMISSIVES: Record<BasePartId, string> = {
-  "wall-panel": SURFACE_PALETTE.energyCyan,
-  "floor-panel": SURFACE_PALETTE.energyCyan,
-  "roof-panel": SURFACE_PALETTE.warmWorkLight,
-  "door-panel": SURFACE_PALETTE.energyCyan,
-  "floor-spikes": SURFACE_PALETTE.energyCyan,
-  "basic-turret": SURFACE_PALETTE.energyCyan,
-};
 
 /**
  * One placed base part: cached industrial geometry layers (REQ-035)

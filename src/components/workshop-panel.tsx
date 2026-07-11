@@ -500,6 +500,7 @@ export function WorkshopPanel() {
   if (matchup) {
     return (
       <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
+        <StampCollectAlert />
         <ArenaCanvas
           designs={matchup}
           onMatchEnd={(info) => {

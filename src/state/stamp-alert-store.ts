@@ -31,8 +31,11 @@ export const useStampAlertStore = create<StampAlertState>((set) => ({
   queue: [],
   enqueueStampAlerts: (ids) =>
     set((state) => {
-      const fresh = ids.filter((id) => !state.queue.includes(id));
-      return fresh.length ? { queue: [...state.queue, ...fresh] } : state;
+      const queue = [...state.queue];
+      for (const id of ids) {
+        if (!queue.includes(id)) queue.push(id);
+      }
+      return queue.length > state.queue.length ? { queue } : state;
     }),
   shiftStampAlert: () => set((state) => ({ queue: state.queue.slice(1) })),
 }));

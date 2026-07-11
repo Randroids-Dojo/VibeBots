@@ -475,7 +475,8 @@ const FALLBACK_PICTOGRAM = ({ accent }: StampPalette): ReactElement => (
 );
 
 export function hasStampArt(achievementId: string): boolean {
-  return achievementId in STAMP_PICTOGRAMS;
+  // Own-key check: `in` would accept inherited keys like "__proto__".
+  return Object.hasOwn(STAMP_PICTOGRAMS, achievementId);
 }
 
 /** Perforation hole centers along one 64-unit stamp edge. */
@@ -491,7 +492,9 @@ export function StampArt({
   const maskId = useId();
   const category = ACHIEVEMENT_BY_ID.get(achievementId)?.category;
   const palette = category ? CATEGORY_PALETTES[category] : FALLBACK_PALETTE;
-  const pictogram = STAMP_PICTOGRAMS[achievementId] ?? FALLBACK_PICTOGRAM;
+  const pictogram = hasStampArt(achievementId)
+    ? STAMP_PICTOGRAMS[achievementId]
+    : FALLBACK_PICTOGRAM;
   return (
     <svg
       viewBox="0 0 64 64"

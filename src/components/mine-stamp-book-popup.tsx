@@ -10,6 +10,7 @@ const ACHIEVEMENT_CATEGORY_LABELS: Record<string, string> = {
   haul: "Haul",
   tools: "Tools",
   survival: "Survival",
+  battle: "Battle",
 };
 
 export function StampBookPopup({
@@ -150,113 +151,115 @@ export function StampBookPopup({
           </button>
         </header>
 
-        {(["depth", "haul", "tools", "survival"] as const).map((category) => {
-          const items = byCategory[category] ?? [];
-          if (items.length === 0) return null;
-          return (
-            <section key={category} style={{ marginTop: 16 }}>
-              <h3
-                style={{
-                  margin: "0 0 8px",
-                  color: "#54e0c7",
-                  fontSize: "0.9rem",
-                  textTransform: "uppercase",
-                  letterSpacing: 0,
-                }}
-              >
-                {ACHIEVEMENT_CATEGORY_LABELS[category]}
-              </h3>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-                  gap: 10,
-                }}
-              >
-                {items.map((achievement) => {
-                  const done = achievement.unlocked;
-                  return (
-                    <article
-                      key={achievement.id}
-                      data-achievement-id={achievement.id}
-                      data-achievement-unlocked={done ? "true" : "false"}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "54px 1fr",
-                        gap: 10,
-                        minHeight: 96,
-                        borderRadius: 8,
-                        border: done
-                          ? "1px solid #54e0c7"
-                          : "1px solid #2c3651",
-                        background: done
-                          ? "rgba(84, 224, 199, 0.1)"
-                          : "rgba(38, 48, 74, 0.42)",
-                        padding: 10,
-                      }}
-                    >
-                      <div
-                        aria-hidden
+        {(["depth", "haul", "tools", "survival", "battle"] as const).map(
+          (category) => {
+            const items = byCategory[category] ?? [];
+            if (items.length === 0) return null;
+            return (
+              <section key={category} style={{ marginTop: 16 }}>
+                <h3
+                  style={{
+                    margin: "0 0 8px",
+                    color: "#54e0c7",
+                    fontSize: "0.9rem",
+                    textTransform: "uppercase",
+                    letterSpacing: 0,
+                  }}
+                >
+                  {ACHIEVEMENT_CATEGORY_LABELS[category]}
+                </h3>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  {items.map((achievement) => {
+                    const done = achievement.unlocked;
+                    return (
+                      <article
+                        key={achievement.id}
+                        data-achievement-id={achievement.id}
+                        data-achievement-unlocked={done ? "true" : "false"}
                         style={{
-                          width: 52,
-                          height: 52,
-                          // Locked stamps sit in the book as grey outlines
-                          // until collected.
-                          filter: done ? "none" : "grayscale(1)",
-                          opacity: done ? 1 : 0.45,
+                          display: "grid",
+                          gridTemplateColumns: "54px 1fr",
+                          gap: 10,
+                          minHeight: 96,
+                          borderRadius: 8,
+                          border: done
+                            ? "1px solid #54e0c7"
+                            : "1px solid #2c3651",
+                          background: done
+                            ? "rgba(84, 224, 199, 0.1)"
+                            : "rgba(38, 48, 74, 0.42)",
+                          padding: 10,
                         }}
                       >
-                        <StampArt achievementId={achievement.id} size={52} />
-                      </div>
-                      <div>
-                        <h4 style={{ margin: 0, fontSize: "0.94rem" }}>
-                          {achievement.title}
-                        </h4>
-                        <p
-                          style={{
-                            margin: "4px 0 8px",
-                            color: "#aeb8d0",
-                            fontSize: "0.8rem",
-                          }}
-                        >
-                          {achievement.description}
-                        </p>
                         <div
+                          aria-hidden
                           style={{
-                            height: 6,
-                            borderRadius: 999,
-                            background: "#252f47",
-                            overflow: "hidden",
+                            width: 52,
+                            height: 52,
+                            // Locked stamps sit in the book as grey outlines
+                            // until collected.
+                            filter: done ? "none" : "grayscale(1)",
+                            opacity: done ? 1 : 0.45,
                           }}
                         >
+                          <StampArt achievementId={achievement.id} size={52} />
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: "0.94rem" }}>
+                            {achievement.title}
+                          </h4>
+                          <p
+                            style={{
+                              margin: "4px 0 8px",
+                              color: "#aeb8d0",
+                              fontSize: "0.8rem",
+                            }}
+                          >
+                            {achievement.description}
+                          </p>
                           <div
                             style={{
-                              width: `${Math.min(100, Math.round((achievement.progress.current / achievement.progress.target) * 100))}%`,
-                              height: "100%",
-                              background: done ? "#54e0c7" : "#f5c542",
+                              height: 6,
+                              borderRadius: 999,
+                              background: "#252f47",
+                              overflow: "hidden",
                             }}
-                          />
+                          >
+                            <div
+                              style={{
+                                width: `${Math.min(100, Math.round((achievement.progress.current / achievement.progress.target) * 100))}%`,
+                                height: "100%",
+                                background: done ? "#54e0c7" : "#f5c542",
+                              }}
+                            />
+                          </div>
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              color: done ? "#54e0c7" : "#f5c542",
+                              fontSize: "0.74rem",
+                              fontWeight: 800,
+                            }}
+                          >
+                            {done
+                              ? `Collected ${achievement.unlockedAt?.slice(0, 10) ?? ""}`
+                              : achievement.progress.label}
+                          </p>
                         </div>
-                        <p
-                          style={{
-                            margin: "6px 0 0",
-                            color: done ? "#54e0c7" : "#f5c542",
-                            fontSize: "0.74rem",
-                            fontWeight: 800,
-                          }}
-                        >
-                          {done
-                            ? `Collected ${achievement.unlockedAt?.slice(0, 10) ?? ""}`
-                            : achievement.progress.label}
-                        </p>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          },
+        )}
       </section>
     </DismissibleDialogFrame>
   );

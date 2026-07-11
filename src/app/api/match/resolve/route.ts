@@ -120,7 +120,12 @@ export async function POST(request: Request): Promise<Response> {
       durationTicks: result.tick,
       usedPartIds: [...new Set(playerDesign.parts.map((p) => p.partId))],
     });
-    newStamps = (await refreshPlayerAchievements(sql, playerId)).newlyUnlocked;
+    try {
+      newStamps = (await refreshPlayerAchievements(sql, playerId))
+        .newlyUnlocked;
+    } catch {
+      // Stamps are cosmetic and must never fail an already-recorded match.
+    }
     record = await loadMatchRecordSummary(sql, playerId);
   }
   return Response.json({ ...result, record, newStamps });

@@ -49,9 +49,9 @@ describe("stamp alert queue", () => {
     ]);
   });
 
-  it("ignores stamps already waiting in the queue", () => {
+  it("ignores stamps already waiting, even within one batch", () => {
     const store = useStampAlertStore.getState();
-    store.enqueueStampAlerts(["haul-first-sale"]);
+    store.enqueueStampAlerts(["haul-first-sale", "haul-first-sale"]);
     store.enqueueStampAlerts(["haul-first-sale"]);
     expect(useStampAlertStore.getState().queue).toEqual(["haul-first-sale"]);
   });

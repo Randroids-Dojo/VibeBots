@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="stamp-collect-alerts" data-date="2026-07-10">
+    <h3>Stamp collect alerts with unique art for every stamp</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/stamp-collect-alert</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Collecting a stamp now pops a transient animated alert naming the stamp, and all 38 stamps gained unique hand-drawn SVG postage-stamp art (package 0.1.206). <code>src/components/stamp-art.tsx</code> draws a shared perforated frame with a per-category palette (depth teal, haul gold, tools steel, survival green, battle red) and one bespoke pictogram per achievement id; the Stamp Book popup renders it in place of the old lettered-code box, greyscaled until collected. The newly-unlocked signal is server-diffed: <code>unlockAchievements</code> uses <code>INSERT ... ON CONFLICT DO NOTHING RETURNING</code>, <code>refreshPlayerAchievements</code> returns <code>{achievements, newlyUnlocked}</code>, <code>applyAchievementProgress</code> returns the new ids, and the bank, consumables, gear, elevator, match-resolve, and bunker-raid responses carry <code>newStamps</code> (backfill on a Stamp Book read intentionally never alerts). The bunker first-defense pre-check query and the redundant <code>stampAwarded</code> flag were removed; the bunker panel derives the stamp callout from <code>newStamps</code>. Client side, <code>src/state/stamp-alert-store.ts</code> validates and queues ids from every award call site (mine store, workshop verify, bunker store) and <code>StampCollectAlert</code>, mounted in the mine and workshop panels, shows one stamp at a time with a pop-hold-fade keyframe animation (<code>mine-stamp-alert-pop</code>), animation-owned lifetime plus a reaper-timer fallback per the StratumBanner pattern, <code>role="status"</code> and a <code>data-stamp-alert</code> hook, reduced-motion safe.</dd>
+      <dt>Verification</dt><dd>Dash checks and <code>git diff --check</code> clean; Biome clean on touched files; <code>tsc --noEmit</code> clean; <code>vitest run src</code> green including new stamp-art uniqueness (every id has art, no two pictograms share markup), stamp-alert-store queue/parser, alert card and lifetime-contract tests, and updated route/bunker tests asserting <code>newStamps</code> passthrough and stamp-failure tolerance; production build green; new Playwright spec <code>tests/e2e/mine-stamp-alert.spec.ts</code> green locally (stubbed buy response pops the alert, opacity observed animating up per Rule 10, alert detaches itself); release-notifications spec updated for 0.1.206; gallery screenshot of all 38 stamps and a 390x760 in-game alert screenshot reviewed by eye.</dd>
+      <dt>Assumptions</dt><dd>Alerts fire only from award-route responses, so stamps unlocked by retroactive backfill surface in the Stamp Book without a popup; treating that as the desired flood guard rather than queueing backfill alerts. Battle stamps alert from the workshop verify flow even though the Stamp Book UI does not list a battle page yet.</dd>
+      <dt>GDD coverage</dt><dd>REQ-032 spec extended (art + collect alert bullets) with a Build log entry in <code>docs/gdd/06-mining.html</code>; REQ-032 row in <code>docs/GDD_COVERAGE.json</code> updated with the new implementation and test refs.</dd>
+      <dt>Followups</dt><dd>None. Mine tips reviewed with no copy change (the existing Stamp Book tip stays accurate); stamp review completed with none added (a stamp for collecting stamps would be circular).</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-instanced-overlays" data-date="2026-07-10">
     <h3>Stream tunnel floors and darkness veils through the instanced grid: the warp/fall window-jump stall</h3>
     <dl>

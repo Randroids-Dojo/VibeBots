@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-09-0.1.205-surface-village",
+      releaseNoticeId: "2026-07-10-0.1.206-stamp-alerts",
       releaseSummary:
-        "Night shift, rebuilt: The surface village is now one industrial future settlement.",
+        "Every stamp gets its moment: Collecting a stamp now pops a little celebration.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-09-0.1.205-surface-village",
+      releaseNoticeId: "2026-07-10-0.1.206-stamp-alerts",
       attempted: 2,
       sent: 1,
       expired: 1,

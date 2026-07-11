@@ -56,7 +56,7 @@ const reward: BunkerRaidRewardReport = {
   leveledUp: false,
   beaconLimitBefore: 2,
   beaconLimitAfter: 2,
-  stampAwarded: false,
+  newStamps: [],
 };
 
 describe("bunker store", () => {

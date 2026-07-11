@@ -24,7 +24,10 @@ vi.mock("@/server/match-records", () => ({
 }));
 
 vi.mock("@/server/achievements", () => ({
-  refreshPlayerAchievements: vi.fn(async () => []),
+  refreshPlayerAchievements: vi.fn(async () => ({
+    achievements: [],
+    newlyUnlocked: [],
+  })),
 }));
 
 vi.mock("@/server/player", () => ({

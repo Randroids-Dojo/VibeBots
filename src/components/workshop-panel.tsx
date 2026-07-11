@@ -13,6 +13,7 @@ import {
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
 import { PartsShop, prefetchShop } from "@/components/parts-shop";
+import { StampCollectAlert } from "@/components/stamp-collect-alert";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
@@ -28,6 +29,7 @@ import {
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
 import { REPLICA_OPPONENTS } from "@/sim/opponents";
 import { PART_CATALOG } from "@/sim/parts";
+import { enqueueStampAlertsFromResponse } from "@/state/stamp-alert-store";
 import {
   CAROUSEL_PART_IDS,
   CORE_PART_IDS,
@@ -339,6 +341,7 @@ export function WorkshopPanel() {
         return;
       }
       const official = await res.json();
+      enqueueStampAlertsFromResponse(official);
       setVerification({
         state: "done",
         agrees: official.hash === endInfo.hash,
@@ -599,6 +602,7 @@ export function WorkshopPanel() {
   return (
     <div className="workshop-stage" ref={stageRef}>
       <WorkshopCanvas menuLift={menuLift} />
+      <StampCollectAlert />
 
       {/* The on-part remove control: a single X floated over the selected part
           in the 3D view (positioned each frame by the effect above), so

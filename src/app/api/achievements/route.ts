@@ -36,7 +36,7 @@ export async function GET(): Promise<Response> {
   }
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
-  const achievements = await refreshPlayerAchievements(sql, playerId);
+  const { achievements } = await refreshPlayerAchievements(sql, playerId);
   return Response.json({
     offline: false,
     achievements,

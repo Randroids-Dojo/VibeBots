@@ -29,7 +29,7 @@ vi.mock("@/server/db", () => ({
 }));
 
 vi.mock("@/server/achievements", () => ({
-  applyAchievementProgress: vi.fn(async () => {}),
+  applyAchievementProgress: vi.fn(async () => []),
 }));
 
 vi.mock("@/server/save-sync-push", () => ({

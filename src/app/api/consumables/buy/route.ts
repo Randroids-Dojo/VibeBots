@@ -127,8 +127,11 @@ export async function POST(request: Request): Promise<Response> {
     }
     return Response.json({ error: "not enough vibes" }, { status: 409 });
   }
+  let newStamps: string[] = [];
   try {
-    await applyAchievementProgress(sql, playerId, { depotPurchases: quantity });
+    newStamps = await applyAchievementProgress(sql, playerId, {
+      depotPurchases: quantity,
+    });
   } catch {
     // Stamps are cosmetic and must never block a successful depot purchase.
   }
@@ -151,5 +154,6 @@ export async function POST(request: Request): Promise<Response> {
     quantity,
     count: rows[0].count,
     balance: rows[0].emeralds,
+    newStamps,
   });
 }

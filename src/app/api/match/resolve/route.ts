@@ -102,6 +102,7 @@ export async function POST(request: Request): Promise<Response> {
   // record chip and the battle stamps read from them. Exhibition and
   // anonymous resolves persist nothing.
   let record: MatchRecordSummary | null = null;
+  let newStamps: string[] = [];
   if (parsed.data.enforceInventory && storageConfigured()) {
     const sql = await db();
     const playerId = await getOrCreatePlayerId();
@@ -119,8 +120,8 @@ export async function POST(request: Request): Promise<Response> {
       durationTicks: result.tick,
       usedPartIds: [...new Set(playerDesign.parts.map((p) => p.partId))],
     });
-    await refreshPlayerAchievements(sql, playerId);
+    newStamps = (await refreshPlayerAchievements(sql, playerId)).newlyUnlocked;
     record = await loadMatchRecordSummary(sql, playerId);
   }
-  return Response.json({ ...result, record });
+  return Response.json({ ...result, record, newStamps });
 }

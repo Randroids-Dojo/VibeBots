@@ -717,8 +717,9 @@ export async function POST(request: Request): Promise<Response> {
       { status: 409 },
     );
   }
+  let newStamps: string[] = [];
   try {
-    await applyAchievementProgress(
+    newStamps = await applyAchievementProgress(
       sql,
       playerId,
       achievementProgressForTrip(trip, parsed.data.moves as MineAction[]),
@@ -809,5 +810,6 @@ export async function POST(request: Request): Promise<Response> {
     tripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
     consumables: remainingConsumables,
     bunkerClaimed: rows[0].bunker_claimed === true,
+    newStamps,
   });
 }

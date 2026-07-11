@@ -124,6 +124,7 @@ import { STALLS, stallAt } from "./mine-stalls";
 import { StampBookPopup } from "./mine-stamp-book-popup";
 import { MineTouchControls } from "./mine-touch-controls";
 import { PerfTelemetry } from "./perf-telemetry";
+import { StampCollectAlert } from "./stamp-collect-alert";
 import { useForegroundReturn } from "./use-foreground-return";
 
 type MineSceneStatus = "loading" | "ready" | "error";
@@ -2954,6 +2955,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         />
       )}
       <StratumBanner row={miner.row} />
+      <StampCollectAlert />
       <JuiceOverlays />
       {pickaxeGateHint && (
         <div

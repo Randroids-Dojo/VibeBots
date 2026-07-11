@@ -318,7 +318,9 @@ export function BunkerControlPanel({
                 {lastReward.leveledUp
                   ? ` Level ${lastReward.levelAfter} reached. Reward: beacon cap ${lastReward.beaconLimitAfter}.`
                   : ""}
-                {lastReward.stampAwarded ? " First Defense stamp earned." : ""}
+                {lastReward.newStamps.includes("survival-first-defense")
+                  ? " First Defense stamp earned."
+                  : ""}
               </span>
             ) : (
               <span>No defense XP gained. {BUNKER_MINER_DEATH_TIP}</span>

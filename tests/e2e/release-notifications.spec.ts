@@ -21,13 +21,13 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The surface village is now one industrial future settlement.",
+    "Collecting a stamp now pops a little celebration.",
   );
-  await expect(dialog.locator("li")).toHaveCount(4);
+  await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Workshop, Elevator, Hardware Store, the mine headframe",
+    "All 38 stamps in the Stamp Book now carry their own hand-drawn postage-stamp art",
   );
-  await expect(dialog.locator("li").nth(3)).toContainText(
+  await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
 
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.206", "Every stamp gets its moment"],
     ["0.1.205", "Night shift, rebuilt"],
     ["0.1.204", "Falls, boosters, and a brighter dig"],
     ["0.1.203", "The freezes, at the source"],

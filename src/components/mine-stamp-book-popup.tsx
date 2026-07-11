@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { PlayerAchievementView } from "@/lib/achievements";
 import { DismissibleDialogFrame } from "./dismissible-dialog-frame";
+import { StampArt } from "./stamp-art";
 
 const ACHIEVEMENT_CATEGORY_LABELS: Record<string, string> = {
   depth: "Depth",
@@ -199,19 +200,13 @@ export function StampBookPopup({
                         style={{
                           width: 52,
                           height: 52,
-                          borderRadius: 8,
-                          display: "grid",
-                          placeItems: "center",
-                          border: done
-                            ? "2px solid #54e0c7"
-                            : "2px solid #59647d",
-                          color: done ? "#54e0c7" : "#8b93a7",
-                          fontWeight: 900,
-                          fontSize: "0.8rem",
-                          background: done ? "#102a2d" : "#151b2a",
+                          // Locked stamps sit in the book as grey outlines
+                          // until collected.
+                          filter: done ? "none" : "grayscale(1)",
+                          opacity: done ? 1 : 0.45,
                         }}
                       >
-                        {achievement.stamp}
+                        <StampArt achievementId={achievement.id} size={52} />
                       </div>
                       <div>
                         <h4 style={{ margin: 0, fontSize: "0.94rem" }}>

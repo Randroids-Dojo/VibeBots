@@ -247,7 +247,8 @@ export interface BunkerRaidRewardReport {
   leveledUp: boolean;
   beaconLimitBefore: number;
   beaconLimitAfter: number;
-  stampAwarded: boolean;
+  /** Every stamp first unlocked by this raid's reward pass. */
+  newStamps: string[];
 }
 
 export interface PlayerLevelProgress {

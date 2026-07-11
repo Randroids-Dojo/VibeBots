@@ -10,7 +10,10 @@ import {
 import { POST } from "./route";
 
 vi.mock("@/server/achievements", () => ({
-  refreshPlayerAchievements: vi.fn(async () => []),
+  refreshPlayerAchievements: vi.fn(async () => ({
+    achievements: [],
+    newlyUnlocked: [],
+  })),
 }));
 
 vi.mock("@/server/balance-telemetry", () => ({
@@ -132,6 +135,7 @@ describe("gear upgrade route", () => {
       track: "cargo",
       level: 2,
       balance: 420,
+      newStamps: [],
     });
     expect(mineGearLevelFromProfile(profile() as never, "cargo")).toBe(1);
     expect(mockedRefresh).toHaveBeenCalledWith(sql, "player-1");

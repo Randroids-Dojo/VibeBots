@@ -24,6 +24,7 @@ import {
   removeRemoteBunkerPart,
   startRemoteBunkerRaid,
 } from "./bunker-api-client";
+import { enqueueStampAlertsFromResponse } from "./stamp-alert-store";
 
 type BunkerMutationResult = BunkerRouteResponse | null;
 type BunkerStoreStatus = "idle" | "loading" | "ready" | "unavailable" | "error";
@@ -66,6 +67,7 @@ function applyResponse(
   set: (state: Partial<BunkerStoreState>) => void,
   body: BunkerRouteResponse,
 ) {
+  if (body.reward) enqueueStampAlertsFromResponse(body.reward);
   set({
     status: "ready",
     bunker: body.bunker,

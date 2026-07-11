@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-10-0.1.209-surface-shift-cycle";
+export const RELEASE_NOTICE_ID = "2026-07-11-0.1.210-sealed-bunkers";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.210",
+      date: "2026-07-11",
+      title: "A bunker that seals like it means it",
+      intro:
+        "Base parts lock together, and the starter kit builds a full shelter.",
+      changes: [
+        {
+          build,
+          text: "Every base part was rebuilt as riveted gunmetal steel, straight out of a shelter cutaway: light steel plates with dark seam lines and proud rivets, walkway grates, vented ceiling caps with warm work lamps, and a hatch door with a porthole and an orange spin-wheel. Sealing parts now fill their whole cell, so stacked walls read as one continuous bulkhead, floor rows as one deck, and roof rows as one ceiling instead of small boxes floating in their cells. Spikes and turrets visibly wilt as they take raid damage.",
+        },
+        {
+          build,
+          text: "New bunker claims now grant 6 walls, 4 floors, 4 roofs, and a door: enough to fully enclose the player cell in a small sealed room with spares left over. A sealed room genuinely turns a raid away, and a simulation test now pins that promise.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.209",
       date: "2026-07-10",

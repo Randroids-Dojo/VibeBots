@@ -24,17 +24,36 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest surface shift-cycle note complete", () => {
+  it("keeps the latest sealed-bunkers note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-10-0.1.209-surface-shift-cycle");
+    expect(release.noticeId).toBe("2026-07-11-0.1.210-sealed-bunkers");
     expect(latestNote).toMatchObject({
+      version: "0.1.210",
+      title: "A bunker that seals like it means it",
+      intro:
+        "Base parts lock together, and the starter kit builds a full shelter.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Every base part was rebuilt as riveted gunmetal steel, straight out of a shelter cutaway: light steel plates with dark seam lines and proud rivets, walkway grates, vented ceiling caps with warm work lamps, and a hatch door with a porthole and an orange spin-wheel. Sealing parts now fill their whole cell, so stacked walls read as one continuous bulkhead, floor rows as one deck, and roof rows as one ceiling instead of small boxes floating in their cells. Spikes and turrets visibly wilt as they take raid damage.",
+      "New bunker claims now grant 6 walls, 4 floors, 4 roofs, and a door: enough to fully enclose the player cell in a small sealed room with spares left over. A sealed room genuinely turns a raid away, and a simulation test now pins that promise.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived surface shift-cycle note complete", () => {
+    const release = getAppRelease();
+    const shiftCycleNote = release.notes.find(
+      (note) => note.version === "0.1.209",
+    );
+
+    expect(shiftCycleNote).toMatchObject({
       version: "0.1.209",
       title: "The surface keeps time",
       intro: "Dawn breaks over the village, and the night shift still glows.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(shiftCycleNote?.changes.map((change) => change.text)).toEqual([
       "The surface now runs a full eight-minute shift cycle through cold starlight, copper dawn, a clear workday, and a long safety-orange dusk. The sky, horizon fog, sun and moon direction, shadows, metal reflections, ground bounce, and batched star field all move through one coordinated grade while the village's cyan power and warm work lights take over after dark.",
       "The cycle reuses the existing light rig, adds no lights or production draw calls, and updates its palette only four times per second. Reduced-motion settings freeze the accelerated cycle to local time, and underground lighting stays on the miner's lamp as before.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

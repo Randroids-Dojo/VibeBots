@@ -250,7 +250,7 @@ describe("POST /api/mine/bank", () => {
       width: 7,
       height: 5,
     });
-    expect(result.inventory["wall-panel"]).toBe(1);
+    expect(result.inventory["wall-panel"]).toBe(5);
   });
 
   it("rejects pending bunkers that were not clear when claimed", () => {

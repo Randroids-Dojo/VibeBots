@@ -42,6 +42,8 @@ describe("stamp collect alert", () => {
     expect(css).toMatch(/mine-stamp-alert-pop 3000ms [^;]*forwards/);
     // Reduced motion must still clear the alert: the animation is off,
     // so the class has to be inside the reduced-motion override list.
-    expect(css).toMatch(/prefers-reduced-motion[^}]*\{[^{]*\.mine-stamp-alert,/);
+    expect(css).toMatch(
+      /prefers-reduced-motion[^}]*\{[^{]*\.mine-stamp-alert,/,
+    );
   });
 });

@@ -10,7 +10,7 @@ vi.mock("@/server/db", () => ({
 }));
 
 vi.mock("@/server/achievements", () => ({
-  applyAchievementProgress: vi.fn(async () => {}),
+  applyAchievementProgress: vi.fn(async () => []),
 }));
 
 vi.mock("@/server/balance-telemetry", () => ({
@@ -62,6 +62,38 @@ describe("POST /api/consumables/buy", () => {
       defense_xp: 0,
       emeralds: 200,
     } as never);
+  });
+
+  it("reports newly collected stamps so the client can pop the alert", async () => {
+    const { applyAchievementProgress } = await import("@/server/achievements");
+    vi.mocked(applyAchievementProgress).mockResolvedValueOnce([
+      "tool-depot-regular",
+    ]);
+    mockSql();
+
+    const res = await buy("ladder");
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      item: "ladder",
+      newStamps: ["tool-depot-regular"],
+    });
+  });
+
+  it("keeps a successful purchase alive when the stamp ledger fails", async () => {
+    const { applyAchievementProgress } = await import("@/server/achievements");
+    vi.mocked(applyAchievementProgress).mockRejectedValueOnce(
+      new Error("stamp ledger down"),
+    );
+    mockSql();
+
+    const res = await buy("ladder");
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      item: "ladder",
+      newStamps: [],
+    });
   });
 
   it("rejects a third unplaced beacon kit", async () => {

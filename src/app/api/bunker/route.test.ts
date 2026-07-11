@@ -173,7 +173,7 @@ describe("bunker API routes", () => {
         leveledUp: false,
         beaconLimitBefore: 2,
         beaconLimitAfter: 2,
-        stampAwarded: false,
+        newStamps: [],
       },
     });
   });

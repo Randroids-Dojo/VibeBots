@@ -85,6 +85,7 @@ import {
   saveLocalTrip,
   validSaveSlot,
 } from "./mine-trip-persistence";
+import { enqueueStampAlertsFromResponse } from "./stamp-alert-store";
 
 export type {
   AccountHandoffStart,
@@ -1297,6 +1298,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return false;
       }
       const body = res.body as Record<string, unknown>;
+      enqueueStampAlertsFromResponse(body);
       // The world persists (REQ-026): the next trip resumes the SAME
       // carved mine. Server-owned stock wins after cash-out so stale
       // local support snapshots cannot leak into the next trip.
@@ -1390,6 +1392,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return;
       }
       const body = res.body as Record<string, unknown>;
+      enqueueStampAlertsFromResponse(body);
       // Re-provision the live session: replaying the full log over a
       // strictly larger consumable snapshot reproduces the world
       // exactly (refusal thresholds only loosen), so the new stock is
@@ -1443,6 +1446,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return;
       }
       const body = res.body as Record<string, unknown>;
+      enqueueStampAlertsFromResponse(body);
       const { gear, consumables, bought, moves, seed: s0, tick } = get();
       const level = body.level as number;
       const nextGear: MineGear = { ...gear, [track]: level };
@@ -1490,6 +1494,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return;
       }
       const body = res.body as Record<string, unknown>;
+      enqueueStampAlertsFromResponse(body);
       const { gear, consumables, bought, moves, seed: s0, tick } = get();
       const elevator = body.elevator as number;
       const nextGear: MineGear = { ...gear, elevator };

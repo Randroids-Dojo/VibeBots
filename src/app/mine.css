@@ -172,6 +172,77 @@
   animation: mine-stratum-banner-fade 2600ms ease-out forwards;
 }
 
+/*
+ * Stamp collect alert (REQ-032): slams in like a passport stamp, holds,
+ * then fades itself out. The component's onAnimationEnd owns cleanup.
+ */
+@keyframes mine-stamp-alert-pop {
+  0% {
+    transform: translateX(-50%) scale(1.65) rotate(-7deg);
+    opacity: 0;
+  }
+  12% {
+    transform: translateX(-50%) scale(0.96) rotate(1.5deg);
+    opacity: 1;
+  }
+  20% {
+    transform: translateX(-50%) scale(1.03) rotate(-0.5deg);
+  }
+  28% {
+    transform: translateX(-50%) scale(1) rotate(0deg);
+  }
+  84% {
+    transform: translateX(-50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(-12px) scale(0.97);
+    opacity: 0;
+  }
+}
+
+.mine-stamp-alert {
+  position: fixed;
+  top: max(90px, calc(env(safe-area-inset-top) + 66px));
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(340px, calc(100vw - 32px));
+  padding: 10px 16px 10px 10px;
+  pointer-events: none;
+  background: rgba(17, 21, 31, 0.94);
+  border: 1px solid #f5c542;
+  border-radius: 12px;
+  box-shadow:
+    0 10px 34px rgba(0, 0, 0, 0.5),
+    0 0 22px rgba(245, 197, 66, 0.22);
+  animation: mine-stamp-alert-pop 3000ms ease-out forwards;
+}
+
+.mine-stamp-alert svg {
+  flex: 0 0 auto;
+}
+
+.mine-stamp-alert-eyebrow {
+  display: block;
+  color: #f5c542;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mine-stamp-alert-title {
+  display: block;
+  margin-top: 2px;
+  color: #e6e8ee;
+  font-size: 1.02rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
 .mine-scene-backdrop {
   position: absolute;
   inset: 0;
@@ -1034,6 +1105,8 @@ button[data-bag-full-flash="true"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* The stamp alert then appears statically; its reaper timer removes it. */
+  .mine-stamp-alert,
   .mine-juice,
   .mine-lost-locator,
   .mine-base-indicator,

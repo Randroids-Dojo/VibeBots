@@ -12,7 +12,10 @@ vi.mock("@/server/player", () => ({
 }));
 
 vi.mock("@/server/achievements", () => ({
-  refreshPlayerAchievements: vi.fn(async () => []),
+  refreshPlayerAchievements: vi.fn(async () => ({
+    achievements: [],
+    newlyUnlocked: [],
+  })),
 }));
 
 const mockedStorageConfigured = vi.mocked(storageConfigured);

@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-09-0.1.205-surface-village";
+export const RELEASE_NOTICE_ID = "2026-07-10-0.1.206-stamp-alerts";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.206",
+      date: "2026-07-10",
+      title: "Every stamp gets its moment",
+      intro: "Collecting a stamp now pops a little celebration.",
+      changes: [
+        {
+          build,
+          text: "All 38 stamps in the Stamp Book now carry their own hand-drawn postage-stamp art instead of a lettered code, with a color per category and a unique picture per stamp.",
+        },
+        {
+          build,
+          text: "The moment you earn a stamp, an alert slams onto the screen with the stamp's art and name, holds for a beat, and clears itself. Earn several at once and they take turns.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.205",
       date: "2026-07-09",

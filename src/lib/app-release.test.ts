@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest surface-village note complete", () => {
+  it("keeps the latest stamp-alerts note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-09-0.1.205-surface-village");
+    expect(release.noticeId).toBe("2026-07-10-0.1.206-stamp-alerts");
     expect(latestNote).toMatchObject({
+      version: "0.1.206",
+      title: "Every stamp gets its moment",
+      intro: "Collecting a stamp now pops a little celebration.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "All 38 stamps in the Stamp Book now carry their own hand-drawn postage-stamp art instead of a lettered code, with a color per category and a unique picture per stamp.",
+      "The moment you earn a stamp, an alert slams onto the screen with the stamp's art and name, holds for a beat, and clears itself. Earn several at once and they take turns.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived surface-village note complete", () => {
+    const release = getAppRelease();
+    const surfaceVillageNote = release.notes.find(
+      (note) => note.version === "0.1.205",
+    );
+
+    expect(surfaceVillageNote).toMatchObject({
       version: "0.1.205",
       title: "Night shift, rebuilt",
       intro: "The surface village is now one industrial future settlement.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(surfaceVillageNote?.changes.map((change) => change.text)).toEqual([
       "Workshop, Elevator, Hardware Store, the mine headframe, Supply Depot, Upgrades, Warp Pad, and Battles now use one professional hard-surface language: graphite armor, titanium frames, safety-orange machinery, cyan power, warm entrances, and distinct functional silhouettes.",
       "A segmented service deck and visible power conduit connect the row. Readable mesh emblems replace blank sign panels, while the existing names, prompts, routes, and building columns stay exactly where players know them.",
       "The Warp Pad ring turns and pulses slowly as the village's only ambient motion. Reduced-motion settings stop it completely, and settlement-wide material batching cuts the full review scene to 10 draw calls or fewer.",

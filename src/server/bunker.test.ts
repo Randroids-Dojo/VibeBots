@@ -48,7 +48,7 @@ function makeBuySql({
 }
 
 vi.mock("./achievements", () => ({
-  applyAchievementProgress: vi.fn(async () => {}),
+  applyAchievementProgress: vi.fn(async () => []),
 }));
 
 describe("bunker server helpers", () => {
@@ -342,6 +342,9 @@ describe("bunker server helpers", () => {
   it("reports collected defense XP, level-up rewards, and the first defense stamp", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-18T00:00:10.000Z"));
+    vi.mocked(applyAchievementProgress).mockResolvedValueOnce([
+      "survival-first-defense",
+    ]);
     const sql = vi.fn(async (strings: TemplateStringsArray) => {
       const query = strings.join(" ");
       if (query.includes("SELECT raid_id, snapshot")) {
@@ -385,7 +388,6 @@ describe("bunker server helpers", () => {
       if (query.includes("SELECT track_xp, defense_xp")) {
         return [{ track_xp: 0, defense_xp: 60 }];
       }
-      if (query.includes("SELECT achievement_id")) return [];
       if (query.includes("UPDATE players")) return [{ defense_xp: 160 }];
       if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
         return [{ emeralds: 30, track_xp: 0, defense_xp: 160 }];
@@ -411,7 +413,7 @@ describe("bunker server helpers", () => {
       leveledUp: true,
       beaconLimitBefore: 2,
       beaconLimitAfter: 3,
-      stampAwarded: true,
+      newStamps: ["survival-first-defense"],
     });
     expect(applyAchievementProgress).toHaveBeenCalledWith(sql, "player-1", {
       bunkerRaidsSurvived: 1,

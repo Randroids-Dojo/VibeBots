@@ -145,38 +145,59 @@ async function unlockedMap(
   );
 }
 
+/** Returns the ids whose rows were actually inserted by this call. */
 async function unlockAchievements(
   sql: Sql,
   playerId: string,
   ids: readonly string[],
-): Promise<void> {
+): Promise<string[]> {
+  const newlyUnlocked: string[] = [];
   for (const id of ids) {
-    await sql`
+    const inserted = (await sql`
       INSERT INTO player_achievements (player_id, achievement_id, metadata)
       VALUES (${playerId}, ${id}, '{}'::jsonb)
-      ON CONFLICT (player_id, achievement_id) DO NOTHING`;
+      ON CONFLICT (player_id, achievement_id) DO NOTHING
+      RETURNING achievement_id`) as Array<{ achievement_id: string }>;
+    if (inserted.length > 0) newlyUnlocked.push(id);
   }
+  return newlyUnlocked;
+}
+
+export interface PlayerAchievementRefresh {
+  achievements: PlayerAchievementView[];
+  /** Ids first unlocked by THIS refresh, in catalog order (stamp alerts). */
+  newlyUnlocked: string[];
 }
 
 export async function refreshPlayerAchievements(
   sql: Sql,
   playerId: string,
-): Promise<PlayerAchievementView[]> {
+): Promise<PlayerAchievementRefresh> {
   const stats = await readAchievementStats(sql, playerId);
   const snapshot = await achievementSnapshot(sql, playerId, stats);
-  await unlockAchievements(sql, playerId, achievementIdsUnlockedBy(snapshot));
-  return buildAchievementViews(snapshot, await unlockedMap(sql, playerId));
+  const newlyUnlocked = await unlockAchievements(
+    sql,
+    playerId,
+    achievementIdsUnlockedBy(snapshot),
+  );
+  return {
+    achievements: buildAchievementViews(
+      snapshot,
+      await unlockedMap(sql, playerId),
+    ),
+    newlyUnlocked,
+  };
 }
 
 export async function applyAchievementProgress(
   sql: Sql,
   playerId: string,
   patch: Partial<AchievementStats>,
-): Promise<void> {
+): Promise<string[]> {
   const stats = mergeAchievementStats(
     await readAchievementStats(sql, playerId),
     patch,
   );
   await writeAchievementStats(sql, playerId, stats);
-  await refreshPlayerAchievements(sql, playerId);
+  return (await refreshPlayerAchievements(sql, playerId)).newlyUnlocked;
 }

@@ -160,8 +160,9 @@ export async function POST(request: Request): Promise<Response> {
       { status: 409 },
     );
   }
+  let newStamps: string[] = [];
   try {
-    await refreshPlayerAchievements(sql, playerId);
+    newStamps = (await refreshPlayerAchievements(sql, playerId)).newlyUnlocked;
   } catch {
     // Stamps are cosmetic and must never block a successful upgrade.
   }
@@ -183,5 +184,6 @@ export async function POST(request: Request): Promise<Response> {
     track,
     level: rows[0].level,
     balance: rows[0].emeralds,
+    newStamps,
   });
 }

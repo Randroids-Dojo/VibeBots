@@ -66,8 +66,9 @@ export async function POST(): Promise<Response> {
           updated_at = now()
       WHERE player_id = ${playerId}`;
   }
+  let newStamps: string[] = [];
   try {
-    await refreshPlayerAchievements(sql, playerId);
+    newStamps = (await refreshPlayerAchievements(sql, playerId)).newlyUnlocked;
   } catch {
     // Stamps are cosmetic and must never block a successful rail buy.
   }
@@ -94,5 +95,6 @@ export async function POST(): Promise<Response> {
     refundedSupports: refund.refunded,
     ladders: updated[0].ladder_count,
     planks: updated[0].plank_count,
+    newStamps,
   });
 }

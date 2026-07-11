@@ -644,15 +644,8 @@ export async function finishBunkerRaid(
   const before = beforeRows[0] ?? { track_xp: 0, defense_xp: 0 };
   const beforeProgress = playerLevelProgress(before.defense_xp);
   let defenseXpAfter = before.defense_xp;
-  let stampAwarded = false;
+  let newStamps: string[] = [];
   if (raid.survived) {
-    const firstDefenseRows = (await sql`
-      SELECT achievement_id
-      FROM player_achievements
-      WHERE player_id = ${playerId}
-        AND achievement_id = 'survival-first-defense'
-      LIMIT 1`) as Array<{ achievement_id: string }>;
-    const firstDefenseAlreadyUnlocked = firstDefenseRows.length > 0;
     const playerRows = (await sql`
       UPDATE players
       SET emeralds = emeralds + ${completedRaid.reward.vibes},
@@ -661,12 +654,11 @@ export async function finishBunkerRaid(
       RETURNING defense_xp`) as Array<{ defense_xp: number }>;
     defenseXpAfter = playerRows[0]?.defense_xp ?? defenseXpAfter;
     try {
-      await applyAchievementProgress(sql, playerId, {
+      newStamps = await applyAchievementProgress(sql, playerId, {
         bunkerRaidsSurvived: 1,
       });
-      stampAwarded = !firstDefenseAlreadyUnlocked;
     } catch {
-      stampAwarded = false;
+      // Stamps are cosmetic and must never block a raid reward.
     }
   }
   const afterProgress = playerLevelProgress(defenseXpAfter);
@@ -705,7 +697,7 @@ export async function finishBunkerRaid(
       leveledUp: afterProgress.level > beforeProgress.level,
       beaconLimitBefore: beforeProgress.beaconLimit,
       beaconLimitAfter: afterProgress.beaconLimit,
-      stampAwarded,
+      newStamps,
     },
   };
 }

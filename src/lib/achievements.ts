@@ -448,6 +448,12 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
   },
 ];
 
+/** The catalog keyed by achievement id (art, alerts, and validation). */
+export const ACHIEVEMENT_BY_ID: ReadonlyMap<string, AchievementDefinition> =
+  new Map(
+    ACHIEVEMENT_DEFINITIONS.map((definition) => [definition.id, definition]),
+  );
+
 export function normalizeAchievementStats(
   value: Partial<AchievementStats> | null | undefined,
 ): AchievementStats {

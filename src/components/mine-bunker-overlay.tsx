@@ -24,9 +24,14 @@ import {
 } from "./mine-support-selection";
 import {
   SURFACE_PALETTE,
+  type SurfaceGeometryTier,
   type SurfaceMaterialRole,
 } from "./mine-surface-geometry";
-import { surfaceMaterial } from "./mine-surface-materials";
+import {
+  surfaceCoatedMetal,
+  surfaceComposite,
+  surfaceEmissive,
+} from "./mine-surface-materials";
 import {
   CLANKER_BURST_VISIBLE_SECONDS,
   dissipatingOpacity,
@@ -532,6 +537,34 @@ function RaidXpPickupVisual() {
 /** Damage never scales below this, so wilted parts stay visible. */
 const BASE_PART_MIN_WILT = 0.15;
 
+/**
+ * Underground light is the miner's lamp plus dim ambient, so the steel
+ * body reads through the DIFFUSE composite recipe with a light gunmetal
+ * tint rather than the surface metals (metalness 0.68-0.92 goes near
+ * black without sky light). Two extra cached material instances on
+ * shaders the village already compiled; no new programs.
+ */
+const BUNKER_STEEL_HEX = "#78848F";
+
+function bunkerPartMaterial(
+  role: SurfaceMaterialRole,
+  emissiveHex: string,
+  detail: boolean,
+) {
+  switch (role) {
+    case "shell":
+      return surfaceComposite(BUNKER_STEEL_HEX, detail);
+    case "frame":
+      return surfaceCoatedMetal(SURFACE_PALETTE.brushedTitanium, detail);
+    case "composite":
+      return surfaceComposite(SURFACE_PALETTE.voidGraphite, detail);
+    case "accent":
+      return surfaceCoatedMetal(SURFACE_PALETTE.safetyOrange, detail);
+    case "emissive":
+      return surfaceEmissive(emissiveHex, detail);
+  }
+}
+
 const BASE_PART_EMISSIVES: Record<BasePartId, string> = {
   "wall-panel": SURFACE_PALETTE.energyCyan,
   "floor-panel": SURFACE_PALETTE.energyCyan,
@@ -552,15 +585,14 @@ const BASE_PART_EMISSIVES: Record<BasePartId, string> = {
 function BasePartVisual({
   partId,
   durability,
+  tier,
+  detail,
 }: {
   partId: BasePartId;
   durability: number;
+  tier: SurfaceGeometryTier;
+  detail: boolean;
 }) {
-  const detail = useBlockDetail();
-  const tier = resolveGraphicsQualityTier(
-    readStoredGraphicsQuality(),
-    hasCoarsePointer(),
-  );
   const model = bunkerPartGeometry(partId, tier);
   const maxDurability = BASE_PART_CATALOG[partId].durability;
   const wilt = Math.max(
@@ -568,12 +600,7 @@ function BasePartVisual({
     Math.min(1, durability / maxDurability),
   );
   const material = (role: SurfaceMaterialRole) =>
-    surfaceMaterial(
-      role,
-      SURFACE_PALETTE.safetyOrange,
-      BASE_PART_EMISSIVES[partId],
-      detail,
-    );
+    bunkerPartMaterial(role, BASE_PART_EMISSIVES[partId], detail);
   return (
     <group>
       {model.layers.map((layer) => (
@@ -633,6 +660,13 @@ export function BunkerOverlay({
   onBunkerDragTarget?: (cell: MineCoord) => void;
   onBunkerDragEnd?: (cell: MineCoord) => void;
 }) {
+  // Resolved once per overlay render (not per part): the quality read
+  // touches localStorage and matchMedia.
+  const detail = useBlockDetail();
+  const tier = resolveGraphicsQualityTier(
+    readStoredGraphicsQuality(),
+    hasCoarsePointer(),
+  );
   const footprint = bunker?.footprint ?? preview;
   if (!footprint) return null;
   const canEditBunker = Boolean(bunker && (editingEnabled ?? !activeRaid));
@@ -863,7 +897,12 @@ export function BunkerOverlay({
           {selected && (
             <SelectedSupportCellOutline col={part.col} row={part.row} />
           )}
-          <BasePartVisual durability={part.durability} partId={part.partId} />
+          <BasePartVisual
+            detail={detail}
+            durability={part.durability}
+            partId={part.partId}
+            tier={tier}
+          />
         </group>
       );
     }) ?? [];

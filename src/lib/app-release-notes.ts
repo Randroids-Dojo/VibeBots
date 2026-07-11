@@ -13,7 +13,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
       changes: [
         {
           build,
-          text: "Every base part was rebuilt in the settlement's industrial language: armored shells, titanium frames, graphite insets, safety-orange and energy-cyan detailing. Sealing parts now fill their whole cell, so stacked walls read as one continuous bulkhead, floor rows as one deck, and roof rows as one ceiling instead of small boxes floating in their cells. Spikes and turrets visibly wilt as they take raid damage.",
+          text: "Every base part was rebuilt as riveted gunmetal steel, straight out of a shelter cutaway: light steel plates with dark seam lines and proud rivets, walkway grates, vented ceiling caps with warm work lamps, and a hatch door with a porthole and an orange spin-wheel. Sealing parts now fill their whole cell, so stacked walls read as one continuous bulkhead, floor rows as one deck, and roof rows as one ceiling instead of small boxes floating in their cells. Spikes and turrets visibly wilt as they take raid damage.",
         },
         {
           build,

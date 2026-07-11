@@ -36,7 +36,7 @@ describe("app release notes", () => {
         "Base parts lock together, and the starter kit builds a full shelter.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Every base part was rebuilt in the settlement's industrial language: armored shells, titanium frames, graphite insets, safety-orange and energy-cyan detailing. Sealing parts now fill their whole cell, so stacked walls read as one continuous bulkhead, floor rows as one deck, and roof rows as one ceiling instead of small boxes floating in their cells. Spikes and turrets visibly wilt as they take raid damage.",
+      "Every base part was rebuilt as riveted gunmetal steel, straight out of a shelter cutaway: light steel plates with dark seam lines and proud rivets, walkway grates, vented ceiling caps with warm work lamps, and a hatch door with a porthole and an orange spin-wheel. Sealing parts now fill their whole cell, so stacked walls read as one continuous bulkhead, floor rows as one deck, and roof rows as one ceiling instead of small boxes floating in their cells. Spikes and turrets visibly wilt as they take raid damage.",
       "New bunker claims now grant 6 walls, 4 floors, 4 roofs, and a door: enough to fully enclose the player cell in a small sealed room with spares left over. A sealed room genuinely turns a raid away, and a simulation test now pins that promise.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

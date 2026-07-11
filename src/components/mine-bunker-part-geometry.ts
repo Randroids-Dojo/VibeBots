@@ -1,4 +1,4 @@
-import { Box3 } from "three/webgpu";
+import { Box3, Vector3 } from "three/webgpu";
 import { BASE_PART_IDS, type BasePartId } from "@/sim/bunker";
 import {
   type BuildContext,
@@ -50,75 +50,160 @@ export interface BunkerPartGeometry {
   triangleCount: number;
 }
 
-function buildWall(ctx: BuildContext): void {
-  // Full-bleed armored bulkhead: the slab spans the whole cell so
-  // stacked and adjacent walls read as one continuous wall.
-  box(ctx, "shell", [1, 1, 0.16], [0, 0, 0]);
-  box(ctx, "composite", [0.72, 0.72, 0.05], [0, 0, 0.09]);
-  // Half-width border rails: the neighbor's half completes the joint.
-  box(ctx, "frame", [1, 0.07, 0.05], [0, 0.465, 0.09]);
-  box(ctx, "frame", [1, 0.07, 0.05], [0, -0.465, 0.09]);
-  box(ctx, "frame", [0.07, 1, 0.05], [0.465, 0, 0.09]);
-  box(ctx, "frame", [0.07, 1, 0.05], [-0.465, 0, 0.09]);
-  box(ctx, "accent", [0.2, 0.2, 0.03], [-0.16, 0, 0.115], [0, 0, Math.PI / 4]);
-  box(ctx, "emissive", [0.035, 0.56, 0.02], [0.26, 0, 0.12]);
-  boltRow(ctx, 0.6, 0.38, 0.125, 3);
-  boltRow(ctx, 0.6, -0.38, 0.125, 3);
+/**
+ * Shared vocabulary of the riveted-steel look (the Fallout-Shelter-like
+ * cutaway reference): a light gunmetal body slab, a dark inset seam
+ * border whose half-width edges combine with the neighbor's into one
+ * seam line, and proud corner rivets. Every sealing part starts from
+ * this so an assembled room reads as one continuous riveted lattice.
+ */
+function steelBlock(ctx: BuildContext, depth = 0.2): void {
+  const face = depth / 2;
+  box(ctx, "shell", [1, 1, depth], [0, 0, 0]);
+  // Dark seam border, half on each neighbor.
+  box(ctx, "composite", [1, 0.05, 0.015], [0, 0.475, face]);
+  box(ctx, "composite", [1, 0.05, 0.015], [0, -0.475, face]);
+  box(ctx, "composite", [0.05, 1, 0.015], [0.475, 0, face]);
+  box(ctx, "composite", [0.05, 1, 0.015], [-0.475, 0, face]);
+  rivets(ctx, face + 0.012);
 }
 
-function buildFloor(ctx: BuildContext): void {
-  // Deck plate: full cell width, seated on the cell floor, so a row of
-  // floor cells forms one continuous walkable deck.
-  box(ctx, "shell", [1, 0.3, 0.3], [0, -0.35, 0]);
-  box(ctx, "frame", [1, 0.05, 0.05], [0, -0.215, 0.1]);
-  box(ctx, "frame", [1, 0.05, 0.05], [0, -0.215, -0.1]);
-  box(ctx, "accent", [1, 0.055, 0.02], [0, -0.26, 0.16]);
-  if (ctx.tier === "high") {
-    for (const x of [-0.3, 0, 0.3]) {
-      box(ctx, "frame", [0.05, 0.045, 0.22], [x, -0.21, 0]);
+/** Proud corner rivets on both tiers: they carry the whole style. */
+function rivets(ctx: BuildContext, z: number): void {
+  for (const x of [-0.38, 0.38]) {
+    for (const y of [-0.38, 0.38]) {
+      cylinder(
+        ctx,
+        "frame",
+        0.042,
+        0.05,
+        0.03,
+        [x, y, z],
+        [Math.PI / 2, 0, 0],
+        8,
+      );
     }
+  }
+  if (ctx.tier !== "high") return;
+  // Edge-midpoint rivets complete the reference's studded border rows.
+  for (const [x, y] of [
+    [0, -0.38],
+    [0, 0.38],
+    [-0.38, 0],
+    [0.38, 0],
+  ] as const) {
+    cylinder(
+      ctx,
+      "frame",
+      0.042,
+      0.05,
+      0.03,
+      [x, y, z],
+      [Math.PI / 2, 0, 0],
+      8,
+    );
   }
 }
 
-function buildRoof(ctx: BuildContext): void {
-  // Armored ceiling cap: full cell width against the cell top, so a
-  // roof row reads as one continuous overhead deck.
-  box(ctx, "shell", [1, 0.3, 0.3], [0, 0.35, 0]);
-  box(ctx, "frame", [1, 0.06, 0.05], [0, 0.185, 0.12]);
-  box(ctx, "accent", [0.3, 0.09, 0.2], [0, 0.42, 0.03]);
-  box(ctx, "emissive", [0.84, 0.025, 0.02], [0, 0.225, 0.14]);
+function buildWall(ctx: BuildContext): void {
+  steelBlock(ctx);
+  // Plate midline and a small hazard chevron, like the reference's
+  // patched steel bands.
+  box(ctx, "composite", [0.8, 0.028, 0.012], [0, 0, 0.1]);
+  box(
+    ctx,
+    "accent",
+    [0.16, 0.16, 0.024],
+    [0, -0.21, 0.105],
+    [0, 0, Math.PI / 4],
+  );
   if (ctx.tier === "high") {
-    for (const x of [-0.28, 0.28]) {
-      box(ctx, "frame", [0.08, 0.12, 0.26], [x, 0.3, 0]);
-    }
+    box(ctx, "composite", [0.028, 0.34, 0.012], [-0.24, 0.235, 0.1]);
+    box(ctx, "composite", [0.028, 0.34, 0.012], [0.24, 0.235, 0.1]);
+  }
+}
+
+function buildFloor(ctx: BuildContext): void {
+  steelBlock(ctx);
+  // Recessed walkway grate across the top half of the face.
+  box(ctx, "composite", [0.78, 0.4, 0.03], [0, 0.15, 0.095]);
+  box(ctx, "frame", [0.82, 0.05, 0.05], [0, 0.38, 0.1]);
+  const bars =
+    ctx.tier === "high" ? [-0.3, -0.15, 0, 0.15, 0.3] : [-0.26, 0, 0.26];
+  for (const x of bars) {
+    box(ctx, "frame", [0.05, 0.4, 0.04], [x, 0.15, 0.1]);
+  }
+  box(ctx, "accent", [0.78, 0.045, 0.02], [0, -0.12, 0.105]);
+}
+
+function buildRoof(ctx: BuildContext): void {
+  steelBlock(ctx);
+  // Under-mounted work lamp: the warm room glow from the reference.
+  box(ctx, "frame", [0.3, 0.07, 0.1], [0, -0.42, 0.1]);
+  box(ctx, "emissive", [0.22, 0.045, 0.08], [0, -0.47, 0.1]);
+  // Vent ridge along the top face half.
+  box(ctx, "composite", [0.56, 0.16, 0.03], [0, 0.24, 0.095]);
+  const fins =
+    ctx.tier === "high" ? [-0.2, -0.1, 0, 0.1, 0.2] : [-0.14, 0, 0.14];
+  for (const x of fins) {
+    box(ctx, "frame", [0.045, 0.16, 0.045], [x, 0.24, 0.105]);
   }
 }
 
 function buildDoor(ctx: BuildContext): void {
-  // Pressure hatch: the frame ring fills the cell edges (it seals like
-  // a wall), the leaf sits recessed with a lit threshold.
-  box(ctx, "shell", [1, 0.18, 0.2], [0, 0.41, 0]);
-  box(ctx, "shell", [1, 0.18, 0.2], [0, -0.41, 0]);
-  box(ctx, "shell", [0.18, 1, 0.2], [0.41, 0, 0]);
-  box(ctx, "shell", [0.18, 1, 0.2], [-0.41, 0, 0]);
-  box(ctx, "composite", [0.66, 0.66, 0.06], [0, 0, -0.02]);
-  chamferedBox(ctx, "accent", [0.48, 0.48, 0.05], [0, 0, 0.03], 0.04);
-  box(ctx, "frame", [0.05, 0.2, 0.04], [0.17, 0, 0.06]);
-  box(ctx, "emissive", [0.66, 0.035, 0.02], [0, -0.3, 0.06]);
-  box(ctx, "emissive", [0.4, 0.035, 0.02], [0, 0.3, 0.06]);
-  boltRow(ctx, 0.8, 0.41, 0.11, 4);
-  boltRow(ctx, 0.8, -0.41, 0.11, 4);
+  steelBlock(ctx);
+  // Inset hatch leaf: dark steel with rounded corners, a porthole, an
+  // orange spin-wheel, and a warm ready light.
+  chamferedBox(ctx, "composite", [0.62, 0.74, 0.1], [0, 0, 0.08], 0.06);
+  chamferedBox(ctx, "frame", [0.2, 0.2, 0.03], [0, 0.19, 0.135], 0.05);
+  cylinder(
+    ctx,
+    "accent",
+    0.1,
+    0.1,
+    0.035,
+    [0, -0.12, 0.14],
+    [Math.PI / 2, 0, 0],
+    ctx.tier === "high" ? 12 : 8,
+  );
+  box(ctx, "accent", [0.16, 0.03, 0.02], [0, -0.12, 0.155]);
+  box(ctx, "accent", [0.03, 0.16, 0.02], [0, -0.12, 0.155]);
+  box(ctx, "emissive", [0.05, 0.05, 0.02], [0.22, -0.3, 0.14]);
+  // Hinge knuckles on the left jamb.
+  box(ctx, "frame", [0.06, 0.12, 0.06], [-0.34, 0.2, 0.11]);
+  box(ctx, "frame", [0.06, 0.12, 0.06], [-0.34, -0.2, 0.11]);
 }
 
 const SPIKE_XS_LOW = [-0.33, -0.11, 0.11, 0.33] as const;
 const SPIKE_XS_HIGH = [-0.4, -0.2, 0, 0.2, 0.4] as const;
 
 function buildSpikes(ctx: BuildContext): void {
-  // Low anchor plate tiles flush with neighboring floor plates; the
-  // spikes themselves are the durability-scaled motion assembly.
+  // Low riveted anchor plate; the spikes are the durability-scaled
+  // motion assembly.
   box(ctx, "shell", [1, 0.12, 0.3], [0, -0.44, 0]);
-  box(ctx, "accent", [0.42, 0.045, 0.02], [-0.22, -0.385, 0.16]);
-  box(ctx, "accent", [0.42, 0.045, 0.02], [0.22, -0.385, 0.16]);
+  box(ctx, "composite", [1, 0.03, 0.012], [0, -0.39, 0.15]);
+  cylinder(
+    ctx,
+    "frame",
+    0.042,
+    0.05,
+    0.03,
+    [-0.4, -0.44, 0.162],
+    [Math.PI / 2, 0, 0],
+    8,
+  );
+  cylinder(
+    ctx,
+    "frame",
+    0.042,
+    0.05,
+    0.03,
+    [0.4, -0.44, 0.162],
+    [Math.PI / 2, 0, 0],
+    8,
+  );
+  box(ctx, "accent", [0.34, 0.05, 0.02], [-0.24, -0.35, 0.15]);
+  box(ctx, "accent", [0.34, 0.05, 0.02], [0.24, -0.35, 0.15]);
   const motion: BuildContext = { ...ctx, parts: ctx.motionParts };
   const xs = ctx.tier === "high" ? SPIKE_XS_HIGH : SPIKE_XS_LOW;
   for (const x of xs) {
@@ -127,9 +212,11 @@ function buildSpikes(ctx: BuildContext): void {
 }
 
 function buildTurret(ctx: BuildContext): void {
-  // Pedestal stays put; the sensor head and barrel wilt with damage.
+  // Riveted pedestal stays put; the sensor head and barrel wilt with
+  // damage.
   box(ctx, "shell", [0.8, 0.16, 0.3], [0, -0.42, 0]);
-  box(ctx, "frame", [0.5, 0.1, 0.24], [0, -0.31, 0]);
+  box(ctx, "composite", [0.8, 0.03, 0.012], [0, -0.37, 0.15]);
+  box(ctx, "composite", [0.5, 0.1, 0.24], [0, -0.31, 0]);
   const motion: BuildContext = { ...ctx, parts: ctx.motionParts };
   cylinder(motion, "frame", 0.15, 0.2, 0.22, [0, 0.11, 0], [0, 0, 0], 10);
   chamferedBox(motion, "accent", [0.3, 0.2, 0.24], [0, 0.32, 0], 0.04);
@@ -193,9 +280,20 @@ export function bunkerPartGeometry(
   const motionLayers = (Object.keys(ctx.motionParts) as SurfaceMaterialRole[])
     .map((role) => mergeLayer(role, ctx.motionParts[role]))
     .filter((layer): layer is SurfaceGeometryLayer => layer !== null);
+  // Bounds are the RENDERED extent: motion layers are authored in
+  // anchor space, so translate their boxes by the anchor before
+  // unioning with the cell-space static layers.
+  const anchor = MOTION_ANCHORS[id];
   const bounds = new Box3();
-  for (const layer of [...layers, ...motionLayers]) {
+  const scratch = new Box3();
+  for (const layer of layers) {
     if (layer.geometry.boundingBox) bounds.union(layer.geometry.boundingBox);
+  }
+  for (const layer of motionLayers) {
+    if (!layer.geometry.boundingBox) continue;
+    scratch.copy(layer.geometry.boundingBox);
+    scratch.translate(new Vector3(anchor[0], anchor[1], anchor[2]));
+    bounds.union(scratch);
   }
   const model: BunkerPartGeometry = {
     id,

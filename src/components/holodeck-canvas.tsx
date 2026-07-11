@@ -2,7 +2,15 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { type RefObject, useEffect, useRef } from "react";
-import type { Group, PointLight } from "three/webgpu";
+import type {
+  AmbientLight,
+  Color,
+  DirectionalLight,
+  Fog,
+  Group,
+  HemisphereLight,
+  PointLight,
+} from "three/webgpu";
 import type { MineCell } from "@/sim/mine";
 import { DEFAULT_GEAR, hitsFor, oreReserveAt } from "@/sim/mine";
 import { useHolodeckStore } from "@/state/holodeck-store";
@@ -19,7 +27,11 @@ import {
 import { CrackMarks, MineBlockBody } from "./mine-block-render";
 import { MinerBot } from "./mine-miner-render";
 import { cellX } from "./mine-render-palette";
-import { SurfaceDressing } from "./mine-surface-render";
+import {
+  applySurfaceAtmosphereVisuals,
+  SurfaceDressing,
+  usePrefersReducedMotion,
+} from "./mine-surface-render";
 import {
   advanceCrushTumble,
   type CrushTumbleState,
@@ -37,6 +49,13 @@ import { createWebGPU } from "./part-visuals";
 import { PerfProbeBridge } from "./perf-probe-bridge";
 import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
+import {
+  celestialPositionFor,
+  daylightGradeFor,
+  localClockHour,
+  SURFACE_LIGHTING_STEP_SECONDS,
+  surfaceHourFor,
+} from "./time-of-day";
 
 /** One solid block body, mirroring the mine canvas for the kinds the
  * Holodeck uses. Cracks ride on top as the block takes damage. */
@@ -108,7 +127,14 @@ function HolodeckScene({
   const legLRef = useRef<Group>(null);
   const legRRef = useRef<Group>(null);
   const boosterRef = useRef<Group>(null);
+  const ambientRef = useRef<AmbientLight>(null);
+  const hemiRef = useRef<HemisphereLight>(null);
+  const dirRef = useRef<DirectionalLight>(null);
+  const backgroundRef = useRef<Color>(null);
+  const fogRef = useRef<Fog>(null);
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
+  const renderScene = useThree((state) => state.scene);
+  const reducedMotion = usePrefersReducedMotion();
   const rig = useRef(createMinerRigState());
   // Reused every frame: posing the showcase miner allocates nothing.
   const poseScratch = useRef(createMinerPose());
@@ -117,6 +143,11 @@ function HolodeckScene({
   const crushTumble = useRef<CrushTumbleState | null>(null);
   const crushLoopHold = useRef(0);
   const turntableYaw = useRef(0);
+  const timeOfDay = useRef({
+    grade: daylightGradeFor(12),
+    hour: 12,
+    nextCheck: 0,
+  });
 
   const miner = scene.state.miner;
   const showcase = scenarioId === "miner-showcase";
@@ -128,7 +159,31 @@ function HolodeckScene({
     scene.state.cells.get(`${scene.target.col},${scene.target.row}`)?.kind !==
     "empty";
 
-  useFrame(({ camera, clock, gl }, delta) => {
+  useEffect(() => {
+    if (surfaceVillage) {
+      timeOfDay.current.nextCheck = 0;
+      return;
+    }
+    backgroundRef.current?.set("#0a0c12");
+    if (ambientRef.current) {
+      ambientRef.current.color.set("#cdd8f4");
+      ambientRef.current.intensity = 0.6;
+    }
+    if (hemiRef.current) {
+      hemiRef.current.color.set("#8fb4e8");
+      hemiRef.current.groundColor.set("#2a2017");
+      hemiRef.current.intensity = 0.5;
+    }
+    if (dirRef.current) {
+      dirRef.current.color.set("#ffffff");
+      dirRef.current.position.set(3, 6, 8);
+      dirRef.current.intensity = 1.1;
+    }
+    renderScene.environmentIntensity = features.environmentIntensity;
+  }, [features.environmentIntensity, renderScene, surfaceVillage]);
+
+  useFrame((state, delta) => {
+    const { camera, clock, gl } = state;
     const t = clock.elapsedTime;
     const minerGroup = minerRef.current;
     if (minerGroup) {
@@ -197,6 +252,56 @@ function HolodeckScene({
       webgpuBackend ? "webgpu" : "webgl2",
     );
     if (surfaceVillage) {
+      if (t >= timeOfDay.current.nextCheck) {
+        const nowMs = Date.now();
+        const now = new Date(nowMs);
+        const override = (
+          window as unknown as { __vibebotsTimeOfDayHour?: number }
+        ).__vibebotsTimeOfDayHour;
+        const hour = surfaceHourFor(
+          nowMs,
+          reducedMotion,
+          localClockHour(now),
+          override,
+        );
+        const grade = daylightGradeFor(hour);
+        timeOfDay.current.hour = hour;
+        timeOfDay.current.grade = grade;
+        const celestial = celestialPositionFor(hour);
+        dirRef.current?.position.set(celestial[0], celestial[1], celestial[2]);
+        ambientRef.current?.color.set(grade.ambientColor);
+        if (hemiRef.current) {
+          hemiRef.current.color.set(grade.skyColor);
+          hemiRef.current.groundColor.set(grade.groundLightColor);
+        }
+        dirRef.current?.color.set(grade.sunColor);
+        backgroundRef.current?.set(grade.skyColor);
+        fogRef.current?.color.set(grade.fogColor);
+        applySurfaceAtmosphereVisuals(grade.starOpacity, grade.groundColor);
+        timeOfDay.current.nextCheck = t + SURFACE_LIGHTING_STEP_SECONDS;
+      }
+      const grade = timeOfDay.current.grade;
+      if (ambientRef.current)
+        ambientRef.current.intensity = grade.ambientStrength;
+      if (hemiRef.current) hemiRef.current.intensity = grade.hemisphereStrength;
+      if (dirRef.current) dirRef.current.intensity = grade.sunStrength * 1.1;
+      setDatasetText(cache, dataset, "surfacePhase", grade.phase);
+      setDatasetNumber(
+        cache,
+        dataset,
+        "surfaceCycleHour",
+        timeOfDay.current.hour,
+        2,
+      );
+      setDatasetNumber(
+        cache,
+        dataset,
+        "surfaceStarOpacity",
+        grade.starOpacity,
+        2,
+      );
+      state.scene.environmentIntensity =
+        features.environmentIntensity * grade.environmentStrength;
       setDatasetText(
         cache,
         dataset,
@@ -205,6 +310,7 @@ function HolodeckScene({
       );
       return;
     }
+    setDatasetText(cache, dataset, "surfacePhase", "");
     // The shared rig drives every joint: the single-block scenario plays
     // the real dig clip while its target block survives, the showcase
     // plays whichever clip is selected, and pause is a full still frame.
@@ -289,71 +395,85 @@ function HolodeckScene({
   void lastAction;
 
   return (
-    // Center the selected review scene in front of the fixed camera.
-    <group position={surfaceVillage ? [0, 0, 0] : [0, 4.5, 0]}>
-      <color attach="background" args={["#0a0c12"]} />
-      <ambientLight intensity={surfaceVillage ? 1.05 : 0.6} color="#cdd8f4" />
-      <hemisphereLight
-        args={["#8fb4e8", "#2a2017", surfaceVillage ? 0.72 : 0.5]}
-      />
-      <directionalLight
-        position={[3, 6, 8]}
-        intensity={surfaceVillage ? 1.5 : 1.1}
-        castShadow={features.shadows && webgpuBackend}
-        shadow-mapSize={[features.sunShadowMapSize, features.sunShadowMapSize]}
-        shadow-camera-left={-10}
-        shadow-camera-right={10}
-        shadow-camera-top={8}
-        shadow-camera-bottom={-10}
-        shadow-camera-near={0.5}
-        shadow-camera-far={30}
-        shadow-bias={-0.0004}
-      />
-      <StudioEnvironment intensity={features.environmentIntensity} />
-      {features.postBloom && webgpuBackend ? <ScenePostProcessing /> : null}
-      {gallery ? (
-        // The gallery is a review bench: a soft even fill across the
-        // whole row so materials are judged fairly, not by lamp falloff.
-        <pointLight
-          position={[0, 4.5 - miner.row + 1.2, 4.5]}
-          color="#f4ede2"
-          intensity={2.2}
-          distance={22}
-          decay={1.1}
-        />
+    <>
+      <color ref={backgroundRef} attach="background" args={["#0a0c12"]} />
+      {surfaceVillage ? (
+        <fog ref={fogRef} attach="fog" args={["#101d35", 22, 45]} />
       ) : null}
-      {surfaceVillage ? null : (
-        <pointLight
-          position={[cellX(miner.col), -miner.row + 0.4, 1.6]}
-          color="#ffdca8"
-          intensity={1.6}
-          distance={9}
-          decay={1.3}
+      {/* Center the selected review scene in front of the fixed camera. */}
+      <group position={surfaceVillage ? [0, 0, 0] : [0, 4.5, 0]}>
+        <ambientLight
+          ref={ambientRef}
+          intensity={surfaceVillage ? 0.7 : 0.6}
+          color="#cdd8f4"
         />
-      )}
-      {surfaceVillage ? null : (
-        // Cave backdrop so blocks never float over raw void.
-        <mesh position={[0, -4, -3]}>
-          <planeGeometry args={[40, 30]} />
-          <meshStandardMaterial color="#05060a" roughness={1} />
-        </mesh>
-      )}
-      {surfaceVillage ? <SurfaceDressing /> : blocks}
-      {surfaceVillage ? null : (
-        <group ref={minerRef}>
-          <MinerBot
-            bodyRef={bodyRef}
-            armRef={armRef}
-            lampRef={lampRef}
-            motesRef={motesRef}
-            legLRef={legLRef}
-            legRRef={legRRef}
-            boosterRef={boosterRef}
+        <hemisphereLight
+          ref={hemiRef}
+          args={["#8fb4e8", "#2a2017", surfaceVillage ? 0.68 : 0.5]}
+        />
+        <directionalLight
+          ref={dirRef}
+          position={[3, 6, 8]}
+          intensity={surfaceVillage ? 1.1 : 1.1}
+          castShadow={features.shadows && webgpuBackend}
+          shadow-mapSize={[
+            features.sunShadowMapSize,
+            features.sunShadowMapSize,
+          ]}
+          shadow-camera-left={-10}
+          shadow-camera-right={10}
+          shadow-camera-top={8}
+          shadow-camera-bottom={-10}
+          shadow-camera-near={0.5}
+          shadow-camera-far={30}
+          shadow-bias={-0.0004}
+        />
+        <StudioEnvironment intensity={features.environmentIntensity} />
+        {features.postBloom && webgpuBackend ? <ScenePostProcessing /> : null}
+        {gallery ? (
+          // The gallery is a review bench: a soft even fill across the
+          // whole row so materials are judged fairly, not by lamp falloff.
+          <pointLight
+            position={[0, 4.5 - miner.row + 1.2, 4.5]}
+            color="#f4ede2"
+            intensity={2.2}
+            distance={22}
+            decay={1.1}
           />
-        </group>
-      )}
-      <CanvasDrawCallProbe datasetKey="holodeckDrawCalls" />
-    </group>
+        ) : null}
+        {surfaceVillage ? null : (
+          <pointLight
+            position={[cellX(miner.col), -miner.row + 0.4, 1.6]}
+            color="#ffdca8"
+            intensity={1.6}
+            distance={9}
+            decay={1.3}
+          />
+        )}
+        {surfaceVillage ? null : (
+          // Cave backdrop so blocks never float over raw void.
+          <mesh position={[0, -4, -3]}>
+            <planeGeometry args={[40, 30]} />
+            <meshStandardMaterial color="#05060a" roughness={1} />
+          </mesh>
+        )}
+        {surfaceVillage ? <SurfaceDressing /> : blocks}
+        {surfaceVillage ? null : (
+          <group ref={minerRef}>
+            <MinerBot
+              bodyRef={bodyRef}
+              armRef={armRef}
+              lampRef={lampRef}
+              motesRef={motesRef}
+              legLRef={legLRef}
+              legRRef={legRRef}
+              boosterRef={boosterRef}
+            />
+          </group>
+        )}
+        <CanvasDrawCallProbe datasetKey="holodeckDrawCalls" />
+      </group>
+    </>
   );
 }
 

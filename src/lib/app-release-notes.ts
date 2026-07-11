@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-10-0.1.208-stratum-freeze";
+export const RELEASE_NOTICE_ID = "2026-07-10-0.1.209-surface-shift-cycle";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.209",
+      date: "2026-07-10",
+      title: "The surface keeps time",
+      intro: "Dawn breaks over the village, and the night shift still glows.",
+      changes: [
+        {
+          build,
+          text: "The surface now runs a full eight-minute shift cycle through cold starlight, copper dawn, a clear workday, and a long safety-orange dusk. The sky, horizon fog, sun and moon direction, shadows, metal reflections, ground bounce, and batched star field all move through one coordinated grade while the village's cyan power and warm work lights take over after dark.",
+        },
+        {
+          build,
+          text: "The cycle reuses the existing light rig, adds no lights or production draw calls, and updates its palette only four times per second. Reduced-motion settings freeze the accelerated cycle to local time, and underground lighting stays on the miner's lamp as before.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.208",
       date: "2026-07-10",

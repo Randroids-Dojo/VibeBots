@@ -1,72 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
+import { imagePixelDifferenceRatio } from "./support/image-pixels";
 import { dismissReleaseNotes, openSettings } from "./support/mine-helpers";
 
 const REDUCED_MOTION_PIXEL_DIFF_BUDGET = 0.0001;
-
-async function imagePixelDifferenceRatio(
-  page: Page,
-  before: Buffer,
-  after: Buffer,
-): Promise<number> {
-  return page.evaluate(
-    async ([beforeBase64, afterBase64]) => {
-      const decode = async (encoded: string) => {
-        const response = await fetch(`data:image/png;base64,${encoded}`);
-        return createImageBitmap(await response.blob());
-      };
-      const [beforeImage, afterImage] = await Promise.all([
-        decode(beforeBase64),
-        decode(afterBase64),
-      ]);
-      if (
-        beforeImage.width !== afterImage.width ||
-        beforeImage.height !== afterImage.height
-      ) {
-        beforeImage.close();
-        afterImage.close();
-        return 1;
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = beforeImage.width;
-      canvas.height = beforeImage.height;
-      const context = canvas.getContext("2d", { willReadFrequently: true });
-      if (!context) {
-        beforeImage.close();
-        afterImage.close();
-        return 1;
-      }
-      context.drawImage(beforeImage, 0, 0);
-      const beforePixels = context.getImageData(
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      ).data;
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(afterImage, 0, 0);
-      const afterPixels = context.getImageData(
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      ).data;
-      beforeImage.close();
-      afterImage.close();
-      let changed = 0;
-      for (let i = 0; i < beforePixels.length; i += 4) {
-        if (
-          Math.abs(beforePixels[i] - afterPixels[i]) > 12 ||
-          Math.abs(beforePixels[i + 1] - afterPixels[i + 1]) > 12 ||
-          Math.abs(beforePixels[i + 2] - afterPixels[i + 2]) > 12
-        ) {
-          changed += 1;
-        }
-      }
-      return changed / (canvas.width * canvas.height);
-    },
-    [before.toString("base64"), after.toString("base64")],
-  );
-}
 
 test("holodeck is reachable from the mine options menu", async ({ page }) => {
   await page.goto("/mine");
@@ -403,6 +339,53 @@ test("surface village review bench frames the production models within budget", 
 
   await page.getByLabel("Review framing").selectOption("right");
   await expect(canvas).toHaveAttribute("data-holodeck-surface-view", "right");
+
+  await page.getByLabel("Scenario").selectOption("miner-showcase");
+  await expect(canvas).toHaveAttribute("data-surface-phase", "");
+});
+
+test("surface shift cycle renders distinct day and night grades within budget", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    (
+      window as typeof window & { __vibebotsTimeOfDayHour?: number }
+    ).__vibebotsTimeOfDayHour = 13;
+  });
+  await page.goto("/holodeck");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await page.getByLabel("Scenario").selectOption("surface-village");
+  await expect(canvas).toHaveAttribute("data-surface-phase", "day", {
+    timeout: 30_000,
+  });
+  await expect(canvas).toHaveAttribute("data-surface-star-opacity", "0.00");
+  const dayDraws = Number(
+    await canvas.getAttribute("data-holodeck-draw-calls"),
+  );
+  const day = await canvas.screenshot();
+
+  await page.evaluate(() => {
+    (
+      window as typeof window & { __vibebotsTimeOfDayHour?: number }
+    ).__vibebotsTimeOfDayHour = 0;
+  });
+  await expect(canvas).toHaveAttribute("data-surface-phase", "night", {
+    timeout: 5_000,
+  });
+  await expect(canvas).toHaveAttribute("data-surface-star-opacity", "1.00");
+  const night = await canvas.screenshot();
+  const nightDraws = Number(
+    await canvas.getAttribute("data-holodeck-draw-calls"),
+  );
+
+  expect(await imagePixelDifferenceRatio(page, day, night)).toBeGreaterThan(
+    0.08,
+  );
+  expect(dayDraws).toBeLessThanOrEqual(110);
+  expect(nightDraws).toBe(dayDraws);
 });
 
 test("surface Warp ring changes visible pixels and stops for reduced motion", async ({

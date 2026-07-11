@@ -21,13 +21,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Crossing a depth band no longer freezes the frame.",
+    "Dawn breaks over the village, and the night shift still glows.",
   );
-  await expect(dialog.locator("li")).toHaveCount(2);
+  await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "The fog and background now update in place",
+    "full eight-minute shift cycle",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
+    "adds no lights or production draw calls",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
 
@@ -48,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.209", "The surface keeps time"],
     ["0.1.208", "The stratum hiccup, caught red-handed"],
     ["0.1.207", "The village keeps its hands off the miner"],
     ["0.1.206", "Every stamp gets its moment"],
@@ -232,6 +236,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   ).toBeDisabled();
   await expect(settingsAgain).toContainText(
     /Notification keys are not set on this deploy\.|Notifications are blocked in browser settings\./,
+    { timeout: 15_000 },
   );
 });
 

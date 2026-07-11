@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest stratum-freeze note complete", () => {
+  it("keeps the latest surface shift-cycle note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-10-0.1.208-stratum-freeze");
+    expect(release.noticeId).toBe("2026-07-10-0.1.209-surface-shift-cycle");
     expect(latestNote).toMatchObject({
+      version: "0.1.209",
+      title: "The surface keeps time",
+      intro: "Dawn breaks over the village, and the night shift still glows.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The surface now runs a full eight-minute shift cycle through cold starlight, copper dawn, a clear workday, and a long safety-orange dusk. The sky, horizon fog, sun and moon direction, shadows, metal reflections, ground bounce, and batched star field all move through one coordinated grade while the village's cyan power and warm work lights take over after dark.",
+      "The cycle reuses the existing light rig, adds no lights or production draw calls, and updates its palette only four times per second. Reduced-motion settings freeze the accelerated cycle to local time, and underground lighting stays on the miner's lamp as before.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived stratum-freeze note complete", () => {
+    const release = getAppRelease();
+    const stratumFreezeNote = release.notes.find(
+      (note) => note.version === "0.1.208",
+    );
+
+    expect(stratumFreezeNote).toMatchObject({
       version: "0.1.208",
       title: "The stratum hiccup, caught red-handed",
       intro: "Crossing a depth band no longer freezes the frame.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(stratumFreezeNote?.changes.map((change) => change.text)).toEqual([
       "Real-phone telemetry showed a 2-3 second freeze every time the miner crossed a stratum boundary (rows 12, 24, 36) or came back to the surface, on every single crossing. The cause: the scene rebuilt its fog and background color objects at each boundary, which silently threw away and recompiled every visible shader program. The fog and background now update in place, and a new automated test counts real shader compiles across crossings to keep it that way: re-crossing a boundary now compiles exactly zero.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

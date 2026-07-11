@@ -15,6 +15,7 @@ import {
   type InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
+  PointsMaterial,
   Quaternion,
   Vector3,
 } from "three/webgpu";
@@ -85,6 +86,23 @@ const SURFACE_GRASS_MATERIAL = new MeshStandardMaterial({
   roughness: 1,
   flatShading: true,
 });
+const SURFACE_HORIZON_GEOMETRY = new BoxGeometry(CAMP_WIDTH, 1.04, 0.12);
+const SURFACE_HORIZON_MATERIAL = new MeshStandardMaterial({
+  color: "#101720",
+  roughness: 1,
+  metalness: 0,
+});
+const SURFACE_STAR_MATERIAL = new PointsMaterial({
+  size: 0.05,
+  color: "#cfe0ff",
+  fog: false,
+  transparent: true,
+  opacity: 1,
+  depthWrite: false,
+  toneMapped: false,
+});
+let lastSurfaceStarOpacity = 1;
+let lastSurfaceGroundColor = "#101720";
 const surfaceInstanceMatrix = new Matrix4();
 const surfaceInstancePosition = new Vector3();
 const surfaceInstanceRotation = new Quaternion();
@@ -296,7 +314,7 @@ export function SurfaceSkin({
   );
 }
 
-function usePrefersReducedMotion(): boolean {
+export function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -310,6 +328,26 @@ function usePrefersReducedMotion(): boolean {
     return () => query.removeEventListener("change", update);
   }, []);
   return reduced;
+}
+
+/**
+ * Mutates the two shared surface-atmosphere materials without touching React.
+ * The star field stays one points draw and the horizon replaces the old mine
+ * backdrop draw, so the cycle adds no production draw calls.
+ */
+export function applySurfaceAtmosphereVisuals(
+  starOpacity: number,
+  groundColor: string,
+): void {
+  const nextOpacity = Math.max(0, Math.min(1, starOpacity));
+  if (Math.abs(nextOpacity - lastSurfaceStarOpacity) > 0.002) {
+    SURFACE_STAR_MATERIAL.opacity = nextOpacity;
+    lastSurfaceStarOpacity = nextOpacity;
+  }
+  if (groundColor !== lastSurfaceGroundColor) {
+    SURFACE_HORIZON_MATERIAL.color.set(groundColor);
+    lastSurfaceGroundColor = groundColor;
+  }
 }
 
 function WarpMotionLayers({
@@ -409,11 +447,11 @@ function NightStars() {
     return arr;
   }, []);
   return (
-    <points>
+    <points dispose={null}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.05} color="#cfe0ff" fog={false} />
+      <primitive object={SURFACE_STAR_MATERIAL} attach="material" />
     </points>
   );
 }
@@ -436,7 +474,15 @@ export const SurfaceDressing = memo(function SurfaceDressing() {
         });
       }}
     >
-      {/* Night sky over the camp */}
+      {/* Horizon ground behind the deepest facade footprint. Its shared
+          material follows the shift cycle without reconciling the village. */}
+      <mesh
+        geometry={SURFACE_HORIZON_GEOMETRY}
+        material={SURFACE_HORIZON_MATERIAL}
+        position={[0, 0, -1.55]}
+        dispose={null}
+      />
+      {/* One batched star field, faded by the shared lighting controller. */}
       <NightStars />
       <SurfaceVillageModel />
     </group>

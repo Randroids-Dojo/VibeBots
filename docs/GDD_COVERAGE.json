@@ -464,12 +464,15 @@
         "src/components/mine-surface-materials.ts",
         "src/components/mine-surface-render.tsx",
         "src/components/holodeck-canvas.tsx",
-        "src/sim/holodeck.ts"
+        "src/sim/holodeck.ts",
+        "src/components/time-of-day.ts"
       ],
       "testRefs": [
         "tests/e2e/mine-navigation.spec.ts",
         "src/components/mine-surface-geometry.test.ts",
-        "tests/e2e/holodeck.spec.ts"
+        "tests/e2e/holodeck.spec.ts",
+        "src/components/time-of-day.test.ts",
+        "tests/e2e/mine-core.spec.ts"
       ],
       "followupRefs": []
     },

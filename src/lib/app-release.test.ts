@@ -24,20 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest village-clearance note complete", () => {
+  it("keeps the latest surface shift-cycle note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-10-0.1.207-village-clearance");
+    expect(release.noticeId).toBe("2026-07-10-0.1.208-surface-shift-cycle");
     expect(latestNote).toMatchObject({
+      version: "0.1.208",
+      title: "The surface keeps time",
+      intro: "Dawn breaks over the village, and the night shift still glows.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The surface now runs a full eight-minute shift cycle through cold starlight, copper dawn, a clear workday, and a long safety-orange dusk. The sky, horizon fog, sun and moon direction, shadows, metal reflections, ground bounce, and batched star field all move through one coordinated grade while the village's cyan power and warm work lights take over after dark.",
+      "The cycle reuses the existing light rig, adds no lights or production draw calls, and updates its palette only four times per second. Reduced-motion settings freeze the accelerated cycle to local time, and underground lighting stays on the miner's lamp as before.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived village-clearance note complete", () => {
+    const release = getAppRelease();
+    const villageClearanceNote = release.notes.find(
+      (note) => note.version === "0.1.207",
+    );
+
+    expect(villageClearanceNote).toMatchObject({
       version: "0.1.207",
       title: "The village keeps its hands off the miner",
       intro: "No more walking through the new buildings.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The rebuilt settlement had pieces crossing the miner's walking line: the headframe's splayed derrick legs, the lit doormats at every entrance, the warp pad's raised rim, the service deck's glow strips, and the shaft lamp posts all sliced through the robot. Every solid now stays behind the walk line, the warp pad sits flush with the deck, and a geometry test keeps anything from reaching into the miner's space again, standing or jumping.",
-      "MINE_VERSION and SIM_VERSION are unchanged.",
-    ]);
   });
 
   it("keeps the archived stamp-alerts note complete", () => {

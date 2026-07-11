@@ -26,11 +26,57 @@ if (!baseUrl) {
 
 const GRAPHICS_KEY = "vibebots-graphics-quality-v1";
 const CAPTURES = [
-  { quality: "high", view: "wide", width: 1280, height: 800 },
-  { quality: "low", view: "wide", width: 1280, height: 800 },
+  {
+    quality: "high",
+    view: "wide",
+    phase: "dawn",
+    hour: 6.5,
+    width: 1280,
+    height: 800,
+  },
+  {
+    quality: "high",
+    view: "wide",
+    phase: "day",
+    hour: 13,
+    width: 1280,
+    height: 800,
+  },
+  {
+    quality: "high",
+    view: "wide",
+    phase: "dusk",
+    hour: 19,
+    width: 1280,
+    height: 800,
+  },
+  {
+    quality: "high",
+    view: "wide",
+    phase: "night",
+    hour: 0,
+    width: 1280,
+    height: 800,
+  },
+  {
+    quality: "low",
+    view: "wide",
+    phase: "day",
+    hour: 13,
+    width: 1280,
+    height: 800,
+  },
+  {
+    quality: "low",
+    view: "wide",
+    phase: "night",
+    hour: 0,
+    width: 1280,
+    height: 800,
+  },
   ...["left", "center", "right"].flatMap((view) => [
-    { quality: "high", view, width: 390, height: 760 },
-    { quality: "low", view, width: 390, height: 760 },
+    { quality: "high", view, phase: "day", hour: 13, width: 390, height: 760 },
+    { quality: "low", view, phase: "day", hour: 13, width: 390, height: 760 },
   ]),
 ];
 
@@ -74,8 +120,11 @@ try {
       reducedMotion: "reduce",
     });
     await context.addInitScript(
-      ([key, quality]) => localStorage.setItem(key, quality),
-      [GRAPHICS_KEY, capture.quality],
+      ([key, quality, hour]) => {
+        localStorage.setItem(key, quality);
+        window.__vibebotsTimeOfDayHour = hour;
+      },
+      [GRAPHICS_KEY, capture.quality, capture.hour],
     );
     const page = await context.newPage();
     await page.goto(`${baseUrl}/holodeck`, { waitUntil: "networkidle" });
@@ -103,7 +152,7 @@ try {
       (await canvas.getAttribute("data-holodeck-backend")) ?? "unknown";
     const file = join(
       outDir,
-      `${prefix}-${capture.quality}-${capture.view}-${capture.width}x${capture.height}.png`,
+      `${prefix}-${capture.quality}-${capture.phase}-${capture.view}-${capture.width}x${capture.height}.png`,
     );
     await canvas.screenshot({ path: file });
     const entry = { ...capture, backend, drawCalls, ...frameTimes, file };

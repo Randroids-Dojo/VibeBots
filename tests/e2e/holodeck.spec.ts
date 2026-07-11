@@ -403,6 +403,53 @@ test("surface village review bench frames the production models within budget", 
 
   await page.getByLabel("Review framing").selectOption("right");
   await expect(canvas).toHaveAttribute("data-holodeck-surface-view", "right");
+
+  await page.getByLabel("Scenario").selectOption("miner-showcase");
+  await expect(canvas).toHaveAttribute("data-surface-phase", "");
+});
+
+test("surface shift cycle renders distinct day and night grades within budget", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    (
+      window as typeof window & { __vibebotsTimeOfDayHour?: number }
+    ).__vibebotsTimeOfDayHour = 13;
+  });
+  await page.goto("/holodeck");
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await page.getByLabel("Scenario").selectOption("surface-village");
+  await expect(canvas).toHaveAttribute("data-surface-phase", "day", {
+    timeout: 30_000,
+  });
+  await expect(canvas).toHaveAttribute("data-surface-star-opacity", "0.00");
+  const dayDraws = Number(
+    await canvas.getAttribute("data-holodeck-draw-calls"),
+  );
+  const day = await canvas.screenshot();
+
+  await page.evaluate(() => {
+    (
+      window as typeof window & { __vibebotsTimeOfDayHour?: number }
+    ).__vibebotsTimeOfDayHour = 0;
+  });
+  await expect(canvas).toHaveAttribute("data-surface-phase", "night", {
+    timeout: 5_000,
+  });
+  await expect(canvas).toHaveAttribute("data-surface-star-opacity", "1.00");
+  const night = await canvas.screenshot();
+  const nightDraws = Number(
+    await canvas.getAttribute("data-holodeck-draw-calls"),
+  );
+
+  expect(await imagePixelDifferenceRatio(page, day, night)).toBeGreaterThan(
+    0.08,
+  );
+  expect(dayDraws).toBeLessThanOrEqual(110);
+  expect(nightDraws).toBe(dayDraws);
 });
 
 test("surface Warp ring changes visible pixels and stops for reduced motion", async ({

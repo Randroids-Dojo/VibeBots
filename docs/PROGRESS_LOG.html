@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="surface-day-night-cycle" data-date="2026-07-10">
+    <h3>Give the industrial surface a full day and night shift cycle</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/surface-day-night-cycle</code>, created from current <code>origin/main</code> (<code>f941e3a</code>).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.208 replaces the old once-per-minute real-clock tint with a full accelerated eight-minute surface cycle. <code>time-of-day.ts</code> now authors coordinated night, dawn, day, and dusk anchors for sky, horizon fog, ambient tint, ground bounce, directional sun or moon key, environment response, distant ground, and star opacity; the key follows a camera-facing celestial arc so metallic facades remain readable on the no-IBL WebGL2 tier. <code>MineScene</code> blends those colors back to the unchanged stratum background and lamp rig with depth. The Surface Village Holodeck uses the same pure grade and orbit functions. <code>SurfaceDressing</code> stays prop-free and memoized; its existing 46 stars now share one transparent PointsMaterial and its existing horizon draw moves into the static dressing. The controller updates only at 4 Hz, reuses Color objects, mutates lights and shared materials imperatively, adds no lights, no production draw calls, no dependencies, and no React state. Reduced motion switches from the accelerated clock to the player's local hour; the existing QA override freezes an exact hour. The capture driver now records dawn, day, dusk, night, both graphics tiers, and all portrait framings.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, sim purity, GDD JSON parse, typecheck, Biome (only the known broken auth-rule symlink warning), full unit suite (104 files, 1,042 tests), and production build green. Focused production-mine plus Holodeck lighting, review framing, draw budget, Warp motion, reduced motion, and release-note smoke green (5 passed). Required critical smoke green (5 passed). Its first run exposed two existing software-runner sampling races: the fatal-fall check sequentially waited until after impact, and the notification-config message used a 5s network window under parallel load; the final contracts accept the still-active impact frame and use the suite's 15s network window, then the complete gate passed. Final low and high capture report: 8 to 10 Holodeck draws, phone WebGL2 median 8.3 ms with p95 8.4 to 16.7 ms, wide software-WebGL2 median 25.0 ms with p95 33.3 to 33.4 ms. Dawn, day, dusk, night, wide, and portrait captures reviewed for silhouette, entrance, emissive, and low-tier legibility.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: eight minutes keeps a full shift visible during an ordinary surface session, with reduced motion anchored to local time. The key stays in the camera-facing half-space instead of moving physically behind the set so graphite and titanium remain readable on WebGL2 without adding a fill light. Rule 13: mine tips reviewed with no copy change because no rule, economy, control, hazard, shop, or recovery behavior changed. Rule 14: stamp review completed with none added because environmental polish is not a durable player milestone.</dd>
+      <dt>GDD coverage</dt><dd><code>REQ-021</code> remains done with new lighting implementation and test refs in <code>docs/GDD_COVERAGE.json</code>. A build-log entry was added to <code>docs/gdd/06-mining.html</code>.</dd>
+      <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
+
   <article data-slice="village-walk-plane-clearance" data-date="2026-07-10">
     <h3>Stop the miner clipping through the rebuilt village</h3>
     <dl>

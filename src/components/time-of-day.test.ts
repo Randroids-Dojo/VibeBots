@@ -1,41 +1,77 @@
 import { describe, expect, it } from "vitest";
-import { daylightGradeFor, fogRangeForStratum } from "./time-of-day";
+import {
+  celestialPositionFor,
+  daylightGradeFor,
+  fogRangeForStratum,
+  SURFACE_CYCLE_SECONDS,
+  surfaceCycleHour,
+  surfaceHourFor,
+} from "./time-of-day";
 
-describe("daylight grade", () => {
-  it("holds full noon sun through the day plateau", () => {
-    for (const hour of [10, 13, 16]) {
-      const grade = daylightGradeFor(hour);
-      expect(grade.phase).toBe("day");
-      expect(grade.sunStrength).toBe(1);
-      expect(grade.sunColor).toBe("#fff4e0");
-    }
+describe("surface shift cycle", () => {
+  it("covers night, dawn, day, and dusk with distinct art grades", () => {
+    const night = daylightGradeFor(0);
+    const dawn = daylightGradeFor(6.5);
+    const day = daylightGradeFor(13);
+    const dusk = daylightGradeFor(19);
+
+    expect([night.phase, dawn.phase, day.phase, dusk.phase]).toEqual([
+      "night",
+      "dawn",
+      "day",
+      "dusk",
+    ]);
+    expect(
+      new Set([night.skyColor, dawn.skyColor, day.skyColor, dusk.skyColor])
+        .size,
+    ).toBe(4);
+    expect(night.starOpacity).toBe(1);
+    expect(day.starOpacity).toBe(0);
+    expect(day.sunStrength).toBeGreaterThan(dawn.sunStrength);
+    expect(dusk.fogColor).not.toBe(night.fogColor);
   });
 
-  it("dims and cools at night but stays playable", () => {
-    for (const hour of [0, 3, 23]) {
-      const grade = daylightGradeFor(hour);
-      expect(grade.phase).toBe("night");
-      expect(grade.sunStrength).toBeGreaterThanOrEqual(0.6);
-      expect(grade.sunStrength).toBeLessThan(0.7);
-    }
+  it("interpolates smoothly through transition hours", () => {
+    const beforeDawn = daylightGradeFor(5);
+    const sunrise = daylightGradeFor(6);
+    const morning = daylightGradeFor(8);
+    expect(sunrise.sunStrength).toBeGreaterThan(beforeDawn.sunStrength);
+    expect(morning.sunStrength).toBeGreaterThan(sunrise.sunStrength);
+    expect(sunrise.starOpacity).toBeLessThan(beforeDawn.starOpacity);
   });
 
-  it("warms through dawn and dusk transitions", () => {
-    expect(daylightGradeFor(7).phase).toBe("dawn");
-    expect(daylightGradeFor(19).phase).toBe("dusk");
-    // Between the night anchor and full day, strength climbs.
-    expect(daylightGradeFor(6).sunStrength).toBeGreaterThan(
-      daylightGradeFor(5).sunStrength,
-    );
-    expect(daylightGradeFor(9).sunStrength).toBeGreaterThan(
-      daylightGradeFor(7).sunStrength,
-    );
+  it("maps one wall-clock cycle onto a full in-world day", () => {
+    const cycleMs = SURFACE_CYCLE_SECONDS * 1_000;
+    expect(surfaceCycleHour(0)).toBe(0);
+    expect(surfaceCycleHour(cycleMs / 4)).toBe(6);
+    expect(surfaceCycleHour(cycleMs / 2)).toBe(12);
+    expect(surfaceCycleHour(cycleMs * 0.75)).toBe(18);
+    expect(surfaceCycleHour(cycleMs)).toBe(0);
+    expect(surfaceCycleHour(-cycleMs / 4)).toBe(18);
   });
 
-  it("wraps fractional and out-of-range hours", () => {
-    expect(daylightGradeFor(24.5).phase).toBe(daylightGradeFor(0.5).phase);
+  it("freezes QA overrides and reduced motion instead of accelerating", () => {
+    expect(surfaceHourFor(90_000, false, 4.5, 19)).toBe(19);
+    expect(surfaceHourFor(90_000, true, 4.5)).toBe(4.5);
+    expect(surfaceHourFor(90_000, false, 4.5)).toBe(surfaceCycleHour(90_000));
+    expect(surfaceHourFor(90_000, false, 4.5, -2)).toBe(22);
+  });
+
+  it("moves one celestial key from sunrise through noon to sunset", () => {
+    const sunrise = celestialPositionFor(6);
+    const noon = celestialPositionFor(12);
+    const sunset = celestialPositionFor(18);
+    const midnight = celestialPositionFor(0);
+    expect(sunrise[0]).toBeCloseTo(4);
+    expect(noon[1]).toBeCloseTo(8);
+    expect(sunset[0]).toBeCloseTo(-4);
+    expect(noon[2]).toBeCloseTo(midnight[2]);
+    expect(midnight[2]).toBeGreaterThan(0);
+  });
+
+  it("wraps fractional and out-of-range grade hours", () => {
+    expect(daylightGradeFor(24.5)).toEqual(daylightGradeFor(0.5));
     expect(daylightGradeFor(-2)).toEqual(daylightGradeFor(22));
-    expect(daylightGradeFor(13.75).sunStrength).toBe(1);
   });
 });
 

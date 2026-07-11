@@ -13,6 +13,7 @@ import type {
   AmbientLight,
   Camera,
   DirectionalLight,
+  Fog,
   HemisphereLight,
   Material,
   Object3D,
@@ -164,9 +165,10 @@ import {
   SupportSelectionOutline,
 } from "./mine-support-selection";
 import {
-  CAMP_WIDTH,
+  applySurfaceAtmosphereVisuals,
   SurfaceDressing,
   SurfaceSkin,
+  usePrefersReducedMotion,
 } from "./mine-surface-render";
 import {
   advanceCrushTumble,
@@ -186,7 +188,14 @@ import {
 } from "./miner-rig";
 import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
-import { daylightGradeFor, fogRangeForStratum } from "./time-of-day";
+import {
+  celestialPositionFor,
+  daylightGradeFor,
+  fogRangeForStratum,
+  localClockHour,
+  SURFACE_LIGHTING_STEP_SECONDS,
+  surfaceHourFor,
+} from "./time-of-day";
 
 const CAMERA_STEP_SECONDS = 0.28;
 /**
@@ -925,6 +934,9 @@ function MineScene({
   const ambientRef = useRef<AmbientLight>(null);
   const hemiRef = useRef<HemisphereLight>(null);
   const dirRef = useRef<DirectionalLight>(null);
+  const backgroundRef = useRef<Color>(null);
+  const fogRef = useRef<Fog>(null);
+  const stratumColorRef = useRef(new Color());
   const sparkInstRef = useRef<InstancedMesh>(null);
   const debrisInstRef = useRef<InstancedMesh>(null);
   const dustInstRef = useRef<InstancedMesh>(null);
@@ -973,6 +985,7 @@ function MineScene({
   const crushTumbleFrames = useRef(0);
   const timeOfDay = useRef({
     grade: daylightGradeFor(12),
+    hour: 12,
     nextCheck: 0,
   });
   const juice = useRef<JuiceState>({
@@ -1006,6 +1019,7 @@ function MineScene({
   // driving; the WebGL2 fallback (headless CI, software GL, weak GPUs)
   // cannot afford them regardless of the pointer-derived tier.
   const webgpuBackend = useThree((state) => isWebGPUBackend(state.gl));
+  const reducedMotion = usePrefersReducedMotion();
   // Shader-detail tier for the instanced block materials (matches
   // useBlockDetail: high quality AND the live WebGPU backend).
   const detail = blockDetailEnabled(webgpuBackend);
@@ -1423,19 +1437,28 @@ function MineScene({
       );
       depthT = Math.min(1, Math.max(0, -rig.position.y / DARK_DEPTH));
     }
-    // Daylight dies with depth; the lamp takes over as the key light.
-    // The surface sun also follows the player's real clock (G4): warm at
-    // the edges of the day, cool and dim at night, full at noon. The
-    // grade re-reads the clock once a minute and never blocks a frame.
+    // Daylight dies with depth; the lamp takes over as the key light. The
+    // surface runs one persistent eight-minute shift cycle. Reduced motion
+    // follows local time, and the QA override freezes any exact review hour.
+    // Grade and orbit math run at 4 Hz while light intensity and depth blends
+    // stay frame-smooth with reused Color instances.
     if (t >= timeOfDay.current.nextCheck) {
-      const now = new Date();
+      const nowMs = Date.now();
+      const now = new Date(nowMs);
       const override = (
         window as unknown as { __vibebotsTimeOfDayHour?: number }
       ).__vibebotsTimeOfDayHour;
-      timeOfDay.current.grade = daylightGradeFor(
-        override ?? now.getHours() + now.getMinutes() / 60,
+      const hour = surfaceHourFor(
+        nowMs,
+        reducedMotion,
+        localClockHour(now),
+        override,
       );
-      timeOfDay.current.nextCheck = t + 60;
+      timeOfDay.current.hour = hour;
+      timeOfDay.current.grade = daylightGradeFor(hour);
+      const celestial = celestialPositionFor(hour);
+      dirRef.current?.position.set(celestial[0], celestial[1], celestial[2]);
+      timeOfDay.current.nextCheck = t + SURFACE_LIGHTING_STEP_SECONDS;
     }
     const grade = timeOfDay.current.grade;
     const day = (1 - depthT) ** 1.7;
@@ -1444,22 +1467,53 @@ function MineScene({
     const brightTier = webgpuBackend && graphicsFeatures.postBloom;
     const lightTrim = brightTier ? DESKTOP_LIGHT_TRIM : 1;
     const envTrim = brightTier ? DESKTOP_ENV_TRIM : 1;
-    if (ambientRef.current)
-      ambientRef.current.intensity = (0.07 + 0.48 * day) * lightTrim;
+    if (ambientRef.current) {
+      ambientRef.current.intensity =
+        (0.07 + grade.ambientStrength * day) * lightTrim;
+      ambientRef.current.color.set(grade.ambientColor);
+    }
     if (hemiRef.current) {
-      hemiRef.current.intensity = 0.5 * day * day * lightTrim;
+      hemiRef.current.intensity =
+        grade.hemisphereStrength * day * day * lightTrim;
       hemiRef.current.color.set(grade.skyColor);
+      hemiRef.current.groundColor.set(grade.groundLightColor);
     }
     if (dirRef.current) {
       dirRef.current.intensity =
-        (0.06 + 1.04 * day) * grade.sunStrength * lightTrim;
+        (0.04 + 1.06 * day) * grade.sunStrength * lightTrim;
       dirRef.current.color.set(grade.sunColor);
     }
     setDatasetText(cache, dataset, "timeOfDay", grade.phase);
+    setDatasetText(cache, dataset, "surfacePhase", grade.phase);
+    setDatasetNumber(
+      cache,
+      dataset,
+      "surfaceCycleHour",
+      timeOfDay.current.hour,
+      2,
+    );
+    setDatasetNumber(
+      cache,
+      dataset,
+      "surfaceStarOpacity",
+      grade.starOpacity * day,
+      2,
+    );
+    applySurfaceAtmosphereVisuals(grade.starOpacity * day, grade.groundColor);
+    const depthColorBlend = Math.min(1, depthT * 1.65);
+    const stratumColor = stratumColorRef.current.set(bg);
+    backgroundRef.current
+      ?.set(grade.skyColor)
+      .lerp(stratumColor, depthColorBlend);
+    fogRef.current?.color
+      .set(grade.fogColor)
+      .lerp(stratumColor, depthColorBlend);
     // The studio environment is a surface phenomenon: it fades with the
     // daylight so the underground keeps its lamp-lit darkness.
     state.scene.environmentIntensity =
-      graphicsFeatures.environmentIntensity * (0.12 + 0.88 * day) * envTrim;
+      graphicsFeatures.environmentIntensity *
+      (0.12 + (grade.environmentStrength - 0.12) * day) *
+      envTrim;
     const lamp = lampRef.current;
     if (lamp) {
       let intensity =
@@ -2031,8 +2085,8 @@ function MineScene({
 
   return (
     <>
-      <color attach="background" args={[bg]} />
-      <fog attach="fog" args={[bg, fogRange.near, fogRange.far]} />
+      <color ref={backgroundRef} attach="background" args={[bg]} />
+      <fog ref={fogRef} attach="fog" args={[bg, fogRange.near, fogRange.far]} />
       <ambientLight ref={ambientRef} intensity={0.55} color="#cdd8f4" />
       <hemisphereLight ref={hemiRef} args={["#8fb4e8", "#2a2017", 0.5]} />
       <directionalLight
@@ -2162,14 +2216,6 @@ function MineScene({
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial flatShading roughness={1} />
       </instancedMesh>
-      {/* Night meadow backdrop behind the village row: the bot, the
-          stalls, and the grass all share one ground line now (the old
-          raised shelf made the surface read as a pit). Sits behind the
-          deepest building footprint so no facade gets occluded. */}
-      <mesh position={[0, 0, -1.55]}>
-        <boxGeometry args={[CAMP_WIDTH, 1.04, 0.12]} />
-        <meshStandardMaterial color="#10130d" roughness={1} />
-      </mesh>
       <SurfaceSkin firstCol={firstCol} lastCol={lastCol} mine={mine} />
       <SurfaceDressing />
       {/* The miner bot. No position prop: useFrame owns the transform. */}

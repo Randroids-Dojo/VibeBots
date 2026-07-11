@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="village-walk-plane-clearance" data-date="2026-07-10">
+    <h3>Stop the miner clipping through the rebuilt village</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/surface-building-clipping</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>User-reported on Android portrait: the miner walked through the headframe and the Battles facade. The miner occupies world z -0.07..0.39 at z 0.2; the 0.1.205 village rebuild put five geometry classes inside that volume: headframe derrick legs and braces depth-splayed to +0.345 straddling col 0, <code>threshold()</code> doormats to +0.14 at every entrance, the warp pad's raised 1.02-radius rim to +0.17 at ankle height, service-deck seam rails, edge strips, and stall pads at ankle height to +0.33, and shaft lamp posts at x +-1.3, z +0.3 in the glide path. All render-only fixes in <code>mine-surface-geometry.ts</code>: headframe layout to z -0.6 (silhouette intact, off the walk line), doormats tucked to the facades, the warp disc flush with the deck (rim bolts follow), deck furniture at or below the sole line, lamp posts to z -0.45, plus ~0.05-0.1 pullbacks on the Supply step, awning, and posts (package 0.1.207).</dd>
+      <dt>Verification</dt><dd>New walk-band clearance contract in <code>mine-surface-geometry.test.ts</code>: both tiers, per layout-translated building and on the merged settlement, no vertex in world y -0.42..1.45 (stance through one-row jump hover) may reach z &gt; -0.1; it caught the warp rim, Supply step, and awning that eyeballing missed. Dash checks, <code>git diff --check</code>, Biome, <code>tsc --noEmit</code>, 1038 unit tests, and production build green; scripted 390x760 Playwright walk captured the headframe (standing and jump-hover), Supply, Warp, and Battles columns and each shows the miner cleanly in front. Release-notifications spec updated for 0.1.207. Tips reviewed with no copy change; stamp review completed with none added (a pure visual fix earns no stamp).</dd>
+      <dt>Assumptions</dt><dd>The walk clearance is enforced at the geometry contract level rather than by moving the miner's plane, so future village art changes fail the unit test instead of shipping a clip. The headframe reads correctly 0.6 behind the walk line under the straight-on camera.</dd>
+      <dt>GDD coverage</dt><dd>REQ-021 Build log entry added in <code>docs/gdd/06-mining.html</code>; coverage row already lists <code>mine-surface-geometry.test.ts</code>.</dd>
+      <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
+
   <article data-slice="stamp-collect-alerts" data-date="2026-07-10">
     <h3>Stamp collect alerts with unique art for every stamp</h3>
     <dl>

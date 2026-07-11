@@ -254,8 +254,14 @@ function boltRow(
   }
 }
 
-function threshold(ctx: BuildContext, width = 0.72, z = 0.78): void {
-  box(ctx, "frame", [width + 0.18, 0.08, 0.42], [0, 1.12, z]);
+/**
+ * Lit doormat at a building entrance. It tucks against the facade: with
+ * buildings laid out at z -0.85 its front edge stays behind the miner's
+ * walk plane (see the walk-band clearance test) instead of under the
+ * miner's feet.
+ */
+function threshold(ctx: BuildContext, width = 0.72, z = 0.44): void {
+  box(ctx, "frame", [width + 0.18, 0.08, 0.34], [0, 1.12, z]);
   box(ctx, "emissive", [width, 0.024, 0.28], [0, 1.165, z + 0.02]);
 }
 
@@ -461,10 +467,10 @@ function buildHeadframe(ctx: BuildContext): SurfaceDoorwayClearance {
 function buildSupply(ctx: BuildContext): SurfaceDoorwayClearance {
   chamferedBox(ctx, "shell", [1.62, 1.0, 0.9], [0, 1.6, 0], 0.06);
   box(ctx, "composite", [1.12, 0.58, 0.07], [0, 1.56, 0.48]);
-  box(ctx, "frame", [1.18, 0.12, 0.3], [0, 1.27, 0.61]);
-  box(ctx, "accent", [1.5, 0.07, 0.56], [0, 2.17, 0.55], [0.42, 0, 0]);
+  box(ctx, "frame", [1.18, 0.12, 0.3], [0, 1.27, 0.56]);
+  box(ctx, "accent", [1.5, 0.07, 0.56], [0, 2.17, 0.45], [0.42, 0, 0]);
   for (const x of [-0.66, 0.66]) {
-    box(ctx, "frame", [0.08, 0.82, 0.08], [x, 1.54, 0.65]);
+    box(ctx, "frame", [0.08, 0.82, 0.08], [x, 1.54, 0.6]);
   }
   for (const x of [-0.92, 0.92]) {
     cylinder(
@@ -533,13 +539,15 @@ function buildUpgrades(ctx: BuildContext): SurfaceDoorwayClearance {
 }
 
 function buildWarp(ctx: BuildContext): SurfaceDoorwayClearance {
+  // The pad disc sits flush with the service deck: its wide rim crosses
+  // the walk plane, so a raised disc would slice passing ankles.
   cylinder(
     ctx,
     "shell",
     0.9,
     1.02,
     0.18,
-    [0, 1.16, 0],
+    [0, 0.97, 0],
     [0, 0, 0],
     ctx.tier === "high" ? 16 : 10,
   );
@@ -583,7 +591,7 @@ function buildWarp(ctx: BuildContext): SurfaceDoorwayClearance {
   box(ctx, "emissive", [0.22, 0.09, 0.025], [0.54, 1.47, 0.59], [0, 0, -0.14]);
   box(ctx, "accent", [0.18, 0.34, 0.055], [0, 2.02, 0.05], [0, 0, Math.PI / 4]);
   if (ctx.tier === "high") {
-    boltRow(ctx, 1.36, 1.18, 0.54, 7);
+    boltRow(ctx, 1.36, 0.99, 0.54, 7);
     for (const x of [-0.92, 0.92]) {
       box(ctx, "accent", [0.29, 0.045, 0.32], [x, 1.36, 0]);
     }
@@ -712,14 +720,17 @@ export function surfaceVillageInfrastructureGeometry(): readonly SurfaceGeometry
     parts: blankParts(),
     motionParts: blankParts(),
   };
+  // The service deck is the standing surface: its top (and every seam
+  // rail, edge strip, and stall pad on it) sits at or below the miner's
+  // sole line (world y -0.44, local 1.06) so nothing slices the feet.
   for (let col = -7; col <= 8; col++) {
     if (col === 0) continue;
-    box(ctx, "frame", [0.9, 0.08, 0.72], [col, 1.08, 0.82]);
-    box(ctx, "composite", [0.035, 0.018, 0.66], [col + 0.45, 1.13, 0.82]);
-    box(ctx, "emissive", [0.82, 0.022, 0.035], [col, 1.135, 1.14]);
+    box(ctx, "frame", [0.9, 0.08, 0.72], [col, 1.02, 0.82]);
+    box(ctx, "composite", [0.035, 0.018, 0.66], [col + 0.45, 1.05, 0.82]);
+    box(ctx, "emissive", [0.82, 0.022, 0.035], [col, 1.05, 1.14]);
   }
   for (const x of [-7, -5, -3, 0, 2, 4, 6, 8]) {
-    box(ctx, "emissive", [0.18, 0.045, 0.18], [x, 1.15, 0.82]);
+    box(ctx, "emissive", [0.18, 0.045, 0.18], [x, 1.04, 0.82]);
   }
   infrastructureCache = (Object.keys(ctx.parts) as SurfaceMaterialRole[])
     .map((role) => mergeLayer(role, ctx.parts[role]))
@@ -727,14 +738,22 @@ export function surfaceVillageInfrastructureGeometry(): readonly SurfaceGeometry
   return infrastructureCache;
 }
 
-const SURFACE_BUILDING_LAYOUT: Record<
+/**
+ * World placement per building. The miner walks the surface at world
+ * z 0.2 (body roughly z -0.07..0.39, see mine-canvas), so every solid
+ * must stay behind that plane. The headframe's derrick legs splay
+ * +-0.35 in depth; parking it at -0.6 keeps the splayed front legs off
+ * the walk line instead of straddling the miner (the pre-0.1.205 frame
+ * was flat at z 0, the rebuilt one is not).
+ */
+export const SURFACE_BUILDING_LAYOUT: Record<
   SurfaceBuildingId,
   readonly [number, number, number]
 > = {
   workshop: [-7, -1.5, -0.85],
   elevator: [-5, -1.5, -0.85],
   buyer: [-3, -1.5, -0.85],
-  headframe: [0, -1.5, 0],
+  headframe: [0, -1.5, -0.6],
   supply: [2, -1.5, -0.85],
   upgrades: [4, -1.5, -0.85],
   warp: [6, -1.5, -0.85],
@@ -828,14 +847,16 @@ export function surfaceVillageGeometry(
   parts.composite.push(
     transform(new BoxGeometry(SURFACE_CAMP_WIDTH, 0.07, 0.9), [0, -0.47, -0.3]),
   );
+  // Shaft lamp posts stand behind the walk line (the miner glides
+  // through x 1.3 mid-step, so a post at z 0.3 would slice the body).
   for (const x of [-1.3, 1.3]) {
     parts.frame.push(
-      transform(new BoxGeometry(0.07, 0.95, 0.07), [x, -0.05, 0.3]),
+      transform(new BoxGeometry(0.07, 0.95, 0.07), [x, -0.05, -0.45]),
     );
     const lamp = transform(new CylinderGeometry(0.09, 0.12, 0.18, 6), [
       x,
       0.45,
-      0.3,
+      -0.45,
     ]);
     addVertexColor(lamp, SURFACE_PALETTE.warmWorkLight);
     parts.emissive.push(lamp);

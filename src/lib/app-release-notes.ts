@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-10-0.1.206-stamp-alerts";
+export const RELEASE_NOTICE_ID = "2026-07-10-0.1.207-village-clearance";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.207",
+      date: "2026-07-10",
+      title: "The village keeps its hands off the miner",
+      intro: "No more walking through the new buildings.",
+      changes: [
+        {
+          build,
+          text: "The rebuilt settlement had pieces crossing the miner's walking line: the headframe's splayed derrick legs, the lit doormats at every entrance, the warp pad's raised rim, the service deck's glow strips, and the shaft lamp posts all sliced through the robot. Every solid now stays behind the walk line, the warp pad sits flush with the deck, and a geometry test keeps anything from reaching into the miner's space again, standing or jumping.",
+        },
+        {
+          build,
+          text: "MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.206",
       date: "2026-07-10",

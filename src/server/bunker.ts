@@ -115,6 +115,9 @@ function normalizeBunkerRaidSnapshot(
     breached: Boolean(candidate.breached),
     minerKilled: Boolean(candidate.minerKilled),
     survived: Boolean(candidate.survived),
+    // Pre-0.1.214 snapshots carry no sealed flag: old raids cannot
+    // prove an enclosure, so they never credit the Buttoned Up stamp.
+    sealed: candidate.sealed === true,
     reward: {
       vibes: numberValue(candidate.reward?.vibes),
       defenseXp: numberValue(candidate.reward?.defenseXp),
@@ -656,6 +659,7 @@ export async function finishBunkerRaid(
     try {
       newStamps = await applyAchievementProgress(sql, playerId, {
         bunkerRaidsSurvived: 1,
+        raidsSurvivedSealed: raid.sealed ? 1 : 0,
       });
     } catch {
       // Stamps are cosmetic and must never block a raid reward.

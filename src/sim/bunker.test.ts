@@ -106,6 +106,7 @@ describe("bunker vertical slice sim", () => {
     expect(raid.coreDamage).toBe(0);
     expect(raid.minerKilled).toBe(false);
     expect(raid.survived).toBe(true);
+    expect(raid.sealed).toBe(true);
     expect(raid.reward.vibes).toBeGreaterThan(0);
   });
 
@@ -352,6 +353,7 @@ describe("bunker vertical slice sim", () => {
     expect(raid.xpPickups).toHaveLength(0);
     expect(raid.minerKilled).toBe(true);
     expect(raid.survived).toBe(false);
+    expect(raid.sealed).toBe(false);
     expect(raid.reward).toEqual({ vibes: 0, defenseXp: 0 });
   });
 

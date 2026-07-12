@@ -38,6 +38,7 @@ export type AchievementMetric =
   | "beaconsPlanted"
   | "elevatorRides"
   | "bunkerRaidsSurvived"
+  | "raidsSurvivedSealed"
   | "matchWins"
   | "sawMatchWins";
 
@@ -54,6 +55,8 @@ export interface AchievementStats {
   beaconsPlanted: number;
   elevatorRides: number;
   bunkerRaidsSurvived: number;
+  /** Raids survived with the player cell fully sealed (0.1.214+). */
+  raidsSurvivedSealed: number;
   /** Server-verified arena match wins (durable: match_records). */
   matchWins: number;
   /** Verified wins by a design carrying a saw blade. */
@@ -99,6 +102,7 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   beaconsPlanted: 0,
   elevatorRides: 0,
   bunkerRaidsSurvived: 0,
+  raidsSurvivedSealed: 0,
   matchWins: 0,
   sawMatchWins: 0,
 };
@@ -420,6 +424,15 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     target: 1,
   },
   {
+    id: "survival-buttoned-up",
+    category: "survival",
+    title: "Buttoned Up",
+    description: "Survive a raid with the player cell fully sealed.",
+    stamp: "BU",
+    metric: "raidsSurvivedSealed",
+    target: 1,
+  },
+  {
     id: "battle-first-blood",
     category: "battle",
     title: "First Blood",
@@ -479,6 +492,8 @@ export function mergeAchievementStats(
     elevatorRides: current.elevatorRides + (patch.elevatorRides ?? 0),
     bunkerRaidsSurvived:
       current.bunkerRaidsSurvived + (patch.bunkerRaidsSurvived ?? 0),
+    raidsSurvivedSealed:
+      current.raidsSurvivedSealed + (patch.raidsSurvivedSealed ?? 0),
     matchWins: current.matchWins + (patch.matchWins ?? 0),
     sawMatchWins: current.sawMatchWins + (patch.sawMatchWins ?? 0),
   };

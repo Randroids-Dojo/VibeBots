@@ -423,6 +423,23 @@ const STAMP_PICTOGRAMS: Record<
       <path d="M32 22 v14 M26 28 l6 -6 l6 6" stroke={accent} strokeWidth="2" />
     </g>
   ),
+  "survival-buttoned-up": ({ accent }) => (
+    <g>
+      <rect x="18" y="18" width="28" height="28" rx="2" />
+      <path
+        d="M32 14 v8 M32 42 v8 M14 32 h8 M42 32 h8"
+        stroke={accent}
+        strokeWidth="2"
+      />
+      <path d="M32 27 l5 5 l-5 5 l-5 -5 z" fill={accent} stroke="none" />
+      <g fill="currentColor" stroke="none">
+        <circle cx="22" cy="22" r="1.8" />
+        <circle cx="42" cy="22" r="1.8" />
+        <circle cx="22" cy="42" r="1.8" />
+        <circle cx="42" cy="42" r="1.8" />
+      </g>
+    </g>
+  ),
   "battle-first-blood": ({ accent }) => (
     <g>
       <path d="M32 12 l3 5 v19 h-6 v-19 z" />

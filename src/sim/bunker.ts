@@ -209,6 +209,12 @@ export interface BunkerRaidSnapshot {
   breached: boolean;
   minerKilled: boolean;
   survived: boolean;
+  /**
+   * True when the raid was survived AND no clanker could even target
+   * the player cell: the enclosure held. Absent on snapshots stored
+   * before 0.1.214 (treated as false; old raids cannot prove a seal).
+   */
+  sealed: boolean;
   reward: {
     vibes: number;
     defenseXp: number;
@@ -972,6 +978,14 @@ export function resolveBunkerRaid(
   const minerKilled = minerDeathStep !== null;
   const breached = minerKilled || coreDamage >= bunker.core.durability;
   const survived = !breached;
+  // The enclosure held outright: nobody could even target the core.
+  const sealed =
+    survived &&
+    clankers.every(
+      (clanker) =>
+        clanker.targetCol !== bunker.core.col ||
+        clanker.targetRow !== bunker.core.row,
+    );
   const finalXpPickups = survived ? xpPickups : [];
   const pickupXp = finalXpPickups.reduce((sum, pickup) => {
     return sum + pickup.defenseXp;
@@ -995,6 +1009,7 @@ export function resolveBunkerRaid(
     breached,
     minerKilled,
     survived,
+    sealed,
     reward: survived
       ? {
           vibes: 20 + normalizedTier * 10,

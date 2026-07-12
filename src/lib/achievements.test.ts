@@ -31,6 +31,21 @@ describe("achievements", () => {
     expect(new Set(stamps).size).toBe(stamps.length);
   });
 
+  it("unlocks Buttoned Up from a sealed raid survival, not a plain one", () => {
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        stats: { ...DEFAULT_ACHIEVEMENT_STATS, bunkerRaidsSurvived: 3 },
+      }),
+    ).not.toContain("survival-buttoned-up");
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        stats: { ...DEFAULT_ACHIEVEMENT_STATS, raidsSurvivedSealed: 1 },
+      }),
+    ).toContain("survival-buttoned-up");
+  });
+
   it("unlocks depth and tool stamps from persistent records", () => {
     expect(
       achievementIdsUnlockedBy({

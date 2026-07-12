@@ -98,6 +98,7 @@ const raid = {
   breached: false,
   minerKilled: false,
   survived: true,
+  sealed: false,
   reward: { vibes: 30, defenseXp: 60 },
 };
 
@@ -155,6 +156,7 @@ describe("bunker API routes", () => {
         breached: false,
         minerKilled: false,
         survived: true,
+        sealed: false,
         reward: { vibes: 30, defenseXp: 25 },
       },
     });

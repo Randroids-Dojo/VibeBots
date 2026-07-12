@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="local-e2e-storage-parity" data-date="2026-07-12">
+    <h3>Local Playwright runs always match the CI storage contract (F-048)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/local-e2e-parity</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Test infra only; no app code, no version bump. The Playwright-managed local server now starts with <code>DATABASE_URL</code>, <code>AUTH_SECRET</code>, the VAPID pair, the push contact, and the Clerk keys blanked, so a storage-attached checkout (a real <code>.env.local</code>) serves the same storage-off contract CI does; Next env-file loading cannot re-fill them because already-set variables win. <code>PLAYWRIGHT_BASE_URL</code> remains the deliberate path to a storage-attached server (it skips the managed server).</dd>
+      <dt>Verification</dt><dd>Mutation-proven with a dummy <code>.env.local</code> planted in the worktree: a probe of <code>/api/notifications/config</code> through the managed server returns <code>configured:false</code> with the fix and <code>configured:true</code> with it stashed. Workshop and API suites (32 tests) pass with the dummy env still attached. Dash checks, <code>git diff --check</code>, typecheck clean. Dummy env removed before commit; nothing secret ever entered the worktree.</dd>
+      <dt>Assumptions</dt><dd>Blanking integration secrets in the managed server is always correct for the standard suites because CI has none of them; suites that someday need storage get their own server plus <code>PLAYWRIGHT_BASE_URL</code> per the config comment.</dd>
+      <dt>GDD coverage</dt><dd>No changes.</dd>
+      <dt>Followups</dt><dd>F-048 resolved (entry updated). None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="workshop-feel-polish" data-date="2026-07-12">
     <h3>Workshop snap/merge sounds and hero tray clearance (F-050, F-052)</h3>
     <dl>

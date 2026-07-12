@@ -143,6 +143,15 @@ function animateClankerBody(
   }
 }
 
+/** Specialist carapace tints (F-085), render-only: breachers read hot
+ * rust (they chew blockers twice as hard), tanks read armored green and
+ * carry a bulkier shell (they soak two turret shots). */
+const CLANKER_KIND_CARAPACE: Record<string, string> = {
+  standard: "#526074",
+  breacher: "#8a4f32",
+  tank: "#46604e",
+};
+
 function ClankerMesh({
   clanker,
   raid,
@@ -308,10 +317,15 @@ function ClankerMesh({
           </group>
         ))}
 
-        <mesh position={[-0.12, 0, 0.03]} scale={[1.35, 0.68, 0.38]}>
+        <mesh
+          position={[-0.12, 0, 0.03]}
+          scale={
+            clanker.kind === "tank" ? [1.55, 0.8, 0.46] : [1.35, 0.68, 0.38]
+          }
+        >
           <sphereGeometry args={[0.32, 18, 10]} />
           <meshStandardMaterial
-            color="#526074"
+            color={CLANKER_KIND_CARAPACE[clanker.kind ?? "standard"]}
             emissive="#111720"
             emissiveIntensity={0.2}
             metalness={0.6}

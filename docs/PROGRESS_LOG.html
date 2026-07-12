@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="specialist-clankers" data-date="2026-07-13">
+    <h3>Breacher and tank Clankers (F-085)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/specialist-clankers</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.229. Closes F-085, the raid-depth child of the bunker decomposition, trimmed by the audit: turret one-shots, spike damage, and the miner-death outcome already existed in the resolver, so the slice ships the genuinely missing specialist kinds. <code>clankerKindFor(index, tier)</code> assigns deterministically (breachers every third slot from tier 2, tanks every fourth from tier 3, tanks checked first so the mix is stable as waves grow); breachers bite blockers at 2x, tanks cost two turret shots, both drop raised XP (40/50 vs 25); <code>normalizeBunkerRaidSnapshot</code> defaults legacy rows to standard; the clanker model tints and bulks per kind, render-only. Mine tips reviewed, no change; Rule 14: tier-survival stamp stays deferred to F-087.</dd>
+      <dt>Verification</dt><dd>Sim tests: assignment determinism across tiers, the XP ladder, and a kind-stamped raid replaying identically; the pre-existing turret/spike/death tests still pass. Full unit suite, typecheck, Biome, sim purity, production build, bunker e2e suite, release chain for 0.1.229.</dd>
+      <dt>Assumptions</dt><dd>Slot-modulo assignment reads better than seeded randomness here: players can learn the wave composition per tier, which is a defense-planning feature, not a bug.</dd>
+      <dt>GDD coverage</dt><dd>REQ-036/REQ-037 rows advance; <code>docs/gdd/08-base-building.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-085 resolved. None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="raid-tiers" data-date="2026-07-13">
     <h3>Raid tier selection with level gates (F-084)</h3>
     <dl>

@@ -19,6 +19,12 @@ export const CLANKER_BATTERY_STEPS_PER_TIER = 2;
 export const CLANKER_BASE_BITE_DAMAGE = 24;
 export const CLANKER_BITE_DAMAGE_PER_TIER = 8;
 export const CLANKER_SELF_DESTRUCT_XP = 25;
+export const CLANKER_BREACHER_XP = 40;
+export const CLANKER_TANK_XP = 50;
+/** Bite multiplier a breacher applies to blocker parts. */
+export const CLANKER_BREACHER_BITE_FACTOR = 2;
+/** Turret shots needed to stop a tank. */
+export const CLANKER_TANK_TURRET_SHOTS = 2;
 export const BUNKER_RAID_PICKUP_COLLECTION_RADIUS = 1;
 
 export const BASE_PART_IDS = [
@@ -163,8 +169,13 @@ export interface PendingBunkerClaimPayload {
   parts: PlacedBasePart[];
 }
 
+export type ClankerKind = "standard" | "breacher" | "tank";
+
 export interface ClankerState {
   id: string;
+  /** Specialist behavior (F-085): breachers bite blockers twice as hard,
+   * tanks soak two turret shots. Old snapshots normalize to standard. */
+  kind: ClankerKind;
   col: number;
   row: number;
   targetCol: number;
@@ -173,6 +184,22 @@ export interface ClankerState {
   batterySteps: number;
   deathStep: number;
   status: "turret-destroyed" | "self-destructed" | "battery-drained";
+}
+
+/** Deterministic specialist assignment: tier 2 unlocks breachers (every
+ * third slot), tier 3 unlocks tanks (every fourth slot, checked first so
+ * the mix stays stable as waves grow). */
+export function clankerKindFor(index: number, tier: number): ClankerKind {
+  if (tier >= 3 && index % 4 === 3) return "tank";
+  if (tier >= 2 && index % 3 === 2) return "breacher";
+  return "standard";
+}
+
+/** Specialists drop more XP: they are harder to stop. */
+export function clankerXpFor(kind: ClankerKind): number {
+  if (kind === "tank") return CLANKER_TANK_XP;
+  if (kind === "breacher") return CLANKER_BREACHER_XP;
+  return CLANKER_SELF_DESTRUCT_XP;
 }
 
 export interface BunkerRaidDamageEvent {
@@ -873,12 +900,17 @@ export function resolveBunkerRaid(
   let remainingTurretShots = turretShots;
   let minerDeathStep: number | null = null;
 
+  let routeIndex = -1;
   for (const route of plannedRoutes) {
-    if (remainingTurretShots > 0) {
-      remainingTurretShots--;
+    routeIndex++;
+    const kind = clankerKindFor(routeIndex, normalizedTier);
+    const shotsToStop = kind === "tank" ? CLANKER_TANK_TURRET_SHOTS : 1;
+    if (remainingTurretShots >= shotsToStop) {
+      remainingTurretShots -= shotsToStop;
       const deathCell = route.path[0] ?? route.start;
       clankers.push({
         id: route.id,
+        kind,
         col: route.start.col,
         row: route.start.row,
         targetCol: route.target.col,
@@ -892,7 +924,7 @@ export function resolveBunkerRaid(
         id: `${route.id}-xp`,
         col: deathCell.col,
         row: deathCell.row,
-        defenseXp: CLANKER_SELF_DESTRUCT_XP,
+        defenseXp: clankerXpFor(kind),
         collected: false,
       });
       continue;
@@ -917,7 +949,11 @@ export function resolveBunkerRaid(
 
     if (targetPart) {
       const attackCount = clankerBlockerAttackCount(batterySteps, routeSteps);
-      const damage = biteDamage * attackCount;
+      const kindBite =
+        kind === "breacher"
+          ? biteDamage * CLANKER_BREACHER_BITE_FACTOR
+          : biteDamage;
+      const damage = kindBite * attackCount;
       const pickupCell =
         damage >= targetPart.durability
           ? deathCell
@@ -937,7 +973,7 @@ export function resolveBunkerRaid(
         id: `${route.id}-xp`,
         col: pickupCell.col,
         row: pickupCell.row,
-        defenseXp: CLANKER_SELF_DESTRUCT_XP,
+        defenseXp: clankerXpFor(kind),
         collected: false,
       });
     } else if (targetIsCore) {
@@ -957,13 +993,14 @@ export function resolveBunkerRaid(
         id: `${route.id}-xp`,
         col: deathCell.col,
         row: deathCell.row,
-        defenseXp: CLANKER_SELF_DESTRUCT_XP,
+        defenseXp: clankerXpFor(kind),
         collected: false,
       });
     }
 
     clankers.push({
       id: route.id,
+      kind,
       col: route.start.col,
       row: route.start.row,
       targetCol: route.target.col,

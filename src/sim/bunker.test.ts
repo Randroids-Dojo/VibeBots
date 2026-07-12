@@ -8,8 +8,12 @@ import {
   type BunkerRaidTerrainKind,
   basePartOwnedLimit,
   bunkerCells,
+  CLANKER_BREACHER_XP,
   CLANKER_SELF_DESTRUCT_XP,
+  CLANKER_TANK_XP,
   canBuyBasePart,
+  clankerKindFor,
+  clankerXpFor,
   createBunker,
   FLOOR_SPIKES_DAMAGE,
   FLOOR_SPIKES_DURABILITY,
@@ -637,5 +641,41 @@ describe("raid tiers (F-084)", () => {
     expect(high.clankers[0]?.batterySteps ?? 0).toBeGreaterThan(
       low.clankers[0]?.batterySteps ?? 0,
     );
+  });
+});
+
+describe("specialist Clankers (F-085)", () => {
+  it("assigns kinds deterministically by slot and tier", () => {
+    // Tier 1: everyone standard.
+    for (let i = 0; i < 8; i++) expect(clankerKindFor(i, 1)).toBe("standard");
+    // Tier 2 unlocks breachers on every third slot.
+    expect(clankerKindFor(2, 2)).toBe("breacher");
+    expect(clankerKindFor(5, 2)).toBe("breacher");
+    expect(clankerKindFor(3, 2)).toBe("standard");
+    // Tier 3 unlocks tanks on every fourth slot, taking precedence.
+    expect(clankerKindFor(3, 3)).toBe("tank");
+    expect(clankerKindFor(7, 3)).toBe("tank");
+    expect(clankerKindFor(2, 3)).toBe("breacher");
+  });
+
+  it("pays more XP for stopping specialists", () => {
+    expect(clankerXpFor("standard")).toBe(CLANKER_SELF_DESTRUCT_XP);
+    expect(clankerXpFor("breacher")).toBe(CLANKER_BREACHER_XP);
+    expect(clankerXpFor("tank")).toBe(CLANKER_TANK_XP);
+    expect(CLANKER_TANK_XP).toBeGreaterThan(CLANKER_BREACHER_XP);
+    expect(CLANKER_BREACHER_XP).toBeGreaterThan(CLANKER_SELF_DESTRUCT_XP);
+  });
+
+  it("stamps every raid clanker with its kind and replays identically", () => {
+    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const a = resolveBunkerRaid(bunker, 3, "raid-kinds");
+    const b = resolveBunkerRaid(bunker, 3, "raid-kinds");
+    expect(b).toEqual(a);
+    const kinds = a.clankers.map((clanker) => clanker.kind);
+    expect(kinds).toContain("breacher");
+    expect(kinds).toContain("tank");
+    for (const [index, kind] of kinds.entries()) {
+      expect(kind).toBe(clankerKindFor(index, 3));
+    }
   });
 });

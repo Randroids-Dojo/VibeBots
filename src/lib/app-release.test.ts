@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest Pixel visibility note complete", () => {
+  it("keeps the latest accent-glow note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-11-0.1.217-pixel-visibility");
+    expect(release.noticeId).toBe("2026-07-11-0.1.218-accent-glow-returns");
     expect(latestNote).toMatchObject({
+      version: "0.1.218",
+      title: "The glow comes back to the dark",
+      intro: "Beacons, bags, dynamite, and portals cast real light again.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The local glow those emitters cast on nearby blocks was removed while fixing the recompile freezes, because lights entering and leaving the view forced the whole scene to rebuild its draw programs. A fixed pool of three always-present lights now follows the nearest emitters instead, so the warmth returns without ever changing the light count.",
+      "A new browser test proves a planted warp beacon claims a pool light as you approach and releases it as you leave, with the pool itself never mounting or unmounting.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived Pixel visibility note complete", () => {
+    const release = getAppRelease();
+    const pixelNote = release.notes.find((note) => note.version === "0.1.217");
+
+    expect(pixelNote).toMatchObject({
       version: "0.1.217",
       title: "Clear ground at every zoom",
       intro: "Pixel-density cracks are filled, and zooming out stays useful.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(pixelNote?.changes.map((change) => change.text)).toEqual([
       "The Pixel rendering path exposed real black channels and corner wedges between rounded cells, especially at maximum zoom. Occupied cells now receive a shared soil-colored joint behind their authored body, and the artificial black bevel multiplier is gone, so the mine keeps natural depth without exposing the cave backing.",
       "Zooming out no longer turns daylight atmosphere into a cyan screen wash or shrinks the useful Lantern area. Atmosphere distance and the Lantern projection now scale with each camera step, while surface daylight and underground visibility keep their separate rules.",
       "The regression now runs at the measured Pixel profile: 448x923, DPR 2.25, touch, low-tier WebGL2, and all three zoom levels. MINE_VERSION and SIM_VERSION are unchanged.",

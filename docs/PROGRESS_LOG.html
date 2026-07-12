@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="accent-light-pool" data-date="2026-07-11">
+    <h3>Fixed-count accent-light pool (F-077)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>perf/accent-light-pool</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.218. Closes F-077. The local glow removed by the constant-light-count fix (#105) returns: <code>mine-accent-lights.ts</code> owns three always-mounted point-light slots, the mine render loop's existing cell pass gathers visible emitters through module scratch (beacon crystal at +0.22/0.5, bag clasp at its on-block/in-tunnel offsets, the pending dynamite fuse, and active surface portals, each with the exact pre-#105 color/intensity/distance/decay), keeps the nearest three by squared cell distance, and a layout effect assigns slot positions while parking unused slots at intensity 0. The scene light count is constant by construction, so emitters entering and leaving the window recompile nothing. The canvas exposes <code>data-accent-lights</code> (active slot count) for the smoke. Mine tips reviewed, no copy change; Rule 14 stamp review: none added (visual polish).</dd>
+      <dt>Verification</dt><dd>Dash checks and <code>git diff --check</code> clean; typecheck clean; Biome clean; new unit tests for the nearest-N pool selection (4 tests) plus the full unit suite; production build; new <code>tests/e2e/mine-accent-lights.spec.ts</code> proves a planted warp beacon claims a slot on approach and releases it once outside the ~8-row window; <code>mine-shader-churn.spec.ts</code> stays at firstCrossingDelta=1 / recrossingsDelta=0 with the pool mounted (constant count verified against the compile counter); <code>mine-core.spec.ts</code> passes (one dig-cadence flake passed on immediate retry). Real-device telemetry A/B after deploy completes the acceptance line.</dd>
+      <dt>Assumptions</dt><dd>Three slots cover the plausible simultaneous emitter density (beacon + bag + fuse); the ~5 ALU of three zero-intensity point lights per fragment on the WebGL2 fallback is negligible next to the recompile freezes they prevent, to be confirmed by the post-deploy telemetry A/B.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/06-mining.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-077 resolved (entry updated). None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="first-descent-bucket-precompile" data-date="2026-07-11">
     <h3>Background-compile new mine block buckets (F-078)</h3>
     <dl>

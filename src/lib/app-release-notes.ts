@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-11-0.1.217-pixel-visibility";
+export const RELEASE_NOTICE_ID = "2026-07-11-0.1.218-accent-glow-returns";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.218",
+      date: "2026-07-11",
+      title: "The glow comes back to the dark",
+      intro: "Beacons, bags, dynamite, and portals cast real light again.",
+      changes: [
+        {
+          build,
+          text: "The local glow those emitters cast on nearby blocks was removed while fixing the recompile freezes, because lights entering and leaving the view forced the whole scene to rebuild its draw programs. A fixed pool of three always-present lights now follows the nearest emitters instead, so the warmth returns without ever changing the light count.",
+        },
+        {
+          build,
+          text: "A new browser test proves a planted warp beacon claims a pool light as you approach and releases it as you leave, with the pool itself never mounting or unmounting.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.217",
       date: "2026-07-11",

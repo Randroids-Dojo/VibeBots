@@ -312,6 +312,54 @@ export function maxBunkerRaidTier(playerLevel: number): number {
   return Math.max(1, Math.min(BUNKER_RAID_TIER_CAP, Math.floor(playerLevel)));
 }
 
+/** Repair pricing (F-086): proportional to the damage, half the part's
+ * shop price for a full restore, always at least 1 vibe per damaged
+ * part; the core repairs at a flat rate per missing point. */
+export const CORE_REPAIR_COST_PER_POINT = 0.25;
+export const BUNKER_CORE_MAX_DURABILITY = 160;
+
+export interface BunkerRepairPlan {
+  totalCost: number;
+  partCount: number;
+  coreMissing: number;
+}
+
+export function bunkerRepairPlan(bunker: BunkerState): BunkerRepairPlan {
+  let totalCost = 0;
+  let partCount = 0;
+  for (const part of bunker.parts) {
+    const def = BASE_PART_CATALOG[part.partId];
+    const missing = Math.max(0, def.durability - part.durability);
+    if (missing <= 0) continue;
+    partCount++;
+    totalCost += Math.max(
+      1,
+      Math.ceil((missing / def.durability) * def.price * 0.5),
+    );
+  }
+  const coreMissing = Math.max(
+    0,
+    BUNKER_CORE_MAX_DURABILITY - bunker.core.durability,
+  );
+  if (coreMissing > 0) {
+    totalCost += Math.ceil(coreMissing * CORE_REPAIR_COST_PER_POINT);
+  }
+  return { totalCost, partCount, coreMissing };
+}
+
+/** Restore every damaged part and the core to full durability. Pure:
+ * affordability is the caller's (server's) concern. */
+export function applyBunkerRepairs(bunker: BunkerState): BunkerState {
+  return {
+    ...bunker,
+    core: { ...bunker.core, durability: BUNKER_CORE_MAX_DURABILITY },
+    parts: bunker.parts.map((part) => ({
+      ...part,
+      durability: BASE_PART_CATALOG[part.partId].durability,
+    })),
+  };
+}
+
 export function overallPlayerLevel(trackXp: number, defenseXp: number): number {
   void trackXp;
   return playerLevelProgress(defenseXp).level;
@@ -463,7 +511,7 @@ export function createBunker(footprint: BunkerFootprint): BunkerState {
     core: {
       col: footprint.col + Math.floor(footprint.width / 2),
       row: footprint.row + Math.floor(footprint.height / 2),
-      durability: 160,
+      durability: BUNKER_CORE_MAX_DURABILITY,
     },
     parts: [],
   };

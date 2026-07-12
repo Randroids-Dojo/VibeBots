@@ -78,6 +78,10 @@ export function moveRemoteBunkerPart(
   );
 }
 
+export function repairRemoteBunker() {
+  return bunkerApi("/api/bunker/repair", jsonPost({}));
+}
+
 export function startRemoteBunkerRaid(tier = 1) {
   return bunkerApi("/api/bunker/raid/start", jsonPost({ tier }));
 }

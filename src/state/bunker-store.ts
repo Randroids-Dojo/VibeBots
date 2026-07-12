@@ -22,6 +22,7 @@ import {
   moveRemoteBunkerPart,
   placeRemoteBunkerPart,
   removeRemoteBunkerPart,
+  repairRemoteBunker,
   startRemoteBunkerRaid,
 } from "./bunker-api-client";
 import { enqueueStampAlertsFromResponse } from "./stamp-alert-store";
@@ -56,6 +57,7 @@ export interface BunkerStoreState {
     toRow: number,
   ) => Promise<BunkerMutationResult>;
   startRaid: (tier?: number) => Promise<BunkerMutationResult>;
+  repairBunker: () => Promise<BunkerMutationResult>;
   collectRaidPickup: (
     col: number,
     row: number,
@@ -150,6 +152,12 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
     applyMutationResult(
       set,
       await moveRemoteBunkerPart(fromCol, fromRow, toCol, toRow),
+      "bunker action failed",
+    ),
+  repairBunker: async () =>
+    applyMutationResult(
+      set,
+      await repairRemoteBunker(),
       "bunker action failed",
     ),
   startRaid: async (tier = 1) =>

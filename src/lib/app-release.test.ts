@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest specialist-clankers note complete", () => {
+  it("keeps the latest bunker-repairs note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.229-specialist-clankers");
+    expect(release.noticeId).toBe("2026-07-13-0.1.230-bunker-repairs");
     expect(latestNote).toMatchObject({
+      version: "0.1.230",
+      title: "Patch the bunker up between raids",
+      intro: "One button repairs every chewed wall, and stacked rooms hold.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The bunker sheet gains a Repair button whenever something is damaged: it restores every part and the core in one tap, priced by the damage (a full restore costs about half the part's shop price) and paid in vibes. Repairs wait until the raid is over.",
+      "Two-story bunkers are official: an interior floor row splits the claim into stacked rooms, and a sealed two-room layout holds a raid exactly like a single room.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived specialist-clankers note complete", () => {
+    const release = getAppRelease();
+    const specialistNote = release.notes.find(
+      (note) => note.version === "0.1.229",
+    );
+
+    expect(specialistNote).toMatchObject({
       version: "0.1.229",
       title: "The raids send specialists",
       intro: "Higher tiers now field breachers and tanks with their own looks.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(specialistNote?.changes.map((change) => change.text)).toEqual([
       "From tier 2, every third Clanker is a rust-shelled breacher that bites your walls twice as hard. From tier 3, every fourth is an armored tank that shrugs off one turret shot and falls to the second. Both drop extra defense XP when you stop them.",
       "Specialist slots are deterministic per wave, so the same raid always replays the same, and older raid records read back unchanged.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

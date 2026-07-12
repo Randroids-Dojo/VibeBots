@@ -202,6 +202,19 @@
 
 /* Raid tier stepper (F-084): a compact -/+ row above the raid button.
  * Only shown once the player level unlocks a second tier. */
+/* Repair-all button (F-086): mirrors the raid button styling, shown
+ * only when something is damaged and no raid is active. */
+.bunker-repair-button {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #2c4a3c;
+  background: rgba(18, 33, 26, 0.85);
+  color: #9fe0bd;
+  font-weight: 600;
+}
+
 .bunker-raid-tier {
   border: 0;
   margin: 0;

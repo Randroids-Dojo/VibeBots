@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-repairs" data-date="2026-07-13">
+    <h3>Bunker repairs; stacked rooms proven (F-086)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-levels</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.230. Closes F-086 after the audit trimmed it: the multi-level clause already held (interior floors stack rooms today, now pinned by a sealed two-room raid test) and hatches are subsumed by doors/floors until vertical traversal semantics exist (parts never gate miner movement; the scaffold does). The shipped mechanic is repairs: <code>bunkerRepairPlan</code>/<code>applyBunkerRepairs</code> in the sim (proportional part pricing, flat per-point core rate, <code>BUNKER_CORE_MAX_DURABILITY</code> extracted from the magic 160), a <code>repairBunker</code> server mutation validating affordability and rejecting mid-raid, the <code>/api/bunker/repair</code> route, client/store plumbing, and a sheet button visible only when damaged. Mine tips reviewed, no change; Rule 14: none added.</dd>
+      <dt>Verification</dt><dd>Sim tests: proportional pricing math, full restore, zero-cost plan after repair, and the stacked two-room seal. Server tests: unaffordable repair rejected with the cost in the error; success decrements vibes and persists parts. Full unit suite (1124), typecheck, Biome (0 errors), sim purity, production build, bunker e2e suite, release chain for 0.1.230.</dd>
+      <dt>Assumptions</dt><dd>Repair-all beats per-part repair for UX at this scale (one decision, one price); per-part repair can layer on later without schema changes.</dd>
+      <dt>GDD coverage</dt><dd>REQ-035 advances; <code>docs/gdd/08-base-building.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-086 resolved. None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="specialist-clankers" data-date="2026-07-13">
     <h3>Breacher and tank Clankers (F-085)</h3>
     <dl>

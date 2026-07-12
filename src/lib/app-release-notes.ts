@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.229-specialist-clankers";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.230-bunker-repairs";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.230",
+      date: "2026-07-13",
+      title: "Patch the bunker up between raids",
+      intro: "One button repairs every chewed wall, and stacked rooms hold.",
+      changes: [
+        {
+          build,
+          text: "The bunker sheet gains a Repair button whenever something is damaged: it restores every part and the core in one tap, priced by the damage (a full restore costs about half the part's shop price) and paid in vibes. Repairs wait until the raid is over.",
+        },
+        {
+          build,
+          text: "Two-story bunkers are official: an interior floor row splits the claim into stacked rooms, and a sealed two-room layout holds a raid exactly like a single room.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.229",
       date: "2026-07-13",

@@ -59,6 +59,7 @@
       <dt>Blocker (if any)</dt><dd>none, but it is an economy design decision, not a mechanical gap: decide which catalogs get level floors and whether existing owned items grandfather.</dd>
       <dt>Unblock condition</dt><dd>Design pass over the shop catalogs assigning level floors where they improve pacing (or an explicit GDD amendment narrowing the clause), then enforce the floors server-side and surface them in the shop UI. Acceptance: at least the highest-tier purchases check overall level on the server, the UI explains locked items, and GDD_COVERAGE flips REQ-038 to done.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Review update</dt><dd>2026-07-13: gating audit complete. Level-gated today: raid tiers (maxBunkerRaidTier), beacon caps (playerLevelProgress), base-part owned limits (basePartOwnedLimit). Not gated: robot parts (/api/shop/buy), consumables, gear upgrades, bunker skins (all vibes-priced only). The choice between invented level floors, grandfathering, or amending the GDD clause is recorded as Q-017 with a recommended default; GDD amendments need explicit approval (Rule 2), so this followup waits on that call rather than shipping invented economy numbers.</dd>
     </dl>
   </section>
 

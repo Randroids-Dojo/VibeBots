@@ -34,6 +34,7 @@ interface AchievementProfileRow {
   elevator_depth: number;
   elevator_speed_level: number;
   parts_owned: number;
+  has_maxed_design: boolean;
   mine_diff: unknown;
 }
 
@@ -93,6 +94,13 @@ async function achievementSnapshot(
              FROM player_parts pp
              WHERE pp.player_id = p.id
            ), 0) AS parts_owned,
+           EXISTS (
+             SELECT 1
+             FROM bot_designs bd,
+                  jsonb_array_elements(bd.design->'parts') AS part
+             WHERE bd.player_id = p.id
+               AND (part->>'mergeLevel')::int >= 3
+           ) AS has_maxed_design,
            mw.diff AS mine_diff
     FROM players p
     LEFT JOIN mine_worlds mw ON mw.player_id = p.id
@@ -106,6 +114,8 @@ async function achievementSnapshot(
     ...stats,
     matchWins: Math.max(stats.matchWins, matchCounters.matchWins),
     sawMatchWins: Math.max(stats.sawMatchWins, matchCounters.sawMatchWins),
+    chassisFought: Math.max(stats.chassisFought, matchCounters.chassisFought),
+    partsMaxed: Math.max(stats.partsMaxed, row?.has_maxed_design ? 1 : 0),
     sales: Math.max(
       stats.sales,
       row && (row.emeralds > 0 || row.parts_owned > 0) ? 1 : 0,

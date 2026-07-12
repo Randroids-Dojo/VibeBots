@@ -87,23 +87,43 @@ export async function loadMatchRecordSummary(
 }
 
 /** Durable stamp counters derived straight from the records table. */
+/** The three core chassis every design starts from; used_part_ids always
+ * carries the design's core, so each record proves which chassis fought. */
+const CHASSIS_CORE_IDS = ["core-cube", "wedge-core", "tower-core"] as const;
+
 export async function matchAchievementCounters(
   sql: Sql,
   playerId: string,
-): Promise<{ matchWins: number; sawMatchWins: number }> {
+): Promise<{ matchWins: number; sawMatchWins: number; chassisFought: number }> {
   const rows = (await sql`
     SELECT
       COUNT(*) FILTER (WHERE outcome = 'win')::int AS match_wins,
       COUNT(*) FILTER (
         WHERE outcome = 'win' AND used_part_ids ? 'saw-blade'
-      )::int AS saw_match_wins
+      )::int AS saw_match_wins,
+      COUNT(*) FILTER (WHERE used_part_ids ? ${CHASSIS_CORE_IDS[0]})::int
+        AS cube_fights,
+      COUNT(*) FILTER (WHERE used_part_ids ? ${CHASSIS_CORE_IDS[1]})::int
+        AS wedge_fights,
+      COUNT(*) FILTER (WHERE used_part_ids ? ${CHASSIS_CORE_IDS[2]})::int
+        AS tower_fights
     FROM match_records
     WHERE player_id = ${playerId}`) as Array<{
     match_wins: number;
     saw_match_wins: number;
+    cube_fights: number;
+    wedge_fights: number;
+    tower_fights: number;
   }>;
+  const row = rows[0];
+  const chassisFought = [
+    row?.cube_fights ?? 0,
+    row?.wedge_fights ?? 0,
+    row?.tower_fights ?? 0,
+  ].filter((fights) => fights > 0).length;
   return {
-    matchWins: rows[0]?.match_wins ?? 0,
-    sawMatchWins: rows[0]?.saw_match_wins ?? 0,
+    matchWins: row?.match_wins ?? 0,
+    sawMatchWins: row?.saw_match_wins ?? 0,
+    chassisFought,
   };
 }

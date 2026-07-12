@@ -423,6 +423,30 @@ const STAMP_PICTOGRAMS: Record<
       <path d="M32 22 v14 M26 28 l6 -6 l6 6" stroke={accent} strokeWidth="2" />
     </g>
   ),
+  "battle-chassis-tour": ({ accent }) => (
+    <g>
+      {/* The three cores side by side: cube, wedge, tower. */}
+      <rect x="14" y="30" width="11" height="11" rx="1.5" />
+      <path d="M28 41 h11 l-11 -11 z" />
+      <rect x="43" y="24" width="8" height="17" rx="1.5" />
+      <path d="M12 46 h40" strokeWidth="2" />
+      <circle cx="19.5" cy="22" r="2" fill={accent} stroke="none" />
+      <circle cx="33" cy="22" r="2" fill={accent} stroke="none" />
+      <circle cx="47" cy="16" r="2" fill={accent} stroke="none" />
+    </g>
+  ),
+  "tools-mastercrafted": ({ accent }) => (
+    <g>
+      {/* A part gem over its three merge pips, the last one lit. */}
+      <path d="M32 16 l10 8 v10 l-10 8 l-10 -8 v-10 z" />
+      <path d="M32 24 l5 4 v6 l-5 4 l-5 -4 v-6 z" fill={accent} stroke="none" />
+      <g stroke="none">
+        <circle cx="24" cy="48" r="2.4" fill="currentColor" opacity="0.45" />
+        <circle cx="32" cy="48" r="2.4" fill="currentColor" opacity="0.45" />
+        <circle cx="40" cy="48" r="2.4" fill={accent} />
+      </g>
+    </g>
+  ),
   "survival-roof-rescue": ({ accent }) => (
     <g>
       {/* Condemned ceiling line held up by a plank prop. */}

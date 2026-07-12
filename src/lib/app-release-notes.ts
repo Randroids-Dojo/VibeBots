@@ -1,10 +1,24 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-12-0.1.224-ore-band-floor";
+export const RELEASE_NOTICE_ID = "2026-07-12-0.1.225-mastery-stamps";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
+      version: "0.1.225",
+      date: "2026-07-12",
+      title: "Stamps for chassis mastery and maxed parts",
+      intro: "The Stamp Book now honors builders and chassis explorers.",
+      changes: [
+        {
+          build,
+          text: "Chassis Tour: fight an official match with every core chassis (Cube, Wedge, and Tower). Your past matches already count: every verified fight recorded which core you fielded, so this one backfills.",
+        },
+        {
+          build,
+          text: "Mastercrafted: save a design fielding a part merged to Lv 3. Existing saved designs count, so master builders unlock it on their next visit.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
       version: "0.1.224",
       date: "2026-07-12",
       title: "Ore bands fade out instead of cutting out",

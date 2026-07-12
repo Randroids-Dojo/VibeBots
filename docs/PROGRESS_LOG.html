@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="accent-pool-tier-gate" data-date="2026-07-12">
+    <h3>Tier-gate the accent-light pool on real-device evidence (F-077 follow-through)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>perf/accent-pool-tier-gate</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.226. The F-077 acceptance line required real-device telemetry to stay at steady state; the 24h insights window (14 sessions, 853 snapshots, arm valhall at 448x923) came back split: the pool's constant-count mechanism held (no recompiles), but snapshots with its 5-8 lights averaged 25.0ms p95 vs 20.0ms for the base 3-4, and the accent build's session was the window's worst steady state. New <code>GraphicsFeatures.accentLights</code> (false on low, true otherwise, doc comment citing the numbers) gates the pool mount and the slot-assignment effect; the flag is fixed per session so the per-device light count never changes (F-075 invariant). The same window CONFIRMED F-078 on hardware: the fix build's three sessions are the smoothest recorded (17.9ms avg p95, worst 100ms, no descent freezes); both verdicts appended to the followup entries. Mine tips reviewed, no copy change; stamp review: none.</dd>
+      <dt>Verification</dt><dd>Graphics-quality unit test pins <code>accentLights</code> per tier; full unit suite (1113) green; production build; <code>mine-accent-lights.spec.ts</code> still exercises the live pool (headless resolves to the high tier) and <code>mine-shader-churn.spec.ts</code> stays within bounds (firstCrossingDelta=3 of 3 allowed, recrossings 0, all async off-frame). Release chain updated for 0.1.226 with the phone-facing framing.</dd>
+      <dt>Assumptions</dt><dd>Emissive-only emitters are an acceptable low-tier read of the glow (they were the shipped state for a week); if a future low-tier budget affords it, flipping one flag restores the pool.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/06-mining.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-077 and F-078 entries gained telemetry-verdict records. None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mastery-stamps" data-date="2026-07-12">
     <h3>Chassis Tour and Mastercrafted stamps (F-051, F-053)</h3>
     <dl>

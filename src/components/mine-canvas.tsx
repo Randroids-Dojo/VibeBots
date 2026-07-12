@@ -1916,7 +1916,7 @@ function MineScene({
   // Runs at input cadence like the grid stream above; parked slots hold
   // intensity 0 so the scene's light count never changes.
   useLayoutEffect(() => {
-    const active = accentEmitterCount();
+    const active = graphicsFeatures.accentLights ? accentEmitterCount() : 0;
     for (let i = 0; i < ACCENT_LIGHT_COUNT; i++) {
       const light = accentLightRefs.current[i];
       if (!light) continue;
@@ -2322,18 +2322,23 @@ function MineScene({
       />
       {/* Accent pool (F-077): three always-mounted point lights, assigned
           per render to the nearest beacon/bag/dynamite/portal emitters.
-          Constant count by construction; see pushAccentEmitter. */}
-      {ACCENT_LIGHT_INDICES.map((slot) => (
-        <pointLight
-          key={`accent:${slot}`}
-          ref={(light) => {
-            accentLightRefs.current[slot] = light;
-          }}
-          intensity={0}
-          distance={1}
-          decay={1.6}
-        />
-      ))}
+          Constant count by construction; see pushAccentEmitter. Tier
+          gated: the low tier's frame budget cannot afford the extra
+          lights (see GraphicsFeatures.accentLights), and the flag is
+          fixed per session so the count never changes mid-play. */}
+      {graphicsFeatures.accentLights
+        ? ACCENT_LIGHT_INDICES.map((slot) => (
+            <pointLight
+              key={`accent:${slot}`}
+              ref={(light) => {
+                accentLightRefs.current[slot] = light;
+              }}
+              intensity={0}
+              distance={1}
+              decay={1.6}
+            />
+          ))
+        : null}
       {/* Studio IBL: ambient response and reflections for every PBR
           surface; the frame loop scales it with daylight so descending
           into the dark still reads dark. */}

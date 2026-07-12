@@ -1,9 +1,27 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-12-0.1.225-mastery-stamps";
+export const RELEASE_NOTICE_ID = "2026-07-12-0.1.226-accent-tier-gate";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.226",
+      date: "2026-07-12",
+      title: "Smoother frames on phones, glow where it fits",
+      intro:
+        "The emitter glow now steps aside on devices that cannot afford it.",
+      changes: [
+        {
+          build,
+          text: "Real-device telemetry showed the new accent lights costing about five milliseconds per frame on low-tier phones, so the glow pool now runs only on the higher graphics tiers. Phones keep their full frame budget; the light count still never changes mid-session on any device.",
+        },
+        {
+          build,
+          text: "The same telemetry confirmed the first-descent fix: phone sessions on that build show the smoothest profile recorded, with no descent freezes.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.225",
       date: "2026-07-12",

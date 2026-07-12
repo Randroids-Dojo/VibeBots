@@ -58,6 +58,13 @@ export interface GraphicsFeatures {
    * scenes additionally require the live backend check before
    * mounting it. */
   postBloom: boolean;
+  /** The mine's fixed accent-light pool (F-077). Off on the low tier:
+   * real-phone telemetry (build 276751, arm valhall) put snapshots with
+   * the pool's 5-8 lights at 25.0ms p95 vs 20.0ms with the base 3-4,
+   * so three extra always-on point lights overrun the low tier's frame
+   * budget. The flag is fixed per session, keeping the light count
+   * constant either way (the F-075 no-recompile invariant). */
+  accentLights: boolean;
   /** Upper bound on the canvas device-pixel ratio. The low tier serves
    * phones on the WebGL2 backend where pixel fill is the frame-time and
    * thermal-throttling cost (real-phone telemetry, F-074/F-075 follow-up:
@@ -80,6 +87,7 @@ export function graphicsFeaturesFor(
       sunShadowMapSize: 512,
       environmentIntensity: 0,
       postBloom: false,
+      accentLights: false,
       maxDpr: 1.5,
     };
   }
@@ -88,6 +96,7 @@ export function graphicsFeaturesFor(
     sunShadowMapSize: 2048,
     environmentIntensity: 0.6,
     postBloom: true,
+    accentLights: true,
     maxDpr: 2,
   };
 }

@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-11-0.1.215-opaque-cell-seams";
+export const RELEASE_NOTICE_ID = "2026-07-11-0.1.216-smooth-first-descent";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.216",
+      date: "2026-07-11",
+      title: "New ground loads without a hitch",
+      intro: "Reaching fresh depths no longer freezes the frame.",
+      changes: [
+        {
+          build,
+          text: "The first time a new kind of block scrolled into view, the game paused to build its draw program on the spot: the last one-time hitch left on a first descent. New block batches now compile in the background and appear a moment later instead of stalling the picture.",
+        },
+        {
+          build,
+          text: "The shader-churn regression test tightened its first-crossing budget from 30 background compiles to 3, and re-crossing a stratum still compiles nothing.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.215",
       date: "2026-07-11",

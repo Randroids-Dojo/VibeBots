@@ -70,15 +70,18 @@ test("stratum crossings do not recompile shader programs", async ({ page }) => {
   const warmed = await settledProgramCount(page);
   expect(warmed).toBeGreaterThan(0);
 
-  // First crossing of the Clay Beds boundary (row 12) may lazily compile
-  // a handful of variants the warm-up misses, but never the whole
-  // pipeline set (the fog-object rekey recompiled ~60 programs here).
+  // First crossing of the Clay Beds boundary (row 12) may create a few
+  // programs for brand-new grid buckets (each InstancedMesh gets unique
+  // shader source, so no warm list can cover them), but those compile in
+  // the background on the grid's pending layer, never as a frame stall,
+  // and never as the whole pipeline set (the fog-object rekey recompiled
+  // ~60 programs here).
   await descendLadderShaft(page, 16);
   const afterFirstCrossing = await settledProgramCount(page);
   console.log(
     `programs: warmed=${warmed} firstCrossingDelta=${afterFirstCrossing - warmed}`,
   );
-  expect(afterFirstCrossing - warmed).toBeLessThanOrEqual(30);
+  expect(afterFirstCrossing - warmed).toBeLessThanOrEqual(3);
 
   // Re-crossing the same boundary in both directions must be free: the
   // 0.1.206 regression recompiled the full pipeline set on EVERY pass.

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-11-0.1.215-opaque-cell-seams",
+      releaseNoticeId: "2026-07-11-0.1.216-smooth-first-descent",
       releaseSummary:
-        "The cracks finally stay dark: Daylight no longer colors the spaces between mine blocks.",
+        "New ground loads without a hitch: Reaching fresh depths no longer freezes the frame.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-11-0.1.215-opaque-cell-seams",
+      releaseNoticeId: "2026-07-11-0.1.216-smooth-first-descent",
       attempted: 2,
       sent: 1,
       expired: 1,

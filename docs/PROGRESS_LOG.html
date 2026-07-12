@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="first-descent-bucket-precompile" data-date="2026-07-11">
+    <h3>Background-compile new mine block buckets (F-078)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>perf/first-descent-warmup</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.216. Closes F-078. Shader-source capture in an instrumented churn run showed first descent was down to ONE lazy compile on current main, and it is structurally un-warmable: three's node renderer routes instance matrices below the uniform-buffer limit through a uniform block named after the node id (<code>NodeBuffer_&lt;id&gt;</code>), so each <code>InstancedMesh</code> compiles its own program and warm meshes sharing the material never match. <code>InstancedBlockGrid</code> now takes an optional precompiler: every new bucket mesh (and every grown replacement) parks on render layer 31 while <code>renderer.compileAsync</code> builds its program against the live scene through an every-layer camera, then flips to layer 0; a grown bucket retires its old mesh only when the replacement is live, so nothing blinks. Without a precompiler the grid behaves exactly as before. Mine tips reviewed, no copy change (no player-facing rule changed); Rule 14 stamp review: none added (perf fix).</dd>
+      <dt>Verification</dt><dd>Dash checks and <code>git diff --check</code> clean; typecheck clean; Biome clean; <code>mine-instanced-grid.test.ts</code> (6 tests, three new: pending-layer park/live, grow retirement, no-precompiler passthrough), <code>app-release.test.ts</code>, notifications <code>route.test.ts</code> pass; production build; <code>mine-shader-churn.spec.ts</code> green with the bound tightened 30 to 3 (measured: warmed=66, firstCrossingDelta=1, recrossingsDelta=0); <code>mine-core.spec.ts</code>, <code>mine-viewport.spec.ts</code>, <code>visual-baselines.spec.ts</code> pass except the pre-existing zoom-buttons failure that reproduces on an unmodified base build in this container.</dd>
+      <dt>Assumptions</dt><dd>A brand-new bucket's blocks appearing one to three frames late (background compile latency) is imperceptible next to the frame stall it replaces; the ladder-shaft churn spec's measured single first-crossing compile is representative because bucket identity is (geometry, material) and deeper strata reuse both heavily.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/06-mining.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-078 resolved (entry updated). None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="opaque-daylight-cell-seams" data-date="2026-07-11">
     <h3>Prove and remove the cyan daylight between mine cells</h3>
     <dl>

@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest opaque-cell-seams note complete", () => {
+  it("keeps the latest smooth-first-descent note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-11-0.1.215-opaque-cell-seams");
+    expect(release.noticeId).toBe("2026-07-11-0.1.216-smooth-first-descent");
     expect(latestNote).toMatchObject({
+      version: "0.1.216",
+      title: "New ground loads without a hitch",
+      intro: "Reaching fresh depths no longer freezes the frame.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The first time a new kind of block scrolled into view, the game paused to build its draw program on the spot: the last one-time hitch left on a first descent. New block batches now compile in the background and appear a moment later instead of stalling the picture.",
+      "The shader-churn regression test tightened its first-crossing budget from 30 background compiles to 3, and re-crossing a stratum still compiles nothing.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived opaque-cell-seams note complete", () => {
+    const release = getAppRelease();
+    const seamsNote = release.notes.find((note) => note.version === "0.1.215");
+
+    expect(seamsNote).toMatchObject({
       version: "0.1.215",
       title: "The cracks finally stay dark",
       intro: "Daylight no longer colors the spaces between mine blocks.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(seamsNote?.changes.map((change) => change.text)).toEqual([
       "The previous correction stopped the headlamp from lighting the cave backing, but daylight fog still recolored that black plane cyan through real geometry gaps. The backing is now explicitly fog-free, opaque, and physically constrained below the surface instead of relying on shader transparency, so the authored sky stays visible while every underground gap stays black on the phone WebGL2 path.",
       "A new 390x760 daylight pixel regression samples the true center-right cell gap. It fails against the faulty render at RGB 130 and passes below RGB 16 with the fix, while the existing day/night, depth, visibility, and draw-budget contracts remain unchanged.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

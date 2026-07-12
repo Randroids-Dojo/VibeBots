@@ -40,7 +40,7 @@
       <dt>Verification</dt><dd>Gate unit tests (5) cover the extracted race incl. never-settle and cancel; full unit suite; production build. Mine e2e surface: core (21 passed), bunker (6), viewport and warp/elevator (20), shader-churn, release-notifications all green against the gated start. One core failure ("scrap mode closes bunker claim overlays") reproduces on unmodified main: the pre-hammer test left stale by PR #132's UI rewrite, raised as F-082 per the F-047 triage contract rather than patched blind inside this slice. Real-device acceptance (session-start loafMaxMs collapse) reads from the next insights window.</dd>
       <dt>Assumptions</dt><dd>A backdrop-only beat at mine load reads better than a frozen page of the same length (the holodeck shipped the same trade); the 4s valve keeps a stalled driver from ever holding the canvas black.</dd>
       <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/06-mining.html</code> gained a build log entry.</dd>
-      <dt>Followups</dt><dd>F-081 resolved; F-082 raised (stale bunker-claim test from PR #132, found by the F-047 slice-start triage).</dd>
+      <dt>Followups</dt><dd>F-081 resolved; F-082 raised (stale bunker-claim test from PR #132, found by the F-047 slice-start triage); F-083 raised (the installed-app viewport realign test fails deterministically on this Mac against unmodified main while CI stays green, an F-048-class local-environment divergence in the visualViewport simulation).</dd>
     </dl>
   </article>
 

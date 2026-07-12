@@ -988,6 +988,16 @@
 </dl>
 </section>
 
+<section id="F-083" data-f="F-083" data-priority="polish">
+  <h3>F-083: Vet the local-only failure of the installed-app viewport realign test</h3>
+  <dl>
+    <dt>Context</dt><dd>Found by the F-081 slice's verification (2026-07-12): <code>release-notifications.spec.ts</code> "mine realigns installed app controls when the visual viewport changes" fails deterministically on this development Mac (4/4 runs, "mine shell should stay locked to the visible viewport" predicate timeout) against BOTH the slice branch and unmodified main at <code>34ef54c5</code>, while the same test passed locally about an hour earlier at effectively identical code and stays green in CI's required shard for every recent merge. Smells like the F-048 class: a local-environment dependence in the <code>installStandaloneVisualViewport</code> simulation (machine load, display scale, or Chromium version) rather than an app regression.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: reproduce on an idle machine, capture which predicate input drifts (shell rect vs visualViewport offset), and either harden the helper's simulation or document the environmental precondition beside the known-flake list in <code>docs/CI_WORKFLOW.html</code>. Acceptance: the test passes reliably on an idle local machine or its environmental sensitivity is documented where the scheduled-run triage will see it.</dd>
+    <dt>PR / Dot reference</dt><dd>(raised during F-081 verification; CI green throughout)</dd>
+  </dl>
+</section>
+
 <section id="F-082" data-f="F-082" data-priority="nice-to-have">
   <h3>F-082: Update the stale scrap-mode bunker-claim test for the hammer builder</h3>
   <dl>

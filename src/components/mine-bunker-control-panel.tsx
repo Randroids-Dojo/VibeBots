@@ -264,15 +264,19 @@ export function BunkerControlPanel({
           </>
         )}
 
-        {hasBunker && !activeRaid && repairCost > 0 && onRepair && (
-          <button
-            type="button"
-            className="bunker-repair-button"
-            onClick={onRepair}
-          >
-            {`Repair bunker (${repairCost} vibes)`}
-          </button>
-        )}
+        {hasBunker &&
+          !activeRaid &&
+          !pendingClaim &&
+          repairCost > 0 &&
+          onRepair && (
+            <button
+              type="button"
+              className="bunker-repair-button"
+              onClick={onRepair}
+            >
+              {`Repair bunker (${repairCost} vibes)`}
+            </button>
+          )}
 
         {pendingClaim && hasBunker && (
           <p className="bunker-status-note">

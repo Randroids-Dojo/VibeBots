@@ -8,6 +8,7 @@ import {
   moveBunkerPart,
   placeBunkerPart,
   removeBunkerPart,
+  repairBunker,
   startBunkerRaid,
 } from "@/server/bunker";
 import { db, storageConfigured } from "@/server/db";
@@ -20,6 +21,7 @@ import { POST as removePartPost } from "./parts/remove/route";
 import { POST as collectRaidPost } from "./raid/collect/route";
 import { POST as finishRaidPost } from "./raid/finish/route";
 import { POST as startRaidPost } from "./raid/start/route";
+import { POST as repairPost } from "./repair/route";
 import { GET } from "./route";
 
 vi.mock("@/server/db", () => ({
@@ -40,6 +42,7 @@ vi.mock("@/server/bunker", () => ({
   moveBunkerPart: vi.fn(),
   placeBunkerPart: vi.fn(),
   removeBunkerPart: vi.fn(),
+  repairBunker: vi.fn(),
   startBunkerRaid: vi.fn(),
 }));
 
@@ -55,6 +58,7 @@ const mockedMove = vi.mocked(moveBunkerPart);
 const mockedPlace = vi.mocked(placeBunkerPart);
 const mockedRemove = vi.mocked(removeBunkerPart);
 const mockedStart = vi.mocked(startBunkerRaid);
+const mockedRepair = vi.mocked(repairBunker);
 
 const view = {
   bunker: null,
@@ -230,6 +234,34 @@ describe("bunker API routes", () => {
       7,
       5,
     );
+  });
+
+  it("repairs the bunker through the repair route", async () => {
+    const view = { bunker: { footprint: null }, inventory: {} };
+    mockedRepair.mockResolvedValue({ ok: true, view } as never);
+
+    const res = await repairPost(
+      jsonRequest("http://localhost/api/bunker/repair", {}),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual(view);
+    expect(mockedRepair).toHaveBeenCalledWith(expect.any(Function), "player-1");
+  });
+
+  it("passes repair rejections through with their status", async () => {
+    mockedRepair.mockResolvedValue({
+      ok: false,
+      status: 409,
+      error: "nothing to repair",
+    } as never);
+
+    const res = await repairPost(
+      jsonRequest("http://localhost/api/bunker/repair", {}),
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({ error: "nothing to repair" });
   });
 
   it("starts the tier-one Clanker raid", async () => {

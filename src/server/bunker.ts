@@ -461,12 +461,14 @@ export async function repairBunker(
   const plan = bunkerRepairPlan(view.bunker);
   if (plan.totalCost <= 0)
     return { ok: false, status: 409, error: "nothing to repair" };
-  const rows = (await sql`
-    SELECT emeralds FROM players WHERE id = ${playerId}`) as Array<{
-    emeralds: number;
-  }>;
-  const vibes = rows[0]?.emeralds ?? 0;
-  if (vibes < plan.totalCost) {
+  // Guarded debit: the balance check and the spend are one statement,
+  // so two concurrent repairs cannot both pass the check (the second
+  // returns zero rows and rejects).
+  const debited = (await sql`
+    UPDATE players SET emeralds = emeralds - ${plan.totalCost}
+    WHERE id = ${playerId} AND emeralds >= ${plan.totalCost}
+    RETURNING emeralds`) as Array<{ emeralds: number }>;
+  if (debited.length === 0) {
     return {
       ok: false,
       status: 409,
@@ -474,9 +476,6 @@ export async function repairBunker(
     };
   }
   const repaired = applyBunkerRepairs(view.bunker);
-  await sql`
-    UPDATE players SET emeralds = emeralds - ${plan.totalCost}
-    WHERE id = ${playerId}`;
   await sql`
     UPDATE bunkers
     SET core = ${JSON.stringify(repaired.core)},

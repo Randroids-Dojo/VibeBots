@@ -711,11 +711,10 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     const plan = bunkerRepairPlan(damaged);
     expect(plan.partCount).toBe(1);
     expect(plan.coreMissing).toBe(20);
-    // Half the durability missing: half of half price, plus core points.
-    expect(plan.totalCost).toBe(
-      Math.max(1, Math.ceil(0.5 * wall.price * 0.5)) +
-        Math.ceil(20 * CORE_REPAIR_COST_PER_POINT),
-    );
+    // Concrete expectation: the wall (price 6) at half durability costs
+    // ceil(0.5 * 6 * 0.5) = 2, the core's 20 missing points cost
+    // ceil(20 * 0.25) = 5, so the plan totals 7 vibes.
+    expect(plan.totalCost).toBe(7);
     const repaired = applyBunkerRepairs(damaged);
     expect(repaired.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
     expect(repaired.parts[0].durability).toBe(wall.durability);

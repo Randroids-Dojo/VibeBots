@@ -548,8 +548,9 @@ describe("bunker server helpers", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT emeralds FROM players")) {
-          return [{ emeralds }];
+        if (query.includes("UPDATE players SET emeralds")) {
+          // Guarded debit: only returns a row when the player can afford it.
+          return emeralds >= 7 ? [{ emeralds: emeralds - 7 }] : [];
         }
         if (query.includes("SELECT footprint, core, parts")) {
           return [
@@ -579,7 +580,27 @@ describe("bunker server helpers", () => {
     expect(queries.some((q) => q.includes("UPDATE players SET emeralds"))).toBe(
       true,
     );
-    expect(queries.some((q) => q.includes("UPDATE bunkers"))).toBe(true);
+    // The persisted bunker carries the restored durabilities, not just any
+    // UPDATE: inspect the core/parts JSON bound into the UPDATE bunkers call.
+    const updateCall = rich.mock.calls.find((call) =>
+      (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
+    );
+    expect(updateCall).toBeDefined();
+    const bound = ((updateCall ?? []) as unknown[])
+      .slice(1)
+      .filter((value): value is string => typeof value === "string");
+    const coreJson = bound.find(
+      (value) => value.includes('"durability"') && !value.includes('"partId"'),
+    );
+    const partsJson = bound.find((value) => value.includes('"partId"'));
+    expect(coreJson).toBeDefined();
+    expect(partsJson).toBeDefined();
+    expect(JSON.parse(coreJson ?? "{}").durability).toBe(160);
+    expect(
+      JSON.parse(partsJson ?? "[]").map(
+        (part: { durability: number }) => part.durability,
+      ),
+    ).toEqual([90]);
   });
 
   it("rejects a raid tier above the player's level gate (F-084)", async () => {

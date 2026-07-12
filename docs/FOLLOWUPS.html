@@ -363,7 +363,8 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready, and folded into the N4 attachable-surface polish slice: add a bottom-docked hero tray (near the existing <code>.workshop-inspector</code> docking) that holds the carousel controls, and reconcile it with the inspector chip so the two never overlap on portrait. Acceptance: on 390x760 the hero part and its controls sit together in the lower band and neither overlaps the inspector.</dd>
       <dt>PR / Dot reference</dt><dd>(not started; raised by the N1 hero carousel slice)</dd>
-    </dl>
+      <dt>Resolved</dt><dd>2026-07-12 (package 0.1.223): the G/N4 slices had already moved the carousel controls out of the top Build panel into a floating overlay beside the hero part, which covered most of this entry; measurement at 390x760 found the one remaining acceptance gap: with the browse inspector docked (tap the hero), the arrows row overlapped the inspector's top edge by ~3px. The overlay now takes a <code>carousel-overlay-raised</code> state while the inspector is open, lifting the name pill and arrows just clear of it (the menu-lift state still wins when a sheet covers the lower screen). New e2e in <code>workshop.spec.ts</code> pins the acceptance: on 390x760 with the inspector open, the controls sit in the lower band and neither box intersects the inspector.</dd>
+</dl>
   </section>
 
   <section id="F-050" data-f="F-050" data-priority="nice-to-have">
@@ -373,7 +374,8 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready: add a small workshop-scoped SFX helper (or generalize the shared AudioContext out of <code>mine-sfx</code> without importing mine events) that plays a short snap on place and a brighter chime on merge, gesture-resumed and respecting any global mute. Acceptance: placing and merging in the workshop each play a distinct sound, with a unit test on the tone/event selection and no import of mine-specific event types into the workshop.</dd>
       <dt>PR / Dot reference</dt><dd>(not started; raised by the W5 workshop feel slice)</dd>
-    </dl>
+      <dt>Resolved</dt><dd>2026-07-12 (package 0.1.223): shipped as scoped. The generic WebAudio plumbing (shared gesture-resumed AudioContext plus the enveloped <code>tone</code> primitive) moved out of <code>mine-sfx.ts</code> into <code>sfx-audio.ts</code> with the mine's event vocabulary untouched, and the new <code>workshop-sfx.ts</code> plays a short mechanical snap on place and a brighter rising two-note chime on merge, wired at the same commit points as the existing haptics (canvas drag-drop place/merge and the inspector merge button). No mine event types are imported anywhere in the workshop path. The pure tone-recipe selection is unit-tested (distinct recipes, rising chime vs falling snap, length/gain bounds); there is still no global mute setting in the app, matching the mine sfx.</dd>
+</dl>
   </section>
 
   <section id="F-051" data-f="F-051" data-priority="nice-to-have">

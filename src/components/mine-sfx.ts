@@ -3,28 +3,13 @@
 import type { CellKind, MineAction, MoveResult, OreId } from "@/sim/mine";
 
 /**
- * Tiny WebAudio sfx, synthesized so the bundle ships no audio assets.
- * One lazily-created, gesture-resumed AudioContext is shared across
- * plays. Every call resumes it, so the first sound after a user gesture
- * (a move or tap) is audible on mobile, where contexts start suspended.
+ * Tiny WebAudio sfx for the mine, synthesized so the bundle ships no
+ * audio assets. The AudioContext and the tone primitive are shared with
+ * every surface through sfx-audio.ts; every play resumes the context, so
+ * the first sound after a user gesture (a move or tap) is audible on
+ * mobile, where contexts start suspended.
  */
-let ctx: AudioContext | null = null;
-
-function audioCtx(): AudioContext | null {
-  if (typeof window === "undefined") return null;
-  if (!ctx) {
-    const Ctor =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Ctor) return null;
-    ctx = new Ctor();
-  }
-  if (ctx.state === "suspended") void ctx.resume();
-  return ctx;
-}
-
-type ToneWave = OscillatorType;
+import { audioCtx, tone } from "./sfx-audio";
 
 export type MineSfxEvent =
   | "step"
@@ -85,41 +70,6 @@ function clean(nodes: AudioNode[], delayMs: number): void {
   window.setTimeout(() => {
     for (const node of nodes) node.disconnect();
   }, delayMs);
-}
-
-function tone(
-  ac: AudioContext,
-  {
-    wave = "sine",
-    start,
-    end,
-    gain,
-    at,
-    len,
-    out,
-  }: {
-    wave?: ToneWave;
-    start: number;
-    end?: number;
-    gain: number;
-    at: number;
-    len: number;
-    out: AudioNode;
-  },
-): OscillatorNode {
-  const osc = ac.createOscillator();
-  osc.type = wave;
-  osc.frequency.setValueAtTime(start, at);
-  if (end != null) osc.frequency.exponentialRampToValueAtTime(end, at + len);
-  const g = ac.createGain();
-  g.gain.setValueAtTime(0.0001, at);
-  g.gain.exponentialRampToValueAtTime(gain, at + 0.008);
-  g.gain.exponentialRampToValueAtTime(0.0001, at + len);
-  osc.connect(g).connect(out);
-  osc.start(at);
-  osc.stop(at + len + 0.02);
-  osc.onended = () => g.disconnect();
-  return osc;
 }
 
 function burstNoise(

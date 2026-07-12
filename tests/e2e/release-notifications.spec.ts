@@ -21,17 +21,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "A hammer, a part belt, and a temporary gantry replace the old builder menus.",
+    "Building your bot now sounds and reads like one bench.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "swing toward an adjacent cell to build",
+    "short mechanical snap",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "temporary orange scaffold across the claim",
+    "lift clear of the part-details card",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "MINE_VERSION advances to 52",
+    "MINE_VERSION and SIM_VERSION are unchanged",
   );
 
   await page.mouse.click(8, 8);
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.223", "The workshop clicks, chimes, and tidies up"],
     ["0.1.222", "Build bunkers with your own two hands"],
     ["0.1.221", "Two stamps for surviving the deep"],
     ["0.1.220", "The Holodeck opens without a freeze"],

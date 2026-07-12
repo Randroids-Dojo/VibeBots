@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-12-0.1.222-hammer-bunker-builder";
+export const RELEASE_NOTICE_ID = "2026-07-12-0.1.223-workshop-feel";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.223",
+      date: "2026-07-12",
+      title: "The workshop clicks, chimes, and tidies up",
+      intro: "Building your bot now sounds and reads like one bench.",
+      changes: [
+        {
+          build,
+          text: "Placing a part lands with a short mechanical snap and merging two parts rings a brighter two-note chime, matching the visual snap and merge bump the bench already had. The sounds are synthesized on device, so nothing new downloads.",
+        },
+        {
+          build,
+          text: "On phones, the part name and browse arrows now lift clear of the part-details card when it opens, so the controls and the card never sit on top of each other.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.222",
       date: "2026-07-12",

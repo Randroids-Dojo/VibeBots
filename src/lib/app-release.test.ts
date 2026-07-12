@@ -24,18 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest hammer-builder note complete", () => {
+  it("keeps the latest workshop-feel note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-12-0.1.222-hammer-bunker-builder");
+    expect(release.noticeId).toBe("2026-07-12-0.1.223-workshop-feel");
     expect(latestNote).toMatchObject({
+      version: "0.1.223",
+      title: "The workshop clicks, chimes, and tidies up",
+      intro: "Building your bot now sounds and reads like one bench.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Placing a part lands with a short mechanical snap and merging two parts rings a brighter two-note chime, matching the visual snap and merge bump the bench already had. The sounds are synthesized on device, so nothing new downloads.",
+      "On phones, the part name and browse arrows now lift clear of the part-details card when it opens, so the controls and the card never sit on top of each other.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived hammer-builder note complete", () => {
+    const release = getAppRelease();
+    const hammerNote = release.notes.find((note) => note.version === "0.1.222");
+
+    expect(hammerNote).toMatchObject({
       version: "0.1.222",
       title: "Build bunkers with your own two hands",
       intro:
         "A hammer, a part belt, and a temporary gantry replace the old builder menus.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(hammerNote?.changes.map((change) => change.text)).toEqual([
       "Equip the bunker hammer inside your claim, choose a part, and swing toward an adjacent cell to build. Pry mode lifts an existing part into your hands so you can carry it to a new cell or put it back without losing durability.",
       "The hammer raises a temporary orange scaffold across the claim, so normal movement controls can carry you horizontally or vertically while you work. Stowing the hammer safely settles the miner before the scaffold disappears.",
       "The large movement pad and builder mode menus are gone. Bunker status, claim, raid, and progression information remain in a compact sheet. MINE_VERSION advances to 52; SIM_VERSION is unchanged.",

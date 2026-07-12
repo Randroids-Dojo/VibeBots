@@ -14,6 +14,7 @@ import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
 import { PartsShop, prefetchShop } from "@/components/parts-shop";
 import { StampCollectAlert } from "@/components/stamp-collect-alert";
+import { playWorkshopSfx } from "@/components/workshop-sfx";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
@@ -362,6 +363,10 @@ export function WorkshopPanel() {
   const setBuildActive = useWorkshopStore((s) => s.setBuildActive);
   const setBrowseDimmed = useWorkshopStore((s) => s.setBrowseDimmed);
   const browseStatsOpen = useWorkshopStore((s) => s.browseStatsOpen);
+  // One derived truth for the docked browse inspector: the raised hero
+  // tray and the inspector render from the same condition (F-052).
+  const browseInspectorDocked =
+    tab === "build" && browseStatsOpen && !selectedIid;
   const setCore = useWorkshopStore((s) => s.setCore);
   const mirrorEnabled = useWorkshopStore((s) => s.mirrorEnabled);
   const toggleMirror = useWorkshopStore((s) => s.toggleMirror);
@@ -631,7 +636,7 @@ export function WorkshopPanel() {
       <section
         className={`carousel-overlay${
           menuLift > 0.05 ? " carousel-overlay-lifted" : ""
-        }`}
+        }${browseInspectorDocked ? " carousel-overlay-raised" : ""}`}
         aria-label="Part carousel"
       >
         <div className="carousel-overlay-name" data-testid="carousel-part-name">
@@ -940,6 +945,7 @@ export function WorkshopPanel() {
                       onClick={() => {
                         mergeSelectedPart();
                         buzz(HAPTIC_MERGE);
+                        playWorkshopSfx("merge");
                       }}
                       disabled={!mergeEnabled}
                       title={
@@ -1173,7 +1179,7 @@ export function WorkshopPanel() {
         </aside>
       </div>
 
-      {tab === "build" && browseStatsOpen && !selectedIid && (
+      {browseInspectorDocked && (
         <section className="workshop-inspector" aria-label="Part details">
           <div className="inspector-head">
             <span className="inspector-name">{browseDef.name}</span>

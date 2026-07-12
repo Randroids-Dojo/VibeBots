@@ -698,6 +698,18 @@ button:focus-visible {
   transition: top 200ms ease;
 }
 
+/* While the browse inspector docks at the bottom, the hero tray lifts
+ * just clear of it so the carousel controls and the inspector never
+ * overlap on portrait (F-052). Declared before the menu-lift rules so a
+ * covering sheet still wins when both states apply. */
+.carousel-overlay-raised .carousel-overlay-name {
+  top: 54%;
+}
+
+.carousel-overlay-raised .carousel-overlay-arrows {
+  top: 62%;
+}
+
 /* When a menu tab's sheet covers the lower screen the bot and its hero part
  * lift into the band above the sheet; the carousel label and arrows follow so
  * they stay with the raised part. */

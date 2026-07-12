@@ -1005,9 +1005,9 @@ test("scrap mode closes bunker claim overlays", async ({ page }) => {
     page.getByRole("region", { name: "Bunker status" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Scrap placed supports" }).click();
-  await expect(
-    page.getByRole("region", { name: "Bunker status" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Bunker status" })).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("region", { name: "Scrap mode" })).toBeVisible();
 });
 

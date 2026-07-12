@@ -24,21 +24,32 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest load-animation note complete", () => {
+  it("keeps the latest parallax-depth note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.235-mine-load-animation");
+    expect(release.noticeId).toBe("2026-07-13-0.1.236-parallax-depth");
     expect(latestNote).toMatchObject({
+      version: "0.1.236",
+      title: "The horizon has real depth",
+      intro: "The landscape now separates into calm, believable distances.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The planet now barely drifts while the excavation, mining machinery, and service berm move at progressively stronger depth rates. The scenery no longer feels attached to the miner.",
+      "Each layer eases into a bounded travel range, keeping the ringed planet and industrial skyline composed while walking to distant biomes. Reduced motion still locks the vista to the viewport.",
+      "The correction adds no geometry, draw calls, materials, or frame allocations. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived load-animation note complete", () => {
+    const release = getAppRelease();
+    const loadNote = release.notes.find((note) => note.version === "0.1.235");
+
+    expect(loadNote).toMatchObject({
       version: "0.1.235",
       title: "The mine loads behind the cart, not a black screen",
       intro: "The loading animation now stays up until the first real frame.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Opening the mine no longer flashes a long black screen. The mine-cart loading animation and the cave backdrop stay on screen through the whole warm-up and only clear once the scene has actually drawn its first frame.",
-      "The loading card never blocks taps, and if the renderer somehow stalls, the veil clears itself after a few seconds instead of trapping you on the loader.",
-      "MINE_VERSION and SIM_VERSION are unchanged.",
-    ]);
   });
 
   it("keeps the archived surface-basin note complete", () => {

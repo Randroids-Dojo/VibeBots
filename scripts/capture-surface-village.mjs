@@ -117,7 +117,9 @@ try {
   for (const capture of CAPTURES) {
     const context = await browser.newContext({
       viewport: { width: capture.width, height: capture.height },
-      reducedMotion: "reduce",
+      // Review the production parallax path. Reduced motion has its own
+      // dedicated smoke coverage and intentionally locks every layer.
+      reducedMotion: "no-preference",
     });
     await context.addInitScript(
       ([key, quality, hour]) => {

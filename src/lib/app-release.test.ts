@@ -24,17 +24,36 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest mastery-stamps note complete", () => {
+  it("keeps the latest accent-tier-gate note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-12-0.1.225-mastery-stamps");
+    expect(release.noticeId).toBe("2026-07-12-0.1.226-accent-tier-gate");
     expect(latestNote).toMatchObject({
+      version: "0.1.226",
+      title: "Smoother frames on phones, glow where it fits",
+      intro:
+        "The emitter glow now steps aside on devices that cannot afford it.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Real-device telemetry showed the new accent lights costing about five milliseconds per frame on low-tier phones, so the glow pool now runs only on the higher graphics tiers. Phones keep their full frame budget; the light count still never changes mid-session on any device.",
+      "The same telemetry confirmed the first-descent fix: phone sessions on that build show the smoothest profile recorded, with no descent freezes.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived mastery-stamps note complete", () => {
+    const release = getAppRelease();
+    const masteryNote = release.notes.find(
+      (note) => note.version === "0.1.225",
+    );
+
+    expect(masteryNote).toMatchObject({
       version: "0.1.225",
       title: "Stamps for chassis mastery and maxed parts",
       intro: "The Stamp Book now honors builders and chassis explorers.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(masteryNote?.changes.map((change) => change.text)).toEqual([
       "Chassis Tour: fight an official match with every core chassis (Cube, Wedge, and Tower). Your past matches already count: every verified fight recorded which core you fielded, so this one backfills.",
       "Mastercrafted: save a design fielding a part merged to Lv 3. Existing saved designs count, so master builders unlock it on their next visit.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

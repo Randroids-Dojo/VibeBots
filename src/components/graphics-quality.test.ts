@@ -41,5 +41,10 @@ describe("graphics quality tiers", () => {
     // WebGL2 phone path shades fewer pixels per frame (F-074/F-075).
     expect(low.maxDpr).toBeLessThan(high.maxDpr);
     expect(low.maxDpr).toBeGreaterThanOrEqual(1);
+    // The accent-light pool overruns the low tier's frame budget
+    // (real-phone telemetry: 25.0ms p95 with the pool's lights vs
+    // 20.0ms without), so the pool is a non-low feature (F-077).
+    expect(low.accentLights).toBe(false);
+    expect(high.accentLights).toBe(true);
   });
 });

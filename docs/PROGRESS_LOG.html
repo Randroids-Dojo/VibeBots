@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="scheduled-run-visibility" data-date="2026-07-12">
+    <h3>Surface scheduled Full E2E failures; re-audit the Holodeck route smoke (F-047, F-080)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/test-infra-followups</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Docs and process only; no app code, no version bump. F-047: chose the documentation-contract option over a workflow change (Rule 6 keeps CI config edits behind explicit confirmation): Rule 5 gains step 3, checking the newest scheduled Full E2E conclusion at every slice start, and <code>docs/CI_WORKFLOW.html</code> gains a "Scheduled Run Visibility" section with the exact command, the triage rule, and the known-flake list. F-080: the Holodeck route smoke passes 10/10 on a fresh current-main build, so the entry closes as re-audited (the render path was rewritten since filing).</dd>
+      <dt>Verification</dt><dd>Dash checks and <code>git diff --check</code> clean. The new check ran against reality during this slice: scheduled run 29148336778 (2026-07-11) is red with five failures, all inside the known-flake class (holodeck pinch, bunker claim-edit, raid-XP overlap retry with a fix branch already in flight, account-sync conflict choice), logged per the new rule instead of chased. <code>routes.spec.ts -g holodeck</code>: 10/10 consecutive passes.</dd>
+      <dt>Assumptions</dt><dd>The known-flake list lives in <code>docs/CI_WORKFLOW.html</code> rather than a pinned issue so it versions with the repo and stays in the agent reading list; a workflow-step auto-issue can supersede it later with user approval.</dd>
+      <dt>GDD coverage</dt><dd>No changes.</dd>
+      <dt>Followups</dt><dd>F-047 and F-080 resolved (entries updated). F-048 stays open as the next infra slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hammer-bunker-builder" data-date="2026-07-12">
     <h3>Build bunkers with a hammer and temporary scaffold</h3>
     <dl>

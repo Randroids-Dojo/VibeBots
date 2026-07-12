@@ -116,22 +116,23 @@ For every slice:
 
 1. Read the rule, plan, product, progress, question, followup, coverage, dependency-ledger, and backlog documents listed in Rule 2.
 2. Run the Dependency Upgrade Gate (see `docs/IMPLEMENTATION_PLAN.html`). If a watched dep is out of date, the upgrade IS the next slice unless red CI takes over.
-3. Pick the highest-priority unblocked task from the implementation plan, dep ledger, GDD coverage gaps, followups, and active backlog.
-4. Create one branch for one PR-sized slice. Always fetch remote `main`, then rebase the new branch on `origin/main` before implementation. Never push directly to `main`.
-5. Implement the slice fully using existing project patterns.
-6. Add or update tests appropriate to the risk and surface area.
-7. Update `docs/PROGRESS_LOG.html`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.html`, `docs/FOLLOWUPS.html`, `docs/DEPENDENCY_LEDGER.html`, and the GDD section when the work changes them.
-8. Run the local verification suite. At minimum: dash checks, `git diff --check`, type-check, relevant unit tests, broader checks when warranted.
-9. Re-run the Dependency Upgrade Gate before opening the PR. If a watched release landed while the slice was in flight, defer the bump to its own PR (do not bundle).
-10. Open a PR.
-11. Inspect all PR review comments, including inline and threaded comments from CodeRabbit or other review bots.
-12. Fix actionable review comments, reply in-thread when the platform supports it, resolve threads when resolved.
-13. After every push to the PR branch, wait for any configured bot reviewer to finish its review pass. The wait is settled only when the required parallel CI gate from `docs/CI_WORKFLOW.html` is green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later. Re-inspect reviews and review threads after the settled wait.
-14. Wait for the required parallel CI gate and the preview deploy to pass. Run the full Playwright smoke suite locally or by manual dispatch when the touched surface warrants it.
-15. Merge only when green, review feedback is handled, bot review has settled, and the preview deploy is healthy.
-16. Pull `main`, verify the current remote tip's required parallel CI gate and production deploy, smoke test production.
-17. Close the completed backlog item with the PR number and verification.
-18. Immediately start the next slice.
+3. Check the newest scheduled Full E2E conclusion (`gh run list --workflow CI --json conclusion,event,createdAt,databaseId --jq '[.[] | select(.event == "schedule")][0]'`). If it is red and less than a day old, triage it before picking a slice: a real regression takes over as the next slice; a known-flake-only failure gets logged in the slice's progress entry so it cannot rot invisibly.
+4. Pick the highest-priority unblocked task from the implementation plan, dep ledger, GDD coverage gaps, followups, and active backlog.
+5. Create one branch for one PR-sized slice. Always fetch remote `main`, then rebase the new branch on `origin/main` before implementation. Never push directly to `main`.
+6. Implement the slice fully using existing project patterns.
+7. Add or update tests appropriate to the risk and surface area.
+8. Update `docs/PROGRESS_LOG.html`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.html`, `docs/FOLLOWUPS.html`, `docs/DEPENDENCY_LEDGER.html`, and the GDD section when the work changes them.
+9. Run the local verification suite. At minimum: dash checks, `git diff --check`, type-check, relevant unit tests, broader checks when warranted.
+10. Re-run the Dependency Upgrade Gate before opening the PR. If a watched release landed while the slice was in flight, defer the bump to its own PR (do not bundle).
+11. Open a PR.
+12. Inspect all PR review comments, including inline and threaded comments from CodeRabbit or other review bots.
+13. Fix actionable review comments, reply in-thread when the platform supports it, resolve threads when resolved.
+14. After every push to the PR branch, wait for any configured bot reviewer to finish its review pass. The wait is settled only when the required parallel CI gate from `docs/CI_WORKFLOW.html` is green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later. Re-inspect reviews and review threads after the settled wait.
+15. Wait for the required parallel CI gate and the preview deploy to pass. Run the full Playwright smoke suite locally or by manual dispatch when the touched surface warrants it.
+16. Merge only when green, review feedback is handled, bot review has settled, and the preview deploy is healthy.
+17. Pull `main`, verify the current remote tip's required parallel CI gate and production deploy, smoke test production.
+18. Close the completed backlog item with the PR number and verification.
+19. Immediately start the next slice.
 
 Do not stop at planning. Do not stop after opening a PR. Do not stop after merge. If blocked, log the blocker, update the backlog item, move to the next unblocked slice.
 
@@ -165,6 +166,7 @@ CI speed policy:
 
 - Required CI is the parallel gate in `docs/CI_WORKFLOW.html`: quality, typecheck, unit tests, build, and sharded critical Playwright smoke.
 - The full Playwright smoke matrix runs on schedule and manual dispatch. Run it locally or by manual dispatch for broad-risk slices that change shared UI shell behavior, cross-route storage state, release-note infrastructure, Playwright harness behavior, or equivalent surfaces.
+- A red scheduled full-matrix run must never rot unseen: the loop's step 3 checks the newest scheduled conclusion at every slice start, and `docs/CI_WORKFLOW.html` records the exact command. Known flakes are named in `docs/CI_WORKFLOW.html`; anything outside that list is treated as a regression.
 - Do not block normal closeout on cancelled, superseded, or older in-progress workflow runs once the current `origin/main` tip contains the shipped commit and its required parallel gate is green.
 
 Continuous improvement requirement:

@@ -987,7 +987,8 @@
     <dt>Unblock condition</dt><dd>Ready: reproduce <code>tests/e2e/routes.spec.ts -g holodeck</code> on a fresh build, inspect whether the canvas is actually delayed, disabled by the current headless renderer path, or hidden behind a route-specific condition, then either fix the Holodeck render path or adjust the route smoke to assert the correct readiness signal. Acceptance: the Holodeck route smoke passes reliably or the expected headless limitation is documented with a replacement smoke.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
         <dt>Renumbered</dt><dd>2026-07-11: this entry originally shipped with a duplicate <code>F-054</code> id (colliding with the performance-analysis followup); renumbered to F-080 to restore unique monotonic ids. No other content changed.</dd>
-    </dl>
+      <dt>Resolved</dt><dd>2026-07-12 re-audit: <code>tests/e2e/routes.spec.ts -g holodeck</code> passes 10/10 consecutive runs on a freshly built current main (444ms-1s each), with no readiness-signal change needed. The holodeck render path was rewritten since this was filed (frameloop compile gate in <code>compile-gate.tsx</code>, plus the lantern-glow and visibility material rewrites), and the route smoke's canvas assertion holds against the gated start. If the flake returns it will surface through the scheduled-run check added by F-047.</dd>
+</dl>
 </section>
 
 <section id="F-048" data-f="F-048" data-priority="polish">
@@ -1007,7 +1008,8 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: decide how scheduled full-matrix failures should surface (a workflow step that opens or updates a pinned issue, a notification, or including "latest scheduled run conclusion" in the loop's monitoring contract in <code>docs/CI_WORKFLOW.html</code> and <code>AGENTS.md</code>). Acceptance: a red scheduled run within the last day is visible to the next agent's slice selection without manually listing workflow runs.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
-  </dl>
+    <dt>Resolved</dt><dd>2026-07-12: shipped the documentation-contract option (no CI config change, per Rule 6): Rule 5 step 3 in <code>AGENTS.md</code> now checks the newest scheduled Full E2E conclusion at every slice start with a one-line <code>gh run list</code> filter, and a new "Scheduled Run Visibility" section in <code>docs/CI_WORKFLOW.html</code> records the command, the triage rule (unknown failure = the next slice; known-flake-only red = one progress-log line naming the run id), and the current known-flake list. Proven against live rot: this slice's own check found scheduled run 29148336778 (2026-07-11) red with five failures, all in the known-flake class (holodeck pinch, bunker claim-edit, raid-XP overlap retry which already has a fix branch in flight, account-sync conflict choice), so it is logged here rather than taken as a regression.</dd>
+</dl>
 </section>
 
 <section id="F-046" data-f="F-046" data-priority="nice-to-have">

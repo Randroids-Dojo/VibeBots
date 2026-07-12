@@ -37,6 +37,10 @@ describe("app release notes", () => {
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "Hold the Ceiling: re-prop a condemned roof with a plank before it falls. Walked Away: be within two columns of a roof collapse when it crashes down and live to tell it. Both count from real replayed trips, so only runs cashed out from this release onward can prove them.",
       "Trips now report roof rescues and collapses survived alongside the other cash-out records; the counters are observational and change no mining rules.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
   it("keeps the archived holodeck-smooth-entry note complete", () => {
     const release = getAppRelease();
     const holodeckNote = release.notes.find(

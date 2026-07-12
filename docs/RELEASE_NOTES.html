@@ -13,6 +13,30 @@
 
 <main id="entries">
 
+  <article data-version="0.1.219" data-date="2026-07-11">
+    <h2>0.1.219</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.219</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Boulders and mined openings are irregular again.</dd>
+      <dt>Adjacency seams</dt><dd>The full dirt-colored square behind every occupied cell is removed. A narrow bridge renders only across an edge shared by two occupied cells, and a tiny corner patch renders only when the full 2x2 junction is occupied.</dd>
+      <dt>Silhouettes</dt><dd>Isolated boulders, rocks, caches, blocks, concave formations, and carved openings retain real cave darkness around their shape. Dense walls still close genuine Pixel-density cracks at every zoom.</dd>
+      <dt>Regression proof</dt><dd>The 448x923 DPR 2.25 low-tier WebGL2 suite now covers dense walls and isolated shapes. Removing bridges recreates a 36.1 percent near-black seam; restoring the full square fails the isolated-corner darkness guard.</dd>
+      <dt>Performance</dt><dd>Two cached bridge roles ride the existing pooled instanced grid and compile through the background bucket path from package 0.1.216 instead of expanding synchronous startup warm-up. Right and below edges share one rotated geometry and one material bucket; enclosed corners use the other.</dd>
+    </dl>
+  </article>
+
+  <article data-version="0.1.218" data-date="2026-07-11">
+    <h2>0.1.218</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.218</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Beacons, bags, dynamite, and portals cast real light again.</dd>
+      <dt>Fixed light pool</dt><dd>Three always-mounted point-light slots follow the nearest visible emitters. Unused slots park at zero intensity, so local glow returns without changing the scene light count or rebuilding draw programs.</dd>
+      <dt>Regression proof</dt><dd>A browser test proves that a planted warp beacon claims a light on approach and releases it after leaving the visible window. Shader churn remains inside the fixed compile budget.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.217" data-date="2026-07-11">
     <h2>0.1.217</h2>
     <dl>

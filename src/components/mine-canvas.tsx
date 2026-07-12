@@ -89,10 +89,13 @@ import {
 import {
   type BlockInstancePlan,
   beginBlockPlan,
+  CELL_JOINT_BELOW,
+  CELL_JOINT_CORNER,
+  CELL_JOINT_RIGHT,
   createBlockInstancePlan,
   instancedBlockDraw,
   pushBlockInstance,
-  solidCellJointDraw,
+  solidCellJointMask,
 } from "./mine-block-plan";
 import {
   CacheCrate,
@@ -338,7 +341,13 @@ const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12).translate(
   0,
   -0.42,
 );
-const SOLID_CELL_JOINT_GEOMETRY = new PlaneGeometry(1.02, 1.02).translate(
+const CELL_JOINT_EDGE_GEOMETRY = new PlaneGeometry(0.12, 0.8).translate(
+  0,
+  0,
+  -0.49,
+);
+const CELL_JOINT_BELOW_ROTATION = Math.PI / 2;
+const CELL_JOINT_CORNER_GEOMETRY = new PlaneGeometry(0.14, 0.14).translate(
   0,
   0,
   -0.49,
@@ -2033,17 +2042,52 @@ function MineScene({
       // Static solid body: record it in the instanced plan instead of a
       // React element. Runs on hit and miss alike (the plan is not cached),
       // so scrolling the window only rewrites instance matrices.
-      if (row >= 1 && solidCellJointDraw(cell)) {
-        pushBlockInstance(
-          plan,
-          SOLID_CELL_JOINT_GEOMETRY,
-          cellJointMaterial(biomeDirtColorAt(col, row)),
-          x,
-          y,
-          0,
-          0,
-          0,
+      if (row >= 1) {
+        const jointMask = solidCellJointMask(
+          cell,
+          cellAt(mine, col + 1, row),
+          cellAt(mine, col, row + 1),
+          cellAt(mine, col + 1, row + 1),
         );
+        if (jointMask !== 0) {
+          const jointColor = biomeDirtColorAt(col, row);
+          if (jointMask & CELL_JOINT_RIGHT) {
+            pushBlockInstance(
+              plan,
+              CELL_JOINT_EDGE_GEOMETRY,
+              cellJointMaterial(jointColor, "edge"),
+              x + 0.5,
+              y,
+              0,
+              0,
+              0,
+            );
+          }
+          if (jointMask & CELL_JOINT_BELOW) {
+            pushBlockInstance(
+              plan,
+              CELL_JOINT_EDGE_GEOMETRY,
+              cellJointMaterial(jointColor, "edge"),
+              x,
+              y - 0.5,
+              0,
+              0,
+              CELL_JOINT_BELOW_ROTATION,
+            );
+          }
+          if (jointMask & CELL_JOINT_CORNER) {
+            pushBlockInstance(
+              plan,
+              CELL_JOINT_CORNER_GEOMETRY,
+              cellJointMaterial(jointColor, "corner"),
+              x + 0.5,
+              y - 0.5,
+              0,
+              0,
+              0,
+            );
+          }
+        }
       }
       if (instancedBlockDraw(cell)) {
         instancedBlockBody(

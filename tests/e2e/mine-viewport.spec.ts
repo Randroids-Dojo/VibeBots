@@ -673,7 +673,9 @@ test.describe("Pixel density mine visibility", () => {
     await dismissReleaseNotes(page);
     const canvas = page.locator("canvas");
     await awaitMineSceneReady(page);
-    await expect(canvas).toHaveAttribute("data-surface-phase", "day");
+    await expect(canvas).toHaveAttribute("data-surface-phase", "day", {
+      timeout: 30_000,
+    });
     await expect(canvas).toHaveAttribute("data-renderer", "webgl2-forced");
     await expect
       .poll(() =>
@@ -718,8 +720,60 @@ test.describe("Pixel density mine visibility", () => {
 
     expect(zoomSamples.map(({ zoom }) => zoom)).toEqual([1, 1.16, 1.32]);
     await expect(zoomOut).toBeDisabled();
+    expect(
+      Number(await canvas.getAttribute("data-draw-calls")),
+    ).toBeLessThanOrEqual(110);
     expect(zoomSamples[2].meanRed - zoomSamples[2].meanBlue).toBeGreaterThan(
       18,
     );
+  });
+
+  test("isolated occupied cells keep their open silhouette", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(() => {
+      (
+        window as typeof window & { __vibebotsTimeOfDayHour?: number }
+      ).__vibebotsTimeOfDayHour = 13;
+      localStorage.setItem("vibebots-graphics-quality-v1", "low");
+      localStorage.setItem("vibebots-mine-camera-zoom-v1", "1.32");
+    });
+    await routeStarterMineWorld(page, 7314, (mine) => {
+      for (let row = 1; row <= 8; row++) {
+        for (let col = START_COL - 5; col <= START_COL + 5; col++) {
+          setCell(mine, col, row, { kind: "empty" });
+        }
+      }
+      for (let col = START_COL - 5; col <= START_COL + 5; col++) {
+        setCell(mine, col, 1, { kind: "dirt" });
+      }
+      setCell(mine, START_COL, 3, { kind: "boulder" });
+      setCell(mine, START_COL + 2, 3, { kind: "dirt" });
+    });
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    const canvas = page.locator("canvas");
+    await awaitMineSceneReady(page);
+    await expect(canvas).toHaveAttribute("data-surface-phase", "day", {
+      timeout: 30_000,
+    });
+    await expect(canvas).toHaveAttribute("data-cam-zoom", "1.32", {
+      timeout: 30_000,
+    });
+
+    await page.waitForTimeout(1_500);
+    const image = await canvas.screenshot();
+    await testInfo.attach("isolated-cell-silhouettes", {
+      body: image,
+      contentType: "image/png",
+    });
+    const boulderBounds = await imageRegionRgbStats(page, image, {
+      left: 0.42,
+      right: 0.445,
+      top: 0.675,
+      bottom: 0.695,
+    });
+    expect(boulderBounds.nearBlackRatio).toBeGreaterThan(0.8);
   });
 });

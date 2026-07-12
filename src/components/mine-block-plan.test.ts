@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { MineCell } from "@/sim/mine";
 import {
   beginBlockPlan,
+  CELL_JOINT_BELOW,
+  CELL_JOINT_CORNER,
+  CELL_JOINT_RIGHT,
   createBlockInstancePlan,
   instancedBlockDraw,
   pushBlockInstance,
-  solidCellJointDraw,
+  solidCellJointMask,
+  solidCellJointOccupies,
 } from "./mine-block-plan";
 
 // The geometry/material references are opaque to the plan (it only stores
@@ -53,22 +57,43 @@ describe("instancedBlockDraw", () => {
   });
 });
 
-describe("solidCellJointDraw", () => {
-  it("fills every occupied body class, including moving solids", () => {
-    expect(solidCellJointDraw(cell({ kind: "dirt" }))).toBe(true);
-    expect(solidCellJointDraw(cell({ kind: "ore", fallIn: 2 }))).toBe(true);
-    expect(solidCellJointDraw(cell({ kind: "rock", fallen: true }))).toBe(true);
-    expect(solidCellJointDraw(cell({ kind: "boulder" }))).toBe(true);
-    expect(solidCellJointDraw(cell({ kind: "magma" }))).toBe(true);
-    expect(solidCellJointDraw(cell({ kind: "part-cache" }))).toBe(true);
-  });
-
-  it("leaves empty tunnels and seeped gas open", () => {
-    expect(solidCellJointDraw(cell({ kind: "empty" }))).toBe(false);
-    expect(solidCellJointDraw(cell({ kind: "gas", gasSeeped: true }))).toBe(
+describe("solid cell joint adjacency", () => {
+  it("classifies occupied bodies without treating open haze as solid", () => {
+    expect(solidCellJointOccupies(cell({ kind: "dirt" }))).toBe(true);
+    expect(solidCellJointOccupies(cell({ kind: "ore", fallIn: 2 }))).toBe(true);
+    expect(solidCellJointOccupies(cell({ kind: "rock", fallen: true }))).toBe(
+      true,
+    );
+    expect(solidCellJointOccupies(cell({ kind: "boulder" }))).toBe(true);
+    expect(solidCellJointOccupies(cell({ kind: "magma" }))).toBe(true);
+    expect(solidCellJointOccupies(cell({ kind: "part-cache" }))).toBe(true);
+    expect(solidCellJointOccupies(cell({ kind: "empty" }))).toBe(false);
+    expect(solidCellJointOccupies(cell({ kind: "gas", gasSeeped: true }))).toBe(
       false,
     );
-    expect(solidCellJointDraw(cell({ kind: "gas" }))).toBe(true);
+    expect(solidCellJointOccupies(cell({ kind: "gas" }))).toBe(true);
+    expect(solidCellJointOccupies(undefined)).toBe(false);
+  });
+
+  it("draws only shared edges and fully enclosed corners", () => {
+    const dirt = cell({ kind: "dirt" });
+    const empty = cell({ kind: "empty" });
+    expect(solidCellJointMask(dirt, empty, empty, empty)).toBe(0);
+    expect(solidCellJointMask(dirt, dirt, empty, empty)).toBe(CELL_JOINT_RIGHT);
+    expect(solidCellJointMask(dirt, empty, dirt, empty)).toBe(CELL_JOINT_BELOW);
+    expect(solidCellJointMask(dirt, dirt, dirt, empty)).toBe(
+      CELL_JOINT_RIGHT | CELL_JOINT_BELOW,
+    );
+    expect(solidCellJointMask(dirt, dirt, dirt, dirt)).toBe(
+      CELL_JOINT_RIGHT | CELL_JOINT_BELOW | CELL_JOINT_CORNER,
+    );
+  });
+
+  it("never puts a bridge behind an empty center cell", () => {
+    const dirt = cell({ kind: "dirt" });
+    expect(solidCellJointMask(cell({ kind: "empty" }), dirt, dirt, dirt)).toBe(
+      0,
+    );
   });
 });
 

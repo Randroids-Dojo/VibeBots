@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="followup-audit-close" data-date="2026-07-13">
+    <h3>Close the shipped Clerk followup; decompose the bunker arc (F-003, F-029, F-071)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/followup-audit-close</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Docs only. F-003 closes as shipped: the account series (#93-#102) delivered Clerk sign-in/sign-up scoped away from guests, guest-row claiming via <code>clerk_user_id</code>, cross-device sync with conflict handling, handoff retries, and the env is provisioned in production (key NAMES verified via <code>vercel env ls</code>; no values touched). F-029 gains a progress update recording that the growth plan's first four stages shipped, and its final stage is decomposed into PR-sized children F-084 (tier selection and level gates), F-085 (working turrets/traps, specialist Clankers, raid death), F-086 (multi-level layouts, hatches, repairs), and F-087 (skins and playtest evidence), each grounded in REQ-034..038. F-071/F-054 record the desktop-telemetry attempt's hard limit: automated browser tabs are <code>visibilityState: hidden</code> and rAF never fires, so the analyzer cannot sample; the remaining checklist genuinely needs a human-foreground session, now stated precisely.</dd>
+      <dt>Verification</dt><dd>Dash checks, <code>git diff --check</code>. Clerk evidence verified in code (routes, linking module, schema column, e2e suite) and provisioning verified by env NAME listing only. The hidden-tab limit was verified live: analyzer key on, 38 seconds of play, zero trace requests, and an in-page rAF probe timing out with <code>document.hidden === true</code>.</dd>
+      <dt>Assumptions</dt><dd>The bunker decomposition mirrors the GDD growth plan's own final-stage list; slices may re-split further as they start.</dd>
+      <dt>GDD coverage</dt><dd>No changes (the children reference existing REQ rows).</dd>
+      <dt>Followups</dt><dd>F-003 resolved. F-084 through F-087 raised. F-029, F-071, F-054 progress updates recorded.</dd>
+    </dl>
+  </article>
+
   <article data-slice="viewport-lock-headroom" data-date="2026-07-13">
     <h3>Root-cause the local-only viewport-lock failure (F-083)</h3>
     <dl>

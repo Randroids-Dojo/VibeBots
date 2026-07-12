@@ -158,6 +158,7 @@
       <dt>PR / Dot reference</dt><dd>(not started; raised by the perf-telemetry first collection pass)</dd>
       <dt>Progress update</dt><dd>2026-07-07 (root-cause drilldown slice): the tainted-row filter now works. <code>app_build</code> was unreliable in production (null on dynamic pages because deployed functions have no git checkout; a constant 10 on static pages from the shallow build clone); it is now a monotonic minutes-since-2026 number baked at build time by <code>next.config.ts</code>, so post-fix builds are cleanly selectable. <code>GET /api/performance/insights</code> also gained <code>?device=real</code> to exclude the SwiftShader/llvmpipe harness GPUs, a per-session rollup with a <code>softwareRenderer</code> flag, and a <code>?session=</code> drilldown. The first real phone traces (Mali <code>arm valhall</code>, mine webgl2/low) landed on 2026-07-06; their stall analysis is <code>F-074</code>.</dd>
       <dt>Progress update</dt><dd>2026-07-12: the phone half of the baseline is written: <code>docs/PERF_BASELINES.html</code> covers 14 real Pixel-class mine sessions across builds 275349-276751 (credible per-frame draw calls, post-taint builds only). Still missing for closure: a desktop WebGPU session with non-null <code>gpuFrameMs</code> (needs the analyzer toggle on a real desktop) and real-device minutes on workshop, arena, and holodeck for the per-surface rows. Those require the player's devices; the report's "not yet baselined" list is the checklist.</dd>
+  <dt>Progress update</dt><dd>2026-07-13: the desktop half was attempted through the authenticated production browser per Rule 12 and hit a hard limit worth recording: automated browser tabs run with <code>document.visibilityState === "hidden"</code> (the tab group's window is not foreground), and <code>requestAnimationFrame</code> never fires in hidden tabs, so the analyzer cannot sample frames and never posts a trace regardless of the toggle (verified live: analyzer key on, 38s of play, zero <code>/api/performance/trace</code> requests, rAF probe timed out). Two real desktop observations still came out of the attempt: the workshop's first paint took roughly 15-20s of black canvas on the high tier (its own compile-gate candidate once measurable), and the arena countdown does not advance in a hidden tab (rAF-driven, expected). Remaining checklist is unchanged and genuinely needs a human-foreground session: open production on the desktop with the analyzer toggle on and play a few minutes of mine, workshop, arena, and holodeck, then repeat the non-mine surfaces once on the phone.</dd>
 </dl>
   </section>
 
@@ -347,6 +348,7 @@
       <dt>Progress update</dt><dd>2026-07-06 (first collection): the instrument merged as PR #87 and the pipeline is verified end to end against production. Scripted desktop, mobile-emulated, and <code>?perfVariant=ab-demo</code> sessions played mine, workshop, arena, and holodeck, saving 76 snapshots across the three runs with every <code>POST /api/performance/trace</code> returning 200; <code>GET /api/performance/insights?hours=2</code> then returned 110 snapshots across 13 sessions (including earlier preview-session rows) with working per-source segments and variant splits. The data immediately exposed a probe bug (three's WebGPURenderer <code>info.render.calls</code> counts since app start, not per frame), fixed by preferring <code>render.drawCalls</code>. Real-device baselines, the holodeck first-view spike, and guest Clerk 400 noise are tracked as <code>F-071</code>, <code>F-072</code>, <code>F-073</code>.</dd>
       <dt>PR / Dot reference</dt><dd><code>VibeBots-mine-real-time-d58bf6e5</code></dd>
       <dt>Progress update</dt><dd>2026-07-12: first documented report shipped at <code>docs/PERF_BASELINES.html</code> (phone/mine): steady state 17.3ms avg / 20.7ms p95, light count identified as the dominant controllable cost (drove the accent tier gate, PR #138), fill/main-thread bound rather than submission bound, heap flat, and the remaining stall class isolated to load-time compile with a PR-sized recommendation raised as F-081. Desktop, non-mine surfaces, and the sim/input/render cost separation remain, per the report's checklist.</dd>
+  <dt>Progress update</dt><dd>2026-07-13: desktop rows remain blocked by the hidden-tab rAF limit recorded on F-071 (automated sessions cannot sample frames). The phone/mine baseline in <code>docs/PERF_BASELINES.html</code> stands as the report's first article; the desktop and non-mine articles append once a foreground session lands.</dd>
 </dl>
   </section>
 
@@ -414,7 +416,8 @@
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
       <dt>Review update</dt><dd>2026-06-27: keep this followup open, but narrow the stale original scope. Bunker defense now covers starter parts, floor and roof pieces, doors, turrets, floor spikes, raid rewards, XP pickups, player levels, first-defense stamps, raid wear, and Clanker pathing in the server-side raid snapshot.</dd>
       <dt>Remaining scope</dt><dd>Live Clanker movement through the mine during raids, multi-level or irregular bunker rooms, repairs or repair plates, richer raid tiers and specialist attackers, cosmetic skins, and production playtest evidence still belong here.</dd>
-    </dl>
+        <dt>Progress update</dt><dd>2026-07-13: the GDD growth plan's first four stages have shipped across the bunker series (claim, base-parts kit plus the hammer builder, the deterministic raid with survival rewards, defense XP and player level, doors, turret and spike parts, and the First Defense and Buttoned Up stamps). The remaining "full bunker feature" stage is decomposed into PR-sized children so the loop can execute them: F-084 (tier selection and level gates, REQ-038), F-085 (functioning turret and trap behaviors, specialist Clankers, player death during raids, REQ-036/037), F-086 (multi-level layouts, hatches, repairs, REQ-035), F-087 (base skins and Rule 12 playtest evidence). This entry stays open as the umbrella until the children land.</dd>
+</dl>
   </section>
 
   <section id="F-028" data-f="F-028" data-priority="nice-to-have">
@@ -659,7 +662,8 @@
       <dt>Next slice sign-up-route rule</dt><dd>After explicit dependency/setup approval, the Clerk wiring slice must leave <code>NEXT_PUBLIC_CLERK_SIGN_UP_URL</code> unset and replace the catch-all <code>/sign-in</code> page with Clerk's single sign-in-or-up component.</dd>
       <dt>Next slice deprecated-redirect rule</dt><dd>After explicit dependency/setup approval, the Clerk wiring slice must leave <code>NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL</code> and <code>NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL</code> unset and use the fallback redirect env vars instead.</dd>
       <dt>Next slice server-redirect rule</dt><dd>After explicit dependency/setup approval, the Clerk wiring slice must also leave <code>CLERK_SIGN_IN_FORCE_REDIRECT_URL</code>, <code>CLERK_SIGN_UP_FORCE_REDIRECT_URL</code>, <code>CLERK_AFTER_SIGN_IN_URL</code>, and <code>CLERK_AFTER_SIGN_UP_URL</code> unset.</dd>
-    </dl>
+        <dt>Resolved</dt><dd>2026-07-13 audit: shipped by the account series PRs #93-#102 and live in production; the entry's blocker text predated all of it. Clerk is provisioned on the Vercel project (secret and publishable keys plus sign-in URL env vars), <code>src/app/(auth)/sign-in</code> and <code>sign-up</code> host the Clerk routes (scoped so guests never boot Clerk, #102), <code>players.clerk_user_id</code> exists with <code>src/server/account-linking.ts</code> claiming guest rows on first sign-in, cross-device save sync ships with conflict handling (the mine-account-sync e2e suite), handoff retries (#97), stale-checkpoint rejection (#93), save-sync pushes to other devices (#94), a machine-readable account error contract (#98), and consolidated env-readiness rules (#101). Guest-first remains the default exactly as this entry designed.</dd>
+</dl>
   </section>
 
   <section data-f="F-002" data-priority="nice-to-have">
@@ -986,6 +990,46 @@
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
     <dt>Resolved</dt><dd>2026-07-12 (package 0.1.221): shipped exactly as scoped, with the counters derived in the sim so replay verification gets them for free. <code>MineState.tripStats</code> (never serialized into the WorldDiff, never read by any rule, so replay outcomes and <code>MINE_VERSION</code> are untouched) counts two events: <code>roofRescues</code> increments once per settle pass that clears condemned <code>spanUnstable</code> ceilings (one plank saving a five-cell run is one rescue), and <code>collapsesSurvived</code> increments when a span-condemned roof lands within two columns of a miner who is not crushed by that tick. <code>replayTrip</code> reports both on <code>TripResult</code>; the bank route folds them through <code>achievementProgressForTrip</code> into the additive stats merge. Two cosmetic stamps unlock at 1: "Hold the Ceiling" (<code>survival-roof-rescue</code>) and "Walked Away" (<code>survival-walked-away</code>), each with its own pictogram, both provable only from post-release trips (no durable historical record exists, per the context). Covered by sim tests (rescue counted once per event, nearby collapse survived, crush not counted), achievement unlock tests, and bank-route progress tests. Gas-leak and wisp counters named in the context stay unshipped; they can ride the same tripStats channel when a slice wants them.</dd>
 </dl>
+</section>
+
+<section id="F-087" data-f="F-087" data-priority="nice-to-have">
+  <h3>F-087: Bunker base skins and playtest evidence</h3>
+  <dl>
+    <dt>Context</dt><dd>The GDD growth plan's final stage (REQ-034/REQ-038) closes the bunker arc with cosmetic base skins and production-quality playtest evidence per Rule 12. Raised by the 2026-07-13 F-029 decomposition.</dd>
+    <dt>Blocker (if any)</dt><dd>Best after F-084 through F-086 so the playtest exercises the finished loop.</dd>
+    <dt>Unblock condition</dt><dd>Skins: a cosmetic material/palette variant per bunker part family, purchasable with vibes, no stat changes. Evidence: a VibeReview session over the full claim-build-raid loop per Rule 12's shape. Acceptance: skins render on placed parts across sessions, grant nothing, and the playtest verdict lands in docs/PLAYTEST.html with followups for anything weak.</dd>
+    <dt>PR / Dot reference</dt><dd>(decomposed from F-029)</dd>
+  </dl>
+</section>
+
+<section id="F-086" data-f="F-086" data-priority="nice-to-have">
+  <h3>F-086: Multi-level bunker layouts, hatches, and repairs</h3>
+  <dl>
+    <dt>Context</dt><dd>REQ-035's full grid: today's bunker builds one level of walls, floors, roofs, doors, spikes, and turrets. The growth plan's final stage adds vertical layouts (stacked rooms), hatches (vertical doors), and repairing damaged parts instead of replacing them. Raised by the 2026-07-13 F-029 decomposition.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: extend the claim footprint and placement rules to stacked rows with hatch parts bridging levels, teach the raid resolver hatch traversal, and add a repair interaction (hammer on a damaged part spends resources to restore durability). Bumps MINE_VERSION if placement changes world rules. Acceptance: a two-level sealed bunker survives a raid with hatches as the only vertical route, repairs restore durability at the documented cost, and the sim tests cover both.</dd>
+    <dt>PR / Dot reference</dt><dd>(decomposed from F-029)</dd>
+  </dl>
+</section>
+
+<section id="F-085" data-f="F-085" data-priority="nice-to-have">
+  <h3>F-085: Raid depth: working turrets and traps, specialist Clankers, death during raids</h3>
+  <dl>
+    <dt>Context</dt><dd>REQ-036/REQ-037: turret and spike parts exist and block pathing, but the resolver does not yet make turrets shoot, traps trigger, Clanker variants differ, or the raid threaten the miner directly. Raised by the 2026-07-13 F-029 decomposition.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: give the deterministic resolver turret damage-per-tick against Clankers in range, spike/trap damage on traversal, at least two specialist Clanker kinds from the GDD list (breacher, tank), and a player-death outcome when Clankers reach an unsealed core with the miner present (reusing the mine death/recovery flow). Acceptance: resolver unit tests cover each mechanic deterministically; the raid report surfaces turret/trap contributions; a lost raid with the miner home triggers the standard recovery.</dd>
+    <dt>PR / Dot reference</dt><dd>(decomposed from F-029)</dd>
+  </dl>
+</section>
+
+<section id="F-084" data-f="F-084" data-priority="nice-to-have">
+  <h3>F-084: Bunker reward ladder: tier selection and level gates</h3>
+  <dl>
+    <dt>Context</dt><dd>REQ-038's reward ladder is half shipped (defense XP and player level exist). Missing: raid tier selection (choose harder waves for better rewards) and level gates that unlock the first premium base parts and bot parts. Raised by the 2026-07-13 F-029 decomposition.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: add a tier picker to the raid start flow (deterministic wave scaling by tier), scale rewards with tier, and gate one new base part and one new bot part behind documented player levels. Acceptance: tiers replay deterministically, rewards scale in tests, gated parts appear at the right level with GDD coverage updated.</dd>
+    <dt>PR / Dot reference</dt><dd>(decomposed from F-029)</dd>
+  </dl>
 </section>
 
 <section id="F-083" data-f="F-083" data-priority="polish">

@@ -998,13 +998,16 @@ test("scrap mode closes bunker claim overlays", async ({ page }) => {
   await dismissReleaseNotes(page);
   await expect(page.locator("canvas")).toBeVisible();
   await page.getByRole("button", { name: "Start bunker claim" }).click();
+  // The hammer builder (PR #132) replaced the old "Bunker builder" region
+  // with the "Bunker status" sheet; the scrap-closes-claim contract is
+  // unchanged (F-082).
   await expect(
-    page.getByRole("region", { name: "Bunker builder" }),
+    page.getByRole("region", { name: "Bunker status" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Scrap placed supports" }).click();
-  await expect(
-    page.getByRole("region", { name: "Bunker builder" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Bunker status" })).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("region", { name: "Scrap mode" })).toBeVisible();
 });
 

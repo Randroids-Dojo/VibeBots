@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="hammer-scrap-claim-test" data-date="2026-07-12">
+    <h3>Repair the stale scrap-mode bunker-claim test (F-082)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>test/hammer-scrap-claim</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Test only; no app code, no version bump. The hammer bunker builder (PR #132) renamed the claim overlay from the "Bunker builder" region to the "Bunker status" sheet, leaving <code>mine-core.spec.ts</code> "scrap mode closes bunker claim overlays" red in the Full E2E matrix. The scrap-closes-claim contract itself survived the rewrite: the test now asserts the new region name and nothing else changed.</dd>
+      <dt>Verification</dt><dd>The repaired test passes 3/3 consecutive local runs against a production build of current main; dash checks and <code>git diff --check</code> clean. This closes the regression the F-047 slice-start triage surfaced before the nightly could.</dd>
+      <dt>Assumptions</dt><dd>None.</dd>
+      <dt>GDD coverage</dt><dd>No changes.</dd>
+      <dt>Followups</dt><dd>F-082 resolved. None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-load-compile-gate" data-date="2026-07-12">
     <h3>Gate mine frames behind the load-time compile (F-081)</h3>
     <dl>

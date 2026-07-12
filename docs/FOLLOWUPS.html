@@ -1005,7 +1005,8 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: rewrite the test against the hammer flow's actual overlay semantics (what closes what when scrap mode engages during a claim), or fold its intent into the hammer slice's own bunker specs and delete it. Acceptance: the Full E2E matrix has no failure from this test on unmodified main, and the scrap-during-claim interaction stays covered.</dd>
     <dt>PR / Dot reference</dt><dd>(raised during F-081; regression introduced by PR #132's UI rewrite)</dd>
-  </dl>
+    <dt>Resolved</dt><dd>2026-07-12: the scrap-closes-claim contract survived the hammer rewrite intact; only the region name was stale. The test now asserts the hammer flow's "Bunker status" sheet (with a comment naming the rename source), passes 3/3 repeats locally, and keeps the scrap-during-claim interaction covered exactly as before. No app code changed.</dd>
+</dl>
 </section>
 
 <section id="F-081" data-f="F-081" data-priority="nice-to-have">

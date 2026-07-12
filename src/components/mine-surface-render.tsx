@@ -35,6 +35,14 @@ import {
   variedColor,
 } from "./mine-render-palette";
 import {
+  surfaceBackdropGeometry,
+  surfaceBackdropLayerX,
+} from "./mine-surface-backdrop";
+import {
+  applySurfaceBackdropGrade,
+  surfaceBackdropMaterial,
+} from "./mine-surface-backdrop-materials";
+import {
   SURFACE_PALETTE,
   SURFACE_WARP_POSITION,
   type SurfaceGeometryTier,
@@ -45,6 +53,7 @@ import {
   surfaceMaterial,
   surfaceVillageMaterial,
 } from "./mine-surface-materials";
+import type { DaylightGrade } from "./time-of-day";
 
 export const CAMP_WIDTH = 60;
 
@@ -86,12 +95,6 @@ const SURFACE_GRASS_MATERIAL = new MeshStandardMaterial({
   roughness: 1,
   flatShading: true,
 });
-const SURFACE_HORIZON_GEOMETRY = new BoxGeometry(CAMP_WIDTH, 1.04, 0.12);
-const SURFACE_HORIZON_MATERIAL = new MeshStandardMaterial({
-  color: "#101720",
-  roughness: 1,
-  metalness: 0,
-});
 const SURFACE_STAR_MATERIAL = new PointsMaterial({
   size: 0.05,
   color: "#cfe0ff",
@@ -102,7 +105,6 @@ const SURFACE_STAR_MATERIAL = new PointsMaterial({
   toneMapped: false,
 });
 let lastSurfaceStarOpacity = 1;
-let lastSurfaceGroundColor = "#101720";
 const surfaceInstanceMatrix = new Matrix4();
 const surfaceInstancePosition = new Vector3();
 const surfaceInstanceRotation = new Quaternion();
@@ -331,23 +333,61 @@ export function usePrefersReducedMotion(): boolean {
 }
 
 /**
- * Mutates the two shared surface-atmosphere materials without touching React.
- * The star field stays one points draw and the horizon replaces the old mine
- * backdrop draw, so the cycle adds no production draw calls.
+ * Mutates the shared surface-atmosphere materials without touching React.
+ * The star field stays one points draw and every landscape layer keeps one
+ * fixed unlit material recipe through the complete shift cycle.
  */
 export function applySurfaceAtmosphereVisuals(
   starOpacity: number,
-  groundColor: string,
+  grade: DaylightGrade,
 ): void {
   const nextOpacity = Math.max(0, Math.min(1, starOpacity));
   if (Math.abs(nextOpacity - lastSurfaceStarOpacity) > 0.002) {
     SURFACE_STAR_MATERIAL.opacity = nextOpacity;
     lastSurfaceStarOpacity = nextOpacity;
   }
-  if (groundColor !== lastSurfaceGroundColor) {
-    SURFACE_HORIZON_MATERIAL.color.set(groundColor);
-    lastSurfaceGroundColor = groundColor;
-  }
+  applySurfaceBackdropGrade(grade);
+}
+
+function SurfaceBackdrop() {
+  const reduced = usePrefersReducedMotion();
+  const tier: SurfaceGeometryTier = resolveGraphicsQualityTier(
+    readStoredGraphicsQuality(),
+    hasCoarsePointer(),
+  );
+  const layers = surfaceBackdropGeometry(tier).layers;
+  const groups = useRef<Array<Group | null>>([]);
+  useFrame(({ camera }) => {
+    const refs = groups.current;
+    for (let i = 0; i < layers.length; i++) {
+      const group = refs[i];
+      if (!group) continue;
+      group.position.x = surfaceBackdropLayerX(
+        camera.position.x,
+        layers[i].parallax,
+        reduced,
+      );
+    }
+  });
+  return (
+    <>
+      {layers.map((layer, index) => (
+        <group
+          key={layer.role}
+          ref={(group) => {
+            groups.current[index] = group;
+          }}
+        >
+          <mesh geometry={layer.geometry} frustumCulled={false} dispose={null}>
+            <primitive
+              object={surfaceBackdropMaterial(layer.role)}
+              attach="material"
+            />
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
 }
 
 function WarpMotionLayers({
@@ -463,28 +503,23 @@ function NightStars() {
  */
 export const SurfaceDressing = memo(function SurfaceDressing() {
   return (
-    <group
-      onUpdate={(group) => {
-        // The village both throws and catches the sun's shadows (G1).
-        // Applied by traversal: the dressing is a memoized static tree,
-        // so this runs once instead of prop-plumbing every mesh.
-        group.traverse((child) => {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        });
-      }}
-    >
-      {/* Horizon ground behind the deepest facade footprint. Its shared
-          material follows the shift cycle without reconciling the village. */}
-      <mesh
-        geometry={SURFACE_HORIZON_GEOMETRY}
-        material={SURFACE_HORIZON_MATERIAL}
-        position={[0, 0, -1.55]}
-        dispose={null}
-      />
+    <>
+      <SurfaceBackdrop />
       {/* One batched star field, faded by the shared lighting controller. */}
       <NightStars />
-      <SurfaceVillageModel />
-    </group>
+      <group
+        onUpdate={(group) => {
+          // The village both throws and catches the sun's shadows (G1).
+          // The unlit backdrop stays outside this traversal so it never enters
+          // the shadow pass or changes the scene's light-sensitive programs.
+          group.traverse((child) => {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          });
+        }}
+      >
+        <SurfaceVillageModel />
+      </group>
+    </>
   );
 });

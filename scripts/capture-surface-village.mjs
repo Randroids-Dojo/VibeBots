@@ -160,6 +160,14 @@ try {
     console.log(
       `${file} backend=${backend} draws=${drawCalls} median=${frameTimes.medianMs.toFixed(2)}ms p95=${frameTimes.p95Ms.toFixed(2)}ms`,
     );
+    if (!Number.isFinite(drawCalls) || drawCalls > 14) {
+      throw new Error(`${file}: draw-call budget exceeded (${drawCalls} > 14)`);
+    }
+    if (capture.width === 390 && frameTimes.p95Ms > 18.5) {
+      throw new Error(
+        `${file}: phone p95 frame budget exceeded (${frameTimes.p95Ms.toFixed(2)}ms > 18.5ms)`,
+      );
+    }
     await context.close();
   }
 } finally {

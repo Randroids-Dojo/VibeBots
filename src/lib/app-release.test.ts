@@ -24,21 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest connector-removal note complete", () => {
+  it("keeps the latest surface-basin note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.233-cell-connectors-removed");
+    expect(release.noticeId).toBe("2026-07-13-0.1.234-surface-basin");
     expect(latestNote).toMatchObject({
+      version: "0.1.234",
+      title: "A world beyond the village",
+      intro: "A ringed planet now hangs over a working strip-mine basin.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The flat surface horizon is replaced by a ringed planet, terraced excavation cuts, conveyors, bucket-wheel machinery, distant gantries, and a service berm behind the village.",
+      "Five cached low-poly layers follow the existing day and night cycle and move at restrained depth-based parallax rates while you walk. Reduced motion keeps the full composition still.",
+      "The low tier uses 568 backdrop triangles and the high tier 1,080. The scene adds four net draw calls, no textures, no lights, and no frame allocations. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived connector-removal note complete", () => {
+    const release = getAppRelease();
+    const connectorNote = release.notes.find(
+      (note) => note.version === "0.1.233",
+    );
+
+    expect(connectorNote).toMatchObject({
       version: "0.1.233",
       title: "The bars are gone",
       intro: "Rocks and blocks stand on their own again.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Every soil-colored bridge and corner patch between occupied mine cells has been removed. Boulders, rocks, dirt, metal, caches, and ore now show only their own authored geometry.",
-      "The cave backing now owns the negative space between shapes at every zoom. An exact Pixel test checks adjacent boulders, dirt, and rock, and fails if connector geometry returns.",
-      "MINE_VERSION and SIM_VERSION are unchanged.",
-    ]);
   });
 
   it("keeps the archived bunker-balance note complete", () => {

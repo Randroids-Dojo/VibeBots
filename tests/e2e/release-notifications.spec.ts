@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "One button repairs every chewed wall, and stacked rooms hold.",
+    "Cosmetic skins repaint every placed part, paid in vibes.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "restores every part and the core in one tap",
+    "The bunker sheet gains a skin picker",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Two-story bunkers are official",
+    "Skins are pure paint",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.231", "Dress your bunker in new colors"],
     ["0.1.230", "Patch the bunker up between raids"],
     ["0.1.229", "The raids send specialists"],
     ["0.1.228", "Pick your raid, pick your fight"],

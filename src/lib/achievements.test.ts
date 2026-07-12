@@ -46,6 +46,18 @@ describe("achievements", () => {
     ).toContain("survival-buttoned-up");
   });
 
+  it("unlocks Fresh Coat from a paid skin purchase", () => {
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        stats: { ...DEFAULT_ACHIEVEMENT_STATS, bunkerSkinsBought: 1 },
+      }),
+    ).toContain("tools-fresh-coat");
+    expect(achievementIdsUnlockedBy(baseSnapshot)).not.toContain(
+      "tools-fresh-coat",
+    );
+  });
+
   it("unlocks the roof-rescue and collapse-survival stamps from trip counters", () => {
     expect(
       achievementIdsUnlockedBy({

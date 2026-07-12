@@ -82,6 +82,10 @@ export function repairRemoteBunker() {
   return bunkerApi("/api/bunker/repair", jsonPost({}));
 }
 
+export function setRemoteBunkerSkin(skinId: string) {
+  return bunkerApi("/api/bunker/skin", jsonPost({ skinId }));
+}
+
 export function startRemoteBunkerRaid(tier = 1) {
   return bunkerApi("/api/bunker/raid/start", jsonPost({ tier }));
 }

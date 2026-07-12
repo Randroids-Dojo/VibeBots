@@ -7,6 +7,7 @@ import {
   BUNKER_CLAIM_WIDTH,
   BUNKER_CORE_MAX_DURABILITY,
   BUNKER_RAID_TIER_CAP,
+  BUNKER_SKIN_CATALOG,
   type BunkerRaidTerrainKind,
   basePartOwnedLimit,
   bunkerCells,
@@ -19,9 +20,11 @@ import {
   clankerKindFor,
   clankerXpFor,
   createBunker,
+  DEFAULT_BUNKER_SKIN,
   FLOOR_SPIKES_DAMAGE,
   FLOOR_SPIKES_DURABILITY,
   isBunkerPerimeterCell,
+  isBunkerSkinId,
   maxBunkerRaidTier,
   moveBasePart,
   overallPlayerLevel,
@@ -752,5 +755,26 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     expect(raid.survived).toBe(true);
     expect(raid.sealed).toBe(true);
     expect(raid.coreDamage).toBe(0);
+  });
+});
+
+describe("bunker skins (F-087)", () => {
+  it("keeps the catalog cosmetic and well-formed", () => {
+    const skins = Object.values(BUNKER_SKIN_CATALOG);
+    expect(skins.map((skin) => skin.id)).toContain(DEFAULT_BUNKER_SKIN);
+    expect(BUNKER_SKIN_CATALOG[DEFAULT_BUNKER_SKIN].price).toBe(0);
+    for (const skin of skins) {
+      expect(skin.name.length).toBeGreaterThan(0);
+      expect(skin.price).toBeGreaterThanOrEqual(0);
+      // Cosmetic only: the def carries no stats.
+      expect(Object.keys(skin).sort()).toEqual([
+        "blurb",
+        "id",
+        "name",
+        "price",
+      ]);
+    }
+    expect(isBunkerSkinId("gilded")).toBe(true);
+    expect(isBunkerSkinId("nonsense")).toBe(false);
   });
 });

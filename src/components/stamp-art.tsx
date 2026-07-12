@@ -494,6 +494,27 @@ const STAMP_PICTOGRAMS: Record<
       </g>
     </g>
   ),
+  "tools-fresh-coat": ({ accent }) => (
+    <g>
+      {/* A paintbrush laying a fresh stripe over wall panels. */}
+      <rect x="14" y="34" width="12" height="12" rx="1.5" />
+      <rect x="28" y="34" width="12" height="12" rx="1.5" />
+      <rect x="42" y="34" width="8" height="12" rx="1.5" />
+      <path d="M14 40 h36" strokeWidth="1.5" opacity="0.6" />
+      <path d="M40 14 l6 6 l-14 14 l-6 -6 z" />
+      <path
+        d="M26 34 l-7 7 q-4 1 -5 -1 q-1 -2 2 -4 z"
+        fill={accent}
+        stroke="none"
+      />
+      <path
+        d="M18 46 q8 3 14 0"
+        stroke={accent}
+        strokeWidth="2.5"
+        fill="none"
+      />
+    </g>
+  ),
   "battle-first-blood": ({ accent }) => (
     <g>
       <path d="M32 12 l3 5 v19 h-6 v-19 z" />

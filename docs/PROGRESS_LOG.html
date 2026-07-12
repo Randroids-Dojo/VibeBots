@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-skins" data-date="2026-07-13">
+    <h3>Cosmetic bunker skins and the bunker-arc closeout (F-087, F-029)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-skins</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.231. Closes F-087 and with it the F-029 umbrella. Skins: <code>BunkerSkinId</code> catalog (Steelworks 0, Gilded 120, Verdant 80 vibes) with per-role palettes in <code>mine-surface-materials.ts</code>, threaded through the bunker overlay meshes; <code>bunkers</code> gains <code>skin</code> and <code>skins_owned</code> columns; <code>setBunkerSkin</code> uses the guarded single-statement debit (F-086's atomicity fix applied here from the start) and owned skins reselect free; <code>/api/bunker/skin</code> route with zod-validated skin ids; fieldset picker in the control panel gated on no raid and no pending claim. "Fresh Coat" stamp (<code>tools-fresh-coat</code>, metric <code>bunkerSkinsBought</code>) on the first paid purchase. Rule 12 evidence: capture driver <code>tests/e2e/bunker-arc-capture.spec.ts</code> (env-gated, skipped in CI) produced <code>docs/reviews/20260713-bunker-arc/</code>; PLAYTEST articles, a FUN_FACTOR_AUDIT verdict, and followups F-088 (sheet balance readout) and F-089 (REQ-038 global level gate) recorded. GDD coverage: REQ-034 through REQ-037 done, REQ-038 partial on F-089.</dd>
+      <dt>Verified</dt><dd>Sim catalog test (cosmetic-only defs), server tests (guarded debit, persisted skin payload, no achievement progress on reselect), route tests (apply, unknown id 400, 409 passthrough), achievement unlock test, skin e2e with a canvas-repaint pixel proof against an ambient-motion baseline, full local gate (biome, tsc, unit, build), scripted capture run at 390x760.</dd>
+      <dt>Tips review</dt><dd>Rule 13: reviewed the rotation for 0.1.231; added one line on skin ownership ("pure paint", bought once, reselects free). No stale tips found.</dd>
+      <dt>Stamp review</dt><dd>Rule 14: added "Fresh Coat" (first paid skin, durable source <code>bunkers.skins_owned</code> via the recorded counter). The deferred "survive tier N" stamp stays deferred to a raid-depth rebalance slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-repairs" data-date="2026-07-13">
     <h3>Bunker repairs; stacked rooms proven (F-086)</h3>
     <dl>

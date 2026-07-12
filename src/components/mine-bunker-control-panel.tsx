@@ -220,7 +220,7 @@ export function BunkerControlPanel({
         ) : (
           <>
             {!activeRaid && tierCeiling > 1 && (
-              <div className="bunker-raid-tier" role="group" aria-label="Raid tier">
+              <fieldset className="bunker-raid-tier" aria-label="Raid tier">
                 <button
                   type="button"
                   aria-label="Lower raid tier"
@@ -242,7 +242,7 @@ export function BunkerControlPanel({
                 >
                   +
                 </button>
-              </div>
+              </fieldset>
             )}
             <button
               type="button"

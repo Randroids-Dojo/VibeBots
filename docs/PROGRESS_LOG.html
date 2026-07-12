@@ -44,6 +44,19 @@
     </dl>
   </article>
 
+  <article data-slice="pixel-solid-cell-joints" data-date="2026-07-11">
+    <h3>Match Pixel rendering and keep zoom useful</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/pixel-solid-cell-joints</code>.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/125">#125</a>.</dd>
+      <dt>Changed</dt><dd>User Pixel evidence showed that the prior 390x760 DPR 1 smoke did not match the real device. Exact reproduction at 448x923, DPR 2.25, touch, low-tier WebGL2 exposed two independent projection defects. Rounded cell geometry revealed the near-black cave backing as thick channels and corner wedges, and fixed-distance surface fog intensified as the camera moved back, washing underground cells cyan while the fixed world-space Lantern circle occupied less of the screen. Package 0.1.217 adds one shared soil-colored joint behind each occupied underground cell through the existing pooled instanced grid, removes the artificial black bevel multiplier from dirt, rock, and metal, scales atmosphere range with camera distance, and projects each Lantern-unlocked zoom step into a stable useful screen footprint. Daylight still clears only the surface mask; underground visibility remains Lantern-driven. <code>MINE_VERSION</code> stays <code>51</code>; <code>SIM_VERSION</code> stays <code>5</code>.</dd>
+      <dt>Verification</dt><dd>Exact Pixel captures reviewed at default, intermediate, and maximum zoom. The maximum-zoom daylight view keeps warm underground material color, a lower-edge Lantern falloff, solid joints, and 76 to 92 draw calls against the 110-call budget. The new pixel smoke runs the same 448x923 DPR 2.25 touch WebGL2 profile across all zoom levels. Mutation proof: disabling joint draws turns 36.1 percent of the target seam near-black; disabling projected atmosphere makes the underground mean red channel fall below the blue-channel daylight-wash guard. After rebasing onto PR #123 and package 0.1.217: dependency gate exact, dash and diff checks clean, Biome clean apart from the known broken auth-rule symlink warning, typecheck and purity clean, all 1,073 unit tests pass, production build passes, exact Pixel and release-note smokes pass, five critical browser flows pass, and the integrated shader-churn smoke measures two first-crossing programs and zero re-crossing programs. A 74-second production heap sample measured 2.49 MB/s, 12 GC drops, and a 23.2 to 63.3 MB heap span without a new steady-state allocation site.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: zoom may reveal more world cells only within the range already unlocked by the current Lantern zoom cap, while zooming in never reduces the Lantern upgrade's world-space radius. Mine tips reviewed with no copy change because the player rule is unchanged. Stamp review completed with none added because this is rendering polish.</dd>
+      <dt>GDD coverage</dt><dd>The mining presentation requirement remains done. <code>docs/gdd/06-mining.html</code> gained a corrective build-log entry; no coverage status changed.</dd>
+      <dt>Followups</dt><dd>Completes <code>VibeBots-remove-black-pixel-ebc2d4db</code>. No new followup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="opaque-daylight-cell-seams" data-date="2026-07-11">
     <h3>Prove and remove the cyan daylight between mine cells</h3>
     <dl>

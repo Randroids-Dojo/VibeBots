@@ -97,4 +97,11 @@ describe("depth-tuned fog", () => {
     expect(abyss.far).toBe(17);
     expect(abyss.far).toBeGreaterThan(abyss.near);
   });
+
+  it("keeps atmospheric density stable as the camera zooms out", () => {
+    const base = fogRangeForStratum(0, 1);
+    const zoomedOut = fogRangeForStratum(0, 1.32);
+    expect(zoomedOut.near).toBeCloseTo(base.near * 1.32);
+    expect(zoomedOut.far).toBeCloseTo(base.far * 1.32);
+  });
 });

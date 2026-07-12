@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest smooth-first-descent note complete", () => {
+  it("keeps the latest Pixel visibility note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-11-0.1.216-smooth-first-descent");
+    expect(release.noticeId).toBe("2026-07-11-0.1.217-pixel-visibility");
     expect(latestNote).toMatchObject({
+      version: "0.1.217",
+      title: "Clear ground at every zoom",
+      intro: "Pixel-density cracks are filled, and zooming out stays useful.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Pixel rendering path exposed real black channels and corner wedges between rounded cells, especially at maximum zoom. Occupied cells now receive a shared soil-colored joint behind their authored body, and the artificial black bevel multiplier is gone, so the mine keeps natural depth without exposing the cave backing.",
+      "Zooming out no longer turns daylight atmosphere into a cyan screen wash or shrinks the useful Lantern area. Atmosphere distance and the Lantern projection now scale with each camera step, while surface daylight and underground visibility keep their separate rules.",
+      "The regression now runs at the measured Pixel profile: 448x923, DPR 2.25, touch, low-tier WebGL2, and all three zoom levels. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived smooth-first-descent note complete", () => {
+    const release = getAppRelease();
+    const descentNote = release.notes.find(
+      (note) => note.version === "0.1.216",
+    );
+
+    expect(descentNote).toMatchObject({
       version: "0.1.216",
       title: "New ground loads without a hitch",
       intro: "Reaching fresh depths no longer freezes the frame.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(descentNote?.changes.map((change) => change.text)).toEqual([
       "The first time a new kind of block scrolled into view, the game paused to build its draw program on the spot: the last one-time hitch left on a first descent. New block batches now compile in the background and appear a moment later instead of stalling the picture.",
       "The shader-churn regression test tightened its first-crossing budget from 30 background compiles to 3, and re-crossing a stratum still compiles nothing.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

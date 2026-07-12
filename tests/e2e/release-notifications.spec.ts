@@ -21,18 +21,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Reaching fresh depths no longer freezes the frame.",
+    "Pixel-density cracks are filled, and zooming out stays useful.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "compile in the background and appear a moment later",
+    "real black channels and corner wedges",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "first-crossing budget from 30 background compiles to 3",
+    "no longer turns daylight atmosphere into a cyan screen wash",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "MINE_VERSION and SIM_VERSION are unchanged",
-  );
+  await expect(dialog.locator("li").nth(2)).toContainText("448x923, DPR 2.25");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();
@@ -51,6 +49,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.217", "Clear ground at every zoom"],
     ["0.1.216", "New ground loads without a hitch"],
     ["0.1.215", "The cracks finally stay dark"],
     ["0.1.214", "A stamp for a bunker that holds"],

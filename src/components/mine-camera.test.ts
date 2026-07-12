@@ -8,6 +8,7 @@ import {
   maxMineCameraZoomForRadius,
   mineDarknessOpacity,
   mineLampDistanceForRadius,
+  mineProjectedVisibilityRadius,
   mineRenderWindow,
   mineVisibilityOpacity,
 } from "./mine-camera";
@@ -93,6 +94,13 @@ describe("mine camera zoom", () => {
     // The ramp is monotonic and saturates at the far cap.
     expect(mineDarknessOpacity(0.5)).toBeGreaterThan(mineDarknessOpacity(0));
     expect(mineDarknessOpacity(4)).toBeCloseTo(0.88);
+  });
+
+  it("keeps the lantern footprint stable while zooming out", () => {
+    expect(mineProjectedVisibilityRadius(3, 0.72)).toBe(3);
+    expect(mineProjectedVisibilityRadius(3, 1)).toBe(3);
+    expect(mineProjectedVisibilityRadius(3, 1.32)).toBeCloseTo(3.96);
+    expect(mineProjectedVisibilityRadius(5, 1.64)).toBeCloseTo(8.2);
   });
 
   it("lets daylight lift only the surface visibility mask", () => {

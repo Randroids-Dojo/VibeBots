@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-11-0.1.216-smooth-first-descent",
+      releaseNoticeId: "2026-07-11-0.1.217-pixel-visibility",
       releaseSummary:
-        "New ground loads without a hitch: Reaching fresh depths no longer freezes the frame.",
+        "Clear ground at every zoom: Pixel-density cracks are filled, and zooming out stays useful.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-11-0.1.216-smooth-first-descent",
+      releaseNoticeId: "2026-07-11-0.1.217-pixel-visibility",
       attempted: 2,
       sent: 1,
       expired: 1,

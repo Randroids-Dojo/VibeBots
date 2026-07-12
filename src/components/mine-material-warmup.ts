@@ -14,6 +14,7 @@ import type { MeshStandardNodeMaterial } from "three/webgpu";
 import type { OreId } from "@/sim/mine";
 import {
   boulderBlockMaterial,
+  cellJointMaterial,
   crystalMaterial,
   dirtBlockMaterial,
   gasBlockMaterial,
@@ -74,6 +75,7 @@ export function collectInstancedGridMaterials(
   detail: boolean,
 ): MeshStandardNodeMaterial[] {
   const materials = collectInstancedBodyMaterials(detail);
+  for (const tint of DIRT_TINTS) materials.push(cellJointMaterial(tint));
   for (const tint of TUNNEL_TINTS) materials.push(tunnelFloorMaterial(tint));
   return materials;
 }

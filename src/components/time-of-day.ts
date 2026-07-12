@@ -291,13 +291,19 @@ export function celestialPositionFor(
  * Depth-tuned fog range: airy near the surface, pressing closer through the
  * deep strata so descent reads as thickening air.
  */
-export function fogRangeForStratum(stratumIndex: number): {
+export function fogRangeForStratum(
+  stratumIndex: number,
+  cameraZoom = 1,
+): {
   near: number;
   far: number;
 } {
   const depth = Math.max(0, stratumIndex);
+  // Camera distance scales with zoom. Scale the atmospheric range with it
+  // so zooming out does not turn daylight fog into a full-screen color wash.
+  const projectionScale = Math.max(0.1, cameraZoom);
   return {
-    near: Math.max(7.5, 13 - depth * 1.1),
-    far: Math.max(17, 29 - depth * 2.2),
+    near: Math.max(7.5, 13 - depth * 1.1) * projectionScale,
+    far: Math.max(17, 29 - depth * 2.2) * projectionScale,
   };
 }

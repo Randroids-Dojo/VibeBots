@@ -5,6 +5,7 @@ import {
   createBlockInstancePlan,
   instancedBlockDraw,
   pushBlockInstance,
+  solidCellJointDraw,
 } from "./mine-block-plan";
 
 // The geometry/material references are opaque to the plan (it only stores
@@ -49,6 +50,25 @@ describe("instancedBlockDraw", () => {
 
   it("treats an ore cell with no ore id as not instanced", () => {
     expect(instancedBlockDraw(cell({ kind: "ore" }))).toBe(false);
+  });
+});
+
+describe("solidCellJointDraw", () => {
+  it("fills every occupied body class, including moving solids", () => {
+    expect(solidCellJointDraw(cell({ kind: "dirt" }))).toBe(true);
+    expect(solidCellJointDraw(cell({ kind: "ore", fallIn: 2 }))).toBe(true);
+    expect(solidCellJointDraw(cell({ kind: "rock", fallen: true }))).toBe(true);
+    expect(solidCellJointDraw(cell({ kind: "boulder" }))).toBe(true);
+    expect(solidCellJointDraw(cell({ kind: "magma" }))).toBe(true);
+    expect(solidCellJointDraw(cell({ kind: "part-cache" }))).toBe(true);
+  });
+
+  it("leaves empty tunnels and seeped gas open", () => {
+    expect(solidCellJointDraw(cell({ kind: "empty" }))).toBe(false);
+    expect(solidCellJointDraw(cell({ kind: "gas", gasSeeped: true }))).toBe(
+      false,
+    );
+    expect(solidCellJointDraw(cell({ kind: "gas" }))).toBe(true);
   });
 });
 

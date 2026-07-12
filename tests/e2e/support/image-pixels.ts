@@ -103,3 +103,66 @@ export async function imageRegionMaxRgb(
     { encoded: image.toString("base64"), bounds },
   );
 }
+
+export async function imageRegionRgbStats(
+  page: Page,
+  image: Buffer,
+  bounds: { left: number; top: number; right: number; bottom: number },
+): Promise<{
+  meanRed: number;
+  meanGreen: number;
+  meanBlue: number;
+  nearBlackRatio: number;
+}> {
+  return page.evaluate(
+    async ({ encoded, bounds }) => {
+      const response = await fetch(`data:image/png;base64,${encoded}`);
+      const bitmap = await createImageBitmap(await response.blob());
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) {
+        bitmap.close();
+        return {
+          meanRed: 0,
+          meanGreen: 0,
+          meanBlue: 0,
+          nearBlackRatio: 1,
+        };
+      }
+      context.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const left = Math.floor(canvas.width * bounds.left);
+      const top = Math.floor(canvas.height * bounds.top);
+      const right = Math.ceil(canvas.width * bounds.right);
+      const bottom = Math.ceil(canvas.height * bounds.bottom);
+      const pixels = context.getImageData(
+        left,
+        top,
+        right - left,
+        bottom - top,
+      ).data;
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let nearBlack = 0;
+      const count = pixels.length / 4;
+      for (let i = 0; i < pixels.length; i += 4) {
+        red += pixels[i];
+        green += pixels[i + 1];
+        blue += pixels[i + 2];
+        if (pixels[i] < 16 && pixels[i + 1] < 16 && pixels[i + 2] < 16) {
+          nearBlack += 1;
+        }
+      }
+      return {
+        meanRed: red / count,
+        meanGreen: green / count,
+        meanBlue: blue / count,
+        nearBlackRatio: nearBlack / count,
+      };
+    },
+    { encoded: image.toString("base64"), bounds },
+  );
+}

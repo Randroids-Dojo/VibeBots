@@ -28,12 +28,14 @@ import {
   Mesh,
   MeshStandardMaterial,
   PerspectiveCamera,
+  PlaneGeometry,
 } from "three/webgpu";
 import { CanvasDrawCallProbe } from "@/components/canvas-draw-call-probe";
 import {
   clampMineCameraZoom,
   mineCameraDistance,
   mineLampDistanceForRadius,
+  mineProjectedVisibilityRadius,
   mineRenderWindow,
   mineVisibilityOpacity,
 } from "@/components/mine-camera";
@@ -73,6 +75,7 @@ import {
 } from "./graphics-quality";
 import {
   blockDetailEnabled,
+  cellJointMaterial,
   tunnelFloorMaterial,
 } from "./mine-block-materials";
 import {
@@ -81,6 +84,7 @@ import {
   createBlockInstancePlan,
   instancedBlockDraw,
   pushBlockInstance,
+  solidCellJointDraw,
 } from "./mine-block-plan";
 import {
   CacheCrate,
@@ -324,6 +328,11 @@ const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12).translate(
   0,
   0,
   -0.42,
+);
+const SOLID_CELL_JOINT_GEOMETRY = new PlaneGeometry(1.02, 1.02).translate(
+  0,
+  0,
+  -0.49,
 );
 const CAVE_BACKDROP_WIDTH = 60;
 const CAVE_BACKDROP_HEIGHT = 44;
@@ -1070,6 +1079,10 @@ function MineScene({
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
   const renderWindow = mineRenderWindow(mine.gear, cameraZoom);
   const litBelow = lightRadius(mine.gear);
+  const projectedVisibilityRadius = mineProjectedVisibilityRadius(
+    litBelow,
+    cameraZoom,
+  );
   const lampDistance = mineLampDistanceForRadius(litBelow);
   const renderRadius = renderWindow.below;
   const renderColRadius = Math.min(renderWindow.cols, renderRadius);
@@ -1503,7 +1516,7 @@ function MineScene({
       updateMineVisibilityVeil(
         visualTargetX,
         visualTargetY,
-        litBelow,
+        projectedVisibilityRadius,
         grade.starOpacity,
       );
     }
@@ -1977,6 +1990,18 @@ function MineScene({
       // Static solid body: record it in the instanced plan instead of a
       // React element. Runs on hit and miss alike (the plan is not cached),
       // so scrolling the window only rewrites instance matrices.
+      if (row >= 1 && solidCellJointDraw(cell)) {
+        pushBlockInstance(
+          plan,
+          SOLID_CELL_JOINT_GEOMETRY,
+          cellJointMaterial(biomeDirtColorAt(col, row)),
+          x,
+          y,
+          0,
+          0,
+          0,
+        );
+      }
       if (instancedBlockDraw(cell)) {
         instancedBlockBody(
           cell,
@@ -2022,7 +2047,10 @@ function MineScene({
       const radialDistance = fallWindow
         ? distanceFromMiner
         : Math.sqrt(rdx * rdx + rdy * rdy);
-      const beyondLight = Math.max(0, radialDistance - litBelow);
+      const beyondLight = Math.max(
+        0,
+        radialDistance - projectedVisibilityRadius,
+      );
       const darknessOpacity = mineVisibilityOpacity(beyondLight, row, 1);
       // Diagnostics retain the exact cell opacity range while one continuous
       // shader veil handles the pixels without exposing cell borders.
@@ -2122,7 +2150,7 @@ function MineScene({
   renderedGasWispCountRef.current = renderedGasWispCount;
   const hasDarknessOverlay = maxDarknessOpacity > 0;
   // G4: the deep strata press the fog in close; the surface breathes.
-  const fogRange = fogRangeForStratum(stratumIndex);
+  const fogRange = fogRangeForStratum(stratumIndex, cameraZoom);
 
   return (
     <>

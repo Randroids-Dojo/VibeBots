@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MINE_CAVE_BACKDROP,
   MINE_VISIBILITY_VEIL,
   updateMineVisibilityVeil,
 } from "./mine-visibility-material";
@@ -16,5 +17,12 @@ describe("mine visibility veil", () => {
     const opacityNode = MINE_VISIBILITY_VEIL.opacityNode;
     updateMineVisibilityVeil(4, -3, 5, 0.6);
     expect(MINE_VISIBILITY_VEIL.opacityNode).toBe(opacityNode);
+  });
+
+  it("keeps the underground backing unlit and transparent above ground", () => {
+    expect(MINE_CAVE_BACKDROP.isMeshBasicNodeMaterial).toBe(true);
+    expect(MINE_CAVE_BACKDROP.transparent).toBe(true);
+    expect(MINE_CAVE_BACKDROP.depthWrite).toBe(false);
+    expect(MINE_CAVE_BACKDROP.opacityNode).toBeTruthy();
   });
 });

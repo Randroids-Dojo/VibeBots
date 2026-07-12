@@ -443,6 +443,7 @@ test("mine wheel zoom extends into the starter lantern falloff", async ({
     "data-visibility-mask",
     "continuous-radial",
   );
+  await expect(canvas).toHaveAttribute("data-cell-seams", "occluded");
   expect((await readDarkness()).max).toBeLessThanOrEqual(0.88);
 
   await page.mouse.move(500, 380);

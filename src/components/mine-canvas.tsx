@@ -167,6 +167,7 @@ import {
   usePrefersReducedMotion,
 } from "./mine-surface-render";
 import {
+  MINE_CAVE_BACKDROP,
   MINE_VISIBILITY_VEIL,
   updateMineVisibilityVeil,
 } from "./mine-visibility-material";
@@ -1439,6 +1440,7 @@ function MineScene({
         2,
       );
       setDatasetText(cache, dataset, "visibilityMask", "continuous-radial");
+      setDatasetText(cache, dataset, "cellSeams", "occluded");
       setDatasetNumber(
         cache,
         dataset,
@@ -2128,7 +2130,7 @@ function MineScene({
         {/* Cave backdrop tracks the camera so depth never shows raw void. */}
         <mesh position={[0, 0, -5]}>
           <planeGeometry args={[60, 44]} />
-          <meshStandardMaterial color="#05060a" roughness={1} />
+          <primitive object={MINE_CAVE_BACKDROP} attach="material" />
         </mesh>
       </group>
       {tunnelMeshes}

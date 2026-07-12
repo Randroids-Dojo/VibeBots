@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="dark-mine-cell-seams" data-date="2026-07-11">
+    <h3>Keep Lantern light out of the gaps between mine cells</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/dark-mine-cell-seams</code>.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/118">#118</a>.</dd>
+      <dt>Changed</dt><dd>User screenshot follow-through on package 0.1.212 found a second, distinct grid artifact after the fog cards were removed: long warm lines still ran through the physical 0.06-cell gaps. Root cause was the camera-following cave backdrop, a <code>MeshStandardMaterial</code> plane at z -5 that received the miner point light and remained visible through every gap. Package 0.1.213 replaces it with cached <code>MINE_CAVE_BACKDROP</code>, an unlit <code>MeshBasicNodeMaterial</code> whose world-height opacity is near-black through the surface blocks and all underground space, then transparent above y 0.58 so the authored surface sky stays visible. Dirt and metal node materials now multiply their color by <code>blockEdgeOcclusion</code>: front-facing normals keep full authored color, while grazing bevel and sidewall normals fall to 22 percent response. No collider, cell size, front-face shape, visibility radius, light count, or camera rule changes.</dd>
+      <dt>Verification</dt><dd>Dash, diff, purity, Biome, typecheck, all 1,061 unit tests, production build, focused day/night and Lantern-zoom smokes, and all five critical browser smokes pass. Forced 390x760 dusk captures at depth 0 and depth 2 were reviewed: underground gaps remain black, continuous warm grid lines are gone, front faces keep the lamp response, the surface sky remains visible, and the shallow sample measures 90 draw calls. The mine viewport smoke pins <code>data-cell-seams="occluded"</code> alongside the continuous-radial visibility contract. Final dependency gate remains exact at VibeKit v0.3.0, Rapier 0.19.3, Next 16.2.10, three 0.185.1, and R3F 9.6.1.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: cell separation should read as ambient occlusion, not a lit grout line. The bevel silhouette remains, but its sidewall is deliberately much darker than the front face. Rule 13: mine tips reviewed with no copy change because no rule changed. Rule 14: stamp review completed with none added because this is a visual bug fix.</dd>
+      <dt>GDD coverage</dt><dd>The mining presentation requirement remains done. <code>docs/gdd/06-mining.html</code> gained a build-log entry; no coverage status changed.</dd>
+      <dt>Followups</dt><dd>Completes <code>VibeBots-stop-light-leaking-4a147b91</code>. No new followup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="artistic-lantern-veil" data-date="2026-07-11">
     <h3>Replace the fog grid with a seamless lantern veil</h3>
     <dl>

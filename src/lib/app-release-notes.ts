@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-11-0.1.212-artistic-lantern-veil";
+export const RELEASE_NOTICE_ID = "2026-07-11-0.1.213-dark-cell-seams";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.213",
+      date: "2026-07-11",
+      title: "Darkness stays in the cracks",
+      intro: "The lantern no longer shines through the mine grid.",
+      changes: [
+        {
+          build,
+          text: "The warm lines between blocks were not intentional. Cell gaps exposed a standard-lit cave backing, so the headlamp illuminated the background through every crack. The underground backing is now unlit and near-black while remaining transparent above the ground line, preserving the surface sky.",
+        },
+        {
+          build,
+          text: "Rounded dirt and metal sidewalls now absorb grazing light instead of reflecting it into continuous grid lines. Front faces keep their authored Lantern response, the seamless radial veil is unchanged, and the correction adds no lights or draw calls.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.212",
       date: "2026-07-11",

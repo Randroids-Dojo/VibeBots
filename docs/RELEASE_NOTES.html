@@ -13,6 +13,18 @@
 
 <main id="entries">
 
+  <article data-version="0.1.213" data-date="2026-07-11">
+    <h2>0.1.213</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.213</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>The lantern no longer shines through the mine grid.</dd>
+      <dt>Light leak fix</dt><dd>The standard-lit cave backing visible through block gaps is now an unlit, near-black underground layer that becomes transparent above the ground line. The surface sky remains intact while exposed cracks stop receiving the miner light.</dd>
+      <dt>Block response</dt><dd>Dirt and metal front faces retain their authored illumination, while rounded bevels and sidewalls absorb grazing light so they cannot form continuous glowing seams.</dd>
+      <dt>Performance</dt><dd>The fix reuses the existing backing draw and shared block materials. It adds no geometry, lights, draw calls, dependencies, or per-frame work.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.212" data-date="2026-07-11">
     <h2>0.1.212</h2>
     <dl>

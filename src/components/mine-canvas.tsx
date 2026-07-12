@@ -1579,7 +1579,7 @@ function MineScene({
       grade.starOpacity * day,
       2,
     );
-    applySurfaceAtmosphereVisuals(grade.starOpacity * day, grade.groundColor);
+    applySurfaceAtmosphereVisuals(grade.starOpacity * day, grade);
     const depthColorBlend = Math.min(1, depthT * 1.65);
     const stratumColor = stratumColorRef.current.set(bg);
     if (state.scene.background instanceof Color) {

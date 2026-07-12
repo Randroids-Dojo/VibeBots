@@ -284,7 +284,7 @@ function HolodeckScene({
         dirRef.current?.color.set(grade.sunColor);
         backgroundRef.current?.set(grade.skyColor);
         fogRef.current?.color.set(grade.fogColor);
-        applySurfaceAtmosphereVisuals(grade.starOpacity, grade.groundColor);
+        applySurfaceAtmosphereVisuals(grade.starOpacity, grade);
         timeOfDay.current.nextCheck = t + SURFACE_LIGHTING_STEP_SECONDS;
       }
       const grade = timeOfDay.current.grade;

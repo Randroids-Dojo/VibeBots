@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { imageRegionRgbStats } from "./support/image-pixels";
 import {
   applyAction,
   awaitMineSceneReady,
@@ -436,6 +437,34 @@ test("mine bag chip opens a scrollable capacity grid", async ({ page }) => {
   await expect(dialog).not.toBeVisible();
 });
 
+test("the long surface tip fits inside the status chip", async ({ page }) => {
+  await page.setViewportSize({ width: 575, height: 1280 });
+  await page.addInitScript(() => {
+    const w = window as typeof window & {
+      __vibebotsSurfaceTipSequence?: (string | null)[];
+      __vibebotsSurfaceTipRotationMs?: number;
+    };
+    // Frozen on the longest tip: measuring a rotating element races the
+    // rotation boundary (a slower first paint made that race real).
+    w.__vibebotsSurfaceTipSequence = [
+      "Tip: rich ore may need several hits. Every swing still costs battery.",
+    ];
+    w.__vibebotsSurfaceTipRotationMs = 60_000;
+  });
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+
+  const longTip = page.getByText(
+    "Tip: rich ore may need several hits. Every swing still costs battery.",
+    { exact: true },
+  );
+  await expect(longTip).toBeVisible({ timeout: 20_000 });
+  const box = await longTip.boundingBox();
+  expect(box).not.toBeNull();
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);
+  expect(box?.height ?? 0).toBeGreaterThan(22);
+});
+
 test("mine rotates surface game tips and sometimes leaves the slot empty", async ({
   page,
 }) => {
@@ -445,12 +474,27 @@ test("mine rotates surface game tips and sometimes leaves the slot empty", async
       __vibebotsSurfaceTipSequence?: (string | null)[];
       __vibebotsSurfaceTipRotationMs?: number;
     };
+    // The sequence is consumed one entry per rotation (then random tips
+    // resume), so each phase is padded wide enough that its assertion
+    // cannot miss the window even after a slow first paint.
+    const longTip =
+      "Tip: rich ore may need several hits. Every swing still costs battery.";
+    const shortTip =
+      "Tip: press up into solid ground to dig overhead without using a ladder.";
     w.__vibebotsSurfaceTipSequence = [
-      "Tip: rich ore may need several hits. Every swing still costs battery.",
-      "Tip: press up into solid ground to dig overhead without using a ladder.",
+      longTip,
+      longTip,
+      longTip,
+      longTip,
+      shortTip,
+      shortTip,
+      shortTip,
+      null,
+      null,
+      null,
       null,
     ];
-    w.__vibebotsSurfaceTipRotationMs = 5_000;
+    w.__vibebotsSurfaceTipRotationMs = 2_000;
   });
   await page.goto("/mine");
   await dismissReleaseNotes(page);
@@ -458,21 +502,13 @@ test("mine rotates surface game tips and sometimes leaves the slot empty", async
   const status = page.getByLabel("Mine status");
   await expect(status).toContainText(
     "Tip: rich ore may need several hits. Every swing still costs battery.",
+    { timeout: 12_000 },
   );
-  const longTip = page.getByText(
-    "Tip: rich ore may need several hits. Every swing still costs battery.",
-    { exact: true },
-  );
-  await expect(longTip).toBeVisible();
-  const box = await longTip.boundingBox();
-  expect(box).not.toBeNull();
-  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);
-  expect(box?.height ?? 0).toBeGreaterThan(22);
   await expect(status).toContainText(
     "Tip: press up into solid ground to dig overhead without using a ladder.",
-    { timeout: 8_000 },
+    { timeout: 12_000 },
   );
-  await expect(status).not.toContainText("Tip:", { timeout: 8_000 });
+  await expect(status).not.toContainText("Tip:", { timeout: 12_000 });
 });
 
 test("auto sell result replaces tips and wraps in the status chip", async ({
@@ -573,4 +609,34 @@ test("auto sell result replaces tips and wraps in the status chip", async ({
   expect(box).not.toBeNull();
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);
   expect(box?.height ?? 0).toBeGreaterThan(22);
+});
+
+test("mine loader stays up until the canvas paints, never a black gap", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  const loader = page.getByRole("status").filter({
+    hasText: "Opening the shaft",
+  });
+  await expect(loader).toBeVisible();
+  // The release-notes dialog is a full-page overlay: left up, it would
+  // sit inside the canvas screenshot below and skew the pixel check.
+  await dismissReleaseNotes(page);
+
+  const shell = page.getByLabel("Mine status");
+  // Data can be ready while the canvas is still warming pipelines; the
+  // loader must survive that window and only leave once a frame painted.
+  await expect(loader).not.toBeVisible({ timeout: 30_000 });
+  await expect(shell).toHaveAttribute("data-scene-painted", "true");
+
+  // Rule 10: at the moment the loader leaves, the canvas must be showing
+  // real pixels, not the unpainted black buffer the loader used to hide.
+  const shot = await page.locator("canvas").first().screenshot();
+  const stats = await imageRegionRgbStats(page, shot, {
+    left: 0,
+    top: 0,
+    right: 1,
+    bottom: 1,
+  });
+  expect(stats.nearBlackRatio).toBeLessThan(0.85);
 });

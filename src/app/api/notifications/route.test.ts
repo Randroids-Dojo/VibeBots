@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.234-surface-basin",
+      releaseNoticeId: "2026-07-13-0.1.235-mine-load-animation",
       releaseSummary:
-        "A world beyond the village: A ringed planet now hangs over a working strip-mine basin.",
+        "The mine loads behind the cart, not a black screen: The loading animation now stays up until the first real frame.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.234-surface-basin",
+      releaseNoticeId: "2026-07-13-0.1.235-mine-load-animation",
       attempted: 2,
       sent: 1,
       expired: 1,

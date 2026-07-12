@@ -2457,6 +2457,8 @@ interface MineCanvasProps {
   onToggleSupport?: (target: CollectTarget) => void;
   onBunkerCellHover?: (cell: MineCoord) => void;
   onBunkerCellTap?: (cell: MineCoord) => void;
+  /** Fires once, after the first frame has actually rendered. */
+  onFirstFrame?: () => void;
 }
 
 export default function MineCanvas(props: MineCanvasProps) {
@@ -2485,7 +2487,7 @@ export default function MineCanvas(props: MineCanvasProps) {
         graphicsFeatures={features}
         onWarmed={startFrames}
       />
-      <CanvasDrawCallProbe />
+      <CanvasDrawCallProbe onFirstFrame={props.onFirstFrame} />
       <PerfProbeBridge source="mine" />
     </Canvas>
   );

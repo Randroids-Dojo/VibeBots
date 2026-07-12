@@ -747,6 +747,15 @@
   mask-image: linear-gradient(180deg, transparent 0%, black 22%);
 }
 
+/* Veil variant (first-load black-screen fix): sits above the canvas
+ * while its buffer is still unpainted, below the loading notice, and
+ * never intercepts input. It fades out as the first frame lands. */
+.mine-scene-backdrop-veil {
+  z-index: 30;
+  pointer-events: none;
+  transition: opacity 220ms ease-out;
+}
+
 .mine-scene-notice {
   position: absolute;
   top: 50%;
@@ -760,6 +769,10 @@
   color: #e6e8ee;
   text-align: center;
   pointer-events: auto;
+}
+
+.mine-scene-notice[role="status"] {
+  pointer-events: none;
   background: rgba(8, 12, 20, 0.72);
   border: 1px solid rgba(84, 224, 199, 0.42);
   border-radius: 14px;

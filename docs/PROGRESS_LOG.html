@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="mine-load-animation" data-date="2026-07-13">
+    <h3>The mine loader stays up until the first painted frame</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-first-load-screen</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.235. First loads showed a long black screen: the mine-cart loader was keyed to data-ready and unmounted exactly when the canvas mounted at <code>frameloop="never"</code>, leaving the compile warm-up window (up to the 4s gate deadline) as an unpainted buffer. Now the existing draw-call probe fires a one-shot <code>onFirstFrame</code> callback from its <code>onAfterRender</code> (no second sentinel mesh, and the holodeck canvas can reuse the hook), and the panel keeps the cave backdrop (as a pointer-transparent veil) plus the loading notice up until it fires. The loading card is pointer-transparent (only the error card keeps its retry button clickable), the dynamic-import fallback no longer stacks a duplicate card, a 2x <code>COMPILE_GATE_DEADLINE_MS</code> fallback clears the veil if the signal ever stalls, and <code>data-scene-painted</code> joins <code>data-scene-ready</code> for tests.</dd>
+      <dt>Verified</dt><dd>New e2e: the loader may only disappear once <code>data-scene-painted</code> is true, and a canvas screenshot at that moment must not be near-black (Rule 10 pixel proof). Full mine-ui/mine-core/mine-bunker suites green except the documented falling-rock camera flake, which fails identically on unmodified main in the same environment (verified by stash-and-rerun). Two pre-existing e2e races this slice exposed were made deterministic: the surface-tips test now freezes rotation for the fit measurement and pads consumed sequence windows, and the skin-repaint pixel proof polls for a rendered frame instead of trusting a fixed wait.</dd>
+      <dt>Tips review</dt><dd>Rule 13: rotation reviewed for 0.1.235; no change (no mine rule changed, and loading needs no tip).</dd>
+      <dt>Stamp review</dt><dd>Rule 14: none added (load-experience fix, not a milestone).</dd>
+    </dl>
+  </article>
+
   <article data-slice="surface-parallax-basin" data-date="2026-07-13">
     <h3>Build an off-world strip-mine skybox behind the village</h3>
     <dl>

@@ -21,17 +21,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "A ringed planet now hangs over a working strip-mine basin.",
+    "The loading animation now stays up until the first real frame.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "flat surface horizon is replaced",
+    "no longer flashes a long black screen",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "Five cached low-poly layers",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("never blocks taps");
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "low tier uses 568 backdrop triangles",
+    "MINE_VERSION and SIM_VERSION are unchanged",
   );
 
   await page.mouse.click(8, 8);
@@ -51,6 +49,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.235", "The mine loads behind the cart, not a black screen"],
     ["0.1.234", "A world beyond the village"],
     ["0.1.233", "The bars are gone"],
     ["0.1.232", "The bunker sheet shows what you can spend"],

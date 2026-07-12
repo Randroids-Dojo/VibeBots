@@ -82,6 +82,7 @@ import {
 import { PART_CATALOG } from "@/sim/parts";
 import { useBunkerStore } from "@/state/bunker-store";
 import { SAVE_SYNC_CHANNEL, useMineStore } from "@/state/mine-store";
+import { COMPILE_GATE_DEADLINE_MS } from "./compile-gate";
 import {
   eventInsideRef,
   useOutsidePointerDismiss,
@@ -135,8 +136,17 @@ const MINE_SCENE_LOAD_ERROR =
   "The network dropped before the mine could load. Your save was not changed. Check the connection and retry.";
 const STRATUM_BANNER_MS = 2600;
 
-function MineSceneBackdrop() {
-  return <div className="mine-scene-backdrop" aria-hidden="true" />;
+function MineSceneBackdrop({ veil = false }: { veil?: boolean }) {
+  return (
+    <div
+      className={
+        veil
+          ? "mine-scene-backdrop mine-scene-backdrop-veil"
+          : "mine-scene-backdrop"
+      }
+      aria-hidden="true"
+    />
+  );
 }
 
 function MineSceneNotice({
@@ -206,12 +216,10 @@ class MineSceneErrorBoundary extends Component<
 
 const MineCanvas = dynamic(() => import("./mine-canvas"), {
   ssr: false,
-  loading: () => (
-    <>
-      <MineSceneBackdrop />
-      <MineSceneNotice status="loading" />
-    </>
-  ),
+  // The chunk downloads inside the first-paint window, where the panel
+  // already shows the backdrop veil and the loading notice; a second
+  // notice here would stack a duplicate card on top of it.
+  loading: () => <MineSceneBackdrop />,
 });
 
 const KEY_DIRECTIONS: Record<string, Direction> = {
@@ -1239,6 +1247,28 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     useState<MineSceneStatus>("loading");
   const [mineSceneMessage, setMineSceneMessage] = useState<string | null>(null);
   const [mineCanvasKey, setMineCanvasKey] = useState(0);
+  const [mineCanvasPainted, setMineCanvasPainted] = useState(false);
+  const handleMineFirstFrame = useCallback(
+    () => setMineCanvasPainted(true),
+    [],
+  );
+  // A fresh scene load starts unpainted again (canvas remounts via
+  // retryMineSceneLoad also pass through status "loading", so one reset
+  // covers both). The compile gate guarantees frames within its deadline;
+  // the 2x-deadline fallback means a stalled first-frame signal can never
+  // trap the loading veil on screen.
+  useEffect(() => {
+    if (mineSceneStatus !== "ready") {
+      setMineCanvasPainted(false);
+      return;
+    }
+    if (mineCanvasPainted) return;
+    const fallback = window.setTimeout(
+      () => setMineCanvasPainted(true),
+      COMPILE_GATE_DEADLINE_MS * 2,
+    );
+    return () => window.clearTimeout(fallback);
+  }, [mineSceneStatus, mineCanvasPainted]);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [pickaxeGateHint, setPickaxeGateHint] = useState<{
     key: number;
@@ -1740,6 +1770,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [lastResult, tick]);
 
   const mineSceneReady = worldLoaded && mineSceneStatus === "ready";
+  // The veil and the loading notice cover the canvas together until the
+  // first frame has actually painted (data-ready alone leaves the canvas
+  // as an unpainted black buffer through the compile warm-up).
+  const showFirstPaintVeil = mineSceneReady && !mineCanvasPainted;
 
   const directionCadence = useCallback(() => {
     if (!directionCadenceRef.current) {
@@ -3066,12 +3100,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             onBunkerCellHover={setBunkerCellTarget}
             onBunkerCellTap={swingBunkerHammerAt}
             onToggleSupport={toggleCollectTarget}
+            onFirstFrame={handleMineFirstFrame}
           />
         </MineSceneErrorBoundary>
       ) : (
         <MineSceneBackdrop />
       )}
-      {mineSceneStatus === "loading" && <MineSceneNotice status="loading" />}
+      {showFirstPaintVeil && <MineSceneBackdrop veil />}
+      {(mineSceneStatus === "loading" || showFirstPaintVeil) && (
+        <MineSceneNotice status="loading" />
+      )}
       {mineSceneStatus === "error" && (
         <MineSceneNotice
           status="error"
@@ -3688,6 +3726,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         aria-label="Mine status"
         data-depth={miner.row}
         data-scene-ready={mineSceneReady ? "true" : "false"}
+        data-scene-painted={mineCanvasPainted ? "true" : "false"}
         data-horizontal-distance={horizontalDistance}
         data-energy={miner.energy.toFixed(1)}
         data-ladders={mine.consumables.ladder}

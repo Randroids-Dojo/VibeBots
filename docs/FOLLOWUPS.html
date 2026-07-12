@@ -353,7 +353,8 @@
       <dt>Blocker (if any)</dt><dd>match records must persist the core part id of each fought design (server progress plumbing).</dd>
       <dt>Unblock condition</dt><dd>Once match resolution records the core id per fight, add a cosmetic-only stamp that lights when a player has won or fought with each chassis, backfilled from durable records. Update <code>src/lib/achievements.ts</code>, the achievement tests, release notes, GDD coverage, and the progress log.</dd>
       <dt>PR / Dot reference</dt><dd>(not started; raised by the chassis-variants slice I)</dd>
-    </dl>
+      <dt>Resolved</dt><dd>2026-07-12 (package 0.1.225): the precondition turned out to already hold: <code>match_records.used_part_ids</code> stores every part id on the fielded design, and a design always carries its core, so which chassis fought is durably recorded per match and BACKFILLABLE (no schema change needed). <code>matchAchievementCounters</code> now derives <code>chassisFought</code> (distinct cores with at least one recorded fight, 0-3) alongside the existing win counters, folded into stats with a high-water merge. New cosmetic stamp "Chassis Tour" (<code>battle-chassis-tour</code>) unlocks at 3 with its own three-cores pictogram. Chose "fought with" over "won with" per the entry's own either-or, matching the exploration goal (trying every chassis) rather than gating on wins. Covered by a counters unit test (distinct-count derivation) and unlock tests.</dd>
+</dl>
   </section>
 
   <section id="F-052" data-f="F-052" data-priority="nice-to-have">
@@ -385,7 +386,8 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready: pick a durable, server-recorded proof (for example a saved design in the designs table, or a maxed part fielded in a resolved match) and add a cosmetic-only stamp in <code>src/lib/achievements.ts</code> with backfill, achievement tests, server progress plumbing, GDD coverage, release notes, and a progress-log entry per Rule 14. Acceptance: the stamp unlocks from a trustworthy record, grants no gameplay power, and is covered by tests.</dd>
       <dt>PR / Dot reference</dt><dd>(not started; raised by the W5 workshop feel slice)</dd>
-    </dl>
+      <dt>Resolved</dt><dd>2026-07-12 (package 0.1.225): shipped with the designs-table proof the unblock condition offered. The achievement snapshot's profile query gains an EXISTS over <code>bot_designs</code> for any part with <code>mergeLevel &gt;= MAX_PART_MERGE_LEVEL</code> (3), folded into stats as <code>partsMaxed</code> (high-water merge, since it is derived, not counted). New cosmetic stamp "Mastercrafted" (<code>tools-mastercrafted</code>) unlocks at 1 with its own pictogram. Fully backfillable: existing saved designs with a maxed part unlock it on the next snapshot read. Covered by unlock tests and the id-uniqueness/art suites.</dd>
+</dl>
   </section>
 
   <section id="F-030" data-f="F-030" data-priority="nice-to-have">

@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest ore-band-floor note complete", () => {
+  it("keeps the latest mastery-stamps note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-12-0.1.224-ore-band-floor");
+    expect(release.noticeId).toBe("2026-07-12-0.1.225-mastery-stamps");
     expect(latestNote).toMatchObject({
+      version: "0.1.225",
+      title: "Stamps for chassis mastery and maxed parts",
+      intro: "The Stamp Book now honors builders and chassis explorers.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Chassis Tour: fight an official match with every core chassis (Cube, Wedge, and Tower). Your past matches already count: every verified fight recorded which core you fielded, so this one backfills.",
+      "Mastercrafted: save a design fielding a part merged to Lv 3. Existing saved designs count, so master builders unlock it on their next visit.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived ore-band-floor note complete", () => {
+    const release = getAppRelease();
+    const oreNote = release.notes.find((note) => note.version === "0.1.224");
+
+    expect(oreNote).toMatchObject({
       version: "0.1.224",
       title: "Ore bands fade out instead of cutting out",
       intro: "The bottom edge of every ore band is no longer a dead row.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(oreNote?.changes.map((change) => change.text)).toEqual([
       "Each ore's spawn chance used to taper all the way to zero exactly at its band's last row, then jump back up to the deep trace chance one row later. The fade now settles onto the trace floor smoothly, so the boundary row carries ore again and the hand-off into trace territory has no seam.",
       "This changes world generation, so MINE_VERSION advances to 53: fresh trips see the new bands; saved worlds keep the cells you already dug.",
       "SIM_VERSION is unchanged.",

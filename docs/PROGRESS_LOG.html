@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mastery-stamps" data-date="2026-07-12">
+    <h3>Chassis Tour and Mastercrafted stamps (F-051, F-053)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/mastery-stamps</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.225. Closes F-051 and F-053 (grouped Stamp Book followups). F-053's stated precondition (record the core id per fight) already held: <code>match_records.used_part_ids</code> carries every part id on the fielded design including its core, so "Chassis Tour" (fight an official match with all three cores, target 3) derives from existing durable records with full backfill and no schema change; <code>matchAchievementCounters</code> gains the distinct-core derivation beside the existing win counters. F-051 took the designs-table proof: the snapshot profile query gains an EXISTS over <code>bot_designs</code> for any part at <code>MAX_PART_MERGE_LEVEL</code>, and "Mastercrafted" unlocks at 1, also backfillable. Both stats are derived levels, merged by high water rather than summed, with the rationale commented in <code>mergeAchievementStats</code>. Decision recorded: Chassis Tour counts fights, not wins (the entry offered either; exploration reads better than win-gating). Mine tips reviewed, no copy change; this slice is the Rule 14 stamp review outcome deferred by slice I and W1-W5.</dd>
+      <dt>Verification</dt><dd>New unit tests: the distinct-chassis derivation over canned SQL totals (2 tests in the new <code>match-records.test.ts</code>), unlock boundaries for both stamps (2 of 3 chassis does not unlock; a maxed design does; match wins alone do not), and the high-water merge. Stamp art and id-uniqueness suites pass with the two new pictograms. Full unit suite (1108), typecheck, Biome, production build, release-note chain for 0.1.225.</dd>
+      <dt>Assumptions</dt><dd>"Fought with" rather than "won with" for Chassis Tour (Rule 7 default, recorded in the followup entry); the tools category hosts Mastercrafted since merging is bench mastery and a new category would touch the palette for one stamp.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/02-parts-and-connectors.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-051 and F-053 resolved (entries updated). None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ore-band-trace-floor" data-date="2026-07-12">
     <h3>Ore bands fade onto the trace floor (F-041)</h3>
     <dl>

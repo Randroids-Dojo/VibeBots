@@ -42,6 +42,8 @@ export type AchievementMetric =
   | "bunkerRaidsSurvived"
   | "raidsSurvivedSealed"
   | "matchWins"
+  | "chassisFought"
+  | "partsMaxed"
   | "sawMatchWins";
 
 export interface AchievementStats {
@@ -65,6 +67,10 @@ export interface AchievementStats {
   raidsSurvivedSealed: number;
   /** Server-verified arena match wins (durable: match_records). */
   matchWins: number;
+  /** Distinct core chassis fielded across official matches (0-3). */
+  chassisFought: number;
+  /** 1 once any saved design fields a part at the max merge level. */
+  partsMaxed: number;
   /** Verified wins by a design carrying a saw blade. */
   sawMatchWins: number;
 }
@@ -112,6 +118,8 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   bunkerRaidsSurvived: 0,
   raidsSurvivedSealed: 0,
   matchWins: 0,
+  chassisFought: 0,
+  partsMaxed: 0,
   sawMatchWins: 0,
 };
 
@@ -459,6 +467,24 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     target: 1,
   },
   {
+    id: "battle-chassis-tour",
+    category: "battle",
+    title: "Chassis Tour",
+    description: "Fight an official match with every core chassis.",
+    stamp: "CT",
+    metric: "chassisFought",
+    target: 3,
+  },
+  {
+    id: "tools-mastercrafted",
+    category: "tools",
+    title: "Mastercrafted",
+    description: "Field a part merged to Lv 3 in a saved design.",
+    stamp: "M3",
+    metric: "partsMaxed",
+    target: 1,
+  },
+  {
     id: "battle-first-blood",
     category: "battle",
     title: "First Blood",
@@ -524,6 +550,10 @@ export function mergeAchievementStats(
     raidsSurvivedSealed:
       current.raidsSurvivedSealed + (patch.raidsSurvivedSealed ?? 0),
     matchWins: current.matchWins + (patch.matchWins ?? 0),
+    // Derived levels, not event counts: the server recomputes them from
+    // durable records at snapshot time, so merging takes the high water.
+    chassisFought: Math.max(current.chassisFought, patch.chassisFought ?? 0),
+    partsMaxed: Math.max(current.partsMaxed, patch.partsMaxed ?? 0),
     sawMatchWins: current.sawMatchWins + (patch.sawMatchWins ?? 0),
   };
 }

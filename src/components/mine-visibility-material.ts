@@ -38,6 +38,22 @@ export const MINE_VISIBILITY_VEIL = (() => {
   return material;
 })();
 
+/**
+ * Unlit backing for the underground half of the camera. The old standard
+ * material caught the miner lamp through every 0.06-cell block gap, turning
+ * the grid into glowing lines. World height keeps the authored sky visible
+ * above the surface while every exposed underground crack stays near-black.
+ */
+export const MINE_CAVE_BACKDROP = (() => {
+  const material = new MeshBasicNodeMaterial();
+  material.colorNode = color("#010207");
+  material.opacityNode = oneMinus(smoothstep(0.42, 0.58, positionWorld.y));
+  material.transparent = true;
+  material.depthWrite = false;
+  material.toneMapped = false;
+  return material;
+})();
+
 export function updateMineVisibilityVeil(
   centerX: number,
   centerY: number,

@@ -28,6 +28,7 @@ import {
   positionViewDirection,
   positionWorld,
   sin,
+  smoothstep,
   time,
   uniform,
   vec2,
@@ -76,6 +77,16 @@ export function tintUniform(baseHex: string) {
 export function jitteredColor(baseHex: string) {
   const jitter = cellHashNode().sub(0.5).mul(0.16).add(1.0);
   return tintUniform(baseHex).mul(jitter);
+}
+
+/**
+ * Keep the front face fully readable while turning bevels and sidewalls into
+ * dark occlusion seams. Without this grazing-angle suppression the miner lamp
+ * catches the rounded sides and makes adjacent cells look backlit.
+ */
+export function blockEdgeOcclusion() {
+  const frontFacing = smoothstep(0.25, 0.82, abs(normalView.z));
+  return float(0.22).add(frontFacing.mul(0.78));
 }
 
 export function grainNoise(scale: number) {
@@ -128,7 +139,7 @@ export function dirtBlockMaterial(
     // tunnels grounded while ores and metal pop against them (G2).
     material.envMapIntensity = 0.25;
     if (!detail) {
-      material.colorNode = jitteredColor(baseHex);
+      material.colorNode = jitteredColor(baseHex).mul(blockEdgeOcclusion());
       material.roughness = 0.95;
       return material;
     }
@@ -138,7 +149,7 @@ export function dirtBlockMaterial(
     const mottled = jitteredColor(baseHex)
       .mul(float(0.92).add(grain.mul(0.16)))
       .add(vec3(0.05, 0.04, 0.03).mul(speckle.step(0.62).mul(speckle)));
-    material.colorNode = mottled;
+    material.colorNode = mottled.mul(blockEdgeOcclusion());
     material.roughnessNode = float(0.9).add(grain.mul(0.1));
     return material;
   });
@@ -155,7 +166,7 @@ export function rockBlockMaterial(
     material.metalness = 0.15;
     material.envMapIntensity = 0.55;
     if (!detail) {
-      material.colorNode = jitteredColor(baseHex);
+      material.colorNode = jitteredColor(baseHex).mul(blockEdgeOcclusion());
       material.roughness = 0.6;
       return material;
     }
@@ -192,9 +203,9 @@ export function metalBlockMaterial(
       .mul(0.5)
       .add(0.5)
       .mul(grainNoise(3).mul(0.5).add(0.5));
-    material.colorNode = jitteredColor(baseHex).mul(
-      float(0.94).add(brush.mul(0.1)),
-    );
+    material.colorNode = jitteredColor(baseHex)
+      .mul(float(0.94).add(brush.mul(0.1)))
+      .mul(blockEdgeOcclusion());
     material.metalness = 0.85;
     material.roughnessNode = float(0.22).add(brush.mul(0.14));
     material.emissiveNode = color("#101820").mul(0.14);

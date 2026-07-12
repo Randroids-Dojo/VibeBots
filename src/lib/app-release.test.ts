@@ -24,19 +24,19 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest artistic-lantern note complete", () => {
+  it("keeps the latest dark-cell-seams note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-11-0.1.212-artistic-lantern-veil");
+    expect(release.noticeId).toBe("2026-07-11-0.1.213-dark-cell-seams");
     expect(latestNote).toMatchObject({
-      version: "0.1.212",
-      title: "Light without the graph paper",
-      intro: "The lantern now fades through one seamless pool of darkness.",
+      version: "0.1.213",
+      title: "Darkness stays in the cracks",
+      intro: "The lantern no longer shines through the mine grid.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The cell-by-cell fog cards are gone. One continuous world-space veil now follows the miner with a clear inner pool, a broad feathered penumbra, and a near-black unknown edge, so shallow mine rows no longer show bright seams, stacked rectangles, or the construction grid.",
-      "The existing warm headlamp supplies the radiant inner glow. Full daylight still clears the surface effect, night restores it, and underground range remains tied exactly to the Lantern upgrade and its available zoom. The new veil uses one draw and adds no lights.",
+      "The warm lines between blocks were not intentional. Cell gaps exposed a standard-lit cave backing, so the headlamp illuminated the background through every crack. The underground backing is now unlit and near-black while remaining transparent above the ground line, preserving the surface sky.",
+      "Rounded dirt and metal sidewalls now absorb grazing light instead of reflecting it into continuous grid lines. Front faces keep their authored Lantern response, the seamless radial veil is unchanged, and the correction adds no lights or draw calls.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

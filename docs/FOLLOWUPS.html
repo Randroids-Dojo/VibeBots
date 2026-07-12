@@ -1019,7 +1019,8 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: give the deterministic resolver turret damage-per-tick against Clankers in range, spike/trap damage on traversal, at least two specialist Clanker kinds from the GDD list (breacher, tank), and a player-death outcome when Clankers reach an unsealed core with the miner present (reusing the mine death/recovery flow). Acceptance: resolver unit tests cover each mechanic deterministically; the raid report surfaces turret/trap contributions; a lost raid with the miner home triggers the standard recovery.</dd>
     <dt>PR / Dot reference</dt><dd>(decomposed from F-029)</dd>
-  </dl>
+      <dt>Resolved</dt><dd>2026-07-13 (package 0.1.229): the audit trimmed this child the same way it trimmed its siblings: turret one-shots, spike traversal damage, and the miner-death raid outcome ALL already existed in the resolver (this entry's context overstated the gap when written). The genuinely missing piece was specialist Clanker kinds, now shipped: deterministic slot assignment (<code>clankerKindFor</code>: tier 2 unlocks breachers on every third slot, tier 3 unlocks tanks on every fourth, tanks checked first so the mix stays stable as waves grow), breachers bite blocker parts at 2x, tanks soak <code>CLANKER_TANK_TURRET_SHOTS</code> (2), specialists drop raised XP (40/50 vs 25), old snapshots normalize to <code>kind: "standard"</code>, and the model tints render-only (rust breacher shell, bulkier armored-green tank). Covered by sim tests (assignment determinism, XP ladder, kind-stamped replay identity) atop the existing turret/spike/death coverage. Richer per-tick turret simulation stays a possible future refinement, noted here rather than blocking the child.</dd>
+</dl>
 </section>
 
 <section id="F-084" data-f="F-084" data-priority="nice-to-have">

@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest raid-tiers note complete", () => {
+  it("keeps the latest specialist-clankers note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.228-raid-tiers");
+    expect(release.noticeId).toBe("2026-07-13-0.1.229-specialist-clankers");
     expect(latestNote).toMatchObject({
+      version: "0.1.229",
+      title: "The raids send specialists",
+      intro: "Higher tiers now field breachers and tanks with their own looks.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "From tier 2, every third Clanker is a rust-shelled breacher that bites your walls twice as hard. From tier 3, every fourth is an armored tank that shrugs off one turret shot and falls to the second. Both drop extra defense XP when you stop them.",
+      "Specialist slots are deterministic per wave, so the same raid always replays the same, and older raid records read back unchanged.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived raid-tiers note complete", () => {
+    const release = getAppRelease();
+    const tiersNote = release.notes.find((note) => note.version === "0.1.228");
+
+    expect(tiersNote).toMatchObject({
       version: "0.1.228",
       title: "Pick your raid, pick your fight",
       intro: "Higher bunker raid tiers unlock as your player level grows.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(tiersNote?.changes.map((change) => change.text)).toEqual([
       "The raid button now carries a tier stepper once your level unlocks tier 2. Each tier adds two more Clankers and gives every one of them a longer battery and a harder bite, and a bigger wave means more defense XP on the ground when you hold them off.",
       "One tier unlocks per player level, up to tier 5. The server enforces the gate, and raids replay deterministically at every tier.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

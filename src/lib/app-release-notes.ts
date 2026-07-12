@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.228-raid-tiers";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.229-specialist-clankers";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.229",
+      date: "2026-07-13",
+      title: "The raids send specialists",
+      intro: "Higher tiers now field breachers and tanks with their own looks.",
+      changes: [
+        {
+          build,
+          text: "From tier 2, every third Clanker is a rust-shelled breacher that bites your walls twice as hard. From tier 3, every fourth is an armored tank that shrugs off one turret shot and falls to the second. Both drop extra defense XP when you stop them.",
+        },
+        {
+          build,
+          text: "Specialist slots are deterministic per wave, so the same raid always replays the same, and older raid records read back unchanged.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.228",
       date: "2026-07-13",

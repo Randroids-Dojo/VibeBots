@@ -4,6 +4,54 @@ import { useThree } from "@react-three/fiber";
 import { useEffect } from "react";
 import type { Camera, Object3D } from "three/webgpu";
 
+/** A compile that outlives this deadline starts frames anyway: a stalled
+ * driver must degrade to the old lazy-compile stall, never to a canvas
+ * frozen at frameloop="never". Generous next to real compile times (the
+ * whole holodeck set is ~3 s on software rendering, far less on GPUs). */
+export const COMPILE_GATE_DEADLINE_MS = 4000;
+
+interface CompileCapableRenderer {
+  compileAsync?: (scene: Object3D, camera: Camera) => Promise<unknown>;
+}
+
+/**
+ * Kicks a background compile of the mounted scene and calls onCompiled
+ * exactly once when it settles, when it fails, when the renderer cannot
+ * compile asynchronously, or when the deadline passes, whichever comes
+ * first. Returns a cancel function; after cancel, onCompiled never fires.
+ */
+export function startFramesAfterCompile(
+  gl: CompileCapableRenderer,
+  scene: Object3D,
+  camera: Camera,
+  onCompiled: () => void,
+  deadlineMs: number = COMPILE_GATE_DEADLINE_MS,
+): () => void {
+  let settled = false;
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    if (deadline !== undefined) clearTimeout(deadline);
+    onCompiled();
+  };
+  try {
+    const compiled = gl.compileAsync?.(scene, camera);
+    if (compiled) {
+      deadline = setTimeout(finish, deadlineMs);
+      compiled.then(finish, finish);
+    } else {
+      finish();
+    }
+  } catch {
+    finish();
+  }
+  return () => {
+    settled = true;
+    if (deadline !== undefined) clearTimeout(deadline);
+  };
+}
+
 /**
  * Compiles every material in the mounted scene, then reports done (F-072).
  *
@@ -19,34 +67,21 @@ import type { Camera, Object3D } from "three/webgpu";
  * canvas shows its backdrop for the beat the compile needs and then
  * animates as before.
  *
- * Best-effort: if the renderer lacks compileAsync or it rejects,
- * onCompiled still fires and materials compile lazily as before.
+ * Best-effort in every direction: a renderer without compileAsync, a
+ * rejected compile, or one that never settles (COMPILE_GATE_DEADLINE_MS)
+ * all start frames and fall back to lazy compilation as before.
  */
 export function StartFramesWhenCompiled({
   onCompiled,
 }: {
   onCompiled: () => void;
 }) {
-  const gl = useThree((state) => state.gl) as {
-    compileAsync?: (scene: Object3D, camera: Camera) => Promise<unknown>;
-  };
+  const gl = useThree((state) => state.gl) as CompileCapableRenderer;
   const scene = useThree((state) => state.scene);
   const camera = useThree((state) => state.camera);
-  useEffect(() => {
-    let cancelled = false;
-    const start = () => {
-      if (!cancelled) onCompiled();
-    };
-    try {
-      const compiled = gl.compileAsync?.(scene, camera);
-      if (compiled) compiled.then(start, start);
-      else start();
-    } catch {
-      start();
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [gl, scene, camera, onCompiled]);
+  useEffect(
+    () => startFramesAfterCompile(gl, scene, camera, onCompiled),
+    [gl, scene, camera, onCompiled],
+  );
   return null;
 }

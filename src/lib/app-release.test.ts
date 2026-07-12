@@ -38,6 +38,9 @@ describe("app release notes", () => {
       "Walking into the Holodeck from the mine used to freeze everything for the moment the whole stage compiled its draw programs at once: the longest first-view hang of any screen in our telemetry. The stage now builds its programs in the background and starts animating the instant they are ready, so the page stays responsive on the way in.",
       "The full Holodeck browser suite (motion, pause and resume, showcase clips, camera, village bench, shift cycle, Warp ring) passes against the gated start.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
   it("keeps the archived adjacency seam note complete", () => {
     const release = getAppRelease();
     const seamNote = release.notes.find((note) => note.version === "0.1.219");

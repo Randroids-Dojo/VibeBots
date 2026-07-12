@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="perf-baselines-phone-mine" data-date="2026-07-12">
+    <h3>First real-device performance baseline report (F-054/F-071 progress)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/perf-baselines</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Docs only; no version bump. New <code>docs/PERF_BASELINES.html</code> holds the phone/mine baseline from the 24h real-device insights window (14 sessions, 853 snapshots, builds 275349-276751, post-taint only): steady state 17.3ms avg / 20.7ms p95; light count is the dominant controllable factor (20.0 vs 25.0ms p95, the evidence behind PR #138's accent tier gate); draw calls and triangles barely move p95 (fill and main-thread bound); heap flat; the one remaining stall class is load-time compile (session-start LoAF up to 12.3s cache-cold), raised as F-081 with the holodeck's proven compile gate as the mechanism. F-071 and F-054 gain progress updates enumerating exactly what still needs the player's devices (desktop WebGPU gpuFrameMs, workshop/arena/holodeck minutes, profiled cost separation).</dd>
+      <dt>Verification</dt><dd>Dash checks, <code>git diff --check</code>. Data provenance: <code>GET /api/performance/insights?device=real</code> read through the authenticated production browser session per Rule 12; numbers quoted verbatim from the response.</dd>
+      <dt>Assumptions</dt><dd>One device class is enough for the first phone baseline (it is the only real device reporting); per-surface rows land as sessions arrive.</dd>
+      <dt>GDD coverage</dt><dd>No changes.</dd>
+      <dt>Followups</dt><dd>F-081 raised; F-071 and F-054 progress updates recorded (both stay open pending user device sessions).</dd>
+    </dl>
+  </article>
+
   <article data-slice="accent-pool-tier-gate" data-date="2026-07-12">
     <h3>Tier-gate the accent-light pool on real-device evidence (F-077 follow-through)</h3>
     <dl>

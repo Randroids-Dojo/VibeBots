@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Entering the Holodeck no longer locks the page while it builds.",
+    "The Stamp Book now honors roof rescues and close escapes.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "builds its programs in the background",
+    "re-prop a condemned roof with a plank",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "full Holodeck browser suite",
+    "roof rescues and collapses survived",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.221", "Two stamps for surviving the deep"],
     ["0.1.220", "The Holodeck opens without a freeze"],
     ["0.1.219", "Open shapes, solid seams"],
     ["0.1.218", "The glow comes back to the dark"],

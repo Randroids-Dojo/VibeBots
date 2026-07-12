@@ -31,6 +31,16 @@
 
 <main id="entries">
 
+  <article data-slice="survival-stamps" data-date="2026-07-12">
+    <h3>Roof-rescue and collapse-survival stamps (F-049)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/survival-stamps</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.221. Closes F-049. New observational <code>MineState.tripStats</code> (excluded from the WorldDiff and from every rule, so replay outcomes, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are untouched): <code>roofRescues</code> counts one event per settle pass that clears condemned <code>spanUnstable</code> ceilings (a single plank saving a five-cell run is one rescue), <code>collapsesSurvived</code> counts a span-condemned roof landing within two columns of a miner not crushed by that tick. <code>replayTrip</code> reports both on <code>TripResult</code>, the bank route folds them through <code>achievementProgressForTrip</code> into the additive achievement merge, and two cosmetic stamps unlock at 1: "Hold the Ceiling" (<code>survival-roof-rescue</code>, plank-prop pictogram) and "Walked Away" (<code>survival-walked-away</code>, rubble-and-striding-miner pictogram). The planned "Close Call" title collided with the existing recovery stamp's id and was renamed. Mine tips reviewed, no copy change; this slice is the Rule 14 stamp review outcome deferred from the structural-integrity slice.</dd>
+      <dt>Verification</dt><dd>Dash checks, <code>git diff --check</code>, typecheck, Biome, sim purity. New sim tests: a plank rescue counts once no matter how many ceiling cells it saves; a nearby span collapse the miner retreats from counts as survived (roof vacated, miner not crushed); a crushing collapse does not count. Achievement tests: both stamps unlock from their counters and not from plain recoveries; id uniqueness caught the original name collision. Bank-route tests: the counters flow through <code>achievementProgressForTrip</code>. Full unit suite (1077) green; production build; release-note tests updated for 0.1.220.</dd>
+      <dt>Assumptions</dt><dd>Two columns is "close enough to feel it" for Walked Away (matches the crush check's own column-based frame); one rescue event per settle pass reads better than per-cell credit, which would make wide roofs farm the stamp.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/06-mining.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-049 resolved (entry updated; the gas-leak counters named in its context stay unshipped and can ride the same channel later). None raised.</dd>
   <article data-slice="holodeck-compile-gate" data-date="2026-07-12">
     <h3>Gate holodeck frames behind the shader compile (F-072)</h3>
     <dl>

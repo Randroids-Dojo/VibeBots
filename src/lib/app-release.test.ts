@@ -24,17 +24,31 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest holodeck-smooth-entry note complete", () => {
+  it("keeps the latest survival-stamps note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-12-0.1.220-holodeck-smooth-entry");
+    expect(release.noticeId).toBe("2026-07-12-0.1.221-survival-stamps");
     expect(latestNote).toMatchObject({
+      version: "0.1.221",
+      title: "Two stamps for surviving the deep",
+      intro: "The Stamp Book now honors roof rescues and close escapes.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Hold the Ceiling: re-prop a condemned roof with a plank before it falls. Walked Away: be within two columns of a roof collapse when it crashes down and live to tell it. Both count from real replayed trips, so only runs cashed out from this release onward can prove them.",
+      "Trips now report roof rescues and collapses survived alongside the other cash-out records; the counters are observational and change no mining rules.",
+  it("keeps the archived holodeck-smooth-entry note complete", () => {
+    const release = getAppRelease();
+    const holodeckNote = release.notes.find(
+      (note) => note.version === "0.1.220",
+    );
+
+    expect(holodeckNote).toMatchObject({
       version: "0.1.220",
       title: "The Holodeck opens without a freeze",
       intro: "Entering the Holodeck no longer locks the page while it builds.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(holodeckNote?.changes.map((change) => change.text)).toEqual([
       "Walking into the Holodeck from the mine used to freeze everything for the moment the whole stage compiled its draw programs at once: the longest first-view hang of any screen in our telemetry. The stage now builds its programs in the background and starts animating the instant they are ready, so the page stays responsive on the way in.",
       "The full Holodeck browser suite (motion, pause and resume, showcase clips, camera, village bench, shift cycle, Warp ring) passes against the gated start.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

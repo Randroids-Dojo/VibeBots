@@ -975,7 +975,8 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: thread the counters through <code>TripResult</code>, persist alongside the trip checkpoint, fold into the achievement snapshot with max-merge like match records, then add stamps (for example: survive a roof collapse; rescue a condemned roof with a plank). Acceptance: counters survive replay verification and a new stamp unlocks from a real trip.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
-  </dl>
+    <dt>Resolved</dt><dd>2026-07-12 (package 0.1.221): shipped exactly as scoped, with the counters derived in the sim so replay verification gets them for free. <code>MineState.tripStats</code> (never serialized into the WorldDiff, never read by any rule, so replay outcomes and <code>MINE_VERSION</code> are untouched) counts two events: <code>roofRescues</code> increments once per settle pass that clears condemned <code>spanUnstable</code> ceilings (one plank saving a five-cell run is one rescue), and <code>collapsesSurvived</code> increments when a span-condemned roof lands within two columns of a miner who is not crushed by that tick. <code>replayTrip</code> reports both on <code>TripResult</code>; the bank route folds them through <code>achievementProgressForTrip</code> into the additive stats merge. Two cosmetic stamps unlock at 1: "Hold the Ceiling" (<code>survival-roof-rescue</code>) and "Walked Away" (<code>survival-walked-away</code>), each with its own pictogram, both provable only from post-release trips (no durable historical record exists, per the context). Covered by sim tests (rescue counted once per event, nearby collapse survived, crush not counted), achievement unlock tests, and bank-route progress tests. Gas-leak and wisp counters named in the context stay unshipped; they can ride the same tripStats channel when a slice wants them.</dd>
+</dl>
 </section>
 
 <section id="F-080" data-f="F-080" data-priority="polish">

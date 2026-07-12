@@ -46,6 +46,28 @@ describe("achievements", () => {
     ).toContain("survival-buttoned-up");
   });
 
+  it("unlocks the roof-rescue and collapse-survival stamps from trip counters", () => {
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        stats: { ...DEFAULT_ACHIEVEMENT_STATS, roofRescues: 1 },
+      }),
+    ).toContain("survival-roof-rescue");
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        stats: { ...DEFAULT_ACHIEVEMENT_STATS, collapsesSurvived: 1 },
+      }),
+    ).toContain("survival-walked-away");
+    // A plain recovery (the old Close Call) proves neither.
+    const recovered = achievementIdsUnlockedBy({
+      ...baseSnapshot,
+      stats: { ...DEFAULT_ACHIEVEMENT_STATS, recoveries: 2 },
+    });
+    expect(recovered).not.toContain("survival-roof-rescue");
+    expect(recovered).not.toContain("survival-walked-away");
+  });
+
   it("unlocks depth and tool stamps from persistent records", () => {
     expect(
       achievementIdsUnlockedBy({

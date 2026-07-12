@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.236" data-date="2026-07-13">
+    <h2>0.1.236</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.236</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>53</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>The off-world horizon now separates into believable distances instead of following the miner as one camera-mounted plate.</dd>
+      <dt>Depth response</dt><dd>Near the village, the ringed planet drifts at 2.5 percent of camera travel, far excavation at 12 percent, industrial machinery at 24 percent, and the service berm at 42 percent. The sky remains viewport-locked.</dd>
+      <dt>Composition</dt><dd>A smooth bounded curve settles each layer into a maximum travel range before distant-biome movement can crop the landmark composition. Reduced motion still locks every layer to the viewport.</dd>
+      <dt>Performance</dt><dd>The correction changes only scalar position math in the existing allocation-free frame loop. Geometry, materials, draw calls, lights, shaders, and memory behavior are unchanged.</dd>
+      <dt>Review coverage</dt><dd>The capture driver now runs with motion enabled instead of accidentally forcing the reduced-motion path. Unit coverage pins ordered depth separation, bounded travel, and the accessibility lock.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.234" data-date="2026-07-13">
     <h2>0.1.234</h2>
     <dl>

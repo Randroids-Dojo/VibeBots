@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="surface-parallax-depth" data-date="2026-07-13">
+    <h3>Separate the surface horizon into believable distances</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/surface-parallax-depth</code>.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/154">#154</a>.</dd>
+      <dt>Changed</dt><dd>Package 0.1.236 corrects the surface backdrop's camera-mounted feel. The old groups followed 88 to 100 percent of camera travel in world space, so the complete horizon appeared attached to the miner. The orthographic scene now authors actual screen-space separation: 2.5 percent for the planet, 12 percent for far excavation, 24 percent for industry, and 42 percent for the near service berm. Each layer uses a smooth bounded response so distant-biome travel cannot crop the 96-unit panorama. The sky and reduced-motion composition remain viewport-locked. No geometry, materials, draws, lights, shader recipes, or frame allocations changed. <code>MINE_VERSION</code> stays <code>53</code>; <code>SIM_VERSION</code> stays <code>5</code>.</dd>
+      <dt>Verification</dt><dd>Pure geometry coverage proves ordered depth separation, sub-foreground drift, symmetric smooth travel bounds across both distant biomes, and the reduced-motion lock. The 12-capture surface matrix now runs with motion enabled: all views held 12 to 14 draws, and 390x760 WebGL2 frames measured 8.3 to 8.4 ms median and no more than 16.7 ms p95. The 74-second heap probe measured 2.47 MB/s, 13 collection drops, and a 24.9 MB trough, with no new allocation site. Full unit passed 1,149 tests; focused Holodeck and release coverage passed 17 of 17; critical smoke passed 5 of 5; typecheck, Biome, dash, purity, build, JSON, and diff checks passed. Biome retained only the known broken sign-in <code>AGENTS.md</code> symlink warning.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the planet stays almost celestial-fixed while each earthbound layer moves progressively more, with the near berm carrying the strongest cue. The smooth bound favors a composed landmark skyline over infinite procedural repetition. Mine tips reviewed with no copy change because no game rule changed. Stamp review completed with none added because this is a visual correction.</dd>
+      <dt>GDD coverage</dt><dd>REQ-021 remains done. <code>docs/gdd/06-mining.html</code> gains a corrective presentation build-log entry.</dd>
+      <dt>Followups</dt><dd>No new followup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-load-animation" data-date="2026-07-13">
     <h3>The mine loader stays up until the first painted frame</h3>
     <dl>

@@ -82,15 +82,36 @@ describe("off-world surface backdrop", () => {
     ).toBeGreaterThanOrEqual(10);
   });
 
-  it("moves depth layers at restrained ordered parallax ratios", () => {
-    const cameraX = 100;
-    const relative = SURFACE_BACKDROP_ROLES.map((role) =>
+  it("separates depth layers instead of attaching them to camera travel", () => {
+    const cameraX = 10;
+    const screenTravel = SURFACE_BACKDROP_ROLES.map((role) =>
       Math.abs(
         surfaceBackdropLayerX(cameraX, SURFACE_BACKDROP_PARALLAX[role], false) -
           cameraX,
       ),
     );
-    expect(relative).toEqual([0, 1, 4, 8, 12]);
+    expect(screenTravel[0]).toBe(0);
+    expect(screenTravel[1]).toBeGreaterThan(0.2);
+    expect(screenTravel[2]).toBeGreaterThan(screenTravel[1]);
+    expect(screenTravel[3]).toBeGreaterThan(screenTravel[2]);
+    expect(screenTravel[4]).toBeGreaterThan(screenTravel[3]);
+    expect(screenTravel[4]).toBeGreaterThan(3.5);
+    expect(screenTravel[4]).toBeLessThan(cameraX);
+  });
+
+  it("eases parallax into a bounded composition across distant biomes", () => {
+    for (const cameraX of [-1000, 1000]) {
+      for (const role of SURFACE_BACKDROP_ROLES) {
+        const parallax = SURFACE_BACKDROP_PARALLAX[role];
+        const screenTravel = Math.abs(
+          surfaceBackdropLayerX(cameraX, parallax, false) - cameraX,
+        );
+        expect(screenTravel).toBeLessThanOrEqual(parallax.maxTravel + 1e-8);
+        if (parallax.maxTravel > 0) {
+          expect(screenTravel).toBeGreaterThan(parallax.maxTravel * 0.99);
+        }
+      }
+    }
   });
 
   it("locks every backdrop layer to the viewport for reduced motion", () => {

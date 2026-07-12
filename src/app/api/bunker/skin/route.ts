@@ -21,7 +21,7 @@ export async function POST(request: Request): Promise<Response> {
     async ({ sql, playerId }, body) =>
       operationResultResponse(
         await setBunkerSkin(sql, playerId, body.skinId),
-        (result) => result.view,
+        (result) => ({ ...result.view, newStamps: result.newStamps }),
       ),
   );
 }

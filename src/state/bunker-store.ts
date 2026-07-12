@@ -72,6 +72,7 @@ function applyResponse(
   body: BunkerRouteResponse,
 ) {
   if (body.reward) enqueueStampAlertsFromResponse(body.reward);
+  if (body.newStamps) enqueueStampAlertsFromResponse(body);
   set({
     status: "ready",
     bunker: body.bunker,

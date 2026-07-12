@@ -501,13 +501,14 @@ export async function setBunkerSkin(
   sql: Sql,
   playerId: string,
   skinId: BunkerSkinId,
-): Promise<BunkerOperationResult> {
+): Promise<BunkerOperationResult<{ newStamps?: string[] }>> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
   const def = BUNKER_SKIN_CATALOG[skinId];
   const owned =
     def.price === 0 || (view.bunker.skinsOwned ?? []).includes(skinId);
+  let newStamps: string[] = [];
   if (!owned) {
     // Guarded single-statement debit: no transactions on the neon driver,
     // so the affordability check and the charge must be one atomic write.
@@ -523,7 +524,9 @@ export async function setBunkerSkin(
       };
     }
     try {
-      await applyAchievementProgress(sql, playerId, { bunkerSkinsBought: 1 });
+      newStamps = await applyAchievementProgress(sql, playerId, {
+        bunkerSkinsBought: 1,
+      });
     } catch {
       // Stamps are cosmetic and must never block a skin purchase.
     }
@@ -536,7 +539,7 @@ export async function setBunkerSkin(
     SET skin = ${skinId},
         skins_owned = ${JSON.stringify(nextOwned)}::jsonb
     WHERE player_id = ${playerId}`;
-  return { ok: true, view: await loadBunkerView(sql, playerId) };
+  return { ok: true, view: await loadBunkerView(sql, playerId), newStamps };
 }
 
 export async function startBunkerRaid(

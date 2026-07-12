@@ -270,14 +270,21 @@ describe("bunker API routes", () => {
 
   it("applies a bunker skin through the skin route", async () => {
     const view = { bunker: { footprint: null }, inventory: {} };
-    mockedSkin.mockResolvedValue({ ok: true, view } as never);
+    mockedSkin.mockResolvedValue({
+      ok: true,
+      view,
+      newStamps: ["tools-fresh-coat"],
+    } as never);
 
     const res = await skinPost(
       jsonRequest("http://localhost/api/bunker/skin", { skinId: "gilded" }),
     );
 
     expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual(view);
+    await expect(res.json()).resolves.toEqual({
+      ...view,
+      newStamps: ["tools-fresh-coat"],
+    });
     expect(mockedSkin).toHaveBeenCalledWith(
       expect.any(Function),
       "player-1",

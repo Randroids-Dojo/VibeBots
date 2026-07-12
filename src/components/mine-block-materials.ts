@@ -115,26 +115,6 @@ export function tunnelFloorMaterial(baseHex: string): MeshStandardNodeMaterial {
   });
 }
 
-export type CellJointRole = "edge" | "corner";
-
-/** Soil-colored material for adjacency-only bridges between occupied cells.
- * Roles use distinct cached instances because the instanced grid keys each
- * geometry bucket by material identity. */
-export function cellJointMaterial(
-  baseHex: string,
-  role: CellJointRole,
-): MeshStandardNodeMaterial {
-  return cached(`joint:${role}:${baseHex}`, () => {
-    const material = new MeshStandardNodeMaterial();
-    material.flatShading = true;
-    material.metalness = 0;
-    material.envMapIntensity = 0.25;
-    material.colorNode = jitteredColor(baseHex);
-    material.roughness = 0.95;
-    return material;
-  });
-}
-
 /** Soil: warm grain, pebbly speckle, matte. */
 export function dirtBlockMaterial(
   baseHex: string,

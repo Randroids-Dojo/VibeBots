@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.232-bunker-balance";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.233-cell-connectors-removed";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.233",
+      date: "2026-07-13",
+      title: "The bars are gone",
+      intro: "Rocks and blocks stand on their own again.",
+      changes: [
+        {
+          build,
+          text: "Every soil-colored bridge and corner patch between occupied mine cells has been removed. Boulders, rocks, dirt, metal, caches, and ore now show only their own authored geometry.",
+        },
+        {
+          build,
+          text: "The cave backing now owns the negative space between shapes at every zoom. An exact Pixel test checks adjacent boulders, dirt, and rock, and fails if connector geometry returns.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.232",
       date: "2026-07-13",

@@ -72,8 +72,7 @@ function applyResponse(
   set: (state: Partial<BunkerStoreState>) => void,
   body: BunkerRouteResponse,
 ) {
-  if (body.reward) enqueueStampAlertsFromResponse(body.reward);
-  if (body.newStamps) enqueueStampAlertsFromResponse(body);
+  enqueueStampAlertsFromResponse(body);
   set({
     status: "ready",
     bunker: body.bunker,

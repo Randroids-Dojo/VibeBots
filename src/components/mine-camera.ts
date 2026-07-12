@@ -51,6 +51,19 @@ export function mineLampDistanceForRadius(radius: number): number {
 }
 
 /**
+ * Keep the lantern footprint stable on screen while zooming out. The zoom cap
+ * is already gated by the lantern upgrade, so this projection correction lets
+ * each unlocked zoom step reveal useful ground instead of mostly adding fog.
+ * Zooming in never reduces the upgrade's world-space visibility.
+ */
+export function mineProjectedVisibilityRadius(
+  radius: number,
+  zoom: number,
+): number {
+  return Math.max(0, radius) * Math.max(1, zoom);
+}
+
+/**
  * Fog-of-war opacity for a cell `beyondLight` rows past the lantern reach
  * (F-055, F-065). The circular lit area holds full brightness; cells past
  * it fade to the dark cap. This used to only render at the zoom-out cap,

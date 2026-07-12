@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-11-0.1.216-smooth-first-descent";
+export const RELEASE_NOTICE_ID = "2026-07-11-0.1.217-pixel-visibility";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.217",
+      date: "2026-07-11",
+      title: "Clear ground at every zoom",
+      intro: "Pixel-density cracks are filled, and zooming out stays useful.",
+      changes: [
+        {
+          build,
+          text: "The Pixel rendering path exposed real black channels and corner wedges between rounded cells, especially at maximum zoom. Occupied cells now receive a shared soil-colored joint behind their authored body, and the artificial black bevel multiplier is gone, so the mine keeps natural depth without exposing the cave backing.",
+        },
+        {
+          build,
+          text: "Zooming out no longer turns daylight atmosphere into a cyan screen wash or shrinks the useful Lantern area. Atmosphere distance and the Lantern projection now scale with each camera step, while surface daylight and underground visibility keep their separate rules.",
+        },
+        {
+          build,
+          text: "The regression now runs at the measured Pixel profile: 448x923, DPR 2.25, touch, low-tier WebGL2, and all three zoom levels. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.216",
       date: "2026-07-11",

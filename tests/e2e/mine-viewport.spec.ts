@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { imageRegionMaxRgb } from "./support/image-pixels";
+import { imageRegionRgbStats } from "./support/image-pixels";
 import {
   APP_VERSION_PATTERN,
   awaitMineSceneReady,
@@ -27,40 +27,6 @@ test.describe("phone viewport", () => {
     viewport: { width: 390, height: 760 },
     hasTouch: true,
     isMobile: true,
-  });
-
-  test("daylight leaves the narrow solid-cell seams dark", async ({ page }) => {
-    test.setTimeout(120_000);
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.addInitScript(() => {
-      (
-        window as typeof window & { __vibebotsTimeOfDayHour?: number }
-      ).__vibebotsTimeOfDayHour = 13;
-    });
-    await routeStarterMineWorld(page, 7313, (mine) => {
-      for (let row = 1; row <= 4; row++) {
-        for (let col = START_COL - 3; col <= START_COL + 3; col++) {
-          setCell(mine, col, row, { kind: "dirt" });
-        }
-      }
-    });
-    await page.goto("/mine");
-    await dismissReleaseNotes(page);
-    const canvas = page.locator("canvas");
-    await awaitMineSceneReady(page);
-    await expect(canvas).toHaveAttribute("data-surface-phase", "day");
-
-    const daylight = await canvas.screenshot();
-    // The center-right block boundary is a true geometry gap. Before the
-    // backing opted out of scene fog, this narrow crop reached RGB 130 from
-    // the cyan daylight fog even though the backing material itself was black.
-    const seamMax = await imageRegionMaxRgb(page, daylight, {
-      left: 0.593,
-      right: 0.597,
-      top: 0.57,
-      bottom: 0.64,
-    });
-    expect(seamMax).toBeLessThan(16);
   });
 
   test("touch drag moves the miner and page pinch stays locked", async ({
@@ -654,7 +620,7 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
   await expect(zoomOut).toBeDisabled();
   await expect(canvas).toHaveAttribute("data-cam-zoom", "1.32");
   await expect(canvas).toHaveAttribute("data-lit-below", "3");
-  await expect(canvas).toHaveAttribute("data-render-below", "5");
+  await expect(canvas).toHaveAttribute("data-render-below", "8");
   await expect(canvas).toHaveAttribute("data-lamp-distance", "9.00");
   const minDarkness = Number(
     await canvas.getAttribute("data-darkness-opacity-min"),
@@ -664,8 +630,8 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
   );
   expect(minDarkness).toBeGreaterThan(0);
   expect(maxDarkness).toBeGreaterThan(minDarkness);
-  expect(maxDarkness).toBeLessThanOrEqual(0.57);
-  expect(maxDarkness).toBeGreaterThanOrEqual(0.5);
+  expect(maxDarkness).toBeLessThanOrEqual(0.88);
+  expect(maxDarkness).toBeGreaterThanOrEqual(0.8);
   await expect(zoomControls).toHaveAttribute("data-camera-zoom-max", "1.32");
 
   await zoomIn.click();
@@ -675,4 +641,85 @@ test("mine HUD zoom buttons adjust the lantern-capped camera", async ({
       timeout: 5_000,
     })
     .toBeLessThan(1.32);
+});
+
+test.describe("Pixel density mine visibility", () => {
+  test.use({
+    viewport: { width: 448, height: 923 },
+    deviceScaleFactor: 2.25,
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("daylight keeps solid joints and useful visibility at every zoom", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(() => {
+      (
+        window as typeof window & { __vibebotsTimeOfDayHour?: number }
+      ).__vibebotsTimeOfDayHour = 13;
+      localStorage.setItem("vibebots-graphics-quality-v1", "low");
+      localStorage.removeItem("vibebots-mine-camera-zoom-v1");
+    });
+    await routeStarterMineWorld(page, 7313, (mine) => {
+      for (let row = 1; row <= 8; row++) {
+        for (let col = START_COL - 5; col <= START_COL + 5; col++) {
+          setCell(mine, col, row, { kind: "dirt" });
+        }
+      }
+    });
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    const canvas = page.locator("canvas");
+    await awaitMineSceneReady(page);
+    await expect(canvas).toHaveAttribute("data-surface-phase", "day");
+    await expect(canvas).toHaveAttribute("data-renderer", "webgl2-forced");
+    await expect
+      .poll(() =>
+        canvas.evaluate((element) => {
+          const mineCanvas = element as HTMLCanvasElement;
+          return [mineCanvas.width, mineCanvas.height];
+        }),
+      )
+      .toEqual([672, 1384]);
+
+    const zoomOut = page.getByRole("button", { name: "Zoom out" });
+    const zoomSamples: Array<{
+      zoom: number;
+      meanRed: number;
+      meanBlue: number;
+      nearBlackRatio: number;
+    }> = [];
+    for (let step = 0; step < 3; step += 1) {
+      await page.waitForTimeout(500);
+      const image = await canvas.screenshot();
+      const stats = await imageRegionRgbStats(page, image, {
+        left: 0.08,
+        right: 0.92,
+        top: 0.58,
+        bottom: 0.76,
+      });
+      const seamStats = await imageRegionRgbStats(page, image, {
+        left: 0.565,
+        right: 0.58,
+        top: 0.58,
+        bottom: 0.76,
+      });
+      zoomSamples.push({
+        zoom: Number(await canvas.getAttribute("data-cam-zoom")),
+        ...stats,
+      });
+      expect(stats.meanRed).toBeGreaterThan(stats.meanBlue + 12);
+      expect(stats.nearBlackRatio).toBeLessThan(0.12);
+      expect(seamStats.nearBlackRatio).toBeLessThan(0.05);
+      if (step < 2) await zoomOut.click();
+    }
+
+    expect(zoomSamples.map(({ zoom }) => zoom)).toEqual([1, 1.16, 1.32]);
+    await expect(zoomOut).toBeDisabled();
+    expect(zoomSamples[2].meanRed - zoomSamples[2].meanBlue).toBeGreaterThan(
+      18,
+    );
+  });
 });

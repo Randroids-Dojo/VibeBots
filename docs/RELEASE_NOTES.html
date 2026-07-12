@@ -13,6 +13,30 @@
 
 <main id="entries">
 
+  <article data-version="0.1.217" data-date="2026-07-11">
+    <h2>0.1.217</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.217</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Pixel-density cracks are filled, and zooming out stays useful.</dd>
+      <dt>Cell joints</dt><dd>Every occupied underground cell now receives a shared soil-colored joint behind its rounded body. The joint closes real geometry channels and corner wedges without flattening the authored silhouette, while naturally lit bevels replace the artificial black edge multiplier.</dd>
+      <dt>Zoom visibility</dt><dd>Surface atmosphere distance and the Lantern projection scale with camera zoom. Maximum zoom no longer floods the underground view with cyan daylight fog or shrinks the useful clear area, while daylight above ground and Lantern visibility below ground remain separate.</dd>
+      <dt>Pixel proof</dt><dd>The browser regression now matches the measured phone path at 448x923, DPR 2.25, touch, low-tier WebGL2, and all three zoom levels. Disabling the joint makes 36.1 percent of the target seam near-black; disabling zoom-scaled atmosphere recreates the cyan wash and fails the underground color contract.</dd>
+      <dt>Performance</dt><dd>The joint rides the existing pooled instanced grid with one shared geometry and cached biome materials. The corrected maximum-zoom Pixel capture stays below the 110-call surface budget.</dd>
+    </dl>
+  </article>
+
+  <article data-version="0.1.216" data-date="2026-07-11">
+    <h2>0.1.216</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.216</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Reaching fresh depths no longer freezes the frame.</dd>
+      <dt>Background compile</dt><dd>New instanced block batches compile against the live scene while parked on a pending render layer, then appear when ready instead of stalling first descent. Grown buckets keep their old mesh visible until the replacement is live.</dd>
+      <dt>Regression proof</dt><dd>The shader-churn first-crossing budget tightened from 30 programs to 3. The integrated 0.1.217 production build measures 2 first-crossing programs and 0 on re-crossing.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.215" data-date="2026-07-11">
     <h2>0.1.215</h2>
     <dl>

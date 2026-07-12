@@ -103,3 +103,12 @@ export function instancedBlockDraw(cell: MineCell): boolean {
       return false;
   }
 }
+
+/** Occupied cells receive a square soil joint behind their rounded body so
+ * adjacent solids never reveal the camera backing. A seeped gas pocket is
+ * intentionally open haze and remains unfilled. */
+export function solidCellJointDraw(cell: MineCell): boolean {
+  if (cell.kind === "empty") return false;
+  if (cell.kind === "gas" && cell.gasSeeped) return false;
+  return true;
+}

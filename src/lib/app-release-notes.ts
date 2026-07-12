@@ -19,6 +19,9 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
           text: "Mastercrafted: save a design fielding a part merged to Lv 3. Existing saved designs count, so master builders unlock it on their next visit.",
         },
         { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
+    {
       version: "0.1.224",
       date: "2026-07-12",
       title: "Ore bands fade out instead of cutting out",

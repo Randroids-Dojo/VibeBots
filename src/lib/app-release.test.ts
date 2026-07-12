@@ -38,6 +38,9 @@ describe("app release notes", () => {
       "Chassis Tour: fight an official match with every core chassis (Cube, Wedge, and Tower). Your past matches already count: every verified fight recorded which core you fielded, so this one backfills.",
       "Mastercrafted: save a design fielding a part merged to Lv 3. Existing saved designs count, so master builders unlock it on their next visit.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
   it("keeps the archived ore-band-floor note complete", () => {
     const release = getAppRelease();
     const oreNote = release.notes.find((note) => note.version === "0.1.224");

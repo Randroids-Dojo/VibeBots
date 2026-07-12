@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Performance Baselines</title>
+</head>
+<body>
+
+<header>
+  <h1>Performance Baselines (F-054 / F-071)</h1>
+  <p>Real-device measurements from production telemetry, per surface and device class. Append new dated baseline articles; never edit old ones. Read this before visual or motion work in the mine.</p>
+</header>
+
+<main id="baselines">
+
+  <article data-baseline="phone-mine" data-date="2026-07-12">
+    <h2>Phone / mine: builds 275349-276751 (0.1.209-0.1.218)</h2>
+    <p><strong>Source.</strong> <code>GET /api/performance/insights?device=real</code>, 24h window ending 2026-07-12T04:54Z: 14 sessions, 853 snapshots, all <code>mine/webgl2-forced/low</code> on one Pixel-class device (<code>arm valhall</code>, 448x923 CSS viewport, device pixel ratio 2.25, low tier's canvas DPR cap applied). All builds post-date the draw-call probe fix, so rows are credible per-frame numbers (the F-071 taint exclusion).</p>
+    <h3>Steady state</h3>
+    <ul>
+      <li>Average frame 17.3 ms; average p95 20.7 ms. The best build (276690, the first-descent background-compile fix) ran 17.9 ms avg p95 with a worst p95 of 100 ms over three sessions: the smoothest profile recorded on this device.</li>
+      <li>Heap: average 23.3 MB, pinned flat at 9.5 MB for most sessions (no GC sawtooth; the F-074 class stays dead). One session peaked 132.6 MB without frame-time correlation.</li>
+      <li>Draw calls average 164.8; triangles average 112.8k.</li>
+    </ul>
+    <h3>What correlates with frame cost (factor buckets, 853 snapshots)</h3>
+    <ul>
+      <li><strong>Light count is the dominant controllable factor.</strong> 3-4 lights: 20.0 ms p95. 5-8 lights (the F-077 accent pool build): 25.0 ms. This drove the tier gate in PR #138; the low tier returned to 4 lights.</li>
+      <li>Draw calls and triangles barely move p95 across their buckets (18.8-21.7 ms from 51 to 250+ calls; 20.3 vs 21.2 ms below/above 100k triangles): the device is fill-rate and main-thread bound, not submission bound, consistent with the DPR-cap findings.</li>
+      <li>Instance count: the 1001-4000 bucket reads 25.5 ms p95 vs 20.8 for 201-1000. Watch item: max-zoom window sizes push the instanced grid toward this bucket.</li>
+    </ul>
+    <h3>Remaining stall classes</h3>
+    <ul>
+      <li><strong>Load-time compile.</strong> The largest long-animation frames sit at session start (LoAF max 12.3 s cache-cold on 276751; 6.5 s on 276723; attributed to the main chunk via <code>FrameRequestCallback</code>). Mid-play is clean. The holodeck's frames-behind-compile gate (F-072, <code>compile-gate.tsx</code>) is the proven mechanism to move this off the frame path; applying it to the mine canvas is F-081.</li>
+      <li><strong>Network outliers</strong> do not block frames (13.9 s and 200 s <code>netMaxMs</code> rows coincide with hidden/backgrounded periods) but keep them out of frame-pacing reads.</li>
+    </ul>
+    <h3>Not yet baselined (blocks full F-071/F-054 closure)</h3>
+    <ul>
+      <li>Desktop WebGPU: <code>gpuFrameMs</code> is null in every row (WebGPU timestamp queries need a real desktop session with the analyzer toggle on).</li>
+      <li>Workshop, arena, and holodeck: no real-device sessions in the window on any surface but the mine.</li>
+      <li>Sim cost, input latency, and render cost separation need a profiled run, not passive telemetry.</li>
+    </ul>
+  </article>
+
+</main>
+
+</body>
+</html>

@@ -64,3 +64,42 @@ export async function imagePixelDifferenceRatio(
     [before.toString("base64"), after.toString("base64")],
   );
 }
+
+export async function imageRegionMaxRgb(
+  page: Page,
+  image: Buffer,
+  bounds: { left: number; top: number; right: number; bottom: number },
+): Promise<number> {
+  return page.evaluate(
+    async ({ encoded, bounds }) => {
+      const response = await fetch(`data:image/png;base64,${encoded}`);
+      const bitmap = await createImageBitmap(await response.blob());
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) {
+        bitmap.close();
+        return 255;
+      }
+      context.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const left = Math.floor(canvas.width * bounds.left);
+      const top = Math.floor(canvas.height * bounds.top);
+      const right = Math.ceil(canvas.width * bounds.right);
+      const bottom = Math.ceil(canvas.height * bounds.bottom);
+      const pixels = context.getImageData(
+        left,
+        top,
+        right - left,
+        bottom - top,
+      ).data;
+      let max = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        max = Math.max(max, pixels[i], pixels[i + 1], pixels[i + 2]);
+      }
+      return max;
+    },
+    { encoded: image.toString("base64"), bounds },
+  );
+}

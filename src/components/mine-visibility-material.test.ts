@@ -21,8 +21,9 @@ describe("mine visibility veil", () => {
 
   it("keeps the underground backing unlit and transparent above ground", () => {
     expect(MINE_CAVE_BACKDROP.isMeshBasicNodeMaterial).toBe(true);
-    expect(MINE_CAVE_BACKDROP.transparent).toBe(true);
-    expect(MINE_CAVE_BACKDROP.depthWrite).toBe(false);
-    expect(MINE_CAVE_BACKDROP.opacityNode).toBeTruthy();
+    expect(MINE_CAVE_BACKDROP.transparent).toBe(false);
+    expect(MINE_CAVE_BACKDROP.depthWrite).toBe(true);
+    expect(MINE_CAVE_BACKDROP.fog).toBe(false);
+    expect(MINE_CAVE_BACKDROP.opacityNode).toBeNull();
   });
 });

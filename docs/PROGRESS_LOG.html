@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="opaque-daylight-cell-seams" data-date="2026-07-11">
+    <h3>Prove and remove the cyan daylight between mine cells</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/opaque-mine-cell-seams</code>.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/122">#122</a>.</dd>
+      <dt>Changed</dt><dd>User production screenshot correction to package 0.1.213. The prior fix correctly removed headlamp response from the camera-following cave backing, but its claim that the gaps were dark was false at full daylight. Exact 390x760 WebGL2 reproduction found the true cause: the shared scene fog recolored the unlit black plane to the cyan daylight stratum color, and the backing's world-height transparency did not preserve the sky consistently on the phone fallback. Package 0.1.215 makes <code>MINE_CAVE_BACKDROP</code> opaque and explicitly fog-free. Its plane is no longer parented directly to the moving camera rig: geometry ends at world y -0.5 on the surface, then its center follows the rig only after the player descends beyond the fixed 44-unit coverage span. This preserves the surface sky and keeps every exposed underground gap black without another draw.</dd>
+      <dt>Verification</dt><dd>New pixel-level browser contract fixes the hole in the previous broad day/night test. At deterministic depth 0, hour 13, and 390x760, <code>imageRegionMaxRgb</code> samples the true center-right geometry gap. Mutation proof is explicit: restoring fog on the backing makes the test fail at RGB 130; the final fog-free render passes below RGB 16. Clean-server phone captures at depth 0 and depth 2 show the blue sky intact and black block seams at 80 and 102 draw calls. After rebasing onto the Buttoned Up stamp release: dash, diff, purity, Biome, typecheck, all 1,064 unit tests, production build, the day/night pixel test, release-note test, seam test, and five critical browser smokes pass. A 20-second allocation profile sampled 3.0 MB for the feature versus 3.3 MB on main with no new feature call site. The short heap probes shared four GC drops; feature peak was lower at 72.0 versus 74.3 MB, while allocation-rate variance was 4.51 versus 3.82 MB/s. Dependency gate remains exact at VibeKit v0.3.0, Rapier 0.19.3, Next 16.2.10, three 0.185.1, and R3F 9.6.1.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the cave backing begins at the top edge of underground row 1, world y -0.5. At depths shallower than half its height it remains surface-anchored; deeper than that it follows the camera to retain full coverage. Rule 13: mine tips reviewed with no copy change because no player rule changed. Rule 14: stamp review completed with none added because this is a rendering correction.</dd>
+      <dt>GDD coverage</dt><dd>The mining presentation requirement remains done. <code>docs/gdd/06-mining.html</code> gained a corrective build-log entry; no coverage status changed.</dd>
+      <dt>Followups</dt><dd>Completes <code>VibeBots-eliminate-daylight-mine-14c2a2b0</code>. No new followup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="buttoned-up-stamp" data-date="2026-07-11">
     <h3>Award a stamp when the bunker seal holds (F-079)</h3>
     <dl>
@@ -41,6 +54,9 @@
       <dt>Assumptions</dt><dd>Sealed is a sim-derived snapshot field rather than a server-side recomputation, so the deterministic resolver stays the single source of truth. No SIM_VERSION bump: the raid resolver is server-authoritative and not part of the client/server replay-hash contract.</dd>
       <dt>GDD coverage</dt><dd>Build log entry in <code>docs/gdd/06-mining.html</code>; REQ-032 row already carries the achievements implementation and test refs.</dd>
       <dt>Followups</dt><dd>F-079 closed with a Resolved entry.</dd>
+    </dl>
+  </article>
+
   <article data-slice="followup-ledger-hygiene" data-date="2026-07-11">
     <h3>Audit the followup ledger so priority order tells the truth</h3>
     <dl>

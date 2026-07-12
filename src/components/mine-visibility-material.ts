@@ -38,18 +38,16 @@ export const MINE_VISIBILITY_VEIL = (() => {
   return material;
 })();
 
-/**
- * Unlit backing for the underground half of the camera. The old standard
- * material caught the miner lamp through every 0.06-cell block gap, turning
- * the grid into glowing lines. World height keeps the authored sky visible
- * above the surface while every exposed underground crack stays near-black.
- */
+/** Unlit, fog-free backing for the underground half of the camera. Geometry
+ * constrains this opaque material below the surface, so WebGL2 never has to
+ * preserve the sky through per-fragment transparency. */
 export const MINE_CAVE_BACKDROP = (() => {
   const material = new MeshBasicNodeMaterial();
   material.colorNode = color("#010207");
-  material.opacityNode = oneMinus(smoothstep(0.42, 0.58, positionWorld.y));
-  material.transparent = true;
-  material.depthWrite = false;
+  // Scene fog uses the daylight stratum color. Letting it touch this plane
+  // turns the tiny spaces between beveled blocks cyan even though the plane
+  // itself is unlit and nearly black.
+  material.fog = false;
   material.toneMapped = false;
   return material;
 })();

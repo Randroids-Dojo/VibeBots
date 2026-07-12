@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-11-0.1.214-buttoned-up-stamp";
+export const RELEASE_NOTICE_ID = "2026-07-11-0.1.215-opaque-cell-seams";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.215",
+      date: "2026-07-11",
+      title: "The cracks finally stay dark",
+      intro: "Daylight no longer colors the spaces between mine blocks.",
+      changes: [
+        {
+          build,
+          text: "The previous correction stopped the headlamp from lighting the cave backing, but daylight fog still recolored that black plane cyan through real geometry gaps. The backing is now explicitly fog-free, opaque, and physically constrained below the surface instead of relying on shader transparency, so the authored sky stays visible while every underground gap stays black on the phone WebGL2 path.",
+        },
+        {
+          build,
+          text: "A new 390x760 daylight pixel regression samples the true center-right cell gap. It fails against the faulty render at RGB 130 and passes below RGB 16 with the fix, while the existing day/night, depth, visibility, and draw-budget contracts remain unchanged.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.214",
       date: "2026-07-11",

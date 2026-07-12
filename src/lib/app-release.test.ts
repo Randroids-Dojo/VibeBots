@@ -24,18 +24,36 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest accent-tier-gate note complete", () => {
+  it("keeps the latest mine-load-gate note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-12-0.1.226-accent-tier-gate");
+    expect(release.noticeId).toBe("2026-07-12-0.1.227-mine-load-gate");
     expect(latestNote).toMatchObject({
+      version: "0.1.227",
+      title: "The mine loads without locking your phone",
+      intro: "The session-start freeze becomes a brief backdrop beat.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Opening the mine used to freeze the page while every material compiled on the first frame, up to twelve seconds cache-cold on phones. The mine now holds its first frame until that compile finishes in the background, with a four second safety valve, the same cure the Holodeck entry got.",
+      "The change is render-timing only: saves, moves, and world rules are untouched.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived accent-tier-gate note complete", () => {
+    const release = getAppRelease();
+    const accentGateNote = release.notes.find(
+      (note) => note.version === "0.1.226",
+    );
+
+    expect(accentGateNote).toMatchObject({
       version: "0.1.226",
       title: "Smoother frames on phones, glow where it fits",
       intro:
         "The emitter glow now steps aside on devices that cannot afford it.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(accentGateNote?.changes.map((change) => change.text)).toEqual([
       "Real-device telemetry showed the new accent lights costing about five milliseconds per frame on low-tier phones, so the glow pool now runs only on the higher graphics tiers. Phones keep their full frame budget; the light count still never changes mid-session on any device.",
       "The same telemetry confirmed the first-descent fix: phone sessions on that build show the smoothest profile recorded, with no descent freezes.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

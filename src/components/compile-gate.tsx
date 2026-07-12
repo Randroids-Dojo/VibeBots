@@ -27,23 +27,39 @@ export function startFramesAfterCompile(
   onCompiled: () => void,
   deadlineMs: number = COMPILE_GATE_DEADLINE_MS,
 ): () => void {
+  let compiled: Promise<unknown> | undefined;
+  try {
+    compiled = gl.compileAsync?.(scene, camera);
+  } catch {
+    compiled = undefined;
+  }
+  return startFramesWhenSettled(compiled, onCompiled, deadlineMs);
+}
+
+/**
+ * The settle-or-deadline race behind the gate, for callers that already
+ * hold a compile promise (the mine's warm pass runs its own compileAsync
+ * over the warm group, F-081). onStart fires exactly once when the
+ * promise settles either way, or at the deadline, or immediately when
+ * there is no promise; after cancel it never fires.
+ */
+export function startFramesWhenSettled(
+  compiled: Promise<unknown> | null | undefined,
+  onStart: () => void,
+  deadlineMs: number = COMPILE_GATE_DEADLINE_MS,
+): () => void {
   let settled = false;
   let deadline: ReturnType<typeof setTimeout> | undefined;
   const finish = () => {
     if (settled) return;
     settled = true;
     if (deadline !== undefined) clearTimeout(deadline);
-    onCompiled();
+    onStart();
   };
-  try {
-    const compiled = gl.compileAsync?.(scene, camera);
-    if (compiled) {
-      deadline = setTimeout(finish, deadlineMs);
-      compiled.then(finish, finish);
-    } else {
-      finish();
-    }
-  } catch {
+  if (compiled) {
+    deadline = setTimeout(finish, deadlineMs);
+    compiled.then(finish, finish);
+  } else {
     finish();
   }
   return () => {

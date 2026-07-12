@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-load-compile-gate" data-date="2026-07-12">
+    <h3>Gate mine frames behind the load-time compile (F-081)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>perf/mine-load-compile-gate</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.227. Closes F-081 (raised hours earlier by the phone baseline, which isolated the mine's one remaining stall class to session start). <code>warmMineMaterials</code> returns its compile promise beside the disposer; the mine Canvas mounts at <code>frameloop="never"</code> and a new <code>onWarmed</code> prop flips it through React state when the compile settles, using <code>startFramesWhenSettled</code> extracted from the holodeck gate (shared 4s force-start deadline, same reconciliation and clock traps, which stay documented in <code>compile-gate.tsx</code>). A detail-tier flip re-warms without re-gating. Render-timing only. Mine tips reviewed, no copy change; stamp review: none.</dd>
+      <dt>Verification</dt><dd>Gate unit tests (5) cover the extracted race incl. never-settle and cancel; full unit suite; production build. Mine e2e surface: core (21 passed), bunker (6), viewport and warp/elevator (20), shader-churn, release-notifications all green against the gated start. One core failure ("scrap mode closes bunker claim overlays") reproduces on unmodified main: the pre-hammer test left stale by PR #132's UI rewrite, raised as F-082 per the F-047 triage contract rather than patched blind inside this slice. Real-device acceptance (session-start loafMaxMs collapse) reads from the next insights window.</dd>
+      <dt>Assumptions</dt><dd>A backdrop-only beat at mine load reads better than a frozen page of the same length (the holodeck shipped the same trade); the 4s valve keeps a stalled driver from ever holding the canvas black.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/06-mining.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-081 resolved; F-082 raised (stale bunker-claim test from PR #132, found by the F-047 slice-start triage); F-083 raised (the installed-app viewport realign test fails deterministically on this Mac against unmodified main while CI stays green, an F-048-class local-environment divergence in the visualViewport simulation).</dd>
+    </dl>
+  </article>
+
   <article data-slice="perf-baselines-phone-mine" data-date="2026-07-12">
     <h3>First real-device performance baseline report (F-054/F-071 progress)</h3>
     <dl>

@@ -21,15 +21,13 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The emitter glow now steps aside on devices that cannot afford it.",
+    "The session-start freeze becomes a brief backdrop beat.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "glow pool now runs only on the higher graphics tiers",
+    "holds its first frame until that compile finishes",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "confirmed the first-descent fix",
-  );
+  await expect(dialog.locator("li").nth(1)).toContainText("render-timing only");
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
@@ -51,6 +49,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.227", "The mine loads without locking your phone"],
     ["0.1.226", "Smoother frames on phones, glow where it fits"],
     ["0.1.225", "Stamps for chassis mastery and maxed parts"],
     ["0.1.224", "Ore bands fade out instead of cutting out"],

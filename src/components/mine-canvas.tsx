@@ -8,6 +8,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import type {
   AmbientLight,
@@ -31,6 +32,7 @@ import {
   PlaneGeometry,
 } from "three/webgpu";
 import { CanvasDrawCallProbe } from "@/components/canvas-draw-call-probe";
+import { startFramesWhenSettled } from "@/components/compile-gate";
 import {
   clampMineCameraZoom,
   mineCameraDistance,
@@ -392,13 +394,15 @@ BUCKET_PRECOMPILE_CAMERA.layers.enableAll();
 /** Build one offscreen warm mesh per material and compile them all in one
  * pass, so first-use shader compilation is paid at load, not per action.
  * Instanced-body materials warm on an InstancedMesh (a distinct program);
- * everything else on a plain mesh. Returns a disposer for the temp group. */
+ * everything else on a plain mesh. Returns the temp group's disposer plus
+ * the compile promise, so the canvas can hold frames until it settles
+ * (F-081). */
 function warmMineMaterials(
   gl: { compileAsync?: (scene: Object3D, camera: Camera) => Promise<unknown> },
   scene: Object3D,
   camera: Camera,
   detail: boolean,
-): () => void {
+): { dispose: () => void; compiled: Promise<unknown> | null } {
   const group = new Group();
   group.position.set(0, 0, -500);
   const addWarm = (material: Material) => {
@@ -435,14 +439,15 @@ function warmMineMaterials(
     }
     group.clear();
   };
+  let compiled: Promise<unknown> | null = null;
   try {
-    const compiled = gl.compileAsync?.(scene, camera);
+    compiled = gl.compileAsync?.(scene, camera) ?? null;
     if (compiled) compiled.then(dispose, dispose);
     else dispose();
   } catch {
     dispose();
   }
-  return dispose;
+  return { dispose, compiled };
 }
 
 /**
@@ -970,7 +975,13 @@ function MineScene({
   onBunkerCellHover,
   onBunkerCellTap,
   graphicsFeatures,
-}: MineCanvasProps & { graphicsFeatures: GraphicsFeatures }) {
+  onWarmed,
+}: MineCanvasProps & {
+  graphicsFeatures: GraphicsFeatures;
+  /** Fires once the warm compile settles (or the gate deadline passes);
+   * the canvas owner flips frameloop to "always" on it (F-081). */
+  onWarmed: () => void;
+}) {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const lastResult = useMineStore((s) => s.lastResult);
@@ -1956,9 +1967,20 @@ function MineScene({
   // present on desktop too, i.e. compilation, not GC). Best-effort: if the
   // renderer lacks compileAsync or it throws, materials just compile lazily
   // as before. Re-runs only if the detail tier flips (a quality change).
+  // The canvas mounts at frameloop="never" and onWarmed flips it through
+  // React state once this compile settles (or at the gate deadline), so
+  // the phone's 3-12s session-start freeze becomes a backdrop beat with a
+  // responsive page (F-081; the frameloop/clock traps live in
+  // compile-gate.tsx). onWarmed is idempotent, so a detail flip re-warms
+  // without re-gating.
   useEffect(() => {
-    return warmMineMaterials(gl, scene, camera, detail);
-  }, [gl, scene, camera, detail]);
+    const warm = warmMineMaterials(gl, scene, camera, detail);
+    const cancel = startFramesWhenSettled(warm.compiled, onWarmed);
+    return () => {
+      cancel();
+      warm.dispose();
+    };
+  }, [gl, scene, camera, detail, onWarmed]);
 
   const stratumIndex = Math.min(
     STRATA.indexOf(stratumAt(minerRow)),
@@ -2508,14 +2530,25 @@ export default function MineCanvas(props: MineCanvasProps) {
   const features = graphicsFeaturesFor(
     resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
   );
+  // Frames start once the material warm pass has compiled (F-081): the
+  // first rendered frame otherwise compiles the whole warm set in one
+  // main-thread stall on phones. The prop must change through React
+  // state (see compile-gate.tsx for the reconciliation and clock traps).
+  const [frameloop, setFrameloop] = useState<"never" | "always">("never");
+  const startFrames = useCallback(() => setFrameloop("always"), []);
   return (
     <Canvas
       camera={{ position: [0, 1.5, 13], fov: 42 }}
       dpr={[1, features.maxDpr]}
+      frameloop={frameloop}
       gl={createWebGPU}
       shadows={features.shadows ? "soft" : false}
     >
-      <MineScene {...props} graphicsFeatures={features} />
+      <MineScene
+        {...props}
+        graphicsFeatures={features}
+        onWarmed={startFrames}
+      />
       <CanvasDrawCallProbe />
       <PerfProbeBridge source="mine" />
     </Canvas>

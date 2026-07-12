@@ -321,6 +321,9 @@ export function BunkerControlPanel({
                 {lastReward.newStamps.includes("survival-first-defense")
                   ? " First Defense stamp earned."
                   : ""}
+                {lastReward.newStamps.includes("survival-buttoned-up")
+                  ? " Buttoned Up stamp earned: the seal held."
+                  : ""}
               </span>
             ) : (
               <span>No defense XP gained. {BUNKER_MINER_DEATH_TIP}</span>

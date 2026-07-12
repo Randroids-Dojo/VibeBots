@@ -59,6 +59,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready: add a <code>raidsSurvivedSealed</code> counter to <code>AchievementStats</code>, set it in the bunker raid reward pass when the resolved raid had zero core-targeting clankers and survived, add the achievement (survival category), stamp art pictogram in <code>stamp-art.tsx</code> (uniqueness test covers it), and the alert fires through the existing <code>newStamps</code> plumbing. Start from new counters; old raids cannot prove enclosure safely.</dd>
       <dt>PR / Dot reference</dt><dd>(raised by the sealed-bunkers slice)</dd>
+          <dt>Resolved</dt><dd>2026-07-11 (buttoned-up-stamp slice, package 0.1.214). <code>resolveBunkerRaid</code> now computes and stores <code>sealed</code> on the raid snapshot (survived AND no clanker could target the player cell); the raid reward pass credits a new <code>raidsSurvivedSealed</code> counter (pre-0.1.214 snapshots normalize to unsealed, so old raids never credit it); the <code>survival-buttoned-up</code> achievement unlocks at 1 with its own sealed-room stamp art; the raid report calls out the held seal and the alert fires through <code>newStamps</code>. Tests: sim sealed/unsealed assertions, achievement unlock distinction from plain survivals, server credit passthrough, art uniqueness.</dd>
     </dl>
   </section>
 

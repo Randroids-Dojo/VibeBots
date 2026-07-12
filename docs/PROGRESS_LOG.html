@@ -31,6 +31,16 @@
 
 <main id="entries">
 
+  <article data-slice="buttoned-up-stamp" data-date="2026-07-11">
+    <h3>Award a stamp when the bunker seal holds (F-079)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/buttoned-up-stamp</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Second slice of the followup-completion goal. <code>resolveBunkerRaid</code> now computes and stores <code>sealed</code> on the raid snapshot: survived AND every clanker failed to even target the player cell, i.e. the enclosure the starter kit promises actually held. The server reward pass credits a new <code>raidsSurvivedSealed</code> achievement stat (snapshot normalization defaults legacy rows to unsealed, so only raids fought from 0.1.214 can prove a seal), and the new <code>survival-buttoned-up</code> achievement unlocks at 1 with its own sealed-room stamp art (room ring, corner rivets, core diamond, edge seal ticks). The alert arrives through the existing <code>newStamps</code> pipeline, and the bunker raid report adds a "Buttoned Up stamp earned: the seal held." callout beside the First Defense line.</dd>
+      <dt>Verification</dt><dd>Dash checks, <code>git diff --check</code>, Biome, <code>tsc --noEmit</code>, and 1063 unit tests green: sim asserts <code>sealed</code> true for the sealed starter room and false for the open-route raid; the achievements test distinguishes sealed survivals from plain ones; the server test pins the <code>raidsSurvivedSealed</code> credit; stamp-art uniqueness covers the new pictogram automatically; release-note tests updated for 0.1.214. Stamp pictogram reviewed by rendered screenshot.</dd>
+      <dt>Assumptions</dt><dd>Sealed is a sim-derived snapshot field rather than a server-side recomputation, so the deterministic resolver stays the single source of truth. No SIM_VERSION bump: the raid resolver is server-authoritative and not part of the client/server replay-hash contract.</dd>
+      <dt>GDD coverage</dt><dd>Build log entry in <code>docs/gdd/06-mining.html</code>; REQ-032 row already carries the achievements implementation and test refs.</dd>
+      <dt>Followups</dt><dd>F-079 closed with a Resolved entry.</dd>
   <article data-slice="followup-ledger-hygiene" data-date="2026-07-11">
     <h3>Audit the followup ledger so priority order tells the truth</h3>
     <dl>

@@ -379,6 +379,7 @@ describe("bunker server helpers", () => {
               breached: false,
               minerKilled: false,
               survived: true,
+              sealed: true,
               reward: { vibes: 30, defenseXp: 100 },
             },
           },
@@ -417,6 +418,7 @@ describe("bunker server helpers", () => {
     });
     expect(applyAchievementProgress).toHaveBeenCalledWith(sql, "player-1", {
       bunkerRaidsSurvived: 1,
+      raidsSurvivedSealed: 1,
     });
   });
 

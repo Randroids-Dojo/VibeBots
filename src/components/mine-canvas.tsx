@@ -27,6 +27,7 @@ import {
   Matrix4,
   Mesh,
   MeshStandardMaterial,
+  PerspectiveCamera,
 } from "three/webgpu";
 import { CanvasDrawCallProbe } from "@/components/canvas-draw-call-probe";
 import {
@@ -342,6 +343,14 @@ const TUNNEL_FLOOR_MATERIALS: Record<
 // the renderer compiles each material's program once at load, not on first
 // draw mid-play.
 const WARMUP_GEOMETRY = new BoxGeometry(0.001, 0.001, 0.001);
+
+// Camera for background-compiling new grid buckets (F-078). It enables
+// every layer so a bucket parked on the grid's pending layer is still
+// projected by compileAsync; the compiled program does not depend on the
+// camera, only on material, lights, and scene state, so the real camera
+// picks the program up when the bucket goes live on layer 0.
+const BUCKET_PRECOMPILE_CAMERA = new PerspectiveCamera();
+BUCKET_PRECOMPILE_CAMERA.layers.enableAll();
 
 /** Build one offscreen warm mesh per material and compile them all in one
  * pass, so first-use shader compilation is paid at load, not per action.
@@ -1852,7 +1861,12 @@ function MineScene({
     if (!group) return;
     let grid = instancedGridRef.current;
     if (!grid) {
-      grid = new InstancedBlockGrid(group);
+      // A new bucket's program compiles in the background against the live
+      // scene; warm lists cannot cover it because each InstancedMesh gets
+      // unique shader source (see PENDING_COMPILE_LAYER in the grid).
+      grid = new InstancedBlockGrid(group, (mesh) =>
+        gl.compileAsync?.(mesh, BUCKET_PRECOMPILE_CAMERA, scene),
+      );
       instancedGridRef.current = grid;
     }
     grid.apply(blockPlan.current);

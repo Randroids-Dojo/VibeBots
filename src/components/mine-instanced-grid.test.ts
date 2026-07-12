@@ -78,4 +78,71 @@ describe("InstancedBlockGrid", () => {
     expect(meshes[0].count).toBe(1);
     expect(meshes[1].count).toBe(0);
   });
+
+  it("parks a new bucket on the pending layer until its compile resolves", async () => {
+    const group = new Group();
+    let release = () => {};
+    const compiling = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const grid = new InstancedBlockGrid(group, () => compiling);
+    const plan = beginBlockPlan(createBlockInstancePlan());
+    pushBlockInstance(plan, BLOCK_GEOMETRY, BLOCK_MATERIAL, 3, -7, 0, 0, 0);
+    grid.apply(plan);
+
+    const mesh = group.children[0] as InstancedMesh;
+    // Pending: parked off the render camera's layer 0, matrices written.
+    expect(mesh.layers.test(new Group().layers)).toBe(false);
+    expect(mesh.count).toBe(1);
+
+    release();
+    await compiling;
+    expect(mesh.layers.test(new Group().layers)).toBe(true);
+  });
+
+  it("keeps the old bucket drawing through a grow until the replacement compiles", async () => {
+    const group = new Group();
+    let release = () => {};
+    const pending: Promise<void>[] = [];
+    const grid = new InstancedBlockGrid(group, () => {
+      const compiling = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      pending.push(compiling);
+      return compiling;
+    });
+    const plan = beginBlockPlan(createBlockInstancePlan());
+    pushBlockInstance(plan, BLOCK_GEOMETRY, BLOCK_MATERIAL, 0, 0, 0, 0, 0);
+    grid.apply(plan);
+    const original = group.children[0] as InstancedMesh;
+    release();
+    await pending[0];
+
+    // Demand past the initial capacity forces a larger replacement mesh.
+    beginBlockPlan(plan);
+    for (let i = 0; i < 513; i++) {
+      pushBlockInstance(plan, BLOCK_GEOMETRY, BLOCK_MATERIAL, i, 0, 0, 0, 0);
+    }
+    grid.apply(plan);
+
+    const replacement = group.children[1] as InstancedMesh;
+    expect(group.children).toContain(original);
+    expect(replacement.layers.test(new Group().layers)).toBe(false);
+    expect(replacement.count).toBe(513);
+
+    release();
+    await pending[1];
+    expect(group.children).not.toContain(original);
+    expect(replacement.layers.test(new Group().layers)).toBe(true);
+  });
+
+  it("renders a new bucket immediately without a precompiler", () => {
+    const group = new Group();
+    const grid = new InstancedBlockGrid(group);
+    const plan = beginBlockPlan(createBlockInstancePlan());
+    pushBlockInstance(plan, BLOCK_GEOMETRY, BLOCK_MATERIAL, 0, 0, 0, 0, 0);
+    grid.apply(plan);
+    const mesh = group.children[0] as InstancedMesh;
+    expect(mesh.layers.test(new Group().layers)).toBe(true);
+  });
 });

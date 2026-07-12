@@ -57,6 +57,29 @@ interface BlockPool {
 
 const INITIAL_POOL_CAPACITY = 512;
 
+/**
+ * Layer a new bucket parks on while its shader program compiles in the
+ * background. Render cameras see layer 0 only, so a pending bucket is
+ * projected by the precompile pass (whose camera enables every layer)
+ * but never drawn, and the frame loop never pays a synchronous compile.
+ *
+ * Why per bucket and not a load-time warm list: three's node renderer
+ * routes small instance-matrix buffers through a uniform block whose
+ * generated name embeds the node id (NodeBuffer_<id>), so every
+ * InstancedMesh gets unique shader source and its own program. A warm
+ * mesh sharing the material compiles a program the real bucket can
+ * never reuse; the only compile that counts is the real mesh's own.
+ */
+const PENDING_COMPILE_LAYER = 31;
+
+/** Kicks a background compile of one bucket mesh (renderer.compileAsync
+ * against the live scene with an every-layer camera); undefined when the
+ * renderer cannot compile asynchronously, in which case buckets stay on
+ * layer 0 and compile synchronously on first draw as before. */
+export type BucketPrecompile = (
+  mesh: InstancedMesh,
+) => Promise<unknown> | undefined;
+
 // Module scratch: apply() runs at input cadence and reuses these across
 // every instance and every tick, so writing matrices allocates nothing.
 const SCRATCH_MATRIX = new Matrix4();
@@ -73,9 +96,11 @@ const SCRATCH_SCALE = new Vector3(1, 1, 1);
 export class InstancedBlockGrid {
   private readonly group: Group;
   private readonly pools = new Map<Material, BlockPool>();
+  private readonly precompile: BucketPrecompile | undefined;
 
-  constructor(group: Group) {
+  constructor(group: Group, precompile?: BucketPrecompile) {
     this.group = group;
+    this.precompile = precompile;
   }
 
   /** The bucket for a (geometry, material) pair, created on first use.
@@ -95,11 +120,16 @@ export class InstancedBlockGrid {
   }
 
   /** Build one bucket InstancedMesh, parented to the grid group and sized
-   * to `capacity`, with dynamic instance-matrix usage and no frustum cull. */
+   * to `capacity`, with dynamic instance-matrix usage and no frustum cull.
+   * With a precompiler the mesh parks on the pending layer until its
+   * program is ready (blocks of a brand-new bucket appear a frame or two
+   * late instead of freezing the frame on a driver compile); `onLive`
+   * fires once it renders. */
   private buildMesh(
     geometry: BufferGeometry,
     material: Material,
     capacity: number,
+    onLive?: () => void,
   ): InstancedMesh {
     const mesh = new InstancedMesh(geometry, material, capacity);
     // Instances span the whole window, so a per-mesh bounding sphere would
@@ -113,18 +143,34 @@ export class InstancedBlockGrid {
     // cell's contents, so draw it after the default transparent pass.
     if (material.transparent) mesh.renderOrder = 1;
     this.group.add(mesh);
+    const compiled = this.precompile?.(mesh);
+    if (compiled) {
+      mesh.layers.set(PENDING_COMPILE_LAYER);
+      const live = () => {
+        mesh.layers.set(0);
+        onLive?.();
+      };
+      compiled.then(live, live);
+    } else {
+      onLive?.();
+    }
     return mesh;
   }
 
   /** Replace a bucket's mesh with a larger one. Only called in the sizing
    * pass, before any matrix is written this apply(), so there is nothing to
-   * copy across. The old buffer is disposed; geometry/material are shared. */
+   * copy across. The larger buffer means new shader source (the instance
+   * block's size is in the code), so the replacement precompiles like any
+   * new bucket; the old mesh keeps drawing its last-written instances until
+   * the replacement goes live, then retires. Geometry/material are shared. */
   private grow(pool: BlockPool, needed: number): void {
     let capacity = pool.capacity;
     while (capacity < needed) capacity *= 2;
-    this.group.remove(pool.mesh);
-    pool.mesh.dispose();
-    pool.mesh = this.buildMesh(pool.geometry, pool.material, capacity);
+    const retired = pool.mesh;
+    pool.mesh = this.buildMesh(pool.geometry, pool.material, capacity, () => {
+      this.group.remove(retired);
+      retired.dispose();
+    });
     pool.capacity = capacity;
   }
 

@@ -28,9 +28,9 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.234-mine-load-animation");
+    expect(release.noticeId).toBe("2026-07-13-0.1.235-mine-load-animation");
     expect(latestNote).toMatchObject({
-      version: "0.1.234",
+      version: "0.1.235",
       title: "The mine loads behind the cart, not a black screen",
       intro: "The loading animation now stays up until the first real frame.",
     });
@@ -38,6 +38,22 @@ describe("app release notes", () => {
       "Opening the mine no longer flashes a long black screen. The mine-cart loading animation and the cave backdrop stay on screen through the whole warm-up and only clear once the scene has actually drawn its first frame.",
       "The loading card never blocks taps, and if the renderer somehow stalls, the veil clears itself after a few seconds instead of trapping you on the loader.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived surface-basin note complete", () => {
+    const release = getAppRelease();
+    const basinNote = release.notes.find((note) => note.version === "0.1.234");
+
+    expect(basinNote).toMatchObject({
+      version: "0.1.234",
+      title: "A world beyond the village",
+      intro: "A ringed planet now hangs over a working strip-mine basin.",
+    });
+    expect(basinNote?.changes.map((change) => change.text)).toEqual([
+      "The flat surface horizon is replaced by a ringed planet, terraced excavation cuts, conveyors, bucket-wheel machinery, distant gantries, and a service berm behind the village.",
+      "Five cached low-poly layers follow the existing day and night cycle and move at restrained depth-based parallax rates while you walk. Reduced motion keeps the full composition still.",
+      "The low tier uses 568 backdrop triangles and the high tier 1,080. The scene adds four net draw calls, no textures, no lights, and no frame allocations. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });
 

@@ -1,11 +1,11 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.234-mine-load-animation";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.235-mine-load-animation";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.234",
+      version: "0.1.235",
       date: "2026-07-13",
       title: "The mine loads behind the cart, not a black screen",
       intro: "The loading animation now stays up until the first real frame.",
@@ -19,6 +19,26 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
           text: "The loading card never blocks taps, and if the renderer somehow stalls, the veil clears itself after a few seconds instead of trapping you on the loader.",
         },
         { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
+    {
+      version: "0.1.234",
+      date: "2026-07-13",
+      title: "A world beyond the village",
+      intro: "A ringed planet now hangs over a working strip-mine basin.",
+      changes: [
+        {
+          build,
+          text: "The flat surface horizon is replaced by a ringed planet, terraced excavation cuts, conveyors, bucket-wheel machinery, distant gantries, and a service berm behind the village.",
+        },
+        {
+          build,
+          text: "Five cached low-poly layers follow the existing day and night cycle and move at restrained depth-based parallax rates while you walk. Reduced motion keeps the full composition still.",
+        },
+        {
+          build,
+          text: "The low tier uses 568 backdrop triangles and the high tier 1,080. The scene adds four net draw calls, no textures, no lights, and no frame allocations. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
       ],
     },
     {

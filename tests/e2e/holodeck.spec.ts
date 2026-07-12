@@ -335,7 +335,7 @@ test("surface village review bench frames the production models within budget", 
     .toBeGreaterThan(0);
   expect(
     Number(await canvas.getAttribute("data-holodeck-draw-calls")),
-  ).toBeLessThanOrEqual(110);
+  ).toBeLessThanOrEqual(14);
 
   await page.getByLabel("Review framing").selectOption("right");
   await expect(canvas).toHaveAttribute("data-holodeck-surface-view", "right");
@@ -384,7 +384,7 @@ test("surface shift cycle renders distinct day and night grades within budget", 
   expect(await imagePixelDifferenceRatio(page, day, night)).toBeGreaterThan(
     0.08,
   );
-  expect(dayDraws).toBeLessThanOrEqual(110);
+  expect(dayDraws).toBeLessThanOrEqual(14);
   expect(nightDraws).toBe(dayDraws);
 });
 

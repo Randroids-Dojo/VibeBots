@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-12-0.1.223-workshop-feel",
+      releaseNoticeId: "2026-07-12-0.1.224-ore-band-floor",
       releaseSummary:
-        "The workshop clicks, chimes, and tidies up: Building your bot now sounds and reads like one bench.",
+        "Ore bands fade out instead of cutting out: The bottom edge of every ore band is no longer a dead row.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-12-0.1.223-workshop-feel",
+      releaseNoticeId: "2026-07-12-0.1.224-ore-band-floor",
       attempted: 2,
       sent: 1,
       expired: 1,

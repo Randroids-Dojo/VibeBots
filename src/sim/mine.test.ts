@@ -61,6 +61,7 @@ import {
   normalizeBeaconLabel,
   normalizeGear,
   ORE_SWING_COST_STEP,
+  ORE_TRACE_SHARE,
   ORES,
   type OreId,
   oreCellValueAt,
@@ -381,6 +382,20 @@ describe("mine", () => {
     );
     expect(fadingIn).toBeGreaterThan(0);
     expect(fadingIn).toBeLessThan(silver.peakChance);
+  });
+
+  it("fades every band onto its trace floor with no dead row (F-041)", () => {
+    for (const ore of ORES) {
+      if (!Number.isFinite(ore.maxRow)) continue;
+      const trace = ore.peakChance * ORE_TRACE_SHARE;
+      // The boundary row itself sits on the floor, not at zero.
+      expect(oreChanceAt(ore, ore.maxRow)).toBeCloseTo(trace, 12);
+      expect(oreChanceAt(ore, ore.maxRow + 1)).toBeCloseTo(trace, 12);
+      // The whole fade never dips below the floor: continuity, no jump.
+      for (let row = ore.peakEnd; row <= ore.maxRow; row++) {
+        expect(oreChanceAt(ore, row)).toBeGreaterThanOrEqual(trace);
+      }
+    }
   });
 
   it("never rolls rock in the top rows", () => {

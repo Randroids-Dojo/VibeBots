@@ -428,14 +428,26 @@ export function earlyOreBoost(row: number): number {
   return 1 + (EARLY_ORE_BOOST_PEAK - 1) * t;
 }
 
-/** Trapezoid band ramp: 0 outside, linear fades, 1 across the peak. */
+/** Post-band trace: old tiers keep this share of their peak chance below
+ * maxRow, so deeper rows still carry earlier resources as larger stacks. */
+export const ORE_TRACE_SHARE = 0.06;
+
+/** Trapezoid band ramp: 0 above the band, linear fade in, 1 across the
+ * peak, then a fade out that bottoms on the trace floor instead of dying
+ * at zero (F-041: the taper used to hit exactly 0 at maxRow and jump
+ * back up to the trace one row later, leaving a one-row dead zone and a
+ * discontinuity at every band boundary). */
 export function oreChanceAt(ore: OreDef, row: number): number {
   if (row < ore.minRow) return 0;
-  if (row > ore.maxRow) return ore.peakChance * 0.06;
+  const trace = ore.peakChance * ORE_TRACE_SHARE;
+  if (row > ore.maxRow) return trace;
   if (row < ore.peakStart)
     return (ore.peakChance * (row - ore.minRow)) / (ore.peakStart - ore.minRow);
   if (row <= ore.peakEnd) return ore.peakChance;
-  return (ore.peakChance * (ore.maxRow - row)) / (ore.maxRow - ore.peakEnd);
+  return Math.max(
+    trace,
+    (ore.peakChance * (ore.maxRow - row)) / (ore.maxRow - ore.peakEnd),
+  );
 }
 
 const ORE_UNIT_STEPS: ReadonlyArray<{ minRow: number; units: number }> = [

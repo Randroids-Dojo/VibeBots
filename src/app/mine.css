@@ -202,6 +202,15 @@
 
 /* Raid tier stepper (F-084): a compact -/+ row above the raid button.
  * Only shown once the player level unlocks a second tier. */
+/* Balance line (F-088): the sheet sells repairs and skins, so the
+ * spendable vibes sit right above the priced buttons. */
+.bunker-balance {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #f5c542;
+  text-align: right;
+}
+
 /* Repair-all button (F-086): mirrors the raid button styling, shown
  * only when something is damaged and no raid is active. */
 .bunker-repair-button {
@@ -238,6 +247,11 @@
 .bunker-skin-picker button[aria-pressed="true"] {
   border-color: #54e0c7;
   color: #54e0c7;
+}
+
+.bunker-skin-picker button:disabled[aria-pressed="false"],
+.bunker-repair-button:disabled {
+  opacity: 0.45;
 }
 
 .bunker-raid-tier {

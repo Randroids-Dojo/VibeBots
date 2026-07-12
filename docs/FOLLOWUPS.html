@@ -59,6 +59,7 @@
       <dt>Blocker (if any)</dt><dd>none, but it is an economy design decision, not a mechanical gap: decide which catalogs get level floors and whether existing owned items grandfather.</dd>
       <dt>Unblock condition</dt><dd>Design pass over the shop catalogs assigning level floors where they improve pacing (or an explicit GDD amendment narrowing the clause), then enforce the floors server-side and surface them in the shop UI. Acceptance: at least the highest-tier purchases check overall level on the server, the UI explains locked items, and GDD_COVERAGE flips REQ-038 to done.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Review update</dt><dd>2026-07-13: gating audit complete. Level-gated today: raid tiers (maxBunkerRaidTier), beacon caps (playerLevelProgress), base-part owned limits (basePartOwnedLimit). Not gated: robot parts (/api/shop/buy), consumables, gear upgrades, bunker skins (all vibes-priced only). The choice between invented level floors, grandfathering, or amending the GDD clause is recorded as Q-017 with a recommended default; GDD amendments need explicit approval (Rule 2), so this followup waits on that call rather than shipping invented economy numbers.</dd>
     </dl>
   </section>
 
@@ -69,6 +70,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready: add a small balance line to the bunker sheet near the priced buttons (the view already carries <code>player.balance</code>), and disable or annotate unaffordable purchases. Acceptance: the sheet shows the current balance, it updates after a repair or skin purchase, and an unaffordable skin is visibly not buyable.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Resolved</dt><dd>2026-07-13 (package 0.1.232): shipped exactly as scoped. A "Vibes: N" line (aria-label "Vibes balance") renders above the repair button and skin picker whenever the priced controls show, sourced from the view's <code>player.balance</code> so it updates the moment a mutation response lands. The repair button disables when the balance cannot cover the plan and its title says how many more vibes it needs; unowned skins do the same per price (owned skins stay free to reselect). Pinned by the skin e2e: balance line reads 100 before, Gilded (120v) disabled with the "needs 20 more vibes" annotation, and the line drops to 20 after buying Verdant.</dd>
     </dl>
   </section>
 

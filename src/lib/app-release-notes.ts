@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.231-bunker-skins";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.232-bunker-balance";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.232",
+      date: "2026-07-13",
+      title: "The bunker sheet shows what you can spend",
+      intro: "Your vibes balance sits next to every priced button.",
+      changes: [
+        {
+          build,
+          text: "The bunker sheet now shows your spendable vibes right above the repair and skin buttons, and the total updates the moment a purchase lands.",
+        },
+        {
+          build,
+          text: "Repairs and skins you cannot afford are greyed out and say how many more vibes they need, instead of failing after the tap.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.231",
       date: "2026-07-13",

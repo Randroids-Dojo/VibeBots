@@ -858,7 +858,7 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
     },
     activeRaid: null,
     player: {
-      balance: 120,
+      balance: 100,
       trackXp: 40,
       defenseXp: 120,
       overallLevel: 2,
@@ -901,7 +901,7 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
           skin: "verdant",
           skinsOwned: ["verdant"],
         },
-        player: { ...baseView.player, balance: 40 },
+        player: { ...baseView.player, balance: 20 },
       }),
     });
   });
@@ -915,12 +915,17 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
 
   const picker = builder.getByRole("group", { name: "Bunker skins" });
   await expect(picker).toBeVisible();
+  // The sheet shows the spendable balance next to its priced buttons and
+  // disables what the player cannot afford (F-088).
+  const balanceLine = builder.getByLabel("Vibes balance");
+  await expect(balanceLine).toHaveText("Vibes: 100");
   const steelworks = picker.getByRole("button", { name: "Steelworks" });
   await expect(steelworks).toHaveAttribute("aria-pressed", "true");
   await expect(steelworks).toBeDisabled();
-  await expect(
-    picker.getByRole("button", { name: "Gilded (120v)" }),
-  ).toBeVisible();
+  const gilded = picker.getByRole("button", { name: "Gilded (120v)" });
+  await expect(gilded).toBeVisible();
+  await expect(gilded).toBeDisabled();
+  await expect(gilded).toHaveAttribute("title", /needs 20 more vibes/);
 
   const before = await page.locator("canvas").screenshot();
   await picker.getByRole("button", { name: "Verdant (80v)" }).click();
@@ -930,6 +935,7 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
   expect(skinRequestBody).toMatchObject({ skinId: "verdant" });
   await expect(steelworks).toHaveAttribute("aria-pressed", "false");
   await expect(steelworks).toBeEnabled();
+  await expect(balanceLine).toHaveText("Vibes: 20");
 
   // Rule 10: the repaint must be visible on the canvas, not just in the
   // UI. Ambient dust also shifts pixels between frames, so require the

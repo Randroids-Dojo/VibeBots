@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.229-specialist-clankers",
+      releaseNoticeId: "2026-07-13-0.1.230-bunker-repairs",
       releaseSummary:
-        "The raids send specialists: Higher tiers now field breachers and tanks with their own looks.",
+        "Patch the bunker up between raids: One button repairs every chewed wall, and stacked rooms hold.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.229-specialist-clankers",
+      releaseNoticeId: "2026-07-13-0.1.230-bunker-repairs",
       attempted: 2,
       sent: 1,
       expired: 1,

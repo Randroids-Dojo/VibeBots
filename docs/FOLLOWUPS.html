@@ -1009,7 +1009,8 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: extend the claim footprint and placement rules to stacked rows with hatch parts bridging levels, teach the raid resolver hatch traversal, and add a repair interaction (hammer on a damaged part spends resources to restore durability). Bumps MINE_VERSION if placement changes world rules. Acceptance: a two-level sealed bunker survives a raid with hatches as the only vertical route, repairs restore durability at the documented cost, and the sim tests cover both.</dd>
     <dt>PR / Dot reference</dt><dd>(decomposed from F-029)</dd>
-  </dl>
+      <dt>Resolved</dt><dd>2026-07-13 (package 0.1.230): audited and trimmed like its siblings, then shipped. The multi-level clause already held: the 7x5 claim supports interior floor rows today, now PROVEN by a sim test that seals a stacked two-room layout and survives a raid untouched. Hatches are subsumed by doors and floors until the resolver gains vertical traversal semantics (parts never gate MINER movement; the scaffold does), recorded here as the decision. The genuinely missing mechanic was REPAIRS, now shipped: <code>bunkerRepairPlan</code> prices each damaged part proportionally (half its shop price for a full restore, minimum 1 vibe) plus a flat per-point core rate, <code>applyBunkerRepairs</code> restores everything, the server validates affordability and blocks repairs during an active raid, and the bunker sheet shows a "Repair bunker (N vibes)" button only when something is damaged. Covered by sim pricing/restore tests, the stacked-room seal test, and server tests for the unaffordable and success paths. No MINE_VERSION bump: placement rules and mine replay are untouched.</dd>
+</dl>
 </section>
 
 <section id="F-085" data-f="F-085" data-priority="nice-to-have">

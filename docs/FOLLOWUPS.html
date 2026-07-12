@@ -52,6 +52,26 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-091" data-f="F-091" data-priority="nice-to-have">
+    <h3>F-091: TV mode follow-through beyond the mine deck</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-07-12 Fire TV slice makes the mine fully remote-playable (TV deck, Back dismissal, media keys, gamepad D-pad) and the other surfaces are click-driven so the Silk cursor can already operate them, but nothing is TV-sized there yet: Workshop carousel buttons, Holodeck form controls, and arena chrome are phone-scale targets on a 3-meter screen, there is no in-game settings toggle for TV mode (only the <code>tv</code> query override), and no real-device playtest evidence exists.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready when picked up: enlarge primary click targets on Workshop/Holodeck in TV sessions, add a "TV controls" toggle to the settings menu wired to the same persisted override, and record a VibeReview playtest from a real Fire TV (Rule 12) confirming the deck, Back behavior, and legibility. Acceptance: a Fire TV session can build a bot and watch a battle without pixel-hunting, and the playtest evidence lands in docs/PLAYTEST.html.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section id="F-090" data-f="F-090" data-priority="blocks-release">
+    <h3>F-090: Mine no longer posts its compact performance sample (REQ-041 regression)</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-07-12 scheduled Full E2E (run 29188294201, head 6c74ef3e) went red with a new 5-spec cluster in shard 3-of-4, disjoint from the known-flake list. Re-run at main tip 1507f4b (post #152/#153) during the Fire TV slice: 4 of the 5 pass again, but <code>tests/e2e/mine-viewport.spec.ts</code> "mine posts a compact performance sample" fails deterministically (twice locally, same signature as nightly): <code>expect.poll(samples.length).toBe(1)</code> sees 0 samples in 15s on the phone-viewport project. The regression window is the ~35 commits between nightly heads 368a0350 (Jul 11, green shard 3) and 6c74ef3e (Jul 12); prime suspects are the lantern/visibility rewrites (9015ae6a, 88410299, d3eba66a) and the load/compile-gate changes (PR #140, #123), which may have moved or gated the sampling trigger.</dd>
+      <dt>Blocker (if any)</dt><dd>none; reproduces on demand locally.</dd>
+      <dt>Unblock condition</dt><dd>Bisect the window for the commit that stops <code>/api/performance</code> receiving the compact sample on a phone viewport, restore the post (or fix the spec if the product behavior legitimately changed), and get the scheduled Full E2E green. Acceptance: the spec passes at main tip three consecutive runs and the nightly conclusion is green or flake-only.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section id="F-089" data-f="F-089" data-priority="nice-to-have">
     <h3>F-089: Make the overall player level the global progression gate REQ-038 promises</h3>
     <dl>

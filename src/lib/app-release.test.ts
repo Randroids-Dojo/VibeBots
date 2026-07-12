@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest load-animation note complete", () => {
+  it("keeps the latest fire-tv-controls note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.235-mine-load-animation");
+    expect(release.noticeId).toBe("2026-07-13-0.1.236-fire-tv-controls");
     expect(latestNote).toMatchObject({
+      version: "0.1.236",
+      title: "Play the whole mine from a TV remote",
+      intro: "Fire TV sessions get remote-native controls.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Opening the game in the Fire TV Silk browser now shows a TV control deck: big direction buttons where one click is one move, and holding Select keeps digging. No more dragging the thumbstick with the cursor.",
+      "The deck's center button walks you into the Workshop or Battles when you stand on their door, and fires the jump jets everywhere else.",
+      "The remote's Back button now closes open menus, sheets, and the bag instead of leaving the game. Play/Pause jumps, and Rewind and Fast Forward zoom the camera.",
+      "A paired game controller can play the mine too: the D-pad walks and digs, and A enters buildings or jumps. Add ?tv=1 to the address on any other TV browser to force the deck on.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived load-animation note complete", () => {
+    const release = getAppRelease();
+    const loadNote = release.notes.find((note) => note.version === "0.1.235");
+
+    expect(loadNote).toMatchObject({
       version: "0.1.235",
       title: "The mine loads behind the cart, not a black screen",
       intro: "The loading animation now stays up until the first real frame.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(loadNote?.changes.map((change) => change.text)).toEqual([
       "Opening the mine no longer flashes a long black screen. The mine-cart loading animation and the cave backdrop stay on screen through the whole warm-up and only clear once the scene has actually drawn its first frame.",
       "The loading card never blocks taps, and if the renderer somehow stalls, the veil clears itself after a few seconds instead of trapping you on the loader.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

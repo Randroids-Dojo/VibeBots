@@ -598,6 +598,46 @@ export async function pressGamepadBack(page: Page): Promise<void> {
   await page.waitForTimeout(80);
 }
 
+/** Fake pad with arbitrary settable buttons, for D-pad movement and the
+ * A/Select action (the back-only fake above predates this and stays for
+ * the dismissal specs). Drive it via window.__setGamepadPressed. */
+export async function installGamepadPadControl(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    let pressedIndices: readonly number[] = [];
+    Object.defineProperty(navigator, "getGamepads", {
+      configurable: true,
+      value: () => [
+        {
+          buttons: Array.from({ length: 17 }, (_, index) => ({
+            pressed: pressedIndices.includes(index),
+            touched: pressedIndices.includes(index),
+            value: pressedIndices.includes(index) ? 1 : 0,
+          })),
+        },
+      ],
+    });
+    Object.defineProperty(window, "__setGamepadPressed", {
+      configurable: true,
+      value: (indices: readonly number[]) => {
+        pressedIndices = indices;
+      },
+    });
+  });
+}
+
+export async function setGamepadPressed(
+  page: Page,
+  indices: readonly number[],
+): Promise<void> {
+  await page.evaluate((pressed) => {
+    (
+      window as unknown as Window & {
+        __setGamepadPressed: (indices: readonly number[]) => void;
+      }
+    ).__setGamepadPressed(pressed);
+  }, indices);
+}
+
 export async function countRedPixels(
   page: Page,
   image: Buffer,

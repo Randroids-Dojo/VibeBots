@@ -457,6 +457,39 @@ describe("structural integrity (wide spans)", () => {
     expect(state.tripStats.collapsesSurvived).toBe(1);
   });
 
+  it("does not count a collapse the miner escaped far above", () => {
+    const state = createMine(4242, DEFAULT_GEAR, stock({}));
+    for (let row = 1; row <= 7; row++)
+      setCell(state, START_COL, row, { kind: "empty" });
+    for (let i = 0; i < 5; i++) {
+      setCell(state, START_COL + i, 8, { kind: "empty" });
+      if (i > 0) {
+        setCell(state, START_COL + i, 7, { kind: "dirt" });
+        setCell(state, START_COL + i, 6, { kind: "dirt" });
+      }
+      setCell(state, START_COL + i, 9, { kind: "dirt" });
+    }
+    setCell(state, START_COL + 4, 8, { kind: "dirt", hp: 1 });
+    setCell(state, START_COL - 1, 8, { kind: "metal" });
+    setCell(state, START_COL + 5, 8, { kind: "metal" });
+    state.miner.col = START_COL + 3;
+    state.miner.row = 8;
+    const dug = applyAction(state, "right");
+    expect(dug.ok && dug.fallingRockTriggered).toBe(true);
+    // Hoist the miner to the top of the shaft: descending back down
+    // ticks the countdown, and the fourth tick fires while the miner is
+    // still three-plus rows above the fall. Near in column, far in row.
+    state.miner.col = START_COL;
+    state.miner.row = 0;
+    applyAction(state, "down");
+    applyAction(state, "down");
+    applyAction(state, "down");
+    const last = applyAction(state, "down");
+    expect(last.ok).toBe(true);
+    expect(cellAt(state, START_COL + 2, 7)?.kind).toBe("empty");
+    expect(state.tripStats.collapsesSurvived).toBe(0);
+  });
+
   it("does not count a collapse that crushes the miner as survived", () => {
     const state = wideTunnelState(5);
     applyAction(state, "right");

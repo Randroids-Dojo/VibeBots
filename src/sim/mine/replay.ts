@@ -403,7 +403,15 @@ function tickFalls(
       crushed = true;
       crushRest ??= { col, row: rest };
     }
-    if (cell.spanUnstable && Math.abs(miner.col - col) <= 2) {
+    // "Beside you" means beside: within two columns AND within two rows
+    // of the fall's path, so recalling home mid-countdown cannot farm
+    // the survival stamp from the surface.
+    if (
+      cell.spanUnstable &&
+      Math.abs(miner.col - col) <= 2 &&
+      miner.row >= row - 2 &&
+      miner.row <= rest + 2
+    ) {
       spanFallNearMiner = true;
     }
   }

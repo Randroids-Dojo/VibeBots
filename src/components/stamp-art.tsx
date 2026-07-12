@@ -438,7 +438,6 @@ const STAMP_PICTOGRAMS: Record<
         stroke="none"
       />
       <path d="M23 46 h18" strokeWidth="2.5" />
-      <path d="M29 30 h6 M29 36 h6 M29 42 h6" stroke="#0d1117" />
     </g>
   ),
   "survival-walked-away": ({ accent }) => (

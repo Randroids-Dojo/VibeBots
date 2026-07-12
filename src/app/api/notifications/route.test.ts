@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-11-0.1.218-accent-glow-returns",
+      releaseNoticeId: "2026-07-11-0.1.219-adjacent-seams",
       releaseSummary:
-        "The glow comes back to the dark: Beacons, bags, dynamite, and portals cast real light again.",
+        "Open shapes, solid seams: Boulders and mined openings are irregular again.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-11-0.1.218-accent-glow-returns",
+      releaseNoticeId: "2026-07-11-0.1.219-adjacent-seams",
       attempted: 2,
       sent: 1,
       expired: 1,

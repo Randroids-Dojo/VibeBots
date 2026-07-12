@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-11-0.1.218-accent-glow-returns";
+export const RELEASE_NOTICE_ID = "2026-07-11-0.1.219-adjacent-seams";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.219",
+      date: "2026-07-11",
+      title: "Open shapes, solid seams",
+      intro: "Boulders and mined openings are irregular again.",
+      changes: [
+        {
+          build,
+          text: "The dirt square behind every occupied cell was not an acceptable fix. Full-cell plates are gone. Narrow soil bridges now appear only along an edge shared by two solid cells, and a tiny corner patch appears only inside a completely occupied 2x2 junction.",
+        },
+        {
+          build,
+          text: "Isolated boulders, rocks, caches, and blocks now keep open cave darkness around their real silhouette. Dense walls still close the Pixel-density cracks between genuinely adjacent cells, including at maximum zoom.",
+        },
+        {
+          build,
+          text: "The two small seam batches use background compilation instead of blocking startup warm-up. Pixel tests mutation-check both failures. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.218",
       date: "2026-07-11",

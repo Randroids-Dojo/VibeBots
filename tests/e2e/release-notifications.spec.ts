@@ -21,17 +21,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Beacons, bags, dynamite, and portals cast real light again.",
+    "Boulders and mined openings are irregular again.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "fixed pool of three always-present lights",
+    "Full-cell plates are gone",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "claims a pool light as you approach",
+    "keep open cave darkness around their real silhouette",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "MINE_VERSION and SIM_VERSION are unchanged",
+    "background compilation instead of blocking startup warm-up",
   );
 
   await page.mouse.click(8, 8);
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.219", "Open shapes, solid seams"],
     ["0.1.218", "The glow comes back to the dark"],
     ["0.1.217", "Clear ground at every zoom"],
     ["0.1.216", "New ground loads without a hitch"],

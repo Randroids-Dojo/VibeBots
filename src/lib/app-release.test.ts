@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest accent-glow note complete", () => {
+  it("keeps the latest adjacency seam note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-11-0.1.218-accent-glow-returns");
+    expect(release.noticeId).toBe("2026-07-11-0.1.219-adjacent-seams");
     expect(latestNote).toMatchObject({
+      version: "0.1.219",
+      title: "Open shapes, solid seams",
+      intro: "Boulders and mined openings are irregular again.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The dirt square behind every occupied cell was not an acceptable fix. Full-cell plates are gone. Narrow soil bridges now appear only along an edge shared by two solid cells, and a tiny corner patch appears only inside a completely occupied 2x2 junction.",
+      "Isolated boulders, rocks, caches, and blocks now keep open cave darkness around their real silhouette. Dense walls still close the Pixel-density cracks between genuinely adjacent cells, including at maximum zoom.",
+      "The two small seam batches use background compilation instead of blocking startup warm-up. Pixel tests mutation-check both failures. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived accent-glow note complete", () => {
+    const release = getAppRelease();
+    const accentNote = release.notes.find((note) => note.version === "0.1.218");
+
+    expect(accentNote).toMatchObject({
       version: "0.1.218",
       title: "The glow comes back to the dark",
       intro: "Beacons, bags, dynamite, and portals cast real light again.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(accentNote?.changes.map((change) => change.text)).toEqual([
       "The local glow those emitters cast on nearby blocks was removed while fixing the recompile freezes, because lights entering and leaving the view forced the whole scene to rebuild its draw programs. A fixed pool of three always-present lights now follows the nearest emitters instead, so the warmth returns without ever changing the light count.",
       "A new browser test proves a planted warp beacon claims a pool light as you approach and releases it as you leave, with the pool itself never mounting or unmounting.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

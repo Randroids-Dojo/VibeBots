@@ -115,11 +115,16 @@ export function tunnelFloorMaterial(baseHex: string): MeshStandardNodeMaterial {
   });
 }
 
-/** Soil-colored square behind every occupied cell. Rounded bodies retain
- * their silhouette, but their intentional spacing can never expose the cave
- * backdrop as a black channel on high-density phone compositors. */
-export function cellJointMaterial(baseHex: string): MeshStandardNodeMaterial {
-  return cached(`joint:${baseHex}`, () => {
+export type CellJointRole = "edge" | "corner";
+
+/** Soil-colored material for adjacency-only bridges between occupied cells.
+ * Roles use distinct cached instances because the instanced grid keys each
+ * geometry bucket by material identity. */
+export function cellJointMaterial(
+  baseHex: string,
+  role: CellJointRole,
+): MeshStandardNodeMaterial {
+  return cached(`joint:${role}:${baseHex}`, () => {
     const material = new MeshStandardNodeMaterial();
     material.flatShading = true;
     material.metalness = 0;

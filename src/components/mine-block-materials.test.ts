@@ -16,8 +16,13 @@ describe("mine block seam lighting", () => {
   });
 
   it("keeps the soil-colored joint material cached separately", () => {
-    expect(cellJointMaterial("#6f4937")).toBe(cellJointMaterial("#6f4937"));
-    expect(cellJointMaterial("#6f4937")).not.toBe(
+    expect(cellJointMaterial("#6f4937", "edge")).toBe(
+      cellJointMaterial("#6f4937", "edge"),
+    );
+    expect(cellJointMaterial("#6f4937", "edge")).not.toBe(
+      cellJointMaterial("#6f4937", "corner"),
+    );
+    expect(cellJointMaterial("#6f4937", "edge")).not.toBe(
       dirtBlockMaterial("#6f4937", false),
     );
   });

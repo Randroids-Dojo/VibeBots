@@ -21,17 +21,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Boulders and mined openings are irregular again.",
+    "Entering the Holodeck no longer locks the page while it builds.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Full-cell plates are gone",
+    "builds its programs in the background",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "keep open cave darkness around their real silhouette",
+    "full Holodeck browser suite",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "background compilation instead of blocking startup warm-up",
+    "MINE_VERSION and SIM_VERSION are unchanged",
   );
 
   await page.mouse.click(8, 8);
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.220", "The Holodeck opens without a freeze"],
     ["0.1.219", "Open shapes, solid seams"],
     ["0.1.218", "The glow comes back to the dark"],
     ["0.1.217", "Clear ground at every zoom"],

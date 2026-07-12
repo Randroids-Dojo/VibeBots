@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest adjacency seam note complete", () => {
+  it("keeps the latest holodeck-smooth-entry note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-11-0.1.219-adjacent-seams");
+    expect(release.noticeId).toBe("2026-07-12-0.1.220-holodeck-smooth-entry");
     expect(latestNote).toMatchObject({
+      version: "0.1.220",
+      title: "The Holodeck opens without a freeze",
+      intro: "Entering the Holodeck no longer locks the page while it builds.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Walking into the Holodeck from the mine used to freeze everything for the moment the whole stage compiled its draw programs at once: the longest first-view hang of any screen in our telemetry. The stage now builds its programs in the background and starts animating the instant they are ready, so the page stays responsive on the way in.",
+      "The full Holodeck browser suite (motion, pause and resume, showcase clips, camera, village bench, shift cycle, Warp ring) passes against the gated start.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived adjacency seam note complete", () => {
+    const release = getAppRelease();
+    const seamNote = release.notes.find((note) => note.version === "0.1.219");
+
+    expect(seamNote).toMatchObject({
       version: "0.1.219",
       title: "Open shapes, solid seams",
       intro: "Boulders and mined openings are irregular again.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(seamNote?.changes.map((change) => change.text)).toEqual([
       "The dirt square behind every occupied cell was not an acceptable fix. Full-cell plates are gone. Narrow soil bridges now appear only along an edge shared by two solid cells, and a tiny corner patch appears only inside a completely occupied 2x2 junction.",
       "Isolated boulders, rocks, caches, and blocks now keep open cave darkness around their real silhouette. Dense walls still close the Pixel-density cracks between genuinely adjacent cells, including at maximum zoom.",
       "The two small seam batches use background compilation instead of blocking startup warm-up. Pixel tests mutation-check both failures. MINE_VERSION and SIM_VERSION are unchanged.",

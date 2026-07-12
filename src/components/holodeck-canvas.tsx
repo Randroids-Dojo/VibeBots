@@ -1,7 +1,13 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { type RefObject, useEffect, useRef } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   AmbientLight,
   Color,
@@ -15,6 +21,7 @@ import type { MineCell } from "@/sim/mine";
 import { DEFAULT_GEAR, hitsFor, oreReserveAt } from "@/sim/mine";
 import { useHolodeckStore } from "@/state/holodeck-store";
 import { CanvasDrawCallProbe } from "./canvas-draw-call-probe";
+import { StartFramesWhenCompiled } from "./compile-gate";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import {
   type GraphicsFeatures,
@@ -497,6 +504,10 @@ const HOLODECK_PAN_LIMIT_Y = 8;
 const HOLODECK_FOV_FACTOR = 2 * Math.tan((42 * Math.PI) / 360);
 
 export default function HolodeckCanvas() {
+  // "never" until the scene's materials are compiled (F-072); the gate
+  // flips it through state so re-renders keep the running loop.
+  const [frameloop, setFrameloop] = useState<"never" | "always">("never");
+  const startFrames = useCallback(() => setFrameloop("always"), []);
   const features = graphicsFeaturesFor(
     resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
   );
@@ -594,9 +605,14 @@ export default function HolodeckCanvas() {
       <Canvas
         camera={{ position: [0, 0, 11], fov: 42 }}
         dpr={[1, 2]}
+        // Frames start once the scene's materials are compiled (F-072):
+        // the first draw otherwise compiles everything in one main-thread
+        // stall on the way in from the mine.
+        frameloop={frameloop}
         gl={createWebGPU}
         shadows={features.shadows ? "soft" : false}
       >
+        <StartFramesWhenCompiled onCompiled={startFrames} />
         <HolodeckScene features={features} view={view} />
         <PerfProbeBridge source="holodeck" />
       </Canvas>

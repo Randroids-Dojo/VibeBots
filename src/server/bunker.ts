@@ -102,7 +102,11 @@ function normalizeBunkerRaidSnapshot(
     tier: numberValue(candidate.tier, 1),
     durationSeconds: numberValue(candidate.durationSeconds),
     startedAtMs: numberValue(candidate.startedAtMs) || undefined,
-    clankers: Array.isArray(candidate.clankers) ? candidate.clankers : [],
+    clankers: Array.isArray(candidate.clankers)
+      ? (candidate.clankers as BunkerRaidSnapshot["clankers"]).map(
+          (clanker) => ({ ...clanker, kind: clanker.kind ?? "standard" }),
+        )
+      : [],
     turretShots: numberValue(candidate.turretShots),
     turretDamage: numberValue(candidate.turretDamage),
     spikeTriggers: numberValue(candidate.spikeTriggers),

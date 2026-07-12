@@ -51,6 +51,7 @@ import {
   type CollectTarget,
   cellAt,
   ELEVATOR_COL,
+  findPortalBeacons,
   hitsFor,
   isSupportSalvageTarget,
   lanternDistance,
@@ -73,6 +74,13 @@ import {
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
+import {
+  ACCENT_LIGHT_COUNT,
+  ACCENT_SLOTS,
+  accentEmitterCount,
+  pushAccentEmitter,
+  resetAccentEmitters,
+} from "./mine-accent-lights";
 import {
   blockDetailEnabled,
   cellJointMaterial,
@@ -97,6 +105,7 @@ import {
   DynamiteCharge,
   dropPileStats,
   FallingRockShard,
+  FUSE_GLOW,
   type InstancedBlockBody,
   instancedBlockBody,
   MineBlockBody,
@@ -351,6 +360,8 @@ const TUNNEL_FLOOR_MATERIALS: Record<
 // Tiny offscreen warm-up mesh geometry, shared across every warm mesh so
 // the renderer compiles each material's program once at load, not on first
 // draw mid-play.
+const ACCENT_LIGHT_INDICES = [0, 1, 2] as const;
+
 const WARMUP_GEOMETRY = new BoxGeometry(0.001, 0.001, 0.001);
 
 // Camera for background-compiling new grid buckets (F-078). It enables
@@ -970,6 +981,7 @@ function MineScene({
   const cameraMotion = useRef<MotionTrack | null>(null);
   const minerMotion = useRef<MotionTrack | null>(null);
   const lampRef = useRef<PointLight>(null);
+  const accentLightRefs = useRef<(PointLight | null)[]>([null, null, null]);
   const visibilityVeilRef = useRef<Mesh>(null);
   const ambientRef = useRef<AmbientLight>(null);
   const hemiRef = useRef<HemisphereLight>(null);
@@ -1885,6 +1897,35 @@ function MineScene({
     grid.apply(blockPlan.current);
   });
 
+  // Assign the accent pool to the emitters this render gathered (F-077).
+  // Runs at input cadence like the grid stream above; parked slots hold
+  // intensity 0 so the scene's light count never changes.
+  useLayoutEffect(() => {
+    const active = accentEmitterCount();
+    for (let i = 0; i < ACCENT_LIGHT_COUNT; i++) {
+      const light = accentLightRefs.current[i];
+      if (!light) continue;
+      if (i < active) {
+        const slot = ACCENT_SLOTS[i];
+        light.position.set(slot.x, slot.y, slot.z);
+        light.color.set(slot.color);
+        light.intensity = slot.intensity;
+        light.distance = slot.lightDistance;
+        light.decay = slot.decay;
+      } else if (light.intensity !== 0) {
+        light.intensity = 0;
+      }
+    }
+    // Active slot count exposed for the accent-light smoke.
+    setDatasetNumber(
+      datasetCache.current,
+      gl.domElement.dataset,
+      "accentLights",
+      active,
+      0,
+    );
+  });
+
   // Free the instance buffers when the canvas unmounts (the shared
   // geometry/material singletons are left alive).
   useLayoutEffect(() => {
@@ -1919,6 +1960,8 @@ function MineScene({
   // Fresh block-instance plan for this tick; the loop below fills it for
   // every static solid cell, and a layout effect streams it to the grid.
   const plan = beginBlockPlan(blockPlan.current);
+  // Accent emitters regather with the same pass (F-077).
+  resetAccentEmitters();
   const blockMeshes = [];
   const tunnelMeshes = [];
   const cargoMeshes = [];
@@ -2047,6 +2090,25 @@ function MineScene({
       const radialDistance = fallWindow
         ? distanceFromMiner
         : Math.sqrt(rdx * rdx + rdy * rdy);
+      // Accent glow candidates (F-077): the beacon crystal and the bag's
+      // brass clasp, at the offsets their models place those features.
+      const emitterD2 = rdx * rdx + rdy * rdy;
+      if (cell.beacon) {
+        pushAccentEmitter(x, y + 0.22, 0.5, "#e08aff", 1.4, 4, 1.6, emitterD2);
+      }
+      if (cell.bag) {
+        const bagOnBlock = cell.kind !== "empty";
+        pushAccentEmitter(
+          x,
+          y + (bagOnBlock ? 0.18 : -0.28),
+          bagOnBlock ? 0.92 : 0.28,
+          "#f5c542",
+          0.45,
+          1.6,
+          1.8,
+          emitterD2,
+        );
+      }
       const beyondLight = Math.max(
         0,
         radialDistance - projectedVisibilityRadius,
@@ -2143,6 +2205,40 @@ function MineScene({
         row={charge.row}
       />,
     );
+    // The fuse glow rides the accent pool (F-077), matching the light the
+    // charge model carried before the constant-light-count fix.
+    const chargeDx = charge.col - displayCol;
+    const chargeDy = charge.row - minerRow;
+    pushAccentEmitter(
+      cellX(charge.col) + 0.2,
+      -charge.row + 0.2,
+      1.08,
+      FUSE_GLOW,
+      1.2,
+      3,
+      1.7,
+      chargeDx * chargeDx + chargeDy * chargeDy,
+    );
+  }
+  // Active biome portals glow from the surface row (F-077); inactive
+  // pylons stay dark, matching PortalBeaconModel's emissive gate.
+  if (firstRow <= 0) {
+    for (const portal of findPortalBeacons(mine)) {
+      if (!portal.active || portal.col < firstCol || portal.col > lastCol) {
+        continue;
+      }
+      const portalDx = portal.col - displayCol;
+      pushAccentEmitter(
+        cellX(portal.col),
+        0.14,
+        0.95,
+        portal.color,
+        1.5,
+        4.5,
+        1.7,
+        portalDx * portalDx + minerRow * minerRow,
+      );
+    }
   }
   renderedCellCountRef.current = renderedCellCount;
   renderedCrackSegmentCountRef.current = renderedCrackSegmentCount;
@@ -2174,6 +2270,20 @@ function MineScene({
         shadow-camera-far={40}
         shadow-bias={-0.0004}
       />
+      {/* Accent pool (F-077): three always-mounted point lights, assigned
+          per render to the nearest beacon/bag/dynamite/portal emitters.
+          Constant count by construction; see pushAccentEmitter. */}
+      {ACCENT_LIGHT_INDICES.map((slot) => (
+        <pointLight
+          key={`accent:${slot}`}
+          ref={(light) => {
+            accentLightRefs.current[slot] = light;
+          }}
+          intensity={0}
+          distance={1}
+          decay={1.6}
+        />
+      ))}
       {/* Studio IBL: ambient response and reflections for every PBR
           surface; the frame loop scales it with daylight so descending
           into the dark still reads dark. */}

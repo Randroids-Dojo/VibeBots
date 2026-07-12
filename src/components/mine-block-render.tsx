@@ -294,7 +294,7 @@ export function DroppedBagMarker() {
 }
 
 const DYNAMITE_RED = "#b43b32";
-const FUSE_GLOW = "#ffb347";
+export const FUSE_GLOW = "#ffb347";
 const DYNAMITE_WARNING = TEETER_EMISSIVE;
 export function DynamiteCharge({ col, row }: { col: number; row: number }) {
   const bodyRef = useRef<Group>(null);

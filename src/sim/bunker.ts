@@ -184,7 +184,7 @@ export const BUNKER_SKIN_CATALOG: Record<BunkerSkinId, BunkerSkinDef> = {
 export const DEFAULT_BUNKER_SKIN: BunkerSkinId = "steelworks";
 
 export function isBunkerSkinId(value: unknown): value is BunkerSkinId {
-  return typeof value === "string" && value in BUNKER_SKIN_CATALOG;
+  return typeof value === "string" && Object.hasOwn(BUNKER_SKIN_CATALOG, value);
 }
 
 export interface BunkerState {

@@ -46,6 +46,17 @@ describe("achievements", () => {
     ).toContain("survival-buttoned-up");
   });
 
+  it("merges bunkerSkinsBought additively like other lifetime counters", () => {
+    const merged = mergeAchievementStats(
+      { ...DEFAULT_ACHIEVEMENT_STATS, bunkerSkinsBought: 1 },
+      { bunkerSkinsBought: 1 },
+    );
+    expect(merged.bunkerSkinsBought).toBe(2);
+    expect(
+      mergeAchievementStats(DEFAULT_ACHIEVEMENT_STATS, {}).bunkerSkinsBought,
+    ).toBe(0);
+  });
+
   it("unlocks Fresh Coat from a paid skin purchase", () => {
     expect(
       achievementIdsUnlockedBy({

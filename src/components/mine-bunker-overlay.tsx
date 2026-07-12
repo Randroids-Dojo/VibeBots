@@ -2,15 +2,13 @@ import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { type RefObject, useRef } from "react";
 import type { Group, Material, Mesh } from "three/webgpu";
-import type {
-  BasePartId,
-  BunkerFootprint,
-  BunkerRaidSnapshot,
-  BunkerSkinId,
-  BunkerState,
-} from "@/sim/bunker";
 import {
   BASE_PART_CATALOG,
+  type BasePartId,
+  type BunkerFootprint,
+  type BunkerRaidSnapshot,
+  type BunkerSkinId,
+  type BunkerState,
   containsBunkerCell,
   DEFAULT_BUNKER_SKIN,
 } from "@/sim/bunker";

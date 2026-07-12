@@ -8,6 +8,7 @@ import {
   type BasePartInventory,
   type BunkerRaidRewardReport,
   type BunkerRaidSnapshot,
+  type BunkerSkinId,
   type BunkerState,
   EMPTY_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
@@ -59,7 +60,7 @@ export interface BunkerStoreState {
   ) => Promise<BunkerMutationResult>;
   startRaid: (tier?: number) => Promise<BunkerMutationResult>;
   repairBunker: () => Promise<BunkerMutationResult>;
-  setSkin: (skinId: string) => Promise<BunkerMutationResult>;
+  setSkin: (skinId: BunkerSkinId) => Promise<BunkerMutationResult>;
   collectRaidPickup: (
     col: number,
     row: number,

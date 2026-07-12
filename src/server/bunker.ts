@@ -531,14 +531,24 @@ export async function setBunkerSkin(
       // Stamps are cosmetic and must never block a skin purchase.
     }
   }
-  const nextOwned = [
-    ...new Set([...(view.bunker.skinsOwned ?? []), skinId]),
-  ].filter((id) => BUNKER_SKIN_CATALOG[id].price > 0);
-  await sql`
-    UPDATE bunkers
-    SET skin = ${skinId},
-        skins_owned = ${JSON.stringify(nextOwned)}::jsonb
-    WHERE player_id = ${playerId}`;
+  if (def.price > 0) {
+    // Append ownership against the LIVE row, not the preloaded snapshot:
+    // two concurrent purchases must both keep their entry.
+    await sql`
+      UPDATE bunkers
+      SET skin = ${skinId},
+          skins_owned = CASE
+            WHEN skins_owned @> ${JSON.stringify([skinId])}::jsonb
+              THEN skins_owned
+            ELSE skins_owned || ${JSON.stringify([skinId])}::jsonb
+          END
+      WHERE player_id = ${playerId}`;
+  } else {
+    await sql`
+      UPDATE bunkers
+      SET skin = ${skinId}
+      WHERE player_id = ${playerId}`;
+  }
   return { ok: true, view: await loadBunkerView(sql, playerId), newStamps };
 }
 

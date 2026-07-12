@@ -1,5 +1,5 @@
 import type { BunkerRouteResponse } from "@/lib/bunker-api-types";
-import type { BasePartId } from "@/sim/bunker";
+import type { BasePartId, BunkerSkinId } from "@/sim/bunker";
 
 export type BunkerApiResult =
   | { ok: true; status: number; body: BunkerRouteResponse }
@@ -82,7 +82,7 @@ export function repairRemoteBunker() {
   return bunkerApi("/api/bunker/repair", jsonPost({}));
 }
 
-export function setRemoteBunkerSkin(skinId: string) {
+export function setRemoteBunkerSkin(skinId: BunkerSkinId) {
   return bunkerApi("/api/bunker/skin", jsonPost({ skinId }));
 }
 

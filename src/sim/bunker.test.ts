@@ -15,7 +15,6 @@ import {
   CLANKER_BREACHER_XP,
   CLANKER_SELF_DESTRUCT_XP,
   CLANKER_TANK_XP,
-  CORE_REPAIR_COST_PER_POINT,
   canBuyBasePart,
   clankerKindFor,
   clankerXpFor,
@@ -776,5 +775,8 @@ describe("bunker skins (F-087)", () => {
     }
     expect(isBunkerSkinId("gilded")).toBe(true);
     expect(isBunkerSkinId("nonsense")).toBe(false);
+    // Inherited object keys must not pass the guard.
+    expect(isBunkerSkinId("toString")).toBe(false);
+    expect(isBunkerSkinId("constructor")).toBe(false);
   });
 });

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-11-0.1.219-adjacent-seams",
+      releaseNoticeId: "2026-07-12-0.1.220-holodeck-smooth-entry",
       releaseSummary:
-        "Open shapes, solid seams: Boulders and mined openings are irregular again.",
+        "The Holodeck opens without a freeze: Entering the Holodeck no longer locks the page while it builds.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-11-0.1.219-adjacent-seams",
+      releaseNoticeId: "2026-07-12-0.1.220-holodeck-smooth-entry",
       attempted: 2,
       sent: 1,
       expired: 1,

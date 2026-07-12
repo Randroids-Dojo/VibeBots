@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-11-0.1.219-adjacent-seams";
+export const RELEASE_NOTICE_ID = "2026-07-12-0.1.220-holodeck-smooth-entry";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.220",
+      date: "2026-07-12",
+      title: "The Holodeck opens without a freeze",
+      intro: "Entering the Holodeck no longer locks the page while it builds.",
+      changes: [
+        {
+          build,
+          text: "Walking into the Holodeck from the mine used to freeze everything for the moment the whole stage compiled its draw programs at once: the longest first-view hang of any screen in our telemetry. The stage now builds its programs in the background and starts animating the instant they are ready, so the page stays responsive on the way in.",
+        },
+        {
+          build,
+          text: "The full Holodeck browser suite (motion, pause and resume, showcase clips, camera, village bench, shift cycle, Warp ring) passes against the gated start.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.219",
       date: "2026-07-11",

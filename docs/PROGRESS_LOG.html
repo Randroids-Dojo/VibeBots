@@ -31,6 +31,16 @@
 
 <main id="entries">
 
+  <article data-slice="holodeck-compile-gate" data-date="2026-07-12">
+    <h3>Gate holodeck frames behind the shader compile (F-072)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>perf/holodeck-first-view</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.220. Closes F-072. An instrumented mine-to-holodeck navigation (createProgram counter + longtask observer) reproduced the telemetry spike exactly: 19 first-view programs compiled synchronously inside one 3.2 s main-thread task on the first rendered frame. New shared <code>StartFramesWhenCompiled</code> gate (<code>compile-gate.tsx</code>): the holodeck Canvas mounts with <code>frameloop="never"</code>, the gate runs <code>renderer.compileAsync</code> over the mounted scene, and flips the frameloop prop to "always" through React state when done. Two wrong turns are documented in the component: poking <code>store.set({frameloop})</code> gets reverted by R3F's prop reconciliation on the next parent re-render, and bypassing <code>setFrameloop</code> leaves the shared clock stopped (every useFrame reads a frozen elapsedTime). Best-effort: a renderer without compileAsync starts frames immediately. Mine tips reviewed, no copy change; Rule 14 stamp review: none added (perf fix).</dd>
+      <dt>Verification</dt><dd>Dash checks, <code>git diff --check</code>, typecheck, Biome, full unit suite, production build. The full 9-test holodeck e2e suite passes against the gated start (motion, pause/resume, showcase, camera, village bench, shift cycle, Warp ring), which also covers the two failure modes above (they broke 5-7 of those tests when present). Honest limit: headless SwiftShader lacks <code>KHR_parallel_shader_compile</code>, so compileAsync degrades to a synchronous compile there and CI cannot demonstrate the long-task win; real hardware (parallel GL compile / WebGPU async pipelines) is where the freeze disappears, verified through the real-device insights after deploy per the F-072 acceptance line.</dd>
+      <dt>Assumptions</dt><dd>A brief backdrop-only beat on holodeck entry (while programs compile off-thread) reads better than a hard page freeze of the same duration; the mine and other canvases keep their existing warm-up behavior and can adopt the gate in their own slices if telemetry warrants it.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/05-test-arena.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-072 resolved (entry updated). None raised.</dd>
   <article data-slice="adjacent-cell-seam-bridges" data-date="2026-07-11">
     <h3>Replace full cell backplates with adjacency-only seams</h3>
     <dl>

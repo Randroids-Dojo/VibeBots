@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { imageRegionMaxRgb } from "./support/image-pixels";
 import {
   APP_VERSION_PATTERN,
+  awaitMineSceneReady,
   createMine,
   DEFAULT_GEAR,
   descendLadderShaft,
@@ -11,6 +13,7 @@ import {
   openStall,
   pressMineKey,
   routeLadderShaftWorld,
+  routeStarterMineWorld,
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
@@ -24,6 +27,40 @@ test.describe("phone viewport", () => {
     viewport: { width: 390, height: 760 },
     hasTouch: true,
     isMobile: true,
+  });
+
+  test("daylight leaves the narrow solid-cell seams dark", async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(() => {
+      (
+        window as typeof window & { __vibebotsTimeOfDayHour?: number }
+      ).__vibebotsTimeOfDayHour = 13;
+    });
+    await routeStarterMineWorld(page, 7313, (mine) => {
+      for (let row = 1; row <= 4; row++) {
+        for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+          setCell(mine, col, row, { kind: "dirt" });
+        }
+      }
+    });
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    const canvas = page.locator("canvas");
+    await awaitMineSceneReady(page);
+    await expect(canvas).toHaveAttribute("data-surface-phase", "day");
+
+    const daylight = await canvas.screenshot();
+    // The center-right block boundary is a true geometry gap. Before the
+    // backing opted out of scene fog, this narrow crop reached RGB 130 from
+    // the cyan daylight fog even though the backing material itself was black.
+    const seamMax = await imageRegionMaxRgb(page, daylight, {
+      left: 0.593,
+      right: 0.597,
+      top: 0.57,
+      bottom: 0.64,
+    });
+    expect(seamMax).toBeLessThan(16);
   });
 
   test("touch drag moves the miner and page pinch stays locked", async ({

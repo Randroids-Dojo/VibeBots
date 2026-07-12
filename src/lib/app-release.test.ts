@@ -24,19 +24,19 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest dark-cell-seams note complete", () => {
+  it("keeps the latest opaque-cell-seams note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-11-0.1.213-dark-cell-seams");
+    expect(release.noticeId).toBe("2026-07-11-0.1.214-opaque-cell-seams");
     expect(latestNote).toMatchObject({
-      version: "0.1.213",
-      title: "Darkness stays in the cracks",
-      intro: "The lantern no longer shines through the mine grid.",
+      version: "0.1.214",
+      title: "The cracks finally stay dark",
+      intro: "Daylight no longer colors the spaces between mine blocks.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The warm lines between blocks were not intentional. Cell gaps exposed a standard-lit cave backing, so the headlamp illuminated the background through every crack. The underground backing is now unlit and near-black while remaining transparent above the ground line, preserving the surface sky.",
-      "Rounded dirt and metal sidewalls now absorb grazing light instead of reflecting it into continuous grid lines. Front faces keep their authored Lantern response, the seamless radial veil is unchanged, and the correction adds no lights or draw calls.",
+      "The previous correction stopped the headlamp from lighting the cave backing, but daylight fog still recolored that black plane cyan through real geometry gaps. The backing is now explicitly fog-free, opaque, and physically constrained below the surface instead of relying on shader transparency, so the authored sky stays visible while every underground gap stays black on the phone WebGL2 path.",
+      "A new 390x760 daylight pixel regression samples the true center-right cell gap. It fails against the faulty render at RGB 130 and passes below RGB 16 with the fix, while the existing day/night, depth, visibility, and draw-budget contracts remain unchanged.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });

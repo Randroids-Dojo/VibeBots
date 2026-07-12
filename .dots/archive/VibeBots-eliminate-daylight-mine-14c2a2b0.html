@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Eliminate daylight mine cell seams</title>
+<meta name="dot-title" content="Eliminate daylight mine cell seams">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-11T20:48:38.087516-05:00">
+<meta name="dot-closed-at" content="2026-07-11T21:11:11.602993-05:00">
+<meta name="dot-close-reason" content="Package 0.1.214 makes the underground backing opaque and fog-free while anchoring it below the surface. The exact 390x760 phone regression fails at RGB 130 with fog restored and passes below RGB 16 fixed; depth 0 and depth 2 captures, 1,061 unit tests, build, critical smoke, draw budgets, and allocation profiling pass.">
+</head>
+<body>
+<article>
+<h1>Eliminate daylight mine cell seams</h1>
+<section id="description">
+Reproduce the depth 0 daytime cyan lines visible between solid cells, remove the true render path, and add a pixel-level regression test for narrow seams.
+</section>
+</article>
+</body>
+</html>

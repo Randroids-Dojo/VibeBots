@@ -324,6 +324,11 @@ const TUNNEL_FLOOR_GEOMETRY = new BoxGeometry(1, 1, 0.12).translate(
   0,
   -0.42,
 );
+const CAVE_BACKDROP_WIDTH = 60;
+const CAVE_BACKDROP_HEIGHT = 44;
+const CAVE_BACKDROP_SURFACE_TOP = -0.5;
+const CAVE_BACKDROP_SURFACE_CENTER =
+  CAVE_BACKDROP_SURFACE_TOP - CAVE_BACKDROP_HEIGHT / 2;
 const TUNNEL_FLOOR_MATERIALS: Record<
   MineBiomeId,
   ReturnType<typeof tunnelFloorMaterial>
@@ -928,6 +933,7 @@ function MineScene({
   const lastAction = useMineStore((s) => s.lastAction);
   void tick; // subscription trigger: the mine object mutates in place
   const rigRef = useRef<Group>(null);
+  const caveBackdropRef = useRef<Mesh>(null);
   const minerRef = useRef<Group>(null);
   const minerBodyRef = useRef<Group>(null);
   const motesRef = useRef<Group>(null);
@@ -1369,6 +1375,14 @@ function MineScene({
         mineCameraDistance(cameraZoom),
       );
       state.camera.lookAt(sx, rig.position.y + sy, 0);
+      const caveBackdrop = caveBackdropRef.current;
+      if (caveBackdrop) {
+        caveBackdrop.position.x = rig.position.x;
+        caveBackdrop.position.y = Math.min(
+          CAVE_BACKDROP_SURFACE_CENTER,
+          rig.position.y,
+        );
+      }
       // Rendered camera pan exposed for motion QA on narrow viewports.
       setDatasetNumber(cache, dataset, "camX", rig.position.x, 2);
       setDatasetNumber(cache, dataset, "camY", rig.position.y, 2);
@@ -2126,13 +2140,17 @@ function MineScene({
       {graphicsFeatures.postBloom && webgpuBackend ? (
         <ScenePostProcessing />
       ) : null}
-      <group ref={rigRef}>
-        {/* Cave backdrop tracks the camera so depth never shows raw void. */}
-        <mesh position={[0, 0, -5]}>
-          <planeGeometry args={[60, 44]} />
-          <primitive object={MINE_CAVE_BACKDROP} attach="material" />
-        </mesh>
-      </group>
+      <group ref={rigRef} />
+      {/* Opaque backing ends at the ground line while its center follows a
+          deep camera. This avoids both fog-colored cell gaps and a shader
+          transparency dependency on the phone WebGL2 path. */}
+      <mesh
+        ref={caveBackdropRef}
+        position={[0, CAVE_BACKDROP_SURFACE_CENTER, -5]}
+      >
+        <planeGeometry args={[CAVE_BACKDROP_WIDTH, CAVE_BACKDROP_HEIGHT]} />
+        <primitive object={MINE_CAVE_BACKDROP} attach="material" />
+      </mesh>
       {tunnelMeshes}
       {/* Imperative instanced block grid: the static solid bodies stream
           here as InstancedMeshes (identity transform, world-positioned

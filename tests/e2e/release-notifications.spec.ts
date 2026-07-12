@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The lantern no longer shines through the mine grid.",
+    "Daylight no longer colors the spaces between mine blocks.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "warm lines between blocks were not intentional",
+    "daylight fog still recolored that black plane cyan",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "absorb grazing light",
+    "fails against the faulty render at RGB 130",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.214", "The cracks finally stay dark"],
     ["0.1.213", "Darkness stays in the cracks"],
     ["0.1.212", "Light without the graph paper"],
     ["0.1.211", "The lantern owns the dark"],

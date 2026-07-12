@@ -82,6 +82,7 @@ import {
 import { PART_CATALOG } from "@/sim/parts";
 import { useBunkerStore } from "@/state/bunker-store";
 import { SAVE_SYNC_CHANNEL, useMineStore } from "@/state/mine-store";
+import { COMPILE_GATE_DEADLINE_MS } from "./compile-gate";
 import {
   eventInsideRef,
   useOutsidePointerDismiss,
@@ -1251,21 +1252,23 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     () => setMineCanvasPainted(true),
     [],
   );
-  // A fresh scene load or a canvas remount starts unpainted again; the
-  // compile-gate deadline guarantees frames (and this flag) within ~4s,
-  // with a 2x-deadline fallback so a stalled signal can never trap the
-  // loading veil on screen.
+  // A fresh scene load starts unpainted again (canvas remounts via
+  // retryMineSceneLoad also pass through status "loading", so one reset
+  // covers both). The compile gate guarantees frames within its deadline;
+  // the 2x-deadline fallback means a stalled first-frame signal can never
+  // trap the loading veil on screen.
   useEffect(() => {
     if (mineSceneStatus !== "ready") {
       setMineCanvasPainted(false);
       return;
     }
-    const fallback = window.setTimeout(() => setMineCanvasPainted(true), 8_000);
+    if (mineCanvasPainted) return;
+    const fallback = window.setTimeout(
+      () => setMineCanvasPainted(true),
+      COMPILE_GATE_DEADLINE_MS * 2,
+    );
     return () => window.clearTimeout(fallback);
-  }, [mineSceneStatus]);
-  useEffect(() => {
-    if (mineCanvasKey > 0) setMineCanvasPainted(false);
-  }, [mineCanvasKey]);
+  }, [mineSceneStatus, mineCanvasPainted]);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [pickaxeGateHint, setPickaxeGateHint] = useState<{
     key: number;
@@ -1767,6 +1770,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [lastResult, tick]);
 
   const mineSceneReady = worldLoaded && mineSceneStatus === "ready";
+  // The veil and the loading notice cover the canvas together until the
+  // first frame has actually painted (data-ready alone leaves the canvas
+  // as an unpainted black buffer through the compile warm-up).
+  const showFirstPaintVeil = mineSceneReady && !mineCanvasPainted;
 
   const directionCadence = useCallback(() => {
     if (!directionCadenceRef.current) {
@@ -3099,9 +3106,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       ) : (
         <MineSceneBackdrop />
       )}
-      {mineSceneReady && !mineCanvasPainted && <MineSceneBackdrop veil />}
-      {(mineSceneStatus === "loading" ||
-        (mineSceneReady && !mineCanvasPainted)) && (
+      {showFirstPaintVeil && <MineSceneBackdrop veil />}
+      {(mineSceneStatus === "loading" || showFirstPaintVeil) && (
         <MineSceneNotice status="loading" />
       )}
       {mineSceneStatus === "error" && (

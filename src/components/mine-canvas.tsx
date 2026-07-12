@@ -2461,39 +2461,6 @@ interface MineCanvasProps {
   onFirstFrame?: () => void;
 }
 
-/**
- * One-shot first-paint sentinel: onAfterRender runs after the frame has
- * drawn (frames only start once the warm pass settles, see onWarmed), so
- * this is the earliest moment the canvas is showing real pixels instead
- * of the unpainted black buffer. Ref-guarded: no per-frame allocation.
- */
-function FirstPaintSignal({ onFirstFrame }: { onFirstFrame?: () => void }) {
-  const fired = useRef(false);
-  const callbackRef = useRef(onFirstFrame);
-  callbackRef.current = onFirstFrame;
-  const onAfterRender = useCallback(() => {
-    if (fired.current) return;
-    fired.current = true;
-    callbackRef.current?.();
-  }, []);
-  return (
-    <mesh
-      position={[0, 0, -2.8]}
-      renderOrder={10_001}
-      frustumCulled={false}
-      onAfterRender={onAfterRender}
-    >
-      <planeGeometry args={[0.01, 0.01]} />
-      <meshBasicMaterial
-        transparent
-        opacity={0}
-        depthWrite={false}
-        colorWrite={false}
-      />
-    </mesh>
-  );
-}
-
 export default function MineCanvas(props: MineCanvasProps) {
   // Resolved once per mount: the tier only changes with the device or a
   // stored setting, and flipping renderer shadow support live is not
@@ -2520,8 +2487,7 @@ export default function MineCanvas(props: MineCanvasProps) {
         graphicsFeatures={features}
         onWarmed={startFrames}
       />
-      <FirstPaintSignal onFirstFrame={props.onFirstFrame} />
-      <CanvasDrawCallProbe />
+      <CanvasDrawCallProbe onFirstFrame={props.onFirstFrame} />
       <PerfProbeBridge source="mine" />
     </Canvas>
   );

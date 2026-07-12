@@ -619,6 +619,9 @@ test("mine loader stays up until the canvas paints, never a black gap", async ({
     hasText: "Opening the shaft",
   });
   await expect(loader).toBeVisible();
+  // The release-notes dialog is a full-page overlay: left up, it would
+  // sit inside the canvas screenshot below and skew the pixel check.
+  await dismissReleaseNotes(page);
 
   const shell = page.getByLabel("Mine status");
   // Data can be ready while the canvas is still warming pipelines; the

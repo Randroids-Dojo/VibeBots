@@ -31,6 +31,16 @@
 
 <main id="entries">
 
+  <article data-slice="ore-band-trace-floor" data-date="2026-07-12">
+    <h3>Ore bands fade onto the trace floor (F-041)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/ore-band-trace-floor</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.224. Closes F-041 with the audit's decision recorded: post-band trace ore stays (documented economy intent), and the band's last row sits on the trace floor instead of zero. <code>oreChanceAt</code>'s taper now clamps to <code>ORE_TRACE_SHARE</code> (the extracted 6%), removing the one-row dead zone at <code>maxRow</code> and the discontinuous jump one row later. Infinity-band cores never reach the taper and are untouched. World generation changes: <code>MINE_VERSION</code> 52 to 53; <code>SIM_VERSION</code> unchanged. Mine tips reviewed, no copy change (no tip references band edges); Rule 14 stamp review: none added.</dd>
+      <dt>Verification</dt><dd>New regression test walks every finite band: the boundary row equals the trace floor exactly and no fade row dips below it; the pre-existing trapezoid and deep-trace tests pass unchanged. Full unit suite (1104) green including bank-route pricing and replay determinism; typecheck; Biome; production build; release-note chain updated for 0.1.224 with the MINE_VERSION consequence stated player-facing ("fresh trips see the new bands; saved worlds keep the cells you already dug").</dd>
+      <dt>Assumptions</dt><dd>Clamping the taper to the floor (rather than re-sloping the fade to land on it) is the minimal continuous form and only ADDS ore relative to the old curve in the affected rows, so the economy change is a strict small buff near band edges; Recommended default per Rule 7, reversible by tuning ORE_TRACE_SHARE.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/06-mining.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-041 resolved (entry updated). None raised.</dd>
   <article data-slice="local-e2e-storage-parity" data-date="2026-07-12">
     <h3>Local Playwright runs always match the CI storage contract (F-048)</h3>
     <dl>

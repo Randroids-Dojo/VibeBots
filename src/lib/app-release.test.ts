@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest workshop-feel note complete", () => {
+  it("keeps the latest ore-band-floor note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-12-0.1.223-workshop-feel");
+    expect(release.noticeId).toBe("2026-07-12-0.1.224-ore-band-floor");
     expect(latestNote).toMatchObject({
+      version: "0.1.224",
+      title: "Ore bands fade out instead of cutting out",
+      intro: "The bottom edge of every ore band is no longer a dead row.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Each ore's spawn chance used to taper all the way to zero exactly at its band's last row, then jump back up to the deep trace chance one row later. The fade now settles onto the trace floor smoothly, so the boundary row carries ore again and the hand-off into trace territory has no seam.",
+      "This changes world generation, so MINE_VERSION advances to 53: fresh trips see the new bands; saved worlds keep the cells you already dug.",
+      "SIM_VERSION is unchanged.",
+    ]);
+  });
+
+  it("keeps the archived workshop-feel note complete", () => {
+    const release = getAppRelease();
+    const workshopNote = release.notes.find(
+      (note) => note.version === "0.1.223",
+    );
+
+    expect(workshopNote).toMatchObject({
       version: "0.1.223",
       title: "The workshop clicks, chimes, and tidies up",
       intro: "Building your bot now sounds and reads like one bench.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(workshopNote?.changes.map((change) => change.text)).toEqual([
       "Placing a part lands with a short mechanical snap and merging two parts rings a brighter two-note chime, matching the visual snap and merge bump the bench already had. The sounds are synthesized on device, so nothing new downloads.",
       "On phones, the part name and browse arrows now lift clear of the part-details card when it opens, so the controls and the card never sit on top of each other.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

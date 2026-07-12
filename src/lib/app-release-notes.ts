@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-12-0.1.223-workshop-feel";
+export const RELEASE_NOTICE_ID = "2026-07-12-0.1.224-ore-band-floor";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.224",
+      date: "2026-07-12",
+      title: "Ore bands fade out instead of cutting out",
+      intro: "The bottom edge of every ore band is no longer a dead row.",
+      changes: [
+        {
+          build,
+          text: "Each ore's spawn chance used to taper all the way to zero exactly at its band's last row, then jump back up to the deep trace chance one row later. The fade now settles onto the trace floor smoothly, so the boundary row carries ore again and the hand-off into trace territory has no seam.",
+        },
+        {
+          build,
+          text: "This changes world generation, so MINE_VERSION advances to 53: fresh trips see the new bands; saved worlds keep the cells you already dug.",
+        },
+        { build, text: "SIM_VERSION is unchanged." },
+      ],
+    },
     {
       version: "0.1.223",
       date: "2026-07-12",

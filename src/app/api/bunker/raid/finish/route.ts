@@ -14,6 +14,8 @@ export async function POST(): Promise<Response> {
         ...result.view,
         raid: result.raid,
         reward: result.reward,
+        // Stamps ride the top-level channel like every other award route.
+        newStamps: result.reward.newStamps,
       }),
     ),
   );

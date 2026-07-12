@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BUNKER_SKIN_CATALOG,
   type BunkerFootprint,
@@ -88,7 +88,12 @@ export function BunkerControlPanel({
   const tierCeiling = maxBunkerRaidTier(player?.overallLevel ?? 1);
   const [raidTier, setRaidTier] = useState(1);
   const pickedTier = Math.min(raidTier, tierCeiling);
-  const repairPlan = bunker ? bunkerRepairPlan(bunker) : null;
+  // Memoized: the parts scan only reruns when a mutation response swaps
+  // the bunker reference, not on every raid-tick re-render.
+  const repairPlan = useMemo(
+    () => (bunker ? bunkerRepairPlan(bunker) : null),
+    [bunker],
+  );
   const repairCost = repairPlan?.totalCost ?? 0;
   const balance = player?.balance ?? 0;
   const raidButtonLabel = activeRaid
@@ -271,62 +276,63 @@ export function BunkerControlPanel({
         )}
 
         {hasBunker && !activeRaid && !pendingClaim && (
-          <p
-            className="bunker-balance"
-            role="status"
-            aria-label="Vibes balance"
-          >
-            {`Vibes: ${balance}`}
-          </p>
-        )}
-        {hasBunker &&
-          !activeRaid &&
-          !pendingClaim &&
-          repairCost > 0 &&
-          onRepair && (
-            <button
-              type="button"
-              className="bunker-repair-button"
-              onClick={onRepair}
-              disabled={balance < repairCost}
-              title={
-                balance < repairCost
-                  ? `Needs ${repairCost - balance} more vibes`
-                  : undefined
-              }
+          <>
+            <p
+              className="bunker-balance"
+              role="status"
+              aria-label="Vibes balance"
             >
-              {`Repair bunker (${repairCost} vibes)`}
-            </button>
-          )}
-        {hasBunker && !activeRaid && !pendingClaim && onSelectSkin && (
-          <fieldset className="bunker-skin-picker" aria-label="Bunker skins">
-            {Object.values(BUNKER_SKIN_CATALOG).map((skin) => {
-              const owned =
-                skin.price === 0 ||
-                (bunker?.skinsOwned ?? []).includes(skin.id);
-              const selected =
-                (bunker?.skin ?? DEFAULT_BUNKER_SKIN) === skin.id;
-              const affordable = owned || balance >= skin.price;
-              return (
-                <button
-                  key={skin.id}
-                  type="button"
-                  aria-pressed={selected}
-                  title={
-                    affordable
-                      ? skin.blurb
-                      : `${skin.blurb} (needs ${skin.price - balance} more vibes)`
-                  }
-                  onClick={() => onSelectSkin(skin.id)}
-                  disabled={selected || !affordable}
-                >
-                  {owned || selected
-                    ? skin.name
-                    : `${skin.name} (${skin.price}v)`}
-                </button>
-              );
-            })}
-          </fieldset>
+              {`Vibes: ${balance}`}
+            </p>
+            {repairCost > 0 && onRepair && (
+              <button
+                type="button"
+                className="bunker-repair-button"
+                onClick={onRepair}
+                disabled={balance < repairCost}
+                title={
+                  balance < repairCost
+                    ? `Needs ${repairCost - balance} more vibes`
+                    : undefined
+                }
+              >
+                {`Repair bunker (${repairCost} vibes)`}
+              </button>
+            )}
+            {onSelectSkin && (
+              <fieldset
+                className="bunker-skin-picker"
+                aria-label="Bunker skins"
+              >
+                {Object.values(BUNKER_SKIN_CATALOG).map((skin) => {
+                  const owned =
+                    skin.price === 0 ||
+                    (bunker?.skinsOwned ?? []).includes(skin.id);
+                  const selected =
+                    (bunker?.skin ?? DEFAULT_BUNKER_SKIN) === skin.id;
+                  const affordable = owned || balance >= skin.price;
+                  return (
+                    <button
+                      key={skin.id}
+                      type="button"
+                      aria-pressed={selected}
+                      title={
+                        affordable
+                          ? skin.blurb
+                          : `${skin.blurb} (needs ${skin.price - balance} more vibes)`
+                      }
+                      onClick={() => onSelectSkin(skin.id)}
+                      disabled={selected || !affordable}
+                    >
+                      {owned || selected
+                        ? skin.name
+                        : `${skin.name} (${skin.price}v)`}
+                    </button>
+                  );
+                })}
+              </fieldset>
+            )}
+          </>
         )}
 
         {pendingClaim && hasBunker && (

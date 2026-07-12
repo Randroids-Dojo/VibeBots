@@ -31,6 +31,17 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-sheet-cleanup" data-date="2026-07-13">
+    <h3>Post-merge cleanup pass over the bunker arc slices</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/bunker-sheet-cleanup</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Findings from a four-angle review (reuse, simplification, efficiency, altitude) of the merged repairs/skins/balance diffs. Applied: the bunker sheet's priced-controls block now sits under one <code>hasBunker &amp;&amp; !activeRaid &amp;&amp; !pendingClaim</code> gate instead of three copies; <code>bunkerRepairPlan</code> is memoized on the bunker reference so the parts scan stops rerunning on every raid-tick re-render; stamp alerts unified on the app-wide top-level <code>newStamps</code> channel (the raid-finish route lifts it like every other award route, and <code>applyResponse</code> drains one channel instead of two). No behavior change; no version bump.</dd>
+      <dt>Verified</dt><dd>Route, store, and server bunker tests plus the finish-route test now pinning the top-level stamp passthrough; biome and tsc clean; bunker e2e suite on a rebuilt bundle.</dd>
+      <dt>Skipped by design</dt><dd>Shared guarded-debit helper (each call site fuses the debit with a different second write for single-statement atomicity; a helper would break that), shared e2e bunker-view factory (pre-existing debt across ~8 fixtures, separate refactor), table-driven release-note tests (house style is one pinned test per note).</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-balance" data-date="2026-07-13">
     <h3>Bunker sheet balance readout and affordability gating (F-088)</h3>
     <dl>

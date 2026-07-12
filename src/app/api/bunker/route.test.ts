@@ -183,7 +183,7 @@ describe("bunker API routes", () => {
         leveledUp: false,
         beaconLimitBefore: 2,
         beaconLimitAfter: 2,
-        newStamps: [],
+        newStamps: ["survival-first-defense"],
       },
     });
   });
@@ -402,6 +402,8 @@ describe("bunker API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       raid: { raidId: "raid-1" },
       reward: { vibesGained: 30, xpGained: 60 },
+      // Stamps ride the app-wide top-level channel (see applyResponse).
+      newStamps: ["survival-first-defense"],
     });
     expect(mockedFinish).toHaveBeenCalledWith(expect.any(Function), "player-1");
   });

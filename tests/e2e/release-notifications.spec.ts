@@ -24,12 +24,8 @@ test("mine shows the latest release note once to a fresh browser", async ({
     "Fire TV sessions get remote-native controls.",
   );
   await expect(dialog.locator("li")).toHaveCount(5);
-  await expect(dialog.locator("li").first()).toContainText(
-    "TV control deck",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
-    "closes open menus",
-  );
+  await expect(dialog.locator("li").first()).toContainText("TV control deck");
+  await expect(dialog.locator("li").nth(2)).toContainText("closes open menus");
   await expect(dialog.locator("li").nth(4)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );

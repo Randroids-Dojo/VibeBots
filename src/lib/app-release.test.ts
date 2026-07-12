@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest connector-removal note complete", () => {
+  it("keeps the latest load-animation note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.233-cell-connectors-removed");
+    expect(release.noticeId).toBe("2026-07-13-0.1.234-mine-load-animation");
     expect(latestNote).toMatchObject({
+      version: "0.1.234",
+      title: "The mine loads behind the cart, not a black screen",
+      intro: "The loading animation now stays up until the first real frame.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Opening the mine no longer flashes a long black screen. The mine-cart loading animation and the cave backdrop stay on screen through the whole warm-up and only clear once the scene has actually drawn its first frame.",
+      "The loading card never blocks taps, and if the renderer somehow stalls, the veil clears itself after a few seconds instead of trapping you on the loader.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived connector-removal note complete", () => {
+    const release = getAppRelease();
+    const connectorNote = release.notes.find(
+      (note) => note.version === "0.1.233",
+    );
+
+    expect(connectorNote).toMatchObject({
       version: "0.1.233",
       title: "The bars are gone",
       intro: "Rocks and blocks stand on their own again.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(connectorNote?.changes.map((change) => change.text)).toEqual([
       "Every soil-colored bridge and corner patch between occupied mine cells has been removed. Boulders, rocks, dirt, metal, caches, and ore now show only their own authored geometry.",
       "The cave backing now owns the negative space between shapes at every zoom. An exact Pixel test checks adjacent boulders, dirt, and rock, and fails if connector geometry returns.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

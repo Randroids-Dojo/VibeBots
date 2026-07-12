@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.233-cell-connectors-removed";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.234-mine-load-animation";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.234",
+      date: "2026-07-13",
+      title: "The mine loads behind the cart, not a black screen",
+      intro: "The loading animation now stays up until the first real frame.",
+      changes: [
+        {
+          build,
+          text: "Opening the mine no longer flashes a long black screen. The mine-cart loading animation and the cave backdrop stay on screen through the whole warm-up and only clear once the scene has actually drawn its first frame.",
+        },
+        {
+          build,
+          text: "The loading card never blocks taps, and if the renderer somehow stalls, the veil clears itself after a few seconds instead of trapping you on the loader.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.233",
       date: "2026-07-13",

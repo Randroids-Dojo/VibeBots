@@ -938,11 +938,20 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
   await expect(balanceLine).toHaveText("Vibes: 20");
 
   // Rule 10: the repaint must be visible on the canvas, not just in the
-  // UI. Ambient dust also shifts pixels between frames, so require the
-  // repaint interval to beat a same-length ambient interval by a margin
-  // (additive: dust noise contributes equally to both measurements).
-  await page.waitForTimeout(400);
-  const after = await page.locator("canvas").screenshot();
+  // UI. Poll until a rendered frame actually lands (under parallel test
+  // load a fixed wait can fall between frames), then require the repaint
+  // to beat a same-length ambient interval by an additive margin (dust
+  // noise contributes equally to both measurements).
+  let after = before;
+  await expect
+    .poll(
+      async () => {
+        after = await page.locator("canvas").screenshot();
+        return imagePixelDifferenceRatio(page, before, after);
+      },
+      { timeout: 10_000, intervals: [400] },
+    )
+    .toBeGreaterThan(0.002);
   await page.waitForTimeout(400);
   const settled = await page.locator("canvas").screenshot();
   const repaint = await imagePixelDifferenceRatio(page, before, after);

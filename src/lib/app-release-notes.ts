@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-12-0.1.226-accent-tier-gate";
+export const RELEASE_NOTICE_ID = "2026-07-12-0.1.227-mine-load-gate";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.227",
+      date: "2026-07-12",
+      title: "The mine loads without locking your phone",
+      intro: "The session-start freeze becomes a brief backdrop beat.",
+      changes: [
+        {
+          build,
+          text: "Opening the mine used to freeze the page while every material compiled on the first frame, up to twelve seconds cache-cold on phones. The mine now holds its first frame until that compile finishes in the background, with a four second safety valve, the same cure the Holodeck entry got.",
+        },
+        {
+          build,
+          text: "The change is render-timing only: saves, moves, and world rules are untouched.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.226",
       date: "2026-07-12",

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-12-0.1.226-accent-tier-gate",
+      releaseNoticeId: "2026-07-12-0.1.227-mine-load-gate",
       releaseSummary:
-        "Smoother frames on phones, glow where it fits: The emitter glow now steps aside on devices that cannot afford it.",
+        "The mine loads without locking your phone: The session-start freeze becomes a brief backdrop beat.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-12-0.1.226-accent-tier-gate",
+      releaseNoticeId: "2026-07-12-0.1.227-mine-load-gate",
       attempted: 2,
       sent: 1,
       expired: 1,

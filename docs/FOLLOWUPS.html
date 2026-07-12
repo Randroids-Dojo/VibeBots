@@ -988,6 +988,16 @@
 </dl>
 </section>
 
+<section id="F-082" data-f="F-082" data-priority="nice-to-have">
+  <h3>F-082: Update the stale scrap-mode bunker-claim test for the hammer builder</h3>
+  <dl>
+    <dt>Context</dt><dd>Found by the F-047 slice-start triage during F-081: <code>mine-core.spec.ts</code> "scrap mode closes bunker claim overlays" fails on unmodified main since the hammer bunker builder (PR #132) removed the "Bunker builder" region and its menu flow the test asserts. The failure lives in the Full E2E matrix only (the critical shard stayed green through the merge), so it will show as a red nightly until fixed.</dd>
+    <dt>Blocker (if any)</dt><dd>none.</dd>
+    <dt>Unblock condition</dt><dd>Ready: rewrite the test against the hammer flow's actual overlay semantics (what closes what when scrap mode engages during a claim), or fold its intent into the hammer slice's own bunker specs and delete it. Acceptance: the Full E2E matrix has no failure from this test on unmodified main, and the scrap-during-claim interaction stays covered.</dd>
+    <dt>PR / Dot reference</dt><dd>(raised during F-081; regression introduced by PR #132's UI rewrite)</dd>
+  </dl>
+</section>
+
 <section id="F-081" data-f="F-081" data-priority="nice-to-have">
   <h3>F-081: Gate mine canvas frames behind the load-time compile</h3>
   <dl>
@@ -995,7 +1005,8 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: apply the holodeck's proven mechanism (F-072, <code>StartFramesWhenCompiled</code> in <code>compile-gate.tsx</code>) to the mine canvas: mount with <code>frameloop="never"</code>, run the existing warm pass through the gate, flip through React state, keep the 4s force-start deadline. Verify against the mine e2e suite (the frameloop/clock traps are documented in the component) and confirm the load LoAF collapses in the next real-device window. Acceptance: mine session-start loafMaxMs drops an order of magnitude on the phone with the full mine suite green.</dd>
     <dt>PR / Dot reference</dt><dd>(raised by the phone-mine performance baseline)</dd>
-  </dl>
+    <dt>Resolved</dt><dd>2026-07-12 (package 0.1.227): shipped with the holodeck's exact mechanism. <code>warmMineMaterials</code> now returns its compile promise beside the disposer, the mine Canvas mounts at <code>frameloop="never"</code>, and a new shared <code>startFramesWhenSettled</code> (extracted from <code>startFramesAfterCompile</code> in <code>compile-gate.tsx</code>, same 4s force-start deadline) flips the frameloop prop through React state when the warm compile settles. A detail-tier flip re-warms without re-gating (the flip callback is idempotent). Verified against the mine e2e surface: core, bunker, viewport, warp/elevator, shader-churn, and release-note suites green; the one core failure ("scrap mode closes bunker claim overlays") reproduces on unmodified main and is the stale pre-hammer test raised as F-082, not this slice. Real-device confirmation: session-start <code>loafMaxMs</code> should collapse in the next insights window per the acceptance line.</dd>
+</dl>
 </section>
 
 <section id="F-080" data-f="F-080" data-priority="polish">

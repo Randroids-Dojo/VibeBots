@@ -16,7 +16,12 @@ export const STAMP_ALERT_MS = 3000;
  * never runs; re-arming from animationstart keeps it from racing a
  * late-starting animation on a stalled main thread.
  */
-export function StampCollectAlert() {
+export function StampCollectAlert({
+  onOpenStampBook,
+}: {
+  /** Makes the alert clickable: opens this stamp in the Stamp Book. */
+  onOpenStampBook?: (achievementId: string) => void;
+}) {
   const achievementId = useStampAlertStore((s) => s.queue[0] ?? null);
   const shiftStampAlert = useStampAlertStore((s) => s.shiftStampAlert);
   const reaper = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,6 +55,16 @@ export function StampCollectAlert() {
       achievementId={achievementId}
       onAnimationStart={() => armReaper(STAMP_ALERT_MS + 400)}
       onAnimationEnd={shiftStampAlert}
+      onOpen={
+        onOpenStampBook
+          ? () => {
+              // The book takes over: advance the queue so the alert is
+              // not still popping over the opened dialog.
+              onOpenStampBook(achievementId);
+              shiftStampAlert();
+            }
+          : undefined
+      }
     />
   );
 }
@@ -59,13 +74,25 @@ export function StampAlertCard({
   achievementId,
   onAnimationStart,
   onAnimationEnd,
+  onOpen,
 }: {
   achievementId: string;
   onAnimationStart?: () => void;
   onAnimationEnd?: () => void;
+  /** Makes the card content a button that opens the Stamp Book. */
+  onOpen?: () => void;
 }) {
   const definition = ACHIEVEMENT_BY_ID.get(achievementId);
   if (!definition) return null;
+  const content = (
+    <>
+      <StampArt achievementId={achievementId} size={56} />
+      <div>
+        <span className="mine-stamp-alert-eyebrow">Stamp collected</span>
+        <strong className="mine-stamp-alert-title">{definition.title}</strong>
+      </div>
+    </>
+  );
   return (
     <div
       className="mine-stamp-alert"
@@ -74,11 +101,18 @@ export function StampAlertCard({
       onAnimationStart={onAnimationStart}
       onAnimationEnd={onAnimationEnd}
     >
-      <StampArt achievementId={achievementId} size={56} />
-      <div>
-        <span className="mine-stamp-alert-eyebrow">Stamp collected</span>
-        <strong className="mine-stamp-alert-title">{definition.title}</strong>
-      </div>
+      {onOpen ? (
+        <button
+          type="button"
+          className="mine-stamp-alert-open"
+          aria-label={`Open ${definition.title} in the Stamp Book`}
+          onClick={onOpen}
+        >
+          {content}
+        </button>
+      ) : (
+        content
+      )}
     </div>
   );
 }

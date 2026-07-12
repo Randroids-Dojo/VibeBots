@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.236-parallax-depth";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.237-stamp-alert-shortcut";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.237",
+      date: "2026-07-13",
+      title: "Stamp alerts lead straight to the Stamp Book",
+      intro: "Tap a fresh stamp to see it in its place in the collection.",
+      changes: [
+        {
+          build,
+          text: "The stamp-collected alert now sits about a quarter of the way down the screen, clear of the depth and battery readouts, and tapping it opens the Stamp Book scrolled to that stamp with a gold highlight.",
+        },
+        {
+          build,
+          text: "The shortcut works in the workshop and the arena too, and keyboard players can activate the alert like any button.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.236",
       date: "2026-07-13",

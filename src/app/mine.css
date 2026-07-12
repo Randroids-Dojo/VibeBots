@@ -679,7 +679,7 @@
 
 .mine-stamp-alert {
   position: fixed;
-  top: max(90px, calc(env(safe-area-inset-top) + 66px));
+  top: max(25dvh, calc(env(safe-area-inset-top) + 66px));
   left: 50%;
   z-index: 60;
   display: flex;
@@ -699,6 +699,29 @@
 
 .mine-stamp-alert svg {
   flex: 0 0 auto;
+}
+
+/* The clickable body: the whole card opens this stamp in the Stamp Book.
+ * The outer card stays pointer-events none so only the content is a
+ * target; the button restores normal pointer and keyboard activation. */
+.mine-stamp-alert-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.mine-stamp-alert-open:focus-visible {
+  outline: 2px solid #f5c542;
+  outline-offset: 6px;
 }
 
 .mine-stamp-alert-eyebrow {

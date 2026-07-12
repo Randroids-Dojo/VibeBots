@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest parallax-depth note complete", () => {
+  it("keeps the latest stamp-shortcut note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.236-parallax-depth");
+    expect(release.noticeId).toBe("2026-07-13-0.1.237-stamp-alert-shortcut");
     expect(latestNote).toMatchObject({
+      version: "0.1.237",
+      title: "Stamp alerts lead straight to the Stamp Book",
+      intro: "Tap a fresh stamp to see it in its place in the collection.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The stamp-collected alert now sits about a quarter of the way down the screen, clear of the depth and battery readouts, and tapping it opens the Stamp Book scrolled to that stamp with a gold highlight.",
+      "The shortcut works in the workshop and the arena too, and keyboard players can activate the alert like any button.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived parallax-depth note complete", () => {
+    const release = getAppRelease();
+    const depthNote = release.notes.find((note) => note.version === "0.1.236");
+
+    expect(depthNote).toMatchObject({
       version: "0.1.236",
       title: "The horizon has real depth",
       intro: "The landscape now separates into calm, believable distances.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(depthNote?.changes.map((change) => change.text)).toEqual([
       "The planet now barely drifts while the excavation, mining machinery, and service berm move at progressively stronger depth rates. The scenery no longer feels attached to the miner.",
       "Each layer eases into a bounded travel range, keeping the ringed planet and industrial skyline composed while walking to distant biomes. Reduced motion still locks the vista to the viewport.",
       "The correction adds no geometry, draw calls, materials, or frame allocations. MINE_VERSION and SIM_VERSION are unchanged.",

@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="stamp-alert-shortcut" data-date="2026-07-13">
+    <h3>Stamp alerts move down-screen and open the Stamp Book</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/stamp-alert-position</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.237, from direct user feedback. The stamp-collected alert drops from the HUD band to a quarter of the viewport (<code>top: max(25dvh, safe-area + 66px)</code>) and its body becomes a real button (the card wrapper keeps <code>role="status"</code> for the announcement; the outer card stays pointer-transparent so only the content is a tap target). Tapping opens the Stamp Book scrolled to that stamp: <code>StampBookPopup</code> gains <code>focusAchievementId</code> (gold border, glow, <code>scrollIntoView</code> via a ref callback, <code>data-achievement-focused</code> for tests) and the alert advances its queue on tap so the card never lingers over the book. The workshop and arena mount their own copy of the book so the shortcut behaves the same on every screen; the mine's settings path opens the book unfocused as before.</dd>
+      <dt>Verified</dt><dd>Unit: the card renders a labeled button when clickable, keeps the status wrapper, and the CSS position/pointer contract is pinned. E2E: the alert's top lands within 5% of a quarter viewport, tapping it consumes the alert and opens the book with the focused card in view. Release-notification chain updated and green on a rebuilt bundle.</dd>
+      <dt>Tips review</dt><dd>Rule 13: rotation reviewed for 0.1.237; no change (the Stamp Book tip already points players at goals; the shortcut is discoverable by tapping).</dd>
+      <dt>Stamp review</dt><dd>Rule 14: none added (navigation affordance for existing stamps, not a milestone).</dd>
+    </dl>
+  </article>
+
   <article data-slice="surface-parallax-depth" data-date="2026-07-13">
     <h3>Separate the surface horizon into believable distances</h3>
     <dl>

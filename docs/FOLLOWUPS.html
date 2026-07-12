@@ -995,7 +995,8 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: reproduce on an idle machine, capture which predicate input drifts (shell rect vs visualViewport offset), and either harden the helper's simulation or document the environmental precondition beside the known-flake list in <code>docs/CI_WORKFLOW.html</code>. Acceptance: the test passes reliably on an idle local machine or its environmental sensitivity is documented where the scheduled-run triage will see it.</dd>
     <dt>PR / Dot reference</dt><dd>(raised during F-081 verification; CI green throughout)</dd>
-  </dl>
+    <dt>Resolved</dt><dd>2026-07-13: reproduced 4/4 on an IDLE machine, so machine load was not the trigger. Instrumentation timed the lock predicate becoming true at 5344ms after load: the mine's load-time shader compile blocks the SwiftShader main thread for 3-6s depending on the machine, and the helper's expect.poll used the default 5s timeout, so the first predicate evaluation was still held when the poll expired locally while CI machines edged under the line (the "passed an hour earlier" observation was this margin moving with the week's growing material set). Every individual predicate condition is correct once the page can answer. Fixed with a 15s poll timeout on <code>expectMineShellViewportLocked</code> (matching the suite's other load-tolerant helpers) and the cause documented inline; 4/4 repeats now pass on the same machine that failed 4/4.</dd>
+</dl>
 </section>
 
 <section id="F-082" data-f="F-082" data-priority="nice-to-have">

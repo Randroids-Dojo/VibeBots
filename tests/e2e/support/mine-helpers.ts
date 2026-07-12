@@ -289,7 +289,15 @@ export async function expectMineShellViewportLocked(page: Page): Promise<void> {
             inViewport(zoomOut)
           );
         }),
-      { message: "mine shell should stay locked to the visible viewport" },
+      {
+        message: "mine shell should stay locked to the visible viewport",
+        // The mine's load-time shader compile blocks the main thread for
+        // 3-6s under SwiftShader depending on the machine, so the first
+        // evaluation of this predicate can be held past the default 5s
+        // poll (F-083: deterministic local failures while CI edged under
+        // the line). Match the load-tolerant timeouts used elsewhere.
+        timeout: 15_000,
+      },
     )
     .toBe(true);
 }

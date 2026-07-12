@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="viewport-lock-headroom" data-date="2026-07-13">
+    <h3>Root-cause the local-only viewport-lock failure (F-083)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>test/viewport-lock-headroom</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Test helper only; no app code, no version bump. The idle-machine reproduction ruled out load; timing instrumentation caught the real cause: the mine's load-time shader compile blocks the SwiftShader main thread 3-6s per machine, and <code>expectMineShellViewportLocked</code> polled with the default 5s timeout, so the first predicate evaluation was still blocked when the poll expired on this Mac while CI edged under the line. The poll now allows 15s with the cause documented inline, matching the suite's other load-tolerant helpers.</dd>
+      <dt>Verification</dt><dd>4/4 repeats pass on the machine that failed 4/4 before the change; the full release-notifications suite (8 tests) passes; dash and diff checks clean. The lock predicate itself was verified condition-by-condition correct once the page can answer.</dd>
+      <dt>Assumptions</dt><dd>None; the environmental sensitivity F-083 asked to document turned out to be a fixable margin, so the fix supersedes documentation.</dd>
+      <dt>GDD coverage</dt><dd>No changes.</dd>
+      <dt>Followups</dt><dd>F-083 resolved. None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hammer-scrap-claim-test" data-date="2026-07-12">
     <h3>Repair the stale scrap-mode bunker-claim test (F-082)</h3>
     <dl>

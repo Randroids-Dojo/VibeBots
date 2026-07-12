@@ -9,7 +9,7 @@ import type {
   BunkerState,
 } from "@/sim/bunker";
 import { BASE_PART_CATALOG, containsBunkerCell } from "@/sim/bunker";
-import type { MineCoord } from "@/sim/mine";
+import type { Direction, MineCoord, MinerState } from "@/sim/mine";
 import {
   hasCoarsePointer,
   readStoredGraphicsQuality,
@@ -17,6 +17,10 @@ import {
 } from "./graphics-quality";
 import { useBlockDetail } from "./mine-block-render";
 import { bunkerPartGeometry } from "./mine-bunker-part-geometry";
+import type {
+  BunkerToolAction,
+  CarriedBunkerPart,
+} from "./mine-bunker-toolbelt";
 import { cellX } from "./mine-render-palette";
 import {
   SelectedSupportCellOutline,
@@ -37,7 +41,12 @@ import {
   transientAnimationProgress,
 } from "./mine-transient-animation";
 
-export type BunkerBuildMode = "place" | "remove" | "move";
+export interface BunkerToolVisualEvent {
+  key: number;
+  kind: "build" | "pry" | "stow";
+  direction: Direction;
+  target: MineCoord;
+}
 
 const CLANKER_LEGS = [
   { x: -0.32, side: -1, phase: 0 },
@@ -593,38 +602,185 @@ function BasePartVisual({
   );
 }
 
+function BunkerScaffoldGantry({ footprint }: { footprint: BunkerFootprint }) {
+  const centerCol = footprint.col + (footprint.width - 1) / 2;
+  const centerRow = footprint.row + (footprint.height - 1) / 2;
+  return (
+    <group position={[0, 0, 0.18]} renderOrder={4}>
+      {Array.from({ length: footprint.width + 1 }, (_, index) => {
+        const col = footprint.col + index - 0.5;
+        return (
+          <mesh
+            key={`gantry-upright:${col}`}
+            position={[
+              cellX(col),
+              -centerRow,
+              index === 0 || index === footprint.width ? 0.02 : 0,
+            ]}
+          >
+            <boxGeometry args={[0.055, footprint.height, 0.055]} />
+            <meshStandardMaterial
+              color="#f59e0b"
+              emissive="#6f3508"
+              emissiveIntensity={0.32}
+              metalness={0.58}
+              roughness={0.34}
+              transparent
+              opacity={0.48}
+            />
+          </mesh>
+        );
+      })}
+      {Array.from({ length: footprint.height + 1 }, (_, index) => {
+        const row = footprint.row + index - 0.5;
+        return (
+          <mesh
+            key={`gantry-crossbar:${row}`}
+            position={[cellX(centerCol), -row, 0]}
+          >
+            <boxGeometry args={[footprint.width, 0.045, 0.045]} />
+            <meshStandardMaterial
+              color="#fbbf24"
+              emissive="#6f3508"
+              emissiveIntensity={0.24}
+              metalness={0.54}
+              roughness={0.36}
+              transparent
+              opacity={0.34}
+            />
+          </mesh>
+        );
+      })}
+      {Array.from(
+        { length: footprint.width },
+        (_, index) => footprint.col + index,
+      ).map((col) => (
+        <mesh
+          key={`gantry-brace:${col}`}
+          position={[cellX(col), -centerRow, -0.01]}
+          rotation={[0, 0, col % 2 === 0 ? 0.58 : -0.58]}
+        >
+          <boxGeometry args={[0.035, footprint.height * 1.1, 0.035]} />
+          <meshStandardMaterial
+            color="#7b4a17"
+            metalness={0.5}
+            roughness={0.42}
+            transparent
+            opacity={0.24}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function BunkerHammerEffect({
+  event,
+  miner,
+}: {
+  event: BunkerToolVisualEvent;
+  miner: MinerState;
+}) {
+  const hammerRef = useRef<Group>(null);
+  const sparksRef = useRef<Group>(null);
+  const startedAtRef = useRef<number | null>(null);
+  useFrame((state) => {
+    const hammer = hammerRef.current;
+    const sparks = sparksRef.current;
+    if (!hammer || !sparks) return;
+    startedAtRef.current ??= state.clock.elapsedTime;
+    const age = state.clock.elapsedTime - startedAtRef.current;
+    const duration = event.kind === "stow" ? 0.42 : 0.34;
+    if (age >= duration) {
+      hammer.visible = false;
+      sparks.visible = false;
+      return;
+    }
+    const progress = age / duration;
+    const directionAngle =
+      event.direction === "right"
+        ? -0.55
+        : event.direction === "left"
+          ? Math.PI + 0.55
+          : event.direction === "up"
+            ? Math.PI / 2
+            : -Math.PI / 2;
+    hammer.visible = true;
+    hammer.position.set(cellX(miner.col), -miner.row, 1.28);
+    hammer.rotation.z = directionAngle + Math.sin(progress * Math.PI) * 1.35;
+    const impact = Math.max(0, 1 - Math.abs(progress - 0.58) * 8);
+    sparks.visible = event.kind !== "stow" && impact > 0;
+    sparks.position.set(cellX(event.target.col), -event.target.row, 1.12);
+    sparks.scale.setScalar(0.45 + impact * 0.9);
+  });
+  return (
+    <>
+      <group ref={hammerRef} visible={false} renderOrder={60}>
+        <mesh position={[0.28, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <boxGeometry args={[0.08, 0.58, 0.08]} />
+          <meshStandardMaterial color="#7a4a24" roughness={0.7} />
+        </mesh>
+        <mesh position={[0.58, 0, 0]}>
+          <boxGeometry args={[0.34, 0.2, 0.16]} />
+          <meshStandardMaterial
+            color="#c8d0dc"
+            emissive="#75420f"
+            emissiveIntensity={0.18}
+            metalness={0.72}
+            roughness={0.24}
+          />
+        </mesh>
+      </group>
+      <group ref={sparksRef} visible={false} renderOrder={61}>
+        {[0, 1, 2, 3].map((index) => (
+          <mesh
+            key={index}
+            position={[
+              index % 2 === 0 ? -0.13 : 0.13,
+              index < 2 ? -0.1 : 0.1,
+              0,
+            ]}
+            rotation={[0, 0, (index * Math.PI) / 4]}
+          >
+            <boxGeometry args={[0.28, 0.035, 0.035]} />
+            <meshBasicMaterial color="#ffd166" toneMapped={false} />
+          </mesh>
+        ))}
+      </group>
+    </>
+  );
+}
+
 export function BunkerOverlay({
   preview,
   blockedCells,
   bunker,
   activeRaid,
   editingEnabled,
-  selectedPartCell,
-  dragTargetCell,
   targetCell,
-  buildMode,
-  onBunkerPartTap,
-  onBunkerPartPointerDown,
+  toolAction,
+  selectedPartId,
+  carriedPart,
+  toolEvent,
+  miner,
+  scaffoldVisible,
   onBunkerCellHover,
   onBunkerCellTap,
-  onBunkerDragTarget,
-  onBunkerDragEnd,
 }: {
   preview?: BunkerFootprint | null;
   blockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
   activeRaid?: BunkerRaidSnapshot | null;
   editingEnabled?: boolean;
-  selectedPartCell?: MineCoord | null;
-  dragTargetCell?: MineCoord | null;
   targetCell?: MineCoord | null;
-  buildMode?: BunkerBuildMode;
-  onBunkerPartTap?: (cell: MineCoord) => void;
-  onBunkerPartPointerDown?: (cell: MineCoord) => void;
+  toolAction?: BunkerToolAction;
+  selectedPartId?: BasePartId;
+  carriedPart?: CarriedBunkerPart | null;
+  toolEvent?: BunkerToolVisualEvent | null;
+  miner?: MinerState;
+  scaffoldVisible?: boolean;
   onBunkerCellHover?: (cell: MineCoord) => void;
   onBunkerCellTap?: (cell: MineCoord) => void;
-  onBunkerDragTarget?: (cell: MineCoord) => void;
-  onBunkerDragEnd?: (cell: MineCoord) => void;
 }) {
   // Resolved once per overlay render (not per part): the quality read
   // touches localStorage and matchMedia.
@@ -700,43 +856,40 @@ export function BunkerOverlay({
     col: Math.round(event.point.x),
     row: Math.round(-event.point.y),
   });
-  const selectedKey = selectedPartCell
-    ? `${selectedPartCell.col}:${selectedPartCell.row}`
+  const carriedKey = carriedPart
+    ? `${carriedPart.source.col}:${carriedPart.source.row}`
     : null;
-  const targetColor = buildMode === "remove" ? "#ff6b6b" : "#54e0c7";
+  const targetColor = toolAction === "pry" ? "#f59e0b" : "#54e0c7";
   const validTarget =
-    targetCell && containsBunkerCell(footprint, targetCell.col, targetCell.row)
+    targetCell &&
+    miner &&
+    containsBunkerCell(footprint, targetCell.col, targetCell.row) &&
+    Math.abs(targetCell.col - miner.col) +
+      Math.abs(targetCell.row - miner.row) ===
+      1
       ? targetCell
       : null;
-  const targetHighlight =
-    validTarget && buildMode !== "move" ? (
-      <group key={`bunker-target:${validTarget.col}:${validTarget.row}`}>
-        <mesh
-          position={[cellX(validTarget.col), -validTarget.row, 1.04]}
-          renderOrder={20}
-        >
-          <planeGeometry args={[1.08, 1.08]} />
-          <meshBasicMaterial
-            color={targetColor}
-            transparent
-            opacity={0.18}
-            depthWrite={false}
-            depthTest={false}
-            toneMapped={false}
-          />
-        </mesh>
-        <SelectedSupportCellOutline
-          col={validTarget.col}
-          row={validTarget.row}
+  const targetHighlight = validTarget ? (
+    <group key={`bunker-target:${validTarget.col}:${validTarget.row}`}>
+      <mesh
+        position={[cellX(validTarget.col), -validTarget.row, 1.04]}
+        renderOrder={20}
+      >
+        <planeGeometry args={[1.08, 1.08]} />
+        <meshBasicMaterial
+          color={targetColor}
+          transparent
+          opacity={0.18}
+          depthWrite={false}
+          depthTest={false}
+          toneMapped={false}
         />
-      </group>
-    ) : null;
+      </mesh>
+      <SelectedSupportCellOutline col={validTarget.col} row={validTarget.row} />
+    </group>
+  ) : null;
   const cellTargetPlane =
-    bunker &&
-    buildMode !== "move" &&
-    canEditBunker &&
-    onBunkerCellTap &&
-    onBunkerCellHover ? (
+    bunker && canEditBunker && onBunkerCellTap && onBunkerCellHover ? (
       // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
       <mesh
         position={[
@@ -763,106 +916,50 @@ export function BunkerOverlay({
         />
       </mesh>
     ) : null;
-  const dragTarget =
-    dragTargetCell &&
-    containsBunkerCell(footprint, dragTargetCell.col, dragTargetCell.row) ? (
+  const targetPart = validTarget
+    ? bunker?.parts.find(
+        (part) => part.col === validTarget.col && part.row === validTarget.row,
+      )
+    : null;
+  const previewPartId = carriedPart?.part.partId ?? selectedPartId;
+  const ghost =
+    validTarget &&
+    toolAction === "build" &&
+    previewPartId &&
+    !targetPart &&
+    !(
+      bunker?.core.col === validTarget.col &&
+      bunker.core.row === validTarget.row
+    ) ? (
       <group
-        key={`bunker-drag-target:${dragTargetCell.col}:${dragTargetCell.row}`}
+        position={[cellX(validTarget.col), -validTarget.row, 0.52]}
+        scale={0.92}
       >
-        <mesh
-          position={[cellX(dragTargetCell.col), -dragTargetCell.row, 1.08]}
-          renderOrder={21}
-        >
-          <planeGeometry args={[1.08, 1.08]} />
-          <meshBasicMaterial
-            color="#54e0c7"
-            transparent
-            opacity={0.2}
-            depthWrite={false}
-            depthTest={false}
-            toneMapped={false}
-          />
-        </mesh>
-        <SelectedSupportCellOutline
-          col={dragTargetCell.col}
-          row={dragTargetCell.row}
+        <BasePartVisual
+          detail={detail}
+          durability={BASE_PART_CATALOG[previewPartId].durability}
+          partId={previewPartId}
+          tier={tier}
         />
       </group>
-    ) : null;
-  const dragPlane =
-    bunker &&
-    canEditBunker &&
-    buildMode === "move" &&
-    onBunkerDragTarget &&
-    onBunkerDragEnd ? (
-      <mesh
-        position={[
-          cellX(footprint.col + (footprint.width - 1) / 2),
-          -(footprint.row + (footprint.height - 1) / 2),
-          0.45,
-        ]}
-        renderOrder={13}
-        onPointerDown={(e) => {
-          const cell = cellFromPoint(e);
-          if (
-            bunker.parts.some((part) => {
-              return part.col === cell.col && part.row === cell.row;
-            })
-          ) {
-            e.stopPropagation();
-            onBunkerPartPointerDown?.(cell);
-          }
-        }}
-        onPointerMove={(e) => {
-          onBunkerDragTarget(cellFromPoint(e));
-        }}
-        onPointerUp={(e) => {
-          e.stopPropagation();
-          onBunkerDragEnd(cellFromPoint(e));
-        }}
-        onPointerCancel={(e) => {
-          e.stopPropagation();
-          onBunkerDragEnd(cellFromPoint(e));
-        }}
-      >
-        <planeGeometry args={[footprint.width, footprint.height]} />
-        <meshBasicMaterial
-          color="#54e0c7"
-          transparent
-          opacity={0}
-          depthWrite={false}
-          depthTest={false}
-        />
-      </mesh>
     ) : null;
   const parts =
     bunker?.parts.map((part) => {
       const partCell = { col: part.col, row: part.row };
       const partKey = `${part.col}:${part.row}`;
-      const selected = selectedKey === partKey;
+      const carried = carriedKey === partKey;
       return (
         // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
         <group
           key={`bunker-part:${part.col}:${part.row}`}
           position={[cellX(part.col), -part.row, 0.5]}
+          visible={!carried}
           onClick={(e) => {
             e.stopPropagation();
             if (!canEditBunker) return;
-            if (buildMode === "remove" && onBunkerCellTap) {
-              onBunkerCellTap(partCell);
-              return;
-            }
-            if (buildMode === "move") onBunkerPartTap?.(partCell);
-          }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            if (!canEditBunker) return;
-            if (buildMode === "move") onBunkerPartPointerDown?.(partCell);
+            onBunkerCellTap?.(partCell);
           }}
         >
-          {selected && (
-            <SelectedSupportCellOutline col={part.col} row={part.row} />
-          )}
           <BasePartVisual
             detail={detail}
             durability={part.durability}
@@ -892,6 +989,9 @@ export function BunkerOverlay({
     <>
       {lines}
       {blocked}
+      {scaffoldVisible && bunker && (
+        <BunkerScaffoldGantry footprint={bunker.footprint} />
+      )}
       {bunker && (
         <mesh position={[cellX(bunker.core.col), -bunker.core.row, 0.62]}>
           <octahedronGeometry args={[0.28, 0]} />
@@ -906,9 +1006,15 @@ export function BunkerOverlay({
       )}
       {cellTargetPlane}
       {targetHighlight}
+      {ghost}
       {parts}
-      {dragTarget}
-      {dragPlane}
+      {toolEvent && miner && (
+        <BunkerHammerEffect
+          key={toolEvent.key}
+          event={toolEvent}
+          miner={miner}
+        />
+      )}
       {clankers}
       {xpPickups}
     </>

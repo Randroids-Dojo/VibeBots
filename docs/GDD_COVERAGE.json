@@ -738,10 +738,14 @@
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
         "src/app/api/mine/bank/route.ts",
+        "src/sim/mine/actions.ts",
+        "src/sim/mine/replay.ts",
         "src/app/api/bunker/claim/route.ts",
         "src/state/mine-store.ts",
         "src/components/mine-panel.tsx",
-        "src/components/mine-canvas.tsx"
+        "src/components/mine-canvas.tsx",
+        "src/components/mine-bunker-toolbelt.tsx",
+        "src/components/mine-bunker-overlay.tsx"
       ],
       "testRefs": [
         "src/sim/bunker.test.ts",
@@ -769,6 +773,7 @@
         "src/app/api/mine/bank/route.ts",
         "src/state/mine-store.ts",
         "src/components/mine-panel.tsx",
+        "src/components/mine-bunker-toolbelt.tsx",
         "src/components/mine-stalls.ts",
         "src/components/mine-bunker-overlay.tsx",
         "src/components/mine-bunker-part-geometry.ts"

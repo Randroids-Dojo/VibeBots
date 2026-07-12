@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-12-0.1.221-survival-stamps",
+      releaseNoticeId: "2026-07-12-0.1.222-hammer-bunker-builder",
       releaseSummary:
-        "Two stamps for surviving the deep: The Stamp Book now honors roof rescues and close escapes.",
+        "Build bunkers with your own two hands: A hammer, a part belt, and a temporary gantry replace the old builder menus.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-12-0.1.221-survival-stamps",
+      releaseNoticeId: "2026-07-12-0.1.222-hammer-bunker-builder",
       attempted: 2,
       sent: 1,
       expired: 1,

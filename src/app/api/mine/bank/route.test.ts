@@ -124,6 +124,12 @@ function mockSql(
     diff?: unknown;
     bunkerClaimed?: boolean;
     existingBunker?: boolean;
+    bunkerFootprint?: {
+      col: number;
+      row: number;
+      width: number;
+      height: number;
+    };
   } = {},
 ) {
   const worldSeed = options.seed ?? 123;
@@ -137,6 +143,11 @@ function mockSql(
     if (query.includes("SELECT pickaxe_level")) return [owned];
     if (query.includes("SELECT player_id") && query.includes("FROM bunkers")) {
       return options.existingBunker ? [{ player_id: "player-1" }] : [];
+    }
+    if (query.includes("SELECT footprint") && query.includes("FROM bunkers")) {
+      return options.bunkerFootprint
+        ? [{ footprint: options.bunkerFootprint }]
+        : [];
     }
     if (
       query.includes("SELECT part_id, count") &&
@@ -347,6 +358,42 @@ describe("POST /api/mine/bank", () => {
     expect(
       queries.some((query) => query.includes("INSERT INTO player_base_parts")),
     ).toBe(true);
+  });
+
+  it("replays scaffold movement only after the pending claim checkpoint", async () => {
+    mockSql(ownedBase, {
+      diff: pendingBunkerBaseDiff(),
+      bunkerClaimed: true,
+    });
+
+    const res = await post({
+      moves: ["down", "down", "down", "down", "down", "bunker-scaffold-up"],
+      pendingBunker: {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        parts: [],
+      },
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      bunkerClaimed: true,
+      tripIndex: 1,
+    });
+  });
+
+  it("rejects scaffold movement without an authoritative bunker claim", async () => {
+    mockSql(ownedBase, { diff: pendingBunkerBaseDiff() });
+
+    const res = await post({
+      moves: ["down", "down", "down", "down", "down", "bunker-scaffold-up"],
+    });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "bunker scaffold requires a claimed bunker",
+    });
   });
 
   it("rejects duplicate pending bunker claims before granting starter parts", async () => {

@@ -42,6 +42,7 @@ import {
 import { createWebGPU } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
 import type {
+  BasePartId,
   BunkerFootprint,
   BunkerRaidSnapshot,
   BunkerState,
@@ -115,7 +116,14 @@ import {
   OreCrystals,
   teeterUrgency,
 } from "./mine-block-render";
-import { type BunkerBuildMode, BunkerOverlay } from "./mine-bunker-overlay";
+import {
+  BunkerOverlay,
+  type BunkerToolVisualEvent,
+} from "./mine-bunker-overlay";
+import type {
+  BunkerToolAction,
+  CarriedBunkerPart,
+} from "./mine-bunker-toolbelt";
 import {
   CRUSH_HOLD_SECONDS,
   FATAL_FALL_HOLD_SECONDS,
@@ -952,17 +960,15 @@ function MineScene({
   bunker,
   activeBunkerRaid,
   bunkerEditingEnabled,
-  selectedBunkerPartCell,
-  bunkerPartDragTargetCell,
   bunkerTargetCell,
-  bunkerBuildMode,
+  bunkerHammerEquipped,
+  bunkerToolAction,
+  selectedBunkerPartId,
+  carriedBunkerPart,
+  bunkerToolEvent,
   onToggleSupport,
-  onBunkerPartTap,
-  onBunkerPartPointerDown,
   onBunkerCellHover,
   onBunkerCellTap,
-  onBunkerDragTarget,
-  onBunkerDragEnd,
   graphicsFeatures,
 }: MineCanvasProps & { graphicsFeatures: GraphicsFeatures }) {
   const tick = useMineStore((s) => s.tick);
@@ -2401,17 +2407,16 @@ function MineScene({
         blockedCells={bunkerBlockedCells}
         bunker={bunker}
         activeRaid={activeBunkerRaid}
-        editingEnabled={bunkerEditingEnabled}
-        selectedPartCell={selectedBunkerPartCell}
-        dragTargetCell={bunkerPartDragTargetCell}
+        editingEnabled={bunkerEditingEnabled && Boolean(bunkerHammerEquipped)}
         targetCell={bunkerTargetCell}
-        buildMode={bunkerBuildMode}
-        onBunkerPartTap={onBunkerPartTap}
-        onBunkerPartPointerDown={onBunkerPartPointerDown}
+        toolAction={bunkerToolAction}
+        selectedPartId={selectedBunkerPartId}
+        carriedPart={carriedBunkerPart}
+        toolEvent={bunkerToolEvent}
+        miner={mine.miner}
+        scaffoldVisible={bunkerHammerEquipped}
         onBunkerCellHover={onBunkerCellHover}
         onBunkerCellTap={onBunkerCellTap}
-        onBunkerDragTarget={onBunkerDragTarget}
-        onBunkerDragEnd={onBunkerDragEnd}
       />
       {/* Instanced particles: sparks render fullbright, debris and dust
           take the scene light. Unit cube scaled per instance (W3). */}
@@ -2480,18 +2485,15 @@ interface MineCanvasProps {
   bunker?: BunkerState | null;
   activeBunkerRaid?: BunkerRaidSnapshot | null;
   bunkerEditingEnabled?: boolean;
-  selectedBunkerPartCell?: MineCoord | null;
-  bunkerPartDragTargetCell?: MineCoord | null;
   bunkerTargetCell?: MineCoord | null;
-  bunkerBuildMode?: BunkerBuildMode;
+  bunkerHammerEquipped?: boolean;
+  bunkerToolAction?: BunkerToolAction;
+  selectedBunkerPartId?: BasePartId;
+  carriedBunkerPart?: CarriedBunkerPart | null;
+  bunkerToolEvent?: BunkerToolVisualEvent | null;
   onToggleSupport?: (target: CollectTarget) => void;
-  onBunkerPartTap?: (cell: MineCoord) => void;
-  onBunkerPartPointerDown?: (cell: MineCoord) => void;
   onBunkerCellHover?: (cell: MineCoord) => void;
   onBunkerCellTap?: (cell: MineCoord) => void;
-  onBunkerDragTarget?: (cell: MineCoord) => void;
-  onBunkerDragEnd?: (cell: MineCoord) => void;
-  onBunkerBackgroundTap?: () => void;
 }
 
 export default function MineCanvas(props: MineCanvasProps) {
@@ -2507,7 +2509,6 @@ export default function MineCanvas(props: MineCanvasProps) {
       dpr={[1, features.maxDpr]}
       gl={createWebGPU}
       shadows={features.shadows ? "soft" : false}
-      onPointerMissed={props.onBunkerBackgroundTap}
     >
       <MineScene {...props} graphicsFeatures={features} />
       <CanvasDrawCallProbe />

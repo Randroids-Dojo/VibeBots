@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-12-0.1.221-survival-stamps";
+export const RELEASE_NOTICE_ID = "2026-07-12-0.1.222-hammer-bunker-builder";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.222",
+      date: "2026-07-12",
+      title: "Build bunkers with your own two hands",
+      intro:
+        "A hammer, a part belt, and a temporary gantry replace the old builder menus.",
+      changes: [
+        {
+          build,
+          text: "Equip the bunker hammer inside your claim, choose a part, and swing toward an adjacent cell to build. Pry mode lifts an existing part into your hands so you can carry it to a new cell or put it back without losing durability.",
+        },
+        {
+          build,
+          text: "The hammer raises a temporary orange scaffold across the claim, so normal movement controls can carry you horizontally or vertically while you work. Stowing the hammer safely settles the miner before the scaffold disappears.",
+        },
+        {
+          build,
+          text: "The large movement pad and builder mode menus are gone. Bunker status, claim, raid, and progression information remain in a compact sheet. MINE_VERSION advances to 52; SIM_VERSION is unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.221",
       date: "2026-07-12",

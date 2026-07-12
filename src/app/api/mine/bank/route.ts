@@ -27,6 +27,7 @@ import {
   BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
+  type BunkerFootprint,
   type BunkerState,
   createBunker,
   EMPTY_BASE_PART_INVENTORY,
@@ -38,6 +39,7 @@ import {
   applyAction,
   cellAt,
   createMine,
+  isBunkerScaffoldAction,
   isMineAction,
   LADDER_RECOVERY_FLOOR,
   MAX_TRIP_MOVES,
@@ -318,6 +320,9 @@ export function validatePendingBunkerClaim(
   if (pending.claimedAtMoveCount > moves.length) {
     return { ok: false, error: "invalid bunker claim checkpoint" };
   }
+  if (moves.slice(0, pending.claimedAtMoveCount).some(isBunkerScaffoldAction)) {
+    return { ok: false, error: "bunker scaffold used before claim" };
+  }
   const footprint = proposedBunkerFootprint(pending.claimCol, pending.claimRow);
   if (footprint.row < 1) {
     return { ok: false, error: "bunker claim is too close to the surface" };
@@ -594,12 +599,36 @@ export async function POST(request: Request): Promise<Response> {
     });
     return Response.json({ error: pendingBunker.error }, { status: 409 });
   }
+  const usesBunkerScaffold = actions.some(isBunkerScaffoldAction);
+  let replayBunkerFootprint: BunkerFootprint | null =
+    pendingBunker?.ok === true ? pendingBunker.bunker.footprint : null;
+  if (usesBunkerScaffold && !replayBunkerFootprint) {
+    const bunkerRows = (await sql`
+      SELECT footprint
+      FROM bunkers
+      WHERE player_id = ${playerId}
+      LIMIT 1`) as Array<{ footprint: BunkerFootprint }>;
+    replayBunkerFootprint = bunkerRows[0]?.footprint ?? null;
+  }
+  if (usesBunkerScaffold && !replayBunkerFootprint) {
+    logMineCashOutEvent({
+      code: "cash_out_failed",
+      severity: "warn",
+      ...playerLogContext,
+      detail: "bunker scaffold used without a claim",
+    });
+    return Response.json(
+      { error: "bunker scaffold requires a claimed bunker" },
+      { status: 409 },
+    );
+  }
   const trip = replayTrip(
     parsed.data.seed,
     actions,
     gear,
     replayConsumables,
     baseDiff,
+    { bunkerFootprint: replayBunkerFootprint },
   );
   const chargedConsumables = chargeableConsumables(trip);
   const claimedBunker = pendingBunker?.ok ? pendingBunker.bunker : null;

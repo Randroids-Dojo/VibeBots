@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { imagePixelDifferenceRatio } from "./support/image-pixels";
 import {
   countRaidXpPixels,
   countRedPixels,
@@ -167,30 +168,24 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await digTo(page, 1);
-  await page.getByRole("button", { name: "Open bunker builder" }).click();
-  const builder = page.getByRole("region", { name: "Bunker builder" });
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  const builder = page.getByRole("region", { name: "Bunker status" });
   await expect(builder).toBeVisible();
   await expect(builder.getByLabel("Player level progress")).toContainText(
-    "Player level 2/100",
+    "Level 2/100",
   );
   await expect(builder.getByLabel("Player level progress")).toContainText(
     "Beacon cap 3",
   );
-  await expect(builder).toContainText("Wall x6");
-  await expect(builder).toContainText("Floor x4");
-  await expect(builder).toContainText("Roof x4");
   await builder.getByRole("button", { name: "Start Clanker raid" }).click();
   await expect(builder).toBeVisible();
   await expect(builder).toContainText("1 Clanker dead");
   await expect(builder).toContainText("Walk over 25 defense XP on the ground");
-  await expect(builder.getByRole("button", { name: "Place" })).toBeEnabled();
-  await expect(builder.getByRole("button", { name: "Remove" })).toBeEnabled();
+  await expect(builder.getByRole("button", { name: "Place" })).toHaveCount(0);
+  await expect(builder.getByRole("button", { name: "Remove" })).toHaveCount(0);
   await expect(
-    builder.getByRole("button", { exact: true, name: "Move" }),
-  ).toBeEnabled();
-  await expect(
-    builder.getByRole("button", { name: "Walk left" }),
-  ).toBeEnabled();
+    page.getByRole("button", { name: "Equip bunker hammer" }),
+  ).toBeVisible();
   await expect(
     builder.getByRole("button", { name: "Walk over raid XP" }),
   ).toBeDisabled();
@@ -332,8 +327,8 @@ test("mine retries raid XP pickup while the miner overlaps it", async ({
       timeout: 15_000,
     })
     .toBeGreaterThanOrEqual(2);
-  await page.getByRole("button", { name: "Open bunker builder" }).click();
-  const builder = page.getByRole("region", { name: "Bunker builder" });
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  const builder = page.getByRole("region", { name: "Bunker status" });
   await expect(builder).toContainText("All raid XP collected: 25 defense XP.");
   await expect(xpLocator).toHaveCount(0);
   await expect
@@ -445,16 +440,14 @@ test("mine bunker builder explains miner death after an open Clanker path", asyn
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await digTo(page, 1);
-  await page.getByRole("button", { name: "Open bunker builder" }).click();
-  const builder = page.getByRole("region", { name: "Bunker builder" });
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  const builder = page.getByRole("region", { name: "Bunker status" });
   await expect(builder).toContainText("Miner killed");
   await expect(builder).toContainText("Clankers follow open bunker cells");
   await expect(builder).toContainText("Fully enclose the player cell");
-  await expect(builder.getByRole("button", { name: "Place" })).toBeDisabled();
-  await expect(builder.getByRole("button", { name: "Remove" })).toBeDisabled();
   await expect(
-    builder.getByRole("button", { exact: true, name: "Move" }),
-  ).toBeDisabled();
+    page.getByRole("button", { name: "Equip bunker hammer" }),
+  ).toHaveCount(0);
 });
 
 test("mine requires an explicit bunker claim mode before showing the claim panel", async ({
@@ -495,7 +488,7 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
   await dismissReleaseNotes(page);
   await digTo(page, 1);
 
-  const builder = page.getByRole("region", { name: "Bunker builder" });
+  const builder = page.getByRole("region", { name: "Bunker status" });
   await expect(builder).not.toBeVisible();
   const claimButton = page.getByRole("button", { name: "Start bunker claim" });
   await expect(claimButton).toBeVisible();
@@ -510,7 +503,7 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
   await claimButton.click();
   await expect(builder).toBeVisible();
   await expect(builder.getByLabel("Player level progress")).toContainText(
-    "Player level 1/100",
+    "Level 1/100",
   );
   await expect(
     builder.getByRole("button", { name: "Claim 7x5 bunker" }),
@@ -525,7 +518,7 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
   await expect(claimButton).toBeVisible();
   await claimButton.click();
   await expect(builder).toBeVisible();
-  await builder.getByRole("button", { name: "Cancel claim" }).click();
+  await builder.getByRole("button", { name: "Cancel" }).click();
   await expect(builder).not.toBeVisible();
   await expect(
     page.getByRole("button", { name: "Start bunker claim" }),
@@ -609,7 +602,7 @@ test("bunker claim mode highlights uncleared claim cells in red", async ({
   );
 
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const builder = page.getByRole("region", { name: "Bunker builder" });
+  const builder = page.getByRole("region", { name: "Bunker status" });
   await expect(builder).toContainText(/Clear \d+ red cells/);
   await expect(
     builder.getByRole("button", { name: "Claim 7x5 bunker" }),
@@ -701,34 +694,39 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   );
 
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const builder = page.getByRole("region", { name: "Bunker builder" });
-  await expect(builder).toContainText(
+  const status = page.getByRole("region", { name: "Bunker status" });
+  await expect(status).toContainText(
     "Ready to claim. Build now, then bank at surface to save.",
   );
-  await builder.getByRole("button", { name: "Claim 7x5 bunker" }).click();
-  await expect(builder.getByRole("button", { name: "Wall x2" })).toBeVisible();
-  const builderBox = await builder.boundingBox();
-  expect(builderBox?.height ?? 999).toBeLessThanOrEqual(260);
-  expect(builderBox?.y ?? 0).toBeGreaterThan(360);
-  const modeGroup = builder.getByLabel("Build mode");
-  const partsGroup = builder.getByLabel("Base parts");
-  await expect(modeGroup).toBeVisible();
-  await expect(partsGroup).toBeVisible();
-  const placeMode = modeGroup.getByRole("button", { name: "Place" });
-  const removeMode = modeGroup.getByRole("button", { name: "Remove" });
-  const moveMode = modeGroup.getByRole("button", { name: "Move", exact: true });
-  await expect(placeMode).toHaveAttribute("aria-pressed", "true");
-  await expect(removeMode).toHaveAttribute("aria-pressed", "false");
-  await expect(moveMode).toHaveAttribute("aria-pressed", "false");
-  const canvas = page.locator("canvas");
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("canvas has no bounding box");
-  const placePoint = {
-    x: box.x + box.width / 2 + 56,
-    y: box.y + box.height / 2,
-  };
-  await page.mouse.click(placePoint.x, placePoint.y);
-  await expect(builder.getByRole("button", { name: "Wall x1" })).toBeVisible();
+  await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
+  await expect(status).toContainText(
+    "Close this sheet and equip the hammer to build in the mine.",
+  );
+  await status.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: "Equip bunker hammer" }).click();
+  const tool = page.getByRole("region", { name: "Bunker build tool" });
+  await expect(tool).toBeVisible();
+  await expect(tool.getByLabel("Base parts")).toBeVisible();
+  await expect(tool.getByRole("button", { name: "Wall x6" })).toBeVisible();
+  await expect(tool.getByRole("button", { name: "Build" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(tool.getByRole("button", { name: "Pry" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await expect(page.getByLabel("Build mode")).toHaveCount(0);
+  await expect(page.getByLabel("Walk while building")).toHaveCount(0);
+
+  await tool.getByRole("button", { name: "Swing hammer right" }).click();
+  const hammerFrameA = await page.locator("canvas").screenshot();
+  await page.waitForTimeout(70);
+  const hammerFrameB = await page.locator("canvas").screenshot();
+  expect(
+    await imagePixelDifferenceRatio(page, hammerFrameA, hammerFrameB),
+  ).toBeGreaterThan(0.00005);
+  await expect(tool.getByRole("button", { name: "Wall x5" })).toBeVisible();
   const firstPart = await page.evaluate(() => {
     const trip = JSON.parse(
       localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
@@ -736,29 +734,24 @@ test("bunker claims can be edited before banking", async ({ page }) => {
     return trip.pendingBunker?.bunker.parts[0] ?? null;
   });
   expect(firstPart).toMatchObject({ partId: "wall-panel" });
-  await removeMode.click();
-  await expect(removeMode).toHaveAttribute("aria-pressed", "true");
-  await page.mouse.click(placePoint.x, placePoint.y);
-  await expect(builder.getByRole("button", { name: "Wall x2" })).toBeVisible();
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => {
-          const trip = JSON.parse(
-            localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
-          );
-          return trip.pendingBunker?.bunker.parts.length ?? 0;
-        }),
-      { timeout: 3_000 },
-    )
-    .toBe(0);
-  await placeMode.click();
-  await page.mouse.click(placePoint.x, placePoint.y);
-  await expect(builder.getByRole("button", { name: "Wall x1" })).toBeVisible();
-  await moveMode.click();
-  await page.mouse.move(placePoint.x, placePoint.y);
+  await tool.getByRole("button", { name: "Pry" }).click();
+  await tool.getByRole("button", { name: "Swing hammer right" }).click();
+  await expect(tool).toContainText("Carrying");
+  await expect(tool).toContainText("Durability 90/90");
+
+  const hammer = tool.getByRole("button", { name: "Swing hammer right" });
+  const hammerBox = await hammer.boundingBox();
+  if (!hammerBox) throw new Error("hammer has no bounding box");
+  await page.mouse.move(
+    hammerBox.x + hammerBox.width / 2,
+    hammerBox.y + hammerBox.height / 2,
+  );
   await page.mouse.down();
-  await page.mouse.move(placePoint.x + 112, placePoint.y, { steps: 5 });
+  await page.mouse.move(
+    hammerBox.x + hammerBox.width / 2 - 40,
+    hammerBox.y + hammerBox.height / 2,
+    { steps: 5 },
+  );
   await page.mouse.up();
   await expect
     .poll(
@@ -773,35 +766,60 @@ test("bunker claims can be edited before banking", async ({ page }) => {
     )
     .toMatchObject({
       partId: "wall-panel",
-      col: firstPart.col + 1,
+      col: firstPart.col - 2,
       row: firstPart.row,
     });
-  await builder.getByRole("button", { name: "Walk up" }).click();
+  await expect(tool).not.toContainText("Carrying");
+
+  await page.keyboard.down("d");
+  await page.waitForTimeout(120);
+  await page.keyboard.up("d");
+  await page.waitForTimeout(400);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "5",
+  );
+  await page.keyboard.down("w");
+  await page.waitForTimeout(120);
+  await page.keyboard.up("w");
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const trip = JSON.parse(
+          localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+        );
+        return trip.moves?.at(-1) ?? null;
+      }),
+    )
+    .toBe("bunker-scaffold-up");
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-depth",
     "4",
   );
-  await expect(builder).toBeVisible();
+  await expect(tool).toBeVisible();
+  await tool.getByRole("button", { name: "Stow hammer" }).click();
+  await expect(tool).toHaveCount(0);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "6",
+  );
   await page.reload();
   await dismissReleaseNotes(page);
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-depth",
-    "4",
+    "6",
   );
   await expect(
-    page.getByRole("region", { name: "Bunker builder" }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Open bunker builder" }),
+    page.getByRole("button", { name: "Open bunker status" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Open bunker builder" }).click();
-  const reopenedBuilder = page.getByRole("region", { name: "Bunker builder" });
-  await expect(reopenedBuilder).toBeVisible();
-  const raidButton = reopenedBuilder.getByRole("button", {
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  const reopenedStatus = page.getByRole("region", { name: "Bunker status" });
+  await expect(reopenedStatus).toBeVisible();
+  const raidButton = reopenedStatus.getByRole("button", {
     name: "Start Clanker raid",
   });
   await expect(raidButton).toBeDisabled();
-  await expect(reopenedBuilder).toContainText(
+  await expect(reopenedStatus).toContainText(
     "Raids unlock after the bunker saves at the surface.",
   );
 });

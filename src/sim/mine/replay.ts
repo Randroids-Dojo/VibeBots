@@ -1,4 +1,7 @@
+import { type BunkerFootprint, containsBunkerCell } from "../bunker";
 import {
+  type BunkerScaffoldAction,
+  bunkerScaffoldDirection,
   type CollectTarget,
   type Direction,
   isSupportSalvageTarget,
@@ -244,6 +247,10 @@ export type MoveResult =
       collectedLadder?: boolean;
       /** This action placed a plank in the facing cell. */
       plankPlaced?: { col: number; row: number };
+      /** A temporary bunker gantry supported this movement step. */
+      scaffolded?: boolean;
+      /** Rows lowered safely when the temporary gantry retracted. */
+      hoisted?: number;
       /** Placed supports and beacons salvaged from the world. */
       supportCollected?: Partial<Record<SalvageablePlacement, number>>;
       /** Vibe value added to carried salvage by support pickup. */
@@ -1102,6 +1109,90 @@ type MoveFailureReason = Extract<MoveResult, { ok: false }>["reason"];
 
 function clearJumpHover(state: MineState): void {
   state.jumpHover = false;
+}
+
+export interface MineActionContext {
+  bunkerFootprint?: BunkerFootprint | null;
+}
+
+function applyBunkerScaffoldAction(
+  state: MineState,
+  action: BunkerScaffoldAction,
+  context?: MineActionContext,
+): MoveResult {
+  const footprint = context?.bunkerFootprint;
+  if (!footprint) return { ok: false, reason: "blocked" };
+  const miner = state.miner;
+  if (!containsBunkerCell(footprint, miner.col, miner.row)) {
+    return { ok: false, reason: "blocked" };
+  }
+  const dir = bunkerScaffoldDirection(action);
+  if (dir === null) {
+    clearJumpHover(state);
+    const hoisted = settleMiner(state);
+    const { pickedUp, pickedUpBag } = pickupAtMiner(state);
+    return {
+      ok: true,
+      dug: null,
+      dugOre: null,
+      found: null,
+      collapsed: false,
+      hoisted: hoisted || undefined,
+      pickedUp,
+      pickedUpBag,
+    };
+  }
+  const next = target(state, dir);
+  if (!containsBunkerCell(footprint, next.col, next.row)) {
+    return { ok: false, reason: "blocked" };
+  }
+  if (isPendingDynamiteAt(state, next.col, next.row)) {
+    return { ok: false, reason: "blocked" };
+  }
+  const cell = cellAt(state, next.col, next.row);
+  if (cell?.kind !== "empty") {
+    return { ok: false, reason: cell ? "blocked" : "edge" };
+  }
+  clearJumpHover(state);
+  miner.energy = Math.max(0, miner.energy - MOVE_COST);
+  miner.col = next.col;
+  miner.row = next.row;
+  if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
+  const fallEmptied: MineCoord[] = [];
+  const fallTick = tickFalls(state, fallEmptied);
+  const settled = settleAfterEmptied(state, [], fallEmptied);
+  if (fallTick.crushed || (miner.row > 0 && miner.energy <= 0)) {
+    const lost = minerLostCargo(miner, fallTick.crushRest);
+    collapse(state, true, lost);
+    return {
+      ok: true,
+      dug: null,
+      dugOre: null,
+      found: null,
+      collapsed: true,
+      crushed: fallTick.crushed,
+      fallingRockTriggered: settled.fallingRockTriggered || undefined,
+      fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
+      ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
+      scaffolded: true,
+      lost,
+    };
+  }
+  const { pickedUp, pickedUpBag } = pickupAtMiner(state);
+  return maybeExplodePendingDynamite(state, {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    crushed: fallTick.crushed,
+    fallingRockTriggered: settled.fallingRockTriggered || undefined,
+    fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
+    ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
+    scaffolded: true,
+    pickedUp,
+    pickedUpBag,
+  });
 }
 
 export function canJump(state: MineState): boolean {
@@ -2126,7 +2217,11 @@ function dropOreFromBag(
  *   intentionally do not run the generic stationary finalizer unless their
  *   handler explicitly does equivalent work.
  */
-export function applyAction(state: MineState, action: MineAction): MoveResult {
+export function applyAction(
+  state: MineState,
+  action: MineAction,
+  context?: MineActionContext,
+): MoveResult {
   if (action.startsWith("collect:")) return collectPlaced(state, action);
   const droppedOre = parseDropOreAction(action);
   if (droppedOre) return dropOreFromBag(state, droppedOre);
@@ -2138,6 +2233,13 @@ export function applyAction(state: MineState, action: MineAction): MoveResult {
   if (warpTarget) return warpDown(state, warpTarget);
   const renameTarget = parseRenameBeaconAction(action);
   if (renameTarget) return renameBeacon(state, renameTarget);
+  if (action.startsWith("bunker-scaffold-")) {
+    return applyBunkerScaffoldAction(
+      state,
+      action as BunkerScaffoldAction,
+      context,
+    );
+  }
   switch (action) {
     case "down":
     case "up":
@@ -2292,12 +2394,13 @@ export function replayTrip(
   gear: MineGear = DEFAULT_GEAR,
   consumables: MineConsumables = NO_CONSUMABLES,
   diff?: WorldDiff,
+  context?: MineActionContext,
 ): TripResult {
   const state = createMine(seed, gear, consumables, diff);
   const capped = actions.slice(0, MAX_TRIP_MOVES);
   let bagDrops = 0;
   for (const action of capped) {
-    const result = applyAction(state, action);
+    const result = applyAction(state, action, context);
     if (result.ok && (result.droppedFromBag ?? 0) > 0) bagDrops++;
   }
   return {

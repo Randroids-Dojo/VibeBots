@@ -7,7 +7,7 @@ import {
 } from "./actions";
 import type { MineState } from "./cells";
 import type { MineConsumables } from "./consumables";
-import { START_COL } from "./digging";
+import { MOVE_COST, START_COL } from "./digging";
 import { DEFAULT_GEAR, ELEVATOR_COL } from "./gear";
 import { oreDef } from "./ores";
 import {
@@ -54,6 +54,72 @@ function pendingSideEffectState(
   setCell(state, START_COL + 1, 6, { kind: "empty" });
   return state;
 }
+
+describe("bunker construction scaffold", () => {
+  const footprint = { col: START_COL - 1, row: 2, width: 3, height: 3 };
+
+  function scaffoldState(): MineState {
+    const state = createMine(909, DEFAULT_GEAR, stock({}));
+    state.miner.col = START_COL;
+    state.miner.row = 4;
+    for (let row = 2; row <= 4; row++) {
+      for (let col = START_COL - 1; col <= START_COL + 1; col++) {
+        setCell(state, col, row, { kind: "empty" });
+      }
+    }
+    setCell(state, START_COL, 5, { kind: "dirt" });
+    return state;
+  }
+
+  it("requires the claimed footprint and climbs without a ladder", () => {
+    const state = scaffoldState();
+    const energy = state.miner.energy;
+
+    expect(applyAction(state, "bunker-scaffold-up")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(
+      applyAction(state, "bunker-scaffold-up", {
+        bunkerFootprint: footprint,
+      }),
+    ).toMatchObject({ ok: true, scaffolded: true, collapsed: false });
+    expect(state.miner).toMatchObject({ col: START_COL, row: 3 });
+    expect(state.consumables.ladder).toBe(0);
+    expect(state.miner.energy).toBeCloseTo(energy - MOVE_COST, 5);
+  });
+
+  it("blocks scaffold steps outside the footprint or into terrain", () => {
+    const outside = scaffoldState();
+    outside.miner.col = footprint.col;
+    expect(
+      applyAction(outside, "bunker-scaffold-left", {
+        bunkerFootprint: footprint,
+      }),
+    ).toEqual({ ok: false, reason: "blocked" });
+
+    const blocked = scaffoldState();
+    setCell(blocked, START_COL + 1, 4, { kind: "dirt" });
+    expect(
+      applyAction(blocked, "bunker-scaffold-right", {
+        bunkerFootprint: footprint,
+      }),
+    ).toEqual({ ok: false, reason: "blocked" });
+  });
+
+  it("lowers a suspended miner safely when the gantry retracts", () => {
+    const state = scaffoldState();
+    state.miner.row = 2;
+
+    expect(
+      applyAction(state, "bunker-scaffold-stow", {
+        bunkerFootprint: footprint,
+      }),
+    ).toMatchObject({ ok: true, hoisted: 2, collapsed: false });
+    expect(state.miner.row).toBe(4);
+    expect(state.miner.collapses).toBe(0);
+  });
+});
 
 describe("desktop Shift control predicates (F-059)", () => {
   it("offers a plank drop only while standing on a plank", () => {

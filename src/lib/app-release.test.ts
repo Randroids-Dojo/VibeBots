@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest buttoned-up-stamp note complete", () => {
+  it("keeps the latest opaque-cell-seams note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-11-0.1.214-buttoned-up-stamp");
+    expect(release.noticeId).toBe("2026-07-11-0.1.215-opaque-cell-seams");
     expect(latestNote).toMatchObject({
+      version: "0.1.215",
+      title: "The cracks finally stay dark",
+      intro: "Daylight no longer colors the spaces between mine blocks.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The previous correction stopped the headlamp from lighting the cave backing, but daylight fog still recolored that black plane cyan through real geometry gaps. The backing is now explicitly fog-free, opaque, and physically constrained below the surface instead of relying on shader transparency, so the authored sky stays visible while every underground gap stays black on the phone WebGL2 path.",
+      "A new 390x760 daylight pixel regression samples the true center-right cell gap. It fails against the faulty render at RGB 130 and passes below RGB 16 with the fix, while the existing day/night, depth, visibility, and draw-budget contracts remain unchanged.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived buttoned-up-stamp note complete", () => {
+    const release = getAppRelease();
+    const buttonedUpNote = release.notes.find(
+      (note) => note.version === "0.1.214",
+    );
+
+    expect(buttonedUpNote).toMatchObject({
       version: "0.1.214",
       title: "A stamp for a bunker that holds",
       intro: "Seal the player cell, survive the raid, earn Buttoned Up.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(buttonedUpNote?.changes.map((change) => change.text)).toEqual([
       "New Stamp Book entry: Buttoned Up. Survive a Clanker raid with the player cell fully sealed (no open route for anything to even target it) and the stamp pops with its own sealed-room art. Only raids fought from this release can prove a seal, so it starts fresh for everyone.",
       "The raid report now calls out when the seal held, and the stamp alert takes it from there.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

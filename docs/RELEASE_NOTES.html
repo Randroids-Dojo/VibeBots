@@ -13,6 +13,29 @@
 
 <main id="entries">
 
+  <article data-version="0.1.215" data-date="2026-07-11">
+    <h2>0.1.215</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.215</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Daylight no longer colors the spaces between mine blocks.</dd>
+      <dt>Root cause correction</dt><dd>The previous correction made the camera backing unlit, but scene fog still recolored that plane cyan through real geometry gaps. The backing is now fog-free and opaque, with geometry ending exactly at the ground line instead of relying on shader transparency. It follows deep camera travel while leaving the authored surface sky untouched.</dd>
+      <dt>Regression proof</dt><dd>A deterministic 390x760 daytime WebGL2 smoke samples the true center-right cell gap. The faulty fogged render reaches RGB 130 and fails; the corrected render stays below RGB 16 and passes. Day/night pixels, underground visibility, and the existing draw budget remain covered.</dd>
+      <dt>Performance</dt><dd>The existing backing draw is reused. Camera tracking mutates two primitive transform values with no allocation, and no geometry, material, light, pass, or dependency is added.</dd>
+    </dl>
+  </article>
+
+  <article data-version="0.1.214" data-date="2026-07-11">
+    <h2>0.1.214</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.214</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>51</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Seal the player cell, survive the raid, earn Buttoned Up.</dd>
+      <dt>Stamp</dt><dd>The new Buttoned Up Stamp Book entry unlocks when a player survives a Clanker raid with the player cell fully sealed and no open route for a clanker to target it. Only raids fought from this release can prove the seal.</dd>
+      <dt>Feedback</dt><dd>The raid report calls out when the seal held, and the existing stamp alert presents the new sealed-room art.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.213" data-date="2026-07-11">
     <h2>0.1.213</h2>
     <dl>

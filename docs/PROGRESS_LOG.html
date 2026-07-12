@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="remove-cell-connectors" data-date="2026-07-13">
+    <h3>Remove every visible mine-cell connector</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/remove-cell-connectors</code>.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/150">#150</a>.</dd>
+      <dt>Changed</dt><dd>Package 0.1.233 deletes the adjacency seam system introduced in 0.1.219: both plane geometries, both cached material roles, the occupancy classifier and bit mask, every neighbor lookup, and every connector instance write. The cave backing remains the only treatment behind negative space, so boulders, rocks, dirt, metal, caches, and ore show only their own authored silhouettes. This removes two material buckets and two geometry buckets without replacement. <code>MINE_VERSION</code> stays <code>53</code>; <code>SIM_VERSION</code> stays <code>5</code>.</dd>
+      <dt>Verification</dt><dd>The exact 448x923 DPR 2.25 touch low-tier WebGL2 capture stages adjacent boulders, dirt, and rock at maximum zoom. The corrected open gap measures 47.9 percent near-black. Mutation proof restored the rejected connector geometry and dropped the same sample to 7.9 percent, failing the guard. The full viewport and release-notification run passed 20 of 20, including both zoom controls and the performance sample that failed in the earlier nightly; critical smoke passed 5 of 5. Shader coverage improved to 65 warmed programs, 1 first-crossing program, and 0 recrossing programs. The 74-second heap probe measured 2.62 MB/s with 15 collection drops and a 23.4 MB trough; the deleted path adds no replacement allocation or frame work. The full unit suite passed 1,137 tests. Typecheck, Biome, dash check, sim purity, production build, draw-call budget, and <code>git diff --check</code> passed. Biome retained only the known broken sign-in <code>AGENTS.md</code> symlink warning. Nightly run 29188294201 was red before this slice with a runner-wide cluster of timeout failures on commit 6c74ef3e; five newer main commits each passed required CI.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: negative space is intentional cave depth, not a defect to fill with geometry. Mine tips reviewed with no copy change because no gameplay rule changed. Stamp review completed with none added because this is a visual correction.</dd>
+      <dt>GDD coverage</dt><dd>The mining presentation requirement remains done. <code>docs/gdd/06-mining.html</code> gains a corrective build-log entry; no coverage status changes.</dd>
+      <dt>Followups</dt><dd>Completes <code>VibeBots-remove-visible-mine-86681725</code>. No new followup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-sheet-cleanup" data-date="2026-07-13">
     <h3>Post-merge cleanup pass over the bunker arc slices</h3>
     <dl>

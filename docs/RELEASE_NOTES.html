@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.233" data-date="2026-07-13">
+    <h2>0.1.233</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.233</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>53</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Every visible connector between mine cells is gone.</dd>
+      <dt>Authored silhouettes</dt><dd>The right-edge bridges, below-edge bridges, corner patches, material family, geometry, and adjacency classifier are deleted. Each boulder, rock, block, cache, ore cell, and metal cell renders only its own authored body.</dd>
+      <dt>Negative space</dt><dd>The existing opaque cave backing remains visible between shapes. It supplies depth without adding soil-colored bars or square filler.</dd>
+      <dt>Pixel proof</dt><dd>The 448x923 DPR 2.25 touch WebGL2 test now stages adjacent boulders, dirt, and rock at maximum zoom. The open gap measures 47.9 percent near-black; restoring the rejected connector drops it to 7.9 percent and fails.</dd>
+      <dt>Performance</dt><dd>Two material buckets, two geometry buckets, their adjacency scan, and their instance writes are removed. No replacement draw or frame work is added.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.222" data-date="2026-07-12">
     <h2>0.1.222</h2>
     <dl>

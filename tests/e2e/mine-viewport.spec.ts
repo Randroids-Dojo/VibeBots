@@ -651,9 +651,7 @@ test.describe("Pixel density mine visibility", () => {
     isMobile: true,
   });
 
-  test("daylight keeps solid joints and useful visibility at every zoom", async ({
-    page,
-  }) => {
+  test("daylight keeps useful visibility at every zoom", async ({ page }) => {
     test.setTimeout(120_000);
     await page.addInitScript(() => {
       (
@@ -702,19 +700,12 @@ test.describe("Pixel density mine visibility", () => {
         top: 0.58,
         bottom: 0.76,
       });
-      const seamStats = await imageRegionRgbStats(page, image, {
-        left: 0.565,
-        right: 0.58,
-        top: 0.58,
-        bottom: 0.76,
-      });
       zoomSamples.push({
         zoom: Number(await canvas.getAttribute("data-cam-zoom")),
         ...stats,
       });
       expect(stats.meanRed).toBeGreaterThan(stats.meanBlue + 12);
       expect(stats.nearBlackRatio).toBeLessThan(0.12);
-      expect(seamStats.nearBlackRatio).toBeLessThan(0.05);
       if (step < 2) await zoomOut.click();
     }
 
@@ -728,7 +719,7 @@ test.describe("Pixel density mine visibility", () => {
     );
   });
 
-  test("isolated occupied cells keep their open silhouette", async ({
+  test("adjacent occupied cells keep their open silhouette", async ({
     page,
   }, testInfo) => {
     test.setTimeout(120_000);
@@ -749,7 +740,10 @@ test.describe("Pixel density mine visibility", () => {
         setCell(mine, col, 1, { kind: "dirt" });
       }
       setCell(mine, START_COL, 3, { kind: "boulder" });
+      setCell(mine, START_COL + 1, 3, { kind: "boulder" });
       setCell(mine, START_COL + 2, 3, { kind: "dirt" });
+      setCell(mine, START_COL, 4, { kind: "dirt" });
+      setCell(mine, START_COL + 1, 4, { kind: "rock" });
     });
     await page.goto("/mine");
     await dismissReleaseNotes(page);
@@ -764,16 +758,23 @@ test.describe("Pixel density mine visibility", () => {
 
     await page.waitForTimeout(1_500);
     const image = await canvas.screenshot();
-    await testInfo.attach("isolated-cell-silhouettes", {
+    await testInfo.attach("adjacent-cell-silhouettes", {
       body: image,
       contentType: "image/png",
     });
-    const boulderBounds = await imageRegionRgbStats(page, image, {
-      left: 0.42,
-      right: 0.445,
-      top: 0.675,
-      bottom: 0.695,
+    const horizontalGap = await imageRegionRgbStats(page, image, {
+      left: 0.56,
+      right: 0.58,
+      top: 0.7,
+      bottom: 0.74,
     });
-    expect(boulderBounds.nearBlackRatio).toBeGreaterThan(0.8);
+    const junctionGap = await imageRegionRgbStats(page, image, {
+      left: 0.55,
+      right: 0.59,
+      top: 0.75,
+      bottom: 0.77,
+    });
+    expect(horizontalGap.nearBlackRatio).toBeGreaterThan(0.35);
+    expect(junctionGap.nearBlackRatio).toBeGreaterThan(0.5);
   });
 });

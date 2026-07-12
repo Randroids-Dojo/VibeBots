@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-balance" data-date="2026-07-13">
+    <h3>Bunker sheet balance readout and affordability gating (F-088)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-sheet-balance</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.232. Closes F-088 from the bunker-arc playtest: a right-aligned "Vibes: N" line above the priced controls in the bunker sheet, the repair button and unowned skin buttons disabled when unaffordable with a "needs N more vibes" title annotation, and a dimmed disabled style. Pure presentation over the existing <code>player.balance</code>; no server or sim changes.</dd>
+      <dt>Verified</dt><dd>Skin e2e extended: balance line before (100) and after (20) a purchase, Gilded (120v) disabled with the shortfall annotation. Full local gate (biome, tsc, unit, build) plus the bunker and release-notification e2e suites on a rebuilt bundle.</dd>
+      <dt>Tips review</dt><dd>Rule 13: rotation reviewed for 0.1.232; no change needed (the balance line is self-describing and the skin tip from 0.1.231 still holds).</dd>
+      <dt>Stamp review</dt><dd>Rule 14: none added (UI legibility polish, not a milestone).</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-skins" data-date="2026-07-13">
     <h3>Cosmetic bunker skins and the bunker-arc closeout (F-087, F-029)</h3>
     <dl>

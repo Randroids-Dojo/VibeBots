@@ -90,6 +90,7 @@ export function BunkerControlPanel({
   const pickedTier = Math.min(raidTier, tierCeiling);
   const repairPlan = bunker ? bunkerRepairPlan(bunker) : null;
   const repairCost = repairPlan?.totalCost ?? 0;
+  const balance = player?.balance ?? 0;
   const raidButtonLabel = activeRaid
     ? activeRaid.survived
       ? uncollectedPickups.length > 0
@@ -269,6 +270,15 @@ export function BunkerControlPanel({
           </>
         )}
 
+        {hasBunker && !activeRaid && !pendingClaim && (
+          <p
+            className="bunker-balance"
+            role="status"
+            aria-label="Vibes balance"
+          >
+            {`Vibes: ${balance}`}
+          </p>
+        )}
         {hasBunker &&
           !activeRaid &&
           !pendingClaim &&
@@ -278,6 +288,12 @@ export function BunkerControlPanel({
               type="button"
               className="bunker-repair-button"
               onClick={onRepair}
+              disabled={balance < repairCost}
+              title={
+                balance < repairCost
+                  ? `Needs ${repairCost - balance} more vibes`
+                  : undefined
+              }
             >
               {`Repair bunker (${repairCost} vibes)`}
             </button>
@@ -290,14 +306,19 @@ export function BunkerControlPanel({
                 (bunker?.skinsOwned ?? []).includes(skin.id);
               const selected =
                 (bunker?.skin ?? DEFAULT_BUNKER_SKIN) === skin.id;
+              const affordable = owned || balance >= skin.price;
               return (
                 <button
                   key={skin.id}
                   type="button"
                   aria-pressed={selected}
-                  title={skin.blurb}
+                  title={
+                    affordable
+                      ? skin.blurb
+                      : `${skin.blurb} (needs ${skin.price - balance} more vibes)`
+                  }
                   onClick={() => onSelectSkin(skin.id)}
-                  disabled={selected}
+                  disabled={selected || !affordable}
                 >
                   {owned || selected
                     ? skin.name

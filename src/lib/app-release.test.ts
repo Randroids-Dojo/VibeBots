@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-skins note complete", () => {
+  it("keeps the latest bunker-balance note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.231-bunker-skins");
+    expect(release.noticeId).toBe("2026-07-13-0.1.232-bunker-balance");
     expect(latestNote).toMatchObject({
+      version: "0.1.232",
+      title: "The bunker sheet shows what you can spend",
+      intro: "Your vibes balance sits next to every priced button.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The bunker sheet now shows your spendable vibes right above the repair and skin buttons, and the total updates the moment a purchase lands.",
+      "Repairs and skins you cannot afford are greyed out and say how many more vibes they need, instead of failing after the tap.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-skins note complete", () => {
+    const release = getAppRelease();
+    const skinsNote = release.notes.find((note) => note.version === "0.1.231");
+
+    expect(skinsNote).toMatchObject({
       version: "0.1.231",
       title: "Dress your bunker in new colors",
       intro: "Cosmetic skins repaint every placed part, paid in vibes.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(skinsNote?.changes.map((change) => change.text)).toEqual([
       "The bunker sheet gains a skin picker: Steelworks stays the free riveted gunmetal, Gilded (120 vibes) brings brass plate and warm lamplight, and Verdant (80 vibes) goes patinated copper and moss glass. A bought skin is yours forever and reselects free.",
       "Skins are pure paint. Durability, raids, and rewards play out exactly the same in every finish.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

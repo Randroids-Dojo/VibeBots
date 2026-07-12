@@ -21,13 +21,15 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The session-start freeze becomes a brief backdrop beat.",
+    "Higher bunker raid tiers unlock as your player level grows.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "holds its first frame until that compile finishes",
+    "tier stepper once your level unlocks tier 2",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText("render-timing only");
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "One tier unlocks per player level",
+  );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
@@ -49,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.228", "Pick your raid, pick your fight"],
     ["0.1.227", "The mine loads without locking your phone"],
     ["0.1.226", "Smoother frames on phones, glow where it fits"],
     ["0.1.225", "Stamps for chassis mastery and maxed parts"],

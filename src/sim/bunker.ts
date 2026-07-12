@@ -274,6 +274,17 @@ export interface PlayerLevelProgress {
   beaconLimit: number;
 }
 
+/** Hard ceiling on raid difficulty tiers regardless of level. */
+export const BUNKER_RAID_TIER_CAP = 5;
+
+/** Highest raid tier a player may start: one tier per player level,
+ * capped. Tier scales the wave (4 + 2/tier Clankers), their battery
+ * reach, and their bite damage; more Clankers also mean more XP
+ * pickups, so reward scales with the count by construction (F-084). */
+export function maxBunkerRaidTier(playerLevel: number): number {
+  return Math.max(1, Math.min(BUNKER_RAID_TIER_CAP, Math.floor(playerLevel)));
+}
+
 export function overallPlayerLevel(trackXp: number, defenseXp: number): number {
   void trackXp;
   return playerLevelProgress(defenseXp).level;

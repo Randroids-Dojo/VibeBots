@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import {
   type BunkerFootprint,
   type BunkerState,
   DEFENSE_XP_PER_LEVEL,
+  maxBunkerRaidTier,
 } from "@/sim/bunker";
 import type { MineCoord } from "@/sim/mine";
 import { useBunkerStore } from "@/state/bunker-store";
@@ -43,7 +45,7 @@ export function BunkerControlPanel({
   onOpenPanel: () => void;
   onDismissPanel: () => void;
   onClaim: () => void;
-  onStartRaid: () => void;
+  onStartRaid: (tier: number) => void;
   onFinishRaid: () => void;
 }) {
   const status = useBunkerStore((s) => s.status);
@@ -72,6 +74,12 @@ export function BunkerControlPanel({
   const finishDisabled =
     pendingClaim ||
     Boolean(activeRaid?.survived && uncollectedPickups.length > 0);
+  // Raid tier selection (F-084): one tier per player level, capped by
+  // the sim's ceiling. The pick clamps whenever the level changes so it
+  // never exceeds what the server will accept.
+  const tierCeiling = maxBunkerRaidTier(player?.overallLevel ?? 1);
+  const [raidTier, setRaidTier] = useState(1);
+  const pickedTier = Math.min(raidTier, tierCeiling);
   const raidButtonLabel = activeRaid
     ? activeRaid.survived
       ? uncollectedPickups.length > 0
@@ -210,14 +218,45 @@ export function BunkerControlPanel({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            className="bunker-raid-button"
-            onClick={activeRaid ? onFinishRaid : onStartRaid}
-            disabled={finishDisabled || (!activeRaid && pendingClaim)}
-          >
-            {raidButtonLabel}
-          </button>
+          <>
+            {!activeRaid && tierCeiling > 1 && (
+              <fieldset className="bunker-raid-tier" aria-label="Raid tier">
+                <button
+                  type="button"
+                  aria-label="Lower raid tier"
+                  onClick={() => setRaidTier(Math.max(1, pickedTier - 1))}
+                  disabled={pickedTier <= 1}
+                >
+                  -
+                </button>
+                <span data-testid="bunker-raid-tier">
+                  {`Tier ${pickedTier}`}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Raise raid tier"
+                  onClick={() =>
+                    setRaidTier(Math.min(tierCeiling, pickedTier + 1))
+                  }
+                  disabled={pickedTier >= tierCeiling}
+                >
+                  +
+                </button>
+              </fieldset>
+            )}
+            <button
+              type="button"
+              className="bunker-raid-button"
+              onClick={
+                activeRaid ? onFinishRaid : () => onStartRaid(pickedTier)
+              }
+              disabled={finishDisabled || (!activeRaid && pendingClaim)}
+            >
+              {activeRaid
+                ? raidButtonLabel
+                : `${raidButtonLabel} (T${pickedTier})`}
+            </button>
+          </>
         )}
 
         {pendingClaim && hasBunker && (

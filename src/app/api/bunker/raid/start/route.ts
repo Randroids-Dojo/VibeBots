@@ -4,11 +4,12 @@ import {
   withPlayerJsonRoute,
 } from "@/server/api-boundary";
 import { startBunkerRaid } from "@/server/bunker";
+import { BUNKER_RAID_TIER_CAP } from "@/sim/bunker";
 
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  tier: z.number().int().min(1).max(1).optional().default(1),
+  tier: z.number().int().min(1).max(BUNKER_RAID_TIER_CAP).optional().default(1),
 });
 
 export async function POST(request: Request): Promise<Response> {

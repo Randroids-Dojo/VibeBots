@@ -200,6 +200,34 @@
   flex: 1;
 }
 
+/* Raid tier stepper (F-084): a compact -/+ row above the raid button.
+ * Only shown once the player level unlocks a second tier. */
+.bunker-raid-tier {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.bunker-raid-tier button {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #26304a;
+  background: rgba(17, 21, 31, 0.72);
+  color: inherit;
+  font-weight: 700;
+}
+
+.bunker-raid-tier button:disabled {
+  opacity: 0.35;
+}
+
 .bunker-raid-button {
   width: 100%;
   min-height: 40px;

@@ -536,6 +536,34 @@ describe("bunker server helpers", () => {
     });
   });
 
+  it("rejects a raid tier above the player's level gate (F-084)", async () => {
+    const footprint = { col: 1, row: 1, width: 7, height: 5 };
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        // Level 1 player: only tier 1 is startable.
+        return [{ emeralds: 100, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, core, parts")) {
+        return [
+          { footprint, core: { col: 4, row: 3, durability: 160 }, parts: [] },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("SELECT started_at")) return [];
+      if (query.includes("SELECT seed, diff")) return [{ seed: 5, diff: [] }];
+      return [];
+    });
+
+    const result = await startBunkerRaid(sql as never, "player-1", 3);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe(422);
+    expect(result.error).toContain("unlocks at player level");
+  });
+
   it("rejects Basic Turret buys below player level 2 before spending", async () => {
     const sql = makeBuySql({});
 

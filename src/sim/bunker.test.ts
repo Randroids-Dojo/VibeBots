@@ -4,6 +4,7 @@ import {
   BASE_PART_CATALOG,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
+  BUNKER_RAID_TIER_CAP,
   type BunkerRaidTerrainKind,
   basePartOwnedLimit,
   bunkerCells,
@@ -13,6 +14,7 @@ import {
   FLOOR_SPIKES_DAMAGE,
   FLOOR_SPIKES_DURABILITY,
   isBunkerPerimeterCell,
+  maxBunkerRaidTier,
   moveBasePart,
   overallPlayerLevel,
   placeBasePart,
@@ -613,5 +615,27 @@ describe("bunker vertical slice sim", () => {
       nextLevelXp: null,
       beaconLimit: 3,
     });
+  });
+});
+
+describe("raid tiers (F-084)", () => {
+  it("caps the startable tier at one per player level up to the ceiling", () => {
+    expect(maxBunkerRaidTier(0)).toBe(1);
+    expect(maxBunkerRaidTier(1)).toBe(1);
+    expect(maxBunkerRaidTier(3)).toBe(3);
+    expect(maxBunkerRaidTier(99)).toBe(BUNKER_RAID_TIER_CAP);
+  });
+
+  it("scales the wave and the reward pool with tier", () => {
+    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const low = resolveBunkerRaid(bunker, 1, "raid-low");
+    const high = resolveBunkerRaid(bunker, 3, "raid-high");
+    expect(high.clankers.length).toBeGreaterThan(low.clankers.length);
+    // Each higher-tier Clanker also reaches farther: reward scaling rides
+    // the larger wave (more kills, more pickups) while battery makes the
+    // wave harder to stop.
+    expect(high.clankers[0]?.batterySteps ?? 0).toBeGreaterThan(
+      low.clankers[0]?.batterySteps ?? 0,
+    );
   });
 });

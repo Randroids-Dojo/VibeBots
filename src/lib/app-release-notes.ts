@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-12-0.1.227-mine-load-gate";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.228-raid-tiers";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.228",
+      date: "2026-07-13",
+      title: "Pick your raid, pick your fight",
+      intro: "Higher bunker raid tiers unlock as your player level grows.",
+      changes: [
+        {
+          build,
+          text: "The raid button now carries a tier stepper once your level unlocks tier 2. Each tier adds two more Clankers and gives every one of them a longer battery and a harder bite, and a bigger wave means more defense XP on the ground when you hold them off.",
+        },
+        {
+          build,
+          text: "One tier unlocks per player level, up to tier 5. The server enforces the gate, and raids replay deterministically at every tier.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.227",
       date: "2026-07-12",

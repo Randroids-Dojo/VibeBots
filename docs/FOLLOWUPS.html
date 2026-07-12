@@ -1029,7 +1029,8 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: add a tier picker to the raid start flow (deterministic wave scaling by tier), scale rewards with tier, and gate one new base part and one new bot part behind documented player levels. Acceptance: tiers replay deterministically, rewards scale in tests, gated parts appear at the right level with GDD coverage updated.</dd>
     <dt>PR / Dot reference</dt><dd>(decomposed from F-029)</dd>
-  </dl>
+      <dt>Resolved</dt><dd>2026-07-13 (package 0.1.228): the sim was already tier-complete (wave count 4 + 2/tier, battery and bite per tier, and level gates for basic-turret and floor-spikes shipped earlier); the actual gap was a one-line clamp: the start route capped <code>tier</code> at 1 with no picker. Shipped: <code>maxBunkerRaidTier</code> (one tier per player level, capped at <code>BUNKER_RAID_TIER_CAP</code> 5) enforced server-side at raid start (422 above the gate), the route schema raised to the cap, the tier threaded through the API client and store, and a compact stepper beside the raid button that appears once level 2 unlocks tier 2 (the pick clamps if the level drops below it). Reward scaling decision recorded: a bigger wave IS the reward scale (more Clankers, more XP pickups), so per-Clanker XP stays flat. Covered by sim tests (gate math, wave and battery scaling), a server test (tier above the level gate rejected before any write), and the bunker e2e suite. Rule 14 note: a "survive tier N" stamp has a durable source (<code>bunker_raids.tier</code>) and is deferred to the F-085/F-087 arc so it lands with raid depth.</dd>
+</dl>
 </section>
 
 <section id="F-083" data-f="F-083" data-priority="polish">

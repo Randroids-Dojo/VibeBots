@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="raid-tiers" data-date="2026-07-13">
+    <h3>Raid tier selection with level gates (F-084)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/raid-tiers</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.228. Closes F-084, the first child of the F-029 decomposition. The audit found the sim tier-complete already (wave 4 + 2/tier, per-tier battery and bite, existing part level gates); the gap was the start route's <code>max(1)</code> clamp and a missing picker. Shipped <code>maxBunkerRaidTier</code> (one tier per player level, hard cap 5) enforced server-side with a 422 before any write, the schema raised to the cap, tier threaded through client and store, and a stepper beside the raid button once tier 2 unlocks. Reward-scaling decision recorded in the followup entry: the bigger wave is the scale; per-Clanker XP stays flat. New mine tip for the tier rule (Rule 13); Rule 14 review defers a "survive tier N" stamp to the raid-depth slice where <code>bunker_raids.tier</code> already provides the durable source.</dd>
+      <dt>Verification</dt><dd>Sim tests: gate math (level 0/1/3/99) and tier scaling of wave size and battery reach. Server test: tier 3 at level 1 rejected 422 before any write. Full unit suite (1119), typecheck, Biome, production build (one "use client" ordering fix caught by the build), bunker e2e suite (6), release chain for 0.1.228.</dd>
+      <dt>Assumptions</dt><dd>One tier per level with cap 5 is the Rule 7 default (tunable constants); the stepper hides at ceiling 1 so new players see no extra UI.</dd>
+      <dt>GDD coverage</dt><dd>REQ-038's reward ladder row is now fully covered; <code>docs/gdd/08-base-building.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-084 resolved. None raised.</dd>
+    </dl>
+  </article>
+
   <article data-slice="followup-audit-close" data-date="2026-07-13">
     <h3>Close the shipped Clerk followup; decompose the bunker arc (F-003, F-029, F-071)</h3>
     <dl>

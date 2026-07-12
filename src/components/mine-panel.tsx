@@ -279,6 +279,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Distant biome beacons become free portals back to base.",
   "Tip: Follow the XP arrow to the bright pickup, then collect when it says XP here.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
+  "Tip: Player levels unlock higher raid tiers: bigger waves, tougher bites, more XP.",
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Equip the bunker hammer inside your claim to build and climb its temporary scaffold.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
@@ -3626,9 +3627,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             setBunkerPanelOpen(true);
           }
         }}
-        onStartRaid={() => {
+        onStartRaid={(tier) => {
           if (bunkerHammerEquipped) toggleBunkerHammer();
-          void startBunkerRaid();
+          void startBunkerRaid(tier);
         }}
         onFinishRaid={() => void finishBunkerRaid()}
       />

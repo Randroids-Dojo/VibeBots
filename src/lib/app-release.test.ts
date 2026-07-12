@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest mine-load-gate note complete", () => {
+  it("keeps the latest raid-tiers note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-12-0.1.227-mine-load-gate");
+    expect(release.noticeId).toBe("2026-07-13-0.1.228-raid-tiers");
     expect(latestNote).toMatchObject({
+      version: "0.1.228",
+      title: "Pick your raid, pick your fight",
+      intro: "Higher bunker raid tiers unlock as your player level grows.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The raid button now carries a tier stepper once your level unlocks tier 2. Each tier adds two more Clankers and gives every one of them a longer battery and a harder bite, and a bigger wave means more defense XP on the ground when you hold them off.",
+      "One tier unlocks per player level, up to tier 5. The server enforces the gate, and raids replay deterministically at every tier.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived mine-load-gate note complete", () => {
+    const release = getAppRelease();
+    const loadGateNote = release.notes.find(
+      (note) => note.version === "0.1.227",
+    );
+
+    expect(loadGateNote).toMatchObject({
       version: "0.1.227",
       title: "The mine loads without locking your phone",
       intro: "The session-start freeze becomes a brief backdrop beat.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(loadGateNote?.changes.map((change) => change.text)).toEqual([
       "Opening the mine used to freeze the page while every material compiled on the first frame, up to twelve seconds cache-cold on phones. The mine now holds its first frame until that compile finishes in the background, with a four second safety valve, the same cure the Holodeck entry got.",
       "The change is render-timing only: saves, moves, and world rules are untouched.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

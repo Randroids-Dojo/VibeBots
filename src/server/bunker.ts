@@ -16,6 +16,7 @@ import {
   canCollectBunkerRaidPickupFrom,
   createBunker,
   EMPTY_BASE_PART_INVENTORY,
+  maxBunkerRaidTier,
   moveBasePart,
   overallPlayerLevel,
   placeBasePart,
@@ -452,6 +453,14 @@ export async function startBunkerRaid(
     return { ok: false, status: 409, error: "claim a bunker first" };
   if (view.activeRaid)
     return { ok: false, status: 409, error: "raid already active" };
+  const tierCeiling = maxBunkerRaidTier(view.player.overallLevel);
+  if (tier > tierCeiling) {
+    return {
+      ok: false,
+      status: 422,
+      error: `tier ${tier} unlocks at player level ${tier}`,
+    };
+  }
   const recentRows = (await sql`
     SELECT started_at
     FROM bunker_raids

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-12-0.1.227-mine-load-gate",
+      releaseNoticeId: "2026-07-13-0.1.228-raid-tiers",
       releaseSummary:
-        "The mine loads without locking your phone: The session-start freeze becomes a brief backdrop beat.",
+        "Pick your raid, pick your fight: Higher bunker raid tiers unlock as your player level grows.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-12-0.1.227-mine-load-gate",
+      releaseNoticeId: "2026-07-13-0.1.228-raid-tiers",
       attempted: 2,
       sent: 1,
       expired: 1,

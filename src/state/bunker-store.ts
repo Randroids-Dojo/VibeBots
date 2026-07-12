@@ -55,7 +55,7 @@ export interface BunkerStoreState {
     toCol: number,
     toRow: number,
   ) => Promise<BunkerMutationResult>;
-  startRaid: () => Promise<BunkerMutationResult>;
+  startRaid: (tier?: number) => Promise<BunkerMutationResult>;
   collectRaidPickup: (
     col: number,
     row: number,
@@ -152,10 +152,10 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
       await moveRemoteBunkerPart(fromCol, fromRow, toCol, toRow),
       "bunker action failed",
     ),
-  startRaid: async () =>
+  startRaid: async (tier = 1) =>
     applyMutationResult(
       set,
-      await startRemoteBunkerRaid(),
+      await startRemoteBunkerRaid(tier),
       "bunker action failed",
     ),
   collectRaidPickup: async (col, row) =>

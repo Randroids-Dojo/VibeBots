@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   applyBunkerRaidWear,
+  applyBunkerRepairs,
   BASE_PART_CATALOG,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
+  BUNKER_CORE_MAX_DURABILITY,
   BUNKER_RAID_TIER_CAP,
   type BunkerRaidTerrainKind,
   basePartOwnedLimit,
   bunkerCells,
+  bunkerRepairPlan,
   CLANKER_BREACHER_XP,
   CLANKER_SELF_DESTRUCT_XP,
   CLANKER_TANK_XP,
+  CORE_REPAIR_COST_PER_POINT,
   canBuyBasePart,
   clankerKindFor,
   clankerXpFor,
@@ -677,5 +681,77 @@ describe("specialist Clankers (F-085)", () => {
     for (const [index, kind] of kinds.entries()) {
       expect(kind).toBe(clankerKindFor(index, 3));
     }
+  });
+});
+
+describe("bunker repairs and stacked rooms (F-086)", () => {
+  it("prices repairs proportionally and restores everything", () => {
+    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const wall = BASE_PART_CATALOG["wall-panel"];
+    const placed = placeBasePart(
+      bunker,
+      STARTER_BASE_PART_INVENTORY,
+      "wall-panel",
+      bunker.core.col - 1,
+      bunker.core.row,
+    );
+    if (!placed.ok) throw new Error(placed.reason);
+    // Chip the wall to half and the core by 20.
+    const damaged = {
+      ...placed.bunker,
+      core: {
+        ...placed.bunker.core,
+        durability: BUNKER_CORE_MAX_DURABILITY - 20,
+      },
+      parts: placed.bunker.parts.map((part) => ({
+        ...part,
+        durability: Math.floor(wall.durability / 2),
+      })),
+    };
+    const plan = bunkerRepairPlan(damaged);
+    expect(plan.partCount).toBe(1);
+    expect(plan.coreMissing).toBe(20);
+    // Half the durability missing: half of half price, plus core points.
+    expect(plan.totalCost).toBe(
+      Math.max(1, Math.ceil(0.5 * wall.price * 0.5)) +
+        Math.ceil(20 * CORE_REPAIR_COST_PER_POINT),
+    );
+    const repaired = applyBunkerRepairs(damaged);
+    expect(repaired.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
+    expect(repaired.parts[0].durability).toBe(wall.durability);
+    expect(bunkerRepairPlan(repaired).totalCost).toBe(0);
+  });
+
+  it("seals a stacked two-room layout with existing parts", () => {
+    // Two rooms one above the other inside the claim: the outer shell
+    // plus an interior floor row splitting them. The seal must hold
+    // (no clanker can target the core) exactly as in a single room.
+    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const { col, row } = bunker.core;
+    let current = bunker;
+    let stock = STARTER_BASE_PART_INVENTORY;
+    const place = (
+      partId: Parameters<typeof placeBasePart>[2],
+      c: number,
+      r: number,
+    ) => {
+      const result = placeBasePart(current, stock, partId, c, r);
+      if (!result.ok) throw new Error(`${partId}@${c},${r}: ${result.reason}`);
+      current = result.bunker;
+      stock = result.inventory;
+    };
+    // Outer shell around a 1-wide, 2-tall interior (core on the lower level).
+    place("floor-panel", col, row + 1);
+    place("roof-panel", col, row - 2);
+    place("wall-panel", col - 1, row);
+    place("door-panel", col + 1, row);
+    place("wall-panel", col - 1, row - 1);
+    place("wall-panel", col + 1, row - 1);
+    // Interior floor between the two levels: the second room sits above.
+    place("floor-panel", col, row - 1);
+    const raid = resolveBunkerRaid(current, 1, "raid-stacked");
+    expect(raid.survived).toBe(true);
+    expect(raid.sealed).toBe(true);
+    expect(raid.coreDamage).toBe(0);
   });
 });

@@ -1168,6 +1168,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const removeBunkerPart = useBunkerStore((s) => s.removePart);
   const moveBunkerPart = useBunkerStore((s) => s.movePart);
   const startBunkerRaid = useBunkerStore((s) => s.startRaid);
+  const repairBunker = useBunkerStore((s) => s.repairBunker);
   const collectBunkerRaidPickup = useBunkerStore((s) => s.collectRaidPickup);
   const finishBunkerRaid = useBunkerStore((s) => s.finishRaid);
   const router = useRouter();
@@ -3632,6 +3633,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           void startBunkerRaid(tier);
         }}
         onFinishRaid={() => void finishBunkerRaid()}
+        onRepair={() => void repairBunker()}
       />
       {activeBunker &&
         bunkerEditingAllowed &&

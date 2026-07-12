@@ -1,6 +1,7 @@
 import type { BunkerView } from "@/lib/bunker-api-types";
 import {
   applyBunkerRaidWear,
+  applyBunkerRepairs,
   BASE_PART_CATALOG,
   BASE_PART_IDS,
   type BasePartId,
@@ -12,6 +13,7 @@ import {
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
+  bunkerRepairPlan,
   canBuyBasePart,
   canCollectBunkerRaidPickupFrom,
   createBunker,
@@ -445,6 +447,42 @@ async function saveBunkerAndInventory(
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = ${count}`;
   }
+}
+
+export async function repairBunker(
+  sql: Sql,
+  playerId: string,
+): Promise<BunkerOperationResult> {
+  const view = await loadBunkerView(sql, playerId);
+  if (!view.bunker)
+    return { ok: false, status: 409, error: "claim a bunker first" };
+  if (view.activeRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
+  const plan = bunkerRepairPlan(view.bunker);
+  if (plan.totalCost <= 0)
+    return { ok: false, status: 409, error: "nothing to repair" };
+  const rows = (await sql`
+    SELECT emeralds FROM players WHERE id = ${playerId}`) as Array<{
+    emeralds: number;
+  }>;
+  const vibes = rows[0]?.emeralds ?? 0;
+  if (vibes < plan.totalCost) {
+    return {
+      ok: false,
+      status: 409,
+      error: `repairs cost ${plan.totalCost} vibes`,
+    };
+  }
+  const repaired = applyBunkerRepairs(view.bunker);
+  await sql`
+    UPDATE players SET emeralds = emeralds - ${plan.totalCost}
+    WHERE id = ${playerId}`;
+  await sql`
+    UPDATE bunkers
+    SET core = ${JSON.stringify(repaired.core)},
+        parts = ${JSON.stringify(repaired.parts)}
+    WHERE player_id = ${playerId}`;
+  return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
 export async function startBunkerRaid(

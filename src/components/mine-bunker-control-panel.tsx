@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   type BunkerFootprint,
   type BunkerState,
+  bunkerRepairPlan,
   DEFENSE_XP_PER_LEVEL,
   maxBunkerRaidTier,
 } from "@/sim/bunker";
@@ -30,6 +31,7 @@ export function BunkerControlPanel({
   onDismissPanel,
   onClaim,
   onStartRaid,
+  onRepair,
   onFinishRaid,
 }: {
   minerRow: number;
@@ -46,6 +48,7 @@ export function BunkerControlPanel({
   onDismissPanel: () => void;
   onClaim: () => void;
   onStartRaid: (tier: number) => void;
+  onRepair?: () => void;
   onFinishRaid: () => void;
 }) {
   const status = useBunkerStore((s) => s.status);
@@ -80,6 +83,8 @@ export function BunkerControlPanel({
   const tierCeiling = maxBunkerRaidTier(player?.overallLevel ?? 1);
   const [raidTier, setRaidTier] = useState(1);
   const pickedTier = Math.min(raidTier, tierCeiling);
+  const repairPlan = bunker ? bunkerRepairPlan(bunker) : null;
+  const repairCost = repairPlan?.totalCost ?? 0;
   const raidButtonLabel = activeRaid
     ? activeRaid.survived
       ? uncollectedPickups.length > 0
@@ -257,6 +262,16 @@ export function BunkerControlPanel({
                 : `${raidButtonLabel} (T${pickedTier})`}
             </button>
           </>
+        )}
+
+        {hasBunker && !activeRaid && repairCost > 0 && onRepair && (
+          <button
+            type="button"
+            className="bunker-repair-button"
+            onClick={onRepair}
+          >
+            {`Repair bunker (${repairCost} vibes)`}
+          </button>
         )}
 
         {pendingClaim && hasBunker && (

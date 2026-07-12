@@ -7,6 +7,7 @@ import {
   collectBunkerRaidPickup,
   finishBunkerRaid,
   loadBunkerView,
+  repairBunker,
   startBunkerRaid,
 } from "./bunker";
 
@@ -534,6 +535,51 @@ describe("bunker server helpers", () => {
       col: 10,
       row: 8,
     });
+  });
+
+  it("repairs the bunker for vibes and rejects an unaffordable repair", async () => {
+    const footprint = { col: 1, row: 1, width: 7, height: 5 };
+    const damagedParts = [
+      { partId: "wall-panel", col: 3, row: 3, durability: 45 },
+    ];
+    const makeSql = (emeralds: number) =>
+      vi.fn(async (strings: TemplateStringsArray) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT emeralds FROM players")) {
+          return [{ emeralds }];
+        }
+        if (query.includes("SELECT footprint, core, parts")) {
+          return [
+            {
+              footprint,
+              core: { col: 4, row: 3, durability: 140 },
+              parts: damagedParts,
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) return [];
+        if (query.includes("SELECT seed, diff")) return [{ seed: 5, diff: [] }];
+        return [];
+      });
+
+    const broke = await repairBunker(makeSql(1) as never, "player-1");
+    expect(broke.ok).toBe(false);
+    if (!broke.ok) expect(broke.error).toContain("repairs cost");
+
+    const rich = makeSql(100);
+    const result = await repairBunker(rich as never, "player-1");
+    expect(result.ok).toBe(true);
+    const queries = rich.mock.calls.map((call) =>
+      (call[0] as TemplateStringsArray).join(" "),
+    );
+    expect(queries.some((q) => q.includes("UPDATE players SET emeralds"))).toBe(
+      true,
+    );
+    expect(queries.some((q) => q.includes("UPDATE bunkers"))).toBe(true);
   });
 
   it("rejects a raid tier above the player's level gate (F-084)", async () => {

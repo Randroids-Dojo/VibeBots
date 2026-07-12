@@ -38,11 +38,12 @@ describe("app release notes", () => {
       "Placing a part lands with a short mechanical snap and merging two parts rings a brighter two-note chime, matching the visual snap and merge bump the bench already had. The sounds are synthesized on device, so nothing new downloads.",
       "On phones, the part name and browse arrows now lift clear of the part-details card when it opens, so the controls and the card never sit on top of each other.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
   it("keeps the archived hammer-builder note complete", () => {
     const release = getAppRelease();
-    const hammerNote = release.notes.find(
-      (note) => note.version === "0.1.222",
-    );
+    const hammerNote = release.notes.find((note) => note.version === "0.1.222");
 
     expect(hammerNote).toMatchObject({
       version: "0.1.222",

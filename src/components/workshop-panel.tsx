@@ -14,6 +14,7 @@ import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
 import { PartsShop, prefetchShop } from "@/components/parts-shop";
 import { StampCollectAlert } from "@/components/stamp-collect-alert";
+import { playWorkshopSfx } from "@/components/workshop-sfx";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
@@ -631,6 +632,10 @@ export function WorkshopPanel() {
       <section
         className={`carousel-overlay${
           menuLift > 0.05 ? " carousel-overlay-lifted" : ""
+        }${
+          tab === "build" && browseStatsOpen && !selectedIid
+            ? " carousel-overlay-raised"
+            : ""
         }`}
         aria-label="Part carousel"
       >
@@ -940,6 +945,7 @@ export function WorkshopPanel() {
                       onClick={() => {
                         mergeSelectedPart();
                         buzz(HAPTIC_MERGE);
+                        playWorkshopSfx("merge");
                       }}
                       disabled={!mergeEnabled}
                       title={

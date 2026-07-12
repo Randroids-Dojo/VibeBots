@@ -54,6 +54,7 @@ import {
   snapScale,
 } from "./workshop-animation";
 import { clientToNdc, groundFloorY, pickNearestSlot } from "./workshop-drag";
+import { playWorkshopSfx } from "./workshop-sfx";
 
 const CATEGORY_COLORS: Record<PartCategory, string> = {
   core: "#ff9f43",
@@ -578,9 +579,11 @@ function WorkshopScene() {
           if (target.kind === "place") {
             placeAtSlot(target.slot);
             buzz(HAPTIC_PLACE);
+            playWorkshopSfx("place");
           } else {
             mergePart(target.iid);
             buzz(HAPTIC_MERGE);
+            playWorkshopSfx("merge");
           }
         }
       } else {

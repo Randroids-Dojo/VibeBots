@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-12-0.1.222-hammer-bunker-builder",
+      releaseNoticeId: "2026-07-12-0.1.223-workshop-feel",
       releaseSummary:
-        "Build bunkers with your own two hands: A hammer, a part belt, and a temporary gantry replace the old builder menus.",
+        "The workshop clicks, chimes, and tidies up: Building your bot now sounds and reads like one bench.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-12-0.1.222-hammer-bunker-builder",
+      releaseNoticeId: "2026-07-12-0.1.223-workshop-feel",
       attempted: 2,
       sent: 1,
       expired: 1,

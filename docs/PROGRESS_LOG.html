@@ -31,6 +31,16 @@
 
 <main id="entries">
 
+  <article data-slice="workshop-feel-polish" data-date="2026-07-12">
+    <h3>Workshop snap/merge sounds and hero tray clearance (F-050, F-052)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/workshop-polish</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.223. Closes F-050 and F-052 (grouped workshop polish). F-050: the shared WebAudio plumbing (gesture-resumed context + enveloped <code>tone</code>) extracted from <code>mine-sfx.ts</code> into <code>sfx-audio.ts</code> exactly as the unblock condition asked; new <code>workshop-sfx.ts</code> plays a mechanical snap on place and a rising two-note chime on merge at the three commit points that already buzz haptics (canvas drop place, canvas drop merge, inspector merge button); no mine event types are imported by the bench. F-052: measurement at 390x760 showed the G/N4 slices had already delivered the floating hero controls, with one acceptance gap left: the arrows row overlapped the docked browse inspector's top edge by ~3px. A <code>carousel-overlay-raised</code> state lifts the name pill (54%) and arrows (62%) clear while the inspector is open; the menu-lift state still wins when a sheet covers the lower screen. Mine tips reviewed, no copy change; Rule 14 stamp review: none added (feel polish would encourage nothing durable).</dd>
+      <dt>Verification</dt><dd>Dash checks, <code>git diff --check</code>, typecheck, Biome, sim purity untouched (no sim files). New unit tests for the pure tone-recipe selection (distinct per event, rising chime vs falling snap, length/gain bounds); the mine sfx tests still pass against the extracted plumbing. New e2e pins the F-052 acceptance: at 390x760 with the browse inspector open, the name pill and arrows sit in the lower band and neither bounding box intersects the inspector. Full workshop suite (30 tests), full unit suite (1095), production build, release-note chain updated for 0.1.222.</dd>
+      <dt>Assumptions</dt><dd>No global mute exists in the app (the mine sfx already plays unconditionally), so the workshop sounds do too, matching platform behavior until a settings toggle exists; tone volumes stay at or below the mine's quietest cues.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/02-parts-and-connectors.html</code> gained a build log entry.</dd>
+      <dt>Followups</dt><dd>F-050 and F-052 resolved (entries updated). None raised.</dd>
   <article data-slice="scheduled-run-visibility" data-date="2026-07-12">
     <h3>Surface scheduled Full E2E failures; re-audit the Holodeck route smoke (F-047, F-080)</h3>
     <dl>

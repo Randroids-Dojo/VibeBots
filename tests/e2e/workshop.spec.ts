@@ -373,6 +373,45 @@ test("the on-part X removes the placed part", async ({ page }) => {
   await expect(removeX).toBeHidden();
 });
 
+test("the hero tray clears the browse inspector on portrait (F-052)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/workshop");
+  const carousel = page.getByLabel("Part carousel");
+  await expect(carousel.getByTestId("carousel-part-name")).toBeVisible();
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  // The hero is tappable once its turntable runs.
+  await expect
+    .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+    .not.toBeUndefined();
+
+  // Reveal the browse inspector by tapping the hero part.
+  await tapHero(page);
+  const inspector = page.getByRole("region", { name: "Part details" });
+  await expect(inspector).toBeVisible();
+
+  // The carousel controls sit with the hero in the lower band and lift
+  // clear of the docked inspector: no bounding boxes intersect.
+  const inspectorBox = await inspector.boundingBox();
+  const nameBox = await carousel
+    .getByTestId("carousel-part-name")
+    .boundingBox();
+  const arrowsBox = await carousel
+    .locator(".carousel-overlay-arrows")
+    .boundingBox();
+  expect(inspectorBox).not.toBeNull();
+  expect(nameBox).not.toBeNull();
+  expect(arrowsBox).not.toBeNull();
+  if (!inspectorBox || !nameBox || !arrowsBox) return;
+  // Controls live in the lower band, near the hero part.
+  expect(nameBox.y).toBeGreaterThan(760 * 0.45);
+  for (const box of [nameBox, arrowsBox]) {
+    expect(box.y + box.height).toBeLessThanOrEqual(inspectorBox.y);
+  }
+});
+
 test("rotate the mount orientation before placing (N4)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 760 });
   await page.route("**/api/shop", async (route) => {

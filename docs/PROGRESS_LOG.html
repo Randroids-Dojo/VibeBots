@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="followup-ledger-hygiene" data-date="2026-07-11">
+    <h3>Audit the followup ledger so priority order tells the truth</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/followup-ledger-hygiene</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>First slice of the "systematically complete all followups" goal: audited every open <code>F-NNN</code> against shipped code, tests, build logs, and git history, then appended formal <code>Resolved</code> entries for five followups whose unblock conditions were already met but unmarked: F-046 (holodeck shares <code>MineBlockBody</code>), F-073 (ClerkProvider scoped to the auth routes, PR #102), F-074 (first real-device stall attributed to the GC sawtooth with fix followups filed and shipped), F-075 (reconcile churn retired by the cell cache, instanced grid, warm-up, constant light count, and instanced overlays; build-272605 sessions confirm steady state clean), and F-076 (arena/workshop/holodeck adopted dataset-diagnostics, PR #95). Fixed a duplicate id: the polish "Re-audit Holodeck route smoke" entry collided with the perf-analysis F-054 and is renumbered to F-080 with an in-entry note. Closed ten stale dots whose work shipped in 0.1.204/PR #106 (fall/booster/powerdown animations, keyboard Enter/Escape/Shift, first-row density, arena walls, desktop lighting, zoomed-out fog), each with its shipping evidence; the mine-real-time perf dot stays open for F-054's remaining written baseline report.</dd>
+      <dt>Verification</dt><dd>Every closure cites concrete evidence (file, test, PR, or telemetry session) gathered by a code audit at the current main tip; append-only discipline kept (no prior entry edited or removed, the renumber adds a note rather than rewriting history). Dash checks and <code>git diff --check</code> clean. Verified open set after the audit: F-072 (holodeck first-view spike), F-077 (accent-light pool), F-078 (first-descent warm-up gaps), F-079 (enclosure stamp), F-071 and F-054 partial (baseline report), plus the older feature followups (F-002, F-003 remaining Clerk scope, F-011, F-022, F-029, F-041, F-047, F-048, F-049, F-050, F-051, F-052, F-053, F-066, F-067, F-068, F-069, F-070, F-080).</dd>
+      <dt>Assumptions</dt><dd>A <code>Resolved</code> dt/dd pair is the ledger's closure marker (matching the how-to-add template); a separate closure section stays optional. Renumbering the newer duplicate id is the correct collision fix since all external references to F-054 mean the perf-analysis entry.</dd>
+      <dt>GDD coverage</dt><dd>None (ledger-only slice).</dd>
+      <dt>Followups</dt><dd>None new; the point was closing them.</dd>
+    </dl>
+  </article>
+
   <article data-slice="dark-mine-cell-seams" data-date="2026-07-11">
     <h3>Keep Lantern light out of the gaps between mine cells</h3>
     <dl>

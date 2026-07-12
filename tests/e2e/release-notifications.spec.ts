@@ -31,7 +31,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
     "full Holodeck browser suite",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
-    "background compilation instead of blocking startup warm-up",
+    "MINE_VERSION and SIM_VERSION are unchanged",
   );
 
   await page.mouse.click(8, 8);

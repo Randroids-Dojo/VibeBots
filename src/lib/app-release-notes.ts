@@ -1,11 +1,11 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.236-fire-tv-controls";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.237-fire-tv-controls";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.236",
+      version: "0.1.237",
       date: "2026-07-13",
       title: "Play the whole mine from a TV remote",
       intro: "Fire TV sessions get remote-native controls.",
@@ -27,6 +27,26 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
           text: "A paired game controller can play the mine too: the D-pad walks and digs, and A enters buildings or jumps. Add ?tv=1 to the address on any other TV browser to force the deck on.",
         },
         { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
+    {
+      version: "0.1.236",
+      date: "2026-07-13",
+      title: "The horizon has real depth",
+      intro: "The landscape now separates into calm, believable distances.",
+      changes: [
+        {
+          build,
+          text: "The planet now barely drifts while the excavation, mining machinery, and service berm move at progressively stronger depth rates. The scenery no longer feels attached to the miner.",
+        },
+        {
+          build,
+          text: "Each layer eases into a bounded travel range, keeping the ringed planet and industrial skyline composed while walking to distant biomes. Reduced motion still locks the vista to the viewport.",
+        },
+        {
+          build,
+          text: "The correction adds no geometry, draw calls, materials, or frame allocations. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
       ],
     },
     {

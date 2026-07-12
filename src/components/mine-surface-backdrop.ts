@@ -23,7 +23,14 @@ export type SurfaceBackdropRole =
 export interface SurfaceBackdropLayer {
   role: SurfaceBackdropRole;
   geometry: BufferGeometry;
-  parallax: number;
+  parallax: SurfaceBackdropParallax;
+}
+
+export interface SurfaceBackdropParallax {
+  /** Fraction of camera travel seen as screen-space drift near the village. */
+  screenRate: number;
+  /** Maximum screen-space drift before the layer settles into its composition. */
+  maxTravel: number;
 }
 
 export interface SurfaceBackdropGeometry {
@@ -42,13 +49,13 @@ export const SURFACE_BACKDROP_ROLES: readonly SurfaceBackdropRole[] = [
 ] as const;
 
 export const SURFACE_BACKDROP_PARALLAX: Readonly<
-  Record<SurfaceBackdropRole, number>
+  Record<SurfaceBackdropRole, SurfaceBackdropParallax>
 > = {
-  sky: 0,
-  celestial: 0.01,
-  farTerrain: 0.04,
-  industry: 0.08,
-  nearBerm: 0.12,
+  sky: { screenRate: 0, maxTravel: 0 },
+  celestial: { screenRate: 0.025, maxTravel: 1.4 },
+  farTerrain: { screenRate: 0.12, maxTravel: 4.8 },
+  industry: { screenRate: 0.24, maxTravel: 7.5 },
+  nearBerm: { screenRate: 0.42, maxTravel: 10.5 },
 };
 
 const BACKDROP_WIDTH = 96;
@@ -476,10 +483,17 @@ export function surfaceBackdropGeometry(
  */
 export function surfaceBackdropLayerX(
   cameraX: number,
-  parallax: number,
+  parallax: SurfaceBackdropParallax,
   reducedMotion: boolean,
 ): number {
-  return cameraX * (1 - (reducedMotion ? 0 : parallax));
+  if (reducedMotion || parallax.screenRate <= 0 || parallax.maxTravel <= 0) {
+    return cameraX;
+  }
+  const normalizedTravel = (cameraX * parallax.screenRate) / parallax.maxTravel;
+  const screenTravel =
+    (parallax.maxTravel * normalizedTravel) /
+    Math.sqrt(1 + normalizedTravel * normalizedTravel);
+  return cameraX - screenTravel;
 }
 
 export function clearSurfaceBackdropCacheForTests(): void {

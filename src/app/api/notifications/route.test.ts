@@ -110,7 +110,7 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.236-fire-tv-controls",
+      releaseNoticeId: "2026-07-13-0.1.237-fire-tv-controls",
       releaseSummary:
         "Play the whole mine from a TV remote: Fire TV sessions get remote-native controls.",
     });
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.236-fire-tv-controls",
+      releaseNoticeId: "2026-07-13-0.1.237-fire-tv-controls",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -10,6 +10,402 @@
   }
 }
 
+/* Bunker construction is an in-world tool, not an editor window. */
+.bunker-status-trigger,
+.bunker-hammer-equip {
+  position: absolute;
+  z-index: 8;
+  border: 1px solid #54e0c7;
+  background: rgba(14, 20, 28, 0.94);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
+  color: #54e0c7;
+  font-weight: 900;
+  pointer-events: auto;
+}
+
+.bunker-status-trigger {
+  left: 12px;
+  bottom: 154px;
+  min-height: 42px;
+  border-radius: 999px;
+  padding: 0 14px;
+}
+
+.bunker-hammer-equip {
+  left: 12px;
+  bottom: 102px;
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 7px;
+  border-color: #f59e0b;
+  border-radius: 12px;
+  padding: 0 12px;
+  color: #fbbf24;
+}
+
+.bunker-hammer-equip svg,
+.bunker-hammer-swing svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.bunker-status-backdrop {
+  position: absolute;
+  z-index: 7;
+  inset: 0 0 104px;
+  border: 0;
+  background: rgba(2, 6, 12, 0.12);
+  pointer-events: auto;
+}
+
+.bunker-status-sheet {
+  position: absolute;
+  z-index: 9;
+  right: 10px;
+  bottom: 106px;
+  left: 10px;
+  max-height: min(286px, calc(100vh - 188px));
+  overflow-y: auto;
+  border: 1px solid #54e0c7;
+  border-radius: 12px;
+  background: rgba(14, 20, 28, 0.96);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+  color: #e6e8ee;
+  padding: 12px;
+  pointer-events: auto;
+}
+
+.bunker-status-heading,
+.bunker-status-heading > div,
+.bunker-status-actions,
+.bunker-level-label-row,
+.bunker-result {
+  display: flex;
+}
+
+.bunker-status-heading {
+  align-items: center;
+  gap: 10px;
+}
+
+.bunker-status-heading > div,
+.bunker-result {
+  flex-direction: column;
+}
+
+.bunker-status-heading > div {
+  margin-right: auto;
+}
+
+.bunker-status-heading strong {
+  color: #54e0c7;
+  font-size: 1rem;
+}
+
+.bunker-status-kicker {
+  color: #8b93a7;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bunker-status-close,
+.bunker-toolbelt-close,
+.bunker-tool-actions button,
+.bunker-carried-part button {
+  border: 1px solid #5b6680;
+  border-radius: 8px;
+  background: #20283a;
+  color: #cdd6ea;
+  font-weight: 900;
+}
+
+.bunker-status-close,
+.bunker-toolbelt-close {
+  min-height: 32px;
+  padding: 0 9px;
+  font-size: 0.7rem;
+}
+
+.bunker-status-copy,
+.bunker-status-note {
+  margin: 8px 0;
+  color: #aeb8ce;
+  font-size: 0.76rem;
+}
+
+.bunker-level-card {
+  margin: 9px 0;
+  border: 1px solid rgba(84, 224, 199, 0.34);
+  border-radius: 10px;
+  background: rgba(84, 224, 199, 0.08);
+  padding: 8px;
+}
+
+.bunker-level-label-row {
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.74rem;
+}
+
+.bunker-level-beacon {
+  color: #f5c542;
+}
+
+.bunker-level-card small {
+  color: #aeb8ce;
+}
+
+.bunker-level-track {
+  height: 6px;
+  overflow: hidden;
+  margin: 7px 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.bunker-level-track span {
+  display: block;
+  height: 100%;
+  background: #54e0c7;
+}
+
+.bunker-result {
+  gap: 3px;
+  margin: 9px 0;
+  border: 1px solid;
+  border-radius: 10px;
+  padding: 8px;
+  font-size: 0.73rem;
+}
+
+.bunker-result-success {
+  border-color: rgba(84, 224, 199, 0.42);
+  background: rgba(84, 224, 199, 0.1);
+}
+
+.bunker-result-failed {
+  border-color: rgba(255, 107, 107, 0.5);
+  background: rgba(255, 107, 107, 0.11);
+}
+
+.bunker-status-actions {
+  gap: 8px;
+}
+
+.bunker-status-actions button {
+  flex: 1;
+}
+
+.bunker-raid-button {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #f59e0b;
+  border-radius: 9px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  font-weight: 900;
+}
+
+.bunker-toolbelt {
+  position: absolute;
+  z-index: 10;
+  right: 8px;
+  bottom: 82px;
+  left: 8px;
+  display: grid;
+  max-width: 680px;
+  margin: 0 auto;
+  gap: 7px;
+  border: 1px solid #f59e0b;
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    rgba(32, 40, 58, 0.97),
+    rgba(14, 20, 28, 0.98)
+  );
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.48),
+    inset 0 1px rgba(255, 255, 255, 0.08);
+  padding: 8px;
+  color: #e6e8ee;
+  pointer-events: auto;
+}
+
+.bunker-toolbelt::before,
+.bunker-toolbelt::after {
+  position: absolute;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7a8498;
+  box-shadow: inset 0 1px 1px #d5dbea;
+  content: "";
+}
+
+.bunker-toolbelt::before {
+  left: 7px;
+}
+
+.bunker-toolbelt::after {
+  right: 7px;
+}
+
+.bunker-toolbelt-topline,
+.bunker-tool-actions,
+.bunker-carried-part {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bunker-toolbelt-topline {
+  padding: 0 10px;
+}
+
+.bunker-tool-actions {
+  margin-right: auto;
+  border: 0;
+  padding: 0;
+}
+
+.bunker-tool-actions button {
+  min-height: 31px;
+  padding: 0 12px;
+  font-size: 0.72rem;
+}
+
+.bunker-tool-actions button[aria-pressed="true"] {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+}
+
+.bunker-part-belt {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.bunker-part-belt button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 52px;
+  place-content: center;
+  gap: 2px;
+  border: 1px solid #46516b;
+  border-radius: 8px;
+  background: rgba(7, 11, 18, 0.72);
+  color: #cdd6ea;
+}
+
+.bunker-part-belt button[aria-pressed="true"] {
+  border-color: #54e0c7;
+  background: rgba(84, 224, 199, 0.12);
+  color: #8ef3df;
+  box-shadow: inset 0 -3px #54e0c7;
+}
+
+.bunker-part-belt button:disabled {
+  opacity: 0.38;
+}
+
+.bunker-part-shortcut {
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  color: #7f899e;
+  font-size: 0.56rem;
+}
+
+.bunker-part-belt strong {
+  overflow: hidden;
+  font-size: 0.64rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bunker-part-belt small {
+  color: #fbbf24;
+  font-weight: 900;
+}
+
+.bunker-carried-part {
+  min-height: 54px;
+  border: 1px solid rgba(84, 224, 199, 0.35);
+  border-radius: 9px;
+  background: rgba(84, 224, 199, 0.08);
+  padding: 6px 8px;
+}
+
+.bunker-carried-part > div {
+  display: flex;
+  min-width: 0;
+  margin-right: auto;
+  flex-direction: column;
+}
+
+.bunker-carried-part span,
+.bunker-carried-part small {
+  color: #8b93a7;
+  font-size: 0.62rem;
+}
+
+.bunker-carried-part button {
+  min-height: 34px;
+  padding: 0 8px;
+  font-size: 0.68rem;
+}
+
+.bunker-hammer-swing {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #f59e0b;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #4a3216, #2a1d10);
+  color: #ffd166;
+  font-weight: 900;
+  touch-action: none;
+}
+
+.bunker-hammer-swing:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+@media (max-width: 430px) {
+  .bunker-toolbelt {
+    bottom: 104px;
+  }
+
+  .bunker-part-belt {
+    overflow-x: auto;
+    grid-template-columns: repeat(6, 64px);
+    scrollbar-width: none;
+  }
+
+  .bunker-status-sheet {
+    bottom: 108px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bunker-hammer-swing:active {
+    transform: none;
+  }
+}
+
 @keyframes mine-fanfare-pop {
   0% {
     transform: translateX(-50%) scale(0.6);

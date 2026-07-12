@@ -11,6 +11,7 @@ export type Direction = "down" | "left" | "right" | "up";
 
 export type BaseMineAction =
   | Direction
+  | BunkerScaffoldAction
   | "dynamite-1"
   | "dynamite-2"
   | "dynamite-3"
@@ -26,6 +27,32 @@ export type BaseMineAction =
   | "collect-ladder"
   | "warp-home"
   | "warp-down";
+
+export const BUNKER_SCAFFOLD_ACTIONS = [
+  "bunker-scaffold-down",
+  "bunker-scaffold-left",
+  "bunker-scaffold-right",
+  "bunker-scaffold-up",
+  "bunker-scaffold-stow",
+] as const;
+export type BunkerScaffoldAction = (typeof BUNKER_SCAFFOLD_ACTIONS)[number];
+
+const BUNKER_SCAFFOLD_ACTION_SET: ReadonlySet<string> = new Set(
+  BUNKER_SCAFFOLD_ACTIONS,
+);
+
+export function isBunkerScaffoldAction(
+  action: string,
+): action is BunkerScaffoldAction {
+  return BUNKER_SCAFFOLD_ACTION_SET.has(action);
+}
+
+export function bunkerScaffoldDirection(
+  action: BunkerScaffoldAction,
+): Direction | null {
+  if (action === "bunker-scaffold-stow") return null;
+  return action.slice("bunker-scaffold-".length) as Direction;
+}
 
 export type CollectTarget = {
   type: SalvageablePlacement;
@@ -63,6 +90,7 @@ export const MINE_ACTIONS = [
   "up",
   "left",
   "right",
+  ...BUNKER_SCAFFOLD_ACTIONS,
   "dynamite-1",
   "dynamite-2",
   "dynamite-3",

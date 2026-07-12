@@ -24,17 +24,36 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest survival-stamps note complete", () => {
+  it("keeps the latest hammer-builder note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-12-0.1.221-survival-stamps");
+    expect(release.noticeId).toBe("2026-07-12-0.1.222-hammer-bunker-builder");
     expect(latestNote).toMatchObject({
+      version: "0.1.222",
+      title: "Build bunkers with your own two hands",
+      intro:
+        "A hammer, a part belt, and a temporary gantry replace the old builder menus.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Equip the bunker hammer inside your claim, choose a part, and swing toward an adjacent cell to build. Pry mode lifts an existing part into your hands so you can carry it to a new cell or put it back without losing durability.",
+      "The hammer raises a temporary orange scaffold across the claim, so normal movement controls can carry you horizontally or vertically while you work. Stowing the hammer safely settles the miner before the scaffold disappears.",
+      "The large movement pad and builder mode menus are gone. Bunker status, claim, raid, and progression information remain in a compact sheet. MINE_VERSION advances to 52; SIM_VERSION is unchanged.",
+    ]);
+  });
+
+  it("keeps the archived survival-stamps note complete", () => {
+    const release = getAppRelease();
+    const survivalNote = release.notes.find(
+      (note) => note.version === "0.1.221",
+    );
+
+    expect(survivalNote).toMatchObject({
       version: "0.1.221",
       title: "Two stamps for surviving the deep",
       intro: "The Stamp Book now honors roof rescues and close escapes.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(survivalNote?.changes.map((change) => change.text)).toEqual([
       "Hold the Ceiling: re-prop a condemned roof with a plank before it falls. Walked Away: be within two columns of a roof collapse when it crashes down and live to tell it. Both count from real replayed trips, so only runs cashed out from this release onward can prove them.",
       "Trips now report roof rescues and collapses survived alongside the other cash-out records; the counters are observational and change no mining rules.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

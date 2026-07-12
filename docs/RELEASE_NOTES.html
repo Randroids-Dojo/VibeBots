@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.222" data-date="2026-07-12">
+    <h2>0.1.222</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.222</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> advances to <code>52</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Build bunkers directly in the mine with a hammer, part belt, and temporary scaffold.</dd>
+      <dt>Direct building</dt><dd>Equip the bunker hammer, choose Build or Pry, and swing toward an adjacent claim cell. Building spends the selected part. Pry lifts a placed part into the miner's hands, preserving durability until it is placed elsewhere, put back, or stowed when undamaged.</dd>
+      <dt>Scaffold movement</dt><dd>The equipped hammer raises a visible safety-orange gantry through the claim. Existing movement controls traverse its empty cells horizontally and vertically without permanent ladders. Stowing the hammer safely settles the miner before the temporary support disappears.</dd>
+      <dt>Interface</dt><dd>The old Place, Remove, Move, inventory, drag, and walk-control menus are replaced by a compact six-slot toolbelt. Claim, raid, level, and durability details remain in the separate bunker status sheet.</dd>
+      <dt>Verification</dt><dd>Deterministic replay and bank authorization tests cover claim-bounded scaffold movement and safe stow. Phone browser coverage builds, pries, carries, swipes to reposition, climbs, verifies animated pixels, stows, reloads the action log, and confirms raid gating.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.219" data-date="2026-07-11">
     <h2>0.1.219</h2>
     <dl>

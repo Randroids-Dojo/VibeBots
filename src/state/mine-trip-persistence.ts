@@ -1,4 +1,4 @@
-import type { PendingBunkerBuild } from "@/sim/bunker";
+import type { BunkerFootprint, PendingBunkerBuild } from "@/sim/bunker";
 import {
   applyAction,
   createMine,
@@ -28,6 +28,7 @@ export interface SavedTrip {
   baseDiff: WorldDiff;
   moves: MineAction[];
   pendingBunker?: PendingBunkerBuild | null;
+  bunkerFootprint?: BunkerFootprint | null;
   terminalReplayConsumed?: boolean;
 }
 
@@ -118,8 +119,10 @@ export function replaySavedTrip(
   );
   const moves: MineAction[] = [];
   let terminalResult: MoveResult | null = null;
+  const bunkerFootprint =
+    saved.bunkerFootprint ?? saved.pendingBunker?.bunker.footprint ?? null;
   for (const action of saved.moves) {
-    const result = applyAction(resumed, action);
+    const result = applyAction(resumed, action, { bunkerFootprint });
     if (result.ok) moves.push(action);
     if (result.ok && result.collapsed) {
       terminalResult = result;

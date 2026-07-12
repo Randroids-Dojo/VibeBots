@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUNKER_SCAFFOLD_ACTIONS,
   collectAction,
   dropOreAction,
   isMineAction,
@@ -11,6 +12,12 @@ import { applyAction } from "./replay";
 import { createMine } from "./world";
 
 describe("mine action tokens", () => {
+  it("accepts the authored bunker scaffold actions", () => {
+    for (const action of BUNKER_SCAFFOLD_ACTIONS) {
+      expect(isMineAction(action)).toBe(true);
+    }
+  });
+
   it("round-trips sorted collect targets", () => {
     const action = collectAction([
       { type: "plank", col: 2, row: 4 },

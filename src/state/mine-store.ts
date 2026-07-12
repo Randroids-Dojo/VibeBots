@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { type AccountErrorCode, accountErrorCode } from "@/lib/api-codes";
 import {
   type BasePartId,
+  type BunkerFootprint,
   bunkerCells,
   createBunker,
   moveBasePart,
@@ -15,6 +16,7 @@ import {
 import {
   addConsumables,
   applyAction,
+  type BunkerScaffoldAction,
   carryoverConsumables,
   cellAt,
   createMine,
@@ -223,6 +225,7 @@ export interface MineSessionState {
   tripBaseDiff: WorldDiff;
   moves: MineAction[];
   pendingBunker: PendingBunkerBuild | null;
+  bunkerReplayFootprint: BunkerFootprint | null;
   tick: number;
   lastResult: MoveResult | null;
   lastAction: MineAction | null;
@@ -245,6 +248,10 @@ export interface MineSessionState {
   markFallVisualImpact: (key: number) => void;
   clearFallVisualImpact: () => void;
   move: (action: MineAction) => void;
+  moveOnBunkerScaffold: (
+    action: BunkerScaffoldAction,
+    footprint: BunkerFootprint,
+  ) => MoveResult;
   clearTerminalResult: () => void;
   loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
@@ -367,6 +374,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       baseDiff: st.tripBaseDiff,
       moves: [...st.moves],
       pendingBunker: st.pendingBunker,
+      bunkerFootprint: st.bunkerReplayFootprint,
     };
   };
   const persistCurrentTrip = () => {
@@ -468,6 +476,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     tripBaseDiff: [],
     moves: [],
     pendingBunker: null,
+    bunkerReplayFootprint: null,
     tick: 0,
     lastResult: null,
     lastAction: null,
@@ -513,6 +522,26 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // device while real progress on this one is still tiny.
         if (moves.length === 1) void get().checkWorldFreshness();
       }
+    },
+
+    moveOnBunkerScaffold: (action, footprint) => {
+      const { mine, tick, moves, cashOut } = get();
+      if (cashOut.state === "pending") {
+        return { ok: false, reason: "blocked" };
+      }
+      const result = applyAction(mine, action, {
+        bunkerFootprint: footprint,
+      });
+      if (result.ok) moves.push(action);
+      set({
+        tick: tick + 1,
+        lastResult: result,
+        lastAction: action,
+        bunkerReplayFootprint: footprint,
+        ...(result.ok && result.collapsed ? { pendingBunker: null } : null),
+      });
+      if (result.ok) persistCurrentTrip();
+      return result;
     },
 
     clearTerminalResult: () => {
@@ -566,6 +595,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             mine: replay.mine,
             moves: replay.moves,
             pendingBunker: replay.pendingBunker,
+            bunkerReplayFootprint:
+              saved.bunkerFootprint ??
+              saved.pendingBunker?.bunker.footprint ??
+              null,
             tick: replay.moves.length,
             lastResult: replay.lastResult,
             // Any save conflict was about the world being replaced here.
@@ -583,6 +616,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           mine: createMine(seed, gear, consumables, baseDiff),
           moves: [],
           pendingBunker: null,
+          bunkerReplayFootprint: null,
           tick: 0,
           lastResult: null,
           // Any save conflict was about the world being replaced here.
@@ -1177,6 +1211,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           bunker,
           inventory: { ...STARTER_BASE_PART_INVENTORY },
         },
+        bunkerReplayFootprint: footprint,
         shopNote: "bunker claimed; bank at surface to save it",
       });
       persistCurrentTrip();

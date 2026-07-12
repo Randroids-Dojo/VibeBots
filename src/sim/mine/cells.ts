@@ -171,7 +171,21 @@ export interface MineState {
   pendingDynamite?: PendingDynamite;
   /** Jump Jets hold the miner one row up until the next successful action. */
   jumpHover?: boolean;
+  /**
+   * Observational survival counters (F-049). Never serialized into the
+   * WorldDiff and never read by any rule, so they cannot change replay
+   * outcomes; replayTrip reports them and the server folds them into
+   * stamp progress at cash-out.
+   */
+  tripStats: TripStats;
   miner: MinerState;
+}
+
+export interface TripStats {
+  /** Rescue events: a condemned span roof re-propped before it fell. */
+  roofRescues: number;
+  /** Span collapses that landed within two columns of a living miner. */
+  collapsesSurvived: number;
 }
 
 /** Serialized world mutations: the save format for client and server. */

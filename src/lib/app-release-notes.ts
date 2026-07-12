@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-12-0.1.220-holodeck-smooth-entry";
+export const RELEASE_NOTICE_ID = "2026-07-12-0.1.221-survival-stamps";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.221",
+      date: "2026-07-12",
+      title: "Two stamps for surviving the deep",
+      intro: "The Stamp Book now honors roof rescues and close escapes.",
+      changes: [
+        {
+          build,
+          text: "Hold the Ceiling: re-prop a condemned roof with a plank before it falls. Walked Away: be within two columns of a roof collapse when it crashes down and live to tell it. Both count from real replayed trips, so only runs cashed out from this release onward can prove them.",
+        },
+        {
+          build,
+          text: "Trips now report roof rescues and collapses survived alongside the other cash-out records; the counters are observational and change no mining rules.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.220",
       date: "2026-07-12",

@@ -423,6 +423,36 @@ const STAMP_PICTOGRAMS: Record<
       <path d="M32 22 v14 M26 28 l6 -6 l6 6" stroke={accent} strokeWidth="2" />
     </g>
   ),
+  "survival-roof-rescue": ({ accent }) => (
+    <g>
+      {/* Condemned ceiling line held up by a plank prop. */}
+      <path d="M16 22 h32" strokeWidth="2.5" />
+      <path d="M20 22 l3 5 M32 22 l0 5 M44 22 l-3 5" strokeWidth="1.5" />
+      <rect
+        x="29"
+        y="26"
+        width="6"
+        height="20"
+        rx="1"
+        fill={accent}
+        stroke="none"
+      />
+      <path d="M23 46 h18" strokeWidth="2.5" />
+    </g>
+  ),
+  "survival-walked-away": ({ accent }) => (
+    <g>
+      {/* Rubble pile behind a miner striding clear. */}
+      <path d="M14 44 l6 -8 l5 4 l4 -7 l5 6 l3 -4 v9 z" />
+      <path d="M18 30 l3 3 M27 25 l2 3 M36 28 l2 2" strokeWidth="1.5" />
+      <circle cx="46" cy="30" r="3.5" fill={accent} stroke="none" />
+      <path
+        d="M46 34 v6 M46 36 l-4 4 M46 36 l4 3 M46 40 l-3 6 M46 40 l4 5"
+        stroke={accent}
+        strokeWidth="2"
+      />
+    </g>
+  ),
   "survival-buttoned-up": ({ accent }) => (
     <g>
       <rect x="18" y="18" width="28" height="28" rx="2" />

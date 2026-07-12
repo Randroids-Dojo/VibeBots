@@ -22,6 +22,8 @@ export type AchievementMetric =
   | "maxTripVibes"
   | "partsBanked"
   | "bagDrops"
+  | "roofRescues"
+  | "collapsesSurvived"
   | "depotPurchases"
   | "pickaxeLevel"
   | "batteryLevel"
@@ -47,6 +49,10 @@ export interface AchievementStats {
   maxTripVibes: number;
   partsBanked: number;
   bagDrops: number;
+  /** Condemned span roofs re-propped with a plank before they fell. */
+  roofRescues: number;
+  /** Span collapses that landed nearby while the miner walked away. */
+  collapsesSurvived: number;
   depotPurchases: number;
   laddersPlaced: number;
   planksPlaced: number;
@@ -94,6 +100,8 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   maxTripVibes: 0,
   partsBanked: 0,
   bagDrops: 0,
+  roofRescues: 0,
+  collapsesSurvived: 0,
   depotPurchases: 0,
   laddersPlaced: 0,
   planksPlaced: 0,
@@ -424,6 +432,24 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     target: 1,
   },
   {
+    id: "survival-roof-rescue",
+    category: "survival",
+    title: "Hold the Ceiling",
+    description: "Re-prop a condemned roof with a plank before it falls.",
+    stamp: "HC",
+    metric: "roofRescues",
+    target: 1,
+  },
+  {
+    id: "survival-walked-away",
+    category: "survival",
+    title: "Walked Away",
+    description: "Walk away from a roof collapse that crashed down beside you.",
+    stamp: "WA",
+    metric: "collapsesSurvived",
+    target: 1,
+  },
+  {
     id: "survival-buttoned-up",
     category: "survival",
     title: "Buttoned Up",
@@ -483,6 +509,9 @@ export function mergeAchievementStats(
     maxTripVibes: Math.max(current.maxTripVibes, patch.maxTripVibes ?? 0),
     partsBanked: current.partsBanked + (patch.partsBanked ?? 0),
     bagDrops: current.bagDrops + (patch.bagDrops ?? 0),
+    roofRescues: current.roofRescues + (patch.roofRescues ?? 0),
+    collapsesSurvived:
+      current.collapsesSurvived + (patch.collapsesSurvived ?? 0),
     depotPurchases: current.depotPurchases + (patch.depotPurchases ?? 0),
     laddersPlaced: current.laddersPlaced + (patch.laddersPlaced ?? 0),
     planksPlaced: current.planksPlaced + (patch.planksPlaced ?? 0),

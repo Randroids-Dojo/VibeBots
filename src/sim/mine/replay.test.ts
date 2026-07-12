@@ -412,6 +412,95 @@ describe("structural integrity (wide spans)", () => {
     }
   });
 
+  it("counts a plank rescue once no matter how many cells it saves", () => {
+    const state = wideTunnelState(5);
+    applyAction(state, "right");
+    expect(state.tripStats.roofRescues).toBe(0);
+    applyAction(state, "plank-left");
+    // One plank cleared all five condemned ceiling cells: one event.
+    expect(state.tripStats.roofRescues).toBe(1);
+  });
+
+  it("counts a nearby span collapse the miner walks away from", () => {
+    // Shaft beside the tunnel: the condemned roof spans cols +1..+4, so
+    // retreating to the shaft column keeps the miner one column away
+    // (near, but out from under) when the countdown expires.
+    const state = createMine(4242, DEFAULT_GEAR, stock({}));
+    for (let row = 1; row <= 7; row++)
+      setCell(state, START_COL, row, { kind: "empty" });
+    for (let i = 0; i < 5; i++) {
+      setCell(state, START_COL + i, 8, { kind: "empty" });
+      if (i > 0) {
+        setCell(state, START_COL + i, 7, { kind: "dirt" });
+        setCell(state, START_COL + i, 6, { kind: "dirt" });
+      }
+      setCell(state, START_COL + i, 9, { kind: "dirt" });
+    }
+    setCell(state, START_COL + 4, 8, { kind: "dirt", hp: 1 });
+    setCell(state, START_COL - 1, 8, { kind: "metal" });
+    setCell(state, START_COL + 5, 8, { kind: "metal" });
+    state.miner.col = START_COL + 3;
+    state.miner.row = 8;
+    const dug = applyAction(state, "right");
+    expect(dug.ok && dug.fallingRockTriggered).toBe(true);
+    // Retreat toward the shaft; the fourth countdown tick lands as the
+    // miner steps into the shaft column, dropping the roof one column
+    // away.
+    applyAction(state, "left");
+    applyAction(state, "left");
+    applyAction(state, "left");
+    const last = applyAction(state, "left");
+    expect(last.ok).toBe(true);
+    expect(last.ok && last.crushed).not.toBe(true);
+    // The roof vacated (the fall landed) and the miner walked away.
+    expect(cellAt(state, START_COL + 2, 7)?.kind).toBe("empty");
+    expect(state.tripStats.collapsesSurvived).toBe(1);
+  });
+
+  it("does not count a collapse the miner escaped far above", () => {
+    const state = createMine(4242, DEFAULT_GEAR, stock({}));
+    for (let row = 1; row <= 7; row++)
+      setCell(state, START_COL, row, { kind: "empty" });
+    for (let i = 0; i < 5; i++) {
+      setCell(state, START_COL + i, 8, { kind: "empty" });
+      if (i > 0) {
+        setCell(state, START_COL + i, 7, { kind: "dirt" });
+        setCell(state, START_COL + i, 6, { kind: "dirt" });
+      }
+      setCell(state, START_COL + i, 9, { kind: "dirt" });
+    }
+    setCell(state, START_COL + 4, 8, { kind: "dirt", hp: 1 });
+    setCell(state, START_COL - 1, 8, { kind: "metal" });
+    setCell(state, START_COL + 5, 8, { kind: "metal" });
+    state.miner.col = START_COL + 3;
+    state.miner.row = 8;
+    const dug = applyAction(state, "right");
+    expect(dug.ok && dug.fallingRockTriggered).toBe(true);
+    // Hoist the miner to the top of the shaft: descending back down
+    // ticks the countdown, and the fourth tick fires while the miner is
+    // still three-plus rows above the fall. Near in column, far in row.
+    state.miner.col = START_COL;
+    state.miner.row = 0;
+    applyAction(state, "down");
+    applyAction(state, "down");
+    applyAction(state, "down");
+    const last = applyAction(state, "down");
+    expect(last.ok).toBe(true);
+    expect(cellAt(state, START_COL + 2, 7)?.kind).toBe("empty");
+    expect(state.tripStats.collapsesSurvived).toBe(0);
+  });
+
+  it("does not count a collapse that crushes the miner as survived", () => {
+    const state = wideTunnelState(5);
+    applyAction(state, "right");
+    applyAction(state, "left");
+    applyAction(state, "right");
+    applyAction(state, "left");
+    const last = applyAction(state, "right");
+    expect(last.ok && last.crushed).toBe(true);
+    expect(state.tripStats.collapsesSurvived).toBe(0);
+  });
+
   it("re-condemns the roof when the propping plank breaks", () => {
     const state = wideTunnelState(5);
     applyAction(state, "right");

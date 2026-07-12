@@ -368,6 +368,7 @@ function tickFalls(
     droppingKeys.add(key);
   }
   dropping.sort((a, b) => b.row - a.row || a.col - b.col);
+  let spanFallNearMiner = false;
   for (const { col, row, cell } of dropping) {
     let rest = row;
     while (true) {
@@ -402,7 +403,21 @@ function tickFalls(
       crushed = true;
       crushRest ??= { col, row: rest };
     }
+    // "Beside you" means beside: within two columns AND within two rows
+    // of the fall's path, so recalling home mid-countdown cannot farm
+    // the survival stamp from the surface.
+    if (
+      cell.spanUnstable &&
+      Math.abs(miner.col - col) <= 2 &&
+      miner.row >= row - 2 &&
+      miner.row <= rest + 2
+    ) {
+      spanFallNearMiner = true;
+    }
   }
+  // A condemned roof crashing down beside a miner who walks away is the
+  // survival moment F-049 stamps; a crush is not surviving it.
+  if (spanFallNearMiner && !crushed) state.tripStats.collapsesSurvived += 1;
   return { crushed, crushRest };
 }
 
@@ -602,6 +617,10 @@ function refreshSpanInstability(
 ): MineCoord[] {
   const warnings: MineCoord[] = [];
   const seen = new Set<string>();
+  // Cleared condemned ceilings across the pass. One shortened span can
+  // clear its whole marked run, so the pass counts as ONE rescue event
+  // no matter how many cells it saved (F-049).
+  let rescuedCells = 0;
   const reconcile = (col: number, row: number) => {
     const key = cellKey(col, row);
     if (seen.has(key)) return;
@@ -626,6 +645,7 @@ function refreshSpanInstability(
       const rescued = cellMut(state, col, row - 1);
       rescued.fallIn = undefined;
       rescued.spanUnstable = undefined;
+      rescuedCells += 1;
     }
   };
   for (const { col, row } of changed) {
@@ -640,6 +660,7 @@ function refreshSpanInstability(
     for (let c = col + 1; isOpenSpanCell(cellAt(state, c, row)); c++)
       reconcile(c, row);
   }
+  if (rescuedCells > 0) state.tripStats.roofRescues += 1;
   return warnings;
 }
 
@@ -2247,6 +2268,10 @@ export interface TripResult {
   moves: number;
   /** Successful manual bag-drop actions. */
   bagDrops: number;
+  /** Condemned roofs re-propped before they fell (rescue events). */
+  roofRescues: number;
+  /** Span collapses that landed nearby while the miner lived. */
+  collapsesSurvived: number;
   /** Consumables spent (server decrements at cash-out). */
   used: MineConsumables;
   /** Free recovery stock granted by deaths: forgiven at cash-out. */
@@ -2288,6 +2313,8 @@ export function replayTrip(
     maxDepth: state.miner.maxDepth,
     moves: capped.length,
     bagDrops,
+    roofRescues: state.tripStats.roofRescues,
+    collapsesSurvived: state.tripStats.collapsesSurvived,
     used: { ...state.used },
     granted: { ...state.granted },
     diff: exportDiff(state),

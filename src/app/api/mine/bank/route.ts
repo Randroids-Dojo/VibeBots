@@ -378,6 +378,8 @@ export function achievementProgressForTrip(
     maxTripVibes: trip.bankedCredits,
     partsBanked: trip.bankedParts.length,
     bagDrops: trip.bagDrops,
+    roofRescues: trip.roofRescues,
+    collapsesSurvived: trip.collapsesSurvived,
     laddersPlaced: trip.used.ladder,
     planksPlaced: trip.used.plank,
     recallsWithLoot: actions.includes("recall") && soldLoot ? 1 : 0,

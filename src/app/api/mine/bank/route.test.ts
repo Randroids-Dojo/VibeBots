@@ -728,6 +728,8 @@ describe("mine bank policy helpers", () => {
         maxDepth: 0,
         moves: 0,
         bagDrops: 0,
+        roofRescues: 0,
+        collapsesSurvived: 0,
         used: stock({ dynamite: 1, rope: 1, ladder: 7, plank: 5, beacon: 1 }),
         granted: stock({ ladder: 3, plank: 2 }),
         diff: [],
@@ -744,13 +746,15 @@ describe("mine bank policy helpers", () => {
           maxDepth: 1,
           moves: 3,
           bagDrops: 2,
+          roofRescues: 1,
+          collapsesSurvived: 1,
           used: stock(),
           granted: stock(),
           diff: [],
         },
         ["down", "drop:coal:1", "drop:copper:2"],
       ),
-    ).toMatchObject({ bagDrops: 2 });
+    ).toMatchObject({ bagDrops: 2, roofRescues: 1, collapsesSurvived: 1 });
   });
 
   it("ignores submitted bag drop actions that replay did not apply", () => {
@@ -762,6 +766,8 @@ describe("mine bank policy helpers", () => {
           maxDepth: 1,
           moves: 2,
           bagDrops: 0,
+          roofRescues: 0,
+          collapsesSurvived: 0,
           used: stock(),
           granted: stock(),
           diff: [],

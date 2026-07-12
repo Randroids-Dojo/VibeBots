@@ -32,23 +32,24 @@ test("a warp beacon claims an accent light only while nearby", async ({
   await dismissReleaseNotes(page);
 
   const canvas = page.locator("canvas");
+  // A missing attribute must read as failure (NaN), never as zero: the
+  // initial poll would otherwise pass before the layout effect's first
+  // write.
+  const activeAccentLights = async () => {
+    const value = await canvas.getAttribute("data-accent-lights");
+    return value === null ? Number.NaN : Number(value);
+  };
   // At the surface the beacon sits beyond the lantern window: every slot
   // is parked.
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-accent-lights")))
-    .toBe(0);
+  await expect.poll(activeAccentLights).toBe(0);
 
   // Climbing to the beacon brings it into the window: one slot activates.
   await descendLadderShaft(page, BEACON_ROW);
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-accent-lights")))
-    .toBe(1);
+  await expect.poll(activeAccentLights).toBe(1);
 
   // Descending far past the beacon (out of the ~8-row window above the
   // miner) parks the slot again; the pool always exists, so activation
   // and release never change the light count.
   await descendLadderShaft(page, 20);
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-accent-lights")))
-    .toBe(0);
+  await expect.poll(activeAccentLights).toBe(0);
 });

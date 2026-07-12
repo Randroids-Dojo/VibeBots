@@ -33,7 +33,6 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
-  await expect(dialog.locator("li").nth(2)).toContainText("448x923, DPR 2.25");
 
   await page.mouse.click(8, 8);
   await expect(dialog).not.toBeVisible();

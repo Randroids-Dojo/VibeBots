@@ -8,6 +8,7 @@ import {
   finishBunkerRaid,
   loadBunkerView,
   repairBunker,
+  setBunkerSkin,
   startBunkerRaid,
 } from "./bunker";
 
@@ -601,6 +602,80 @@ describe("bunker server helpers", () => {
         (part: { durability: number }) => part.durability,
       ),
     ).toEqual([90]);
+  });
+
+  it("buys a skin once and reselects owned skins for free", async () => {
+    const footprint = { col: 1, row: 1, width: 7, height: 5 };
+    const makeSql = (emeralds: number, skinsOwned: string[]) =>
+      vi.fn(async (strings: TemplateStringsArray) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("UPDATE players SET emeralds")) {
+          // Guarded debit: only returns a row when the player can afford it.
+          return emeralds >= 120 ? [{ emeralds: emeralds - 120 }] : [];
+        }
+        if (query.includes("SELECT footprint, core, parts")) {
+          return [
+            {
+              footprint,
+              core: { col: 4, row: 3, durability: 160 },
+              parts: [],
+              skin: "steelworks",
+              skins_owned: skinsOwned,
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) return [];
+        if (query.includes("SELECT seed, diff")) return [{ seed: 5, diff: [] }];
+        return [];
+      });
+
+    const broke = await setBunkerSkin(makeSql(10, []) as never, "p1", "gilded");
+    expect(broke.ok).toBe(false);
+    if (!broke.ok) expect(broke.error).toContain("costs");
+
+    const rich = makeSql(500, []);
+    const bought = await setBunkerSkin(rich as never, "p1", "gilded");
+    if (!bought.ok) throw new Error(`buy failed: ${bought.error}`);
+    expect(bought.ok).toBe(true);
+    const richQueries = rich.mock.calls.map((call) =>
+      (call[0] as TemplateStringsArray).join(" "),
+    );
+    expect(
+      richQueries.some((q) => q.includes("UPDATE players SET emeralds")),
+    ).toBe(true);
+    // The persisted row carries the selected skin and updated ownership.
+    const skinUpdate = rich.mock.calls.find((call) =>
+      (call[0] as TemplateStringsArray).join(" ").includes("SET skin"),
+    );
+    expect(skinUpdate).toBeDefined();
+    const skinBound = ((skinUpdate ?? []) as unknown[])
+      .slice(1)
+      .filter((value): value is string => typeof value === "string");
+    expect(skinBound).toContain("gilded");
+    expect(skinBound.some((value) => value.includes('"gilded"'))).toBe(true);
+
+    expect(vi.mocked(applyAchievementProgress)).toHaveBeenCalledWith(
+      expect.anything(),
+      "p1",
+      { bunkerSkinsBought: 1 },
+    );
+
+    const owned = makeSql(0, ["gilded"]);
+    const reselect = await setBunkerSkin(owned as never, "p1", "gilded");
+    if (!reselect.ok) throw new Error(`reselect failed: ${reselect.error}`);
+    expect(reselect.ok).toBe(true);
+    const ownedQueries = owned.mock.calls.map((call) =>
+      (call[0] as TemplateStringsArray).join(" "),
+    );
+    expect(
+      ownedQueries.some((q) => q.includes("UPDATE players SET emeralds")),
+    ).toBe(false);
+    // Reselecting an owned skin is not a purchase: no new stamp progress.
+    expect(vi.mocked(applyAchievementProgress)).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a raid tier above the player's level gate (F-084)", async () => {

@@ -2,13 +2,16 @@ import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { type RefObject, useRef } from "react";
 import type { Group, Material, Mesh } from "three/webgpu";
-import type {
-  BasePartId,
-  BunkerFootprint,
-  BunkerRaidSnapshot,
-  BunkerState,
+import {
+  BASE_PART_CATALOG,
+  type BasePartId,
+  type BunkerFootprint,
+  type BunkerRaidSnapshot,
+  type BunkerSkinId,
+  type BunkerState,
+  containsBunkerCell,
+  DEFAULT_BUNKER_SKIN,
 } from "@/sim/bunker";
-import { BASE_PART_CATALOG, containsBunkerCell } from "@/sim/bunker";
 import type { Direction, MineCoord, MinerState } from "@/sim/mine";
 import {
   hasCoarsePointer,
@@ -570,12 +573,13 @@ function partLayerMeshes(
   layers: readonly SurfaceGeometryLayer[],
   emissiveHex: string,
   detail: boolean,
+  skin: BunkerSkinId,
 ) {
   return layers.map((layer) => (
     <mesh
       key={layer.role}
       geometry={layer.geometry}
-      material={bunkerPartMaterial(layer.role, emissiveHex, detail)}
+      material={bunkerPartMaterial(layer.role, emissiveHex, detail, skin)}
       dispose={null}
     />
   ));
@@ -586,17 +590,19 @@ function BasePartVisual({
   durability,
   tier,
   detail,
+  skin = DEFAULT_BUNKER_SKIN,
 }: {
   partId: BasePartId;
   durability: number;
   tier: SurfaceGeometryTier;
   detail: boolean;
+  skin?: BunkerSkinId;
 }) {
   const model = bunkerPartGeometry(partId, tier);
   const emissiveHex = BASE_PART_EMISSIVES[partId];
   return (
     <group>
-      {partLayerMeshes(model.layers, emissiveHex, detail)}
+      {partLayerMeshes(model.layers, emissiveHex, detail, skin)}
       {model.motionLayers.length > 0 && (
         <group
           position={model.motionAnchor}
@@ -609,7 +615,7 @@ function BasePartVisual({
             1,
           ]}
         >
-          {partLayerMeshes(model.motionLayers, emissiveHex, detail)}
+          {partLayerMeshes(model.motionLayers, emissiveHex, detail, skin)}
         </group>
       )}
     </group>
@@ -953,6 +959,7 @@ export function BunkerOverlay({
           detail={detail}
           durability={BASE_PART_CATALOG[previewPartId].durability}
           partId={previewPartId}
+          skin={bunker?.skin}
           tier={tier}
         />
       </group>
@@ -978,6 +985,7 @@ export function BunkerOverlay({
             detail={detail}
             durability={part.durability}
             partId={part.partId}
+            skin={bunker?.skin}
             tier={tier}
           />
         </group>

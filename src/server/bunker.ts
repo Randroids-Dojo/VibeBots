@@ -7,9 +7,11 @@ import {
   type BasePartId,
   type BasePartInventory,
   BUNKER_RAID_COOLDOWN_HOURS,
+  BUNKER_SKIN_CATALOG,
   type BunkerFootprint,
   type BunkerRaidRewardReport,
   type BunkerRaidSnapshot,
+  type BunkerSkinId,
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
@@ -17,7 +19,9 @@ import {
   canBuyBasePart,
   canCollectBunkerRaidPickupFrom,
   createBunker,
+  DEFAULT_BUNKER_SKIN,
   EMPTY_BASE_PART_INVENTORY,
+  isBunkerSkinId,
   maxBunkerRaidTier,
   moveBasePart,
   overallPlayerLevel,
@@ -66,15 +70,22 @@ function parseBunkerState(
     footprint: unknown;
     core: unknown;
     parts: unknown;
+    skin?: unknown;
+    skins_owned?: unknown;
   } | null,
 ): BunkerState | null {
   if (!row) return null;
   const footprint = row.footprint as BunkerFootprint;
   const core = row.core as BunkerState["core"];
   const parts = Array.isArray(row.parts) ? row.parts : [];
+  const skinsOwned = Array.isArray(row.skins_owned)
+    ? row.skins_owned.filter(isBunkerSkinId)
+    : [];
   return {
     footprint,
     core,
+    skin: isBunkerSkinId(row.skin) ? row.skin : DEFAULT_BUNKER_SKIN,
+    skinsOwned,
     parts: parts.filter((part): part is BunkerState["parts"][number] => {
       if (!part || typeof part !== "object") return false;
       const candidate = part as Record<string, unknown>;
@@ -176,12 +187,14 @@ export async function loadBunkerView(
     defense_xp: number;
   }>;
   const bunkerRows = (await sql`
-    SELECT footprint, core, parts
+    SELECT footprint, core, parts, skin, skins_owned
     FROM bunkers
     WHERE player_id = ${playerId}`) as Array<{
     footprint: unknown;
     core: unknown;
     parts: unknown;
+    skin: unknown;
+    skins_owned: unknown;
   }>;
   const raidRows = (await sql`
     SELECT snapshot
@@ -482,6 +495,61 @@ export async function repairBunker(
         parts = ${JSON.stringify(repaired.parts)}
     WHERE player_id = ${playerId}`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };
+}
+
+export async function setBunkerSkin(
+  sql: Sql,
+  playerId: string,
+  skinId: BunkerSkinId,
+): Promise<BunkerOperationResult<{ newStamps?: string[] }>> {
+  const view = await loadBunkerView(sql, playerId);
+  if (!view.bunker)
+    return { ok: false, status: 409, error: "claim a bunker first" };
+  const def = BUNKER_SKIN_CATALOG[skinId];
+  const owned =
+    def.price === 0 || (view.bunker.skinsOwned ?? []).includes(skinId);
+  let newStamps: string[] = [];
+  if (!owned) {
+    // Guarded single-statement debit: no transactions on the neon driver,
+    // so the affordability check and the charge must be one atomic write.
+    const debited = (await sql`
+      UPDATE players SET emeralds = emeralds - ${def.price}
+      WHERE id = ${playerId} AND emeralds >= ${def.price}
+      RETURNING emeralds`) as Array<{ emeralds: number }>;
+    if (debited.length === 0) {
+      return {
+        ok: false,
+        status: 409,
+        error: `${def.name} costs ${def.price} vibes`,
+      };
+    }
+    try {
+      newStamps = await applyAchievementProgress(sql, playerId, {
+        bunkerSkinsBought: 1,
+      });
+    } catch {
+      // Stamps are cosmetic and must never block a skin purchase.
+    }
+  }
+  if (def.price > 0) {
+    // Append ownership against the LIVE row, not the preloaded snapshot:
+    // two concurrent purchases must both keep their entry.
+    await sql`
+      UPDATE bunkers
+      SET skin = ${skinId},
+          skins_owned = CASE
+            WHEN skins_owned @> ${JSON.stringify([skinId])}::jsonb
+              THEN skins_owned
+            ELSE skins_owned || ${JSON.stringify([skinId])}::jsonb
+          END
+      WHERE player_id = ${playerId}`;
+  } else {
+    await sql`
+      UPDATE bunkers
+      SET skin = ${skinId}
+      WHERE player_id = ${playerId}`;
+  }
+  return { ok: true, view: await loadBunkerView(sql, playerId), newStamps };
 }
 
 export async function startBunkerRaid(

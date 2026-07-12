@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.230-bunker-repairs";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.231-bunker-skins";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.231",
+      date: "2026-07-13",
+      title: "Dress your bunker in new colors",
+      intro: "Cosmetic skins repaint every placed part, paid in vibes.",
+      changes: [
+        {
+          build,
+          text: "The bunker sheet gains a skin picker: Steelworks stays the free riveted gunmetal, Gilded (120 vibes) brings brass plate and warm lamplight, and Verdant (80 vibes) goes patinated copper and moss glass. A bought skin is yours forever and reselects free.",
+        },
+        {
+          build,
+          text: "Skins are pure paint. Durability, raids, and rewards play out exactly the same in every finish.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.230",
       date: "2026-07-13",

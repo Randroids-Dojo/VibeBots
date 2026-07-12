@@ -823,3 +823,123 @@ test("bunker claims can be edited before banking", async ({ page }) => {
     "Raids unlock after the bunker saves at the surface.",
   );
 });
+
+test("bunker skins repaint placed parts and reselect owned skins free", async ({
+  page,
+}) => {
+  const mine = createMine(7171, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 5; row++) {
+    for (let offset = -3; offset <= 3; offset++) {
+      setCell(mine, START_COL + offset, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  const parts = [-3, -2, -1, 1, 2, 3].map((offset) => ({
+    partId: "wall-panel",
+    col: START_COL + offset,
+    row: 2,
+    durability: 90,
+  }));
+  const baseView = {
+    bunker: {
+      footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+      core: { col: START_COL, row: 3, durability: 160 },
+      parts,
+      skin: "steelworks",
+      skinsOwned: [],
+    },
+    inventory: {
+      "wall-panel": 0,
+      "floor-panel": 0,
+      "roof-panel": 0,
+      "door-panel": 0,
+      "basic-turret": 0,
+      "floor-spikes": 0,
+    },
+    activeRaid: null,
+    player: {
+      balance: 120,
+      trackXp: 40,
+      defenseXp: 120,
+      overallLevel: 2,
+      levelCap: 100,
+      progressXp: 20,
+      neededXp: 80,
+      nextLevelXp: 200,
+      beaconLimit: 3,
+    },
+  };
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 7171,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(baseView),
+    });
+  });
+  let skinRequestBody: unknown = null;
+  await page.route("**/api/bunker/skin", async (route) => {
+    skinRequestBody = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...baseView,
+        bunker: {
+          ...baseView.bunker,
+          skin: "verdant",
+          skinsOwned: ["verdant"],
+        },
+        player: { ...baseView.player, balance: 40 },
+      }),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 2);
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  const builder = page.getByRole("region", { name: "Bunker status" });
+  await expect(builder).toBeVisible();
+
+  const picker = builder.getByRole("group", { name: "Bunker skins" });
+  await expect(picker).toBeVisible();
+  const steelworks = picker.getByRole("button", { name: "Steelworks" });
+  await expect(steelworks).toHaveAttribute("aria-pressed", "true");
+  await expect(steelworks).toBeDisabled();
+  await expect(
+    picker.getByRole("button", { name: "Gilded (120v)" }),
+  ).toBeVisible();
+
+  const before = await page.locator("canvas").screenshot();
+  await picker.getByRole("button", { name: "Verdant (80v)" }).click();
+  const verdant = picker.getByRole("button", { name: "Verdant" });
+  await expect(verdant).toHaveAttribute("aria-pressed", "true");
+  await expect(verdant).toBeDisabled();
+  expect(skinRequestBody).toMatchObject({ skinId: "verdant" });
+  await expect(steelworks).toHaveAttribute("aria-pressed", "false");
+  await expect(steelworks).toBeEnabled();
+
+  // Rule 10: the repaint must be visible on the canvas, not just in the
+  // UI. Ambient dust also shifts pixels between frames, so require the
+  // repaint interval to beat a same-length ambient interval by a margin
+  // (additive: dust noise contributes equally to both measurements).
+  await page.waitForTimeout(400);
+  const after = await page.locator("canvas").screenshot();
+  await page.waitForTimeout(400);
+  const settled = await page.locator("canvas").screenshot();
+  const repaint = await imagePixelDifferenceRatio(page, before, after);
+  const ambient = await imagePixelDifferenceRatio(page, after, settled);
+  expect(repaint).toBeGreaterThan(Math.max(0.002, ambient + 0.0015));
+});

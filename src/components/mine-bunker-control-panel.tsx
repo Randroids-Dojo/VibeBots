@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import {
+  BUNKER_SKIN_CATALOG,
   type BunkerFootprint,
+  type BunkerSkinId,
   type BunkerState,
   bunkerRepairPlan,
+  DEFAULT_BUNKER_SKIN,
   DEFENSE_XP_PER_LEVEL,
   maxBunkerRaidTier,
 } from "@/sim/bunker";
@@ -32,6 +35,7 @@ export function BunkerControlPanel({
   onClaim,
   onStartRaid,
   onRepair,
+  onSelectSkin,
   onFinishRaid,
 }: {
   minerRow: number;
@@ -49,6 +53,7 @@ export function BunkerControlPanel({
   onClaim: () => void;
   onStartRaid: (tier: number) => void;
   onRepair?: () => void;
+  onSelectSkin?: (skinId: BunkerSkinId) => void;
   onFinishRaid: () => void;
 }) {
   const status = useBunkerStore((s) => s.status);
@@ -277,6 +282,31 @@ export function BunkerControlPanel({
               {`Repair bunker (${repairCost} vibes)`}
             </button>
           )}
+        {hasBunker && !activeRaid && !pendingClaim && onSelectSkin && (
+          <fieldset className="bunker-skin-picker" aria-label="Bunker skins">
+            {Object.values(BUNKER_SKIN_CATALOG).map((skin) => {
+              const owned =
+                skin.price === 0 ||
+                (bunker?.skinsOwned ?? []).includes(skin.id);
+              const selected =
+                (bunker?.skin ?? DEFAULT_BUNKER_SKIN) === skin.id;
+              return (
+                <button
+                  key={skin.id}
+                  type="button"
+                  aria-pressed={selected}
+                  title={skin.blurb}
+                  onClick={() => onSelectSkin(skin.id)}
+                  disabled={selected}
+                >
+                  {owned || selected
+                    ? skin.name
+                    : `${skin.name} (${skin.price}v)`}
+                </button>
+              );
+            })}
+          </fieldset>
+        )}
 
         {pendingClaim && hasBunker && (
           <p className="bunker-status-note">

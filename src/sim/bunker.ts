@@ -148,10 +148,53 @@ export interface PlacedBasePart {
   durability: number;
 }
 
+/** Cosmetic bunker skins (F-087, REQ-034/REQ-038): palette variants for
+ * the placed-part materials. Purely visual; no stats, no raid effects. */
+export type BunkerSkinId = "steelworks" | "gilded" | "verdant";
+
+export interface BunkerSkinDef {
+  id: BunkerSkinId;
+  name: string;
+  blurb: string;
+  /** Vibes to own; the default skin is free and always owned. */
+  price: number;
+}
+
+export const BUNKER_SKIN_CATALOG: Record<BunkerSkinId, BunkerSkinDef> = {
+  steelworks: {
+    id: "steelworks",
+    name: "Steelworks",
+    blurb: "the standard riveted gunmetal",
+    price: 0,
+  },
+  gilded: {
+    id: "gilded",
+    name: "Gilded",
+    blurb: "brass plate and warm lamplight",
+    price: 120,
+  },
+  verdant: {
+    id: "verdant",
+    name: "Verdant",
+    blurb: "patinated copper and moss glass",
+    price: 80,
+  },
+};
+
+export const DEFAULT_BUNKER_SKIN: BunkerSkinId = "steelworks";
+
+export function isBunkerSkinId(value: unknown): value is BunkerSkinId {
+  return typeof value === "string" && Object.hasOwn(BUNKER_SKIN_CATALOG, value);
+}
+
 export interface BunkerState {
   footprint: BunkerFootprint;
   core: BunkerCore;
   parts: PlacedBasePart[];
+  /** Selected cosmetic skin; legacy rows normalize to the default. */
+  skin?: BunkerSkinId;
+  /** Skins this player owns beyond the free default. */
+  skinsOwned?: BunkerSkinId[];
 }
 
 export interface PendingBunkerBuild {

@@ -7,7 +7,11 @@
 
 import { float, positionWorld, sin, vertexColor } from "three/tsl";
 import { Color, MeshStandardNodeMaterial } from "three/webgpu";
-import type { BasePartId } from "@/sim/bunker";
+import {
+  type BasePartId,
+  type BunkerSkinId,
+  DEFAULT_BUNKER_SKIN,
+} from "@/sim/bunker";
 import { cached, grainNoise, tintUniform } from "./mine-block-materials";
 import {
   SURFACE_PALETTE,
@@ -150,6 +154,30 @@ export function surfaceVillageMaterial(
  */
 const BUNKER_STEEL_HEX = "#78848F";
 
+/** Per-skin palettes for the bunker part roles (F-087). Cosmetic only:
+ * same cached-material factory, different hex per role, so each skin
+ * costs a handful of extra cached materials warmed at load. */
+export const BUNKER_SKIN_PALETTES: Record<
+  BunkerSkinId,
+  { shell: string; frame: string; accent: string }
+> = {
+  steelworks: {
+    shell: BUNKER_STEEL_HEX,
+    frame: SURFACE_PALETTE.brushedTitanium,
+    accent: SURFACE_PALETTE.safetyOrange,
+  },
+  gilded: {
+    shell: "#9C8452",
+    frame: "#C4A45E",
+    accent: "#7A2E2E",
+  },
+  verdant: {
+    shell: "#5F7A66",
+    frame: "#8FA98F",
+    accent: "#B08D3F",
+  },
+};
+
 export const BASE_PART_EMISSIVES: Record<BasePartId, string> = {
   "wall-panel": SURFACE_PALETTE.energyCyan,
   "floor-panel": SURFACE_PALETTE.energyCyan,
@@ -163,16 +191,18 @@ export function bunkerPartMaterial(
   role: SurfaceMaterialRole,
   emissiveHex: string,
   detail: boolean,
+  skin: BunkerSkinId = DEFAULT_BUNKER_SKIN,
 ): MeshStandardNodeMaterial {
+  const palette = BUNKER_SKIN_PALETTES[skin];
   switch (role) {
     case "shell":
-      return surfaceComposite(BUNKER_STEEL_HEX, detail);
+      return surfaceComposite(palette.shell, detail);
     case "frame":
-      return surfaceCoatedMetal(SURFACE_PALETTE.brushedTitanium, detail);
+      return surfaceCoatedMetal(palette.frame, detail);
     case "composite":
       return surfaceComposite(SURFACE_PALETTE.voidGraphite, detail);
     case "accent":
-      return surfaceCoatedMetal(SURFACE_PALETTE.safetyOrange, detail);
+      return surfaceCoatedMetal(palette.accent, detail);
     case "emissive":
       return surfaceEmissive(emissiveHex, detail);
   }
@@ -183,11 +213,14 @@ export function collectBunkerPartMaterials(
   detail: boolean,
 ): MeshStandardNodeMaterial[] {
   const emissives = new Set(Object.values(BASE_PART_EMISSIVES));
+  const skins = Object.keys(BUNKER_SKIN_PALETTES) as BunkerSkinId[];
   return [
-    bunkerPartMaterial("shell", "", detail),
-    bunkerPartMaterial("frame", "", detail),
+    ...skins.flatMap((skin) => [
+      bunkerPartMaterial("shell", "", detail, skin),
+      bunkerPartMaterial("frame", "", detail, skin),
+      bunkerPartMaterial("accent", "", detail, skin),
+    ]),
     bunkerPartMaterial("composite", "", detail),
-    bunkerPartMaterial("accent", "", detail),
     ...[...emissives].map((hex) => surfaceEmissive(hex, detail)),
   ];
 }

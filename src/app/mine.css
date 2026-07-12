@@ -215,6 +215,31 @@
   font-weight: 600;
 }
 
+/* Skin picker (F-087): one row of cosmetic palette choices in the
+ * bunker sheet; the selected skin is pressed and disabled. */
+.bunker-skin-picker {
+  border: 0;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.bunker-skin-picker button {
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 6px;
+  border: 1px solid #26304a;
+  background: rgba(17, 21, 31, 0.72);
+  color: inherit;
+  font-size: 0.78rem;
+}
+
+.bunker-skin-picker button[aria-pressed="true"] {
+  border-color: #54e0c7;
+  color: #54e0c7;
+}
+
 .bunker-raid-tier {
   border: 0;
   margin: 0;

@@ -27,4 +27,6 @@ export interface BunkerView {
 export interface BunkerRouteResponse extends BunkerView {
   raid?: BunkerRaidSnapshot;
   reward?: BunkerRaidRewardReport;
+  /** Achievement ids newly unlocked by this mutation (e.g. a skin buy). */
+  newStamps?: string[];
 }

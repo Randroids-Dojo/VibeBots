@@ -41,6 +41,7 @@ export type AchievementMetric =
   | "elevatorRides"
   | "bunkerRaidsSurvived"
   | "raidsSurvivedSealed"
+  | "bunkerSkinsBought"
   | "matchWins"
   | "chassisFought"
   | "partsMaxed"
@@ -65,6 +66,8 @@ export interface AchievementStats {
   bunkerRaidsSurvived: number;
   /** Raids survived with the player cell fully sealed (0.1.214+). */
   raidsSurvivedSealed: number;
+  /** Paid bunker skins purchased (durable: bunkers.skins_owned). */
+  bunkerSkinsBought: number;
   /** Server-verified arena match wins (durable: match_records). */
   matchWins: number;
   /** Distinct core chassis fielded across official matches (0-3). */
@@ -117,6 +120,7 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   elevatorRides: 0,
   bunkerRaidsSurvived: 0,
   raidsSurvivedSealed: 0,
+  bunkerSkinsBought: 0,
   matchWins: 0,
   chassisFought: 0,
   partsMaxed: 0,
@@ -467,6 +471,15 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     target: 1,
   },
   {
+    id: "tools-fresh-coat",
+    category: "tools",
+    title: "Fresh Coat",
+    description: "Buy a cosmetic skin for your bunker.",
+    stamp: "FC",
+    metric: "bunkerSkinsBought",
+    target: 1,
+  },
+  {
     id: "battle-chassis-tour",
     category: "battle",
     title: "Chassis Tour",
@@ -549,6 +562,8 @@ export function mergeAchievementStats(
       current.bunkerRaidsSurvived + (patch.bunkerRaidsSurvived ?? 0),
     raidsSurvivedSealed:
       current.raidsSurvivedSealed + (patch.raidsSurvivedSealed ?? 0),
+    bunkerSkinsBought:
+      current.bunkerSkinsBought + (patch.bunkerSkinsBought ?? 0),
     matchWins: current.matchWins + (patch.matchWins ?? 0),
     // Derived levels, not event counts: the server recomputes them from
     // durable records at snapshot time, so merging takes the high water.

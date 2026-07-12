@@ -86,6 +86,18 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-07-13" data-audit-state="bunker-arc-closeout">
+    <h3>Confirmation 2026-07-13 (bunker arc complete: tiers, specialists, stacked rooms, repairs, skins; versions 0.1.228 to 0.1.231)</h3>
+    <p>Source: a scripted Playwright capture run at Android portrait (390x760) against a local 0.1.231 production build, driven by <code>tests/e2e/bunker-arc-capture.spec.ts</code> (screenshots in <code>docs/reviews/20260713-bunker-arc/captures/</code>). Server responses simulated at the API boundary; client, canvas, and sheet are the real build.</p>
+    <ul>
+      <li><strong>Does the loop close?</strong> Yes. One sheet now carries the whole defense arc: pick a raid tier, start the wave, repair the damage for a visible price, and dress the result. Each verb pays into the next (raids damage what repairs fix, levels unlock tiers, vibes buy paint).</li>
+      <li><strong>Do skins earn their price?</strong> Visually yes: Verdant and Gilded repaint every placed wall on the canvas immediately and persist in the view (bunker-arc-05/06). They grant nothing, and the raid over the Gilded finish plays identically, keeping the cosmetic promise.</li>
+      <li><strong>Repair feel:</strong> the button prices itself (7 vibes for a chewed wall plus core chip), retires when nothing is damaged, and hides during raids and pending claims. Honest and quiet, exactly what a maintenance verb should be.</li>
+      <li><strong>Still weak:</strong> the sheet spends vibes without showing the balance (F-088), and this run simulated the server boundary; the production pass after deploy should re-confirm skin persistence across a real session. The Fresh Coat stamp needs a real purchase to verify end to end.</li>
+      <li><strong>Verdict:</strong> the bunker arc (REQ-034 through REQ-038 growth plan) is playable, legible, and rewarding at phone size. Remaining polish is cosmetic-adjacent (F-088) rather than structural.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-07-04" data-audit-state="workshop-overhaul-confirmation">
     <h3>Confirmation 2026-07-04 (workshop overhaul I-M live: chassis variants, blueprints, juice, mirror, new parts; versions 0.1.190 to 0.1.194)</h3>
     <p>Source: a scripted Playwright probe at Android portrait (390x760) against a production build, driven by <code>scripts/playtest-workshop.mjs</code> (screenshots <code>captures/wf-01-chassis.png</code>, <code>captures/wf-02-blueprint.png</code>, <code>captures/wf-03-spinner-bar.png</code>, <code>captures/wf-04-shop.png</code>). Follows the research and slice plan in <code>docs/research/workshop-overhaul-2026-07.html</code> (BattleBots, Banjo Nuts and Bolts, and AAA build UX).</p>

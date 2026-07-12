@@ -282,6 +282,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Player levels unlock higher raid tiers: bigger waves, tougher bites, more XP.",
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Equip the bunker hammer inside your claim to build and climb its temporary scaffold.",
+  "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
   "Tip: One cloud save on two devices? Sync when prompted; runs never merge.",
@@ -1169,6 +1170,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const moveBunkerPart = useBunkerStore((s) => s.movePart);
   const startBunkerRaid = useBunkerStore((s) => s.startRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
+  const setBunkerSkin = useBunkerStore((s) => s.setSkin);
   const collectBunkerRaidPickup = useBunkerStore((s) => s.collectRaidPickup);
   const finishBunkerRaid = useBunkerStore((s) => s.finishRaid);
   const router = useRouter();
@@ -3634,6 +3636,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         }}
         onFinishRaid={() => void finishBunkerRaid()}
         onRepair={() => void repairBunker()}
+        onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
       />
       {activeBunker &&
         bunkerEditingAllowed &&

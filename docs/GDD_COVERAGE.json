@@ -733,7 +733,7 @@
       "id": "REQ-034",
       "requirement": "A player can clear a large connected underground area, preview one active bunker claim, and stake that footprint inside the persistent mine with the miner standing on the bottom-center claim cell.",
       "gddRef": "docs/gdd/08-base-building.html#claim-loop",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
@@ -754,15 +754,13 @@
         "src/app/api/bunker/route.test.ts",
         "tests/e2e/mine-bunker.spec.ts"
       ],
-      "followupRefs": [
-        "F-029"
-      ]
+      "followupRefs": []
     },
     {
       "id": "REQ-035",
       "requirement": "Consumable base parts let the player build a multi-level bunker piece by piece on a cell grid, with inventory spend, removal rules, and part-local durability.",
       "gddRef": "docs/gdd/08-base-building.html#building-parts",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
@@ -786,15 +784,13 @@
         "tests/e2e/mine-bunker.spec.ts",
         "src/components/mine-bunker-part-geometry.test.ts"
       ],
-      "followupRefs": [
-        "F-029"
-      ]
+      "followupRefs": []
     },
     {
       "id": "REQ-036",
       "requirement": "The player can trigger a short autonomous bunker-defense event while inside a valid bunker, with higher tiers lasting longer and spawning stronger attacks.",
       "gddRef": "docs/gdd/08-base-building.html#defense-event",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
@@ -806,15 +802,13 @@
         "src/sim/bunker.test.ts",
         "src/app/api/bunker/route.test.ts"
       ],
-      "followupRefs": [
-        "F-029"
-      ]
+      "followupRefs": []
     },
     {
       "id": "REQ-037",
       "requirement": "Clankers are autonomous spidery robotic enemies that path through the mine, chew through cells, surround bunker faces, breach base parts, and attack the player.",
       "gddRef": "docs/gdd/08-base-building.html#clankers",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
@@ -828,9 +822,7 @@
         "src/server/bunker.test.ts",
         "tests/e2e/mine-bunker.spec.ts"
       ],
-      "followupRefs": [
-        "F-029"
-      ]
+      "followupRefs": []
     },
     {
       "id": "REQ-038",
@@ -849,7 +841,10 @@
         "src/state/bunker-store.ts",
         "src/server/db.ts",
         "src/server/player.ts",
-        "src/server/balance-telemetry.ts"
+        "src/server/balance-telemetry.ts",
+        "src/app/api/bunker/skin/route.ts",
+        "src/components/mine-surface-materials.ts",
+        "src/lib/achievements.ts"
       ],
       "testRefs": [
         "src/sim/bunker.test.ts",
@@ -857,10 +852,12 @@
         "src/app/api/consumables/buy/route.test.ts",
         "src/server/player.test.ts",
         "src/server/bunker.test.ts",
-        "tests/e2e/mine-bunker.spec.ts"
+        "tests/e2e/mine-bunker.spec.ts",
+        "src/lib/achievements.test.ts",
+        "tests/e2e/bunker-arc-capture.spec.ts"
       ],
       "followupRefs": [
-        "F-029"
+        "F-089"
       ]
     },
     {

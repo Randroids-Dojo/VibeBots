@@ -9,6 +9,7 @@ import {
   placeBunkerPart,
   removeBunkerPart,
   repairBunker,
+  setBunkerSkin,
   startBunkerRaid,
 } from "@/server/bunker";
 import { db, storageConfigured } from "@/server/db";
@@ -23,6 +24,7 @@ import { POST as finishRaidPost } from "./raid/finish/route";
 import { POST as startRaidPost } from "./raid/start/route";
 import { POST as repairPost } from "./repair/route";
 import { GET } from "./route";
+import { POST as skinPost } from "./skin/route";
 
 vi.mock("@/server/db", () => ({
   db: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("@/server/bunker", () => ({
   placeBunkerPart: vi.fn(),
   removeBunkerPart: vi.fn(),
   repairBunker: vi.fn(),
+  setBunkerSkin: vi.fn(),
   startBunkerRaid: vi.fn(),
 }));
 
@@ -56,6 +59,7 @@ const mockedFinish = vi.mocked(finishBunkerRaid);
 const mockedLoad = vi.mocked(loadBunkerView);
 const mockedMove = vi.mocked(moveBunkerPart);
 const mockedPlace = vi.mocked(placeBunkerPart);
+const mockedSkin = vi.mocked(setBunkerSkin);
 const mockedRemove = vi.mocked(removeBunkerPart);
 const mockedStart = vi.mocked(startBunkerRaid);
 const mockedRepair = vi.mocked(repairBunker);
@@ -262,6 +266,56 @@ describe("bunker API routes", () => {
 
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toEqual({ error: "nothing to repair" });
+  });
+
+  it("applies a bunker skin through the skin route", async () => {
+    const view = { bunker: { footprint: null }, inventory: {} };
+    mockedSkin.mockResolvedValue({
+      ok: true,
+      view,
+      newStamps: ["tools-fresh-coat"],
+    } as never);
+
+    const res = await skinPost(
+      jsonRequest("http://localhost/api/bunker/skin", { skinId: "gilded" }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ...view,
+      newStamps: ["tools-fresh-coat"],
+    });
+    expect(mockedSkin).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      "gilded",
+    );
+  });
+
+  it("rejects an unknown skin id before reaching the server helper", async () => {
+    const res = await skinPost(
+      jsonRequest("http://localhost/api/bunker/skin", { skinId: "chrome" }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockedSkin).not.toHaveBeenCalled();
+  });
+
+  it("passes skin purchase rejections through with their status", async () => {
+    mockedSkin.mockResolvedValue({
+      ok: false,
+      status: 409,
+      error: "Gilded costs 120 vibes",
+    } as never);
+
+    const res = await skinPost(
+      jsonRequest("http://localhost/api/bunker/skin", { skinId: "gilded" }),
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "Gilded costs 120 vibes",
+    });
   });
 
   it("starts the tier-one Clanker raid", async () => {

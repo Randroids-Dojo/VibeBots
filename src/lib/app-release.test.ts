@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-repairs note complete", () => {
+  it("keeps the latest bunker-skins note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.230-bunker-repairs");
+    expect(release.noticeId).toBe("2026-07-13-0.1.231-bunker-skins");
     expect(latestNote).toMatchObject({
+      version: "0.1.231",
+      title: "Dress your bunker in new colors",
+      intro: "Cosmetic skins repaint every placed part, paid in vibes.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The bunker sheet gains a skin picker: Steelworks stays the free riveted gunmetal, Gilded (120 vibes) brings brass plate and warm lamplight, and Verdant (80 vibes) goes patinated copper and moss glass. A bought skin is yours forever and reselects free.",
+      "Skins are pure paint. Durability, raids, and rewards play out exactly the same in every finish.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-repairs note complete", () => {
+    const release = getAppRelease();
+    const repairsNote = release.notes.find(
+      (note) => note.version === "0.1.230",
+    );
+
+    expect(repairsNote).toMatchObject({
       version: "0.1.230",
       title: "Patch the bunker up between raids",
       intro: "One button repairs every chewed wall, and stacked rooms hold.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(repairsNote?.changes.map((change) => change.text)).toEqual([
       "The bunker sheet gains a Repair button whenever something is damaged: it restores every part and the core in one tap, priced by the damage (a full restore costs about half the part's shop price) and paid in vibes. Repairs wait until the raid is over.",
       "Two-story bunkers are official: an interior floor row splits the claim into stacked rooms, and a sealed two-room layout holds a raid exactly like a single room.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

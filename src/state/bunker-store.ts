@@ -8,6 +8,7 @@ import {
   type BasePartInventory,
   type BunkerRaidRewardReport,
   type BunkerRaidSnapshot,
+  type BunkerSkinId,
   type BunkerState,
   EMPTY_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
@@ -23,6 +24,7 @@ import {
   placeRemoteBunkerPart,
   removeRemoteBunkerPart,
   repairRemoteBunker,
+  setRemoteBunkerSkin,
   startRemoteBunkerRaid,
 } from "./bunker-api-client";
 import { enqueueStampAlertsFromResponse } from "./stamp-alert-store";
@@ -58,6 +60,7 @@ export interface BunkerStoreState {
   ) => Promise<BunkerMutationResult>;
   startRaid: (tier?: number) => Promise<BunkerMutationResult>;
   repairBunker: () => Promise<BunkerMutationResult>;
+  setSkin: (skinId: BunkerSkinId) => Promise<BunkerMutationResult>;
   collectRaidPickup: (
     col: number,
     row: number,
@@ -70,6 +73,7 @@ function applyResponse(
   body: BunkerRouteResponse,
 ) {
   if (body.reward) enqueueStampAlertsFromResponse(body.reward);
+  if (body.newStamps) enqueueStampAlertsFromResponse(body);
   set({
     status: "ready",
     bunker: body.bunker,
@@ -158,6 +162,12 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
     applyMutationResult(
       set,
       await repairRemoteBunker(),
+      "bunker action failed",
+    ),
+  setSkin: async (skinId) =>
+    applyMutationResult(
+      set,
+      await setRemoteBunkerSkin(skinId),
       "bunker action failed",
     ),
   startRaid: async (tier = 1) =>

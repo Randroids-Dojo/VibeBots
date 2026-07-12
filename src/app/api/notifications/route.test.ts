@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.230-bunker-repairs",
+      releaseNoticeId: "2026-07-13-0.1.231-bunker-skins",
       releaseSummary:
-        "Patch the bunker up between raids: One button repairs every chewed wall, and stacked rooms hold.",
+        "Dress your bunker in new colors: Cosmetic skins repaint every placed part, paid in vibes.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.230-bunker-repairs",
+      releaseNoticeId: "2026-07-13-0.1.231-bunker-skins",
       attempted: 2,
       sent: 1,
       expired: 1,

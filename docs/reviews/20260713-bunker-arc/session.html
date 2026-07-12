@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Bunker arc closeout playtest (2026-07-13)</title></head>
+<body>
+<h1>Bunker arc closeout playtest</h1>
+<p>Scripted local capture run for F-087 (build 0.1.231, branch feat/bunker-skins).
+Driver: <code>tests/e2e/bunker-arc-capture.spec.ts</code> against a local production
+build; server responses simulated at the API boundary (no Postgres locally), the
+client, canvas, and sheet are the real build. Captured manually (no VibeReview
+CLI session), per the manual-capture provision in AGENTS.md Rule 12.</p>
+<ol>
+  <li><figure><img src="captures/bunker-arc-01-release-note.png" alt="0.1.231 release note" width="390"><figcaption>0.1.231 release note on load.</figcaption></figure></li>
+  <li><figure><img src="captures/bunker-arc-02-claim-steelworks.png" alt="Claim in Steelworks" width="390"><figcaption>Claimed bunker, default Steelworks walls.</figcaption></figure></li>
+  <li><figure><img src="captures/bunker-arc-03-sheet-damaged.png" alt="Damaged sheet" width="390"><figcaption>Bunker sheet with tier stepper, raid button, Repair bunker (7 vibes), skin picker.</figcaption></figure></li>
+  <li><figure><img src="captures/bunker-arc-04-repaired.png" alt="Repaired" width="390"><figcaption>After repair: button gone, durability restored.</figcaption></figure></li>
+  <li><figure><img src="captures/bunker-arc-05-skin-verdant-world.png" alt="Verdant walls" width="390"><figcaption>Verdant repaint on the same walls.</figcaption></figure></li>
+  <li><figure><img src="captures/bunker-arc-06-skin-gilded-world.png" alt="Gilded walls" width="390"><figcaption>Gilded repaint; owned skins reselect free.</figcaption></figure></li>
+  <li><figure><img src="captures/bunker-arc-07-raid-gilded.png" alt="Raid in Gilded" width="390"><figcaption>Raid running over the Gilded finish.</figcaption></figure></li>
+</ol>
+</body>
+</html>

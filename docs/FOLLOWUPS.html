@@ -52,6 +52,26 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-089" data-f="F-089" data-priority="nice-to-have">
+    <h3>F-089: Make the overall player level the global progression gate REQ-038 promises</h3>
+    <dl>
+      <dt>Context</dt><dd>REQ-038's last clause makes overall player level "a global progression gate for robot parts, base parts, skins, stamps, consumables, and upgrades." Today the level gates raid tiers (F-084), the beacon cap, and base-part owned limits, but robot parts, skins, consumables, and gear upgrades are purely vibes-priced. This is the remaining piece keeping REQ-038 partial after the F-029 arc closed.</dd>
+      <dt>Blocker (if any)</dt><dd>none, but it is an economy design decision, not a mechanical gap: decide which catalogs get level floors and whether existing owned items grandfather.</dd>
+      <dt>Unblock condition</dt><dd>Design pass over the shop catalogs assigning level floors where they improve pacing (or an explicit GDD amendment narrowing the clause), then enforce the floors server-side and surface them in the shop UI. Acceptance: at least the highest-tier purchases check overall level on the server, the UI explains locked items, and GDD_COVERAGE flips REQ-038 to done.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section id="F-088" data-f="F-088" data-priority="polish">
+    <h3>F-088: Show the vibes balance inside the bunker sheet</h3>
+    <dl>
+      <dt>Context</dt><dd>The bunker sheet now sells repairs (priced per damage) and skins (80-120 vibes) but never shows the player's balance; the vibes count lives on the surface HUD behind the sheet. The 2026-07-13 bunker-arc playtest (docs/reviews/20260713-bunker-arc/, capture bunker-arc-03) flagged that a player cannot tell from the sheet whether they can afford a purchase, and nothing confirms the spend afterward.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add a small balance line to the bunker sheet near the priced buttons (the view already carries <code>player.balance</code>), and disable or annotate unaffordable purchases. Acceptance: the sheet shows the current balance, it updates after a repair or skin purchase, and an unaffordable skin is visibly not buyable.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section id="F-079" data-f="F-079" data-priority="nice-to-have">
     <h3>F-079: "Buttoned Up" stamp for surviving a raid fully enclosed</h3>
     <dl>
@@ -417,6 +437,7 @@
       <dt>Review update</dt><dd>2026-06-27: keep this followup open, but narrow the stale original scope. Bunker defense now covers starter parts, floor and roof pieces, doors, turrets, floor spikes, raid rewards, XP pickups, player levels, first-defense stamps, raid wear, and Clanker pathing in the server-side raid snapshot.</dd>
       <dt>Remaining scope</dt><dd>Live Clanker movement through the mine during raids, multi-level or irregular bunker rooms, repairs or repair plates, richer raid tiers and specialist attackers, cosmetic skins, and production playtest evidence still belong here.</dd>
         <dt>Progress update</dt><dd>2026-07-13: the GDD growth plan's first four stages have shipped across the bunker series (claim, base-parts kit plus the hammer builder, the deterministic raid with survival rewards, defense XP and player level, doors, turret and spike parts, and the First Defense and Buttoned Up stamps). The remaining "full bunker feature" stage is decomposed into PR-sized children so the loop can execute them: F-084 (tier selection and level gates, REQ-038), F-085 (functioning turret and trap behaviors, specialist Clankers, player death during raids, REQ-036/037), F-086 (multi-level layouts, hatches, repairs, REQ-035), F-087 (base skins and Rule 12 playtest evidence). This entry stays open as the umbrella until the children land.</dd>
+    <dt>Resolved</dt><dd>2026-07-13: umbrella complete; every child of the 2026-07-13 decomposition has shipped and merged. F-084 raid tiers and level gates (PR #144, 0.1.228), F-085 specialist Clankers riding the already-shipped turret/spike/death mechanics (PR #145, 0.1.229), F-086 stacked rooms and repairs with hatches subsumed by doors and floors (PR #146, 0.1.230), F-087 cosmetic skins plus the Rule 12 playtest evidence and audit verdict (0.1.231). Live Clanker movement, player death during raids, turrets, and traps were audited as already shipped during the decomposition. The bunker arc's remaining polish is tracked by its own followups (F-088).</dd>
 </dl>
   </section>
 
@@ -999,6 +1020,7 @@
     <dt>Blocker (if any)</dt><dd>Best after F-084 through F-086 so the playtest exercises the finished loop.</dd>
     <dt>Unblock condition</dt><dd>Skins: a cosmetic material/palette variant per bunker part family, purchasable with vibes, no stat changes. Evidence: a VibeReview session over the full claim-build-raid loop per Rule 12's shape. Acceptance: skins render on placed parts across sessions, grant nothing, and the playtest verdict lands in docs/PLAYTEST.html with followups for anything weak.</dd>
     <dt>PR / Dot reference</dt><dd>(decomposed from F-029)</dd>
+    <dt>Resolved</dt><dd>2026-07-13 (package 0.1.231): three cosmetic skins per the catalog in <code>src/sim/bunker.ts</code>: Steelworks (default, free), Gilded (120 vibes), Verdant (80 vibes). Each maps a per-role palette (<code>BUNKER_SKIN_PALETTES</code>) over the shared shell/frame/accent materials; geometry, colliders, durability, raids, and rewards are untouched, and the catalog test pins the defs to cosmetic-only keys. Selection persists on <code>bunkers.skin</code> with ownership in <code>bunkers.skins_owned</code>; the purchase debit is a guarded single-statement <code>UPDATE ... RETURNING</code> (same atomicity fix as F-086's repair), owned skins reselect free, and all skin material variants are warmed by <code>collectBunkerPartMaterials</code> so switching never stalls a pipeline compile. The bunker sheet gains a three-button picker (fieldset, <code>aria-pressed</code>, hidden during raids and pending claims). Rule 14: the "Fresh Coat" stamp (<code>tools-fresh-coat</code>) unlocks on the first paid skin purchase; the deferred "survive tier N" stamp from F-084 stays deferred (raid-depth stamps should land with a tier-reward rebalance, not a cosmetics slice). Evidence: scripted capture run over repair, skins, and a raid (<code>tests/e2e/bunker-arc-capture.spec.ts</code>, session <code>docs/reviews/20260713-bunker-arc/</code>), verdict in <code>docs/FUN_FACTOR_AUDIT.html</code> 2026-07-13, articles in <code>docs/PLAYTEST.html</code>, one new followup (F-088). The skin e2e proves the canvas repaint against an ambient-motion baseline per Rule 10.</dd>
   </dl>
 </section>
 

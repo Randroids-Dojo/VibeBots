@@ -1000,7 +1000,8 @@
     <dt>Blocker (if any)</dt><dd>none.</dd>
     <dt>Unblock condition</dt><dd>Ready: reproduce the workshop <code>None owned</code> palette against a real storage backend with a fresh guest cookie, decide whether fresh players are meant to own starter parts there, and fix the seed path or the test assumptions. Also decide whether the local suite should force-offline storage so local runs match the CI contract. Acceptance: a full local run in a storage-attached checkout matches CI results, or the difference is documented as intended with a forced-offline switch for parity runs.</dd>
     <dt>PR / Dot reference</dt><dd>(not started)</dd>
-  </dl>
+    <dt>Resolved</dt><dd>2026-07-12: took the force-offline option the unblock condition offered, one layer deeper than per-suite fixes: the Playwright-managed <code>next start</code> now launches with the storage- and integration-gating env vars explicitly blanked (<code>DATABASE_URL</code>, <code>AUTH_SECRET</code>, VAPID keys, push contact, Clerk keys) in <code>playwright.config.ts</code>, so a checkout with a real <code>.env.local</code> serves exactly the CI contract (blank strings win because Next never overrides variables already set on the process). Anyone deliberately testing against storage starts their own server and points <code>PLAYWRIGHT_BASE_URL</code> at it, which skips the managed server entirely. Proven by mutation: with a dummy <code>.env.local</code> attached, <code>/api/notifications/config</code> reports <code>configured:false</code> through the managed server and <code>configured:true</code> with the fix stashed; the workshop and API suites (32 tests) pass with the dummy env attached. The original "None owned palette" reproduction against a real backend is superseded: local runs can no longer see a backend through the managed server, which is the contract CI enforces.</dd>
+</dl>
 </section>
 
 <section id="F-047" data-f="F-047" data-priority="polish">

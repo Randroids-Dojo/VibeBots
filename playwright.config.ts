@@ -47,6 +47,22 @@ export default defineConfig({
         url: localBaseUrl,
         reuseExistingServer: false,
         timeout: 120_000,
+        // The managed server always starts storage-off so a checkout with
+        // a real .env.local produces the same results as CI, where none of
+        // these secrets exist (F-048: guest saves served from Postgres made
+        // the workshop suite diverge locally). Blank strings beat Next's
+        // env-file loading because Next never overrides variables that are
+        // already set. To test against real storage, start your own server
+        // and point PLAYWRIGHT_BASE_URL at it.
+        env: {
+          DATABASE_URL: "",
+          AUTH_SECRET: "",
+          VAPID_PUBLIC_KEY: "",
+          VAPID_PRIVATE_KEY: "",
+          WEB_PUSH_CONTACT_EMAIL: "",
+          CLERK_SECRET_KEY: "",
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
+        },
       },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
 });

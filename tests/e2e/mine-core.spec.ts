@@ -1289,9 +1289,10 @@ test("rapid repeated keyboard taps do not bypass held cadence (REQ-023)", async 
     String(keyboardStart + 1),
   );
   // Let the repeat window from the accepted press expire, then burst four
-  // taps in one synchronous task. They all share one cadence window, so
-  // exactly one can land regardless of machine speed; asserting the burst
-  // lands inside the previous window instead was flaky on slow CI.
+  // taps in one synchronous task. They all share one cadence window: the
+  // first lands immediately and the rest collapse into ONE buffered move
+  // at the next legal action time (the tap buffer remembers the newest
+  // tap instead of dropping it, but can never fire early or bank more).
   await page.waitForTimeout(700);
   await page.evaluate(() => {
     for (let i = 0; i < 4; i++) {
@@ -1303,19 +1304,22 @@ test("rapid repeated keyboard taps do not bypass held cadence (REQ-023)", async 
       );
     }
   });
-  await expect(status).toHaveAttribute(
-    "data-horizontal-distance",
-    String(keyboardStart + 2),
-  );
-  // The keyups released the hold, so no queued repeats fire afterwards.
-  await page.waitForTimeout(700);
-  expect(await horizontalDistance()).toBe(keyboardStart + 2);
+  // Exactly one buffered move lands at the next legal time, then the
+  // burst is spent: four taps yield two moves total, same rate as a hold.
+  // (A slow runner can sample after the buffered move already landed, so
+  // the immediate-move check is folded into the >= poll.)
+  await expect
+    .poll(horizontalDistance)
+    .toBeGreaterThanOrEqual(keyboardStart + 2);
+  await expect.poll(horizontalDistance).toBe(keyboardStart + 3);
+  await page.waitForTimeout(900);
+  expect(await horizontalDistance()).toBe(keyboardStart + 3);
 
   // A genuine hold auto-repeats through the cadence window.
   await page.keyboard.down("ArrowRight");
   await page.waitForTimeout(900);
   await page.keyboard.up("ArrowRight");
-  expect(await horizontalDistance()).toBeGreaterThanOrEqual(keyboardStart + 3);
+  expect(await horizontalDistance()).toBeGreaterThanOrEqual(keyboardStart + 4);
 });
 
 test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({

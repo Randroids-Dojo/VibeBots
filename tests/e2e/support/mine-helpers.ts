@@ -48,6 +48,19 @@ export async function awaitMineSceneReady(page: Page): Promise<void> {
   );
 }
 
+/** A paced single press that clears the whole action-repeat window before
+ * returning. Condition-stop loops MUST use this instead of pressMineKey:
+ * since the one-slot input buffer landed, a press inside the cooldown is
+ * remembered and fires later, so faster pacing would leak one trailing
+ * move after a loop exits on its condition. */
+export async function pressMineKeyPaced(
+  page: Page,
+  key: "ArrowDown" | "ArrowUp" | "ArrowLeft" | "ArrowRight",
+): Promise<void> {
+  await page.keyboard.press(key);
+  await page.waitForTimeout(MINE_KEY_STEP_MS);
+}
+
 export async function pressMineKeyUntilStatus(
   page: Page,
   key: "ArrowDown" | "ArrowUp" | "ArrowLeft" | "ArrowRight",
@@ -56,7 +69,7 @@ export async function pressMineKeyUntilStatus(
 ): Promise<void> {
   const status = page.getByLabel("Mine status");
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    await pressMineKey(page, key);
+    await pressMineKeyPaced(page, key);
     if ((await status.getAttribute(attribute)) === value) return;
   }
   await expect(status).toHaveAttribute(attribute, value);
@@ -178,10 +191,15 @@ export async function digTo(page: Page, depth: number): Promise<void> {
     }
   }
   for (let i = 0; i < 8; i++) {
-    if ((await current()) >= depth) return;
+    if ((await current()) >= depth) break;
     await page.keyboard.press("ArrowDown");
     await page.waitForTimeout(MINE_KEY_STEP_MS);
   }
+  // Drain the one-slot input buffer before returning: under load a paced
+  // press can land inside the cooldown and fire up to a full window after
+  // the loop exits, which would let a trailing swing shift energy or
+  // depth underneath the caller's assertions.
+  await page.waitForTimeout(MINE_KEY_STEP_MS);
 }
 
 /** Standing on a stall shows a prompt; tap it to open the menu. Returns
@@ -420,7 +438,7 @@ export async function enterBuilding(
   const prompt = page.getByRole("button", { name: `Enter ${name}` });
   for (let i = 0; i < 72; i++) {
     if (await prompt.isVisible().catch(() => false)) break;
-    await pressMineKey(page, key);
+    await pressMineKeyPaced(page, key);
   }
   await expect(prompt).toBeVisible();
   await prompt.click();
@@ -493,7 +511,7 @@ export async function descendLadderShaft(
   await awaitMineSceneReady(page);
   for (let i = 0; i < depth + 6; i++) {
     if (Number(await status.getAttribute("data-depth")) >= depth) return;
-    await pressMineKey(page, "ArrowDown");
+    await pressMineKeyPaced(page, "ArrowDown");
   }
 }
 
@@ -505,7 +523,7 @@ export async function digLateral(
 ): Promise<void> {
   const canvas = page.locator("canvas");
   for (let i = 0; i < 10; i++) {
-    await pressMineKey(page, key);
+    await pressMineKeyPaced(page, key);
     const x = Number(await canvas.getAttribute("data-miner-x"));
     if (key === "ArrowLeft" ? x < pastX : x > pastX) return;
   }

@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.238" data-date="2026-07-13">
+    <h2>0.1.238</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.238</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>53</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>The ringed planet no longer slides after the miner finishes a surface step.</dd>
+      <dt>Camera-space sky</dt><dd>Sky, stars, and the planet use zero translational parallax and align from the camera's final transform immediately before their current draw. Explicit world-matrix refresh prevents a stale-frame transform.</dd>
+      <dt>Earthbound depth</dt><dd>Only the terrain moves. Far excavation, industrial machinery, and the widened service berm use standard linear scroll scales of 0.08, 0.18, and 0.32. The rejected easing curve and travel caps are removed.</dd>
+      <dt>Pixel proof</dt><dd>An exact 448x923 DPR 2.25 touch WebGL2 test walks from Base +16 to +17 while sampling the full camera settle. The celestial matrix stays at zero displacement; 35,044 visible planet-colored pixels retain an identical centroid in both endpoint frames.</dd>
+      <dt>Performance</dt><dd>The rebuilt system remains five backdrop draws and one stars draw. The final motion-enabled matrix held 12 to 14 total Holodeck draws, with phone medians of 8.3 to 8.4 ms and p95 no more than 16.7 ms. The 72-second heap probe measured 2.51 MB/s, 14 collection drops, and a 24.5 MB trough.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.237" data-date="2026-07-13">
     <h2>0.1.237</h2>
     <dl>

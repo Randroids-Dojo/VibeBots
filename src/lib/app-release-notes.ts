@@ -1,11 +1,11 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.238-stamp-alert-shortcut";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.239-stamp-alert-shortcut";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.238",
+      version: "0.1.239",
       date: "2026-07-13",
       title: "Stamp alerts lead straight to the Stamp Book",
       intro: "Tap a fresh stamp to see it in its place in the collection.",
@@ -19,6 +19,26 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
           text: "The shortcut works in the workshop and the arena too, and keyboard players can activate the alert like any button.",
         },
         { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
+    {
+      version: "0.1.238",
+      date: "2026-07-13",
+      title: "The planet stays put",
+      intro: "The sky no longer slides after each surface step.",
+      changes: [
+        {
+          build,
+          text: "The ringed planet, sky, and stars now render in camera space with zero translational parallax. They use the camera's final transform for the current frame, so camera smoothing cannot make them chase the miner.",
+        },
+        {
+          build,
+          text: "Only earthbound scenery moves: far excavation, machinery, and the near berm use simple linear depth rates with no extra easing, lag, or position-dependent curve.",
+        },
+        {
+          build,
+          text: "An exact Pixel test walks from Base +16 to +17 and proves the visible planet pixels keep the same count and centroid. Draw calls, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
       ],
     },
     {

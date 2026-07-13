@@ -14,7 +14,9 @@ import {
   type Group,
   type InstancedMesh,
   Matrix4,
+  type Mesh,
   MeshStandardMaterial,
+  type Points,
   PointsMaterial,
   Quaternion,
   Vector3,
@@ -356,37 +358,63 @@ function SurfaceBackdrop() {
     hasCoarsePointer(),
   );
   const layers = surfaceBackdropGeometry(tier).layers;
-  const groups = useRef<Array<Group | null>>([]);
-  useFrame(({ camera }) => {
-    const refs = groups.current;
-    for (let i = 0; i < layers.length; i++) {
-      const group = refs[i];
-      if (!group) continue;
-      group.position.x = surfaceBackdropLayerX(
-        camera.position.x,
-        layers[i].parallax,
-        reduced,
-      );
-    }
-  });
   return (
     <>
-      {layers.map((layer, index) => (
-        <group
+      {layers.map((layer) => (
+        <BackdropLayerMesh
           key={layer.role}
-          ref={(group) => {
-            groups.current[index] = group;
-          }}
-        >
-          <mesh geometry={layer.geometry} frustumCulled={false} dispose={null}>
-            <primitive
-              object={surfaceBackdropMaterial(layer.role)}
-              attach="material"
-            />
-          </mesh>
-        </group>
+          layer={layer}
+          reducedMotion={reduced}
+        />
       ))}
+      <NightStars />
     </>
+  );
+}
+
+function BackdropLayerMesh({
+  layer,
+  reducedMotion,
+}: {
+  layer: ReturnType<typeof surfaceBackdropGeometry>["layers"][number];
+  reducedMotion: boolean;
+}) {
+  const meshRef = useRef<Mesh>(null);
+  const diagnosticCache = useRef<Record<string, number | string>>({});
+  return (
+    <mesh
+      ref={meshRef}
+      geometry={layer.geometry}
+      frustumCulled={false}
+      dispose={null}
+      onBeforeRender={(renderer, _scene, camera) => {
+        const mesh = meshRef.current;
+        if (!mesh) return;
+        mesh.position.x = surfaceBackdropLayerX(
+          camera.position.x,
+          layer.scrollScale,
+          reducedMotion,
+        );
+        // Scene matrices were traversed before this callback. Refresh this
+        // mesh now so the current draw, not the next frame, gets the final
+        // camera-relative transform.
+        mesh.updateMatrixWorld();
+        if (layer.role === "celestial") {
+          setDatasetNumber(
+            diagnosticCache.current,
+            renderer.domElement.dataset,
+            "surfaceCelestialScreenX",
+            mesh.matrixWorld.elements[12] - camera.position.x,
+            3,
+          );
+        }
+      }}
+    >
+      <primitive
+        object={surfaceBackdropMaterial(layer.role)}
+        attach="material"
+      />
+    </mesh>
   );
 }
 
@@ -477,6 +505,7 @@ function SurfaceVillageModel() {
 
 /** All 46 stars in a single points draw call (phones count draws). */
 function NightStars() {
+  const pointsRef = useRef<Points>(null);
   const positions = useMemo(() => {
     const arr = new Float32Array(46 * 3);
     for (let i = 0; i < 46; i++) {
@@ -487,7 +516,16 @@ function NightStars() {
     return arr;
   }, []);
   return (
-    <points dispose={null}>
+    <points
+      ref={pointsRef}
+      dispose={null}
+      onBeforeRender={(_renderer, _scene, camera) => {
+        if (pointsRef.current) {
+          pointsRef.current.position.x = camera.position.x;
+          pointsRef.current.updateMatrixWorld();
+        }
+      }}
+    >
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
@@ -505,8 +543,6 @@ export const SurfaceDressing = memo(function SurfaceDressing() {
   return (
     <>
       <SurfaceBackdrop />
-      {/* One batched star field, faded by the shared lighting controller. */}
-      <NightStars />
       <group
         onUpdate={(group) => {
           // The village both throws and catches the sun's shadows (G1).

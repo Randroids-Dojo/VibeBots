@@ -81,6 +81,7 @@ describe("bunker store", () => {
           partId: "wall-panel" as const,
           col: 7,
           row: 4,
+          depth: 0,
           durability: BASE_PART_CATALOG["wall-panel"].durability,
         },
       ],

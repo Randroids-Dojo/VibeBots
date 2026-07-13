@@ -31,6 +31,16 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-depth-groundwork" data-date="2026-07-13">
+    <h3>First-person bunker arc opens: depth groundwork with zero visible change</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-depth-groundwork</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.244, slice one of the approved first-person bunker plan (user decisions 2026-07-13: first-person building replaces the toolbelt cursor flow, deep layers are dig-out claim rock, raids become live and first-person, interior walking is free). <code>PlacedBasePart</code> and <code>BunkerCore</code> gain a required <code>depth</code> (0..4) beside the new <code>BUNKER_CLAIM_DEPTH = 5</code>; place/remove/move take trailing depth params defaulting to 0 so every existing call site compiles unchanged, each depth is its own occupancy layer, and the core blocks only its exact 3D cell. <code>resolveBunkerRaid</code> projects parts to depth 0 (returning the same object when everything already sits there) and <code>applyBunkerRaidWear</code> passes deep parts through untouched: the interim rule until the live 3D resolver (F-092). Depth normalizes to 0 at every read boundary: <code>parseBunkerState</code> for jsonb rows, the bank pending-claim Zod schema for the wire, <code>loadLocalTrip</code> for localStorage trips (which survive deploys because <code>MINE_VERSION</code> does not bump), and <code>accountTripFromResponse</code> for account-synced trips. The bank route's <code>samePlacedParts</code> comparison is rewritten field-wise, removing a <code>JSON.stringify</code> key-order fragility that would have failed every pending claim the moment a depth key entered either side. GDD 08 gains the design-pass spec section; REQ-035/036/037 flip back to partial for the arc; Q-019 (leaving a live raid forfeits) and Q-020 (all-rock fortresses) recorded with recommended defaults; F-092 tracks the projection. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged: replay's only bunker coupling is the 2D scaffold footprint (verified against <code>src/sim/mine/replay.ts</code>).</dd>
+      <dt>Verified</dt><dd>New sim contracts: depth bounds, per-depth occupancy, core exact-cell blocking, cross-depth moves preserving durability, and raid projection identity (a bunker with deep wall, turret, and spikes produces a snapshot deep-equal to the flat bunker's, and the deep parts survive wear untouched). Legacy normalization pinned at all four read boundaries, including a depth-less raw wire payload that still banks (the Zod default is the compatibility proof). The pre-existing bunker contract suite runs unchanged as the raid-invariance proof; 177 tests green across the eight touched suites; typecheck and Biome clean. Newest scheduled Full E2E conclusion was cancelled (superseded by pushes), not red. Tips reviewed per Rule 13: no copy change (no player-facing rule changed). Stamp review per Rule 14: none added (invisible groundwork).</dd>
+    </dl>
+  </article>
+
   <article data-slice="movement-stride-glide" data-date="2026-07-13">
     <h3>Smoother movement rendering: held steps chain into one stride</h3>
     <dl>

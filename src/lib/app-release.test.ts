@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest stride-glide note complete", () => {
+  it("keeps the latest bunker-depth note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.243-stride-glide");
+    expect(release.noticeId).toBe("2026-07-13-0.1.244-bunker-depth-groundwork");
     expect(latestNote).toMatchObject({
+      version: "0.1.244",
+      title: "The bunker learns a third dimension",
+      intro: "Groundwork for building deeper. Nothing visible changes yet.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Bunker parts and the core now carry a depth coordinate under the hood, preparing the claim to grow from a flat 7x5 wall into a 7x5x5 room you will walk inside and build out first-person.",
+      "Existing bunkers, saves, and raids are untouched: everything you placed sits on the tunnel plane and raids resolve exactly as before.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived stride-glide note complete", () => {
+    const release = getAppRelease();
+    const strideNote = release.notes.find((note) => note.version === "0.1.243");
+
+    expect(strideNote).toMatchObject({
       version: "0.1.243",
       title: "Walking flows instead of stuttering",
       intro: "Held moves glide through cells; the camera keeps up exactly.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(strideNote?.changes.map((change) => change.text)).toEqual([
       "Holding a direction now strides through cell boundaries on one continuous glide instead of stopping at every cell. Single taps keep their soft settle, and speed is unchanged.",
       "The camera moves on the miner's own step timing, so it no longer runs ahead and waits at every cell.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

@@ -773,7 +773,7 @@
       "id": "REQ-035",
       "requirement": "Consumable base parts let the player build a multi-level bunker piece by piece on a cell grid, with inventory spend, removal rules, and part-local durability.",
       "gddRef": "docs/gdd/08-base-building.html#building-parts",
-      "status": "done",
+      "status": "partial",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
@@ -805,7 +805,7 @@
       "id": "REQ-036",
       "requirement": "The player can trigger a short autonomous bunker-defense event while inside a valid bunker, with higher tiers lasting longer and spawning stronger attacks.",
       "gddRef": "docs/gdd/08-base-building.html#defense-event",
-      "status": "done",
+      "status": "partial",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
@@ -817,13 +817,15 @@
         "src/sim/bunker.test.ts",
         "src/app/api/bunker/route.test.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-092"
+      ]
     },
     {
       "id": "REQ-037",
       "requirement": "Clankers are autonomous spidery robotic enemies that path through the mine, chew through cells, surround bunker faces, breach base parts, and attack the player.",
       "gddRef": "docs/gdd/08-base-building.html#clankers",
-      "status": "done",
+      "status": "partial",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
@@ -837,7 +839,9 @@
         "src/server/bunker.test.ts",
         "tests/e2e/mine-bunker.spec.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-092"
+      ]
     },
     {
       "id": "REQ-038",

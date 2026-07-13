@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.243-stride-glide",
+      releaseNoticeId: "2026-07-13-0.1.244-bunker-depth-groundwork",
       releaseSummary:
-        "Walking flows instead of stuttering: Held moves glide through cells; the camera keeps up exactly.",
+        "The bunker learns a third dimension: Groundwork for building deeper. Nothing visible changes yet.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.243-stride-glide",
+      releaseNoticeId: "2026-07-13-0.1.244-bunker-depth-groundwork",
       attempted: 2,
       sent: 1,
       expired: 1,

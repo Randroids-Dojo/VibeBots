@@ -1,5 +1,8 @@
 export const BUNKER_CLAIM_WIDTH = 7;
 export const BUNKER_CLAIM_HEIGHT = 5;
+/** Cells of buildable depth behind the tunnel plane. Depth 0 is the plane
+ * the 2D mine view shows; deeper cells extend into the claim rock. */
+export const BUNKER_CLAIM_DEPTH = 5;
 export const BUNKER_RAID_DURATION_SECONDS = 180;
 export const BUNKER_RAID_COOLDOWN_HOURS = 4;
 export const DEFENSE_XP_PER_LEVEL = 100;
@@ -138,6 +141,8 @@ export interface BunkerFootprint {
 export interface BunkerCore {
   col: number;
   row: number;
+  /** 0..BUNKER_CLAIM_DEPTH-1; legacy rows normalize to 0 (the tunnel plane). */
+  depth: number;
   durability: number;
 }
 
@@ -145,6 +150,8 @@ export interface PlacedBasePart {
   partId: BasePartId;
   col: number;
   row: number;
+  /** 0..BUNKER_CLAIM_DEPTH-1; legacy rows normalize to 0 (the tunnel plane). */
+  depth: number;
   durability: number;
 }
 
@@ -534,6 +541,19 @@ export function containsBunkerCell(
   );
 }
 
+export function containsBunkerCell3D(
+  footprint: BunkerFootprint,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  return (
+    containsBunkerCell(footprint, col, row) &&
+    depth >= 0 &&
+    depth < BUNKER_CLAIM_DEPTH
+  );
+}
+
 export function isBunkerPerimeterCell(
   footprint: BunkerFootprint,
   col: number,
@@ -554,6 +574,7 @@ export function createBunker(footprint: BunkerFootprint): BunkerState {
     core: {
       col: footprint.col + Math.floor(footprint.width / 2),
       row: footprint.row + Math.floor(footprint.height / 2),
+      depth: 0,
       durability: BUNKER_CORE_MAX_DURABILITY,
     },
     parts: [],
@@ -566,19 +587,28 @@ export function placeBasePart(
   partId: BasePartId,
   col: number,
   row: number,
+  depth = 0,
 ):
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
       ok: false;
       reason: "outside" | "core" | "occupied" | "stock";
     } {
-  if (!containsBunkerCell(bunker.footprint, col, row)) {
+  if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
   }
-  if (bunker.core.col === col && bunker.core.row === row) {
+  if (
+    bunker.core.col === col &&
+    bunker.core.row === row &&
+    bunker.core.depth === depth
+  ) {
     return { ok: false, reason: "core" };
   }
-  if (bunker.parts.some((part) => part.col === col && part.row === row)) {
+  if (
+    bunker.parts.some(
+      (part) => part.col === col && part.row === row && part.depth === depth,
+    )
+  ) {
     return { ok: false, reason: "occupied" };
   }
   if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
@@ -589,7 +619,7 @@ export function placeBasePart(
       ...bunker,
       parts: [
         ...bunker.parts,
-        { partId, col, row, durability: def.durability },
+        { partId, col, row, depth, durability: def.durability },
       ],
     },
     inventory: addBasePartInventory(inventory, partId, -1),
@@ -601,6 +631,7 @@ export function removeBasePart(
   inventory: BasePartInventory,
   col: number,
   row: number,
+  depth = 0,
 ):
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
@@ -608,7 +639,11 @@ export function removeBasePart(
       reason: "missing" | "damaged";
     } {
   const part = bunker.parts.find((candidate) => {
-    return candidate.col === col && candidate.row === row;
+    return (
+      candidate.col === col &&
+      candidate.row === row &&
+      candidate.depth === depth
+    );
   });
   if (!part) return { ok: false, reason: "missing" };
   const def = BASE_PART_CATALOG[part.partId];
@@ -629,6 +664,8 @@ export function moveBasePart(
   fromRow: number,
   toCol: number,
   toRow: number,
+  fromDepth = 0,
+  toDepth = 0,
 ):
   | { ok: true; bunker: BunkerState }
   | {
@@ -636,32 +673,45 @@ export function moveBasePart(
       reason: "missing" | "outside" | "core" | "occupied";
     } {
   const part = bunker.parts.find((candidate) => {
-    return candidate.col === fromCol && candidate.row === fromRow;
+    return (
+      candidate.col === fromCol &&
+      candidate.row === fromRow &&
+      candidate.depth === fromDepth
+    );
   });
   if (!part) return { ok: false, reason: "missing" };
-  if (!containsBunkerCell(bunker.footprint, toCol, toRow)) {
+  if (!containsBunkerCell3D(bunker.footprint, toCol, toRow, toDepth)) {
     return { ok: false, reason: "outside" };
   }
-  if (bunker.core.col === toCol && bunker.core.row === toRow) {
+  if (
+    bunker.core.col === toCol &&
+    bunker.core.row === toRow &&
+    bunker.core.depth === toDepth
+  ) {
     return { ok: false, reason: "core" };
   }
   if (
     bunker.parts.some((candidate) => {
       return (
-        candidate !== part && candidate.col === toCol && candidate.row === toRow
+        candidate !== part &&
+        candidate.col === toCol &&
+        candidate.row === toRow &&
+        candidate.depth === toDepth
       );
     })
   ) {
     return { ok: false, reason: "occupied" };
   }
-  if (fromCol === toCol && fromRow === toRow) return { ok: true, bunker };
+  if (fromCol === toCol && fromRow === toRow && fromDepth === toDepth) {
+    return { ok: true, bunker };
+  }
   return {
     ok: true,
     bunker: {
       ...bunker,
       parts: bunker.parts.map((candidate) =>
         candidate === part
-          ? { ...candidate, col: toCol, row: toRow }
+          ? { ...candidate, col: toCol, row: toRow, depth: toDepth }
           : candidate,
       ),
     },
@@ -932,11 +982,21 @@ function reachableDropCellBeforeTarget(
 }
 
 export function resolveBunkerRaid(
-  bunker: BunkerState,
+  fullBunker: BunkerState,
   tier: number,
   raidId = "raid-1",
   options: BunkerRaidPathingOptions = {},
 ): BunkerRaidSnapshot {
+  // Interim depth rule: raids resolve over the tunnel plane only. Parts
+  // placed deeper are interior build space with no raid effect until the
+  // live 3D raid resolver replaces this one. Identity when every part is
+  // already at depth 0, so pre-depth layouts produce bit-identical raids.
+  const bunker = fullBunker.parts.every((part) => part.depth === 0)
+    ? fullBunker
+    : {
+        ...fullBunker,
+        parts: fullBunker.parts.filter((part) => part.depth === 0),
+      };
   const normalizedTier = Math.max(1, Math.floor(tier));
   const targets = candidateTargets(bunker);
   const clankerCount = 4 + normalizedTier * 2;
@@ -1187,7 +1247,11 @@ export function applyBunkerRaidWear(
     },
     parts: bunker.parts
       .flatMap((part) => {
-        if (part.partId !== "floor-spikes" || remainingSpikeSteps <= 0) {
+        if (
+          part.partId !== "floor-spikes" ||
+          part.depth !== 0 ||
+          remainingSpikeSteps <= 0
+        ) {
           return [part];
         }
         remainingSpikeSteps--;
@@ -1196,7 +1260,11 @@ export function applyBunkerRaidWear(
         return [{ ...part, durability: nextDurability }];
       })
       .flatMap((part) => {
-        if (part.partId !== "basic-turret" || remainingTurretHits <= 0) {
+        if (
+          part.partId !== "basic-turret" ||
+          part.depth !== 0 ||
+          remainingTurretHits <= 0
+        ) {
           return [part];
         }
         const damage = Math.min(part.durability, remainingTurretHits);
@@ -1206,6 +1274,7 @@ export function applyBunkerRaidWear(
         return [{ ...part, durability: nextDurability }];
       })
       .flatMap((part) => {
+        if (part.depth !== 0) return [part];
         const damage = damageByPartCell.get(coordKey(part.col, part.row)) ?? 0;
         if (damage <= 0) return [part];
         const nextDurability = Math.max(0, part.durability - damage);

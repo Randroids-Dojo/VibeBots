@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-092" data-f="F-092" data-priority="nice-to-have">
+    <h3>F-092: Replace the interim depth-0 raid projection with the live 3D raid resolver</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-07-13 first-person bunker design pass adds a 7x5x5 volume with dig-out depth. Until the live first-person raid slices land, <code>resolveBunkerRaid</code> projects parts to depth 0 (deep parts have zero raid effect: deep turrets add no shots, deep spikes never trigger, deep walls never block or soak) and <code>applyBunkerRaidWear</code> passes deep parts through untouched, so pre-depth layouts raid bit-identically. Pinned by the sim test "resolves raids over the tunnel plane only until live 3D raids land". Known accepted window: until the excavation slice adds the rock placement check, a modified client could bank parts at depths 1-4 via the pending-claim payload; such parts are cosmetic-only under the projection and cost full inventory, so the window is harmless but worth remembering when the rock check lands.</dd>
+      <dt>Blocker (if any)</dt><dd>Sequenced behind the excavation and first-person building slices of the approved arc plan.</dd>
+      <dt>Unblock condition</dt><dd>Ship the deterministic live raid tick sim (planned <code>src/sim/bunker-raid-live.ts</code>, BUNKER_RAID_VERSION 2, per-tick player-cell trace as input, server replay verification) and the first-person raid client, then delete the projection and port the raid scenario contracts to the live suite. Acceptance: live raids hunt the player's 3D cell through dug halls, deep defenses work, old v1 raid rows still resolve under the old resolver, and the projection code plus its pin test are gone.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (arc slices 8-10).</dd>
+    </dl>
+  </section>
+
   <section id="F-091" data-f="F-091" data-priority="nice-to-have">
     <h3>F-091: TV mode follow-through beyond the mine deck</h3>
     <dl>

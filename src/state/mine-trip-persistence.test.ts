@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createBunker, STARTER_BASE_PART_INVENTORY } from "@/sim/bunker";
+import {
+  createBunker,
+  type PendingBunkerBuild,
+  STARTER_BASE_PART_INVENTORY,
+} from "@/sim/bunker";
 import {
   applyAction,
   createMine,
@@ -202,3 +206,52 @@ describe("mine trip persistence", () => {
     expect(loadLocalTrip(1)).toBeNull();
   });
 });
+
+describe("pending bunker depth normalization", () => {
+  it("normalizes pre-depth pendingBunker saves onto the tunnel plane", () => {
+    const bunker = createBunker({ col: 1, row: 4, width: 7, height: 5 });
+    const legacyPending = {
+      claimCol: 4,
+      claimRow: 8,
+      claimedAtMoveCount: 0,
+      bunker: {
+        footprint: bunker.footprint,
+        core: {
+          col: bunker.core.col,
+          row: bunker.core.row,
+          durability: bunker.core.durability,
+        },
+        parts: [
+          { partId: "wall-panel", col: 2, row: 5, durability: 90 },
+          { partId: "door-panel", col: 3, row: 5, depth: 9, durability: 60 },
+        ],
+      },
+      inventory: STARTER_BASE_PART_INVENTORY,
+    } as unknown as PendingBunkerBuild;
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify(savedTripWithPending(legacyPending)),
+    );
+
+    const loaded = loadLocalTrip(1);
+
+    expect(loaded?.pendingBunker?.bunker.core.depth).toBe(0);
+    expect(loaded?.pendingBunker?.bunker.parts).toEqual([
+      { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
+      { partId: "door-panel", col: 3, row: 5, depth: 0, durability: 60 },
+    ]);
+  });
+});
+
+function savedTripWithPending(pending: PendingBunkerBuild): SavedTrip {
+  return {
+    mineVersion: MINE_VERSION,
+    seed: 123,
+    tripIndex: 2,
+    gear: DEFAULT_GEAR,
+    consumables: NO_CONSUMABLES,
+    baseDiff: [],
+    moves: ["down"] as MineAction[],
+    pendingBunker: pending,
+  };
+}

@@ -3,6 +3,7 @@ import {
   applyBunkerRaidWear,
   applyBunkerRepairs,
   BASE_PART_CATALOG,
+  BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
   BUNKER_CORE_MAX_DURABILITY,
@@ -18,6 +19,7 @@ import {
   canBuyBasePart,
   clankerKindFor,
   clankerXpFor,
+  containsBunkerCell3D,
   createBunker,
   DEFAULT_BUNKER_SKIN,
   FLOOR_SPIKES_DAMAGE,
@@ -49,6 +51,7 @@ function fullyEnclosedBunker(minerCol: number, minerRow: number) {
         partId: "wall-panel" as const,
         col: cell.col,
         row: cell.row,
+        depth: 0,
         durability: BASE_PART_CATALOG["wall-panel"].durability,
       })),
   };
@@ -140,6 +143,7 @@ describe("bunker vertical slice sim", () => {
         partId: "wall-panel",
         col: bunker.footprint.col,
         row: bunker.footprint.row,
+        depth: 0,
         durability: BASE_PART_CATALOG["wall-panel"].durability,
       },
     ]);
@@ -182,6 +186,7 @@ describe("bunker vertical slice sim", () => {
         partId: "wall-panel",
         col: bunker.footprint.col + 1,
         row: bunker.footprint.row,
+        depth: 0,
         durability: BASE_PART_CATALOG["wall-panel"].durability,
       },
     ]);
@@ -474,6 +479,7 @@ describe("bunker vertical slice sim", () => {
         partId: "basic-turret",
         col: base.footprint.col,
         row: base.footprint.row,
+        depth: 0,
         durability: 2,
       },
     ]);
@@ -504,6 +510,7 @@ describe("bunker vertical slice sim", () => {
         partId: "floor-spikes",
         col: base.footprint.col,
         row: base.footprint.row,
+        depth: 0,
         durability: FLOOR_SPIKES_DURABILITY - 1,
       },
     ]);
@@ -518,6 +525,7 @@ describe("bunker vertical slice sim", () => {
           partId: "floor-spikes" as const,
           col: base.footprint.col,
           row: base.footprint.row,
+          depth: 0,
           durability: 1,
         },
       ],
@@ -541,6 +549,7 @@ describe("bunker vertical slice sim", () => {
           partId: "basic-turret" as const,
           col: base.footprint.col,
           row: base.footprint.row,
+          depth: 0,
           durability: 2,
         },
       ],
@@ -778,5 +787,154 @@ describe("bunker skins (F-087)", () => {
     // Inherited object keys must not pass the guard.
     expect(isBunkerSkinId("toString")).toBe(false);
     expect(isBunkerSkinId("constructor")).toBe(false);
+  });
+});
+
+describe("bunker depth axis (7x5x5 groundwork)", () => {
+  const inventory = () => ({
+    ...STARTER_BASE_PART_INVENTORY,
+    "basic-turret": 1,
+    "floor-spikes": 2,
+  });
+
+  it("keeps placements inside the 7x5x5 volume", () => {
+    const bunker = createBunker(proposedBunkerFootprint(4, 5));
+    const col = bunker.footprint.col;
+    const row = bunker.footprint.row;
+    expect(containsBunkerCell3D(bunker.footprint, col, row, 0)).toBe(true);
+    expect(
+      containsBunkerCell3D(bunker.footprint, col, row, BUNKER_CLAIM_DEPTH - 1),
+    ).toBe(true);
+    expect(
+      placeBasePart(bunker, inventory(), "wall-panel", col, row, -1),
+    ).toEqual({ ok: false, reason: "outside" });
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "wall-panel",
+        col,
+        row,
+        BUNKER_CLAIM_DEPTH,
+      ),
+    ).toEqual({ ok: false, reason: "outside" });
+  });
+
+  it("treats each depth as its own occupancy layer", () => {
+    const bunker = createBunker(proposedBunkerFootprint(4, 5));
+    const col = bunker.footprint.col;
+    const row = bunker.footprint.row;
+    const front = placeBasePart(bunker, inventory(), "wall-panel", col, row, 0);
+    expect(front.ok).toBe(true);
+    if (!front.ok) return;
+    const behind = placeBasePart(
+      front.bunker,
+      front.inventory,
+      "wall-panel",
+      col,
+      row,
+      1,
+    );
+    expect(behind.ok).toBe(true);
+    if (!behind.ok) return;
+    expect(behind.bunker.parts.map((part) => part.depth)).toEqual([0, 1]);
+    expect(
+      placeBasePart(behind.bunker, behind.inventory, "wall-panel", col, row, 1),
+    ).toEqual({ ok: false, reason: "occupied" });
+    expect(
+      removeBasePart(behind.bunker, behind.inventory, col, row, 3),
+    ).toEqual({ ok: false, reason: "missing" });
+  });
+
+  it("blocks only the core's exact 3D cell", () => {
+    const bunker = createBunker(proposedBunkerFootprint(4, 5));
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "wall-panel",
+        bunker.core.col,
+        bunker.core.row,
+        0,
+      ),
+    ).toEqual({ ok: false, reason: "core" });
+    const behindCore = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      bunker.core.col,
+      bunker.core.row,
+      1,
+    );
+    expect(behindCore.ok).toBe(true);
+  });
+
+  it("moves parts across depths without changing durability", () => {
+    const bunker = createBunker(proposedBunkerFootprint(4, 5));
+    const col = bunker.footprint.col;
+    const row = bunker.footprint.row;
+    const placed = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      col,
+      row,
+      0,
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const worn = {
+      ...placed.bunker,
+      parts: placed.bunker.parts.map((part) => ({ ...part, durability: 33 })),
+    };
+    const moved = moveBasePart(worn, col, row, col, row, 0, 2);
+    expect(moved.ok).toBe(true);
+    if (!moved.ok) return;
+    expect(moved.bunker.parts).toEqual([
+      { partId: "wall-panel", col, row, depth: 2, durability: 33 },
+    ]);
+  });
+
+  it("resolves raids over the tunnel plane only until live 3D raids land", () => {
+    const flat = fullyEnclosedBunker(4, 5);
+    const deepParts = [
+      {
+        partId: "wall-panel" as const,
+        col: flat.footprint.col + 1,
+        row: flat.footprint.row + 1,
+        depth: 2,
+        durability: BASE_PART_CATALOG["wall-panel"].durability,
+      },
+      {
+        partId: "basic-turret" as const,
+        col: flat.footprint.col + 2,
+        row: flat.footprint.row + 1,
+        depth: 3,
+        durability: BASE_PART_CATALOG["basic-turret"].durability,
+      },
+      {
+        partId: "floor-spikes" as const,
+        col: flat.footprint.col + 3,
+        row: flat.footprint.row + 1,
+        depth: 1,
+        durability: FLOOR_SPIKES_DURABILITY,
+      },
+    ];
+    const withDeep = { ...flat, parts: [...flat.parts, ...deepParts] };
+
+    const flatRaid = resolveBunkerRaid(flat, 1, "depth-raid", {
+      terrainAt: openTerrain,
+    });
+    const deepRaid = resolveBunkerRaid(withDeep, 1, "depth-raid", {
+      terrainAt: openTerrain,
+    });
+    // Deep turrets add no shots, deep spikes never trigger, deep walls
+    // never block or soak: the snapshots are indistinguishable.
+    expect(deepRaid).toEqual(flatRaid);
+
+    const worn = applyBunkerRaidWear(withDeep, deepRaid);
+    for (const part of deepParts) {
+      expect(worn.parts).toContainEqual(part);
+    }
   });
 });

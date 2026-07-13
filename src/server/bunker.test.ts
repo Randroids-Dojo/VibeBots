@@ -753,3 +753,44 @@ describe("bunker server helpers", () => {
     ).toBe(false);
   });
 });
+
+describe("bunker depth normalization", () => {
+  it("normalizes legacy bunker rows without depth onto the tunnel plane", async () => {
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, core, parts")) {
+        return [
+          {
+            footprint: { col: 1, row: 4, width: 7, height: 5 },
+            core: { col: 4, row: 6, durability: 160 },
+            parts: [
+              { partId: "wall-panel", col: 1, row: 4, durability: 90 },
+              {
+                partId: "door-panel",
+                col: 2,
+                row: 4,
+                depth: 9,
+                durability: 60,
+              },
+            ],
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("INSERT INTO player_base_parts")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.core).toMatchObject({ col: 4, row: 6, depth: 0 });
+    expect(view.bunker?.parts).toEqual([
+      { partId: "wall-panel", col: 1, row: 4, depth: 0, durability: 90 },
+      { partId: "door-panel", col: 2, row: 4, depth: 0, durability: 60 },
+    ]);
+  });
+});

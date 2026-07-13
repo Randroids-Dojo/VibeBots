@@ -33,6 +33,7 @@ import {
   normalizeGear,
 } from "@/sim/mine";
 import {
+  normalizePendingBunker,
   type SavedTrip,
   type SaveSlotId,
   validSaveSlot,
@@ -462,7 +463,7 @@ export function accountTripFromResponse(value: unknown): SavedTrip | null {
     baseDiff: raw.baseDiff as SavedTrip["baseDiff"],
     moves: raw.moves as SavedTrip["moves"],
     pendingBunker: pendingBunkerPresent
-      ? (raw.pendingBunker as PendingBunkerBuild)
+      ? normalizePendingBunker(raw.pendingBunker as PendingBunkerBuild)
       : null,
     terminalReplayConsumed:
       typeof raw.terminalReplayConsumed === "boolean"

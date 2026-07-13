@@ -811,3 +811,35 @@ describe("mine API client", () => {
     });
   });
 });
+
+describe("account trip pending bunker depth normalization", () => {
+  it("normalizes pre-depth pendingBunker parts in account trips", () => {
+    const trip = accountTripFromResponse({
+      trip: {
+        mineVersion: MINE_VERSION,
+        seed: 5,
+        tripIndex: 1,
+        gear: DEFAULT_GEAR,
+        consumables: NO_CONSUMABLES,
+        baseDiff: [],
+        moves: [],
+        pendingBunker: {
+          claimCol: 4,
+          claimRow: 8,
+          claimedAtMoveCount: 0,
+          bunker: {
+            footprint: { col: 1, row: 4, width: 7, height: 5 },
+            core: { col: 4, row: 6, durability: 160 },
+            parts: [{ partId: "wall-panel", col: 2, row: 5, durability: 90 }],
+          },
+          inventory: {},
+        },
+      },
+    });
+
+    expect(trip?.pendingBunker?.bunker.core.depth).toBe(0);
+    expect(trip?.pendingBunker?.bunker.parts).toEqual([
+      { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
+    ]);
+  });
+});

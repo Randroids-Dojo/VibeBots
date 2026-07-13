@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.243-stride-glide";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.244-bunker-depth-groundwork";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.244",
+      date: "2026-07-13",
+      title: "The bunker learns a third dimension",
+      intro: "Groundwork for building deeper. Nothing visible changes yet.",
+      changes: [
+        {
+          build,
+          text: "Bunker parts and the core now carry a depth coordinate under the hood, preparing the claim to grow from a flat 7x5 wall into a 7x5x5 room you will walk inside and build out first-person.",
+        },
+        {
+          build,
+          text: "Existing bunkers, saves, and raids are untouched: everything you placed sits on the tunnel plane and raids resolve exactly as before.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.243",
       date: "2026-07-13",

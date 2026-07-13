@@ -38,6 +38,38 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-020" data-status="open">
+    <h3>Q-020: Should an all-rock bunker stay nearly unraidable?</h3>
+    <dl>
+      <dt>Context</dt><dd>The first-person design pass makes depths 1-4 solid claim rock that Clankers can neither path through nor chew. A player who seals the depth-0 plane with parts and never digs gets a fortress whose back is invulnerable rock: the passive version of today's "sealed room wins" outcome, but cheaper relative to the buildable space once 3D raids land.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Accept it: sealed-is-safe is the existing design promise, and digging deeper is opt-in risk for opt-in space.</li>
+          <li>Make claim rock slowly chewable at high raid tiers.</li>
+          <li>Scale raid rewards with dug volume so turtling earns proportionally less.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A for this arc. It preserves the current promise exactly and keeps the interim-to-live raid transition balance-neutral; revisit with raid telemetry once live 3D raids ship (F-092).</dd>
+      <dt>Status</dt><dd>open (arc will ship under the recommended default)</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-019" data-status="open">
+    <h3>Q-019: What happens when the player leaves a live first-person raid?</h3>
+    <dl>
+      <dt>Context</dt><dd>Live first-person raids (design pass 2026-07-13) put the player inside the bunker while Clankers hunt their actual cell. Raids are autonomous once started and cannot pause, but the player can always exit the first-person mode (button, Escape, a closed tab, a dead phone).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Forfeit: the remaining ticks resolve player-absent with Clankers targeting the core; no survival reward; damage stands.</li>
+          <li>Block exiting while a raid runs (trapped until it ends or the miner dies).</li>
+          <li>Auto-survive with reduced rewards.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It needs no special sim state (a short player trace is the forfeit signal), handles disconnects and abandoned tabs with the same rule, and keeps starting a raid a commitment without imprisoning the player. B fails the phone-call test; C makes abandoning optimal.</dd>
+      <dt>Status</dt><dd>open (live-raid slices will ship under the recommended default)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-018" data-status="open">
     <h3>Q-018: Does TV mode's on-screen direction deck square with REQ-024's "no D-pad" rule?</h3>
     <dl>

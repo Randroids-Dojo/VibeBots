@@ -6,6 +6,7 @@ import {
   BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
+  BUNKER_CLAIM_DEPTH,
   BUNKER_RAID_COOLDOWN_HOURS,
   BUNKER_SKIN_CATALOG,
   type BunkerFootprint,
@@ -65,6 +66,17 @@ function parseBasePartInventory(
   return inventory;
 }
 
+/** Legacy rows predate the depth axis; anything malformed lands on the
+ * tunnel plane (depth 0) so old bunkers keep their exact 2D behavior. */
+function normalizedBunkerDepth(value: unknown): number {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value < BUNKER_CLAIM_DEPTH
+    ? value
+    : 0;
+}
+
 function parseBunkerState(
   row: {
     footprint: unknown;
@@ -76,7 +88,11 @@ function parseBunkerState(
 ): BunkerState | null {
   if (!row) return null;
   const footprint = row.footprint as BunkerFootprint;
-  const core = row.core as BunkerState["core"];
+  const storedCore = row.core as BunkerState["core"];
+  const core = {
+    ...storedCore,
+    depth: normalizedBunkerDepth(storedCore.depth),
+  };
   const parts = Array.isArray(row.parts) ? row.parts : [];
   const skinsOwned = Array.isArray(row.skins_owned)
     ? row.skins_owned.filter(isBunkerSkinId)
@@ -86,17 +102,19 @@ function parseBunkerState(
     core,
     skin: isBunkerSkinId(row.skin) ? row.skin : DEFAULT_BUNKER_SKIN,
     skinsOwned,
-    parts: parts.filter((part): part is BunkerState["parts"][number] => {
-      if (!part || typeof part !== "object") return false;
-      const candidate = part as Record<string, unknown>;
-      return (
-        typeof candidate.col === "number" &&
-        typeof candidate.row === "number" &&
-        typeof candidate.durability === "number" &&
-        typeof candidate.partId === "string" &&
-        isBasePartId(candidate.partId)
-      );
-    }),
+    parts: parts
+      .filter((part): part is BunkerState["parts"][number] => {
+        if (!part || typeof part !== "object") return false;
+        const candidate = part as Record<string, unknown>;
+        return (
+          typeof candidate.col === "number" &&
+          typeof candidate.row === "number" &&
+          typeof candidate.durability === "number" &&
+          typeof candidate.partId === "string" &&
+          isBasePartId(candidate.partId)
+        );
+      })
+      .map((part) => ({ ...part, depth: normalizedBunkerDepth(part.depth) })),
   };
 }
 

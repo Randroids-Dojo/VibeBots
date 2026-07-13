@@ -1,4 +1,8 @@
-import type { BunkerFootprint, PendingBunkerBuild } from "@/sim/bunker";
+import {
+  BUNKER_CLAIM_DEPTH,
+  type BunkerFootprint,
+  type PendingBunkerBuild,
+} from "@/sim/bunker";
 import {
   applyAction,
   createMine,
@@ -53,6 +57,38 @@ function migrateLegacyTripToSlotOne(): void {
   }
 }
 
+/** Saved trips survive deploys (MINE_VERSION does not bump for the depth
+ * axis), so pre-depth pendingBunker saves resume against the new sim.
+ * Anything without a valid depth lands on the tunnel plane (depth 0). */
+function normalizedTripDepth(value: unknown): number {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value < BUNKER_CLAIM_DEPTH
+    ? value
+    : 0;
+}
+
+export function normalizePendingBunker(
+  pending: PendingBunkerBuild | null | undefined,
+): PendingBunkerBuild | null {
+  if (!pending?.bunker) return pending ?? null;
+  const bunker = pending.bunker;
+  return {
+    ...pending,
+    bunker: {
+      ...bunker,
+      core: bunker.core
+        ? { ...bunker.core, depth: normalizedTripDepth(bunker.core.depth) }
+        : bunker.core,
+      parts: (bunker.parts ?? []).map((part) => ({
+        ...part,
+        depth: normalizedTripDepth(part.depth),
+      })),
+    },
+  };
+}
+
 export function loadLocalTrip(slot: SaveSlotId): SavedTrip | null {
   try {
     if (slot === 1) migrateLegacyTripToSlotOne();
@@ -78,7 +114,11 @@ export function loadLocalTrip(slot: SaveSlotId): SavedTrip | null {
       removeLocalTrip(slot);
       return null;
     }
-    return { ...saved, gear: normalizeGear(saved.gear) };
+    return {
+      ...saved,
+      gear: normalizeGear(saved.gear),
+      pendingBunker: normalizePendingBunker(saved.pendingBunker),
+    };
   } catch {
     return null;
   }

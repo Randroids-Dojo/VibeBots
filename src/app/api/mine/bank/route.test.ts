@@ -230,6 +230,65 @@ describe("POST /api/mine/bank", () => {
     expect(String(warnSpy.mock.calls[0][0])).not.toContain("player-1");
   });
 
+  it("validates pending bunker parts stacked across depths", () => {
+    const result = validatePendingBunkerClaim(
+      {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        parts: [
+          {
+            partId: "wall-panel",
+            col: START_COL - 3,
+            row: 1,
+            depth: 0,
+            durability: BASE_PART_CATALOG["wall-panel"].durability,
+          },
+          {
+            partId: "wall-panel",
+            col: START_COL - 3,
+            row: 1,
+            depth: 1,
+            durability: BASE_PART_CATALOG["wall-panel"].durability,
+          },
+        ],
+      },
+      123,
+      DEFAULT_GEAR,
+      STARTING_CONSUMABLES,
+      pendingBunkerBaseDiff(),
+      ["down", "down", "down", "down", "down"],
+      STARTER_BASE_PART_INVENTORY,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.bunker.parts.map((part) => part.depth)).toEqual([0, 1]);
+  });
+
+  it("rejects pending bunker parts outside the depth range", async () => {
+    const res = await post({
+      moves: ["down", "down", "down", "down", "down"],
+      pendingBunker: {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        parts: [
+          {
+            partId: "wall-panel",
+            col: START_COL - 3,
+            row: 1,
+            depth: 5,
+            durability: BASE_PART_CATALOG["wall-panel"].durability,
+          },
+        ],
+      },
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockedDb).not.toHaveBeenCalled();
+  });
+
   it("validates a locally claimed bunker against the replayed claim moment", () => {
     const result = validatePendingBunkerClaim(
       {
@@ -241,6 +300,7 @@ describe("POST /api/mine/bank", () => {
             partId: "wall-panel",
             col: START_COL - 3,
             row: 1,
+            depth: 0,
             durability: BASE_PART_CATALOG["wall-panel"].durability,
           },
         ],
@@ -297,12 +357,14 @@ describe("POST /api/mine/bank", () => {
             partId: "door-panel",
             col: START_COL - 3,
             row: 1,
+            depth: 0,
             durability: BASE_PART_CATALOG["door-panel"].durability,
           },
           {
             partId: "door-panel",
             col: START_COL - 2,
             row: 1,
+            depth: 0,
             durability: BASE_PART_CATALOG["door-panel"].durability,
           },
         ],

@@ -27,6 +27,7 @@ import {
   BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
+  BUNKER_CLAIM_DEPTH,
   type BunkerFootprint,
   type BunkerState,
   createBunker,
@@ -63,6 +64,12 @@ const placedBasePartSchema = z.object({
   partId: basePartIdSchema,
   col: z.number().int(),
   row: z.number().int().min(1),
+  depth: z
+    .number()
+    .int()
+    .min(0)
+    .max(BUNKER_CLAIM_DEPTH - 1)
+    .default(0),
   durability: z.number().int().min(1).max(1000),
 });
 const GEAR_LOG_FIELDS = [
@@ -305,7 +312,19 @@ function samePlacedParts(
   left: BunkerState["parts"],
   right: BunkerState["parts"],
 ) {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return (
+    left.length === right.length &&
+    left.every((part, index) => {
+      const other = right[index];
+      return (
+        part.partId === other.partId &&
+        part.col === other.col &&
+        part.row === other.row &&
+        part.depth === other.depth &&
+        part.durability === other.durability
+      );
+    })
+  );
 }
 
 export function validatePendingBunkerClaim(
@@ -360,6 +379,7 @@ export function validatePendingBunkerClaim(
       part.partId,
       part.col,
       part.row,
+      part.depth,
     );
     if (!placed.ok) {
       return { ok: false, error: `cannot place bunker part: ${placed.reason}` };

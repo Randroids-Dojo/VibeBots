@@ -236,6 +236,7 @@ describe("POST /api/mine/bank", () => {
         claimCol: START_COL,
         claimRow: 5,
         claimedAtMoveCount: 5,
+        dug: [{ col: START_COL - 3, row: 1, depth: 1 }],
         parts: [
           {
             partId: "wall-panel",
@@ -264,6 +265,60 @@ describe("POST /api/mine/bank", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.bunker.parts.map((part) => part.depth)).toEqual([0, 1]);
+  });
+
+  it("rejects pending dug chains that skip a connecting cell", () => {
+    const result = validatePendingBunkerClaim(
+      {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        dug: [{ col: START_COL - 3, row: 1, depth: 2 }],
+        parts: [],
+      },
+      123,
+      DEFAULT_GEAR,
+      STARTING_CONSUMABLES,
+      pendingBunkerBaseDiff(),
+      ["down", "down", "down", "down", "down"],
+      STARTER_BASE_PART_INVENTORY,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "cannot excavate: unreachable",
+    });
+  });
+
+  it("rejects pending parts placed inside undug rock", () => {
+    const result = validatePendingBunkerClaim(
+      {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        dug: [],
+        parts: [
+          {
+            partId: "wall-panel",
+            col: START_COL - 3,
+            row: 1,
+            depth: 1,
+            durability: BASE_PART_CATALOG["wall-panel"].durability,
+          },
+        ],
+      },
+      123,
+      DEFAULT_GEAR,
+      STARTING_CONSUMABLES,
+      pendingBunkerBaseDiff(),
+      ["down", "down", "down", "down", "down"],
+      STARTER_BASE_PART_INVENTORY,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "cannot place bunker part: rock",
+    });
   });
 
   it("rejects pending bunker parts outside the depth range", async () => {
@@ -295,6 +350,7 @@ describe("POST /api/mine/bank", () => {
         claimCol: START_COL,
         claimRow: 5,
         claimedAtMoveCount: 5,
+        dug: [],
         parts: [
           {
             partId: "wall-panel",
@@ -330,6 +386,7 @@ describe("POST /api/mine/bank", () => {
         claimCol: START_COL,
         claimRow: 5,
         claimedAtMoveCount: 5,
+        dug: [],
         parts: [],
       },
       123,
@@ -352,6 +409,7 @@ describe("POST /api/mine/bank", () => {
         claimCol: START_COL,
         claimRow: 5,
         claimedAtMoveCount: 5,
+        dug: [],
         parts: [
           {
             partId: "door-panel",

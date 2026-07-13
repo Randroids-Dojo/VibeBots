@@ -194,10 +194,21 @@ export function isBunkerSkinId(value: unknown): value is BunkerSkinId {
   return typeof value === "string" && Object.hasOwn(BUNKER_SKIN_CATALOG, value);
 }
 
+/** One excavated interior cell (depths 1..4). Depth 0 is always open
+ * and never listed. Order is dig order; the bank replays it to prove
+ * every dig chained from an already-open face. */
+export interface DugBunkerCell {
+  col: number;
+  row: number;
+  depth: number;
+}
+
 export interface BunkerState {
   footprint: BunkerFootprint;
   core: BunkerCore;
   parts: PlacedBasePart[];
+  /** Excavated interior cells in dig order; legacy rows normalize to []. */
+  dug: DugBunkerCell[];
   /** Selected cosmetic skin; legacy rows normalize to the default. */
   skin?: BunkerSkinId;
   /** Skins this player owns beyond the free default. */
@@ -217,6 +228,7 @@ export interface PendingBunkerClaimPayload {
   claimRow: number;
   claimedAtMoveCount: number;
   parts: PlacedBasePart[];
+  dug: DugBunkerCell[];
 }
 
 export type ClankerKind = "standard" | "breacher" | "tank";
@@ -555,6 +567,52 @@ export function containsBunkerCell3D(
   );
 }
 
+/** Open = walkable/buildable air. The claim plane (depth 0) is open by
+ * definition of claiming; deeper cells must have been excavated. */
+export function isOpenBunkerCell(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) return false;
+  if (depth === 0) return true;
+  return bunker.dug.some(
+    (cell) => cell.col === col && cell.row === row && cell.depth === depth,
+  );
+}
+
+/** Excavation is free, yields nothing, and cannot be undone in v1. It
+ * must chain from an already-open face so server-side replays of the
+ * ordered dug list prove every dig was physically reachable. */
+export function excavateBunkerCell(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+):
+  | { ok: true; bunker: BunkerState }
+  | { ok: false; reason: "outside" | "open" | "unreachable" } {
+  if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
+    return { ok: false, reason: "outside" };
+  }
+  if (depth === 0 || isOpenBunkerCell(bunker, col, row, depth)) {
+    return { ok: false, reason: "open" };
+  }
+  const reachable =
+    isOpenBunkerCell(bunker, col - 1, row, depth) ||
+    isOpenBunkerCell(bunker, col + 1, row, depth) ||
+    isOpenBunkerCell(bunker, col, row - 1, depth) ||
+    isOpenBunkerCell(bunker, col, row + 1, depth) ||
+    isOpenBunkerCell(bunker, col, row, depth - 1) ||
+    isOpenBunkerCell(bunker, col, row, depth + 1);
+  if (!reachable) return { ok: false, reason: "unreachable" };
+  return {
+    ok: true,
+    bunker: { ...bunker, dug: [...bunker.dug, { col, row, depth }] },
+  };
+}
+
 export function isBunkerPerimeterCell(
   footprint: BunkerFootprint,
   col: number,
@@ -579,6 +637,7 @@ export function createBunker(footprint: BunkerFootprint): BunkerState {
       durability: BUNKER_CORE_MAX_DURABILITY,
     },
     parts: [],
+    dug: [],
   };
 }
 
@@ -593,10 +652,13 @@ export function placeBasePart(
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
       ok: false;
-      reason: "outside" | "core" | "occupied" | "stock";
+      reason: "outside" | "rock" | "core" | "occupied" | "stock";
     } {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
+  }
+  if (!isOpenBunkerCell(bunker, col, row, depth)) {
+    return { ok: false, reason: "rock" };
   }
   if (
     bunker.core.col === col &&
@@ -671,7 +733,7 @@ export function moveBasePart(
   | { ok: true; bunker: BunkerState }
   | {
       ok: false;
-      reason: "missing" | "outside" | "core" | "occupied";
+      reason: "missing" | "outside" | "rock" | "core" | "occupied";
     } {
   const part = bunker.parts.find((candidate) => {
     return (
@@ -683,6 +745,9 @@ export function moveBasePart(
   if (!part) return { ok: false, reason: "missing" };
   if (!containsBunkerCell3D(bunker.footprint, toCol, toRow, toDepth)) {
     return { ok: false, reason: "outside" };
+  }
+  if (!isOpenBunkerCell(bunker, toCol, toRow, toDepth)) {
+    return { ok: false, reason: "rock" };
   }
   if (
     bunker.core.col === toCol &&

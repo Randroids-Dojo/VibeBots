@@ -1,6 +1,7 @@
 import {
   BUNKER_CLAIM_DEPTH,
   type BunkerFootprint,
+  type DugBunkerCell,
   type PendingBunkerBuild,
 } from "@/sim/bunker";
 import {
@@ -69,6 +70,24 @@ function normalizedTripDepth(value: unknown): number {
     : 0;
 }
 
+function normalizedTripDug(value: unknown): DugBunkerCell[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((cell): cell is DugBunkerCell => {
+    if (!cell || typeof cell !== "object") return false;
+    const candidate = cell as Record<string, unknown>;
+    return (
+      typeof candidate.col === "number" &&
+      Number.isInteger(candidate.col) &&
+      typeof candidate.row === "number" &&
+      Number.isInteger(candidate.row) &&
+      typeof candidate.depth === "number" &&
+      Number.isInteger(candidate.depth) &&
+      candidate.depth >= 1 &&
+      candidate.depth < BUNKER_CLAIM_DEPTH
+    );
+  });
+}
+
 export function normalizePendingBunker(
   pending: PendingBunkerBuild | null | undefined,
 ): PendingBunkerBuild | null {
@@ -85,6 +104,7 @@ export function normalizePendingBunker(
         ...part,
         depth: normalizedTripDepth(part.depth),
       })),
+      dug: normalizedTripDug(bunker.dug),
     },
   };
 }

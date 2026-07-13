@@ -6,6 +6,7 @@ import {
   buyRemoteBasePart,
   claimRemoteBunker,
   collectRemoteRaidPickup,
+  excavateRemoteBunkerCell,
   finishRemoteBunkerRaid,
   loadRemoteBunker,
   moveRemoteBunkerPart,
@@ -122,6 +123,12 @@ describe("bunker API client", () => {
       fromDepth: 0,
       toDepth: 3,
     });
+
+    await excavateRemoteBunkerCell(8, 6, 1);
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
+      "/api/bunker/excavate",
+    );
+    expect(lastBody()).toEqual({ col: 8, row: 6, depth: 1 });
 
     await startRemoteBunkerRaid();
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(

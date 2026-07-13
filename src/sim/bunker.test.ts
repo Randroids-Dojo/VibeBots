@@ -22,6 +22,7 @@ import {
   containsBunkerCell3D,
   createBunker,
   DEFAULT_BUNKER_SKIN,
+  excavateBunkerCell,
   FLOOR_SPIKES_DAMAGE,
   FLOOR_SPIKES_DURABILITY,
   isBunkerPerimeterCell,
@@ -833,8 +834,15 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
     const front = placeBasePart(bunker, inventory(), "wall-panel", col, row, 0);
     expect(front.ok).toBe(true);
     if (!front.ok) return;
+    // Deep cells start as rock: placement fails until the cell is dug.
+    expect(
+      placeBasePart(front.bunker, front.inventory, "wall-panel", col, row, 1),
+    ).toEqual({ ok: false, reason: "rock" });
+    const dug = excavateBunkerCell(front.bunker, col, row, 1);
+    expect(dug.ok).toBe(true);
+    if (!dug.ok) return;
     const behind = placeBasePart(
-      front.bunker,
+      dug.bunker,
       front.inventory,
       "wall-panel",
       col,
@@ -864,8 +872,16 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
         0,
       ),
     ).toEqual({ ok: false, reason: "core" });
-    const behindCore = placeBasePart(
+    const dugBehindCore = excavateBunkerCell(
       bunker,
+      bunker.core.col,
+      bunker.core.row,
+      1,
+    );
+    expect(dugBehindCore.ok).toBe(true);
+    if (!dugBehindCore.ok) return;
+    const behindCore = placeBasePart(
+      dugBehindCore.bunker,
       inventory(),
       "wall-panel",
       bunker.core.col,
@@ -893,7 +909,18 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
       ...placed.bunker,
       parts: placed.bunker.parts.map((part) => ({ ...part, durability: 33 })),
     };
-    const moved = moveBasePart(worn, col, row, col, row, 0, 2);
+    // Moving into rock fails; dig the chain, then the move lands.
+    expect(moveBasePart(worn, col, row, col, row, 0, 2)).toEqual({
+      ok: false,
+      reason: "rock",
+    });
+    const dugOne = excavateBunkerCell(worn, col, row, 1);
+    expect(dugOne.ok).toBe(true);
+    if (!dugOne.ok) return;
+    const dugTwo = excavateBunkerCell(dugOne.bunker, col, row, 2);
+    expect(dugTwo.ok).toBe(true);
+    if (!dugTwo.ok) return;
+    const moved = moveBasePart(dugTwo.bunker, col, row, col, row, 0, 2);
     expect(moved.ok).toBe(true);
     if (!moved.ok) return;
     expect(moved.bunker.parts).toEqual([
@@ -942,5 +969,64 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
     for (const part of deepParts) {
       expect(worn.parts).toContainEqual(part);
     }
+  });
+});
+
+describe("bunker excavation (dig-out depth)", () => {
+  it("digs only reachable interior rock", () => {
+    const bunker = createBunker(proposedBunkerFootprint(4, 5));
+    const col = bunker.footprint.col;
+    const row = bunker.footprint.row;
+    // Outside the volume.
+    expect(excavateBunkerCell(bunker, col - 1, row, 1)).toEqual({
+      ok: false,
+      reason: "outside",
+    });
+    expect(excavateBunkerCell(bunker, col, row, 5)).toEqual({
+      ok: false,
+      reason: "outside",
+    });
+    // The claim plane is already open, as is a dug cell.
+    expect(excavateBunkerCell(bunker, col, row, 0)).toEqual({
+      ok: false,
+      reason: "open",
+    });
+    const first = excavateBunkerCell(bunker, col, row, 1);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(excavateBunkerCell(first.bunker, col, row, 1)).toEqual({
+      ok: false,
+      reason: "open",
+    });
+    // Depth 2 is reachable only through the freshly dug depth-1 cell.
+    expect(excavateBunkerCell(bunker, col, row, 2)).toEqual({
+      ok: false,
+      reason: "unreachable",
+    });
+    const second = excavateBunkerCell(first.bunker, col, row, 2);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.bunker.dug).toEqual([
+      { col, row, depth: 1 },
+      { col, row, depth: 2 },
+    ]);
+  });
+
+  it("keeps raids indifferent to dug rock until live 3D raids land", () => {
+    const flat = fullyEnclosedBunker(4, 5);
+    const dugOut = {
+      ...flat,
+      dug: [
+        { col: flat.footprint.col + 1, row: flat.footprint.row + 1, depth: 1 },
+        { col: flat.footprint.col + 1, row: flat.footprint.row + 1, depth: 2 },
+      ],
+    };
+    const flatRaid = resolveBunkerRaid(flat, 1, "dug-raid", {
+      terrainAt: openTerrain,
+    });
+    const dugRaid = resolveBunkerRaid(dugOut, 1, "dug-raid", {
+      terrainAt: openTerrain,
+    });
+    expect(dugRaid).toEqual(flatRaid);
   });
 });

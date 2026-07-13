@@ -31,11 +31,21 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-excavation" data-date="2026-07-13">
+    <h3>Excavation: the bunker's deep rock becomes diggable data</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-excavation</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.246, slice three of the first-person bunker arc. <code>BunkerState.dug</code> records excavated interior cells (depths 1-4) in dig order; <code>isOpenBunkerCell</code> defines open as claim-plane or dug; pure <code>excavateBunkerCell</code> fails with <code>outside</code>/<code>open</code>/<code>unreachable</code> and requires face-adjacency to an open cell, so chains grow inward from the tunnel plane. <code>placeBasePart</code> and <code>moveBasePart</code> gain a <code>rock</code> failure for undug destinations, which also closes the window F-092 noted where a modified client could bank deep parts into rock. Both write paths carry digging: mine-store <code>excavatePendingBunkerCell</code> with the ordered <code>dug</code> list in the bank payload (the bank replays the dig order before re-placing parts, proving every dig was reachable), and a new <code>/api/bunker/excavate</code> route with a dedicated dug-only UPDATE for banked bunkers. New idempotent <code>dug</code> jsonb column on <code>bunkers</code>; legacy rows, localStorage trips, and account-synced trips normalize to zero dug cells. Excavation is free and yields nothing (recorded in the sim doc comment so free digging can never mint resources). Raids stay indifferent to dug rock under the interim projection. Still zero player-visible change. Tips reviewed per Rule 13 (no change) and stamp review per Rule 14 (none; the first-dig stamp candidate belongs to the visible fp slice). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+      <dt>Verified</dt><dd>Sim contracts: bounds/open/unreachable reasons, inward chain growth, rock placement and rock move rejections, dug-vs-flat raid identity. Bank contracts: in-order dig chains validate, skipping a connecting cell fails with <code>cannot excavate: unreachable</code>, a part inside undug rock fails with <code>cannot place bunker part: rock</code>, and parts stacked across depths validate once their cells are dug. Route tests pin the excavate wrapper args and the depth-0 Zod rejection; a wrapper test pins unreachable digs never write and reachable digs persist; api-client body shape pinned; legacy normalization pinned across server rows, localStorage, and account trips. Full unit suite green; typecheck, Biome, dash, and whitespace checks clean.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-depth-apis" data-date="2026-07-13">
     <h3>Depth flows through the bunker part APIs</h3>
     <dl>
       <dt>Branch</dt><dd><code>feat/bunker-depth-apis</code>.</dd>
-      <dt>PR</dt><dd>pending.</dd>
+      <dt>PR</dt><dd>#166.</dd>
       <dt>Changed</dt><dd>Package 0.1.245, slice two of the first-person bunker arc. The <code>/api/bunker/parts/{place,remove,move}</code> routes accept <code>depth</code> (move: <code>fromDepth</code>/<code>toDepth</code>) as Zod ints 0..4 defaulting to 0, so pre-depth clients keep working unchanged; the server wrappers pass depth into the depth-aware sim placement from slice one; <code>bunker-api-client</code>, <code>bunker-store</code>, and the mine-store pending actions take trailing depth params defaulting to 0. The bank route's pending parts cap rises from 128 to 174, one part per buildable cell of the 7x5x5 volume (175 minus the core cell). Still zero player-visible change; the 2D toolbelt never sends a depth. Tips reviewed per Rule 13 (no change; no player-facing rule changed) and stamp review per Rule 14 (none; invisible groundwork). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
       <dt>Verified</dt><dd>Route tests pin the default (missing depth calls the wrappers with 0), explicit depths, and an out-of-range 400 with the Zod path; the api-client body-shape test pins default and explicit payloads for all three mutations; a server wrapper test pins that a depth-3 placement persists <code>"depth":3</code> in the bunkers UPDATE; a mine-store test pins per-layer pending edits (same col/row on two layers coexist, wrong-depth removal misses, cross-depth move lands). Typecheck, Biome, and the touched suites green.</dd>
     </dl>

@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest depth-apis note complete", () => {
+  it("keeps the latest excavation note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.245-bunker-depth-apis");
+    expect(release.noticeId).toBe("2026-07-13-0.1.246-bunker-excavation");
     expect(latestNote).toMatchObject({
+      version: "0.1.246",
+      title: "The bunker's deep rock learns to be dug",
+      intro: "Third groundwork slice: excavation exists, server-verified.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The four deep layers of every bunker claim now exist as solid rock, excavated cell by cell through a new server action. Every dig must chain from an already-open face, and the server replays your dig order to prove it.",
+      "Parts can no longer be placed inside undug rock. Nothing visible changes yet: the first-person mode that uses all of this is next.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived depth-apis note complete", () => {
+    const release = getAppRelease();
+    const apisNote = release.notes.find((note) => note.version === "0.1.245");
+
+    expect(apisNote).toMatchObject({
       version: "0.1.245",
       title: "Bunker building wires up the depth layers",
       intro: "Second groundwork slice: the pipes now carry depth.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(apisNote?.changes.map((change) => change.text)).toEqual([
       "Placing, removing, and moving bunker parts now carries a depth layer end to end, from the client through the server. Nothing visible uses it yet: the first-person building mode arrives in upcoming releases.",
       "A pending bunker claim can bank up to 174 placed parts, one for every buildable cell of the coming 7x5x5 volume.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

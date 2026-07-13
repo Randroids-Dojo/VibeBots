@@ -84,6 +84,14 @@ export function moveRemoteBunkerPart(
   );
 }
 
+export function excavateRemoteBunkerCell(
+  col: number,
+  row: number,
+  depth: number,
+) {
+  return bunkerApi("/api/bunker/excavate", jsonPost({ col, row, depth }));
+}
+
 export function repairRemoteBunker() {
   return bunkerApi("/api/bunker/repair", jsonPost({}));
 }

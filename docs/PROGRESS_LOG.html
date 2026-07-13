@@ -31,6 +31,17 @@
 
 <main id="entries">
 
+  <article data-slice="stamp-alert-cleanup" data-date="2026-07-13">
+    <h3>Cleanup pass over the stamp-alert shortcut slice</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/stamp-alert-cleanup</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Findings from a four-angle review (reuse, simplification, efficiency, altitude) of the merged stamp-alert slice. Applied: <code>StampBookPopup.onBeforeLoad</code> is optional (the workshop's named no-op callback is gone), and the stamp-alert e2e's duplicated route-stub and depot-walk scaffolding collapsed into one <code>openStubbedDepot</code> helper that stops at the stall so the first test can still arm its opacity observer before buying. No behavior change; no version bump.</dd>
+      <dt>Skipped by design</dt><dd>Hoisting the focus-state trio into the stamp-alert store: the altitude review judged panel-level wiring correct at two surfaces (the mine's <code>saveCurrentTrip</code> and unfocused settings path would fork any shared mechanism); the agreed trigger for extracting a <code>useStampBook()</code> hook is a third surface. The alert card's plain non-button branch stays: it is the advertised store-free rendering affordance and unit tests exercise it. Efficiency review came back clean (closed popup renders null, fetch gated to open transitions, stable scroll ref).</dd>
+      <dt>Verified</dt><dd>1164 unit tests, both stamp-alert e2e tests on a rebuilt bundle, biome and tsc clean.</dd>
+    </dl>
+  </article>
+
   <article data-slice="stamp-alert-shortcut" data-date="2026-07-13">
     <h3>Stamp alerts move down-screen and open the Stamp Book</h3>
     <dl>

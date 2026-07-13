@@ -21,7 +21,8 @@ export function StampBookPopup({
 }: {
   open: boolean;
   onClose: () => void;
-  onBeforeLoad: () => void;
+  /** Runs before the fetch, for hosts with state to flush first. */
+  onBeforeLoad?: () => void;
   /** Scrolls to and highlights this stamp once the book loads. */
   focusAchievementId?: string | null;
 }) {
@@ -41,7 +42,7 @@ export function StampBookPopup({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    onBeforeLoad();
+    onBeforeLoad?.();
     fetch("/api/achievements")
       .then(async (res) => {
         if (!res.ok) throw new Error("stamp book unavailable");

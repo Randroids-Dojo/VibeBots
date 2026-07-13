@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="movement-tap-buffer" data-date="2026-07-13">
+    <h3>Smoother movement input: taps buffer, opposites cancel, held-up mines</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/movement-input-buffer</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.241, slice one of the movement-feel plan (user-approved semantics). The direction cadence controller gains a one-slot tap buffer: a press inside the cooldown is remembered (newest wins) and fires exactly at <code>nextActionAt</code>, so off-rhythm taps stop dying while tapping stays rate-capped identically to holding; the opposite direction cancels the pending tap (net zero); OS keydown auto-repeats never arm the buffer, so releasing a held key cannot leak a trailing step. onAction now reports <code>isAutoRepeat</code> (second and later firings of one uninterrupted hold), a repeat press of the already-held direction counts as continuation, and the panel filters <code>event.repeat</code> keydowns entirely: browser auto-repeats used to resurrect a chain the controller had cancelled, which let a physically-held "up" masquerade as fresh presses and plant ladders (caught by the upward-mining e2e). The upward-dig release-lock is replaced by a narrower rule via the new sim predicate <code>climbWouldPlaceLadder</code>: a held "up" keeps mining a ceiling, but any climb that would consume and plant a ladder requires a deliberate fresh press (covers the jump-then-hold case: the hover dig lands once, the fall returns the miner, and the held key can never ladder them back up). Timing stays render/input-side only: the move log is order-only, so replay verification, <code>MINE_VERSION</code>, and <code>SIM_VERSION</code> are untouched.</dd>
+      <dt>Verified</dt><dd>12 cadence unit tests (buffer at legal time only, no banking, opposite cancel, held-opposite still moves, OS-repeat no trailing step, isAutoRepeat flags), sim predicate tests, three new keyboard e2es (same-tick tap bursts: buffered tap lands once at the legal time; opposite cancels; held-up mines a ceiling without planting a ladder, fresh press plants). E2E harness hardened for the new semantics: condition-stop press loops switched to full-cadence pacing (<code>pressMineKeyPaced</code>) and <code>digTo</code> drains the buffer before returning, so a buffered tap cannot leak one move into an assertion after a loop exits; the REQ-023 cadence e2e now pins the new invariant (four taps = two moves, one at the next legal time, none after). The Enter/Escape keyboard e2e failure reproduces identically on unmodified main (documented pre-existing flake).</dd>
+      <dt>Tips review</dt><dd>Rule 13: reviewed for 0.1.241; updated the overhead-dig tip wording is unnecessary (no tip references re-pressing); no change.</dd>
+      <dt>Stamp review</dt><dd>Rule 14: none added (input feel, not a milestone).</dd>
+    </dl>
+  </article>
+
   <article data-slice="directional-bunker-construction" data-date="2026-07-13">
     <h3>Build bunker cells by pointing through the mine controls</h3>
     <dl>

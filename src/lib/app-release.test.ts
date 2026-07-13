@@ -24,20 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest directional bunker-building note complete", () => {
+  it("keeps the latest tap-buffer note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-07-13-0.1.240-directional-bunker-building",
-    );
+    expect(release.noticeId).toBe("2026-07-13-0.1.241-tap-buffer");
     expect(latestNote).toMatchObject({
+      version: "0.1.241",
+      title: "Taps land instead of vanishing",
+      intro: "Movement keeps its pace but stops eating your inputs.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A tap that lands while the previous move is still finishing is now remembered and fires the instant it legally can, instead of doing nothing. Only the newest tap is kept, and tapping fast is still exactly the same speed as holding.",
+      "Changed your mind? Tapping the opposite direction cancels a remembered move before it happens.",
+      "Holding Up now keeps mining a ceiling without re-pressing for every swing. Planting a ladder still always takes a deliberate fresh press, so a held key can never spend ladders or carry you upward on its own.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived directional-building note complete", () => {
+    const release = getAppRelease();
+    const buildNote = release.notes.find((note) => note.version === "0.1.240");
+
+    expect(buildNote).toMatchObject({
       version: "0.1.240",
       title: "Point where the bunker part should go",
       intro:
         "Building now uses the mine controls instead of a second swing button.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(buildNote?.changes.map((change) => change.text)).toEqual([
       "Select a bunker part, then point or swipe in any of eight directions. The miner walks across the temporary scaffold, gets into range, and hammers the chosen cell automatically.",
       "Each part grows into place across four visible hammer strikes, like mining in reverse. Pry uses the same directional flow to lift and relocate an existing part.",
       "There is no Equip or Swing button. Deselect the part and every direction immediately returns to ordinary mine movement. MINE_VERSION and SIM_VERSION are unchanged.",

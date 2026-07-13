@@ -48,6 +48,7 @@ import {
   carriedCount,
   carriedStackCount,
   cellAt,
+  climbWouldPlaceLadder,
   collectAction,
   collectablePlacements,
   createMine,
@@ -68,6 +69,7 @@ import {
   type MineState,
   maxEnergy,
   NO_CONSUMABLES,
+  OPPOSITE_DIRECTION,
   type OreId,
   oreDef,
   portalWarpAction,
@@ -1359,10 +1361,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastGamepadBagCloseRef = useRef(false);
   const gamepadMoveDirRef = useRef<Direction | null>(null);
   const gamepadSelectRef = useRef(false);
-  const directionActionRef = useRef<(dir: Direction) => boolean>(() => false);
+  const directionActionRef = useRef<
+    (dir: Direction, isAutoRepeat: boolean) => boolean
+  >(() => false);
   const directionCadenceRef =
     useRef<DirectionCadenceController<Direction> | null>(null);
-  const upwardDigAwaitingReleaseRef = useRef(false);
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const previousMinerRowRef = useRef(mine.miner.row);
   const inputDiagnosticKeysRef = useRef<Set<string>>(new Set());
@@ -1829,7 +1832,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             window.setTimeout(callback, delayMs),
           clearTimeout: (timer) => window.clearTimeout(timer),
         },
-        onAction: (dir: Direction) => directionActionRef.current(dir),
+        onAction: (dir: Direction, isAutoRepeat: boolean) =>
+          directionActionRef.current(dir, isAutoRepeat),
+        isOpposite: (a: Direction, b: Direction) => OPPOSITE_DIRECTION[a] === b,
       });
     }
     return directionCadenceRef.current;
@@ -1837,18 +1842,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   const cancelMovementControls = useCallback(() => {
     directionCadenceRef.current?.cancel();
-    upwardDigAwaitingReleaseRef.current = false;
   }, []);
 
   const performDirectionAction = useCallback(
-    (dir: Direction): boolean => {
+    (dir: Direction, isAutoRepeat: boolean): boolean => {
       if (!mineSceneReady) return false;
       if (elevatorAutoDir) return false;
       const state = useMineStore.getState();
       if (state.lastResult?.ok && state.lastResult.collapsed) return false;
-      if (dir !== "up") {
-        upwardDigAwaitingReleaseRef.current = false;
-      } else if (upwardDigAwaitingReleaseRef.current) {
+      // A held "up" may keep mining the ceiling, but never plants a
+      // ladder: consuming a ladder and committing to an ascent (including
+      // right after a jump-dig drops the miner back down) always takes a
+      // deliberate release-and-press. Returning false ends the held chain.
+      if (dir === "up" && isAutoRepeat && climbWouldPlaceLadder(state.mine)) {
         return false;
       }
       const startCol = state.mine.miner.col;
@@ -1861,17 +1867,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         return bunkerBuildDirectionRef.current(dir);
       }
       state.move(dir);
-      const result = useMineStore.getState().lastResult;
-      if (
-        dir === "up" &&
-        result?.ok &&
-        result.dugAt &&
-        result.dugAt.col === startCol &&
-        result.dugAt.row === startRow - 1 &&
-        !result.laddered
-      ) {
-        upwardDigAwaitingReleaseRef.current = true;
-      }
       return true;
     },
     [activeBunker, bunkerToolSelection, elevatorAutoDir, mineSceneReady],
@@ -1910,9 +1905,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const releaseDirection = useCallback((dir: Direction | null) => {
     directionCadenceRef.current?.release(dir);
     bunkerBuildReleaseRef.current();
-    if (dir === null || dir === "up") {
-      upwardDigAwaitingReleaseRef.current = false;
-    }
   }, []);
 
   // Gamepad D-pad movement (a paired controller, or a TV remote surfaced
@@ -2168,6 +2160,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       const dir = KEY_DIRECTIONS[key];
       if (!dir) return;
       event.preventDefault();
+      // Browser auto-repeat keydowns are not new intent: the cadence
+      // controller's own timer repeats a held direction. Letting repeats
+      // through would resurrect a chain the controller cancelled (the
+      // ladder rule relies on "release and press again" being literal).
+      if (event.repeat) return;
       if (terminalMineState) return;
       if (creditsOpen) return;
       fireDirection(dir);

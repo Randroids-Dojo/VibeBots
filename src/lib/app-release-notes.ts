@@ -1,10 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID =
-  "2026-07-13-0.1.240-directional-bunker-building";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.241-tap-buffer";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.241",
+      date: "2026-07-13",
+      title: "Taps land instead of vanishing",
+      intro: "Movement keeps its pace but stops eating your inputs.",
+      changes: [
+        {
+          build,
+          text: "A tap that lands while the previous move is still finishing is now remembered and fires the instant it legally can, instead of doing nothing. Only the newest tap is kept, and tapping fast is still exactly the same speed as holding.",
+        },
+        {
+          build,
+          text: "Changed your mind? Tapping the opposite direction cancels a remembered move before it happens.",
+        },
+        {
+          build,
+          text: "Holding Up now keeps mining a ceiling without re-pressing for every swing. Planting a ladder still always takes a deliberate fresh press, so a held key can never spend ladders or carry you upward on its own.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.240",
       date: "2026-07-13",

@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { imageRegionRgbStats } from "./support/image-pixels";
+import {
+  imageRegionBlueCentroid,
+  imageRegionPixelDifferenceRatio,
+  imageRegionRgbStats,
+} from "./support/image-pixels";
 import {
   APP_VERSION_PATTERN,
   awaitMineSceneReady,
@@ -725,6 +729,124 @@ test.describe("Pixel density mine visibility", () => {
     expect(zoomSamples[2].meanRed - zoomSamples[2].meanBlue).toBeGreaterThan(
       18,
     );
+  });
+
+  test("planet stays camera-locked through a complete surface step", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(() => {
+      (
+        window as typeof window & { __vibebotsTimeOfDayHour?: number }
+      ).__vibebotsTimeOfDayHour = 0;
+      localStorage.setItem("vibebots-graphics-quality-v1", "low");
+    });
+    await routeStarterMineWorld(page, 7315);
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    const canvas = page.locator("canvas");
+    await awaitMineSceneReady(page);
+    await expect(canvas).toHaveAttribute("data-surface-phase", "night", {
+      timeout: 30_000,
+    });
+    await expect(canvas).toHaveAttribute(
+      "data-surface-celestial-screen-x",
+      "0.000",
+      { timeout: 30_000 },
+    );
+    const status = page.getByLabel("Mine status");
+    for (let i = 0; i < 50; i++) {
+      if (Number(await status.getAttribute("data-horizontal-distance")) >= 16) {
+        break;
+      }
+      await pressMineKey(page, "ArrowRight");
+    }
+    await expect(status).toHaveAttribute("data-horizontal-distance", "16");
+    await page.waitForTimeout(400);
+    const before = await canvas.screenshot();
+
+    await page.evaluate(() => {
+      const reviewWindow = window as typeof window & {
+        __surfaceParallaxSamples?: Array<{ camera: number; planet: number }>;
+      };
+      reviewWindow.__surfaceParallaxSamples = [];
+      const startedAt = performance.now();
+      const sample = () => {
+        const mineCanvas = document.querySelector("canvas");
+        if (mineCanvas instanceof HTMLCanvasElement) {
+          reviewWindow.__surfaceParallaxSamples?.push({
+            camera: Number(mineCanvas.dataset.camX),
+            planet: Number(mineCanvas.dataset.surfaceCelestialScreenX),
+          });
+        }
+        if (performance.now() - startedAt < 700) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    await pressMineKey(page, "ArrowRight");
+    await page.waitForTimeout(550);
+
+    const samples = await page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __surfaceParallaxSamples?: Array<{
+              camera: number;
+              planet: number;
+            }>;
+          }
+        ).__surfaceParallaxSamples ?? [],
+    );
+    const finiteSamples = samples.filter(
+      ({ camera, planet }) =>
+        Number.isFinite(camera) && Number.isFinite(planet),
+    );
+    // Pixel software WebGL can render at 8-15 fps under CI. Four samples
+    // still span the complete 280 ms camera settle plus the stopped frame.
+    expect(finiteSamples.length).toBeGreaterThan(3);
+    const cameraSamples = finiteSamples.map(({ camera }) => camera);
+    expect(
+      Math.max(...cameraSamples) - Math.min(...cameraSamples),
+    ).toBeGreaterThan(0.5);
+    expect(
+      Math.max(...finiteSamples.map(({ planet }) => Math.abs(planet))),
+    ).toBe(0);
+    await expect(canvas).toHaveAttribute(
+      "data-surface-celestial-screen-x",
+      "0.000",
+    );
+    const after = await canvas.screenshot();
+    const planetBounds = { left: 0.65, top: 0, right: 1, bottom: 0.3 };
+    const beforePlanet = await imageRegionBlueCentroid(
+      page,
+      before,
+      planetBounds,
+    );
+    const afterPlanet = await imageRegionBlueCentroid(
+      page,
+      after,
+      planetBounds,
+    );
+    expect(beforePlanet.pixels).toBeGreaterThan(25_000);
+    expect(afterPlanet.pixels).toBe(beforePlanet.pixels);
+    expect(afterPlanet.x).toBeCloseTo(beforePlanet.x, 4);
+    expect(afterPlanet.y).toBeCloseTo(beforePlanet.y, 4);
+    expect(
+      await imageRegionPixelDifferenceRatio(page, before, after, {
+        left: 0.76,
+        top: 0,
+        right: 1,
+        bottom: 0.28,
+      }),
+    ).toBeLessThan(0.0005);
+    await testInfo.attach("planet-before-surface-step", {
+      body: before,
+      contentType: "image/png",
+    });
+    await testInfo.attach("planet-after-surface-step", {
+      body: after,
+      contentType: "image/png",
+    });
   });
 
   test("adjacent occupied cells keep their open silhouette", async ({

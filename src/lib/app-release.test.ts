@@ -24,23 +24,32 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest fire-tv-controls note complete", () => {
+  it("keeps the latest camera-space-sky note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.237-fire-tv-controls");
+    expect(release.noticeId).toBe("2026-07-13-0.1.238-camera-space-sky");
     expect(latestNote).toMatchObject({
+      version: "0.1.238",
+      title: "The planet stays put",
+      intro: "The sky no longer slides after each surface step.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The ringed planet, sky, and stars now render in camera space with zero translational parallax. They use the camera's final transform for the current frame, so camera smoothing cannot make them chase the miner.",
+      "Only earthbound scenery moves: far excavation, machinery, and the near berm use simple linear depth rates with no extra easing, lag, or position-dependent curve.",
+      "An exact Pixel test walks from Base +16 to +17 and proves the visible planet pixels keep the same count and centroid. Draw calls, MINE_VERSION, and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived fire-tv-controls note complete", () => {
+    const release = getAppRelease();
+    const tvNote = release.notes.find((note) => note.version === "0.1.237");
+
+    expect(tvNote).toMatchObject({
       version: "0.1.237",
       title: "Play the whole mine from a TV remote",
       intro: "Fire TV sessions get remote-native controls.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Opening the game in the Fire TV Silk browser now shows a TV control deck: big direction buttons where one click is one move, and holding Select keeps digging. No more dragging the thumbstick with the cursor.",
-      "The deck's center button walks you into the Workshop or Battles when you stand on their door, and fires the jump jets everywhere else.",
-      "The remote's Back button now closes open menus, sheets, and the bag instead of leaving the game. Play/Pause jumps, and Rewind and Fast Forward zoom the camera.",
-      "A paired game controller can play the mine too: the D-pad walks and digs, and A enters buildings or jumps. Add ?tv=1 to the address on any other TV browser to force the deck on.",
-      "MINE_VERSION and SIM_VERSION are unchanged.",
-    ]);
   });
 
   it("keeps the archived parallax-depth note complete", () => {

@@ -21,13 +21,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Fire TV sessions get remote-native controls.",
+    "The sky no longer slides after each surface step.",
   );
-  await expect(dialog.locator("li")).toHaveCount(5);
-  await expect(dialog.locator("li").first()).toContainText("TV control deck");
-  await expect(dialog.locator("li").nth(2)).toContainText("closes open menus");
-  await expect(dialog.locator("li").nth(4)).toContainText(
-    "MINE_VERSION and SIM_VERSION are unchanged",
+  await expect(dialog.locator("li")).toHaveCount(3);
+  await expect(dialog.locator("li").first()).toContainText(
+    "camera smoothing cannot make them chase the miner",
+  );
+  await expect(dialog.locator("li").nth(1)).toContainText(
+    "no extra easing, lag, or position-dependent curve",
+  );
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "MINE_VERSION, and SIM_VERSION are unchanged",
   );
 
   await page.mouse.click(8, 8);
@@ -47,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.238", "The planet stays put"],
     ["0.1.237", "Play the whole mine from a TV remote"],
     ["0.1.236", "The horizon has real depth"],
     ["0.1.235", "The mine loads behind the cart, not a black screen"],

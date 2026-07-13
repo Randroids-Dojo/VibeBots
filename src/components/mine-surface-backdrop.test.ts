@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
 import {
   clearSurfaceBackdropCacheForTests,
-  SURFACE_BACKDROP_PARALLAX,
   SURFACE_BACKDROP_ROLES,
+  SURFACE_BACKDROP_SCROLL_SCALE,
   surfaceBackdropGeometry,
   surfaceBackdropLayerX,
 } from "./mine-surface-backdrop";
@@ -66,7 +66,7 @@ describe("off-world surface backdrop", () => {
     const layers = surfaceBackdropGeometry("high").layers;
     const boundsFor = (role: (typeof SURFACE_BACKDROP_ROLES)[number]) =>
       layers.find((layer) => layer.role === role)?.geometry.boundingBox;
-    for (const role of ["sky", "farTerrain", "nearBerm"] as const) {
+    for (const role of ["sky", "farTerrain"] as const) {
       const bounds = boundsFor(role);
       expect(
         (bounds?.max.x ?? 0) - (bounds?.min.x ?? 0),
@@ -80,36 +80,56 @@ describe("off-world surface backdrop", () => {
     expect(
       (celestial?.max.x ?? 0) - (celestial?.min.x ?? 0),
     ).toBeGreaterThanOrEqual(10);
+    const nearBerm = boundsFor("nearBerm");
+    expect(
+      (nearBerm?.max.x ?? 0) - (nearBerm?.min.x ?? 0),
+    ).toBeGreaterThanOrEqual(160);
   });
 
-  it("separates depth layers instead of attaching them to camera travel", () => {
+  it("uses a monotonic linear depth stack with a fixed celestial plane", () => {
+    expect(
+      SURFACE_BACKDROP_ROLES.map((role) => SURFACE_BACKDROP_SCROLL_SCALE[role]),
+    ).toEqual([0, 0, 0.08, 0.18, 0.32]);
     const cameraX = 10;
-    const screenTravel = SURFACE_BACKDROP_ROLES.map((role) =>
-      Math.abs(
-        surfaceBackdropLayerX(cameraX, SURFACE_BACKDROP_PARALLAX[role], false) -
+    const screenTravel = SURFACE_BACKDROP_ROLES.map(
+      (role) =>
+        surfaceBackdropLayerX(
           cameraX,
-      ),
+          SURFACE_BACKDROP_SCROLL_SCALE[role],
+          false,
+        ) - cameraX,
     );
     expect(screenTravel[0]).toBe(0);
-    expect(screenTravel[1]).toBeGreaterThan(0.2);
-    expect(screenTravel[2]).toBeGreaterThan(screenTravel[1]);
-    expect(screenTravel[3]).toBeGreaterThan(screenTravel[2]);
-    expect(screenTravel[4]).toBeGreaterThan(screenTravel[3]);
-    expect(screenTravel[4]).toBeGreaterThan(3.5);
-    expect(screenTravel[4]).toBeLessThan(cameraX);
+    expect(screenTravel[1]).toBe(0);
+    expect(screenTravel[2]).toBeCloseTo(-0.8);
+    expect(screenTravel[3]).toBeCloseTo(-1.8);
+    expect(screenTravel[4]).toBeCloseTo(-3.2);
   });
 
-  it("eases parallax into a bounded composition across distant biomes", () => {
-    for (const cameraX of [-1000, 1000]) {
-      for (const role of SURFACE_BACKDROP_ROLES) {
-        const parallax = SURFACE_BACKDROP_PARALLAX[role];
-        const screenTravel = Math.abs(
-          surfaceBackdropLayerX(cameraX, parallax, false) - cameraX,
-        );
-        expect(screenTravel).toBeLessThanOrEqual(parallax.maxTravel + 1e-8);
-        if (parallax.maxTravel > 0) {
-          expect(screenTravel).toBeGreaterThan(parallax.maxTravel * 0.99);
-        }
+  it("never moves the planet before, during, or after a damped camera step", () => {
+    for (const cameraX of [16, 16.08, 16.3, 16.62, 16.86, 17, 17]) {
+      const planetX = surfaceBackdropLayerX(
+        cameraX,
+        SURFACE_BACKDROP_SCROLL_SCALE.celestial,
+        false,
+      );
+      expect(planetX - cameraX).toBe(0);
+      const skyX = surfaceBackdropLayerX(
+        cameraX,
+        SURFACE_BACKDROP_SCROLL_SCALE.sky,
+        false,
+      );
+      expect(skyX - cameraX).toBe(0);
+    }
+  });
+
+  it("uses the same linear response at the village and distant biomes", () => {
+    for (const role of ["farTerrain", "industry", "nearBerm"] as const) {
+      const scale = SURFACE_BACKDROP_SCROLL_SCALE[role];
+      for (const cameraX of [-150, -10, 10, 150]) {
+        const screenTravel =
+          surfaceBackdropLayerX(cameraX, scale, false) - cameraX;
+        expect(screenTravel).toBeCloseTo(-cameraX * scale);
       }
     }
   });
@@ -117,7 +137,7 @@ describe("off-world surface backdrop", () => {
   it("locks every backdrop layer to the viewport for reduced motion", () => {
     for (const role of SURFACE_BACKDROP_ROLES) {
       expect(
-        surfaceBackdropLayerX(-73, SURFACE_BACKDROP_PARALLAX[role], true),
+        surfaceBackdropLayerX(-73, SURFACE_BACKDROP_SCROLL_SCALE[role], true),
       ).toBe(-73);
     }
   });

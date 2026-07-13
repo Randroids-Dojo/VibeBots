@@ -475,7 +475,8 @@
         "tests/e2e/holodeck.spec.ts",
         "src/components/time-of-day.test.ts",
         "tests/e2e/mine-core.spec.ts",
-        "src/components/mine-surface-backdrop.test.ts"
+        "src/components/mine-surface-backdrop.test.ts",
+        "tests/e2e/mine-viewport.spec.ts"
       ],
       "followupRefs": []
     },

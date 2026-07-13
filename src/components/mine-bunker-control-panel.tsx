@@ -161,7 +161,7 @@ export function BunkerControlPanel({
 
         <p className="bunker-status-copy">
           {hasBunker
-            ? "Close this sheet, select a part, then point where it should go."
+            ? "Close this sheet, select a part, then hold toward a neighboring square."
             : !preview
               ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
               : localBlockerCount > 0

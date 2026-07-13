@@ -92,10 +92,9 @@ import {
 import { AccountSyncPopup } from "./mine-account-popup";
 import { MineBagPanel } from "./mine-bag-panel";
 import {
-  advanceBunkerBuildCursor,
   BUNKER_BUILD_HITS,
   type BunkerBuildDirection,
-  bunkerBuildPath,
+  bunkerBuildTarget,
 } from "./mine-bunker-build";
 import { BunkerControlPanel } from "./mine-bunker-control-panel";
 import {
@@ -146,8 +145,8 @@ type BunkerConstructionOrder = {
   target: MineCoord;
   kind: "build" | "move" | "pry";
   partId: BasePartId;
-  path: Direction[];
   hit: number;
+  held: boolean;
 };
 const MINE_SCENE_LOAD_ERROR =
   "The network dropped before the mine could load. Your save was not changed. Check the connection and retry.";
@@ -306,7 +305,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Player levels unlock higher raid tiers: bigger waves, tougher bites, more XP.",
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
-  "Tip: Select a bunker part, then point or swipe where it goes. Deselect to move normally.",
+  "Tip: Hold toward a neighboring bunker square to hammer. Release to stop; tap Hammer off to walk.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
@@ -1368,11 +1367,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const inputDiagnosticKeysRef = useRef<Set<string>>(new Set());
   const bunkerToolEventKeyRef = useRef(0);
   const bunkerConstructionKeyRef = useRef(0);
-  const bunkerTargetCellRef = useRef<MineCoord | null>(null);
+  const bunkerHeldDirectionRef = useRef<BunkerBuildDirection | null>(null);
   const bunkerBuildDirectionRef = useRef<
     (direction: BunkerBuildDirection) => boolean
   >(() => false);
-  const bunkerBuildReleaseRef = useRef<() => void>(() => {});
+  const bunkerBuildReleaseRef = useRef<
+    (direction: BunkerBuildDirection | null) => void
+  >(() => {});
   void tick;
   const activeBunker = pendingBunker?.bunker ?? bunker;
   const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
@@ -1909,7 +1910,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   const releaseDirection = useCallback((dir: Direction | null) => {
     directionCadenceRef.current?.release(dir);
-    bunkerBuildReleaseRef.current();
+    bunkerBuildReleaseRef.current(dir);
     if (dir === null || dir === "up") {
       upwardDigAwaitingReleaseRef.current = false;
     }
@@ -2515,7 +2516,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBunkerConstruction(null);
     setCarriedBunkerPart(null);
     setBunkerTargetCell(null);
-    bunkerTargetCellRef.current = null;
   }, [collectMode]);
 
   useEffect(() => {
@@ -2526,7 +2526,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBunkerConstruction(null);
     setCarriedBunkerPart(null);
     setBunkerTargetCell(null);
-    bunkerTargetCellRef.current = null;
   }, [bunkerEditingAllowed, miner.row, terminalMineState]);
 
   useEffect(() => {
@@ -2535,7 +2534,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBunkerConstruction(null);
     setCarriedBunkerPart(null);
     setBunkerTargetCell(null);
-    bunkerTargetCellRef.current = null;
   }, [activeBunker, bunkerEditingAllowed]);
 
   const emitBunkerToolEvent = useCallback(
@@ -2563,7 +2561,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   );
 
   const updateBunkerTarget = useCallback((cell: MineCoord | null) => {
-    bunkerTargetCellRef.current = cell;
     setBunkerTargetCell(cell);
   }, []);
 
@@ -2572,104 +2569,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       if (
         !bunkerToolSelection ||
         !activeBunker ||
-        !containsBunkerCell(activeBunker.footprint, cell.col, cell.row)
+        !containsBunkerCell(activeBunker.footprint, cell.col, cell.row) ||
+        Math.max(
+          Math.abs(cell.col - miner.col),
+          Math.abs(cell.row - miner.row),
+        ) !== 1
       )
         return;
       updateBunkerTarget(cell);
-    },
-    [activeBunker, bunkerToolSelection, updateBunkerTarget],
-  );
-
-  const queueBunkerConstruction = useCallback(
-    (cell: MineCoord) => {
-      if (
-        !activeBunker ||
-        !bunkerEditingAllowed ||
-        !bunkerToolSelection ||
-        !containsBunkerCell(activeBunker.footprint, cell.col, cell.row)
-      )
-        return;
-      updateBunkerTarget(cell);
-      const occupied = activeBunker.parts.find(
-        (part) => part.col === cell.col && part.row === cell.row,
-      );
-      if (bunkerToolSelection === "pry") {
-        if (!occupied) {
-          triggerShopHaptic("deny");
-          playMineSfxEvent("deny");
-          return;
-        }
-      } else if (
-        occupied ||
-        (activeBunker.core.col === cell.col &&
-          activeBunker.core.row === cell.row)
-      ) {
-        triggerShopHaptic("deny");
-        playMineSfxEvent("deny");
-        return;
-      }
-      const partId =
-        occupied?.partId ?? carriedBunkerPart?.part.partId ?? selectedBasePart;
-      if (
-        bunkerToolSelection !== "pry" &&
-        !carriedBunkerPart &&
-        activeBunkerInventory[partId] <= 0
-      ) {
-        triggerShopHaptic("deny");
-        playMineSfxEvent("deny");
-        return;
-      }
-      const path = bunkerBuildPath(
-        useMineStore.getState().mine,
-        activeBunker,
-        cell,
-        {
-          allowOccupiedTarget: bunkerToolSelection === "pry",
-        },
-      );
-      if (!path) {
-        triggerShopHaptic("deny");
-        playMineSfxEvent("deny");
-        return;
-      }
-      bunkerConstructionKeyRef.current += 1;
-      setBunkerConstruction({
-        key: bunkerConstructionKeyRef.current,
-        target: cell,
-        kind:
-          bunkerToolSelection === "pry"
-            ? "pry"
-            : carriedBunkerPart
-              ? "move"
-              : "build",
-        partId,
-        path,
-        hit: 0,
-      });
-    },
-    [
-      activeBunker,
-      activeBunkerInventory,
-      bunkerEditingAllowed,
-      bunkerToolSelection,
-      carriedBunkerPart,
-      selectedBasePart,
-      updateBunkerTarget,
-    ],
-  );
-
-  const aimBunkerConstruction = useCallback(
-    (direction: BunkerBuildDirection): boolean => {
-      if (!activeBunker || !bunkerToolSelection) return false;
-      setBunkerConstruction(null);
-      const next = advanceBunkerBuildCursor(
-        bunkerTargetCellRef.current,
-        { col: miner.col, row: miner.row },
-        direction,
-        activeBunker.footprint,
-      );
-      updateBunkerTarget(next);
-      return true;
     },
     [
       activeBunker,
@@ -2680,34 +2587,117 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     ],
   );
 
-  const commitBunkerAim = useCallback(() => {
-    const target = bunkerTargetCellRef.current;
-    if (target && bunkerToolSelection) queueBunkerConstruction(target);
-  }, [bunkerToolSelection, queueBunkerConstruction]);
-
-  bunkerBuildDirectionRef.current = aimBunkerConstruction;
-  bunkerBuildReleaseRef.current = commitBunkerAim;
-
-  useEffect(() => {
-    if (!bunkerConstruction || !activeBunker) return;
-    const delay = bunkerConstruction.path.length > 0 ? 210 : 310;
-    const timer = window.setTimeout(() => {
-      const current = bunkerConstruction;
-      if (current.path.length > 0) {
-        const [direction, ...remaining] = current.path;
-        const result = moveOnBunkerScaffold(
-          `bunker-scaffold-${direction}`,
-          activeBunker.footprint,
-        );
-        if (!result.ok) {
+  const holdBunkerConstruction = useCallback(
+    (direction: BunkerBuildDirection): boolean => {
+      if (!activeBunker || !bunkerToolSelection) return false;
+      if (bunkerHeldDirectionRef.current === direction) return true;
+      bunkerHeldDirectionRef.current = direction;
+      const cell = bunkerBuildTarget(
+        { col: miner.col, row: miner.row },
+        direction,
+        activeBunker.footprint,
+      );
+      if (
+        !cell ||
+        !bunkerEditingAllowed ||
+        cellAt(useMineStore.getState().mine, cell.col, cell.row)?.kind !==
+          "empty"
+      )
+        return true;
+      updateBunkerTarget(cell);
+      const occupied = activeBunker.parts.find(
+        (part) => part.col === cell.col && part.row === cell.row,
+      );
+      if (bunkerToolSelection === "pry") {
+        if (!occupied) {
           triggerShopHaptic("deny");
+          playMineSfxEvent("deny");
           setBunkerConstruction(null);
-          return;
+          return true;
         }
-        setBunkerConstruction({ ...current, path: remaining });
+      } else if (
+        occupied ||
+        (activeBunker.core.col === cell.col &&
+          activeBunker.core.row === cell.row)
+      ) {
+        triggerShopHaptic("deny");
+        playMineSfxEvent("deny");
+        setBunkerConstruction(null);
+        return true;
+      }
+      const partId =
+        occupied?.partId ?? carriedBunkerPart?.part.partId ?? selectedBasePart;
+      if (
+        bunkerToolSelection !== "pry" &&
+        !carriedBunkerPart &&
+        activeBunkerInventory[partId] <= 0
+      ) {
+        triggerShopHaptic("deny");
+        playMineSfxEvent("deny");
+        setBunkerConstruction(null);
+        return true;
+      }
+      const kind =
+        bunkerToolSelection === "pry"
+          ? "pry"
+          : carriedBunkerPart
+            ? "move"
+            : "build";
+      setBunkerConstruction((current) => {
+        if (
+          current?.target.col === cell.col &&
+          current.target.row === cell.row &&
+          current.kind === kind &&
+          current.partId === partId
+        ) {
+          return current.held ? current : { ...current, held: true };
+        }
+        bunkerConstructionKeyRef.current += 1;
+        return {
+          key: bunkerConstructionKeyRef.current,
+          target: cell,
+          kind,
+          partId,
+          hit: 0,
+          held: true,
+        };
+      });
+      return true;
+    },
+    [
+      activeBunker,
+      activeBunkerInventory,
+      bunkerEditingAllowed,
+      bunkerToolSelection,
+      carriedBunkerPart,
+      miner.col,
+      miner.row,
+      selectedBasePart,
+      updateBunkerTarget,
+    ],
+  );
+
+  const releaseBunkerConstruction = useCallback(
+    (direction: BunkerBuildDirection | null) => {
+      if (direction !== null && bunkerHeldDirectionRef.current !== direction) {
         return;
       }
+      bunkerHeldDirectionRef.current = null;
+      setBunkerConstruction((current) =>
+        current?.held ? { ...current, held: false } : current,
+      );
+    },
+    [],
+  );
 
+  bunkerBuildDirectionRef.current = holdBunkerConstruction;
+  bunkerBuildReleaseRef.current = releaseBunkerConstruction;
+
+  useEffect(() => {
+    if (!bunkerConstruction?.held || !activeBunker) return;
+    const delay = bunkerConstruction.hit === 0 ? 0 : 310;
+    const timer = window.setTimeout(() => {
+      const current = bunkerConstruction;
       const requiredHits = current.kind === "pry" ? 2 : BUNKER_BUILD_HITS;
       const nextHit = current.hit + 1;
       emitBunkerToolEvent(
@@ -2785,7 +2775,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     carriedBunkerPart,
     emitBunkerToolEvent,
     moveBunkerPart,
-    moveOnBunkerScaffold,
     movePendingBunkerPart,
     pendingBunkerActive,
     placeBunkerPart,
@@ -2834,6 +2823,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const selectBunkerTool = useCallback(
     (selection: BunkerToolSelection) => {
       if (!activeBunker) return;
+      bunkerHeldDirectionRef.current = null;
       setBunkerConstruction(null);
       updateBunkerTarget(null);
       if (selection === null) {
@@ -3343,7 +3333,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             carriedBunkerPart={carriedBunkerPart}
             bunkerToolEvent={bunkerToolEvent}
             onBunkerCellHover={setBunkerCellTarget}
-            onBunkerCellTap={queueBunkerConstruction}
+            onBunkerCellTap={setBunkerCellTarget}
             onToggleSupport={toggleCollectTarget}
             onFirstFrame={handleMineFirstFrame}
           />
@@ -3375,8 +3365,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onReleaseDirection={releaseDirection}
           onZoomChange={adjustCameraZoom}
           buildDirectionMode={bunkerToolSelection !== null}
-          onBuildDirection={aimBunkerConstruction}
-          onReleaseBuildDirection={commitBunkerAim}
+          onBuildDirection={holdBunkerConstruction}
+          onReleaseBuildDirection={releaseBunkerConstruction}
         />
       )}
       {mineSceneReady && movementTouchEnabled && tvMode && (
@@ -3946,9 +3936,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             carried={carriedBunkerPart}
             constructionLabel={
               bunkerConstruction
-                ? bunkerConstruction.path.length > 0
-                  ? "Walking into range"
-                  : `Hammering ${bunkerConstruction.hit}/${bunkerConstruction.kind === "pry" ? 2 : BUNKER_BUILD_HITS}`
+                ? `${bunkerConstruction.held ? "Hammering" : "Paused"} ${bunkerConstruction.hit}/${bunkerConstruction.kind === "pry" ? 2 : BUNKER_BUILD_HITS}`
                 : null
             }
             onSelect={selectBunkerTool}
@@ -4346,7 +4334,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
                 setBunkerConstruction(null);
                 setCarriedBunkerPart(null);
                 setBunkerTargetCell(null);
-                bunkerTargetCellRef.current = null;
               }
               return next;
             });

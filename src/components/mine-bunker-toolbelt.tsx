@@ -58,7 +58,7 @@ export function BunkerToolbelt({
           <span>
             {constructionLabel ??
               (selection
-                ? "Point or swipe where it goes"
+                ? "Hold toward a neighboring square. Release to stop."
                 : "Choose a part. Direction moves normally when none is selected.")}
           </span>
         </div>
@@ -68,7 +68,7 @@ export function BunkerToolbelt({
             className="bunker-toolbelt-close"
             onClick={() => onSelect(null)}
           >
-            Deselect
+            Hammer off
           </button>
         )}
       </div>

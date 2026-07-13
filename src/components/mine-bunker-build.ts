@@ -1,14 +1,5 @@
-import {
-  type BunkerFootprint,
-  type BunkerState,
-  containsBunkerCell,
-} from "@/sim/bunker";
-import {
-  cellAt,
-  type Direction,
-  type MineCoord,
-  type MineState,
-} from "@/sim/mine";
+import { type BunkerFootprint, containsBunkerCell } from "@/sim/bunker";
+import type { MineCoord } from "@/sim/mine";
 
 export const BUNKER_BUILD_DIRECTIONS = [
   "up",
@@ -24,17 +15,6 @@ export const BUNKER_BUILD_DIRECTIONS = [
 export type BunkerBuildDirection = (typeof BUNKER_BUILD_DIRECTIONS)[number];
 
 export const BUNKER_BUILD_HITS = 4;
-
-const CARDINAL_STEPS: ReadonlyArray<{
-  direction: Direction;
-  dc: number;
-  dr: number;
-}> = [
-  { direction: "up", dc: 0, dr: -1 },
-  { direction: "right", dc: 1, dr: 0 },
-  { direction: "down", dc: 0, dr: 1 },
-  { direction: "left", dc: -1, dr: 0 },
-];
 
 export function bunkerBuildDirectionFromVector(
   x: number,
@@ -66,85 +46,14 @@ export function bunkerBuildDirectionVector(direction: BunkerBuildDirection): {
   };
 }
 
-export function advanceBunkerBuildCursor(
-  cursor: MineCoord | null,
+export function bunkerBuildTarget(
   origin: MineCoord,
   direction: BunkerBuildDirection,
   footprint: BunkerFootprint,
-): MineCoord {
-  const start = cursor ?? origin;
+): MineCoord | null {
   const { dc, dr } = bunkerBuildDirectionVector(direction);
-  const next = { col: start.col + dc, row: start.row + dr };
-  return containsBunkerCell(footprint, next.col, next.row) ? next : start;
-}
-
-function coordKey(col: number, row: number): string {
-  return `${col}:${row}`;
-}
-
-function bunkerCellWalkable(
-  mine: MineState,
-  bunker: BunkerState,
-  col: number,
-  row: number,
-  start: MineCoord,
-  target: MineCoord,
-): boolean {
-  if (!containsBunkerCell(bunker.footprint, col, row)) return false;
-  if (col === target.col && row === target.row) return false;
-  if (col === start.col && row === start.row) return true;
-  if (cellAt(mine, col, row)?.kind !== "empty") return false;
-  if (bunker.core.col === col && bunker.core.row === row) return false;
-  return !bunker.parts.some((part) => part.col === col && part.row === row);
-}
-
-export function bunkerBuildPath(
-  mine: MineState,
-  bunker: BunkerState,
-  target: MineCoord,
-  options: { allowOccupiedTarget?: boolean } = {},
-): Direction[] | null {
-  if (!containsBunkerCell(bunker.footprint, target.col, target.row))
-    return null;
-  if (cellAt(mine, target.col, target.row)?.kind !== "empty") return null;
-  if (bunker.core.col === target.col && bunker.core.row === target.row)
-    return null;
-  if (
-    !options.allowOccupiedTarget &&
-    bunker.parts.some(
-      (part) => part.col === target.col && part.row === target.row,
-    )
-  ) {
-    return null;
-  }
-
-  const start = { col: mine.miner.col, row: mine.miner.row };
-  const startKey = coordKey(start.col, start.row);
-  const queue: MineCoord[] = [start];
-  const directions = new Map<string, Direction[]>();
-  directions.set(startKey, []);
-
-  for (let index = 0; index < queue.length; index += 1) {
-    const current = queue[index];
-    const path = directions.get(coordKey(current.col, current.row)) ?? [];
-    if (
-      Math.abs(current.col - target.col) +
-        Math.abs(current.row - target.row) ===
-      1
-    ) {
-      return path;
-    }
-    for (const step of CARDINAL_STEPS) {
-      const col = current.col + step.dc;
-      const row = current.row + step.dr;
-      const key = coordKey(col, row);
-      if (directions.has(key)) continue;
-      if (!bunkerCellWalkable(mine, bunker, col, row, start, target)) continue;
-      directions.set(key, [...path, step.direction]);
-      queue.push({ col, row });
-    }
-  }
-  return null;
+  const target = { col: origin.col + dc, row: origin.row + dr };
+  return containsBunkerCell(footprint, target.col, target.row) ? target : null;
 }
 
 export function bunkerConstructionProgress(hit: number): number {

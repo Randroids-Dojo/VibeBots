@@ -1,10 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID =
-  "2026-07-13-0.1.240-directional-bunker-building";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.241-held-bunker-tools";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.241",
+      date: "2026-07-13",
+      title: "The hammer stops when your swipe stops",
+      intro: "Bunker tools now stay under your thumb.",
+      changes: [
+        {
+          build,
+          text: "Select a bunker part and hold or swipe toward any neighboring square. The miner swings only while that direction is held, and releasing immediately pauses the work.",
+        },
+        {
+          build,
+          text: "Resume the same direction to finish four build strikes or two Pry strikes. The miner no longer walks across the claim or keeps building after your input ends.",
+        },
+        {
+          build,
+          text: "Tap Hammer off to return the direction controls to ordinary walking. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.240",
       date: "2026-07-13",

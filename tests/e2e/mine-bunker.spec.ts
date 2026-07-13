@@ -700,7 +700,7 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   );
   await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await expect(status).toContainText(
-    "Close this sheet, select a part, then point where it should go.",
+    "Close this sheet, select a part, then hold toward a neighboring square.",
   );
   await status.getByRole("button", { name: "Close" }).click();
   const tool = page.getByRole("region", { name: "Bunker build tool" });
@@ -723,17 +723,32 @@ test("bunker claims can be edited before banking", async ({ page }) => {
     "aria-pressed",
     "true",
   );
-  await page.keyboard.press("d");
-  await expect(tool).toContainText(/Hammering [1-3]\/4/, { timeout: 4_000 });
+  const touchSurface = page.locator("[data-touch-surface]");
+  const touchBox = await touchSurface.boundingBox();
+  if (!touchBox) throw new Error("mine touch surface has no bounding box");
+  const startX = touchBox.x + touchBox.width / 2;
+  const startY = touchBox.y + touchBox.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 48, startY, { steps: 5 });
+  await expect(tool).toContainText("Hammering 1/4", { timeout: 4_000 });
+  await page.mouse.up();
+  await expect(tool).toContainText("Paused 1/4");
   const hammerFrameA = await page.locator("canvas").screenshot();
   await page.waitForTimeout(70);
   const hammerFrameB = await page.locator("canvas").screenshot();
   expect(
     await imagePixelDifferenceRatio(page, hammerFrameA, hammerFrameB),
   ).toBeGreaterThan(0.00005);
+  await page.waitForTimeout(700);
+  await expect(tool.getByRole("button", { name: "Wall x6" })).toBeVisible();
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 48, startY, { steps: 5 });
   await expect(tool.getByRole("button", { name: "Wall x5" })).toBeVisible({
     timeout: 5_000,
   });
+  await page.mouse.up();
   const firstPart = await page.evaluate(() =>
     JSON.parse(
       localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
@@ -742,18 +757,21 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   expect(firstPart).toMatchObject({ partId: "wall-panel" });
 
   await tool.getByRole("button", { name: "Pry" }).click();
-  await page.keyboard.press("d");
+  await page.keyboard.down("d");
+  await expect(tool).toContainText("Hammering 1/2", { timeout: 4_000 });
+  await page.keyboard.up("d");
+  await expect(tool).toContainText("Paused 1/2");
+  await page.waitForTimeout(500);
+  await expect(tool).not.toContainText("Carrying");
+  await page.keyboard.down("d");
   await expect(tool).toContainText("Carrying", { timeout: 4_000 });
+  await page.keyboard.up("d");
   await expect(tool).toContainText("Durability 90/90");
 
-  const touchSurface = page.locator("[data-touch-surface]");
-  const touchBox = await touchSurface.boundingBox();
-  if (!touchBox) throw new Error("mine touch surface has no bounding box");
-  const startX = touchBox.x + touchBox.width / 2;
-  const startY = touchBox.y + touchBox.height / 2;
   await page.mouse.move(startX, startY);
   await page.mouse.down();
   await page.mouse.move(startX - 48, startY - 48, { steps: 5 });
+  await page.waitForTimeout(1_100);
   await page.mouse.up();
   await expect
     .poll(
@@ -774,13 +792,13 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   await expect(tool).not.toContainText("Carrying");
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-depth",
-    "4",
+    "5",
   );
-  await tool.getByRole("button", { name: "Deselect" }).click();
-  await expect(tool.getByRole("button", { name: "Deselect" })).toHaveCount(0);
+  await tool.getByRole("button", { name: "Hammer off" }).click();
+  await expect(tool.getByRole("button", { name: "Hammer off" })).toHaveCount(0);
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-depth",
-    "4",
+    "5",
   );
   await page.keyboard.press("d");
   await expect

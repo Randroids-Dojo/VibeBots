@@ -24,24 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest directional bunker-building note complete", () => {
+  it("keeps the latest held bunker-tool note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-07-13-0.1.240-directional-bunker-building",
-    );
+    expect(release.noticeId).toBe("2026-07-13-0.1.241-held-bunker-tools");
     expect(latestNote).toMatchObject({
-      version: "0.1.240",
-      title: "Point where the bunker part should go",
-      intro:
-        "Building now uses the mine controls instead of a second swing button.",
+      version: "0.1.241",
+      title: "The hammer stops when your swipe stops",
+      intro: "Bunker tools now stay under your thumb.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Select a bunker part, then point or swipe in any of eight directions. The miner walks across the temporary scaffold, gets into range, and hammers the chosen cell automatically.",
-      "Each part grows into place across four visible hammer strikes, like mining in reverse. Pry uses the same directional flow to lift and relocate an existing part.",
-      "There is no Equip or Swing button. Deselect the part and every direction immediately returns to ordinary mine movement. MINE_VERSION and SIM_VERSION are unchanged.",
+      "Select a bunker part and hold or swipe toward any neighboring square. The miner swings only while that direction is held, and releasing immediately pauses the work.",
+      "Resume the same direction to finish four build strikes or two Pry strikes. The miner no longer walks across the claim or keeps building after your input ends.",
+      "Tap Hammer off to return the direction controls to ordinary walking. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
+  });
+
+  it("keeps the archived directional bunker-building note complete", () => {
+    const release = getAppRelease();
+    const directionalNote = release.notes.find(
+      (note) => note.version === "0.1.240",
+    );
+
+    expect(directionalNote).toMatchObject({
+      version: "0.1.240",
+      title: "Point where the bunker part should go",
+    });
   });
 
   it("keeps the archived stamp-shortcut note complete", () => {

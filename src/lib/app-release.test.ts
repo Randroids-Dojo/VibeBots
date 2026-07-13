@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest tap-buffer note complete", () => {
+  it("keeps the latest stride-glide note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.242-tap-buffer");
+    expect(release.noticeId).toBe("2026-07-13-0.1.243-stride-glide");
     expect(latestNote).toMatchObject({
+      version: "0.1.243",
+      title: "Walking flows instead of stuttering",
+      intro: "Held moves glide through cells; the camera keeps up exactly.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Holding a direction now strides through cell boundaries on one continuous glide instead of stopping at every cell. Single taps keep their soft settle, and speed is unchanged.",
+      "The camera moves on the miner's own step timing, so it no longer runs ahead and waits at every cell.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived tap-buffer note complete", () => {
+    const release = getAppRelease();
+    const bufferNote = release.notes.find((note) => note.version === "0.1.242");
+
+    expect(bufferNote).toMatchObject({
       version: "0.1.242",
       title: "Taps land instead of vanishing",
       intro: "Movement keeps its pace but stops eating your inputs.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(bufferNote?.changes.map((change) => change.text)).toEqual([
       "A tap that lands while the previous move is still finishing is now remembered and fires the instant it legally can, instead of doing nothing. Only the newest tap is kept, and tapping fast is still exactly the same speed as holding.",
       "Changed your mind? Tapping the opposite direction cancels a remembered move before it happens.",
       "Holding Up now keeps mining a ceiling without re-pressing for every swing. Planting a ladder still always takes a deliberate fresh press, so a held key can never spend ladders or carry you upward on its own.",

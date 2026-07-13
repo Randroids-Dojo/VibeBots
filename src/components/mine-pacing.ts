@@ -40,6 +40,12 @@ export function actionRepeatMs(gear: MineGear): number {
   );
 }
 
+/** Chained (held) steps fill the whole input-repeat interval, so the
+ * next repeat retargets exactly as the glide lands: no standstill gap. */
+export function minerChainStepSeconds(gear: MineGear): number {
+  return actionRepeatMs(gear) / 1000;
+}
+
 export function minerStepSeconds(gear: MineGear): number {
   return (actionRepeatMs(gear) * MINER_STEP_REPEAT_SHARE) / 1000;
 }

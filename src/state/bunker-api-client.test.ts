@@ -76,13 +76,29 @@ describe("bunker API client", () => {
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
       "/api/bunker/parts/place",
     );
-    expect(lastBody()).toEqual({ partId: "door-panel", col: 8, row: 6 });
+    expect(lastBody()).toEqual({
+      partId: "door-panel",
+      col: 8,
+      row: 6,
+      depth: 0,
+    });
+
+    await placeRemoteBunkerPart("door-panel", 8, 6, 2);
+    expect(lastBody()).toEqual({
+      partId: "door-panel",
+      col: 8,
+      row: 6,
+      depth: 2,
+    });
 
     await removeRemoteBunkerPart(8, 6);
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
       "/api/bunker/parts/remove",
     );
-    expect(lastBody()).toEqual({ col: 8, row: 6 });
+    expect(lastBody()).toEqual({ col: 8, row: 6, depth: 0 });
+
+    await removeRemoteBunkerPart(8, 6, 1);
+    expect(lastBody()).toEqual({ col: 8, row: 6, depth: 1 });
 
     await moveRemoteBunkerPart(8, 6, 9, 6);
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
@@ -93,6 +109,18 @@ describe("bunker API client", () => {
       fromRow: 6,
       toCol: 9,
       toRow: 6,
+      fromDepth: 0,
+      toDepth: 0,
+    });
+
+    await moveRemoteBunkerPart(8, 6, 8, 6, 0, 3);
+    expect(lastBody()).toEqual({
+      fromCol: 8,
+      fromRow: 6,
+      toCol: 8,
+      toRow: 6,
+      fromDepth: 0,
+      toDepth: 3,
     });
 
     await startRemoteBunkerRaid();

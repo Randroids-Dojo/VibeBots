@@ -50,13 +50,20 @@ export interface BunkerStoreState {
     partId: BasePartId,
     col: number,
     row: number,
+    depth?: number,
   ) => Promise<BunkerMutationResult>;
-  removePart: (col: number, row: number) => Promise<BunkerMutationResult>;
+  removePart: (
+    col: number,
+    row: number,
+    depth?: number,
+  ) => Promise<BunkerMutationResult>;
   movePart: (
     fromCol: number,
     fromRow: number,
     toCol: number,
     toRow: number,
+    fromDepth?: number,
+    toDepth?: number,
   ) => Promise<BunkerMutationResult>;
   startRaid: (tier?: number) => Promise<BunkerMutationResult>;
   repairBunker: () => Promise<BunkerMutationResult>;
@@ -139,22 +146,36 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
       await buyRemoteBasePart(partId, quantity),
       "bunker action failed",
     ),
-  placePart: async (partId, col, row) =>
+  placePart: async (partId, col, row, depth = 0) =>
     applyMutationResult(
       set,
-      await placeRemoteBunkerPart(partId, col, row),
+      await placeRemoteBunkerPart(partId, col, row, depth),
       "bunker action failed",
     ),
-  removePart: async (col, row) =>
+  removePart: async (col, row, depth = 0) =>
     applyMutationResult(
       set,
-      await removeRemoteBunkerPart(col, row),
+      await removeRemoteBunkerPart(col, row, depth),
       "bunker action failed",
     ),
-  movePart: async (fromCol, fromRow, toCol, toRow) =>
+  movePart: async (
+    fromCol,
+    fromRow,
+    toCol,
+    toRow,
+    fromDepth = 0,
+    toDepth = 0,
+  ) =>
     applyMutationResult(
       set,
-      await moveRemoteBunkerPart(fromCol, fromRow, toCol, toRow),
+      await moveRemoteBunkerPart(
+        fromCol,
+        fromRow,
+        toCol,
+        toRow,
+        fromDepth,
+        toDepth,
+      ),
       "bunker action failed",
     ),
   repairBunker: async () =>

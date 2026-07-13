@@ -114,7 +114,7 @@ const bodySchema = z.object({
       claimCol: z.number().int(),
       claimRow: z.number().int().min(1),
       claimedAtMoveCount: z.number().int().min(0).max(MAX_TRIP_MOVES),
-      parts: z.array(placedBasePartSchema).max(128),
+      parts: z.array(placedBasePartSchema).max(174),
     })
     .optional(),
 });

@@ -7,6 +7,7 @@ import {
   collectBunkerRaidPickup,
   finishBunkerRaid,
   loadBunkerView,
+  placeBunkerPart,
   repairBunker,
   setBunkerSkin,
   startBunkerRaid,
@@ -792,5 +793,51 @@ describe("bunker depth normalization", () => {
       { partId: "wall-panel", col: 1, row: 4, depth: 0, durability: 90 },
       { partId: "door-panel", col: 2, row: 4, depth: 0, durability: 60 },
     ]);
+  });
+});
+
+describe("bunker part wrappers with depth", () => {
+  it("persists placements on deeper layers", async () => {
+    const writes: string[] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, core, parts")) {
+          return [
+            {
+              footprint: { col: 1, row: 4, width: 7, height: 5 },
+              core: { col: 4, row: 6, depth: 0, durability: 160 },
+              parts: [],
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) {
+          return [{ part_id: "wall-panel", count: 2 }];
+        }
+        if (query.includes("UPDATE bunkers")) {
+          writes.push(values.map(String).join("|"));
+          return [];
+        }
+        if (query.includes("INSERT INTO player_base_parts")) return [];
+        return [];
+      },
+    );
+
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      2,
+      5,
+      3,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(writes.length).toBeGreaterThan(0);
+    expect(writes[0]).toContain('"depth":3');
   });
 });

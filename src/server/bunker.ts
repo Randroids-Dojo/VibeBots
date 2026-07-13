@@ -403,11 +403,19 @@ export async function placeBunkerPart(
   partId: BasePartId,
   col: number,
   row: number,
+  depth = 0,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
-  const placed = placeBasePart(view.bunker, view.inventory, partId, col, row);
+  const placed = placeBasePart(
+    view.bunker,
+    view.inventory,
+    partId,
+    col,
+    row,
+    depth,
+  );
   if (!placed.ok) {
     return { ok: false, status: 409, error: `cannot place: ${placed.reason}` };
   }
@@ -420,11 +428,12 @@ export async function removeBunkerPart(
   playerId: string,
   col: number,
   row: number,
+  depth = 0,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
-  const removed = removeBasePart(view.bunker, view.inventory, col, row);
+  const removed = removeBasePart(view.bunker, view.inventory, col, row, depth);
   if (!removed.ok) {
     return {
       ok: false,
@@ -448,11 +457,21 @@ export async function moveBunkerPart(
   fromRow: number,
   toCol: number,
   toRow: number,
+  fromDepth = 0,
+  toDepth = 0,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
-  const moved = moveBasePart(view.bunker, fromCol, fromRow, toCol, toRow);
+  const moved = moveBasePart(
+    view.bunker,
+    fromCol,
+    fromRow,
+    toCol,
+    toRow,
+    fromDepth,
+    toDepth,
+  );
   if (!moved.ok) {
     return { ok: false, status: 409, error: `cannot move: ${moved.reason}` };
   }

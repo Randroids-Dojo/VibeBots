@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-depth note complete", () => {
+  it("keeps the latest depth-apis note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.244-bunker-depth-groundwork");
+    expect(release.noticeId).toBe("2026-07-13-0.1.245-bunker-depth-apis");
     expect(latestNote).toMatchObject({
+      version: "0.1.245",
+      title: "Bunker building wires up the depth layers",
+      intro: "Second groundwork slice: the pipes now carry depth.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Placing, removing, and moving bunker parts now carries a depth layer end to end, from the client through the server. Nothing visible uses it yet: the first-person building mode arrives in upcoming releases.",
+      "A pending bunker claim can bank up to 174 placed parts, one for every buildable cell of the coming 7x5x5 volume.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-depth note complete", () => {
+    const release = getAppRelease();
+    const depthNote = release.notes.find((note) => note.version === "0.1.244");
+
+    expect(depthNote).toMatchObject({
       version: "0.1.244",
       title: "The bunker learns a third dimension",
       intro: "Groundwork for building deeper. Nothing visible changes yet.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(depthNote?.changes.map((change) => change.text)).toEqual([
       "Bunker parts and the core now carry a depth coordinate under the hood, preparing the claim to grow from a flat 7x5 wall into a 7x5x5 room you will walk inside and build out first-person.",
       "Existing bunkers, saves, and raids are untouched: everything you placed sits on the tunnel plane and raids resolve exactly as before.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

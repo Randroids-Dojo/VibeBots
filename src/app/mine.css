@@ -1822,7 +1822,7 @@ button[data-bag-full-flash="true"] {
 .bunker-fp-slot svg {
   width: 16px;
   height: 16px;
-  fill: currentColor;
+  fill: currentcolor;
 }
 
 .bunker-fp-slot:disabled {

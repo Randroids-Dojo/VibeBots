@@ -215,6 +215,12 @@ export function BunkerFpHud({
       ),
     );
   };
+  const lookCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (look.current.pointerId !== event.pointerId) return;
+    look.current.active = false;
+    look.current.pointerId = -1;
+  };
+
   const lookUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (look.current.pointerId !== event.pointerId) return;
     const wasTap =
@@ -239,7 +245,7 @@ export function BunkerFpHud({
             onPointerDown={lookDown}
             onPointerMove={lookMove}
             onPointerUp={lookUp}
-            onPointerCancel={lookUp}
+            onPointerCancel={lookCancel}
           />
           <div
             className="bunker-fp-move-zone"

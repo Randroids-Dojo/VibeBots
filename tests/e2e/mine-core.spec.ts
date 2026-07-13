@@ -1289,9 +1289,10 @@ test("rapid repeated keyboard taps do not bypass held cadence (REQ-023)", async 
     String(keyboardStart + 1),
   );
   // Let the repeat window from the accepted press expire, then burst four
-  // taps in one synchronous task. They all share one cadence window, so
-  // exactly one can land regardless of machine speed; asserting the burst
-  // lands inside the previous window instead was flaky on slow CI.
+  // taps in one synchronous task. They all share one cadence window: the
+  // first lands immediately and the rest collapse into ONE buffered move
+  // at the next legal action time (the tap buffer remembers the newest
+  // tap instead of dropping it, but can never fire early or bank more).
   await page.waitForTimeout(700);
   await page.evaluate(() => {
     for (let i = 0; i < 4; i++) {
@@ -1303,19 +1304,22 @@ test("rapid repeated keyboard taps do not bypass held cadence (REQ-023)", async 
       );
     }
   });
-  await expect(status).toHaveAttribute(
-    "data-horizontal-distance",
-    String(keyboardStart + 2),
-  );
-  // The keyups released the hold, so no queued repeats fire afterwards.
-  await page.waitForTimeout(700);
-  expect(await horizontalDistance()).toBe(keyboardStart + 2);
+  // Exactly one buffered move lands at the next legal time, then the
+  // burst is spent: four taps yield two moves total, same rate as a hold.
+  // (A slow runner can sample after the buffered move already landed, so
+  // the immediate-move check is folded into the >= poll.)
+  await expect
+    .poll(horizontalDistance)
+    .toBeGreaterThanOrEqual(keyboardStart + 2);
+  await expect.poll(horizontalDistance).toBe(keyboardStart + 3);
+  await page.waitForTimeout(900);
+  expect(await horizontalDistance()).toBe(keyboardStart + 3);
 
   // A genuine hold auto-repeats through the cadence window.
   await page.keyboard.down("ArrowRight");
   await page.waitForTimeout(900);
   await page.keyboard.up("ArrowRight");
-  expect(await horizontalDistance()).toBeGreaterThanOrEqual(keyboardStart + 3);
+  expect(await horizontalDistance()).toBeGreaterThanOrEqual(keyboardStart + 4);
 });
 
 test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
@@ -1400,4 +1404,106 @@ test("abandoning a stuck trip hauls up and forfeits the carry (REQ-025)", async 
   ).toBeVisible();
   // Dismiss the trip report.
   await page.getByLabel("Dismiss trip report").click();
+});
+
+// Movement slice two: a held walk strides through cell boundaries with a
+// mostly-linear cruise (no full stop per cell), and the camera rides the
+// miner's own step timing instead of arriving early and waiting.
+test("a held walk never stands still mid-chain and the camera stays with the miner", async ({
+  page,
+}) => {
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await awaitMineSceneReady(page);
+  // Frames must be flowing before sampling rendered positions.
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-scene-painted",
+    "true",
+  );
+  // The dismissal click can consume the input gate (the thumbstick spawns
+  // on pointer down); start from an idle gate so the first press fires
+  // immediately and the chain rhythm is deterministic.
+  await page.waitForTimeout(750);
+
+  const probe = await page.evaluate(async () => {
+    const canvas = document.querySelector("canvas");
+    const samples: Array<{ t: number; x: number; camX: number }> = [];
+    // Timer fidelity, measured on the same clock the input cadence uses:
+    // a dilated main thread stretches the held repeats past the chain
+    // window, and every step then settles by design.
+    const timerDeltas: number[] = [];
+    const timerProbe = (async () => {
+      for (let i = 0; i < 4; i += 1) {
+        const started = performance.now();
+        await new Promise((r) => setTimeout(r, 620));
+        timerDeltas.push(performance.now() - started);
+      }
+    })();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    const t0 = performance.now();
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        const t = performance.now() - t0;
+        samples.push({
+          t,
+          x: Number(canvas?.getAttribute("data-miner-x")),
+          camX: Number(canvas?.getAttribute("data-cam-x")),
+        });
+        if (t > 3000) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    window.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight" }));
+    await timerProbe;
+    return { samples, timerDeltas };
+  });
+  const { samples, timerDeltas } = probe;
+
+  // The chain must actually run: several cells covered.
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  expect(last.x - first.x).toBeGreaterThanOrEqual(2);
+
+  // Chaining needs each repeat within CHAIN_GAP (220ms) of the settled
+  // glide (first transition: 533ms isolated glide + 220ms = ~753ms); if
+  // the runner's timers stretch a 620ms wait past that, the repeats
+  // settle by design and continuity is unprovable here. Loaded sandboxes
+  // skip honestly; CI runners and real devices assert.
+  const dilated = Math.max(...timerDeltas) > 740;
+  test.skip(dilated, "runner too dilated to prove stride continuity");
+
+  // Interior of the chain (past the first eased step, before release):
+  // accumulate standstill only across rendered-frame pairs (a render
+  // stall proves nothing about the glide).
+  const interior = samples.filter((s) => s.t > 900 && s.t < 2700);
+  expect(interior.length).toBeGreaterThan(8);
+  let longestPlateauMs = 0;
+  let plateauMs = 0;
+  let movingPairs = 0;
+  for (let i = 1; i < interior.length; i += 1) {
+    const dt = interior[i].t - interior[i - 1].t;
+    if (dt > 90) continue;
+    if (interior[i].x === interior[i - 1].x) {
+      plateauMs += dt;
+      longestPlateauMs = Math.max(longestPlateauMs, plateauMs);
+    } else {
+      movingPairs += 1;
+      plateauMs = 0;
+    }
+  }
+  expect(movingPairs).toBeGreaterThan(0);
+  // The discriminator: the old stop-start glide idled 150ms+ at every
+  // cell boundary (measured 157ms via mutation baseline); the chained
+  // stride never pauses that long between rendered frames.
+  expect(longestPlateauMs).toBeLessThan(140);
+
+  // Camera sync: identical step timing means the camera never leads the
+  // miner by more than a sliver mid-chain.
+  for (const sample of interior) {
+    expect(Math.abs(sample.camX - sample.x)).toBeLessThan(0.2);
+  }
 });

@@ -25,6 +25,7 @@ import {
 import type { AppRelease } from "@/lib/app-release-types";
 import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
 import { detectTvMode } from "@/lib/tv-device";
+import { tvRemoteDirection } from "@/lib/tv-remote-input";
 import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
@@ -48,6 +49,7 @@ import {
   carriedCount,
   carriedStackCount,
   cellAt,
+  climbWouldPlaceLadder,
   collectAction,
   collectablePlacements,
   createMine,
@@ -68,6 +70,7 @@ import {
   type MineState,
   maxEnergy,
   NO_CONSUMABLES,
+  OPPOSITE_DIRECTION,
   type OreId,
   oreDef,
   portalWarpAction,
@@ -1358,10 +1361,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastGamepadBagCloseRef = useRef(false);
   const gamepadMoveDirRef = useRef<Direction | null>(null);
   const gamepadSelectRef = useRef(false);
-  const directionActionRef = useRef<(dir: Direction) => boolean>(() => false);
+  const directionActionRef = useRef<
+    (dir: Direction, isAutoRepeat: boolean) => boolean
+  >(() => false);
   const directionCadenceRef =
     useRef<DirectionCadenceController<Direction> | null>(null);
-  const upwardDigAwaitingReleaseRef = useRef(false);
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const previousMinerRowRef = useRef(mine.miner.row);
   const inputDiagnosticKeysRef = useRef<Set<string>>(new Set());
@@ -1830,7 +1834,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             window.setTimeout(callback, delayMs),
           clearTimeout: (timer) => window.clearTimeout(timer),
         },
-        onAction: (dir: Direction) => directionActionRef.current(dir),
+        onAction: (dir: Direction, isAutoRepeat: boolean) =>
+          directionActionRef.current(dir, isAutoRepeat),
+        isOpposite: (a: Direction, b: Direction) => OPPOSITE_DIRECTION[a] === b,
       });
     }
     return directionCadenceRef.current;
@@ -1838,18 +1844,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   const cancelMovementControls = useCallback(() => {
     directionCadenceRef.current?.cancel();
-    upwardDigAwaitingReleaseRef.current = false;
   }, []);
 
   const performDirectionAction = useCallback(
-    (dir: Direction): boolean => {
+    (dir: Direction, isAutoRepeat: boolean): boolean => {
       if (!mineSceneReady) return false;
       if (elevatorAutoDir) return false;
       const state = useMineStore.getState();
       if (state.lastResult?.ok && state.lastResult.collapsed) return false;
-      if (dir !== "up") {
-        upwardDigAwaitingReleaseRef.current = false;
-      } else if (upwardDigAwaitingReleaseRef.current) {
+      // A held "up" may keep mining the ceiling, but never plants a
+      // ladder: consuming a ladder and committing to an ascent (including
+      // right after a jump-dig drops the miner back down) always takes a
+      // deliberate release-and-press. Returning false ends the held chain.
+      if (dir === "up" && isAutoRepeat && climbWouldPlaceLadder(state.mine)) {
         return false;
       }
       const startCol = state.mine.miner.col;
@@ -1862,17 +1869,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         return bunkerBuildDirectionRef.current(dir);
       }
       state.move(dir);
-      const result = useMineStore.getState().lastResult;
-      if (
-        dir === "up" &&
-        result?.ok &&
-        result.dugAt &&
-        result.dugAt.col === startCol &&
-        result.dugAt.row === startRow - 1 &&
-        !result.laddered
-      ) {
-        upwardDigAwaitingReleaseRef.current = true;
-      }
       return true;
     },
     [activeBunker, bunkerToolSelection, elevatorAutoDir, mineSceneReady],
@@ -1911,9 +1907,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const releaseDirection = useCallback((dir: Direction | null) => {
     directionCadenceRef.current?.release(dir);
     bunkerBuildReleaseRef.current(dir);
-    if (dir === null || dir === "up") {
-      upwardDigAwaitingReleaseRef.current = false;
-    }
   }, []);
 
   // Gamepad D-pad movement (a paired controller, or a TV remote surfaced
@@ -2116,9 +2109,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         if (!creditsOpen) fireJump();
         return;
       }
-      // Fire TV remote media keys (Amazon web-app key map): Play/Pause
-      // jumps, Rewind and Fast Forward drive the camera zoom. Older TV
-      // stacks deliver only the legacy keyCodes (179/227/228).
+      // Select stays Silk's click and Back stays browser history. The channel
+      // rocker plus transport row provide four physical mine directions.
+      // The onscreen TV deck remains available when Silk withholds a key.
+      const remoteDir = tvMode
+        ? tvRemoteDirection({ key: event.key, keyCode: event.keyCode })
+        : null;
+      if (remoteDir) {
+        event.preventDefault();
+        if (terminalMineState || creditsOpen) return;
+        fireDirection(remoteDir);
+        return;
+      }
+      // Play/Pause remains jump. Outside TV mode, Rewind and Fast Forward
+      // keep their camera zoom behavior. Older stacks may supply only the
+      // legacy Android key codes.
       if (event.key === "MediaPlayPause" || event.keyCode === 179) {
         event.preventDefault();
         if (!creditsOpen) fireJump();
@@ -2169,12 +2174,20 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       const dir = KEY_DIRECTIONS[key];
       if (!dir) return;
       event.preventDefault();
+      // Browser auto-repeat keydowns are not new intent: the cadence
+      // controller's own timer repeats a held direction. Letting repeats
+      // through would resurrect a chain the controller cancelled (the
+      // ladder rule relies on "release and press again" being literal).
+      if (event.repeat) return;
       if (terminalMineState) return;
       if (creditsOpen) return;
       fireDirection(dir);
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      const dir = KEY_DIRECTIONS[normalizeKeyName(event.key)];
+      const dir =
+        (tvMode
+          ? tvRemoteDirection({ key: event.key, keyCode: event.keyCode })
+          : null) ?? KEY_DIRECTIONS[normalizeKeyName(event.key)];
       if (dir) releaseDirection(dir);
     };
     const onBlur = () => releaseDirection(null);
@@ -2195,6 +2208,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     releaseDirection,
     router,
     terminalMineState,
+    tvMode,
   ]);
 
   const miner = mine.miner;
@@ -4674,7 +4688,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           }}
         >
           {tvMode
-            ? "click the pad to move \u00b7 hold Select to repeat"
+            ? "channel up/down + rewind/fast-forward move \u00b7 pad fallback"
             : coarsePointer
               ? "drag anywhere to move"
               : "drag anywhere to move \u00b7 WASD works too"}

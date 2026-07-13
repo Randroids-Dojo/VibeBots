@@ -110,7 +110,7 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.241-held-bunker-tools",
+      releaseNoticeId: "2026-07-13-0.1.244-held-bunker-tools",
       releaseSummary:
         "The hammer stops when your swipe stops: Bunker tools now stay under your thumb.",
     });
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.241-held-bunker-tools",
+      releaseNoticeId: "2026-07-13-0.1.244-held-bunker-tools",
       attempted: 2,
       sent: 1,
       expired: 1,

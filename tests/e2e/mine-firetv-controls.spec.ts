@@ -18,6 +18,21 @@ const FIRE_TV_SILK_UA =
   "Mozilla/5.0 (Linux; Android 11; AFTMA475B1) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Silk/146.3.4 like Chrome/146.0.7680.165 Safari/537.36";
 
+async function pressRemoteKey(
+  page: import("@playwright/test").Page,
+  key: string,
+  keyCode = 0,
+) {
+  await page.evaluate(
+    ({ remoteKey, legacyCode }) => {
+      const options = { key: remoteKey, keyCode: legacyCode, bubbles: true };
+      window.dispatchEvent(new KeyboardEvent("keydown", options));
+      window.dispatchEvent(new KeyboardEvent("keyup", options));
+    },
+    { remoteKey: key, legacyCode: keyCode },
+  );
+}
+
 test.describe("fire tv sessions", () => {
   test.use({
     userAgent: FIRE_TV_SILK_UA,
@@ -72,37 +87,40 @@ test.describe("fire tv sessions", () => {
       .toBeLessThanOrEqual(-2);
   });
 
-  test("remote media keys zoom the camera without touching the HUD", async ({
+  test("channel and transport keys move without using the cursor", async ({
     page,
   }) => {
     await page.goto("/mine");
     await dismissReleaseNotes(page);
     await awaitMineSceneReady(page);
-    const zoom = page.getByLabel("Zoom controls");
-    const before = await zoom.getAttribute("data-camera-zoom");
+    const status = page.getByLabel("Mine status");
 
-    // Rewind zooms out; if the camera already sits at the out stop,
-    // Fast Forward must move it instead. Either way the zoom reacts.
-    await page.evaluate(() => {
-      window.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "MediaRewind", bubbles: true }),
-      );
-    });
-    await page.waitForTimeout(120);
-    let after = await zoom.getAttribute("data-camera-zoom");
-    if (after === before) {
-      await page.evaluate(() => {
-        window.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "MediaFastForward",
-            bubbles: true,
-          }),
-        );
-      });
-      await page.waitForTimeout(120);
-      after = await zoom.getAttribute("data-camera-zoom");
+    await pressRemoteKey(page, "MediaRewind");
+    await expect(status).toHaveAttribute("data-horizontal-distance", "-1");
+    await pressRemoteKey(page, "MediaFastForward");
+    await expect(status).toHaveAttribute("data-horizontal-distance", "0");
+
+    for (let i = 0; i < 6; i += 1) {
+      await pressRemoteKey(page, "ChannelDown");
+      await page.waitForTimeout(MINE_KEY_STEP_MS);
+      if (Number(await status.getAttribute("data-depth")) >= 1) break;
     }
-    expect(after).not.toBe(before);
+    await expect
+      .poll(async () => Number(await status.getAttribute("data-depth")))
+      .toBeGreaterThanOrEqual(1);
+
+    await pressRemoteKey(page, "ChannelUp");
+    await expect(status).toHaveAttribute("data-depth", "0");
+  });
+
+  test("Select keeps its focused activation behavior", async ({ page }) => {
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await awaitMineSceneReady(page);
+
+    await page.getByLabel("Open settings").focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("section[aria-label='Settings']")).toBeVisible();
   });
 
   test("the remote Back button closes an open menu and stays in the mine", async ({

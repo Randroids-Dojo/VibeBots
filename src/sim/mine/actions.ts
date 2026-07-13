@@ -9,6 +9,14 @@ import { ORE_BY_ID, ORES, type OreId } from "./ores";
 
 export type Direction = "down" | "left" | "right" | "up";
 
+/** Axis inverse per direction, for tap-cancels-tap input handling. */
+export const OPPOSITE_DIRECTION: Record<Direction, Direction> = {
+  up: "down",
+  down: "up",
+  left: "right",
+  right: "left",
+};
+
 export type BaseMineAction =
   | Direction
   | BunkerScaffoldAction

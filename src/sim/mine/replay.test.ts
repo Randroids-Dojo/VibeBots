@@ -14,6 +14,7 @@ import {
   applyAction,
   canDropThroughPlank,
   canJump,
+  climbWouldPlaceLadder,
   replayTrip,
 } from "./replay";
 import {
@@ -830,5 +831,30 @@ describe("gas propagation (uncorked pockets)", () => {
     const b = replayTrip(555, actions, DEFAULT_GEAR, stock({}), diff);
     expect(a.moves).toBe(actions.length);
     expect(b).toEqual(a);
+  });
+});
+
+describe("climbWouldPlaceLadder", () => {
+  it("is true only when an up would consume and plant a new ladder", () => {
+    const state = createMine(421, DEFAULT_GEAR, stock({ ladder: 3 }));
+    state.miner.row = 3;
+    setCell(state, START_COL, 3, { kind: "empty" });
+    setCell(state, START_COL, 2, { kind: "empty" });
+    expect(climbWouldPlaceLadder(state)).toBe(true);
+
+    // A ladder already under the miner climbs without planting.
+    setCell(state, START_COL, 3, { kind: "empty", ladder: true });
+    expect(climbWouldPlaceLadder(state)).toBe(false);
+
+    // A solid ceiling is a dig, not a climb.
+    setCell(state, START_COL, 3, { kind: "empty" });
+    setCell(state, START_COL, 2, { kind: "dirt" });
+    expect(climbWouldPlaceLadder(state)).toBe(false);
+  });
+
+  it("never places from the surface row", () => {
+    const state = createMine(422, DEFAULT_GEAR, stock({ ladder: 3 }));
+    state.miner.row = 0;
+    expect(climbWouldPlaceLadder(state)).toBe(false);
   });
 });

@@ -1,11 +1,11 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.241-held-bunker-tools";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.244-held-bunker-tools";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.241",
+      version: "0.1.244",
       date: "2026-07-13",
       title: "The hammer stops when your swipe stops",
       intro: "Bunker tools now stay under your thumb.",
@@ -21,6 +21,64 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         {
           build,
           text: "Tap Hammer off to return the direction controls to ordinary walking. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.243",
+      date: "2026-07-13",
+      title: "Walking flows instead of stuttering",
+      intro: "Held moves glide through cells; the camera keeps up exactly.",
+      changes: [
+        {
+          build,
+          text: "Holding a direction now strides through cell boundaries on one continuous glide instead of stopping at every cell. Single taps keep their soft settle, and speed is unchanged.",
+        },
+        {
+          build,
+          text: "The camera moves on the miner's own step timing, so it no longer runs ahead and waits at every cell.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
+    {
+      version: "0.1.242",
+      date: "2026-07-13",
+      title: "Taps land instead of vanishing",
+      intro: "Movement keeps its pace but stops eating your inputs.",
+      changes: [
+        {
+          build,
+          text: "A tap that lands while the previous move is still finishing is now remembered and fires the instant it legally can, instead of doing nothing. Only the newest tap is kept, and tapping fast is still exactly the same speed as holding.",
+        },
+        {
+          build,
+          text: "Changed your mind? Tapping the opposite direction cancels a remembered move before it happens.",
+        },
+        {
+          build,
+          text: "Holding Up now keeps mining a ceiling without re-pressing for every swing. Planting a ladder still always takes a deliberate fresh press, so a held key can never spend ladders or carry you upward on its own.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
+    {
+      version: "0.1.241",
+      date: "2026-07-13",
+      title: "Use the remote buttons to move in the mine",
+      intro: "Fire TV players can try physical movement before the TV deck.",
+      changes: [
+        {
+          build,
+          text: "On Fire TV, Channel Up and Channel Down move vertically while Rewind and Fast Forward move left and right. Play/Pause still fires the jump jets.",
+        },
+        {
+          build,
+          text: "Select keeps clicking the item under Silk's cursor, and Back keeps its browser-history role so open menus can intercept it safely. Neither button is repurposed for movement.",
+        },
+        {
+          build,
+          text: "The large TV control deck remains available as a fallback when a Silk version or television withholds a channel key. MINE_VERSION and SIM_VERSION are unchanged.",
         },
       ],
     },

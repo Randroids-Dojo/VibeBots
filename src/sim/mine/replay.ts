@@ -1207,6 +1207,22 @@ export function canJump(state: MineState): boolean {
 }
 
 /**
+ * True when an `up` from here would take the climb branch's placement
+ * path: the cell above is open, the current cell has no ladder, so the
+ * climb consumes and plants one. The input layer refuses this for held
+ * auto-repeats: holding "up" may keep mining a ceiling, but planting a
+ * ladder (spending a consumable and committing to an ascent) always takes
+ * a deliberate fresh press.
+ */
+export function climbWouldPlaceLadder(state: MineState): boolean {
+  const miner = state.miner;
+  if (miner.row < 1) return false;
+  const above = cellAt(state, miner.col, miner.row - 1);
+  if (above?.kind !== "empty") return false;
+  return cellAt(state, miner.col, miner.row)?.ladder !== true;
+}
+
+/**
  * True when the miner is standing on a plank bridge and a `down` action
  * would break it to drop through (the desktop Shift + Down control, F-059).
  * The `down` step already routes a plank underfoot to breakCurrentPlank; a

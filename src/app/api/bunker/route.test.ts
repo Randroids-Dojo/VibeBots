@@ -623,6 +623,28 @@ describe("bunker API routes", () => {
     );
   });
 
+  it("returns the Groundbreaker stamp with the first excavation", async () => {
+    mockedExcavate.mockResolvedValue({
+      ok: true,
+      view,
+      newStamps: ["bunker-groundbreaker"],
+    } as never);
+
+    const res = await excavatePost(
+      jsonRequest("http://localhost/api/bunker/excavate", {
+        col: 7,
+        row: 4,
+        depth: 1,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ...view,
+      newStamps: ["bunker-groundbreaker"],
+    });
+  });
+
   it("rejects digging the open claim plane", async () => {
     const res = await excavatePost(
       jsonRequest("http://localhost/api/bunker/excavate", {

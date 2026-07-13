@@ -22,6 +22,7 @@ import {
   FP_SPIKES,
   fpCellBlocks,
   fpCellIndex,
+  fpGridCellFromLocal,
   fpLocalFromGrid,
   fpSpawnCell,
 } from "./bunker-fp-grid";
@@ -192,5 +193,29 @@ describe("fp solidity", () => {
     for (let i = 0; i < FP_CELL_COUNT; i++) {
       expect(grid[i]).not.toBe(FP_SOLID_PART);
     }
+  });
+});
+
+describe("fpGridCellFromLocal", () => {
+  it("inverts fpLocalFromGrid across the volume", () => {
+    const footprint = proposedBunkerFootprint(4, 8);
+    const local = { x: 0, y: 0, z: 0 };
+    for (const [x, y, z] of [
+      [0, 0, 0],
+      [6, 4, 4],
+      [3, 0, 2],
+      [2, 4, 1],
+    ] as const) {
+      const cell = fpGridCellFromLocal(footprint, x, y, z);
+      fpLocalFromGrid(footprint, cell.col, cell.row, cell.depth, local);
+      expect([local.x, local.y, local.z]).toEqual([x, y, z]);
+    }
+    // The footprint's bottom row is local y 0 on the tunnel plane.
+    const bottom = fpGridCellFromLocal(footprint, 3, 0, 0);
+    expect(bottom).toEqual({
+      col: footprint.col + 3,
+      row: footprint.row + footprint.height - 1,
+      depth: 0,
+    });
   });
 });

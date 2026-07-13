@@ -9,8 +9,18 @@ import {
 } from "@/sim/bunker";
 import type { MineCoord } from "@/sim/mine";
 
-export type BunkerToolSelection = BasePartId | "pry" | null;
-export type BunkerToolAction = "build" | "pry";
+/** "dig" is first-person only: the pick slot in the fp hotbar selects
+ * it, the 2D toolbelt never offers it, and exiting fp resets it. */
+export type BunkerToolSelection = BasePartId | "pry" | "dig" | null;
+export type BunkerToolAction = "build" | "pry" | "dig";
+
+/** Target-highlight tint per tool action, shared by the 2D overlay's
+ * target plane and the first-person outline materials. */
+export const BUNKER_TOOL_HIGHLIGHT: Record<BunkerToolAction, string> = {
+  build: "#54e0c7",
+  pry: "#f59e0b",
+  dig: "#e2e8f0",
+};
 
 export interface CarriedBunkerPart {
   source: MineCoord;

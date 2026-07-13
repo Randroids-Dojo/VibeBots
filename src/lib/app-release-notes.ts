@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.247-bunker-first-person";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.248-bunker-fp-building";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.248",
+      date: "2026-07-13",
+      title: "Dig and build inside your bunker",
+      intro: "First person gets hands: pick, parts, and prying.",
+      changes: [
+        {
+          build,
+          text: "The first-person hotbar now carries your pick and parts: dig the deep claim rock cell by cell at the crosshair, place parts into open cells with a ghost preview, and pry placed parts to carry them somewhere better. Tap to act on touch, click on desktop.",
+        },
+        {
+          build,
+          text: "Your first dig earns the new Groundbreaker stamp. Dug before this landed? The Stamp Book already counts it.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.247",
       date: "2026-07-13",

@@ -35,6 +35,7 @@ interface AchievementProfileRow {
   elevator_speed_level: number;
   parts_owned: number;
   has_maxed_design: boolean;
+  bunker_cells_dug: number;
   mine_diff: unknown;
 }
 
@@ -101,6 +102,11 @@ async function achievementSnapshot(
              WHERE bd.player_id = p.id
                AND (part->>'mergeLevel')::int >= 3
            ) AS has_maxed_design,
+           COALESCE((
+             SELECT jsonb_array_length(b.dug)
+             FROM bunkers b
+             WHERE b.player_id = p.id
+           ), 0) AS bunker_cells_dug,
            mw.diff AS mine_diff
     FROM players p
     LEFT JOIN mine_worlds mw ON mw.player_id = p.id
@@ -116,6 +122,9 @@ async function achievementSnapshot(
     sawMatchWins: Math.max(stats.sawMatchWins, matchCounters.sawMatchWins),
     chassisFought: Math.max(stats.chassisFought, matchCounters.chassisFought),
     partsMaxed: Math.max(stats.partsMaxed, row?.has_maxed_design ? 1 : 0),
+    // Backfill from the durable record: bunkers.dug proves every
+    // excavated cell even for profiles that dug before the stamp.
+    bunkerCellsDug: Math.max(stats.bunkerCellsDug, row?.bunker_cells_dug ?? 0),
     sales: Math.max(
       stats.sales,
       row && (row.emeralds > 0 || row.parts_owned > 0) ? 1 : 0,

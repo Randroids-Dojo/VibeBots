@@ -9,14 +9,17 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Camera, Object3D } from "three/webgpu";
+import type { Camera, LineSegments, Object3D } from "three/webgpu";
 import {
   BoxGeometry,
   Color,
+  EdgesGeometry,
   Euler,
   Fog,
   Group,
   InstancedMesh,
+  LineBasicMaterial,
+  LineSegments as LineSegmentsImpl,
   Matrix4,
   Mesh,
   Quaternion,
@@ -37,13 +40,17 @@ import {
 import {
   buildFpSolidGrid,
   createFpSolidGrid,
+  FP_CELL_COUNT,
   FP_COLS,
   FP_DEPTH,
+  FP_OPEN,
   FP_ROCK_UNDUG,
   FP_ROWS,
+  type FpEditIntent,
   type FpSolidGrid,
   fpCellIndex,
   fpCellInGrid,
+  fpGridCellFromLocal,
   fpSpawnCell,
 } from "./bunker-fp-grid";
 import { fpInput } from "./bunker-fp-input";
@@ -52,9 +59,17 @@ import {
   FP_EYE_HEIGHT,
   type FpMoveInput,
   type FpMoveState,
+  fpCellIntersectsCapsule,
   stepFpMovement,
 } from "./bunker-fp-movement";
 import { bunkerPartFpGeometry } from "./bunker-fp-part-geometry";
+import {
+  createFpRayHit,
+  FP_MAX_REACH,
+  type FpRayHit,
+  raycastFpGrid,
+} from "./bunker-fp-raycast";
+import { resetFpTarget, setFpTarget } from "./bunker-fp-target-state";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import {
   graphicsFeaturesFor,
@@ -65,6 +80,11 @@ import {
 } from "./graphics-quality";
 import { DIRT_BLOCK_GEOMETRY } from "./mine-block-geometries";
 import { blockDetailEnabled, rockBlockMaterial } from "./mine-block-materials";
+import {
+  BUNKER_TOOL_HIGHLIGHT,
+  type BunkerToolAction,
+  type CarriedBunkerPart,
+} from "./mine-bunker-toolbelt";
 import { cellHash, rockColorsForBiome } from "./mine-render-palette";
 import type {
   SurfaceGeometryLayer,
@@ -77,16 +97,18 @@ import {
 } from "./mine-surface-materials";
 
 /**
- * First-person walkable viewer for the bunker interior (7x5x5 cells).
- * Slice 4 of the fp-building arc: walking, looking, and exiting only;
- * no editing, no raycast targeting, no store writes. The canvas swaps
- * in for MineCanvas while mine-panel's fpBunkerActive flag is set.
+ * First-person walkable viewer and editor for the bunker interior
+ * (7x5x5 cells). Slice 5 of the fp-building arc adds the crosshair
+ * raycast, tri-color target outline, ghost preview, and edit intents:
+ * the canvas asks mine-panel to place, pry, or dig (onEdit); the panel
+ * owns the pending/banked store split, inventory guards, and feedback.
  *
  * Frame discipline: the rig's single useFrame allocates nothing
- * (module-scope scratch Euler, per-mount input scratch object, dataset
- * writes through dataset-diagnostics). Rock instances are written at
- * mount/store cadence into one InstancedMesh whose geometry and
- * material are shared singletons.
+ * (module-scope scratch Euler, per-mount input scratch object and ray
+ * hit record, dataset writes through dataset-diagnostics, signature
+ * caches gating every string build and React-visible update). Rock
+ * instances are written at mount/store cadence into one InstancedMesh
+ * whose geometry and material are shared singletons.
  */
 
 const FP_FOG_COLOR = "#0b0e14";
@@ -125,9 +147,48 @@ interface FpEntryCell {
 export interface BunkerFpCanvasProps {
   bunker: BunkerState;
   entry: FpEntryCell;
+  /** The active tool: build places, pry lifts, dig excavates. */
+  tool: BunkerToolAction;
+  /** The part the build ghost previews (and a click places). */
+  selectedPartId: BasePartId;
+  /** A pried part being carried; placing moves it instead. */
+  carried: CarriedBunkerPart | null;
+  onEdit: (intent: FpEditIntent) => void;
   onExit: () => void;
   onFirstFrame?: () => void;
 }
+
+/** Target outline colors by action (build, pry, dig): one shared
+ * edges geometry, three singleton line materials, mutated per frame
+ * by the rig (never recreated, so no pipeline churn). */
+const FP_OUTLINE_GEOMETRY = (() => {
+  const box = new BoxGeometry(1.02, 1.02, 1.02);
+  const edges = new EdgesGeometry(box);
+  box.dispose();
+  return edges;
+})();
+const FP_OUTLINE_MATERIALS: readonly LineBasicMaterial[] = [
+  new LineBasicMaterial({ color: BUNKER_TOOL_HIGHLIGHT.build }),
+  new LineBasicMaterial({ color: BUNKER_TOOL_HIGHLIGHT.pry }),
+  new LineBasicMaterial({ color: BUNKER_TOOL_HIGHLIGHT.dig }),
+];
+const FP_OUTLINE_BUILD = 0;
+const FP_OUTLINE_PRY = 1;
+const FP_OUTLINE_DIG = 2;
+
+/** Dig crumble burst: 6 pooled shards, one active burst retargeted per
+ * dig, driven from the rig's frame loop for FP_BURST_SECONDS. */
+const FP_BURST_SECONDS = 0.4;
+const FP_BURST_SHARDS = 6;
+const FP_BURST_DIRS: readonly (readonly [number, number, number])[] =
+  Object.freeze([
+    Object.freeze([0.62, 0.55, 0.2] as const),
+    Object.freeze([-0.58, 0.62, -0.18] as const),
+    Object.freeze([0.24, 0.7, -0.52] as const),
+    Object.freeze([-0.3, 0.45, 0.6] as const),
+    Object.freeze([0.55, 0.2, -0.6] as const),
+    Object.freeze([-0.5, 0.3, 0.5] as const),
+  ]);
 
 /** One Fog and one Color live for the canvas's life (the F-075
  * no-recompile invariant: swapping the objects rekeys the node cache
@@ -328,15 +389,22 @@ function FpPartVisual({
 
 function FpPlacedParts({
   bunker,
+  carried,
   detail,
   tier,
 }: {
   bunker: BunkerState;
+  carried: CarriedBunkerPart | null;
   detail: boolean;
   tier: SurfaceGeometryTier;
 }) {
   const footprint = bunker.footprint;
   const bottomRow = footprint.row + footprint.height - 1;
+  // The pried part still occupies its cell until moved or stowed, but
+  // renders hidden while carried (the 2D overlay's visible={!carried}).
+  const carriedCol = carried?.source.col ?? -1;
+  const carriedRow = carried?.source.row ?? -1;
+  const carriedDepth = carried ? (carried.part.depth ?? 0) : -1;
   return (
     <group>
       {bunker.parts.map((part) => {
@@ -344,8 +412,16 @@ function FpPlacedParts({
         const y = bottomRow - part.row;
         const z = part.depth ?? 0;
         if (!fpCellInGrid(x, y, z)) return null;
+        const isCarried =
+          part.col === carriedCol &&
+          part.row === carriedRow &&
+          z === carriedDepth;
         return (
-          <group key={`fp-part:${x}:${y}:${z}`} position={[x, y, -z]}>
+          <group
+            key={`fp-part:${x}:${y}:${z}`}
+            position={[x, y, -z]}
+            visible={!isCarried}
+          >
             <FpPartVisual
               detail={detail}
               durability={part.durability}
@@ -395,19 +471,57 @@ function clampFpPitch(pitch: number): number {
   return Math.min(FP_PITCH_LIMIT, Math.max(-FP_PITCH_LIMIT, pitch));
 }
 
+/** Stable small codes per hit kind for the target-change signature. */
+function fpKindCode(kind: FpRayHit["kind"]): number {
+  switch (kind) {
+    case "part":
+      return 1;
+    case "core":
+      return 2;
+    case "spikes":
+      return 3;
+    case "door":
+      return 4;
+    case "rock-diggable":
+      return 5;
+    default:
+      return 6;
+  }
+}
+
+function countFpOpenCells(solid: FpSolidGrid): number {
+  let open = 0;
+  for (let i = 0; i < FP_CELL_COUNT; i++) {
+    if (solid[i] === FP_OPEN) open += 1;
+  }
+  return open;
+}
+
 /**
  * The walking rig: consumes look deltas and movement input, steps the
- * pure movement model against the solid grid, and writes the camera
- * pose plus the data-fp-* diagnostics. Returns null; one useFrame.
+ * pure movement model against the solid grid, runs the crosshair
+ * raycast, drives the target outline, ghost preview, and dig burst,
+ * emits edit intents, and writes the camera pose plus the data-fp-*
+ * diagnostics. One useFrame; steady-state frames allocate nothing.
  */
 function BunkerFpRig({
   bunker,
   entry,
   coreRef,
+  tool,
+  onEdit,
+  outlineRef,
+  ghostRef,
+  detail,
 }: {
   bunker: BunkerState;
   entry: FpEntryCell;
   coreRef: RefObject<Mesh | null>;
+  tool: BunkerToolAction;
+  onEdit: (intent: FpEditIntent) => void;
+  outlineRef: RefObject<LineSegments | null>;
+  ghostRef: RefObject<Group | null>;
+  detail: boolean;
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -424,18 +538,41 @@ function BunkerFpRig({
   // The solid grid rebuilds only when the bunker reference changes
   // (store mutations swap it). Rebuild in a layout effect so a
   // speculative or discarded render can never mutate the grid the
-  // frame loop reads; the lazy init covers the first frame.
+  // frame loop reads; the lazy init covers the first frame. The
+  // previous grid sticks around so a rebuild can spot the one
+  // rock-to-open transition a dig makes and aim the crumble burst.
   const solidRef = useRef<FpSolidGrid | null>(null);
+  const prevSolidRef = useRef<FpSolidGrid | null>(null);
   const builtForRef = useRef<BunkerState | null>(null);
-  if (!solidRef.current) {
+  const gridRevisionRef = useRef(0);
+  const openCellsRef = useRef(0);
+  const burstRemainingRef = useRef(0);
+  const burstCellRef = useRef({ x: 0, y: 0, z: 0 });
+  if (!solidRef.current || !prevSolidRef.current) {
     solidRef.current = createFpSolidGrid();
+    prevSolidRef.current = createFpSolidGrid();
     builtForRef.current = bunker;
     buildFpSolidGrid(bunker, solidRef.current);
+    prevSolidRef.current.set(solidRef.current);
+    openCellsRef.current = countFpOpenCells(solidRef.current);
   }
   useLayoutEffect(() => {
-    if (builtForRef.current === bunker || !solidRef.current) return;
+    const solid = solidRef.current;
+    const prev = prevSolidRef.current;
+    if (builtForRef.current === bunker || !solid || !prev) return;
     builtForRef.current = bunker;
-    buildFpSolidGrid(bunker, solidRef.current);
+    prev.set(solid);
+    buildFpSolidGrid(bunker, solid);
+    gridRevisionRef.current += 1;
+    openCellsRef.current = countFpOpenCells(solid);
+    for (let i = 0; i < FP_CELL_COUNT; i++) {
+      if (prev[i] !== FP_ROCK_UNDUG || solid[i] !== FP_OPEN) continue;
+      const cell = burstCellRef.current;
+      cell.x = i % FP_COLS;
+      cell.y = Math.floor(i / FP_COLS) % FP_ROWS;
+      cell.z = Math.floor(i / (FP_COLS * FP_ROWS));
+      burstRemainingRef.current = FP_BURST_SECONDS;
+    }
   }, [bunker]);
 
   // Spawn once per mount: the miner's mine cell on the tunnel plane,
@@ -466,15 +603,35 @@ function BunkerFpRig({
 
   // Pointer lock on canvas click (desktop only); mouse look while
   // locked. Touch look arrives through fpInput from the DOM HUD zones.
+  // Mouse acts (left = tool, right = quick pry) only fire while the
+  // lock is held, so the click that acquires it is swallowed. When the
+  // environment cannot grant pointer lock at all (the request
+  // rejects), acts fire unlocked instead of never. data-fp-lock
+  // publishes which regime the canvas is in.
+  const lockUnavailableRef = useRef(false);
   useEffect(() => {
     const canvas = gl.domElement;
     const coarse = window.matchMedia(
       "(hover: none) and (pointer: coarse)",
     ).matches;
+    const publishLock = () => {
+      canvas.dataset.fpLock =
+        document.pointerLockElement === canvas
+          ? "locked"
+          : lockUnavailableRef.current
+            ? "unavailable"
+            : "unlocked";
+    };
+    publishLock();
     const onClick = () => {
       if (coarse || document.pointerLockElement === canvas) return;
       const result = canvas.requestPointerLock() as unknown;
-      if (result instanceof Promise) result.catch(() => {});
+      if (result instanceof Promise) {
+        result.catch(() => {
+          lockUnavailableRef.current = true;
+          publishLock();
+        });
+      }
     };
     const onMouseMove = (event: MouseEvent) => {
       if (document.pointerLockElement !== canvas) return;
@@ -483,19 +640,77 @@ function BunkerFpRig({
         pitchRef.current - event.movementY * FP_MOUSE_LOOK,
       );
     };
+    const onMouseDown = (event: MouseEvent) => {
+      if (coarse) return;
+      const locked = document.pointerLockElement === canvas;
+      if (!locked && !lockUnavailableRef.current) return;
+      if (event.button === 0) fpInput.act = true;
+      else if (event.button === 2) fpInput.pryAct = true;
+    };
+    const onContextMenu = (event: Event) => {
+      event.preventDefault();
+    };
     canvas.addEventListener("click", onClick);
+    canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("contextmenu", onContextMenu);
     document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("pointerlockchange", publishLock);
     return () => {
       canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("mousedown", onMouseDown);
+      canvas.removeEventListener("contextmenu", onContextMenu);
       document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("pointerlockchange", publishLock);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     };
   }, [gl]);
 
+  // The DOM target label empties when the viewer unmounts.
+  useEffect(() => resetFpTarget, []);
+
+  // Crosshair state: a per-mount ray hit record the frame loop reuses,
+  // plus change signatures so probe strings, the target label, and
+  // material swaps only happen when the target actually moved.
+  const rayHitRef = useRef<FpRayHit | null>(null);
+  if (!rayHitRef.current) rayHitRef.current = createFpRayHit();
+  const targetSigRef = useRef(Number.NaN);
+  const placeSigRef = useRef(Number.NaN);
+  const outlineKindRef = useRef(-1);
+
+  // Dig crumble burst: one pooled InstancedMesh over the shared dirt
+  // block geometry and rock material (both compiled by the warm pass),
+  // retargeted per dig. Only the per-mount mesh is disposed on
+  // unmount; the geometry and material singletons stay alive.
+  const burstGroupRef = useRef<Group | null>(null);
+  const burstMeshRef = useRef<InstancedMesh | null>(null);
+  useLayoutEffect(() => {
+    const group = burstGroupRef.current;
+    if (!group) return;
+    const mesh = new InstancedMesh(
+      DIRT_BLOCK_GEOMETRY,
+      rockBlockMaterial(FP_ROCK_TINT, detail),
+      FP_BURST_SHARDS,
+    );
+    mesh.frustumCulled = false;
+    for (let i = 0; i < FP_BURST_SHARDS; i++) {
+      mesh.setColorAt(i, rockColor.setScalar(FP_ROCK_INTERIOR_LIFT));
+    }
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.count = 0;
+    group.add(mesh);
+    burstMeshRef.current = mesh;
+    return () => {
+      group.remove(mesh);
+      mesh.dispose();
+      burstMeshRef.current = null;
+    };
+  }, [detail]);
+
   useFrame((state, delta) => {
     const move = moveRef.current;
     const solid = solidRef.current;
-    if (!move || !solid) return;
+    const rayHit = rayHitRef.current;
+    if (!move || !solid || !rayHit) return;
 
     // Test-only one-shot camera aim (no-op in normal play).
     const hook = window.__vibebotsFp;
@@ -536,17 +751,221 @@ function BunkerFpRig({
       core.rotation.x = Math.sin(state.clock.elapsedTime * 0.9) * 0.12;
     }
 
+    // Crosshair raycast from the eye along the camera forward (scalar
+    // yaw/pitch basis, no vector allocations).
+    const eyeY = move.py + FP_EYE_HEIGHT;
+    const cosPitch = Math.cos(pitchRef.current);
+    raycastFpGrid(
+      move.px,
+      eyeY,
+      move.pz,
+      -Math.sin(yawRef.current) * cosPitch,
+      Math.sin(pitchRef.current),
+      -Math.cos(yawRef.current) * cosPitch,
+      solid,
+      FP_MAX_REACH,
+      rayHit,
+    );
+
+    // Placement validity: the ray crossed an open cell that is still
+    // open and would not entomb the player's capsule.
+    const placeOk =
+      rayHit.hit &&
+      rayHit.placeX >= 0 &&
+      solid[fpCellIndex(rayHit.placeX, rayHit.placeY, rayHit.placeZ)] ===
+        FP_OPEN &&
+      !fpCellIntersectsCapsule(
+        rayHit.placeX,
+        rayHit.placeY,
+        rayHit.placeZ,
+        move.px,
+        move.py,
+        move.pz,
+      );
+    const targetPryable =
+      rayHit.hit &&
+      (rayHit.kind === "part" ||
+        rayHit.kind === "door" ||
+        rayHit.kind === "spikes");
+    const targetDiggable = rayHit.hit && rayHit.kind === "rock-diggable";
+
+    // Tri-color target outline: visible when the current tool can act
+    // on what the crosshair sees, tinted per action.
+    const outline = outlineRef.current;
+    if (outline) {
+      let outlineKind = -1;
+      if (tool === "pry") {
+        if (targetPryable) outlineKind = FP_OUTLINE_PRY;
+      } else if (tool === "dig") {
+        if (targetDiggable) outlineKind = FP_OUTLINE_DIG;
+      } else if (placeOk) {
+        outlineKind = FP_OUTLINE_BUILD;
+      }
+      outline.visible = outlineKind >= 0;
+      if (outlineKind >= 0) {
+        outline.position.set(rayHit.x, rayHit.y, -rayHit.z);
+        if (outlineKindRef.current !== outlineKind) {
+          outlineKindRef.current = outlineKind;
+          outline.material = FP_OUTLINE_MATERIALS[outlineKind];
+        }
+      }
+    }
+
+    // Ghost preview at the place cell (build mode only).
+    const ghost = ghostRef.current;
+    if (ghost) {
+      const ghostVisible = tool === "build" && placeOk;
+      ghost.visible = ghostVisible;
+      if (ghostVisible) {
+        ghost.position.set(rayHit.placeX, rayHit.placeY, -rayHit.placeZ);
+      }
+    }
+
     const cache = datasetCacheRef.current;
     const dataset = gl.domElement.dataset;
+
+    // Target and place probes plus the DOM label, gated by change
+    // signatures so strings only build when the target moved.
+    const targetSig = rayHit.hit
+      ? gridRevisionRef.current * 100_000 +
+        ((rayHit.z + 1) * 100 + (rayHit.y + 1) * 10 + (rayHit.x + 1)) * 10 +
+        fpKindCode(rayHit.kind)
+      : gridRevisionRef.current * 100_000 - 1;
+    if (targetSigRef.current !== targetSig) {
+      targetSigRef.current = targetSig;
+      if (!rayHit.hit) {
+        setDatasetText(cache, dataset, "fpTarget", "none");
+        setFpTarget("none", null, 0);
+      } else {
+        setDatasetText(
+          cache,
+          dataset,
+          "fpTarget",
+          `${rayHit.x}:${rayHit.y}:${rayHit.z}:${rayHit.kind}`,
+        );
+        if (targetPryable) {
+          const footprint = bunker.footprint;
+          const bottomRow = footprint.row + footprint.height - 1;
+          let targetPart: BunkerState["parts"][number] | null = null;
+          for (let i = 0; i < bunker.parts.length; i++) {
+            const part = bunker.parts[i];
+            if (
+              part.col - footprint.col === rayHit.x &&
+              bottomRow - part.row === rayHit.y &&
+              (part.depth ?? 0) === rayHit.z
+            ) {
+              targetPart = part;
+              break;
+            }
+          }
+          setFpTarget(
+            rayHit.kind,
+            targetPart?.partId ?? null,
+            targetPart?.durability ?? 0,
+          );
+        } else {
+          setFpTarget(rayHit.kind, null, 0);
+        }
+      }
+    }
+    const placeSig = placeOk
+      ? fpCellIndex(rayHit.placeX, rayHit.placeY, rayHit.placeZ)
+      : -1;
+    if (placeSigRef.current !== placeSig) {
+      placeSigRef.current = placeSig;
+      setDatasetText(
+        cache,
+        dataset,
+        "fpPlace",
+        placeSig >= 0
+          ? `${rayHit.placeX}:${rayHit.placeY}:${rayHit.placeZ}`
+          : "none",
+      );
+    }
+
+    // Edit intents (input cadence; the intent object is the only
+    // allocation and only on an accepted act).
+    if (fpInput.act || fpInput.pryAct) {
+      const quickPry = fpInput.pryAct;
+      fpInput.act = false;
+      fpInput.pryAct = false;
+      const action = quickPry ? "pry" : tool;
+      if (action === "pry") {
+        if (targetPryable) {
+          onEdit({
+            kind: "pry",
+            cell: fpGridCellFromLocal(
+              bunker.footprint,
+              rayHit.x,
+              rayHit.y,
+              rayHit.z,
+            ),
+          });
+        }
+      } else if (action === "dig") {
+        if (targetDiggable) {
+          onEdit({
+            kind: "dig",
+            cell: fpGridCellFromLocal(
+              bunker.footprint,
+              rayHit.x,
+              rayHit.y,
+              rayHit.z,
+            ),
+          });
+        }
+      } else if (placeOk) {
+        onEdit({
+          kind: "place",
+          cell: fpGridCellFromLocal(
+            bunker.footprint,
+            rayHit.placeX,
+            rayHit.placeY,
+            rayHit.placeZ,
+          ),
+        });
+      }
+    }
+
+    // Dig crumble burst: shards fly out of the dug cell and settle.
+    const burstMesh = burstMeshRef.current;
+    if (burstMesh) {
+      if (burstRemainingRef.current > 0) {
+        burstRemainingRef.current -= delta;
+        const p = Math.min(1, 1 - burstRemainingRef.current / FP_BURST_SECONDS);
+        const cell = burstCellRef.current;
+        const reach = 0.12 + p * 0.55;
+        const size = 0.16 * (1 - p * 0.85);
+        for (let i = 0; i < FP_BURST_SHARDS; i++) {
+          const dir = FP_BURST_DIRS[i];
+          rockPosition.set(
+            cell.x + dir[0] * reach,
+            cell.y + dir[1] * reach - p * p * 0.5,
+            -cell.z + dir[2] * reach,
+          );
+          rockEuler.set(p * 2 + i, p * 3, i * 0.7);
+          rockQuaternion.setFromEuler(rockEuler);
+          rockScale.setScalar(Math.max(0.01, size));
+          rockMatrix.compose(rockPosition, rockQuaternion, rockScale);
+          burstMesh.setMatrixAt(i, rockMatrix);
+        }
+        burstMesh.count = FP_BURST_SHARDS;
+        burstMesh.instanceMatrix.needsUpdate = true;
+      } else if (burstMesh.count !== 0) {
+        burstMesh.count = 0;
+      }
+    }
+
     setDatasetNumber(cache, dataset, "fpEyeX", move.px, 2);
-    setDatasetNumber(cache, dataset, "fpEyeY", move.py + FP_EYE_HEIGHT, 2);
+    setDatasetNumber(cache, dataset, "fpEyeY", eyeY, 2);
     setDatasetNumber(cache, dataset, "fpEyeZ", move.pz, 2);
     setDatasetNumber(cache, dataset, "fpYaw", yawRef.current, 2);
     setDatasetNumber(cache, dataset, "fpPitch", pitchRef.current, 2);
+    setDatasetNumber(cache, dataset, "fpOpenCells", openCellsRef.current, 0);
     setDatasetText(cache, dataset, "fpGrounded", move.grounded ? "1" : "0");
   });
 
-  return null;
+  return <group ref={burstGroupRef} />;
 }
 
 // Shared warm-up mesh geometry (compiles each program once at load).
@@ -568,6 +987,11 @@ function warmBunkerFpMaterials(
   group.position.set(0, 0, -500);
   for (const material of collectBunkerPartMaterials(detail)) {
     group.add(new Mesh(FP_WARMUP_GEOMETRY, material));
+  }
+  // The crosshair outline's line pipeline (three materials, one
+  // program family) compiles here instead of on first target.
+  for (const material of FP_OUTLINE_MATERIALS) {
+    group.add(new LineSegmentsImpl(FP_OUTLINE_GEOMETRY, material));
   }
   const rockWarm = new InstancedMesh(
     FP_WARMUP_GEOMETRY,
@@ -604,10 +1028,18 @@ function warmBunkerFpMaterials(
 function BunkerFpScene({
   bunker,
   entry,
+  tool,
+  selectedPartId,
+  carried,
+  onEdit,
   onWarmed,
 }: {
   bunker: BunkerState;
   entry: FpEntryCell;
+  tool: BunkerToolAction;
+  selectedPartId: BasePartId;
+  carried: CarriedBunkerPart | null;
+  onEdit: (intent: FpEditIntent) => void;
   onWarmed: () => void;
 }) {
   const gl = useThree((state) => state.gl);
@@ -627,6 +1059,9 @@ function BunkerFpScene({
   }
   const tier = tierRef.current;
   const coreRef = useRef<Mesh | null>(null);
+  const outlineRef = useRef<LineSegments | null>(null);
+  const ghostRef = useRef<Group | null>(null);
+  const ghostPartId = carried?.part.partId ?? selectedPartId;
 
   useEffect(() => {
     const warm = warmBunkerFpMaterials(gl, scene, camera, detail, tier);
@@ -658,9 +1093,41 @@ function BunkerFpScene({
         color="#9fb4d8"
       />
       <FpRockInstances bunker={bunker} detail={detail} />
-      <FpPlacedParts bunker={bunker} detail={detail} tier={tier} />
+      <FpPlacedParts
+        bunker={bunker}
+        carried={carried}
+        detail={detail}
+        tier={tier}
+      />
       <FpCore bunker={bunker} coreRef={coreRef} />
-      <BunkerFpRig bunker={bunker} entry={entry} coreRef={coreRef} />
+      {/* Target outline and ghost preview: mounted once over shared
+          singletons, positioned and shown imperatively by the rig. */}
+      <lineSegments
+        ref={outlineRef}
+        geometry={FP_OUTLINE_GEOMETRY}
+        material={FP_OUTLINE_MATERIALS[FP_OUTLINE_BUILD]}
+        visible={false}
+        dispose={null}
+      />
+      <group ref={ghostRef} visible={false} scale={0.92}>
+        <FpPartVisual
+          detail={detail}
+          durability={BASE_PART_CATALOG[ghostPartId].durability}
+          partId={ghostPartId}
+          skin={bunker.skin}
+          tier={tier}
+        />
+      </group>
+      <BunkerFpRig
+        bunker={bunker}
+        entry={entry}
+        coreRef={coreRef}
+        tool={tool}
+        onEdit={onEdit}
+        outlineRef={outlineRef}
+        ghostRef={ghostRef}
+        detail={detail}
+      />
     </>
   );
 }
@@ -668,6 +1135,10 @@ function BunkerFpScene({
 export default function BunkerFpCanvas({
   bunker,
   entry,
+  tool,
+  selectedPartId,
+  carried,
+  onEdit,
   onFirstFrame,
 }: BunkerFpCanvasProps) {
   const features = graphicsFeaturesFor(
@@ -686,7 +1157,15 @@ export default function BunkerFpCanvas({
       gl={createWebGPU}
       shadows={false}
     >
-      <BunkerFpScene bunker={bunker} entry={entry} onWarmed={startFrames} />
+      <BunkerFpScene
+        bunker={bunker}
+        entry={entry}
+        tool={tool}
+        selectedPartId={selectedPartId}
+        carried={carried}
+        onEdit={onEdit}
+        onWarmed={startFrames}
+      />
       <CanvasDrawCallProbe onFirstFrame={onFirstFrame} />
       <PerfProbeBridge source="bunker-fp" />
     </Canvas>

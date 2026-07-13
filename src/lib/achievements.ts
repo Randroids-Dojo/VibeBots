@@ -42,6 +42,7 @@ export type AchievementMetric =
   | "bunkerRaidsSurvived"
   | "raidsSurvivedSealed"
   | "bunkerSkinsBought"
+  | "bunkerCellsDug"
   | "matchWins"
   | "chassisFought"
   | "partsMaxed"
@@ -68,6 +69,8 @@ export interface AchievementStats {
   raidsSurvivedSealed: number;
   /** Paid bunker skins purchased (durable: bunkers.skins_owned). */
   bunkerSkinsBought: number;
+  /** Bunker claim-rock cells excavated (durable: bunkers.dug). */
+  bunkerCellsDug: number;
   /** Server-verified arena match wins (durable: match_records). */
   matchWins: number;
   /** Distinct core chassis fielded across official matches (0-3). */
@@ -121,6 +124,7 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   bunkerRaidsSurvived: 0,
   raidsSurvivedSealed: 0,
   bunkerSkinsBought: 0,
+  bunkerCellsDug: 0,
   matchWins: 0,
   chassisFought: 0,
   partsMaxed: 0,
@@ -480,6 +484,15 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     target: 1,
   },
   {
+    id: "bunker-groundbreaker",
+    category: "survival",
+    title: "Groundbreaker",
+    description: "Dig your first cell into the bunker's claim rock.",
+    stamp: "GB",
+    metric: "bunkerCellsDug",
+    target: 1,
+  },
+  {
     id: "battle-chassis-tour",
     category: "battle",
     title: "Chassis Tour",
@@ -564,6 +577,7 @@ export function mergeAchievementStats(
       current.raidsSurvivedSealed + (patch.raidsSurvivedSealed ?? 0),
     bunkerSkinsBought:
       current.bunkerSkinsBought + (patch.bunkerSkinsBought ?? 0),
+    bunkerCellsDug: current.bunkerCellsDug + (patch.bunkerCellsDug ?? 0),
     matchWins: current.matchWins + (patch.matchWins ?? 0),
     // Derived levels, not event counts: the server recomputes them from
     // durable records at snapshot time, so merging takes the high water.

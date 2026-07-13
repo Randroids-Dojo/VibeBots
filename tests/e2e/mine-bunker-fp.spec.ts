@@ -1,11 +1,55 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { imagePixelDifferenceRatio } from "./support/image-pixels";
 import {
   awaitMineSceneReady,
+  createMine,
+  DEFAULT_GEAR,
   digTo,
   dismissReleaseNotes,
+  exportDiff,
+  MINE_VERSION,
   START_COL,
+  STARTING_CONSUMABLES,
+  setCell,
 } from "./support/mine-helpers";
+
+/** Aims the fp camera through the one-shot test hook and waits for the
+ * rig to consume it. */
+async function aimFp(page: Page, yaw: number, pitch: number): Promise<void> {
+  await page.evaluate(
+    ([yawValue, pitchValue]) => {
+      (
+        window as unknown as {
+          __vibebotsFp?: { setYaw?: number; setPitch?: number };
+        }
+      ).__vibebotsFp = { setYaw: yawValue, setPitch: pitchValue };
+    },
+    [yaw, pitch] as const,
+  );
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-yaw")), {
+      timeout: 10_000,
+    })
+    .toBeCloseTo(yaw, 1);
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-pitch")), {
+      timeout: 10_000,
+    })
+    .toBeCloseTo(pitch, 1);
+}
+
+/** First canvas click acquires (or proves unavailable) pointer lock and
+ * is swallowed by design; later clicks act. Settles that handshake. */
+async function armFpPointer(page: Page): Promise<void> {
+  const canvas = page.locator("canvas");
+  await canvas.click();
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-lock"), {
+      timeout: 10_000,
+    })
+    .not.toBe("unlocked");
+}
 
 /** The banked-bunker view the walkable-viewer flow runs against: a
  * 7x5 claim around the miner's dig column with one placed wall. */
@@ -283,4 +327,367 @@ test("the first-person entry hides while a failed raid blocks editing", async ({
   await expect(page.getByTestId("bunker-fp-enter-panel")).toHaveCount(0);
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-fp-mode", "0");
+});
+
+test("first-person building loop on a pending claim: place, pry, dig, walk in, move", async ({
+  page,
+}) => {
+  // Software-GL runners compile the fp scene slowly, and this test
+  // decodes several full screenshots for the motion proofs.
+  test.setTimeout(240_000);
+  const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 6; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      setCell(mine, col, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 6061,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: null,
+        inventory: {
+          "wall-panel": 2,
+          "floor-panel": 3,
+          "roof-panel": 3,
+          "door-panel": 1,
+          "basic-turret": 0,
+          "floor-spikes": 0,
+        },
+        activeRaid: null,
+        player: FP_BUNKER_VIEW.player,
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
+    },
+    {
+      seed: 6061,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "5");
+
+  // Claim locally (the pending branch): the trip owns the bunker until
+  // it banks at the surface.
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
+  await claimSheet.getByRole("button", { name: "Close" }).click();
+
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+
+  // A fresh claim opens the whole tunnel plane except the core cell.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
+      timeout: 20_000,
+    })
+    .toBe("34");
+
+  // Spawn faces -z: interior claim rock dead ahead, own cell as place.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 20_000,
+    })
+    .toBe("3:0:1:rock-diggable");
+  // The only open cell the ray crossed is the player's own, which the
+  // capsule guard rejects: no valid placement while facing the rock.
+  await expect(canvas).toHaveAttribute("data-fp-place", "none");
+  await expect(page.locator(".bunker-fp-target-label")).toHaveText(
+    "Claim rock (diggable)",
+  );
+
+  // Select the wall from the hotbar (before any canvas click so the
+  // pointer-lock handshake cannot swallow the tap).
+  const wallSlot = page.getByTestId("bunker-fp-slot-wall-panel");
+  const wallCountBefore = await wallSlot.getAttribute("aria-label");
+  expect(wallCountBefore).toMatch(/^Wall x\d+$/);
+  const wallCount = Number((wallCountBefore ?? "").replace("Wall x", ""));
+  expect(wallCount).toBeGreaterThan(0);
+  await wallSlot.click();
+  await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
+
+  // Aim down-left: the ray crosses the open cell (2,0,0) and lands on
+  // the floor boundary, so the crossed cell becomes the place cell.
+  await aimFp(page, 1.57, -0.62);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-place"), {
+      timeout: 10_000,
+    })
+    .toBe("2:0:0");
+  await expect(canvas).toHaveAttribute("data-fp-target", "2:-1:0:rock");
+
+  await armFpPointer(page);
+  const beforePlace = await canvas.screenshot();
+  await canvas.click();
+
+  // The wall lands in the place cell: count drops, the grid closes the
+  // cell, and the crosshair now sees the part it placed.
+  await expect(wallSlot).toHaveAttribute(
+    "aria-label",
+    `Wall x${wallCount - 1}`,
+    { timeout: 10_000 },
+  );
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 10_000,
+    })
+    .toBe("2:0:0:part");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "33");
+  await expect(page.locator(".bunker-fp-target-label")).toHaveText(
+    "Wall 90/90",
+  );
+  const afterPlace = await canvas.screenshot();
+  expect(
+    await imagePixelDifferenceRatio(page, beforePlace, afterPlace),
+  ).toBeGreaterThan(0.00005);
+  const placedPart = await page.evaluate(() =>
+    JSON.parse(
+      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+    ).pendingBunker?.bunker.parts.at(-1),
+  );
+  expect(placedPart).toMatchObject({
+    partId: "wall-panel",
+    col: START_COL - 1,
+    row: 5,
+    depth: 0,
+  });
+
+  // Right-click quick pry lifts the wall into the carry.
+  await canvas.click({ button: "right" });
+  const carried = page.locator(".bunker-fp-carried");
+  await expect(carried).toBeVisible({ timeout: 10_000 });
+  await expect(carried).toContainText("Wall");
+
+  // The pick digs the rock straight ahead; the room gains a cell.
+  await page.keyboard.press("0");
+  await expect(page.getByTestId("bunker-fp-pick")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await aimFp(page, 0, 0);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 10_000,
+    })
+    .toBe("3:0:1:rock-diggable");
+  const beforeDig = await canvas.screenshot();
+  await canvas.click();
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
+      timeout: 10_000,
+    })
+    .toBe("34");
+  const afterDig = await canvas.screenshot();
+  expect(
+    await imagePixelDifferenceRatio(page, beforeDig, afterDig),
+  ).toBeGreaterThan(0.00005);
+  const dugCells = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}")
+        .pendingBunker?.bunker.dug,
+  );
+  expect(dugCells).toEqual([{ col: START_COL, row: 5, depth: 1 }]);
+
+  // Walk INTO the newly dug cell, then back out to the tunnel plane.
+  await page.keyboard.down("w");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-eye-z")), {
+      timeout: 15_000,
+    })
+    .toBeLessThan(-0.5);
+  await page.keyboard.up("w");
+  await page.keyboard.down("s");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-eye-z")), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(-0.05);
+  await page.keyboard.up("s");
+
+  // Re-arm build mode; placing while carrying MOVES the carried wall
+  // into the dug cell (no extra stock consumed).
+  await page.keyboard.press("1");
+  await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-place"), {
+      timeout: 10_000,
+    })
+    .toBe("3:0:1");
+  const beforeMove = await canvas.screenshot();
+  await canvas.click();
+  await expect(carried).toHaveCount(0, { timeout: 10_000 });
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 10_000,
+    })
+    .toBe("3:0:1:part");
+  await expect(wallSlot).toHaveAttribute(
+    "aria-label",
+    `Wall x${wallCount - 1}`,
+  );
+  const afterMove = await canvas.screenshot();
+  expect(
+    await imagePixelDifferenceRatio(page, beforeMove, afterMove),
+  ).toBeGreaterThan(0.00005);
+  const movedPart = await page.evaluate(() =>
+    JSON.parse(
+      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+    ).pendingBunker?.bunker.parts.at(-1),
+  );
+  expect(movedPart).toMatchObject({
+    partId: "wall-panel",
+    col: START_COL,
+    row: 5,
+    depth: 1,
+  });
+});
+
+test("first-person dig and place round-trip the banked bunker APIs with depth", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const dugView = {
+    ...FP_BUNKER_VIEW,
+    bunker: {
+      ...FP_BUNKER_VIEW.bunker,
+      dug: [{ col: START_COL, row: 5, depth: 1 }],
+    },
+  };
+  const placedView = {
+    ...dugView,
+    bunker: {
+      ...dugView.bunker,
+      parts: [
+        ...FP_BUNKER_VIEW.bunker.parts,
+        {
+          partId: "wall-panel",
+          col: START_COL,
+          row: 5,
+          depth: 1,
+          durability: 90,
+        },
+      ],
+    },
+    inventory: { ...FP_BUNKER_VIEW.inventory, "wall-panel": 5 },
+  };
+  const excavateBodies: unknown[] = [];
+  const placeBodies: unknown[] = [];
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FP_BUNKER_VIEW),
+    });
+  });
+  await page.route("**/api/bunker/excavate", async (route) => {
+    excavateBodies.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(dugView),
+    });
+  });
+  await page.route("**/api/bunker/parts/place", async (route) => {
+    placeBodies.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(placedView),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  // 35 tunnel-plane cells minus the core and the fixture's wall.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
+      timeout: 20_000,
+    })
+    .toBe("33");
+
+  // Dig the rock straight ahead through the banked excavate API.
+  await page.keyboard.press("0");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 20_000,
+    })
+    .toBe("3:0:1:rock-diggable");
+  await armFpPointer(page);
+  await canvas.click();
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
+      timeout: 10_000,
+    })
+    .toBe("34");
+  expect(excavateBodies).toEqual([{ col: START_COL, row: 5, depth: 1 }]);
+
+  // Place a wall into the dug cell through the banked place API.
+  await page.keyboard.press("1");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-place"), {
+      timeout: 10_000,
+    })
+    .toBe("3:0:1");
+  await canvas.click();
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 10_000,
+    })
+    .toBe("3:0:1:part");
+  expect(placeBodies).toEqual([
+    { partId: "wall-panel", col: START_COL, row: 5, depth: 1 },
+  ]);
+  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
+    "aria-label",
+    "Wall x5",
+  );
 });

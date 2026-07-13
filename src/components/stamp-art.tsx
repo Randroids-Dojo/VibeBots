@@ -515,6 +515,31 @@ const STAMP_PICTOGRAMS: Record<
       />
     </g>
   ),
+  "bunker-groundbreaker": ({ accent }) => (
+    <g>
+      {/* A pick breaking the first cell out of coursed claim rock. */}
+      <path d="M14 32 h12 M44 32 h6 M14 44 h36" strokeWidth="2" />
+      <path
+        d="M20 32 v12 M32 44 v-2 M44 32 v12"
+        strokeWidth="1.5"
+        opacity="0.7"
+      />
+      <rect
+        x="26"
+        y="30"
+        width="18"
+        height="14"
+        rx="1"
+        fill={accent}
+        opacity="0.22"
+        stroke="none"
+      />
+      <path d="M26 30 h18 v14 h-18 z" stroke={accent} strokeWidth="2" />
+      <path d="M18 14 q14 -8 28 2" />
+      <path d="M31 12 l6 24" stroke={accent} strokeWidth="2.5" />
+      <path d="M22 26 l-4 -3 M46 26 l4 -4" strokeWidth="1.5" />
+    </g>
+  ),
   "battle-first-blood": ({ accent }) => (
     <g>
       <path d="M32 12 l3 5 v19 h-6 v-19 z" />

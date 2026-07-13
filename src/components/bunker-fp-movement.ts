@@ -58,6 +58,29 @@ export interface FpMoveInput {
   yaw: number;
 }
 
+/**
+ * True when a cell's 1x1x1 AABB overlaps the player's capsule box (the
+ * same box the movement resolver uses: half-extents FP_CAPSULE_RADIUS
+ * in x/z, FP_CAPSULE_HEIGHT tall from the feet at py). The build
+ * placement guard rejects place cells that would entomb the player.
+ * Pure scalar math, safe per frame.
+ */
+export function fpCellIntersectsCapsule(
+  cellX: number,
+  cellY: number,
+  cellZ: number,
+  px: number,
+  py: number,
+  pz: number,
+): boolean {
+  return (
+    Math.abs(px - cellX) < 0.5 + FP_CAPSULE_RADIUS &&
+    py < cellY + 0.5 &&
+    py + FP_CAPSULE_HEIGHT > cellY - 0.5 &&
+    Math.abs(pz - -cellZ) < 0.5 + FP_CAPSULE_RADIUS
+  );
+}
+
 enum Axis {
   X = 0,
   Z = 1,

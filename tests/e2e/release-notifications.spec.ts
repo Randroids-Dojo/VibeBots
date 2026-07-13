@@ -21,16 +21,16 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Movement keeps its pace but stops eating your inputs.",
+    "Held moves glide through cells; the camera keeps up exactly.",
   );
-  await expect(dialog.locator("li")).toHaveCount(4);
+  await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "remembered and fires the instant it legally can",
+    "strides through cell boundaries on one continuous glide",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "opposite direction cancels a remembered move",
+    "camera moves on the miner's own step timing",
   );
-  await expect(dialog.locator("li").nth(3)).toContainText(
+  await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
 
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.243", "Walking flows instead of stuttering"],
     ["0.1.242", "Taps land instead of vanishing"],
     ["0.1.241", "Use the remote buttons to move in the mine"],
     ["0.1.240", "Point where the bunker part should go"],

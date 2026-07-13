@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="movement-stride-glide" data-date="2026-07-13">
+    <h3>Smoother movement rendering: held steps chain into one stride</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/movement-stride</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.243, slice two of the movement-feel plan. Motion tracks gain an ease weight: a step that continues the previous one (starts within <code>CHAIN_GAP_SECONDS</code> of its end, heading the same way) becomes a chained segment running the full input-repeat interval (<code>minerChainStepSeconds</code>) with a mostly-linear cruise (<code>CHAIN_EASE_WEIGHT</code> 0.35), so held walks and climbs stride through cell boundaries instead of decelerating to zero and idling ~90ms at every cell. Isolated taps keep the classic soft settle at 86% of the interval. The camera abandons its fixed 0.28s tween for the miner's own step timing, ending the arrive-first-and-wait desync on every single step. Chain detection is purely temporal-geometric on the existing track (no input plumbing into the render layer, no per-frame allocation; step timing hoisted to one computation per frame). Death playback and trip-reset snap paths are untouched (<code>easeWeight</code> defaults to full ease for externally built tracks). Speed is unchanged: the same one cell per legal action interval, rendered continuously. GDD render-juice clause amended per the approved plan.</dd>
+      <dt>Verified</dt><dd>Seven motion unit tests (chain on continuation, no chain on reversal or late taps, full ease without a chain offer, vertical chaining, blended sampling near-linear mid-chain). New e2e proves the stride with rendered-position sampling: during a held walk the longest standstill across rendered frames stays under 140ms (mutation baseline against the old glide measured 157ms), and the camera tracks the miner within 0.2 cells mid-chain; the test measures in-page timer fidelity on the same clock the cadence uses and skips honestly on dilated runners where repeats legitimately settle. mine-core, mine-ui, and mine-viewport suites green except the documented pre-existing falling-rock camera flake.</dd>
+      <dt>Tips review</dt><dd>Rule 13: reviewed for 0.1.243; no change (no rule changed, presentation only).</dd>
+      <dt>Stamp review</dt><dd>Rule 14: none added (render polish).</dd>
+    </dl>
+  </article>
+
   <article data-slice="movement-tap-buffer" data-date="2026-07-13">
     <h3>Smoother movement input: taps buffer, opposites cancel, held-up mines</h3>
     <dl>

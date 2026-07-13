@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.242-tap-buffer";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.243-stride-glide";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.243",
+      date: "2026-07-13",
+      title: "Walking flows instead of stuttering",
+      intro: "Held moves glide through cells; the camera keeps up exactly.",
+      changes: [
+        {
+          build,
+          text: "Holding a direction now strides through cell boundaries on one continuous glide instead of stopping at every cell. Single taps keep their soft settle, and speed is unchanged.",
+        },
+        {
+          build,
+          text: "The camera moves on the miner's own step timing, so it no longer runs ahead and waits at every cell.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.242",
       date: "2026-07-13",

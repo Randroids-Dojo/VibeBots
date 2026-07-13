@@ -141,7 +141,7 @@ import {
   sampleMotion,
   snapMotion,
 } from "./mine-motion";
-import { minerStepSeconds } from "./mine-pacing";
+import { minerChainStepSeconds, minerStepSeconds } from "./mine-pacing";
 import {
   type JuiceState,
   PARTICLE_KINDS,
@@ -1297,6 +1297,10 @@ function MineScene({
     const activeFall = fallPlayback.current;
     let visualTargetX = cellX(mine.miner.col);
     let visualTargetY = -mine.miner.row;
+    // One step-timing pair per frame: the camera and the miner glide on
+    // identical durations so they arrive together.
+    const stepSeconds = minerStepSeconds(mine.gear);
+    const chainSeconds = minerChainStepSeconds(mine.gear);
     // The surface ground visual sits higher than an underground cell
     // floor, so lift the bot at the ground line to keep feet on the
     // grass instead of shin-deep in the first block row. The camera
@@ -1391,6 +1395,9 @@ function MineScene({
         );
         rig.position.set(targetX, targetY, 0);
       } else {
+        // The camera rides the miner's own step timing (F-movement): a
+        // fixed faster tween used to arrive first and sit waiting at the
+        // destination cell for the rest of every single step.
         cameraMotion.current = retargetMotion(
           cameraMotion.current,
           t,
@@ -1398,7 +1405,8 @@ function MineScene({
           rig.position.y,
           targetX,
           targetY,
-          CAMERA_STEP_SECONDS,
+          stepSeconds,
+          chainSeconds,
         );
         if (motionProgress(cameraMotion.current, t) < 1)
           cameraMotion.current.frames += 1;
@@ -1617,7 +1625,7 @@ function MineScene({
     if (miner) {
       const tx = visualTargetX;
       const ty = visualTargetY;
-      const stepSeconds = minerStepSeconds(mine.gear);
+
       // Teleport-scale jumps (trip resets) snap; easing across them
       // would fly the bot up through solid rock for seconds.
       const minerJump =
@@ -1642,6 +1650,7 @@ function MineScene({
           tx,
           ty,
           stepSeconds,
+          chainSeconds,
         );
         if (motionProgress(minerMotion.current, t) < 1)
           minerMotion.current.frames += 1;

@@ -818,6 +818,12 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
         BUNKER_CLAIM_DEPTH,
       ),
     ).toEqual({ ok: false, reason: "outside" });
+    // Depth layers are whole cells: fractional depths would silently
+    // normalize to 0 on every persistence read and collide there.
+    expect(
+      placeBasePart(bunker, inventory(), "wall-panel", col, row, 0.5),
+    ).toEqual({ ok: false, reason: "outside" });
+    expect(containsBunkerCell3D(bunker.footprint, col, row, 0.5)).toBe(false);
   });
 
   it("treats each depth as its own occupancy layer", () => {

@@ -549,6 +549,7 @@ export function containsBunkerCell3D(
 ): boolean {
   return (
     containsBunkerCell(footprint, col, row) &&
+    Number.isInteger(depth) &&
     depth >= 0 &&
     depth < BUNKER_CLAIM_DEPTH
   );

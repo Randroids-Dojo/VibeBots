@@ -35,7 +35,7 @@
     <h3>Stop bunker tools when directional input stops</h3>
     <dl>
       <dt>Branch</dt><dd><code>fix/held-bunker-tool-input</code>.</dd>
-      <dt>PR</dt><dd>pending.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/160">#160</a>.</dd>
       <dt>Changed</dt><dd>Package 0.1.241 corrects the directional builder to match held input. Selecting a part or Pry makes each direction target only the corresponding neighboring square. The miner delivers timed strikes while that direction remains held, release pauses partial progress immediately, and the same hold resumes it. Automatic claim traversal and post-release hammering are removed. The explicit Hammer off control stows the tool and restores ordinary walking.</dd>
       <dt>Verification</dt><dd>Dependency gate matched VibeKit v0.3.0, Rapier 0.19.3, Next 16.2.10, three 0.185.1, and fiber 9.6.1 before and after implementation. Ran 1,169 unit tests, typecheck, lint, sim purity, dash checks, production build, JSON validation, and diff checks. Focused Chromium browser coverage proves a touch swipe and keyboard-held Pry stop after one strike on release, remain paused while waiting, resume to completion, relocate diagonally, animate visibly, switch off, walk normally, and persist after reload. The latest-release browser flow and all five critical browser checks pass.</dd>
       <dt>Assumptions</dt><dd>Recommended default: partial local hammer progress survives a release only while the same tool and neighboring target remain selected. Changing the target, tool, or Hammer off clears that partial progress. Mine and simulation versions stay unchanged because no replay action, persisted bunker shape, inventory rule, or authoritative simulation changed.</dd>

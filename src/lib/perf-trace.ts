@@ -10,13 +10,19 @@ import {
  * plain aggregation over stored rows.
  */
 
-export type PerfSource = "mine" | "arena" | "workshop" | "holodeck";
+export type PerfSource =
+  | "mine"
+  | "arena"
+  | "workshop"
+  | "holodeck"
+  | "bunker-fp";
 
 export const PERF_SOURCES: readonly PerfSource[] = [
   "mine",
   "arena",
   "workshop",
   "holodeck",
+  "bunker-fp",
 ];
 
 /** Frames at or above this stall on screen in a way players notice. */

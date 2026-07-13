@@ -37,6 +37,7 @@ export function BunkerControlPanel({
   onRepair,
   onSelectSkin,
   onFinishRaid,
+  onEnterFp,
 }: {
   minerRow: number;
   claimMode: boolean;
@@ -55,6 +56,9 @@ export function BunkerControlPanel({
   onRepair?: () => void;
   onSelectSkin?: (skinId: BunkerSkinId) => void;
   onFinishRaid: () => void;
+  /** Enters the first-person bunker view (shown only while no raid is
+   * active and the caller provides the callback). */
+  onEnterFp?: () => void;
 }) {
   const status = useBunkerStore((s) => s.status);
   const activeRaid = useBunkerStore((s) => s.activeRaid);
@@ -272,6 +276,16 @@ export function BunkerControlPanel({
                 ? raidButtonLabel
                 : `${raidButtonLabel} (T${pickedTier})`}
             </button>
+            {!activeRaid && onEnterFp && (
+              <button
+                type="button"
+                className="bunker-enter-fp-button"
+                data-testid="bunker-fp-enter-panel"
+                onClick={onEnterFp}
+              >
+                Enter bunker (3D)
+              </button>
+            )}
           </>
         )}
 

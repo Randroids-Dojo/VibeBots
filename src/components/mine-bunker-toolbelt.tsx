@@ -41,6 +41,7 @@ export function BunkerToolbelt({
   onSelect,
   onStowCarried,
   onCancelCarried,
+  onEnterFp,
 }: {
   inventory: BasePartInventory;
   selection: BunkerToolSelection;
@@ -49,6 +50,9 @@ export function BunkerToolbelt({
   onSelect: (selection: BunkerToolSelection) => void;
   onStowCarried: () => void;
   onCancelCarried: () => void;
+  /** Enters the first-person bunker view; the button renders only when
+   * the panel provides the callback (same gate as the toolbelt). */
+  onEnterFp?: () => void;
 }) {
   return (
     <section className="bunker-toolbelt" aria-label="Bunker build tool">
@@ -62,6 +66,17 @@ export function BunkerToolbelt({
                 : "Choose a part. Direction moves normally when none is selected.")}
           </span>
         </div>
+        {onEnterFp && (
+          <button
+            type="button"
+            className="bunker-toolbelt-enter-fp"
+            data-testid="bunker-fp-enter"
+            aria-label="Enter bunker"
+            onClick={onEnterFp}
+          >
+            Enter bunker
+          </button>
+        )}
         {selection && (
           <button
             type="button"

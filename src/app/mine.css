@@ -1583,3 +1583,129 @@ button[data-bag-full-flash="true"] {
     animation: none;
   }
 }
+
+/* First-person bunker viewer overlay (.bunker-fp-*). Follows the
+ * .bunker-toolbelt conventions: absolute within the mine shell,
+ * safe-area padding, z-index above the canvas and touch surface but
+ * below dialogs and sheets. */
+.bunker-fp-exit {
+  position: absolute;
+  z-index: 12;
+  top: calc(10px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #54e0c7;
+  border-radius: 999px;
+  background: rgba(14, 20, 28, 0.92);
+  color: #8ef3df;
+  font-weight: 900;
+  font-size: 0.82rem;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.bunker-fp-resume-hint {
+  position: absolute;
+  z-index: 11;
+  top: 58%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(11, 14, 20, 0.78);
+  color: #e6e8ee;
+  font-weight: 900;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.bunker-fp-move-zone {
+  position: absolute;
+  z-index: 10;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  touch-action: none;
+}
+
+.bunker-fp-look-zone {
+  position: absolute;
+  z-index: 10;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 55%;
+  touch-action: none;
+}
+
+.bunker-fp-jump {
+  position: absolute;
+  z-index: 12;
+  right: calc(20px + env(safe-area-inset-right));
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border: 2px solid rgba(84, 224, 199, 0.7);
+  border-radius: 50%;
+  background: rgba(17, 21, 31, 0.72);
+  color: #8ef3df;
+  font-size: 1.3rem;
+  font-weight: 900;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+.bunker-fp-stick-ring {
+  position: fixed;
+  z-index: 11;
+  display: none;
+  width: 128px;
+  height: 128px;
+  margin: -64px 0 0 -64px;
+  border: 2px solid rgba(84, 224, 199, 0.45);
+  border-radius: 50%;
+  background: rgba(17, 21, 31, 0.25);
+  pointer-events: none;
+}
+
+.bunker-fp-stick-ring.bunker-fp-stick-on {
+  display: block;
+}
+
+.bunker-fp-stick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: rgba(84, 224, 199, 0.55);
+  box-shadow: 0 0 14px rgba(84, 224, 199, 0.4);
+}
+
+.bunker-toolbelt-enter-fp {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #54e0c7;
+  border-radius: 8px;
+  background: rgba(84, 224, 199, 0.1);
+  color: #8ef3df;
+  font-weight: 900;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.bunker-enter-fp-button {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #54e0c7;
+  border-radius: 9px;
+  background: rgba(84, 224, 199, 0.12);
+  color: #8ef3df;
+  font-weight: 900;
+}

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   DEFAULT_GEAR,
   dismissReleaseNotes,
@@ -8,13 +8,12 @@ import {
   walkToStallPrompt,
 } from "./support/mine-helpers";
 
-// A freshly collected stamp pops an animated alert that names the stamp
-// and clears itself (REQ-032). The buy response is stubbed so the alert
-// is deterministic without a stamp ledger behind the local server.
-test("collecting a stamp pops a self-clearing alert with its art", async ({
-  page,
-}) => {
-  await routeStarterMineWorld(page, 2026071001);
+// Shared scaffolding: stub the gear and depot-buy routes so buying one
+// ladder deterministically awards the Depot Regular stamp, then walk to
+// the Supply Depot and open it. Tests click Buy themselves (the first
+// one arms an observer before the click).
+async function openStubbedDepot(page: Page, seed: number): Promise<Locator> {
+  await routeStarterMineWorld(page, seed);
   await page.route("**/api/gear", async (route) => {
     await route.fulfill({
       json: {
@@ -39,7 +38,16 @@ test("collecting a stamp pops a self-clearing alert with its art", async ({
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await walkToStallPrompt(page, "ArrowRight", "Supply Depot");
-  const depot = await openStall(page, "Supply Depot");
+  return openStall(page, "Supply Depot");
+}
+
+// A freshly collected stamp pops an animated alert that names the stamp
+// and clears itself (REQ-032). The buy response is stubbed so the alert
+// is deterministic without a stamp ledger behind the local server.
+test("collecting a stamp pops a self-clearing alert with its art", async ({
+  page,
+}) => {
+  const depot = await openStubbedDepot(page, 2026071001);
 
   // Arm an in-page peak-opacity recorder before the buy: on a loaded
   // host the 3s pop-hold-fade can burn through its full-opacity plateau
@@ -93,32 +101,7 @@ test("collecting a stamp pops a self-clearing alert with its art", async ({
 test("tapping a stamp alert opens the Stamp Book on that stamp", async ({
   page,
 }) => {
-  await routeStarterMineWorld(page, 2026071002);
-  await page.route("**/api/gear", async (route) => {
-    await route.fulfill({
-      json: {
-        gear: DEFAULT_GEAR,
-        consumables: STARTING_CONSUMABLES,
-        balance: 50,
-      },
-    });
-  });
-  await page.route("**/api/consumables/buy", async (route) => {
-    await route.fulfill({
-      json: {
-        item: "ladder",
-        quantity: 1,
-        count: 3,
-        balance: 48,
-        newStamps: ["tool-depot-regular"],
-      },
-    });
-  });
-
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  await walkToStallPrompt(page, "ArrowRight", "Supply Depot");
-  const depot = await openStall(page, "Supply Depot");
+  const depot = await openStubbedDepot(page, 2026071002);
   await depot
     .getByRole("button", { name: /Buy 1 for/, disabled: false })
     .first()

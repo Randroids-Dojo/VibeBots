@@ -101,13 +101,11 @@ export function WorkshopPanel() {
   const openStampBookAt = useCallback((achievementId: string) => {
     setStampBookFocusId(achievementId);
   }, []);
-  const stampBookNoop = useCallback(() => {}, []);
   const stampBook = (
     <StampBookPopup
       open={stampBookFocusId !== null}
       focusAchievementId={stampBookFocusId}
       onClose={() => setStampBookFocusId(null)}
-      onBeforeLoad={stampBookNoop}
     />
   );
   const [matchup, setMatchup] = useState<[BotDesign, BotDesign] | null>(null);

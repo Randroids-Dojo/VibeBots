@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.237-fire-tv-controls";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.238-camera-space-sky";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.238",
+      date: "2026-07-13",
+      title: "The planet stays put",
+      intro: "The sky no longer slides after each surface step.",
+      changes: [
+        {
+          build,
+          text: "The ringed planet, sky, and stars now render in camera space with zero translational parallax. They use the camera's final transform for the current frame, so camera smoothing cannot make them chase the miner.",
+        },
+        {
+          build,
+          text: "Only earthbound scenery moves: far excavation, machinery, and the near berm use simple linear depth rates with no extra easing, lag, or position-dependent curve.",
+        },
+        {
+          build,
+          text: "An exact Pixel test walks from Base +16 to +17 and proves the visible planet pixels keep the same count and centroid. Draw calls, MINE_VERSION, and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.237",
       date: "2026-07-13",

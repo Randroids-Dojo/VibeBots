@@ -23,14 +23,7 @@ export type SurfaceBackdropRole =
 export interface SurfaceBackdropLayer {
   role: SurfaceBackdropRole;
   geometry: BufferGeometry;
-  parallax: SurfaceBackdropParallax;
-}
-
-export interface SurfaceBackdropParallax {
-  /** Fraction of camera travel seen as screen-space drift near the village. */
-  screenRate: number;
-  /** Maximum screen-space drift before the layer settles into its composition. */
-  maxTravel: number;
+  scrollScale: number;
 }
 
 export interface SurfaceBackdropGeometry {
@@ -48,14 +41,14 @@ export const SURFACE_BACKDROP_ROLES: readonly SurfaceBackdropRole[] = [
   "nearBerm",
 ] as const;
 
-export const SURFACE_BACKDROP_PARALLAX: Readonly<
-  Record<SurfaceBackdropRole, SurfaceBackdropParallax>
+export const SURFACE_BACKDROP_SCROLL_SCALE: Readonly<
+  Record<SurfaceBackdropRole, number>
 > = {
-  sky: { screenRate: 0, maxTravel: 0 },
-  celestial: { screenRate: 0.025, maxTravel: 1.4 },
-  farTerrain: { screenRate: 0.12, maxTravel: 4.8 },
-  industry: { screenRate: 0.24, maxTravel: 7.5 },
-  nearBerm: { screenRate: 0.42, maxTravel: 10.5 },
+  sky: 0,
+  celestial: 0,
+  farTerrain: 0.08,
+  industry: 0.18,
+  nearBerm: 0.32,
 };
 
 const BACKDROP_WIDTH = 96;
@@ -191,7 +184,7 @@ function buildSky(): BufferGeometry {
 
 function buildCelestial(tier: SurfaceGeometryTier): BufferGeometry {
   const parts: BufferGeometry[] = [];
-  const planetX = 6.6;
+  const planetX = 5.2;
   const planetY = 8.4;
   parts.push(
     ring(
@@ -440,7 +433,11 @@ function buildNearBerm(tier: SurfaceGeometryTier): BufferGeometry {
       );
     }
   }
-  return merge(parts);
+  const geometry = merge(parts);
+  geometry.scale(1.7, 1, 1);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
 }
 
 function triangleCount(geometry: BufferGeometry): number {
@@ -463,7 +460,7 @@ export function surfaceBackdropGeometry(
   const layers = SURFACE_BACKDROP_ROLES.map((role) => ({
     role,
     geometry: geometries[role],
-    parallax: SURFACE_BACKDROP_PARALLAX[role],
+    scrollScale: SURFACE_BACKDROP_SCROLL_SCALE[role],
   }));
   const bounds = new Box3();
   let triangles = 0;
@@ -477,23 +474,16 @@ export function surfaceBackdropGeometry(
 }
 
 /**
- * Backdrop groups follow the camera while retaining a small relative offset.
- * Reduced motion uses factor zero, which keeps the composition locked to the
- * viewport rather than leaving a world-space backdrop behind as the miner walks.
+ * Standard linear parallax: zero is camera space, one is world space.
+ * There is no independent easing or position-dependent curve. The renderer
+ * calls this with the final camera position immediately before each draw.
  */
 export function surfaceBackdropLayerX(
   cameraX: number,
-  parallax: SurfaceBackdropParallax,
+  scrollScale: number,
   reducedMotion: boolean,
 ): number {
-  if (reducedMotion || parallax.screenRate <= 0 || parallax.maxTravel <= 0) {
-    return cameraX;
-  }
-  const normalizedTravel = (cameraX * parallax.screenRate) / parallax.maxTravel;
-  const screenTravel =
-    (parallax.maxTravel * normalizedTravel) /
-    Math.sqrt(1 + normalizedTravel * normalizedTravel);
-  return cameraX - screenTravel;
+  return cameraX * (1 - (reducedMotion ? 0 : scrollScale));
 }
 
 export function clearSurfaceBackdropCacheForTests(): void {

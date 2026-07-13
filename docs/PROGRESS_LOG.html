@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="camera-space-surface-sky" data-date="2026-07-13">
+    <h3>Rebuild surface parallax around a fixed celestial plane</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/rebuild-surface-parallax</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.238 replaces both earlier parallax formulas. Sky, stars, and the ringed planet are camera-space layers with zero translational parallax. Their meshes align inside <code>onBeforeRender</code> from the final camera transform and immediately refresh <code>matrixWorld</code>, so neither the 280 ms camera damping nor callback ordering can produce a one-frame or after-step slide. Only earthbound layers move, using standard linear scroll scales: 0.08 far terrain, 0.18 industry, and 0.32 near berm. The rejected nonlinear curve, travel caps, and independent backdrop frame callback are gone. The berm widens to 163.2 units for full biome coverage, and the fixed planet center moves from 6.6 to 5.2 so its upper-right crop remains intentional on portrait screens. <code>SurfaceDressing</code> stays prop-free and memoized. <code>MINE_VERSION</code> stays <code>53</code>; <code>SIM_VERSION</code> stays <code>5</code>.</dd>
+      <dt>Verification</dt><dd>Pure tests pin a fixed celestial plane through a representative damped camera trace, monotonic linear terrain rates, consistent response at village and biome extremes, cache reuse, bounds, triangle budgets, and reduced motion. Exact 448x923 DPR 2.25 touch WebGL2 coverage walks from Base +16 to +17, samples every rendered frame through the camera settle, proves zero celestial matrix displacement, and verifies 35,044 planet-colored pixels keep the identical centroid at both endpoints. The final 12-capture motion matrix held 12 to 14 draws; phone median was 8.3 to 8.4 ms and p95 no more than 16.7 ms. The 72-second heap probe measured 2.51 MB/s, 14 collection drops, and a 24.5 MB trough. Full verification is recorded before PR closeout.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: celestial distance is treated as infinite for surface-scale translation, so planet parallax is exactly zero. Earthbound layers alone communicate depth. Mine tips reviewed with no copy change because no rule changed. Stamp review completed with none added because this is visual correction.</dd>
+      <dt>GDD coverage</dt><dd>REQ-021 remains done and gains the exact Pixel movement test reference. <code>docs/gdd/06-mining.html</code> gains a corrective presentation build-log entry.</dd>
+      <dt>Followups</dt><dd>No new followup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="e2e-repairs-perf-sample-and-motion-proofs" data-date="2026-07-13">
     <h3>Fix the dropped performance sample and harden three motion-proof specs</h3>
     <dl>

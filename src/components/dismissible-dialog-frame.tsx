@@ -7,10 +7,55 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { detectTvMode } from "@/lib/tv-device";
+
+/**
+ * TV sessions share one history marker across every active dismissible
+ * surface: on a TV browser the remote's Back button performs a history
+ * back, and the marker turns that into "close what's open" instead of
+ * "leave the game". A single marker (not one per surface) keeps history
+ * clean when surfaces stack or close out of order; one Back press
+ * dismissing every active surface matches what Escape and gamepad-back
+ * already do.
+ */
+let tvBackActiveCount = 0;
+
+export function useTvBackDismiss(active: boolean, onDismiss: () => void) {
+  const onDismissRef = useRef(onDismiss);
+
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
+  useEffect(() => {
+    if (!active) return;
+    if (!detectTvMode()) return;
+    if (tvBackActiveCount === 0) {
+      window.history.pushState({ vbTvDialog: true }, "");
+    }
+    tvBackActiveCount += 1;
+    const onPop = () => onDismissRef.current();
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      tvBackActiveCount -= 1;
+      // Last surface out sweeps the marker unless Back already popped it
+      // (then history.state is the original game entry again).
+      if (
+        tvBackActiveCount === 0 &&
+        (window.history.state as { vbTvDialog?: boolean } | null)?.vbTvDialog
+      ) {
+        window.history.back();
+      }
+    };
+  }, [active]);
+}
 
 export function useDismissControls(active: boolean, onDismiss: () => void) {
   const onDismissRef = useRef(onDismiss);
   const gamepadDismissPressedRef = useRef(false);
+
+  useTvBackDismiss(active, onDismiss);
 
   useEffect(() => {
     onDismissRef.current = onDismiss;

@@ -1,11 +1,11 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.237-stamp-alert-shortcut";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.238-stamp-alert-shortcut";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.237",
+      version: "0.1.238",
       date: "2026-07-13",
       title: "Stamp alerts lead straight to the Stamp Book",
       intro: "Tap a fresh stamp to see it in its place in the collection.",
@@ -17,6 +17,31 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         {
           build,
           text: "The shortcut works in the workshop and the arena too, and keyboard players can activate the alert like any button.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
+    {
+      version: "0.1.237",
+      date: "2026-07-13",
+      title: "Play the whole mine from a TV remote",
+      intro: "Fire TV sessions get remote-native controls.",
+      changes: [
+        {
+          build,
+          text: "Opening the game in the Fire TV Silk browser now shows a TV control deck: big direction buttons where one click is one move, and holding Select keeps digging. No more dragging the thumbstick with the cursor.",
+        },
+        {
+          build,
+          text: "The deck's center button walks you into the Workshop or Battles when you stand on their door, and fires the jump jets everywhere else.",
+        },
+        {
+          build,
+          text: "The remote's Back button now closes open menus, sheets, and the bag instead of leaving the game. Play/Pause jumps, and Rewind and Fast Forward zoom the camera.",
+        },
+        {
+          build,
+          text: "A paired game controller can play the mine too: the D-pad walks and digs, and A enters buildings or jumps. Add ?tv=1 to the address on any other TV browser to force the deck on.",
         },
         { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
       ],

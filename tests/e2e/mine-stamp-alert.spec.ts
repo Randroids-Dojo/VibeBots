@@ -40,6 +40,27 @@ test("collecting a stamp pops a self-clearing alert with its art", async ({
   await dismissReleaseNotes(page);
   await walkToStallPrompt(page, "ArrowRight", "Supply Depot");
   const depot = await openStall(page, "Supply Depot");
+
+  // Arm an in-page peak-opacity recorder before the buy: on a loaded
+  // host the 3s pop-hold-fade can burn through its full-opacity plateau
+  // while protocol round-trips are still in flight, so observation must
+  // start before the alert exists and record its maximum.
+  await page.evaluate(() => {
+    const w = window as typeof window & { __stampAlertPeakOpacity?: number };
+    w.__stampAlertPeakOpacity = 0;
+    const sample = () => {
+      const el = document.querySelector("[data-stamp-alert]");
+      if (el) {
+        const opacity = Number(getComputedStyle(el).opacity);
+        if (opacity > (w.__stampAlertPeakOpacity ?? 0)) {
+          w.__stampAlertPeakOpacity = opacity;
+        }
+      }
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+
   await depot
     .getByRole("button", { name: /Buy 1 for/, disabled: false })
     .first()
@@ -54,8 +75,14 @@ test("collecting a stamp pops a self-clearing alert with its art", async ({
   // The pop animation drives opacity up from 0 (Rule 10: observe real
   // movement), then the alert removes itself without any player input.
   await expect
-    .poll(async () =>
-      Number(await alert.evaluate((el) => getComputedStyle(el).opacity)),
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            (window as typeof window & { __stampAlertPeakOpacity?: number })
+              .__stampAlertPeakOpacity ?? 0,
+        ),
+      { timeout: 10_000 },
     )
     .toBeGreaterThan(0.9);
   await expect(alert).not.toBeAttached({ timeout: 10_000 });

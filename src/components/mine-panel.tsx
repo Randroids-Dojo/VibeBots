@@ -24,6 +24,7 @@ import {
 } from "@/components/mine-camera";
 import type { AppRelease } from "@/lib/app-release-types";
 import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
+import { detectTvMode } from "@/lib/tv-device";
 import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
@@ -86,6 +87,7 @@ import { COMPILE_GATE_DEADLINE_MS } from "./compile-gate";
 import {
   eventInsideRef,
   useOutsidePointerDismiss,
+  useTvBackDismiss,
 } from "./dismissible-dialog-frame";
 import { AccountSyncPopup } from "./mine-account-popup";
 import { MineBagPanel } from "./mine-bag-panel";
@@ -127,6 +129,7 @@ import { STALL_ICONS, StallMenu } from "./mine-stall-menu";
 import { STALLS, stallAt } from "./mine-stalls";
 import { StampBookPopup } from "./mine-stamp-book-popup";
 import { MineTouchControls } from "./mine-touch-controls";
+import { MineTvControls, type TvCenterAction } from "./mine-tv-controls";
 import { PerfTelemetry } from "./perf-telemetry";
 import { StampCollectAlert } from "./stamp-collect-alert";
 import { useForegroundReturn } from "./use-foreground-return";
@@ -1326,6 +1329,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // Touch players never see keyboard copy (matches the renderer's
   // coarse-pointer heuristic). False during SSR; set before paint.
   const [coarsePointer, setCoarsePointer] = useState(false);
+  // TV browsers (Fire TV Silk) drive a virtual cursor with the remote,
+  // so movement gets the click-first TV deck instead of drag gestures.
+  // False during SSR; set before paint.
+  const [tvMode, setTvMode] = useState(false);
   const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
   const settingsMenuRef = useRef<HTMLElement | null>(null);
   const baseReturnButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1337,6 +1344,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastShopNoteRef = useRef<string | null>(null);
   const lastGamepadZoomRef = useRef(0);
   const lastGamepadBagCloseRef = useRef(false);
+  const gamepadMoveDirRef = useRef<Direction | null>(null);
+  const gamepadSelectRef = useRef(false);
   const directionActionRef = useRef<(dir: Direction) => boolean>(() => false);
   const directionCadenceRef =
     useRef<DirectionCadenceController<Direction> | null>(null);
@@ -1513,6 +1522,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   useEffect(() => {
     setCoarsePointer(window.matchMedia?.("(pointer: coarse)").matches ?? false);
+    setTvMode(detectTvMode());
   }, []);
 
   useEffect(() => {
@@ -1676,6 +1686,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     frame = requestAnimationFrame(pollGamepadZoom);
     return () => cancelAnimationFrame(frame);
   }, [adjustCameraZoom]);
+
+  useTvBackDismiss(bagPanelOpen, () => setBagPanelOpen(false));
 
   useEffect(() => {
     if (!bagPanelOpen) {
@@ -1898,6 +1910,78 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     }
   }, []);
 
+  // Gamepad D-pad movement (a paired controller, or a TV remote surfaced
+  // as a gamepad): buttons 12-15 hold the shared direction cadence like a
+  // held arrow key, and A/Select (button 0) jumps, or enters the building
+  // on the current surface column. Zoom keeps its trigger/shoulder chord
+  // (pollGamepadZoom above), so a held modifier pauses plain-D-pad moves
+  // instead of fighting the zoom gesture.
+  useEffect(() => {
+    if (
+      !mineSceneReady ||
+      elevatorAutoDir ||
+      terminalMineState ||
+      creditsOpen
+    ) {
+      return;
+    }
+    let frame = 0;
+    const pollGamepadMove = () => {
+      const pads = navigator.getGamepads?.() ?? [];
+      let dir: Direction | null = null;
+      let select = false;
+      for (const pad of pads) {
+        if (!pad) continue;
+        const modifier =
+          pad.buttons[6]?.pressed ||
+          pad.buttons[7]?.pressed ||
+          pad.buttons[4]?.pressed ||
+          pad.buttons[5]?.pressed;
+        if (!modifier && dir === null) {
+          if (pad.buttons[12]?.pressed) dir = "up";
+          else if (pad.buttons[13]?.pressed) dir = "down";
+          else if (pad.buttons[14]?.pressed) dir = "left";
+          else if (pad.buttons[15]?.pressed) dir = "right";
+        }
+        if (pad.buttons[0]?.pressed) select = true;
+      }
+      if (dir !== gamepadMoveDirRef.current) {
+        const prev = gamepadMoveDirRef.current;
+        gamepadMoveDirRef.current = dir;
+        if (dir) fireDirection(dir);
+        else releaseDirection(prev);
+      }
+      if (select && !gamepadSelectRef.current) {
+        const state = useMineStore.getState();
+        const surfaceMiner = state.mine.miner;
+        const dest =
+          surfaceMiner.row === 0 ? destinationAt(surfaceMiner.col) : null;
+        if (dest) router.push(dest.href);
+        else fireJump();
+      }
+      gamepadSelectRef.current = select;
+      frame = requestAnimationFrame(pollGamepadMove);
+    };
+    frame = requestAnimationFrame(pollGamepadMove);
+    return () => {
+      cancelAnimationFrame(frame);
+      if (gamepadMoveDirRef.current !== null) {
+        releaseDirection(gamepadMoveDirRef.current);
+        gamepadMoveDirRef.current = null;
+      }
+      gamepadSelectRef.current = false;
+    };
+  }, [
+    creditsOpen,
+    elevatorAutoDir,
+    fireDirection,
+    fireJump,
+    mineSceneReady,
+    releaseDirection,
+    router,
+    terminalMineState,
+  ]);
+
   useEffect(() => {
     if (
       mineSceneReady &&
@@ -1987,6 +2071,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     dismissFloatingMenus,
   );
 
+  // On a TV the remote's Back button (a history back) closes whatever
+  // floating menu or sheet is open instead of leaving the game.
+  useTvBackDismiss(
+    settingsOpen ||
+      baseReturnOpen ||
+      openStallCol !== null ||
+      dynamiteMenuOpen ||
+      recoveryMenuOpen,
+    dismissFloatingMenus,
+  );
+
   // The abandon confirm disarms itself; a stray thumb cannot torch a
   // haul twenty minutes deep.
   useEffect(() => {
@@ -2013,6 +2108,24 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         if (targetEl?.closest("button,a,[role='button']")) return;
         event.preventDefault();
         if (!creditsOpen) fireJump();
+        return;
+      }
+      // Fire TV remote media keys (Amazon web-app key map): Play/Pause
+      // jumps, Rewind and Fast Forward drive the camera zoom. Older TV
+      // stacks deliver only the legacy keyCodes (179/227/228).
+      if (event.key === "MediaPlayPause" || event.keyCode === 179) {
+        event.preventDefault();
+        if (!creditsOpen) fireJump();
+        return;
+      }
+      if (event.key === "MediaRewind" || event.keyCode === 227) {
+        event.preventDefault();
+        adjustCameraZoom(MINE_CAMERA_BUTTON_STEP);
+        return;
+      }
+      if (event.key === "MediaFastForward" || event.keyCode === 228) {
+        event.preventDefault();
+        adjustCameraZoom(-MINE_CAMERA_BUTTON_STEP);
         return;
       }
       // Enter walks the miner into the building on the current surface
@@ -2068,6 +2181,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       window.removeEventListener("blur", onBlur);
     };
   }, [
+    adjustCameraZoom,
     creditsOpen,
     fireDirection,
     fireJump,
@@ -2164,6 +2278,20 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     jumpAvailable && !terminalMineState && !bunkerCanvasEditing;
   const jumpEnabled =
     jumpButtonVisible && mineSceneReady && !elevatorAutoDir && !creditsOpen;
+  // TV deck center button: on a destination column it walks into the
+  // building (the remote's Select-click stand-in for the keyboard Enter);
+  // everywhere else it fires the jump jets once those unlock.
+  const tvCenterAction: TvCenterAction | null = !tvMode
+    ? null
+    : destination
+      ? {
+          label: `Enter ${destination.name}`,
+          disabled: !mineSceneReady || terminalMineState || creditsOpen,
+          onAct: () => router.push(destination.href),
+        }
+      : jumpButtonVisible
+        ? { label: "Jump", disabled: !jumpEnabled, onAct: fireJump }
+        : null;
   const leftPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "left");
   const rightPlankEnabled = !elevatorAutoDir && canPlacePlank(mine, "right");
   const beaconRange = warpRange(mine.gear);
@@ -3134,6 +3262,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onDirection={act}
           onReleaseDirection={releaseDirection}
           onZoomChange={adjustCameraZoom}
+        />
+      )}
+      {mineSceneReady && movementTouchEnabled && tvMode && (
+        <MineTvControls
+          onDirectionPress={act}
+          onDirectionRelease={releaseDirection}
+          centerAction={tvCenterAction}
         />
       )}
       <StratumBanner row={miner.row} />
@@ -4433,9 +4568,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             pointerEvents: "none",
           }}
         >
-          {coarsePointer
-            ? "drag anywhere to move"
-            : "drag anywhere to move \u00b7 WASD works too"}
+          {tvMode
+            ? "click the pad to move \u00b7 hold Select to repeat"
+            : coarsePointer
+              ? "drag anywhere to move"
+              : "drag anywhere to move \u00b7 WASD works too"}
         </div>
       )}
     </div>

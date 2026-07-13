@@ -10,6 +10,12 @@ const PERFORMANCE_SAMPLE_MS = 12_000;
 const PERFORMANCE_INITIAL_DELAY_MS = 4_000;
 const PERFORMANCE_REPEAT_MS = 5 * 60_000;
 const PERFORMANCE_MIN_SEND_INTERVAL_MS = 60 * 60_000;
+/** A window that closed with too few frames sent nothing, so it retries
+ * soon instead of waiting out the full repeat interval. The first-load
+ * compile stall can block the main thread across the whole sample window
+ * (one or two rAF ticks total), and treating that as a completed sample
+ * silenced the sampler for the entire repeat period. */
+const PERFORMANCE_RETRY_MS = 1_000;
 
 interface PerformanceWindowOverrides {
   __vibebotsPerfInitialDelayMs?: number;
@@ -73,7 +79,7 @@ export function useMinePerformanceSampling(appRelease: AppRelease) {
       drawCalls: number[],
       canvas: HTMLCanvasElement,
     ) => {
-      if (cancelled || frames.length < 5) return;
+      if (cancelled) return;
       const summary = summarizeFrameMetrics(frames);
       const drawTotal = drawCalls.reduce((sum, value) => sum + value, 0);
       markPerformanceSent();
@@ -136,6 +142,10 @@ export function useMinePerformanceSampling(appRelease: AppRelease) {
         const draw = Number(canvas.dataset.drawCalls);
         if (Number.isFinite(draw)) drawCalls.push(draw);
         if (now - startedAt >= sampleMs) {
+          if (frames.length < 5) {
+            schedule(PERFORMANCE_RETRY_MS);
+            return;
+          }
           finish(startedAt, frames, drawCalls, canvas);
           schedule(repeatMs);
           return;

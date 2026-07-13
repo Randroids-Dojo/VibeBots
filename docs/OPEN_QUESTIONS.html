@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-018" data-status="open">
+    <h3>Q-018: Does TV mode's on-screen direction deck square with REQ-024's "no D-pad" rule?</h3>
+    <dl>
+      <dt>Context</dt><dd>REQ-024 mandates "no page header or D-pad" so the mine reads as a mobile game, and the 0.1.x HUD deliberately deleted the old on-screen D-pad in favor of the thumbstick. Fire TV's Silk browser cannot drag: the remote drives a virtual cursor and Select clicks, so the only remote-native way to move is large stationary click targets, which is exactly an on-screen direction deck. The 2026-07-12 Fire TV controls slice ships that deck for detected TV sessions only.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Scope REQ-024's D-pad ban to touch and fine-pointer sessions; TV mode ships the deck (what shipped).</li>
+          <li>Keep the ban absolute and drop the deck; TV players use only gamepads or keyboards.</li>
+          <li>Make the deck an opt-in setting on every platform.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The ban exists so phones read as a game, not to make TVs unplayable; the deck renders only when the session is a TV (UA detection plus a persisted <code>tv</code> query override), so phone and desktop HUDs are untouched. B strands the primary Fire TV input (the remote), and C reintroduces the clutter REQ-024 killed. Shipped under this default; the GDD controls section records the scoping.</dd>
+      <dt>Status</dt><dd>open (shipped under the recommended default; needs dev ratification of the REQ-024 scoping)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-017" data-status="open">
     <h3>Q-017: Which purchases should the overall player level actually gate?</h3>
     <dl>

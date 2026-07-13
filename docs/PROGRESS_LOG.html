@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="fire-tv-physical-remote-buttons" data-date="2026-07-13">
+    <h3>Move through the mine with physical Fire TV remote buttons</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/fire-tv-remote-buttons</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.241 gives TV mode a cursor-free physical movement layout based on the photographed Fire TV remote: Channel Up/Down move vertically, Rewind/Fast Forward move horizontally, and Play/Pause keeps Jump. <code>tvRemoteDirection</code> accepts the standard <code>ChannelUp</code>, <code>ChannelDown</code>, <code>MediaRewind</code>, and <code>MediaFastForward</code> key values plus legacy Android codes 166, 167, 227, and 228. Select is deliberately untouched because Silk uses it to click the item under the cursor or activate focus. Back remains browser history so the existing history-marker dismissal can safely close menus, sheets, and the bag. Non-TV Rewind/Fast Forward keeps camera zoom. The onscreen TV deck remains as a fallback until this exact television and Silk build prove the channel rocker reaches page JavaScript.</dd>
+      <dt>Verification</dt><dd>Dependency gate matched VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.10</code>, three <code>0.185.1</code>, fiber <code>9.6.1</code>, and drei <code>10.7.7</code> before and after the slice. Current main CI run 29216884926 is green. The latest scheduled Full E2E failure, run 29188294201, was already fully triaged in the original Fire TV slice. Local checks: focused key, release, and notification unit tests (141 passed); full unit suite (1,179 passed); typecheck; build; Biome; sim purity; dash check; coverage JSON parse; whitespace check; focused Fire TV plus release Playwright (16 passed), covering physical movement, named and legacy mapping logic, Select activation, Back dismissal, the click deck, gamepad movement, and current release copy; and the required critical Playwright gate (5 passed).</dd>
+      <dt>Assumptions</dt><dd>Recommended default: preserve Select and Back because Amazon documents them as activation and history controls in Silk. Channel and transport buttons are additive TV-only movement controls. The compatibility deck stays visible until a real-device playtest confirms the channel events. Mine tips were reviewed: the TV-only onboarding hint now names the physical controls and fallback deck; the universal rotation remains unchanged. Stamp review: none added because input compatibility is not a player milestone.</dd>
+      <dt>GDD coverage</dt><dd>REQ-023 remains done and gains the physical remote helper and tests. The controls contract and build log in <code>docs/gdd/06-mining.html</code> now distinguish physical inputs from the compatibility deck. REQ-024 remains done under Q-018's TV fallback scoping.</dd>
+      <dt>Followups</dt><dd>F-091 remains open for the real Fire TV playtest and broader TV sizing. Focused Dot <code>VibeBots-use-physical-fire-bdb7a463</code> tracks this slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="directional-bunker-construction" data-date="2026-07-13">
     <h3>Build bunker cells by pointing through the mine controls</h3>
     <dl>

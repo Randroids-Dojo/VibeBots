@@ -25,6 +25,7 @@ import {
 import type { AppRelease } from "@/lib/app-release-types";
 import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
 import { detectTvMode } from "@/lib/tv-device";
+import { tvRemoteDirection } from "@/lib/tv-remote-input";
 import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
@@ -2115,9 +2116,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         if (!creditsOpen) fireJump();
         return;
       }
-      // Fire TV remote media keys (Amazon web-app key map): Play/Pause
-      // jumps, Rewind and Fast Forward drive the camera zoom. Older TV
-      // stacks deliver only the legacy keyCodes (179/227/228).
+      // Select stays Silk's click and Back stays browser history. The channel
+      // rocker plus transport row provide four physical mine directions.
+      // The onscreen TV deck remains available when Silk withholds a key.
+      const remoteDir = tvMode
+        ? tvRemoteDirection({ key: event.key, keyCode: event.keyCode })
+        : null;
+      if (remoteDir) {
+        event.preventDefault();
+        if (terminalMineState || creditsOpen) return;
+        fireDirection(remoteDir);
+        return;
+      }
+      // Play/Pause remains jump. Outside TV mode, Rewind and Fast Forward
+      // keep their camera zoom behavior. Older stacks may supply only the
+      // legacy Android key codes.
       if (event.key === "MediaPlayPause" || event.keyCode === 179) {
         event.preventDefault();
         if (!creditsOpen) fireJump();
@@ -2173,7 +2186,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       fireDirection(dir);
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      const dir = KEY_DIRECTIONS[normalizeKeyName(event.key)];
+      const dir =
+        (tvMode
+          ? tvRemoteDirection({ key: event.key, keyCode: event.keyCode })
+          : null) ?? KEY_DIRECTIONS[normalizeKeyName(event.key)];
       if (dir) releaseDirection(dir);
     };
     const onBlur = () => releaseDirection(null);
@@ -2194,6 +2210,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     releaseDirection,
     router,
     terminalMineState,
+    tvMode,
   ]);
 
   const miner = mine.miner;
@@ -4687,7 +4704,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           }}
         >
           {tvMode
-            ? "click the pad to move \u00b7 hold Select to repeat"
+            ? "channel up/down + rewind/fast-forward move \u00b7 pad fallback"
             : coarsePointer
               ? "drag anywhere to move"
               : "drag anywhere to move \u00b7 WASD works too"}

@@ -24,24 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest directional bunker-building note complete", () => {
+  it("keeps the latest Fire TV physical-controls note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
     expect(release.noticeId).toBe(
-      "2026-07-13-0.1.240-directional-bunker-building",
+      "2026-07-13-0.1.241-fire-tv-physical-controls",
     );
     expect(latestNote).toMatchObject({
+      version: "0.1.241",
+      title: "Use the remote buttons to move in the mine",
+      intro: "Fire TV players can try physical movement before the TV deck.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "On Fire TV, Channel Up and Channel Down move vertically while Rewind and Fast Forward move left and right. Play/Pause still fires the jump jets.",
+      "Select keeps clicking the item under Silk's cursor, and Back keeps its browser-history role so open menus can intercept it safely. Neither button is repurposed for movement.",
+      "The large TV control deck remains available as a fallback when a Silk version or television withholds a channel key. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived directional bunker-building note complete", () => {
+    const release = getAppRelease();
+    const bunkerNote = release.notes.find((note) => note.version === "0.1.240");
+
+    expect(bunkerNote).toMatchObject({
       version: "0.1.240",
       title: "Point where the bunker part should go",
       intro:
         "Building now uses the mine controls instead of a second swing button.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Select a bunker part, then point or swipe in any of eight directions. The miner walks across the temporary scaffold, gets into range, and hammers the chosen cell automatically.",
-      "Each part grows into place across four visible hammer strikes, like mining in reverse. Pry uses the same directional flow to lift and relocate an existing part.",
-      "There is no Equip or Swing button. Deselect the part and every direction immediately returns to ordinary mine movement. MINE_VERSION and SIM_VERSION are unchanged.",
-    ]);
   });
 
   it("keeps the archived stamp-shortcut note complete", () => {

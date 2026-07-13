@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.240-directional-bunker-building",
+      releaseNoticeId: "2026-07-13-0.1.241-fire-tv-physical-controls",
       releaseSummary:
-        "Point where the bunker part should go: Building now uses the mine controls instead of a second swing button.",
+        "Use the remote buttons to move in the mine: Fire TV players can try physical movement before the TV deck.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.240-directional-bunker-building",
+      releaseNoticeId: "2026-07-13-0.1.241-fire-tv-physical-controls",
       attempted: 2,
       sent: 1,
       expired: 1,

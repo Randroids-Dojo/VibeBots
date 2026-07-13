@@ -12,7 +12,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
       changes: [
         {
           build,
-          text: "Standing inside your claim, tap Enter bunker on the builder toolbelt (or press F) to switch into a first-person view of the interior. Walk with the stick or WASD, look by dragging or with the mouse, hop with the jump button or Space, and exit any time.",
+          text: "Standing inside your claim, tap Enter bunker on the builder toolbelt or the bunker sheet (or press F) to switch into a first-person view of the interior. Walk with the stick or WASD, look by dragging or with the mouse, hop with the jump button or Space, and exit any time.",
         },
         {
           build,

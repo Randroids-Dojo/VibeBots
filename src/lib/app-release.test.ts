@@ -35,7 +35,7 @@ describe("app release notes", () => {
       intro: "Your claim opens in first person: walk it from the inside.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Standing inside your claim, tap Enter bunker on the builder toolbelt (or press F) to switch into a first-person view of the interior. Walk with the stick or WASD, look by dragging or with the mouse, hop with the jump button or Space, and exit any time.",
+      "Standing inside your claim, tap Enter bunker on the builder toolbelt or the bunker sheet (or press F) to switch into a first-person view of the interior. Walk with the stick or WASD, look by dragging or with the mouse, hop with the jump button or Space, and exit any time.",
       "The four deeper layers show as solid claim rock for now. Digging them out and building by hand in first person arrive in the next releases.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

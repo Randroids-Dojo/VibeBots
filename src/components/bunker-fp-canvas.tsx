@@ -422,15 +422,21 @@ function BunkerFpRig({
   });
 
   // The solid grid rebuilds only when the bunker reference changes
-  // (store mutations swap it); the render-phase guard keeps the grid
-  // in sync before the next frame without an effect-order hazard.
+  // (store mutations swap it). Rebuild in a layout effect so a
+  // speculative or discarded render can never mutate the grid the
+  // frame loop reads; the lazy init covers the first frame.
   const solidRef = useRef<FpSolidGrid | null>(null);
-  if (!solidRef.current) solidRef.current = createFpSolidGrid();
   const builtForRef = useRef<BunkerState | null>(null);
-  if (builtForRef.current !== bunker) {
+  if (!solidRef.current) {
+    solidRef.current = createFpSolidGrid();
     builtForRef.current = bunker;
     buildFpSolidGrid(bunker, solidRef.current);
   }
+  useLayoutEffect(() => {
+    if (builtForRef.current === bunker || !solidRef.current) return;
+    builtForRef.current = bunker;
+    buildFpSolidGrid(bunker, solidRef.current);
+  }, [bunker]);
 
   // Spawn once per mount: the miner's mine cell on the tunnel plane,
   // feet on the room floor, facing -z (into the rock).

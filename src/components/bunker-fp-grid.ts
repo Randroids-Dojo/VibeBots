@@ -42,6 +42,37 @@ export interface FpLocalCell {
   z: number;
 }
 
+/** A bunker cell in mine-grid coordinates plus depth (the sim's
+ * col/row/depth addressing for place/remove/move/excavate). */
+export interface FpEditCell {
+  col: number;
+  row: number;
+  depth: number;
+}
+
+/** An edit the first-person canvas asks mine-panel to apply. The panel
+ * owns the pending/banked branch, inventory guards, and feedback. */
+export interface FpEditIntent {
+  kind: "place" | "pry" | "dig";
+  cell: FpEditCell;
+}
+
+/** Maps a room-local cell back to mine-grid coordinates (the inverse
+ * of fpLocalFromGrid). Allocates; call at input cadence, not per
+ * frame. */
+export function fpGridCellFromLocal(
+  footprint: BunkerFootprint,
+  x: number,
+  y: number,
+  z: number,
+): FpEditCell {
+  return {
+    col: footprint.col + x,
+    row: footprint.row + footprint.height - 1 - y,
+    depth: z,
+  };
+}
+
 export function createFpSolidGrid(): FpSolidGrid {
   return new Uint8Array(FP_CELL_COUNT);
 }

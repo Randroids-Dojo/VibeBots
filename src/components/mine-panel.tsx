@@ -86,6 +86,7 @@ import {
 import { PART_CATALOG } from "@/sim/parts";
 import { useBunkerStore } from "@/state/bunker-store";
 import { SAVE_SYNC_CHANNEL, useMineStore } from "@/state/mine-store";
+import type { FpEditIntent } from "./bunker-fp-grid";
 import { BunkerFpHud } from "./bunker-fp-hud";
 import { attachFpKeyboard, resetFpInput } from "./bunker-fp-input";
 import { COMPILE_GATE_DEADLINE_MS } from "./compile-gate";
@@ -104,6 +105,7 @@ import {
 } from "./mine-bunker-build";
 import { BunkerControlPanel } from "./mine-bunker-control-panel";
 import {
+  type BunkerToolAction,
   BunkerToolbelt,
   type BunkerToolSelection,
   type CarriedBunkerPart,
@@ -268,6 +270,18 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
 const normalizeKeyName = (key: string) =>
   key.length === 1 ? key.toLowerCase() : key;
 
+/** Bunker tool hotkeys (2D and first-person) ignore modified chords and
+ * keystrokes aimed at editable targets; those stay with the browser. */
+function bunkerToolKeyIgnored(event: KeyboardEvent): boolean {
+  if (event.metaKey || event.ctrlKey || event.altKey) return true;
+  const target = event.target as HTMLElement | null;
+  return Boolean(
+    target &&
+      (target.isContentEditable ||
+        /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)),
+  );
+}
+
 const MINE_CAMERA_FOV_DEGREES = 42;
 const DYNAMITE_TIER_LABELS: Record<DynamiteTier, string> = {
   1: "Pulse",
@@ -322,6 +336,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Select a bunker part, then point or swipe where it goes. Deselect to move normally.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker walks it in first person. Exit any time.",
+  "Tip: In first person the pick digs deep claim rock; parts place at the crosshair; pry carries.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
   "Tip: One cloud save on two devices? Sync when prompted; runs never merge.",
@@ -1170,6 +1185,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (s) => s.removePendingBunkerPart,
   );
   const movePendingBunkerPart = useMineStore((s) => s.movePendingBunkerPart);
+  const excavatePendingBunkerCell = useMineStore(
+    (s) => s.excavatePendingBunkerCell,
+  );
   const moveOnBunkerScaffold = useMineStore((s) => s.moveOnBunkerScaffold);
   const gear = useMineStore((s) => s.gear);
   const worldLoaded = useMineStore((s) => s.worldLoaded);
@@ -1207,6 +1225,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const placeBunkerPart = useBunkerStore((s) => s.placePart);
   const removeBunkerPart = useBunkerStore((s) => s.removePart);
   const moveBunkerPart = useBunkerStore((s) => s.movePart);
+  const excavateBunkerCellRemote = useBunkerStore((s) => s.excavateCell);
   const startBunkerRaid = useBunkerStore((s) => s.startRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
   const setBunkerSkin = useBunkerStore((s) => s.setSkin);
@@ -1403,10 +1422,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const fpBunkerAllowed =
     Boolean(activeBunker) && !terminalMineState && bunkerEditingAllowed;
   const selectedBasePart: BasePartId =
-    bunkerToolSelection && bunkerToolSelection !== "pry"
+    bunkerToolSelection &&
+    bunkerToolSelection !== "pry" &&
+    bunkerToolSelection !== "dig"
       ? bunkerToolSelection
       : "wall-panel";
-  const bunkerToolAction = bunkerToolSelection === "pry" ? "pry" : "build";
+  const bunkerToolAction: BunkerToolAction =
+    bunkerToolSelection === "pry"
+      ? "pry"
+      : bunkerToolSelection === "dig"
+        ? "dig"
+        : "build";
   const bunkerScaffoldActive =
     bunkerToolSelection !== null ||
     carriedBunkerPart !== null ||
@@ -2616,6 +2642,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (cell: MineCoord) => {
       if (
         !bunkerToolSelection ||
+        bunkerToolSelection === "dig" ||
         !activeBunker ||
         !containsBunkerCell(activeBunker.footprint, cell.col, cell.row)
       )
@@ -2627,16 +2654,23 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   const queueBunkerConstruction = useCallback(
     (cell: MineCoord) => {
+      // The dig tool is first-person only; the 2D hammer never digs.
       if (
         !activeBunker ||
         !bunkerEditingAllowed ||
         !bunkerToolSelection ||
+        bunkerToolSelection === "dig" ||
         !containsBunkerCell(activeBunker.footprint, cell.col, cell.row)
       )
         return;
       updateBunkerTarget(cell);
+      // The 2D flow edits the tunnel plane only; deeper parts neither
+      // block nor get targeted here.
       const occupied = activeBunker.parts.find(
-        (part) => part.col === cell.col && part.row === cell.row,
+        (part) =>
+          part.col === cell.col &&
+          part.row === cell.row &&
+          (part.depth ?? 0) === 0,
       );
       if (bunkerToolSelection === "pry") {
         if (!occupied) {
@@ -2771,7 +2805,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         const part = activeBunker.parts.find(
           (candidate) =>
             candidate.col === current.target.col &&
-            candidate.row === current.target.row,
+            candidate.row === current.target.row &&
+            (candidate.depth ?? 0) === 0,
         );
         if (part) {
           setCarriedBunkerPart({ source: current.target, part });
@@ -2853,8 +2888,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       return;
     }
     const source = carriedBunkerPart.source;
+    // A part pried in the first-person view can live on a deeper
+    // layer; 2D-pried parts always carry depth 0.
+    const sourceDepth = carriedBunkerPart.part.depth ?? 0;
     if (pendingBunkerActive) {
-      const removed = removePendingBunkerPart(source.col, source.row);
+      const removed = removePendingBunkerPart(
+        source.col,
+        source.row,
+        sourceDepth,
+      );
       triggerShopHaptic(removed ? "commit" : "deny");
       if (removed) {
         setCarriedBunkerPart(null);
@@ -2862,13 +2904,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       }
       return;
     }
-    void removeBunkerPart(source.col, source.row).then((result) => {
-      triggerShopHaptic(result ? "commit" : "deny");
-      if (result) {
-        setCarriedBunkerPart(null);
-        setBunkerToolSelection(null);
-      }
-    });
+    void removeBunkerPart(source.col, source.row, sourceDepth).then(
+      (result) => {
+        triggerShopHaptic(result ? "commit" : "deny");
+        if (result) {
+          setCarriedBunkerPart(null);
+          setBunkerToolSelection(null);
+        }
+      },
+    );
   }, [
     carriedBunkerPart,
     pendingBunkerActive,
@@ -2947,6 +2991,172 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setFpBunkerActive(false);
   }, [fpBunkerAllowed]);
 
+  // The dig tool exists only inside the first-person view: any way out
+  // (exit button, Escape, forced exit) resets the selection to build.
+  useEffect(() => {
+    if (fpBunkerActive) return;
+    setBunkerToolSelection((prev) => (prev === "dig" ? null : prev));
+  }, [fpBunkerActive]);
+
+  /**
+   * Applies a first-person edit intent from the canvas: the same
+   * pending/banked store split as the 2D hammer flow, plus its haptic
+   * and sfx feedback. The canvas pre-guards reach, target kind, and
+   * capsule overlap; stock and sim rules are re-checked here.
+   */
+  const applyFpBunkerEdit = useCallback(
+    (intent: FpEditIntent) => {
+      if (!activeBunker || !bunkerEditingAllowed) return;
+      const { col, row, depth } = intent.cell;
+      const feedback = (ok: boolean, sfx: "plank" | "clang" | "dig-rock") => {
+        triggerShopHaptic(ok ? "commit" : "deny");
+        playMineSfxEvent(ok ? sfx : "deny");
+      };
+      // Pending trips edit the local store synchronously; banked bunkers
+      // go through the remote store. Either way the result drives the
+      // same feedback, with an optional hook on success.
+      const commit = (
+        sync: () => boolean,
+        remote: () => Promise<unknown>,
+        sfx: "plank" | "clang" | "dig-rock",
+        onOk?: () => void,
+      ) => {
+        if (pendingBunkerActive) {
+          const ok = sync();
+          if (ok) onOk?.();
+          feedback(ok, sfx);
+          return;
+        }
+        void remote().then((result) => {
+          const ok = Boolean(result);
+          if (ok) onOk?.();
+          feedback(ok, sfx);
+        });
+      };
+
+      if (intent.kind === "dig") {
+        commit(
+          () => excavatePendingBunkerCell(col, row, depth),
+          () => excavateBunkerCellRemote(col, row, depth),
+          "dig-rock",
+        );
+        return;
+      }
+
+      if (intent.kind === "pry") {
+        const part = activeBunker.parts.find(
+          (candidate) =>
+            candidate.col === col &&
+            candidate.row === row &&
+            (candidate.depth ?? 0) === depth,
+        );
+        if (!part) {
+          feedback(false, "clang");
+          return;
+        }
+        // Lift into the carry (durability intact); the part stays
+        // placed until it is moved or stowed, exactly like 2D pry.
+        setCarriedBunkerPart({ source: { col, row }, part });
+        setBunkerToolSelection(part.partId);
+        feedback(true, "clang");
+        return;
+      }
+
+      // Place: while carrying, placing moves the carried part.
+      if (carriedBunkerPart) {
+        const source = carriedBunkerPart.source;
+        const fromDepth = carriedBunkerPart.part.depth ?? 0;
+        commit(
+          () =>
+            movePendingBunkerPart(
+              source.col,
+              source.row,
+              col,
+              row,
+              fromDepth,
+              depth,
+            ),
+          () =>
+            moveBunkerPart(source.col, source.row, col, row, fromDepth, depth),
+          "plank",
+          () => setCarriedBunkerPart(null),
+        );
+        return;
+      }
+
+      const partId = selectedBasePart;
+      if (activeBunkerInventory[partId] <= 0) {
+        feedback(false, "plank");
+        return;
+      }
+      commit(
+        () => placePendingBunkerPart(partId, col, row, depth),
+        () => placeBunkerPart(partId, col, row, depth),
+        "plank",
+      );
+    },
+    [
+      activeBunker,
+      activeBunkerInventory,
+      bunkerEditingAllowed,
+      carriedBunkerPart,
+      excavateBunkerCellRemote,
+      excavatePendingBunkerCell,
+      moveBunkerPart,
+      movePendingBunkerPart,
+      pendingBunkerActive,
+      placeBunkerPart,
+      placePendingBunkerPart,
+      selectedBasePart,
+    ],
+  );
+
+  // First-person hotbar selection: direct state writes, never the 2D
+  // selectBunkerTool path (its deselect stows via a scaffold move-log
+  // action, which fp mode must never issue).
+  const selectFpPart = useCallback((partId: BasePartId) => {
+    setBunkerToolSelection(partId);
+  }, []);
+  const selectFpPick = useCallback(() => {
+    setBunkerToolSelection("dig");
+  }, []);
+  const toggleFpPry = useCallback(() => {
+    setBunkerToolSelection((prev) => (prev === "pry" ? null : "pry"));
+  }, []);
+
+  // First-person tool keys: 0 or backtick = pick, 1-6 = part slots,
+  // q = pry toggle. Movement keys live in attachFpKeyboard.
+  useEffect(() => {
+    if (!fpBunkerActive) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (bunkerToolKeyIgnored(event)) return;
+      if (event.key === "0" || event.code === "Backquote") {
+        event.preventDefault();
+        selectFpPick();
+        return;
+      }
+      if (event.key === "q" || event.key === "Q") {
+        event.preventDefault();
+        toggleFpPry();
+        return;
+      }
+      const slot = Number(event.key) - 1;
+      const partId = BASE_PART_IDS[slot];
+      if (!partId) return;
+      event.preventDefault();
+      if (activeBunkerInventory[partId] <= 0) return;
+      selectFpPart(partId);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    activeBunkerInventory,
+    fpBunkerActive,
+    selectFpPart,
+    selectFpPick,
+    toggleFpPry,
+  ]);
+
   // First-person keyboard: WASD/arrows plus Space live in the shared
   // fp input singleton while the mode is on; detach zeroes everything.
   useEffect(() => {
@@ -2976,14 +3186,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   useEffect(() => {
     const onBunkerToolKey = (event: KeyboardEvent) => {
       if (fpBunkerActive) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.isContentEditable ||
-          /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-      )
-        return;
+      if (bunkerToolKeyIgnored(event)) return;
       if (event.key === "Escape" && bunkerToolSelection) {
         event.preventDefault();
         selectBunkerTool(null);
@@ -3457,6 +3660,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             <BunkerFpCanvas
               bunker={activeBunker}
               entry={{ col: miner.col, row: miner.row }}
+              tool={bunkerToolAction}
+              selectedPartId={selectedBasePart}
+              carried={carriedBunkerPart}
+              onEdit={applyFpBunkerEdit}
               onExit={exitFpBunker}
               onFirstFrame={handleMineFirstFrame}
             />
@@ -3488,7 +3695,18 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         <MineSceneBackdrop />
       )}
       {fpBunkerActive && mineSceneReady && (
-        <BunkerFpHud onExit={exitFpBunker} />
+        <BunkerFpHud
+          inventory={activeBunkerInventory}
+          tool={bunkerToolAction}
+          selectedPartId={selectedBasePart}
+          carried={carriedBunkerPart}
+          onSelectPart={selectFpPart}
+          onSelectPick={selectFpPick}
+          onTogglePry={toggleFpPry}
+          onStowCarried={stowCarriedBunkerPart}
+          onPutBackCarried={cancelCarriedBunkerPart}
+          onExit={exitFpBunker}
+        />
       )}
       {showFirstPaintVeil && <MineSceneBackdrop veil />}
       {(mineSceneStatus === "loading" || showFirstPaintVeil) && (

@@ -836,11 +836,21 @@ describe("bunker excavation wrapper", () => {
       expect(unreachable.error).toBe("cannot dig: unreachable");
     }
     expect(writes).toEqual([]);
+    expect(applyAchievementProgress).not.toHaveBeenCalled();
 
+    vi.mocked(applyAchievementProgress).mockResolvedValueOnce([
+      "bunker-groundbreaker",
+    ]);
     const dug = await excavateBunker(sql as never, "player-1", 2, 5, 1);
     expect(dug.ok).toBe(true);
+    if (dug.ok) {
+      expect(dug.newStamps).toEqual(["bunker-groundbreaker"]);
+    }
     expect(writes.length).toBeGreaterThan(0);
     expect(writes[0]).toContain('"depth":1');
+    // Groundbreaker is backfill-only: the wrapper never increments the
+    // counter; the refresh reads the durable bunkers.dug array instead.
+    expect(applyAchievementProgress).toHaveBeenCalledWith(sql, "player-1", {});
   });
 });
 

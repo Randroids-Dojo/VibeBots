@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Your claim opens in first person: walk it from the inside.",
+    "First person gets hands: pick, parts, and prying.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "first-person view of the interior",
+    "dig the deep claim rock cell by cell at the crosshair",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "The four deeper layers show as solid claim rock for now",
+    "Groundbreaker stamp",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.248", "Dig and build inside your bunker"],
     ["0.1.247", "Step inside your bunker"],
     ["0.1.246", "The bunker's deep rock learns to be dug"],
     ["0.1.245", "Bunker building wires up the depth layers"],

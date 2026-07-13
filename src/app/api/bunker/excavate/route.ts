@@ -26,7 +26,7 @@ export async function POST(request: Request): Promise<Response> {
     async ({ sql, playerId }, body) =>
       operationResultResponse(
         await excavateBunker(sql, playerId, body.col, body.row, body.depth),
-        (result) => result.view,
+        (result) => ({ ...result.view, newStamps: result.newStamps }),
       ),
   );
 }

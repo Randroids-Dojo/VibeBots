@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest first-person note complete", () => {
+  it("keeps the latest fp-building note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.247-bunker-first-person");
+    expect(release.noticeId).toBe("2026-07-13-0.1.248-bunker-fp-building");
     expect(latestNote).toMatchObject({
+      version: "0.1.248",
+      title: "Dig and build inside your bunker",
+      intro: "First person gets hands: pick, parts, and prying.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The first-person hotbar now carries your pick and parts: dig the deep claim rock cell by cell at the crosshair, place parts into open cells with a ghost preview, and pry placed parts to carry them somewhere better. Tap to act on touch, click on desktop.",
+      "Your first dig earns the new Groundbreaker stamp. Dug before this landed? The Stamp Book already counts it.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived first-person note complete", () => {
+    const release = getAppRelease();
+    const fpNote = release.notes.find((note) => note.version === "0.1.247");
+
+    expect(fpNote).toMatchObject({
       version: "0.1.247",
       title: "Step inside your bunker",
       intro: "Your claim opens in first person: walk it from the inside.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(fpNote?.changes.map((change) => change.text)).toEqual([
       "Standing inside your claim, tap Enter bunker on the builder toolbelt or the bunker sheet (or press F) to switch into a first-person view of the interior. Walk with the stick or WASD, look by dragging or with the mouse, hop with the jump button or Space, and exit any time.",
       "The four deeper layers show as solid claim rock for now. Digging them out and building by hand in first person arrive in the next releases.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

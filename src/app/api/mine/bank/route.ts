@@ -792,6 +792,10 @@ export async function POST(request: Request): Promise<Response> {
   }
   let newStamps: string[] = [];
   try {
+    // Groundbreaker needs no patch here: the refresh inside
+    // applyAchievementProgress backfills the metric from the durable
+    // bunkers.dug array, and the claim insert above already committed
+    // any cells dug before banking.
     newStamps = await applyAchievementProgress(
       sql,
       playerId,

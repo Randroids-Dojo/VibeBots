@@ -52,6 +52,26 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-094" data-f="F-094" data-priority="blocks-release">
+    <h3>F-094: Replace the first-person jump arrow button with Minecraft-style auto-jump</h3>
+    <dl>
+      <dt>Context</dt><dd>Real-device playtest feedback (2026-07-13, the dev's Pixel, package 0.1.247): "I don't know why there is an up arrow button. Building should be as intuitive as it is in Minecraft." The fp viewer ships a bottom-right jump button on touch; Minecraft Pocket Edition defaults to auto-jump instead, so the button reads as mystery chrome.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Auto-jump on touch in <code>stepFpMovement</code> (grounded, horizontal collision against a one-block step whose two cells above are clear, hop) and remove the touch jump button; Space keeps jumping on desktop. Acceptance: a Pixel-viewport e2e walks up a placed block without any jump input, and the button is gone from the fp HUD.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (feedback slice after fp building).</dd>
+    </dl>
+  </section>
+
+  <section id="F-093" data-f="F-093" data-priority="blocks-release">
+    <h3>F-093: Legacy sealed 2D bases read as a vault in first person; add Reset bunker</h3>
+    <dl>
+      <dt>Context</dt><dd>Real-device playtest feedback (2026-07-13, the dev's Pixel, package 0.1.247): entering first person inside an existing base built the 2D way (a sealed room of floors, roofs, and walls around the miner cell) spawns the player inside a one-cell air pocket surrounded by full solid blocks: "faced with a vault of some kind when trying to walk in my base." The 2D starter layouts are voxel-legal but suffocating once parts render as full cells.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>A player-facing Reset bunker action in the bunker sheet: server route refunds undamaged placed parts to inventory, clears parts and dug cells, restores core durability, keeps the claim, blocked mid-raid, confirm-guarded in the UI. Acceptance: the dev resets the Pixel base in production and rebuilds from inside; route + sim tests cover refund and damaged-part handling.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (feedback slice after fp building).</dd>
+    </dl>
+  </section>
+
   <section id="F-092" data-f="F-092" data-priority="nice-to-have">
     <h3>F-092: Replace the interim depth-0 raid projection with the live 3D raid resolver</h3>
     <dl>

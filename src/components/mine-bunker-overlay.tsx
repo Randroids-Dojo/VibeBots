@@ -20,9 +20,10 @@ import {
 } from "./graphics-quality";
 import { useBlockDetail } from "./mine-block-render";
 import { bunkerPartGeometry } from "./mine-bunker-part-geometry";
-import type {
-  BunkerToolAction,
-  CarriedBunkerPart,
+import {
+  BUNKER_TOOL_HIGHLIGHT,
+  type BunkerToolAction,
+  type CarriedBunkerPart,
 } from "./mine-bunker-toolbelt";
 import { cellX } from "./mine-render-palette";
 import {
@@ -880,7 +881,8 @@ export function BunkerOverlay({
   const carriedKey = carriedPart
     ? `${carriedPart.source.col}:${carriedPart.source.row}`
     : null;
-  const targetColor = toolAction === "pry" ? "#f59e0b" : "#54e0c7";
+  const targetColor =
+    BUNKER_TOOL_HIGHLIGHT[toolAction === "pry" ? "pry" : "build"];
   const validTarget =
     targetCell && containsBunkerCell(footprint, targetCell.col, targetCell.row)
       ? targetCell
@@ -934,7 +936,10 @@ export function BunkerOverlay({
     ) : null;
   const targetPart = validTarget
     ? bunker?.parts.find(
-        (part) => part.col === validTarget.col && part.row === validTarget.row,
+        (part) =>
+          part.col === validTarget.col &&
+          part.row === validTarget.row &&
+          (part.depth ?? 0) === 0,
       )
     : null;
   const previewPartId = carriedPart?.part.partId ?? selectedPartId;
@@ -971,33 +976,37 @@ export function BunkerOverlay({
         />
       </group>
     ) : null;
+  // The flat mine view draws the tunnel plane only: parts placed on
+  // deeper layers belong to the first-person view.
   const parts =
-    bunker?.parts.map((part) => {
-      const partCell = { col: part.col, row: part.row };
-      const partKey = `${part.col}:${part.row}`;
-      const carried = carriedKey === partKey;
-      return (
-        // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
-        <group
-          key={`bunker-part:${part.col}:${part.row}`}
-          position={[cellX(part.col), -part.row, 0.5]}
-          visible={!carried}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!canEditBunker) return;
-            onBunkerCellTap?.(partCell);
-          }}
-        >
-          <BasePartVisual
-            detail={detail}
-            durability={part.durability}
-            partId={part.partId}
-            skin={bunker?.skin}
-            tier={tier}
-          />
-        </group>
-      );
-    }) ?? [];
+    bunker?.parts
+      .filter((part) => (part.depth ?? 0) === 0)
+      .map((part) => {
+        const partCell = { col: part.col, row: part.row };
+        const partKey = `${part.col}:${part.row}`;
+        const carried = carriedKey === partKey;
+        return (
+          // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
+          <group
+            key={`bunker-part:${part.col}:${part.row}`}
+            position={[cellX(part.col), -part.row, 0.5]}
+            visible={!carried}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!canEditBunker) return;
+              onBunkerCellTap?.(partCell);
+            }}
+          >
+            <BasePartVisual
+              detail={detail}
+              durability={part.durability}
+              partId={part.partId}
+              skin={bunker?.skin}
+              tier={tier}
+            />
+          </group>
+        );
+      }) ?? [];
   const clankers =
     activeRaid?.clankers.map((clanker) => (
       <ClankerMesh key={clanker.id} clanker={clanker} raid={activeRaid} />

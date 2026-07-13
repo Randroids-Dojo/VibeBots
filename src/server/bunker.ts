@@ -509,7 +509,7 @@ export async function excavateBunker(
   col: number,
   row: number,
   depth: number,
-): Promise<BunkerOperationResult> {
+): Promise<BunkerOperationResult<{ newStamps?: string[] }>> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
@@ -522,7 +522,22 @@ export async function excavateBunker(
     SET dug = ${JSON.stringify(dug.bunker.dug)}::jsonb,
         updated_at = now()
     WHERE player_id = ${playerId}`;
-  return { ok: true, view: await loadBunkerView(sql, playerId) };
+  // Groundbreaker is backfill-only: the empty patch increments nothing,
+  // and the refresh inside applyAchievementProgress re-reads the
+  // durable jsonb_array_length(bunkers.dug), which the UPDATE above
+  // already includes, so the metric always equals the dug count.
+  const [latestView, newStamps] = await Promise.all([
+    loadBunkerView(sql, playerId),
+    (async () => {
+      try {
+        return await applyAchievementProgress(sql, playerId, {});
+      } catch {
+        // Stamps are cosmetic and must never block an excavation.
+        return [];
+      }
+    })(),
+  ]);
+  return { ok: true, view: latestView, newStamps };
 }
 
 async function saveBunkerAndInventory(

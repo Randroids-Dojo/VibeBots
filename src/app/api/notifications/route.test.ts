@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.247-bunker-first-person",
+      releaseNoticeId: "2026-07-13-0.1.248-bunker-fp-building",
       releaseSummary:
-        "Step inside your bunker: Your claim opens in first person: walk it from the inside.",
+        "Dig and build inside your bunker: First person gets hands: pick, parts, and prying.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.247-bunker-first-person",
+      releaseNoticeId: "2026-07-13-0.1.248-bunker-fp-building",
       attempted: 2,
       sent: 1,
       expired: 1,

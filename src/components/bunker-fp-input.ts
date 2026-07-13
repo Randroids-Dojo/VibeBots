@@ -13,6 +13,11 @@ export interface FpInputState {
   strafe: number;
   /** Edge-triggered jump; the rig consumes it each frame. */
   jump: boolean;
+  /** Edge-triggered "act with the current tool" (left click while
+   * pointer-locked, or a quick tap on the touch look zone). */
+  act: boolean;
+  /** Edge-triggered quick pry (right click), regardless of tool. */
+  pryAct: boolean;
   /** Accumulated look deltas (touch drag), consumed each frame. */
   lookX: number;
   lookY: number;
@@ -22,6 +27,8 @@ export const fpInput: FpInputState = {
   forward: 0,
   strafe: 0,
   jump: false,
+  act: false,
+  pryAct: false,
   lookX: 0,
   lookY: 0,
 };
@@ -54,6 +61,8 @@ export function resetFpInput(): void {
   fpInput.forward = 0;
   fpInput.strafe = 0;
   fpInput.jump = false;
+  fpInput.act = false;
+  fpInput.pryAct = false;
   fpInput.lookX = 0;
   fpInput.lookY = 0;
 }

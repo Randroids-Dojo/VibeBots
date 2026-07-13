@@ -453,6 +453,7 @@ describe("POST /api/mine/bank", () => {
         claimCol: START_COL,
         claimRow: 5,
         claimedAtMoveCount: 5,
+        dug: [{ col: START_COL - 3, row: 1, depth: 1 }],
         parts: [
           {
             partId: "wall-panel",
@@ -478,6 +479,15 @@ describe("POST /api/mine/bank", () => {
     expect(
       queries.some((query) => query.includes("INSERT INTO player_base_parts")),
     ).toBe(true);
+    // Groundbreaker is backfill-only: cells dug before banking surface
+    // through the durable bunkers.dug backfill inside
+    // applyAchievementProgress, never through the bank patch (so a
+    // dig-then-claim run can never count the same cells twice).
+    expect(mockedApplyAchievementProgress).toHaveBeenCalledWith(
+      expect.anything(),
+      "player-1",
+      expect.not.objectContaining({ bunkerCellsDug: expect.anything() }),
+    );
   });
 
   it("replays scaffold movement only after the pending claim checkpoint", async () => {

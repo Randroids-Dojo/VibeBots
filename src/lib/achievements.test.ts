@@ -69,6 +69,29 @@ describe("achievements", () => {
     );
   });
 
+  it("unlocks Groundbreaker from the first excavated claim-rock cell", () => {
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        stats: { ...DEFAULT_ACHIEVEMENT_STATS, bunkerCellsDug: 1 },
+      }),
+    ).toContain("bunker-groundbreaker");
+    expect(achievementIdsUnlockedBy(baseSnapshot)).not.toContain(
+      "bunker-groundbreaker",
+    );
+  });
+
+  it("merges bunkerCellsDug additively like other lifetime counters", () => {
+    const merged = mergeAchievementStats(
+      { ...DEFAULT_ACHIEVEMENT_STATS, bunkerCellsDug: 3 },
+      { bunkerCellsDug: 2 },
+    );
+    expect(merged.bunkerCellsDug).toBe(5);
+    expect(
+      mergeAchievementStats(DEFAULT_ACHIEVEMENT_STATS, {}).bunkerCellsDug,
+    ).toBe(0);
+  });
+
   it("unlocks the roof-rescue and collapse-survival stamps from trip counters", () => {
     expect(
       achievementIdsUnlockedBy({

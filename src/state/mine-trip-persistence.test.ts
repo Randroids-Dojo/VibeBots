@@ -240,6 +240,7 @@ describe("pending bunker depth normalization", () => {
       { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
       { partId: "door-panel", col: 3, row: 5, depth: 0, durability: 60 },
     ]);
+    expect(loaded?.pendingBunker?.bunker.dug).toEqual([]);
   });
 });
 

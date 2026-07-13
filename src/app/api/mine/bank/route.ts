@@ -32,6 +32,7 @@ import {
   type BunkerState,
   createBunker,
   EMPTY_BASE_PART_INVENTORY,
+  excavateBunkerCell,
   placeBasePart,
   proposedBunkerFootprint,
   STARTER_BASE_PART_INVENTORY,
@@ -71,6 +72,15 @@ const placedBasePartSchema = z.object({
     .max(BUNKER_CLAIM_DEPTH - 1)
     .default(0),
   durability: z.number().int().min(1).max(1000),
+});
+const dugBunkerCellSchema = z.object({
+  col: z.number().int(),
+  row: z.number().int().min(1),
+  depth: z
+    .number()
+    .int()
+    .min(1)
+    .max(BUNKER_CLAIM_DEPTH - 1),
 });
 const GEAR_LOG_FIELDS = [
   "pickaxe",
@@ -115,6 +125,8 @@ const bodySchema = z.object({
       claimRow: z.number().int().min(1),
       claimedAtMoveCount: z.number().int().min(0).max(MAX_TRIP_MOVES),
       parts: z.array(placedBasePartSchema).max(174),
+      // 7x5x4 interior cells; depth 0 is open by claiming and never listed.
+      dug: z.array(dugBunkerCellSchema).max(140).default([]),
     })
     .optional(),
 });
@@ -368,6 +380,15 @@ export function validatePendingBunkerClaim(
     }
   }
   let bunker = createBunker(footprint);
+  // Replay the digs in submitted order: each must chain from an open
+  // face, which proves the excavation sequence was physically possible.
+  for (const cell of pending.dug) {
+    const dugStep = excavateBunkerCell(bunker, cell.col, cell.row, cell.depth);
+    if (!dugStep.ok) {
+      return { ok: false, error: `cannot excavate: ${dugStep.reason}` };
+    }
+    bunker = dugStep.bunker;
+  }
   let remaining = { ...inventory };
   for (const part of pending.parts) {
     if (part.durability !== BASE_PART_CATALOG[part.partId].durability) {
@@ -715,12 +736,13 @@ export async function POST(request: Request): Promise<Response> {
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
     ), claimed_bunker AS (
-      INSERT INTO bunkers (player_id, footprint, core, parts)
+      INSERT INTO bunkers (player_id, footprint, core, parts, dug)
       SELECT
         ${playerId},
         ${JSON.stringify(claimedBunker?.footprint ?? {})}::jsonb,
         ${JSON.stringify(claimedBunker?.core ?? {})}::jsonb,
-        ${JSON.stringify(claimedBunker?.parts ?? [])}::jsonb
+        ${JSON.stringify(claimedBunker?.parts ?? [])}::jsonb,
+        ${JSON.stringify(claimedBunker?.dug ?? [])}::jsonb
       WHERE ${hasPendingBunker} AND EXISTS (SELECT 1 FROM world)
       ON CONFLICT (player_id) DO NOTHING
       RETURNING player_id

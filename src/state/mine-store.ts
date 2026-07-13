@@ -5,6 +5,7 @@ import {
   type BunkerFootprint,
   bunkerCells,
   createBunker,
+  excavateBunkerCell,
   moveBasePart,
   type PendingBunkerBuild,
   type PendingBunkerClaimPayload,
@@ -291,6 +292,11 @@ export interface MineSessionState {
     fromDepth?: number,
     toDepth?: number,
   ) => boolean;
+  excavatePendingBunkerCell: (
+    col: number,
+    row: number,
+    depth: number,
+  ) => boolean;
   submitCashOut: () => Promise<boolean>;
   buyConsumable: (
     item: keyof MineConsumables,
@@ -322,6 +328,7 @@ function pendingBunkerPayload(
     claimRow: pending.claimRow,
     claimedAtMoveCount: pending.claimedAtMoveCount,
     parts: pending.bunker.parts,
+    dug: pending.bunker.dug,
   };
 }
 
@@ -1294,6 +1301,21 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pendingBunker: {
           ...pending,
           bunker: moved.bunker,
+        },
+      });
+      persistCurrentTrip();
+      return true;
+    },
+
+    excavatePendingBunkerCell: (col, row, depth) => {
+      const pending = get().pendingBunker;
+      if (!pending || get().cashOut.state === "pending") return false;
+      const dug = excavateBunkerCell(pending.bunker, col, row, depth);
+      if (!dug.ok) return false;
+      set({
+        pendingBunker: {
+          ...pending,
+          bunker: dug.bunker,
         },
       });
       persistCurrentTrip();

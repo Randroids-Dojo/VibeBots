@@ -3,6 +3,7 @@ import {
   buyBasePart,
   claimBunker,
   collectBunkerRaidPickup,
+  excavateBunker,
   finishBunkerRaid,
   loadBunkerView,
   moveBunkerPart,
@@ -15,6 +16,7 @@ import {
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
 import { POST as claimPost } from "./claim/route";
+import { POST as excavatePost } from "./excavate/route";
 import { POST as buyPartPost } from "./parts/buy/route";
 import { POST as movePartPost } from "./parts/move/route";
 import { POST as placePartPost } from "./parts/place/route";
@@ -39,6 +41,7 @@ vi.mock("@/server/bunker", () => ({
   buyBasePart: vi.fn(),
   claimBunker: vi.fn(),
   collectBunkerRaidPickup: vi.fn(),
+  excavateBunker: vi.fn(),
   finishBunkerRaid: vi.fn(),
   loadBunkerView: vi.fn(),
   moveBunkerPart: vi.fn(),
@@ -61,6 +64,7 @@ const mockedMove = vi.mocked(moveBunkerPart);
 const mockedPlace = vi.mocked(placeBunkerPart);
 const mockedSkin = vi.mocked(setBunkerSkin);
 const mockedRemove = vi.mocked(removeBunkerPart);
+const mockedExcavate = vi.mocked(excavateBunker);
 const mockedStart = vi.mocked(startBunkerRaid);
 const mockedRepair = vi.mocked(repairBunker);
 
@@ -130,6 +134,7 @@ describe("bunker API routes", () => {
     mockedMove.mockResolvedValue({ ok: true, view });
     mockedPlace.mockResolvedValue({ ok: true, view });
     mockedRemove.mockResolvedValue({ ok: true, view });
+    mockedExcavate.mockResolvedValue({ ok: true, view });
     mockedStart.mockResolvedValue({
       ok: true,
       view,
@@ -596,6 +601,42 @@ describe("bunker API routes", () => {
       4,
       0,
     );
+  });
+
+  it("excavates reachable interior rock", async () => {
+    const res = await excavatePost(
+      jsonRequest("http://localhost/api/bunker/excavate", {
+        col: 7,
+        row: 4,
+        depth: 1,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual(view);
+    expect(mockedExcavate).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      7,
+      4,
+      1,
+    );
+  });
+
+  it("rejects digging the open claim plane", async () => {
+    const res = await excavatePost(
+      jsonRequest("http://localhost/api/bunker/excavate", {
+        col: 7,
+        row: 4,
+        depth: 0,
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: [expect.objectContaining({ path: ["depth"] })],
+    });
+    expect(mockedExcavate).not.toHaveBeenCalled();
   });
 
   it("removes base parts at explicit depths", async () => {

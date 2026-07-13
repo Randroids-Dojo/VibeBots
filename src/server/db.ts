@@ -148,6 +148,9 @@ async function applySchema(sql: Sql): Promise<void> {
     ALTER TABLE bunkers
     ADD COLUMN IF NOT EXISTS skins_owned jsonb NOT NULL DEFAULT '[]'::jsonb`;
   await sql`
+    ALTER TABLE bunkers
+    ADD COLUMN IF NOT EXISTS dug jsonb NOT NULL DEFAULT '[]'::jsonb`;
+  await sql`
     CREATE TABLE IF NOT EXISTS bunker_raids (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
       raid_id text NOT NULL,

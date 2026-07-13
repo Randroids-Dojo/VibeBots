@@ -18,6 +18,7 @@ import {
   buyRemoteBasePart,
   claimRemoteBunker,
   collectRemoteRaidPickup,
+  excavateRemoteBunkerCell,
   finishRemoteBunkerRaid,
   loadRemoteBunker,
   moveRemoteBunkerPart,
@@ -64,6 +65,11 @@ export interface BunkerStoreState {
     toRow: number,
     fromDepth?: number,
     toDepth?: number,
+  ) => Promise<BunkerMutationResult>;
+  excavateCell: (
+    col: number,
+    row: number,
+    depth: number,
   ) => Promise<BunkerMutationResult>;
   startRaid: (tier?: number) => Promise<BunkerMutationResult>;
   repairBunker: () => Promise<BunkerMutationResult>;
@@ -176,6 +182,12 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
         fromDepth,
         toDepth,
       ),
+      "bunker action failed",
+    ),
+  excavateCell: async (col, row, depth) =>
+    applyMutationResult(
+      set,
+      await excavateRemoteBunkerCell(col, row, depth),
       "bunker action failed",
     ),
   repairBunker: async () =>

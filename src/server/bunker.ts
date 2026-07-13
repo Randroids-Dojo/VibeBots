@@ -21,7 +21,9 @@ import {
   canCollectBunkerRaidPickupFrom,
   createBunker,
   DEFAULT_BUNKER_SKIN,
+  type DugBunkerCell,
   EMPTY_BASE_PART_INVENTORY,
+  excavateBunkerCell,
   isBunkerSkinId,
   maxBunkerRaidTier,
   moveBasePart,
@@ -77,11 +79,30 @@ function normalizedBunkerDepth(value: unknown): number {
     : 0;
 }
 
+function normalizedDugCells(value: unknown): DugBunkerCell[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((cell): cell is DugBunkerCell => {
+    if (!cell || typeof cell !== "object") return false;
+    const candidate = cell as Record<string, unknown>;
+    return (
+      typeof candidate.col === "number" &&
+      Number.isInteger(candidate.col) &&
+      typeof candidate.row === "number" &&
+      Number.isInteger(candidate.row) &&
+      typeof candidate.depth === "number" &&
+      Number.isInteger(candidate.depth) &&
+      candidate.depth >= 1 &&
+      candidate.depth < BUNKER_CLAIM_DEPTH
+    );
+  });
+}
+
 function parseBunkerState(
   row: {
     footprint: unknown;
     core: unknown;
     parts: unknown;
+    dug?: unknown;
     skin?: unknown;
     skins_owned?: unknown;
   } | null,
@@ -100,6 +121,7 @@ function parseBunkerState(
   return {
     footprint,
     core,
+    dug: normalizedDugCells(row.dug),
     skin: isBunkerSkinId(row.skin) ? row.skin : DEFAULT_BUNKER_SKIN,
     skinsOwned,
     parts: parts
@@ -205,12 +227,13 @@ export async function loadBunkerView(
     defense_xp: number;
   }>;
   const bunkerRows = (await sql`
-    SELECT footprint, core, parts, skin, skins_owned
+    SELECT footprint, core, parts, dug, skin, skins_owned
     FROM bunkers
     WHERE player_id = ${playerId}`) as Array<{
     footprint: unknown;
     core: unknown;
     parts: unknown;
+    dug: unknown;
     skin: unknown;
     skins_owned: unknown;
   }>;
@@ -291,12 +314,13 @@ export async function claimBunker(
   const bunker = createBunker(footprint);
   await ensureStarterBaseParts(sql, playerId);
   await sql`
-    INSERT INTO bunkers (player_id, footprint, core, parts)
+    INSERT INTO bunkers (player_id, footprint, core, parts, dug)
     VALUES (
       ${playerId},
       ${JSON.stringify(bunker.footprint)}::jsonb,
       ${JSON.stringify(bunker.core)}::jsonb,
-      ${JSON.stringify(bunker.parts)}::jsonb
+      ${JSON.stringify(bunker.parts)}::jsonb,
+      ${JSON.stringify(bunker.dug)}::jsonb
     )`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
@@ -476,6 +500,28 @@ export async function moveBunkerPart(
     return { ok: false, status: 409, error: `cannot move: ${moved.reason}` };
   }
   await saveBunkerAndInventory(sql, playerId, moved.bunker, view.inventory);
+  return { ok: true, view: await loadBunkerView(sql, playerId) };
+}
+
+export async function excavateBunker(
+  sql: Sql,
+  playerId: string,
+  col: number,
+  row: number,
+  depth: number,
+): Promise<BunkerOperationResult> {
+  const view = await loadBunkerView(sql, playerId);
+  if (!view.bunker)
+    return { ok: false, status: 409, error: "claim a bunker first" };
+  const dug = excavateBunkerCell(view.bunker, col, row, depth);
+  if (!dug.ok) {
+    return { ok: false, status: 409, error: `cannot dig: ${dug.reason}` };
+  }
+  await sql`
+    UPDATE bunkers
+    SET dug = ${JSON.stringify(dug.bunker.dug)}::jsonb,
+        updated_at = now()
+    WHERE player_id = ${playerId}`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 

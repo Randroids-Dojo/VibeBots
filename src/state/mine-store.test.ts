@@ -221,7 +221,15 @@ describe("mine store upgrade flow", () => {
     expect(
       store().placePendingBunkerPart("wall-panel", START_COL - 3, 1, 0),
     ).toBe(true);
-    // The same col/row one layer deeper is its own cell.
+    // Deep cells start as rock: dig first, then the same col/row one
+    // layer deeper is its own cell.
+    expect(
+      store().placePendingBunkerPart("wall-panel", START_COL - 3, 1, 1),
+    ).toBe(false);
+    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 1)).toBe(true);
+    expect(store().pendingBunker?.bunker.dug).toEqual([
+      { col: START_COL - 3, row: 1, depth: 1 },
+    ]);
     expect(
       store().placePendingBunkerPart("wall-panel", START_COL - 3, 1, 1),
     ).toBe(true);
@@ -231,6 +239,11 @@ describe("mine store upgrade flow", () => {
     // Removing at the wrong depth misses; the right depth refunds.
     expect(store().removePendingBunkerPart(START_COL - 3, 1, 3)).toBe(false);
     expect(store().removePendingBunkerPart(START_COL - 3, 1, 1)).toBe(true);
+    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 2)).toBe(true);
+    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 3)).toBe(true);
+    // Chains must connect: a cell with no open face stays unreachable.
+    expect(store().excavatePendingBunkerCell(START_COL - 2, 1, 4)).toBe(false);
+    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 4)).toBe(true);
     expect(
       store().movePendingBunkerPart(START_COL - 3, 1, START_COL - 3, 1, 0, 4),
     ).toBe(true);

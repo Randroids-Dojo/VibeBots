@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.245-bunker-depth-apis";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.246-bunker-excavation";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.246",
+      date: "2026-07-13",
+      title: "The bunker's deep rock learns to be dug",
+      intro: "Third groundwork slice: excavation exists, server-verified.",
+      changes: [
+        {
+          build,
+          text: "The four deep layers of every bunker claim now exist as solid rock, excavated cell by cell through a new server action. Every dig must chain from an already-open face, and the server replays your dig order to prove it.",
+        },
+        {
+          build,
+          text: "Parts can no longer be placed inside undug rock. Nothing visible changes yet: the first-person mode that uses all of this is next.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.245",
       date: "2026-07-13",

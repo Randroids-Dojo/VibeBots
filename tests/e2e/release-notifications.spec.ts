@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Second groundwork slice: the pipes now carry depth.",
+    "Third groundwork slice: excavation exists, server-verified.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "carries a depth layer end to end",
+    "excavated cell by cell through a new server action",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "one for every buildable cell of the coming 7x5x5 volume",
+    "Parts can no longer be placed inside undug rock",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.246", "The bunker's deep rock learns to be dug"],
     ["0.1.245", "Bunker building wires up the depth layers"],
     ["0.1.244", "The bunker learns a third dimension"],
     ["0.1.243", "Walking flows instead of stuttering"],

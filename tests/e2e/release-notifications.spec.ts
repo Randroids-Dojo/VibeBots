@@ -51,7 +51,8 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
-    ["0.1.241", "Taps land instead of vanishing"],
+    ["0.1.242", "Taps land instead of vanishing"],
+    ["0.1.241", "Use the remote buttons to move in the mine"],
     ["0.1.240", "Point where the bunker part should go"],
     ["0.1.239", "Stamp alerts lead straight to the Stamp Book"],
     ["0.1.238", "The planet stays put"],

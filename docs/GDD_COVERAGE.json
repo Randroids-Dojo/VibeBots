@@ -513,12 +513,14 @@
         "src/components/mine-panel.tsx",
         "src/app/globals.css",
         "src/components/mine-tv-controls.tsx",
-        "src/lib/tv-device.ts"
+        "src/lib/tv-device.ts",
+        "src/lib/tv-remote-input.ts"
       ],
       "testRefs": [
         "tests/e2e/mine-core.spec.ts",
         "tests/e2e/mine-viewport.spec.ts",
-        "tests/e2e/mine-firetv-controls.spec.ts"
+        "tests/e2e/mine-firetv-controls.spec.ts",
+        "src/lib/tv-remote-input.test.ts"
       ],
       "followupRefs": []
     },

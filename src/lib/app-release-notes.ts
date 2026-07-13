@@ -1,11 +1,11 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.241-tap-buffer";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.242-tap-buffer";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.241",
+      version: "0.1.242",
       date: "2026-07-13",
       title: "Taps land instead of vanishing",
       intro: "Movement keeps its pace but stops eating your inputs.",
@@ -23,6 +23,26 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
           text: "Holding Up now keeps mining a ceiling without re-pressing for every swing. Planting a ladder still always takes a deliberate fresh press, so a held key can never spend ladders or carry you upward on its own.",
         },
         { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
+    {
+      version: "0.1.241",
+      date: "2026-07-13",
+      title: "Use the remote buttons to move in the mine",
+      intro: "Fire TV players can try physical movement before the TV deck.",
+      changes: [
+        {
+          build,
+          text: "On Fire TV, Channel Up and Channel Down move vertically while Rewind and Fast Forward move left and right. Play/Pause still fires the jump jets.",
+        },
+        {
+          build,
+          text: "Select keeps clicking the item under Silk's cursor, and Back keeps its browser-history role so open menus can intercept it safely. Neither button is repurposed for movement.",
+        },
+        {
+          build,
+          text: "The large TV control deck remains available as a fallback when a Silk version or television withholds a channel key. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
       ],
     },
     {

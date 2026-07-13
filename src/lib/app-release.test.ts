@@ -24,17 +24,37 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest parallax-depth note complete", () => {
+  it("keeps the latest fire-tv-controls note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.236-parallax-depth");
+    expect(release.noticeId).toBe("2026-07-13-0.1.237-fire-tv-controls");
     expect(latestNote).toMatchObject({
+      version: "0.1.237",
+      title: "Play the whole mine from a TV remote",
+      intro: "Fire TV sessions get remote-native controls.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Opening the game in the Fire TV Silk browser now shows a TV control deck: big direction buttons where one click is one move, and holding Select keeps digging. No more dragging the thumbstick with the cursor.",
+      "The deck's center button walks you into the Workshop or Battles when you stand on their door, and fires the jump jets everywhere else.",
+      "The remote's Back button now closes open menus, sheets, and the bag instead of leaving the game. Play/Pause jumps, and Rewind and Fast Forward zoom the camera.",
+      "A paired game controller can play the mine too: the D-pad walks and digs, and A enters buildings or jumps. Add ?tv=1 to the address on any other TV browser to force the deck on.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived parallax-depth note complete", () => {
+    const release = getAppRelease();
+    const parallaxNote = release.notes.find(
+      (note) => note.version === "0.1.236",
+    );
+
+    expect(parallaxNote).toMatchObject({
       version: "0.1.236",
       title: "The horizon has real depth",
       intro: "The landscape now separates into calm, believable distances.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(parallaxNote?.changes.map((change) => change.text)).toEqual([
       "The planet now barely drifts while the excavation, mining machinery, and service berm move at progressively stronger depth rates. The scenery no longer feels attached to the miner.",
       "Each layer eases into a bounded travel range, keeping the ringed planet and industrial skyline composed while walking to distant biomes. Reduced motion still locks the vista to the viewport.",
       "The correction adds no geometry, draw calls, materials, or frame allocations. MINE_VERSION and SIM_VERSION are unchanged.",

@@ -348,6 +348,14 @@ test.describe("phone viewport", () => {
     await page.goto("/mine");
     await expect(page.locator("canvas")).toBeVisible();
     await dismissReleaseNotes(page);
+    // The compile-gated first load can stall the main thread past the
+    // whole sample window on slow hosts; the sampler retries after such
+    // a dropped window, so start the clock at the painted scene.
+    await expect(page.getByLabel("Mine status")).toHaveAttribute(
+      "data-scene-painted",
+      "true",
+      { timeout: 30_000 },
+    );
     await expect.poll(() => samples.length, { timeout: 15_000 }).toBe(1);
     const payload = samples[0] as Record<string, unknown>;
     expect(payload.source).toBe("mine");

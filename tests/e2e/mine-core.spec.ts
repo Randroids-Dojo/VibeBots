@@ -465,39 +465,70 @@ test("stratum entry banners fade after continued descent", async ({ page }) => {
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
+  // The banner is a one-shot 2.6s CSS animation, so prove it visibly
+  // animates while it is alive (Rule 10). Observation is armed in-page
+  // before the descent: on a loaded host the whole animation (and the
+  // banner's own unmount) can pass between protocol round trips, so
+  // after-the-fact sampling records a still frame or nothing at all.
+  await page.evaluate(() => {
+    const w = window as typeof window & {
+      __stratumBannerMotion?: { seen: boolean; changed: boolean };
+    };
+    const motion = { seen: false, changed: false };
+    w.__stratumBannerMotion = motion;
+    let last: { opacity: number; transform: string } | null = null;
+    const sample = () => {
+      const el = Array.from(
+        document.querySelectorAll(".mine-stratum-banner"),
+      ).find((candidate) => candidate.textContent?.includes("Clay Beds"));
+      if (el) {
+        const style = window.getComputedStyle(el);
+        const current = {
+          opacity: Number(style.opacity),
+          transform: style.transform,
+        };
+        motion.seen = true;
+        // Any mid-fade sample is motion evidence on its own.
+        if (current.opacity > 0 && current.opacity < 1) motion.changed = true;
+        if (
+          last !== null &&
+          (last.opacity !== current.opacity ||
+            last.transform !== current.transform)
+        ) {
+          motion.changed = true;
+        }
+        last = current;
+      }
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
   await digTo(page, 12);
   await expect(status).toHaveAttribute("data-depth", "12");
 
   const banner = page
     .locator(".mine-stratum-banner")
     .filter({ hasText: "Entering Clay Beds" });
-  await expect(banner).toBeVisible();
-  // The banner is a one-shot 2.6s CSS animation, so prove it visibly
-  // animates while it is alive (Rule 10) without anchoring on a single
-  // early sample: under suite load the first sample can land late in
-  // the banner's life, so each poll tick takes its own pair of samples.
-  const sampleBanner = () =>
-    banner
-      .evaluate((element) => {
-        const style = window.getComputedStyle(element);
-        return { opacity: Number(style.opacity), transform: style.transform };
-      })
-      .catch(() => null);
+  const bannerMotion = () =>
+    page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __stratumBannerMotion?: { seen: boolean; changed: boolean };
+          }
+        ).__stratumBannerMotion ?? { seen: false, changed: false },
+    );
   await expect
-    .poll(
-      async () => {
-        const a = await sampleBanner();
-        if (a === null) return false;
-        // Any mid-fade sample is motion evidence on its own.
-        if (a.opacity > 0 && a.opacity < 1) return true;
-        await page.waitForTimeout(120);
-        const b = await sampleBanner();
-        return (
-          b !== null && (b.opacity !== a.opacity || b.transform !== a.transform)
-        );
-      },
-      { message: "stratum banner should visibly animate", timeout: 20_000 },
-    )
+    .poll(async () => (await bannerMotion()).seen, {
+      message: "stratum banner should appear on the Clay Beds crossing",
+      timeout: 20_000,
+    })
+    .toBe(true);
+  await expect
+    .poll(async () => (await bannerMotion()).changed, {
+      message: "stratum banner should visibly animate",
+      timeout: 20_000,
+    })
     .toBe(true);
   // Continued descent leaves no lingering banner behind.
   await digTo(page, 13);

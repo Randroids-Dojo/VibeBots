@@ -827,6 +827,10 @@ test("bunker claims can be edited before banking", async ({ page }) => {
 test("bunker skins repaint placed parts and reselect owned skins free", async ({
   page,
 }) => {
+  // Each pixel-diff measurement decodes two full-viewport PNGs on the
+  // page's contended main thread, so one tick can take several seconds
+  // on a slow host; the default 60s budget starves the repaint poll.
+  test.setTimeout(120_000);
   const mine = createMine(7171, DEFAULT_GEAR, STARTING_CONSUMABLES);
   for (let row = 1; row <= 5; row++) {
     for (let offset = -3; offset <= 3; offset++) {
@@ -949,7 +953,7 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
         after = await page.locator("canvas").screenshot();
         return imagePixelDifferenceRatio(page, before, after);
       },
-      { timeout: 10_000, intervals: [400] },
+      { timeout: 45_000, intervals: [400] },
     )
     .toBeGreaterThan(0.002);
   await page.waitForTimeout(400);

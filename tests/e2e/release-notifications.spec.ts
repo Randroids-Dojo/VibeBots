@@ -21,16 +21,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The landscape now separates into calm, believable distances.",
+    "Fire TV sessions get remote-native controls.",
   );
-  await expect(dialog.locator("li")).toHaveCount(3);
-  await expect(dialog.locator("li").first()).toContainText(
-    "no longer feels attached to the miner",
-  );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "eases into a bounded travel range",
-  );
-  await expect(dialog.locator("li").nth(2)).toContainText(
+  await expect(dialog.locator("li")).toHaveCount(5);
+  await expect(dialog.locator("li").first()).toContainText("TV control deck");
+  await expect(dialog.locator("li").nth(2)).toContainText("closes open menus");
+  await expect(dialog.locator("li").nth(4)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
   );
 
@@ -51,6 +47,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.237", "Play the whole mine from a TV remote"],
     ["0.1.236", "The horizon has real depth"],
     ["0.1.235", "The mine loads behind the cart, not a black screen"],
     ["0.1.234", "A world beyond the village"],

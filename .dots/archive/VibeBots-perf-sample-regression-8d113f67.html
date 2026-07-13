@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Restore the mine compact performance sample (F-090)</title>
+<meta name="dot-title" content="Restore the mine compact performance sample (F-090)">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="bug">
+<meta name="dot-created-at" content="2026-07-13T04:20:00.000000-05:00">
+<meta name="dot-closed-at" content="2026-07-13T18:20:00.000000-05:00">
+<meta name="dot-close-reason" content="Fixed on branch claude/firetv-remote-controls-cqbiwj (PR pending): sampler retries dropped windows instead of eating the repeat interval; see F-090.">
+</head>
+<body>
+<article>
+<h1>Restore the mine compact performance sample (F-090)</h1>
+<section id="description">
+The 2026-07-12 scheduled Full E2E regression triage found tests/e2e/mine-viewport.spec.ts "mine posts a compact performance sample" failing deterministically at main tip (0 samples posted in 15s on the phone-viewport path). REQ-041 regression; suspect window is the Jul 11-12 lantern/visibility and load-gate commits. Full evidence, run ids, and acceptance criteria in docs/FOLLOWUPS.html F-090.
+</section>
+</article>
+</body>
+</html>

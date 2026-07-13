@@ -11,6 +11,10 @@ import {
 } from "@randroids-dojo/vibekit";
 import { useEffect, useRef, useState } from "react";
 import type { Direction } from "@/sim/mine";
+import {
+  type BunkerBuildDirection,
+  bunkerBuildDirectionFromVector,
+} from "./mine-bunker-build";
 
 /** A new axis must clearly dominate before the direction switches. */
 const AXIS_HYSTERESIS = 1.35;
@@ -26,17 +30,25 @@ export function MineTouchControls({
   onDirection,
   onZoomChange,
   onReleaseDirection,
+  buildDirectionMode = false,
+  onBuildDirection,
+  onReleaseBuildDirection,
 }: {
   onDirection: (dir: Direction) => void;
   onZoomChange: (delta: number) => void;
   onReleaseDirection?: (dir: Direction | null) => void;
+  buildDirectionMode?: boolean;
+  onBuildDirection?: (dir: BunkerBuildDirection) => void;
+  onReleaseBuildDirection?: (dir: BunkerBuildDirection | null) => void;
 }) {
   const js = useRef(createJoystick());
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinchDistance = useRef<number | null>(null);
   const pinching = useRef(false);
-  const heldDir = useRef<Direction | null>(null);
+  const heldDir = useRef<Direction | BunkerBuildDirection | null>(null);
   const onReleaseDirectionRef = useRef(onReleaseDirection);
+  const onBuildDirectionRef = useRef(onBuildDirection);
+  const onReleaseBuildDirectionRef = useRef(onReleaseBuildDirection);
   const [stick, setStick] = useState<{
     originX: number;
     originY: number;
@@ -46,34 +58,50 @@ export function MineTouchControls({
 
   useEffect(() => {
     onReleaseDirectionRef.current = onReleaseDirection;
-  }, [onReleaseDirection]);
+    onBuildDirectionRef.current = onBuildDirection;
+    onReleaseBuildDirectionRef.current = onReleaseBuildDirection;
+  }, [onBuildDirection, onReleaseBuildDirection, onReleaseDirection]);
 
   const syncDirection = () => {
     const v = readJoystick(js.current);
     const len = Math.hypot(v.x, v.y);
     const held = heldDir.current;
-    let dir: Direction | null = null;
+    let dir: Direction | BunkerBuildDirection | null = null;
     if (len >= JOYSTICK_DEADZONE) {
-      const ax = Math.abs(v.x);
-      const ay = Math.abs(v.y);
-      // Hysteresis: near the diagonal, a drag would otherwise flip the
-      // dominant axis on every pointer event and machine-gun alternating
-      // moves. Stay on the held axis until the other clearly wins.
-      const lateralHeld = held === "left" || held === "right";
-      const verticalHeld = held === "up" || held === "down";
-      const lateral = lateralHeld
-        ? ay <= ax * AXIS_HYSTERESIS
-        : verticalHeld
-          ? ax > ay * AXIS_HYSTERESIS
-          : ax >= ay;
-      dir = lateral ? (v.x > 0 ? "right" : "left") : v.y > 0 ? "down" : "up";
+      if (buildDirectionMode) {
+        dir = bunkerBuildDirectionFromVector(v.x, v.y);
+      } else {
+        const ax = Math.abs(v.x);
+        const ay = Math.abs(v.y);
+        // Hysteresis: near the diagonal, a drag would otherwise flip the
+        // dominant axis on every pointer event and machine-gun alternating
+        // moves. Stay on the held axis until the other clearly wins.
+        const lateralHeld = held === "left" || held === "right";
+        const verticalHeld = held === "up" || held === "down";
+        const lateral = lateralHeld
+          ? ay <= ax * AXIS_HYSTERESIS
+          : verticalHeld
+            ? ax > ay * AXIS_HYSTERESIS
+            : ax >= ay;
+        dir = lateral ? (v.x > 0 ? "right" : "left") : v.y > 0 ? "down" : "up";
+      }
     }
     if (dir !== held) {
       heldDir.current = dir;
       if (dir) {
-        onDirection(dir);
+        if (buildDirectionMode) {
+          onBuildDirectionRef.current?.(dir as BunkerBuildDirection);
+        } else {
+          onDirection(dir as Direction);
+        }
       } else {
-        onReleaseDirectionRef.current?.(held);
+        if (buildDirectionMode) {
+          onReleaseBuildDirectionRef.current?.(
+            held as BunkerBuildDirection | null,
+          );
+        } else {
+          onReleaseDirectionRef.current?.(held as Direction | null);
+        }
       }
     }
   };
@@ -98,7 +126,13 @@ export function MineTouchControls({
     endJoystick(js.current);
     heldDir.current = null;
     setStick(null);
-    onReleaseDirectionRef.current?.(releasedDir);
+    if (buildDirectionMode) {
+      onReleaseBuildDirectionRef.current?.(
+        releasedDir as BunkerBuildDirection | null,
+      );
+    } else {
+      onReleaseDirectionRef.current?.(releasedDir as Direction | null);
+    }
   };
 
   const distanceBetweenPointers = (): number | null => {
@@ -121,9 +155,15 @@ export function MineTouchControls({
       pointers.current.clear();
       pinching.current = false;
       pinchDistance.current = null;
-      onReleaseDirectionRef.current?.(releasedDir);
+      if (buildDirectionMode) {
+        onReleaseBuildDirectionRef.current?.(
+          releasedDir as BunkerBuildDirection | null,
+        );
+      } else {
+        onReleaseDirectionRef.current?.(releasedDir as Direction | null);
+      }
     },
-    [],
+    [buildDirectionMode],
   );
 
   const trackPointer = (id: number, x: number, y: number) => {

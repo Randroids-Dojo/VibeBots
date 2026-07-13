@@ -753,6 +753,7 @@
         "src/state/mine-store.ts",
         "src/components/mine-panel.tsx",
         "src/components/mine-canvas.tsx",
+        "src/components/mine-bunker-build.ts",
         "src/components/mine-bunker-toolbelt.tsx",
         "src/components/mine-bunker-overlay.tsx"
       ],
@@ -761,6 +762,7 @@
         "src/state/mine-store.test.ts",
         "src/app/api/mine/bank/route.test.ts",
         "src/app/api/bunker/route.test.ts",
+        "src/components/mine-bunker-build.test.ts",
         "tests/e2e/mine-bunker.spec.ts"
       ],
       "followupRefs": []
@@ -780,6 +782,7 @@
         "src/app/api/mine/bank/route.ts",
         "src/state/mine-store.ts",
         "src/components/mine-panel.tsx",
+        "src/components/mine-bunker-build.ts",
         "src/components/mine-bunker-toolbelt.tsx",
         "src/components/mine-stalls.ts",
         "src/components/mine-bunker-overlay.tsx",
@@ -788,6 +791,7 @@
       "testRefs": [
         "src/sim/bunker.test.ts",
         "src/state/mine-store.test.ts",
+        "src/components/mine-bunker-build.test.ts",
         "src/app/api/mine/bank/route.test.ts",
         "src/app/api/bunker/route.test.ts",
         "tests/e2e/mine-bunker.spec.ts",

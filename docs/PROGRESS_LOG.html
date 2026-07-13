@@ -31,6 +31,21 @@
 
 <main id="entries">
 
+  <article data-slice="directional-bunker-construction" data-date="2026-07-13">
+    <h3>Build bunker cells by pointing through the mine controls</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/directional-bunker-construction</code>.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/159">#159</a>.</dd>
+      <dt>Changed</dt><dd>Package 0.1.240 removes the separate Equip and Swing buttons. Inside an editable claim, the always-visible toolbelt toggles one of six parts or Pry. A selection turns keyboard, TV, gamepad, and touch direction input into an eight-direction build cursor; release commits the exact target, finds a deterministic path through empty claim cells, walks the miner into range on the temporary scaffold, and delivers four visible hammer strikes while the part grows into place. Canvas taps still target any exact claim cell. Pry uses the same flow for two-hit lift and diagonal relocation. Deselect restores ordinary movement immediately.</dd>
+      <dt>Verification</dt><dd>Pure unit coverage pins all eight octants, bounded diagonal cursor movement, path selection, occupied-cell rejection, and construction progress. The focused phone browser flow proves the old buttons are absent, hammer animation changes visible canvas pixels, four-hit inventory spend, Pry carry, up-left relocation after scaffold travel, deselection, ordinary movement, and reload persistence. Typecheck and production build pass before the complete local verification gate.</dd>
+      <dt>Assumptions</dt><dd>A selected part owns direction input until release, consistent across input types. An exact canvas tap remains the precision option for a distant claim cell. The auto-path crosses only empty, unoccupied claim cells and stops cardinally adjacent to the target.</dd>
+      <dt>GDD coverage</dt><dd>REQ-034 and REQ-035 remain done. Their implementation and test references now include <code>mine-bunker-build.ts</code> and its unit tests; <code>docs/gdd/08-base-building.html</code> gains the directional construction contract and build-log entry.</dd>
+      <dt>Tips review</dt><dd>Rule 13: the stale equip-hammer tip now explains select, point or swipe, and deselect.</dd>
+      <dt>Stamp review</dt><dd>Rule 14: none added because placing or relocating one cell is routine construction rather than a durable milestone.</dd>
+      <dt>Followups</dt><dd>No new followup. This slice directly resolves the active user-feedback dot.</dd>
+    </dl>
+  </article>
+
   <article data-slice="stamp-alert-cleanup" data-date="2026-07-13">
     <h3>Cleanup pass over the stamp-alert shortcut slice</h3>
     <dl>

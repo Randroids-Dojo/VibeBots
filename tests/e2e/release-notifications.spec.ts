@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Tap a fresh stamp to see it in its place in the collection.",
+    "Building now uses the mine controls instead of a second swing button.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "opens the Stamp Book scrolled to that stamp",
+    "point or swipe in any of eight directions",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "works in the workshop and the arena too",
+    "grows into place across four visible hammer strikes",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.240", "Point where the bunker part should go"],
     ["0.1.239", "Stamp alerts lead straight to the Stamp Book"],
     ["0.1.238", "The planet stays put"],
     ["0.1.237", "Play the whole mine from a TV remote"],

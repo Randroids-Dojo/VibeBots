@@ -184,7 +184,7 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await expect(builder.getByRole("button", { name: "Place" })).toHaveCount(0);
   await expect(builder.getByRole("button", { name: "Remove" })).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Equip bunker hammer" }),
+    page.getByRole("region", { name: "Bunker build tool" }),
   ).toBeVisible();
   await expect(
     builder.getByRole("button", { name: "Walk over raid XP" }),
@@ -446,7 +446,7 @@ test("mine bunker builder explains miner death after an open Clanker path", asyn
   await expect(builder).toContainText("Clankers follow open bunker cells");
   await expect(builder).toContainText("Fully enclose the player cell");
   await expect(
-    page.getByRole("button", { name: "Equip bunker hammer" }),
+    page.getByRole("region", { name: "Bunker build tool" }),
   ).toHaveCount(0);
 });
 
@@ -700,58 +700,60 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   );
   await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await expect(status).toContainText(
-    "Close this sheet and equip the hammer to build in the mine.",
+    "Close this sheet, select a part, then point where it should go.",
   );
   await status.getByRole("button", { name: "Close" }).click();
-  await page.getByRole("button", { name: "Equip bunker hammer" }).click();
   const tool = page.getByRole("region", { name: "Bunker build tool" });
   await expect(tool).toBeVisible();
   await expect(tool.getByLabel("Base parts")).toBeVisible();
   await expect(tool.getByRole("button", { name: "Wall x6" })).toBeVisible();
-  await expect(tool.getByRole("button", { name: "Build" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
+  await expect(page.getByRole("button", { name: /Swing hammer/ })).toHaveCount(
+    0,
   );
+  await expect(
+    page.getByRole("button", { name: "Equip bunker hammer" }),
+  ).toHaveCount(0);
   await expect(tool.getByRole("button", { name: "Pry" })).toHaveAttribute(
     "aria-pressed",
     "false",
   );
-  await expect(page.getByLabel("Build mode")).toHaveCount(0);
-  await expect(page.getByLabel("Walk while building")).toHaveCount(0);
 
-  await tool.getByRole("button", { name: "Swing hammer right" }).click();
+  await tool.getByRole("button", { name: "Wall x6" }).click();
+  await expect(tool.getByRole("button", { name: "Wall x6" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.keyboard.press("d");
+  await expect(tool).toContainText(/Hammering [1-3]\/4/, { timeout: 4_000 });
   const hammerFrameA = await page.locator("canvas").screenshot();
   await page.waitForTimeout(70);
   const hammerFrameB = await page.locator("canvas").screenshot();
   expect(
     await imagePixelDifferenceRatio(page, hammerFrameA, hammerFrameB),
   ).toBeGreaterThan(0.00005);
-  await expect(tool.getByRole("button", { name: "Wall x5" })).toBeVisible();
-  const firstPart = await page.evaluate(() => {
-    const trip = JSON.parse(
-      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
-    );
-    return trip.pendingBunker?.bunker.parts[0] ?? null;
+  await expect(tool.getByRole("button", { name: "Wall x5" })).toBeVisible({
+    timeout: 5_000,
   });
+  const firstPart = await page.evaluate(() =>
+    JSON.parse(
+      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+    ).pendingBunker?.bunker.parts.at(-1),
+  );
   expect(firstPart).toMatchObject({ partId: "wall-panel" });
+
   await tool.getByRole("button", { name: "Pry" }).click();
-  await tool.getByRole("button", { name: "Swing hammer right" }).click();
-  await expect(tool).toContainText("Carrying");
+  await page.keyboard.press("d");
+  await expect(tool).toContainText("Carrying", { timeout: 4_000 });
   await expect(tool).toContainText("Durability 90/90");
 
-  const hammer = tool.getByRole("button", { name: "Swing hammer right" });
-  const hammerBox = await hammer.boundingBox();
-  if (!hammerBox) throw new Error("hammer has no bounding box");
-  await page.mouse.move(
-    hammerBox.x + hammerBox.width / 2,
-    hammerBox.y + hammerBox.height / 2,
-  );
+  const touchSurface = page.locator("[data-touch-surface]");
+  const touchBox = await touchSurface.boundingBox();
+  if (!touchBox) throw new Error("mine touch surface has no bounding box");
+  const startX = touchBox.x + touchBox.width / 2;
+  const startY = touchBox.y + touchBox.height / 2;
+  await page.mouse.move(startX, startY);
   await page.mouse.down();
-  await page.mouse.move(
-    hammerBox.x + hammerBox.width / 2 - 40,
-    hammerBox.y + hammerBox.height / 2,
-    { steps: 5 },
-  );
+  await page.mouse.move(startX - 48, startY - 48, { steps: 5 });
   await page.mouse.up();
   await expect
     .poll(
@@ -762,26 +764,25 @@ test("bunker claims can be edited before banking", async ({ page }) => {
           );
           return trip.pendingBunker?.bunker.parts[0] ?? null;
         }),
-      { timeout: 3_000 },
+      { timeout: 5_000 },
     )
     .toMatchObject({
       partId: "wall-panel",
       col: firstPart.col - 2,
-      row: firstPart.row,
+      row: firstPart.row - 1,
     });
   await expect(tool).not.toContainText("Carrying");
-
-  await page.keyboard.down("d");
-  await page.waitForTimeout(120);
-  await page.keyboard.up("d");
-  await page.waitForTimeout(400);
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-depth",
-    "5",
+    "4",
   );
-  await page.keyboard.down("w");
-  await page.waitForTimeout(120);
-  await page.keyboard.up("w");
+  await tool.getByRole("button", { name: "Deselect" }).click();
+  await expect(tool.getByRole("button", { name: "Deselect" })).toHaveCount(0);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "4",
+  );
+  await page.keyboard.press("d");
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -791,18 +792,7 @@ test("bunker claims can be edited before banking", async ({ page }) => {
         return trip.moves?.at(-1) ?? null;
       }),
     )
-    .toBe("bunker-scaffold-up");
-  await expect(page.getByLabel("Mine status")).toHaveAttribute(
-    "data-depth",
-    "4",
-  );
-  await expect(tool).toBeVisible();
-  await tool.getByRole("button", { name: "Stow hammer" }).click();
-  await expect(tool).toHaveCount(0);
-  await expect(page.getByLabel("Mine status")).toHaveAttribute(
-    "data-depth",
-    "6",
-  );
+    .toBe("right");
   await page.reload();
   await dismissReleaseNotes(page);
   await expect(page.getByLabel("Mine status")).toHaveAttribute(

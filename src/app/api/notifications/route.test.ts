@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.239-stamp-alert-shortcut",
+      releaseNoticeId: "2026-07-13-0.1.240-directional-bunker-building",
       releaseSummary:
-        "Stamp alerts lead straight to the Stamp Book: Tap a fresh stamp to see it in its place in the collection.",
+        "Point where the bunker part should go: Building now uses the mine controls instead of a second swing button.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.239-stamp-alert-shortcut",
+      releaseNoticeId: "2026-07-13-0.1.240-directional-bunker-building",
       attempted: 2,
       sent: 1,
       expired: 1,

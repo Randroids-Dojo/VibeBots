@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.240" data-date="2026-07-13">
+    <h2>0.1.240</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.240</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>53</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Select a bunker part and point where it belongs. There is no second swing button.</dd>
+      <dt>Eight directions</dt><dd>The mine direction input becomes an eight-direction build cursor while a part or Pry is selected. A release commits the target; deselecting returns the same controls to ordinary movement.</dd>
+      <dt>Auto approach</dt><dd>The miner walks a deterministic path across the temporary claim scaffold and stops beside the target. Tapping the canvas remains available for choosing any exact claimed cell.</dd>
+      <dt>Reverse mining</dt><dd>Construction takes four visible hammer strikes. The part grows into its cell one stage at a time, mirroring dirt and ore degradation in reverse. Pry and relocation use the same approach.</dd>
+      <dt>Review coverage</dt><dd>Unit tests cover all octants, cursor bounds, pathing, occupied targets, and progress. Phone browser coverage proves visible multi-hit construction, diagonal relocation, deselection, ordinary movement, and persistence.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.238" data-date="2026-07-13">
     <h2>0.1.238</h2>
     <dl>

@@ -276,13 +276,20 @@ export interface MineSessionState {
     partId: BasePartId,
     col: number,
     row: number,
+    depth?: number,
   ) => boolean;
-  removePendingBunkerPart: (col: number, row: number) => boolean;
+  removePendingBunkerPart: (
+    col: number,
+    row: number,
+    depth?: number,
+  ) => boolean;
   movePendingBunkerPart: (
     fromCol: number,
     fromRow: number,
     toCol: number,
     toRow: number,
+    fromDepth?: number,
+    toDepth?: number,
   ) => boolean;
   submitCashOut: () => Promise<boolean>;
   buyConsumable: (
@@ -1218,7 +1225,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       return true;
     },
 
-    placePendingBunkerPart: (partId, col, row) => {
+    placePendingBunkerPart: (partId, col, row, depth = 0) => {
       const pending = get().pendingBunker;
       if (!pending || get().cashOut.state === "pending") return false;
       const placed = placeBasePart(
@@ -1227,6 +1234,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         partId,
         col,
         row,
+        depth,
       );
       if (!placed.ok) return false;
       set({
@@ -1240,7 +1248,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       return true;
     },
 
-    removePendingBunkerPart: (col, row) => {
+    removePendingBunkerPart: (col, row, depth = 0) => {
       const pending = get().pendingBunker;
       if (!pending || get().cashOut.state === "pending") return false;
       const removed = removeBasePart(
@@ -1248,6 +1256,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pending.inventory,
         col,
         row,
+        depth,
       );
       if (!removed.ok) return false;
       set({
@@ -1261,7 +1270,14 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       return true;
     },
 
-    movePendingBunkerPart: (fromCol, fromRow, toCol, toRow) => {
+    movePendingBunkerPart: (
+      fromCol,
+      fromRow,
+      toCol,
+      toRow,
+      fromDepth = 0,
+      toDepth = 0,
+    ) => {
       const pending = get().pendingBunker;
       if (!pending || get().cashOut.state === "pending") return false;
       const moved = moveBasePart(
@@ -1270,6 +1286,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         fromRow,
         toCol,
         toRow,
+        fromDepth,
+        toDepth,
       );
       if (!moved.ok) return false;
       set({

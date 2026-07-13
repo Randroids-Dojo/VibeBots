@@ -208,6 +208,39 @@ describe("mine store upgrade flow", () => {
     expect(store().pendingBunker?.inventory["wall-panel"]).toBe(6);
   });
 
+  it("edits pending bunker parts on deeper layers independently", () => {
+    const mine = clearedBunkerMine();
+    useMineStore.setState({
+      mine,
+      consumables: STARTING_CONSUMABLES,
+      moves: ["down", "down", "down", "down", "down"] as MineAction[],
+      tick: 5,
+    });
+
+    expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
+    expect(
+      store().placePendingBunkerPart("wall-panel", START_COL - 3, 1, 0),
+    ).toBe(true);
+    // The same col/row one layer deeper is its own cell.
+    expect(
+      store().placePendingBunkerPart("wall-panel", START_COL - 3, 1, 1),
+    ).toBe(true);
+    expect(
+      store().pendingBunker?.bunker.parts.map((part) => part.depth),
+    ).toEqual([0, 1]);
+    // Removing at the wrong depth misses; the right depth refunds.
+    expect(store().removePendingBunkerPart(START_COL - 3, 1, 3)).toBe(false);
+    expect(store().removePendingBunkerPart(START_COL - 3, 1, 1)).toBe(true);
+    expect(
+      store().movePendingBunkerPart(START_COL - 3, 1, START_COL - 3, 1, 0, 4),
+    ).toBe(true);
+    expect(store().pendingBunker?.bunker.parts[0]).toMatchObject({
+      col: START_COL - 3,
+      row: 1,
+      depth: 4,
+    });
+  });
+
   it("refuses a pending bunker when the live footprint is blocked", () => {
     const mine = clearedBunkerMine();
     setCell(mine, START_COL - 3, 5, { kind: "dirt" });

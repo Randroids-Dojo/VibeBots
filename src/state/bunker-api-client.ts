@@ -58,12 +58,16 @@ export function placeRemoteBunkerPart(
   partId: BasePartId,
   col: number,
   row: number,
+  depth = 0,
 ) {
-  return bunkerApi("/api/bunker/parts/place", jsonPost({ partId, col, row }));
+  return bunkerApi(
+    "/api/bunker/parts/place",
+    jsonPost({ partId, col, row, depth }),
+  );
 }
 
-export function removeRemoteBunkerPart(col: number, row: number) {
-  return bunkerApi("/api/bunker/parts/remove", jsonPost({ col, row }));
+export function removeRemoteBunkerPart(col: number, row: number, depth = 0) {
+  return bunkerApi("/api/bunker/parts/remove", jsonPost({ col, row, depth }));
 }
 
 export function moveRemoteBunkerPart(
@@ -71,10 +75,12 @@ export function moveRemoteBunkerPart(
   fromRow: number,
   toCol: number,
   toRow: number,
+  fromDepth = 0,
+  toDepth = 0,
 ) {
   return bunkerApi(
     "/api/bunker/parts/move",
-    jsonPost({ fromCol, fromRow, toCol, toRow }),
+    jsonPost({ fromCol, fromRow, toCol, toRow, fromDepth, toDepth }),
   );
 }
 

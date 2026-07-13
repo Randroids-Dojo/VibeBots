@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.244-bunker-depth-groundwork";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.245-bunker-depth-apis";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.245",
+      date: "2026-07-13",
+      title: "Bunker building wires up the depth layers",
+      intro: "Second groundwork slice: the pipes now carry depth.",
+      changes: [
+        {
+          build,
+          text: "Placing, removing, and moving bunker parts now carries a depth layer end to end, from the client through the server. Nothing visible uses it yet: the first-person building mode arrives in upcoming releases.",
+        },
+        {
+          build,
+          text: "A pending bunker claim can bank up to 174 placed parts, one for every buildable cell of the coming 7x5x5 volume.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.244",
       date: "2026-07-13",

@@ -488,7 +488,46 @@ describe("bunker API routes", () => {
       "wall-panel",
       7,
       4,
+      0,
     );
+  });
+
+  it("places base parts at explicit depths", async () => {
+    const res = await placePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/place", {
+        partId: "wall-panel",
+        col: 7,
+        row: 4,
+        depth: 3,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockedPlace).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      "wall-panel",
+      7,
+      4,
+      3,
+    );
+  });
+
+  it("rejects out-of-range part depths", async () => {
+    const res = await placePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/place", {
+        partId: "wall-panel",
+        col: 7,
+        row: 4,
+        depth: 5,
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: [expect.objectContaining({ path: ["depth"] })],
+    });
+    expect(mockedPlace).not.toHaveBeenCalled();
   });
 
   it("moves placed base parts", async () => {
@@ -510,6 +549,33 @@ describe("bunker API routes", () => {
       4,
       8,
       4,
+      0,
+      0,
+    );
+  });
+
+  it("moves placed base parts across depths", async () => {
+    const res = await movePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/move", {
+        fromCol: 7,
+        fromRow: 4,
+        toCol: 7,
+        toRow: 4,
+        fromDepth: 0,
+        toDepth: 2,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockedMove).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      7,
+      4,
+      7,
+      4,
+      0,
+      2,
     );
   });
 
@@ -528,6 +594,26 @@ describe("bunker API routes", () => {
       "player-1",
       7,
       4,
+      0,
+    );
+  });
+
+  it("removes base parts at explicit depths", async () => {
+    const res = await removePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/remove", {
+        col: 7,
+        row: 4,
+        depth: 2,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockedRemove).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      7,
+      4,
+      2,
     );
   });
 });

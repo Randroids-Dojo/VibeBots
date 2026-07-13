@@ -1,9 +1,31 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.239-stamp-alert-shortcut";
+export const RELEASE_NOTICE_ID =
+  "2026-07-13-0.1.240-directional-bunker-building";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.240",
+      date: "2026-07-13",
+      title: "Point where the bunker part should go",
+      intro:
+        "Building now uses the mine controls instead of a second swing button.",
+      changes: [
+        {
+          build,
+          text: "Select a bunker part, then point or swipe in any of eight directions. The miner walks across the temporary scaffold, gets into range, and hammers the chosen cell automatically.",
+        },
+        {
+          build,
+          text: "Each part grows into place across four visible hammer strikes, like mining in reverse. Pry uses the same directional flow to lift and relocate an existing part.",
+        },
+        {
+          build,
+          text: "There is no Equip or Swing button. Deselect the part and every direction immediately returns to ordinary mine movement. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.239",
       date: "2026-07-13",

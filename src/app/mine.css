@@ -11,8 +11,7 @@
 }
 
 /* Bunker construction is an in-world tool, not an editor window. */
-.bunker-status-trigger,
-.bunker-hammer-equip {
+.bunker-status-trigger {
   position: absolute;
   z-index: 8;
   border: 1px solid #54e0c7;
@@ -29,26 +28,6 @@
   min-height: 42px;
   border-radius: 999px;
   padding: 0 14px;
-}
-
-.bunker-hammer-equip {
-  left: 12px;
-  bottom: 102px;
-  display: flex;
-  min-height: 46px;
-  align-items: center;
-  gap: 7px;
-  border-color: #f59e0b;
-  border-radius: 12px;
-  padding: 0 12px;
-  color: #fbbf24;
-}
-
-.bunker-hammer-equip svg,
-.bunker-hammer-swing svg {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
 }
 
 .bunker-status-backdrop {
@@ -114,7 +93,6 @@
 
 .bunker-status-close,
 .bunker-toolbelt-close,
-.bunker-tool-actions button,
 .bunker-carried-part button {
   border: 1px solid #5b6680;
   border-radius: 8px;
@@ -336,7 +314,7 @@
 }
 
 .bunker-toolbelt-topline,
-.bunker-tool-actions,
+.bunker-toolbelt-instruction,
 .bunker-carried-part {
   display: flex;
   align-items: center;
@@ -347,28 +325,25 @@
   padding: 0 10px;
 }
 
-.bunker-tool-actions {
+.bunker-toolbelt-instruction {
+  min-width: 0;
   margin-right: auto;
-  border: 0;
-  padding: 0;
-}
-
-.bunker-tool-actions button {
-  min-height: 31px;
-  padding: 0 12px;
+  color: #ffd166;
   font-size: 0.72rem;
+  font-weight: 900;
 }
 
-.bunker-tool-actions button[aria-pressed="true"] {
-  border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.18);
-  color: #fbbf24;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+.bunker-toolbelt-instruction svg,
+.bunker-pry-tool svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  fill: currentColor;
 }
 
 .bunker-part-belt {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 5px;
   margin: 0;
   border: 0;
@@ -446,24 +421,6 @@
   font-size: 0.68rem;
 }
 
-.bunker-hammer-swing {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid #f59e0b;
-  border-radius: 9px;
-  background: linear-gradient(180deg, #4a3216, #2a1d10);
-  color: #ffd166;
-  font-weight: 900;
-  touch-action: none;
-}
-
-.bunker-hammer-swing:active {
-  transform: translateY(1px) scale(0.985);
-}
-
 @media (max-width: 430px) {
   .bunker-toolbelt {
     bottom: 104px;
@@ -471,18 +428,12 @@
 
   .bunker-part-belt {
     overflow-x: auto;
-    grid-template-columns: repeat(6, 64px);
+    grid-template-columns: repeat(7, 64px);
     scrollbar-width: none;
   }
 
   .bunker-status-sheet {
     bottom: 108px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bunker-hammer-swing:active {
-    transform: none;
   }
 }
 

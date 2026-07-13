@@ -49,6 +49,7 @@ export interface BunkerToolVisualEvent {
   kind: "build" | "pry" | "stow";
   direction: Direction;
   target: MineCoord;
+  progress?: number;
 }
 
 const CLANKER_LEGS = [
@@ -881,12 +882,7 @@ export function BunkerOverlay({
     : null;
   const targetColor = toolAction === "pry" ? "#f59e0b" : "#54e0c7";
   const validTarget =
-    targetCell &&
-    miner &&
-    containsBunkerCell(footprint, targetCell.col, targetCell.row) &&
-    Math.abs(targetCell.col - miner.col) +
-      Math.abs(targetCell.row - miner.row) ===
-      1
+    targetCell && containsBunkerCell(footprint, targetCell.col, targetCell.row)
       ? targetCell
       : null;
   const targetHighlight = validTarget ? (
@@ -942,6 +938,13 @@ export function BunkerOverlay({
       )
     : null;
   const previewPartId = carriedPart?.part.partId ?? selectedPartId;
+  const constructionProgress =
+    validTarget &&
+    toolEvent?.kind === "build" &&
+    toolEvent.target.col === validTarget.col &&
+    toolEvent.target.row === validTarget.row
+      ? (toolEvent.progress ?? 0.25)
+      : 0.12;
   const ghost =
     validTarget &&
     toolAction === "build" &&
@@ -952,8 +955,12 @@ export function BunkerOverlay({
       bunker.core.row === validTarget.row
     ) ? (
       <group
-        position={[cellX(validTarget.col), -validTarget.row, 0.52]}
-        scale={0.92}
+        position={[
+          cellX(validTarget.col),
+          -validTarget.row + (1 - constructionProgress) * 0.4,
+          0.52,
+        ]}
+        scale={[0.92, Math.max(0.12, constructionProgress), 0.92]}
       >
         <BasePartVisual
           detail={detail}

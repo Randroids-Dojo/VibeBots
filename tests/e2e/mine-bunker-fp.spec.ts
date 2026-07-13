@@ -11,6 +11,7 @@ import {
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
+  touchHoldDrag,
 } from "./support/mine-helpers";
 
 /** Aims the fp camera through the one-shot test hook and waits for the
@@ -578,6 +579,110 @@ test("first-person building loop on a pending claim: place, pry, dig, walk in, m
     col: START_COL,
     row: 5,
     depth: 1,
+  });
+});
+
+test.describe("phone viewport", () => {
+  test.use({
+    viewport: { width: 390, height: 760 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("touch walking auto-jumps a one-block step and ships no jump button", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "uses CDP touch events");
+    // Software-GL phone runs compile the fp scene slowly.
+    test.setTimeout(240_000);
+    // A three-block plateau on the room floor to the spawn's right, and
+    // the core moved off the spawn column so its cell cannot trip the
+    // auto-jump headroom guard. Climbing the first face proves the hop;
+    // the plateau keeps the mover grounded on top for stable asserts.
+    const stepView = {
+      ...FP_BUNKER_VIEW,
+      bunker: {
+        footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+        core: { col: START_COL - 2, row: 3, durability: 160 },
+        parts: [1, 2, 3].map((offset) => ({
+          partId: "wall-panel",
+          col: START_COL + offset,
+          row: 5,
+          durability: 90,
+        })),
+      },
+    };
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(stepView),
+      });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await digTo(page, 1);
+
+    await page.getByTestId("bunker-fp-enter").click();
+    const status = page.getByLabel("Mine status");
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    const canvas = page.locator("canvas");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+        timeout: 45_000,
+      })
+      .not.toBeNull();
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-grounded"), {
+        timeout: 20_000,
+      })
+      .toBe("1");
+
+    // F-094: the touch HUD ships move/look zones but no jump button.
+    await expect(page.locator(".bunker-fp-move-zone")).toBeVisible();
+    await expect(page.locator(".bunker-fp-look-zone")).toBeVisible();
+    await expect(page.locator(".bunker-fp-jump")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Jump" })).toHaveCount(0);
+
+    // Hold the joystick toward the step (strafe right at spawn yaw).
+    // No jump input of any kind: the climb is the auto-jump.
+    const releaseStick = await touchHoldDrag(
+      page,
+      { x: 90, y: 420 },
+      { x: 150, y: 420 },
+    );
+    try {
+      await expect
+        .poll(async () => Number(await canvas.getAttribute("data-fp-eye-x")), {
+          timeout: 20_000,
+          intervals: [60],
+        })
+        .toBeGreaterThan(3.1);
+      // The eye rises past the walk height mid-hop...
+      await expect
+        .poll(async () => Number(await canvas.getAttribute("data-fp-eye-y")), {
+          timeout: 20_000,
+          intervals: [60],
+        })
+        .toBeGreaterThan(0.7);
+      // ...and settles grounded on TOP of the block (feet 0.5, eye 1.22).
+      await expect
+        .poll(async () => canvas.getAttribute("data-fp-grounded"), {
+          timeout: 20_000,
+          intervals: [60],
+        })
+        .toBe("1");
+      await expect
+        .poll(async () => Number(await canvas.getAttribute("data-fp-eye-y")))
+        .toBeCloseTo(1.22, 1);
+      expect(
+        Number(await canvas.getAttribute("data-fp-eye-x")),
+      ).toBeGreaterThan(3.4);
+    } finally {
+      await releaseStick();
+    }
   });
 });
 

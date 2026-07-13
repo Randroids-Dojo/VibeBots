@@ -40,7 +40,14 @@ function state(overrides: Partial<FpMoveState> = {}): FpMoveState {
 }
 
 function input(overrides: Partial<FpMoveInput> = {}): FpMoveInput {
-  return { forward: 0, strafe: 0, jump: false, yaw: 0, ...overrides };
+  return {
+    forward: 0,
+    strafe: 0,
+    jump: false,
+    autoJump: false,
+    yaw: 0,
+    ...overrides,
+  };
 }
 
 function stepMany(
@@ -164,6 +171,90 @@ describe("fp movement", () => {
       stepFpMovement(up, jumping, grid, 0.05);
       expect(up.py).toBeLessThanOrEqual(4.5 - FP_CAPSULE_HEIGHT + 1e-6);
     }
+  });
+
+  describe("auto-jump (F-094)", () => {
+    /** The touch input shape: joystick strafe toward +x, autoJump on
+     * (the rig enables it for coarse-pointer sessions). */
+    const touchWalkRight = () => input({ strafe: 1, autoJump: true, yaw: 0 });
+
+    it("hops a one-block step while walking into it", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_SOLID_PART;
+      const s = state();
+      const walk = touchWalkRight();
+      let apex = s.py;
+      let landedOnTop = false;
+      for (let n = 0; n < 300; n++) {
+        stepFpMovement(s, walk, grid, 1 / 60);
+        apex = Math.max(apex, s.py);
+        if (s.grounded && s.py > 0.4) {
+          landedOnTop = true;
+          break;
+        }
+      }
+      // Feet climb from -0.5 to the block top at 0.5 with no jump
+      // input, and the mover keeps walking on top of the step.
+      expect(landedOnTop).toBe(true);
+      expect(s.py).toBeCloseTo(0.5, 5);
+      expect(apex).toBeGreaterThan(0.5);
+      expect(s.px).toBeGreaterThan(3.5);
+    });
+
+    it("does not hop a two-block wall", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_SOLID_PART;
+      grid[fpCellIndex(4, 1, 0)] = FP_SOLID_PART;
+      const s = state();
+      const walk = touchWalkRight();
+      for (let n = 0; n < 300; n++) {
+        stepFpMovement(s, walk, grid, 1 / 60);
+        expect(s.py).toBeCloseTo(-0.5, 5);
+      }
+      expect(s.px).toBeCloseTo(4 - 0.5 - FP_CAPSULE_RADIUS, 3);
+    });
+
+    it("does not trigger with a ceiling directly above (bonk guard)", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_SOLID_PART;
+      // A roof over the mover's own column: the hop arc would bonk.
+      grid[fpCellIndex(3, 1, 0)] = FP_SOLID_PART;
+      const s = state();
+      const walk = touchWalkRight();
+      for (let n = 0; n < 300; n++) {
+        stepFpMovement(s, walk, grid, 1 / 60);
+        expect(s.py).toBeCloseTo(-0.5, 5);
+      }
+      expect(s.px).toBeCloseTo(4 - 0.5 - FP_CAPSULE_RADIUS, 3);
+    });
+
+    it("never triggers when autoJump is false", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_SOLID_PART;
+      const s = state();
+      const walk = input({ strafe: 1, yaw: 0 });
+      for (let n = 0; n < 300; n++) {
+        stepFpMovement(s, walk, grid, 1 / 60);
+        expect(s.py).toBeCloseTo(-0.5, 5);
+      }
+      expect(s.px).toBeCloseTo(4 - 0.5 - FP_CAPSULE_RADIUS, 3);
+    });
+
+    it("keeps the desktop Space jump unchanged with autoJump off", () => {
+      const grid = corridorGrid();
+      const s = state();
+      stepFpMovement(s, input({ jump: true }), grid, 1 / 60);
+      expect(s.grounded).toBe(false);
+      let apex = s.py;
+      const idle = input();
+      for (let n = 0; n < 240; n++) {
+        stepFpMovement(s, idle, grid, 1 / 60);
+        apex = Math.max(apex, s.py);
+        if (s.grounded) break;
+      }
+      expect(apex - -0.5).toBeGreaterThan(1.1);
+      expect(s.grounded).toBe(true);
+    });
   });
 
   it("clamps oversized dt to the step ceiling", () => {

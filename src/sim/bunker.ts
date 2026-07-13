@@ -422,6 +422,36 @@ export function applyBunkerRepairs(bunker: BunkerState): BunkerState {
   };
 }
 
+/**
+ * Reset the bunker to a bare claim (F-093). Refund rule: every placed
+ * part still at full catalog durability returns to inventory; damaged
+ * parts are lost, matching removeBasePart's "damaged parts do not
+ * refund" contract. Placed parts and excavated cells clear, the core
+ * restores to full durability, and the claim itself (footprint, core
+ * position, skin, owned skins) is untouched. Pure: raid gating and
+ * persistence are the caller's (server's) concern.
+ */
+export function applyBunkerReset(
+  bunker: BunkerState,
+  inventory: BasePartInventory,
+): { bunker: BunkerState; inventory: BasePartInventory } {
+  const refunded = { ...inventory };
+  for (const part of bunker.parts) {
+    const def = BASE_PART_CATALOG[part.partId];
+    if (part.durability < def.durability) continue;
+    refunded[part.partId] = Math.max(0, refunded[part.partId] + 1);
+  }
+  return {
+    bunker: {
+      ...bunker,
+      core: { ...bunker.core, durability: BUNKER_CORE_MAX_DURABILITY },
+      parts: [],
+      dug: [],
+    },
+    inventory: refunded,
+  };
+}
+
 export function overallPlayerLevel(trackXp: number, defenseXp: number): number {
   void trackXp;
   return playerLevelProgress(defenseXp).level;

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.248-bunker-fp-building",
+      releaseNoticeId: "2026-07-13-0.1.249-bunker-reset-autojump",
       releaseSummary:
-        "Dig and build inside your bunker: First person gets hands: pick, parts, and prying.",
+        "Reset your bunker, hop like you expect: Two fixes straight from a phone playtest.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.248-bunker-fp-building",
+      releaseNoticeId: "2026-07-13-0.1.249-bunker-reset-autojump",
       attempted: 2,
       sent: 1,
       expired: 1,

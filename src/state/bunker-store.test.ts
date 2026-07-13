@@ -11,6 +11,7 @@ import {
   claimRemoteBunker,
   finishRemoteBunkerRaid,
   loadRemoteBunker,
+  resetRemoteBunker,
 } from "./bunker-api-client";
 import { useBunkerStore } from "./bunker-store";
 
@@ -21,12 +22,14 @@ vi.mock("./bunker-api-client", async (importOriginal) => {
     claimRemoteBunker: vi.fn(),
     finishRemoteBunkerRaid: vi.fn(),
     loadRemoteBunker: vi.fn(),
+    resetRemoteBunker: vi.fn(),
   };
 });
 
 const mockedClaim = vi.mocked(claimRemoteBunker);
 const mockedFinish = vi.mocked(finishRemoteBunkerRaid);
 const mockedLoad = vi.mocked(loadRemoteBunker);
+const mockedReset = vi.mocked(resetRemoteBunker);
 
 const view: BunkerRouteResponse = {
   bunker: null,
@@ -134,6 +137,44 @@ describe("bunker store", () => {
     expect(useBunkerStore.getState()).toMatchObject({
       status: "error",
       note: "clear the full 7x5 claim first",
+    });
+  });
+
+  it("applies a reset view through the shared mutation path", async () => {
+    const bunker = createBunker(proposedBunkerFootprint(10, 8));
+    const inventory = {
+      ...EMPTY_BASE_PART_INVENTORY,
+      "wall-panel": 7,
+    };
+    mockedReset.mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { ...view, bunker, inventory },
+    });
+
+    const body = await useBunkerStore.getState().resetBunker();
+
+    expect(body).not.toBeNull();
+    expect(useBunkerStore.getState()).toMatchObject({
+      status: "ready",
+      bunker,
+      inventory,
+      note: null,
+    });
+  });
+
+  it("keeps reset rejections in the store note", async () => {
+    mockedReset.mockResolvedValue({
+      ok: false,
+      status: 409,
+      body: { error: "finish the raid first" },
+    });
+
+    await expect(useBunkerStore.getState().resetBunker()).resolves.toBe(null);
+
+    expect(useBunkerStore.getState()).toMatchObject({
+      status: "error",
+      note: "finish the raid first",
     });
   });
 

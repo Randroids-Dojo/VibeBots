@@ -96,6 +96,10 @@ export function repairRemoteBunker() {
   return bunkerApi("/api/bunker/repair", jsonPost({}));
 }
 
+export function resetRemoteBunker() {
+  return bunkerApi("/api/bunker/reset", jsonPost({}));
+}
+
 export function setRemoteBunkerSkin(skinId: BunkerSkinId) {
   return bunkerApi("/api/bunker/skin", jsonPost({ skinId }));
 }

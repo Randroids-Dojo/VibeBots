@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyBunkerRaidWear,
   applyBunkerRepairs,
+  applyBunkerReset,
   BASE_PART_CATALOG,
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
@@ -731,6 +732,67 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     expect(repaired.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
     expect(repaired.parts[0].durability).toBe(wall.durability);
     expect(bunkerRepairPlan(repaired).totalCost).toBe(0);
+  });
+
+  it("resets the bunker to a bare claim, refunding only undamaged parts", () => {
+    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const { col, row } = bunker.core;
+    let current = bunker;
+    let stock = STARTER_BASE_PART_INVENTORY;
+    for (const [partId, c, r] of [
+      ["wall-panel", col - 1, row],
+      ["wall-panel", col + 1, row],
+      ["door-panel", col, row - 1],
+    ] as const) {
+      const placed = placeBasePart(current, stock, partId, c, r);
+      if (!placed.ok) throw new Error(placed.reason);
+      current = placed.bunker;
+      stock = placed.inventory;
+    }
+    const dugOut = excavateBunkerCell(current, col, row, 1);
+    if (!dugOut.ok) throw new Error(dugOut.reason);
+    // One wall chipped, the door untouched, the core dented, one cell
+    // dug, a purchased skin selected.
+    const damaged = {
+      ...dugOut.bunker,
+      core: { ...dugOut.bunker.core, durability: 40 },
+      skin: "gilded" as const,
+      skinsOwned: ["gilded" as const],
+      parts: dugOut.bunker.parts.map((part, index) =>
+        index === 0 ? { ...part, durability: part.durability - 1 } : part,
+      ),
+    };
+    expect(stock["wall-panel"]).toBe(4);
+    expect(stock["door-panel"]).toBe(0);
+
+    const reset = applyBunkerReset(damaged, stock);
+
+    // Refund rule: undamaged parts return, the damaged wall is lost
+    // (removeBasePart's "damaged parts do not refund" contract).
+    expect(reset.inventory["wall-panel"]).toBe(5);
+    expect(reset.inventory["door-panel"]).toBe(1);
+    expect(reset.bunker.parts).toEqual([]);
+    expect(reset.bunker.dug).toEqual([]);
+    expect(reset.bunker.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
+    // The claim itself survives: footprint, core cell, and skins.
+    expect(reset.bunker.footprint).toEqual(damaged.footprint);
+    expect(reset.bunker.core.col).toBe(damaged.core.col);
+    expect(reset.bunker.core.row).toBe(damaged.core.row);
+    expect(reset.bunker.core.depth).toBe(damaged.core.depth);
+    expect(reset.bunker.skin).toBe("gilded");
+    expect(reset.bunker.skinsOwned).toEqual(["gilded"]);
+    // Pure: the inputs are untouched.
+    expect(damaged.parts).toHaveLength(3);
+    expect(stock["wall-panel"]).toBe(4);
+  });
+
+  it("resets an empty bunker to itself", () => {
+    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const reset = applyBunkerReset(bunker, STARTER_BASE_PART_INVENTORY);
+    expect(reset.bunker.parts).toEqual([]);
+    expect(reset.bunker.dug).toEqual([]);
+    expect(reset.bunker.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
+    expect(reset.inventory).toEqual(STARTER_BASE_PART_INVENTORY);
   });
 
   it("seals a stacked two-room layout with existing parts", () => {

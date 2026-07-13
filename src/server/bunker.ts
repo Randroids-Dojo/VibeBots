@@ -2,6 +2,7 @@ import type { BunkerView } from "@/lib/bunker-api-types";
 import {
   applyBunkerRaidWear,
   applyBunkerRepairs,
+  applyBunkerReset,
   BASE_PART_CATALOG,
   BASE_PART_IDS,
   type BasePartId,
@@ -540,6 +541,20 @@ export async function excavateBunker(
   return { ok: true, view: latestView, newStamps };
 }
 
+async function saveBasePartInventory(
+  sql: Sql,
+  playerId: string,
+  inventory: BasePartInventory,
+): Promise<void> {
+  for (const [partId, count] of Object.entries(inventory)) {
+    await sql`
+      INSERT INTO player_base_parts (player_id, part_id, count)
+      VALUES (${playerId}, ${partId}, ${count})
+      ON CONFLICT (player_id, part_id)
+      DO UPDATE SET count = ${count}`;
+  }
+}
+
 async function saveBunkerAndInventory(
   sql: Sql,
   playerId: string,
@@ -551,13 +566,34 @@ async function saveBunkerAndInventory(
     SET parts = ${JSON.stringify(bunker.parts)}::jsonb,
         updated_at = now()
     WHERE player_id = ${playerId}`;
-  for (const [partId, count] of Object.entries(inventory)) {
-    await sql`
-      INSERT INTO player_base_parts (player_id, part_id, count)
-      VALUES (${playerId}, ${partId}, ${count})
-      ON CONFLICT (player_id, part_id)
-      DO UPDATE SET count = ${count}`;
-  }
+  await saveBasePartInventory(sql, playerId, inventory);
+}
+
+/**
+ * Reset the bunker to a bare claim (F-093): undamaged placed parts
+ * refund to inventory, damaged parts are lost, excavation refills, and
+ * the core restores to full. The claim, skin, and owned skins stay.
+ * Blocked while a raid is active, the same guard as repairs.
+ */
+export async function resetBunker(
+  sql: Sql,
+  playerId: string,
+): Promise<BunkerOperationResult> {
+  const view = await loadBunkerView(sql, playerId);
+  if (!view.bunker)
+    return { ok: false, status: 409, error: "claim a bunker first" };
+  if (view.activeRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
+  const reset = applyBunkerReset(view.bunker, view.inventory);
+  await sql`
+    UPDATE bunkers
+    SET parts = ${JSON.stringify(reset.bunker.parts)}::jsonb,
+        dug = ${JSON.stringify(reset.bunker.dug)}::jsonb,
+        core = ${JSON.stringify(reset.bunker.core)}::jsonb,
+        updated_at = now()
+    WHERE player_id = ${playerId}`;
+  await saveBasePartInventory(sql, playerId, reset.inventory);
+  return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
 export async function repairBunker(

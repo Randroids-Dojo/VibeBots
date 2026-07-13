@@ -12,6 +12,7 @@ import {
   moveRemoteBunkerPart,
   placeRemoteBunkerPart,
   removeRemoteBunkerPart,
+  resetRemoteBunker,
   startRemoteBunkerRaid,
 } from "./bunker-api-client";
 
@@ -146,6 +147,10 @@ describe("bunker API client", () => {
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
       "/api/bunker/raid/finish",
     );
+    expect(lastBody()).toEqual({});
+
+    await resetRemoteBunker();
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe("/api/bunker/reset");
     expect(lastBody()).toEqual({});
   });
 

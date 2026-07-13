@@ -10,6 +10,7 @@ import {
   loadBunkerView,
   placeBunkerPart,
   repairBunker,
+  resetBunker,
   setBunkerSkin,
   startBunkerRaid,
 } from "./bunker";
@@ -604,6 +605,109 @@ describe("bunker server helpers", () => {
         (part: { durability: number }) => part.durability,
       ),
     ).toEqual([90]);
+  });
+
+  it("resets the bunker to a bare claim and refunds undamaged parts", async () => {
+    const footprint = { col: 1, row: 1, width: 7, height: 5 };
+    const makeSql = (activeRaid: boolean) =>
+      vi.fn(async (strings: TemplateStringsArray) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 50, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, core, parts")) {
+          return [
+            {
+              footprint,
+              core: { col: 4, row: 3, depth: 0, durability: 100 },
+              parts: [
+                { partId: "wall-panel", col: 3, row: 3, durability: 90 },
+                { partId: "wall-panel", col: 5, row: 3, durability: 45 },
+                { partId: "door-panel", col: 4, row: 2, durability: 60 },
+              ],
+              dug: [{ col: 4, row: 3, depth: 1 }],
+              skin: "gilded",
+              skins_owned: ["gilded"],
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) {
+          return activeRaid ? [{ snapshot: { raidId: "raid-live" } }] : [];
+        }
+        if (query.includes("SELECT part_id, count")) {
+          return [
+            { part_id: "wall-panel", count: 2 },
+            { part_id: "floor-panel", count: 4 },
+            { part_id: "roof-panel", count: 4 },
+            { part_id: "door-panel", count: 0 },
+          ];
+        }
+        return [];
+      });
+
+    // Mid-raid resets reject with the same guard as repairs.
+    const raiding = makeSql(true);
+    const blocked = await resetBunker(raiding as never, "player-1");
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) {
+      expect(blocked.status).toBe(409);
+      expect(blocked.error).toContain("finish the raid");
+    }
+    expect(
+      raiding.mock.calls.some((call) =>
+        (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
+      ),
+    ).toBe(false);
+
+    const sql = makeSql(false);
+    const result = await resetBunker(sql as never, "player-1");
+    expect(result.ok).toBe(true);
+
+    // One UPDATE persists the emptied parts, refilled rock, and the
+    // restored core together.
+    const updateCall = sql.mock.calls.find((call) =>
+      (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
+    );
+    expect(updateCall).toBeDefined();
+    const updateQuery = (
+      (updateCall?.[0] ?? []) as unknown as TemplateStringsArray
+    ).join(" ");
+    expect(updateQuery).toContain("SET parts");
+    expect(updateQuery).toContain("dug");
+    expect(updateQuery).toContain("core");
+    const bound = ((updateCall ?? []) as unknown[]).slice(1);
+    expect(bound[0]).toBe("[]");
+    expect(bound[1]).toBe("[]");
+    expect(JSON.parse(String(bound[2])).durability).toBe(160);
+
+    // The inventory upsert carries the refunds: the undamaged wall and
+    // door return (2 -> 3, 0 -> 1); the damaged wall is lost.
+    const upserts = new Map<string, number>();
+    for (const call of sql.mock.calls) {
+      const args = call as unknown[];
+      const query = (args[0] as TemplateStringsArray).join(" ");
+      if (!query.includes("ON CONFLICT (player_id, part_id)")) continue;
+      upserts.set(String(args[2]), Number(args[3]));
+    }
+    expect(upserts.get("wall-panel")).toBe(3);
+    expect(upserts.get("door-panel")).toBe(1);
+    expect(upserts.get("floor-panel")).toBe(4);
+  });
+
+  it("rejects a reset without a claimed bunker", async () => {
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 50, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, core, parts")) return [];
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+    const result = await resetBunker(sql as never, "player-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("claim a bunker");
   });
 
   it("buys a skin once and reselects owned skins for free", async () => {

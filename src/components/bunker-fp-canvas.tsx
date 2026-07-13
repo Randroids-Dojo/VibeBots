@@ -532,6 +532,7 @@ function BunkerFpRig({
     forward: 0,
     strafe: 0,
     jump: false,
+    autoJump: false,
     yaw: 0,
   });
 
@@ -614,6 +615,9 @@ function BunkerFpRig({
     const coarse = window.matchMedia(
       "(hover: none) and (pointer: coarse)",
     ).matches;
+    // Touch sessions auto-jump one-block steps instead of showing a
+    // jump button (F-094); desktop keeps Space and no auto-jump.
+    inputScratchRef.current.autoJump = coarse;
     const publishLock = () => {
       canvas.dataset.fpLock =
         document.pointerLockElement === canvas

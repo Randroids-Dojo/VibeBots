@@ -254,6 +254,41 @@ describe("mine store upgrade flow", () => {
     });
   });
 
+  it("resets a pending bunker locally through the sim reset (F-093)", () => {
+    const mine = clearedBunkerMine();
+    useMineStore.setState({
+      mine,
+      consumables: STARTING_CONSUMABLES,
+      moves: ["down", "down", "down", "down", "down"] as MineAction[],
+      tick: 5,
+    });
+
+    expect(store().resetPendingBunker()).toBe(false);
+    expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
+    expect(store().placePendingBunkerPart("wall-panel", START_COL - 3, 1)).toBe(
+      true,
+    );
+    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 1)).toBe(true);
+    expect(store().pendingBunker?.inventory["wall-panel"]).toBe(5);
+
+    expect(store().resetPendingBunker()).toBe(true);
+
+    // The undamaged wall refunds, the dig refills, and the claim stays
+    // pending for the bank.
+    expect(store().pendingBunker?.inventory["wall-panel"]).toBe(6);
+    expect(store().pendingBunker?.bunker.parts).toEqual([]);
+    expect(store().pendingBunker?.bunker.dug).toEqual([]);
+    expect(store().pendingBunker?.bunker.footprint).toMatchObject({
+      col: START_COL - 3,
+      row: 1,
+    });
+    // The reset persists into the trip checkpoint.
+    const lastSaved = vi.mocked(localStorage.setItem).mock.calls.at(-1);
+    expect(
+      JSON.parse(lastSaved?.[1] ?? "{}").pendingBunker?.bunker.parts,
+    ).toEqual([]);
+  });
+
   it("refuses a pending bunker when the live footprint is blocked", () => {
     const mine = clearedBunkerMine();
     setCell(mine, START_COL - 3, 5, { kind: "dirt" });

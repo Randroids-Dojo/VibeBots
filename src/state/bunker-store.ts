@@ -25,6 +25,7 @@ import {
   placeRemoteBunkerPart,
   removeRemoteBunkerPart,
   repairRemoteBunker,
+  resetRemoteBunker,
   setRemoteBunkerSkin,
   startRemoteBunkerRaid,
 } from "./bunker-api-client";
@@ -73,6 +74,7 @@ export interface BunkerStoreState {
   ) => Promise<BunkerMutationResult>;
   startRaid: (tier?: number) => Promise<BunkerMutationResult>;
   repairBunker: () => Promise<BunkerMutationResult>;
+  resetBunker: () => Promise<BunkerMutationResult>;
   setSkin: (skinId: BunkerSkinId) => Promise<BunkerMutationResult>;
   collectRaidPickup: (
     col: number,
@@ -196,6 +198,8 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
       await repairRemoteBunker(),
       "bunker action failed",
     ),
+  resetBunker: async () =>
+    applyMutationResult(set, await resetRemoteBunker(), "bunker action failed"),
   setSkin: async (skinId) =>
     applyMutationResult(
       set,

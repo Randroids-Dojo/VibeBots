@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { type AccountErrorCode, accountErrorCode } from "@/lib/api-codes";
 import {
+  applyBunkerReset,
   type BasePartId,
   type BunkerFootprint,
   bunkerCells,
@@ -297,6 +298,7 @@ export interface MineSessionState {
     row: number,
     depth: number,
   ) => boolean;
+  resetPendingBunker: () => boolean;
   submitCashOut: () => Promise<boolean>;
   buyConsumable: (
     item: keyof MineConsumables,
@@ -1316,6 +1318,21 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pendingBunker: {
           ...pending,
           bunker: dug.bunker,
+        },
+      });
+      persistCurrentTrip();
+      return true;
+    },
+
+    resetPendingBunker: () => {
+      const pending = get().pendingBunker;
+      if (!pending || get().cashOut.state === "pending") return false;
+      const reset = applyBunkerReset(pending.bunker, pending.inventory);
+      set({
+        pendingBunker: {
+          ...pending,
+          bunker: reset.bunker,
+          inventory: reset.inventory,
         },
       });
       persistCurrentTrip();

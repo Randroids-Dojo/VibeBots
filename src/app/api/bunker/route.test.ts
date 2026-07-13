@@ -10,6 +10,7 @@ import {
   placeBunkerPart,
   removeBunkerPart,
   repairBunker,
+  resetBunker,
   setBunkerSkin,
   startBunkerRaid,
 } from "@/server/bunker";
@@ -25,6 +26,7 @@ import { POST as collectRaidPost } from "./raid/collect/route";
 import { POST as finishRaidPost } from "./raid/finish/route";
 import { POST as startRaidPost } from "./raid/start/route";
 import { POST as repairPost } from "./repair/route";
+import { POST as resetPost } from "./reset/route";
 import { GET } from "./route";
 import { POST as skinPost } from "./skin/route";
 
@@ -48,6 +50,7 @@ vi.mock("@/server/bunker", () => ({
   placeBunkerPart: vi.fn(),
   removeBunkerPart: vi.fn(),
   repairBunker: vi.fn(),
+  resetBunker: vi.fn(),
   setBunkerSkin: vi.fn(),
   startBunkerRaid: vi.fn(),
 }));
@@ -67,6 +70,7 @@ const mockedRemove = vi.mocked(removeBunkerPart);
 const mockedExcavate = vi.mocked(excavateBunker);
 const mockedStart = vi.mocked(startBunkerRaid);
 const mockedRepair = vi.mocked(repairBunker);
+const mockedReset = vi.mocked(resetBunker);
 
 const view = {
   bunker: null,
@@ -271,6 +275,36 @@ describe("bunker API routes", () => {
 
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toEqual({ error: "nothing to repair" });
+  });
+
+  it("resets the bunker through the reset route", async () => {
+    const view = { bunker: { footprint: null }, inventory: {} };
+    mockedReset.mockResolvedValue({ ok: true, view } as never);
+
+    const res = await resetPost(
+      jsonRequest("http://localhost/api/bunker/reset", {}),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual(view);
+    expect(mockedReset).toHaveBeenCalledWith(expect.any(Function), "player-1");
+  });
+
+  it("passes reset rejections through with their status", async () => {
+    mockedReset.mockResolvedValue({
+      ok: false,
+      status: 409,
+      error: "finish the raid first",
+    } as never);
+
+    const res = await resetPost(
+      jsonRequest("http://localhost/api/bunker/reset", {}),
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "finish the raid first",
+    });
   });
 
   it("applies a bunker skin through the skin route", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BUNKER_SKIN_CATALOG,
   type BunkerFootprint,
@@ -19,6 +19,9 @@ import { sheetButtonStyle } from "./mine-sheet-controls";
 const BUNKER_MINER_DEATH_TIP =
   "Tip: Clankers follow open bunker cells. Fully enclose the player cell before the next raid.";
 
+/** An armed Reset confirm disarms itself after this long (F-093). */
+const RESET_CONFIRM_WINDOW_MS = 5_000;
+
 export function BunkerControlPanel({
   minerRow,
   claimMode,
@@ -35,6 +38,7 @@ export function BunkerControlPanel({
   onClaim,
   onStartRaid,
   onRepair,
+  onReset,
   onSelectSkin,
   onFinishRaid,
   onEnterFp,
@@ -54,6 +58,9 @@ export function BunkerControlPanel({
   onClaim: () => void;
   onStartRaid: (tier: number) => void;
   onRepair?: () => void;
+  /** Resets the bunker to a bare claim (F-093): undamaged parts refund
+   * to inventory, damaged parts are lost, dug cells refill. */
+  onReset?: () => void;
   onSelectSkin?: (skinId: BunkerSkinId) => void;
   onFinishRaid: () => void;
   /** Enters the first-person bunker view (shown only while no raid is
@@ -99,6 +106,54 @@ export function BunkerControlPanel({
     [bunker],
   );
   const repairCost = repairPlan?.totalCost ?? 0;
+  // Two-step Reset confirm (F-093): the first tap arms, the second tap
+  // within the window fires. The timer, any other tap in the sheet, or
+  // closing the sheet disarms it.
+  const [resetArmed, setResetArmed] = useState(false);
+  const resetDisarmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disarmReset = () => {
+    if (resetDisarmTimer.current !== null) {
+      clearTimeout(resetDisarmTimer.current);
+      resetDisarmTimer.current = null;
+    }
+    setResetArmed(false);
+  };
+  useEffect(() => {
+    return () => {
+      if (resetDisarmTimer.current !== null) {
+        clearTimeout(resetDisarmTimer.current);
+      }
+    };
+  }, []);
+  // Closing the sheet is "any other interaction": it disarms too. The
+  // component stays mounted behind the trigger button, so the armed
+  // state would otherwise survive a quick close and reopen.
+  useEffect(() => {
+    if (panelOpen) return;
+    if (resetDisarmTimer.current !== null) {
+      clearTimeout(resetDisarmTimer.current);
+      resetDisarmTimer.current = null;
+    }
+    setResetArmed(false);
+  }, [panelOpen]);
+  const handleReset = () => {
+    if (!resetArmed) {
+      setResetArmed(true);
+      resetDisarmTimer.current = setTimeout(() => {
+        resetDisarmTimer.current = null;
+        setResetArmed(false);
+      }, RESET_CONFIRM_WINDOW_MS);
+      return;
+    }
+    disarmReset();
+    onReset?.();
+  };
+  // Legacy wire shapes may omit dug (the fp grid guards the same way).
+  const resetAvailable =
+    hasBunker &&
+    !activeRaid &&
+    onReset !== undefined &&
+    ((bunker?.parts.length ?? 0) > 0 || (bunker?.dug?.length ?? 0) > 0);
   const balance = player?.balance ?? 0;
   const raidButtonLabel = activeRaid
     ? activeRaid.survived
@@ -147,7 +202,22 @@ export function BunkerControlPanel({
         aria-label="Dismiss bunker status"
         onClick={hasBunker ? onDismissPanel : onCancelClaim}
       />
-      <section className="bunker-status-sheet" aria-label="Bunker status">
+      <section
+        className="bunker-status-sheet"
+        aria-label="Bunker status"
+        onPointerDownCapture={(event) => {
+          // Any interaction other than the Reset button disarms an
+          // armed reset confirm.
+          if (!resetArmed) return;
+          if (
+            event.target instanceof Element &&
+            event.target.closest('[data-testid="bunker-reset"]')
+          ) {
+            return;
+          }
+          disarmReset();
+        }}
+      >
         <header className="bunker-status-heading">
           <div>
             <span className="bunker-status-kicker">Underground claim</span>
@@ -347,6 +417,20 @@ export function BunkerControlPanel({
               </fieldset>
             )}
           </>
+        )}
+
+        {resetAvailable && (
+          <button
+            type="button"
+            className="bunker-reset-button"
+            data-testid="bunker-reset"
+            aria-pressed={resetArmed}
+            onClick={handleReset}
+          >
+            {resetArmed
+              ? "Really reset? Parts return to inventory"
+              : "Reset bunker"}
+          </button>
         )}
 
         {pendingClaim && hasBunker && (

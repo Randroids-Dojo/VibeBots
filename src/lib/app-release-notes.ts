@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.248-bunker-fp-building";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.249-bunker-reset-autojump";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.249",
+      date: "2026-07-13",
+      title: "Reset your bunker, hop like you expect",
+      intro: "Two fixes straight from a phone playtest.",
+      changes: [
+        {
+          build,
+          text: "Boxed in by a base built the old flat way? Reset bunker in the bunker sheet returns every undamaged part to your inventory, clears the layout and dug rock, and restores the core so you can rebuild room-style from inside. Two taps to confirm, never during a raid.",
+        },
+        {
+          build,
+          text: "First-person walking now hops one-block steps automatically on touch, and the mystery arrow button is gone. Space still jumps on desktop. The bunker sheet's bottom rows also no longer hide under the toolbelt.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.248",
       date: "2026-07-13",

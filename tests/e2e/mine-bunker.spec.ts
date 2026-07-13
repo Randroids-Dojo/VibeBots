@@ -814,6 +814,155 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   );
 });
 
+test("reset bunker refunds a pending claim's parts through the two-step confirm", async ({
+  page,
+}) => {
+  const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 6; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      setCell(mine, col, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 6061,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: null,
+        inventory: {
+          "wall-panel": 2,
+          "floor-panel": 3,
+          "roof-panel": 3,
+          "door-panel": 1,
+          "basic-turret": 0,
+          "floor-spikes": 0,
+        },
+        activeRaid: null,
+        player: {
+          balance: 120,
+          trackXp: 0,
+          defenseXp: 0,
+          overallLevel: 1,
+          levelCap: 2,
+          progressXp: 0,
+          neededXp: 100,
+          nextLevelXp: 100,
+          beaconLimit: 2,
+        },
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
+    },
+    {
+      seed: 6061,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "5",
+  );
+
+  // Claim locally and place one wall from the starter kit.
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  const status = page.getByRole("region", { name: "Bunker status" });
+  await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
+  await status.getByRole("button", { name: "Close" }).click();
+  const tool = page.getByRole("region", { name: "Bunker build tool" });
+  await tool.getByRole("button", { name: "Wall x6" }).click();
+  await page.keyboard.press("d");
+  await expect(tool.getByRole("button", { name: "Wall x5" })).toBeVisible({
+    timeout: 5_000,
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(
+            localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+          ).pendingBunker?.bunker.parts.length ?? 0,
+      ),
+    )
+    .toBe(1);
+  await tool.getByRole("button", { name: "Deselect" }).click();
+
+  // Open the sheet: the Reset row is a two-step confirm. The first tap
+  // arms it without resetting anything.
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  const reset = page.getByTestId("bunker-reset");
+  await expect(reset).toHaveText("Reset bunker");
+  await reset.click();
+  await expect(reset).toHaveText("Really reset? Parts return to inventory");
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}")
+          .pendingBunker?.bunker.parts.length ?? 0,
+    ),
+  ).toBe(1);
+
+  // The second tap fires: the wall refunds and the row disappears
+  // because nothing is left to reset.
+  await reset.click();
+  await expect(page.getByTestId("bunker-reset")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const trip = JSON.parse(
+          localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+        );
+        return trip.pendingBunker?.bunker.parts ?? null;
+      }),
+    )
+    .toEqual([]);
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}")
+          .pendingBunker?.inventory["wall-panel"],
+    ),
+  ).toBe(6);
+
+  // The claim survives, the toolbelt shows the refunded stock in the
+  // DOM, and the miner never moved.
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(tool.getByRole("button", { name: "Wall x6" })).toBeVisible();
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "5",
+  );
+});
+
 test("bunker skins repaint placed parts and reselect owned skins free", async ({
   page,
 }) => {

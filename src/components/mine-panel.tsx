@@ -337,6 +337,8 @@ const MINE_SURFACE_TIPS = [
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker walks it in first person. Exit any time.",
   "Tip: In first person the pick digs deep claim rock; parts place at the crosshair; pry carries.",
+  "Tip: In first person on touch, walking into a one-block step hops it automatically.",
+  "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
   "Tip: One cloud save on two devices? Sync when prompted; runs never merge.",
@@ -1188,6 +1190,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const excavatePendingBunkerCell = useMineStore(
     (s) => s.excavatePendingBunkerCell,
   );
+  const resetPendingBunker = useMineStore((s) => s.resetPendingBunker);
   const moveOnBunkerScaffold = useMineStore((s) => s.moveOnBunkerScaffold);
   const gear = useMineStore((s) => s.gear);
   const worldLoaded = useMineStore((s) => s.worldLoaded);
@@ -1228,6 +1231,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const excavateBunkerCellRemote = useBunkerStore((s) => s.excavateCell);
   const startBunkerRaid = useBunkerStore((s) => s.startRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
+  const resetBankedBunker = useBunkerStore((s) => s.resetBunker);
   const setBunkerSkin = useBunkerStore((s) => s.setSkin);
   const collectBunkerRaidPickup = useBunkerStore((s) => s.collectRaidPickup);
   const finishBunkerRaid = useBunkerStore((s) => s.finishRaid);
@@ -4292,6 +4296,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           }}
           onFinishRaid={() => void finishBunkerRaid()}
           onRepair={() => void repairBunker()}
+          onReset={() => {
+            // The same pending/banked branch as every other bunker
+            // edit: a mid-trip claim resets locally, a banked bunker
+            // resets through the server route.
+            if (pendingBunkerActive) {
+              resetPendingBunker();
+            } else {
+              void resetBankedBunker();
+            }
+          }}
           onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
           onEnterFp={
             activeBunker &&

@@ -54,6 +54,10 @@ export interface FpMoveInput {
   strafe: number;
   /** Edge-triggered: true grants one takeoff when grounded. */
   jump: boolean;
+  /** Minecraft-style auto-jump (F-094), on for coarse-pointer
+   * sessions: walking into a one-block step hops it automatically.
+   * Desktop keeps this off and jumps with Space instead. */
+  autoJump: boolean;
   /** Camera yaw in radians; yaw 0 faces world -z. */
   yaw: number;
 }
@@ -87,11 +91,21 @@ enum Axis {
   Y = 2,
 }
 
+/** Module scratch: the last blocking cell an X or Z resolution pushed
+ * the capsule out of this step (grid coords). Hoisted so the per-frame
+ * step allocates nothing; only meaningful right after a horizontal
+ * resolveAxis pass returned true. */
+let axisBlockerX = 0;
+let axisBlockerY = 0;
+let axisBlockerZ = 0;
+
 /**
  * Push the capsule box out of every blocking cell it overlaps, along
  * one axis only (the axis that just integrated). Scans only the cells
- * the box overlaps, all scalar math. Returns true when a downward Y
- * resolution landed the capsule on a cell top.
+ * the box overlaps, all scalar math. For the Y axis, returns true when
+ * a downward resolution landed the capsule on a cell top; for X and Z,
+ * returns true when any blocking cell pushed the capsule out (the
+ * blocker's grid cell lands in the axis-blocker scratch).
  */
 function resolveAxis(
   state: FpMoveState,
@@ -100,6 +114,7 @@ function resolveAxis(
 ): boolean {
   const r = FP_CAPSULE_RADIUS;
   let landed = false;
+  let collided = false;
   const minX = state.px - r;
   const maxX = state.px + r;
   const minY = state.py;
@@ -136,10 +151,18 @@ function resolveAxis(
           if (state.px >= x) state.px += overlapX;
           else state.px -= overlapX;
           state.vx = 0;
+          collided = true;
+          axisBlockerX = x;
+          axisBlockerY = y;
+          axisBlockerZ = gz;
         } else if (axis === Axis.Z) {
           if (state.pz >= -gz) state.pz += overlapZ;
           else state.pz -= overlapZ;
           state.vz = 0;
+          collided = true;
+          axisBlockerX = x;
+          axisBlockerY = y;
+          axisBlockerZ = gz;
         } else {
           const center = state.py + FP_CAPSULE_HEIGHT * 0.5;
           if (center >= y) {
@@ -155,7 +178,43 @@ function resolveAxis(
       }
     }
   }
-  return landed;
+  return axis === Axis.Y ? landed : collided;
+}
+
+/** Passable for a hop: inside the grid and not a blocking cell. Above
+ * the top row counts as blocked (the room ceiling would bonk). */
+function fpHopCellPassable(
+  solid: FpSolidGrid,
+  x: number,
+  y: number,
+  z: number,
+): boolean {
+  if (x < 0 || x >= FP_COLS || y >= FP_ROWS || z < 0 || z >= FP_DEPTH) {
+    return false;
+  }
+  return !fpCellBlocks(solid[fpCellIndex(x, y, z)]);
+}
+
+/**
+ * Minecraft-style auto-jump (F-094): a grounded mover pressing into a
+ * blocking cell hops it with the manual jump impulse when the step is
+ * exactly one block tall at feet level: the cell above the blocker is
+ * passable (a landing, not the face of a taller wall) AND the two
+ * cells above the mover's own feet cell are passable, so the arc
+ * cannot bonk a ceiling. Reads the axis-blocker scratch the X/Z
+ * resolution just recorded; scalar math only, safe per frame.
+ */
+function maybeAutoJump(state: FpMoveState, solid: FpSolidGrid): void {
+  // A grounded capsule's feet rest on a cell boundary; the epsilon
+  // keeps the boundary in the cell above it.
+  const feetY = Math.floor(state.py + 0.5 + 1e-6);
+  if (axisBlockerY !== feetY) return;
+  if (!fpHopCellPassable(solid, axisBlockerX, feetY + 1, axisBlockerZ)) return;
+  const cellX = Math.round(state.px);
+  const cellZ = Math.round(-state.pz);
+  if (!fpHopCellPassable(solid, cellX, feetY + 1, cellZ)) return;
+  if (!fpHopCellPassable(solid, cellX, feetY + 2, cellZ)) return;
+  state.vy = FP_JUMP_VELOCITY;
 }
 
 export function stepFpMovement(
@@ -195,7 +254,9 @@ export function stepFpMovement(
     state.px = MAX_X;
     state.vx = Math.min(0, state.vx);
   }
-  resolveAxis(state, solid, Axis.X);
+  if (resolveAxis(state, solid, Axis.X) && input.autoJump && state.grounded) {
+    maybeAutoJump(state, solid);
+  }
 
   state.pz += state.vz * clamped;
   if (state.pz < MIN_WORLD_Z) {
@@ -205,7 +266,9 @@ export function stepFpMovement(
     state.pz = MAX_WORLD_Z;
     state.vz = Math.min(0, state.vz);
   }
-  resolveAxis(state, solid, Axis.Z);
+  if (resolveAxis(state, solid, Axis.Z) && input.autoJump && state.grounded) {
+    maybeAutoJump(state, solid);
+  }
 
   state.grounded = false;
   state.py += state.vy * clamped;

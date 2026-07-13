@@ -41,7 +41,9 @@
 
 .bunker-status-sheet {
   position: absolute;
-  z-index: 9;
+  /* Above the bunker toolbelt (z 10): the open sheet is a modal and
+   * its bottom rows (repair, reset) must win the taps (Rule 10). */
+  z-index: 11;
   right: 10px;
   bottom: 106px;
   left: 10px;
@@ -200,6 +202,25 @@
   background: rgba(18, 33, 26, 0.85);
   color: #9fe0bd;
   font-weight: 600;
+}
+
+/* Reset-bunker row (F-093): mirrors the repair button but reads as a
+ * destructive action; the armed confirm state turns hot. */
+.bunker-reset-button {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #4a2c2c;
+  background: rgba(33, 18, 18, 0.85);
+  color: #e0a99f;
+  font-weight: 600;
+}
+
+.bunker-reset-button[aria-pressed="true"] {
+  border-color: #e06054;
+  color: #ffd2cb;
+  background: rgba(64, 22, 18, 0.92);
 }
 
 /* Skin picker (F-087): one row of cosmetic palette choices in the
@@ -1640,23 +1661,6 @@ button[data-bag-full-flash="true"] {
   right: 0;
   width: 55%;
   touch-action: none;
-}
-
-.bunker-fp-jump {
-  position: absolute;
-  z-index: 12;
-  right: calc(20px + env(safe-area-inset-right));
-  bottom: calc(96px + env(safe-area-inset-bottom));
-  width: 56px;
-  height: 56px;
-  border: 2px solid rgba(84, 224, 199, 0.7);
-  border-radius: 50%;
-  background: rgba(17, 21, 31, 0.72);
-  color: #8ef3df;
-  font-size: 1.3rem;
-  font-weight: 900;
-  touch-action: none;
-  pointer-events: auto;
 }
 
 .bunker-fp-stick-ring {

@@ -81,8 +81,9 @@ function FpTargetLabel() {
  * DOM overlay for the first-person bunker viewer, rendered as a
  * SIBLING of the canvas (Rule 10: all text is DOM, never in-canvas).
  * Desktop gets the exit button, crosshair, and a resume hint while
- * pointer lock is off; coarse pointers get the move/look/jump touch
- * controls (a quick tap on the look zone acts with the current tool).
+ * pointer lock is off; coarse pointers get the move/look touch zones
+ * (a quick tap on the look zone acts with the current tool; one-block
+ * steps auto-jump per F-094, so there is no jump button).
  * Both get the bottom hotbar: pick slot, six part slots with counts,
  * pry toggle, and the carried-part chip. All zones write the shared
  * fpInput singleton the rig consumes each frame; the target label
@@ -261,16 +262,6 @@ export function BunkerFpHud({
           >
             <div className="bunker-fp-stick-knob" ref={knobRef} />
           </div>
-          <button
-            type="button"
-            className="bunker-fp-jump"
-            aria-label="Jump"
-            onPointerDown={() => {
-              fpInput.jump = true;
-            }}
-          >
-            &#11014;
-          </button>
         </>
       )}
       {!coarse && !locked && (

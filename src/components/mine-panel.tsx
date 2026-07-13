@@ -86,6 +86,8 @@ import {
 import { PART_CATALOG } from "@/sim/parts";
 import { useBunkerStore } from "@/state/bunker-store";
 import { SAVE_SYNC_CHANNEL, useMineStore } from "@/state/mine-store";
+import { BunkerFpHud } from "./bunker-fp-hud";
+import { attachFpKeyboard, resetFpInput } from "./bunker-fp-input";
 import { COMPILE_GATE_DEADLINE_MS } from "./compile-gate";
 import {
   eventInsideRef,
@@ -242,6 +244,14 @@ const MineCanvas = dynamic(() => import("./mine-canvas"), {
   loading: () => <MineSceneBackdrop />,
 });
 
+// The first-person bunker viewer swaps in for MineCanvas while the
+// player walks their claim interior; the swap hides behind the same
+// first-paint veil, so its loading placeholder matches.
+const BunkerFpCanvas = dynamic(() => import("./bunker-fp-canvas"), {
+  ssr: false,
+  loading: () => <MineSceneBackdrop />,
+});
+
 const KEY_DIRECTIONS: Record<string, Direction> = {
   ArrowDown: "down",
   ArrowUp: "up",
@@ -311,6 +321,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Select a bunker part, then point or swipe where it goes. Deselect to move normally.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
+  "Tip: Standing in your claim, Enter bunker walks it in first person. Exit any time.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
   "Tip: One cloud save on two devices? Sync when prompted; runs never merge.",
@@ -1322,6 +1333,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [raidPickupRetryTick, setRaidPickupRetryTick] = useState(0);
   const [bunkerClaimMode, setBunkerClaimMode] = useState(false);
   const [bunkerPanelOpen, setBunkerPanelOpen] = useState(false);
+  // First-person bunker viewer mode: the fp canvas replaces MineCanvas
+  // and the 2D movement inputs are suppressed while it is on.
+  const [fpBunkerActive, setFpBunkerActive] = useState(false);
   const [bunkerToolSelection, setBunkerToolSelection] =
     useState<BunkerToolSelection>(null);
   const [carriedBunkerPart, setCarriedBunkerPart] =
@@ -1383,6 +1397,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const pendingBunkerActive = pendingBunker !== null;
   const terminalMineState = Boolean(lastResult?.ok && lastResult.collapsed);
   const bunkerEditingAllowed = raidAllowsBunkerEditing(activeBunkerRaid);
+  // The one first-person gate (used by the Enter affordance path and
+  // the forced-exit effect only): the live-raid slice lifts this single
+  // predicate when raids move inside.
+  const fpBunkerAllowed =
+    Boolean(activeBunker) && !terminalMineState && bunkerEditingAllowed;
   const selectedBasePart: BasePartId =
     bunkerToolSelection && bunkerToolSelection !== "pry"
       ? bunkerToolSelection
@@ -1919,7 +1938,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       !mineSceneReady ||
       elevatorAutoDir ||
       terminalMineState ||
-      creditsOpen
+      creditsOpen ||
+      fpBunkerActive
     ) {
       return;
     }
@@ -1974,6 +1994,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     elevatorAutoDir,
     fireDirection,
     fireJump,
+    fpBunkerActive,
     mineSceneReady,
     releaseDirection,
     router,
@@ -1985,7 +2006,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       mineSceneReady &&
       !elevatorAutoDir &&
       !creditsOpen &&
-      !terminalMineState
+      !terminalMineState &&
+      !fpBunkerActive
     )
       return;
     cancelMovementControls();
@@ -1993,6 +2015,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     cancelMovementControls,
     creditsOpen,
     elevatorAutoDir,
+    fpBunkerActive,
     mineSceneReady,
     terminalMineState,
   ]);
@@ -2092,6 +2115,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [abandonArmed]);
 
   useEffect(() => {
+    // First-person mode owns the keyboard (bunker-fp-input); the 2D
+    // movement listeners detach entirely so a held key cannot leak a
+    // mine move while the player walks the bunker.
+    if (fpBunkerActive) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const targetEl = event.target as HTMLElement | null;
@@ -2204,6 +2231,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     fireDirection,
     fireJump,
     firePlankDrop,
+    fpBunkerActive,
     releaseDirection,
     router,
     terminalMineState,
@@ -2294,7 +2322,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   );
   const jumpAvailable = canJump(mine);
   const jumpButtonVisible =
-    jumpAvailable && !terminalMineState && !bunkerCanvasEditing;
+    jumpAvailable &&
+    !terminalMineState &&
+    !bunkerCanvasEditing &&
+    !fpBunkerActive;
   const jumpEnabled =
     jumpButtonVisible && mineSceneReady && !elevatorAutoDir && !creditsOpen;
   // TV deck center button: on a destination column it walks into the
@@ -2874,8 +2905,77 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     ],
   );
 
+  const enterFpBunker = useCallback(() => {
+    // Every Enter affordance (toolbelt button, panel row, "f" key)
+    // funnels through this single guard.
+    if (!fpBunkerAllowed || elevatorAutoDir) return;
+    const currentMiner = useMineStore.getState().mine.miner;
+    if (
+      !activeBunker ||
+      !containsBunkerCell(
+        activeBunker.footprint,
+        currentMiner.col,
+        currentMiner.row,
+      )
+    ) {
+      return;
+    }
+    // Stow the hammer, close the sheet, and re-arm the first-paint
+    // veil so the canvas swap hides behind it.
+    if (bunkerScaffoldActive) selectBunkerTool(null);
+    setBunkerPanelOpen(false);
+    setMineCanvasPainted(false);
+    setFpBunkerActive(true);
+  }, [
+    activeBunker,
+    bunkerScaffoldActive,
+    elevatorAutoDir,
+    fpBunkerAllowed,
+    selectBunkerTool,
+  ]);
+
+  const exitFpBunker = useCallback(() => {
+    setFpBunkerActive(false);
+    // The veil also covers the swap back to the 2D canvas.
+    setMineCanvasPainted(false);
+  }, []);
+
+  // Forced exit: if the gate closes while inside (raid resolves against
+  // the player, terminal collapse, bunker vanishes), drop back to 2D.
+  useEffect(() => {
+    if (fpBunkerAllowed) return;
+    setFpBunkerActive(false);
+  }, [fpBunkerAllowed]);
+
+  // First-person keyboard: WASD/arrows plus Space live in the shared
+  // fp input singleton while the mode is on; detach zeroes everything.
+  useEffect(() => {
+    if (!fpBunkerActive) return;
+    const detach = attachFpKeyboard();
+    return () => {
+      detach();
+      resetFpInput();
+    };
+  }, [fpBunkerActive]);
+
+  // Second-Escape exit: while pointer lock is held the browser consumes
+  // the first Escape to leave the lock, so any Escape that reaches this
+  // handler means "leave the bunker view".
+  useEffect(() => {
+    if (!fpBunkerActive) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (document.pointerLockElement) return;
+      event.preventDefault();
+      exitFpBunker();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [exitFpBunker, fpBunkerActive]);
+
   useEffect(() => {
     const onBunkerToolKey = (event: KeyboardEvent) => {
+      if (fpBunkerActive) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       if (
@@ -2889,6 +2989,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         selectBunkerTool(null);
         return;
       }
+      if (event.key === "f" || event.key === "F") {
+        if (!activeBunker) return;
+        event.preventDefault();
+        enterFpBunker();
+        return;
+      }
       const slot = Number(event.key) - 1;
       const partId = BASE_PART_IDS[slot];
       if (!partId || !activeBunker) return;
@@ -2897,7 +3003,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     };
     window.addEventListener("keydown", onBunkerToolKey);
     return () => window.removeEventListener("keydown", onBunkerToolKey);
-  }, [activeBunker, bunkerToolSelection, selectBunkerTool]);
+  }, [
+    activeBunker,
+    bunkerToolSelection,
+    enterFpBunker,
+    fpBunkerActive,
+    selectBunkerTool,
+  ]);
 
   useEffect(() => {
     if (!elevatorAutoDir) return;
@@ -3112,7 +3224,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     !collectMode &&
     !bunkerCanvasEditing &&
     !creditsOpen &&
-    !terminalMineState;
+    !terminalMineState &&
+    !fpBunkerActive;
 
   useEffect(() => {
     if (releaseNotesVisible) return;
@@ -3340,30 +3453,42 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           key={mineCanvasKey}
           onError={reportMineSceneError}
         >
-          <MineCanvas
-            zoom={cameraZoom}
-            collectMode={collectMode}
-            selectedSupportKeys={collectSelection}
-            dynamitePreviewCells={selectedDynamitePreview}
-            bunkerPreview={bunkerPreview}
-            bunkerBlockedCells={localBlockedBunkerCells}
-            bunker={activeBunker}
-            activeBunkerRaid={activeBunkerRaid}
-            bunkerEditingEnabled={bunkerEditingAllowed}
-            bunkerTargetCell={bunkerTargetCell}
-            bunkerHammerEquipped={bunkerScaffoldActive}
-            bunkerToolAction={bunkerToolAction}
-            selectedBunkerPartId={selectedBasePart}
-            carriedBunkerPart={carriedBunkerPart}
-            bunkerToolEvent={bunkerToolEvent}
-            onBunkerCellHover={setBunkerCellTarget}
-            onBunkerCellTap={queueBunkerConstruction}
-            onToggleSupport={toggleCollectTarget}
-            onFirstFrame={handleMineFirstFrame}
-          />
+          {fpBunkerActive && activeBunker ? (
+            <BunkerFpCanvas
+              bunker={activeBunker}
+              entry={{ col: miner.col, row: miner.row }}
+              onExit={exitFpBunker}
+              onFirstFrame={handleMineFirstFrame}
+            />
+          ) : (
+            <MineCanvas
+              zoom={cameraZoom}
+              collectMode={collectMode}
+              selectedSupportKeys={collectSelection}
+              dynamitePreviewCells={selectedDynamitePreview}
+              bunkerPreview={bunkerPreview}
+              bunkerBlockedCells={localBlockedBunkerCells}
+              bunker={activeBunker}
+              activeBunkerRaid={activeBunkerRaid}
+              bunkerEditingEnabled={bunkerEditingAllowed}
+              bunkerTargetCell={bunkerTargetCell}
+              bunkerHammerEquipped={bunkerScaffoldActive}
+              bunkerToolAction={bunkerToolAction}
+              selectedBunkerPartId={selectedBasePart}
+              carriedBunkerPart={carriedBunkerPart}
+              bunkerToolEvent={bunkerToolEvent}
+              onBunkerCellHover={setBunkerCellTarget}
+              onBunkerCellTap={queueBunkerConstruction}
+              onToggleSupport={toggleCollectTarget}
+              onFirstFrame={handleMineFirstFrame}
+            />
+          )}
         </MineSceneErrorBoundary>
       ) : (
         <MineSceneBackdrop />
+      )}
+      {fpBunkerActive && mineSceneReady && (
+        <BunkerFpHud onExit={exitFpBunker} />
       )}
       {showFirstPaintVeil && <MineSceneBackdrop veil />}
       {(mineSceneStatus === "loading" || showFirstPaintVeil) && (
@@ -3400,7 +3525,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           centerAction={tvCenterAction}
         />
       )}
-      <StratumBanner row={miner.row} />
+      {!fpBunkerActive && <StratumBanner row={miner.row} />}
       <StampCollectAlert onOpenStampBook={openStampBookAt} />
       <JuiceOverlays />
       {pickaxeGateHint && (
@@ -3917,40 +4042,49 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           ))}
         </section>
       )}
-      <BunkerControlPanel
-        minerRow={miner.row}
-        claimMode={bunkerClaimMode}
-        panelOpen={bunkerPanelOpen}
-        bunker={activeBunker}
-        pendingClaim={pendingBunkerActive}
-        preview={bunkerPreview}
-        localBlockedCells={localBlockedBunkerCells}
-        bankedBlockedCells={bankedBlockedBunkerCells}
-        onStartClaim={() => {
-          setBunkerPanelOpen(true);
-          setBunkerClaimMode(true);
-        }}
-        onCancelClaim={() => setBunkerClaimMode(false)}
-        onOpenPanel={() => {
-          if (bunkerScaffoldActive) selectBunkerTool(null);
-          setBunkerPanelOpen(true);
-        }}
-        onDismissPanel={() => setBunkerPanelOpen(false)}
-        onClaim={() => {
-          if (claimPendingBunker(miner.col, miner.row)) {
-            setBunkerClaimMode(false);
+      {!fpBunkerActive && (
+        <BunkerControlPanel
+          minerRow={miner.row}
+          claimMode={bunkerClaimMode}
+          panelOpen={bunkerPanelOpen}
+          bunker={activeBunker}
+          pendingClaim={pendingBunkerActive}
+          preview={bunkerPreview}
+          localBlockedCells={localBlockedBunkerCells}
+          bankedBlockedCells={bankedBlockedBunkerCells}
+          onStartClaim={() => {
             setBunkerPanelOpen(true);
+            setBunkerClaimMode(true);
+          }}
+          onCancelClaim={() => setBunkerClaimMode(false)}
+          onOpenPanel={() => {
+            if (bunkerScaffoldActive) selectBunkerTool(null);
+            setBunkerPanelOpen(true);
+          }}
+          onDismissPanel={() => setBunkerPanelOpen(false)}
+          onClaim={() => {
+            if (claimPendingBunker(miner.col, miner.row)) {
+              setBunkerClaimMode(false);
+              setBunkerPanelOpen(true);
+            }
+          }}
+          onStartRaid={(tier) => {
+            if (bunkerScaffoldActive) selectBunkerTool(null);
+            void startBunkerRaid(tier);
+          }}
+          onFinishRaid={() => void finishBunkerRaid()}
+          onRepair={() => void repairBunker()}
+          onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
+          onEnterFp={
+            activeBunker &&
+            containsBunkerCell(activeBunker.footprint, miner.col, miner.row)
+              ? enterFpBunker
+              : undefined
           }
-        }}
-        onStartRaid={(tier) => {
-          if (bunkerScaffoldActive) selectBunkerTool(null);
-          void startBunkerRaid(tier);
-        }}
-        onFinishRaid={() => void finishBunkerRaid()}
-        onRepair={() => void repairBunker()}
-        onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
-      />
-      {activeBunker &&
+        />
+      )}
+      {!fpBunkerActive &&
+        activeBunker &&
         bunkerEditingAllowed &&
         !terminalMineState &&
         containsBunkerCell(activeBunker.footprint, miner.col, miner.row) && (
@@ -3968,6 +4102,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             onSelect={selectBunkerTool}
             onStowCarried={stowCarriedBunkerPart}
             onCancelCarried={cancelCarriedBunkerPart}
+            onEnterFp={enterFpBunker}
           />
         )}
       {stall && openStallCol === miner.col && (
@@ -4002,6 +4137,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         data-depth={miner.row}
         data-scene-ready={mineSceneReady ? "true" : "false"}
         data-scene-painted={mineCanvasPainted ? "true" : "false"}
+        data-fp-mode={fpBunkerActive ? "1" : "0"}
         data-horizontal-distance={horizontalDistance}
         data-energy={miner.energy.toFixed(1)}
         data-ladders={mine.consumables.ladder}
@@ -4025,6 +4161,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           gap: 6,
           pointerEvents: "none",
           zIndex: 5,
+          // The element stays mounted while first-person mode is on
+          // (it carries data-scene-ready/painted and data-fp-mode), but
+          // its 2D chips hide under the fp view.
+          visibility: fpBunkerActive ? "hidden" : "visible",
         }}
       >
         <div

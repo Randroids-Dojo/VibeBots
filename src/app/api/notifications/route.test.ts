@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.246-bunker-excavation",
+      releaseNoticeId: "2026-07-13-0.1.247-bunker-first-person",
       releaseSummary:
-        "The bunker's deep rock learns to be dug: Third groundwork slice: excavation exists, server-verified.",
+        "Step inside your bunker: Your claim opens in first person: walk it from the inside.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.246-bunker-excavation",
+      releaseNoticeId: "2026-07-13-0.1.247-bunker-first-person",
       attempted: 2,
       sent: 1,
       expired: 1,

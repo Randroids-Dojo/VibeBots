@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest excavation note complete", () => {
+  it("keeps the latest first-person note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.246-bunker-excavation");
+    expect(release.noticeId).toBe("2026-07-13-0.1.247-bunker-first-person");
     expect(latestNote).toMatchObject({
+      version: "0.1.247",
+      title: "Step inside your bunker",
+      intro: "Your claim opens in first person: walk it from the inside.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Standing inside your claim, tap Enter bunker on the builder toolbelt (or press F) to switch into a first-person view of the interior. Walk with the stick or WASD, look by dragging or with the mouse, hop with the jump button or Space, and exit any time.",
+      "The four deeper layers show as solid claim rock for now. Digging them out and building by hand in first person arrive in the next releases.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived excavation note complete", () => {
+    const release = getAppRelease();
+    const digNote = release.notes.find((note) => note.version === "0.1.246");
+
+    expect(digNote).toMatchObject({
       version: "0.1.246",
       title: "The bunker's deep rock learns to be dug",
       intro: "Third groundwork slice: excavation exists, server-verified.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(digNote?.changes.map((change) => change.text)).toEqual([
       "The four deep layers of every bunker claim now exist as solid rock, excavated cell by cell through a new server action. Every dig must chain from an already-open face, and the server replays your dig order to prove it.",
       "Parts can no longer be placed inside undug rock. Nothing visible changes yet: the first-person mode that uses all of this is next.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

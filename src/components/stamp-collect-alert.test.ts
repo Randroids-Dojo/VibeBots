@@ -17,6 +17,21 @@ describe("stamp collect alert", () => {
     expect(markup).toContain("<svg");
   });
 
+  it("becomes a labeled button when the alert can open the Stamp Book", () => {
+    const markup = renderToStaticMarkup(
+      createElement(StampAlertCard, {
+        achievementId: "tool-depot-regular",
+        onOpen: () => {},
+      }),
+    );
+    expect(markup).toContain("<button");
+    expect(markup).toContain(
+      'aria-label="Open Depot Regular in the Stamp Book"',
+    );
+    // The status wrapper still announces the collect.
+    expect(markup).toContain('role="status"');
+  });
+
   it("renders nothing for an id outside the stamp catalog", () => {
     expect(
       renderToStaticMarkup(
@@ -38,6 +53,11 @@ describe("stamp collect alert", () => {
     expect(source).toContain("armReaper(STAMP_ALERT_MS * 2)");
 
     const css = readFileSync(join(process.cwd(), "src/app/mine.css"), "utf8");
+    // The alert sits about a quarter down the screen, clamped below the
+    // notch, and only the clickable body accepts pointer input.
+    expect(css).toMatch(
+      /\.mine-stamp-alert \{[^}]*top: max\(25dvh, calc\(env\(safe-area-inset-top\) \+ 66px\)\)/,
+    );
     expect(css).toContain("@keyframes mine-stamp-alert-pop");
     expect(css).toMatch(/mine-stamp-alert-pop 3000ms [^;]*forwards/);
     // Reduced motion must still clear the alert: the animation is off,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { PlayerAchievementView } from "@/lib/achievements";
 import { DismissibleDialogFrame } from "./dismissible-dialog-frame";
 import { StampArt } from "./stamp-art";
@@ -17,15 +17,24 @@ export function StampBookPopup({
   open,
   onClose,
   onBeforeLoad,
+  focusAchievementId = null,
 }: {
   open: boolean;
   onClose: () => void;
   onBeforeLoad: () => void;
+  /** Scrolls to and highlights this stamp once the book loads. */
+  focusAchievementId?: string | null;
 }) {
   const [loading, setLoading] = useState(false);
   const [offline, setOffline] = useState(false);
   const [achievements, setAchievements] = useState<PlayerAchievementView[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Ref callback: mounts once per focused card (the card only renders
+  // after the fetch settles), centering it in the scrollable book.
+  const scrollFocusedIntoView = useCallback((node: HTMLElement | null) => {
+    node?.scrollIntoView({ block: "center" });
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -177,20 +186,28 @@ export function StampBookPopup({
                 >
                   {items.map((achievement) => {
                     const done = achievement.unlocked;
+                    const focused = achievement.id === focusAchievementId;
                     return (
                       <article
                         key={achievement.id}
+                        ref={focused ? scrollFocusedIntoView : undefined}
                         data-achievement-id={achievement.id}
                         data-achievement-unlocked={done ? "true" : "false"}
+                        data-achievement-focused={focused ? "true" : undefined}
                         style={{
                           display: "grid",
                           gridTemplateColumns: "54px 1fr",
                           gap: 10,
                           minHeight: 96,
                           borderRadius: 8,
-                          border: done
-                            ? "1px solid #54e0c7"
-                            : "1px solid #2c3651",
+                          border: focused
+                            ? "1px solid #f5c542"
+                            : done
+                              ? "1px solid #54e0c7"
+                              : "1px solid #2c3651",
+                          boxShadow: focused
+                            ? "0 0 0 2px rgba(245, 197, 66, 0.35), 0 0 18px rgba(245, 197, 66, 0.25)"
+                            : undefined,
                           background: done
                             ? "rgba(84, 224, 199, 0.1)"
                             : "rgba(38, 48, 74, 0.42)",

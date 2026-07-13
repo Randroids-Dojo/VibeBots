@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.238-camera-space-sky",
+      releaseNoticeId: "2026-07-13-0.1.239-stamp-alert-shortcut",
       releaseSummary:
-        "The planet stays put: The sky no longer slides after each surface step.",
+        "Stamp alerts lead straight to the Stamp Book: Tap a fresh stamp to see it in its place in the collection.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.238-camera-space-sky",
+      releaseNoticeId: "2026-07-13-0.1.239-stamp-alert-shortcut",
       attempted: 2,
       sent: 1,
       expired: 1,

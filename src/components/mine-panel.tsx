@@ -1197,6 +1197,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   >(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stampBookOpen, setStampBookOpen] = useState(false);
+  const [stampBookFocusId, setStampBookFocusId] = useState<string | null>(null);
+  const openStampBookAt = useCallback((achievementId: string) => {
+    setStampBookFocusId(achievementId);
+    setStampBookOpen(true);
+  }, []);
   const [saveSlotsOpen, setSaveSlotsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountFallbackPreflightDone, setAccountFallbackPreflightDone] =
@@ -3267,7 +3272,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         />
       )}
       <StratumBanner row={miner.row} />
-      <StampCollectAlert />
+      <StampCollectAlert onOpenStampBook={openStampBookAt} />
       <JuiceOverlays />
       {pickaxeGateHint && (
         <div
@@ -3318,7 +3323,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       <CreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} />
       <StampBookPopup
         open={stampBookOpen}
-        onClose={() => setStampBookOpen(false)}
+        focusAchievementId={stampBookFocusId}
+        onClose={() => {
+          setStampBookOpen(false);
+          setStampBookFocusId(null);
+        }}
         onBeforeLoad={saveCurrentTrip}
       />
       <SaveSlotsPopup
@@ -3439,6 +3448,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             type="button"
             onClick={() => {
               setSettingsOpen(false);
+              setStampBookFocusId(null);
               setStampBookOpen(true);
             }}
             style={{

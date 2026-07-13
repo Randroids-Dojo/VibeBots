@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
+import { StampBookPopup } from "@/components/mine-stamp-book-popup";
 import { PartsShop, prefetchShop } from "@/components/parts-shop";
 import { StampCollectAlert } from "@/components/stamp-collect-alert";
 import { playWorkshopSfx } from "@/components/workshop-sfx";
@@ -93,6 +94,22 @@ export function WorkshopPanel() {
   const design = useWorkshopStore((s) => s.design);
   // Captured at click time: the matchup identity is state, so nothing a
   // render does can reboot a running test fight.
+  // The stamp alert opens the Stamp Book focused on the new stamp; the
+  // workshop mounts its own copy of the book (the mine's lives in its
+  // panel) so the alert behaves the same on every screen.
+  const [stampBookFocusId, setStampBookFocusId] = useState<string | null>(null);
+  const openStampBookAt = useCallback((achievementId: string) => {
+    setStampBookFocusId(achievementId);
+  }, []);
+  const stampBookNoop = useCallback(() => {}, []);
+  const stampBook = (
+    <StampBookPopup
+      open={stampBookFocusId !== null}
+      focusAchievementId={stampBookFocusId}
+      onClose={() => setStampBookFocusId(null)}
+      onBeforeLoad={stampBookNoop}
+    />
+  );
   const [matchup, setMatchup] = useState<[BotDesign, BotDesign] | null>(null);
   const [endInfo, setEndInfo] = useState<MatchEndInfo | null>(null);
   const [rivalState, setRivalState] = useState<
@@ -505,7 +522,8 @@ export function WorkshopPanel() {
   if (matchup) {
     return (
       <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
-        <StampCollectAlert />
+        <StampCollectAlert onOpenStampBook={openStampBookAt} />
+        {stampBook}
         <ArenaCanvas
           designs={matchup}
           onMatchEnd={(info) => {
@@ -608,7 +626,8 @@ export function WorkshopPanel() {
   return (
     <div className="workshop-stage" ref={stageRef}>
       <WorkshopCanvas menuLift={menuLift} />
-      <StampCollectAlert />
+      <StampCollectAlert onOpenStampBook={openStampBookAt} />
+      {stampBook}
 
       {/* The on-part remove control: a single X floated over the selected part
           in the 3D view (positioned each frame by the effect above), so

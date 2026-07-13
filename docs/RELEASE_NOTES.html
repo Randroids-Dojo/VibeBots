@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.241" data-date="2026-07-13">
+    <h2>0.1.241</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.241</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> stays at <code>53</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>Fire TV players can move with physical remote buttons instead of aiming Silk's cursor at the TV deck.</dd>
+      <dt>Physical movement</dt><dd>Channel Up and Channel Down move vertically. Rewind and Fast Forward move left and right. Play/Pause continues to jump.</dd>
+      <dt>Browser controls</dt><dd>Select keeps activating the item under Silk's cursor, and Back keeps navigating history so the existing menu-dismiss marker can intercept it safely.</dd>
+      <dt>Fallback</dt><dd>The onscreen TV deck remains available because Silk or a television may withhold channel events. Named UI Events keys and legacy Android key codes are both recognized.</dd>
+      <dt>Review coverage</dt><dd>Pure tests cover named and legacy mappings plus explicit non-capture of Select, Back, and Play/Pause. Fire TV browser coverage proves physical movement, Select activation, Back dismissal, and the click-first fallback deck.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.240" data-date="2026-07-13">
     <h2>0.1.240</h2>
     <dl>

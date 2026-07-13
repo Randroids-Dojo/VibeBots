@@ -1,10 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID =
-  "2026-07-13-0.1.240-directional-bunker-building";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.241-fire-tv-physical-controls";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.241",
+      date: "2026-07-13",
+      title: "Use the remote buttons to move in the mine",
+      intro: "Fire TV players can try physical movement before the TV deck.",
+      changes: [
+        {
+          build,
+          text: "On Fire TV, Channel Up and Channel Down move vertically while Rewind and Fast Forward move left and right. Play/Pause still fires the jump jets.",
+        },
+        {
+          build,
+          text: "Select keeps clicking the item under Silk's cursor, and Back keeps its browser-history role so open menus can intercept it safely. Neither button is repurposed for movement.",
+        },
+        {
+          build,
+          text: "The large TV control deck remains available as a fallback when a Silk version or television withholds a channel key. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.240",
       date: "2026-07-13",

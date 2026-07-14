@@ -243,18 +243,28 @@ export function BunkerFpHud({
   tool,
   selectedPartId,
   denyNotice,
+  bagOreCount,
+  bagStackCount,
+  bagCapacity,
+  bagOpen,
   onSelectPart,
   onSelectPick,
   onTogglePry,
+  onOpenBag,
   onExit,
 }: {
   inventory: BasePartInventory;
   tool: BunkerToolAction;
   selectedPartId: BasePartId;
   denyNotice: string | null;
+  bagOreCount: number;
+  bagStackCount: number;
+  bagCapacity: number;
+  bagOpen: boolean;
   onSelectPart: (partId: BasePartId) => void;
   onSelectPick: () => void;
   onTogglePry: () => void;
+  onOpenBag: () => void;
   onExit: () => void;
 }) {
   const [coarse, setCoarse] = useState(false);
@@ -519,6 +529,18 @@ export function BunkerFpHud({
           {denyNotice}
         </div>
       )}
+      <button
+        type="button"
+        className="bunker-fp-bag"
+        data-testid="bunker-fp-bag"
+        aria-label="Open bag"
+        aria-controls="mine-bag-panel"
+        aria-expanded={bagOpen}
+        title={`Open bag. ${bagOreCount} ore chunks in ${bagStackCount}/${bagCapacity} stack slots.`}
+        onClick={onOpenBag}
+      >
+        &#127890; {bagOreCount} ({bagStackCount}/{bagCapacity})
+      </button>
       <button
         type="button"
         className="bunker-fp-exit"

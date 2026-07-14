@@ -24,18 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-block-art note complete", () => {
+  it("keeps the latest fp-bunker-bag note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.263-bunker-block-art");
+    expect(release.noticeId).toBe("2026-07-14-0.1.264-fp-bunker-bag");
     expect(latestNote).toMatchObject({
+      version: "0.1.264",
+      title: "Check your bag from inside the bunker",
+      intro: "The first-person bunker HUD now shows and opens your cargo bag.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A bag chip now rides in the top corner of the first-person bunker view, showing your carried ore and stack slots at a glance. Tap it to open the full bag, drop cargo, and read your haul without leaving the bunker.",
+      "Opening the bag pauses your walking and digging behind it, and Escape closes the bag and drops you straight back into the view. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-block-art note complete", () => {
+    const release = getAppRelease();
+    const blockArtNote = release.notes.find(
+      (note) => note.version === "0.1.263",
+    );
+
+    expect(blockArtNote).toMatchObject({
       version: "0.1.263",
       title: "Bunker walls show real dirt, rock, and ore",
       intro:
         "Your bunker interior now renders the mine's blocks instead of one flat gray.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(blockArtNote?.changes.map((change) => change.text)).toEqual([
       "Undug bunker cells now render as the dirt, rock, and ore you would find in the mine at that exact depth, instead of a single flat gray. You can read the room at a glance and watch the stone turn richer the deeper you dig.",
       "Ore crystals now actually show in the walls at the mine's ore distribution for that depth, so you can spot a cell worth breaking before you swing. This is a visual change only; MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

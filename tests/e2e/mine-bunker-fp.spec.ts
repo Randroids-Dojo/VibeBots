@@ -277,6 +277,50 @@ test("the bunker status panel's 3D row enters the banked bunker", async ({
   await awaitMineSceneReady(page);
 });
 
+test("the first-person bag chip opens the cargo bag and Escape returns to the view", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FP_BUNKER_VIEW),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  await page.getByTestId("bunker-fp-enter-panel").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+
+  // The bag chip rides in the first-person HUD and opens the same cargo bag.
+  const bagChip = page.getByTestId("bunker-fp-bag");
+  await expect(bagChip).toBeVisible();
+  await expect(bagChip).toHaveAttribute("aria-expanded", "false");
+  await bagChip.click();
+  const bagPanel = page.locator("#mine-bag-panel");
+  await expect(bagPanel).toBeVisible();
+  await expect(bagChip).toHaveAttribute("aria-expanded", "true");
+
+  // Escape closes the bag and stays in first person (does not exit the view).
+  await page.keyboard.press("Escape");
+  await expect(bagPanel).toHaveCount(0);
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+
+  await page.getByRole("button", { name: "Exit bunker" }).click();
+  await expect(status).toHaveAttribute("data-fp-mode", "0");
+  await awaitMineSceneReady(page);
+});
+
 test("second Escape leaves the first-person view", async ({ page }) => {
   await page.route("**/api/bunker", async (route) => {
     await route.fulfill({

@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.263-bunker-block-art";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.264-fp-bunker-bag";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.264",
+      date: "2026-07-14",
+      title: "Check your bag from inside the bunker",
+      intro: "The first-person bunker HUD now shows and opens your cargo bag.",
+      changes: [
+        {
+          build,
+          text: "A bag chip now rides in the top corner of the first-person bunker view, showing your carried ore and stack slots at a glance. Tap it to open the full bag, drop cargo, and read your haul without leaving the bunker.",
+        },
+        {
+          build,
+          text: "Opening the bag pauses your walking and digging behind it, and Escape closes the bag and drops you straight back into the view. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.263",
       date: "2026-07-14",

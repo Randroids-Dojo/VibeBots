@@ -16,6 +16,7 @@ import {
   pressMineKey,
   pressMineKeyUntilStatus,
   returnEnergyCost,
+  routeStarterMineWorld,
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
@@ -61,6 +62,13 @@ test("surface day and night grades change production pixels without new draws", 
 
 test("mine digs and tracks depth and energy", async ({ page }) => {
   test.setTimeout(120_000);
+  // Seed the world and force the dig column's first block to plain dirt
+  // (F-098): the unseeded world sometimes rolled a two-hit 0.4-per-swing
+  // cell at the dig column, so the row-1 swing total landed at 59.2
+  // instead of the expected 1.0-cost band and the energy check flaked.
+  await routeStarterMineWorld(page, 424242, (mine) => {
+    setCell(mine, START_COL, 1, { kind: "dirt" });
+  });
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await expect(page.locator("canvas")).toBeVisible();

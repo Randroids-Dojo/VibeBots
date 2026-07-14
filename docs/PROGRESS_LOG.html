@@ -31,6 +31,16 @@
 
 <main id="entries">
 
+  <article data-slice="mine-core-dig-energy-seed" data-date="2026-07-13">
+    <h3>Seed the dig-energy e2e so the swing cost stops flaking</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-core-dig-energy-seed</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Resolves F-098. The mine-core "digs and tracks depth and energy" test ran against the app's unseeded offline world, which occasionally rolled a two-hit 0.4-per-swing cell at the dig column and pushed the post-dig energy to 59.2, outside the [58.5, 59.0] band (reproduced 2 of 8 locally, never product code). The test now routes a fixed world with <code>routeStarterMineWorld(page, 424242, ...)</code> and forces the row-1 dig block to <code>{ kind: "dirt" }</code> so the swing total is a deterministic 1.0. Test-only: no product code, no player-facing change, no version bump, no tip or stamp review triggered. The workshop-Escape case that F-098 noted alongside is a local-environment-only artifact on unmodified main and stays out of scope (it passes in CI).</dd>
+      <dt>Verified</dt><dd>The seeded test passed 6/6 under <code>--repeat-each=6</code> (the unseeded version flaked 2 of 8). Typecheck, Biome, dash, and whitespace clean.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-fp-pick-default" data-date="2026-07-13">
     <h3>Step inside with the pick already out</h3>
     <dl>

@@ -52,6 +52,57 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-125" data-f="F-125" data-priority="polish">
+    <h3>F-125: Retire the legacy elevator column fallback after backfill</h3>
+    <dl>
+      <dt>Context</dt><dd>The placeable-elevator slice adds a justified one-time database backfill that assigns legacy owners column <code>-5</code>, but the shared <code>elevatorColumn</code> helper also treats every future <code>depth &gt; 0</code> profile with a missing column as legacy forever. The version bump and backfill provide a clean boundary, so retaining that fallback indefinitely would hide corrupt or unsupported state as if it were valid.</dd>
+      <dt>Blocker (if any)</dt><dd>Land after the one-time existing-owner backfill has run in production.</dd>
+      <dt>Unblock condition</dt><dd>Keep the bounded backfill and its completion marker, then require an explicit column for every owned rail in authoritative responses and current-version saved trips. A current profile with positive depth and no column must fail fast with a clear incompatible-state explanation and a Start fresh or support recovery path, never silently choose <code>-5</code>. Remove the permanent sim fallback once the boundary is enforced. Cover a migrated existing owner, a new unowned profile, a valid placed shaft, and impossible missing-column state.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-125-retire-17e46712.</dd>
+    </dl>
+  </section>
+
+  <section id="F-124" data-f="F-124" data-priority="polish">
+    <h3>F-124: Retire the one-time elevator support-refund path</h3>
+    <dl>
+      <dt>Context</dt><dd>The placeable-elevator slice adds an atomic compatibility mutation to <code>GET /api/mine/world</code> that carves already owned rail, refunds hidden ladders and planks, and records <code>elevator_support_refund_at</code>. That protects the tiny existing alpha cohort, but leaving a write-on-read migration and its marker in the normal world-load path forever adds permanent complexity for state that can be settled once.</dd>
+      <dt>Blocker (if any)</dt><dd>Wait until the placeable-elevator deploy has processed and verified every existing rail owner.</dd>
+      <dt>Unblock condition</dt><dd>Measure the remaining unmigrated profile count, run one bounded cleanup for any stragglers, and verify it reaches zero. Then remove the support-refund mutation from world reads and stop carrying its compatibility marker through current profile types and tests. Any impossible old current-version state must fail fast with a clear Start fresh or support path instead of silently rerunning migration code. Keep ordinary new rail support refunds in the purchase transaction. Acceptance pins world GET as read-only for current profiles and documents the production cutoff.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-124-protect-db907694.</dd>
+    </dl>
+  </section>
+
+  <section id="F-123" data-f="F-123" data-priority="blocks-release">
+    <h3>F-123: Run full mine-turn finalization on lateral elevator entry</h3>
+    <dl>
+      <dt>Context</dt><dd>The new safe-entry check returns from <code>step</code> before the ordinary directional-movement finalizers. A miner can plant dynamite beside the shaft, step laterally into the elevator, travel several rows, and leave the old charge armed until an unrelated later action. The early return can likewise bypass entry-cell pickup and other full-turn semantics even though lateral boarding is logged as a normal left or right move.</dd>
+      <dt>Related history</dt><dd>F-042 documented and preserved the then-current split between full mine turns and direct trip-control actions. This is a narrow regression from a new directional early-return path, not a request to redo that resolved broad refactor.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before automatic lateral boarding ships.</dd>
+      <dt>Unblock condition</dt><dd>Give lateral boarding one explicit full-turn finalization contract without double-running the fall and support settlement already performed by the elevator ride. A planted charge detonates exactly once after the miner moves clear. Falling-rock timers, support settlement, jump-hover clearing, entry and endpoint drops or bags, collapse, and banking behavior each remain intentional and covered. Tests must include dynamite beside the rail, a one-step ride at the bottom, a multi-row ride, pending hazards, recoverable payloads, and proof that no finalizer runs twice.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-123-cap-3b1d0917.</dd>
+    </dl>
+  </section>
+
+  <section id="F-122" data-f="F-122" data-priority="blocks-release">
+    <h3>F-122: Serialize held bunker edits and resync conflicts</h3>
+    <dl>
+      <dt>Context</dt><dd>F-114 repeats a held pick swing every 0.42 seconds, but banked bunker edits launch remote promises without an in-flight or revision guard. The server reads the bunker then unconditionally writes JSON, and the store accepts responses in arrival order. Delayed edits against different cells can therefore lose excavation or regress the client view. The current 0.55-second same-cell guard also suppresses valid repeat strikes once F-116 introduces multi-hit blocks.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before F-114 closes against banked bunkers and before F-116 adds multi-hit break progress.</dd>
+      <dt>Unblock condition</dt><dd>Serialize or revision-guard banked edit requests while keeping aim retargeting responsive. Send an expected bunker revision with each mutation; exactly one stale write may win, and a loser returns HTTP 409 with a stable code plus authoritative bunker and inventory state that replaces the client view. Reconcile repeat cadence with accepted strike completion so same-cell multi-hit blocks receive every intended strike without overlapping writes. Cover slow and reversed responses, rapid different-cell retargets, duplicate submissions, same-cell multi-hit cadence, retry after conflict, and pending-claim local edits.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-122-count-a900d08d.</dd>
+    </dl>
+  </section>
+
+  <section id="F-121" data-f="F-121" data-priority="blocks-release">
+    <h3>F-121: Make elevator upgrades truly atomic and resync conflicts</h3>
+    <dl>
+      <dt>Context</dt><dd>The evolving placeable-elevator slice now banks non-surface logs and compare-and-swaps the mine diff and <code>trip_count</code>. One atomicity race remains: <code>world_update</code> changes the world after only snapshot-reading player affordability and rail state, then a concurrent player-only spend can make the later <code>player_update</code> match zero rows. PostgreSQL can still commit the earlier world change while the route returns 409, leaving carved track or removed supports without the player debit and depth bump. Conflict responses also do not reload authoritative state.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before the placeable shaft and automatic lateral-boarding flow ships.</dd>
+      <dt>Unblock condition</dt><dd>Use a transaction or consistent row locking so player and world preconditions are held before either mutation and neither row can commit unless both updates succeed. Match the bank path's lock order to avoid deadlocks. Exactly one concurrent bank, player spend, or upgrade may win. A stale request, serialization failure, or deadlock loser returns HTTP 409 with a stable code and authoritative player, gear, inventory, checkpoint, and world state; the client replaces its local state instead of merging. Tests must cover concurrent player-only spend, bank versus upgrade, duplicate upgrades, stale or missing rows, no partial carve, charge, or refund on conflict, and successful authoritative resync.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-121-make-5fd45ddd.</dd>
+    </dl>
+  </section>
+
   <section id="F-120" data-f="F-120" data-priority="blocks-release">
     <h3>F-120: Prevent reset-driven bunker ore farming and unsafe respawns</h3>
     <dl>
@@ -130,6 +181,7 @@
       <dt>Dependencies</dt><dd>The "striking a real block" payoff pairs with F-116 (real blocks with break counts and ore), but the swing/hold/drag interaction can land first over the current single-tap dig.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
       <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-114-minecraft-1876edfe created under VibeBots-first-person-3d-30115c4e.</dd>
+      <dt>Monitoring update</dt><dd>2026-07-14: the in-progress mining-feel slice has a pick view-model and held repeat, but it must not close F-114 until the runtime crack/progress state exists and resets on retarget, mouse and touch tests move the aim while held, and Rule 10 motion proof isolates the pick and crack pixels from the always-animated core, block removal, crumble burst, and idle bob. Update the tutorial from tap or click to hold. Record the required frame-loop heap comparison. Banked repeat safety is tracked separately as F-122.</dd>
     </dl>
   </section>
 
@@ -281,6 +333,7 @@
       <dt>Unblock condition</dt><dd>Pry routes to the existing remove/refund path immediately (pending and banked branches); undamaged parts refund at full count; damaged parts deny with repair-first feedback (refunding damaged parts at full count would launder damage, per the removeBasePart contract). Carried-part state, chip, ghost-move placement, and exit-restore plumbing are deleted; relocation becomes pry then place. Tutorial pry step detects the parts-count decrease or inventory increase instead of a carried flag, and its copy updates; the boxed-in hint copy stays true. e2e: chaining two pries back to back refunds both counts with no carried chip ever appearing; a damaged part denies.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (after the tutorial slice).</dd>
       <dt>Resolved</dt><dd>Branch <code>feat/bunker-pry-stow</code> (package 0.1.253, PR #174): the pry branch of <code>applyFpBunkerEdit</code> now routes straight to <code>removePendingBunkerPart</code>/<code>removeBunkerPart</code> on both the pending and banked paths, refunding an undamaged part to inventory so pries chain back to back. A damaged part refuses client-side with a brief <code>bunker-fp-deny</code> chip ("Damaged: repair from the Bunker sheet first") and never reaches the remove API, since the <code>removeBasePart</code> contract would otherwise launder the wear. The <code>CarriedBunkerPart</code> type, its HUD chip, Put back/Stow actions, ghost-move placement branch, exit-restore plumbing, and the <code>fpCellBoxedIn</code> carried-cell skip are deleted; relocation is now pry then place, and <code>moveBasePart</code>/its API routes stay for future use. The tutorial pry step advances on the placed-parts count dropping (copy: "pry it back into your pack") and the surface tip matches. Pinned by updated grid/tutorial unit tests and fp e2es: chained pries refund both counts with no carry chip, the phone stray-tap hold refunds through the remove API without firing place, a damaged part denies with the chip, and the boxed-in hint stands down after a pry then returns when the gap is walled back up.</dd>
+      <dt>Regression guard</dt><dd>2026-07-14 monitoring: Pick is the default bunker entry tool, so held mining must not disable the shipped touch quick-pry contract. Selecting Build in the phone test before holding only masks the regression. Keep long-press pry available from the default Pick state when the held target is a part, preserve tap-to-dig suppression after a pry fires, and retain direct Pick-mode phone coverage.</dd>
     </dl>
   </section>
 

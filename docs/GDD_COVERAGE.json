@@ -623,7 +623,12 @@
         "src/sim/mine/replay.test.ts",
         "tests/e2e/mine-warp-elevator.spec.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-121",
+        "F-123",
+        "F-124",
+        "F-125"
+      ]
     },
     {
       "id": "REQ-029",
@@ -1071,7 +1076,8 @@
       "implementationRefs": [],
       "testRefs": [],
       "followupRefs": [
-        "F-114"
+        "F-114",
+        "F-122"
       ]
     },
     {
@@ -1095,7 +1101,8 @@
       "testRefs": [],
       "followupRefs": [
         "F-116",
-        "F-120"
+        "F-120",
+        "F-122"
       ]
     },
     {

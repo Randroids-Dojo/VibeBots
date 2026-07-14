@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-125 Retire the legacy elevator column fallback after backfill</title>
+<meta name="dot-title" content="F-125 Retire the legacy elevator column fallback after backfill">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="3">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T00:06:54.804970-05:00">
+</head>
+<body>
+<article>
+<h1>F-125 Retire the legacy elevator column fallback after backfill</h1>
+<section id="description">
+Keep the one-time existing-owner backfill bounded. After the version boundary, require an explicit column for every owned rail and fail fast with clear recovery for impossible missing-column state instead of defaulting to legacy column -5 forever.
+</section>
+</article>
+</body>
+</html>

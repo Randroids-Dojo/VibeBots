@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-124 Retire the one-time elevator support-refund path</title>
+<meta name="dot-title" content="F-124 Retire the one-time elevator support-refund path">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="3">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T00:06:48.744340-05:00">
+</head>
+<body>
+<article>
+<h1>F-124 Retire the one-time elevator support-refund path</h1>
+<section id="description">
+After every existing rail owner is reconciled, remove the write-on-read support refund migration and its current-profile plumbing. Separate legacy reconciliation from ordinary purchases so every newly purchased row credits each removed ladder or plank without refunding old rows twice. During the bounded window compare rail state semantically and repair once while preserving the authoritative reread when a guarded repair loses. Retire the support-refund, rail-installation, and placement-chosen markers plus the free legacy relocation branch, then fail fast without mutation when current-version rail or placement state is incompatible. Keep the migration-required warning bounded and asserted exactly once, with no generic error event, coordinate or request payload, or balance event.
+</section>
+</article>
+</body>
+</html>

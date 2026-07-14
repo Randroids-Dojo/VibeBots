@@ -252,6 +252,7 @@ export function createMine(
     used: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     granted: { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     cells: importDiff(diff),
+    elevatorPhase: "idle",
     tripStats: { roofRescues: 0, collapsesSurvived: 0 },
     miner: {
       col: START_COL,

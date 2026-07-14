@@ -13,6 +13,19 @@
 
 <main id="entries">
 
+  <article data-version="0.1.258" data-date="2026-07-14">
+    <h2>0.1.258</h2>
+    <dl>
+      <dt>Package version</dt><dd><code>0.1.258</code></dd>
+      <dt>Gameplay versions</dt><dd><code>MINE_VERSION</code> advances to <code>55</code>. <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Highlights</dt><dd>The car comes to your floor before you choose the top or bottom.</dd>
+      <dt>Call and boarding</dt><dd>Entering the shaft at any owned rail row calls the car. The car travels visibly to that floor, then the miner boards instead of immediately falling or snapping down the shaft.</dd>
+      <dt>Destination arrows</dt><dd>Once aboard, choose Up for the surface or Down for the rail bottom. The surface shows only Down, the bottom shows only Up, and rows between them show both arrows.</dd>
+      <dt>Travel and banking</dt><dd>The selected ride is free, logged, and continues automatically to its endpoint. Surface arrival banks the carry, interrupted travel resumes in the selected direction after reload, and Ride the Rail recognizes one completed journey either way.</dd>
+      <dt>Review coverage</dt><dd>Unit, replay, persistence, store, release, notification, and browser tests cover visible car arrival, delayed boarding, endpoint-specific arrows, free logged travel, same-mount return travel, selected-direction reload recovery, recovery cancellation, pending-bank rejection, and exactly-once surface banking. The production build and matched heap comparison pass.</dd>
+    </dl>
+  </article>
+
   <article data-version="0.1.256" data-date="2026-07-14">
     <h2>0.1.256</h2>
     <dl>

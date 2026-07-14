@@ -244,6 +244,8 @@ export type MoveResult =
       fell?: number;
       /** This movement safely boarded the elevator before gravity ran. */
       elevatorEntered?: boolean;
+      /** This ride reached the chosen top or bottom endpoint. */
+      elevatorJourneyCompleted?: boolean;
       /** The unsupported fall exceeded the gear's safe fall distance. */
       fallFatal?: boolean;
       /** A planted ladder was salvaged from the current cell. */
@@ -455,6 +457,13 @@ function settleMiner(state: MineState): number {
   }
   if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
   return fell;
+}
+
+function settleMinerAfterStep(state: MineState): number {
+  // A boarded lateral swing is still a full turn, but the car supports the
+  // miner until that swing actually moves them out of the rail column.
+  if (state.elevatorPhase === "boarded" && isOnElevatorRail(state)) return 0;
+  return settleMiner(state);
 }
 
 function isFatalMinerFall(state: MineState, fell: number): boolean {
@@ -758,14 +767,37 @@ function combineWarningCells(
  * climb, then the shaft climbs free until something smashes it.
  */
 export function step(state: MineState, dir: Direction): MoveResult {
+  if (
+    state.elevatorPhase === "riding-up" ||
+    state.elevatorPhase === "riding-down"
+  ) {
+    return { ok: false, reason: "blocked" };
+  }
+  if (state.elevatorPhase === "boarded" && dir !== "left" && dir !== "right") {
+    return { ok: false, reason: "blocked" };
+  }
+  const exitingElevator = state.elevatorPhase === "boarded";
+  const result = stepMine(state, dir);
+  if (exitingElevator && result.ok && !isOnElevatorRail(state)) {
+    state.elevatorPhase = "idle";
+  }
+  return result;
+}
+
+function stepMine(state: MineState, dir: Direction): MoveResult {
   const miner = state.miner;
   if (dir === "down" && cellAt(state, miner.col, miner.row)?.plank)
     return breakCurrentPlank(state);
+  const t = target(state, dir);
+  const boarding = elevatorBoardingTarget(state, dir);
+  if (
+    isPendingDynamiteAt(state, t.col, t.row) ||
+    (boarding && isPendingDynamiteAt(state, boarding.col, boarding.row))
+  ) {
+    return { ok: false, reason: "blocked" };
+  }
   const elevatorEntry = enterElevatorFromStep(state, dir);
   if (elevatorEntry) return elevatorEntry;
-  const t = target(state, dir);
-  if (isPendingDynamiteAt(state, t.col, t.row))
-    return { ok: false, reason: "blocked" };
   let cell = cellAt(state, t.col, t.row);
   if (!cell) return { ok: false, reason: "edge" };
   // A seeped wisp disperses when the miner shoulders through: the step
@@ -842,7 +874,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
     const fallEmptied: Array<{ col: number; row: number }> = [];
     const fallTick = tickFalls(state, fallEmptied);
     const settled = settleAfterEmptied(state, emptied, fallEmptied);
-    const fell = settleMiner(state);
+    const fell = settleMinerAfterStep(state);
     const fellTooFar = isFatalMinerFall(state, fell);
     const oreHarvested = {
       ore,
@@ -923,7 +955,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
       const fallEmptiedMid: Array<{ col: number; row: number }> = [];
       const fallTickMid = tickFalls(state, fallEmptiedMid);
       const settledMid = settleAfterEmptied(state, [], fallEmptiedMid);
-      const fellMid = settleMiner(state);
+      const fellMid = settleMinerAfterStep(state);
       const fellTooFarMid = isFatalMinerFall(state, fellMid);
       if (
         fallTickMid.crushed ||
@@ -1035,7 +1067,7 @@ export function step(state: MineState, dir: Direction): MoveResult {
   const fallEmptied: Array<{ col: number; row: number }> = [];
   const fallTick = tickFalls(state, fallEmptied);
   const settled = settleAfterEmptied(state, emptied, fallEmptied);
-  const fell = settleMiner(state);
+  const fell = settleMinerAfterStep(state);
   const fellTooFar = isFatalMinerFall(state, fell);
   const { pickedUp, pickedUpBag } = pickupAtMiner(state);
 
@@ -1694,6 +1726,7 @@ function detonateDynamiteAt(
 function maybeExplodePendingDynamite(
   state: MineState,
   result: Extract<MoveResult, { ok: true }>,
+  settleGravity = true,
 ): MoveResult {
   const charge = state.pendingDynamite;
   if (!charge || result.collapsed || !hasDynamiteGap(state, charge))
@@ -1712,7 +1745,7 @@ function maybeExplodePendingDynamite(
     explosion.ladderFalls && explosion.ladderFalls.length > 0
       ? [...(result.ladderFalls ?? []), ...explosion.ladderFalls]
       : result.ladderFalls;
-  const fell = settleMiner(state);
+  const fell = settleGravity ? settleMinerAfterStep(state) : 0;
   const totalFell = (result.fell ?? 0) + fell;
   if (isFatalMinerFall(state, totalFell)) {
     const lost = minerLostCargo(state.miner);
@@ -1849,6 +1882,7 @@ function recall(state: MineState): MoveResult {
   state.used.rope++;
   miner.col = START_COL;
   miner.row = 0;
+  state.elevatorPhase = "idle";
   bank(miner, state.gear);
   return {
     ok: true,
@@ -1944,10 +1978,18 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
   if (rail <= 0) return { ok: false, reason: "no-elevator" };
   const column = elevatorColumn(state.gear);
   if (column === null) return { ok: false, reason: "no-elevator" };
+  const ridingPhase = dir === "down" ? "riding-down" : "riding-up";
+  if (
+    state.elevatorPhase !== "boarded" &&
+    state.elevatorPhase !== ridingPhase
+  ) {
+    return { ok: false, reason: "blocked" };
+  }
   const step = elevatorSpeedRows(state.gear);
   if (dir === "down") {
     if (miner.col !== column || miner.row < 0 || miner.row >= rail)
       return { ok: false, reason: "blocked" };
+    state.elevatorPhase = ridingPhase;
     const target = Math.min(rail, miner.row + step);
     const emptied: Array<{ col: number; row: number }> = [];
     for (let r = miner.row + 1; r <= target; r++) {
@@ -1981,6 +2023,8 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
         lost,
       };
     }
+    const journeyCompleted = miner.row === rail;
+    if (journeyCompleted) state.elevatorPhase = "boarded";
     return {
       ok: true,
       dug: null,
@@ -1990,35 +2034,41 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
       fallingRockTriggered: settled.fallingRockTriggered || undefined,
       fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
       ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
+      elevatorJourneyCompleted: journeyCompleted || undefined,
       ...pickup,
     };
   }
   if (miner.col !== column || miner.row < 1 || miner.row > rail)
     return { ok: false, reason: "blocked" };
+  state.elevatorPhase = ridingPhase;
   const target = Math.max(0, miner.row - step);
   const pickup = pickupAlongElevator(state, miner.row, target);
   // Banking happens topside: a partial ride up just travels.
-  if (miner.row === 0) bank(miner, state.gear);
+  const journeyCompleted = miner.row === 0;
+  if (journeyCompleted) {
+    state.elevatorPhase = "boarded";
+    bank(miner, state.gear);
+  }
   return {
     ok: true,
     dug: null,
     dugOre: null,
     found: null,
     collapsed: false,
+    elevatorJourneyCompleted: journeyCompleted || undefined,
     ...pickup,
   };
 }
 
 /**
- * Board from the surface by stepping down, or from an underground row by
- * walking laterally into owned rail. Boarding bypasses normal fall settling
- * and starts a safe downward ride. At the bottom it remains a successful,
- * stationary boarding action so contact with the shaft cannot become a fall.
+ * Pure lookup for a directional shaft entry. Surface Down boards at row zero;
+ * lateral entry boards at the miner's current owned rail row.
  */
-function enterElevatorFromStep(
+export function elevatorBoardingTarget(
   state: MineState,
   dir: Direction,
-): MoveResult | null {
+): MineCoord | null {
+  if (state.elevatorPhase !== "idle") return null;
   const miner = state.miner;
   const rail = Math.min(state.gear.elevator, MINE_BOTTOM_ROW - 1);
   const column = elevatorColumn(state.gear);
@@ -2031,32 +2081,64 @@ function enterElevatorFromStep(
     miner.row <= rail &&
     ((dir === "left" && miner.col - 1 === column) ||
       (dir === "right" && miner.col + 1 === column));
-  if (!entersFromSurface && !entersFromSide) return null;
+  return entersFromSurface || entersFromSide
+    ? { col: column, row: miner.row }
+    : null;
+}
+
+/**
+ * Board from the surface or either side without moving the car. Boarding is
+ * a full mine turn, but the rail holds the miner safely against gravity while
+ * hazards, supports, pickups, and a cleared dynamite charge all finalize.
+ */
+function enterElevatorFromStep(
+  state: MineState,
+  dir: Direction,
+): MoveResult | null {
+  const boarding = elevatorBoardingTarget(state, dir);
+  if (!boarding) return null;
+  const miner = state.miner;
 
   clearJumpHover(state);
-  if (entersFromSide) {
+  if (miner.col !== boarding.col) {
     setCell(
       state,
-      column,
-      miner.row,
-      elevatorRailCell(cellAt(state, column, miner.row)),
+      boarding.col,
+      boarding.row,
+      elevatorRailCell(cellAt(state, boarding.col, boarding.row)),
     );
-    miner.col = column;
+    miner.col = boarding.col;
   }
-  if (miner.row >= rail) {
-    const pickup = pickupAlongElevator(state, miner.row, miner.row);
+  if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
+  state.elevatorPhase = "boarded";
+
+  const pickup = pickupAtMiner(state);
+  const fallEmptied: MineCoord[] = [];
+  const fallTick = tickFalls(state, fallEmptied);
+  const settled = settleAfterEmptied(state, [], fallEmptied);
+  const base = {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    elevatorEntered: true,
+    fallingRockTriggered: settled.fallingRockTriggered || undefined,
+    fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
+    ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
+    ...pickup,
+  } satisfies Extract<MoveResult, { ok: true }>;
+  if (fallTick.crushed || (miner.row > 0 && miner.energy <= 0)) {
+    const lost = minerLostCargo(miner, fallTick.crushRest);
+    collapse(state, true, lost);
     return {
-      ok: true,
-      dug: null,
-      dugOre: null,
-      found: null,
-      collapsed: false,
-      elevatorEntered: true,
-      ...pickup,
+      ...base,
+      collapsed: true,
+      crushed: fallTick.crushed || undefined,
+      lost,
     };
   }
-  const ride = rideElevator(state, "down");
-  return ride.ok ? { ...ride, elevatorEntered: true } : ride;
+  return maybeExplodePendingDynamite(state, base, false);
 }
 
 export interface PlacedBeacon {
@@ -2313,6 +2395,30 @@ function dropOreFromBag(
   };
 }
 
+function elevatorAllowsAction(state: MineState, action: MineAction): boolean {
+  switch (state.elevatorPhase) {
+    case "idle":
+      return true;
+    case "boarded":
+      return (
+        action === "left" ||
+        action === "right" ||
+        action === "ride-down" ||
+        action === "ride-up" ||
+        action === "recall" ||
+        action === "abandon"
+      );
+    case "riding-down":
+      return (
+        action === "ride-down" || action === "recall" || action === "abandon"
+      );
+    case "riding-up":
+      return (
+        action === "ride-up" || action === "recall" || action === "abandon"
+      );
+  }
+}
+
 /**
  * Dispatches any logged trip action (Q-006 default B).
  *
@@ -2326,7 +2432,10 @@ function dropOreFromBag(
  * - Dynamite placement has its own delayed-charge contract: planting spends
  *   stock and settles hazards, while a later successful finalized action
  *   detonates after the miner leaves the charge.
- * - Recall, abandon, elevator up, warp, portal travel, beacon placement,
+ * - Elevator boarding is a full turn without gravity. Once boarded, only a
+ *   lateral exit, an endpoint choice, recall, or abandon can proceed. A
+ *   partial ride locks that direction until it reaches the chosen endpoint.
+ * - Recall, abandon, warp, portal travel, beacon placement,
  *   beacon rename, and manual bag drops are direct trip-control actions. They
  *   intentionally do not run the generic stationary finalizer unless their
  *   handler explicitly does equivalent work.
@@ -2336,6 +2445,9 @@ export function applyAction(
   action: MineAction,
   context?: MineActionContext,
 ): MoveResult {
+  if (!elevatorAllowsAction(state, action)) {
+    return { ok: false, reason: "blocked" };
+  }
   if (action.startsWith("collect:")) return collectPlaced(state, action);
   const droppedOre = parseDropOreAction(action);
   if (droppedOre) return dropOreFromBag(state, droppedOre);
@@ -2426,6 +2538,7 @@ function collapse(
 ): void {
   const miner = state.miner;
   state.pendingDynamite = undefined;
+  state.elevatorPhase = "idle";
   dropBagAt(state, lost ?? miner, droppedBagFromMiner(miner));
   if (lost && (lost.value > 0 || lost.parts.length > 0)) {
     miner.lostCargo = { ...lost, parts: [...lost.parts] };
@@ -2484,7 +2597,7 @@ export interface TripResult {
   moves: number;
   /** Successful manual bag-drop actions. */
   bagDrops: number;
-  /** Successful elevator steps, including safe implicit shaft entry. */
+  /** Completed chosen elevator journeys from boarding row to endpoint. */
   elevatorRides: number;
   /** Condemned roofs re-propped before they fell (rescue events). */
   roofRescues: number;
@@ -2519,10 +2632,7 @@ export function replayTrip(
   for (const action of capped) {
     const result = applyAction(state, action, context);
     if (result.ok && (result.droppedFromBag ?? 0) > 0) bagDrops++;
-    if (
-      result.ok &&
-      (result.elevatorEntered || action === "ride-down" || action === "ride-up")
-    ) {
+    if (result.ok && result.elevatorJourneyCompleted) {
       elevatorRides++;
     }
   }

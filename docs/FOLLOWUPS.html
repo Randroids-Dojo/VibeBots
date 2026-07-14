@@ -59,6 +59,7 @@
       <dt>Blocker (if any)</dt><dd>None. This required check can block unrelated PRs until the product gate and harness agree on when the mine is playable.</dd>
       <dt>Unblock condition</dt><dd>Reproduce with the exact serial shard order and repeated current-main runs while capturing compile gate, scene-ready, input-listener, canvas diagnostic, console, and network state. If the product can expose a ready canvas before input is attached, fix that ordering. If the harness mixes weak sentinels, wait on one authoritative playable signal before pressing the key. Do not hide the failure by only extending timeouts. Acceptance requires ten consecutive focused passes and three consecutive critical shard passes under CI-like load, with a failed run retaining enough evidence to distinguish slow startup from dropped input. Record any temporary known-flake classification in <code>docs/CI_WORKFLOW.html</code> and remove it when fixed.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-127-stabilize-fee0d73b.</dd>
+      <dt>Monitoring update</dt><dd>The elevator feature branch full-suite run at commit 4178db62 produced a second failure shape in the same test: scene readiness and both horizontal movements completed, then Playwright ended the test while <code>canvas.screenshot()</code> waited for the before-strike frame. Include the overall test deadline and screenshot phase in the diagnosis so a fix covers accumulated full-suite load as well as startup and input readiness.</dd>
     </dl>
   </section>
 

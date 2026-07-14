@@ -446,11 +446,17 @@ interface FpOreCell {
 /** Cheap equality so the ore-crystal list only triggers a React update
  * when the exposed ore veins actually change (a dig, not every rebuild).
  * The open face (rot) is part of identity: digging a neighbor can turn a
- * cell's crystals to a new face without changing the exposed set. */
+ * cell's crystals to a new face without changing the exposed set. So are
+ * the generator coords (hashCol/hashRow): the local key is footprint
+ * independent, so a footprint change would otherwise keep a stale crystal
+ * layout when key, ore, and rotation happen to match. */
 function sameFpOreCells(a: FpOreCell[], b: FpOreCell[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     if (a[i].key !== b[i].key || a[i].ore !== b[i].ore) return false;
+    if (a[i].hashCol !== b[i].hashCol || a[i].hashRow !== b[i].hashRow) {
+      return false;
+    }
     if (
       a[i].rot[0] !== b[i].rot[0] ||
       a[i].rot[1] !== b[i].rot[1] ||

@@ -165,7 +165,7 @@
   <section id="F-102" data-f="F-102" data-priority="nice-to-have">
     <h3>F-102: Retry telemetry and retain short bunker visits</h3>
     <dl>
-      <dt>Context</dt><dd>The compact sampler records its sent marker before knowing that the request succeeded. The deep collector clears its buffer before an unchecked upload, and entering or leaving first person discards an unfinished sampling window. A network failure or a short in-base check can therefore erase the exact phone evidence live testing is meant to capture.</dd>
+      <dt>Context</dt><dd>The compact sampler records its sent marker before knowing that the request succeeded, and the deep collector clears its buffer before an unchecked upload. Today the collector stays configured as <code>mine</code> across a first-person transition, so the unfinished window is mixed and mislabeled rather than finalized. Once F-100 makes the source reactive, effect cleanup will flush completed snapshots but still discard the active frame window unless the lifecycle is fixed. A network failure or short in-base check can therefore erase or corrupt the exact phone evidence live testing is meant to capture.</dd>
       <dt>Blocker (if any)</dt><dd>Sequence after F-100 because both tasks touch collector lifecycle and source selection.</dd>
       <dt>Unblock condition</dt><dd>Mark compact delivery only after an OK response. Requeue failed deep batches with unchanged sequence numbers and a strict memory bound so the existing database conflict key prevents duplicates. Finalize a partial window on surface change or page hide when it contains at least two frames and 250 ms. Tests must simulate failure then success, mode switches, short visits, page hide, retry exhaustion, and duplicate-free persistence.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-102-retry-ef037632 (child of VibeBots-first-person-3d-30115c4e).</dd>
@@ -275,6 +275,7 @@
       <dt>Blocker (if any)</dt><dd>Sequenced behind the excavation and first-person building slices of the approved arc plan.</dd>
       <dt>Unblock condition</dt><dd>Ship the deterministic live raid tick sim (planned <code>src/sim/bunker-raid-live.ts</code>, BUNKER_RAID_VERSION 2, per-tick player-cell trace as input, server replay verification) and the first-person raid client, then delete the projection and port the raid scenario contracts to the live suite. Acceptance: live raids hunt the player's 3D cell through dug halls, deep defenses work, old v1 raid rows still resolve under the old resolver, and the projection code plus its pin test are gone.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (arc slices 8-10).</dd>
+      <dt>Decision update</dt><dd>2026-07-13 user decision, captured by F-107: fail fast on incompatible active raid state and offer a confirmed Start fresh recovery instead of maintaining old resolvers indefinitely. This supersedes the acceptance clause above that required old v1 raid rows to resolve through the old resolver. Completed old rows may remain opaque history.</dd>
     </dl>
   </section>
 

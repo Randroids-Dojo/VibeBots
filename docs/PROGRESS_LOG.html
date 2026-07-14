@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-ore-vein-monitoring" data-date="2026-07-14">
+    <h3>Keep bunker ore visible, bounded, and measurable</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/f135-f136-followups</code>.</dd>
+      <dt>PR</dt><dd>#190, monitoring implementation PR #198.</dd>
+      <dt>Changed</dt><dd>Added F-142 and its priority-1 HTML Dot after two independent exact-head audits agreed that PR #198's ore overlay needs one focused correction. The branch renders crystals whenever any neighboring voxel is open but always leaves the cluster on local positive Z, so side, floor, ceiling, and back exposures can hide the vein or push it into solid rock. The shared <code>OreCrystals</code> component also creates one inline octahedron geometry per shard under <code>dispose={null}</code>, the exact retained GPU-buffer pattern prohibited by the frame-loop rule, and the bunker material warm pass omits both crystal shader variants. Reinforced existing F-116 with the current render gap and existing F-100 with the unchanged collector/probe attribution mismatch instead of creating duplicate economy or telemetry tasks.</dd>
+      <dt>Verification</dt><dd>Audited PR #198 exact head <code>11f857b2</code> against base <code>b8ae6d49</code>. Traced <code>fpCellExposed</code> across all six neighbors, the fixed local positive-Z crystal position in <code>OreCrystals</code>, the per-shard inline geometry under <code>dispose={null}</code>, and <code>warmBunkerFpMaterials</code>, which warms dirt and a stale instance-colored rock variant but no glowing or non-glowing crystal material. The new browser test asserts only warm and neutral pixel fractions and cannot fail when every ore cluster is absent. Confirmed existing F-100 already captures the page collector mounted as <code>mine</code> while the active first-person canvas probe registers as <code>bunker-fp</code>, so no duplicate telemetry ID was added. PR #198's exact required CI, CodeQL, and preview checks are green, but it has no submitted exact-head bot review and remains held under F-137.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: choose one deterministic actually-open face per ore cell with a documented stable precedence; add more than one cluster only if later art direction requires it. One shared crystal geometry is the minimum safe fix, while full shard instancing is justified only if the local draw-call proof needs it. F-100 remains the owner of surface attribution, so historical mine-labeled rows are never reclassified as bunker evidence.</dd>
+      <dt>GDD coverage</dt><dd>REQ-045 remains partial and now links F-142 because its bunker block render is not yet face-correct or allocation-safe. No canonical requirement text changed.</dd>
+      <dt>Followups</dt><dd>Added <a href="FOLLOWUPS.html#F-142">F-142</a> with Dot VibeBots-f-142-make-e5bfa0eb. Reinforced existing <a href="FOLLOWUPS.html#F-116">F-116</a> for feature truth and <a href="FOLLOWUPS.html#F-100">F-100</a> for first-person telemetry attribution. The false shared-haul copy and missing post-deploy performance comparison remain covered by F-116 and F-139 rather than receiving new IDs.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-release-and-priority-ledger-followups" data-date="2026-07-14">
     <h3>Keep bunker releases, bot review gates, and followup truth trustworthy</h3>
     <dl>

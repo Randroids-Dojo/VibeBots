@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="autoplay-overlay-monitoring" data-date="2026-07-14">
+    <h3>Keep autonomous mine soak failures observable</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/autoplay-soak-followup</code>.</dd>
+      <dt>PR</dt><dd>#183.</dd>
+      <dt>Changed</dt><dd>Added F-130 and a matching HTML Dot after three elevator closeout soaks stalled behind different expected overlays and exited without diagnostic artifacts. The followup owns semantic overlay draining plus guaranteed failure reports across startup, play, and teardown.</dd>
+      <dt>Verification</dt><dd>Traced the autoplay release-note coordinate click, policy and recovery click ordering, trip-report dismissal, report write, and outer <code>try</code>/<code>finally</code>. Compared the heap driver's bounded semantic release-note loop. Observed the unmerged worktree's semantic trip-report cleanup complete two seed-9296 runs for 400 actions with zero anomalies and zero console errors. F-130 remains open and unverified for all three formerly blocked dialog states across full action budgets and for retained screenshot plus JSON evidence from forced startup, play, and teardown failures. Current main still has both coordinate clicks and the pre-loop artifact gap.</dd>
+      <dt>Assumptions</dt><dd>Known one-time tutorials may be preloaded for deterministic soak state. Normal terminal reports are drained semantically without consuming policy actions. Any other overlay is evidence, not something the driver clicks through blindly.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. This is verification infrastructure rather than a gameplay requirement.</dd>
+      <dt>Followups</dt><dd>Added F-130 with Dot VibeBots-f-130-make-e0de0428.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-telemetry-cardinality-monitoring" data-date="2026-07-14">
     <h3>Keep player-selected shaft coordinates out of telemetry</h3>
     <dl>

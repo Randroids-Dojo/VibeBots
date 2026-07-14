@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-14-0.1.260-roomier-bunker-spawn",
+      releaseNoticeId: "2026-07-14-0.1.261-bunker-ore",
       releaseSummary:
-        "Stand up in a roomier bunker spawn: A fresh claim now opens into a room you can stand up in.",
+        "Dig your bunker for ore, not just space: Every block you dig out of your bunker now pays ore.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-14-0.1.260-roomier-bunker-spawn",
+      releaseNoticeId: "2026-07-14-0.1.261-bunker-ore",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -51,9 +51,10 @@ export interface FpEditCell {
 }
 
 /** An edit the first-person canvas asks mine-panel to apply. The panel
- * owns the pending/banked branch, inventory guards, and feedback. */
+ * owns the pending/banked branch, inventory guards, and feedback.
+ * "collect" fires when the player walks over an overflow-loot cell. */
 export interface FpEditIntent {
-  kind: "place" | "pry" | "dig";
+  kind: "place" | "pry" | "dig" | "collect";
   cell: FpEditCell;
 }
 

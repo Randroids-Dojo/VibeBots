@@ -15,6 +15,7 @@ import {
   removeBasePart,
   STARTER_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
+import { deriveBunkerBlockSeed } from "@/sim/bunker-blocks";
 import {
   addConsumables,
   applyAction,
@@ -1207,7 +1208,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     claimPendingBunker: (col, row) => {
-      const { cashOut, mine, moves, pendingBunker } = get();
+      const { cashOut, mine, moves, pendingBunker, seed } = get();
       if (cashOut.state === "pending" || pendingBunker || mine.miner.row <= 0) {
         return false;
       }
@@ -1220,7 +1221,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       ) {
         return false;
       }
-      const bunker = createBunker(footprint);
+      // Seed the mineable blocks from the trip seed + footprint so the
+      // client preview and the server bank credit agree (F-116).
+      const bunker = createBunker(
+        footprint,
+        deriveBunkerBlockSeed(seed, footprint),
+      );
       set({
         pendingBunker: {
           claimCol: col,
@@ -1316,6 +1322,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       if (!pending || get().cashOut.state === "pending") return false;
       const dug = excavateBunkerCell(pending.bunker, col, row, depth);
       if (!dug.ok) return false;
+      // Bunker ore is kept OUT of the live mine bag so it never changes
+      // how much surface ore fits (that would diverge from the server's
+      // mine-only replay). The block's ore is settled separately at bank
+      // against a fresh bag (F-116); the HUD previews it via
+      // pendingBunkerHaulValue.
       set({
         pendingBunker: {
           ...pending,

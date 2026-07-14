@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "A fresh claim now opens into a room you can stand up in.",
+    "Every block you dig out of your bunker now pays ore.",
   );
-  await expect(dialog.locator("li")).toHaveCount(2);
+  await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "carves a taller, deeper starter room",
+    "drop the same ore their depth would pay on the surface",
   );
-  await expect(dialog.locator("li").nth(1)).toContainText(
-    "MINE_VERSION and SIM_VERSION are unchanged",
+  await expect(dialog.locator("li").nth(2)).toContainText(
+    "MINE_VERSION advances to 56",
   );
 
   await page.mouse.click(8, 8);
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.261", "Dig your bunker for ore, not just space"],
     ["0.1.260", "Stand up in a roomier bunker spawn"],
     ["0.1.259", "Save a bunker you just claimed"],
     ["0.1.258", "Call the elevator, then choose your destination"],

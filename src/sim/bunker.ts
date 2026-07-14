@@ -1,4 +1,7 @@
-import { bunkerSpawnPocketCells } from "./bunker-blocks";
+import { bunkerCellOreYield, bunkerSpawnPocketCells } from "./bunker-blocks";
+import type { MineState } from "./mine/cells";
+import { fillHold } from "./mine/inventory";
+import type { OreId } from "./mine/ores";
 
 export const BUNKER_CLAIM_WIDTH = 7;
 export const BUNKER_CLAIM_HEIGHT = 5;
@@ -205,6 +208,17 @@ export interface DugBunkerCell {
   depth: number;
 }
 
+/** Overflow ore that did not fit the bag when a bunker block was mined,
+ * spilled at its 3D cell as persistent collectible loot (F-116). Walking
+ * over the cell in first person collects it. Deterministic and preserved
+ * across reset so it never regrows (F-120). */
+export interface BunkerLoot {
+  col: number;
+  row: number;
+  depth: number;
+  ores: Partial<Record<OreId, number>>;
+}
+
 export interface BunkerState {
   footprint: BunkerFootprint;
   core: BunkerCore;
@@ -216,6 +230,9 @@ export interface BunkerState {
    * the mine seed and footprint at claim so client preview and server
    * credit agree. Legacy bunkers without one hard-reset (Q-022). */
   blockSeed?: number;
+  /** Uncollected overflow ore from digging, by 3D cell (F-116); legacy
+   * rows normalize to []. Preserved across reset so it never regrows. */
+  loot?: BunkerLoot[];
   /** Selected cosmetic skin; legacy rows normalize to the default. */
   skin?: BunkerSkinId;
   /** Skins this player owns beyond the free default. */
@@ -661,6 +678,129 @@ export function excavateBunkerCell(
     ok: true,
     bunker: { ...bunker, dug: [...bunker.dug, { col, row, depth }] },
   };
+}
+
+function bunkerLootKey(col: number, row: number, depth: number): string {
+  return `${col},${row},${depth}`;
+}
+
+/** Merge an ore pile into a bunker's loot at one cell, deduped by cell.
+ * Returns a new loot array (input untouched). */
+function addBunkerLoot(
+  loot: BunkerLoot[],
+  col: number,
+  row: number,
+  depth: number,
+  ores: Partial<Record<OreId, number>>,
+): BunkerLoot[] {
+  const key = bunkerLootKey(col, row, depth);
+  let merged = false;
+  const next = loot.map((entry) => {
+    if (bunkerLootKey(entry.col, entry.row, entry.depth) !== key) return entry;
+    merged = true;
+    const combined: Partial<Record<OreId, number>> = { ...entry.ores };
+    for (const [id, n] of Object.entries(ores) as Array<[OreId, number]>) {
+      combined[id] = (combined[id] ?? 0) + n;
+    }
+    return { ...entry, ores: combined };
+  });
+  if (!merged) next.push({ col, row, depth, ores: { ...ores } });
+  return next;
+}
+
+/**
+ * Credit one dug bunker cell's ore into the trip bag, spilling whatever
+ * does not fit into the bunker's persistent loot at that cell (F-116).
+ * Mutates `state.miner.carried` through `fillHold`; battery is never
+ * touched (Q-021: bunker digging is free). Non-ore cells and legacy
+ * bunkers without a block seed credit nothing. Returns the loot-updated
+ * bunker plus how much entered the bag and how much spilled.
+ */
+export function creditBunkerDig(
+  state: MineState,
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): { bunker: BunkerState; taken: number; spilled: number } {
+  const dropYield = bunkerCellOreYield(
+    bunker.footprint,
+    bunker.blockSeed,
+    col,
+    row,
+    depth,
+  );
+  if (!dropYield) return { bunker, taken: 0, spilled: 0 };
+  const { taken, dropped, leftover } = fillHold(state, {
+    [dropYield.ore]: dropYield.units,
+  });
+  if (dropped <= 0) return { bunker, taken, spilled: 0 };
+  return {
+    bunker: {
+      ...bunker,
+      loot: addBunkerLoot(bunker.loot ?? [], col, row, depth, leftover),
+    },
+    taken,
+    spilled: dropped,
+  };
+}
+
+/**
+ * Replay every player-dug ore cell of a bunker into the trip bag in dig
+ * order, skipping the pre-mined spawn pocket (which is free and never
+ * pays). The server runs this at bank time after the mine replay, and the
+ * client runs the identical pass to preview the banked bag, so the
+ * authoritative payout matches the preview regardless of how bunker and
+ * mine digging interleaved (bunker ore always settles after mine ore).
+ * Mutates `state.miner.carried`; returns the bunker with any overflow loot.
+ */
+export function settleBunkerDig(
+  state: MineState,
+  bunker: BunkerState,
+): BunkerState {
+  const pocket = new Set(
+    bunkerSpawnPocketCells(bunker.footprint).map((cell) =>
+      bunkerLootKey(cell.col, cell.row, cell.depth),
+    ),
+  );
+  // Recompute loot from the dug set so settling is idempotent: the same
+  // (dug, blockSeed, gear) always yields the same bag and the same loot.
+  let result: BunkerState = { ...bunker, loot: [] };
+  for (const cell of bunker.dug) {
+    if (pocket.has(bunkerLootKey(cell.col, cell.row, cell.depth))) continue;
+    result = creditBunkerDig(
+      state,
+      result,
+      cell.col,
+      cell.row,
+      cell.depth,
+    ).bunker;
+  }
+  return result;
+}
+
+/**
+ * Take all the loot sitting at one bunker cell (F-116). Walking over the
+ * cell in first person collects it: a banked bunker credits the loot's
+ * vibes straight to the balance (no bag cap), so the whole pile is taken
+ * at once. Returns the loot-cleared bunker and the ore that was taken.
+ */
+export function takeBunkerLootAt(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): { bunker: BunkerState; ores: Partial<Record<OreId, number>> } {
+  const loot = bunker.loot ?? [];
+  const key = bunkerLootKey(col, row, depth);
+  const entry = loot.find(
+    (item) => bunkerLootKey(item.col, item.row, item.depth) === key,
+  );
+  if (!entry) return { bunker, ores: {} };
+  const nextLoot = loot.filter(
+    (item) => bunkerLootKey(item.col, item.row, item.depth) !== key,
+  );
+  return { bunker: { ...bunker, loot: nextLoot }, ores: { ...entry.ores } };
 }
 
 export function isBunkerPerimeterCell(

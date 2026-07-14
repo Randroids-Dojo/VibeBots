@@ -1146,16 +1146,27 @@
       "status": "partial",
       "implementationRefs": [
         "src/sim/bunker-blocks.ts",
-        "src/sim/bunker.ts"
+        "src/sim/bunker.ts",
+        "src/server/bunker.ts",
+        "src/app/api/mine/bank/route.ts",
+        "src/app/api/bunker/excavate/route.ts",
+        "src/app/api/bunker/collect/route.ts",
+        "src/state/mine-store.ts",
+        "src/state/bunker-store.ts",
+        "src/components/bunker-fp-canvas.tsx"
       ],
       "testRefs": [
         "src/sim/bunker-blocks.test.ts",
-        "src/sim/bunker.test.ts"
+        "src/sim/bunker.test.ts",
+        "src/server/bunker.test.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
       ],
       "followupRefs": [
         "F-116",
         "F-120",
-        "F-122"
+        "F-122",
+        "F-133",
+        "F-139"
       ]
     },
     {

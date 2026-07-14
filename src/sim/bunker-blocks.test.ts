@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { BunkerFootprint } from "./bunker";
+import { BUNKER_CLAIM_DEPTH, type BunkerFootprint } from "./bunker";
 import {
   BUNKER_POCKET_DEPTH,
   BUNKER_POCKET_HEIGHT,
@@ -7,13 +7,35 @@ import {
   type BunkerBlock,
   bunkerCellBlock,
   bunkerCellMineRow,
+  bunkerCellOreYield,
   bunkerSpawnPocketCells,
   deriveBunkerBlockSeed,
   isBunkerPocketCell,
   withSpawnPocket,
 } from "./bunker-blocks";
+import { oreReserveAt } from "./mine/ores";
 
 const FOOTPRINT: BunkerFootprint = { col: 100, row: 40, width: 7, height: 5 };
+
+/** The first (col,row,depth) whose block is ore, scanning the volume, so
+ * yield tests do not hardcode a generator-dependent cell. */
+function firstOreCell(
+  footprint: BunkerFootprint,
+  blockSeed: number,
+): { col: number; row: number; depth: number } | null {
+  const bottomRow = footprint.row + footprint.height - 1;
+  for (let depth = 0; depth < BUNKER_CLAIM_DEPTH; depth++) {
+    for (let y = 0; y < footprint.height; y++) {
+      for (let x = 0; x < footprint.width; x++) {
+        const block = bunkerCellBlock(blockSeed, footprint, x, y, depth);
+        if (block.kind === "ore") {
+          return { col: footprint.col + x, row: bottomRow - y, depth };
+        }
+      }
+    }
+  }
+  return null;
+}
 
 describe("deriveBunkerBlockSeed", () => {
   it("is deterministic and an unsigned 32-bit integer", () => {
@@ -146,5 +168,69 @@ describe("withSpawnPocket", () => {
     const legacy = [{ col: FOOTPRINT.col, row: FOOTPRINT.row, depth: 2 }];
     withSpawnPocket(FOOTPRINT, legacy);
     expect(legacy).toHaveLength(1);
+  });
+});
+
+describe("bunkerCellOreYield", () => {
+  const seed = deriveBunkerBlockSeed(9182, FOOTPRINT);
+
+  it("credits nothing when the bunker has no block seed (legacy claim)", () => {
+    const ore = firstOreCell(FOOTPRINT, seed);
+    if (!ore) throw new Error("expected at least one ore cell in the volume");
+    expect(
+      bunkerCellOreYield(FOOTPRINT, undefined, ore.col, ore.row, ore.depth),
+    ).toBeNull();
+  });
+
+  it("drops the full mine reserve of the block's ore at its row", () => {
+    const ore = firstOreCell(FOOTPRINT, seed);
+    if (!ore) throw new Error("expected at least one ore cell in the volume");
+    const x = ore.col - FOOTPRINT.col;
+    const y = FOOTPRINT.row + FOOTPRINT.height - 1 - ore.row;
+    const block = bunkerCellBlock(seed, FOOTPRINT, x, y, ore.depth);
+    const drop = bunkerCellOreYield(
+      FOOTPRINT,
+      seed,
+      ore.col,
+      ore.row,
+      ore.depth,
+    );
+    expect(drop).not.toBeNull();
+    expect(drop?.ore).toBe(block.ore);
+    // A bunker cell's mine row is exactly its absolute row.
+    expect(drop?.units).toBe(oreReserveAt(block.ore ?? "coal", ore.row));
+    expect(drop?.units ?? 0).toBeGreaterThan(0);
+  });
+
+  it("returns null for a non-ore (rock/dirt) cell", () => {
+    const bottomRow = FOOTPRINT.row + FOOTPRINT.height - 1;
+    let checked = false;
+    for (let y = 0; y < FOOTPRINT.height && !checked; y++) {
+      for (let x = 0; x < FOOTPRINT.width; x++) {
+        const block = bunkerCellBlock(seed, FOOTPRINT, x, y, 0);
+        if (block.kind !== "ore") {
+          expect(
+            bunkerCellOreYield(
+              FOOTPRINT,
+              seed,
+              FOOTPRINT.col + x,
+              bottomRow - y,
+              0,
+            ),
+          ).toBeNull();
+          checked = true;
+          break;
+        }
+      }
+    }
+    expect(checked).toBe(true);
+  });
+
+  it("is deterministic for the same cell and seed", () => {
+    const ore = firstOreCell(FOOTPRINT, seed);
+    if (!ore) throw new Error("expected at least one ore cell in the volume");
+    const a = bunkerCellOreYield(FOOTPRINT, seed, ore.col, ore.row, ore.depth);
+    const b = bunkerCellOreYield(FOOTPRINT, seed, ore.col, ore.row, ore.depth);
+    expect(a).toEqual(b);
   });
 });

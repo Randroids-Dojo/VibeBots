@@ -4,10 +4,12 @@
 <meta charset="utf-8">
 <title>F-100 Correct first-person telemetry attribution</title>
 <meta name="dot-title" content="F-100 Correct first-person telemetry attribution">
-<meta name="dot-status" content="open">
+<meta name="dot-status" content="closed">
 <meta name="dot-priority" content="1">
 <meta name="dot-issue-type" content="task">
 <meta name="dot-created-at" content="2026-07-13T23:00:33.591529-05:00">
+<meta name="dot-closed-at" content="2026-07-14T17:21:57.469205-05:00">
+<meta name="dot-close-reason" content="Shipped in PR #200 (squash 91c74e05). Both collectors take the active surface: perfSurfaceSource feeds the compact sampler and deep collector, the deep collector reads the bunker-fp probe, source is in each effect&#39;s deps so windows restart on surface change (no mixed window), the compact throttle is scoped per source, and the compact route accepts the full PERF_SOURCES enum. Verified by the perf route unit tests and a mine-bunker-fp e2e (labels, non-null bunker probe, per-source throttle, clean switches). Required CI gate green, CodeRabbit clean, preview deploy healthy. Unblocks F-101/F-102/F-103.">
 </head>
 <body>
 <article>

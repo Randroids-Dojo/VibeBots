@@ -100,7 +100,6 @@ let lastPx = 0;
 let lastPz = 0;
 let lastOpenCells = 0;
 let lastPartsCount = 0;
-let lastCarried = false;
 let havePrev = false;
 /** Total part stock, fed by the HUD at prop cadence (setFpTutorialStock). */
 let stock = 0;
@@ -174,8 +173,8 @@ function completeFpTutorial(): void {
  * Shows the step at `index`, resolving degradations against the most
  * recent observations: a fully dug volume skips the dig step; a
  * zero-stock place step swaps to the Hardware Store copy on a timer;
- * a pry step with nothing placed and no stock times out too; the
- * closer always times out.
+ * a pry step with nothing placed and no stock (nothing to pry back)
+ * times out too; the closer always times out.
  */
 function showStep(index: number, now: number): void {
   let next = index;
@@ -245,7 +244,6 @@ export function updateFpTutorial(
   pz: number,
   openCells: number,
   partsCount: number,
-  carried: boolean,
 ): void {
   if (phase === PHASE_IDLE || phase === PHASE_COMPLETE) return;
   if (!havePrev) {
@@ -258,7 +256,6 @@ export function updateFpTutorial(
     lastPz = pz;
     lastOpenCells = openCells;
     lastPartsCount = partsCount;
-    lastCarried = carried;
     if (phase === PHASE_WAITING) deadline = now + FP_TUTORIAL_ENTRY_DELAY_MS;
     return;
   }
@@ -266,14 +263,15 @@ export function updateFpTutorial(
   const walkDelta = Math.hypot(px - lastPx, pz - lastPz);
   const dug = openCells > lastOpenCells;
   const placed = partsCount > lastPartsCount;
-  const pried = carried && !lastCarried;
+  // A pry refunds the part straight to inventory (F-099), so the
+  // demonstration is the placed-parts count dropping.
+  const pried = partsCount < lastPartsCount;
   lastYaw = yaw;
   lastPitch = pitch;
   lastPx = px;
   lastPz = pz;
   lastOpenCells = openCells;
   lastPartsCount = partsCount;
-  lastCarried = carried;
 
   if (phase === PHASE_WAITING) {
     if (now >= deadline) showStep(0, now);

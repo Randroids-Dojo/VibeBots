@@ -1799,34 +1799,20 @@ button.bunker-fp-tutorial strong {
   background: rgba(230, 232, 238, 0.25);
 }
 
-/* Carried-part chip: floats above the hotbar with its two actions. */
-.bunker-fp-carried {
+/* Pry-refusal chip: a brief note above the hotbar (damaged parts must
+ * be repaired from the Bunker sheet before they refund). */
+.bunker-fp-deny {
   position: absolute;
   z-index: 12;
   bottom: calc(104px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid #f59e0b;
+  padding: 6px 12px;
+  border: 1px solid #f87171;
   border-radius: 999px;
   background: rgba(14, 20, 28, 0.92);
   color: #e6e8ee;
   font-size: 0.72rem;
   white-space: nowrap;
-  pointer-events: auto;
-}
-
-.bunker-fp-carried button {
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid rgba(230, 232, 238, 0.3);
-  border-radius: 999px;
-  background: rgba(17, 21, 31, 0.72);
-  color: #e6e8ee;
-  font-weight: 800;
-  font-size: 0.68rem;
-  cursor: pointer;
+  pointer-events: none;
 }

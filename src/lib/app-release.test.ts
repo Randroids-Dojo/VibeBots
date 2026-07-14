@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest tutorial note complete", () => {
+  it("keeps the latest pry-refund note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.252-bunker-tutorial");
+    expect(release.noticeId).toBe("2026-07-13-0.1.253-pry-refund");
     expect(latestNote).toMatchObject({
+      version: "0.1.253",
+      title: "Pry straight back to your pack",
+      intro: "One press pries a part loose and returns it, ready for the next.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Prying a part now drops it straight back into your pack instead of carrying it on the crosshair. Pry one part after another with no stow step in between, then place from stock whenever you want it somewhere new.",
+      "A damaged part will not pry until you repair it from the Bunker sheet, so its wear can never be laundered away.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-tutorial note complete", () => {
+    const release = getAppRelease();
+    const tutorialNote = release.notes.find(
+      (note) => note.version === "0.1.252",
+    );
+
+    expect(tutorialNote).toMatchObject({
       version: "0.1.252",
       title: "The bunker teaches itself",
       intro: "A step-by-step walkthrough the first time you go inside.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(tutorialNote?.changes.map((change) => change.text)).toEqual([
       "Your first time inside the bunker now walks you through everything one card at a time: look, walk, dig, place, and pry, each advancing a moment after you actually do it. Skip a step or the whole thing any time.",
       "Want it again later? Replay bunker tutorial lives in the settings gear, and the cards return the next time you enter.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

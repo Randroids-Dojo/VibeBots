@@ -5,6 +5,7 @@ import {
   excavateBunkerCell,
   placeBasePart,
   proposedBunkerFootprint,
+  removeBasePart,
   STARTER_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
 import {
@@ -278,9 +279,18 @@ describe("fpCellBoxedIn", () => {
     if (!sealed.ok) throw new Error("seal failed");
     buildFpSolidGrid(sealed.bunker, grid);
     expect(fpCellBoxedIn(grid, 3, 0, 1)).toBe(true);
-    // The carried-part skip: prying that sealing wall stands the hint
-    // down even though the part still occupies its cell.
-    expect(fpCellBoxedIn(grid, 3, 0, 1, fpCellIndex(3, 0, 0))).toBe(false);
+    // Prying the sealing wall refunds it and reopens the mouth (F-099),
+    // so the rebuilt grid stands the hint down.
+    const pried = removeBasePart(
+      sealed.bunker,
+      sealed.inventory,
+      MINER_COL,
+      MINER_ROW,
+      0,
+    );
+    if (!pried.ok) throw new Error("pry failed");
+    buildFpSolidGrid(pried.bunker, grid);
+    expect(fpCellBoxedIn(grid, 3, 0, 1)).toBe(false);
   });
 });
 

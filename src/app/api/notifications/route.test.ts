@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.252-bunker-tutorial",
+      releaseNoticeId: "2026-07-13-0.1.253-pry-refund",
       releaseSummary:
-        "The bunker teaches itself: A step-by-step walkthrough the first time you go inside.",
+        "Pry straight back to your pack: One press pries a part loose and returns it, ready for the next.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.252-bunker-tutorial",
+      releaseNoticeId: "2026-07-13-0.1.253-pry-refund",
       attempted: 2,
       sent: 1,
       expired: 1,

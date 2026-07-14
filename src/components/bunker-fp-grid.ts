@@ -98,25 +98,21 @@ export function fpCellBlocks(value: number): boolean {
 /**
  * True when the cell has no passable lateral neighbor: all four of
  * +x/-x/+z/-z blocked at feet level (out-of-grid neighbors are
- * boundary rock). `skipIndex` treats one cell as passable regardless,
- * for the carried part's source cell: a pried part still occupies its
- * cell until moved, but prying it IS the escape in progress, so the
- * hint stands down.
+ * boundary rock). Prying a neighboring part refunds it and opens the
+ * cell immediately, so the hint stands down through the normal grid
+ * rebuild.
  */
 export function fpCellBoxedIn(
   solid: FpSolidGrid,
   x: number,
   y: number,
   z: number,
-  skipIndex = -1,
 ): boolean {
   for (let side = 0; side < 4; side++) {
     const nx = side === 0 ? x + 1 : side === 1 ? x - 1 : x;
     const nz = side === 2 ? z + 1 : side === 3 ? z - 1 : z;
     if (!fpCellInGrid(nx, y, nz)) continue;
-    const index = fpCellIndex(nx, y, nz);
-    if (index === skipIndex) return false;
-    if (!fpCellBlocks(solid[index])) return false;
+    if (!fpCellBlocks(solid[fpCellIndex(nx, y, nz)])) return false;
   }
   return true;
 }

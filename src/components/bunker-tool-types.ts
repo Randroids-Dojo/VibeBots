@@ -1,5 +1,4 @@
-import type { BasePartId, PlacedBasePart } from "@/sim/bunker";
-import type { MineCoord } from "@/sim/mine";
+import type { BasePartId } from "@/sim/bunker";
 
 /**
  * Shared bunker tool state types. Since the 2D hammer flow retired,
@@ -9,7 +8,7 @@ import type { MineCoord } from "@/sim/mine";
  */
 
 /** "dig" is the fp pick slot; a part id arms the build ghost for that
- * part; "pry" lifts the crosshair part into the carry. */
+ * part; "pry" returns the crosshair part straight to inventory. */
 export type BunkerToolSelection = BasePartId | "pry" | "dig" | null;
 export type BunkerToolAction = "build" | "pry" | "dig";
 
@@ -20,11 +19,3 @@ export const BUNKER_TOOL_HIGHLIGHT: Record<BunkerToolAction, string> = {
   pry: "#f59e0b",
   dig: "#e2e8f0",
 };
-
-/** A pried part in hand. The part stays placed (and solid) at its
- * source cell until it is moved or stowed; placing while carrying
- * moves it. */
-export interface CarriedBunkerPart {
-  source: MineCoord;
-  part: PlacedBasePart;
-}

@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.252-bunker-tutorial";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.253-pry-refund";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.253",
+      date: "2026-07-13",
+      title: "Pry straight back to your pack",
+      intro: "One press pries a part loose and returns it, ready for the next.",
+      changes: [
+        {
+          build,
+          text: "Prying a part now drops it straight back into your pack instead of carrying it on the crosshair. Pry one part after another with no stow step in between, then place from stock whenever you want it somewhere new.",
+        },
+        {
+          build,
+          text: "A damaged part will not pry until you repair it from the Bunker sheet, so its wear can never be laundered away.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.252",
       date: "2026-07-13",

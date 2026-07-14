@@ -363,7 +363,7 @@ test("the first-person entry hides while a failed raid blocks editing", async ({
   await expect(status).toHaveAttribute("data-fp-mode", "0");
 });
 
-test("first-person building loop on a pending claim: place, pry, dig, walk in, move", async ({
+test("first-person building loop on a pending claim: place, chained pry refunds, dig, place from stock", async ({
   page,
 }) => {
   // Software-GL runners compile the fp scene slowly, and this test
@@ -525,11 +525,73 @@ test("first-person building loop on a pending claim: place, pry, dig, walk in, m
     depth: 0,
   });
 
-  // Right-click quick pry lifts the wall into the carry.
-  await canvas.click({ button: "right" });
+  // Auto-stow prying (F-099) has no carry state: the chip's selector
+  // matches nothing at any point in this loop.
   const carried = page.locator(".bunker-fp-carried");
-  await expect(carried).toBeVisible({ timeout: 10_000 });
-  await expect(carried).toContainText("Wall");
+  await expect(carried).toHaveCount(0);
+
+  // Place the second wall down-right at (4,0,0): stock empties.
+  await aimFp(page, -1.57, -0.62);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-place"), {
+      timeout: 10_000,
+    })
+    .toBe("4:0:0");
+  await canvas.click();
+  await expect(wallSlot).toHaveAttribute(
+    "aria-label",
+    `Wall x${wallCount - 2}`,
+    { timeout: 10_000 },
+  );
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "32");
+
+  // Right-click pry refunds the wall straight to the pack: the count
+  // rises, the mesh disappears, and no carried chip ever shows.
+  await aimFp(page, -1.57, 0);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 10_000,
+    })
+    .toBe("4:0:0:part");
+  const beforePry = await canvas.screenshot();
+  await canvas.click({ button: "right" });
+  await expect(wallSlot).toHaveAttribute(
+    "aria-label",
+    `Wall x${wallCount - 1}`,
+    { timeout: 10_000 },
+  );
+  await expect(carried).toHaveCount(0);
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "33");
+  const afterPry = await canvas.screenshot();
+  expect(
+    await imagePixelDifferenceRatio(page, beforePry, afterPry),
+  ).toBeGreaterThan(0.00005);
+
+  // Chain the second pry immediately: no stow step in between, both
+  // refunds land, and the pack holds the full starting stock again.
+  await aimFp(page, 1.57, 0);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 10_000,
+    })
+    .toBe("2:0:0:part");
+  await canvas.click({ button: "right" });
+  await expect(wallSlot).toHaveAttribute("aria-label", `Wall x${wallCount}`, {
+    timeout: 10_000,
+  });
+  await expect(carried).toHaveCount(0);
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "34");
+  const afterPries = await page.evaluate(() => {
+    const trip = JSON.parse(
+      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+    );
+    return {
+      parts: trip.pendingBunker?.bunker.parts,
+      wallStock: trip.pendingBunker?.inventory?.["wall-panel"],
+    };
+  });
+  expect(afterPries.parts).toEqual([]);
+  expect(afterPries.wallStock).toBe(wallCount);
 
   // The pick digs the rock straight ahead; the room gains a cell.
   await page.keyboard.press("0");
@@ -549,7 +611,7 @@ test("first-person building loop on a pending claim: place, pry, dig, walk in, m
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 10_000,
     })
-    .toBe("34");
+    .toBe("35");
   const afterDig = await canvas.screenshot();
   expect(
     await imagePixelDifferenceRatio(page, beforeDig, afterDig),
@@ -577,8 +639,8 @@ test("first-person building loop on a pending claim: place, pry, dig, walk in, m
     .toBeGreaterThan(-0.05);
   await page.keyboard.up("s");
 
-  // Re-arm build mode; placing while carrying MOVES the carried wall
-  // into the dug cell (no extra stock consumed).
+  // Re-arm build mode; relocation is now pry then place, so this
+  // placement into the dug cell spends from the refunded stock.
   await page.keyboard.press("1");
   await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
   await expect
@@ -586,9 +648,7 @@ test("first-person building loop on a pending claim: place, pry, dig, walk in, m
       timeout: 10_000,
     })
     .toBe("3:0:1");
-  const beforeMove = await canvas.screenshot();
   await canvas.click();
-  await expect(carried).toHaveCount(0, { timeout: 10_000 });
   await expect
     .poll(async () => canvas.getAttribute("data-fp-target"), {
       timeout: 10_000,
@@ -598,16 +658,13 @@ test("first-person building loop on a pending claim: place, pry, dig, walk in, m
     "aria-label",
     `Wall x${wallCount - 1}`,
   );
-  const afterMove = await canvas.screenshot();
-  expect(
-    await imagePixelDifferenceRatio(page, beforeMove, afterMove),
-  ).toBeGreaterThan(0.00005);
-  const movedPart = await page.evaluate(() =>
+  await expect(carried).toHaveCount(0);
+  const placedFromStock = await page.evaluate(() =>
     JSON.parse(
       localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
     ).pendingBunker?.bunker.parts.at(-1),
   );
-  expect(movedPart).toMatchObject({
+  expect(placedFromStock).toMatchObject({
     partId: "wall-panel",
     col: START_COL,
     row: 5,
@@ -726,8 +783,8 @@ test.describe("phone viewport", () => {
     // Software-GL phone runs compile the fp scene slowly.
     test.setTimeout(240_000);
     // A wall two cells right of spawn: the ray crosses an open cell on
-    // the way, so a stray tap act after the hold would visibly MOVE the
-    // pried part there (the suppression this test exists to pin).
+    // the way, so a stray tap act after the hold would visibly place a
+    // fresh wall there (the suppression this test exists to pin).
     const pryView = {
       ...FP_BUNKER_VIEW,
       bunker: {
@@ -742,12 +799,32 @@ test.describe("phone viewport", () => {
         ],
       },
     };
+    // The pry refunds through the banked remove API (F-099).
+    const removedView = {
+      ...pryView,
+      bunker: { ...pryView.bunker, parts: [] },
+      inventory: { ...FP_BUNKER_VIEW.inventory, "wall-panel": 7 },
+    };
+    const removeBodies: unknown[] = [];
+    const placeBodies: unknown[] = [];
     await page.route("**/api/bunker", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(pryView),
       });
+    });
+    await page.route("**/api/bunker/parts/remove", async (route) => {
+      removeBodies.push(route.request().postDataJSON());
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(removedView),
+      });
+    });
+    await page.route("**/api/bunker/parts/place", async (route) => {
+      placeBodies.push(route.request().postDataJSON());
+      await route.fulfill({ status: 503, body: "{}" });
     });
 
     await page.goto("/mine");
@@ -777,21 +854,33 @@ test.describe("phone viewport", () => {
       })
       .toBe("4:0:0");
 
-    // A still press on the look zone held past the hold window (450ms).
+    // A still press on the look zone held past the hold window (450ms)
+    // refunds the wall straight to the pack: hotbar count up, cell
+    // reopened, and no carried chip at any point.
     await touchHold(page, { x: 300, y: 350 }, 700);
-    const carried = page.locator(".bunker-fp-carried");
-    await expect(carried).toBeVisible({ timeout: 10_000 });
-    await expect(carried).toContainText("Wall");
+    const wallSlot = page.getByTestId("bunker-fp-slot-wall-panel");
+    await expect(wallSlot).toHaveAttribute("aria-label", "Wall x7", {
+      timeout: 10_000,
+    });
+    await expect(page.locator(".bunker-fp-carried")).toHaveCount(0);
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
+        timeout: 10_000,
+      })
+      .toBe("34");
+    expect(removeBodies).toEqual([{ col: START_COL + 2, row: 5, depth: 0 }]);
 
     // Releasing the hold must NOT also fire the tap act: with build
-    // armed and a valid place cell, a stray act would move the carried
-    // wall into (4,0,0) and clear the chip. Both stay put.
+    // armed and a valid place cell, a stray act would spend a wall
+    // back into (4,0,0). Stock, cells, and the place API stay quiet.
     await page.waitForTimeout(400);
-    await expect(carried).toBeVisible();
-    await expect(canvas).toHaveAttribute("data-fp-target", "5:0:0:part");
+    await expect(wallSlot).toHaveAttribute("aria-label", "Wall x7");
+    await expect(canvas).toHaveAttribute("data-fp-open-cells", "34");
+    expect(removeBodies).toHaveLength(1);
+    expect(placeBodies).toEqual([]);
   });
 
-  test("the phone hotbar keeps every slot and the pry chip inside the viewport", async ({
+  test("the phone hotbar keeps every slot and the pry toggle inside the viewport", async ({
     page,
   }) => {
     test.setTimeout(240_000);
@@ -958,7 +1047,7 @@ function tutorialStep(page: Page): Promise<string> {
   );
 }
 
-test("the progressive tutorial chains look, walk, dig, and place, and skip persists", async ({
+test("the progressive tutorial chains look, walk, dig, place, and pry, and completion persists", async ({
   page,
 }) => {
   // Software-GL runners compile the fp scene slowly, and this test
@@ -1082,22 +1171,49 @@ test("the progressive tutorial chains look, walk, dig, and place, and skip persi
     .poll(() => tutorialStep(page), { timeout: 10_000 })
     .toBe("place");
 
-  // Placing a wall into the dug cell advances to pry.
+  // Placing a wall into the dug cell advances to pry. The pending
+  // claim's wall stock is the sim starter kit, not the banked-view
+  // inventory, so read the live count and track it across the pair.
+  const wallSlot = page.getByTestId("bunker-fp-slot-wall-panel");
+  const wallLabelBefore = await wallSlot.getAttribute("aria-label");
+  const wallStock = Number((wallLabelBefore ?? "").replace("Wall x", ""));
+  expect(wallStock).toBeGreaterThan(0);
   await page.keyboard.press("1");
-  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
   await expect
     .poll(async () => canvas.getAttribute("data-fp-place"), {
       timeout: 10_000,
     })
     .not.toBe("none");
   await canvas.click();
+  await expect(wallSlot).toHaveAttribute(
+    "aria-label",
+    `Wall x${wallStock - 1}`,
+    {
+      timeout: 10_000,
+    },
+  );
   await expect.poll(() => tutorialStep(page), { timeout: 10_000 }).toBe("pry");
+  // The pry card teaches the refund flow; the skip control still
+  // rides every teachable card.
+  await expect(page.getByTestId("bunker-fp-tutorial")).toContainText(
+    "pry it back into your pack",
+  );
+  await expect(page.getByTestId("bunker-fp-tutorial-skip")).toBeVisible();
 
-  // Skip tutorial ends the chain and persists the done flag.
-  await page.getByTestId("bunker-fp-tutorial-skip").click();
+  // Right-click pries the just-placed wall straight back to the pack:
+  // the stock returns to its pre-place count and the parts-count drop
+  // is the demonstration, so the closer follows.
+  await canvas.click({ button: "right" });
+  await expect(wallSlot).toHaveAttribute("aria-label", `Wall x${wallStock}`, {
+    timeout: 10_000,
+  });
+  await expect(page.locator(".bunker-fp-carried")).toHaveCount(0);
+  await expect.poll(() => tutorialStep(page), { timeout: 10_000 }).toBe("done");
+
+  // The closer card is a button: tapping it completes the chain and
+  // persists the done flag.
+  await page.getByTestId("bunker-fp-tutorial").click();
   await expect(page.getByTestId("bunker-fp-tutorial")).toHaveCount(0);
   expect(
     await page.evaluate(() =>
@@ -1197,7 +1313,28 @@ test("an enclosed spawn shows the boxed-in escape hint until a part is pried", a
       ],
     },
   };
+  // Prying the right wall refunds it and reopens (4,0,0); placing it
+  // back re-encloses the spawn.
+  const priedView = {
+    ...boxedView,
+    bunker: { ...boxedView.bunker, parts: [boxedView.bunker.parts[0]] },
+    inventory: { ...FP_BUNKER_VIEW.inventory, "wall-panel": 7 },
+  };
   await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(boxedView),
+    });
+  });
+  await page.route("**/api/bunker/parts/remove", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(priedView),
+    });
+  });
+  await page.route("**/api/bunker/parts/place", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -1222,8 +1359,8 @@ test("an enclosed spawn shows the boxed-in escape hint until a part is pried", a
   await expect(hint).toBeVisible({ timeout: 20_000 });
   await expect(hint).toContainText("Boxed in?");
 
-  // Prying a wall is the escape in progress: the hint stands down
-  // while the part is in hand.
+  // Prying a wall refunds it and opens the cell directly (F-099), so
+  // the hint stands down with the escape route open.
   await aimFp(page, -1.57, 0);
   await expect
     .poll(async () => canvas.getAttribute("data-fp-target"), {
@@ -1232,15 +1369,97 @@ test("an enclosed spawn shows the boxed-in escape hint until a part is pried", a
     .toBe("4:0:0:part");
   await armFpPointer(page);
   await canvas.click({ button: "right" });
-  const carried = page.locator(".bunker-fp-carried");
-  await expect(carried).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
+    "aria-label",
+    "Wall x7",
+    { timeout: 10_000 },
+  );
+  await expect(page.locator(".bunker-fp-carried")).toHaveCount(0);
   await expect(hint).toHaveCount(0);
 
-  // Putting it back re-encloses the player, so the hint returns; a
-  // tap dismisses it until the next enclosure.
-  await page.getByRole("button", { name: "Put back" }).click();
-  await expect(carried).toHaveCount(0);
+  // Walling the gap back up re-encloses the player, so the hint
+  // returns; a tap dismisses it until the next enclosure.
+  await aimFp(page, -1.57, -0.62);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-place"), {
+      timeout: 10_000,
+    })
+    .toBe("4:0:0");
+  await canvas.click();
   await expect(hint).toBeVisible({ timeout: 10_000 });
   await hint.click();
   await expect(hint).toHaveCount(0);
+});
+
+test("prying a damaged part denies with repair-first guidance", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  // Raid wear without running a raid: the banked fixture ships the
+  // wall already damaged (45/90). Refunding it at full count would
+  // launder the damage, so the pry must refuse client-side and never
+  // reach the remove API.
+  const damagedView = {
+    ...FP_BUNKER_VIEW,
+    bunker: {
+      ...FP_BUNKER_VIEW.bunker,
+      parts: [
+        { partId: "wall-panel", col: START_COL + 1, row: 5, durability: 45 },
+      ],
+    },
+  };
+  const removeBodies: unknown[] = [];
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(damagedView),
+    });
+  });
+  await page.route("**/api/bunker/parts/remove", async (route) => {
+    removeBodies.push(route.request().postDataJSON());
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+
+  // Face the damaged wall one cell to the spawn's right.
+  await aimFp(page, -1.57, 0);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 20_000,
+    })
+    .toBe("4:0:0:part");
+  await expect(page.locator(".bunker-fp-target-label")).toHaveText(
+    "Wall 45/90",
+  );
+  await armFpPointer(page);
+  await canvas.click({ button: "right" });
+
+  // The deny chip explains the refusal; nothing refunds, the part
+  // stays targeted, and no carried chip exists.
+  const deny = page.getByTestId("bunker-fp-deny");
+  await expect(deny).toBeVisible({ timeout: 10_000 });
+  await expect(deny).toHaveText("Damaged: repair from the Bunker sheet first");
+  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
+    "aria-label",
+    "Wall x6",
+  );
+  await expect(page.locator(".bunker-fp-carried")).toHaveCount(0);
+  await expect(canvas).toHaveAttribute("data-fp-target", "4:0:0:part");
+  expect(removeBodies).toEqual([]);
+
+  // The chip is a brief notice: it clears on its own.
+  await expect(deny).toHaveCount(0, { timeout: 10_000 });
 });

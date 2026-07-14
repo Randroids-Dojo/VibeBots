@@ -44,7 +44,6 @@ const obs = {
   pz: 0,
   openCells: 34,
   partsCount: 0,
-  carried: false,
 };
 
 /** The injected test clock. */
@@ -62,7 +61,6 @@ function tick(patch: Partial<typeof obs> = {}, dt = 16): void {
     obs.pz,
     obs.openCells,
     obs.partsCount,
-    obs.carried,
   );
 }
 
@@ -93,7 +91,6 @@ describe("bunker fp tutorial state machine", () => {
     obs.pz = 0;
     obs.openCells = 34;
     obs.partsCount = 0;
-    obs.carried = false;
   });
 
   it("shows the look card only after the entry delay from the first observed frame", () => {
@@ -174,7 +171,7 @@ describe("bunker fp tutorial state machine", () => {
     expect(getFpTutorialCard()).toBe("pry");
   });
 
-  it("advances pry when a carried part appears, then completes through the closer", () => {
+  it("advances pry when the parts count drops, then completes through the closer", () => {
     const storage = makeStorage();
     startAtLook(storage);
     ride({ yaw: 1.3 });
@@ -182,7 +179,12 @@ describe("bunker fp tutorial state machine", () => {
     ride({ openCells: 35 });
     ride({ partsCount: 1 });
     expect(getFpTutorialCard()).toBe("pry");
-    tick({ carried: true });
+    // Idle frames and another placement (count UP) do not advance;
+    // the pry demonstration is the refunded part leaving the room.
+    tick();
+    tick({ partsCount: 2 });
+    expect(getFpTutorialCard()).toBe("pry");
+    tick({ partsCount: 1 });
     expect(getFpTutorialCard()).toBeNull();
     tick({}, FP_TUTORIAL_STEP_GAP_MS);
     expect(getFpTutorialCard()).toBe("done");
@@ -202,7 +204,7 @@ describe("bunker fp tutorial state machine", () => {
     ride({ px: 6 });
     ride({ openCells: 35 });
     ride({ partsCount: 1 });
-    ride({ carried: true });
+    ride({ partsCount: 0 });
     expect(getFpTutorialCard()).toBe("done");
     dismissFpTutorialStep(t);
     expect(getFpTutorialCard()).toBeNull();

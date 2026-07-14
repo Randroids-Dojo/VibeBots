@@ -27,13 +27,13 @@ import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
 import { detectTvMode } from "@/lib/tv-device";
 import { tvRemoteDirection } from "@/lib/tv-remote-input";
 import {
-  BASE_PART_CATALOG,
   BASE_PART_IDS,
   type BasePartId,
   type BunkerRaidSnapshot,
   bunkerCells,
   canCollectBunkerRaidPickupFrom,
   containsBunkerCell,
+  isBasePartDamaged,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
 import {
@@ -93,7 +93,6 @@ import { clearFpTutorialDone } from "./bunker-fp-tutorial";
 import type {
   BunkerToolAction,
   BunkerToolSelection,
-  CarriedBunkerPart,
 } from "./bunker-tool-types";
 import { COMPILE_GATE_DEADLINE_MS } from "./compile-gate";
 import {
@@ -321,7 +320,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
-  "Tip: In first person the pick digs deep claim rock; parts place at the crosshair; pry carries.",
+  "Tip: In first person the pick digs deep claim rock; parts place at the crosshair; pry returns parts to your pack.",
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
@@ -1172,7 +1171,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const removePendingBunkerPart = useMineStore(
     (s) => s.removePendingBunkerPart,
   );
-  const movePendingBunkerPart = useMineStore((s) => s.movePendingBunkerPart);
   const excavatePendingBunkerCell = useMineStore(
     (s) => s.excavatePendingBunkerCell,
   );
@@ -1212,7 +1210,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const buyBasePart = useBunkerStore((s) => s.buyBasePart);
   const placeBunkerPart = useBunkerStore((s) => s.placePart);
   const removeBunkerPart = useBunkerStore((s) => s.removePart);
-  const moveBunkerPart = useBunkerStore((s) => s.movePart);
   const excavateBunkerCellRemote = useBunkerStore((s) => s.excavateCell);
   const startBunkerRaid = useBunkerStore((s) => s.startRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
@@ -1354,8 +1351,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // exits can always reset it; only the fp hotbar writes it now.
   const [bunkerToolSelection, setBunkerToolSelection] =
     useState<BunkerToolSelection>(null);
-  const [carriedBunkerPart, setCarriedBunkerPart] =
-    useState<CarriedBunkerPart | null>(null);
+  // Brief first-person deny chip (F-099): prying a damaged part
+  // refuses with repair-first copy; the timer clears it.
+  const [fpDenyNotice, setFpDenyNotice] = useState<string | null>(null);
+  const fpDenyNoticeTimerRef = useRef<number>(0);
   // The column whose stall sheet is open. Standing on a stall no longer
   // auto-opens it: a prompt button appears and tapping it sets this.
   // Stepping off clears it, so walking by never pops the menu.
@@ -2547,7 +2546,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBunkerClaimMode(false);
     setBunkerPanelOpen(false);
     setBunkerToolSelection(null);
-    setCarriedBunkerPart(null);
   }, [collectMode]);
 
   useEffect(() => {
@@ -2555,61 +2553,24 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBunkerClaimMode(false);
     setBunkerPanelOpen(false);
     setBunkerToolSelection(null);
-    setCarriedBunkerPart(null);
   }, [bunkerEditingAllowed, miner.row, terminalMineState]);
 
   useEffect(() => {
     if (activeBunker && bunkerEditingAllowed) return;
     setBunkerToolSelection(null);
-    setCarriedBunkerPart(null);
   }, [activeBunker, bunkerEditingAllowed]);
 
-  const cancelCarriedBunkerPart = useCallback(() => {
-    setCarriedBunkerPart(null);
-    setBunkerToolSelection(null);
-  }, []);
-
-  const stowCarriedBunkerPart = useCallback(() => {
-    if (!carriedBunkerPart) return;
-    const maxDurability =
-      BASE_PART_CATALOG[carriedBunkerPart.part.partId].durability;
-    if (carriedBunkerPart.part.durability < maxDurability) {
-      triggerShopHaptic("deny");
-      playMineSfxEvent("deny");
-      return;
-    }
-    const source = carriedBunkerPart.source;
-    // A part pried in the first-person view can live on a deeper
-    // layer; 2D-pried parts always carry depth 0.
-    const sourceDepth = carriedBunkerPart.part.depth ?? 0;
-    if (pendingBunkerActive) {
-      const removed = removePendingBunkerPart(
-        source.col,
-        source.row,
-        sourceDepth,
-      );
-      triggerShopHaptic(removed ? "commit" : "deny");
-      if (removed) {
-        setCarriedBunkerPart(null);
-        setBunkerToolSelection(null);
-      }
-      return;
-    }
-    void removeBunkerPart(source.col, source.row, sourceDepth).then(
-      (result) => {
-        triggerShopHaptic(result ? "commit" : "deny");
-        if (result) {
-          setCarriedBunkerPart(null);
-          setBunkerToolSelection(null);
-        }
-      },
+  const showFpDenyNotice = useCallback((notice: string) => {
+    setFpDenyNotice(notice);
+    window.clearTimeout(fpDenyNoticeTimerRef.current);
+    fpDenyNoticeTimerRef.current = window.setTimeout(
+      () => setFpDenyNotice(null),
+      2400,
     );
-  }, [
-    carriedBunkerPart,
-    pendingBunkerActive,
-    removeBunkerPart,
-    removePendingBunkerPart,
-  ]);
+  }, []);
+  useEffect(() => {
+    return () => window.clearTimeout(fpDenyNoticeTimerRef.current);
+  }, []);
 
   const enterFpBunker = useCallback(() => {
     // Every Enter affordance (floating button, panel row, "f" key)
@@ -2648,14 +2609,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [fpBunkerAllowed]);
 
   // Tool state exists only inside the first-person view: any way out
-  // (exit button, Escape, forced exit) clears the selection and puts a
-  // carried part back. The part never left its cell while carried, so
-  // clearing the carry is lossless, and the flat view can never show a
-  // stale carried chip (it has no carry affordances anymore).
+  // (exit button, Escape, forced exit) clears the selection and any
+  // lingering deny chip. Pried parts already refunded on the spot
+  // (F-099), so there is nothing else to restore.
   useEffect(() => {
     if (fpBunkerActive) return;
     setBunkerToolSelection(null);
-    setCarriedBunkerPart(null);
+    setFpDenyNotice(null);
   }, [fpBunkerActive]);
 
   /**
@@ -2674,23 +2634,18 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       };
       // Pending trips edit the local store synchronously; banked bunkers
       // go through the remote store. Either way the result drives the
-      // same feedback, with an optional hook on success.
+      // same feedback.
       const commit = (
         sync: () => boolean,
         remote: () => Promise<unknown>,
         sfx: "plank" | "clang" | "dig-rock",
-        onOk?: () => void,
       ) => {
         if (pendingBunkerActive) {
-          const ok = sync();
-          if (ok) onOk?.();
-          feedback(ok, sfx);
+          feedback(sync(), sfx);
           return;
         }
         void remote().then((result) => {
-          const ok = Boolean(result);
-          if (ok) onOk?.();
-          feedback(ok, sfx);
+          feedback(Boolean(result), sfx);
         });
       };
 
@@ -2714,32 +2669,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           feedback(false, "clang");
           return;
         }
-        // Lift into the carry (durability intact); the part stays
-        // placed until it is moved or stowed, exactly like 2D pry.
-        setCarriedBunkerPart({ source: { col, row }, part });
-        setBunkerToolSelection(part.partId);
-        feedback(true, "clang");
-        return;
-      }
-
-      // Place: while carrying, placing moves the carried part.
-      if (carriedBunkerPart) {
-        const source = carriedBunkerPart.source;
-        const fromDepth = carriedBunkerPart.part.depth ?? 0;
+        // Refunding a damaged part at full count would launder its
+        // damage (the removeBasePart contract), so the pry refuses
+        // with repair-first guidance. Sharing the sim's predicate keeps
+        // this pre-check from drifting; the sim re-checks underneath.
+        if (isBasePartDamaged(part)) {
+          feedback(false, "clang");
+          showFpDenyNotice("Damaged: repair from the Bunker sheet first");
+          return;
+        }
+        // F-099 auto-stow: the pry returns the part straight to
+        // inventory so the next pry can follow immediately.
         commit(
-          () =>
-            movePendingBunkerPart(
-              source.col,
-              source.row,
-              col,
-              row,
-              fromDepth,
-              depth,
-            ),
-          () =>
-            moveBunkerPart(source.col, source.row, col, row, fromDepth, depth),
-          "plank",
-          () => setCarriedBunkerPart(null),
+          () => removePendingBunkerPart(col, row, depth),
+          () => removeBunkerPart(col, row, depth),
+          "clang",
         );
         return;
       }
@@ -2759,15 +2703,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       activeBunker,
       activeBunkerInventory,
       bunkerEditingAllowed,
-      carriedBunkerPart,
       excavateBunkerCellRemote,
       excavatePendingBunkerCell,
-      moveBunkerPart,
-      movePendingBunkerPart,
       pendingBunkerActive,
       placeBunkerPart,
       placePendingBunkerPart,
+      removeBunkerPart,
+      removePendingBunkerPart,
       selectedBasePart,
+      showFpDenyNotice,
     ],
   );
 
@@ -3306,7 +3250,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               entry={{ col: miner.col, row: miner.row }}
               tool={bunkerToolAction}
               selectedPartId={selectedBasePart}
-              carried={carriedBunkerPart}
               onEdit={applyFpBunkerEdit}
               onExit={exitFpBunker}
               onFirstFrame={handleMineFirstFrame}
@@ -3334,12 +3277,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           inventory={activeBunkerInventory}
           tool={bunkerToolAction}
           selectedPartId={selectedBasePart}
-          carried={carriedBunkerPart}
+          denyNotice={fpDenyNotice}
           onSelectPart={selectFpPart}
           onSelectPick={selectFpPick}
           onTogglePry={toggleFpPry}
-          onStowCarried={stowCarriedBunkerPart}
-          onPutBackCarried={cancelCarriedBunkerPart}
           onExit={exitFpBunker}
         />
       )}

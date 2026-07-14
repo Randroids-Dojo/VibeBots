@@ -80,7 +80,6 @@ import { updateFpTutorial } from "./bunker-fp-tutorial";
 import {
   BUNKER_TOOL_HIGHLIGHT,
   type BunkerToolAction,
-  type CarriedBunkerPart,
 } from "./bunker-tool-types";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import {
@@ -163,12 +162,10 @@ interface FpEntryCell {
 export interface BunkerFpCanvasProps {
   bunker: BunkerState;
   entry: FpEntryCell;
-  /** The active tool: build places, pry lifts, dig excavates. */
+  /** The active tool: build places, pry refunds, dig excavates. */
   tool: BunkerToolAction;
   /** The part the build ghost previews (and a click places). */
   selectedPartId: BasePartId;
-  /** A pried part being carried; placing moves it instead. */
-  carried: CarriedBunkerPart | null;
   onEdit: (intent: FpEditIntent) => void;
   onExit: () => void;
   onFirstFrame?: () => void;
@@ -405,22 +402,15 @@ function FpPartVisual({
 
 function FpPlacedParts({
   bunker,
-  carried,
   detail,
   tier,
 }: {
   bunker: BunkerState;
-  carried: CarriedBunkerPart | null;
   detail: boolean;
   tier: SurfaceGeometryTier;
 }) {
   const footprint = bunker.footprint;
   const bottomRow = footprint.row + footprint.height - 1;
-  // The pried part still occupies its cell until moved or stowed, but
-  // renders hidden while carried (the 2D overlay's visible={!carried}).
-  const carriedCol = carried?.source.col ?? -1;
-  const carriedRow = carried?.source.row ?? -1;
-  const carriedDepth = carried ? (carried.part.depth ?? 0) : -1;
   return (
     <group>
       {bunker.parts.map((part) => {
@@ -428,16 +418,8 @@ function FpPlacedParts({
         const y = bottomRow - part.row;
         const z = part.depth ?? 0;
         if (!fpCellInGrid(x, y, z)) return null;
-        const isCarried =
-          part.col === carriedCol &&
-          part.row === carriedRow &&
-          z === carriedDepth;
         return (
-          <group
-            key={`fp-part:${x}:${y}:${z}`}
-            position={[x, y, -z]}
-            visible={!isCarried}
-          >
+          <group key={`fp-part:${x}:${y}:${z}`} position={[x, y, -z]}>
             <FpPartVisual
               detail={detail}
               durability={part.durability}
@@ -525,7 +507,6 @@ function BunkerFpRig({
   entry,
   coreRef,
   tool,
-  carried,
   onEdit,
   outlineRef,
   ghostRef,
@@ -535,7 +516,6 @@ function BunkerFpRig({
   entry: FpEntryCell;
   coreRef: RefObject<Mesh | null>;
   tool: BunkerToolAction;
-  carried: CarriedBunkerPart | null;
   onEdit: (intent: FpEditIntent) => void;
   outlineRef: RefObject<LineSegments | null>;
   ghostRef: RefObject<Group | null>;
@@ -568,10 +548,9 @@ function BunkerFpRig({
   const burstRemainingRef = useRef(0);
   const burstCellRef = useRef({ x: 0, y: 0, z: 0 });
   // Boxed-in escape hint (the sealed-legacy-base case): recomputed on
-  // grid rebuilds, carry changes, and occupied-cell changes only, four
-  // grid reads each time, never every frame.
+  // grid rebuilds and occupied-cell changes only, four grid reads each
+  // time, never every frame.
   const occupiedCellRef = useRef(-1);
-  const carriedIndexRef = useRef(-1);
   if (!solidRef.current || !prevSolidRef.current) {
     solidRef.current = createFpSolidGrid();
     prevSolidRef.current = createFpSolidGrid();
@@ -593,7 +572,6 @@ function BunkerFpRig({
         cellIndex % FP_COLS,
         Math.floor(cellIndex / FP_COLS) % FP_ROWS,
         Math.floor(cellIndex / (FP_COLS * FP_ROWS)),
-        carriedIndexRef.current,
       ),
     );
   }, []);
@@ -616,21 +594,6 @@ function BunkerFpRig({
       burstRemainingRef.current = FP_BURST_SECONDS;
     }
   }, [bunker, refreshBoxedIn]);
-
-  // The carried part's source cell counts as passable for the hint
-  // (prying is the escape in progress); local index at prop cadence.
-  let carriedIndex = -1;
-  if (carried) {
-    const footprint = bunker.footprint;
-    const cx = carried.source.col - footprint.col;
-    const cy = footprint.row + footprint.height - 1 - carried.source.row;
-    const cz = carried.part.depth ?? 0;
-    if (fpCellInGrid(cx, cy, cz)) carriedIndex = fpCellIndex(cx, cy, cz);
-  }
-  useLayoutEffect(() => {
-    carriedIndexRef.current = carriedIndex;
-    refreshBoxedIn();
-  }, [carriedIndex, refreshBoxedIn]);
 
   // Spawn once per mount: the miner's mine cell on the tunnel plane,
   // feet on the room floor, facing -z (into the rock) with the view
@@ -740,8 +703,7 @@ function BunkerFpRig({
   );
 
   // The spawn cell can already be boxed in (a sealed legacy base):
-  // publish once on mount; later refreshes ride grid, carry, and cell
-  // changes.
+  // publish once on mount; later refreshes ride grid and cell changes.
   useEffect(() => {
     refreshBoxedIn();
   }, [refreshBoxedIn]);
@@ -1066,7 +1028,6 @@ function BunkerFpRig({
       move.pz,
       openCellsRef.current,
       bunker.parts.length,
-      carried !== null,
     );
   });
 
@@ -1135,7 +1096,6 @@ function BunkerFpScene({
   entry,
   tool,
   selectedPartId,
-  carried,
   onEdit,
   onWarmed,
 }: {
@@ -1143,7 +1103,6 @@ function BunkerFpScene({
   entry: FpEntryCell;
   tool: BunkerToolAction;
   selectedPartId: BasePartId;
-  carried: CarriedBunkerPart | null;
   onEdit: (intent: FpEditIntent) => void;
   onWarmed: () => void;
 }) {
@@ -1166,7 +1125,6 @@ function BunkerFpScene({
   const coreRef = useRef<Mesh | null>(null);
   const outlineRef = useRef<LineSegments | null>(null);
   const ghostRef = useRef<Group | null>(null);
-  const ghostPartId = carried?.part.partId ?? selectedPartId;
 
   useEffect(() => {
     const warm = warmBunkerFpMaterials(gl, scene, camera, detail, tier);
@@ -1199,12 +1157,7 @@ function BunkerFpScene({
         color={FP_ENTRY_FILL_COLOR}
       />
       <FpRockInstances bunker={bunker} detail={detail} />
-      <FpPlacedParts
-        bunker={bunker}
-        carried={carried}
-        detail={detail}
-        tier={tier}
-      />
+      <FpPlacedParts bunker={bunker} detail={detail} tier={tier} />
       <FpCore bunker={bunker} coreRef={coreRef} />
       {/* Target outline and ghost preview: mounted once over shared
           singletons, positioned and shown imperatively by the rig. */}
@@ -1218,8 +1171,8 @@ function BunkerFpScene({
       <group ref={ghostRef} visible={false} scale={0.92}>
         <FpPartVisual
           detail={detail}
-          durability={BASE_PART_CATALOG[ghostPartId].durability}
-          partId={ghostPartId}
+          durability={BASE_PART_CATALOG[selectedPartId].durability}
+          partId={selectedPartId}
           skin={bunker.skin}
           tier={tier}
         />
@@ -1229,7 +1182,6 @@ function BunkerFpScene({
         entry={entry}
         coreRef={coreRef}
         tool={tool}
-        carried={carried}
         onEdit={onEdit}
         outlineRef={outlineRef}
         ghostRef={ghostRef}
@@ -1244,7 +1196,6 @@ export default function BunkerFpCanvas({
   entry,
   tool,
   selectedPartId,
-  carried,
   onEdit,
   onFirstFrame,
 }: BunkerFpCanvasProps) {
@@ -1269,7 +1220,6 @@ export default function BunkerFpCanvas({
         entry={entry}
         tool={tool}
         selectedPartId={selectedPartId}
-        carried={carried}
         onEdit={onEdit}
         onWarmed={startFrames}
       />

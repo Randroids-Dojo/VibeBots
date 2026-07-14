@@ -47,7 +47,7 @@ import {
   skipFpTutorial,
   subscribeFpTutorial,
 } from "./bunker-fp-tutorial";
-import type { BunkerToolAction, CarriedBunkerPart } from "./bunker-tool-types";
+import type { BunkerToolAction } from "./bunker-tool-types";
 
 function PickIcon() {
   return (
@@ -136,9 +136,8 @@ const FP_TUTORIAL_COPY: Record<
       "No parts in stock. The Hardware Store on the surface sells wall and floor panels.",
   },
   pry: {
-    touch:
-      "Hold a finger on a placed part to pry it loose. Tap again to put it somewhere better.",
-    desktop: "Right-click a placed part to pry it.",
+    touch: "Hold a finger on a placed part to pry it back into your pack.",
+    desktop: "Right-click a placed part to pry it back into your pack.",
   },
   done: {
     touch:
@@ -232,31 +231,29 @@ function FpTargetLabel() {
  * still press over an unchanged target quick-pries like right-click;
  * one-block steps auto-jump per F-094, so there is no jump button).
  * Both get the bottom hotbar: pick slot, six part slots with counts,
- * pry toggle, and the carried-part chip. All zones write the shared
- * fpInput singleton the rig consumes each frame; the target label
- * chip subscribes to the rig's change-only target store.
+ * and the pry toggle (a pry refunds the part straight to inventory,
+ * F-099). All zones write the shared fpInput singleton the rig
+ * consumes each frame; the target label chip subscribes to the rig's
+ * change-only target store; `denyNotice` surfaces mine-panel's brief
+ * pry-refusal chip (a damaged part must be repaired first).
  */
 export function BunkerFpHud({
   inventory,
   tool,
   selectedPartId,
-  carried,
+  denyNotice,
   onSelectPart,
   onSelectPick,
   onTogglePry,
-  onStowCarried,
-  onPutBackCarried,
   onExit,
 }: {
   inventory: BasePartInventory;
   tool: BunkerToolAction;
   selectedPartId: BasePartId;
-  carried: CarriedBunkerPart | null;
+  denyNotice: string | null;
   onSelectPart: (partId: BasePartId) => void;
   onSelectPick: () => void;
   onTogglePry: () => void;
-  onStowCarried: () => void;
-  onPutBackCarried: () => void;
   onExit: () => void;
 }) {
   const [coarse, setCoarse] = useState(false);
@@ -408,8 +405,6 @@ export function BunkerFpHud({
     if (wasTap) fpInput.act = true;
   };
 
-  const carriedDef = carried ? BASE_PART_CATALOG[carried.part.partId] : null;
-
   return (
     <>
       {coarse && (
@@ -499,18 +494,13 @@ export function BunkerFpHud({
           <small>Q</small>
         </button>
       </div>
-      {carried && carriedDef && (
-        <div className="bunker-fp-carried" role="status">
-          <span>
-            Carrying <strong>{carriedDef.name}</strong>{" "}
-            {carried.part.durability}/{carriedDef.durability}
-          </span>
-          <button type="button" onClick={onStowCarried}>
-            Stow part
-          </button>
-          <button type="button" onClick={onPutBackCarried}>
-            Put back
-          </button>
+      {denyNotice && (
+        <div
+          className="bunker-fp-deny"
+          data-testid="bunker-fp-deny"
+          role="status"
+        >
+          {denyNotice}
         </div>
       )}
       <button

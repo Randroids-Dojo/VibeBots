@@ -52,6 +52,17 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-099" data-f="F-099" data-priority="blocks-release">
+    <h3>F-099: Prying stows automatically so parts chain pry-to-pry</h3>
+    <dl>
+      <dt>Context</dt><dd>User request (2026-07-13): simplify prying. Instead of pry-carry-place (a part rides the crosshair until placed, put back, or stowed), a pry returns the part straight to inventory so the player can rapidly pry parts back to back. The carry mechanic, its HUD chip, and its Put back/Stow actions retire.</dd>
+      <dt>Blocker (if any)</dt><dd>Sequenced behind the tutorial slice (PR #173, same HUD and tutorial files).</dd>
+      <dt>Unblock condition</dt><dd>Pry routes to the existing remove/refund path immediately (pending and banked branches); undamaged parts refund at full count; damaged parts deny with repair-first feedback (refunding damaged parts at full count would launder damage, per the removeBasePart contract). Carried-part state, chip, ghost-move placement, and exit-restore plumbing are deleted; relocation becomes pry then place. Tutorial pry step detects the parts-count decrease or inventory increase instead of a carried flag, and its copy updates; the boxed-in hint copy stays true. e2e: chaining two pries back to back refunds both counts with no carried chip ever appearing; a damaged part denies.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (after the tutorial slice).</dd>
+      <dt>Resolved</dt><dd>Branch <code>feat/bunker-pry-stow</code> (package 0.1.253, PR pending): the pry branch of <code>applyFpBunkerEdit</code> now routes straight to <code>removePendingBunkerPart</code>/<code>removeBunkerPart</code> on both the pending and banked paths, refunding an undamaged part to inventory so pries chain back to back. A damaged part refuses client-side with a brief <code>bunker-fp-deny</code> chip ("Damaged: repair from the Bunker sheet first") and never reaches the remove API, since the <code>removeBasePart</code> contract would otherwise launder the wear. The <code>CarriedBunkerPart</code> type, its HUD chip, Put back/Stow actions, ghost-move placement branch, exit-restore plumbing, and the <code>fpCellBoxedIn</code> carried-cell skip are deleted; relocation is now pry then place, and <code>moveBasePart</code>/its API routes stay for future use. The tutorial pry step advances on the placed-parts count dropping (copy: "pry it back into your pack") and the surface tip matches. Pinned by updated grid/tutorial unit tests and fp e2es: chained pries refund both counts with no carry chip, the phone stray-tap hold refunds through the remove API without firing place, a damaged part denies with the chip, and the boxed-in hint stands down after a pry then returns when the gap is walled back up.</dd>
+    </dl>
+  </section>
+
   <section id="F-098" data-f="F-098" data-priority="polish">
     <h3>F-098: Seed the mine-core dig-energy e2e's world</h3>
     <dl>

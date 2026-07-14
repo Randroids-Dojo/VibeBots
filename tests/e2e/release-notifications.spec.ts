@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.253", "Pry straight back to your pack"],
     ["0.1.252", "The bunker teaches itself"],
     ["0.1.251", "One way to build: walk inside"],
     ["0.1.250", "Pry with a long press, land with a view"],

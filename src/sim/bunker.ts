@@ -423,6 +423,17 @@ export function applyBunkerRepairs(bunker: BunkerState): BunkerState {
 }
 
 /**
+ * A placed part is damaged when its durability has dropped below the
+ * catalog maximum. Damaged parts do not refund on remove or reset, so
+ * this predicate is the single source of that rule: removeBasePart,
+ * applyBunkerReset, and the first-person pry pre-check all call it,
+ * which keeps the client-side deny check from drifting from the sim.
+ */
+export function isBasePartDamaged(part: PlacedBasePart): boolean {
+  return part.durability < BASE_PART_CATALOG[part.partId].durability;
+}
+
+/**
  * Reset the bunker to a bare claim (F-093). Refund rule: every placed
  * part still at full catalog durability returns to inventory; damaged
  * parts are lost, matching removeBasePart's "damaged parts do not
@@ -437,8 +448,7 @@ export function applyBunkerReset(
 ): { bunker: BunkerState; inventory: BasePartInventory } {
   const refunded = { ...inventory };
   for (const part of bunker.parts) {
-    const def = BASE_PART_CATALOG[part.partId];
-    if (part.durability < def.durability) continue;
+    if (isBasePartDamaged(part)) continue;
     refunded[part.partId] = Math.max(0, refunded[part.partId] + 1);
   }
   return {
@@ -739,8 +749,7 @@ export function removeBasePart(
     );
   });
   if (!part) return { ok: false, reason: "missing" };
-  const def = BASE_PART_CATALOG[part.partId];
-  if (part.durability < def.durability) return { ok: false, reason: "damaged" };
+  if (isBasePartDamaged(part)) return { ok: false, reason: "damaged" };
   return {
     ok: true,
     bunker: {

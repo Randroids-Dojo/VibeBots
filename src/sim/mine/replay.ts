@@ -60,7 +60,7 @@ import {
   type DynamiteTier,
   dynamiteOreHarvestUnits,
   dynamiteTier,
-  ELEVATOR_COL,
+  elevatorColumn,
   lightRadius,
   type MineGear,
   maxEnergy,
@@ -98,6 +98,7 @@ import {
   cellKey,
   cellMut,
   createMine,
+  elevatorRailCell,
   exportDiff,
   FALL_DELAY_ACTIONS,
   GAS_SEEP_BUDGET,
@@ -241,6 +242,8 @@ export type MoveResult =
       planked?: boolean;
       /** Unsupported movement dropped the miner down empty cells. */
       fell?: number;
+      /** This movement safely boarded the elevator before gravity ran. */
+      elevatorEntered?: boolean;
       /** The unsupported fall exceeded the gear's safe fall distance. */
       fallFatal?: boolean;
       /** A planted ladder was salvaged from the current cell. */
@@ -758,6 +761,8 @@ export function step(state: MineState, dir: Direction): MoveResult {
   const miner = state.miner;
   if (dir === "down" && cellAt(state, miner.col, miner.row)?.plank)
     return breakCurrentPlank(state);
+  const elevatorEntry = enterElevatorFromStep(state, dir);
+  if (elevatorEntry) return elevatorEntry;
   const t = target(state, dir);
   if (isPendingDynamiteAt(state, t.col, t.row))
     return { ok: false, reason: "blocked" };
@@ -1088,14 +1093,16 @@ export function step(state: MineState, dir: Direction): MoveResult {
   });
 }
 
-function isOnElevatorRail(state: MineState): boolean {
+function isElevatorRailAt(state: MineState, col: number, row: number): boolean {
   const rail = Math.min(state.gear.elevator, MINE_BOTTOM_ROW - 1);
+  const column = elevatorColumn(state.gear);
   return (
-    rail > 0 &&
-    state.miner.col === ELEVATOR_COL &&
-    state.miner.row >= 0 &&
-    state.miner.row <= rail
+    rail > 0 && column !== null && col === column && row >= 0 && row <= rail
   );
+}
+
+function isOnElevatorRail(state: MineState): boolean {
+  return isElevatorRailAt(state, state.miner.col, state.miner.row);
 }
 
 export function canPlacePlank(
@@ -1289,6 +1296,9 @@ function plankPlacementTarget(
   if (isOnElevatorRail(state)) return { ok: false, reason: "blocked" };
   const t = target(state, dir);
   if (t.row < 1) return { ok: false, reason: "surface" };
+  if (isElevatorRailAt(state, t.col, t.row)) {
+    return { ok: false, reason: "blocked" };
+  }
   const cell = cellAt(state, t.col, t.row);
   if (cell?.kind === "metal") return { ok: false, reason: "blocked" };
   const below = cellAt(state, t.col, t.row + 1);
@@ -1894,6 +1904,32 @@ export function elevatorSpeedRows(gear: MineGear): number {
   return rows;
 }
 
+function pickupAlongElevator(
+  state: MineState,
+  fromRow: number,
+  toRow: number,
+): Pick<MoveResult & { ok: true }, "pickedUp" | "pickedUpBag"> {
+  const miner = state.miner;
+  const direction = toRow >= fromRow ? 1 : -1;
+  let pickedUp = 0;
+  let bagValue = 0;
+  let bagParts = 0;
+  for (let row = fromRow; ; row += direction) {
+    miner.row = row;
+    const pickup = pickupAtMiner(state);
+    pickedUp += pickup.pickedUp ?? 0;
+    bagValue += pickup.pickedUpBag?.value ?? 0;
+    bagParts += pickup.pickedUpBag?.parts ?? 0;
+    if (row === toRow) break;
+  }
+  return {
+    ...(pickedUp > 0 ? { pickedUp } : {}),
+    ...(bagValue > 0 || bagParts > 0
+      ? { pickedUpBag: { value: bagValue, parts: bagParts } }
+      : {}),
+  };
+}
+
 /**
  * The elevator (REQ-028): logged rides along the elevator column,
  * a fixed number of rows per ride (see elevatorSpeedRows). Ride-down
@@ -1906,20 +1942,22 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
   const miner = state.miner;
   const rail = Math.min(state.gear.elevator, MINE_BOTTOM_ROW - 1);
   if (rail <= 0) return { ok: false, reason: "no-elevator" };
+  const column = elevatorColumn(state.gear);
+  if (column === null) return { ok: false, reason: "no-elevator" };
   const step = elevatorSpeedRows(state.gear);
   if (dir === "down") {
-    if (miner.col !== ELEVATOR_COL || miner.row < 0 || miner.row >= rail)
+    if (miner.col !== column || miner.row < 0 || miner.row >= rail)
       return { ok: false, reason: "blocked" };
     const target = Math.min(rail, miner.row + step);
     const emptied: Array<{ col: number; row: number }> = [];
     for (let r = miner.row + 1; r <= target; r++) {
-      const cell = cellAt(state, ELEVATOR_COL, r);
+      const cell = cellAt(state, column, r);
       if (cell && cell.kind !== "empty") {
-        setCell(state, ELEVATOR_COL, r, { kind: "empty" });
-        emptied.push({ col: ELEVATOR_COL, row: r });
+        setCell(state, column, r, elevatorRailCell(cell));
+        emptied.push({ col: column, row: r });
       }
     }
-    miner.row = target;
+    const pickup = pickupAlongElevator(state, miner.row, target);
     if (miner.row > miner.maxDepth) miner.maxDepth = miner.row;
     const fallEmptied: Array<{ col: number; row: number }> = [];
     const fallTick = tickFalls(state, fallEmptied);
@@ -1939,6 +1977,7 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
           settled.fallingRockWarnings,
         ),
         ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
+        ...pickup,
         lost,
       };
     }
@@ -1951,14 +1990,73 @@ function rideElevator(state: MineState, dir: "down" | "up"): MoveResult {
       fallingRockTriggered: settled.fallingRockTriggered || undefined,
       fallingRockWarnings: warningCellsOrUndefined(settled.fallingRockWarnings),
       ladderFalls: ladderFallsOrUndefined(settled.ladderFalls),
+      ...pickup,
     };
   }
-  if (miner.col !== ELEVATOR_COL || miner.row < 1 || miner.row > rail)
+  if (miner.col !== column || miner.row < 1 || miner.row > rail)
     return { ok: false, reason: "blocked" };
-  miner.row = Math.max(0, miner.row - step);
+  const target = Math.max(0, miner.row - step);
+  const pickup = pickupAlongElevator(state, miner.row, target);
   // Banking happens topside: a partial ride up just travels.
   if (miner.row === 0) bank(miner, state.gear);
-  return { ok: true, dug: null, dugOre: null, found: null, collapsed: false };
+  return {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+    ...pickup,
+  };
+}
+
+/**
+ * Board from the surface by stepping down, or from an underground row by
+ * walking laterally into owned rail. Boarding bypasses normal fall settling
+ * and starts a safe downward ride. At the bottom it remains a successful,
+ * stationary boarding action so contact with the shaft cannot become a fall.
+ */
+function enterElevatorFromStep(
+  state: MineState,
+  dir: Direction,
+): MoveResult | null {
+  const miner = state.miner;
+  const rail = Math.min(state.gear.elevator, MINE_BOTTOM_ROW - 1);
+  const column = elevatorColumn(state.gear);
+  if (rail <= 0 || column === null) return null;
+
+  const entersFromSurface =
+    dir === "down" && miner.row === 0 && miner.col === column;
+  const entersFromSide =
+    miner.row >= 1 &&
+    miner.row <= rail &&
+    ((dir === "left" && miner.col - 1 === column) ||
+      (dir === "right" && miner.col + 1 === column));
+  if (!entersFromSurface && !entersFromSide) return null;
+
+  clearJumpHover(state);
+  if (entersFromSide) {
+    setCell(
+      state,
+      column,
+      miner.row,
+      elevatorRailCell(cellAt(state, column, miner.row)),
+    );
+    miner.col = column;
+  }
+  if (miner.row >= rail) {
+    const pickup = pickupAlongElevator(state, miner.row, miner.row);
+    return {
+      ok: true,
+      dug: null,
+      dugOre: null,
+      found: null,
+      collapsed: false,
+      elevatorEntered: true,
+      ...pickup,
+    };
+  }
+  const ride = rideElevator(state, "down");
+  return ride.ok ? { ...ride, elevatorEntered: true } : ride;
 }
 
 export interface PlacedBeacon {
@@ -2386,6 +2484,8 @@ export interface TripResult {
   moves: number;
   /** Successful manual bag-drop actions. */
   bagDrops: number;
+  /** Successful elevator steps, including safe implicit shaft entry. */
+  elevatorRides: number;
   /** Condemned roofs re-propped before they fell (rescue events). */
   roofRescues: number;
   /** Span collapses that landed nearby while the miner lived. */
@@ -2415,9 +2515,16 @@ export function replayTrip(
   const state = createMine(seed, gear, consumables, diff);
   const capped = actions.slice(0, MAX_TRIP_MOVES);
   let bagDrops = 0;
+  let elevatorRides = 0;
   for (const action of capped) {
     const result = applyAction(state, action, context);
     if (result.ok && (result.droppedFromBag ?? 0) > 0) bagDrops++;
+    if (
+      result.ok &&
+      (result.elevatorEntered || action === "ride-down" || action === "ride-up")
+    ) {
+      elevatorRides++;
+    }
   }
   return {
     bankedCredits: state.miner.bankedCredits,
@@ -2432,6 +2539,7 @@ export function replayTrip(
     maxDepth: state.miner.maxDepth,
     moves: capped.length,
     bagDrops,
+    elevatorRides,
     roofRescues: state.tripStats.roofRescues,
     collapsesSurvived: state.tripStats.collapsesSurvived,
     used: { ...state.used },

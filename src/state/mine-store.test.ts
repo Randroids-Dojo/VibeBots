@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBunker, STARTER_BASE_PART_INVENTORY } from "@/sim/bunker";
 import {
   applyAction,
+  cellAt,
   createMine,
   DEFAULT_GEAR,
   exportDiff,
@@ -12,6 +13,7 @@ import {
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
+  type WorldDiff,
 } from "@/sim/mine";
 import { type AccountSaveSummary, useMineStore } from "./mine-store";
 
@@ -86,6 +88,7 @@ describe("mine store upgrade flow", () => {
       consumables: NO_CONSUMABLES,
       bought: NO_CONSUMABLES,
       balance: 10,
+      elevatorPlacementRequired: false,
       shopNote: null,
       tripIndex: 2,
       tripBaseDiff: [],
@@ -93,6 +96,7 @@ describe("mine store upgrade flow", () => {
       tick: 0,
       lastResult: null,
       lastAction: null,
+      resumeElevatorDown: false,
       cashOut: { state: "idle" },
       pendingBunker: null,
       activeSlot: 1,
@@ -173,6 +177,154 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(lastSaved?.[1] ?? "{}").consumables).toEqual(
       stock({ ladder: 2, plank: 1 }),
     );
+  });
+
+  it("places the first elevator rail at the chosen surface column", async () => {
+    const mine = createMine(123, DEFAULT_GEAR, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      moves: ["left"] as MineAction[],
+      balance: 30,
+    });
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        elevator: 1,
+        elevatorColumn: 17,
+        tripIndex: 3,
+        balance: 5,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator(17)).resolves.toBe(true);
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ column: 17 });
+    expect(store().gear).toMatchObject({
+      elevator: 1,
+      elevatorColumn: 17,
+    });
+    expect(store().mine.gear).toMatchObject({
+      elevator: 1,
+      elevatorColumn: 17,
+    });
+    expect(cellAt(store().mine, 17, 1)?.kind).toBe("empty");
+    expect(store().balance).toBe(5);
+    expect(store().tripIndex).toBe(3);
+    expect(store().shopNote).toBe("rail extended to 1 deep");
+    const savedTrip = JSON.parse(
+      vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
+    );
+    expect(savedTrip.tripIndex).toBe(3);
+  });
+
+  it("banks a completed dig before placing the first elevator rail", async () => {
+    const mine = createMine(123, DEFAULT_GEAR, NO_CONSUMABLES);
+    mine.miner.col = 17;
+    mine.miner.bankedCredits = 45;
+    useMineStore.setState({
+      mine,
+      moves: ["down", "up"] as MineAction[],
+      balance: 10,
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          credited: { credits: 45, parts: [], milestoneBonus: 0 },
+          balance: 55,
+          tripIndex: 3,
+          consumables: NO_CONSUMABLES,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          elevator: 1,
+          elevatorColumn: 17,
+          tripIndex: 4,
+          balance: 30,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator(17)).resolves.toBe(true);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/mine/bank");
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/elevator/upgrade");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ column: 17 });
+    expect(store().gear).toMatchObject({
+      elevator: 1,
+      elevatorColumn: 17,
+    });
+    expect(store().mine.gear).toMatchObject({
+      elevator: 1,
+      elevatorColumn: 17,
+    });
+    expect(store().mine.miner).toMatchObject({ col: 17, row: 0 });
+    expect(store().tripIndex).toBe(4);
+  });
+
+  it("moves an existing shaft for free without losing rail depth", async () => {
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: 4,
+      elevatorColumn: -5,
+    };
+    const baseDiff: WorldDiff = [
+      [-5, 1, { kind: "empty" }],
+      [17, 2, { kind: "empty", ladder: true }],
+    ];
+    const nextDiff: WorldDiff = [
+      [-5, 1, { kind: "empty" }],
+      [17, 1, { kind: "empty" }],
+      [17, 2, { kind: "empty" }],
+      [17, 3, { kind: "empty" }],
+      [17, 4, { kind: "empty" }],
+    ];
+    const mine = createMine(123, gear, NO_CONSUMABLES, baseDiff);
+    useMineStore.setState({
+      mine,
+      gear,
+      moves: ["left"] as MineAction[],
+      balance: 10,
+      elevatorPlacementRequired: true,
+      tripBaseDiff: baseDiff,
+    });
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        elevator: 4,
+        elevatorColumn: 17,
+        elevatorPlacementRequired: false,
+        relocated: true,
+        tripIndex: 3,
+        balance: 10,
+        diff: nextDiff,
+        refundedLadders: 1,
+        refundedSupports: { ladder: 1 },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator(17)).resolves.toBe(true);
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ column: 17 });
+    expect(store().gear).toMatchObject({
+      elevator: 4,
+      elevatorColumn: 17,
+    });
+    expect(store().mine.gear).toMatchObject({
+      elevator: 4,
+      elevatorColumn: 17,
+    });
+    expect(store().balance).toBe(10);
+    expect(store().elevatorPlacementRequired).toBe(false);
+    expect(store().consumables.ladder).toBe(1);
+    expect(cellAt(store().mine, -5, 1)?.kind).toBe("empty");
+    expect(cellAt(store().mine, 17, 4)?.kind).toBe("empty");
+    expect(store().shopNote).toBe(
+      "shaft moved to column 17; recovered 1 ladders and 0 planks",
+    );
+    expect(store().tripIndex).toBe(3);
   });
 
   it("claims and edits a locally clear bunker before banking", () => {
@@ -451,6 +603,33 @@ describe("mine store upgrade flow", () => {
     });
   });
 
+  it("starts the next trip from the authoritative cash-out diff", async () => {
+    const authoritativeDiff = [[17, 1, { kind: "empty" }]] as ReturnType<
+      typeof exportDiff
+    >;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        jsonResponse({
+          credited: { credits: 45, parts: [], milestoneBonus: 0 },
+          balance: 55,
+          tripIndex: 3,
+          diff: authoritativeDiff,
+          consumables: stock(),
+        }),
+      ),
+    );
+
+    await expect(store().submitCashOut()).resolves.toBe(true);
+
+    expect(store().tripBaseDiff).toEqual(authoritativeDiff);
+    expect(cellAt(store().mine, 17, 1)).toEqual({ kind: "empty" });
+    const savedTrip = JSON.parse(
+      vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
+    );
+    expect(savedTrip.baseDiff).toEqual(authoritativeDiff);
+  });
+
   it("spends and returns a surface-only trip to the base", async () => {
     const fetchMock = vi
       .fn()
@@ -545,6 +724,64 @@ describe("mine store upgrade flow", () => {
     expect(localStorage.removeItem).toHaveBeenCalledWith(
       "vibebots-mine-trip-v2",
     );
+  });
+
+  it("preserves restored elevator descent through the gear refresh", async () => {
+    const seed = 9295;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: 20,
+      elevatorColumn: START_COL,
+    };
+    const mine = createMine(seed, gear, STARTING_CONSUMABLES);
+    for (let row = 1; row <= gear.elevator; row++) {
+      setCell(mine, START_COL, row, { kind: "empty" });
+    }
+    const baseDiff = exportDiff(mine);
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify({
+        mineVersion: MINE_VERSION,
+        seed,
+        tripIndex: 4,
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        baseDiff,
+        moves: ["down", "ride-down"],
+      }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          jsonResponse({
+            activeSlot: 1,
+            seed,
+            tripIndex: 4,
+            diff: baseDiff,
+          }),
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({
+            gear,
+            consumables: STARTING_CONSUMABLES,
+            balance: 0,
+            elevatorPlacementRequired: true,
+          }),
+        ),
+    );
+
+    await store().loadWorld();
+
+    expect(store().mine.miner.row).toBe(12);
+    expect(store().resumeElevatorDown).toBe(true);
+
+    await store().loadGear();
+
+    expect(store().mine.miner.row).toBe(12);
+    expect(store().resumeElevatorDown).toBe(true);
+    expect(store().elevatorPlacementRequired).toBe(true);
   });
 
   it("clears a terminal saved trip replay and leaves movement usable", async () => {

@@ -370,10 +370,10 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     id: "tool-winch-builder",
     category: "tools",
     title: "Winch Builder",
-    description: "Buy the first elevator rail segment.",
+    description: "Buy the first elevator rail.",
     stamp: "EL1",
     metric: "elevatorDepth",
-    target: 12,
+    target: 1,
   },
   {
     id: "tool-fast-car",

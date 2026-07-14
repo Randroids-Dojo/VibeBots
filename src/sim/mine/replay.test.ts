@@ -8,7 +8,7 @@ import {
 import type { MineState } from "./cells";
 import type { MineConsumables } from "./consumables";
 import { MOVE_COST, START_COL } from "./digging";
-import { DEFAULT_GEAR, ELEVATOR_COL } from "./gear";
+import { DEFAULT_GEAR } from "./gear";
 import { oreDef } from "./ores";
 import {
   applyAction,
@@ -233,20 +233,25 @@ describe("mine replay orchestration", () => {
   it("runs elevator rides through replayTrip and counts successful moves", () => {
     const result = replayTrip(
       42,
-      ["left", "left", "left", "left", "left", "ride-down", "ride-up"],
-      { ...DEFAULT_GEAR, elevator: 12, elevatorSpeed: 1 },
+      ["right", "right", "ride-down", "ride-up"],
+      {
+        ...DEFAULT_GEAR,
+        elevator: 12,
+        elevatorColumn: 2,
+        elevatorSpeed: 1,
+      },
       stock({}),
     );
 
-    expect(result.moves).toBe(7);
+    expect(result.moves).toBe(4);
     expect(result.maxDepth).toBe(6);
     expect(result.diff).toEqual([
-      [-5, 1, { kind: "empty" }],
-      [-5, 2, { kind: "empty" }],
-      [-5, 3, { kind: "empty" }],
-      [-5, 4, { kind: "empty" }],
-      [-5, 5, { kind: "empty" }],
-      [-5, 6, { kind: "empty" }],
+      [2, 1, { kind: "empty" }],
+      [2, 2, { kind: "empty" }],
+      [2, 3, { kind: "empty" }],
+      [2, 4, { kind: "empty" }],
+      [2, 5, { kind: "empty" }],
+      [2, 6, { kind: "empty" }],
     ]);
   });
 
@@ -396,19 +401,24 @@ describe("mine replay orchestration", () => {
     ]);
     expect(cellAt(falling, START_COL + 1, 5)?.fallIn).toBe(FALL_DELAY_ACTIONS);
 
-    const elevator = createMine(42, { ...DEFAULT_GEAR, elevator: 12 });
-    elevator.miner.col = ELEVATOR_COL;
-    setCell(elevator, ELEVATOR_COL, 1, { kind: "dirt", hp: 1 });
-    setCell(elevator, ELEVATOR_COL + 1, 5, {
+    const shaftCol = 3;
+    const elevator = createMine(42, {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
+    });
+    elevator.miner.col = shaftCol;
+    setCell(elevator, shaftCol, 1, { kind: "dirt", hp: 1 });
+    setCell(elevator, shaftCol + 1, 5, {
       kind: "boulder",
       fallIn: FALL_DELAY_ACTIONS,
     });
-    setCell(elevator, ELEVATOR_COL + 1, 6, { kind: "empty" });
-    setCell(elevator, ELEVATOR_COL + 1, 7, { kind: "dirt" });
+    setCell(elevator, shaftCol + 1, 6, { kind: "empty" });
+    setCell(elevator, shaftCol + 1, 7, { kind: "dirt" });
     const ride = applyAction(elevator, "ride-down");
     expect(ride.ok).toBe(true);
     expect(elevator.miner.row).toBe(6);
-    expect(cellAt(elevator, ELEVATOR_COL + 1, 5)?.fallIn).toBe(
+    expect(cellAt(elevator, shaftCol + 1, 5)?.fallIn).toBe(
       FALL_DELAY_ACTIONS - 1,
     );
   });

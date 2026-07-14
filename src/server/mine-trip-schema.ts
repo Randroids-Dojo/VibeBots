@@ -6,6 +6,7 @@ import { maxGearLevel } from "@/sim/mine";
 // same client-supplied trip payload, so the schema lives here to keep them in
 // lockstep when gear tracks or consumables change.
 const DB_INT_MAX = 2_147_483_647;
+const MINE_COLUMN_LIMIT = 100_000;
 
 export const mineConsumableCount = z.number().int().min(0).max(DB_INT_MAX);
 
@@ -29,6 +30,13 @@ export const mineGearSchema = z.object({
   cargo: gearLevel("cargo"),
   lantern: gearLevel("lantern"),
   elevator: z.number().int().min(0).max(100000),
+  elevatorColumn: z
+    .number()
+    .int()
+    .min(-MINE_COLUMN_LIMIT)
+    .max(MINE_COLUMN_LIMIT)
+    .nullable()
+    .optional(),
   warpcoil: gearLevel("warpcoil"),
   blast: gearLevel("blast").optional(),
   elevatorSpeed: gearLevel("elevatorSpeed").optional(),

@@ -60,9 +60,11 @@ import {
   dropOreAction,
   dynamitePreviewCells,
   dynamiteTier,
-  ELEVATOR_COL,
+  elevatorColumn,
+  elevatorRailPrice,
   findPortalBeacons,
   MAX_BEACONS,
+  MINE_BOTTOM_ROW,
   MINE_VERSION,
   type MineAction,
   type MineCoord,
@@ -324,6 +326,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
+  "Tip: Drop into your shaft or walk into its rail underground to ride safely to the bottom.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
   "Tip: One cloud save on two devices? Sync when prompted; runs never merge.",
@@ -1156,8 +1159,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   useMinePerformanceSampling(appRelease);
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
+  const miner = mine.miner;
   const lastResult = useMineStore((s) => s.lastResult);
   const lastAction = useMineStore((s) => s.lastAction);
+  const resumeElevatorDown = useMineStore((s) => s.resumeElevatorDown);
   const move = useMineStore((s) => s.move);
   const seed = useMineStore((s) => s.seed);
   const tripIndex = useMineStore((s) => s.tripIndex);
@@ -1197,6 +1202,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const balance = useMineStore((s) => s.balance);
   const playerLevel = useMineStore((s) => s.playerLevel);
   const deepestDepth = useMineStore((s) => s.deepestDepth);
+  const elevatorPlacementRequired = useMineStore(
+    (s) => s.elevatorPlacementRequired,
+  );
   const shopNote = useMineStore((s) => s.shopNote);
   const buyConsumable = useMineStore((s) => s.buyConsumable);
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
@@ -1227,6 +1235,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [collectSelection, setCollectSelection] = useState<string[]>([]);
   const [elevatorAutoDir, setElevatorAutoDir] = useState<
     "ride-down" | "ride-up" | null
+  >(null);
+  const [elevatorPlacementMode, setElevatorPlacementMode] = useState(false);
+  const [elevatorPurchasePending, setElevatorPurchasePending] = useState(false);
+  const [elevatorPlacementError, setElevatorPlacementError] = useState<
+    string | null
   >(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // "Replay bunker tutorial" confirmation: shows an inline "next
@@ -1371,6 +1384,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const baseReturnButtonRef = useRef<HTMLButtonElement | null>(null);
   const baseReturnMenuRef = useRef<HTMLElement | null>(null);
   const stallSheetRef = useRef<HTMLElement | null>(null);
+  const elevatorPlacementRef = useRef<HTMLElement | null>(null);
+  const placeElevatorAtCurrentColumnRef = useRef<() => void>(() => {});
+  const previousElevatorPlacementModeRef = useRef(false);
   const dynamiteMenuRef = useRef<HTMLDivElement | null>(null);
   const recoveryMenuRef = useRef<HTMLDivElement | null>(null);
   const lastCashOutStateRef = useRef(cashOut.state);
@@ -1866,7 +1882,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const performDirectionAction = useCallback(
     (dir: Direction, isAutoRepeat: boolean): boolean => {
       if (!mineSceneReady) return false;
-      if (elevatorAutoDir) return false;
+      if (elevatorAutoDir || elevatorPurchasePending) return false;
       const state = useMineStore.getState();
       if (state.lastResult?.ok && state.lastResult.collapsed) return false;
       // A held "up" may keep mining the ceiling, but never plants a
@@ -1877,9 +1893,20 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         return false;
       }
       state.move(dir);
+      const result = useMineStore.getState().lastResult;
+      if (result?.ok && result.elevatorEntered && !result.collapsed) {
+        const nextMine = useMineStore.getState().mine;
+        if (
+          nextMine.miner.row <
+          Math.min(nextMine.gear.elevator, MINE_BOTTOM_ROW - 1)
+        ) {
+          setElevatorAutoDir("ride-down");
+        }
+        return false;
+      }
       return true;
     },
-    [elevatorAutoDir, mineSceneReady],
+    [elevatorAutoDir, elevatorPurchasePending, mineSceneReady],
   );
 
   directionActionRef.current = performDirectionAction;
@@ -1894,23 +1921,35 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   const fireJump = useCallback(() => {
     if (!mineSceneReady) return;
-    if (elevatorAutoDir) return;
+    if (elevatorAutoDir || elevatorPurchasePending) return;
     if (terminalMineState || creditsOpen) return;
     const state = useMineStore.getState();
     if (!canJump(state.mine)) return;
     state.move("jump");
-  }, [creditsOpen, elevatorAutoDir, mineSceneReady, terminalMineState]);
+  }, [
+    creditsOpen,
+    elevatorAutoDir,
+    elevatorPurchasePending,
+    mineSceneReady,
+    terminalMineState,
+  ]);
 
   // Shift + Down (F-059): drop through the plank underfoot. Only fires when
   // a plank is actually there, so it never mines the way a plain Down does.
   const firePlankDrop = useCallback(() => {
     if (!mineSceneReady) return;
-    if (elevatorAutoDir) return;
+    if (elevatorAutoDir || elevatorPurchasePending) return;
     if (terminalMineState || creditsOpen) return;
     const state = useMineStore.getState();
     if (!canDropThroughPlank(state.mine)) return;
     state.move("down");
-  }, [creditsOpen, elevatorAutoDir, mineSceneReady, terminalMineState]);
+  }, [
+    creditsOpen,
+    elevatorAutoDir,
+    elevatorPurchasePending,
+    mineSceneReady,
+    terminalMineState,
+  ]);
 
   const releaseDirection = useCallback((dir: Direction | null) => {
     directionCadenceRef.current?.release(dir);
@@ -1926,6 +1965,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     if (
       !mineSceneReady ||
       elevatorAutoDir ||
+      elevatorPurchasePending ||
       terminalMineState ||
       creditsOpen ||
       fpBunkerActive
@@ -1959,6 +1999,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         else releaseDirection(prev);
       }
       if (select && !gamepadSelectRef.current) {
+        if (elevatorPlacementMode) {
+          placeElevatorAtCurrentColumnRef.current();
+          gamepadSelectRef.current = select;
+          frame = requestAnimationFrame(pollGamepadMove);
+          return;
+        }
         const state = useMineStore.getState();
         const surfaceMiner = state.mine.miner;
         const dest =
@@ -1981,6 +2027,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [
     creditsOpen,
     elevatorAutoDir,
+    elevatorPlacementMode,
+    elevatorPurchasePending,
     fireDirection,
     fireJump,
     fpBunkerActive,
@@ -1994,6 +2042,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     if (
       mineSceneReady &&
       !elevatorAutoDir &&
+      !elevatorPurchasePending &&
       !creditsOpen &&
       !terminalMineState &&
       !fpBunkerActive
@@ -2004,6 +2053,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     cancelMovementControls,
     creditsOpen,
     elevatorAutoDir,
+    elevatorPurchasePending,
     fpBunkerActive,
     mineSceneReady,
     terminalMineState,
@@ -2022,6 +2072,55 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBaseReturnConfirm(false);
   }, [mine.miner.col]);
 
+  useEffect(() => {
+    if (!elevatorPlacementMode) return;
+    if (
+      (gear.elevator <= 0 || elevatorPlacementRequired) &&
+      miner.row === 0 &&
+      !terminalMineState
+    ) {
+      return;
+    }
+    setElevatorPlacementMode(false);
+    setElevatorPurchasePending(false);
+    setElevatorPlacementError(null);
+  }, [
+    elevatorPlacementMode,
+    elevatorPlacementRequired,
+    gear.elevator,
+    miner.row,
+    terminalMineState,
+  ]);
+
+  useEffect(() => {
+    if (!elevatorPlacementMode) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (bunkerToolKeyIgnored(event)) return;
+      if (elevatorPurchasePending) return;
+      event.preventDefault();
+      setElevatorPlacementMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [elevatorPlacementMode, elevatorPurchasePending]);
+
+  useEffect(() => {
+    if (elevatorPlacementMode) {
+      previousElevatorPlacementModeRef.current = true;
+      const frame = requestAnimationFrame(() =>
+        elevatorPlacementRef.current?.focus(),
+      );
+      return () => cancelAnimationFrame(frame);
+    }
+    if (!previousElevatorPlacementModeRef.current) return;
+    previousElevatorPlacementModeRef.current = false;
+    const frame = requestAnimationFrame(() =>
+      settingsButtonRef.current?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [elevatorPlacementMode]);
+
   const dismissFloatingMenus = useCallback(() => {
     setSettingsOpen(false);
     setBaseReturnOpen(false);
@@ -2031,6 +2130,46 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setRecoveryMenuOpen(false);
     setAbandonArmed(false);
   }, []);
+
+  const chooseElevatorShaft = useCallback(() => {
+    setOpenStallCol(null);
+    setCollectMode(false);
+    setBunkerClaimMode(false);
+    setBunkerPanelOpen(false);
+    setElevatorPlacementError(null);
+    setElevatorPlacementMode(true);
+  }, []);
+
+  const placeElevatorAtCurrentColumn = useCallback(async () => {
+    if (elevatorPurchasePending || miner.row !== 0) return;
+    setElevatorPlacementError(null);
+    setElevatorPurchasePending(true);
+    try {
+      const placed = await buyElevator(miner.col);
+      if (placed) setElevatorPlacementMode(false);
+      else {
+        setElevatorPlacementError(
+          useMineStore.getState().shopNote ??
+            "The elevator could not be placed.",
+        );
+      }
+    } finally {
+      setElevatorPurchasePending(false);
+    }
+  }, [buyElevator, elevatorPurchasePending, miner.col, miner.row]);
+  placeElevatorAtCurrentColumnRef.current = () => {
+    void placeElevatorAtCurrentColumn();
+  };
+
+  const purchaseNextElevatorRail = useCallback(async () => {
+    if (elevatorPurchasePending) return;
+    setElevatorPurchasePending(true);
+    try {
+      await buyElevator();
+    } finally {
+      setElevatorPurchasePending(false);
+    }
+  }, [buyElevator, elevatorPurchasePending]);
 
   const isInsideOpenFloatingMenu = useCallback(
     (target: EventTarget | null, path: readonly EventTarget[]) => {
@@ -2158,6 +2297,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       // column (F-061). A focused button keeps its own activation.
       if (event.key === "Enter") {
         if (targetEl?.closest("button,a,[role='button']")) return;
+        if (elevatorPlacementMode) {
+          event.preventDefault();
+          placeElevatorAtCurrentColumnRef.current();
+          return;
+        }
         const state = useMineStore.getState();
         const surfaceMiner = state.mine.miner;
         const dest =
@@ -2220,6 +2364,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     fireDirection,
     fireJump,
     firePlankDrop,
+    elevatorPlacementMode,
     fpBunkerActive,
     releaseDirection,
     router,
@@ -2227,7 +2372,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     tvMode,
   ]);
 
-  const miner = mine.miner;
   const activeRaidXpLocator = raidXpLocator(activeBunkerRaid, miner);
   const currentCell = cellAt(mine, miner.col, miner.row);
   const stratum = stratumAt(miner.row);
@@ -2316,7 +2460,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     !bunkerCanvasEditing &&
     !fpBunkerActive;
   const jumpEnabled =
-    jumpButtonVisible && mineSceneReady && !elevatorAutoDir && !creditsOpen;
+    jumpButtonVisible &&
+    mineSceneReady &&
+    !elevatorAutoDir &&
+    !elevatorPurchasePending &&
+    !creditsOpen;
   // TV deck center button: on a destination column it walks into the
   // building (the remote's Select-click stand-in for the keyboard Enter);
   // everywhere else it fires the jump jets once those unlock.
@@ -2336,14 +2484,24 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const beaconRange = warpRange(mine.gear);
   const beaconDepthAllowed = miner.row <= beaconRange;
   const beaconButtonDisabled = !!elevatorAutoDir || !beaconDepthAllowed;
-  const minerOnElevatorRail = miner.col === ELEVATOR_COL;
+  const ownedElevatorColumn = elevatorColumn(mine.gear);
+  const elevatorPurchaseFunds =
+    balance === null ? null : balance + miner.bankedCredits;
+  const elevatorPlacementIsFree =
+    elevatorPlacementRequired && gear.elevator > 0;
+  const elevatorPlacementVisible =
+    elevatorPlacementMode &&
+    miner.row === 0 &&
+    (gear.elevator <= 0 || elevatorPlacementRequired);
+  const usableElevatorDepth = Math.min(mine.gear.elevator, MINE_BOTTOM_ROW - 1);
+  const minerOnElevatorRail = miner.col === ownedElevatorColumn;
   const elevatorAvailable =
     mine.gear.elevator > 0 &&
     minerOnElevatorRail &&
     miner.row >= 0 &&
-    miner.row <= mine.gear.elevator;
+    miner.row <= usableElevatorDepth;
   const canRideElevatorDown =
-    elevatorAvailable && miner.row < mine.gear.elevator;
+    elevatorAvailable && miner.row < usableElevatorDepth;
   const canRideElevatorUp = elevatorAvailable && miner.row > 0;
   const salvagedSupportCount =
     lastResult?.ok && lastResult.supportCollected
@@ -2807,10 +2965,44 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [activeBunker, enterFpBunker, fpBunkerActive]);
 
   useEffect(() => {
+    if (
+      !resumeElevatorDown ||
+      !worldLoaded ||
+      !mineSceneReady ||
+      !mineCanvasPainted
+    )
+      return;
+    useMineStore.setState({ resumeElevatorDown: false });
+    if (
+      terminalMineState ||
+      cashOut.state === "pending" ||
+      !minerOnElevatorRail ||
+      miner.row >= usableElevatorDepth
+    ) {
+      return;
+    }
+    setElevatorAutoDir("ride-down");
+  }, [
+    cashOut.state,
+    miner.row,
+    minerOnElevatorRail,
+    mineCanvasPainted,
+    mineSceneReady,
+    resumeElevatorDown,
+    terminalMineState,
+    usableElevatorDepth,
+    worldLoaded,
+  ]);
+
+  useEffect(() => {
     if (!elevatorAutoDir) return;
+    if (terminalMineState) {
+      setElevatorAutoDir(null);
+      return;
+    }
     const atEnd =
       elevatorAutoDir === "ride-down"
-        ? !minerOnElevatorRail || miner.row >= mine.gear.elevator
+        ? !minerOnElevatorRail || miner.row >= usableElevatorDepth
         : !minerOnElevatorRail || miner.row <= 0;
     if (atEnd || cashOut.state === "pending") {
       setElevatorAutoDir(null);
@@ -2827,6 +3019,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     miner.row,
     minerOnElevatorRail,
     move,
+    terminalMineState,
+    usableElevatorDepth,
   ]);
 
   useEffect(() => {
@@ -3016,6 +3210,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         : null;
   const movementTouchEnabled =
     mineSceneReady &&
+    !elevatorPurchasePending &&
     !collectMode &&
     !bunkerCanvasEditing &&
     !creditsOpen &&
@@ -3751,9 +3946,87 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           {activeRaidXpLocator.label}
         </div>
       )}
+      {elevatorPlacementVisible && (
+        <section
+          ref={elevatorPlacementRef}
+          tabIndex={-1}
+          aria-label="Place elevator shaft"
+          aria-live="polite"
+          data-testid="elevator-placement"
+          style={{
+            ...surfaceActionPromptAnchorStyle,
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: 8,
+            alignItems: "center",
+            minWidth: "min(360px, calc(100vw - 24px))",
+            padding: 10,
+            borderRadius: 14,
+            border: "2px solid #9aa7ff",
+            background: "rgba(17, 21, 31, 0.95)",
+            color: "#e6e8ee",
+            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
+          }}
+        >
+          <span style={{ gridColumn: "1 / -1", fontWeight: 800 }}>
+            {elevatorPlacementIsFree
+              ? `Move your ${gear.elevator}-row shaft to column ${miner.col}. Your old shaft stays open.`
+              : `Shaft column ${miner.col}. Walk to any surface spot, then build.`}
+          </span>
+          {elevatorPlacementError && (
+            <span
+              role="status"
+              style={{ gridColumn: "1 / -1", color: "#ff9b9b" }}
+            >
+              {elevatorPlacementError}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void placeElevatorAtCurrentColumn()}
+            disabled={
+              elevatorPurchasePending ||
+              cashOut.state === "pending" ||
+              (!elevatorPlacementIsFree &&
+                (elevatorPurchaseFunds === null ||
+                  elevatorPurchaseFunds < elevatorRailPrice(0)))
+            }
+            style={{
+              ...sheetButtonStyle(
+                !elevatorPurchasePending &&
+                  cashOut.state !== "pending" &&
+                  (elevatorPlacementIsFree ||
+                    (elevatorPurchaseFunds !== null &&
+                      elevatorPurchaseFunds >= elevatorRailPrice(0))),
+              ),
+              minHeight: 42,
+            }}
+          >
+            {elevatorPurchasePending
+              ? elevatorPlacementIsFree
+                ? "Moving..."
+                : "Building..."
+              : elevatorPlacementIsFree
+                ? "Move here: Free"
+                : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${elevatorRailPrice(0)} vibes`}
+          </button>
+          <button
+            type="button"
+            onClick={() => setElevatorPlacementMode(false)}
+            disabled={elevatorPurchasePending}
+            style={{
+              ...sheetButtonStyle(!elevatorPurchasePending),
+              minHeight: 42,
+              minWidth: 76,
+            }}
+          >
+            Cancel
+          </button>
+        </section>
+      )}
       {/* Standing on a stall shows a prompt; the menu opens on tap, not
           on walk-by. Tapping again after close needs another tap. */}
-      {stall && openStallCol !== miner.col && (
+      {!elevatorPlacementMode && stall && openStallCol !== miner.col && (
         <button
           type="button"
           aria-label={`Open ${stall.name}`}
@@ -3780,7 +4053,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         </button>
       )}
       {/* Destination buildings route to another screen on tap. */}
-      {destination && (
+      {!elevatorPlacementMode && destination && (
         <button
           type="button"
           aria-label={`Enter ${destination.name}`}
@@ -3808,7 +4081,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           </span>
         </button>
       )}
-      {portalHere && !activePortalHere && (
+      {!elevatorPlacementMode && portalHere && !activePortalHere && (
         <button
           type="button"
           aria-label={`Activate ${portalHere.name}`}
@@ -3836,7 +4109,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           </span>
         </button>
       )}
-      {activePortalHere && (
+      {!elevatorPlacementMode && activePortalHere && (
         <section
           aria-label={`${activePortalHere.name} portal`}
           style={{
@@ -3943,7 +4216,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             Enter bunker
           </button>
         )}
-      {stall && openStallCol === miner.col && (
+      {!elevatorPlacementMode && stall && openStallCol === miner.col && (
         <StallMenu
           stall={stall}
           mine={mine}
@@ -3954,6 +4227,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           beaconLimit={bunkerPlayer?.beaconLimit ?? MAX_BEACONS}
           shopNote={shopNote}
           cashOutPending={cashOut.state === "pending"}
+          elevatorPurchasePending={elevatorPurchasePending}
+          elevatorPlacementRequired={elevatorPlacementRequired}
           onBuyConsumable={(item, quantity) =>
             void buyConsumable(item, quantity)
           }
@@ -3961,7 +4236,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             void buyBasePart(partId, quantity)
           }
           onBuyGear={(track) => void buyGearUpgrade(track)}
-          onBuyElevator={() => void buyElevator()}
+          onBuyElevator={() => void purchaseNextElevatorRail()}
+          onChooseElevatorShaft={chooseElevatorShaft}
           onRide={startElevatorRide}
           onClose={() => setOpenStallCol(null)}
           sheetRef={stallSheetRef}
@@ -3972,7 +4248,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           attributes are the stable test surface; copy can change. */}
       <section
         aria-label="Mine status"
+        data-col={miner.col}
         data-depth={miner.row}
+        data-elevator-col={ownedElevatorColumn ?? ""}
+        data-elevator-depth={mine.gear.elevator}
+        data-elevator-placement={elevatorPlacementMode ? "true" : "false"}
+        data-elevator-riding={elevatorAutoDir ?? ""}
         data-scene-ready={mineSceneReady ? "true" : "false"}
         data-scene-painted={mineCanvasPainted ? "true" : "false"}
         data-fp-mode={fpBunkerActive ? "1" : "0"}

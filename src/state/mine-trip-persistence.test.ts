@@ -161,6 +161,45 @@ describe("mine trip persistence", () => {
     expect(replay.terminalReplayCollapsed).toBe(false);
   });
 
+  it("signals a restored automatic elevator descent until the rail bottom", () => {
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: 20,
+      elevatorColumn: START_COL,
+    };
+    const mine = createMine(444, gear, STARTING_CONSUMABLES);
+    for (let row = 1; row <= gear.elevator; row++) {
+      setCell(mine, START_COL, row, { kind: "empty" });
+    }
+    const baseDiff = exportDiff(mine);
+
+    const midway = replaySavedTrip(
+      savedTrip({
+        seed: 444,
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        baseDiff,
+        moves: ["down", "ride-down"] as MineAction[],
+      }),
+      baseDiff,
+    );
+    expect(midway.mine.miner.row).toBe(12);
+    expect(midway.resumeElevatorDown).toBe(true);
+
+    const bottom = replaySavedTrip(
+      savedTrip({
+        seed: 444,
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        baseDiff,
+        moves: ["down", "ride-down", "ride-down", "ride-down"] as MineAction[],
+      }),
+      baseDiff,
+    );
+    expect(bottom.mine.miner.row).toBe(20);
+    expect(bottom.resumeElevatorDown).toBe(false);
+  });
+
   it("clears pending bunker state for terminal replays", () => {
     const seed = 6161;
     const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);

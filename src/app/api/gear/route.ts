@@ -27,6 +27,7 @@ export async function GET(): Promise<Response> {
           cargo: 1,
           lantern: 1,
           elevator: 0,
+          elevatorColumn: null,
           warpcoil: 1,
           blast: 1,
           elevatorSpeed: 1,
@@ -37,6 +38,9 @@ export async function GET(): Promise<Response> {
       ? mineConsumablesFromProfile(row)
       : { dynamite: 0, rope: 0, ladder: 0, plank: 0, beacon: 0 },
     balance: row?.emeralds ?? 0,
+    elevatorPlacementRequired: Boolean(
+      row && row.elevator_depth > 0 && !row.elevator_placement_chosen_at,
+    ),
     playerLevel: progress.level,
     defenseXp: progress.currentXp,
     deepestDepth: row?.deepest_depth ?? 0,

@@ -7,6 +7,7 @@ import {
   BATTERY_CHARGE,
   biomeAt,
   blastRadius,
+  CONSUMABLE_PRICES,
   canDigRock,
   canJump,
   canPlacePlank,
@@ -27,9 +28,8 @@ import {
   dynamiteBlastCells,
   dynamitePreviewCells,
   dynamiteTier,
-  ELEVATOR_COL,
-  ELEVATOR_SEGMENT_ROWS,
-  elevatorSegmentPrice,
+  elevatorColumn,
+  elevatorRailPrice,
   elevatorSpeedRows,
   exportDiff,
   FALL_DELAY_ACTIONS,
@@ -42,9 +42,11 @@ import {
   gearTrackDef,
   gearUpgradeRequirements,
   HAZARD_FREE_ROWS,
+  installElevatorRailInDiff,
   isVisible,
   LADDER_RECOVERY_FLOOR,
   LANTERN_RADIUS,
+  LEGACY_ELEVATOR_COL,
   LIGHT_RADIUS,
   lanternDistance,
   lightRadius,
@@ -78,7 +80,6 @@ import {
   ROCK_DIG_COST,
   ROCK_FREE_ROWS,
   recallRopeRange,
-  refundRailSupportsInDiff,
   renameBeaconAction,
   replayTrip,
   returnEnergyCost,
@@ -283,7 +284,7 @@ describe("mine", () => {
       elevator: MINE_BOTTOM_ROW + 200,
       elevatorSpeed: 10,
     });
-    lift.miner.col = ELEVATOR_COL;
+    lift.miner.col = LEGACY_ELEVATOR_COL;
     for (let i = 0; i < 200; i++) applyAction(lift, "ride-down");
     expect(lift.miner.row).toBe(MINE_BOTTOM_ROW - 1);
     expect(applyAction(lift, "ride-down")).toEqual({
@@ -712,28 +713,39 @@ describe("mine", () => {
       reason: "no-elevator",
     });
 
-    const rail = ELEVATOR_SEGMENT_ROWS;
-    const gear = { ...DEFAULT_GEAR, elevator: rail };
+    const shaftCol = 8;
+    const rail = 12;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: rail,
+      elevatorColumn: shaftCol,
+    };
     const state = createMine(229, gear);
-    expect(state.miner.col).not.toBe(ELEVATOR_COL);
+    expect(state.miner.col).not.toBe(shaftCol);
     expect(applyAction(state, "ride-down")).toEqual({
       ok: false,
       reason: "blocked",
     });
-    // Walk to the elevator. Rides are free and bore the rail span as they go.
-    while (state.miner.col > ELEVATOR_COL) step(state, "left");
+    // Walk to the placed shaft. Rides are free and bore the rail span.
+    while (state.miner.col < shaftCol) step(state, "right");
     const energyBeforeRide = state.miner.energy;
+    setCell(state, shaftCol, 3, {
+      kind: "dirt",
+      drop: { coal: 1 },
+    });
     // A ride covers the car's speed in rows; the UI repeats rides
     // automatically to the rail end.
     const carRows = elevatorSpeedRows(gear);
     expect(carRows).toBe(6);
     const ride = applyAction(state, "ride-down");
     expect(ride.ok).toBe(true);
+    expect(ride.ok && ride.pickedUp).toBe(1);
     expect(state.miner.row).toBe(carRows);
-    expect(state.miner.col).toBe(ELEVATOR_COL);
+    expect(state.miner.col).toBe(shaftCol);
+    expect(state.miner.carried.coal).toBe(1);
     expect(state.miner.energy).toBe(energyBeforeRide);
     for (let r = 1; r <= carRows; r++) {
-      expect(cellAt(state, ELEVATOR_COL, r)?.kind).toBe("empty");
+      expect(cellAt(state, shaftCol, r)?.kind).toBe("empty");
     }
     // Keep riding to the bottom; it stops there and never overshoots.
     let guard = 0;
@@ -745,25 +757,25 @@ describe("mine", () => {
       reason: "blocked",
     });
     for (let r = 1; r <= rail; r++) {
-      expect(cellAt(state, ELEVATOR_COL, r)?.kind).toBe("empty");
+      expect(cellAt(state, shaftCol, r)?.kind).toBe("empty");
     }
     // Off-elevator rides are refused even inside owned depth.
-    state.miner.col = ELEVATOR_COL + 3;
+    state.miner.col = shaftCol + 3;
     expect(applyAction(state, "ride-up")).toEqual({
       ok: false,
       reason: "blocked",
     });
-    state.miner.col = ELEVATOR_COL;
+    state.miner.col = shaftCol;
     // Ride back up from the current elevator floor: free, banks only at the surface.
     state.miner.carried = { coal: 2 };
     applyAction(state, "ride-up");
     expect(state.miner.row).toBeGreaterThan(0);
-    expect(state.miner.col).toBe(ELEVATOR_COL);
+    expect(state.miner.col).toBe(shaftCol);
     expect(state.miner.bankedCredits).toBe(0);
     guard = 0;
     while (state.miner.row > 0 && guard++ < 50) applyAction(state, "ride-up");
     expect(state.miner.row).toBe(0);
-    expect(state.miner.col).toBe(ELEVATOR_COL);
+    expect(state.miner.col).toBe(shaftCol);
     expect(state.miner.bankedCredits).toBe(2);
     expect(applyAction(state, "ride-up")).toEqual({
       ok: false,
@@ -771,10 +783,97 @@ describe("mine", () => {
     });
   });
 
+  it("safely boards from the surface and rides down before gravity", () => {
+    const shaftCol = 3;
+    const rail = 14;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: rail,
+      elevatorColumn: shaftCol,
+    };
+    const state = createMine(230, gear);
+    state.miner.col = shaftCol;
+    for (let row = 1; row <= rail; row++) {
+      setCell(state, shaftCol, row, { kind: "empty" });
+    }
+    const energyBefore = state.miner.energy;
+
+    const entered = step(state, "down");
+
+    expect(entered.ok && entered.elevatorEntered).toBe(true);
+    expect(entered.ok && entered.fallFatal).toBeUndefined();
+    expect(entered.ok && entered.fell).toBeUndefined();
+    expect(state.miner).toMatchObject({ col: shaftCol, row: 6 });
+    expect(state.miner.energy).toBe(energyBefore);
+  });
+
+  it("safely boards laterally from either side of an owned rail row", () => {
+    const shaftCol = 11;
+    const rail = 12;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: rail,
+      elevatorColumn: shaftCol,
+    };
+    const moving = createMine(231, gear);
+    moving.miner.col = shaftCol - 1;
+    moving.miner.row = 4;
+    setCell(moving, shaftCol - 1, 4, { kind: "empty" });
+    setCell(moving, shaftCol, 4, {
+      kind: "empty",
+      beacon: true,
+      drop: { coal: 2 },
+      bag: { ores: { copper: 1 }, salvageCredits: 3, parts: ["drill"] },
+    });
+    const entered = step(moving, "right");
+    expect(entered.ok && entered.elevatorEntered).toBe(true);
+    expect(entered.ok && entered.fallFatal).toBeUndefined();
+    expect(entered.ok && entered.pickedUp).toBe(3);
+    expect(entered.ok && entered.pickedUpBag).toEqual({
+      value: 4,
+      parts: 1,
+    });
+    expect(moving.miner).toMatchObject({ col: shaftCol, row: 10 });
+    expect(moving.miner.carried).toEqual({ coal: 2, copper: 1 });
+    expect(moving.miner.carriedSalvageCredits).toBe(3);
+    expect(moving.miner.carriedParts).toEqual(["drill"]);
+    expect(cellAt(moving, shaftCol, 4)).toEqual({
+      kind: "empty",
+      beacon: true,
+    });
+    const payloadCells = [...moving.cells.values()];
+    expect(
+      payloadCells.reduce((total, cell) => total + (cell.drop?.coal ?? 0), 0),
+    ).toBe(0);
+    expect(payloadCells.some((cell) => cell.bag)).toBe(false);
+
+    const bottom = createMine(232, gear);
+    bottom.miner.col = shaftCol + 1;
+    bottom.miner.row = rail;
+    setCell(bottom, shaftCol + 1, rail, { kind: "empty" });
+    setCell(bottom, shaftCol, rail, {
+      kind: "empty",
+      drop: { coal: 1 },
+    });
+    const boardedAtBottom = step(bottom, "left");
+    expect(boardedAtBottom.ok && boardedAtBottom.elevatorEntered).toBe(true);
+    expect(boardedAtBottom.ok && boardedAtBottom.fallFatal).toBeUndefined();
+    expect(boardedAtBottom.ok && boardedAtBottom.pickedUp).toBe(1);
+    expect(bottom.miner).toMatchObject({ col: shaftCol, row: rail });
+    expect(bottom.miner.carried.coal).toBe(1);
+    expect(cellAt(bottom, shaftCol, rail)?.drop).toBeUndefined();
+  });
+
   it("replays elevator trips identically", () => {
-    const gear = { ...DEFAULT_GEAR, elevator: ELEVATOR_SEGMENT_ROWS };
+    const shaftCol = 2;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
+    };
     const actions: MineAction[] = [
-      ...Array.from({ length: 5 }, () => "left" as const),
+      "right",
+      "right",
       "ride-down",
       "down",
       "ride-up",
@@ -787,17 +886,24 @@ describe("mine", () => {
     expect(replayTrip(233, actions, gear)).toEqual(replayed);
   });
 
-  it("prices rail segments progressively through the row-1000 goal", () => {
-    expect(elevatorSegmentPrice(1)).toBe(45);
-    expect(elevatorSegmentPrice(2)).toBe(80);
-    expect(elevatorSegmentPrice(3)).toBe(130);
-    expect(elevatorSegmentPrice(12)).toBe(800);
-    expect(elevatorSegmentPrice(34)).toBe(3315);
-    expect(
-      elevatorSegmentPrice(
-        Math.ceil(MINE_BALANCE_MAX_ROW / ELEVATOR_SEGMENT_ROWS),
-      ),
-    ).toBe(7945);
+  it("counts safe shaft entry as an elevator ride", () => {
+    const trip = replayTrip(234, ["down"], {
+      ...DEFAULT_GEAR,
+      elevator: 1,
+      elevatorColumn: START_COL,
+    });
+
+    expect(trip.elevatorRides).toBe(1);
+  });
+
+  it("prices each rail row as a premium transport investment", () => {
+    expect(elevatorRailPrice(0)).toBe(25);
+    expect(elevatorRailPrice(0)).toBeGreaterThan(CONSUMABLE_PRICES.ladder * 10);
+    expect(elevatorRailPrice(1)).toBe(25);
+    expect(elevatorRailPrice(9)).toBe(25);
+    expect(elevatorRailPrice(10)).toBe(30);
+    expect(elevatorRailPrice(99)).toBe(70);
+    expect(elevatorRailPrice(MINE_BALANCE_MAX_ROW - 1)).toBe(520);
   });
 
   it("plants multiple beacons and warps to a chosen target (REQ-029)", () => {
@@ -1085,6 +1191,18 @@ describe("mine", () => {
     expect(normalized.battery).toBe(3);
     expect(normalized.recall).toBe(1);
     expect(createMine(3, normalized).miner.energy).toBe(BATTERY_CHARGE[2]);
+  });
+
+  it("keeps new shafts unplaced and restores the legacy rail column", () => {
+    expect(elevatorColumn(DEFAULT_GEAR)).toBeNull();
+    const legacy = { ...DEFAULT_GEAR, elevator: 8 };
+    delete legacy.elevatorColumn;
+    expect(elevatorColumn(legacy)).toBe(LEGACY_ELEVATOR_COL);
+    expect(normalizeGear(legacy).elevatorColumn).toBe(LEGACY_ELEVATOR_COL);
+
+    const placed = { ...DEFAULT_GEAR, elevator: 1, elevatorColumn: 23 };
+    expect(elevatorColumn(placed)).toBe(23);
+    expect(normalizeGear(placed).elevatorColumn).toBe(23);
   });
 
   it("extends visibility with the lantern level in every direction", () => {
@@ -1902,12 +2020,17 @@ describe("mine", () => {
   });
 
   it("does not place ladders or planks while riding the elevator rail", () => {
-    const gear = { ...DEFAULT_GEAR, elevator: ELEVATOR_SEGMENT_ROWS };
+    const shaftCol = 4;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
+    };
     const state = createMine(72, gear, stock({ ladder: 2, plank: 2 }));
-    state.miner.col = ELEVATOR_COL;
+    state.miner.col = shaftCol;
     state.miner.row = 1;
-    setCell(state, ELEVATOR_COL, 1, { kind: "empty" });
-    setCell(state, ELEVATOR_COL, 0, { kind: "empty" });
+    setCell(state, shaftCol, 1, { kind: "empty" });
+    setCell(state, shaftCol, 0, { kind: "empty" });
     expect(applyAction(state, "up")).toEqual({ ok: false, reason: "blocked" });
     expect(state.used.ladder).toBe(0);
     expect(applyAction(state, "plank-right")).toEqual({
@@ -1978,30 +2101,23 @@ describe("mine", () => {
   });
 
   it("refunds supports covered by new elevator rail depth", () => {
+    const shaftCol = 7;
     const diff: WorldDiff = [
-      [ELEVATOR_COL, 1, { kind: "empty", ladder: true }],
-      [ELEVATOR_COL, 2, { kind: "empty", ladder: true }],
-      [ELEVATOR_COL, 3, { kind: "empty", plank: true }],
-      [ELEVATOR_COL - 1, 1, { kind: "empty", ladder: true }],
-      [
-        ELEVATOR_COL,
-        ELEVATOR_SEGMENT_ROWS + 1,
-        { kind: "empty", ladder: true, plank: true },
-      ],
+      [shaftCol, 1, { kind: "empty", ladder: true }],
+      [shaftCol, 2, { kind: "empty", ladder: true }],
+      [shaftCol, 3, { kind: "empty", plank: true }],
+      [shaftCol - 1, 1, { kind: "empty", ladder: true }],
+      [shaftCol, 13, { kind: "empty", ladder: true, plank: true }],
     ];
-    const refund = refundRailSupportsInDiff(diff, 0, ELEVATOR_SEGMENT_ROWS);
+    const refund = installElevatorRailInDiff(diff, shaftCol, 0, 12);
     expect(refund.refunded).toEqual({ ladder: 2, plank: 1 });
     const next = createMine(76, DEFAULT_GEAR, NO_CONSUMABLES, refund.diff);
-    expect(cellAt(next, ELEVATOR_COL, 1)?.ladder).toBeUndefined();
-    expect(cellAt(next, ELEVATOR_COL, 2)?.ladder).toBeUndefined();
-    expect(cellAt(next, ELEVATOR_COL, 3)?.plank).toBeUndefined();
-    expect(cellAt(next, ELEVATOR_COL - 1, 1)?.ladder).toBe(true);
-    expect(cellAt(next, ELEVATOR_COL, ELEVATOR_SEGMENT_ROWS + 1)?.ladder).toBe(
-      true,
-    );
-    expect(cellAt(next, ELEVATOR_COL, ELEVATOR_SEGMENT_ROWS + 1)?.plank).toBe(
-      true,
-    );
+    expect(cellAt(next, shaftCol, 1)).toEqual({ kind: "empty" });
+    expect(cellAt(next, shaftCol, 2)).toEqual({ kind: "empty" });
+    expect(cellAt(next, shaftCol, 3)).toEqual({ kind: "empty" });
+    expect(cellAt(next, shaftCol - 1, 1)?.ladder).toBe(true);
+    expect(cellAt(next, shaftCol, 13)?.ladder).toBe(true);
+    expect(cellAt(next, shaftCol, 13)?.plank).toBe(true);
   });
 
   it("refills ladders and planks up to the floor on death", () => {
@@ -2462,6 +2578,29 @@ describe("mine", () => {
     const recross = step(state, "right");
     expect(recross.ok && !recross.planked).toBe(true);
     expect(state.used.plank).toBe(1);
+  });
+
+  it("does not spend a plank by placing it into owned elevator rail", () => {
+    const shaftCol = START_COL;
+    const state = createMine(
+      102,
+      { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: shaftCol },
+      stock({ plank: 1 }),
+    );
+    state.miner.col = shaftCol - 1;
+    state.miner.row = 2;
+    setCell(state, shaftCol - 1, 2, { kind: "empty" });
+    setCell(state, shaftCol, 2, { kind: "empty" });
+    setCell(state, shaftCol, 3, { kind: "empty" });
+
+    expect(canPlacePlank(state, "right")).toBe(false);
+    expect(applyAction(state, "plank-right")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(state.consumables.plank).toBe(1);
+    expect(state.used.plank).toBe(0);
+    expect(cellAt(state, shaftCol, 2)?.plank).toBeUndefined();
   });
 
   it("falls through a lateral gap instead of refusing without planks", () => {
@@ -2945,7 +3084,7 @@ describe("mine", () => {
         elevator: rail,
         elevatorSpeed: speed,
       });
-      while (s.miner.col > ELEVATOR_COL) step(s, "left");
+      while (s.miner.col > LEGACY_ELEVATOR_COL) step(s, "left");
       let rides = 0;
       let guard = 0;
       while (s.miner.row < rail && guard++ < 100) {

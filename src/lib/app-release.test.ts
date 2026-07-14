@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest hold-to-mine note complete", () => {
+  it("keeps the latest placeable-elevator note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.255-hold-to-mine");
+    expect(release.noticeId).toBe("2026-07-14-0.1.256-place-elevator");
     expect(latestNote).toMatchObject({
+      version: "0.1.256",
+      title: "Put your elevator where you want it",
+      intro: "Choose the shaft, then extend it one premium rail at a time.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Buy the first 25-vibe rail at any surface column to anchor one persistent shaft. Each later purchase adds one row at a depth-scaled premium, keeping rail meaningfully more expensive than ladders.",
+      "Press Down over the shaft at the surface or walk into its rail from either side underground. The car boards you safely before gravity runs and carries you automatically to the rail bottom.",
+      "Existing elevator owners get one free shaft placement that preserves every rail they already bought. MINE_VERSION advances to 54; SIM_VERSION stays at 5.",
+    ]);
+  });
+
+  it("keeps the archived hold-to-mine note complete", () => {
+    const release = getAppRelease();
+    const holdNote = release.notes.find((note) => note.version === "0.1.255");
+
+    expect(holdNote).toMatchObject({
       version: "0.1.255",
       title: "Swing the pickaxe and hold to dig",
       intro: "The pick swings at the block, and holding the dig keeps mining.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(holdNote?.changes.map((change) => change.text)).toEqual([
       "Digging in the bunker now swings a pickaxe at the block you are aiming at. Hold the dig and it keeps swinging, so you can drag your aim across the claim rock and mine cell after cell without tapping each one. Reach stays about three blocks ahead.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

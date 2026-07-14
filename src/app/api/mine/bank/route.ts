@@ -17,6 +17,7 @@ import {
   getOrCreatePlayerId,
   type MinePlayerProfile,
   mineConsumablesFromProfile,
+  mineElevatorColumnFromProfile,
 } from "@/server/player";
 import {
   pushEndpointHashFromRequest,
@@ -41,6 +42,8 @@ import {
   applyAction,
   cellAt,
   createMine,
+  elevatorColumn,
+  installElevatorRailInDiff,
   isBunkerScaffoldAction,
   isMineAction,
   LADDER_RECOVERY_FLOOR,
@@ -89,6 +92,7 @@ const GEAR_LOG_FIELDS = [
   "cargo",
   "lantern",
   "elevator",
+  "elevatorColumn",
   "warpcoil",
   "blast",
   "elevatorSpeed",
@@ -243,6 +247,11 @@ export function gearOwnershipError(
   }
   if (gear.elevator > owned.elevator_depth) {
     return `rail not owned: depth ${gear.elevator}`;
+  }
+  const submittedColumn = elevatorColumn(gear);
+  const ownedColumn = mineElevatorColumnFromProfile(owned);
+  if (gear.elevator > 0 && submittedColumn !== ownedColumn) {
+    return `rail not owned: column ${submittedColumn ?? "none"}`;
   }
   return null;
 }
@@ -431,9 +440,7 @@ export function achievementProgressForTrip(
     recallsWithLoot: actions.includes("recall") && soldLoot ? 1 : 0,
     recoveries: trip.granted.ladder > 0 || trip.granted.plank > 0 ? 1 : 0,
     beaconsPlanted: trip.used.beacon,
-    elevatorRides: actions.filter(
-      (action) => action === "ride-down" || action === "ride-up",
-    ).length,
+    elevatorRides: trip.elevatorRides,
   };
 }
 
@@ -543,7 +550,10 @@ export async function POST(request: Request): Promise<Response> {
       worldTripIndex: worlds[0].trip_count,
     });
     return Response.json(
-      { error: "this trip was already cashed out; reload the mine" },
+      {
+        error: "this trip was already cashed out; reload the mine",
+        code: TRIP_ALREADY_CASHED_OUT_CODE,
+      },
       { status: 409 },
     );
   }
@@ -558,6 +568,21 @@ export async function POST(request: Request): Promise<Response> {
       ...playerLogContext,
     });
     return Response.json({ error: "player not found" }, { status: 409 });
+  }
+  if (ownedRow.elevator_depth > 0 && !ownedRow.elevator_rail_installed_at) {
+    logMineCashOutEvent({
+      code: "elevator_rail_migration_required",
+      severity: "warn",
+      ...playerLogContext,
+      detail: "refresh the mine before cashing out",
+    });
+    return Response.json(
+      {
+        error: "refresh the mine to finish elevator rail setup",
+        code: "elevator_rail_migration_required",
+      },
+      { status: 409 },
+    );
   }
   const gear = parsed.data.gear;
   const gearError = gearOwnershipError(gear, ownedRow);
@@ -592,6 +617,16 @@ export async function POST(request: Request): Promise<Response> {
   );
   const replayConsumables = replayStock.consumables;
   const baseDiff = (worlds[0].diff ?? []) as WorldDiff;
+  const ownedElevatorColumn = mineElevatorColumnFromProfile(ownedRow);
+  const replayBaseDiff =
+    ownedRow.elevator_depth > 0 && ownedElevatorColumn !== null
+      ? installElevatorRailInDiff(
+          baseDiff,
+          ownedElevatorColumn,
+          0,
+          ownedRow.elevator_depth,
+        ).diff
+      : baseDiff;
   const actions = parsed.data.moves as MineAction[];
   if (parsed.data.pendingBunker !== undefined) {
     const existingBunker = (await sql`
@@ -626,7 +661,7 @@ export async function POST(request: Request): Promise<Response> {
       parsed.data.seed,
       gear,
       replayConsumables,
-      baseDiff,
+      replayBaseDiff,
       actions,
       pendingBunkerInventoryFromRows(rows),
     );
@@ -668,10 +703,31 @@ export async function POST(request: Request): Promise<Response> {
     actions,
     gear,
     replayConsumables,
-    baseDiff,
+    replayBaseDiff,
     { bunkerFootprint: replayBunkerFootprint },
   );
-  const chargedConsumables = chargeableConsumables(trip);
+  const railReconciliation =
+    ownedRow.elevator_depth > 0 && ownedElevatorColumn !== null
+      ? installElevatorRailInDiff(
+          trip.diff,
+          ownedElevatorColumn,
+          0,
+          ownedRow.elevator_depth,
+        )
+      : null;
+  const persistedDiff = railReconciliation?.diff ?? trip.diff;
+  const replayCharges = chargeableConsumables(trip);
+  const chargedConsumables = {
+    ...replayCharges,
+    ladder: Math.max(
+      0,
+      replayCharges.ladder - (railReconciliation?.refunded.ladder ?? 0),
+    ),
+    plank: Math.max(
+      0,
+      replayCharges.plank - (railReconciliation?.refunded.plank ?? 0),
+    ),
+  };
   const claimedBunker = pendingBunker?.ok ? pendingBunker.bunker : null;
   const bunkerInventory = pendingBunker?.ok ? pendingBunker.inventory : null;
   const hasPendingBunker = claimedBunker !== null;
@@ -699,11 +755,18 @@ export async function POST(request: Request): Promise<Response> {
   const rows = (await sql`
     WITH world AS (
       UPDATE mine_worlds
-      SET diff = ${JSON.stringify(trip.diff)}::jsonb,
+      SET diff = ${JSON.stringify(persistedDiff)}::jsonb,
           trip_count = trip_count + 1,
           updated_at = now()
       WHERE player_id = ${playerId}
         AND trip_count = ${parsed.data.tripIndex}
+        AND diff = ${JSON.stringify(baseDiff)}::jsonb
+        AND EXISTS (
+          SELECT 1 FROM players
+          WHERE id = ${playerId}
+            AND elevator_depth = ${ownedRow.elevator_depth}
+            AND elevator_col IS NOT DISTINCT FROM ${ownedRow.elevator_col}
+        )
         AND (
           ${!hasPendingBunker}
           OR NOT EXISTS (
@@ -786,7 +849,10 @@ export async function POST(request: Request): Promise<Response> {
       detail: "atomic update returned no row",
     });
     return Response.json(
-      { error: "this trip was already cashed out" },
+      {
+        error: "this trip was already cashed out",
+        code: TRIP_ALREADY_CASHED_OUT_CODE,
+      },
       { status: 409 },
     );
   }
@@ -885,6 +951,7 @@ export async function POST(request: Request): Promise<Response> {
     balance: rows[0].emeralds,
     deepestDepth: rows[0].deepest_depth,
     tripIndex: rows[0].trip_count ?? parsed.data.tripIndex + 1,
+    diff: persistedDiff,
     consumables: remainingConsumables,
     bunkerClaimed: rows[0].bunker_claimed === true,
     newStamps,

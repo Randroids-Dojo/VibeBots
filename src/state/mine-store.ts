@@ -22,7 +22,9 @@ import {
   cellAt,
   createMine,
   DEFAULT_GEAR,
+  elevatorColumn,
   exportDiff,
+  installElevatorRailInDiff,
   MINE_VERSION,
   type MineAction,
   type MineConsumables,
@@ -33,7 +35,6 @@ import {
   type MoveResult,
   NO_CONSUMABLES,
   normalizeGear,
-  refundRailSupportsInDiff,
   type SoldHaul,
   START_COL,
   STARTING_CONSUMABLES,
@@ -218,6 +219,8 @@ export interface MineSessionState {
   playerLevel: number;
   /** Durable deepest row reached; used by shop gates. */
   deepestDepth: number;
+  /** Existing owners get one free shaft placement before buying more rail. */
+  elevatorPlacementRequired: boolean;
   /** One-line feedback for the stall menus. */
   shopNote: string | null;
   /** Server replay-protection counter; null until the world loads. */
@@ -230,6 +233,8 @@ export interface MineSessionState {
   tick: number;
   lastResult: MoveResult | null;
   lastAction: MineAction | null;
+  /** One-shot signal to continue a restored automatic elevator descent. */
+  resumeElevatorDown: boolean;
   cashOut: CashOutState;
   activeSlot: SaveSlotId;
   saveSlots: SaveSlotsState;
@@ -300,7 +305,7 @@ export interface MineSessionState {
     quantity?: number,
   ) => Promise<void>;
   buyGearUpgrade: (track: MineGearTrack) => Promise<void>;
-  buyElevator: () => Promise<void>;
+  buyElevator: (column?: number) => Promise<boolean>;
   teleportToBase: (cost: number) => Promise<boolean>;
   restart: (seed?: number) => void;
 }
@@ -482,6 +487,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     balance: null,
     playerLevel: 1,
     deepestDepth: 0,
+    elevatorPlacementRequired: false,
     shopNote: null,
     tripIndex: 0,
     tripBaseDiff: [],
@@ -491,6 +497,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     tick: 0,
     lastResult: null,
     lastAction: null,
+    resumeElevatorDown: false,
     cashOut: { state: "idle" },
     activeSlot: 1,
     saveSlots: initialSlots,
@@ -523,6 +530,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         tick: tick + 1,
         lastResult: result,
         lastAction: action,
+        resumeElevatorDown: false,
         ...(result.ok && result.collapsed ? { pendingBunker: null } : null),
       });
       // Persist the in-flight trip so a reload resumes mid-trip,
@@ -538,7 +546,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     clearTerminalResult: () => {
       const { lastResult } = get();
       if (!(lastResult?.ok && lastResult.collapsed)) return;
-      set({ lastResult: null, lastAction: null });
+      set({
+        lastResult: null,
+        lastAction: null,
+        resumeElevatorDown: false,
+      });
     },
 
     loadWorld: async () => {
@@ -592,6 +604,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
               null,
             tick: replay.moves.length,
             lastResult: replay.lastResult,
+            resumeElevatorDown: replay.resumeElevatorDown,
             // Any save conflict was about the world being replaced here.
             saveConflict: "none",
           });
@@ -610,6 +623,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           bunkerReplayFootprint: null,
           tick: 0,
           lastResult: null,
+          resumeElevatorDown: false,
           // Any save conflict was about the world being replaced here.
           saveConflict: "none",
         });
@@ -653,12 +667,14 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const gear: MineGear = normalizeGear(body.gear as MineGearSnapshot);
       const consumables: MineConsumables =
         (body.consumables as MineConsumables | undefined) ?? NO_CONSUMABLES;
+      const elevatorPlacementRequired = body.elevatorPlacementRequired === true;
       set({
         balance: typeof body.balance === "number" ? body.balance : null,
         playerLevel:
           typeof body.playerLevel === "number" ? body.playerLevel : 1,
         deepestDepth:
           typeof body.deepestDepth === "number" ? body.deepestDepth : 0,
+        elevatorPlacementRequired,
       });
       const current = get().gear;
       const currentCons = get().consumables;
@@ -668,6 +684,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         gear.cargo === current.cargo &&
         gear.lantern === current.lantern &&
         gear.elevator === current.elevator &&
+        elevatorColumn(gear) === elevatorColumn(current) &&
         gear.warpcoil === current.warpcoil &&
         (gear.blast ?? 1) === (current.blast ?? 1) &&
         (gear.elevatorSpeed ?? 1) === (current.elevatorSpeed ?? 1) &&
@@ -700,6 +717,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pendingBunker: null,
         tick: 0,
         lastResult: null,
+        resumeElevatorDown: false,
       });
       persistCurrentTrip();
     },
@@ -1372,7 +1390,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const remaining: MineConsumables =
         consumablesFromResponse(body.consumables) ??
         addConsumables(carryoverConsumables(get().mine), get().bought);
-      const worldDiff = exportDiff(get().mine);
+      const worldDiff = Array.isArray(body.diff)
+        ? (body.diff as WorldDiff)
+        : exportDiff(get().mine);
       const nextMine = createMine(
         currentSeed,
         get().gear,
@@ -1434,6 +1454,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pendingBunker: null,
         tick: 0,
         lastResult: null,
+        resumeElevatorDown: false,
       });
       return true;
     },
@@ -1542,13 +1563,24 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       });
     },
 
-    buyElevator: async () => {
-      if (get().cashOut.state === "pending") return;
+    buyElevator: async (column) => {
+      const { cashOut, mine, moves: currentMoves } = get();
+      const relocating =
+        get().elevatorPlacementRequired && mine.gear.elevator > 0;
+      if (cashOut.state === "pending") return false;
       persistCurrentTrip();
-      const res = await buyRemoteElevator();
+      if (mine.miner.row !== 0) {
+        set({ shopNote: "return to the surface to extend the rail" });
+        return false;
+      }
+      if (!surfaceOnlyLog(currentMoves)) {
+        const banked = await get().submitCashOut();
+        if (!banked) return false;
+      }
+      const res = await buyRemoteElevator(column);
       if (res.status === 503) {
         set({ shopNote: "the tower ledger is offline; nothing was charged" });
-        return;
+        return false;
       }
       if (!res.ok) {
         const body = res.body as Record<string, unknown> | null;
@@ -1558,16 +1590,32 @@ export const useMineStore = create<MineSessionState>((set, get) => {
               ? body.error
               : "purchase failed",
         });
-        return;
+        return false;
       }
       const body = res.body as Record<string, unknown>;
       enqueueStampAlertsFromResponse(body);
       const { gear, consumables, bought, moves, seed: s0, tick } = get();
       const elevator = body.elevator as number;
-      const nextGear: MineGear = { ...gear, elevator };
-      const fallbackRefund = refundRailSupportsInDiff(
+      const nextElevatorColumn =
+        typeof body.elevatorColumn === "number"
+          ? body.elevatorColumn
+          : elevatorColumn(gear);
+      if (nextElevatorColumn === null) {
+        set({ shopNote: "choose a surface column for the first rail" });
+        return false;
+      }
+      const nextGear: MineGear = {
+        ...gear,
+        elevator,
+        elevatorColumn: nextElevatorColumn,
+      };
+      const nextTripIndex =
+        typeof body.tripIndex === "number" ? body.tripIndex : get().tripIndex;
+      const relocationConfirmed = body.relocated === true || relocating;
+      const fallbackRefund = installElevatorRailInDiff(
         get().tripBaseDiff,
-        gear.elevator,
+        nextElevatorColumn,
+        relocationConfirmed ? 0 : gear.elevator,
         elevator,
       );
       const nextBaseDiff = Array.isArray(body.diff)
@@ -1599,7 +1647,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         saveLocalTrip(get().activeSlot, {
           mineVersion: MINE_VERSION,
           seed: s0,
-          tripIndex: get().tripIndex,
+          tripIndex: nextTripIndex,
           gear: nextGear,
           consumables: owned,
           baseDiff: nextBaseDiff,
@@ -1612,8 +1660,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           consumables: owned,
           bought: NO_CONSUMABLES,
           tripBaseDiff: nextBaseDiff,
+          tripIndex: nextTripIndex,
           balance: typeof body.balance === "number" ? body.balance : null,
-          shopNote: `rail extended to ${elevator} deep${refundNote}`,
+          elevatorPlacementRequired: false,
+          shopNote: relocationConfirmed
+            ? `shaft moved to column ${nextElevatorColumn}${refundNote}`
+            : `rail extended to ${elevator} deep${refundNote}`,
           tick: tick + 1,
         });
       } else {
@@ -1624,12 +1676,18 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           gear: nextGear,
           consumables: owned,
           bought: NO_CONSUMABLES,
+          tripIndex: nextTripIndex,
           balance: typeof body.balance === "number" ? body.balance : null,
-          shopNote: `rail extended to ${elevator} deep${refundNote}; rides start next trip`,
+          elevatorPlacementRequired: false,
+          shopNote: relocationConfirmed
+            ? `shaft moved to column ${nextElevatorColumn}${refundNote}; rides start next trip`
+            : `rail extended to ${elevator} deep${refundNote}; rides start next trip`,
           tick: tick + 1,
         });
         persistCurrentTrip();
       }
+      notifySaveSyncPeers();
+      return true;
     },
 
     teleportToBase: async (cost) => {
@@ -1690,6 +1748,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         tick: tick + 1,
         lastResult: null,
         lastAction: null,
+        resumeElevatorDown: false,
       });
       return true;
     },
@@ -1723,6 +1782,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pendingBunker: null,
         tick: 0,
         lastResult: null,
+        resumeElevatorDown: false,
         cashOut: { state: "idle" },
       });
     },

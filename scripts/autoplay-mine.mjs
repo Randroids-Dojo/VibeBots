@@ -79,6 +79,12 @@ page.on("console", (m) => {
 for (const route of ["**/api/mine/**", "**/api/gear", "**/api/bunker"]) {
   await page.route(route, (r) => r.fulfill({ status: 503, body: "{}" }));
 }
+// The soak exercises hazards repeatedly, so suppress the one-time tutorial
+// that would otherwise intercept later policy clicks after its first trigger.
+await page.addInitScript(() => {
+  localStorage.setItem("vibebots-falling-rock-alert-dismissed", "true");
+  localStorage.setItem("vibebots-ladder-gravity-feedback-never", "true");
+});
 
 const report = {
   seed: SEED,
@@ -100,6 +106,17 @@ async function anomaly(kind, detail) {
 
 const statusEl = page.getByLabel("Mine status");
 const canvas = page.locator("canvas");
+const tripReport = page.getByRole("button", {
+  name: "Dismiss trip report",
+});
+
+async function dismissTripReport() {
+  if (!(await tripReport.isVisible().catch(() => false))) return false;
+  await tripReport.click();
+  await tripReport.waitFor({ state: "hidden", timeout: 5_000 });
+  return true;
+}
+
 async function hud() {
   const [depth, energy, horiz, frameMs, cells, teeter] = await Promise.all([
     statusEl.getAttribute("data-depth"),
@@ -159,6 +176,16 @@ try {
   const run = { lateral: 0, lateralKey: "ArrowRight" };
 
   for (let i = 0; i < MAX_ACTIONS; i++) {
+    if (await dismissTripReport()) {
+      prev = await hud();
+      if (prev.depth > 0) {
+        await anomaly(
+          "trip-report-underground",
+          `trip report covered the miner at depth ${prev.depth}`,
+        );
+      }
+      stuckStreak = 0;
+    }
     const key = pickKey(prev, run);
     if (key === "plank") {
       const side = rng() < 0.5 ? "left" : "right";
@@ -200,24 +227,30 @@ try {
           await page.waitForTimeout(220);
         }
       } else if (stuckStreak >= 20) {
-        // The game's own escape valve: abandon the trip (arm + confirm).
-        await page.getByRole("button", { name: "Recovery options" }).click();
-        const abandonItem = page.getByRole("menuitem", {
-          name: "Abandon trip",
-        });
-        await abandonItem.click().catch(() => {});
-        await abandonItem.click().catch(() => {});
-        await page.waitForTimeout(600);
-        await page.mouse.click(640, 690); // dismiss any trip report
-        await page.waitForTimeout(400);
-        report.abandons = (report.abandons ?? 0) + 1;
-        const after = await hud();
-        if (after.depth > 0) {
-          // Even abandoning failed: that is a real defect, not policy.
-          await anomaly(
-            "stuck",
-            `abandon did not surface the miner from depth ${after.depth}`,
-          );
+        // A terminal report can appear after this action's HUD sample. Clear
+        // that normal end state before reaching for the escape valve.
+        if (!(await dismissTripReport())) {
+          // The game's own escape valve: abandon the trip (arm + confirm).
+          await page.getByRole("button", { name: "Recovery options" }).click();
+          const abandonItem = page.getByRole("menuitem", {
+            name: "Abandon trip",
+          });
+          await abandonItem.click().catch(() => {});
+          await abandonItem.click().catch(() => {});
+          await page.waitForTimeout(600);
+          await tripReport.waitFor({ state: "visible", timeout: 5_000 });
+          await tripReport.click();
+          await tripReport.waitFor({ state: "hidden", timeout: 5_000 });
+          await page.waitForTimeout(400);
+          report.abandons = (report.abandons ?? 0) + 1;
+          const after = await hud();
+          if (after.depth > 0) {
+            // Even abandoning failed: that is a real defect, not policy.
+            await anomaly(
+              "stuck",
+              `abandon did not surface the miner from depth ${after.depth}`,
+            );
+          }
         }
         stuckStreak = 0;
       }

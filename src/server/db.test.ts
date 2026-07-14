@@ -10,6 +10,15 @@ describe("compatibility migration markers", () => {
     }
   });
 
+  it("preserves legacy rail columns without placing shafts for new players", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+
+    expect(source).toContain("ADD COLUMN IF NOT EXISTS elevator_col integer");
+    expect(source).toContain("WHEN elevator_depth > 0");
+    expect(source).toContain("COALESCE(elevator_col, -5)");
+    expect(source).toContain("WHERE elevator_column_migrated_at IS NULL");
+  });
+
   it("creates the release push dispatch ledger", () => {
     const source = readFileSync("src/server/db.ts", "utf8");
 

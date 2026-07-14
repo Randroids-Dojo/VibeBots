@@ -159,7 +159,7 @@ describe("achievements", () => {
         ...baseSnapshot,
         deepestDepth: 24,
         pickaxeLevel: 2,
-        elevatorDepth: 12,
+        elevatorDepth: 1,
       }),
     ).toEqual(
       expect.arrayContaining([
@@ -170,6 +170,24 @@ describe("achievements", () => {
         "tool-winch-builder",
       ]),
     );
+  });
+
+  it("unlocks Winch Builder on the first one-row elevator rail", () => {
+    expect(
+      ACHIEVEMENT_DEFINITIONS.find(
+        (definition) => definition.id === "tool-winch-builder",
+      ),
+    ).toMatchObject({
+      description: "Buy the first elevator rail.",
+      metric: "elevatorDepth",
+      target: 1,
+    });
+    expect(achievementIdsUnlockedBy(baseSnapshot)).not.toContain(
+      "tool-winch-builder",
+    );
+    expect(
+      achievementIdsUnlockedBy({ ...baseSnapshot, elevatorDepth: 1 }),
+    ).toContain("tool-winch-builder");
   });
 
   it("unlocks biome portal stamps from durable portal counts", () => {

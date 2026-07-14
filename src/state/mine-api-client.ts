@@ -664,8 +664,13 @@ export function buyRemoteGearUpgrade(track: MineGearTrack) {
   return mineApi<unknown>("/api/gear/upgrade", jsonPost({ track }));
 }
 
-export function buyRemoteElevator() {
-  return mineApi<unknown>("/api/elevator/upgrade", { method: "POST" });
+export async function buyRemoteElevator(column?: number) {
+  return mineApi<unknown>(
+    "/api/elevator/upgrade",
+    await withPushEndpointHash(
+      jsonPost(column === undefined ? {} : { column }),
+    ),
+  );
 }
 
 export function teleportRemoteBase(cost: number) {

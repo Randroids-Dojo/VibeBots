@@ -31,6 +31,20 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-support-refund-monitoring" data-date="2026-07-14">
+    <h3>Keep ordinary support refunds separate from legacy elevator cleanup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>Read-only monitoring of the live placeable-elevator branch found that its new <code>elevator_rail_installed_at</code> marker fixed repeated old-row installation but coupled all support credits to the one-time <code>elevator_support_refund_at</code> marker. A second purchase still removes supports from its newly purchased row while crediting zero replacements, and the legacy-shaft fixture suppresses the new row together with reconciled old rows. Appended the exact regression and acceptance fixtures to F-124, expanded its HTML Dot, and kept the issue under the existing followup instead of creating a duplicate.</dd>
+      <dt>Verification</dt><dd>Compared the live upgrade route, schema marker, and route-test diff against the F-124 contract. The transaction sets both markers on every purchase, while <code>shouldRefundSupports</code> disables all later support credits. Local ledger, Dot, type, lint, dash, and diff checks are rerun before publication.</dd>
+      <dt>Assumptions</dt><dd>Legacy reconciliation may suppress credits for already owned rows that were refunded once, but purchasing a new row always credits every ladder or plank that row removes. Temporary early-alpha migration markers should leave the current runtime after a bounded cleanup.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. F-124 remains linked to REQ-028 and now records the concrete repeated-purchase economy regression.</dd>
+      <dt>Followups</dt><dd>Expanded F-124 and its matching HTML Dot. No new followup ID was needed.</dd>
+      <dt>Latest monitor</dt><dd>A later live edit split the newly purchased row from legacy installation and restored ordinary support credits. Separate tests now cover each half. F-124 retains the combined old-row plus new-row fixture and the temporary-marker retirement so one transaction proves only the old credit is suppressed before the compatibility path is removed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-redesign-monitoring" data-date="2026-07-14">
     <h3>Keep the placeable elevator redesign from losing state or rewards</h3>
     <dl>

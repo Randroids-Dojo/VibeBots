@@ -13,7 +13,7 @@
 <article>
 <h1>F-124 Retire the one-time elevator support-refund path</h1>
 <section id="description">
-After every existing rail owner is reconciled, remove the write-on-read support refund migration and its current-profile plumbing. Fail fast on impossible old state instead of carrying the compatibility path forever.
+After every existing rail owner is reconciled, remove the write-on-read support refund migration and its current-profile plumbing. Separate legacy reconciliation from ordinary purchases so every newly purchased row credits each removed ladder or plank, including second and later extensions, without refunding old rows twice. Retire both elevator support and rail-installation markers, then fail fast on impossible old state instead of carrying the compatibility path forever.
 </section>
 </article>
 </body>

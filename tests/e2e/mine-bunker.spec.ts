@@ -1,6 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 import { imagePixelDifferenceRatio } from "./support/image-pixels";
 import {
+  aimFp,
+  armFpPointer,
   countRaidXpPixels,
   countRedPixels,
   createMine,
@@ -22,44 +24,6 @@ function deferredSignal(): { promise: Promise<void>; resolve: () => void } {
     resolve = settle;
   });
   return { promise, resolve };
-}
-
-/** Aims the fp camera through the one-shot test hook and waits for the
- * rig to consume it (the mine-bunker-fp.spec.ts helper). */
-async function aimFp(page: Page, yaw: number, pitch: number): Promise<void> {
-  await page.evaluate(
-    ([yawValue, pitchValue]) => {
-      (
-        window as unknown as {
-          __vibebotsFp?: { setYaw?: number; setPitch?: number };
-        }
-      ).__vibebotsFp = { setYaw: yawValue, setPitch: pitchValue };
-    },
-    [yaw, pitch] as const,
-  );
-  const canvas = page.locator("canvas");
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-fp-yaw")), {
-      timeout: 10_000,
-    })
-    .toBeCloseTo(yaw, 1);
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-fp-pitch")), {
-      timeout: 10_000,
-    })
-    .toBeCloseTo(pitch, 1);
-}
-
-/** First canvas click acquires (or proves unavailable) pointer lock
- * and is swallowed by design; later clicks act. */
-async function armFpPointer(page: Page): Promise<void> {
-  const canvas = page.locator("canvas");
-  await canvas.click();
-  await expect
-    .poll(async () => canvas.getAttribute("data-fp-lock"), {
-      timeout: 10_000,
-    })
-    .not.toBe("unlocked");
 }
 
 /** Places one wall from the fp hotbar into local cell (2,0,0) (mine
@@ -867,6 +831,7 @@ test("bunker claims can be edited before banking", async ({ page }) => {
     partId: "wall-panel",
     col: START_COL - 1,
     row: 5,
+    depth: 0,
   });
   await expect(
     page.getByRole("button", { name: "Open bunker status" }),

@@ -1,6 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 import { imagePixelDifferenceRatio } from "./support/image-pixels";
 import {
+  aimFp,
+  armFpPointer,
   awaitMineSceneReady,
   createMine,
   DEFAULT_GEAR,
@@ -14,44 +16,6 @@ import {
   touchHold,
   touchHoldDrag,
 } from "./support/mine-helpers";
-
-/** Aims the fp camera through the one-shot test hook and waits for the
- * rig to consume it. */
-async function aimFp(page: Page, yaw: number, pitch: number): Promise<void> {
-  await page.evaluate(
-    ([yawValue, pitchValue]) => {
-      (
-        window as unknown as {
-          __vibebotsFp?: { setYaw?: number; setPitch?: number };
-        }
-      ).__vibebotsFp = { setYaw: yawValue, setPitch: pitchValue };
-    },
-    [yaw, pitch] as const,
-  );
-  const canvas = page.locator("canvas");
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-fp-yaw")), {
-      timeout: 10_000,
-    })
-    .toBeCloseTo(yaw, 1);
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-fp-pitch")), {
-      timeout: 10_000,
-    })
-    .toBeCloseTo(pitch, 1);
-}
-
-/** First canvas click acquires (or proves unavailable) pointer lock and
- * is swallowed by design; later clicks act. Settles that handshake. */
-async function armFpPointer(page: Page): Promise<void> {
-  const canvas = page.locator("canvas");
-  await canvas.click();
-  await expect
-    .poll(async () => canvas.getAttribute("data-fp-lock"), {
-      timeout: 10_000,
-    })
-    .not.toBe("unlocked");
-}
 
 /** The banked-bunker view the walkable-viewer flow runs against: a
  * 7x5 claim around the miner's dig column with one placed wall. */

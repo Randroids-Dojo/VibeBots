@@ -3700,7 +3700,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           )}
         </>
       )}
-      {baseReturn && (
+      {!fpBunkerActive && baseReturn && (
         <>
           <button
             ref={baseReturnButtonRef}

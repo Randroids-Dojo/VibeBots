@@ -44,7 +44,7 @@
       <dt>Context</dt><dd>The first-person bunker HUD now surfaces the cargo bag (package 0.1.264) so a player can see and open it while digging inside. But bunker-dug ore does not enter the live mine bag: on an unbanked claim it is held pending and settles at the surface bank, and on a banked bunker it is credited straight to vibes. So the in-view bag shows the surface trip cargo, not the ore just dug from the bunker walls, which can read as "my digs are not counting" to a player watching the bag.</dd>
       <dt>Options</dt><dd>A. Mirror the live mine bag exactly (what shipped): one consistent bag concept across surface and bunker, no new state. B. Add a separate in-view "bunker haul" indicator that tallies pending or vibe-credited ore dug this visit, alongside the bag. C. Fold pending bunker ore into the displayed bag total optimistically before it settles.</dd>
       <dt>Recommended default</dt><dd>A. It is the literal reading of "see and access the bag", keeps one bag concept everywhere (RULE 7), and adds no state; the ore economy already shows dug ore glinting as loot and settling at bank. Revisit with B if playtests show the pending-versus-live gap confuses players; C risks a display that disagrees with the authoritative settle.</dd>
-      <dt>PR / Dot reference</dt><dd>Shipped under default A in PR #TBD (package 0.1.264).</dd>
+      <dt>PR / Dot reference</dt><dd>Shipped under default A in PR #199 (package 0.1.264).</dd>
     </dl>
   </section>
 

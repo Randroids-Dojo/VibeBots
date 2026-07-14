@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.251-hammer-retirement";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.252-bunker-tutorial";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.252",
+      date: "2026-07-13",
+      title: "The bunker teaches itself",
+      intro: "A step-by-step walkthrough the first time you go inside.",
+      changes: [
+        {
+          build,
+          text: "Your first time inside the bunker now walks you through everything one card at a time: look, walk, dig, place, and pry, each advancing a moment after you actually do it. Skip a step or the whole thing any time.",
+        },
+        {
+          build,
+          text: "Want it again later? Replay bunker tutorial lives in the settings gear, and the cards return the next time you enter.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.251",
       date: "2026-07-13",

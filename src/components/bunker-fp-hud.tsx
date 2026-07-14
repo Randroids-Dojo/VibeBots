@@ -37,6 +37,16 @@ import {
   subscribeFpBoxedIn,
   subscribeFpTarget,
 } from "./bunker-fp-target-state";
+import {
+  armFpTutorial,
+  disarmFpTutorial,
+  dismissFpTutorialStep,
+  type FpTutorialCard,
+  getFpTutorialCard,
+  setFpTutorialStock,
+  skipFpTutorial,
+  subscribeFpTutorial,
+} from "./bunker-fp-tutorial";
 import type { BunkerToolAction, CarriedBunkerPart } from "./bunker-tool-types";
 
 function PickIcon() {
@@ -91,6 +101,108 @@ function FpBoxedInHint() {
       </span>
       <strong aria-hidden="true">&#10005;</strong>
     </button>
+  );
+}
+
+/** Per-platform tutorial copy: coarse pointers teach the touch
+ * gestures, everyone else the mouse and keyboard (Rule 10: all text
+ * is DOM, never in-canvas). */
+const FP_TUTORIAL_COPY: Record<
+  FpTutorialCard,
+  { touch: string; desktop: string }
+> = {
+  look: {
+    touch: "Drag the right side of the screen to look around.",
+    desktop: "Click the scene, then move the mouse to look around.",
+  },
+  walk: {
+    touch:
+      "Hold the left stick to walk. Walk into a low step and you hop it automatically.",
+    desktop: "WASD or the arrow keys walk; Space hops.",
+  },
+  dig: {
+    touch: "Select the pick, aim at the brighter claim rock, and tap to dig.",
+    desktop:
+      "Select the pick, aim at the brighter claim rock, and click to dig.",
+  },
+  place: {
+    touch: "Pick a part slot, aim at a face, and tap to place it.",
+    desktop: "Pick a part slot, aim at a face, and click to place it.",
+  },
+  "place-no-stock": {
+    touch:
+      "No parts in stock. The Hardware Store on the surface sells wall and floor panels.",
+    desktop:
+      "No parts in stock. The Hardware Store on the surface sells wall and floor panels.",
+  },
+  pry: {
+    touch:
+      "Hold a finger on a placed part to pry it loose. Tap again to put it somewhere better.",
+    desktop: "Right-click a placed part to pry it.",
+  },
+  done: {
+    touch:
+      "That is the whole kit. Reset bunker lives in the Bunker sheet outside, and Exit is top right.",
+    desktop:
+      "That is the whole kit. Reset bunker lives in the Bunker sheet outside, and Exit is top right.",
+  },
+};
+
+/**
+ * The progressive tutorial card (F-097): one small non-modal card at
+ * a time above the hotbar, driven by the external state machine the
+ * rig feeds each frame. The X skips one step, "Skip tutorial" ends
+ * the chain; the closer card is itself a button (tap anywhere on it
+ * to finish, mirroring the boxed-in hint).
+ */
+function BunkerFpTutorial({ coarse }: { coarse: boolean }) {
+  const card = useSyncExternalStore(
+    subscribeFpTutorial,
+    getFpTutorialCard,
+    getFpTutorialCard,
+  );
+  if (!card) return null;
+  const copy = FP_TUTORIAL_COPY[card][coarse ? "touch" : "desktop"];
+  if (card === "done") {
+    return (
+      <button
+        type="button"
+        className="bunker-fp-tutorial"
+        data-testid="bunker-fp-tutorial"
+        data-step="done"
+        onClick={() => skipFpTutorial()}
+      >
+        <span>{copy}</span>
+        <strong aria-hidden="true">&#10005;</strong>
+      </button>
+    );
+  }
+  return (
+    <div
+      className="bunker-fp-tutorial"
+      data-testid="bunker-fp-tutorial"
+      data-step={card}
+      role="status"
+    >
+      <p>{copy}</p>
+      <span className="bunker-fp-tutorial-actions">
+        <button
+          type="button"
+          aria-label="Dismiss this tip"
+          data-testid="bunker-fp-tutorial-dismiss"
+          onClick={() => dismissFpTutorialStep(performance.now())}
+        >
+          &#10005;
+        </button>
+        <button
+          type="button"
+          data-testid="bunker-fp-tutorial-skip"
+          onClick={() => skipFpTutorial()}
+        >
+          Skip tutorial
+        </button>
+      </span>
+    </div>
   );
 }
 
@@ -164,6 +276,24 @@ export function BunkerFpHud({
       document.removeEventListener("pointerlockchange", onLockChange);
     };
   }, []);
+
+  // Arm the tutorial chain for this bunker visit (a no-op when the
+  // done flag is set); leaving drops any in-progress run so the next
+  // entry starts over from the look step.
+  useEffect(() => {
+    armFpTutorial();
+    return () => {
+      disarmFpTutorial();
+    };
+  }, []);
+
+  // The place and pry steps degrade gracefully at zero stock; feed
+  // the machine the total at prop cadence, never per frame.
+  useEffect(() => {
+    let total = 0;
+    for (const partId of BASE_PART_IDS) total += inventory[partId];
+    setFpTutorialStock(total);
+  }, [inventory]);
 
   // Any lingering held input (or armed hold timer) dies with the
   // overlay.
@@ -319,6 +449,7 @@ export function BunkerFpHud({
       />
       <FpTargetLabel />
       <FpBoxedInHint />
+      <BunkerFpTutorial coarse={coarse} />
       <div
         className="bunker-fp-hotbar"
         role="toolbar"

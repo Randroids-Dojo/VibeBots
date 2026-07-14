@@ -89,6 +89,7 @@ import { SAVE_SYNC_CHANNEL, useMineStore } from "@/state/mine-store";
 import type { FpEditIntent } from "./bunker-fp-grid";
 import { BunkerFpHud } from "./bunker-fp-hud";
 import { attachFpKeyboard, resetFpInput } from "./bunker-fp-input";
+import { clearFpTutorialDone } from "./bunker-fp-tutorial";
 import type {
   BunkerToolAction,
   BunkerToolSelection,
@@ -321,7 +322,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
   "Tip: In first person the pick digs deep claim rock; parts place at the crosshair; pry carries.",
-  "Tip: Inside the bunker, hold a touch on a placed part to pry it loose, whatever tool is out.",
+  "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
@@ -1231,6 +1232,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     "ride-down" | "ride-up" | null
   >(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // "Replay bunker tutorial" confirmation: shows an inline "next
+  // entry" note after the flag clears, reset whenever the menu closes.
+  const [tutorialReplayArmed, setTutorialReplayArmed] = useState(false);
+  useEffect(() => {
+    if (!settingsOpen) setTutorialReplayArmed(false);
+  }, [settingsOpen]);
   const [stampBookOpen, setStampBookOpen] = useState(false);
   const [stampBookFocusId, setStampBookFocusId] = useState<string | null>(null);
   const openStampBookAt = useCallback((achievementId: string) => {
@@ -3631,6 +3638,41 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               >
                 Release notes
               </button>
+              <button
+                type="button"
+                data-testid="replay-bunker-tutorial"
+                onClick={() => {
+                  clearFpTutorialDone();
+                  setTutorialReplayArmed(true);
+                }}
+                style={{
+                  width: "100%",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #cdd6ea",
+                  background: "#20283a",
+                  color: "#e6e8ee",
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  marginTop: 8,
+                }}
+              >
+                Replay bunker tutorial
+              </button>
+              {tutorialReplayArmed && (
+                <div
+                  role="status"
+                  style={{
+                    marginTop: 6,
+                    fontSize: "0.76rem",
+                    color: "#9aa3b2",
+                    textAlign: "center",
+                  }}
+                >
+                  Shows the next time you enter your bunker.
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => {

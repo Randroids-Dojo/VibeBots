@@ -31,6 +31,16 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-fp-tutorial" data-date="2026-07-13">
+    <h3>The bunker teaches itself: a progressive first-person tutorial</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-fp-tutorial</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.252, resolving F-097 exactly as requested: one card teaches looking; once the player demonstrates it, the next appears about a second and a half later teaching walking; the chain continues through digging, placing, and prying, and closes by naming Reset and Exit. The state machine is a pure module (<code>bunker-fp-tutorial.ts</code>) with an injectable clock and storage, fed scalar observations by one rig call per frame (module-scalar accumulators, change-only listener notification, two-comparison early-out once complete: zero steady-state allocation). Cards are non-modal DOM above the hotbar with per-platform copy, a per-step X, and a Skip tutorial; dig auto-skips a fully dug volume and place swaps to Hardware Store copy at zero stock. Completion persists in localStorage; "Replay bunker tutorial" in the flat-view settings gear clears the flag with an inline confirmation and the chain re-arms on the next entry. The corridor visual baseline now seeds the done flag so tutorial chrome cannot drift into the committed clip. Tips: the narrow long-press tip swapped for a replay pointer (the tutorial and the boxed-in hint both teach prying in place). Stamp review: none (rewarding tutorial completion would encourage dialog-grinding). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+      <dt>Verified</dt><dd>14 state-machine unit tests (entry delay, accumulation thresholds, gap timing, demonstration detection per step, dismiss-one, skip-all persistence via a storage shim, zero-stock auto-advance, fully-dug auto-skip, closer auto-dismiss, change-only notification, disarm); full suite 1312 green; typecheck, Biome, build, dash, whitespace clean. e2e: the full chain advances on demonstrated actions and skip persists across reload; the settings replay re-arms the chain; 19/20 across the bunker suites with the one failure a pre-existing flat-view red-pixel flake that passes standalone; release-notifications and perf-telemetry suites re-run green after the settings menu grew a row.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-hammer-retirement" data-date="2026-07-13">
     <h3>The flat-view build cursor retires; first person is the builder</h3>
     <dl>

@@ -76,6 +76,7 @@ import {
   setFpBoxedIn,
   setFpTarget,
 } from "./bunker-fp-target-state";
+import { updateFpTutorial } from "./bunker-fp-tutorial";
 import {
   BUNKER_TOOL_HIGHLIGHT,
   type BunkerToolAction,
@@ -1053,6 +1054,20 @@ function BunkerFpRig({
     setDatasetNumber(cache, dataset, "fpPitch", pitchRef.current, 2);
     setDatasetNumber(cache, dataset, "fpOpenCells", openCellsRef.current, 0);
     setDatasetText(cache, dataset, "fpGrounded", move.grounded ? "1" : "0");
+
+    // Tutorial observations (F-097): cheap scalars every frame; the
+    // machine early-returns when idle or complete and notifies its
+    // React card only when the visible step changes.
+    updateFpTutorial(
+      performance.now(),
+      yawRef.current,
+      pitchRef.current,
+      move.px,
+      move.pz,
+      openCellsRef.current,
+      bunker.parts.length,
+      carried !== null,
+    );
   });
 
   return <group ref={burstGroupRef} />;

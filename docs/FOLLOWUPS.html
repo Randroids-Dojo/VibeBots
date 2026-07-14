@@ -69,6 +69,7 @@
       <dt>Blocker (if any)</dt><dd>Sequenced behind the hammer-retirement slice (same HUD files in flight).</dd>
       <dt>Unblock condition</dt><dd>Non-blocking DOM dialog steps with per-platform copy (touch vs desktop): look (demonstrated by a yaw/pitch delta), walk (position delta), auto-hop or jump, dig with the pick (open-cells increment), place a part (parts count increment; step skips gracefully at zero stock), pry (carried part armed), then a closer pointing at Reset and Exit. Each advance waits 1-2 seconds after the demonstration. Completion persists (localStorage) so the tutorial runs once; a "Replay bunker tutorial" control in the settings menu clears the flag and re-arms it for the next entry. Steps must not block input (Rule 10), must be dismissable individually, and get e2e coverage: fresh profile sees the chain and each step advances on the demonstrated action; the settings control re-arms it.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (tutorial slice, after hammer retirement).</dd>
+      <dt>Resolved</dt><dd>Branch <code>feat/bunker-fp-tutorial</code> (package 0.1.252, PR pending): six-card chain with demonstration-gated advances (1.5s gap per the request), per-step dismissal, Skip tutorial, zero-stock and fully-dug variants, localStorage persistence, and the settings-gear "Replay bunker tutorial" control with inline confirmation. 14 state-machine unit tests plus two e2es (full chain with skip persistence across reload; replay re-arms).</dd>
     </dl>
   </section>
 
@@ -79,7 +80,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>An fp hint chip while the player's cell has no passable lateral neighbor: "Boxed in? Hold a touch on a part to pry it loose, or Exit and use Bunker then Reset", dismissable, pinned by an enclosed-spawn e2e. Folded into the hammer-retirement slice in flight.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (hammer-retirement slice).</dd>
-      <dt>Resolved</dt><dd>Branch <code>feat/bunker-hammer-retirement</code> (package 0.1.251, PR pending), pinned by fp e2es (chrome absent inside and restored after exit; the boxed hint shows for an enclosed spawn and clears after a pry).</dd>
+      <dt>Resolved</dt><dd>Branch <code>feat/bunker-hammer-retirement</code> (package 0.1.251, PR #172), pinned by fp e2es (chrome absent inside and restored after exit; the boxed hint shows for an enclosed spawn and clears after a pry).</dd>
     </dl>
   </section>
 
@@ -90,7 +91,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>All 2D mine chrome hidden while fpBunkerActive (dialogs and app-global controls excepted), pinned by an fp e2e asserting the belt, zoom, and ladder chip are not visible. Folded into the hammer-retirement slice in flight.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (hammer-retirement slice).</dd>
-      <dt>Resolved</dt><dd>Branch <code>feat/bunker-hammer-retirement</code> (package 0.1.251, PR pending), pinned by fp e2es (chrome absent inside and restored after exit; the boxed hint shows for an enclosed spawn and clears after a pry).</dd>
+      <dt>Resolved</dt><dd>Branch <code>feat/bunker-hammer-retirement</code> (package 0.1.251, PR #172), pinned by fp e2es (chrome absent inside and restored after exit; the boxed hint shows for an enclosed spawn and clears after a pry).</dd>
     </dl>
   </section>
 

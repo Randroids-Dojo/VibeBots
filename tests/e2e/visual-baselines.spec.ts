@@ -165,6 +165,11 @@ test("visual baseline: bunker-fp-corridor", async ({ page }) => {
       body: JSON.stringify(FP_BASELINE_VIEW),
     });
   });
+  // The progressive tutorial (F-097) is DOM chrome, not this scene's
+  // subject: mark it done so its cards never drift into the clip.
+  await page.addInitScript(() => {
+    localStorage.setItem("vibebots-bunker-fp-tutorial-done", "1");
+  });
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await digTo(page, 1);

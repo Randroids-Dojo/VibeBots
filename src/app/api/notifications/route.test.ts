@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.251-hammer-retirement",
+      releaseNoticeId: "2026-07-13-0.1.252-bunker-tutorial",
       releaseSummary:
-        "One way to build: walk inside: The flat-view build cursor retires; first person is the builder.",
+        "The bunker teaches itself: A step-by-step walkthrough the first time you go inside.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.251-hammer-retirement",
+      releaseNoticeId: "2026-07-13-0.1.252-bunker-tutorial",
       attempted: 2,
       sent: 1,
       expired: 1,

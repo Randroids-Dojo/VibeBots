@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-release-and-priority-ledger-followups" data-date="2026-07-14">
+    <h3>Keep released bunker swings and current followup priorities trustworthy</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/f135-f136-followups</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Added F-135 and a priority-1 HTML Dot for the first-person mining repeat that can still strike after its held input is released, with acceptance across desktop, touch, pointer-lock loss, pointer-lock-unavailable blur, tool changes, exit, unmount, retargeting, and stable dug counts. Added F-136 and a priority-3 HTML Dot for append-only current-priority visibility: primary history stays byte-for-byte, while future non-primary pointers or an index expose authoritative <code>data-priority</code> without duplicating identities.</dd>
+      <dt>Verification</dt><dd>Traced <code>fpInput.actHeld</code> through desktop and touch release paths, the swing state machine's held restart, the live crosshair read at impact, tool switching, and unmount cleanup. Counted 133 primary followups on the audited baseline: 31 under a mismatched named bucket and 38 outside every priority bucket, totaling the 69 historical placement mismatches F-136 must grandfather. <code>pnpm check:dashes</code>, <code>git diff --check</code>, JSON parsing, the focused ledger and Dot integrity audit, <code>pnpm typecheck</code>, and <code>pnpm lint</code> pass. Lint retains only the two documented pre-existing warnings for the broken auth-route rule symlink and the optional-chain suggestion in <code>mine-input-cadence.ts</code>.</dd>
+      <dt>Assumptions</dt><dd>A discrete click or tap owns one intentional strike, but an automatic repeat is owned by the continuing hold and must be cancelled before impact when that hold ends. Historical primary ledger bytes remain immutable; current-priority views are derived through non-primary references.</dd>
+      <dt>GDD coverage</dt><dd>REQ-043 remains partial and now links F-135 because held mining and retargeting exist while release cancellation is incomplete. F-136 is process-ledger cleanup and has no GDD requirement link.</dd>
+      <dt>Followups</dt><dd>Added <a href="FOLLOWUPS.html#F-135">F-135</a> with Dot VibeBots-f-135-cancel-c681ccf0 and <a href="FOLLOWUPS.html#F-136">F-136</a> with Dot VibeBots-f-136-expose-f9a7b12c.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-excavation-progress-monitoring" data-date="2026-07-14">
     <h3>Keep authored bunker pocket cells out of player progress</h3>
     <dl>

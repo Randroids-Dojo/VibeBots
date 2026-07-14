@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-135" data-f="F-135" data-priority="blocks-release">
+    <h3>F-135: Cancel repeated bunker mining when input is released</h3>
+    <dl>
+      <dt>Context</dt><dd>The first-person bunker swing preserves one pick strike for a discrete click or tap and auto-restarts while the primary input stays held. After an automatic restart, releasing before that repeat reaches its impact only clears <code>actHeld</code>; the already active repeat still crosses impact, reads the live crosshair, and can dig another cell after release or hit a cell the player retargeted afterward. Pointer-lock-unavailable desktop play also clears movement but not the held action on window blur, so losing the release event can keep repeats armed.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before treating held first-person mining as release-safe on desktop and touch. A released control must not mutate a second block unexpectedly.</dd>
+      <dt>Unblock condition</dt><dd>Keep exactly one strike for the initial discrete click or tap, even when that first press is released before its impact. Mark or otherwise distinguish auto-restarted repeats, then cancel an unstruck repeat as soon as its owning input ends. Cover desktop <code>mouseup</code>, pointer-lock loss, window blur when pointer lock is unavailable, touch <code>pointerup</code> and <code>pointercancel</code>, tool switch, first-person exit, and component unmount. Moving the crosshair after release must not retarget a cancelled repeat. Unit coverage must pin release before and after the initial impact, held restart, release before the repeat impact, and no extra strike. Browser coverage must prove the desktop and touch release paths, pointer-lock loss and unavailable blur, tool switch and exit cleanup, stable open-cell and durable dug counts for longer than one full swing after release, and no delayed edit request.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-135-cancel-c681ccf0.</dd>
+    </dl>
+  </section>
+
   <section data-f="F-007" data-priority="blocks-release">
     <h3>F-007: Combat damage tuning: fights must visibly destroy parts</h3>
     <dl>
@@ -1179,6 +1189,16 @@
 
 <section id="polish">
   <h2>Polish</h2>
+
+  <section id="F-136" data-f="F-136" data-priority="polish">
+    <h3>F-136: Expose current followup priorities without rewriting history</h3>
+    <dl>
+      <dt>Context</dt><dd><code>data-priority</code> is the authoritative priority on each primary followup, but the old physical bucket layout no longer reflects it. Of the 133 historical primary entries on the audited baseline, 31 sit under a differently named priority bucket and 38 sit outside every priority bucket, for 69 container mismatches. Moving or rewriting those primary entries would violate the append-only ledger contract, while reading only the visual bucket headings hides current release blockers and cleanup priorities.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Complete before another human view, script, or backlog report treats container placement as current priority.</dd>
+      <dt>Unblock condition</dt><dd>Keep every historical primary followup byte-for-byte and keep its <code>data-priority</code> authoritative. Add a non-primary current-priority index or bucket pointers that use <code>data-role="priority-pointer"</code> plus <code>data-f-ref="F-NNN"</code>; pointers must never carry <code>data-f</code> or an <code>id</code>. Validate that every pointer targets exactly one primary entry, appears under the same priority as the target's <code>data-priority</code>, and introduces no duplicate <code>data-f</code>, <code>data-f-ref</code>, or document <code>id</code>. Record a cutoff or explicit allowlist that grandfathers exactly the 69 audited historical container mismatches, then require every new primary followup after that cutoff to live in its matching physical bucket. Pin the baseline count, target integrity, priority agreement, primary uniqueness, pointer uniqueness, and one deliberately misplaced post-cutoff fixture in automated ledger checks.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-136-expose-f9a7b12c.</dd>
+    </dl>
+  </section>
 
   <section id="F-132" data-f="F-132" data-priority="polish">
     <h3>F-132: Stabilize recurring mine and bunker E2E state under software rendering</h3>

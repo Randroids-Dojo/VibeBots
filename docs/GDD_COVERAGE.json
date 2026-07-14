@@ -743,7 +743,9 @@
         "src/state/stamp-alert-store.test.ts",
         "tests/e2e/mine-stamp-alert.spec.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-128"
+      ]
     },
     {
       "id": "REQ-033",

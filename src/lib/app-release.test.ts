@@ -24,17 +24,32 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest pry-refund note complete", () => {
+  it("keeps the latest pick-first note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.253-pry-refund");
+    expect(release.noticeId).toBe("2026-07-13-0.1.254-pick-first");
     expect(latestNote).toMatchObject({
+      version: "0.1.254",
+      title: "Step inside with the pick already out",
+      intro: "Entering the bunker arms the pick so you can dig right away.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Walking into the bunker now hands you the pick instead of a wall, because digging out the deep claim rock is the first thing to do in a fresh claim. Tap a part slot whenever you are ready to build.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived pry-refund note complete", () => {
+    const release = getAppRelease();
+    const pryNote = release.notes.find((note) => note.version === "0.1.253");
+
+    expect(pryNote).toMatchObject({
       version: "0.1.253",
       title: "Pry straight back to your pack",
       intro: "One press pries a part loose and returns it, ready for the next.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(pryNote?.changes.map((change) => change.text)).toEqual([
       "Prying a part now drops it straight back into your pack instead of carrying it on the crosshair. Pry one part after another with no stow step in between, then place from stock whenever you want it somewhere new.",
       "A damaged part will not pry until you repair it from the Bunker sheet, so its wear can never be laundered away.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

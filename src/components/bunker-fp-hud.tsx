@@ -116,14 +116,15 @@ const FP_TUTORIAL_COPY: Record<
     desktop: "Click the scene, then move the mouse to look around.",
   },
   walk: {
-    touch:
-      "Hold the left stick to walk. Walk into a low step and you hop it automatically.",
-    desktop: "WASD or the arrow keys walk; Space hops.",
+    // Auto-hop needs a one-block step, and a bare claim has none until
+    // you dig or place, so the walk card only teaches walking; the step
+    // hop is a surface tip and shows itself once a ledge exists.
+    touch: "Hold the left stick to walk around the bunker.",
+    desktop: "WASD or the arrow keys walk; Space jumps.",
   },
   dig: {
-    touch: "Select the pick, aim at the brighter claim rock, and tap to dig.",
-    desktop:
-      "Select the pick, aim at the brighter claim rock, and click to dig.",
+    touch: "Aim the pick at the brighter claim rock and tap to dig.",
+    desktop: "Aim the pick at the brighter claim rock and click to dig.",
   },
   place: {
     touch: "Pick a part slot, aim at a face, and tap to place it.",

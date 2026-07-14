@@ -469,6 +469,17 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     "Claim rock (diggable)",
   );
 
+  // Entry arms the pick, not the build ghost: digging out a fresh claim
+  // is the first move, so Pick is pressed and no part slot is.
+  await expect(page.getByTestId("bunker-fp-pick")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+
   // Select the wall from the hotbar (before any canvas click so the
   // pointer-lock handshake cannot swallow the tap).
   const wallSlot = page.getByTestId("bunker-fp-slot-wall-panel");
@@ -1376,6 +1387,13 @@ test("an enclosed spawn shows the boxed-in escape hint until a part is pried", a
   );
   await expect(page.locator(".bunker-fp-carried")).toHaveCount(0);
   await expect(hint).toHaveCount(0);
+
+  // Entry armed the pick (0.1.254), so re-arm the wall before building.
+  await page.keyboard.press("1");
+  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 
   // Walling the gap back up re-encloses the player, so the hint
   // returns; a tap dismisses it until the next enclosure.

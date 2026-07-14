@@ -1,9 +1,22 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.253-pry-refund";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.254-pick-first";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.254",
+      date: "2026-07-13",
+      title: "Step inside with the pick already out",
+      intro: "Entering the bunker arms the pick so you can dig right away.",
+      changes: [
+        {
+          build,
+          text: "Walking into the bunker now hands you the pick instead of a wall, because digging out the deep claim rock is the first thing to do in a fresh claim. Tap a part slot whenever you are ready to build.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.253",
       date: "2026-07-13",

@@ -7,11 +7,64 @@ import {
   normalizeAchievementStats,
   type PlayerAchievementView,
 } from "@/lib/achievements";
+import type { BunkerFootprint } from "@/sim/bunker";
+import { bunkerSpawnPocketCells } from "@/sim/bunker-blocks";
 import { countActiveBiomePortalsInDiff, type WorldDiff } from "@/sim/mine";
 import type { db } from "./db";
 import { matchAchievementCounters } from "./match-records";
 
 type Sql = Awaited<ReturnType<typeof db>>;
+
+/** A stored footprint jsonb, validated to the shape the pocket helper
+ * needs. Returns null when a row cannot prove its footprint. */
+function footprintFromUnknown(value: unknown): BunkerFootprint | null {
+  if (!value || typeof value !== "object") return null;
+  const fp = value as Record<string, unknown>;
+  if (
+    typeof fp.col !== "number" ||
+    typeof fp.row !== "number" ||
+    typeof fp.width !== "number" ||
+    typeof fp.height !== "number"
+  ) {
+    return null;
+  }
+  return { col: fp.col, row: fp.row, width: fp.width, height: fp.height };
+}
+
+/**
+ * Player-dug bunker cells for the Groundbreaker metric (F-133): the
+ * durable <code>bunkers.dug</code> set includes the authored pre-mined
+ * spawn pocket, which is not player behavior. Count only cells the
+ * player actually excavated by excluding the footprint's own spawn
+ * pocket (derived deterministically, never a magic size), so a fresh
+ * claim with no dig reports zero and the first real dig reports one. A
+ * row that cannot prove its footprint keeps the raw count rather than
+ * subtracting a pocket it cannot locate.
+ */
+function playerDugCellCount(dug: unknown, footprint: unknown): number {
+  if (!Array.isArray(dug) || dug.length === 0) return 0;
+  const fp = footprintFromUnknown(footprint);
+  if (!fp) return dug.length;
+  const pocket = new Set(
+    bunkerSpawnPocketCells(fp).map(
+      (cell) => `${cell.col},${cell.row},${cell.depth}`,
+    ),
+  );
+  let count = 0;
+  for (const cell of dug) {
+    if (!cell || typeof cell !== "object") continue;
+    const c = cell as Record<string, unknown>;
+    if (
+      typeof c.col !== "number" ||
+      typeof c.row !== "number" ||
+      typeof c.depth !== "number"
+    ) {
+      continue;
+    }
+    if (!pocket.has(`${c.col},${c.row},${c.depth}`)) count++;
+  }
+  return count;
+}
 
 interface PlayerAchievementRow {
   achievement_id: string;
@@ -35,7 +88,8 @@ interface AchievementProfileRow {
   elevator_speed_level: number;
   parts_owned: number;
   has_maxed_design: boolean;
-  bunker_cells_dug: number;
+  bunker_dug: unknown;
+  bunker_footprint: unknown;
   mine_diff: unknown;
 }
 
@@ -102,14 +156,12 @@ async function achievementSnapshot(
              WHERE bd.player_id = p.id
                AND (part->>'mergeLevel')::int >= 3
            ) AS has_maxed_design,
-           COALESCE((
-             SELECT jsonb_array_length(b.dug)
-             FROM bunkers b
-             WHERE b.player_id = p.id
-           ), 0) AS bunker_cells_dug,
+           bk.dug AS bunker_dug,
+           bk.footprint AS bunker_footprint,
            mw.diff AS mine_diff
     FROM players p
     LEFT JOIN mine_worlds mw ON mw.player_id = p.id
+    LEFT JOIN bunkers bk ON bk.player_id = p.id
     WHERE p.id = ${playerId}`) as Array<AchievementProfileRow>;
   const row = rows[0];
   const worldDiff = Array.isArray(row?.mine_diff)
@@ -123,8 +175,14 @@ async function achievementSnapshot(
     chassisFought: Math.max(stats.chassisFought, matchCounters.chassisFought),
     partsMaxed: Math.max(stats.partsMaxed, row?.has_maxed_design ? 1 : 0),
     // Backfill from the durable record: bunkers.dug proves every
-    // excavated cell even for profiles that dug before the stamp.
-    bunkerCellsDug: Math.max(stats.bunkerCellsDug, row?.bunker_cells_dug ?? 0),
+    // player-excavated cell even for profiles that dug before the stamp.
+    // The authored spawn pocket is excluded so a fresh claim is not
+    // counted as digging (F-133). Math.max keeps any stamp already
+    // earned, so an alpha profile never loses Groundbreaker.
+    bunkerCellsDug: Math.max(
+      stats.bunkerCellsDug,
+      playerDugCellCount(row?.bunker_dug, row?.bunker_footprint),
+    ),
     sales: Math.max(
       stats.sales,
       row && (row.emeralds > 0 || row.parts_owned > 0) ? 1 : 0,

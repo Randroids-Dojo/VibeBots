@@ -1,9 +1,25 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.261-bunker-ore";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.262-groundbreaker-real-dig";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.262",
+      date: "2026-07-14",
+      title: "Groundbreaker waits for a real dig",
+      intro: "The first-dig bunker stamp no longer pops before you dig.",
+      changes: [
+        {
+          build,
+          text: "Groundbreaker, the stamp for digging your first cell of bunker claim rock, no longer unlocks the moment you claim a bunker. It now counts only cells you actually dig out, not the pre-mined starter room, so it pops on your real first dig.",
+        },
+        {
+          build,
+          text: "Anyone who already earned it keeps it. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.261",
       date: "2026-07-14",

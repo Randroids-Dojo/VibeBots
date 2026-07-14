@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-dug-progress" data-date="2026-07-14">
+    <h3>Groundbreaker waits for a real dig</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-dug-progress</code>.</dd>
+      <dt>PR</dt><dd>#196.</dd>
+      <dt>Changed</dt><dd>Package 0.1.262 fixes F-133: the Groundbreaker stamp (and its <code>bunkerCellsDug</code> metric) counted the authored pre-mined spawn pocket as player digs, so a fresh claim could unlock the stamp at cash-out before excavating anything. The spawn-pocket enlargement to 3x3x3 made it worse (27 authored cells instead of 12). The achievement profile query in <code>src/server/achievements.ts</code> now returns the durable <code>bunkers.dug</code> set and the row's <code>footprint</code> (via a <code>LEFT JOIN bunkers</code>) instead of a raw <code>jsonb_array_length</code>, and a new <code>playerDugCellCount</code> counts only cells not in <code>bunkerSpawnPocketCells(footprint)</code>. The pocket is derived per row from its own footprint (never a subtracted magic size), so a row that cannot prove its footprint keeps the raw count. Because the excavate forward path passes an empty achievement patch and relies on this same backfill, the single change fixes both retroactive and live counting. <code>Math.max</code> grandfathers any already-earned stamp, so nothing is revoked and no temporary compatibility path was added.</dd>
+      <dt>Verification</dt><dd>dash, <code>git diff --check</code>, typecheck, Biome, sim-purity, the full <code>vitest</code> suite (1445 tests). Six new <code>achievements.test.ts</code> cases cover a pocket-only claim (zero, no stamp), the first real dig (one, unlocks once), a multi-dig count, a grandfathered prior unlock, the missing-footprint fallback, and no bunker. Release chain: package 0.1.262, new note plus <code>RELEASE_NOTICE_ID</code>, app-release and notifications route tests, and the release-notifications e2e (fresh-browser block and recent list). Rule 13 tips reviewed (no player-facing mine rule changed, no tip edits). Rule 14 stamps reviewed: no new stamp; this corrects the existing Groundbreaker stamp's progress source to exclude authored geometry, with the achievement tests updated.</dd>
+      <dt>Assumptions</dt><dd>A cell counts as a player dig only if it is in <code>bunkers.dug</code> and not in the footprint's deterministic spawn pocket. Grandfathering already-awarded cosmetic stamps is preferable to a bounded revocation cleanup for the tiny alpha cohort.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed; REQ-044 keeps F-133 as a resolved followup. The base-building build log records the fix.</dd>
+      <dt>Followups</dt><dd>Resolves F-133.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-ore-economy" data-date="2026-07-14">
     <h3>Dig your bunker for ore, not just space</h3>
     <dl>

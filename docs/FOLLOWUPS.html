@@ -52,6 +52,146 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-113" data-f="F-113" data-priority="polish">
+    <h3>F-113: Reconcile first-person bunker records</h3>
+    <dl>
+      <dt>Context</dt><dd>The first-person arc has landed slices 1-7 plus the tutorial and pry cleanup in PRs #165-#174, but its durable records still describe parts of the retired 2D builder. The GDD still presents the cursor, hammer, and scaffold as the active contract; GDD coverage cites deleted builder and toolbelt modules; F-097 says PR pending after PR #173; and F-092 remains a nice-to-have even though live first-person raids are the remaining priority-one arc.</dd>
+      <dt>Blocker (if any)</dt><dd>none.</dd>
+      <dt>Unblock condition</dt><dd>Append a correction article that records the landed slices and PRs, identifies F-092 and F-104 through F-111 as the remaining live raid work, and records PR #173 for F-097 without rewriting old history. Replace normative hammer and scaffold language in the GDD, refresh REQ-034 and REQ-035 implementation and test references to the current first-person paths, and reconcile the priority labels. Preserve the in-repo parent Dot as the durable arc tracker.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-113-reconcile-ba21cdb3 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-112" data-f="F-112" data-priority="blocks-release">
+    <h3>F-112: Validate pending bunker checkpoints and offer recovery</h3>
+    <dl>
+      <dt>Context</dt><dd>The account trip route accepts <code>pendingBunker</code> as unknown data, the client only checks that <code>parts</code> is an array, and the normalizer dereferences every element. A malformed checkpoint such as <code>parts: [null]</code> can therefore throw instead of producing a stable state error. The checkpoint path has also accumulated validation in multiple layers.</dd>
+      <dt>Blocker (if any)</dt><dd>none; this is current-state cleanup and is ready now.</dd>
+      <dt>Unblock condition</dt><dd>Define one shared bounded pending-bunker schema and normalizer for the route, client, and persistence layers. Invalid cells, core data, part entries, dimensions, and excessive collection sizes must return a stable incompatible-state response without replacing the last known good local state. Show a clear <q>Start fresh trip</q> recovery action, and cover null parts, malformed core data, bad dug cells, oversized arrays, and supported legacy shapes.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-112-validate-81ed1e44 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-111" data-f="F-111" data-priority="blocks-release">
+    <h3>F-111: Prove browser and Node live raid determinism</h3>
+    <dl>
+      <dt>Context</dt><dd>The planned browser preview and Node authority must run the same live raid simulation. Path tie order, input quantization, and numeric drift can otherwise produce a locally successful defense that the server rejects or resolves differently.</dd>
+      <dt>Blocker (if any)</dt><dd>The live raid simulation contract in F-104 must exist before full golden vectors can be pinned.</dd>
+      <dt>Unblock condition</dt><dd>Create shared versioned golden vectors that run through browser-compatible and Node entry points and compare final state hashes, rewards, damage, pickup collection, and validation results. Use integer or explicitly quantized state, stable path ordering, and adversarial diagonal, jump, fall, collision, timeout, and tie cases. Any simulation rule change must require a raid-version bump and updated vectors.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-111-prove-6921b570 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-110" data-f="F-110" data-priority="blocks-release">
+    <h3>F-110: Bound live raid upload and resolver work</h3>
+    <dl>
+      <dt>Context</dt><dd>A live raid trace turns a short defense event into a user-controlled request and deterministic pathfinding workload. Without explicit limits, an oversized or numerically hostile trace can consume excessive request memory, replay time, or concurrent resolver capacity.</dd>
+      <dt>Blocker (if any)</dt><dd>The trace shape and authored raid durations must be fixed by F-104.</dd>
+      <dt>Unblock condition</dt><dd>Cap request bytes, ticks from server-authored duration plus grace, coordinate ranges, enemies, pathfinding expansions, and simultaneous resolves per player. Reject non-finite values and impossible array shapes before simulation, keep the core protected from partial writes, and return stable validation codes for every rejected limit. Add boundary and adversarial route tests plus a worst-case resolver budget test.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-110-bound-d2131ab6 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-109" data-f="F-109" data-priority="blocks-release">
+    <h3>F-109: Pin live raid defense wear and sealed semantics</h3>
+    <dl>
+      <dt>Context</dt><dd>The interim raid resolver has established durability and reward behavior, but the 3D design does not yet say how turret ammunition, turret wear, spike uses, or partially damaged defenses enter and leave a live raid. The existing sealed test and Buttoned Up stamp also need an exact 3D meaning.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve the design rules before implementing live defense effects in F-092.</dd>
+      <dt>Unblock condition</dt><dd>Specify persisted starting durability and ammunition, per-use and per-hit wear, zero-durability handling, and atomic settlement for success, death, disconnect, and expiry. Define sealed in terms of the 3D dug volume and reachable Clanker paths. Review the Buttoned Up stamp under Rule 14, update its copy and progress source if the meaning changes, and pin all rules with simulation and achievement tests.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-109-pin-6a12d11e (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-108" data-f="F-108" data-priority="blocks-release">
+    <h3>F-108: Freeze complete live raid start snapshots</h3>
+    <dl>
+      <dt>Context</dt><dd>A live raid can span reloads and deploys, so resolving against the player's current bunker or current balance tables would let later edits change an in-flight result. The start row does not yet have a complete versioned 3D snapshot contract.</dd>
+      <dt>Blocker (if any)</dt><dd>The live raid persistence schema has not been implemented.</dd>
+      <dt>Unblock condition</dt><dd>At start, persist the raid version, seed, canonical player start, dug cells, placed parts, part-local durability, core state, tier and duration, approach terrain, and every balance input the resolver reads. Resolve only from that immutable snapshot plus the validated trace. Tests must prove that later bunker edits, inventory changes, balance changes, and a reload cannot alter the same raid result.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-108-freeze-c02fcc75 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-107" data-f="F-107" data-priority="blocks-release">
+    <h3>F-107: Fail fast on unsupported raid state</h3>
+    <dl>
+      <dt>Context</dt><dd>VibeBots is in early alpha with only a few active testers. Carrying old active-raid resolvers and migrations indefinitely would add more risk than value, while an unexplained incompatible row could leave a player permanently blocked.</dd>
+      <dt>Blocker (if any)</dt><dd>The live raid row needs an explicit version before incompatibility can be detected.</dd>
+      <dt>Unblock condition</dt><dd>Return a structured unsupported-version response whenever an active raid cannot be safely read by the deployed build. The UI must explain that the saved raid came from an older build and offer a confirmed <q>Start fresh</q> action. Recovery marks the incompatible active row abandoned with no reward, clears the bunker lock, and permits a new raid. Completed old rows may remain opaque history; do not keep dual resolvers or permanent migration chains solely to replay them.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-107-fail-b7950c5c (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-106" data-f="F-106" data-priority="blocks-release">
+    <h3>F-106: Fail live raid conflicts and resync server state</h3>
+    <dl>
+      <dt>Context</dt><dd>Simultaneous play on multiple machines is not a supported workflow, but overlapping starts, resolves, retries, or stale clients must still fail safely. Existing persistence ownership work does not yet define the live raid write-conflict and client reload contract.</dd>
+      <dt>Blocker (if any)</dt><dd>The live raid start and resolve mutations have not been implemented.</dd>
+      <dt>Unblock condition</dt><dd>Use a unique active-raid invariant plus conditional state or revision checks so exactly one conflicting mutation succeeds. A loser receives HTTP 409 with a stable code and the latest authoritative raid or bunker view. The client replaces stale local state, shows a short reloaded notice, and does not attempt to merge two machines. Cover duplicate requests, two concurrent starts, two concurrent resolves, and a stale resolve after server expiry.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-106-fail-00f6a426 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-105" data-f="F-105" data-priority="blocks-release">
+    <h3>F-105: Recover expired or abandoned live raids</h3>
+    <dl>
+      <dt>Context</dt><dd>A player can close the tab, lose connectivity, or never submit the final trace after a live raid starts. An active row without server-owned expiry and idempotent recovery can wedge all later bunker operations, and a client timer cannot be the authority.</dd>
+      <dt>Blocker (if any)</dt><dd>The live raid lifecycle and persistence row have not been implemented.</dd>
+      <dt>Unblock condition</dt><dd>Persist enough progress to apply the Q-019 forfeit rule, enforce authored duration plus a bounded grace period on the server, and finalize stale rows lazily during load or the next bunker operation, or through a bounded scheduled path. Expiry, disconnect, death, and success must settle damage and rewards exactly once. Cover closed tab, reload before and after expiry, retry, duplicate finalization, and recovery after a deploy.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-105-recover-6e8358d4 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-104" data-f="F-104" data-priority="blocks-release">
+    <h3>F-104: Define authoritative live raid movement and pickups</h3>
+    <dl>
+      <dt>Context</dt><dd>Live raid slices 8-10 have not started. The draft rounded 6 Hz cell trace only allows one face-neighbor step per sample, which would reject honest diagonal movement, jumps, and falls while still leaving ambiguous gaps between samples. The draft also conflicts with the current coordinate-claimed <code>/api/bunker/raid/collect</code> route over who decides that a pickup was reached.</dd>
+      <dt>Blocker (if any)</dt><dd>F-092 remains the umbrella live raid task; this contract must be settled before its simulation slice starts.</dd>
+      <dt>Unblock condition</dt><dd>Choose server-replayed fixed-tick inputs or a physically valid swept-movement trace with a server-issued canonical start and server-authored elapsed-time budget. Accept honest diagonal travel, jumping, and falling; reject teleporting, flying, excess speed, solid-cell traversal, and motion after timeout. Keep the core blocked. Derive v2 pickup collection from the validated trace and keep the caller-coordinate <code>/collect</code> route v1-only. Pin valid and hostile traces in pure simulation and route tests.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-104-define-06f15649 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-103" data-f="F-103" data-priority="nice-to-have">
+    <h3>F-103: Keep real-device bunker rollups honest</h3>
+    <dl>
+      <dt>Context</dt><dd>The performance insights endpoint currently treats rows with no GPU identity as real hardware, and per-build summaries can silently mix mine and bunker surfaces unless every caller supplies a source filter. The summary also omits total stalls, worst maximum frame, and heap span, which are central to diagnosing the reported phone freezes.</dd>
+      <dt>Blocker (if any)</dt><dd>Implementation is ready now; meaningful bunker comparisons require new post-F-100 data because historical rows cannot be safely reclassified.</dd>
+      <dt>Unblock condition</dt><dd>Classify missing GPU identity as unknown rather than real, require an explicit homogeneous surface for per-build comparison, and include stall count, worst maximum frame, and heap span in segment and build summaries. Add mixed <code>mine</code>/<code>bunker-fp</code>, null-GPU, software-renderer, source-filter, and by-build tests. Update F-071's baseline procedure to use only post-fix bunker builds.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-103-keep-1f174f99 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-102" data-f="F-102" data-priority="nice-to-have">
+    <h3>F-102: Retry telemetry and retain short bunker visits</h3>
+    <dl>
+      <dt>Context</dt><dd>The compact sampler records its sent marker before knowing that the request succeeded. The deep collector clears its buffer before an unchecked upload, and entering or leaving first person discards an unfinished sampling window. A network failure or a short in-base check can therefore erase the exact phone evidence live testing is meant to capture.</dd>
+      <dt>Blocker (if any)</dt><dd>Sequence after F-100 because both tasks touch collector lifecycle and source selection.</dd>
+      <dt>Unblock condition</dt><dd>Mark compact delivery only after an OK response. Requeue failed deep batches with unchanged sequence numbers and a strict memory bound so the existing database conflict key prevents duplicates. Finalize a partial window on surface change or page hide when it contains at least two frames and 250 ms. Tests must simulate failure then success, mode switches, short visits, page hide, retry exhaustion, and duplicate-free persistence.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-102-retry-ef037632 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-101" data-f="F-101" data-priority="nice-to-have">
+    <h3>F-101: Preserve first-person performance diagnostics</h3>
+    <dl>
+      <dt>Context</dt><dd>The first-person canvas already publishes allocation-safe eye position, open-cell count, and grounded state, but the performance probe allowlist only retains mine diagnostics. Even after source attribution is corrected, bunker traces would lack the scene context needed to relate a freeze to movement, enclosure, or grounding.</dd>
+      <dt>Blocker (if any)</dt><dd>Sequence after F-100 so the trace reads the registered <code>bunker-fp</code> probe.</dd>
+      <dt>Unblock condition</dt><dd>Add a source-aware diagnostic allowlist that preserves at least <code>fpEyeY</code>, <code>fpOpenCells</code>, and <code>fpGrounded</code> without adding per-frame string or object allocation. Unit tests must reject unapproved keys and retain approved bounded values; an end-to-end trace test must prove the fields reach a <code>bunker-fp</code> payload.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-101-preserve-6cc8e8f6 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
+  <section id="F-100" data-f="F-100" data-priority="blocks-release">
+    <h3>F-100: Correct first-person telemetry attribution</h3>
+    <dl>
+      <dt>Context</dt><dd>The first-person canvas registers a <code>bunker-fp</code> renderer probe, but the deep collector and compact sampler are always configured as <code>mine</code>. The deep collector therefore reads a null probe inside the bunker, while the compact API only accepts <code>mine</code>. A production query on 2026-07-13 found no correctly attributed <code>bunker-fp</code> sessions and thousands of <code>mine</code> samples, including Pixel sessions from first-person builds. Historical rows cannot be safely reclassified.</dd>
+      <dt>Blocker (if any)</dt><dd>none; this blocks trustworthy live testing of the new in-base experience.</dd>
+      <dt>Unblock condition</dt><dd>Switch compact and deep source selection with the active surface, read the registered bunker probe, accept <code>bunker-fp</code> through the compact route, cancel or restart a window when the surface changes, and scope the compact throttle per source so a mine sample cannot suppress a bunker sample for an hour. End-to-end coverage must assert correctly labeled compact and deep payloads, a non-null bunker probe, entry and exit behavior, and no mixed-surface window. Use only post-fix builds for the new bunker baseline.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-100-correct-37f761d8 (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
   <section id="F-099" data-f="F-099" data-priority="blocks-release">
     <h3>F-099: Prying stows automatically so parts chain pry-to-pry</h3>
     <dl>

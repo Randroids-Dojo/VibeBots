@@ -767,7 +767,9 @@
         "src/components/mine-bunker-build.test.ts",
         "tests/e2e/mine-bunker.spec.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-113"
+      ]
     },
     {
       "id": "REQ-035",
@@ -799,7 +801,9 @@
         "tests/e2e/mine-bunker.spec.ts",
         "src/components/mine-bunker-part-geometry.test.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-113"
+      ]
     },
     {
       "id": "REQ-036",
@@ -818,7 +822,15 @@
         "src/app/api/bunker/route.test.ts"
       ],
       "followupRefs": [
-        "F-092"
+        "F-092",
+        "F-104",
+        "F-105",
+        "F-106",
+        "F-107",
+        "F-108",
+        "F-109",
+        "F-110",
+        "F-111"
       ]
     },
     {
@@ -840,7 +852,12 @@
         "tests/e2e/mine-bunker.spec.ts"
       ],
       "followupRefs": [
-        "F-092"
+        "F-092",
+        "F-104",
+        "F-108",
+        "F-109",
+        "F-110",
+        "F-111"
       ]
     },
     {
@@ -876,7 +893,12 @@
         "tests/e2e/bunker-arc-capture.spec.ts"
       ],
       "followupRefs": [
-        "F-089"
+        "F-089",
+        "F-104",
+        "F-105",
+        "F-107",
+        "F-108",
+        "F-109"
       ]
     },
     {
@@ -960,7 +982,12 @@
         "src/app/api/performance/insights/route.test.ts",
         "tests/e2e/perf-telemetry.spec.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-100",
+        "F-101",
+        "F-102",
+        "F-103"
+      ]
     },
     {
       "id": "REQ-042",
@@ -1032,7 +1059,8 @@
         "tests/e2e/account-sign-in-route.spec.ts"
       ],
       "followupRefs": [
-        "F-003"
+        "F-003",
+        "F-112"
       ]
     }
   ]

@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-133" data-f="F-133" data-priority="blocks-release">
+    <h3>F-133: Keep starter bunker pockets out of excavation progress</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #186 stores the twelve authored cells in the 3x2x2 starter pocket inside <code>bunkers.dug</code>. The achievement backfill treats <code>jsonb_array_length(bunkers.dug)</code> as authoritative <code>bunkerCellsDug</code>, while Groundbreaker unlocks at one with the copy <q>Dig your first cell into the bunker's claim rock.</q> A fresh claim can therefore unlock the stamp during its first cash-out before the player excavates anything, and any analytics built from the same count would label authored level geometry as player behavior.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before relying on bunker excavation progress for stamps, live testing, or product telemetry.</dd>
+      <dt>Unblock condition</dt><dd>Separate authored starter-pocket cells from durable player excavation progress. A fresh claim with no accepted dig must report zero player-dug cells and award no Groundbreaker stamp. The first accepted dig increments progress exactly once and unlocks exactly once. Preserve the result through pending-claim cash-out, direct banked excavation, reload, retry, reset, and legacy normalization. Correct the tiny alpha cohort through one bounded cleanup or explicitly grandfather already awarded cosmetic stamps, then remove any temporary compatibility path. Do not subtract a magic pocket size from rows that cannot prove the pocket is present. Any telemetry uses authoritative bounded counts or per-operation deltas only, never coordinates, raw cell lists, or human error text. Tests must cover a claim with no player dig, the first real dig, duplicate and stale requests, reset, reload, a legacy row with and without the authored pocket, and no duplicate stamp or event.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-133-keep-d9343235.</dd>
+    </dl>
+  </section>
+
   <section id="F-130" data-f="F-130" data-priority="nice-to-have">
     <h3>F-130: Make the autoplay mine soak fail visibly instead of stalling behind overlays</h3>
     <dl>
@@ -1169,7 +1179,27 @@
 
 <section id="polish">
   <h2>Polish</h2>
-  <p>(none yet)</p>
+
+  <section id="F-132" data-f="F-132" data-priority="polish">
+    <h3>F-132: Stabilize recurring mine and bunker E2E state under software rendering</h3>
+    <dl>
+      <dt>Context</dt><dd>Scheduled Full E2E runs on unchanged main now show repeated failures outside the documented known-flake list. Explicit bunker claim mode and stratum banner fade failed with retries on July 12, 13, and 14. Stamp-alert navigation, feedback submission, and wheel zoom failed with retries on July 13 and 14. Run 29323594310 added unresolved first-person bunker shapes: the viewer failed after about 2.1 minutes and again at its 3-minute retry limit, while the pending-claim build loop failed after about 2.1 minutes before the shard timed out. Focused pre-merge evidence was green, and the first-person tests already document long Software-GL compile and screenshot costs, so the current evidence does not yet prove a separate bunker product defect.</dd>
+      <dt>Blocker (if any)</dt><dd>Classify these current-main failures before another feature slice treats the scheduled matrix as healthy or adds them to the known-flake list. Keep the new bunker failures together here until retained traces justify a narrower product followup.</dd>
+      <dt>Unblock condition</dt><dd>Reproduce each affected test in its exact serial shard order under CI software rendering. Retain stage-specific compile-ready, route and mock, scene-ready, canvas, console, and assertion evidence, then classify every failure as product behavior, fixture state, readiness ownership, or pixel and timing harness. Fix shared state and readiness ownership instead of applying blanket timeout increases. Each affected focused group must pass ten consecutive runs, followed by three consecutive complete full matrices with no unexpected failure. Any genuinely environmental temporary flake added to <code>docs/CI_WORKFLOW.html</code> must name an owner, evidence, and a removal condition.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-132-stabilize-943ff4ba.</dd>
+    </dl>
+  </section>
+
+  <section id="F-131" data-f="F-131" data-priority="polish">
+    <h3>F-131: Make scheduled Full E2E deadlines visible and evidence-preserving</h3>
+    <dl>
+      <dt>Context</dt><dd>Scheduled run 29323594310 on main commit <code>5e20fc9e</code> ended <code>cancelled</code> after Full E2E shards 1, 2, and 3 each hit the exact 20-minute job deadline. Eleven unique tests had already failed, but the report upload guarded by <code>failure()</code> was skipped and the run retained zero artifacts. This is recurring: run 29242796543 also timed out three shards with zero artifacts, and run 29188294201 timed out two shards while retaining only the separately failed shard's artifact. F-047's shipped startup check treats only conclusion <code>failure</code> as red, while the general closeout rules correctly ignore cancelled runs only when a newer run or SHA superseded them. A timed-out scheduled run can therefore look harmless, evade the next-slice gate, and discard the evidence needed to triage it.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before relying on the scheduled-run gate for another feature slice. Non-superseded timeout cancellation must be actionable; cancellation proven to be superseded must remain ignorable.</dd>
+      <dt>Unblock condition</dt><dd>Give the Playwright process an internal deadline that ends before the job deadline so teardown and evidence upload can run. Preserve an HTML report, test-result traces and screenshots, plus a bounded machine-readable partial result for every non-success shard. Update slice-start triage to treat a scheduled timeout or non-superseded cancellation as red while continuing to ignore runs superseded by a newer verified SHA. Force one timeout through a manual dispatch and prove the workflow concludes failure with retained artifacts. Rebalance or partition the suite until three consecutive CI-like full matrices finish every shard inside the existing job budget. Do not close this by only raising the 20-minute timeout.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-131-make-b3c5367d.</dd>
+      <dt>Related history</dt><dd>F-047 remains resolved for ordinary failed scheduled runs. This entry covers the timeout-cancellation and evidence-loss path that its conclusion filter did not include.</dd>
+    </dl>
+  </section>
 </section>
 
 <section data-f="F-012" data-vibereview-session="20260610-220517-4C845606" data-capture="3842799B-64EA-487B-973B-DBEB6BC912F2" data-priority="nice-to-have">

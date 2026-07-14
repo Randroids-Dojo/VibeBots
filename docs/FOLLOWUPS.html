@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-134" data-f="F-134" data-priority="blocks-release">
+    <h3>F-134: Keep the elevator car supporting blocked exits</h3>
+    <dl>
+      <dt>Context</dt><dd>Read-only monitoring of the evolving call-and-destination slice found that a boarded left or right action may successfully dig an adjacent solid cell without moving the miner off the rail. The generic dig finalizer then settles the miner while the shaft cell is empty and boarded elevator state is not treated as support, so the miner can fall down the rail while still marked <code>boarded</code>.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before call-and-destination elevator travel ships. A valid exit attempt must not turn the supporting car into a fall-through shaft.</dd>
+      <dt>Unblock condition</dt><dd>Keep the boarded car as support until the miner actually leaves the rail, or reject lateral exit until the target is traversable. Keep elevator phase synchronized and run hazard, payload, and turn finalization exactly once for every accepted action. Cover an open exit, a solid multi-hit wall, a one-hit dig, blocked metal, rock, gas, magma, and boulder cells in both directions. Prove no fall, collapse, or phase desynchronization while still boarded, and normal gravity only after the miner leaves the rail.</dd>
+      <dt>PR / Dot reference</dt><dd>Tracking PR #188; Dot VibeBots-f-134-keep-76218013.</dd>
+    </dl>
+  </section>
+
   <section data-f="F-007" data-priority="blocks-release">
     <h3>F-007: Combat damage tuning: fights must visibly destroy parts</h3>
     <dl>

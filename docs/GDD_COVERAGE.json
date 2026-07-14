@@ -981,7 +981,7 @@
     },
     {
       "id": "REQ-041",
-      "requirement": "The mine collects lightweight real-session performance samples so old-device glitches and low frame rates can be diagnosed by version, renderer, viewport, hardware hints, draw calls, and frame-time percentiles. Extended 2026-07-06 with the opt-in deep performance analyzer: snapshot traces pairing frame distributions with renderer and scene composition, GPU pass time, main-thread attribution, and memory, across mine, arena, workshop, and holodeck, stored in player_perf_traces with anonymized aggregate insights and A/B variant splits. Extended 2026-07-07 with root-cause attribution: network request timing, heap span (GC sawtooth), hidden time and visibility flips, LoAF invoker attribution, a reliable build id, per-session rollups with a software-renderer flag, and session and device filters on the insights endpoint.",
+      "requirement": "The mine collects lightweight real-session performance samples so old-device glitches and low frame rates can be diagnosed by version, renderer, viewport, hardware hints, draw calls, and frame-time percentiles. Extended 2026-07-06 with the opt-in deep performance analyzer: snapshot traces pairing frame distributions with renderer and scene composition, GPU pass time, main-thread attribution, and memory, across mine, arena, workshop, and holodeck, stored in player_perf_traces with anonymized aggregate insights and A/B variant splits. Extended 2026-07-07 with root-cause attribution: network request timing, heap span (GC sawtooth), hidden time and visibility flips, LoAF invoker attribution, a reliable build id, per-session rollups with a software-renderer flag, and session and device filters on the insights endpoint. Extended 2026-07-14 (F-100) with first-person bunker attribution: both the compact sampler and the deep collector pick their source from the active surface (mine or bunker-fp) and read the matching registered probe, the collectors restart their window on a surface change so none spans both, the compact throttle is scoped per source, and the compact route accepts every performance source.",
       "gddRef": "docs/gdd/06-mining.html#controls",
       "status": "done",
       "implementationRefs": [
@@ -1010,7 +1010,8 @@
         "src/components/perf-probe.test.ts",
         "src/app/api/performance/trace/route.test.ts",
         "src/app/api/performance/insights/route.test.ts",
-        "tests/e2e/perf-telemetry.spec.ts"
+        "tests/e2e/perf-telemetry.spec.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
       ],
       "followupRefs": [
         "F-100",

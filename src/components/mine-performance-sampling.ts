@@ -2,10 +2,11 @@
 
 import { useEffect } from "react";
 import type { AppRelease } from "@/lib/app-release-types";
+import type { PerfSource } from "@/lib/perf-trace";
 import { summarizeFrameMetrics } from "@/lib/performance-metrics";
 import { MINE_VERSION } from "@/sim/mine";
 
-const PERFORMANCE_LAST_SENT_KEY = "vibebots-performance-last-sent";
+const PERFORMANCE_LAST_SENT_KEY_PREFIX = "vibebots-performance-last-sent";
 const PERFORMANCE_SAMPLE_MS = 12_000;
 const PERFORMANCE_INITIAL_DELAY_MS = 4_000;
 const PERFORMANCE_REPEAT_MS = 5 * 60_000;
@@ -38,21 +39,31 @@ function performanceOverride(
     : fallback;
 }
 
-function lastPerformanceSentAt(): number {
+// The throttle is scoped per source so a mine sample cannot suppress a
+// bunker-fp sample for the whole hour interval (F-100): each surface
+// keeps its own last-sent timestamp.
+function performanceLastSentKey(source: PerfSource): string {
+  return `${PERFORMANCE_LAST_SENT_KEY_PREFIX}-${source}`;
+}
+
+function lastPerformanceSentAt(source: PerfSource): number {
   try {
-    return Number(localStorage.getItem(PERFORMANCE_LAST_SENT_KEY) ?? 0);
+    return Number(localStorage.getItem(performanceLastSentKey(source)) ?? 0);
   } catch {
     return 0;
   }
 }
 
-function markPerformanceSent(): void {
+function markPerformanceSent(source: PerfSource): void {
   try {
-    localStorage.setItem(PERFORMANCE_LAST_SENT_KEY, String(Date.now()));
+    localStorage.setItem(performanceLastSentKey(source), String(Date.now()));
   } catch {}
 }
 
-export function useMinePerformanceSampling(appRelease: AppRelease) {
+export function useMinePerformanceSampling(
+  appRelease: AppRelease,
+  source: PerfSource,
+) {
   useEffect(() => {
     let cancelled = false;
     let timeout = 0;
@@ -63,7 +74,7 @@ export function useMinePerformanceSampling(appRelease: AppRelease) {
         "__vibebotsPerfMinSendIntervalMs",
         PERFORMANCE_MIN_SEND_INTERVAL_MS,
       );
-      const last = lastPerformanceSentAt();
+      const last = lastPerformanceSentAt(source);
       return !Number.isFinite(last) || now - last >= minInterval;
     };
 
@@ -82,12 +93,12 @@ export function useMinePerformanceSampling(appRelease: AppRelease) {
       if (cancelled) return;
       const summary = summarizeFrameMetrics(frames);
       const drawTotal = drawCalls.reduce((sum, value) => sum + value, 0);
-      markPerformanceSent();
+      markPerformanceSent(source);
       fetch("/api/performance", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          source: "mine",
+          source,
           appVersion: appRelease.version,
           appBuild: appRelease.build,
           mineVersion: MINE_VERSION,
@@ -166,5 +177,7 @@ export function useMinePerformanceSampling(appRelease: AppRelease) {
       window.clearTimeout(timeout);
       cancelAnimationFrame(frame);
     };
-  }, [appRelease]);
+    // `source` in the deps restarts the window when the active surface
+    // changes (mine <-> bunker-fp), so no sample window spans both.
+  }, [appRelease, source]);
 }

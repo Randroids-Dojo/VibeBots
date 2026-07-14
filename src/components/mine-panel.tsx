@@ -1168,7 +1168,6 @@ function JuiceOverlays() {
 }
 
 export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
-  useMinePerformanceSampling(appRelease);
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const miner = mine.miner;
@@ -1376,6 +1375,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // First-person bunker viewer mode: the fp canvas replaces MineCanvas
   // and the 2D movement inputs are suppressed while it is on.
   const [fpBunkerActive, setFpBunkerActive] = useState(false);
+  // Performance telemetry is attributed to whichever surface owns the
+  // canvas right now (F-100): the fp canvas swaps in while active, so
+  // both the compact sampler and the deep collector report bunker-fp
+  // and read the bunker probe instead of mislabeling it as mine.
+  const perfSurfaceSource = fpBunkerActive ? "bunker-fp" : "mine";
+  useMinePerformanceSampling(appRelease, perfSurfaceSource);
   // Tool state lives here (not in the fp canvas) so exits and forced
   // exits can always reset it; only the fp hotbar writes it now.
   const [bunkerToolSelection, setBunkerToolSelection] =
@@ -3860,7 +3865,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onResolve={resolveSaveConflict}
       />
       <PerfTelemetry
-        source="mine"
+        source={perfSurfaceSource}
         appVersion={appRelease.version}
         appBuild={appRelease.build}
         mineVersion={MINE_VERSION}

@@ -17,13 +17,14 @@ import {
 import {
   BEACON_LABEL_MAX_LENGTH,
   CONSUMABLE_PRICES,
-  ELEVATOR_SEGMENT_ROWS,
-  elevatorSegmentPrice,
+  elevatorColumn,
+  elevatorRailPrice,
   elevatorSpeedRows,
   findBeacons,
   findPortalBeacons,
   GEAR_TRACKS,
   gearUpgradeRequirements,
+  MINE_BOTTOM_ROW,
   type MineAction,
   type MineGear,
   type MineGearTrack,
@@ -233,10 +234,13 @@ export function StallMenu({
   beaconLimit,
   shopNote,
   cashOutPending,
+  elevatorPurchasePending,
+  elevatorPlacementRequired,
   onBuyConsumable,
   onBuyBasePart,
   onBuyGear,
   onBuyElevator,
+  onChooseElevatorShaft,
   onRide,
   onClose,
   sheetRef,
@@ -250,10 +254,13 @@ export function StallMenu({
   beaconLimit: number;
   shopNote: string | null;
   cashOutPending: boolean;
+  elevatorPurchasePending: boolean;
+  elevatorPlacementRequired: boolean;
   onBuyConsumable: (item: DepotItem, quantity: number) => void;
   onBuyBasePart: (partId: BasePartId, quantity: number) => void;
   onBuyGear: (track: MineGearTrack) => void;
   onBuyElevator: () => void;
+  onChooseElevatorShaft: () => void;
   onRide: (action: MineAction) => void;
   onClose: () => void;
   sheetRef?: RefObject<HTMLElement | null>;
@@ -263,6 +270,8 @@ export function StallMenu({
   const bankedParts = miner.bankedParts.length;
   const autoBanking = banked > 0 || bankedParts > 0;
   const upgradeFunds = balance === null ? null : balance + banked;
+  const elevatorMaxed = gear.elevator >= MINE_BOTTOM_ROW - 1;
+  const choosingExistingShaft = elevatorPlacementRequired && gear.elevator > 0;
   const offline = balance === null;
   const beacons = findBeacons(mine);
   const portals = findPortalBeacons(mine).filter((portal) => portal.active);
@@ -579,59 +588,80 @@ export function StallMenu({
           <SheetRow
             icon={"\u{1F6D7}"}
             name={
-              gear.elevator > 0
-                ? `rail reaches ${gear.elevator} deep`
-                : "no rail yet; the shaft waits"
+              choosingExistingShaft
+                ? `place your existing ${gear.elevator}-row shaft`
+                : gear.elevator > 0
+                  ? `rail at column ${elevatorColumn(gear)} reaches ${gear.elevator} deep`
+                  : "choose your shaft column"
             }
-            sub="free rides, surface to rail end"
+            sub={
+              choosingExistingShaft
+                ? "one free location choice; bought depth stays"
+                : elevatorMaxed
+                  ? "rail reaches the mine bottom"
+                  : gear.elevator > 0
+                    ? "one premium row per purchase"
+                    : `first rail costs ${elevatorRailPrice(0)} vibes`
+            }
             action={
               <button
                 type="button"
-                onClick={onBuyElevator}
+                aria-label={
+                  elevatorPurchasePending
+                    ? choosingExistingShaft
+                      ? "Placing existing elevator shaft"
+                      : "Buying one elevator rail"
+                    : choosingExistingShaft
+                      ? "Choose free elevator shaft location"
+                      : elevatorMaxed
+                        ? "Elevator rail is at maximum depth"
+                        : gear.elevator > 0
+                          ? `Buy one elevator rail for ${elevatorRailPrice(gear.elevator)} vibes`
+                          : "Choose elevator shaft location"
+                }
+                onClick={
+                  gear.elevator > 0 && !choosingExistingShaft
+                    ? onBuyElevator
+                    : onChooseElevatorShaft
+                }
                 disabled={
-                  balance === null ||
-                  balance <
-                    elevatorSegmentPrice(
-                      gear.elevator / ELEVATOR_SEGMENT_ROWS + 1,
-                    )
+                  elevatorPurchasePending ||
+                  (!choosingExistingShaft &&
+                    (elevatorMaxed ||
+                      upgradeFunds === null ||
+                      upgradeFunds < elevatorRailPrice(gear.elevator)))
                 }
                 style={sheetButtonStyle(
-                  balance !== null &&
-                    balance >=
-                      elevatorSegmentPrice(
-                        gear.elevator / ELEVATOR_SEGMENT_ROWS + 1,
-                      ),
+                  !elevatorPurchasePending &&
+                    (choosingExistingShaft ||
+                      (!elevatorMaxed &&
+                        upgradeFunds !== null &&
+                        upgradeFunds >= elevatorRailPrice(gear.elevator))),
                 )}
               >
-                {elevatorSegmentPrice(
-                  gear.elevator / ELEVATOR_SEGMENT_ROWS + 1,
-                )}{" "}
-                vibes
+                {elevatorPurchasePending
+                  ? choosingExistingShaft
+                    ? "Placing..."
+                    : "Buying..."
+                  : choosingExistingShaft
+                    ? "Choose spot"
+                    : elevatorMaxed
+                      ? "Max"
+                      : gear.elevator > 0
+                        ? `${autoBanking ? "Bank + " : ""}${elevatorRailPrice(gear.elevator)} vibes`
+                        : "Choose spot"}
               </button>
             }
           />
           <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            each segment extends the rail {ELEVATOR_SEGMENT_ROWS} rows
+            {choosingExistingShaft
+              ? "Choose any surface column. The old shaft stays open as a tunnel."
+              : "Buy the first rail at any surface column. That spot stays yours."}
           </p>
           <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
             speed level {gear.elevatorSpeed ?? 1} moves{" "}
             {elevatorSpeedRows(gear)} rows per automatic step
           </p>
-          <button
-            type="button"
-            onClick={() => onRide("ride-down")}
-            disabled={mine.gear.elevator <= 0}
-            style={{
-              ...sheetButtonStyle(mine.gear.elevator > 0),
-              width: "100%",
-              marginTop: 12,
-              minHeight: 48,
-            }}
-          >
-            {mine.gear.elevator > 0
-              ? `Auto ride to ${mine.gear.elevator}`
-              : "Ride down (no rail)"}
-          </button>
         </div>
       )}
       {stall.id === "warp" && (

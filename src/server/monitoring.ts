@@ -11,6 +11,7 @@ export interface MineCashOutMonitoringEvent {
     | "cash_out_failed"
     | "cash_out_succeeded"
     | "consumables_not_owned"
+    | "elevator_rail_migration_required"
     | "gear_not_owned"
     | "invalid_json_body"
     | "legacy_support_reconciled"

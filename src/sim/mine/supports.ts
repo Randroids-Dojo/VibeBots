@@ -7,7 +7,7 @@ import type {
 } from "./cells";
 import { MINE_BOTTOM_ROW, type MineConsumables } from "./consumables";
 import { MOVE_COST } from "./digging";
-import { ELEVATOR_COL } from "./gear";
+import { elevatorColumn } from "./gear";
 import { dropBagToSurface, dropOreToSurface } from "./inventory";
 import { cellAt, cellMut } from "./world";
 
@@ -27,6 +27,7 @@ interface ReturnRouteNode {
   row: number;
   laddersNeeded: number;
   steps: number;
+  energyCost: number;
 }
 
 class ReturnRouteHeap {
@@ -94,7 +95,11 @@ class ReturnRouteHeap {
 }
 
 function compareRouteNode(a: ReturnRouteNode, b: ReturnRouteNode): number {
-  return a.laddersNeeded - b.laddersNeeded || a.steps - b.steps;
+  return (
+    a.laddersNeeded - b.laddersNeeded ||
+    a.energyCost - b.energyCost ||
+    a.steps - b.steps
+  );
 }
 
 function isOrePileSupported(
@@ -257,6 +262,16 @@ export function returnHomeEstimate(state: MineState): ReturnHomeEstimate {
       capped: false,
     };
   }
+  if (isElevatorRailCell(state, state.miner.col, state.miner.row)) {
+    return {
+      reachable: true,
+      laddersNeeded: 0,
+      steps: 1,
+      energyCost: 0,
+      visited: 0,
+      capped: false,
+    };
+  }
 
   const candidates = new Set<string>();
   const addCandidate = (col: number, row: number): void => {
@@ -281,15 +296,16 @@ export function returnHomeEstimate(state: MineState): ReturnHomeEstimate {
   const heap = new ReturnRouteHeap();
   const best = new Map<
     string,
-    Pick<ReturnRouteNode, "laddersNeeded" | "steps">
+    Pick<ReturnRouteNode, "laddersNeeded" | "steps" | "energyCost">
   >();
   heap.push({
     col: state.miner.col,
     row: state.miner.row,
     laddersNeeded: 0,
     steps: 0,
+    energyCost: 0,
   });
-  best.set(startKey, { laddersNeeded: 0, steps: 0 });
+  best.set(startKey, { laddersNeeded: 0, steps: 0, energyCost: 0 });
 
   let visited = 0;
   while (heap.length > 0) {
@@ -298,12 +314,22 @@ export function returnHomeEstimate(state: MineState): ReturnHomeEstimate {
     const key = coordKey(current.col, current.row);
     const currentBest = best.get(key);
     if (!currentBest || compareRouteCost(current, currentBest) !== 0) continue;
+    if (isElevatorRailCell(state, current.col, current.row)) {
+      return {
+        reachable: true,
+        laddersNeeded: current.laddersNeeded,
+        steps: current.steps + 1,
+        energyCost: current.energyCost,
+        visited,
+        capped: false,
+      };
+    }
     if (current.row === 0) {
       return {
         reachable: true,
         laddersNeeded: current.laddersNeeded,
         steps: current.steps,
-        energyCost: current.steps * MOVE_COST,
+        energyCost: current.energyCost,
         visited,
         capped: false,
       };
@@ -319,6 +345,7 @@ export function returnHomeEstimate(state: MineState): ReturnHomeEstimate {
       best.set(nextKey, {
         laddersNeeded: next.laddersNeeded,
         steps: next.steps,
+        energyCost: next.energyCost,
       });
       heap.push(next);
     }
@@ -352,19 +379,25 @@ function routeNeighbors(
           row,
           laddersNeeded: current.laddersNeeded + (hasLadder ? 0 : 1),
           steps: current.steps + 1,
+          energyCost: current.energyCost + MOVE_COST,
         });
       }
     }
   }
   for (const col of [current.col - 1, current.col + 1]) {
     const key = coordKey(col, current.row);
-    if (!candidates.has(key) || !isStableReturnCell(state, col, current.row))
+    const entersElevator = isElevatorRailCell(state, col, current.row);
+    if (
+      !candidates.has(key) ||
+      (!entersElevator && !isStableReturnCell(state, col, current.row))
+    )
       continue;
     next.push({
       col,
       row: current.row,
       laddersNeeded: current.laddersNeeded,
       steps: current.steps + 1,
+      energyCost: current.energyCost + (entersElevator ? 0 : MOVE_COST),
     });
   }
   const downRow = current.row + 1;
@@ -379,6 +412,7 @@ function routeNeighbors(
         row: downRow,
         laddersNeeded: current.laddersNeeded,
         steps: current.steps + 1,
+        energyCost: current.energyCost + MOVE_COST,
       });
     }
   }
@@ -408,7 +442,8 @@ function isElevatorRailCell(
   row: number,
 ): boolean {
   const rail = Math.min(state.gear.elevator, MINE_BOTTOM_ROW - 1);
-  return col === ELEVATOR_COL && row >= 0 && row <= rail;
+  const column = elevatorColumn(state.gear);
+  return column !== null && col === column && row >= 0 && row <= rail;
 }
 
 function blockedReturnEstimate(
@@ -435,10 +470,14 @@ function parseCoordKey(key: string): [number, number] {
 }
 
 function compareRouteCost(
-  a: Pick<ReturnRouteNode, "laddersNeeded" | "steps">,
-  b: Pick<ReturnRouteNode, "laddersNeeded" | "steps">,
+  a: Pick<ReturnRouteNode, "laddersNeeded" | "steps" | "energyCost">,
+  b: Pick<ReturnRouteNode, "laddersNeeded" | "steps" | "energyCost">,
 ): number {
-  return a.laddersNeeded - b.laddersNeeded || a.steps - b.steps;
+  return (
+    a.laddersNeeded - b.laddersNeeded ||
+    a.energyCost - b.energyCost ||
+    a.steps - b.steps
+  );
 }
 
 /**

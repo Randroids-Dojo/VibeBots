@@ -12,6 +12,11 @@ export interface MineGear {
   lantern: number;
   /** Elevator rail depth in rows (REQ-028); 0 = no rail bought yet. */
   elevator: number;
+  /**
+   * Player-chosen elevator shaft column. Old snapshots omit this field,
+   * so elevatorColumn falls back to the original shaft when rail exists.
+   */
+  elevatorColumn?: number | null;
   /** Warpcoil level (REQ-029): indexes WARP_RANGE. */
   warpcoil: number;
   /**
@@ -46,6 +51,7 @@ export const DEFAULT_GEAR: MineGear = {
   cargo: 1,
   lantern: 1,
   elevator: 0,
+  elevatorColumn: null,
   warpcoil: 1,
   blast: 1,
   elevatorSpeed: 1,
@@ -53,27 +59,31 @@ export const DEFAULT_GEAR: MineGear = {
   recall: 1,
 };
 
-/** The elevator's column: the elevator runs down this shaft. */
-export const ELEVATOR_COL = -5;
-/** Rows of rail per purchased segment (one stratum band). */
-export const ELEVATOR_SEGMENT_ROWS = 12;
+/** Original shaft column used by saved profiles that predate placement. */
+export const LEGACY_ELEVATOR_COL = -5;
 
 /** Target row for the current authored long-form mine economy. */
 export const MINE_BALANCE_MAX_ROW = 1000;
 
-const EARLY_ELEVATOR_SEGMENT_PRICES = [45, 80, 130, 200, 300] as const;
+/**
+ * Resolve the placed shaft column while preserving old saved profiles.
+ * New profiles have no shaft until their first rail purchase chooses one.
+ */
+export function elevatorColumn(
+  gear: Pick<MineGear, "elevator" | "elevatorColumn">,
+): number | null {
+  if (gear.elevatorColumn != null) return Math.trunc(gear.elevatorColumn);
+  return gear.elevator > 0 ? LEGACY_ELEVATOR_COL : null;
+}
 
 /**
- * Price of the nth rail segment (1-based). Rail remains a major
- * investment, but it must be finite through the row-1000 transport goal.
+ * Price of the next single rail row based on current installed depth.
+ * Rail starts at more than twelve ladder purchases and steps up every
+ * ten rows so the elevator remains a premium transport investment.
  */
-export function elevatorSegmentPrice(segment: number): number {
-  if (segment <= 0) return 0;
-  if (segment <= EARLY_ELEVATOR_SEGMENT_PRICES.length)
-    return EARLY_ELEVATOR_SEGMENT_PRICES[segment - 1];
-  if (segment <= 12) return 380 + (segment - 6) * 70;
-  if (segment <= 34) return 900 + (segment - 13) * 115;
-  return 2800 + (segment - 35) * 105;
+export function elevatorRailPrice(currentDepth: number): number {
+  const depth = Math.max(0, Math.floor(currentDepth));
+  return 25 + Math.floor(depth / 10) * 5;
 }
 
 /** Max robot battery charge by battery-cell level. */
@@ -250,6 +260,7 @@ export function normalizeGear(gear: MineGearSnapshot): MineGear {
     ...gear,
     battery: batteryLevel(gear),
     blast: dynamiteTier(gear),
+    elevatorColumn: elevatorColumn(gear),
     elevatorSpeed: gear.elevatorSpeed ?? 1,
     fall: gear.fall ?? 1,
     recall: gear.recall ?? 1,

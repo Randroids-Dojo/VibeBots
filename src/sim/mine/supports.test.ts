@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_GEAR, ELEVATOR_COL } from "./gear";
+import { DEFAULT_GEAR } from "./gear";
 import {
   carryoverConsumables,
   RETURN_HOME_VISIT_CAP,
@@ -113,23 +113,54 @@ describe("mine support helpers", () => {
     });
   });
 
-  it("blocks new ladder placement while estimating an elevator rail climb", () => {
-    const state = createMine(45, { ...DEFAULT_GEAR, elevator: 12 });
-    state.miner.col = ELEVATOR_COL;
-    state.miner.row = 1;
-    setCell(state, ELEVATOR_COL, 1, { kind: "empty" });
-
-    expect(returnHomeEstimate(state)).toMatchObject({
-      reachable: false,
-      capped: false,
+  it("counts the free elevator ride as a safe route home", () => {
+    const shaftCol = 6;
+    const state = createMine(45, {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
     });
-
-    setCell(state, ELEVATOR_COL, 1, { kind: "empty", ladder: true });
+    state.miner.col = shaftCol;
+    state.miner.row = 1;
+    setCell(state, shaftCol, 1, { kind: "empty" });
 
     expect(returnHomeEstimate(state)).toMatchObject({
       reachable: true,
       laddersNeeded: 0,
       steps: 1,
+      energyCost: 0,
+      capped: false,
+    });
+
+    setCell(state, shaftCol, 1, { kind: "empty", ladder: true });
+
+    expect(returnHomeEstimate(state)).toMatchObject({
+      reachable: true,
+      laddersNeeded: 0,
+      steps: 1,
+      energyCost: 0,
+    });
+  });
+
+  it("counts safe lateral rail entry as a free route home", () => {
+    const shaftCol = 6;
+    const state = createMine(451, {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
+    });
+    state.miner.col = shaftCol - 1;
+    state.miner.row = 5;
+    setCell(state, shaftCol - 1, 5, { kind: "empty" });
+    setCell(state, shaftCol - 1, 6, { kind: "dirt" });
+    setCell(state, shaftCol, 5, { kind: "empty" });
+
+    expect(returnHomeEstimate(state)).toMatchObject({
+      reachable: true,
+      laddersNeeded: 0,
+      steps: 2,
+      energyCost: 0,
+      capped: false,
     });
   });
 

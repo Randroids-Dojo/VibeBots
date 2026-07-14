@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="placeable-elevator-shaft" data-date="2026-07-14">
+    <h3>Place the elevator shaft anywhere and board it safely</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/placeable-elevator-shaft</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.256 reworks REQ-028 around one player-chosen persistent shaft. Buying the first rail for 25 vibes anchors the shaft at the selected surface column; every later purchase extends it by exactly one row at a depth-scaled premium, so rail remains infrastructure rather than a cheap ladder substitute. Pressing Down over the surface opening or walking laterally into any owned underground rail row boards before fall physics and automatically carries the miner to the rail bottom. Rail construction carves only the chosen column and refunds displaced ladders or planks. Existing elevator owners get one free placement choice that preserves every bought row; moving it leaves the old carved shaft open as an ordinary tunnel. Key ownership, replay, world, route, store, panel, and render surfaces move from a fixed constant to the saved shaft column. Mine tips gain the safe-entry rule. The autonomous mine soak now suppresses its known one-time hazard prompts and dismisses completed trip reports through their semantic control, while still failing on missing, stuck, or underground reports. Stamp review: no new stamp because Winch Builder and Ride the Rail already reward construction and use; Winch Builder now unlocks on the first one-row rail. <code>MINE_VERSION</code> advances to <code>54</code>; <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Verification</dt><dd>The full Vitest run passes all 1,388 tests across 129 files. Typecheck, sim purity, Biome, dash, whitespace, and production build checks pass; Biome retains only the two documented pre-existing warnings for the broken auth-route rule symlink and the optional-chain suggestion in <code>mine-input-cadence.ts</code>. Nineteen focused elevator and release browser checks pass, including fresh placement, the existing-owner free placement, safe surface and lateral entry, restored automatic descent, live miner and camera motion, and consecutive-frame pixel changes. A broad 176-test mine selection finished with 170 passes, five expected skips, and one holodeck pause timing flake that passed three repeated feature runs and one unchanged-main run. Three exact environment failures omitted from that selection were reproduced unchanged on the clean main control. The frame-loop heap comparison improved from 2.77 MB/s on exact main to 2.64 MB/s on the feature build, with comparable GC reclamation. A seeded 400-action autonomous mine soak completed three trips, reached depth 13, placed one plank, and reported zero anomalies and zero console errors. The dependency gate remains current for VibeKit v0.3.0, Rapier 0.19.3, Next 16.2.10, three 0.185.1, and React Three Fiber 9.6.1.</dd>
+      <dt>Assumptions</dt><dd>The first paid rail locks the shaft location, so placement cannot become a repeatable relocation or digging tool. The 25-vibe opening price is intentionally more than twelve 2-vibe ladders, then rises with depth. Existing owners receive one free placement choice so the new interaction reaches them without charging again or losing bought depth.</dd>
+      <dt>GDD coverage</dt><dd>REQ-028 remains done with updated requirement text and implementation references in <code>docs/GDD_COVERAGE.json</code>. The current elevator contract and a new build-log entry land in <code>docs/gdd/06-mining.html</code>. Q-011 resolves to a chosen persistent column with premium one-row rail purchases.</dd>
+      <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-telemetry-cardinality-monitoring" data-date="2026-07-14">
     <h3>Keep player-selected shaft coordinates out of telemetry</h3>
     <dl>

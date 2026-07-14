@@ -775,11 +775,16 @@ describe("mine API client", () => {
       track: "lantern",
     });
 
+    await buyRemoteElevator(-17);
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/elevator/upgrade");
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      column: -17,
+    });
+
     await buyRemoteElevator();
-    expect(fetchMock.mock.calls.at(-1)).toEqual([
-      "/api/elevator/upgrade",
-      { method: "POST" },
-    ]);
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual(
+      {},
+    );
 
     await teleportRemoteBase(7);
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/mine/base-teleport");

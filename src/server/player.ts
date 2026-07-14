@@ -2,6 +2,7 @@ import { signToken, verifyToken } from "@randroids-dojo/vibekit/server";
 import { cookies } from "next/headers";
 import {
   dynamiteTier,
+  elevatorColumn,
   LADDER_RECOVERY_FLOOR,
   type MineConsumables,
   type MineGear,
@@ -70,6 +71,7 @@ export interface MinePlayerProfile {
   lantern_level: number;
   warpcoil_level: number;
   elevator_depth: number;
+  elevator_col: number | null;
   blast_level: number;
   elevator_speed_level: number;
   fall_level: number;
@@ -85,6 +87,9 @@ export interface MinePlayerProfile {
   deepest_depth: number;
   support_kit_granted_at: string | null;
   elevator_support_refund_at: string | null;
+  elevator_column_migrated_at: string | null;
+  elevator_rail_installed_at: string | null;
+  elevator_placement_chosen_at: string | null;
   legacy_support_snapshot_reconciled_at: string | null;
   dynamite_tier_unlock_reset_at: string | null;
 }
@@ -435,10 +440,12 @@ export async function getMinePlayerProfile(
 ): Promise<MinePlayerProfile | null> {
   const rows = (await sql`
     SELECT pickaxe_level, lamp_level, cargo_level, lantern_level,
-           warpcoil_level, elevator_depth, blast_level, elevator_speed_level,
+           warpcoil_level, elevator_depth, elevator_col, blast_level, elevator_speed_level,
            fall_level, recall_level, dynamite_count, rope_count, ladder_count, plank_count,
            beacon_count, emeralds, track_xp, defense_xp, deepest_depth,
            support_kit_granted_at, elevator_support_refund_at,
+           elevator_column_migrated_at, elevator_rail_installed_at,
+           elevator_placement_chosen_at,
            legacy_support_snapshot_reconciled_at,
            dynamite_tier_unlock_reset_at
     FROM players WHERE id = ${playerId}`) as Array<MinePlayerProfile>;
@@ -466,12 +473,22 @@ export function mineGearFromProfile(row: MinePlayerProfile): MineGear {
     cargo: row.cargo_level,
     lantern: row.lantern_level,
     elevator: row.elevator_depth,
+    elevatorColumn: mineElevatorColumnFromProfile(row),
     warpcoil: row.warpcoil_level,
     blast: dynamiteTier({ blast: row.blast_level }),
     elevatorSpeed: row.elevator_speed_level,
     fall: row.fall_level,
     recall: row.recall_level,
   };
+}
+
+export function mineElevatorColumnFromProfile(
+  row: Pick<MinePlayerProfile, "elevator_col" | "elevator_depth">,
+): number | null {
+  return elevatorColumn({
+    elevator: row.elevator_depth,
+    elevatorColumn: row.elevator_col,
+  });
 }
 
 export function mineGearLevelFromProfile(

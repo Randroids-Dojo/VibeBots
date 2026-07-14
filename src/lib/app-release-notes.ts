@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.255-hold-to-mine";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.256-place-elevator";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.256",
+      date: "2026-07-14",
+      title: "Put your elevator where you want it",
+      intro: "Choose the shaft, then extend it one premium rail at a time.",
+      changes: [
+        {
+          build,
+          text: "Buy the first 25-vibe rail at any surface column to anchor one persistent shaft. Each later purchase adds one row at a depth-scaled premium, keeping rail meaningfully more expensive than ladders.",
+        },
+        {
+          build,
+          text: "Press Down over the shaft at the surface or walk into its rail from either side underground. The car boards you safely before gravity runs and carries you automatically to the rail bottom.",
+        },
+        {
+          build,
+          text: "Existing elevator owners get one free shaft placement that preserves every rail they already bought. MINE_VERSION advances to 54; SIM_VERSION stays at 5.",
+        },
+      ],
+    },
     {
       version: "0.1.255",
       date: "2026-07-14",

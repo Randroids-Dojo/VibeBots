@@ -612,23 +612,32 @@
     },
     {
       "id": "REQ-028",
-      "requirement": "Elevator: a per-player winch tower selling rail segments priced per stratum; free logged rides between the surface and the railed depth along its column.",
+      "requirement": "Elevator: the first premium rail anchors one persistent shaft at any chosen surface column; later purchases add one depth-scaled row, and surface or lateral shaft entry boards safely for a free logged ride.",
       "gddRef": "docs/gdd/06-mining.html#transport",
       "status": "done",
       "implementationRefs": [
         "src/sim/mine.ts",
         "src/app/api/elevator/upgrade/route.ts",
+        "src/app/api/mine/bank/route.ts",
+        "src/app/api/mine/world/route.ts",
         "src/state/mine-store.ts",
         "src/components/mine-panel.tsx",
         "src/components/mine-canvas.tsx",
+        "src/components/mine-sfx.ts",
         "src/sim/mine/gear.ts",
         "src/sim/mine/world.ts",
-        "src/sim/mine/replay.ts"
+        "src/sim/mine/replay.ts",
+        "src/server/player.ts"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
         "src/sim/mine/world.test.ts",
         "src/sim/mine/replay.test.ts",
+        "src/app/api/elevator/upgrade/route.test.ts",
+        "src/app/api/mine/bank/route.test.ts",
+        "src/app/api/mine/world/route.test.ts",
+        "src/components/mine-sfx.test.ts",
+        "src/components/mine-stall-menu.test.ts",
         "tests/e2e/mine-warp-elevator.spec.ts"
       ],
       "followupRefs": [

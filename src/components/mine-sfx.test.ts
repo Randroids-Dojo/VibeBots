@@ -117,6 +117,9 @@ describe("mining sfx event mapping", () => {
     expect(mineResultSfxEvents(ok, "warp-home")).toEqual(["warp"]);
     expect(mineResultSfxEvents(ok, "warp-down:1,2")).toEqual(["warp"]);
     expect(mineResultSfxEvents(ok, "ride-up")).toEqual(["elevator"]);
+    expect(
+      mineResultSfxEvents({ ...ok, elevatorEntered: true }, "down"),
+    ).toEqual(["elevator"]);
   });
 
   it("maps shop notes to commerce cues", () => {
@@ -124,6 +127,12 @@ describe("mining sfx event mapping", () => {
     expect(mineShopNoteSfxEvent("not enough vibes")).toBe("deny");
     expect(
       mineShopNoteSfxEvent("the depot ledger is offline; nothing was charged"),
+    ).toBe("deny");
+    expect(mineShopNoteSfxEvent("elevator shaft is already placed")).toBe(
+      "deny",
+    );
+    expect(
+      mineShopNoteSfxEvent("elevator rail has reached the mine bottom"),
     ).toBe("deny");
   });
 });

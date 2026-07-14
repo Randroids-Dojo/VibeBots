@@ -51,7 +51,7 @@ import {
   biomeAt,
   type CollectTarget,
   cellAt,
-  ELEVATOR_COL,
+  elevatorColumn,
   findPortalBeacons,
   hitsFor,
   isSupportSalvageTarget,
@@ -305,6 +305,21 @@ const LADDER_RAIL_GEOMETRY = new BoxGeometry(0.05, 1, 0.05);
 const LADDER_RUNG_GEOMETRY = new BoxGeometry(0.36, 0.05, 0.05);
 const PLANK_BOARD_GEOMETRY = new BoxGeometry(0.98, 0.07, 0.22);
 const PLANK_BEAM_GEOMETRY = new BoxGeometry(0.2, 0.06, 0.56);
+const ELEVATOR_GUIDE_GEOMETRY = new BoxGeometry(0.07, 1, 0.07);
+const ELEVATOR_TIE_GEOMETRY = new BoxGeometry(0.7, 0.06, 0.1);
+const ELEVATOR_GUIDE_MATERIAL = new MeshStandardMaterial({
+  color: "#9aa7ff",
+  roughness: 0.45,
+  metalness: 0.5,
+  flatShading: true,
+});
+const ELEVATOR_TIE_MATERIAL = new MeshStandardMaterial({
+  color: "#6b7baa",
+  roughness: 0.6,
+  metalness: 0.4,
+  flatShading: true,
+});
+const ELEVATOR_GUIDE_OFFSETS = [-0.32, 0.32] as const;
 const LADDER_RAIL_MATERIALS = [
   supportMaterial("#a87b3e", "#000000", 0, 0.85),
   supportMaterial("#d9a052", "#5a3411", 0.16, 0.85),
@@ -400,6 +415,8 @@ function warmMineMaterials(
   ]) {
     for (const material of materials) addWarm(material);
   }
+  addWarm(ELEVATOR_GUIDE_MATERIAL);
+  addWarm(ELEVATOR_TIE_MATERIAL);
   addWarm(MINE_VISIBILITY_VEIL);
   scene.add(group);
   let disposed = false;
@@ -1348,13 +1365,24 @@ function MineScene({
         clearFallPlayback(key);
       }
     }
+    // The sim mutates mine before React refreshes this frame callback's
+    // result and action closures. Read the existing store snapshot so the
+    // first frame after a large elevator step does not take the jump path.
+    const liveMineState = useMineStore.getState();
+    const liveLastResult = liveMineState.lastResult;
+    const liveLastAction = liveMineState.lastAction;
     const resetJump =
-      (lastResult?.ok && lastResult.collapsed && !activeFall) ||
-      lastAction === "abandon" ||
-      lastAction === "recall" ||
-      lastAction === "warp-home" ||
-      lastAction?.startsWith("warp-down") ||
-      lastAction?.startsWith("portal-warp");
+      (liveLastResult?.ok && liveLastResult.collapsed && !activeFall) ||
+      liveLastAction === "abandon" ||
+      liveLastAction === "recall" ||
+      liveLastAction === "warp-home" ||
+      liveLastAction?.startsWith("warp-down") ||
+      liveLastAction?.startsWith("portal-warp");
+    const elevatorMotion =
+      liveLastResult?.ok === true &&
+      (liveLastResult.elevatorEntered ||
+        liveLastAction === "ride-down" ||
+        liveLastAction === "ride-up");
     // Camera rig eases down the shaft after the miner, with shake.
     const targetY = visualTargetY;
     const rig = rigRef.current;
@@ -1363,9 +1391,26 @@ function MineScene({
       // Trip resets (collapse, recall, abandon) move the miner across
       // the whole map; gliding the camera through it reads as broken.
       const targetX = visualTargetX;
+      if (elevatorMotion) {
+        const verticalLimit = Math.max(
+          1,
+          (targetY < rig.position.y ? renderWindow.above : renderWindow.below) -
+            1,
+        );
+        if (Math.abs(targetY - rig.position.y) > verticalLimit) {
+          // Large speed upgrades can skip hundreds of rows. Stage the
+          // visible part inside the target render window, then animate
+          // that final span instead of flying through unloaded cells.
+          rig.position.y =
+            targetY < rig.position.y
+              ? targetY + verticalLimit
+              : targetY - verticalLimit;
+        }
+      }
       const cameraJump =
         resetJump ||
-        Math.hypot(targetX - rig.position.x, targetY - rig.position.y) > 6;
+        (!elevatorMotion &&
+          Math.hypot(targetX - rig.position.x, targetY - rig.position.y) > 6);
       if (activeFall) {
         cameraMotion.current = activeFall.track;
         rig.position.set(targetX, targetY, 0);
@@ -1609,13 +1654,25 @@ function MineScene({
       const tx = visualTargetX;
       const ty = visualTargetY;
 
+      if (elevatorMotion && minerPlaced.current) {
+        const verticalLimit = Math.max(
+          1,
+          (ty < miner.position.y ? renderWindow.above : renderWindow.below) - 1,
+        );
+        if (Math.abs(ty - miner.position.y) > verticalLimit) {
+          miner.position.y =
+            ty < miner.position.y ? ty + verticalLimit : ty - verticalLimit;
+        }
+      }
+
       // Teleport-scale jumps (trip resets) snap; easing across them
       // would fly the bot up through solid rock for seconds.
       const minerJump =
         (resetJump && !activeFall) ||
         !minerPlaced.current ||
-        Math.abs(tx - miner.position.x) > 3 ||
-        Math.abs(ty - miner.position.y) > 6;
+        (!elevatorMotion &&
+          (Math.abs(tx - miner.position.x) > 3 ||
+            Math.abs(ty - miner.position.y) > 6));
       if (activeFall) {
         minerPlaced.current = true;
         minerMotion.current = activeFall.track;
@@ -2320,37 +2377,36 @@ function MineScene({
           shaft, rendered for the visible span of the bought rail. */}
       {mine.gear.elevator > 0 &&
         (() => {
-          const railTop = Math.max(1, firstRow);
+          const railColumn = elevatorColumn(mine.gear);
+          if (railColumn === null) return null;
+          const railTop = Math.max(0, firstRow);
           const railBottom = Math.min(mine.gear.elevator, lastRow);
           if (railBottom < railTop) return null;
           const mid = -(railTop + railBottom) / 2;
           const span = railBottom - railTop + 1;
-          const ties = [];
+          const ties: ReactElement[] = [];
           for (let r = railTop; r <= railBottom; r += 2) {
             ties.push(
-              <mesh key={r} position={[ELEVATOR_COL, -r, -0.3]}>
-                <boxGeometry args={[0.7, 0.06, 0.1]} />
-                <meshStandardMaterial
-                  color="#6b7baa"
-                  roughness={0.6}
-                  metalness={0.4}
-                  flatShading
-                />
-              </mesh>,
+              <mesh
+                key={r}
+                position={[railColumn, -r, -0.3]}
+                geometry={ELEVATOR_TIE_GEOMETRY}
+                material={ELEVATOR_TIE_MATERIAL}
+                dispose={null}
+              />,
             );
           }
           return (
             <group>
-              {[-0.32, 0.32].map((rx) => (
-                <mesh key={rx} position={[ELEVATOR_COL + rx, mid, -0.3]}>
-                  <boxGeometry args={[0.07, span, 0.07]} />
-                  <meshStandardMaterial
-                    color="#9aa7ff"
-                    roughness={0.45}
-                    metalness={0.5}
-                    flatShading
-                  />
-                </mesh>
+              {ELEVATOR_GUIDE_OFFSETS.map((offset) => (
+                <mesh
+                  key={offset}
+                  position={[railColumn + offset, mid, -0.3]}
+                  scale={[1, span, 1]}
+                  geometry={ELEVATOR_GUIDE_GEOMETRY}
+                  material={ELEVATOR_GUIDE_MATERIAL}
+                  dispose={null}
+                />
               ))}
               {ties}
             </group>

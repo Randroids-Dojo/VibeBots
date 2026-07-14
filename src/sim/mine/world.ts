@@ -6,7 +6,7 @@ import {
   NO_CONSUMABLES,
 } from "./consumables";
 import { rockTierAt, START_COL } from "./digging";
-import { DEFAULT_GEAR, ELEVATOR_COL, type MineGear, maxEnergy } from "./gear";
+import { DEFAULT_GEAR, type MineGear, maxEnergy } from "./gear";
 import { earlyOreBoost, oreChanceAt, oreDef, oreIdsForBiome } from "./ores";
 import { cellRandom } from "./random";
 
@@ -39,13 +39,87 @@ export function importDiff(diff: WorldDiff | undefined): Map<string, MineCell> {
   return cells;
 }
 
-/**
- * Buying rail through a carved support shaft returns those bought aids
- * to stock and removes them from the persistent world diff. The empty
- * shaft stays carved.
- */
-export function refundRailSupportsInDiff(
+/** Clear terrain and supports while keeping durable payloads in a rail cell. */
+export function elevatorRailCell(cell?: MineCell | null): MineCell {
+  if (!cell) return { kind: "empty" };
+  return {
+    kind: "empty",
+    ...(cell.beacon ? { beacon: true } : {}),
+    ...(cell.beaconOrder !== undefined
+      ? { beaconOrder: cell.beaconOrder }
+      : {}),
+    ...(cell.beaconLabel !== undefined
+      ? { beaconLabel: cell.beaconLabel }
+      : {}),
+    ...(cell.portal !== undefined ? { portal: cell.portal } : {}),
+    ...(cell.portalActive !== undefined
+      ? { portalActive: cell.portalActive }
+      : {}),
+    ...(cell.drop ? { drop: { ...cell.drop } } : {}),
+    ...(cell.dropDeferred ? { dropDeferred: { ...cell.dropDeferred } } : {}),
+    ...(cell.bag
+      ? {
+          bag: {
+            ores: { ...cell.bag.ores },
+            salvageCredits: cell.bag.salvageCredits,
+            parts: [...cell.bag.parts],
+          },
+        }
+      : {}),
+  };
+}
+
+const ELEVATOR_RAIL_CELL_KEYS = new Set<keyof MineCell>([
+  "kind",
+  "beacon",
+  "beaconOrder",
+  "beaconLabel",
+  "portal",
+  "portalActive",
+  "drop",
+  "dropDeferred",
+  "bag",
+]);
+
+function isCanonicalElevatorRailCell(cell: MineCell): boolean {
+  if (cell.kind !== "empty") return false;
+  if (cell.beacon !== undefined && cell.beacon !== true) return false;
+  return Object.keys(cell).every((key) =>
+    ELEVATOR_RAIL_CELL_KEYS.has(key as keyof MineCell),
+  );
+}
+
+/** Whether every usable row of an owned shaft is already installed rail. */
+export function elevatorRailInstalledInDiff(
   diff: WorldDiff,
+  column: number,
+  depth: number,
+): boolean {
+  const lastRow = Math.min(depth, MINE_BOTTOM_ROW - 1);
+  if (lastRow < 1) return true;
+
+  const shaftCells = new Map<number, MineCell>();
+  for (const [col, row, cell] of diff) {
+    if (col !== column || row < 1 || row > lastRow) continue;
+    if (shaftCells.has(row)) return false;
+    shaftCells.set(row, cell);
+  }
+
+  for (let row = 1; row <= lastRow; row++) {
+    const cell = shaftCells.get(row);
+    if (!cell || !isCanonicalElevatorRailCell(cell)) return false;
+  }
+  return true;
+}
+
+/**
+ * Installing rail clears each chosen shaft cell and returns any traversal
+ * supports in that cell to stock. Persisting empty cells makes the owned
+ * shaft real before the player rides it for the first time.
+ */
+export function installElevatorRailInDiff(
+  diff: WorldDiff,
+  column: number,
   fromDepth: number,
   toDepth: number,
 ): {
@@ -55,19 +129,15 @@ export function refundRailSupportsInDiff(
   const cells = importDiff(diff);
   const refunded: Partial<Record<"ladder" | "plank", number>> = {};
   for (let row = Math.max(1, fromDepth + 1); row <= toDepth; row++) {
-    const key = cellKey(ELEVATOR_COL, row);
+    const key = cellKey(column, row);
     const cell = cells.get(key);
-    if (!cell?.ladder && !cell?.plank) continue;
-    const next = { ...cell };
-    if (next.ladder) {
-      delete next.ladder;
+    if (cell?.ladder) {
       refunded.ladder = (refunded.ladder ?? 0) + 1;
     }
-    if (next.plank) {
-      delete next.plank;
+    if (cell?.plank) {
       refunded.plank = (refunded.plank ?? 0) + 1;
     }
-    cells.set(key, next);
+    cells.set(key, elevatorRailCell(cell));
   }
   return { diff: exportCells(cells), refunded };
 }

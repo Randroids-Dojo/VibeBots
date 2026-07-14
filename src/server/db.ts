@@ -19,6 +19,9 @@ type Sql = ReturnType<typeof neon>;
 export const PLAYER_COMPATIBILITY_MARKERS = [
   "support_kit_granted_at",
   "elevator_support_refund_at",
+  "elevator_column_migrated_at",
+  "elevator_rail_installed_at",
+  "elevator_placement_chosen_at",
   "legacy_support_snapshot_reconciled_at",
   "dynamite_tier_unlock_reset_at",
 ] as const;
@@ -112,11 +115,23 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS elevator_depth integer NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS elevator_col integer,
     ADD COLUMN IF NOT EXISTS warpcoil_level integer NOT NULL DEFAULT 1,
     ADD COLUMN IF NOT EXISTS beacon_count integer NOT NULL DEFAULT 0`;
   await sql`
     ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS elevator_support_refund_at timestamptz`;
+    ADD COLUMN IF NOT EXISTS elevator_support_refund_at timestamptz,
+    ADD COLUMN IF NOT EXISTS elevator_column_migrated_at timestamptz,
+    ADD COLUMN IF NOT EXISTS elevator_rail_installed_at timestamptz,
+    ADD COLUMN IF NOT EXISTS elevator_placement_chosen_at timestamptz`;
+  await sql`
+    UPDATE players
+    SET elevator_col = CASE
+          WHEN elevator_depth > 0 THEN COALESCE(elevator_col, -5)
+          ELSE elevator_col
+        END,
+        elevator_column_migrated_at = now()
+    WHERE elevator_column_migrated_at IS NULL`;
   await sql`
     CREATE TABLE IF NOT EXISTS player_parts (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,

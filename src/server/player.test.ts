@@ -45,6 +45,7 @@ const profile: MinePlayerProfile = {
   lantern_level: 5,
   warpcoil_level: 6,
   elevator_depth: 120,
+  elevator_col: 38,
   blast_level: 7,
   elevator_speed_level: 8,
   fall_level: 9,
@@ -60,6 +61,9 @@ const profile: MinePlayerProfile = {
   deepest_depth: 40,
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
+  elevator_column_migrated_at: "2026-07-13T00:00:00.000Z",
+  elevator_rail_installed_at: "2026-07-14T00:00:00.000Z",
+  elevator_placement_chosen_at: "2026-07-14T00:00:00.000Z",
   legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",
   dynamite_tier_unlock_reset_at: "2026-06-18T00:00:00.000Z",
 };
@@ -85,12 +89,29 @@ describe("mine player profile helpers", () => {
       cargo: 4,
       lantern: 5,
       elevator: 120,
+      elevatorColumn: 38,
       warpcoil: 6,
       blast: 4,
       elevatorSpeed: 8,
       fall: 9,
       recall: 10,
     });
+  });
+
+  it("keeps legacy rail owners at the original fixed column", () => {
+    expect(
+      mineGearFromProfile({ ...profile, elevator_col: null }).elevatorColumn,
+    ).toBe(-5);
+  });
+
+  it("leaves a new zero-depth profile without a shaft column", () => {
+    expect(
+      mineGearFromProfile({
+        ...profile,
+        elevator_depth: 0,
+        elevator_col: null,
+      }).elevatorColumn,
+    ).toBeNull();
   });
 
   it("maps stored player columns to consumable stock", () => {

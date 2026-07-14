@@ -154,7 +154,12 @@ export function mineResultSfxEvents(
     else if (result.dug === "rock") events.push("dig-rock");
     else if (result.dug === "part-cache") events.push("dig-cache");
     else events.push("dig-dirt");
-  } else if (isPlainMove(action) && !result.cracked && !result.plankCracked) {
+  } else if (
+    isPlainMove(action) &&
+    !result.cracked &&
+    !result.plankCracked &&
+    !result.elevatorEntered
+  ) {
     events.push("step");
   }
 
@@ -176,7 +181,8 @@ export function mineResultSfxEvents(
     action?.startsWith("portal-warp")
   )
     events.push("warp");
-  if (action === "ride-down" || action === "ride-up") events.push("elevator");
+  if (result.elevatorEntered || action === "ride-down" || action === "ride-up")
+    events.push("elevator");
   if (result.abandoned) events.push("abandon");
   else if (result.fallFatal) {
     // The renderer plays the death cue at impact, not when the sim resets.
@@ -193,7 +199,11 @@ export function mineShopNoteSfxEvent(note: string | null): MineSfxEvent | null {
     note.includes("failed") ||
     note.includes("offline") ||
     note.includes("not enough") ||
-    note.includes("nothing was charged")
+    note.includes("nothing was charged") ||
+    note.includes("choose a surface column") ||
+    note.includes("already placed") ||
+    note.includes("reached the mine bottom") ||
+    note.includes("mine world not found")
   ) {
     return "deny";
   }

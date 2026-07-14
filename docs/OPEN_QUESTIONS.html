@@ -168,22 +168,6 @@
     </dl>
   </section>
 
-  <section data-q="Q-011" data-status="open">
-    <h3>Q-011: How are elevators priced and owned?</h3>
-    <dl>
-      <dt>Context</dt><dd>REQ-028: the elevator is a persistent per-player investment that compresses the commute along one shaft.</dd>
-      <dt>Options</dt><dd>
-        <ol type="A">
-          <li>A gear-like track at the Outfitter (level = rail depth band).</li>
-          <li>Its own winch-tower building selling rail segments priced per stratum, stored as a rail-depth integer on the player.</li>
-          <li>Rail segments as consumables placed cell by cell.</li>
-        </ol>
-      </dd>
-      <dt>Recommended default</dt><dd>B. A building keeps the village the place where investments live, per-stratum segment pricing scales naturally to an endless mine, and one integer (rail depth) stays trivially replay-validatable.</dd>
-      <dt>Status</dt><dd>open</dd>
-    </dl>
-  </section>
-
   <section data-q="Q-010" data-status="open">
     <h3>Q-010: How does an endless-width world stay storable and renderable?</h3>
     <dl>
@@ -301,6 +285,23 @@
       <dt>Recommended default</dt><dd>A. It honors the request (real ore, bag fills like normal) while keeping the economy bounded by the same battery budget as the mine, so the bunker is a productive space rather than a free farm. Revisit if battery-in-the-bunker feels punishing during playtest.</dd>
       <dt>Resolution</dt><dd>Dev decision (2026-07-13): B, no battery cost. The claim is a bounded number of blocks, so there is no farming exploit to guard against; mining inside the bunker stays free (like walking) and still drops ore into the bag. The bag capacity is the only limit.</dd>
       <dt>Status</dt><dd>resolved</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-011" data-status="resolved">
+    <h3>Q-011: How are elevators priced and owned?</h3>
+    <dl>
+      <dt>Context</dt><dd>REQ-028: the elevator is a persistent per-player investment that compresses the commute along one shaft.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>A gear-like track at the Outfitter (level = rail depth band).</li>
+          <li>Its own winch-tower building selling rail segments priced per stratum, stored as a rail-depth integer on the player.</li>
+          <li>Rail segments as consumables placed cell by cell.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>B. A building keeps the village the place where investments live, per-stratum segment pricing scales naturally to an endless mine, and one integer (rail depth) stays trivially replay-validatable.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>User override (2026-07-13): keep the Elevator building and one persistent shaft per player, but let the player choose any surface column when buying the first rail. That first rail costs 25 vibes and locks the shaft location. Later purchases extend the same shaft one row at a time at a depth-scaled premium, not in 12-row bundles and not as portable inventory. Existing elevator owners get one free placement choice that preserves their bought depth; choosing a new column leaves the old carved shaft open as an ordinary tunnel. This supersedes the fixed tower-column and bundled-segment parts of recommended default B while retaining simple replay-validatable depth and column ownership.</dd>
     </dl>
   </section>
 

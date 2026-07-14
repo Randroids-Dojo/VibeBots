@@ -64,6 +64,7 @@ const ownedBase = {
   lantern_level: 1,
   warpcoil_level: 1,
   elevator_depth: 0,
+  elevator_col: null,
   blast_level: 1,
   elevator_speed_level: 1,
   fall_level: 1,
@@ -79,6 +80,9 @@ const ownedBase = {
   deepest_depth: 0,
   support_kit_granted_at: "2026-06-17T00:00:00.000Z",
   elevator_support_refund_at: null,
+  elevator_column_migrated_at: "2026-07-13T00:00:00.000Z",
+  elevator_rail_installed_at: "2026-07-14T00:00:00.000Z",
+  elevator_placement_chosen_at: "2026-07-14T00:00:00.000Z",
   legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",
   dynamite_tier_unlock_reset_at: "2026-06-18T00:00:00.000Z",
 };
@@ -122,6 +126,8 @@ function mockSql(
   options: {
     seed?: number;
     diff?: unknown;
+    tripCount?: number;
+    atomicUpdate?: boolean;
     bunkerClaimed?: boolean;
     existingBunker?: boolean;
     bunkerFootprint?: {
@@ -138,7 +144,13 @@ function mockSql(
     const strings = calls[calls.length - 1]?.[0];
     const query = strings?.join(" ") ?? "";
     if (query.includes("SELECT seed, diff, trip_count")) {
-      return [{ seed: worldSeed, diff: options.diff ?? [], trip_count: 0 }];
+      return [
+        {
+          seed: worldSeed,
+          diff: options.diff ?? [],
+          trip_count: options.tripCount ?? 0,
+        },
+      ];
     }
     if (query.includes("SELECT pickaxe_level")) return [owned];
     if (query.includes("SELECT player_id") && query.includes("FROM bunkers")) {
@@ -164,6 +176,21 @@ function mockSql(
           plank_count: 4,
           support_kit_granted_at: "2026-06-17T00:00:00.000Z",
           legacy_support_snapshot_reconciled_at: "2026-06-17T00:00:00.000Z",
+        },
+      ];
+    }
+    if (query.includes("WITH world AS") && options.atomicUpdate === false) {
+      return [
+        {
+          emeralds: null,
+          deepest_depth: null,
+          dynamite_count: null,
+          rope_count: null,
+          ladder_count: null,
+          plank_count: null,
+          beacon_count: null,
+          trip_count: null,
+          bunker_claimed: null,
         },
       ];
     }
@@ -228,6 +255,53 @@ describe("POST /api/mine/bank", () => {
       detail: "request body could not be parsed as JSON",
     });
     expect(String(warnSpy.mock.calls[0][0])).not.toContain("player-1");
+  });
+
+  it("requires legacy elevator rail installation before cash-out", async () => {
+    const sql = mockSql({
+      ...ownedBase,
+      elevator_depth: 4,
+      elevator_col: -5,
+      elevator_rail_installed_at: null,
+    });
+
+    const res = await post();
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "refresh the mine to finish elevator rail setup",
+      code: "elevator_rail_migration_required",
+    });
+    const calls = sql.mock.calls as unknown as Array<[TemplateStringsArray]>;
+    expect(
+      calls.some(([strings]) =>
+        strings.join(" ").includes("UPDATE mine_worlds"),
+      ),
+    ).toBe(false);
+  });
+
+  it("labels a stale world revision for the save-conflict flow", async () => {
+    mockSql(ownedBase, { tripCount: 1 });
+
+    const res = await post({ tripIndex: 0 });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "this trip was already cashed out; reload the mine",
+      code: "trip_already_cashed_out",
+    });
+  });
+
+  it("labels an atomic cash-out race for the save-conflict flow", async () => {
+    mockSql(ownedBase, { atomicUpdate: false });
+
+    const res = await post();
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "this trip was already cashed out",
+      code: "trip_already_cashed_out",
+    });
   });
 
   it("validates pending bunker parts stacked across depths", () => {
@@ -660,6 +734,50 @@ describe("POST /api/mine/bank", () => {
     expect(String(warnSpy.mock.calls[0][0])).not.toContain("player-1");
   });
 
+  it("does not charge a support erased by a newer owned rail", async () => {
+    const sql = mockSql(
+      {
+        ...ownedBase,
+        elevator_depth: 4,
+        elevator_col: START_COL,
+        ladder_count: 1,
+      },
+      {
+        diff: [[START_COL, 4, { kind: "empty", ladder: true }]],
+      },
+    );
+
+    const res = await post({
+      moves: ["down", "collect-ladder", "ride-up"],
+      gear: {
+        ...DEFAULT_GEAR,
+        elevator: 4,
+        elevatorColumn: START_COL,
+      },
+      consumables: stock({ ladder: 1 }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.credited.credits).toBe(0);
+    for (let row = 1; row <= 4; row++) {
+      expect(body.diff).toContainEqual([START_COL, row, { kind: "empty" }]);
+    }
+    const cashOutCall = (sql.mock.calls as unknown[][]).find((call) =>
+      (call[0] as TemplateStringsArray).join(" ").includes("WITH world AS"),
+    );
+    expect(cashOutCall).toBeDefined();
+    const strings = cashOutCall?.[0] as TemplateStringsArray;
+    const ladderChargeIndex = strings.findIndex((part) =>
+      part.includes("ladder_count = GREATEST(0, ladder_count -"),
+    );
+    expect(ladderChargeIndex).toBeGreaterThanOrEqual(0);
+    expect(cashOutCall?.[ladderChargeIndex + 1]).toBe(0);
+    expect(strings.join(" ")).toContain("elevator_depth =");
+    expect(strings.join(" ")).toContain("elevator_col IS NOT DISTINCT FROM");
+    expect(strings.join(" ")).toContain("AND diff =");
+  });
+
   it("rejects stale paid consumable snapshots without owned stock", async () => {
     const sql = mockSql();
 
@@ -864,6 +982,37 @@ describe("mine bank policy helpers", () => {
     expect(gearOwnershipError(DEFAULT_GEAR, ownedBase)).toBeNull();
   });
 
+  it("requires the submitted rail column to match the owned shaft", () => {
+    const owned = {
+      ...ownedBase,
+      elevator_depth: 3,
+      elevator_col: 27,
+    };
+
+    expect(
+      gearOwnershipError(
+        { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 27 },
+        owned,
+      ),
+    ).toBeNull();
+    expect(
+      gearOwnershipError(
+        { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 28 },
+        owned,
+      ),
+    ).toBe("rail not owned: column 28");
+    expect(gearOwnershipError(DEFAULT_GEAR, owned)).toBeNull();
+  });
+
+  it("accepts missing column data for a legacy fixed-column rail", () => {
+    expect(
+      gearOwnershipError(
+        { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: undefined },
+        { ...ownedBase, elevator_depth: 3, elevator_col: null },
+      ),
+    ).toBeNull();
+  });
+
   it("separates paid consumable ownership from support reconciliation", () => {
     expect(
       paidConsumableSnapshotExceedsOwned(
@@ -905,6 +1054,7 @@ describe("mine bank policy helpers", () => {
         maxDepth: 0,
         moves: 0,
         bagDrops: 0,
+        elevatorRides: 0,
         roofRescues: 0,
         collapsesSurvived: 0,
         used: stock({ dynamite: 1, rope: 1, ladder: 7, plank: 5, beacon: 1 }),
@@ -923,6 +1073,7 @@ describe("mine bank policy helpers", () => {
           maxDepth: 1,
           moves: 3,
           bagDrops: 2,
+          elevatorRides: 1,
           roofRescues: 1,
           collapsesSurvived: 1,
           used: stock(),
@@ -931,7 +1082,12 @@ describe("mine bank policy helpers", () => {
         },
         ["down", "drop:coal:1", "drop:copper:2"],
       ),
-    ).toMatchObject({ bagDrops: 2, roofRescues: 1, collapsesSurvived: 1 });
+    ).toMatchObject({
+      bagDrops: 2,
+      elevatorRides: 1,
+      roofRescues: 1,
+      collapsesSurvived: 1,
+    });
   });
 
   it("ignores submitted bag drop actions that replay did not apply", () => {
@@ -943,6 +1099,7 @@ describe("mine bank policy helpers", () => {
           maxDepth: 1,
           moves: 2,
           bagDrops: 0,
+          elevatorRides: 0,
           roofRescues: 0,
           collapsesSurvived: 0,
           used: stock(),

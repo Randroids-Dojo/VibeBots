@@ -13,7 +13,7 @@
 <article>
 <h1>F-121 Resync elevator conflicts with authoritative state</h1>
 <section id="description">
-Require expected depth plus an idempotency key, distinguish elevator rejection reasons, return or refetch authoritative state, replace the stale client view, and record structured conflict outcomes for live testing.
+Require expected depth plus an idempotency key, distinguish elevator rejection reasons, return or refetch authoritative state, and replace the stale client view. Preserve one success-only elevator.upgrade balance event per committed purchase, add one bounded structured outcome per accepted or rejected mutation, and prove telemetry failures never fail gameplay.
 </section>
 </article>
 </body>

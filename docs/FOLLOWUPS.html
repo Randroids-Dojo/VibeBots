@@ -52,6 +52,66 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-119" data-f="F-119" data-priority="nice-to-have">
+    <h3>F-119: Bunker UI/UX pass, in-bunker menu for bunker controls</h3>
+    <dl>
+      <dt>Context</dt><dd>User request (2026-07-13 bunker redesign, item 6). After a claim exists the flat view carries both a "Bunker" affordance and the "Enter bunker" affordance, which is redundant. The raid, repair, skin, and reset controls also live only in the 2D bunker sheet, so they cannot be reached from inside first person. Do a UI/UX pass: drop the redundant post-claim button, and move the necessary bunker controls behind a single in-bunker toggle menu that only shows while inside the bunker.</dd>
+      <dt>Design / recommended default</dt><dd>Post-claim, keep exactly one flat-view affordance (Enter bunker) and fold claim status into it; retire the separate Bunker button once claimed. Inside first person, add one hotbar/HUD toggle (a gear or menu button) that opens a compact panel with Raid, Repair, Skins, and Reset. Keep claiming itself in the flat view (you cannot claim from inside). One consistent menu, same on touch and desktop (RULE 7).</dd>
+      <dt>Dependencies</dt><dd>Independent of the sim changes; coordinate the in-bunker raid control with the live-raid arc (F-104..F-113) so the raid button drives the live start path, not the interim projection.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section id="F-118" data-f="F-118" data-priority="nice-to-have">
+    <h3>F-118: Remove the bunker core (pink diamond)</h3>
+    <dl>
+      <dt>Context</dt><dd>User request (2026-07-13 bunker redesign, item 5). The bunker core renders as a pink octahedron in the middle of the room; it serves no clear player purpose and occupies a buildable cell. Remove it.</dd>
+      <dt>Design / recommended default</dt><dd>Drop <code>BunkerCore</code> from the sim state, the fp core mesh, the placement "core" rejection reason, and the starter-kit core seed. Raids currently target the core cell; retarget raid pathing to the player cell only (this already matches the live first-person raid direction, where clankers hunt the player). The freed center cell becomes ordinary buildable/diggable space.</dd>
+      <dt>Dependencies</dt><dd>Touches the raid resolver, so it MUST be sequenced with the in-flight live-raid arc (F-104..F-113) to avoid a merge fight over <code>resolveBunkerRaid</code>/core targeting. Prefer landing after the live resolver replaces the interim core-targeted projection, or coordinate the core removal inside that arc.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section id="F-117" data-f="F-117" data-priority="nice-to-have">
+    <h3>F-117: Rework bunker pieces into thin, rotatable, modular parts</h3>
+    <dl>
+      <dt>Context</dt><dd>User request (2026-07-13 bunker redesign, item 4). Today each part fills a whole cell. Instead: floors are thin flat slabs the player walks over (not full blocks); walls are thin dividers on the boundary between two cells, rotatable, up to 4 per cell (one per horizontal face); floors may sit overhead when supported by at least two walls and are destroyed if a supporting wall is destroyed; roofs are thin like floors but only allowed on the top of the topmost cell; add rotatable modular staircase piece(s) for climbing between layers.</dd>
+      <dt>Design / recommended default</dt><dd>Shift the part model from cell-occupancy to sub-cell slot occupancy: a placed part records a cell plus a slot (floor, ceiling/roof, or one of four wall faces) plus orientation for stairs. Multiple parts can share a cell (up to 4 walls + a floor + a roof + a stair). Collision treats wall slabs as thin planes on cell faces and floor/roof slabs as thin planes at cell top/bottom; the DDA raycast targets the nearest slot face. Overhead floors need a support check (>=2 walls in the supporting ring); cascade-destroy dependent floors when supports break. Render-only thin geometry over the new thin colliders (part-visuals rule: colliders define shape). This is the largest change and likely bumps <code>MINE_VERSION</code>; existing full-block placements convert or are refunded on first load under the new model.</dd>
+      <dt>Dependencies</dt><dd>Foundational for building; interacts with F-116 (what a "cell" is once it is a mineable block) and F-114 (place vs mine targeting). Sequence the slot model before or with F-116.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section id="F-116" data-f="F-116" data-priority="nice-to-have">
+    <h3>F-116: Bunker blocks generate and mine like the mine, dropping 3D ore</h3>
+    <dl>
+      <dt>Context</dt><dd>User request (2026-07-13 bunker redesign, item 3). The rock you dig out inside the bunker should be generated the same way as any mine block at that depth, be full 3D, drop 3D ore, and fill the player's bag like normal mining. This replaces the current "free claim rock, yields nothing" excavation.</dd>
+      <dt>Design / recommended default</dt><dd>Generate the claim volume's rock from the mine's own cell generator keyed to the claim's world depth, so bunker blocks carry the same kinds, ore, and hit counts. Mining a bunker block runs the mine's break rhythm, drops the same ore/resources, and deposits into the shared bag with the usual capacity and overflow rules. OPEN QUESTION (recommended default): mining inside the bunker DOES cost battery like the mine (walking stays free, only mining spends), so the bunker is a real but bounded mining space rather than a free ore farm; revisit if it feels punishing. Bag-full stops the dig with the normal "hold full" feedback.</dd>
+      <dt>Dependencies</dt><dd>Large economy change; pairs with F-114 (mining feel) and F-115 (the pre-mined spawn pocket). Likely bumps <code>MINE_VERSION</code>. Reconcile with F-117 slot placement (you place thin parts against mined-out faces).</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section id="F-115" data-f="F-115" data-priority="nice-to-have">
+    <h3>F-115: Spawn into a pre-mined 3x2x2 bunker room</h3>
+    <dl>
+      <dt>Context</dt><dd>User request (2026-07-13 bunker redesign, item 2). A fresh claim currently opens the whole 7x5x1 tunnel plane, which reads as a flat wall rather than a room. Instead, pre-excavate a small 3x2x2 pocket around the spawn so the player clearly stands inside a room, with solid mineable rock all around to dig outward.</dd>
+      <dt>Design / recommended default</dt><dd>At claim time, seed the <code>dug</code> set (or its successor) with a 3-wide by 2-tall by 2-deep pocket centered on the spawn cell instead of opening the full depth-0 plane; everything else starts solid. The spawn stays grounded on the pocket floor facing into diggable rock. Small once F-116's generation model is in place; can ship a first version over today's excavation model with a fixed pocket.</dd>
+      <dt>Dependencies</dt><dd>Sits on the excavation/generation model (F-116) but a basic fixed-pocket version is independent and can land early.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section id="F-114" data-f="F-114" data-priority="nice-to-have">
+    <h3>F-114: Minecraft-style bunker mining (swing, hold-to-mine, drag retarget)</h3>
+    <dl>
+      <dt>Context</dt><dd>User request (2026-07-13 bunker redesign, item 1). Mining inside the bunker should feel like Minecraft: show a first-person pickaxe swing striking the block, holding continues to swing and break, the player can mine cells up to 3 blocks away (reach is already ~3.5), and dragging the aim to another in-range cell while still holding switches mining to that block.</dd>
+      <dt>Design / recommended default</dt><dd>Add a first-person pickaxe view-model with a swing animation triggered per strike (allocation-free, driven from the existing rig useFrame). Hold-to-mine: while the act input is held and the crosshair rests on a diggable cell, auto-repeat the dig at the block's break cadence with a cracking-progress overlay that resets when the target changes. Drag retarget: the mined cell always follows the current crosshair/held target, so dragging look (touch) or moving the mouse (desktop) mid-hold moves the strike to the newly targeted in-range cell. Reuse <code>FP_MAX_REACH</code>. Per RULE 10, prove the swing and crack move with consecutive-frame pixel diffs.</dd>
+      <dt>Dependencies</dt><dd>The "striking a real block" payoff pairs with F-116 (real blocks with break counts and ore), but the swing/hold/drag interaction can land first over the current single-tap dig.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section id="F-113" data-f="F-113" data-priority="polish">
     <h3>F-113: Reconcile first-person bunker records</h3>
     <dl>

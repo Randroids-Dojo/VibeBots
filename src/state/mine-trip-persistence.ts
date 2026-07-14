@@ -8,9 +8,7 @@ import { withSpawnPocket } from "@/sim/bunker-blocks";
 import {
   applyAction,
   createMine,
-  elevatorColumn,
   isMineAction,
-  MINE_BOTTOM_ROW,
   MINE_VERSION,
   type MineAction,
   type MineConsumables,
@@ -179,7 +177,7 @@ export function replaySavedTrip(
   pendingBunker: PendingBunkerBuild | null;
   terminalReplayCollapsed: boolean;
   terminalReplayConsumed: boolean;
-  resumeElevatorDown: boolean;
+  resumeElevatorDirection: "ride-up" | "ride-down" | null;
 } {
   const resumed = createMine(
     saved.seed,
@@ -189,16 +187,12 @@ export function replaySavedTrip(
   );
   const moves: MineAction[] = [];
   let terminalResult: MoveResult | null = null;
-  let lastSuccessfulResult: MoveResult | null = null;
-  let lastSuccessfulAction: MineAction | null = null;
   const bunkerFootprint =
     saved.bunkerFootprint ?? saved.pendingBunker?.bunker.footprint ?? null;
   for (const action of saved.moves) {
     const result = applyAction(resumed, action, { bunkerFootprint });
     if (result.ok) {
       moves.push(action);
-      lastSuccessfulResult = result;
-      lastSuccessfulAction = action;
     }
     if (result.ok && result.collapsed) {
       terminalResult = result;
@@ -207,16 +201,12 @@ export function replaySavedTrip(
   }
   const terminalReplayConsumed =
     terminalResult !== null && saved.terminalReplayConsumed === true;
-  const railColumn = elevatorColumn(resumed.gear);
-  const railBottom = Math.min(resumed.gear.elevator, MINE_BOTTOM_ROW - 1);
-  const resumeElevatorDown =
-    terminalResult === null &&
-    railColumn !== null &&
-    resumed.miner.col === railColumn &&
-    resumed.miner.row >= 0 &&
-    resumed.miner.row < railBottom &&
-    (lastSuccessfulResult?.elevatorEntered === true ||
-      lastSuccessfulAction === "ride-down");
+  const resumeElevatorDirection =
+    terminalResult === null && resumed.elevatorPhase === "riding-up"
+      ? "ride-up"
+      : terminalResult === null && resumed.elevatorPhase === "riding-down"
+        ? "ride-down"
+        : null;
   return {
     mine: resumed,
     moves,
@@ -224,6 +214,6 @@ export function replaySavedTrip(
     pendingBunker: terminalResult ? null : (saved.pendingBunker ?? null),
     terminalReplayCollapsed: terminalResult !== null,
     terminalReplayConsumed,
-    resumeElevatorDown,
+    resumeElevatorDirection,
   };
 }

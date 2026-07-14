@@ -145,6 +145,12 @@ export interface SoldHaul {
   totalVibes: number;
 }
 
+/**
+ * Replay-derived elevator interaction state. It is intentionally absent from
+ * the persistent WorldDiff: replaying the logged actions reconstructs it.
+ */
+export type ElevatorPhase = "idle" | "boarded" | "riding-up" | "riding-down";
+
 export interface MineState {
   seed: number;
   /** Gear snapshot for the session; part of the replay input (Q-007). */
@@ -171,6 +177,8 @@ export interface MineState {
   pendingDynamite?: PendingDynamite;
   /** Jump Jets hold the miner one row up until the next successful action. */
   jumpHover?: boolean;
+  /** Current staged elevator interaction, reconstructed from the action log. */
+  elevatorPhase: ElevatorPhase;
   /**
    * Observational survival counters (F-049). Never serialized into the
    * WorldDiff and never read by any rule, so they cannot change replay

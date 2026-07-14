@@ -69,6 +69,55 @@ function clearedBunkerMine() {
   return mine;
 }
 
+async function restoreElevatorTrip(moves: MineAction[]): Promise<void> {
+  const seed = 9295;
+  const gear = {
+    ...DEFAULT_GEAR,
+    elevator: 20,
+    elevatorColumn: START_COL,
+  };
+  const mine = createMine(seed, gear, STARTING_CONSUMABLES);
+  for (let row = 1; row <= gear.elevator; row++) {
+    setCell(mine, START_COL, row, { kind: "empty" });
+  }
+  const baseDiff = exportDiff(mine);
+  localStorage.setItem(
+    "vibebots-mine-trip-v2-slot-1",
+    JSON.stringify({
+      mineVersion: MINE_VERSION,
+      seed,
+      tripIndex: 4,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff,
+      moves,
+    }),
+  );
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          activeSlot: 1,
+          seed,
+          tripIndex: 4,
+          diff: baseDiff,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          gear,
+          consumables: STARTING_CONSUMABLES,
+          balance: 0,
+          elevatorPlacementRequired: true,
+        }),
+      ),
+  );
+
+  await store().loadWorld();
+}
+
 describe("mine store upgrade flow", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -96,7 +145,7 @@ describe("mine store upgrade flow", () => {
       tick: 0,
       lastResult: null,
       lastAction: null,
-      resumeElevatorDown: false,
+      resumeElevatorDirection: null,
       cashOut: { state: "idle" },
       pendingBunker: null,
       activeSlot: 1,
@@ -138,6 +187,20 @@ describe("mine store upgrade flow", () => {
     // when a new playback begins; a stale key must never gate a new trip.
     useMineStore.getState().clearFallVisualImpact();
     expect(useMineStore.getState().fallVisualImpactKey).toBeNull();
+  });
+
+  it("returns no action result while cash-out blocks movement", () => {
+    const accepted = store().move("right");
+    expect(accepted).toEqual(store().lastResult);
+    expect(accepted?.ok).toBe(true);
+
+    const priorResult = store().lastResult;
+    const priorMoves = [...store().moves];
+    useMineStore.setState({ cashOut: { state: "pending" } });
+
+    expect(store().move("left")).toBeNull();
+    expect(store().lastResult).toBe(priorResult);
+    expect(store().moves).toEqual(priorMoves);
   });
 
   it("banks a surfaced trip before buying an upgrade", async () => {
@@ -731,61 +794,64 @@ describe("mine store upgrade flow", () => {
     );
   });
 
-  it("preserves restored elevator descent through the gear refresh", async () => {
-    const seed = 9295;
-    const gear = {
-      ...DEFAULT_GEAR,
-      elevator: 20,
-      elevatorColumn: START_COL,
-    };
-    const mine = createMine(seed, gear, STARTING_CONSUMABLES);
-    for (let row = 1; row <= gear.elevator; row++) {
-      setCell(mine, START_COL, row, { kind: "empty" });
-    }
-    const baseDiff = exportDiff(mine);
-    localStorage.setItem(
-      "vibebots-mine-trip-v2-slot-1",
-      JSON.stringify({
-        mineVersion: MINE_VERSION,
-        seed,
-        tripIndex: 4,
-        gear,
-        consumables: STARTING_CONSUMABLES,
-        baseDiff,
-        moves: ["down", "ride-down"],
-      }),
-    );
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          jsonResponse({
-            activeSlot: 1,
-            seed,
-            tripIndex: 4,
-            diff: baseDiff,
-          }),
-        )
-        .mockResolvedValueOnce(
-          jsonResponse({
-            gear,
-            consumables: STARTING_CONSUMABLES,
-            balance: 0,
-            elevatorPlacementRequired: true,
-          }),
-        ),
-    );
+  it("preserves a restored boarded elevator chooser through gear refresh", async () => {
+    await restoreElevatorTrip(["down"]);
 
-    await store().loadWorld();
-
-    expect(store().mine.miner.row).toBe(12);
-    expect(store().resumeElevatorDown).toBe(true);
+    expect(store().mine.miner.row).toBe(0);
+    expect(store().mine.elevatorPhase).toBe("boarded");
+    expect(store().resumeElevatorDirection).toBeNull();
 
     await store().loadGear();
 
-    expect(store().mine.miner.row).toBe(12);
-    expect(store().resumeElevatorDown).toBe(true);
+    expect(store().mine.miner.row).toBe(0);
+    expect(store().mine.elevatorPhase).toBe("boarded");
+    expect(store().resumeElevatorDirection).toBeNull();
+    expect(store().elevatorPlacementRequired).toBe(true);
+  });
+
+  it("preserves restored elevator descent through gear refresh", async () => {
+    await restoreElevatorTrip(["down", "ride-down"]);
+
+    expect(store().mine.miner.row).toBe(6);
+    expect(store().mine.elevatorPhase).toBe("riding-down");
+    expect(store().resumeElevatorDirection).toBe("ride-down");
+
+    await store().loadGear();
+
+    expect(store().mine.miner.row).toBe(6);
+    expect(store().resumeElevatorDirection).toBe("ride-down");
+    expect(store().elevatorPlacementRequired).toBe(true);
+  });
+
+  it("keeps a restored ride armed when an early action is refused", async () => {
+    await restoreElevatorTrip(["down", "ride-down"]);
+
+    expect(store().resumeElevatorDirection).toBe("ride-down");
+    store().move("left");
+
+    expect(store().lastResult).toEqual({ ok: false, reason: "blocked" });
+    expect(store().mine.elevatorPhase).toBe("riding-down");
+    expect(store().resumeElevatorDirection).toBe("ride-down");
+  });
+
+  it("preserves restored elevator ascent through gear refresh", async () => {
+    await restoreElevatorTrip([
+      "down",
+      "ride-down",
+      "ride-down",
+      "ride-down",
+      "ride-down",
+      "ride-up",
+    ]);
+
+    expect(store().mine.miner.row).toBe(14);
+    expect(store().mine.elevatorPhase).toBe("riding-up");
+    expect(store().resumeElevatorDirection).toBe("ride-up");
+
+    await store().loadGear();
+
+    expect(store().mine.miner.row).toBe(14);
+    expect(store().resumeElevatorDirection).toBe("ride-up");
     expect(store().elevatorPlacementRequired).toBe(true);
   });
 
@@ -833,6 +899,8 @@ describe("mine store upgrade flow", () => {
     expect(store().mine.miner.row).toBe(0);
     expect(store().lastResult).toBeNull();
     expect(store().pendingBunker).toBeNull();
+    expect(store().mine.elevatorPhase).toBe("idle");
+    expect(store().resumeElevatorDirection).toBeNull();
     const consumed = JSON.parse(
       localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
     );
@@ -850,6 +918,7 @@ describe("mine store upgrade flow", () => {
     expect(store().mine.miner.row).toBe(0);
     expect(store().lastResult).toBeNull();
     expect(store().pendingBunker).toBeNull();
+    expect(store().resumeElevatorDirection).toBeNull();
   });
 
   it("clears pending bunker state when a live move collapses", () => {

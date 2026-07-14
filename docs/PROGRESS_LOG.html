@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-call-and-destination" data-date="2026-07-14">
+    <h3>Call the elevator, board it, then choose where to go</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/elevator-call-and-destination</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Package 0.1.258 stages REQ-028 as a visible call, board, and choose sequence. Entering the shaft at any owned rail row calls the car to the miner's floor before boarding. Once aboard, the player chooses Up for the surface or Down for the owned rail bottom. Surface and bottom rows expose only the valid destination arrow, while an intermediate row exposes both. The selected ride stays free and logged, auto-chains to its endpoint, resumes in the selected direction after reload, and banks the carry on surface arrival. F-123 full-turn entry finalization and F-129 bidirectional reload recovery are targeted in this slice. The mine tip rotation teaches the call-and-choose rule. Stamp review: no new stamp because Winch Builder and Ride the Rail already cover the durable build and first-use milestones; Ride the Rail copy now matches either completed direction. <code>MINE_VERSION</code> advances to <code>55</code>; <code>SIM_VERSION</code> stays at <code>5</code>.</dd>
+      <dt>Verification</dt><dd>Pending. Focused verification must cover visible car arrival before boarding, no initial miner fall or snap, endpoint-specific arrow controls, explicit selection before movement, full-turn entry finalization without a duplicate settle, free logged auto-chained travel, reload recovery in either selected direction, one surface bank, and release plus notification copy.</dd>
+      <dt>Assumptions</dt><dd>Calling never commits a destination. A player at the surface can only choose Down, a player at the rail bottom can only choose Up, and a player between endpoints can choose either direction. The car reaches the player's floor before the miner boards.</dd>
+      <dt>GDD coverage</dt><dd>REQ-028 remains done with its call, visible arrival, boarding, destination-arrow, travel, reload, and surface-banking contract updated in <code>docs/gdd/06-mining.html</code> and <code>docs/GDD_COVERAGE.json</code>.</dd>
+      <dt>Followups</dt><dd>F-123 and F-129 are targeted but remain open pending verification. F-126 and F-128 receive continuity notes for the new explicit-call journey shape and also remain open. No new followup ID.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-dig-out-model" data-date="2026-07-14">
     <h3>Rebuild the bunker interior as a dig-out voxel volume</h3>
     <dl>

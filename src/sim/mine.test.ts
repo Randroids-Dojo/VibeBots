@@ -28,6 +28,7 @@ import {
   dynamiteBlastCells,
   dynamitePreviewCells,
   dynamiteTier,
+  elevatorBoardingTarget,
   elevatorColumn,
   elevatorRailPrice,
   elevatorSpeedRows,
@@ -285,6 +286,10 @@ describe("mine", () => {
       elevatorSpeed: 10,
     });
     lift.miner.col = LEGACY_ELEVATOR_COL;
+    expect(applyAction(lift, "down")).toMatchObject({
+      ok: true,
+      elevatorEntered: true,
+    });
     for (let i = 0; i < 200; i++) applyAction(lift, "ride-down");
     expect(lift.miner.row).toBe(MINE_BOTTOM_ROW - 1);
     expect(applyAction(lift, "ride-down")).toEqual({
@@ -706,7 +711,7 @@ describe("mine", () => {
     }
   });
 
-  it("rides the elevator down and up along bought rail (REQ-028)", () => {
+  it("boards first, then rides to an explicitly chosen endpoint (REQ-028)", () => {
     const norail = createMine(229);
     expect(applyAction(norail, "ride-down")).toEqual({
       ok: false,
@@ -726,15 +731,24 @@ describe("mine", () => {
       ok: false,
       reason: "blocked",
     });
-    // Walk to the placed shaft. Rides are free and bore the rail span.
+    // Walk to the placed shaft. Entry calls the car but does not move it.
     while (state.miner.col < shaftCol) step(state, "right");
     const energyBeforeRide = state.miner.energy;
     setCell(state, shaftCol, 3, {
       kind: "dirt",
       drop: { coal: 1 },
     });
-    // A ride covers the car's speed in rows; the UI repeats rides
-    // automatically to the rail end.
+    expect(elevatorBoardingTarget(state, "down")).toEqual({
+      col: shaftCol,
+      row: 0,
+    });
+    const boarded = applyAction(state, "down");
+    expect(boarded.ok && boarded.elevatorEntered).toBe(true);
+    expect(state.miner.row).toBe(0);
+    expect(state.elevatorPhase).toBe("boarded");
+
+    // A ride covers the car's speed in rows. Matching ride actions continue
+    // until the chosen endpoint, while the opposite direction is locked out.
     const carRows = elevatorSpeedRows(gear);
     expect(carRows).toBe(6);
     const ride = applyAction(state, "ride-down");
@@ -744,6 +758,12 @@ describe("mine", () => {
     expect(state.miner.col).toBe(shaftCol);
     expect(state.miner.carried.coal).toBe(1);
     expect(state.miner.energy).toBe(energyBeforeRide);
+    expect(state.elevatorPhase).toBe("riding-down");
+    expect(ride.ok && ride.elevatorJourneyCompleted).toBeUndefined();
+    expect(applyAction(state, "ride-up")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
     for (let r = 1; r <= carRows; r++) {
       expect(cellAt(state, shaftCol, r)?.kind).toBe("empty");
     }
@@ -752,6 +772,7 @@ describe("mine", () => {
     while (state.miner.row < rail && guard++ < 50)
       applyAction(state, "ride-down");
     expect(state.miner.row).toBe(rail);
+    expect(state.elevatorPhase).toBe("boarded");
     expect(applyAction(state, "ride-down")).toEqual({
       ok: false,
       reason: "blocked",
@@ -759,13 +780,15 @@ describe("mine", () => {
     for (let r = 1; r <= rail; r++) {
       expect(cellAt(state, shaftCol, r)?.kind).toBe("empty");
     }
-    // Off-elevator rides are refused even inside owned depth.
+    // An idle miner cannot invoke a ride directly, even inside owned depth.
     state.miner.col = shaftCol + 3;
+    state.elevatorPhase = "idle";
     expect(applyAction(state, "ride-up")).toEqual({
       ok: false,
       reason: "blocked",
     });
     state.miner.col = shaftCol;
+    state.elevatorPhase = "boarded";
     // Ride back up from the current elevator floor: free, banks only at the surface.
     state.miner.carried = { coal: 2 };
     applyAction(state, "ride-up");
@@ -777,13 +800,14 @@ describe("mine", () => {
     expect(state.miner.row).toBe(0);
     expect(state.miner.col).toBe(shaftCol);
     expect(state.miner.bankedCredits).toBe(2);
+    expect(state.elevatorPhase).toBe("boarded");
     expect(applyAction(state, "ride-up")).toEqual({
       ok: false,
       reason: "blocked",
     });
   });
 
-  it("safely boards from the surface and rides down before gravity", () => {
+  it("safely boards from the surface without riding or gravity", () => {
     const shaftCol = 3;
     const rail = 14;
     const gear = {
@@ -803,11 +827,13 @@ describe("mine", () => {
     expect(entered.ok && entered.elevatorEntered).toBe(true);
     expect(entered.ok && entered.fallFatal).toBeUndefined();
     expect(entered.ok && entered.fell).toBeUndefined();
-    expect(state.miner).toMatchObject({ col: shaftCol, row: 6 });
+    expect(state.miner).toMatchObject({ col: shaftCol, row: 0 });
     expect(state.miner.energy).toBe(energyBefore);
+    expect(state.elevatorPhase).toBe("boarded");
+    expect(entered.ok && entered.elevatorJourneyCompleted).toBeUndefined();
   });
 
-  it("safely boards laterally from either side of an owned rail row", () => {
+  it("safely boards laterally from either side and picks up rail cargo", () => {
     const shaftCol = 11;
     const rail = 12;
     const gear = {
@@ -833,7 +859,8 @@ describe("mine", () => {
       value: 4,
       parts: 1,
     });
-    expect(moving.miner).toMatchObject({ col: shaftCol, row: 10 });
+    expect(moving.miner).toMatchObject({ col: shaftCol, row: 4 });
+    expect(moving.elevatorPhase).toBe("boarded");
     expect(moving.miner.carried).toEqual({ coal: 2, copper: 1 });
     expect(moving.miner.carriedSalvageCredits).toBe(3);
     expect(moving.miner.carriedParts).toEqual(["drill"]);
@@ -860,8 +887,229 @@ describe("mine", () => {
     expect(boardedAtBottom.ok && boardedAtBottom.fallFatal).toBeUndefined();
     expect(boardedAtBottom.ok && boardedAtBottom.pickedUp).toBe(1);
     expect(bottom.miner).toMatchObject({ col: shaftCol, row: rail });
+    expect(bottom.elevatorPhase).toBe("boarded");
     expect(bottom.miner.carried.coal).toBe(1);
     expect(cellAt(bottom, shaftCol, rail)?.drop).toBeUndefined();
+  });
+
+  it("finalizes hazards and a cleared charge while boarding without falling", () => {
+    const shaftCol = 7;
+    const state = createMine(
+      235,
+      {
+        ...DEFAULT_GEAR,
+        elevator: 12,
+        elevatorColumn: shaftCol,
+      },
+      stock({ dynamite: 1 }),
+    );
+    state.miner.col = shaftCol - 1;
+    state.miner.row = 4;
+    setCell(state, shaftCol - 1, 4, { kind: "empty" });
+    setCell(state, shaftCol - 1, 5, { kind: "dirt" });
+    setCell(state, shaftCol, 4, { kind: "empty" });
+    setCell(state, shaftCol, 5, { kind: "empty" });
+    setCell(state, shaftCol, 6, { kind: "empty" });
+    setCell(state, shaftCol + 2, 3, {
+      kind: "boulder",
+      fallIn: FALL_DELAY_ACTIONS + 1,
+    });
+    setCell(state, shaftCol + 2, 4, { kind: "empty" });
+    setCell(state, shaftCol + 2, 5, { kind: "dirt" });
+    expect(applyAction(state, "dynamite-1")).toMatchObject({ ok: true });
+    setCell(state, shaftCol, 4, { kind: "empty", drop: { coal: 1 } });
+    const fallInBeforeBoarding = cellAt(state, shaftCol + 2, 3)?.fallIn;
+
+    const boarded = applyAction(state, "right");
+
+    expect(boarded).toMatchObject({
+      ok: true,
+      elevatorEntered: true,
+      exploded: { col: shaftCol - 1, row: 4, tier: 1 },
+      pickedUp: 1,
+    });
+    expect(state.pendingDynamite).toBeUndefined();
+    expect(state.miner).toMatchObject({ col: shaftCol, row: 4 });
+    expect(state.elevatorPhase).toBe("boarded");
+    expect(cellAt(state, shaftCol + 2, 3)?.fallIn).toBe(
+      (fallInBeforeBoarding ?? 0) - 1,
+    );
+  });
+
+  it("blocks boarding when a live charge occupies the rail entry", () => {
+    const shaftCol = 7;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
+    };
+    const lateral = createMine(2351, gear);
+    lateral.miner.col = shaftCol - 1;
+    lateral.miner.row = 4;
+    setCell(lateral, shaftCol - 1, 4, { kind: "empty" });
+    setCell(lateral, shaftCol, 4, { kind: "empty" });
+    lateral.pendingDynamite = { col: shaftCol, row: 4, tier: 1 };
+
+    expect(applyAction(lateral, "right")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(lateral.miner).toMatchObject({ col: shaftCol - 1, row: 4 });
+    expect(lateral.elevatorPhase).toBe("idle");
+    expect(lateral.pendingDynamite).toEqual({
+      col: shaftCol,
+      row: 4,
+      tier: 1,
+    });
+
+    const surface = createMine(2352, gear);
+    surface.miner.col = shaftCol;
+    surface.pendingDynamite = { col: shaftCol, row: 1, tier: 1 };
+
+    expect(applyAction(surface, "down")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(surface.miner).toMatchObject({ col: shaftCol, row: 0 });
+    expect(surface.elevatorPhase).toBe("idle");
+    expect(surface.pendingDynamite).toEqual({
+      col: shaftCol,
+      row: 1,
+      tier: 1,
+    });
+  });
+
+  it("locks boarded and partial rides, then permits a lateral exit", () => {
+    const shaftCol = 5;
+    const state = createMine(236, {
+      ...DEFAULT_GEAR,
+      elevator: 20,
+      elevatorColumn: shaftCol,
+    });
+    state.miner.col = shaftCol - 1;
+    state.miner.row = 4;
+    setCell(state, shaftCol - 1, 4, { kind: "empty" });
+    setCell(state, shaftCol - 1, 5, { kind: "dirt" });
+    setCell(state, shaftCol, 4, { kind: "empty" });
+
+    expect(applyAction(state, "right")).toMatchObject({
+      ok: true,
+      elevatorEntered: true,
+    });
+    expect(applyAction(state, "jump")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    const exited = applyAction(state, "left");
+    expect(exited.ok).toBe(true);
+    expect(state.miner).toMatchObject({ col: shaftCol - 1, row: 4 });
+    expect(state.elevatorPhase).toBe("idle");
+
+    expect(applyAction(state, "right")).toMatchObject({
+      ok: true,
+      elevatorEntered: true,
+    });
+    expect(applyAction(state, "ride-down")).toMatchObject({ ok: true });
+    expect(state.elevatorPhase).toBe("riding-down");
+    expect(applyAction(state, "recall")).toEqual({
+      ok: false,
+      reason: "no-rope",
+    });
+    expect(state.elevatorPhase).toBe("riding-down");
+    expect(applyAction(state, "left")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(applyAction(state, "ride-up")).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+  });
+
+  it("settles a falling hazard and its unsupported ladder while boarding", () => {
+    const shaftCol = 9;
+    const hazardCol = shaftCol + 2;
+    const state = createMine(239, {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
+    });
+    state.miner.col = shaftCol - 1;
+    state.miner.row = 4;
+    setCell(state, shaftCol - 1, 4, { kind: "empty" });
+    setCell(state, shaftCol - 1, 5, { kind: "dirt" });
+    setCell(state, shaftCol, 4, { kind: "empty" });
+    setCell(state, hazardCol, 2, { kind: "empty", ladder: true });
+    setCell(state, hazardCol, 3, { kind: "boulder", fallIn: 1 });
+    setCell(state, hazardCol, 4, { kind: "empty" });
+    setCell(state, hazardCol, 5, { kind: "dirt" });
+
+    const boarded = applyAction(state, "right");
+
+    expect(boarded.ok && boarded.ladderFalls).toEqual([
+      {
+        from: { col: hazardCol, row: 2 },
+        to: { col: hazardCol, row: 3 },
+      },
+    ]);
+    expect(cellAt(state, hazardCol, 3)?.ladder).toBe(true);
+    expect(cellAt(state, hazardCol, 4)?.kind).toBe("boulder");
+    expect(state.elevatorPhase).toBe("boarded");
+  });
+
+  it("resets the elevator phase when a boarding hazard collapses the trip", () => {
+    const shaftCol = 10;
+    const state = createMine(240, {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
+    });
+    state.miner.col = shaftCol - 1;
+    state.miner.row = 5;
+    setCell(state, shaftCol - 1, 5, { kind: "empty" });
+    setCell(state, shaftCol - 1, 6, { kind: "dirt" });
+    setCell(state, shaftCol, 4, { kind: "boulder", fallIn: 1 });
+    setCell(state, shaftCol, 5, { kind: "empty" });
+    setCell(state, shaftCol, 6, { kind: "dirt" });
+
+    const boarded = applyAction(state, "right");
+
+    expect(boarded).toMatchObject({
+      ok: true,
+      elevatorEntered: true,
+      collapsed: true,
+      crushed: true,
+    });
+    expect(state.miner.row).toBe(0);
+    expect(state.elevatorPhase).toBe("idle");
+  });
+
+  it("resets the elevator phase after successful recall and abandon", () => {
+    const shaftCol = 4;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
+    };
+    const recalled = createMine(237, gear, stock({ rope: 1 }));
+    recalled.miner.col = shaftCol;
+    recalled.miner.row = 4;
+    recalled.elevatorPhase = "riding-down";
+    expect(applyAction(recalled, "recall")).toMatchObject({
+      ok: true,
+      recalled: true,
+    });
+    expect(recalled.elevatorPhase).toBe("idle");
+
+    const abandoned = createMine(238, gear);
+    abandoned.miner.col = shaftCol;
+    abandoned.miner.row = 4;
+    abandoned.elevatorPhase = "boarded";
+    expect(applyAction(abandoned, "abandon")).toMatchObject({
+      ok: true,
+      abandoned: true,
+    });
+    expect(abandoned.elevatorPhase).toBe("idle");
   });
 
   it("replays elevator trips identically", () => {
@@ -874,8 +1122,10 @@ describe("mine", () => {
     const actions: MineAction[] = [
       "right",
       "right",
-      "ride-down",
       "down",
+      "ride-down",
+      "ride-down",
+      "ride-up",
       "ride-up",
     ];
     const state = createMine(233, gear);
@@ -886,14 +1136,26 @@ describe("mine", () => {
     expect(replayTrip(233, actions, gear)).toEqual(replayed);
   });
 
-  it("counts safe shaft entry as an elevator ride", () => {
-    const trip = replayTrip(234, ["down"], {
+  it("counts a completed chosen journey, not boarding or partial steps", () => {
+    const boarded = replayTrip(234, ["down"], {
       ...DEFAULT_GEAR,
-      elevator: 1,
+      elevator: 12,
+      elevatorColumn: START_COL,
+    });
+    const partial = replayTrip(234, ["down", "ride-down"], {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: START_COL,
+    });
+    const completed = replayTrip(234, ["down", "ride-down", "ride-down"], {
+      ...DEFAULT_GEAR,
+      elevator: 12,
       elevatorColumn: START_COL,
     });
 
-    expect(trip.elevatorRides).toBe(1);
+    expect(boarded.elevatorRides).toBe(0);
+    expect(partial.elevatorRides).toBe(0);
+    expect(completed.elevatorRides).toBe(1);
   });
 
   it("prices each rail row as a premium transport investment", () => {
@@ -3085,6 +3347,10 @@ describe("mine", () => {
         elevatorSpeed: speed,
       });
       while (s.miner.col > LEGACY_ELEVATOR_COL) step(s, "left");
+      expect(applyAction(s, "down")).toMatchObject({
+        ok: true,
+        elevatorEntered: true,
+      });
       let rides = 0;
       let guard = 0;
       while (s.miner.row < rail && guard++ < 100) {

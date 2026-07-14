@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.257-dig-out-bunker";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.258-call-elevator";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.258",
+      date: "2026-07-14",
+      title: "Call the elevator, then choose your destination",
+      intro: "The car comes to your floor before you choose the top or bottom.",
+      changes: [
+        {
+          build,
+          text: "Enter the shaft at any owned rail row to call the car. It travels visibly to your floor, then the miner boards instead of falling or snapping down the shaft.",
+        },
+        {
+          build,
+          text: "Once aboard, choose Up for the surface or Down for the rail bottom. The surface shows only Down, the bottom shows only Up, and rows between them show both arrows.",
+        },
+        {
+          build,
+          text: "The selected ride is free, logged, and continues automatically to its endpoint. Surface arrival banks the carry, interrupted travel resumes in the selected direction, Ride the Rail recognizes a completed trip either way, MINE_VERSION advances to 55, and SIM_VERSION stays at 5.",
+        },
+      ],
+    },
     {
       version: "0.1.257",
       date: "2026-07-14",

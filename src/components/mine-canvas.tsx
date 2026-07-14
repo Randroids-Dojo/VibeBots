@@ -120,6 +120,12 @@ import {
   POWER_DOWN_HOLD_SECONDS,
   useMineDeathPlaybackBridge,
 } from "./mine-death-playback";
+import {
+  ELEVATOR_BOARD_SECONDS,
+  ELEVATOR_CALL_SECONDS,
+  type ElevatorPresentation,
+  type ElevatorPresentationStage,
+} from "./mine-elevator-presentation";
 import { InstancedBlockGrid } from "./mine-instanced-grid";
 import {
   collectBlockNodeMaterials,
@@ -307,6 +313,12 @@ const PLANK_BOARD_GEOMETRY = new BoxGeometry(0.98, 0.07, 0.22);
 const PLANK_BEAM_GEOMETRY = new BoxGeometry(0.2, 0.06, 0.56);
 const ELEVATOR_GUIDE_GEOMETRY = new BoxGeometry(0.07, 1, 0.07);
 const ELEVATOR_TIE_GEOMETRY = new BoxGeometry(0.7, 0.06, 0.1);
+const ELEVATOR_CAR_FLOOR_GEOMETRY = new BoxGeometry(0.9, 0.12, 0.72);
+const ELEVATOR_CAR_BACK_GEOMETRY = new BoxGeometry(0.82, 0.72, 0.08);
+const ELEVATOR_CAR_POST_GEOMETRY = new BoxGeometry(0.07, 0.9, 0.07);
+const ELEVATOR_CAR_ROOF_GEOMETRY = new BoxGeometry(0.9, 0.08, 0.5);
+const ELEVATOR_CAR_GATE_GEOMETRY = new BoxGeometry(0.055, 0.72, 0.055);
+const ELEVATOR_CAR_LAMP_GEOMETRY = new BoxGeometry(0.18, 0.1, 0.08);
 const ELEVATOR_GUIDE_MATERIAL = new MeshStandardMaterial({
   color: "#9aa7ff",
   roughness: 0.45,
@@ -317,6 +329,30 @@ const ELEVATOR_TIE_MATERIAL = new MeshStandardMaterial({
   color: "#6b7baa",
   roughness: 0.6,
   metalness: 0.4,
+  flatShading: true,
+});
+const ELEVATOR_CAR_MATERIAL = new MeshStandardMaterial({
+  color: "#6978bd",
+  emissive: "#171d48",
+  emissiveIntensity: 0.16,
+  roughness: 0.38,
+  metalness: 0.62,
+  flatShading: true,
+});
+const ELEVATOR_CAR_EDGE_MATERIAL = new MeshStandardMaterial({
+  color: "#b7c0ff",
+  emissive: "#303b92",
+  emissiveIntensity: 0.24,
+  roughness: 0.3,
+  metalness: 0.7,
+  flatShading: true,
+});
+const ELEVATOR_CAR_LAMP_MATERIAL = new MeshStandardMaterial({
+  color: "#fff2ad",
+  emissive: "#ffd85d",
+  emissiveIntensity: 1.6,
+  roughness: 0.32,
+  metalness: 0.12,
   flatShading: true,
 });
 const ELEVATOR_GUIDE_OFFSETS = [-0.32, 0.32] as const;
@@ -417,6 +453,9 @@ function warmMineMaterials(
   }
   addWarm(ELEVATOR_GUIDE_MATERIAL);
   addWarm(ELEVATOR_TIE_MATERIAL);
+  addWarm(ELEVATOR_CAR_MATERIAL);
+  addWarm(ELEVATOR_CAR_EDGE_MATERIAL);
+  addWarm(ELEVATOR_CAR_LAMP_MATERIAL);
   addWarm(MINE_VISIBILITY_VEIL);
   scene.add(group);
   let disposed = false;
@@ -949,6 +988,7 @@ function buildCellEntry(
 
 function MineScene({
   zoom,
+  elevatorPresentation,
   collectMode,
   selectedSupportKeys,
   dynamitePreviewCells,
@@ -957,6 +997,7 @@ function MineScene({
   bunker,
   activeBunkerRaid,
   onToggleSupport,
+  onElevatorStageComplete,
   graphicsFeatures,
   onWarmed,
 }: MineCanvasProps & {
@@ -973,6 +1014,8 @@ function MineScene({
   const rigRef = useRef<Group>(null);
   const caveBackdropRef = useRef<Mesh>(null);
   const minerRef = useRef<Group>(null);
+  const elevatorCarRef = useRef<Group>(null);
+  const elevatorGateRef = useRef<Group>(null);
   const minerBodyRef = useRef<Group>(null);
   const motesRef = useRef<Group>(null);
   const pickArmRef = useRef<Group>(null);
@@ -1068,6 +1111,32 @@ function MineScene({
   // sampling glides, and writing diagnostics allocate nothing per frame.
   const datasetCache = useRef<Record<string, number | string>>({});
   const motionSample = useRef<[number, number]>([0, 0]);
+  const elevatorCarSample = useRef<[number, number]>([0, 0]);
+  const elevatorCarMotion = useRef<MotionTrack>({
+    fromX: 0,
+    fromY: 0,
+    toX: 0,
+    toY: 0,
+    startedAt: 0,
+    duration: ELEVATOR_CALL_SECONDS,
+    easeWeight: 1,
+    frames: 0,
+  });
+  const elevatorVisual = useRef<{
+    sequence: number;
+    stage: ElevatorPresentationStage;
+    startedAt: number;
+    completedSequence: number;
+    completedStage: ElevatorPresentationStage;
+    carPlaced: boolean;
+  }>({
+    sequence: -1,
+    stage: "idle",
+    startedAt: 0,
+    completedSequence: -1,
+    completedStage: "idle",
+    carPlaced: false,
+  });
   const minerPoseScratch = useRef(createMinerPose());
   const rigInputs = useRef(minerRigRestInputs());
   const particleCounts = useRef({ spark: 0, debris: 0, dust: 0 });
@@ -1290,6 +1359,11 @@ function MineScene({
   useFrame((state, delta) => {
     const j = juice.current;
     const t = state.clock.elapsedTime;
+    const presentationStage = elevatorPresentation.stage;
+    const elevatorPassenger =
+      mine.elevatorPhase !== "idle" &&
+      presentationStage !== "idle" &&
+      presentationStage !== "calling";
     // One alias pair for the whole frame: every diagnostics write below
     // goes through the same quantize-and-cache pair.
     const dataset = state.gl.domElement.dataset;
@@ -1305,7 +1379,9 @@ function MineScene({
     // floor, so lift the bot at the ground line to keep feet on the
     // grass instead of shin-deep in the first block row. The camera
     // glide eases the step when entering the shaft.
-    if (mine.miner.row <= 0 && !activeFall) visualTargetY += 0.06;
+    if (mine.miner.row <= 0 && !activeFall) {
+      visualTargetY += elevatorPassenger ? -0.08 : 0.06;
+    }
     if (activeFall) {
       if (!activeFall.track) {
         const duration =
@@ -1734,6 +1810,140 @@ function MineScene({
       frameMsRef.current += (delta * 1000 - frameMsRef.current) * 0.1;
       setDatasetNumber(cache, dataset, "frameMs", frameMsRef.current, 1);
     }
+    const elevatorCar = elevatorCarRef.current;
+    const elevatorGate = elevatorGateRef.current;
+    const railColumn = elevatorColumn(mine.gear);
+    if (elevatorCar && elevatorGate && railColumn !== null) {
+      const visual = elevatorVisual.current;
+      const carMotion = elevatorCarMotion.current;
+      const stage = presentationStage;
+      const targetY = -elevatorPresentation.carRow;
+      const railBottom = Math.max(0, mine.gear.elevator);
+      if (!visual.carPlaced) {
+        visual.carPlaced = true;
+        elevatorCar.position.set(railColumn, -railBottom, 0);
+        elevatorGate.position.y = 0.55;
+      }
+      if (
+        visual.sequence !== elevatorPresentation.sequence ||
+        visual.stage !== stage
+      ) {
+        visual.sequence = elevatorPresentation.sequence;
+        visual.stage = stage;
+        visual.startedAt = t;
+        if (stage === "calling") {
+          const visibleLimit = Math.max(
+            1,
+            (elevatorCar.position.y < targetY
+              ? renderWindow.below
+              : renderWindow.above) - 1,
+          );
+          if (Math.abs(elevatorCar.position.y - targetY) > visibleLimit) {
+            elevatorCar.position.y =
+              elevatorCar.position.y < targetY
+                ? targetY - visibleLimit
+                : targetY + visibleLimit;
+          }
+          if (Math.abs(elevatorCar.position.y - targetY) < 0.12) {
+            const approachRow =
+              elevatorPresentation.carRow < railBottom
+                ? elevatorPresentation.carRow + 1
+                : Math.max(0, elevatorPresentation.carRow - 1);
+            elevatorCar.position.y = -approachRow;
+          }
+          carMotion.fromX = railColumn;
+          carMotion.fromY = elevatorCar.position.y;
+          carMotion.toX = railColumn;
+          carMotion.toY = targetY;
+          carMotion.startedAt = t;
+          carMotion.duration = reducedMotion ? 0.12 : ELEVATOR_CALL_SECONDS;
+          carMotion.easeWeight = 1;
+          carMotion.frames = 0;
+          elevatorGate.position.y = 0.55;
+        } else if (stage === "boarding") {
+          elevatorCar.position.set(railColumn, targetY, 0);
+          elevatorGate.position.y = 0.55;
+        } else if (stage === "choosing") {
+          elevatorCar.position.set(railColumn, targetY, 0);
+          elevatorGate.position.y = 0;
+        }
+      }
+      if (stage === "calling") {
+        if (motionProgress(carMotion, t) < 1) carMotion.frames += 1;
+        const carPoint = sampleMotion(carMotion, t, elevatorCarSample.current);
+        elevatorCar.position.set(carPoint[0], carPoint[1], 0);
+        if (
+          motionProgress(carMotion, t) >= 1 &&
+          (visual.completedSequence !== visual.sequence ||
+            visual.completedStage !== stage)
+        ) {
+          visual.completedSequence = visual.sequence;
+          visual.completedStage = stage;
+          onElevatorStageComplete?.(visual.sequence, stage);
+        }
+      } else if (stage === "boarding") {
+        const boardingProgress = Math.max(
+          0,
+          Math.min(1, (t - visual.startedAt) / ELEVATOR_BOARD_SECONDS),
+        );
+        elevatorCar.position.set(railColumn, targetY, 0);
+        elevatorGate.position.y = 0.55 * (1 - boardingProgress);
+        const minerReady =
+          minerMotion.current === null ||
+          motionProgress(minerMotion.current, t) >= 1;
+        if (
+          boardingProgress >= 1 &&
+          minerReady &&
+          (visual.completedSequence !== visual.sequence ||
+            visual.completedStage !== stage)
+        ) {
+          visual.completedSequence = visual.sequence;
+          visual.completedStage = stage;
+          onElevatorStageComplete?.(visual.sequence, stage);
+        }
+      } else if (stage === "riding") {
+        elevatorCar.position.set(
+          railColumn,
+          miner?.position.y ?? -mine.miner.row,
+          0,
+        );
+        elevatorGate.position.y = 0;
+        const minerReady =
+          minerMotion.current === null ||
+          motionProgress(minerMotion.current, t) >= 1;
+        if (
+          mine.elevatorPhase === "boarded" &&
+          minerReady &&
+          (visual.completedSequence !== visual.sequence ||
+            visual.completedStage !== stage)
+        ) {
+          visual.completedSequence = visual.sequence;
+          visual.completedStage = stage;
+          onElevatorStageComplete?.(visual.sequence, stage);
+        }
+      } else if (stage === "choosing") {
+        elevatorCar.position.set(railColumn, targetY, 0);
+        elevatorGate.position.y = 0;
+      } else {
+        elevatorCar.position.x = railColumn;
+        elevatorGate.position.y = 0.55;
+      }
+      setDatasetText(cache, dataset, "elevatorStage", stage);
+      setDatasetNumber(
+        cache,
+        dataset,
+        "elevatorCarY",
+        elevatorCar.position.y,
+        2,
+      );
+      setDatasetNumber(
+        cache,
+        dataset,
+        "elevatorCarMotionFrames",
+        carMotion.frames,
+        0,
+      );
+    }
     // Body language, foot-locked stride, and the pick arm all come from
     // the shared rig (miner-rig.ts): the canvas owns the timers and the
     // refs, the rig owns how inputs become joint transforms.
@@ -1806,10 +2016,14 @@ function MineScene({
         inputs.delta = delta;
         inputs.facing = j.facing;
         // Vertical motion must not spin the walk stride during a fall.
-        inputs.stepDistance = falling
-          ? Math.abs(dx)
-          : Math.sqrt(dx * dx + dy * dy);
-        inputs.leanVx = visualTargetX - miner.position.x;
+        inputs.stepDistance = elevatorPassenger
+          ? 0
+          : falling
+            ? Math.abs(dx)
+            : Math.sqrt(dx * dx + dy * dy);
+        inputs.leanVx = elevatorPassenger
+          ? 0
+          : visualTargetX - miner.position.x;
         inputs.swing = j.swing;
         inputs.bounce = j.bounce;
         inputs.lunge = j.lunge;
@@ -2412,6 +2626,65 @@ function MineScene({
             </group>
           );
         })()}
+      {mine.gear.elevator > 0 && elevatorColumn(mine.gear) !== null && (
+        <group ref={elevatorCarRef}>
+          <mesh
+            position={[0, -0.43, 0.03]}
+            geometry={ELEVATOR_CAR_FLOOR_GEOMETRY}
+            material={ELEVATOR_CAR_EDGE_MATERIAL}
+            dispose={null}
+          />
+          <mesh
+            position={[0, 0.02, -0.31]}
+            geometry={ELEVATOR_CAR_BACK_GEOMETRY}
+            material={ELEVATOR_CAR_MATERIAL}
+            dispose={null}
+          />
+          <mesh
+            position={[-0.4, 0.02, 0]}
+            geometry={ELEVATOR_CAR_POST_GEOMETRY}
+            material={ELEVATOR_CAR_EDGE_MATERIAL}
+            dispose={null}
+          />
+          <mesh
+            position={[0.4, 0.02, 0]}
+            geometry={ELEVATOR_CAR_POST_GEOMETRY}
+            material={ELEVATOR_CAR_EDGE_MATERIAL}
+            dispose={null}
+          />
+          <mesh
+            position={[0, 0.49, -0.06]}
+            geometry={ELEVATOR_CAR_ROOF_GEOMETRY}
+            material={ELEVATOR_CAR_EDGE_MATERIAL}
+            dispose={null}
+          />
+          <mesh
+            position={[0, 0.31, -0.26]}
+            geometry={ELEVATOR_CAR_LAMP_GEOMETRY}
+            material={ELEVATOR_CAR_LAMP_MATERIAL}
+            dispose={null}
+          />
+          <group ref={elevatorGateRef} position={[0, 0.55, 0.34]}>
+            <mesh
+              position={[-0.24, 0, 0]}
+              geometry={ELEVATOR_CAR_GATE_GEOMETRY}
+              material={ELEVATOR_CAR_EDGE_MATERIAL}
+              dispose={null}
+            />
+            <mesh
+              geometry={ELEVATOR_CAR_GATE_GEOMETRY}
+              material={ELEVATOR_CAR_EDGE_MATERIAL}
+              dispose={null}
+            />
+            <mesh
+              position={[0.24, 0, 0]}
+              geometry={ELEVATOR_CAR_GATE_GEOMETRY}
+              material={ELEVATOR_CAR_EDGE_MATERIAL}
+              dispose={null}
+            />
+          </group>
+        </group>
+      )}
       {supportSelectionMeshes}
       <BunkerOverlay
         preview={bunkerPreview}
@@ -2478,6 +2751,7 @@ function MineScene({
 
 interface MineCanvasProps {
   zoom: number;
+  elevatorPresentation: ElevatorPresentation;
   collectMode?: boolean;
   selectedSupportKeys?: readonly string[];
   dynamitePreviewCells?: readonly MineCoord[];
@@ -2486,6 +2760,10 @@ interface MineCanvasProps {
   bunker?: BunkerState | null;
   activeBunkerRaid?: BunkerRaidSnapshot | null;
   onToggleSupport?: (target: CollectTarget) => void;
+  onElevatorStageComplete?: (
+    sequence: number,
+    stage: ElevatorPresentationStage,
+  ) => void;
   /** Fires once, after the first frame has actually rendered. */
   onFirstFrame?: () => void;
 }

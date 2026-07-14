@@ -433,7 +433,7 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     id: "survival-ride-rail",
     category: "survival",
     title: "Ride the Rail",
-    description: "Ride the elevator from underground.",
+    description: "Take an elevator ride.",
     stamp: "RR",
     metric: "elevatorRides",
     target: 1,

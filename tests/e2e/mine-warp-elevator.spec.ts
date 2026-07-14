@@ -19,7 +19,9 @@ import {
 interface MineMotionSample {
   minerY: number;
   cameraY: number;
+  carY: number;
   riding: string;
+  stage: string;
 }
 
 interface MineMotionProbe {
@@ -43,11 +45,14 @@ async function installMineMotionProbe(page: Page): Promise<void> {
       );
       const minerY = Number(canvas?.dataset.minerY);
       const cameraY = Number(canvas?.dataset.camY);
+      const carY = Number(canvas?.dataset.elevatorCarY);
       if (Number.isFinite(minerY) && Number.isFinite(cameraY)) {
         probe.samples.push({
           minerY,
           cameraY,
+          carY,
           riding: status?.dataset.elevatorRiding ?? "",
+          stage: status?.dataset.elevatorStage ?? "",
         });
       }
       probe.frame = requestAnimationFrame(sample);
@@ -93,6 +98,15 @@ function motionValueSummary(
   return [...new Set(samples.map((sample) => value(sample).toFixed(2)))].join(
     ", ",
   );
+}
+
+function motionRange(
+  samples: MineMotionSample[],
+  value: (sample: MineMotionSample) => number,
+): number {
+  const values = samples.map(value).filter(Number.isFinite);
+  if (values.length === 0) return 0;
+  return Math.max(...values) - Math.min(...values);
 }
 
 test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
@@ -494,12 +508,20 @@ test("the elevator places a chosen shaft and sells one premium rail row", async 
     await pressMineKey(page, shaftDirection);
   }
   await expect(status).toHaveAttribute("data-col", "-4");
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveAttribute("data-elevator-stage", "calling");
   await expect(
-    page.getByRole("button", { name: "Ride elevator down" }),
-  ).toBeVisible();
-  await pressMineKey(page, "ArrowDown");
+    page.getByTestId("elevator-controls").getByRole("status"),
+  ).toHaveText("Elevator coming");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await page.getByRole("button", { name: "Go to bottom" }).click();
   await expect(status).toHaveAttribute("data-depth", "2");
-  await expect(status).toHaveAttribute("data-elevator-riding", "");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await expect(page.getByRole("button", { name: "Go to top" })).toBeVisible();
 });
 
 test("an existing owner places their full shaft once for free", async ({
@@ -572,7 +594,7 @@ test("an existing owner places their full shaft once for free", async ({
   expect(placementBodies).toEqual([{ column: -4 }]);
 });
 
-test("dropping into a custom shaft safely rides to the bottom", async ({
+test("surface entry calls the car before an explicit ride to the bottom", async ({
   page,
 }) => {
   const shaftCol = 3;
@@ -590,8 +612,11 @@ test("dropping into a custom shaft safely rides to the bottom", async ({
   for (let row = 1; row <= railDepth; row += 1) {
     setCell(mine, shaftCol, row, { kind: "empty" });
   }
+  const baseDiff = exportDiff(mine);
   await page.route("**/api/mine/world", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
+    await route.fulfill({
+      json: { activeSlot: 1, seed: 9292, tripIndex: 0, diff: baseDiff },
+    });
   });
   await page.route("**/api/gear", async (route) => {
     await route.fulfill({
@@ -604,7 +629,14 @@ test("dropping into a custom shaft safely rides to the bottom", async ({
   });
   await page.addInitScript(
     (trip) => {
-      localStorage.setItem("vibebots-mine-trip-v2", JSON.stringify(trip));
+      if (sessionStorage.getItem("elevator-surface-fixture") === "ready") {
+        return;
+      }
+      localStorage.setItem(
+        "vibebots-mine-trip-v2-slot-1",
+        JSON.stringify(trip),
+      );
+      sessionStorage.setItem("elevator-surface-fixture", "ready");
     },
     {
       seed: 9292,
@@ -612,7 +644,7 @@ test("dropping into a custom shaft safely rides to the bottom", async ({
       tripIndex: 0,
       gear,
       consumables: STARTING_CONSUMABLES,
-      baseDiff: exportDiff(mine),
+      baseDiff,
       moves: [],
     },
   );
@@ -629,18 +661,57 @@ test("dropping into a custom shaft safely rides to the bottom", async ({
   }
   await expect(canvas).toHaveAttribute("data-miner-x", "3.00");
 
-  const beforeRide = await canvas.screenshot();
   await resetMineMotionProbe(page);
   await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveAttribute("data-elevator-stage", "calling");
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await page.waitForTimeout(250);
+  await expect(status).toHaveAttribute("data-depth", "0");
+  const callSamples = (await readMineMotionProbe(page)).filter(
+    (sample) => sample.stage === "calling",
+  );
+  expect(callSamples.length).toBeGreaterThan(2);
+  expect(
+    motionRange(callSamples, (sample) => sample.carY),
+    `car Y samples: ${motionValueSummary(callSamples, (sample) => sample.carY)}`,
+  ).toBeGreaterThan(0.2);
+  expect(
+    motionRange(callSamples, (sample) => sample.minerY),
+    `miner Y samples: ${motionValueSummary(callSamples, (sample) => sample.minerY)}`,
+  ).toBeLessThan(0.05);
+  expect(
+    motionRange(callSamples, (sample) => sample.cameraY),
+    `camera Y samples: ${motionValueSummary(callSamples, (sample) => sample.cameraY)}`,
+  ).toBeLessThan(0.05);
+  await expect(canvas).toHaveAttribute("data-fall-visual-active", "false");
+
+  await expect(status).toHaveAttribute("data-elevator-phase", "boarded", {
+    timeout: 10_000,
+  });
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(canvas).toHaveAttribute("data-miner-y", "-0.08");
+  const destination = page.getByLabel("Choose elevator destination");
+  await expect(destination).toBeVisible();
+  await expect(page.getByRole("button", { name: "Go to top" })).toHaveCount(0);
+  const goBottom = page.getByRole("button", { name: "Go to bottom" });
+  await expect(goBottom).toBeVisible();
+  await expect(goBottom).toBeFocused();
+
+  await resetMineMotionProbe(page);
+  await goBottom.click();
+  await expect(status).toHaveAttribute("data-elevator-stage", "riding");
   await expect(canvas).toHaveAttribute("data-miner-y", "-11.00", {
     timeout: 10_000,
   });
   await expect(canvas).toHaveAttribute("data-cam-y", "-11.00", {
     timeout: 10_000,
   });
-  const rideSamples = await readMineMotionProbe(page);
-  const afterRide = await canvas.screenshot();
-  expect(Buffer.compare(beforeRide, afterRide)).not.toBe(0);
+  const rideSamples = (await readMineMotionProbe(page)).filter(
+    (sample) => sample.stage === "riding",
+  );
   expect(
     distinctMotionValues(rideSamples, (sample) => sample.minerY),
     `miner Y samples: ${motionValueSummary(rideSamples, (sample) => sample.minerY)}`,
@@ -667,12 +738,44 @@ test("dropping into a custom shaft safely rides to the bottom", async ({
     Number(await canvas.getAttribute("data-camera-motion-frames")),
   ).toBeGreaterThan(1);
 
-  const rideUp = page.getByRole("button", { name: "Ride elevator up" });
-  await expect(rideUp).toBeVisible();
-  await expect(rideUp).toBeEnabled();
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  const goTop = page.getByRole("button", { name: "Go to top" });
+  await expect(goTop).toBeVisible();
+  await expect(page.getByRole("button", { name: "Go to bottom" })).toHaveCount(
+    0,
+  );
+
+  await goTop.click();
+  await expect(status).toHaveAttribute("data-elevator-stage", "riding");
+  await expect(status).toHaveAttribute("data-depth", "0", {
+    timeout: 10_000,
+  });
+  await expect(status).toHaveAttribute("data-elevator-riding", "", {
+    timeout: 10_000,
+  });
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await expect(
+    page.getByRole("button", { name: "Go to bottom" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Go to top" })).toHaveCount(0);
+
+  await page.reload();
+  await awaitMineSceneReady(page);
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(status).toHaveAttribute("data-elevator-phase", "boarded");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await expect(
+    page.getByRole("button", { name: "Go to bottom" }),
+  ).toBeVisible();
 });
 
-test("walking into a custom shaft underground safely rides to the bottom", async ({
+test("an underground side entry calls the car before an explicit ride to the top", async ({
   page,
 }) => {
   const shaftCol = 3;
@@ -696,8 +799,11 @@ test("walking into a custom shaft underground safely rides to the bottom", async
     setCell(mine, col, 4, { kind: "empty" });
     setCell(mine, col, 5, { kind: "dirt" });
   }
+  const baseDiff = exportDiff(mine);
   await page.route("**/api/mine/world", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
+    await route.fulfill({
+      json: { activeSlot: 1, seed: 9294, tripIndex: 0, diff: baseDiff },
+    });
   });
   await page.route("**/api/gear", async (route) => {
     await route.fulfill({
@@ -721,7 +827,7 @@ test("walking into a custom shaft underground safely rides to the bottom", async
       tripIndex: 0,
       gear,
       consumables: STARTING_CONSUMABLES,
-      baseDiff: exportDiff(mine),
+      baseDiff,
       moves: ["down", "down", "down", "down", "right", "right"],
     },
   );
@@ -735,40 +841,64 @@ test("walking into a custom shaft underground safely rides to the bottom", async
   await expect(canvas).toHaveAttribute("data-miner-x", "2.00");
   const energyBefore = await status.getAttribute("data-energy");
 
-  const beforeEntry = await canvas.screenshot();
   await resetMineMotionProbe(page);
   await page.keyboard.press("ArrowRight");
-  await expect(canvas).toHaveAttribute("data-miner-y", "-10.00", {
-    timeout: 10_000,
-  });
-  await expect(canvas).toHaveAttribute("data-cam-y", "-10.00", {
-    timeout: 10_000,
-  });
-  const entrySamples = await readMineMotionProbe(page);
-  const afterEntry = await canvas.screenshot();
+  await expect(status).toHaveAttribute("data-elevator-stage", "calling");
+  await expect(status).toHaveAttribute("data-depth", "4");
+  await page.waitForTimeout(250);
+  await expect(status).toHaveAttribute("data-depth", "4");
+  await expect(canvas).toHaveAttribute("data-miner-x", "2.00");
+  const callSamples = (await readMineMotionProbe(page)).filter(
+    (sample) => sample.stage === "calling",
+  );
+  expect(callSamples.length).toBeGreaterThan(2);
+  expect(
+    motionRange(callSamples, (sample) => sample.carY),
+    `car Y samples: ${motionValueSummary(callSamples, (sample) => sample.carY)}`,
+  ).toBeGreaterThan(0.2);
+  expect(
+    motionRange(callSamples, (sample) => sample.minerY),
+    `miner Y samples: ${motionValueSummary(callSamples, (sample) => sample.minerY)}`,
+  ).toBeLessThan(0.05);
+  expect(
+    motionRange(callSamples, (sample) => sample.cameraY),
+    `camera Y samples: ${motionValueSummary(callSamples, (sample) => sample.cameraY)}`,
+  ).toBeLessThan(0.05);
 
-  await expect(status).toHaveAttribute("data-depth", "10");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await expect(status).toHaveAttribute("data-elevator-phase", "boarded");
+  await expect(status).toHaveAttribute("data-depth", "4");
   await expect(canvas).toHaveAttribute("data-miner-x", "3.00");
   await expect(status).toHaveAttribute("data-energy", energyBefore ?? "");
   await expect(page.getByText(/fatal fall/i)).not.toBeVisible();
-  expect(Buffer.compare(beforeEntry, afterEntry)).not.toBe(0);
-  expect(
-    distinctMotionValues(entrySamples, (sample) => sample.minerY),
-    `miner Y samples: ${motionValueSummary(entrySamples, (sample) => sample.minerY)}`,
-  ).toBeGreaterThan(2);
-  expect(
-    distinctMotionValues(entrySamples, (sample) => sample.cameraY),
-    `camera Y samples: ${motionValueSummary(entrySamples, (sample) => sample.cameraY)}`,
-  ).toBeGreaterThan(2);
-  expect(
-    Number(await canvas.getAttribute("data-miner-motion-frames")),
-  ).toBeGreaterThan(1);
-  expect(
-    Number(await canvas.getAttribute("data-camera-motion-frames")),
-  ).toBeGreaterThan(1);
+  const goTop = page.getByRole("button", { name: "Go to top" });
+  await expect(goTop).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Go to bottom" }),
+  ).toBeVisible();
+
+  await page.keyboard.press("ArrowUp");
+  await expect(status).toHaveAttribute("data-elevator-stage", "riding");
+  await expect(canvas).toHaveAttribute("data-miner-y", "-0.08", {
+    timeout: 10_000,
+  });
+  await expect(canvas).toHaveAttribute("data-cam-y", "-0.08", {
+    timeout: 10_000,
+  });
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(canvas).toHaveAttribute("data-miner-x", "3.00");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await expect(
+    page.getByRole("button", { name: "Go to bottom" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Go to top" })).toHaveCount(0);
 });
 
-test("a restored automatic elevator descent continues to the bottom", async ({
+test("a restored downward elevator ride continues to the bottom", async ({
   page,
 }) => {
   const railDepth = 32;
@@ -781,8 +911,11 @@ test("a restored automatic elevator descent continues to the bottom", async ({
   for (let row = 1; row <= railDepth; row += 1) {
     setCell(mine, START_COL, row, { kind: "empty" });
   }
+  const baseDiff = exportDiff(mine);
   await page.route("**/api/mine/world", async (route) => {
-    await route.fulfill({ status: 503, body: "{}" });
+    await route.fulfill({
+      json: { activeSlot: 1, seed: 9295, tripIndex: 0, diff: baseDiff },
+    });
   });
   await page.route("**/api/gear", async (route) => {
     await route.fulfill({
@@ -806,24 +939,26 @@ test("a restored automatic elevator descent continues to the bottom", async ({
       tripIndex: 0,
       gear,
       consumables: STARTING_CONSUMABLES,
-      baseDiff: exportDiff(mine),
+      baseDiff,
       moves: ["down", "ride-down"],
     },
   );
   await installMineMotionProbe(page);
 
   await page.goto("/mine");
-  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   const canvas = page.locator("canvas");
+  await expect(status).toHaveAttribute("data-elevator-stage", "riding", {
+    timeout: 10_000,
+  });
   await expect(status).toHaveAttribute("data-elevator-riding", "ride-down", {
     timeout: 10_000,
   });
+  await dismissReleaseNotes(page);
   const resumedFrameA = await canvas.screenshot();
   await expect(status).toHaveAttribute("data-depth", String(railDepth), {
     timeout: 10_000,
   });
-  await expect(status).toHaveAttribute("data-elevator-riding", "");
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-y")), {
       timeout: 10_000,
@@ -840,6 +975,277 @@ test("a restored automatic elevator descent continues to the bottom", async ({
   expect(
     distinctMotionValues(resumedSamples, (sample) => sample.cameraY),
   ).toBeGreaterThan(2);
+  await expect(status).toHaveAttribute("data-elevator-riding", "");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await expect(page.getByRole("button", { name: "Go to top" })).toBeVisible();
+});
+
+test("recall cancels an active elevator ride and its local timer", async ({
+  page,
+}) => {
+  const railDepth = 120;
+  const gear = {
+    ...DEFAULT_GEAR,
+    elevator: railDepth,
+    elevatorColumn: START_COL,
+    recall: 3,
+  };
+  const consumables = { ...STARTING_CONSUMABLES, rope: 1 };
+  const mine = createMine(9299, gear, consumables);
+  for (let row = 1; row <= railDepth; row += 1) {
+    setCell(mine, START_COL, row, { kind: "empty" });
+  }
+  const baseDiff = exportDiff(mine);
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      json: { activeSlot: 1, seed: 9299, tripIndex: 0, diff: baseDiff },
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: { gear, consumables, balance: 0 },
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem(
+        "vibebots-mine-trip-v2-slot-1",
+        JSON.stringify(trip),
+      );
+    },
+    {
+      seed: 9299,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear,
+      consumables,
+      baseDiff,
+      moves: ["down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await page.getByRole("button", { name: "Go to bottom" }).click();
+  await expect(status).toHaveAttribute("data-elevator-stage", "riding");
+  await expect(status).toHaveAttribute("data-elevator-phase", "riding-down");
+  await expect
+    .poll(async () => Number(await status.getAttribute("data-depth")))
+    .toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Recovery options" }).click();
+  await page.getByRole("menuitem", { name: "Recall (1, range 75)" }).click();
+
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(status).toHaveAttribute("data-elevator-phase", "idle");
+  await expect(status).toHaveAttribute("data-elevator-stage", "idle");
+  await expect(status).toHaveAttribute("data-elevator-riding", "");
+  await expect(page.getByTestId("elevator-controls")).toHaveCount(0);
+  await page.waitForTimeout(800);
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(status).toHaveAttribute("data-elevator-phase", "idle");
+  await expect(status).toHaveAttribute("data-elevator-stage", "idle");
+});
+
+test("a restored upward elevator ride continues to the surface", async ({
+  page,
+}) => {
+  const railDepth = 20;
+  const gear = {
+    ...DEFAULT_GEAR,
+    elevator: railDepth,
+    elevatorColumn: START_COL,
+  };
+  const mine = createMine(9297, gear, STARTING_CONSUMABLES);
+  for (let row = 1; row <= railDepth; row += 1) {
+    setCell(mine, START_COL, row, { kind: "empty" });
+  }
+  const baseDiff = exportDiff(mine);
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      json: { activeSlot: 1, seed: 9297, tripIndex: 0, diff: baseDiff },
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        balance: 0,
+      },
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem(
+        "vibebots-mine-trip-v2-slot-1",
+        JSON.stringify(trip),
+      );
+    },
+    {
+      seed: 9297,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff,
+      moves: [
+        "down",
+        "ride-down",
+        "ride-down",
+        "ride-down",
+        "ride-down",
+        "ride-up",
+      ],
+    },
+  );
+  await installMineMotionProbe(page);
+
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  const canvas = page.locator("canvas");
+  await expect(status).toHaveAttribute("data-elevator-stage", "riding", {
+    timeout: 10_000,
+  });
+  await dismissReleaseNotes(page);
+  await expect(status).toHaveAttribute("data-elevator-riding", "ride-up", {
+    timeout: 10_000,
+  });
+  const resumedFrameA = await canvas.screenshot();
+  await expect(status).toHaveAttribute("data-depth", "0", {
+    timeout: 10_000,
+  });
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-miner-y")), {
+      timeout: 10_000,
+    })
+    .toBeGreaterThan(-0.2);
+  const resumedFrameB = await canvas.screenshot();
+  const resumedSamples = (await readMineMotionProbe(page)).filter(
+    (sample) => sample.riding === "ride-up",
+  );
+  expect(Buffer.compare(resumedFrameA, resumedFrameB)).not.toBe(0);
+  expect(
+    distinctMotionValues(resumedSamples, (sample) => sample.minerY),
+  ).toBeGreaterThan(2);
+  expect(
+    distinctMotionValues(resumedSamples, (sample) => sample.cameraY),
+  ).toBeGreaterThan(2);
+  await expect(status).toHaveAttribute("data-elevator-riding", "");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 10_000,
+  });
+  await expect(
+    page.getByRole("button", { name: "Go to bottom" }),
+  ).toBeVisible();
+});
+
+test("a restored elevator arrival at the top banks its haul once", async ({
+  page,
+}) => {
+  const railDepth = 6;
+  const gear = {
+    ...DEFAULT_GEAR,
+    elevator: railDepth,
+    elevatorColumn: START_COL,
+  };
+  const mine = createMine(9298, gear, STARTING_CONSUMABLES);
+  for (let row = 1; row <= railDepth; row += 1) {
+    setCell(mine, START_COL, row, { kind: "empty" });
+  }
+  setCell(mine, START_COL, 3, {
+    kind: "empty",
+    drop: { coal: 2 },
+  });
+  const baseDiff = exportDiff(mine);
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      json: { activeSlot: 1, seed: 9298, tripIndex: 0, diff: baseDiff },
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        balance: 0,
+      },
+    });
+  });
+  let bankRequests = 0;
+  let bankMoves: string[] = [];
+  let releaseBank = () => {};
+  const bankGate = new Promise<void>((resolve) => {
+    releaseBank = resolve;
+  });
+  await page.route("**/api/mine/bank", async (route) => {
+    bankRequests++;
+    const body = route.request().postDataJSON() as { moves?: string[] };
+    bankMoves = body.moves ?? [];
+    await bankGate;
+    await route.fulfill({
+      json: {
+        credited: {
+          credits: 2,
+          parts: [],
+          milestoneBonus: 0,
+          soldHaul: {
+            ores: { coal: 2 },
+            salvageCredits: 0,
+            totalVibes: 2,
+          },
+        },
+        balance: 2,
+        tripIndex: 1,
+        consumables: STARTING_CONSUMABLES,
+      },
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      localStorage.setItem(
+        "vibebots-mine-trip-v2-slot-1",
+        JSON.stringify(trip),
+      );
+    },
+    {
+      seed: 9298,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff,
+      moves: ["down", "ride-down", "ride-up"],
+    },
+  );
+
+  await page.goto("/mine");
+  const status = page.getByLabel("Mine status");
+  await expect.poll(() => bankRequests, { timeout: 10_000 }).toBe(1);
+  expect(bankMoves.at(-1)).toBe("ride-up");
+  await dismissReleaseNotes(page);
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(status).toHaveAttribute("data-elevator-riding", "");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing");
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(300);
+  await expect(status).toHaveAttribute("data-depth", "0");
+  await expect(status).toHaveAttribute("data-elevator-riding", "");
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing");
+  releaseBank();
+
+  await expect(status).toHaveAttribute("data-wallet", "2", {
+    timeout: 10_000,
+  });
+  await page.waitForTimeout(300);
+  expect(bankRequests).toBe(1);
+  await expect(status).toHaveAttribute("data-elevator-phase", "idle");
+  await expect(status).toHaveAttribute("data-elevator-stage", "idle");
 });
 
 test("miner stays at depth when walking sideways (lateral teleport regression)", async ({

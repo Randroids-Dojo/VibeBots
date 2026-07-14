@@ -679,10 +679,11 @@ describe("bunker server helpers", () => {
     const bound = ((updateCall ?? []) as unknown[]).slice(1);
     expect(bound[0]).toBe("[]");
     // The dug set survives the reset (F-120) and always carries the spawn
-    // pocket seeded on load (F-115): 12 pocket cells plus the one dug cell.
+    // pocket seeded on load (F-115): the 3x3x3 (27-cell) pocket, into which
+    // the stored dug cell (4,3,1) now falls, so it dedups to 27.
     const persistedDug = JSON.parse(String(bound[1]));
     expect(persistedDug).toContainEqual({ col: 4, row: 3, depth: 1 });
-    expect(persistedDug).toHaveLength(13);
+    expect(persistedDug).toHaveLength(27);
     expect(JSON.parse(String(bound[2])).durability).toBe(160);
 
     // The inventory upsert carries the refunds: the undamaged wall and

@@ -89,7 +89,7 @@ describe("bunkerCellBlock", () => {
 describe("isBunkerPocketCell", () => {
   const spawnX = 3;
 
-  it("covers exactly a 3x2x2 block centered on the spawn column", () => {
+  it("covers exactly a 3x3x3 block centered on the spawn column", () => {
     let count = 0;
     for (let z = 0; z < 5; z++) {
       for (let y = 0; y < 5; y++) {
@@ -105,11 +105,11 @@ describe("isBunkerPocketCell", () => {
 
   it("includes the spawn cell and excludes rock beyond the pocket", () => {
     expect(isBunkerPocketCell(spawnX, spawnX, 0, 0)).toBe(true);
-    expect(isBunkerPocketCell(spawnX, spawnX + 1, 1, 1)).toBe(true);
+    expect(isBunkerPocketCell(spawnX, spawnX + 1, 2, 2)).toBe(true);
     // Outside width, height, or depth.
     expect(isBunkerPocketCell(spawnX, spawnX + 2, 0, 0)).toBe(false);
-    expect(isBunkerPocketCell(spawnX, spawnX, 2, 0)).toBe(false);
-    expect(isBunkerPocketCell(spawnX, spawnX, 0, 2)).toBe(false);
+    expect(isBunkerPocketCell(spawnX, spawnX, 3, 0)).toBe(false);
+    expect(isBunkerPocketCell(spawnX, spawnX, 0, 3)).toBe(false);
   });
 });
 

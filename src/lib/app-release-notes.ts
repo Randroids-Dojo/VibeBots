@@ -1,9 +1,22 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.259-bunker-claim-bank-fix";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.260-roomier-bunker-spawn";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.260",
+      date: "2026-07-14",
+      title: "Stand up in a roomier bunker spawn",
+      intro: "A fresh claim now opens into a room you can stand up in.",
+      changes: [
+        {
+          build,
+          text: "A fresh bunker claim now carves a taller, deeper starter room (three cells wide, tall, and deep) so you spawn standing with headroom overhead and space before the working face, instead of pressed inside a cramped pocket.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.259",
       date: "2026-07-14",

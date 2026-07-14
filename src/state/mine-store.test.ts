@@ -434,36 +434,36 @@ describe("mine store upgrade flow", () => {
     });
 
     expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
-    // A pocket floor cell (open at depths 0 and 1); dig deeper from it.
+    // A pocket floor cell (open at depths 0, 1, and 2); dig deeper from it.
     const col = START_COL - 1;
     const row = 5;
     expect(store().placePendingBunkerPart("wall-panel", col, row, 0)).toBe(
       true,
     );
-    // The pocket is only 2 deep: depth 2 is still rock and must be dug
-    // before the same col/row one layer deeper is its own buildable cell.
-    expect(store().placePendingBunkerPart("wall-panel", col, row, 2)).toBe(
+    // The pocket is 3 deep: depth 3 is the first claim rock and must be
+    // dug before the same col/row one layer deeper is its own buildable
+    // cell.
+    expect(store().placePendingBunkerPart("wall-panel", col, row, 3)).toBe(
       false,
     );
-    expect(store().excavatePendingBunkerCell(col, row, 2)).toBe(true);
+    expect(store().excavatePendingBunkerCell(col, row, 3)).toBe(true);
     expect(store().pendingBunker?.bunker.dug).toContainEqual({
       col,
       row,
-      depth: 2,
+      depth: 3,
     });
-    expect(store().placePendingBunkerPart("wall-panel", col, row, 2)).toBe(
+    expect(store().placePendingBunkerPart("wall-panel", col, row, 3)).toBe(
       true,
     );
     expect(
       store().pendingBunker?.bunker.parts.map((part) => part.depth),
-    ).toEqual([0, 2]);
+    ).toEqual([0, 3]);
     // Removing at the wrong depth misses; the right depth refunds.
-    expect(store().removePendingBunkerPart(col, row, 3)).toBe(false);
-    expect(store().removePendingBunkerPart(col, row, 2)).toBe(true);
-    expect(store().excavatePendingBunkerCell(col, row, 3)).toBe(true);
+    expect(store().removePendingBunkerPart(col, row, 4)).toBe(false);
+    expect(store().removePendingBunkerPart(col, row, 3)).toBe(true);
+    expect(store().excavatePendingBunkerCell(col, row, 4)).toBe(true);
     // Chains must connect: a cell with no open face stays unreachable.
     expect(store().excavatePendingBunkerCell(START_COL - 2, 1, 4)).toBe(false);
-    expect(store().excavatePendingBunkerCell(col, row, 4)).toBe(true);
     expect(store().movePendingBunkerPart(col, row, col, row, 0, 4)).toBe(true);
     expect(store().pendingBunker?.bunker.parts[0]).toMatchObject({
       col,
@@ -487,7 +487,7 @@ describe("mine store upgrade flow", () => {
       true,
     );
     // Dig one cell deeper than the pocket to prove the excavation survives.
-    expect(store().excavatePendingBunkerCell(START_COL - 1, 5, 2)).toBe(true);
+    expect(store().excavatePendingBunkerCell(START_COL - 1, 5, 3)).toBe(true);
     expect(store().pendingBunker?.inventory["wall-panel"]).toBe(5);
     const dugBeforeReset = store().pendingBunker?.bunker.dug;
 

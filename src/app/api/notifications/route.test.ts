@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-14-0.1.258-call-elevator",
+      releaseNoticeId: "2026-07-14-0.1.259-bunker-claim-bank-fix",
       releaseSummary:
-        "Call the elevator, then choose your destination: The car comes to your floor before you choose the top or bottom.",
+        "Save a bunker you just claimed: Cashing out now keeps a bunker you claimed on the same dive.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-14-0.1.258-call-elevator",
+      releaseNoticeId: "2026-07-14-0.1.259-bunker-claim-bank-fix",
       attempted: 2,
       sent: 1,
       expired: 1,

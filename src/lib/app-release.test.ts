@@ -24,17 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest call-and-choose elevator note complete", () => {
+  it("keeps the latest bunker-claim-bank-fix note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.258-call-elevator");
+    expect(release.noticeId).toBe("2026-07-14-0.1.259-bunker-claim-bank-fix");
     expect(latestNote).toMatchObject({
+      version: "0.1.259",
+      title: "Save a bunker you just claimed",
+      intro: "Cashing out now keeps a bunker you claimed on the same dive.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Claiming a bunker and cashing out on the same trip now saves the claim instead of failing at the surface. The pre-mined starter room no longer trips the cash-out check.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived call-and-choose elevator note complete", () => {
+    const release = getAppRelease();
+    const elevatorCallNote = release.notes.find(
+      (note) => note.version === "0.1.258",
+    );
+
+    expect(elevatorCallNote).toMatchObject({
       version: "0.1.258",
       title: "Call the elevator, then choose your destination",
       intro: "The car comes to your floor before you choose the top or bottom.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(elevatorCallNote?.changes.map((change) => change.text)).toEqual([
       "Enter the shaft at any owned rail row to call the car. It travels visibly to your floor, then the miner boards instead of falling or snapping down the shaft.",
       "Once aboard, choose Up for the surface or Down for the rail bottom. The surface shows only Down, the bottom shows only Up, and rows between them show both arrows.",
       "The selected ride is free, logged, and continues automatically to its endpoint. Surface arrival banks the carry, interrupted travel resumes in the selected direction, Ride the Rail recognizes a completed trip either way, MINE_VERSION advances to 55, and SIM_VERSION stays at 5.",
@@ -43,15 +60,15 @@ describe("app release notes", () => {
 
   it("keeps the archived dig-out-bunker note complete", () => {
     const release = getAppRelease();
-    const bunkerNote = release.notes.find((note) => note.version === "0.1.257");
+    const digNote = release.notes.find((note) => note.version === "0.1.257");
 
-    expect(bunkerNote).toMatchObject({
+    expect(digNote).toMatchObject({
       version: "0.1.257",
       title: "Dig your bunker out of solid rock",
       intro:
         "A fresh claim is a small room in the rock, and the floor digs too.",
     });
-    expect(bunkerNote?.changes.map((change) => change.text)).toEqual([
+    expect(digNote?.changes.map((change) => change.text)).toEqual([
       "A fresh bunker claim now drops you into a small pre-mined room instead of a wide open plane. Everything around it, including the floor under your feet, is solid claim rock you dig out cell by cell to carve the shape you want.",
       "The floor plane is diggable now, so you can sink rooms below the entry as well as tunnel deeper into the rock.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

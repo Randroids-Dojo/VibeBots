@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-130" data-f="F-130" data-priority="nice-to-have">
+    <h3>F-130: Make the autoplay mine soak fail visibly instead of stalling behind overlays</h3>
+    <dl>
+      <dt>Context</dt><dd>Continuous monitoring of the placeable-elevator slice found three consecutive <code>scripts/autoplay-mine.mjs</code> attempts that exited before gameplay assertions and wrote no report. The falling-rock tutorial, ladder-recovery feedback, and then a normal trip report each intercepted the policy driver's <q>Recovery options</q> click. The active slice replaced the trip-report coordinate click with a semantic control and completed a later 400-action run, but startup release notes still use one visibility probe plus a coordinate click even though the heap driver documents that pattern racing dialog restacks. Any exception before the main loop still bypasses <code>autoplay-report.json</code> and screenshots.</dd>
+      <dt>Blocker (if any)</dt><dd>None. The soak remains useful, but an overlay or startup failure can currently look like a product regression while discarding the evidence needed to classify it.</dd>
+      <dt>Unblock condition</dt><dd>Drain release notes through the semantic <q>Got it</q> control in a bounded loop and verify the dialog is hidden before declaring the mine playable. Before every policy action and recovery click, drain expected trip reports without consuming an action or incrementing abandon count. Any other blocking dialog fails with a stable <code>blocking-overlay</code> anomaly and its accessible name. Count an abandon only after confirmation reaches depth zero. Catch failures across startup, play, and teardown, then always attempt a screenshot and JSON report containing seed, phase, requested and completed actions, visible blocker, anomalies, and a bounded exception summary before exiting nonzero. Re-run all three previously blocked dialog states through their full action budgets and force one startup failure to prove both artifacts are retained.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-130-make-e0de0428.</dd>
+    </dl>
+  </section>
+
   <section id="F-129" data-f="F-129" data-priority="blocks-release">
     <h3>F-129: Resume elevator travel in either direction after reload</h3>
     <dl>

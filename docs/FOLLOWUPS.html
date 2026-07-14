@@ -44,6 +44,7 @@
       <dt>Blocker (if any)</dt><dd>Resolve before another merge treats a green status or command acknowledgement as completed bot review evidence.</dd>
       <dt>Unblock condition</dt><dd>Require a submitted CodeRabbit review whose reviewed commit is the exact current PR head, zero unresolved review threads, and at least 60 seconds since the latest branch push or bot activity. A <code>SUCCESS</code> status, a rate-limited summary, or an instant command reply without a review node must never satisfy the gate. Poll GraphQL reviews and threads, inspect the summary marker and reviewed commit range, and hold through adaptive limits using a computed retry time. Any bypass requires explicit user approval and durable closeout evidence. Cover rate-limited success, a stale review on the prior head, a real no-findings review, an actionable thread, resolution followed by approval, and a manually approved bypass.</dd>
       <dt>PR / Dot reference</dt><dd>Tracking PR #190; Dot VibeBots-f-137-require-ff3d0b0b.</dd>
+      <dt>Evidence update 2026-07-14</dt><dd>PR #192 repeated the same failure at head <code>4ea31508</code>. It merged at 15:53:17 UTC with zero submitted reviews while the CodeRabbit summary still said the next review was available in 40 minutes, immediately after an instant command reply claimed <q>Review finished</q>. The green status and reply again did not prove an exact-head review.</dd>
     </dl>
   </section>
 
@@ -81,6 +82,16 @@
 
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
+
+  <section id="F-138" data-f="F-138" data-priority="nice-to-have">
+    <h3>F-138: Correct the elevator closeout sequence without rewriting history</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #192 resolved F-123 with text saying full-turn finalization happens before the elevator call, and archived its HTML Dot with the same sequence. The shipped flow first starts the visible car call, invokes <code>state.move</code> only after the car arrives, then completes the accepted entry turn before boarding or selected travel. The resolved outcome is valid, but its durable sequence description is not.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Correct the current-truth view before the inaccurate closeout wording guides another elevator change or audit.</dd>
+      <dt>Unblock condition</dt><dd>Preserve every byte of the historical primary F-123 entry. Add one durable append-only correction pointer that states the visible call begins first, the accepted entry move and its full-turn finalization run after arrival, and boarding or travel begins only afterward. The pointer must be non-primary and carry no duplicate <code>data-f</code> or document <code>id</code>. Correct the archived F-123 Dot close reason through <code>dot-html</code>-supported state handling while retaining F-123 resolved status. Add validation proving the current-truth view reports the corrected sequence, resolves its pointer to exactly one primary entry, and preserves primary identity uniqueness.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-138-correct-7b980cce.</dd>
+    </dl>
+  </section>
 
   <section id="F-133" data-f="F-133" data-priority="blocks-release">
     <h3>F-133: Keep starter bunker pockets out of excavation progress</h3>

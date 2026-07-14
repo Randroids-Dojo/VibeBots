@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyAchievementProgress } from "@/server/achievements";
 import { db, storageConfigured } from "@/server/db";
-import { BASE_PART_CATALOG, STARTER_BASE_PART_INVENTORY } from "@/sim/bunker";
+import {
+  BASE_PART_CATALOG,
+  createBunker,
+  proposedBunkerFootprint,
+  STARTER_BASE_PART_INVENTORY,
+} from "@/sim/bunker";
 import {
   createMine,
   DEFAULT_GEAR,
@@ -341,6 +346,32 @@ describe("POST /api/mine/bank", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.bunker.parts.map((part) => part.depth)).toEqual([0, 2]);
+  });
+
+  it("banks a fresh claim whose dug payload carries the whole spawn pocket", () => {
+    // Regression: the client submits its entire dug set, which for a
+    // fresh claim is exactly the pre-mined spawn pocket createBunker
+    // opens (F-115). The validator must treat those pocket cells as
+    // already open and skip them, not reject the whole cash-out with
+    // "cannot excavate: open".
+    const footprint = proposedBunkerFootprint(START_COL, 5);
+    const result = validatePendingBunkerClaim(
+      {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        dug: createBunker(footprint).dug,
+        parts: [],
+      },
+      123,
+      DEFAULT_GEAR,
+      STARTING_CONSUMABLES,
+      pendingBunkerBaseDiff(),
+      ["down", "down", "down", "down", "down"],
+      STARTER_BASE_PART_INVENTORY,
+    );
+
+    expect(result.ok).toBe(true);
   });
 
   it("rejects pending dug chains that skip a connecting cell", () => {

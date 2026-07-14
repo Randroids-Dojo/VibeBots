@@ -57,6 +57,19 @@
     </dl>
   </article>
 
+  <article data-slice="bunker-claim-bank-fix" data-date="2026-07-14">
+    <h3>Fix banking a freshly claimed bunker</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-pending-bank</code>.</dd>
+      <dt>PR</dt><dd>#191.</dd>
+      <dt>Changed</dt><dd>Reproduced and fixed a release-blocking regression introduced with the dig-out bunker (PR #186): cashing out while holding a freshly claimed bunker always failed at the surface with a 409 <code>cannot excavate: open</code>, which rejected the whole cash-out. The client submits its full <code>pendingBunker.bunker.dug</code> set, which for a fresh claim is exactly the pre-mined spawn pocket <code>createBunker</code> already opens, and <code>validatePendingBunkerClaim</code> in <code>src/app/api/mine/bank/route.ts</code> replayed every submitted cell through <code>excavateBunkerCell</code>, which rejects an already-open cell. The validator now derives the pocket cell keys from <code>createBunker(footprint).dug</code> and skips them, replaying only the real digs (each of which must still chain from an open face). Added a permanent regression test that validates a fresh claim whose payload dug is the whole pocket. No end-to-end test exercised the real full-pocket bank payload (the bank e2e mocks the route and the route unit test used a minimal dug), so the bug slipped through PR #186.</dd>
+      <dt>Verification</dt><dd>Reproduced the 409 through the real <code>validatePendingBunkerClaim</code> (returned <code>cannot excavate: open</code>) before the fix; the new regression test and the full <code>vitest</code> suite (1426 tests) pass after it. <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, and Biome on the touched files passed (Biome retained the two pre-existing warnings for the auth-route rule symlink and the optional-chain suggestion in <code>mine-input-cadence.ts</code>). Release chain updated: package 0.1.259 (rebased over the concurrent 0.1.258 call-elevator release), new note plus <code>RELEASE_NOTICE_ID</code>, app-release and notifications route tests, and the release-notifications e2e (fresh-browser block and recent list). Rule 13 tips reviewed (no player-facing mine rule changed, no tip edits). Rule 14 stamps reviewed (bug fix, no stamp added).</dd>
+      <dt>Assumptions</dt><dd>The pre-mined spawn pocket is authoritative server-side (seeded by <code>createBunker</code>); a client naming a pocket cell in its dug list is a no-op, not a grantable dig, so skipping those cells cannot be exploited.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed; this restores the intended pending-claim banking behavior for the dig-out bunker model.</dd>
+      <dt>Followups</dt><dd>None. The bug is fixed with a regression test at the validator level; no outstanding work remains.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-boarded-exit-monitoring" data-date="2026-07-14">
     <h3>Keep boarded elevator exits supported</h3>
     <dl>

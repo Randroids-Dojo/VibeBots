@@ -396,9 +396,16 @@ export function validatePendingBunkerClaim(
     }
   }
   let bunker = createBunker(footprint);
-  // Replay the digs in submitted order: each must chain from an open
-  // face, which proves the excavation sequence was physically possible.
+  // The client submits the whole dug set, including the pre-mined spawn
+  // pocket createBunker already opens (F-115). Those cells start open, so
+  // skip them and replay only the real digs in submitted order: each must
+  // chain from an open face, which proves the excavation sequence was
+  // physically possible.
+  const pocketKeys = new Set(
+    bunker.dug.map((cell) => `${cell.col},${cell.row},${cell.depth}`),
+  );
   for (const cell of pending.dug) {
+    if (pocketKeys.has(`${cell.col},${cell.row},${cell.depth}`)) continue;
     const dugStep = excavateBunkerCell(bunker, cell.col, cell.row, cell.depth);
     if (!dugStep.ok) {
       return { ok: false, error: `cannot excavate: ${dugStep.reason}` };

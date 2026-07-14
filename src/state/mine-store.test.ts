@@ -344,19 +344,20 @@ describe("mine store upgrade flow", () => {
       height: 5,
     });
 
-    expect(store().placePendingBunkerPart("wall-panel", START_COL - 3, 1)).toBe(
+    // The spawn pocket opens the bottom-center floor cells; build there.
+    expect(store().placePendingBunkerPart("wall-panel", START_COL - 1, 5)).toBe(
       true,
     );
     expect(store().pendingBunker?.inventory["wall-panel"]).toBe(5);
     expect(
-      store().movePendingBunkerPart(START_COL - 3, 1, START_COL - 2, 1),
+      store().movePendingBunkerPart(START_COL - 1, 5, START_COL + 1, 5),
     ).toBe(true);
     expect(store().pendingBunker?.bunker.parts[0]).toMatchObject({
       partId: "wall-panel",
-      col: START_COL - 2,
-      row: 1,
+      col: START_COL + 1,
+      row: 5,
     });
-    expect(store().removePendingBunkerPart(START_COL - 2, 1)).toBe(true);
+    expect(store().removePendingBunkerPart(START_COL + 1, 5)).toBe(true);
     expect(store().pendingBunker?.inventory["wall-panel"]).toBe(6);
   });
 
@@ -370,38 +371,40 @@ describe("mine store upgrade flow", () => {
     });
 
     expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
-    expect(
-      store().placePendingBunkerPart("wall-panel", START_COL - 3, 1, 0),
-    ).toBe(true);
-    // Deep cells start as rock: dig first, then the same col/row one
-    // layer deeper is its own cell.
-    expect(
-      store().placePendingBunkerPart("wall-panel", START_COL - 3, 1, 1),
-    ).toBe(false);
-    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 1)).toBe(true);
-    expect(store().pendingBunker?.bunker.dug).toEqual([
-      { col: START_COL - 3, row: 1, depth: 1 },
-    ]);
-    expect(
-      store().placePendingBunkerPart("wall-panel", START_COL - 3, 1, 1),
-    ).toBe(true);
+    // A pocket floor cell (open at depths 0 and 1); dig deeper from it.
+    const col = START_COL - 1;
+    const row = 5;
+    expect(store().placePendingBunkerPart("wall-panel", col, row, 0)).toBe(
+      true,
+    );
+    // The pocket is only 2 deep: depth 2 is still rock and must be dug
+    // before the same col/row one layer deeper is its own buildable cell.
+    expect(store().placePendingBunkerPart("wall-panel", col, row, 2)).toBe(
+      false,
+    );
+    expect(store().excavatePendingBunkerCell(col, row, 2)).toBe(true);
+    expect(store().pendingBunker?.bunker.dug).toContainEqual({
+      col,
+      row,
+      depth: 2,
+    });
+    expect(store().placePendingBunkerPart("wall-panel", col, row, 2)).toBe(
+      true,
+    );
     expect(
       store().pendingBunker?.bunker.parts.map((part) => part.depth),
-    ).toEqual([0, 1]);
+    ).toEqual([0, 2]);
     // Removing at the wrong depth misses; the right depth refunds.
-    expect(store().removePendingBunkerPart(START_COL - 3, 1, 3)).toBe(false);
-    expect(store().removePendingBunkerPart(START_COL - 3, 1, 1)).toBe(true);
-    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 2)).toBe(true);
-    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 3)).toBe(true);
+    expect(store().removePendingBunkerPart(col, row, 3)).toBe(false);
+    expect(store().removePendingBunkerPart(col, row, 2)).toBe(true);
+    expect(store().excavatePendingBunkerCell(col, row, 3)).toBe(true);
     // Chains must connect: a cell with no open face stays unreachable.
     expect(store().excavatePendingBunkerCell(START_COL - 2, 1, 4)).toBe(false);
-    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 4)).toBe(true);
-    expect(
-      store().movePendingBunkerPart(START_COL - 3, 1, START_COL - 3, 1, 0, 4),
-    ).toBe(true);
+    expect(store().excavatePendingBunkerCell(col, row, 4)).toBe(true);
+    expect(store().movePendingBunkerPart(col, row, col, row, 0, 4)).toBe(true);
     expect(store().pendingBunker?.bunker.parts[0]).toMatchObject({
-      col: START_COL - 3,
-      row: 1,
+      col,
+      row,
       depth: 4,
     });
   });
@@ -417,19 +420,21 @@ describe("mine store upgrade flow", () => {
 
     expect(store().resetPendingBunker()).toBe(false);
     expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
-    expect(store().placePendingBunkerPart("wall-panel", START_COL - 3, 1)).toBe(
+    expect(store().placePendingBunkerPart("wall-panel", START_COL - 1, 5)).toBe(
       true,
     );
-    expect(store().excavatePendingBunkerCell(START_COL - 3, 1, 1)).toBe(true);
+    // Dig one cell deeper than the pocket to prove the excavation survives.
+    expect(store().excavatePendingBunkerCell(START_COL - 1, 5, 2)).toBe(true);
     expect(store().pendingBunker?.inventory["wall-panel"]).toBe(5);
+    const dugBeforeReset = store().pendingBunker?.bunker.dug;
 
     expect(store().resetPendingBunker()).toBe(true);
 
-    // The undamaged wall refunds, the dig refills, and the claim stays
-    // pending for the bank.
+    // The undamaged wall refunds and the claim stays pending for the
+    // bank, but the excavation is preserved (F-120: dug rock stays dug).
     expect(store().pendingBunker?.inventory["wall-panel"]).toBe(6);
     expect(store().pendingBunker?.bunker.parts).toEqual([]);
-    expect(store().pendingBunker?.bunker.dug).toEqual([]);
+    expect(store().pendingBunker?.bunker.dug).toEqual(dugBeforeReset);
     expect(store().pendingBunker?.bunker.footprint).toMatchObject({
       col: START_COL - 3,
       row: 1,
@@ -465,7 +470,7 @@ describe("mine store upgrade flow", () => {
       tripBaseDiff: exportDiff(mine),
     });
     expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
-    expect(store().placePendingBunkerPart("wall-panel", START_COL - 3, 1)).toBe(
+    expect(store().placePendingBunkerPart("wall-panel", START_COL - 1, 5)).toBe(
       true,
     );
     const fetchMock = vi.fn().mockResolvedValueOnce(
@@ -486,7 +491,7 @@ describe("mine store upgrade flow", () => {
       claimCol: START_COL,
       claimRow: 5,
       claimedAtMoveCount: 5,
-      parts: [{ partId: "wall-panel", col: START_COL - 3, row: 1 }],
+      parts: [{ partId: "wall-panel", col: START_COL - 1, row: 5 }],
     });
     expect(store().pendingBunker).toBeNull();
     expect(store().cashOut).toMatchObject({

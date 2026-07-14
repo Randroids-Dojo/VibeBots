@@ -17,12 +17,30 @@ import {
   touchHoldDrag,
 } from "./support/mine-helpers";
 
+/** Every depth-0 floor cell of the 7x5 claim: a bunker whose whole
+ * floor plane has been dug out. A fresh claim now opens only the small
+ * spawn pocket (F-115); these banked-bunker flows exercise a built-out
+ * room, so the fixture ships the floor plane already excavated (a real
+ * dug-out state). Digging the pocket open is covered by the
+ * pending-claim building tests. */
+const FP_PLANE_DUG = (() => {
+  const cells: Array<{ col: number; row: number; depth: number }> = [];
+  for (let row = 1; row <= 5; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      cells.push({ col, row, depth: 0 });
+    }
+  }
+  return cells;
+})();
+
 /** The banked-bunker view the walkable-viewer flow runs against: a
- * 7x5 claim around the miner's dig column with one placed wall. */
+ * 7x5 claim around the miner's dig column with one placed wall, its
+ * floor plane dug out (see FP_PLANE_DUG). */
 const FP_BUNKER_VIEW = {
   bunker: {
     footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
     core: { col: START_COL, row: 3, durability: 160 },
+    dug: FP_PLANE_DUG,
     parts: [
       {
         partId: "wall-panel",
@@ -449,22 +467,23 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     })
     .not.toBeNull();
 
-  // A fresh claim opens the whole tunnel plane except the core cell.
+  // A fresh claim opens only the pre-mined spawn pocket (3x2x2 = 12
+  // cells); the rest of the volume is solid claim rock (F-115).
   await expect
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 20_000,
     })
-    .toBe("34");
+    .toBe("12");
 
-  // Spawn faces -z: interior claim rock dead ahead, own cell as place.
+  // Spawn faces -z: the ray crosses the open pocket cell (3,0,1) and
+  // lands on the first claim rock behind it at depth 2.
   await expect
     .poll(async () => canvas.getAttribute("data-fp-target"), {
       timeout: 20_000,
     })
-    .toBe("3:0:1:rock-diggable");
-  // The only open cell the ray crossed is the player's own, which the
-  // capsule guard rejects: no valid placement while facing the rock.
-  await expect(canvas).toHaveAttribute("data-fp-place", "none");
+    .toBe("3:0:2:rock-diggable");
+  // The crossed pocket cell (3,0,1) is the place cell.
+  await expect(canvas).toHaveAttribute("data-fp-place", "3:0:1");
   await expect(page.locator(".bunker-fp-target-label")).toHaveText(
     "Claim rock (diggable)",
   );
@@ -516,7 +535,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
       timeout: 10_000,
     })
     .toBe("2:0:0:part");
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "33");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "11");
   await expect(page.locator(".bunker-fp-target-label")).toHaveText(
     "Wall 90/90",
   );
@@ -554,7 +573,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     `Wall x${wallCount - 2}`,
     { timeout: 10_000 },
   );
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "32");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "10");
 
   // Right-click pry refunds the wall straight to the pack: the count
   // rises, the mesh disappears, and no carried chip ever shows.
@@ -572,7 +591,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     { timeout: 10_000 },
   );
   await expect(carried).toHaveCount(0);
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "33");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "11");
   const afterPry = await canvas.screenshot();
   expect(
     await imagePixelDifferenceRatio(page, beforePry, afterPry),
@@ -591,7 +610,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     timeout: 10_000,
   });
   await expect(carried).toHaveCount(0);
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "34");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "12");
   const afterPries = await page.evaluate(() => {
     const trip = JSON.parse(
       localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
@@ -615,14 +634,14 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     .poll(async () => canvas.getAttribute("data-fp-target"), {
       timeout: 10_000,
     })
-    .toBe("3:0:1:rock-diggable");
+    .toBe("3:0:2:rock-diggable");
   const beforeDig = await canvas.screenshot();
   await canvas.click();
   await expect
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 10_000,
     })
-    .toBe("35");
+    .toBe("13");
   const afterDig = await canvas.screenshot();
   expect(
     await imagePixelDifferenceRatio(page, beforeDig, afterDig),
@@ -632,9 +651,11 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
       JSON.parse(localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}")
         .pendingBunker?.bunker.dug,
   );
-  expect(dugCells).toEqual([{ col: START_COL, row: 5, depth: 1 }]);
+  // The spawn pocket already opens depths 0-1 in the miner's column, so
+  // the first dig straight ahead lands on the depth-2 rock behind it.
+  expect(dugCells).toContainEqual({ col: START_COL, row: 5, depth: 2 });
 
-  // Walk INTO the newly dug cell, then back out to the tunnel plane.
+  // Walk INTO the newly dug cell, then back out to the spawn pocket.
   await page.keyboard.down("w");
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-fp-eye-z")), {
@@ -651,20 +672,21 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
   await page.keyboard.up("s");
 
   // Re-arm build mode; relocation is now pry then place, so this
-  // placement into the dug cell spends from the refunded stock.
+  // placement into the freshly dug depth-2 cell (the last open cell the
+  // level ray crosses) spends from the refunded stock.
   await page.keyboard.press("1");
   await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
   await expect
     .poll(async () => canvas.getAttribute("data-fp-place"), {
       timeout: 10_000,
     })
-    .toBe("3:0:1");
+    .toBe("3:0:2");
   await canvas.click();
   await expect
     .poll(async () => canvas.getAttribute("data-fp-target"), {
       timeout: 10_000,
     })
-    .toBe("3:0:1:part");
+    .toBe("3:0:2:part");
   await expect(wallSlot).toHaveAttribute(
     "aria-label",
     `Wall x${wallCount - 1}`,
@@ -679,7 +701,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     partId: "wall-panel",
     col: START_COL,
     row: 5,
-    depth: 1,
+    depth: 2,
   });
 });
 
@@ -758,10 +780,11 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 45_000,
     })
-    .toBe("34");
+    .toBe("12");
 
   // Entry arms the pick; aim level so the ray runs straight down the
-  // claim-rock column ahead.
+  // claim-rock column ahead. The spawn pocket opens depths 0-1, so the
+  // first rock in the column sits at depth 2.
   await expect(page.getByTestId("bunker-fp-pick")).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -772,7 +795,7 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
     .poll(async () => canvas.getAttribute("data-fp-target"), {
       timeout: 10_000,
     })
-    .toBe("3:0:1:rock-diggable");
+    .toBe("3:0:2:rock-diggable");
   await expect(canvas).toHaveAttribute("data-fp-swinging", "0");
 
   // Hold the primary input: the pickaxe swings and mines block after
@@ -799,7 +822,7 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
       await imagePixelDifferenceRatio(page, frameA, frameB),
     ).toBeGreaterThan(0.00005);
 
-    // A single sustained hold mines at least two cells deep (34 -> >=36).
+    // A single sustained hold mines at least two cells deep (12 -> >=14).
     await expect
       .poll(
         async () => Number(await canvas.getAttribute("data-fp-open-cells")),
@@ -807,7 +830,7 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
           timeout: 20_000,
         },
       )
-      .toBeGreaterThanOrEqual(36);
+      .toBeGreaterThanOrEqual(14);
   } finally {
     await page.mouse.up();
   }
@@ -827,14 +850,15 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
         | { col: number; row: number; depth: number }[]
         | undefined,
   );
-  expect(dug?.length ?? 0).toBeGreaterThanOrEqual(2);
-  for (const cell of dug ?? []) {
+  // Ignore the pre-mined spawn pocket (depths 0-1); the cells hold-to-mine
+  // actually dug run straight down the miner's column from depth 2 in order.
+  const mined = (dug ?? []).filter((cell) => cell.depth >= 2);
+  expect(mined.length).toBeGreaterThanOrEqual(2);
+  for (const cell of mined) {
     expect(cell.col).toBe(START_COL);
     expect(cell.row).toBe(5);
   }
-  expect((dug ?? []).map((c) => c.depth)).toEqual(
-    (dug ?? []).map((_, i) => i + 1),
-  );
+  expect(mined.map((cell) => cell.depth)).toEqual(mined.map((_, i) => i + 2));
 });
 
 test.describe("phone viewport", () => {
@@ -860,6 +884,7 @@ test.describe("phone viewport", () => {
       bunker: {
         footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
         core: { col: START_COL - 2, row: 3, durability: 160 },
+        dug: FP_PLANE_DUG,
         parts: [1, 2, 3].map((offset) => ({
           partId: "wall-panel",
           col: START_COL + offset,
@@ -1108,7 +1133,7 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
     ...FP_BUNKER_VIEW,
     bunker: {
       ...FP_BUNKER_VIEW.bunker,
-      dug: [{ col: START_COL, row: 5, depth: 1 }],
+      dug: [...FP_PLANE_DUG, { col: START_COL, row: 5, depth: 1 }],
     },
   };
   const placedView = {

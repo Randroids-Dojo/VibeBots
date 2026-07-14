@@ -23,8 +23,11 @@ export const FP_TUTORIAL_STEP_GAP_MS = 1500;
 export const FP_TUTORIAL_AUTO_ADVANCE_MS = 6000;
 /** Cumulative |yaw| + |pitch| travel that demonstrates looking. */
 export const FP_TUTORIAL_LOOK_RADIANS = 1.2;
-/** Cumulative horizontal travel (cells) that demonstrates walking. */
-export const FP_TUTORIAL_WALK_CELLS = 2.5;
+/** Cumulative horizontal travel (cells) that demonstrates walking. A
+ * fresh claim's spawn pocket is only three cells wide, so this stays
+ * under the ~1.2 cells a single strafe covers before the claim rock
+ * (F-115): otherwise a new player could not clear the walk step. */
+export const FP_TUTORIAL_WALK_CELLS = 1.0;
 
 export const FP_TUTORIAL_STEPS = [
   "look",

@@ -148,12 +148,14 @@ export function BunkerControlPanel({
     disarmReset();
     onReset?.();
   };
-  // Legacy wire shapes may omit dug (the fp grid guards the same way).
+  // Reset only clears placed parts now; it preserves the excavation and
+  // the spawn pocket (F-120: no ore regen, never respawn in rock), so a
+  // dug-out-but-unbuilt claim has nothing to reset.
   const resetAvailable =
     hasBunker &&
     !activeRaid &&
     onReset !== undefined &&
-    ((bunker?.parts.length ?? 0) > 0 || (bunker?.dug?.length ?? 0) > 0);
+    (bunker?.parts.length ?? 0) > 0;
   const balance = player?.balance ?? 0;
   const raidButtonLabel = activeRaid
     ? activeRaid.survived

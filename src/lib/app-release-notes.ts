@@ -1,9 +1,27 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.256-place-elevator";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.257-dig-out-bunker";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.257",
+      date: "2026-07-14",
+      title: "Dig your bunker out of solid rock",
+      intro:
+        "A fresh claim is a small room in the rock, and the floor digs too.",
+      changes: [
+        {
+          build,
+          text: "A fresh bunker claim now drops you into a small pre-mined room instead of a wide open plane. Everything around it, including the floor under your feet, is solid claim rock you dig out cell by cell to carve the shape you want.",
+        },
+        {
+          build,
+          text: "The floor plane is diggable now, so you can sink rooms below the entry as well as tunnel deeper into the rock.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.256",
       date: "2026-07-14",

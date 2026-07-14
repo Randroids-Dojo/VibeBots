@@ -1,3 +1,5 @@
+import { bunkerSpawnPocketCells } from "./bunker-blocks";
+
 export const BUNKER_CLAIM_WIDTH = 7;
 export const BUNKER_CLAIM_HEIGHT = 5;
 /** Cells of buildable depth behind the tunnel plane. Depth 0 is the plane
@@ -194,9 +196,9 @@ export function isBunkerSkinId(value: unknown): value is BunkerSkinId {
   return typeof value === "string" && Object.hasOwn(BUNKER_SKIN_CATALOG, value);
 }
 
-/** One excavated interior cell (depths 1..4). Depth 0 is always open
- * and never listed. Order is dig order; the bank replays it to prove
- * every dig chained from an already-open face. */
+/** One excavated cell (any depth 0..4, F-116). Order is dig order; the
+ * bank replays it to prove every dig chained from an already-open face.
+ * The pre-mined spawn pocket is seeded here at claim. */
 export interface DugBunkerCell {
   col: number;
   row: number;
@@ -207,8 +209,13 @@ export interface BunkerState {
   footprint: BunkerFootprint;
   core: BunkerCore;
   parts: PlacedBasePart[];
-  /** Excavated interior cells in dig order; legacy rows normalize to []. */
+  /** Excavated cells in dig order (now including the depth-0 plane and
+   * the pre-mined spawn pocket); legacy rows normalize to []. */
   dug: DugBunkerCell[];
+  /** Stable seed for this bunker's mineable blocks (F-116), mixed from
+   * the mine seed and footprint at claim so client preview and server
+   * credit agree. Legacy bunkers without one hard-reset (Q-022). */
+  blockSeed?: number;
   /** Selected cosmetic skin; legacy rows normalize to the default. */
   skin?: BunkerSkinId;
   /** Skins this player owns beyond the free default. */
@@ -456,7 +463,9 @@ export function applyBunkerReset(
       ...bunker,
       core: { ...bunker.core, durability: BUNKER_CORE_MAX_DURABILITY },
       parts: [],
-      dug: [],
+      // Keep the excavation and its depletion (F-120): reset clears the
+      // built layout, not the dug-out rock, so mined ore never regrows
+      // and the spawn pocket stays open and grounded.
     },
     inventory: refunded,
   };
@@ -607,8 +616,10 @@ export function containsBunkerCell3D(
   );
 }
 
-/** Open = walkable/buildable air. The claim plane (depth 0) is open by
- * definition of claiming; deeper cells must have been excavated. */
+/** Open = walkable/buildable air. Every cell (including the depth-0
+ * plane) starts as solid claim rock (F-115/F-116); a cell is open only
+ * if it has been excavated, and the pre-mined spawn pocket is seeded
+ * into `dug` at claim so the player spawns inside an open room. */
 export function isOpenBunkerCell(
   bunker: BunkerState,
   col: number,
@@ -616,7 +627,6 @@ export function isOpenBunkerCell(
   depth: number,
 ): boolean {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) return false;
-  if (depth === 0) return true;
   return bunker.dug.some(
     (cell) => cell.col === col && cell.row === row && cell.depth === depth,
   );
@@ -636,7 +646,7 @@ export function excavateBunkerCell(
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
   }
-  if (depth === 0 || isOpenBunkerCell(bunker, col, row, depth)) {
+  if (isOpenBunkerCell(bunker, col, row, depth)) {
     return { ok: false, reason: "open" };
   }
   const reachable =
@@ -667,7 +677,10 @@ export function isBunkerPerimeterCell(
   );
 }
 
-export function createBunker(footprint: BunkerFootprint): BunkerState {
+export function createBunker(
+  footprint: BunkerFootprint,
+  blockSeed?: number,
+): BunkerState {
   return {
     footprint,
     core: {
@@ -677,7 +690,10 @@ export function createBunker(footprint: BunkerFootprint): BunkerState {
       durability: BUNKER_CORE_MAX_DURABILITY,
     },
     parts: [],
-    dug: [],
+    // The whole volume starts solid; the spawn pocket is the only open
+    // room a fresh claim ships with (F-115).
+    dug: bunkerSpawnPocketCells(footprint),
+    blockSeed,
   };
 }
 

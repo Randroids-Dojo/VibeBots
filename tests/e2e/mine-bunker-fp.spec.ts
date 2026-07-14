@@ -75,6 +75,123 @@ const FP_BUNKER_VIEW = {
   },
 };
 
+/** Turn the opt-in deep collector on before the app boots (F-054). */
+function enablePerfAnalyzer() {
+  window.localStorage.setItem("vibebots-perf-analyzer-v1", "on");
+}
+
+/** Shrink both telemetry cadences so a test sees several windows in
+ * seconds. The one-hour min-send interval is left at its default on
+ * purpose: it is exactly what proves the compact throttle is scoped per
+ * source (a recent mine sample must not suppress the first bunker-fp
+ * sample). */
+function speedUpPerf() {
+  const w = window as typeof window & Record<string, number>;
+  w.__vibebotsPerfTraceSnapshotMs = 1_500;
+  w.__vibebotsPerfTraceFlushMs = 2_500;
+  w.__vibebotsPerfInitialDelayMs = 500;
+  w.__vibebotsPerfSampleMs = 2_000;
+  w.__vibebotsPerfRepeatMs = 1_500;
+}
+
+interface PerfPayload {
+  source?: string;
+  snapshots?: Array<{
+    probe?: { backend?: string; meshCount?: number } | null;
+  }>;
+}
+
+const bySource = (list: PerfPayload[], source: string): PerfPayload[] =>
+  list.filter((payload) => payload.source === source);
+
+test("performance telemetry attributes samples to the active surface (F-100)", async ({
+  page,
+}) => {
+  // Enters and exits fp, each a slow software-GL scene compile, and
+  // waits out several telemetry windows on both surfaces.
+  test.setTimeout(300_000);
+
+  const compact: PerfPayload[] = [];
+  const deep: PerfPayload[] = [];
+  await page.route("**/api/performance", async (route) => {
+    compact.push(route.request().postDataJSON() as PerfPayload);
+    await route.fulfill({ json: { saved: true } });
+  });
+  await page.route("**/api/performance/trace", async (route) => {
+    deep.push(route.request().postDataJSON() as PerfPayload);
+    await route.fulfill({ json: { saved: 1 } });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FP_BUNKER_VIEW),
+    });
+  });
+  await page.addInitScript(enablePerfAnalyzer);
+  await page.addInitScript(speedUpPerf);
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+
+  // In the flat mine, both collectors label their payloads "mine", and
+  // no bunker sample can exist before the fp canvas ever mounts.
+  await expect
+    .poll(() => bySource(compact, "mine").length, { timeout: 40_000 })
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() => bySource(deep, "mine").length, { timeout: 40_000 })
+    .toBeGreaterThan(0);
+  const mineDeep = bySource(deep, "mine").at(-1);
+  expect(mineDeep?.snapshots?.find((snap) => snap.probe)?.probe).toBeTruthy();
+  expect(bySource(compact, "bunker-fp")).toHaveLength(0);
+  expect(bySource(deep, "bunker-fp")).toHaveLength(0);
+
+  // Enter the first-person bunker: the fp canvas swaps in.
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+
+  // The deep collector now reads the registered bunker probe and labels
+  // the batch bunker-fp: a non-null probe over the bunker scene.
+  await expect
+    .poll(() => bySource(deep, "bunker-fp").length, { timeout: 60_000 })
+    .toBeGreaterThan(0);
+  const bunkerDeep = bySource(deep, "bunker-fp").at(-1);
+  const probe = bunkerDeep?.snapshots?.find((snap) => snap.probe)?.probe;
+  expect(probe).toBeTruthy();
+  expect(probe?.backend === "webgpu" || probe?.backend === "webgl2").toBe(true);
+  expect(probe?.meshCount ?? 0).toBeGreaterThan(0);
+
+  // The compact throttle is scoped per source: a mine sample fired
+  // moments ago (default one-hour interval), yet the bunker-fp sample
+  // still sends because it tracks its own last-sent timestamp.
+  await expect
+    .poll(() => bySource(compact, "bunker-fp").length, { timeout: 40_000 })
+    .toBeGreaterThan(0);
+
+  // No mixed-surface window: once the fp batches flow, the mine
+  // collector has stopped, so no later batch straddles the boundary.
+  const mineDeepAfterEntry = bySource(deep, "mine").length;
+  await page.waitForTimeout(4_000);
+  expect(bySource(deep, "mine").length).toBe(mineDeepAfterEntry);
+
+  // Exit restores mine attribution: the deep collector resumes labeling
+  // batches mine (it carries no per-source hour throttle).
+  const mineDeepAtExit = bySource(deep, "mine").length;
+  await page.getByRole("button", { name: "Exit bunker" }).click();
+  await expect(status).toHaveAttribute("data-fp-mode", "0");
+  await awaitMineSceneReady(page);
+  await expect
+    .poll(() => bySource(deep, "mine").length, { timeout: 60_000 })
+    .toBeGreaterThan(mineDeepAtExit);
+});
+
 test("first-person bunker viewer walks, looks, jumps, and exits in place", async ({
   page,
 }) => {

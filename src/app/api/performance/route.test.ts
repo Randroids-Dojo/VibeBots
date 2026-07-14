@@ -102,6 +102,25 @@ describe("performance API route", () => {
     ]);
   });
 
+  it("saves a first-person bunker sample under its own source (F-100)", async () => {
+    const res = await submit(sample({ source: "bunker-fp" }));
+
+    expect(res.status).toBe(200);
+    const [, ...values] = sql.mock.calls[0] as unknown as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    // second bound value is the source column
+    expect(values[1]).toBe("bunker-fp");
+  });
+
+  it("rejects an unknown telemetry source", async () => {
+    const res = await submit(sample({ source: "totally-not-a-surface" }));
+
+    expect(res.status).toBe(400);
+    expect(sql).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid samples", async () => {
     const res = await submit(sample({ frameCount: 0, avgFrameMs: -1 }));
 

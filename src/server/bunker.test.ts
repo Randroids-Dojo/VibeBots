@@ -980,7 +980,9 @@ describe("bunker excavation wrapper", () => {
         }
         if (query.includes("UPDATE bunkers")) {
           writes.push(values.map(String).join("|"));
-          return [];
+          // The guarded dig CTE reports the row it wrote so the wrapper
+          // knows the revision guard was satisfied (F-122).
+          return [{ dug_rows: 1, ore_rows: 0 }];
         }
         if (query.includes("INSERT INTO player_base_parts")) return [];
         return [];
@@ -1036,8 +1038,11 @@ describe("bunker excavation wrapper", () => {
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) return [];
         if (query.includes("UPDATE players")) {
+          // The excavate write is one CTE that digs and pays ore, so this
+          // branch matches the whole statement; report the guarded dig as
+          // won (F-122) while capturing the ore payout's bound values.
           playerCredit = values;
-          return [];
+          return [{ dug_rows: 1, ore_rows: 1 }];
         }
         return [];
       },
@@ -1159,7 +1164,9 @@ describe("bunker part wrappers with depth", () => {
         }
         if (query.includes("UPDATE bunkers")) {
           writes.push(values.map(String).join("|"));
-          return [];
+          // The guarded parts write returns its row so the wrapper sees
+          // the revision guard was satisfied (F-122).
+          return [{ player_id: "player-1" }];
         }
         if (query.includes("INSERT INTO player_base_parts")) return [];
         return [];
@@ -1178,5 +1185,130 @@ describe("bunker part wrappers with depth", () => {
     expect(result.ok).toBe(true);
     expect(writes.length).toBeGreaterThan(0);
     expect(writes[0]).toContain('"depth":3');
+  });
+});
+
+describe("banked edit revision guard (F-122)", () => {
+  function guardSql(opts: { revision: number; writeWins?: boolean }) {
+    const guardedValues: unknown[][] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, core, parts")) {
+          return [
+            {
+              footprint: { col: 1, row: 1, width: 7, height: 5 },
+              core: { col: 4, row: 3, depth: 0, durability: 160 },
+              parts: [],
+              // The placement cell (1,1,0) is dug open so placeBasePart
+              // reaches the revision-guarded write.
+              dug: [{ col: 1, row: 1, depth: 0 }],
+              block_seed: 123,
+              loot: [],
+              skin: null,
+              skins_owned: [],
+              revision: opts.revision,
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) {
+          return [{ part_id: "wall-panel", count: 5 }];
+        }
+        if (query.includes("revision = revision + 1")) {
+          guardedValues.push(values);
+          return opts.writeWins === false ? [] : [{ player_id: "player-1" }];
+        }
+        if (query.includes("INSERT INTO player_base_parts")) return [];
+        return [];
+      },
+    );
+    return { sql, guardedValues };
+  }
+
+  it("places when the expected revision matches and the guarded write wins", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 3 });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      1,
+      1,
+      0,
+      3,
+    );
+    expect(result.ok).toBe(true);
+    // The guarded write ran with the client's expected revision bound in.
+    expect(guardedValues).toHaveLength(1);
+    expect(guardedValues[0]).toContain(3);
+  });
+
+  it("409s a stale expected revision before it ever writes", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 5 });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      1,
+      1,
+      0,
+      3,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-revision-conflict");
+      // The conflict carries the authoritative view so the client resyncs.
+      expect(result.body).toMatchObject({ revision: 5 });
+    }
+    expect(guardedValues).toHaveLength(0);
+  });
+
+  it("409s when a concurrent write won the guarded update", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 3, writeWins: false });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      1,
+      1,
+      0,
+      3,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-revision-conflict");
+    }
+    // The guard ran (and lost) exactly once, so nothing double-writes.
+    expect(guardedValues).toHaveLength(1);
+  });
+
+  it("falls back to the loaded revision when the client omits it", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 7 });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      1,
+      1,
+      0,
+    );
+    expect(result.ok).toBe(true);
+    expect(guardedValues[0]).toContain(7);
+  });
+
+  it("409s a stale dig before touching the dug set", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 4 });
+    const result = await excavateBunker(sql as never, "player-1", 1, 5, 0, 2);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-revision-conflict");
+    }
+    expect(guardedValues).toHaveLength(0);
   });
 });

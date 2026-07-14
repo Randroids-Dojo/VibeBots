@@ -1,3 +1,4 @@
+import { BUNKER_REVISION_CONFLICT_CODE } from "@/lib/api-codes";
 import type { BunkerView } from "@/lib/bunker-api-types";
 import {
   applyBunkerRaidWear,
@@ -53,6 +54,7 @@ import {
   type WorldDiff,
 } from "@/sim/mine";
 import { applyAchievementProgress } from "./achievements";
+import type { OperationFailure } from "./api-boundary";
 import { recordBalanceEvent } from "./balance-telemetry";
 import type { db } from "./db";
 
@@ -60,7 +62,39 @@ type Sql = Awaited<ReturnType<typeof db>>;
 
 type BunkerOperationResult<T extends object = object> =
   | ({ ok: true; view: BunkerView } & T)
-  | { ok: false; status: number; error: string };
+  | OperationFailure;
+
+/**
+ * A banked edit lost its optimistic-concurrency race (the client's
+ * expected revision no longer matches, or a concurrent write won the
+ * guarded update). The 409 carries the authoritative view so the client
+ * replaces its stale state instead of retrying blind.
+ */
+function revisionConflict(view: BunkerView): OperationFailure {
+  return {
+    ok: false,
+    status: 409,
+    error: "bunker changed elsewhere, refreshed",
+    code: BUNKER_REVISION_CONFLICT_CODE,
+    body: { ...view },
+  };
+}
+
+/**
+ * The revision the guarded write must match. A client that sends its
+ * expected revision gets full stale detection: if it no longer matches
+ * the stored value the write is rejected before it runs. An older client
+ * that omits it falls back to the loaded revision, which still serializes
+ * concurrent writes through the guarded UPDATE. Returns null when the
+ * caller's expected revision is already stale.
+ */
+function resolveExpectedRevision(
+  view: BunkerView,
+  expectedRevision: number | undefined,
+): number | null {
+  if (expectedRevision === undefined) return view.revision;
+  return expectedRevision === view.revision ? expectedRevision : null;
+}
 
 function isBasePartId(value: string): value is BasePartId {
   return BASE_PART_IDS.includes(value as BasePartId);
@@ -296,7 +330,7 @@ export async function loadBunkerView(
     defense_xp: number;
   }>;
   const bunkerRows = (await sql`
-    SELECT footprint, core, parts, dug, block_seed, loot, skin, skins_owned
+    SELECT footprint, core, parts, dug, block_seed, loot, skin, skins_owned, revision
     FROM bunkers
     WHERE player_id = ${playerId}`) as Array<{
     footprint: unknown;
@@ -307,6 +341,7 @@ export async function loadBunkerView(
     loot: unknown;
     skin: unknown;
     skins_owned: unknown;
+    revision: unknown;
   }>;
   const raidRows = (await sql`
     SELECT snapshot
@@ -321,10 +356,12 @@ export async function loadBunkerView(
     defense_xp: 0,
   };
   const progress = playerLevelProgress(player.defense_xp);
+  const revisionValue = Number(bunkerRows[0]?.revision);
   return {
     bunker: parseBunkerState(bunkerRows[0] ?? null),
     inventory: await ensureStarterBaseParts(sql, playerId),
     activeRaid: normalizeBunkerRaidSnapshot(raidRows[0]?.snapshot),
+    revision: Number.isFinite(revisionValue) ? revisionValue : 0,
     player: {
       balance: player.emeralds,
       trackXp: player.track_xp,
@@ -502,10 +539,13 @@ export async function placeBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  expectedRevision?: number,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const expected = resolveExpectedRevision(view, expectedRevision);
+  if (expected === null) return revisionConflict(view);
   const placed = placeBasePart(
     view.bunker,
     view.inventory,
@@ -517,7 +557,14 @@ export async function placeBunkerPart(
   if (!placed.ok) {
     return { ok: false, status: 409, error: `cannot place: ${placed.reason}` };
   }
-  await saveBunkerAndInventory(sql, playerId, placed.bunker, placed.inventory);
+  const won = await saveBunkerAndInventory(
+    sql,
+    playerId,
+    placed.bunker,
+    placed.inventory,
+    expected,
+  );
+  if (!won) return revisionConflict(await loadBunkerView(sql, playerId));
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
@@ -527,10 +574,13 @@ export async function removeBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  expectedRevision?: number,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const expected = resolveExpectedRevision(view, expectedRevision);
+  if (expected === null) return revisionConflict(view);
   const removed = removeBasePart(view.bunker, view.inventory, col, row, depth);
   if (!removed.ok) {
     return {
@@ -539,12 +589,14 @@ export async function removeBunkerPart(
       error: `cannot remove: ${removed.reason}`,
     };
   }
-  await saveBunkerAndInventory(
+  const won = await saveBunkerAndInventory(
     sql,
     playerId,
     removed.bunker,
     removed.inventory,
+    expected,
   );
+  if (!won) return revisionConflict(await loadBunkerView(sql, playerId));
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
@@ -557,10 +609,13 @@ export async function moveBunkerPart(
   toRow: number,
   fromDepth = 0,
   toDepth = 0,
+  expectedRevision?: number,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const expected = resolveExpectedRevision(view, expectedRevision);
+  if (expected === null) return revisionConflict(view);
   const moved = moveBasePart(
     view.bunker,
     fromCol,
@@ -573,7 +628,14 @@ export async function moveBunkerPart(
   if (!moved.ok) {
     return { ok: false, status: 409, error: `cannot move: ${moved.reason}` };
   }
-  await saveBunkerAndInventory(sql, playerId, moved.bunker, view.inventory);
+  const won = await saveBunkerAndInventory(
+    sql,
+    playerId,
+    moved.bunker,
+    view.inventory,
+    expected,
+  );
+  if (!won) return revisionConflict(await loadBunkerView(sql, playerId));
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
@@ -583,10 +645,13 @@ export async function excavateBunker(
   col: number,
   row: number,
   depth: number,
+  expectedRevision?: number,
 ): Promise<BunkerOperationResult<{ newStamps?: string[]; oreVibes?: number }>> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const expected = resolveExpectedRevision(view, expectedRevision);
+  if (expected === null) return revisionConflict(view);
   const dug = excavateBunkerCell(view.bunker, col, row, depth);
   if (!dug.ok) {
     return { ok: false, status: 409, error: `cannot dig: ${dug.reason}` };
@@ -604,19 +669,36 @@ export async function excavateBunker(
     depth,
   );
   const oreVibes = drop ? drop.units * oreDef(drop.ore).value : 0;
-  await sql`
+  // The dug write carries the same optimistic-concurrency guard as part
+  // edits (F-122): it only lands when the revision still matches, bumping
+  // it, and the ore payout is gated on that dig winning, so a concurrent
+  // edit can never leave a paid-but-undug (or double-paid) cell. dug_rows
+  // reports whether the guarded dig won so a loser returns 409.
+  const guardResult = (await sql`
     WITH dug_update AS (
       UPDATE bunkers
       SET dug = ${JSON.stringify(dug.bunker.dug)}::jsonb,
+          revision = revision + 1,
           updated_at = now()
       WHERE player_id = ${playerId}
+        AND revision = ${expected}
       RETURNING player_id
+    ), ore_pay AS (
+      UPDATE players
+      SET emeralds = emeralds + ${oreVibes}
+      WHERE id = ${playerId}
+        AND ${oreVibes} > 0
+        AND EXISTS (SELECT 1 FROM dug_update)
+      RETURNING id
     )
-    UPDATE players
-    SET emeralds = emeralds + ${oreVibes}
-    WHERE id = ${playerId}
-      AND ${oreVibes} > 0
-      AND EXISTS (SELECT 1 FROM dug_update)`;
+    SELECT (SELECT count(*) FROM dug_update)::int AS dug_rows,
+           (SELECT count(*) FROM ore_pay)::int AS ore_rows`) as Array<{
+    dug_rows: number;
+    ore_rows: number;
+  }>;
+  if ((guardResult[0]?.dug_rows ?? 0) === 0) {
+    return revisionConflict(await loadBunkerView(sql, playerId));
+  }
   // Groundbreaker is backfill-only: the empty patch increments nothing,
   // and the refresh inside applyAchievementProgress re-derives the
   // player-dug count from the durable bunkers.dug set (excluding the
@@ -689,18 +771,31 @@ async function saveBasePartInventory(
   }
 }
 
+/**
+ * Persist a banked part edit under the optimistic-concurrency guard
+ * (F-122). The parts write only lands when the stored revision still
+ * equals `expectedRevision`; it bumps the revision so exactly one edit
+ * from a given expected revision can win. Returns whether the write won,
+ * so the caller can 409 a loser without touching inventory.
+ */
 async function saveBunkerAndInventory(
   sql: Sql,
   playerId: string,
   bunker: BunkerState,
   inventory: BasePartInventory,
-): Promise<void> {
-  await sql`
+  expectedRevision: number,
+): Promise<boolean> {
+  const won = (await sql`
     UPDATE bunkers
     SET parts = ${JSON.stringify(bunker.parts)}::jsonb,
+        revision = revision + 1,
         updated_at = now()
-    WHERE player_id = ${playerId}`;
+    WHERE player_id = ${playerId}
+      AND revision = ${expectedRevision}
+    RETURNING player_id`) as Array<{ player_id: string }>;
+  if (won.length === 0) return false;
   await saveBasePartInventory(sql, playerId, inventory);
+  return true;
 }
 
 /**
@@ -719,11 +814,14 @@ export async function resetBunker(
   if (view.activeRaid)
     return { ok: false, status: 409, error: "finish the raid first" };
   const reset = applyBunkerReset(view.bunker, view.inventory);
+  // Bump the revision so an in-flight banked edit loses its guard and the
+  // client resyncs instead of clobbering the reset (F-122).
   await sql`
     UPDATE bunkers
     SET parts = ${JSON.stringify(reset.bunker.parts)}::jsonb,
         dug = ${JSON.stringify(reset.bunker.dug)}::jsonb,
         core = ${JSON.stringify(reset.bunker.core)}::jsonb,
+        revision = revision + 1,
         updated_at = now()
     WHERE player_id = ${playerId}`;
   await saveBasePartInventory(sql, playerId, reset.inventory);
@@ -760,7 +858,8 @@ export async function repairBunker(
   await sql`
     UPDATE bunkers
     SET core = ${JSON.stringify(repaired.core)},
-        parts = ${JSON.stringify(repaired.parts)}
+        parts = ${JSON.stringify(repaired.parts)},
+        revision = revision + 1
     WHERE player_id = ${playerId}`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
@@ -885,6 +984,7 @@ export async function startBunkerRaid(
     UPDATE bunkers
     SET parts = ${JSON.stringify(wornBunker.parts)}::jsonb,
         core = ${JSON.stringify(wornBunker.core)}::jsonb,
+        revision = revision + 1,
         updated_at = now()
     WHERE player_id = ${playerId}`;
   await sql`

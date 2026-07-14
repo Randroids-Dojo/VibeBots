@@ -171,6 +171,12 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE bunkers
     ADD COLUMN IF NOT EXISTS loot jsonb NOT NULL DEFAULT '[]'::jsonb`;
+  // Optimistic-concurrency counter for banked bunker edits (F-122): each
+  // successful mutation bumps it, and a write only lands when the client's
+  // expected revision still matches, so reordered or duplicate edits lose.
+  await sql`
+    ALTER TABLE bunkers
+    ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 0`;
   await sql`
     CREATE TABLE IF NOT EXISTS bunker_raids (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,

@@ -22,6 +22,14 @@ export interface BunkerView {
   inventory: BasePartInventory;
   activeRaid: BunkerRaidSnapshot | null;
   player: BunkerPlayerProgress;
+  /**
+   * Optimistic-concurrency counter for banked bunker edits (F-122). Every
+   * successful mutation returns the bumped value; the client echoes it as
+   * `expectedRevision` on the next edit so a stale or reordered write is
+   * rejected with HTTP 409 instead of clobbering newer state. Zero when
+   * there is no banked bunker yet.
+   */
+  revision: number;
 }
 
 export interface BunkerRouteResponse extends BunkerView {

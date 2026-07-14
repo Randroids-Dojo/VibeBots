@@ -94,6 +94,7 @@ const view = {
     nextLevelXp: 100,
     beaconLimit: 2,
   },
+  revision: 0,
 };
 
 const raid = {
@@ -528,6 +529,7 @@ describe("bunker API routes", () => {
       7,
       4,
       0,
+      undefined,
     );
   });
 
@@ -549,7 +551,58 @@ describe("bunker API routes", () => {
       7,
       4,
       3,
+      undefined,
     );
+  });
+
+  it("threads the expected revision to the placement (F-122)", async () => {
+    const res = await placePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/place", {
+        partId: "wall-panel",
+        col: 7,
+        row: 4,
+        expectedRevision: 9,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockedPlace).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      "wall-panel",
+      7,
+      4,
+      0,
+      9,
+    );
+  });
+
+  it("returns the conflict code and authoritative view on a revision conflict (F-122)", async () => {
+    mockedPlace.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      error: "bunker changed elsewhere, refreshed",
+      code: "bunker-revision-conflict",
+      body: { ...view },
+    });
+
+    const res = await placePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/place", {
+        partId: "wall-panel",
+        col: 7,
+        row: 4,
+        expectedRevision: 1,
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    const payload = await res.json();
+    expect(payload).toMatchObject({
+      error: "bunker changed elsewhere, refreshed",
+      code: "bunker-revision-conflict",
+      revision: view.revision,
+      inventory: view.inventory,
+    });
   });
 
   it("rejects out-of-range part depths", async () => {
@@ -590,6 +643,7 @@ describe("bunker API routes", () => {
       4,
       0,
       0,
+      undefined,
     );
   });
 
@@ -615,6 +669,7 @@ describe("bunker API routes", () => {
       4,
       0,
       2,
+      undefined,
     );
   });
 
@@ -634,6 +689,7 @@ describe("bunker API routes", () => {
       7,
       4,
       0,
+      undefined,
     );
   });
 
@@ -654,6 +710,7 @@ describe("bunker API routes", () => {
       7,
       4,
       1,
+      undefined,
     );
   });
 
@@ -695,6 +752,7 @@ describe("bunker API routes", () => {
       7,
       4,
       0,
+      undefined,
     );
   });
 
@@ -730,6 +788,7 @@ describe("bunker API routes", () => {
       7,
       4,
       2,
+      undefined,
     );
   });
 });

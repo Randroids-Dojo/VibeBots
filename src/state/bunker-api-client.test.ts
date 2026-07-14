@@ -31,6 +31,7 @@ const view: BunkerRouteResponse = {
     nextLevelXp: 100,
     beaconLimit: 2,
   },
+  revision: 0,
 };
 
 const jsonResponse = (body: unknown, status = 200) =>

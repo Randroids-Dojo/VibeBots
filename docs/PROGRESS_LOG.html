@@ -31,6 +31,32 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-world-repair-monitoring" data-date="2026-07-14">
+    <h3>Keep elevator cleanup bounded and semantic</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>Continued read-only monitoring found that the live world route now compares installed and stored rail diffs with <code>JSON.stringify</code> and can rerun repair after the installation marker is set. Semantically identical <code>jsonb</code> objects can differ by key order, while real post-marker terrain or support drift is silently carved without a support credit. Appended canonical comparison, repair-once, and post-cutoff fail-fast acceptance to F-124 and its HTML Dot.</dd>
+      <dt>Verification</dt><dd>Traced <code>railNeedsRepair</code>, both marker guards, the atomic world and player update, and the new marked-shaft repair test in the live dirty branch. Confirmed that this is the permanent migration behavior already owned by F-124, not a separate followup.</dd>
+      <dt>Assumptions</dt><dd>Early-alpha legacy cleanup may repair an unmarked shaft once, but marked current-version drift is corruption after the cutoff and must not be normalized by a write-on-read path.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. F-124 remains linked to REQ-028.</dd>
+      <dt>Followups</dt><dd>Expanded F-124 and its matching HTML Dot. No new followup ID was needed.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="elevator-journey-telemetry-monitoring" data-date="2026-07-14">
+    <h3>Separate elevator journeys from automatic rail steps</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>The deeper telemetry pass found that authoritative <code>elevatorRides</code> is a successful action-step counter, not a player-journey counter. Automatic travel schedules repeated actions, so one deep ride can inflate the metric many times. Surface Down also increments it and unlocks Ride the Rail despite the stamp's underground-only copy. Added F-128 and a matching HTML Dot to define honest journey counters, align the stamp trigger and copy, and keep misleading step counts out of live adoption telemetry.</dd>
+      <dt>Verification</dt><dd>Traced implicit-entry results and explicit ride actions through deterministic replay, the UI auto-chain, cash-out achievement increments, the Ride the Rail definition, and the successful balance event. Confirmed that purchase telemetry remains owned by F-121 and return-guidance contradictions remain owned by F-126.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: one contiguous automatic trip in one direction is one player journey, including surface or lateral entry plus its descent. Ride the Rail should reward the first successful journey in either direction with copy that matches that rule.</dd>
+      <dt>GDD coverage</dt><dd>REQ-028 stays done and now links F-128 because the logged ride implementation exists while its journey-level telemetry and stamp semantics need cleanup.</dd>
+      <dt>Followups</dt><dd>Added F-128 with Dot VibeBots-f-128-define-fd4dbc01.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-telemetry-monitoring" data-date="2026-07-14">
     <h3>Bound elevator telemetry to authoritative outcomes and contradictions</h3>
     <dl>

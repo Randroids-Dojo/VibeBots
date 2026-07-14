@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-128" data-f="F-128" data-priority="nice-to-have">
+    <h3>F-128: Define honest elevator journey telemetry</h3>
+    <dl>
+      <dt>Context</dt><dd>The authoritative replay field <code>elevatorRides</code> counts successful rail action steps, including implicit entry and every auto-chained <code>ride-up</code> or <code>ride-down</code> segment. One player command can therefore count dozens or hundreds of rides on a deep shaft. Surface Down entry also increments the field and unlocks Ride the Rail even though the stamp says <q>Ride the elevator from underground.</q> Publishing the current field as adoption telemetry would mislabel implementation steps as player journeys.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before using elevator usage in live product or economy decisions and before closing the placeable-elevator stamp review.</dd>
+      <dt>Unblock condition</dt><dd>Keep separate authoritative replay counters for rail action steps, implicit entries, total journeys, upward journeys, and downward journeys. A contiguous same-direction automatic sequence counts as one journey; surface or lateral entry plus its auto-chained descent also counts as one downward journey. Recommended default: Ride the Rail unlocks on the first successful journey in either direction and its copy becomes <q>Take an elevator ride.</q> If the underground-only copy stays, a surface descent must not unlock it. Add only the bounded counters to successful <code>mine.cash_out</code> balance events. Never retain coordinates, raw action logs, human error strings, or other high-cardinality dimensions. Tests must cover surface entry, lateral entry, deep auto-descent, upward return, direction reversal, interrupted travel, failed actions, and one journey from one player command.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-128-define-fd4dbc01.</dd>
+    </dl>
+  </section>
+
   <section id="F-127" data-f="F-127" data-priority="nice-to-have">
     <h3>F-127: Stabilize the mine action readiness gate</h3>
     <dl>
@@ -93,6 +103,7 @@
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-124-protect-db907694.</dd>
       <dt>Monitoring update</dt><dd>A live branch revision added <code>elevator_rail_installed_at</code> to distinguish legacy rows, but gated every support credit on the one-time <code>elevator_support_refund_at</code> marker. After the first purchase, a later extension still removes a ladder or plank from the newly purchased row while crediting zero replacements. The legacy-shaft fixture likewise suppresses the newly purchased row together with already reconciled rows. Separate legacy reconciliation from the ordinary purchase rule: every newly purchased row must credit each support it removes, including second and later extensions, while already reconciled old rows must never refund twice. Cover two sequential purchases and an uninstalled legacy shaft plus a newly purchased supported row. Retire both temporary markers after the bounded alpha cleanup, make current-profile world reads read-only, and fail fast on impossible current-version state.</dd>
       <dt>Monitoring update</dt><dd>A subsequent live edit separated the newly purchased row and restored its support credits after legacy reconciliation. Focused tests now cover an old support that must not refund twice and a later supported row that must refund. The remaining regression guard is one combined fixture containing both an already reconciled old-row support and a newly purchased supported row, proving the same transaction suppresses only the old credit. The permanent runtime-marker cleanup and fail-fast cutoff remain open.</dd>
+      <dt>Monitoring update</dt><dd>A later world-load edit defines rail repair through <code>JSON.stringify(installedDiff) !== JSON.stringify(storedDiff)</code> and reruns installation even after <code>elevator_rail_installed_at</code> is set. PostgreSQL <code>jsonb</code> key order can make semantically identical cell objects compare differently, causing needless writes, while real terrain or support drift is silently carved with no credit after the legacy refund marker is set. During the bounded cleanup window, compare canonical or semantic diffs and run the repair at most once. After the cutoff, a marked shaft that differs from authoritative current-version rail state must fail fast with a stable incompatible-state code and perform no mutation. Cover key-order-only equivalence with zero writes, one unmarked legacy repair, marked terrain drift, marked support drift, and the fresh-state recovery guidance.</dd>
     </dl>
   </section>
 

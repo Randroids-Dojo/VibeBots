@@ -23,6 +23,7 @@ import {
   Matrix4,
   Mesh,
   MeshStandardMaterial,
+  OctahedronGeometry,
   Quaternion,
   Vector3,
 } from "three/webgpu";
@@ -38,6 +39,7 @@ import {
   type BunkerState,
   DEFAULT_BUNKER_SKIN,
 } from "@/sim/bunker";
+import { type BunkerBlock, bunkerCellBlock } from "@/sim/bunker-blocks";
 import {
   buildFpSolidGrid,
   createFpSolidGrid,
@@ -99,7 +101,11 @@ import {
 } from "./graphics-quality";
 import { DIRT_BLOCK_GEOMETRY } from "./mine-block-geometries";
 import { blockDetailEnabled, rockBlockMaterial } from "./mine-block-materials";
-import { cellHash, rockColorsForBiome } from "./mine-render-palette";
+import {
+  cellHash,
+  ORE_COLORS,
+  rockColorsForBiome,
+} from "./mine-render-palette";
 import type {
   SurfaceGeometryLayer,
   SurfaceGeometryTier,
@@ -151,6 +157,14 @@ const FP_ROCK_CAPACITY = FP_ROCK_BOUNDARY_COUNT + FP_COLS * FP_ROWS * FP_DEPTH;
 /** Interior diggable rock renders slightly brighter than the boundary
  * so "this one can open later" reads at a glance. */
 const FP_ROCK_INTERIOR_LIFT = 1.08;
+/** One loot glint per dug cell that still holds uncollected ore. */
+const FP_LOOT_CAPACITY = FP_CELL_COUNT;
+/** Boundary shell and plain interior rock tints, and the dirt tint for
+ * the softer blocks, so a wall of claim rock reads as dirt-and-stone with
+ * ore glinting through (F-116). */
+const FP_BOUNDARY_TINT = new Color().setScalar(1);
+const FP_ROCK_INTERIOR_TINT = new Color().setScalar(FP_ROCK_INTERIOR_LIFT);
+const FP_DIRT_TINT = new Color("#8a6a45");
 
 declare global {
   interface Window {
@@ -323,7 +337,7 @@ function writeRockInstance(
   x: number,
   y: number,
   z: number,
-  lift: number,
+  tint: Color,
 ): void {
   // Deterministic tiny jitter hashed from the cell coordinates so the
   // hewn rock never shimmers across rebuilds.
@@ -340,7 +354,20 @@ function writeRockInstance(
   rockPosition.set(x, y, -z);
   rockMatrix.compose(rockPosition, rockQuaternion, rockScale);
   mesh.setMatrixAt(index, rockMatrix);
-  mesh.setColorAt(index, rockColor.setScalar(lift));
+  mesh.setColorAt(index, tint);
+}
+
+/** Tint an interior block by kind (F-116): ore glows in its ore color,
+ * dirt reads warm-brown, plain rock keeps the lifted gray. Mutates and
+ * returns the shared scratch color (no per-cell allocation). */
+function bunkerBlockTint(block: BunkerBlock): Color {
+  if (block.kind === "ore" && block.ore) {
+    return rockColor.set(ORE_COLORS[block.ore]);
+  }
+  if (block.kind === "dirt") {
+    return rockColor.copy(FP_DIRT_TINT);
+  }
+  return rockColor.copy(FP_ROCK_INTERIOR_TINT);
 }
 
 /**
@@ -375,20 +402,20 @@ function FpRockInstances({
     let index = 0;
     for (let y = 0; y < FP_ROWS; y++) {
       for (let z = 0; z < FP_DEPTH; z++) {
-        writeRockInstance(mesh, index++, -1, y, z, 1);
-        writeRockInstance(mesh, index++, FP_COLS, y, z, 1);
+        writeRockInstance(mesh, index++, -1, y, z, FP_BOUNDARY_TINT);
+        writeRockInstance(mesh, index++, FP_COLS, y, z, FP_BOUNDARY_TINT);
       }
     }
     for (let x = 0; x < FP_COLS; x++) {
       for (let z = 0; z < FP_DEPTH; z++) {
-        writeRockInstance(mesh, index++, x, -1, z, 1);
-        writeRockInstance(mesh, index++, x, FP_ROWS, z, 1);
+        writeRockInstance(mesh, index++, x, -1, z, FP_BOUNDARY_TINT);
+        writeRockInstance(mesh, index++, x, FP_ROWS, z, FP_BOUNDARY_TINT);
       }
     }
     for (let x = 0; x < FP_COLS; x++) {
       for (let y = 0; y < FP_ROWS; y++) {
-        writeRockInstance(mesh, index++, x, y, -1, 1);
-        writeRockInstance(mesh, index++, x, y, FP_DEPTH, 1);
+        writeRockInstance(mesh, index++, x, y, -1, FP_BOUNDARY_TINT);
+        writeRockInstance(mesh, index++, x, y, FP_DEPTH, FP_BOUNDARY_TINT);
       }
     }
     mesh.count = index;
@@ -409,14 +436,22 @@ function FpRockInstances({
     const grid = gridRef.current;
     if (!mesh || !grid) return;
     buildFpSolidGrid(bunker, grid);
+    const blockSeed = bunker.blockSeed;
     let index = FP_ROCK_BOUNDARY_COUNT;
     // Depth 0 (the floor plane) is solid claim rock too now (F-115), so
-    // it is part of the diggable interior rather than an open plane.
+    // it is part of the diggable interior rather than an open plane. Each
+    // undug cell is tinted by its generated block kind (F-116).
     for (let z = 0; z < FP_DEPTH; z++) {
       for (let y = 0; y < FP_ROWS; y++) {
         for (let x = 0; x < FP_COLS; x++) {
           if (grid[fpCellIndex(x, y, z)] !== FP_ROCK_UNDUG) continue;
-          writeRockInstance(mesh, index++, x, y, z, FP_ROCK_INTERIOR_LIFT);
+          const tint =
+            blockSeed === undefined
+              ? FP_ROCK_INTERIOR_TINT
+              : bunkerBlockTint(
+                  bunkerCellBlock(blockSeed, bunker.footprint, x, y, z),
+                );
+          writeRockInstance(mesh, index++, x, y, z, tint);
         }
       }
     }
@@ -424,6 +459,73 @@ function FpRockInstances({
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }, [bunker, detail]);
+
+  return <group ref={groupRef} />;
+}
+
+// Shared singletons for the overflow-loot glints (never disposed).
+const LOOT_GLINT_GEOMETRY = new OctahedronGeometry(0.17, 0);
+const LOOT_GLINT_MATERIAL = new MeshStandardMaterial({
+  color: "#ffd76a",
+  emissive: new Color("#ffb020"),
+  emissiveIntensity: 0.9,
+  roughness: 0.3,
+  metalness: 0.1,
+});
+const lootMatrix = new Matrix4();
+const lootPosition = new Vector3();
+const lootQuaternion = new Quaternion();
+const lootScale = new Vector3(1, 1, 1);
+
+/**
+ * Glints marking uncollected overflow loot (F-116): a small emissive gem
+ * hovering at each loot cell so the player can find and walk over it. One
+ * InstancedMesh rebuilt only when the loot list changes; the octahedron
+ * geometry and material are shared singletons (frame-loop rule).
+ */
+function FpLootGlints({ bunker }: { bunker: BunkerState }) {
+  const groupRef = useRef<Group | null>(null);
+  const meshRef = useRef<InstancedMesh | null>(null);
+
+  useLayoutEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const mesh = new InstancedMesh(
+      LOOT_GLINT_GEOMETRY,
+      LOOT_GLINT_MATERIAL,
+      FP_LOOT_CAPACITY,
+    );
+    mesh.frustumCulled = false;
+    mesh.count = 0;
+    group.add(mesh);
+    meshRef.current = mesh;
+    return () => {
+      group.remove(mesh);
+      mesh.dispose();
+      meshRef.current = null;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const loot = bunker.loot ?? [];
+    const bottomRow = bunker.footprint.row + FP_ROWS - 1;
+    let index = 0;
+    for (const pile of loot) {
+      const lx = pile.col - bunker.footprint.col;
+      const ly = bottomRow - pile.row;
+      if (!fpCellInGrid(lx, ly, pile.depth)) continue;
+      lootPosition.set(lx, ly - 0.28, -pile.depth);
+      lootQuaternion.setFromEuler(
+        rockEuler.set(0.4, cellHash(lx + 1, ly + 1, pile.depth + 1) * 6.28, 0),
+      );
+      lootMatrix.compose(lootPosition, lootQuaternion, lootScale);
+      mesh.setMatrixAt(index++, lootMatrix);
+    }
+    mesh.count = index;
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [bunker]);
 
   return <group ref={groupRef} />;
 }
@@ -874,6 +976,7 @@ function BunkerFpRig({
   if (!swingRef.current) swingRef.current = createFpSwingState();
   const lastDigCellRef = useRef(-1);
   const lastDigAtRef = useRef(-1);
+  const lastCollectCellRef = useRef(-1);
 
   useFrame((state, delta) => {
     const move = moveRef.current;
@@ -923,6 +1026,31 @@ function BunkerFpRig({
     if (occupied !== occupiedCellRef.current) {
       occupiedCellRef.current = occupied;
       refreshBoxedIn();
+      // Walk-over loot pickup (F-116): entering a cell that holds overflow
+      // loot emits one collect intent; the panel credits a banked bunker's
+      // loot and the updated state drops the pile so it never re-fires.
+      // Scalar compare against the loot list, no per-frame allocation.
+      if (occupied !== lastCollectCellRef.current) {
+        lastCollectCellRef.current = occupied;
+        const loot = bunker.loot;
+        if (occupied >= 0 && loot && loot.length > 0) {
+          const bottomRow = bunker.footprint.row + FP_ROWS - 1;
+          for (const pile of loot) {
+            const lx = pile.col - bunker.footprint.col;
+            const ly = bottomRow - pile.row;
+            if (
+              fpCellInGrid(lx, ly, pile.depth) &&
+              fpCellIndex(lx, ly, pile.depth) === occupied
+            ) {
+              onEdit({
+                kind: "collect",
+                cell: { col: pile.col, row: pile.row, depth: pile.depth },
+              });
+              break;
+            }
+          }
+        }
+      }
     }
 
     fpCameraEuler.set(pitchRef.current, yawRef.current, 0);
@@ -1337,6 +1465,7 @@ function BunkerFpScene({
         color={FP_ENTRY_FILL_COLOR}
       />
       <FpRockInstances bunker={bunker} detail={detail} />
+      <FpLootGlints bunker={bunker} />
       <FpPlacedParts bunker={bunker} detail={detail} tier={tier} />
       <FpCore bunker={bunker} coreRef={coreRef} />
       {/* Target outline and ghost preview: mounted once over shared

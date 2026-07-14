@@ -3,7 +3,7 @@ import {
   operationResultResponse,
   withPlayerJsonRoute,
 } from "@/server/api-boundary";
-import { excavateBunker } from "@/server/bunker";
+import { collectBunkerLoot } from "@/server/bunker";
 import { BUNKER_CLAIM_DEPTH } from "@/sim/bunker";
 
 export const runtime = "nodejs";
@@ -11,8 +11,7 @@ export const runtime = "nodejs";
 const bodySchema = z.object({
   col: z.number().int(),
   row: z.number().int().min(1),
-  // Every cell is solid claim rock at claim (F-115), including the
-  // depth-0 floor plane, so any depth in range can be dug.
+  // Overflow loot can sit at any dug cell, including the depth-0 floor.
   depth: z
     .number()
     .int()
@@ -26,12 +25,8 @@ export async function POST(request: Request): Promise<Response> {
     bodySchema,
     async ({ sql, playerId }, body) =>
       operationResultResponse(
-        await excavateBunker(sql, playerId, body.col, body.row, body.depth),
-        (result) => ({
-          ...result.view,
-          newStamps: result.newStamps,
-          oreVibes: result.oreVibes,
-        }),
+        await collectBunkerLoot(sql, playerId, body.col, body.row, body.depth),
+        (result) => ({ ...result.view, oreVibes: result.oreVibes }),
       ),
   );
 }

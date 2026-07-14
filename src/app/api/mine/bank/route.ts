@@ -39,9 +39,12 @@ import {
   placeBasePart,
   proposedBunkerFootprint,
   STARTER_BASE_PART_INVENTORY,
+  settleBunkerDig,
 } from "@/sim/bunker";
+import { deriveBunkerBlockSeed } from "@/sim/bunker-blocks";
 import {
   applyAction,
+  carriedValue,
   cellAt,
   createMine,
   elevatorColumn,
@@ -395,7 +398,9 @@ export function validatePendingBunkerClaim(
       }
     }
   }
-  let bunker = createBunker(footprint);
+  // Seed mineable blocks from the trip seed + footprint so the server
+  // credit matches the client preview exactly (F-116).
+  let bunker = createBunker(footprint, deriveBunkerBlockSeed(seed, footprint));
   // The client submits the whole dug set, including the pre-mined spawn
   // pocket createBunker already opens (F-115). Those cells start open, so
   // skip them and replay only the real digs in submitted order: each must
@@ -742,9 +747,23 @@ export async function POST(request: Request): Promise<Response> {
       replayCharges.plank - (railReconciliation?.refunded.plank ?? 0),
     ),
   };
-  const claimedBunker = pendingBunker?.ok ? pendingBunker.bunker : null;
+  const validatedBunker = pendingBunker?.ok ? pendingBunker.bunker : null;
   const bunkerInventory = pendingBunker?.ok ? pendingBunker.inventory : null;
+  // Settle the pending bunker's ore into a fresh gear-sized bag (F-116):
+  // what fits banks as vibes, the rest persists as collectible loot on the
+  // saved bunker. A fresh bag keeps the credit deterministic and
+  // independent of how mine and bunker digging interleaved, and caps
+  // bunker ore to one bagful per bank so digging cannot outpace surface
+  // mining. The pre-mined spawn pocket never pays.
+  let claimedBunker = validatedBunker;
+  let bunkerHaulVibes = 0;
+  if (validatedBunker) {
+    const bunkerBag = createMine(parsed.data.seed, gear);
+    claimedBunker = settleBunkerDig(bunkerBag, validatedBunker);
+    bunkerHaulVibes = carriedValue(bunkerBag.miner);
+  }
   const hasPendingBunker = claimedBunker !== null;
+  const bankedCreditsTotal = trip.bankedCredits + bunkerHaulVibes;
   if (replayStock.usedLegacySupportSnapshot) {
     logMineCashOutEvent({
       code: "legacy_support_reconciled",
@@ -790,7 +809,7 @@ export async function POST(request: Request): Promise<Response> {
       RETURNING trip_count
     ), upd AS (
       UPDATE players
-      SET emeralds = emeralds + ${trip.bankedCredits},
+      SET emeralds = emeralds + ${bankedCreditsTotal},
           deepest_depth = GREATEST(deepest_depth, ${trip.maxDepth}),
           dynamite_count = GREATEST(0, dynamite_count - ${chargedConsumables.dynamite}),
           rope_count = GREATEST(0, rope_count - ${chargedConsumables.rope}),
@@ -813,13 +832,15 @@ export async function POST(request: Request): Promise<Response> {
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
     ), claimed_bunker AS (
-      INSERT INTO bunkers (player_id, footprint, core, parts, dug)
+      INSERT INTO bunkers (player_id, footprint, core, parts, dug, block_seed, loot)
       SELECT
         ${playerId},
         ${JSON.stringify(claimedBunker?.footprint ?? {})}::jsonb,
         ${JSON.stringify(claimedBunker?.core ?? {})}::jsonb,
         ${JSON.stringify(claimedBunker?.parts ?? [])}::jsonb,
-        ${JSON.stringify(claimedBunker?.dug ?? [])}::jsonb
+        ${JSON.stringify(claimedBunker?.dug ?? [])}::jsonb,
+        ${claimedBunker?.blockSeed ?? null},
+        ${JSON.stringify(claimedBunker?.loot ?? [])}::jsonb
       WHERE ${hasPendingBunker} AND EXISTS (SELECT 1 FROM world)
       ON CONFLICT (player_id) DO NOTHING
       RETURNING player_id

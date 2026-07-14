@@ -92,6 +92,14 @@ export function excavateRemoteBunkerCell(
   return bunkerApi("/api/bunker/excavate", jsonPost({ col, row, depth }));
 }
 
+export function collectRemoteBunkerLoot(
+  col: number,
+  row: number,
+  depth: number,
+) {
+  return bunkerApi("/api/bunker/collect", jsonPost({ col, row, depth }));
+}
+
 export function repairRemoteBunker() {
   return bunkerApi("/api/bunker/repair", jsonPost({}));
 }

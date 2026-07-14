@@ -1668,3 +1668,101 @@ test("prying a damaged part denies with repair-first guidance", async ({
   // The chip is a brief notice: it clears on its own.
   await expect(deny).toHaveCount(0, { timeout: 10_000 });
 });
+
+test("first-person walking over a banked bunker's overflow loot collects it", async ({
+  page,
+}) => {
+  // Software-GL runners compile the fp scene slowly.
+  test.setTimeout(180_000);
+  // A banked bunker with one overflow-loot pile (F-116) sitting on the
+  // floor one cell right of the spawn column (local x 4). Walking onto it
+  // credits the banked bunker's vibes and drops the pile.
+  const lootCell = { col: START_COL + 1, row: 5, depth: 0 };
+  const lootView = {
+    ...FP_BUNKER_VIEW,
+    bunker: {
+      ...FP_BUNKER_VIEW.bunker,
+      loot: [{ ...lootCell, ores: { coal: 4 } }],
+    },
+  };
+  // The collect API returns the same bunker with the pile cleared and the
+  // vibes credited, exactly as the server would after taking the loot.
+  const collectedView = {
+    ...lootView,
+    bunker: { ...lootView.bunker, loot: [] },
+    player: { ...FP_BUNKER_VIEW.player, balance: 124 },
+  };
+  const collectBodies: unknown[] = [];
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(lootView),
+    });
+  });
+  await page.route("**/api/bunker/collect", async (route) => {
+    collectBodies.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(collectedView),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  // Spawn maps the miner's column to local x 3, feet on the floor.
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-eye-x")))
+    .toBeCloseTo(3, 1);
+
+  // Strafe right onto the loot cell (local x 4). Rounding the eye past
+  // 3.6 puts the feet in cell x 4, the walk-over fires one collect intent.
+  await page.keyboard.down("d");
+  const walkFrameA = await canvas.screenshot();
+  await page.waitForTimeout(90);
+  const walkFrameB = await canvas.screenshot();
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-eye-x")), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(3.6);
+  await page.keyboard.up("d");
+  // Rule 10 motion proof: the held walk moves visible pixels, not just a
+  // diagnostic number.
+  expect(
+    await imagePixelDifferenceRatio(page, walkFrameA, walkFrameB),
+  ).toBeGreaterThan(0.00005);
+
+  // Exactly one collect fired, for the pile's cell.
+  await expect.poll(async () => collectBodies.length).toBe(1);
+  expect(collectBodies).toEqual([lootCell]);
+
+  // The pile is gone: strafing back over the cleared cell fires no second
+  // collect (the updated view dropped the loot).
+  await page.keyboard.down("a");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-eye-x")), {
+      timeout: 15_000,
+    })
+    .toBeLessThan(3);
+  await page.keyboard.up("a");
+  await page.keyboard.down("d");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-eye-x")), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(3.6);
+  await page.keyboard.up("d");
+  expect(collectBodies).toHaveLength(1);
+});

@@ -1,10 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bunkerCells, proposedBunkerFootprint } from "@/sim/bunker";
-import { bunkerSpawnPocketCells } from "@/sim/bunker-blocks";
+import {
+  type BunkerFootprint,
+  bunkerCells,
+  proposedBunkerFootprint,
+} from "@/sim/bunker";
+import {
+  bunkerCellBlock,
+  bunkerSpawnPocketCells,
+  deriveBunkerBlockSeed,
+} from "@/sim/bunker-blocks";
 import { applyAchievementProgress } from "./achievements";
 import {
   buyBasePart,
   claimBunker,
+  collectBunkerLoot,
   collectBunkerRaidPickup,
   excavateBunker,
   finishBunkerRaid,
@@ -15,6 +24,38 @@ import {
   setBunkerSkin,
   startBunkerRaid,
 } from "./bunker";
+
+/** An ore cell plus a face-adjacent in-footprint cell to pre-open, so an
+ * excavation test can chain the dig from an open neighbor. */
+function oreCellWithOpenNeighbor(
+  footprint: BunkerFootprint,
+  blockSeed: number,
+): {
+  ore: { col: number; row: number; depth: number };
+  open: { col: number; row: number; depth: number };
+} | null {
+  const bottomRow = footprint.row + footprint.height - 1;
+  for (let depth = 1; depth < 5; depth++) {
+    for (let y = 0; y < footprint.height; y++) {
+      for (let x = 0; x < footprint.width; x++) {
+        if (bunkerCellBlock(blockSeed, footprint, x, y, depth).kind !== "ore") {
+          continue;
+        }
+        // The cell one step toward the plane (depth-1) is always in the
+        // footprint and can be the open face this dig chains from.
+        return {
+          ore: { col: footprint.col + x, row: bottomRow - y, depth },
+          open: {
+            col: footprint.col + x,
+            row: bottomRow - y,
+            depth: depth - 1,
+          },
+        };
+      }
+    }
+  }
+  return null;
+}
 
 vi.mock("./balance-telemetry", () => ({
   recordBalanceEvent: vi.fn(async () => undefined),
@@ -967,6 +1008,125 @@ describe("bunker excavation wrapper", () => {
     // Groundbreaker is backfill-only: the wrapper never increments the
     // counter; the refresh reads the durable bunkers.dug array instead.
     expect(applyAchievementProgress).toHaveBeenCalledWith(sql, "player-1", {});
+  });
+
+  it("credits the block's ore vibes to the balance when digging ore", async () => {
+    const footprint: BunkerFootprint = { col: 1, row: 40, width: 7, height: 5 };
+    const blockSeed = deriveBunkerBlockSeed(9090, footprint);
+    const target = oreCellWithOpenNeighbor(footprint, blockSeed);
+    if (!target) throw new Error("expected an ore cell in a deep footprint");
+    let playerCredit: unknown[] | null = null;
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, core, parts")) {
+          return [
+            {
+              footprint,
+              core: { col: 4, row: 42, depth: 0, durability: 160 },
+              parts: [],
+              dug: [target.open],
+              block_seed: blockSeed,
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) return [];
+        if (query.includes("UPDATE players")) {
+          playerCredit = values;
+          return [];
+        }
+        return [];
+      },
+    );
+    const result = await excavateBunker(
+      sql as never,
+      "player-1",
+      target.ore.col,
+      target.ore.row,
+      target.ore.depth,
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.oreVibes ?? 0).toBeGreaterThan(0);
+    // The single CTE credited the balance with the ore's vibes.
+    expect(playerCredit).not.toBeNull();
+  });
+});
+
+describe("bunker loot collection", () => {
+  it("credits a loot cell's vibes and clears the pile", async () => {
+    const footprint: BunkerFootprint = { col: 1, row: 40, width: 7, height: 5 };
+    let lootWrite: string | null = null;
+    let playerCredited = false;
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 5, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, core, parts")) {
+          return [
+            {
+              footprint,
+              core: { col: 4, row: 42, depth: 0, durability: 160 },
+              parts: [],
+              dug: [{ col: 2, row: 44, depth: 0 }],
+              loot: [{ col: 2, row: 44, depth: 0, ores: { coal: 4 } }],
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) return [];
+        if (query.includes("UPDATE players")) {
+          playerCredited = true;
+          lootWrite = String(values[0]);
+          return [];
+        }
+        return [];
+      },
+    );
+    const result = await collectBunkerLoot(sql as never, "player-1", 2, 44, 0);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.oreVibes).toBe(4); // coal value 1 x 4
+    expect(playerCredited).toBe(true);
+    // The loot list written back no longer holds the collected cell.
+    expect(lootWrite).toBe("[]");
+  });
+
+  it("is a no-op on a cell with no loot", async () => {
+    const footprint: BunkerFootprint = { col: 1, row: 40, width: 7, height: 5 };
+    let playerCredited = false;
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 5, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, core, parts")) {
+        return [
+          {
+            footprint,
+            core: { col: 4, row: 42, depth: 0, durability: 160 },
+            parts: [],
+            dug: [{ col: 2, row: 44, depth: 0 }],
+            loot: [],
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("UPDATE players")) {
+        playerCredited = true;
+        return [];
+      }
+      return [];
+    });
+    const result = await collectBunkerLoot(sql as never, "player-1", 2, 44, 0);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.oreVibes).toBe(0);
+    expect(playerCredited).toBe(false);
   });
 });
 

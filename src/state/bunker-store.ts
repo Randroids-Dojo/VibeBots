@@ -17,6 +17,7 @@ import {
   bunkerErrorMessage,
   buyRemoteBasePart,
   claimRemoteBunker,
+  collectRemoteBunkerLoot,
   collectRemoteRaidPickup,
   excavateRemoteBunkerCell,
   finishRemoteBunkerRaid,
@@ -68,6 +69,11 @@ export interface BunkerStoreState {
     toDepth?: number,
   ) => Promise<BunkerMutationResult>;
   excavateCell: (
+    col: number,
+    row: number,
+    depth: number,
+  ) => Promise<BunkerMutationResult>;
+  collectLoot: (
     col: number,
     row: number,
     depth: number,
@@ -190,6 +196,12 @@ export const useBunkerStore = create<BunkerStoreState>((set) => ({
     applyMutationResult(
       set,
       await excavateRemoteBunkerCell(col, row, depth),
+      "bunker action failed",
+    ),
+  collectLoot: async (col, row, depth) =>
+    applyMutationResult(
+      set,
+      await collectRemoteBunkerLoot(col, row, depth),
       "bunker action failed",
     ),
   repairBunker: async () =>

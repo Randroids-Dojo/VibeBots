@@ -1,9 +1,29 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.260-roomier-bunker-spawn";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.261-bunker-ore";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.261",
+      date: "2026-07-14",
+      title: "Dig your bunker for ore, not just space",
+      intro: "Every block you dig out of your bunker now pays ore.",
+      changes: [
+        {
+          build,
+          text: "Blocks you dig out of your bunker now drop the same ore their depth would pay on the surface, and deeper rooms carry richer ore. Ore veins glint in the walls so you can see what a cell is worth before you break it.",
+        },
+        {
+          build,
+          text: "Ore dug on a trip rides home in your bag and banks with your surface haul, capped to one bagful of bunker ore per cash-out. Whatever overflows stays as a glinting pile at the cell that you walk over in first person to collect.",
+        },
+        {
+          build,
+          text: "A banked bunker pays dug ore straight to your vibes with no bag cap. The pre-mined starter room never pays. MINE_VERSION advances to 56; SIM_VERSION stays at 5.",
+        },
+      ],
+    },
     {
       version: "0.1.260",
       date: "2026-07-14",

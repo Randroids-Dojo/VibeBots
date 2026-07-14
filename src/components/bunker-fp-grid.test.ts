@@ -227,29 +227,29 @@ describe("fpCellBoxedIn", () => {
   });
 
   it("boxes in a dug cell once its open mouth is walled", () => {
-    // Dig a depth-2 cell reachable only through the pocket edge (4,0,1),
+    // Dig a depth-3 cell reachable only through the pocket edge (4,0,2),
     // then wall that pocket cell: every lateral neighbor is now rock or
     // wall.
     const bunker = corridorBunker();
     const cellCol = footprint.col + 4;
     const cellRow = footprint.row + footprint.height - 1;
-    const dug = excavateBunkerCell(bunker, cellCol, cellRow, 2);
+    const dug = excavateBunkerCell(bunker, cellCol, cellRow, 3);
     if (!dug.ok) throw new Error(`excavate: ${dug.reason}`);
     const grid = createFpSolidGrid();
     buildFpSolidGrid(dug.bunker, grid);
-    // (4,0,2): its -z neighbor (4,0,1) is still open pocket, so not boxed.
-    expect(fpCellBoxedIn(grid, 4, 0, 2)).toBe(false);
+    // (4,0,3): its -z neighbor (4,0,2) is still open pocket, so not boxed.
+    expect(fpCellBoxedIn(grid, 4, 0, 3)).toBe(false);
     const sealed = placeBasePart(
       dug.bunker,
       { ...STARTER_BASE_PART_INVENTORY },
       "wall-panel",
       cellCol,
       cellRow,
-      1,
+      2,
     );
     if (!sealed.ok) throw new Error(`seal: ${sealed.reason}`);
     buildFpSolidGrid(sealed.bunker, grid);
-    expect(fpCellBoxedIn(grid, 4, 0, 2)).toBe(true);
+    expect(fpCellBoxedIn(grid, 4, 0, 3)).toBe(true);
   });
 
   it("treats doors and spikes as passable neighbors", () => {
@@ -280,7 +280,7 @@ describe("fpCellBoxedIn", () => {
     const bunker = corridorBunker();
     const cellCol = footprint.col + 4;
     const cellRow = footprint.row + footprint.height - 1;
-    const dug = excavateBunkerCell(bunker, cellCol, cellRow, 2);
+    const dug = excavateBunkerCell(bunker, cellCol, cellRow, 3);
     if (!dug.ok) throw new Error(`excavate: ${dug.reason}`);
     const inventory = { ...STARTER_BASE_PART_INVENTORY };
     const sealed = placeBasePart(
@@ -289,12 +289,12 @@ describe("fpCellBoxedIn", () => {
       "wall-panel",
       cellCol,
       cellRow,
-      1,
+      2,
     );
     if (!sealed.ok) throw new Error(`seal: ${sealed.reason}`);
     const grid = createFpSolidGrid();
     buildFpSolidGrid(sealed.bunker, grid);
-    expect(fpCellBoxedIn(grid, 4, 0, 2)).toBe(true);
+    expect(fpCellBoxedIn(grid, 4, 0, 3)).toBe(true);
     // Prying the sealing wall refunds it and reopens the mouth (F-099),
     // so the rebuilt grid stands the hint down.
     const pried = removeBasePart(
@@ -302,11 +302,11 @@ describe("fpCellBoxedIn", () => {
       sealed.inventory,
       cellCol,
       cellRow,
-      1,
+      2,
     );
     if (!pried.ok) throw new Error(`pry: ${pried.reason}`);
     buildFpSolidGrid(pried.bunker, grid);
-    expect(fpCellBoxedIn(grid, 4, 0, 2)).toBe(false);
+    expect(fpCellBoxedIn(grid, 4, 0, 3)).toBe(false);
   });
 });
 

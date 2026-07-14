@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="roomier-bunker-spawn" data-date="2026-07-14">
+    <h3>Enlarge the bunker spawn pocket into a standing room</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-spawn-room</code>.</dd>
+      <dt>PR</dt><dd>#193.</dd>
+      <dt>Changed</dt><dd>User-reported: the miner "appears to be spawning inside a box" on entering a fresh bunker. The pre-mined spawn pocket was a 3x2x2 (12-cell) box with a two-cell ceiling right over the player's head and a diggable working face about 1.5 units off the nose. Enlarged it to a 3x3x3 (27-cell) room in <code>src/sim/bunker-blocks.ts</code> (<code>BUNKER_POCKET_HEIGHT</code> and <code>BUNKER_POCKET_DEPTH</code> 2 to 3), so the player spawns standing with headroom overhead and a couple of steps of depth before the working face. The bunker core, fixed at the room's top-front-center, now reads as an exposed centerpiece. Updated the pocket-size assertions and the depth-coupled dig, target, place, and open-cell expectations across the sim, store, first-person grid, server, bank, and first-person e2e tests (the pocket now opens depths 0-2, so digs and the level-ray target shift one cell deeper, and the fresh-claim open-cell count is 26, the 27 pocket cells minus the core the grid stamps over).</dd>
+      <dt>Verification</dt><dd>dash, <code>git diff --check</code>, typecheck, Biome (two documented pre-existing warnings), the full <code>vitest</code> suite, and the bunker first-person Playwright spec run locally against a production build. Release chain: package 0.1.260, new note plus <code>RELEASE_NOTICE_ID</code>, app-release and notifications route tests, and the release-notifications e2e (fresh-browser block and recent list). Rule 13 tips reviewed (no player-facing mine rule changed, no tip references the pocket). Rule 14 stamps reviewed (spawn-geometry tweak, no stamp added).</dd>
+      <dt>Assumptions</dt><dd>A 3x3x3 starter room reads as a room you stand in rather than a box, and exposing the core inside that room is acceptable and legible. Spawn stays at the room's front-center floor facing the diggable rock.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed; this refines the dig-out bunker spawn presentation.</dd>
+      <dt>Followups</dt><dd>None. The user-reported spawn-box is resolved in this slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-call-closeout" data-date="2026-07-14">
     <h3>Close the verified elevator call and boarding blockers</h3>
     <dl>

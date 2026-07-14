@@ -24,17 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-claim-bank-fix note complete", () => {
+  it("keeps the latest roomier-bunker-spawn note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.259-bunker-claim-bank-fix");
+    expect(release.noticeId).toBe("2026-07-14-0.1.260-roomier-bunker-spawn");
     expect(latestNote).toMatchObject({
+      version: "0.1.260",
+      title: "Stand up in a roomier bunker spawn",
+      intro: "A fresh claim now opens into a room you can stand up in.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A fresh bunker claim now carves a taller, deeper starter room (three cells wide, tall, and deep) so you spawn standing with headroom overhead and space before the working face, instead of pressed inside a cramped pocket.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-claim-bank-fix note complete", () => {
+    const release = getAppRelease();
+    const bankFixNote = release.notes.find(
+      (note) => note.version === "0.1.259",
+    );
+
+    expect(bankFixNote).toMatchObject({
       version: "0.1.259",
       title: "Save a bunker you just claimed",
       intro: "Cashing out now keeps a bunker you claimed on the same dive.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(bankFixNote?.changes.map((change) => change.text)).toEqual([
       "Claiming a bunker and cashing out on the same trip now saves the claim instead of failing at the surface. The pre-mined starter room no longer trips the cash-out check.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

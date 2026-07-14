@@ -13,7 +13,7 @@
 <article>
 <h1>F-128 Define honest elevator journey telemetry</h1>
 <section id="description">
-Separate elevator ride steps from player journeys. Count each contiguous same-direction automatic trip once, align Ride the Rail copy with its trigger, and emit per-trip journey deltas once on an idempotent successful cash-out so event sums cannot double count lifetime snapshots.
+Separate elevator ride steps from player journeys. Count each contiguous same-direction automatic trip once, align Ride the Rail copy with its trigger, and emit per-trip journey deltas once on an idempotent successful cash-out so event sums cannot double count lifetime snapshots. Do not reinterpret the existing step-polluted elevatorRides total as journeys: use one bounded early-alpha reset or a new versioned field, verify a zero start, grandfather an already collected cosmetic stamp without preserving its polluted number, then remove the compatibility path. Persist a completed zero-loot journey authoritatively before Base Return, mine-version turnover, or another state-clearing surface action can discard the local log, and return newStamps exactly once even when the credited haul is empty. Keep the journey-progress write in the cash-out transaction or recover it durably after commit so a stats-write failure plus trip_already_cashed_out cannot lose proof forever. Cover zero-loot ascent, surface descent plus return, same-version reload, remote-shaft Base Return, version mismatch, post-commit failure recovery, retry, and duplicate submission without retaining seed, coordinates, raw actions, or human text.
 </section>
 </article>
 </body>

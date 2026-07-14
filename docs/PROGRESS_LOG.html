@@ -31,6 +31,32 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-boarded-exit-monitoring" data-date="2026-07-14">
+    <h3>Keep boarded elevator exits supported</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-journey-progress-followup</code>.</dd>
+      <dt>PR</dt><dd>#188.</dd>
+      <dt>Changed</dt><dd>Continued read-only monitoring found a release-blocking interaction between boarded lateral exits and the generic dig finalizer. While <code>elevatorPhase</code> is <code>boarded</code>, left and right remain legal. A solid adjacent cell can therefore accept a dig without moving the miner off the rail, after which the normal settle path sees an empty shaft cell with no support and can drop the miner while the elevator phase still says boarded. Added F-134 and a matching HTML Dot to require car support until the miner actually leaves, synchronized phase state, and exactly one accepted-action finalizer across open, diggable, blocked, and hazardous exits.</dd>
+      <dt>Verification</dt><dd>Traced boarded action admission, lateral movement and digging, <code>settleMiner</code>, <code>isMinerSupported</code>, elevator phase transitions, and the existing open-side exit coverage in <code>src/sim/mine/replay.ts</code> and <code>src/sim/mine/replay.test.ts</code>. Confirmed the current test exits through an already empty side and does not exercise a successful dig that leaves the miner on rail. <code>pnpm check:dashes</code>, <code>git diff --check</code>, coverage JSON parsing, F-134 ledger and Dot reference validation, <code>dot-html show</code>, <code>pnpm lint</code>, and <code>pnpm typecheck</code> passed. Biome retained the two pre-existing warnings for the broken auth-route rule symlink and the optional-chain suggestion in <code>mine-input-cadence.ts</code>.</dd>
+      <dt>Assumptions</dt><dd>The car remains the miner's support while boarded. A lateral dig that does not move the miner may consume one normal turn, but it must not end boarding or apply unsupported-shaft gravity.</dd>
+      <dt>GDD coverage</dt><dd>REQ-028 now links F-134 because safe lateral shaft exit is part of the persistent elevator traversal contract. No requirement status changed.</dd>
+      <dt>Followups</dt><dd>Added F-134 with Dot VibeBots-f-134-keep-76218013.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="elevator-journey-progress-monitoring" data-date="2026-07-14">
+    <h3>Keep elevator journey progress durable and honest</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-journey-progress-followup</code>.</dd>
+      <dt>PR</dt><dd>#188.</dd>
+      <dt>Changed</dt><dd>Continued read-only monitoring found three additional F-128 boundaries in the evolving call-and-destination slice. The branch changes the meaning of durable <code>elevatorRides</code> from successful rail actions to completed journeys without separating or resetting existing step-polluted totals. It also skips automatic cash-out when a completed journey carries no credits, parts, or pending bunker, so Ride the Rail progress remains only in the local move log and can disappear when remote-shaft Base Return rebuilds the trip or a later mine version rejects that saved log. Finally, cash-out commits the world first and applies achievement progress in a caught best-effort call; a stats-write failure can therefore succeed for gameplay, reject every retry as already cashed out, and lose the journey plus its alert permanently. Expanded F-128 and its matching HTML Dot to require one bounded early-alpha counter transition, authoritative zero-loot progress, and transactional or recoverable <code>newStamps</code> delivery.</dd>
+      <dt>Verification</dt><dd>Traced journey completion through <code>src/sim/mine/replay.ts</code>, replay totals, <code>src/server/achievements.ts</code>, and the persistent achievement-stat JSON. Traced the surface auto-cash-out gate, per-move local persistence, Base Return trip rebuilding, mine-version rejection, cash-out commit order, and caught achievement failure in <code>src/components/mine-panel.tsx</code>, <code>src/state/mine-store.ts</code>, <code>src/state/mine-trip-persistence.ts</code>, and <code>src/app/api/mine/bank/route.ts</code>. Confirmed same-version reload preserves the local log, but Base Return and version turnover can discard it before the server awards progress, while a post-commit stats failure leaves no retry path. Dependency gate matched VibeKit v0.3.0, Rapier 0.19.3, Next 16.2.10, three 0.185.1, and React Three Fiber 9.6.1. <code>pnpm check:dashes</code>, <code>git diff --check</code>, coverage JSON and reference validation, <code>dot-html show</code>, <code>pnpm lint</code>, and <code>pnpm typecheck</code> passed. Biome retained the two pre-existing warnings for the broken auth-route rule symlink and the optional-chain suggestion in <code>mine-input-cadence.ts</code>.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: the early-alpha cohort starts the newly defined journey counter at zero through one bounded cleanup or a new versioned field instead of inheriting inflated step totals. Already collected cosmetic stamps stay collected, but their old numeric totals are not telemetry. A zero-value cash-out is valid when it commits newly proven cosmetic progress, remains idempotent, and emits no economy value.</dd>
+      <dt>GDD coverage</dt><dd>REQ-028 already links F-128 for elevator journey telemetry. REQ-032 now also links F-128 because Ride the Rail progress and its server-diffed collection alert depend on authoritative journey proof.</dd>
+      <dt>Followups</dt><dd>Expanded F-128 and its matching HTML Dot. No new followup ID was needed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-excavation-progress-monitoring" data-date="2026-07-14">
     <h3>Keep authored bunker pocket cells out of player progress</h3>
     <dl>

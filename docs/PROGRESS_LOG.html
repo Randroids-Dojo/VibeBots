@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-repair-cas-resolution-monitoring" data-date="2026-07-14">
+    <h3>Keep the authoritative checkpoint after a repair race</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>A later live edit resolved the stale world-load response previously recorded under F-124. The losing guarded repair now rereads and returns the winning diff and trip index. F-124 retains that behavior as a regression guard while its compatibility-marker retirement remains open.</dd>
+      <dt>Verification</dt><dd>Traced the empty guarded-update branch, the new authoritative <code>mine_worlds</code> reread, and the revised route test that supplies a different winning checkpoint and expects it in the response with no refund.</dd>
+      <dt>Assumptions</dt><dd>The active slice will ship the reread and its test. Cleanup must not regress that concurrency behavior before world load becomes read-only for all current profiles.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. F-124 remains linked to REQ-028 for the remaining bounded cleanup.</dd>
+      <dt>Followups</dt><dd>Updated F-124 and its matching HTML Dot. No new followup ID was needed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-placement-migration-monitoring" data-date="2026-07-14">
     <h3>Retire the free legacy elevator relocation path</h3>
     <dl>

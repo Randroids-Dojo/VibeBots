@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-redesign-tracking" data-date="2026-07-13">
+    <h3>Keep the Minecraft-style bunker redesign backlog complete</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-bunker-redesign-tracking</code>.</dd>
+      <dt>PR</dt><dd>#180.</dd>
+      <dt>Changed</dt><dd>Reconciles the design work from PRs #178 and #179 into the durable project trackers. F-114 through F-119 now have matching HTML Dots under the existing first-person bunker arc. Six atomic coverage rows, REQ-043 through REQ-048, separate the mining motion, starter room, ore and depletion, thin-slot construction, core removal, and in-bunker control contracts. Monitoring also found and recorded F-120: the current Reset behavior would regenerate ore and erase the starter pocket once ore-bearing bunker rock ships, so reset and retry paths must preserve depletion and a grounded passable spawn. F-116 and F-117 remain aligned with the resolved decisions: zero battery spend and a confirmed hard reset for incompatible old layouts with no migration or refund plumbing.</dd>
+      <dt>Verification</dt><dd><code>pnpm check:dashes</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>git diff --check</code>, JSON parsing, unique followup and requirement checks, and F-114 through F-120 Dot-link validation passed. Biome retained the two pre-existing warnings for the broken auth-route rule symlink and the optional-chain suggestion in <code>mine-input-cadence.ts</code>. The dependency upgrade gate found every watched version current.</dd>
+      <dt>Assumptions</dt><dd>None. Q-021 and Q-022 were resolved by the user and PR #179 before this reconciliation was finalized.</dd>
+      <dt>GDD coverage</dt><dd>Added REQ-043 through REQ-048 as <code>not_started</code> rows and expanded the Minecraft-style bunker spec with the reset depletion and safe-spawn contracts. No implementation status changed.</dd>
+      <dt>Followups</dt><dd>Added F-120 and its HTML Dot. Existing F-114 through F-119 gained matching HTML Dots and coordination notes without duplicating their product scope.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-core-dig-energy-seed" data-date="2026-07-13">
     <h3>Seed the dig-energy e2e so the swing cost stops flaking</h3>
     <dl>

@@ -58,7 +58,7 @@
       <dt>Context</dt><dd>Monitoring followup after PR #178. F-116 makes bunker rock yield normal ore, F-115 replaces the empty depth-zero plane with a pre-mined starter room, and F-119 keeps Reset accessible. The current reset contract clears every dug cell. Under the redesign, repeating Reset would recreate the same ore-bearing volume for unlimited rewards and would erase the starter room, leaving the next first-person spawn inside solid rock.</dd>
       <dt>Blocker (if any)</dt><dd>Settle the reset contract before F-116 or the F-119 in-bunker Reset control ships.</dd>
       <dt>Unblock condition</dt><dd>Reset must preserve server-owned resource depletion so no mined cell can pay out twice. Either keep excavation history or restore exhausted filler that yields no ore. Reset must always restore or preserve the F-115 starter pocket, choose a grounded passable spawn, retain the established active-raid guard, and settle the authoritative bunker plus player resources atomically. The Q-022 incompatible-layout path must fail fast with a clear Start fresh action and hard-reset old bunker state without migration or refund plumbing. Simulation, route, and end-to-end tests must repeat mine, reset, and reload cycles and prove total rewards do not increase, the pocket remains open, and the player never spawns inside rock.</dd>
-      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-120-prevent-2b381d8f (child of VibeBots-first-person-3d-30115c4e).</dd>
+      <dt>PR / Dot reference</dt><dd>PR #180; Dot VibeBots-f-120-prevent-2b381d8f (child of VibeBots-first-person-3d-30115c4e).</dd>
     </dl>
   </section>
 

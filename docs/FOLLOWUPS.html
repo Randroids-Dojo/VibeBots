@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-141" data-f="F-141" data-priority="blocks-release">
+    <h3>F-141: Make the main ruleset mergeable without administrator bypass</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #190 exact head <code>37ac64e6</code> passed the required CI, CodeQL, preview, exact-head bot review, thread, and settle gates, but GitHub still reports <code>mergeStateStatus: BLOCKED</code>. The active AutoReview ruleset applies a CodeQL code-scanning rule to the default branch. Main ruleset suites for PR #195, PR #196, and PR #197 each record result <code>bypass</code> with the code-scanning evaluation still saying <q>Waiting for Code Scanning results</q>, even though the PR heads had successful CodeQL runs. The archived walking-skeleton Dot records the same misconfigured-CodeQL administrator bypass on PR #1, so the normal protected merge path has been unreliable since bootstrap.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before another PR uses administrator access to cross a ruleset that cannot recognize its successful CodeQL evidence. A policy defect must not turn bypass into the routine merge method or erase the distinction between a compliant merge and an explicitly approved exception.</dd>
+      <dt>Unblock condition</dt><dd>Identify why the required CodeQL analysis is not visible to the default-branch ruleset, including ref, category, upload, merge-commit, and publication-latency handling. Keep the current security thresholds intact. Make a normal squash merge become eligible after the exact current head has green CodeQL, required CI, preview, submitted review, zero unresolved threads, and the settle window. Add a read-only operator preflight that distinguishes a delayed analysis from missing, stale-head, superseded-head, alert-threshold, and configuration failures, then verifies the final rule suite reports <code>pass</code> without bypass. Cover each state with fixtures or an isolated policy test, and prove one real PR merges through the protected path with no administrator override. Any CI or ruleset configuration change still requires explicit user approval before implementation.</dd>
+      <dt>PR / Dot reference</dt><dd>Tracking PR #190; Dot VibeBots-f-141-make-30742ae6.</dd>
+    </dl>
+  </section>
+
   <section id="F-140" data-f="F-140" data-priority="blocks-release">
     <h3>F-140: Require approval before branch history rewrites</h3>
     <dl>

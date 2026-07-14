@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest reset-autojump note complete", () => {
+  it("keeps the latest fp-polish note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.249-bunker-reset-autojump");
+    expect(release.noticeId).toBe("2026-07-13-0.1.250-bunker-fp-polish");
     expect(latestNote).toMatchObject({
+      version: "0.1.250",
+      title: "Pry with a long press, land with a view",
+      intro: "Touch polish for building inside the bunker.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Hold a touch on any placed part to pry it loose, whatever tool you have out. A quick tap still acts with the current tool.",
+      "Entering the bunker now greets you with the floor and a warm work light instead of a face full of rock, and the whole first-person loop measured allocation-clean so phones stay smooth.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived reset-autojump note complete", () => {
+    const release = getAppRelease();
+    const resetNote = release.notes.find((note) => note.version === "0.1.249");
+
+    expect(resetNote).toMatchObject({
       version: "0.1.249",
       title: "Reset your bunker, hop like you expect",
       intro: "Two fixes straight from a phone playtest.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(resetNote?.changes.map((change) => change.text)).toEqual([
       "Boxed in by a base built the old flat way? Reset bunker in the bunker sheet returns every undamaged part to your inventory, clears the layout and dug rock, and restores the core so you can rebuild room-style from inside. Two taps to confirm, never during a raid.",
       "First-person walking now hops one-block steps automatically on touch, and the mystery arrow button is gone. Space still jumps on desktop. The bunker sheet's bottom rows also no longer hide under the toolbelt.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

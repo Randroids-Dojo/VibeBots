@@ -337,6 +337,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker walks it in first person. Exit any time.",
   "Tip: In first person the pick digs deep claim rock; parts place at the crosshair; pry carries.",
+  "Tip: Inside the bunker, hold a touch on a placed part to pry it loose, whatever tool is out.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",

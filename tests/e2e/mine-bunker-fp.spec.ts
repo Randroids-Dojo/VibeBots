@@ -11,6 +11,7 @@ import {
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
+  touchHold,
   touchHoldDrag,
 } from "./support/mine-helpers";
 
@@ -221,6 +222,48 @@ test("first-person bunker viewer walks, looks, jumps, and exits in place", async
   );
   await expect(status).toHaveAttribute("data-energy", energyBefore ?? "");
   await expect(page.getByTestId("bunker-fp-enter")).toBeVisible();
+});
+
+test("the bunker status panel's 3D row enters the banked bunker", async ({
+  page,
+}) => {
+  // Software-GL runners compile the fp scene slowly.
+  test.setTimeout(180_000);
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FP_BUNKER_VIEW),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+
+  // The second Enter affordance: the row inside the bunker status
+  // sheet (the toolbelt button is covered by the walk/look/jump test).
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  const panelEnter = page.getByTestId("bunker-fp-enter-panel");
+  await expect(panelEnter).toBeVisible();
+  await panelEnter.click();
+
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  // Entering closes the sheet so it cannot sit over the fp view.
+  await expect(page.getByRole("region", { name: "Bunker status" })).toHaveCount(
+    0,
+  );
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+
+  await page.getByRole("button", { name: "Exit bunker" }).click();
+  await expect(status).toHaveAttribute("data-fp-mode", "0");
+  await awaitMineSceneReady(page);
 });
 
 test("second Escape leaves the first-person view", async ({ page }) => {
@@ -682,6 +725,123 @@ test.describe("phone viewport", () => {
       ).toBeGreaterThan(3.4);
     } finally {
       await releaseStick();
+    }
+  });
+
+  test("a long still press on the look zone quick-pries the crosshair part", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "uses CDP touch events");
+    // Software-GL phone runs compile the fp scene slowly.
+    test.setTimeout(240_000);
+    // A wall two cells right of spawn: the ray crosses an open cell on
+    // the way, so a stray tap act after the hold would visibly MOVE the
+    // pried part there (the suppression this test exists to pin).
+    const pryView = {
+      ...FP_BUNKER_VIEW,
+      bunker: {
+        ...FP_BUNKER_VIEW.bunker,
+        parts: [
+          {
+            partId: "wall-panel",
+            col: START_COL + 2,
+            row: 5,
+            durability: 90,
+          },
+        ],
+      },
+    };
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(pryView),
+      });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await digTo(page, 1);
+    await page.getByTestId("bunker-fp-enter").click();
+    const status = page.getByLabel("Mine status");
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    const canvas = page.locator("canvas");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+        timeout: 45_000,
+      })
+      .not.toBeNull();
+
+    // Face the wall (local 5,0,0) across the open cell (4,0,0). The
+    // tool stays the default build: the long press pries regardless.
+    await aimFp(page, -1.57, 0);
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-target"), {
+        timeout: 20_000,
+      })
+      .toBe("5:0:0:part");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-place"), {
+        timeout: 10_000,
+      })
+      .toBe("4:0:0");
+
+    // A still press on the look zone held past the hold window (450ms).
+    await touchHold(page, { x: 300, y: 350 }, 700);
+    const carried = page.locator(".bunker-fp-carried");
+    await expect(carried).toBeVisible({ timeout: 10_000 });
+    await expect(carried).toContainText("Wall");
+
+    // Releasing the hold must NOT also fire the tap act: with build
+    // armed and a valid place cell, a stray act would move the carried
+    // wall into (4,0,0) and clear the chip. Both stay put.
+    await page.waitForTimeout(400);
+    await expect(carried).toBeVisible();
+    await expect(canvas).toHaveAttribute("data-fp-target", "5:0:0:part");
+  });
+
+  test("the phone hotbar keeps every slot and the pry chip inside the viewport", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(FP_BUNKER_VIEW),
+      });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await digTo(page, 1);
+    await page.getByTestId("bunker-fp-enter").click();
+    await expect(page.getByLabel("Mine status")).toHaveAttribute(
+      "data-fp-mode",
+      "1",
+    );
+
+    // Pick, the six part slots, and the pry toggle: all rendered, all
+    // fully inside the 390px viewport (no horizontal clipping).
+    const slotTestIds = [
+      "bunker-fp-pick",
+      ...Object.keys(FP_BUNKER_VIEW.inventory).map(
+        (partId) => `bunker-fp-slot-${partId}`,
+      ),
+      "bunker-fp-pry",
+    ];
+    const viewportWidth = page.viewportSize()?.width ?? 390;
+    for (const testId of slotTestIds) {
+      const slot = page.getByTestId(testId);
+      await expect(slot).toBeVisible();
+      const box = await slot.boundingBox();
+      expect(box, `${testId} should have a layout box`).not.toBeNull();
+      if (!box) continue;
+      expect(box.x, `${testId} left edge`).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, `${testId} right edge`).toBeLessThanOrEqual(
+        viewportWidth,
+      );
     }
   });
 });

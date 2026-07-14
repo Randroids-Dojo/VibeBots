@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.249-bunker-reset-autojump";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.250-bunker-fp-polish";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.250",
+      date: "2026-07-13",
+      title: "Pry with a long press, land with a view",
+      intro: "Touch polish for building inside the bunker.",
+      changes: [
+        {
+          build,
+          text: "Hold a touch on any placed part to pry it loose, whatever tool you have out. A quick tap still acts with the current tool.",
+        },
+        {
+          build,
+          text: "Entering the bunker now greets you with the floor and a warm work light instead of a face full of rock, and the whole first-person loop measured allocation-clean so phones stay smooth.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.249",
       date: "2026-07-13",

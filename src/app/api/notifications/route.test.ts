@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.249-bunker-reset-autojump",
+      releaseNoticeId: "2026-07-13-0.1.250-bunker-fp-polish",
       releaseSummary:
-        "Reset your bunker, hop like you expect: Two fixes straight from a phone playtest.",
+        "Pry with a long press, land with a view: Touch polish for building inside the bunker.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.249-bunker-reset-autojump",
+      releaseNoticeId: "2026-07-13-0.1.250-bunker-fp-polish",
       attempted: 2,
       sent: 1,
       expired: 1,

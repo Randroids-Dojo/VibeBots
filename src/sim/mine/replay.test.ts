@@ -233,7 +233,15 @@ describe("mine replay orchestration", () => {
   it("runs elevator rides through replayTrip and counts successful moves", () => {
     const result = replayTrip(
       42,
-      ["right", "right", "ride-down", "ride-up"],
+      [
+        "right",
+        "right",
+        "down",
+        "ride-down",
+        "ride-down",
+        "ride-up",
+        "ride-up",
+      ],
       {
         ...DEFAULT_GEAR,
         elevator: 12,
@@ -243,8 +251,9 @@ describe("mine replay orchestration", () => {
       stock({}),
     );
 
-    expect(result.moves).toBe(4);
-    expect(result.maxDepth).toBe(6);
+    expect(result.moves).toBe(7);
+    expect(result.maxDepth).toBe(12);
+    expect(result.elevatorRides).toBe(2);
     expect(result.diff).toEqual([
       [2, 1, { kind: "empty" }],
       [2, 2, { kind: "empty" }],
@@ -252,6 +261,12 @@ describe("mine replay orchestration", () => {
       [2, 4, { kind: "empty" }],
       [2, 5, { kind: "empty" }],
       [2, 6, { kind: "empty" }],
+      [2, 7, { kind: "empty" }],
+      [2, 8, { kind: "empty" }],
+      [2, 9, { kind: "empty" }],
+      [2, 10, { kind: "empty" }],
+      [2, 11, { kind: "empty" }],
+      [2, 12, { kind: "empty" }],
     ]);
   });
 
@@ -411,10 +426,14 @@ describe("mine replay orchestration", () => {
     setCell(elevator, shaftCol, 1, { kind: "dirt", hp: 1 });
     setCell(elevator, shaftCol + 1, 5, {
       kind: "boulder",
-      fallIn: FALL_DELAY_ACTIONS,
+      fallIn: FALL_DELAY_ACTIONS + 1,
     });
     setCell(elevator, shaftCol + 1, 6, { kind: "empty" });
     setCell(elevator, shaftCol + 1, 7, { kind: "dirt" });
+    expect(applyAction(elevator, "down")).toMatchObject({
+      ok: true,
+      elevatorEntered: true,
+    });
     const ride = applyAction(elevator, "ride-down");
     expect(ride.ok).toBe(true);
     expect(elevator.miner.row).toBe(6);

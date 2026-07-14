@@ -471,6 +471,97 @@
   animation: mine-stratum-banner-fade 2600ms ease-out forwards;
 }
 
+.mine-elevator-controls {
+  position: absolute;
+  bottom: 92px;
+  left: 50%;
+  z-index: 11;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(330px, calc(100% - 28px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.mine-elevator-status {
+  min-height: 22px;
+  padding: 6px 12px;
+  border: 1px solid rgba(154, 167, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(14, 18, 30, 0.92);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+  color: #d9ddff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mine-elevator-controls fieldset {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid rgba(154, 167, 255, 0.72);
+  border-radius: 16px;
+  background: rgba(10, 13, 22, 0.94);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.48);
+  pointer-events: auto;
+}
+
+.mine-elevator-controls legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.mine-elevator-controls button {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 54px;
+  padding: 8px 14px;
+  border: 1px solid #9aa7ff;
+  border-radius: 12px;
+  background: rgba(64, 75, 130, 0.76);
+  color: #f4f5ff;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mine-elevator-controls button:only-of-type {
+  grid-column: 1 / -1;
+}
+
+.mine-elevator-controls button:focus-visible {
+  outline: 3px solid #f5c542;
+  outline-offset: 2px;
+}
+
+.mine-elevator-controls button:disabled {
+  border-color: #3b425f;
+  background: rgba(32, 37, 57, 0.72);
+  color: #777f9f;
+  cursor: default;
+}
+
+.mine-elevator-controls button span:first-child {
+  color: #c9d0ff;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 /*
  * Stamp collect alert (REQ-032): slams in like a passport stamp, holds,
  * then fades itself out. The component's onAnimationEnd owns cleanup.

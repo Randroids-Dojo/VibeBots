@@ -161,7 +161,7 @@ describe("mine trip persistence", () => {
     expect(replay.terminalReplayCollapsed).toBe(false);
   });
 
-  it("signals a restored automatic elevator descent until the rail bottom", () => {
+  it("restores boarded choice and partial elevator travel in either direction", () => {
     const gear = {
       ...DEFAULT_GEAR,
       elevator: 20,
@@ -173,7 +173,21 @@ describe("mine trip persistence", () => {
     }
     const baseDiff = exportDiff(mine);
 
-    const midway = replaySavedTrip(
+    const boarded = replaySavedTrip(
+      savedTrip({
+        seed: 444,
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        baseDiff,
+        moves: ["down"] as MineAction[],
+      }),
+      baseDiff,
+    );
+    expect(boarded.mine.miner.row).toBe(0);
+    expect(boarded.mine.elevatorPhase).toBe("boarded");
+    expect(boarded.resumeElevatorDirection).toBeNull();
+
+    const midwayDown = replaySavedTrip(
       savedTrip({
         seed: 444,
         gear,
@@ -183,21 +197,84 @@ describe("mine trip persistence", () => {
       }),
       baseDiff,
     );
-    expect(midway.mine.miner.row).toBe(12);
-    expect(midway.resumeElevatorDown).toBe(true);
+    expect(midwayDown.mine.miner.row).toBe(6);
+    expect(midwayDown.mine.elevatorPhase).toBe("riding-down");
+    expect(midwayDown.resumeElevatorDirection).toBe("ride-down");
 
+    const downToBottom = [
+      "down",
+      "ride-down",
+      "ride-down",
+      "ride-down",
+      "ride-down",
+    ] as MineAction[];
     const bottom = replaySavedTrip(
       savedTrip({
         seed: 444,
         gear,
         consumables: STARTING_CONSUMABLES,
         baseDiff,
-        moves: ["down", "ride-down", "ride-down", "ride-down"] as MineAction[],
+        moves: downToBottom,
       }),
       baseDiff,
     );
     expect(bottom.mine.miner.row).toBe(20);
-    expect(bottom.resumeElevatorDown).toBe(false);
+    expect(bottom.mine.elevatorPhase).toBe("boarded");
+    expect(bottom.resumeElevatorDirection).toBeNull();
+
+    const midwayUp = replaySavedTrip(
+      savedTrip({
+        seed: 444,
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        baseDiff,
+        moves: [...downToBottom, "ride-up"] as MineAction[],
+      }),
+      baseDiff,
+    );
+    expect(midwayUp.mine.miner.row).toBe(14);
+    expect(midwayUp.mine.elevatorPhase).toBe("riding-up");
+    expect(midwayUp.resumeElevatorDirection).toBe("ride-up");
+
+    const surface = replaySavedTrip(
+      savedTrip({
+        seed: 444,
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        baseDiff,
+        moves: [
+          ...downToBottom,
+          "ride-up",
+          "ride-up",
+          "ride-up",
+          "ride-up",
+        ] as MineAction[],
+      }),
+      baseDiff,
+    );
+    expect(surface.mine.miner.row).toBe(0);
+    expect(surface.mine.elevatorPhase).toBe("boarded");
+    expect(surface.resumeElevatorDirection).toBeNull();
+  });
+
+  it("does not restore automatic travel from a failed elevator action", () => {
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: 20,
+      elevatorColumn: START_COL,
+    };
+
+    const replay = replaySavedTrip(
+      savedTrip({
+        gear,
+        moves: ["ride-down"] as MineAction[],
+      }),
+      [],
+    );
+
+    expect(replay.moves).toEqual([]);
+    expect(replay.mine.elevatorPhase).toBe("idle");
+    expect(replay.resumeElevatorDirection).toBeNull();
   });
 
   it("clears pending bunker state for terminal replays", () => {
@@ -235,6 +312,8 @@ describe("mine trip persistence", () => {
     expect(replay.pendingBunker).toBeNull();
     expect(replay.terminalReplayCollapsed).toBe(true);
     expect(replay.terminalReplayConsumed).toBe(true);
+    expect(replay.mine.elevatorPhase).toBe("idle");
+    expect(replay.resumeElevatorDirection).toBeNull();
   });
 
   it("removes slot trips through the persistence boundary", () => {

@@ -233,8 +233,8 @@ export interface MineSessionState {
   tick: number;
   lastResult: MoveResult | null;
   lastAction: MineAction | null;
-  /** One-shot signal to continue a restored automatic elevator descent. */
-  resumeElevatorDown: boolean;
+  /** One-shot direction for restored automatic elevator travel. */
+  resumeElevatorDirection: "ride-up" | "ride-down" | null;
   cashOut: CashOutState;
   activeSlot: SaveSlotId;
   saveSlots: SaveSlotsState;
@@ -253,7 +253,7 @@ export interface MineSessionState {
   fallVisualImpactKey: number | null;
   markFallVisualImpact: (key: number) => void;
   clearFallVisualImpact: () => void;
-  move: (action: MineAction) => void;
+  move: (action: MineAction) => MoveResult | null;
   clearTerminalResult: () => void;
   loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
@@ -497,7 +497,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     tick: 0,
     lastResult: null,
     lastAction: null,
-    resumeElevatorDown: false,
+    resumeElevatorDirection: null,
     cashOut: { state: "idle" },
     activeSlot: 1,
     saveSlots: initialSlots,
@@ -519,18 +519,26 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     saveCurrentTrip: persistCurrentTrip,
 
     move: (action) => {
-      const { mine, tick, moves, cashOut } = get();
+      const { mine, tick, moves, cashOut, resumeElevatorDirection } = get();
       // The submitted log must match what gets credited; digging during
       // a pending cash-out would be silently discarded on success.
-      if (cashOut.state === "pending") return;
+      if (cashOut.state === "pending") return null;
       const result = applyAction(mine, action);
+      const preservesRestoredRide =
+        !result.ok &&
+        ((resumeElevatorDirection === "ride-down" &&
+          mine.elevatorPhase === "riding-down") ||
+          (resumeElevatorDirection === "ride-up" &&
+            mine.elevatorPhase === "riding-up"));
       // Refused actions are not part of the trip (the sim ignored them).
       if (result.ok) moves.push(action);
       set({
         tick: tick + 1,
         lastResult: result,
         lastAction: action,
-        resumeElevatorDown: false,
+        resumeElevatorDirection: preservesRestoredRide
+          ? resumeElevatorDirection
+          : null,
         ...(result.ok && result.collapsed ? { pendingBunker: null } : null),
       });
       // Persist the in-flight trip so a reload resumes mid-trip,
@@ -541,6 +549,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // device while real progress on this one is still tiny.
         if (moves.length === 1) void get().checkWorldFreshness();
       }
+      return result;
     },
 
     clearTerminalResult: () => {
@@ -549,7 +558,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       set({
         lastResult: null,
         lastAction: null,
-        resumeElevatorDown: false,
+        resumeElevatorDirection: null,
       });
     },
 
@@ -604,7 +613,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
               null,
             tick: replay.moves.length,
             lastResult: replay.lastResult,
-            resumeElevatorDown: replay.resumeElevatorDown,
+            resumeElevatorDirection: replay.resumeElevatorDirection,
             // Any save conflict was about the world being replaced here.
             saveConflict: "none",
           });
@@ -623,7 +632,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           bunkerReplayFootprint: null,
           tick: 0,
           lastResult: null,
-          resumeElevatorDown: false,
+          resumeElevatorDirection: null,
           // Any save conflict was about the world being replaced here.
           saveConflict: "none",
         });
@@ -717,7 +726,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pendingBunker: null,
         tick: 0,
         lastResult: null,
-        resumeElevatorDown: false,
+        resumeElevatorDirection: null,
       });
       persistCurrentTrip();
     },
@@ -1454,7 +1463,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pendingBunker: null,
         tick: 0,
         lastResult: null,
-        resumeElevatorDown: false,
+        resumeElevatorDirection: null,
       });
       return true;
     },
@@ -1748,7 +1757,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         tick: tick + 1,
         lastResult: null,
         lastAction: null,
-        resumeElevatorDown: false,
+        resumeElevatorDirection: null,
       });
       return true;
     },
@@ -1782,7 +1791,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         pendingBunker: null,
         tick: 0,
         lastResult: null,
-        resumeElevatorDown: false,
+        resumeElevatorDirection: null,
         cashOut: { state: "idle" },
       });
     },

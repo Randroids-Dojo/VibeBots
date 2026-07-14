@@ -612,7 +612,7 @@
     },
     {
       "id": "REQ-028",
-      "requirement": "Elevator: the first premium rail anchors one persistent shaft at any chosen surface column; later purchases add one depth-scaled row, and surface or lateral shaft entry boards safely for a free logged ride.",
+      "requirement": "Elevator: the first premium rail anchors one persistent shaft at any chosen surface column; entering any owned rail row calls the car for visible arrival and boarding, then endpoint-valid Up or Down arrows start free logged travel that auto-chains to the selected endpoint and banks at the surface.",
       "gddRef": "docs/gdd/06-mining.html#transport",
       "status": "done",
       "implementationRefs": [
@@ -624,6 +624,8 @@
         "src/components/mine-panel.tsx",
         "src/components/mine-canvas.tsx",
         "src/components/mine-sfx.ts",
+        "src/components/mine-elevator-controls.tsx",
+        "src/components/mine-elevator-presentation.ts",
         "src/sim/mine/gear.ts",
         "src/sim/mine/world.ts",
         "src/sim/mine/replay.ts",

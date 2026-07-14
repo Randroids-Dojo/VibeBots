@@ -190,6 +190,27 @@ describe("achievements", () => {
     ).toContain("tool-winch-builder");
   });
 
+  it("unlocks Ride the Rail after one completed elevator journey", () => {
+    expect(
+      ACHIEVEMENT_DEFINITIONS.find(
+        (definition) => definition.id === "survival-ride-rail",
+      ),
+    ).toMatchObject({
+      description: "Take an elevator ride.",
+      metric: "elevatorRides",
+      target: 1,
+    });
+    expect(achievementIdsUnlockedBy(baseSnapshot)).not.toContain(
+      "survival-ride-rail",
+    );
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        stats: { ...DEFAULT_ACHIEVEMENT_STATS, elevatorRides: 1 },
+      }),
+    ).toContain("survival-ride-rail");
+  });
+
   it("unlocks biome portal stamps from durable portal counts", () => {
     expect(
       achievementIdsUnlockedBy({

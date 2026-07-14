@@ -13,7 +13,7 @@
 <article>
 <h1>F-128 Define honest elevator journey telemetry</h1>
 <section id="description">
-Separate elevator ride steps from player journeys. Count each contiguous same-direction automatic trip once, align Ride the Rail copy with its trigger, and add only bounded authoritative journey counters to successful cash-out balance events.
+Separate elevator ride steps from player journeys. Count each contiguous same-direction automatic trip once, align Ride the Rail copy with its trigger, and emit per-trip journey deltas once on an idempotent successful cash-out so event sums cannot double count lifetime snapshots.
 </section>
 </article>
 </body>

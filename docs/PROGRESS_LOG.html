@@ -31,6 +31,58 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-support-state-sync-monitoring" data-date="2026-07-14">
+    <h3>Replace support stock from an accepted elevator response</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>Read-only monitoring found that accepted elevator upgrades return authoritative ladder and plank counts while the client still adds the refund to pre-request local consumables. Expanded F-121 and its HTML Dot to require replacement of support stock together with the authoritative rail, world, balance, and trip state.</dd>
+      <dt>Verification</dt><dd>Traced the upgrade response fields through both surface-only trip rebuilding and the post-bank store path. The server counts are ignored in both branches, so a lost-success retry or concurrent inventory change can leave support stock stale even when trip index and world diff are current.</dd>
+      <dt>Assumptions</dt><dd>An accepted mutation response is the authority for every state field it returns. Current-tab state and persisted trip state replace ladder and plank totals instead of merging a refund into an older snapshot.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. F-121 remains linked to REQ-028.</dd>
+      <dt>Followups</dt><dd>Expanded F-121 and its matching HTML Dot. No new followup ID was needed.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="elevator-conflict-telemetry-monitoring" data-date="2026-07-14">
+    <h3>Keep expected elevator preflight races out of error telemetry</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>Read-only monitoring found that the elevator preflight cash-out returns stable <code>trip_already_cashed_out</code> for an atomic compare-and-swap loss but still logs generic <code>cash_out_failed</code> at error severity. Expanded F-121 and its HTML Dot to keep the response and monitoring classification aligned at warning severity.</dd>
+      <dt>Verification</dt><dd>Compared the preflight stale-trip branch, atomic cash-out result branch, monitoring event union, and route tests. The stable trip-conflict code already exists and the client already routes it to authoritative save-conflict recovery, so no new event vocabulary or followup ID is needed.</dd>
+      <dt>Assumptions</dt><dd>An expected concurrency loser is operationally distinct from a persistence outage. It stays visible as bounded warning telemetry without inflating error counts.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. F-121 remains linked to REQ-028.</dd>
+      <dt>Followups</dt><dd>Expanded F-121 and its matching HTML Dot. No new followup ID was needed.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="elevator-repair-cas-monitoring" data-date="2026-07-14">
+    <h3>Resync a world load that loses elevator repair</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>Continued read-only monitoring found that a guarded legacy rail repair can lose its trip-count or diff compare-and-swap after reading the world, then return HTTP 200 with the pre-race diff and trip index. Expanded F-124 and its HTML Dot to require an authoritative reread or a stable retryable conflict instead of a stale successful load.</dd>
+      <dt>Verification</dt><dd>Traced the initial world read, guarded repair transaction, empty update result, and the test that currently pins the stale response when another request wins. Confirmed that later cash-out protection prevents overwrite but does not make the loading tab current.</dd>
+      <dt>Assumptions</dt><dd>A successful world-load response must describe authoritative current state. A losing compatibility repair performs no refund or second mutation, but it still resyncs before reporting success.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. F-124 remains linked to REQ-028.</dd>
+      <dt>Followups</dt><dd>Expanded F-124 and its matching HTML Dot. No new followup ID was needed.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="elevator-redesign-monitoring-update" data-date="2026-07-14">
+    <h3>Extend the elevator monitoring record without rewriting it</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>Monitoring after the original five elevator findings expanded F-123 to cover surface Down entry, added F-126 for adjacent-shaft return guidance, and added F-127 for the intermittent mine action readiness gate. Existing F-101, F-114, and F-116 now retain held-swing diagnostics, current tutorial cleanup, and the established persistent cargo-overflow contract.</dd>
+      <dt>Verification</dt><dd>Required CI run 29308527889 exposed F-127 and replacement run 29308854077 passed the same critical shard. The elevator branch full-suite artifacts later reproduced F-127 at the before-strike screenshot after movement checks passed. Ledger ordering, coverage references, matching HTML Dots, typecheck, lint, dash, diff, and JSON checks passed before publication.</dd>
+      <dt>Assumptions</dt><dd>Surface and lateral automatic boarding begin with a directional mine turn. Route guidance must model every boarding path the simulation accepts, and readiness coverage must distinguish slow startup, dropped input, and an accumulated screenshot deadline.</dd>
+      <dt>GDD coverage</dt><dd>REQ-017 and REQ-020 link F-126. REQ-018 and REQ-023 link F-127. REQ-028 links F-126 in addition to the original elevator followups. Status values stay unchanged.</dd>
+      <dt>Followups</dt><dd>Added F-126 and F-127 with matching HTML Dots, and expanded F-123, F-101, F-114, and F-116 without creating duplicate IDs.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-world-repair-monitoring" data-date="2026-07-14">
     <h3>Keep elevator cleanup bounded and semantic</h3>
     <dl>
@@ -89,11 +141,11 @@
     <dl>
       <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
       <dt>PR</dt><dd>#181.</dd>
-      <dt>Changed</dt><dd>Read-only monitoring of the evolving elevator and held bunker-mining slices found seven distinct gaps and captured each in the durable ledger plus an HTML Dot. F-121 requires structured elevator conflict reasons, authoritative state replacement, and conflict telemetry. F-122 serializes revision-guarded banked bunker edits under held mining. F-123 restores full-turn finalization to surface and lateral automatic elevator entry. F-124 retires the one-time runtime support-refund path after the small alpha cohort is reconciled. F-125 retires the legacy column fallback and fails fast on impossible missing-column state. F-126 makes route-home estimates recognize safe adjacent elevator boarding and use an explicit return-step contract. F-127 hardens the intermittent required mine-action readiness gate. Existing F-101, F-114, and F-116 now cover held-swing telemetry, current tutorial copy, and the established cargo-overflow contract. The monitor also confirmed that the active elevator slice fixed terminal-depth charging, persistent rail-cell payload preservation, lateral Ride the Rail progress, non-surface banking, checkpoint compare-and-swap, ordered transaction locking, and the legacy support refund transaction before publication, so those superseded findings were not duplicated.</dd>
-      <dt>Verification</dt><dd><code>pnpm check:dashes</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>git diff --check</code>, JSON parsing, F-121 through F-127 uniqueness and ordering checks, coverage-reference validation, and HTML Dot-link validation passed. Biome retained the two pre-existing warnings for the broken auth-route rule symlink and the optional-chain suggestion in <code>mine-input-cadence.ts</code>. The dependency upgrade gate found every watched version current. Required CI run 29308527889 exposed F-127; replacement run 29308854077 passed the same critical shard. The elevator branch full-suite artifacts later reproduced F-127 at the before-strike screenshot after its movement checks had passed.</dd>
-      <dt>Assumptions</dt><dd>Surface and lateral automatic boarding begin with a directional mine turn and must not bypass normal action consequences. Route guidance must model every automatic boarding path the simulation actually accepts. One-time compatibility paths may run for the tiny existing alpha cohort, but current-version state must not depend on them forever.</dd>
-      <dt>GDD coverage</dt><dd>REQ-017 and REQ-020 now link F-126. REQ-018 and REQ-023 now link F-127. REQ-028 links F-121 and F-123 through F-126. REQ-043 and REQ-045 link F-122. Status values stay unchanged and no normative GDD behavior changed in this tracking-only slice.</dd>
-      <dt>Followups</dt><dd>Added F-121 through F-127 with matching root HTML Dots.</dd>
+      <dt>Changed</dt><dd>Read-only monitoring of the evolving elevator and held bunker-mining slices found five distinct gaps and captured each in the durable ledger plus an HTML Dot. F-121 requires structured elevator conflict reasons, authoritative state replacement, and conflict telemetry. F-122 serializes revision-guarded banked bunker edits under held mining. F-123 restores full-turn finalization to lateral elevator entry. F-124 retires the one-time runtime support-refund path after the small alpha cohort is reconciled. F-125 retires the legacy column fallback and fails fast on impossible missing-column state. The monitor also confirmed that the active elevator slice fixed terminal-depth charging, persistent rail-cell payload preservation, lateral Ride the Rail progress, non-surface banking, checkpoint compare-and-swap, ordered transaction locking, and the legacy support refund transaction before publication, so those superseded findings were not duplicated.</dd>
+      <dt>Verification</dt><dd><code>pnpm check:dashes</code>, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>git diff --check</code>, JSON parsing, F-121 through F-125 uniqueness and ordering checks, REQ-028 reference validation, and HTML Dot-link validation passed. Biome retained the two pre-existing warnings for the broken auth-route rule symlink and the optional-chain suggestion in <code>mine-input-cadence.ts</code>. The dependency upgrade gate found every watched version current.</dd>
+      <dt>Assumptions</dt><dd>Lateral boarding is a directional mine turn and must not bypass normal action consequences. One-time compatibility paths may run for the tiny existing alpha cohort, but current-version state must not depend on them forever.</dd>
+      <dt>GDD coverage</dt><dd>REQ-028 now links F-121 and F-123 through F-125. REQ-043 and REQ-045 now link F-122. Status values stay unchanged and no normative GDD behavior changed in this tracking-only slice.</dd>
+      <dt>Followups</dt><dd>Added F-121, F-122, F-123, F-124, and F-125 with matching root HTML Dots.</dd>
     </dl>
   </article>
 

@@ -16,6 +16,13 @@ export interface FpInputState {
   /** Edge-triggered "act with the current tool" (left click while
    * pointer-locked, or a quick tap on the touch look zone). */
   act: boolean;
+  /** Held while the primary press is active (left button, or a dig-mode
+   * touch on the look zone). The rig only acts on it with the dig tool,
+   * where it drives continuous pickaxe mining: a strike repeats on the
+   * crosshair cell every swing, so dragging the aim to a new block mines
+   * it too (Minecraft hold-to-mine). Distinct from the edge `act`, which
+   * fires the first strike and every build placement. */
+  actHeld: boolean;
   /** Edge-triggered quick pry (right click), regardless of tool. */
   pryAct: boolean;
   /** Accumulated look deltas (touch drag), consumed each frame. */
@@ -28,6 +35,7 @@ export const fpInput: FpInputState = {
   strafe: 0,
   jump: false,
   act: false,
+  actHeld: false,
   pryAct: false,
   lookX: 0,
   lookY: 0,
@@ -62,6 +70,7 @@ export function resetFpInput(): void {
   fpInput.strafe = 0;
   fpInput.jump = false;
   fpInput.act = false;
+  fpInput.actHeld = false;
   fpInput.pryAct = false;
   fpInput.lookX = 0;
   fpInput.lookY = 0;

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-13-0.1.254-pick-first",
+      releaseNoticeId: "2026-07-14-0.1.255-hold-to-mine",
       releaseSummary:
-        "Step inside with the pick already out: Entering the bunker arms the pick so you can dig right away.",
+        "Swing the pickaxe and hold to dig: The pick swings at the block, and holding the dig keeps mining.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-13-0.1.254-pick-first",
+      releaseNoticeId: "2026-07-14-0.1.255-hold-to-mine",
       attempted: 2,
       sent: 1,
       expired: 1,

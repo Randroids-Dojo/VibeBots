@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-fp-mining-feel" data-date="2026-07-14">
+    <h3>Swing the pickaxe and hold to mine in the bunker</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-fp-mining-feel</code>.</dd>
+      <dt>PR</dt><dd>#182.</dd>
+      <dt>Changed</dt><dd>First item of the Minecraft-style bunker redesign (F-114). Digging in the first-person bunker now swings a pickaxe view-model at the aimed block, and holding the dig keeps swinging, so dragging the aim across the claim rock mines cell after cell without a tap per block; reach is unchanged (about three blocks, <code>FP_MAX_REACH</code>). Landed a pure, node-unit-tested state machine <code>src/components/bunker-fp-swing.ts</code> (strike once at the swing's impact, auto-restart while held, a sine-chop then cosine-ease throw curve), an <code>fpInput.actHeld</code> flag wired on desktop (left button, cleared on button up or pointer-lock loss) and touch (dig-mode look-zone hold), and a camera-rigged pickaxe in <code>bunker-fp-canvas.tsx</code> driven allocation-free from the existing rig <code>useFrame</code> (module-scope scratch Vector3/Euler/Quaternion). The touch long-press quick-pry now applies to the build and pry tools only, since the dig hold owns continuous mining (desktop right-click still quick-pries in any tool). Version 0.1.255; no <code>MINE_VERSION</code> or <code>SIM_VERSION</code> change. Rule 13: reviewed the mine tip rotation and rewrote the first-person bunker tip to teach hold-and-drag mining. Rule 14: reviewed stamps, none added (a feel improvement to existing digging, not a new mechanic or milestone; excavation-milestone stamps belong with the ore/blocks slice).</dd>
+      <dt>Verification</dt><dd><code>pnpm check:dashes</code>, <code>pnpm typecheck</code>, Biome, <code>git diff --check</code>, the swing unit suite (9 tests), the app-release and notifications route suites, and a fresh production build. Full <code>mine-bunker-fp.spec.ts</code> e2e (14 tests) green, including the new hold-to-mine test (a single sustained hold mines two-plus cells straight down the column with a Rule 10 consecutive-frame swing-motion proof) and the retargeted touch quick-pry test.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: in dig mode a look-zone hold means "keep mining", so touch long-press quick-pry is reserved for the build and pry tools. A same-cell dig guard (0.55s) debounces banked round-trips rather than optimistically mutating the local grid.</dd>
+      <dt>GDD coverage</dt><dd>REQ-043 (first-person mining motion) flips to <code>partial</code>: the moving strike, hold-to-repeat, drag-retarget, and no-per-frame-allocation clauses are done; the "displays block progress" clause waits on F-116 (real mineable blocks with break counts), since current claim rock breaks in one strike. Build-log entry appended to <code>docs/gdd/08-base-building.html</code>.</dd>
+      <dt>Followups</dt><dd>F-114 resolved. Deferred a per-block cracking-progress overlay to F-116.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-redesign-tracking" data-date="2026-07-13">
     <h3>Keep the Minecraft-style bunker redesign backlog complete</h3>
     <dl>

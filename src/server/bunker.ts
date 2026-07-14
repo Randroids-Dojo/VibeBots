@@ -618,9 +618,10 @@ export async function excavateBunker(
       AND ${oreVibes} > 0
       AND EXISTS (SELECT 1 FROM dug_update)`;
   // Groundbreaker is backfill-only: the empty patch increments nothing,
-  // and the refresh inside applyAchievementProgress re-reads the
-  // durable jsonb_array_length(bunkers.dug), which the UPDATE above
-  // already includes, so the metric always equals the dug count.
+  // and the refresh inside applyAchievementProgress re-derives the
+  // player-dug count from the durable bunkers.dug set (excluding the
+  // authored spawn pocket, F-133), which the UPDATE above already
+  // includes, so the metric always equals the real dig count.
   const [latestView, newStamps] = await Promise.all([
     loadBunkerView(sql, playerId),
     (async () => {

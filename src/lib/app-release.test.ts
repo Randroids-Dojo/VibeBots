@@ -24,17 +24,32 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-ore note complete", () => {
+  it("keeps the latest groundbreaker-real-dig note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.261-bunker-ore");
+    expect(release.noticeId).toBe("2026-07-14-0.1.262-groundbreaker-real-dig");
     expect(latestNote).toMatchObject({
+      version: "0.1.262",
+      title: "Groundbreaker waits for a real dig",
+      intro: "The first-dig bunker stamp no longer pops before you dig.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Groundbreaker, the stamp for digging your first cell of bunker claim rock, no longer unlocks the moment you claim a bunker. It now counts only cells you actually dig out, not the pre-mined starter room, so it pops on your real first dig.",
+      "Anyone who already earned it keeps it. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-ore note complete", () => {
+    const release = getAppRelease();
+    const oreNote = release.notes.find((note) => note.version === "0.1.261");
+
+    expect(oreNote).toMatchObject({
       version: "0.1.261",
       title: "Dig your bunker for ore, not just space",
       intro: "Every block you dig out of your bunker now pays ore.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(oreNote?.changes.map((change) => change.text)).toEqual([
       "Blocks you dig out of your bunker now drop the same ore their depth would pay on the surface, and deeper rooms carry richer ore. Ore veins glint in the walls so you can see what a cell is worth before you break it.",
       "Ore dug on a trip rides home in your bag and banks with your surface haul, capped to one bagful of bunker ore per cash-out. Whatever overflows stays as a glinting pile at the cell that you walk over in first person to collect.",
       "A banked bunker pays dug ore straight to your vibes with no bag cap. The pre-mined starter room never pays. MINE_VERSION advances to 56; SIM_VERSION stays at 5.",

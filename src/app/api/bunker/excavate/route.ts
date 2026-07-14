@@ -11,11 +11,12 @@ export const runtime = "nodejs";
 const bodySchema = z.object({
   col: z.number().int(),
   row: z.number().int().min(1),
-  // Depth 0 is the open claim plane; only interior rock can be dug.
+  // Every cell is solid claim rock at claim (F-115), including the
+  // depth-0 floor plane, so any depth in range can be dug.
   depth: z
     .number()
     .int()
-    .min(1)
+    .min(0)
     .max(BUNKER_CLAIM_DEPTH - 1),
 });
 

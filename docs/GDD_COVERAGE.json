@@ -1113,9 +1113,20 @@
       "id": "REQ-044",
       "requirement": "A fresh or reset bunker has a deterministic pre-mined 3x2x2 starter room with a grounded passable spawn instead of an open flat plane or solid-rock trap.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/bunker.ts",
+        "src/sim/bunker-blocks.ts",
+        "src/server/bunker.ts",
+        "src/state/mine-trip-persistence.ts",
+        "src/components/bunker-fp-grid.ts"
+      ],
+      "testRefs": [
+        "src/sim/bunker.test.ts",
+        "src/sim/bunker-blocks.test.ts",
+        "src/components/bunker-fp-grid.test.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
+      ],
       "followupRefs": [
         "F-115",
         "F-120"
@@ -1125,9 +1136,15 @@
       "id": "REQ-045",
       "requirement": "Bunker rock uses deterministic mine generation and break rules, spends no battery, deposits ore into the shared cargo flow, preserves depletion, and cannot pay rewards again after reset or retry.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/bunker-blocks.ts",
+        "src/sim/bunker.ts"
+      ],
+      "testRefs": [
+        "src/sim/bunker-blocks.test.ts",
+        "src/sim/bunker.test.ts"
+      ],
       "followupRefs": [
         "F-116",
         "F-120",

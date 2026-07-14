@@ -11,6 +11,7 @@ import {
   BUNKER_RAID_TIER_CAP,
   BUNKER_SKIN_CATALOG,
   type BunkerRaidTerrainKind,
+  type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
   bunkerRepairPlan,
@@ -41,8 +42,39 @@ import {
 
 const openTerrain = (): BunkerRaidTerrainKind => "empty";
 
-function fullyEnclosedBunker(minerCol: number, minerRow: number) {
+/**
+ * A bunker with every cell excavated. The redesign makes a fresh claim
+ * mostly solid rock (only the spawn pocket is open), so tests that
+ * exercise part placement, raids, or repairs (orthogonal to the dig-out
+ * mechanic) start from a fully open volume, matching the pre-F-115
+ * open-plane behavior once a room has been dug.
+ */
+function allDugBunker(minerCol: number, minerRow: number): BunkerState {
   const bunker = createBunker(proposedBunkerFootprint(minerCol, minerRow));
+  const dug = [];
+  for (let depth = 0; depth < BUNKER_CLAIM_DEPTH; depth++) {
+    for (const cell of bunkerCells(bunker.footprint)) {
+      dug.push({ col: cell.col, row: cell.row, depth });
+    }
+  }
+  return { ...bunker, dug };
+}
+
+/** A bunker with the whole depth-0 plane dug out but deeper cells still
+ * solid rock: reproduces the pre-F-115 "tunnel plane open, interior
+ * rock until dug" shape for tests that exercise the depth axis. */
+function planeDugBunker(minerCol: number, minerRow: number): BunkerState {
+  const bunker = createBunker(proposedBunkerFootprint(minerCol, minerRow));
+  const dug = bunkerCells(bunker.footprint).map((cell) => ({
+    col: cell.col,
+    row: cell.row,
+    depth: 0,
+  }));
+  return { ...bunker, dug };
+}
+
+function fullyEnclosedBunker(minerCol: number, minerRow: number) {
+  const bunker = allDugBunker(minerCol, minerRow);
   return {
     ...bunker,
     parts: bunkerCells(bunker.footprint)
@@ -84,7 +116,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("the starter kit seals the player cell and survives an open-field raid", () => {
-    let base = createBunker(proposedBunkerFootprint(10, 8));
+    let base = allDugBunker(10, 8);
     let inventory = STARTER_BASE_PART_INVENTORY;
     const core = base.core;
     // The sealed 3x3 starter room built from the granted kit alone:
@@ -128,7 +160,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("places and removes consumable wall parts", () => {
-    const bunker = createBunker(proposedBunkerFootprint(10, 8));
+    const bunker = allDugBunker(10, 8);
     const placed = placeBasePart(
       bunker,
       STARTER_BASE_PART_INVENTORY,
@@ -163,7 +195,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("moves a placed part without changing inventory or durability", () => {
-    const bunker = createBunker(proposedBunkerFootprint(10, 8));
+    const bunker = allDugBunker(10, 8);
     const placed = placeBasePart(
       bunker,
       STARTER_BASE_PART_INVENTORY,
@@ -270,7 +302,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("plans clanker paths through open cells toward the player cell", () => {
-    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const base = allDugBunker(10, 8);
     const firstSpawn = {
       col: base.footprint.col - 3,
       row: base.footprint.row - 1,
@@ -305,7 +337,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("prefers an open bunker route to the miner over biting a nearby wall", () => {
-    let base = createBunker(proposedBunkerFootprint(10, 8));
+    let base = allDugBunker(10, 8);
     const placed = placeBasePart(
       base,
       STARTER_BASE_PART_INVENTORY,
@@ -355,7 +387,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("kills the miner and clears XP when an open route reaches the player cell", () => {
-    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const base = allDugBunker(10, 8);
     const raid = resolveBunkerRaid(base, 1, "core-raid", {
       terrainAt: openTerrain,
     });
@@ -377,7 +409,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("never spawns clankers inside occupied generated cells", () => {
-    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const base = allDugBunker(10, 8);
     const blocked = new Map<string, BunkerRaidTerrainKind>([
       [`${base.footprint.col - 3},${base.footprint.row - 1}`, "dirt"],
       [`${base.footprint.col - 4},${base.footprint.row - 1}`, "ore"],
@@ -399,7 +431,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("chews a short ore cell route when it beats a long open detour", () => {
-    const base = createBunker(proposedBunkerFootprint(10, 8));
+    const base = allDugBunker(10, 8);
     const placed = placeBasePart(
       base,
       { ...STARTER_BASE_PART_INVENTORY, "wall-panel": 1 },
@@ -448,7 +480,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("lets Basic Turrets autofire with limited ammo during raids", () => {
-    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const base = allDugBunker(4, 5);
     const placed = placeBasePart(
       base,
       { ...STARTER_BASE_PART_INVENTORY, "basic-turret": 1 },
@@ -488,7 +520,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("damages Clankers with Floor Spikes and wears them down", () => {
-    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const base = allDugBunker(4, 5);
     const placed = placeBasePart(
       base,
       { ...STARTER_BASE_PART_INVENTORY, "floor-spikes": 1 },
@@ -543,7 +575,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("removes Basic Turrets when enough Clankers survive the autofire", () => {
-    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const base = allDugBunker(4, 5);
     const bunker = {
       ...base,
       parts: [
@@ -571,7 +603,7 @@ describe("bunker vertical slice sim", () => {
   });
 
   it("gates turret and spike purchases by level and owned limits", () => {
-    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const base = allDugBunker(4, 5);
 
     expect(BASE_PART_CATALOG["basic-turret"].price).toBe(
       BASE_PART_CATALOG["floor-spikes"].price * 10,
@@ -684,7 +716,7 @@ describe("specialist Clankers (F-085)", () => {
   });
 
   it("stamps every raid clanker with its kind and replays identically", () => {
-    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const bunker = allDugBunker(10, 10);
     const a = resolveBunkerRaid(bunker, 3, "raid-kinds");
     const b = resolveBunkerRaid(bunker, 3, "raid-kinds");
     expect(b).toEqual(a);
@@ -699,7 +731,7 @@ describe("specialist Clankers (F-085)", () => {
 
 describe("bunker repairs and stacked rooms (F-086)", () => {
   it("prices repairs proportionally and restores everything", () => {
-    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const bunker = allDugBunker(10, 10);
     const wall = BASE_PART_CATALOG["wall-panel"];
     const placed = placeBasePart(
       bunker,
@@ -735,7 +767,7 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
   });
 
   it("resets the bunker to a bare claim, refunding only undamaged parts", () => {
-    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const bunker = planeDugBunker(10, 10);
     const { col, row } = bunker.core;
     let current = bunker;
     let stock = STARTER_BASE_PART_INVENTORY;
@@ -772,7 +804,9 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     expect(reset.inventory["wall-panel"]).toBe(5);
     expect(reset.inventory["door-panel"]).toBe(1);
     expect(reset.bunker.parts).toEqual([]);
-    expect(reset.bunker.dug).toEqual([]);
+    // Reset clears the built layout but keeps the excavation and its
+    // depletion (F-120): the dug-out rock survives.
+    expect(reset.bunker.dug).toEqual(damaged.dug);
     expect(reset.bunker.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
     // The claim itself survives: footprint, core cell, and skins.
     expect(reset.bunker.footprint).toEqual(damaged.footprint);
@@ -786,11 +820,13 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     expect(stock["wall-panel"]).toBe(4);
   });
 
-  it("resets an empty bunker to itself", () => {
+  it("resets a fresh claim to itself, keeping its spawn pocket", () => {
     const bunker = createBunker(proposedBunkerFootprint(10, 10));
     const reset = applyBunkerReset(bunker, STARTER_BASE_PART_INVENTORY);
     expect(reset.bunker.parts).toEqual([]);
-    expect(reset.bunker.dug).toEqual([]);
+    // The pre-mined spawn pocket survives a reset (F-115/F-120).
+    expect(reset.bunker.dug).toEqual(bunker.dug);
+    expect(reset.bunker.dug.length).toBeGreaterThan(0);
     expect(reset.bunker.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
     expect(reset.inventory).toEqual(STARTER_BASE_PART_INVENTORY);
   });
@@ -799,7 +835,7 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     // Two rooms one above the other inside the claim: the outer shell
     // plus an interior floor row splitting them. The seal must hold
     // (no clanker can target the core) exactly as in a single room.
-    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    const bunker = allDugBunker(10, 10);
     const { col, row } = bunker.core;
     let current = bunker;
     let stock = STARTER_BASE_PART_INVENTORY;
@@ -861,7 +897,7 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
   });
 
   it("keeps placements inside the 7x5x5 volume", () => {
-    const bunker = createBunker(proposedBunkerFootprint(4, 5));
+    const bunker = allDugBunker(4, 5);
     const col = bunker.footprint.col;
     const row = bunker.footprint.row;
     expect(containsBunkerCell3D(bunker.footprint, col, row, 0)).toBe(true);
@@ -890,7 +926,7 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
   });
 
   it("treats each depth as its own occupancy layer", () => {
-    const bunker = createBunker(proposedBunkerFootprint(4, 5));
+    const bunker = planeDugBunker(4, 5);
     const col = bunker.footprint.col;
     const row = bunker.footprint.row;
     const front = placeBasePart(bunker, inventory(), "wall-panel", col, row, 0);
@@ -923,7 +959,7 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
   });
 
   it("blocks only the core's exact 3D cell", () => {
-    const bunker = createBunker(proposedBunkerFootprint(4, 5));
+    const bunker = planeDugBunker(4, 5);
     expect(
       placeBasePart(
         bunker,
@@ -954,7 +990,7 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
   });
 
   it("moves parts across depths without changing durability", () => {
-    const bunker = createBunker(proposedBunkerFootprint(4, 5));
+    const bunker = planeDugBunker(4, 5);
     const col = bunker.footprint.col;
     const row = bunker.footprint.row;
     const placed = placeBasePart(
@@ -1036,9 +1072,12 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
 
 describe("bunker excavation (dig-out depth)", () => {
   it("digs only reachable interior rock", () => {
-    const bunker = createBunker(proposedBunkerFootprint(4, 5));
-    const col = bunker.footprint.col;
-    const row = bunker.footprint.row;
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const col = base.footprint.col;
+    const row = base.footprint.row;
+    // Start from a single open floor cell so the dug chain is exact and
+    // every deeper cell must be reached through it.
+    const bunker: BunkerState = { ...base, dug: [{ col, row, depth: 0 }] };
     // Outside the volume.
     expect(excavateBunkerCell(bunker, col - 1, row, 1)).toEqual({
       ok: false,
@@ -1048,7 +1087,7 @@ describe("bunker excavation (dig-out depth)", () => {
       ok: false,
       reason: "outside",
     });
-    // The claim plane is already open, as is a dug cell.
+    // The open floor cell cannot be re-dug.
     expect(excavateBunkerCell(bunker, col, row, 0)).toEqual({
       ok: false,
       reason: "open",
@@ -1069,6 +1108,7 @@ describe("bunker excavation (dig-out depth)", () => {
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.bunker.dug).toEqual([
+      { col, row, depth: 0 },
       { col, row, depth: 1 },
       { col, row, depth: 2 },
     ]);

@@ -305,25 +305,27 @@ describe("POST /api/mine/bank", () => {
   });
 
   it("validates pending bunker parts stacked across depths", () => {
+    // A pocket floor cell is open at depth 0; digging one layer past the
+    // pocket (depth 2) opens a second buildable cell in the same column.
     const result = validatePendingBunkerClaim(
       {
         claimCol: START_COL,
         claimRow: 5,
         claimedAtMoveCount: 5,
-        dug: [{ col: START_COL - 3, row: 1, depth: 1 }],
+        dug: [{ col: START_COL - 1, row: 5, depth: 2 }],
         parts: [
           {
             partId: "wall-panel",
-            col: START_COL - 3,
-            row: 1,
+            col: START_COL - 1,
+            row: 5,
             depth: 0,
             durability: BASE_PART_CATALOG["wall-panel"].durability,
           },
           {
             partId: "wall-panel",
-            col: START_COL - 3,
-            row: 1,
-            depth: 1,
+            col: START_COL - 1,
+            row: 5,
+            depth: 2,
             durability: BASE_PART_CATALOG["wall-panel"].durability,
           },
         ],
@@ -338,7 +340,7 @@ describe("POST /api/mine/bank", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.bunker.parts.map((part) => part.depth)).toEqual([0, 1]);
+    expect(result.bunker.parts.map((part) => part.depth)).toEqual([0, 2]);
   });
 
   it("rejects pending dug chains that skip a connecting cell", () => {
@@ -428,8 +430,8 @@ describe("POST /api/mine/bank", () => {
         parts: [
           {
             partId: "wall-panel",
-            col: START_COL - 3,
-            row: 1,
+            col: START_COL - 1,
+            row: 5,
             depth: 0,
             durability: BASE_PART_CATALOG["wall-panel"].durability,
           },
@@ -487,15 +489,15 @@ describe("POST /api/mine/bank", () => {
         parts: [
           {
             partId: "door-panel",
-            col: START_COL - 3,
-            row: 1,
+            col: START_COL - 1,
+            row: 5,
             depth: 0,
             durability: BASE_PART_CATALOG["door-panel"].durability,
           },
           {
             partId: "door-panel",
-            col: START_COL - 2,
-            row: 1,
+            col: START_COL,
+            row: 5,
             depth: 0,
             durability: BASE_PART_CATALOG["door-panel"].durability,
           },
@@ -527,12 +529,12 @@ describe("POST /api/mine/bank", () => {
         claimCol: START_COL,
         claimRow: 5,
         claimedAtMoveCount: 5,
-        dug: [{ col: START_COL - 3, row: 1, depth: 1 }],
+        dug: [{ col: START_COL - 1, row: 5, depth: 2 }],
         parts: [
           {
             partId: "wall-panel",
-            col: START_COL - 3,
-            row: 1,
+            col: START_COL - 1,
+            row: 5,
             durability: BASE_PART_CATALOG["wall-panel"].durability,
           },
         ],

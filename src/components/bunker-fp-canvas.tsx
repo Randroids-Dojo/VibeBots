@@ -143,11 +143,11 @@ const FP_ENTRY_FILL_COLOR = "#d8c2a4";
 /** Deep claim rock tint (the default biome's softest rock gray). */
 const FP_ROCK_TINT = rockColorsForBiome("default")[0];
 /** 190 boundary cells (the six face planes around the volume) plus up
- * to 140 interior undug cells. */
+ * to one interior undug cell per volume cell. Every cell, including the
+ * depth-0 floor plane, starts as solid claim rock (F-115). */
 const FP_ROCK_BOUNDARY_COUNT =
   2 * FP_ROWS * FP_DEPTH + 2 * FP_COLS * FP_DEPTH + 2 * FP_COLS * FP_ROWS;
-const FP_ROCK_CAPACITY =
-  FP_ROCK_BOUNDARY_COUNT + FP_COLS * FP_ROWS * (FP_DEPTH - 1);
+const FP_ROCK_CAPACITY = FP_ROCK_BOUNDARY_COUNT + FP_COLS * FP_ROWS * FP_DEPTH;
 /** Interior diggable rock renders slightly brighter than the boundary
  * so "this one can open later" reads at a glance. */
 const FP_ROCK_INTERIOR_LIFT = 1.08;
@@ -410,7 +410,9 @@ function FpRockInstances({
     if (!mesh || !grid) return;
     buildFpSolidGrid(bunker, grid);
     let index = FP_ROCK_BOUNDARY_COUNT;
-    for (let z = 1; z < FP_DEPTH; z++) {
+    // Depth 0 (the floor plane) is solid claim rock too now (F-115), so
+    // it is part of the diggable interior rather than an open plane.
+    for (let z = 0; z < FP_DEPTH; z++) {
       for (let y = 0; y < FP_ROWS; y++) {
         for (let x = 0; x < FP_COLS; x++) {
           if (grid[fpCellIndex(x, y, z)] !== FP_ROCK_UNDUG) continue;

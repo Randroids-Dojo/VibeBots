@@ -679,12 +679,31 @@ describe("bunker API routes", () => {
     });
   });
 
-  it("rejects digging the open claim plane", async () => {
+  it("digs the depth-0 floor plane (all cells start as rock)", async () => {
     const res = await excavatePost(
       jsonRequest("http://localhost/api/bunker/excavate", {
         col: 7,
         row: 4,
         depth: 0,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockedExcavate).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      7,
+      4,
+      0,
+    );
+  });
+
+  it("rejects excavation depths outside the volume", async () => {
+    const res = await excavatePost(
+      jsonRequest("http://localhost/api/bunker/excavate", {
+        col: 7,
+        row: 4,
+        depth: 5,
       }),
     );
 

@@ -36,6 +36,7 @@ import {
   resolveBunkerRaid,
   STARTER_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
+import { withSpawnPocket } from "@/sim/bunker-blocks";
 import {
   cellAt,
   createMine,
@@ -92,7 +93,9 @@ function normalizedDugCells(value: unknown): DugBunkerCell[] {
       Number.isInteger(candidate.row) &&
       typeof candidate.depth === "number" &&
       Number.isInteger(candidate.depth) &&
-      candidate.depth >= 1 &&
+      // Depth 0 (the floor plane) is diggable too, and the spawn pocket
+      // ships as depth-0 dug cells (F-115), so keep them on normalize.
+      candidate.depth >= 0 &&
       candidate.depth < BUNKER_CLAIM_DEPTH
     );
   });
@@ -122,7 +125,9 @@ function parseBunkerState(
   return {
     footprint,
     core,
-    dug: normalizedDugCells(row.dug),
+    // Guarantee an open spawn pocket even for legacy claims stored under
+    // the old depth-0-open model (F-115), so nobody spawns in solid rock.
+    dug: withSpawnPocket(footprint, normalizedDugCells(row.dug)),
     skin: isBunkerSkinId(row.skin) ? row.skin : DEFAULT_BUNKER_SKIN,
     skinsOwned,
     parts: parts

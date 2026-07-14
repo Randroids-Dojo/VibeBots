@@ -24,17 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest groundbreaker-real-dig note complete", () => {
+  it("keeps the latest bunker-block-art note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.262-groundbreaker-real-dig");
+    expect(release.noticeId).toBe("2026-07-14-0.1.263-bunker-block-art");
     expect(latestNote).toMatchObject({
+      version: "0.1.263",
+      title: "Bunker walls show real dirt, rock, and ore",
+      intro:
+        "Your bunker interior now renders the mine's blocks instead of one flat gray.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Undug bunker cells now render as the dirt, rock, and ore you would find in the mine at that exact depth, instead of a single flat gray. You can read the room at a glance and watch the stone turn richer the deeper you dig.",
+      "Ore crystals now actually show in the walls at the mine's ore distribution for that depth, so you can spot a cell worth breaking before you swing. This is a visual change only; MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived groundbreaker-real-dig note complete", () => {
+    const release = getAppRelease();
+    const groundbreakerNote = release.notes.find(
+      (note) => note.version === "0.1.262",
+    );
+
+    expect(groundbreakerNote).toMatchObject({
       version: "0.1.262",
       title: "Groundbreaker waits for a real dig",
       intro: "The first-dig bunker stamp no longer pops before you dig.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(groundbreakerNote?.changes.map((change) => change.text)).toEqual([
       "Groundbreaker, the stamp for digging your first cell of bunker claim rock, no longer unlocks the moment you claim a bunker. It now counts only cells you actually dig out, not the pre-mined starter room, so it pops on your real first dig.",
       "Anyone who already earned it keeps it. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

@@ -1,5 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
-import { imagePixelDifferenceRatio } from "./support/image-pixels";
+import {
+  imagePixelDifferenceRatio,
+  imageRegionWarmNeutralFractions,
+} from "./support/image-pixels";
 import {
   aimFp,
   armFpPointer,
@@ -1765,4 +1768,107 @@ test("first-person walking over a banked bunker's overflow loot collects it", as
     .toBeGreaterThan(3.6);
   await page.keyboard.up("d");
   expect(collectBodies).toHaveLength(1);
+});
+
+/** Claim a fresh pending bunker at depth 5 and enter first-person, so the
+ * interior carries a real block seed and its undug cells render the mine's
+ * depth-appropriate dirt/rock/ore art (F-116). Seed 1 exposes ore on the
+ * spawn-facing wall. */
+async function enterFreshClaimFp(page: Page, seed: number): Promise<void> {
+  const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 6; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      setCell(mine, col, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: null,
+        inventory: FP_BUNKER_VIEW.inventory,
+        activeRaid: null,
+        player: FP_BUNKER_VIEW.player,
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
+    },
+    {
+      seed,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "5");
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
+  await claimSheet.getByRole("button", { name: "Close" }).click();
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+}
+
+test("first-person bunker interior renders dirt and rock, not one flat gray", async ({
+  page,
+}) => {
+  // Software-GL runners compile the fp scene slowly and this decodes a full
+  // screenshot for the pixel check.
+  test.setTimeout(180_000);
+  await enterFreshClaimFp(page, 1);
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
+      timeout: 45_000,
+    })
+    .toBe("26");
+  // Let the scene settle real frames before sampling.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 20_000 })
+    .not.toBeNull();
+  await page.waitForTimeout(1200);
+
+  // The undug walls surrounding the spawn pocket carry the depth's dirt and
+  // rock. Before per-kind meshes the whole interior was one flat rock gray
+  // (the node materials ignore instanceColor), so warm dirt pixels were
+  // absent. Sample the full canvas: both buckets must be well populated.
+  const shot = await canvas.screenshot();
+  const { warm, neutral } = await imageRegionWarmNeutralFractions(page, shot, {
+    left: 0,
+    top: 0,
+    right: 1,
+    bottom: 1,
+  });
+  expect(warm).toBeGreaterThan(0.04);
+  expect(neutral).toBeGreaterThan(0.04);
 });

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-block-art" data-date="2026-07-14">
+    <h3>Bunker walls show real dirt, rock, and ore</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-block-art</code>.</dd>
+      <dt>PR</dt><dd>#TBD.</dd>
+      <dt>Changed</dt><dd>Package 0.1.263 corrects the visual half of F-116. A user report ("the cells in the bunker need to look like the dirt and ores outside") exposed that F-116's claimed per-kind tint never rendered: <code>FpRockInstances</code> built one instanced mesh (dirt-cube geometry + a single rock material) and called <code>setColorAt</code> per instance, but both bunker block materials are <code>MeshStandardNodeMaterial</code> whose color comes from a procedural <code>colorNode</code>, and node materials ignore <code>instanceColor</code>. The whole interior therefore rendered as one flat gray: no rock forms, no ore crystals. The economy was correct throughout (ore yield, banking, depletion all keyed off <code>bunkerCellBlock</code>); only the pixels were dead. <code>FpRockInstances</code> now routes each undug cell by its real block kind into one of two instanced meshes built from the mine's own art (<code>DIRT_BLOCK_GEOMETRY</code> + <code>dirtBlockMaterial(dirtHex)</code> for dirt, <code>ROCK_BLOCK_GEOMETRY</code> + <code>rockBlockMaterial</code> for rock) and renders an <code>OreCrystals</code> overlay (the mine's own component) on exposed ore cells. Because the kinds come from <code>bunkerCellBlock</code> (the shared <code>generatedCell</code> keyed to each cell's real mine row), ore appears at exactly the surface mine's distribution for that depth, not on every cell, matching the user's follow-up ("distributed similarly to the actual ore distribution for that level"). Render-only over unchanged colliders, sim, and economy.</dd>
+      <dt>Verification</dt><dd>dash, <code>git diff --check</code>, typecheck, Biome, the full <code>vitest</code> suite. Visual proof (Rule 10): a scripted first-person capture confirmed brown dirt cubes on the walls/ceiling, gray dodecahedral rock on the floor, and ore crystals protruding from the spawn-facing wall (seed chosen so ore sits adjacent to the pocket). A new first-person e2e enters a fresh claim and samples the whole canvas with a warm/neutral pixel classifier, asserting both warm dirt (&gt;4%) and neutral rock (&gt;4%) pixels are present; the pre-fix flat-gray interior yields ~0 warm and fails it. Release chain: package 0.1.263, new note plus <code>RELEASE_NOTICE_ID</code>, app-release and notifications route tests, and the release-notifications e2e (fresh-browser block and recent list). Rule 13: added a tip that bunker walls show the mine's dirt/rock/ore and to break where ore glints. Rule 14: no new stamp (a visual correction, not a new mechanic or milestone).</dd>
+      <dt>Assumptions</dt><dd>Node materials ignoring <code>instanceColor</code> is a fixed three/webgpu property (see the repo memory on node-material compile behavior), so per-kind color variety requires separate materials/meshes, not per-instance tint. Two instanced meshes plus a sparse crystal overlay keeps the interior instanced and within the frame-loop allocation rule (the split happens in mount/rebuild effects, not <code>useFrame</code>).</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed; REQ-045's render clause is now honestly satisfied. The base-building build log records the correction, and an append-only correction note was added to the F-116 followup.</dd>
+      <dt>Followups</dt><dd>Corrects the visual half of F-116. Request item 2 (see and access the bag from the first-person HUD) is the next slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-dug-progress" data-date="2026-07-14">
     <h3>Groundbreaker waits for a real dig</h3>
     <dl>

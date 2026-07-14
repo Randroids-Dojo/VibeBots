@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.262-groundbreaker-real-dig";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.263-bunker-block-art";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.263",
+      date: "2026-07-14",
+      title: "Bunker walls show real dirt, rock, and ore",
+      intro:
+        "Your bunker interior now renders the mine's blocks instead of one flat gray.",
+      changes: [
+        {
+          build,
+          text: "Undug bunker cells now render as the dirt, rock, and ore you would find in the mine at that exact depth, instead of a single flat gray. You can read the room at a glance and watch the stone turn richer the deeper you dig.",
+        },
+        {
+          build,
+          text: "Ore crystals now actually show in the walls at the mine's ore distribution for that depth, so you can spot a cell worth breaking before you swing. This is a visual change only; MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.262",
       date: "2026-07-14",

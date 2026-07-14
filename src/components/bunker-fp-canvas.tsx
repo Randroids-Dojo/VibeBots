@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -39,7 +40,8 @@ import {
   type BunkerState,
   DEFAULT_BUNKER_SKIN,
 } from "@/sim/bunker";
-import { type BunkerBlock, bunkerCellBlock } from "@/sim/bunker-blocks";
+import { bunkerCellBlock } from "@/sim/bunker-blocks";
+import type { OreId } from "@/sim/mine/ores";
 import {
   buildFpSolidGrid,
   createFpSolidGrid,
@@ -99,10 +101,20 @@ import {
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
-import { DIRT_BLOCK_GEOMETRY } from "./mine-block-geometries";
-import { blockDetailEnabled, rockBlockMaterial } from "./mine-block-materials";
 import {
+  DIRT_BLOCK_GEOMETRY,
+  ROCK_BLOCK_GEOMETRY,
+} from "./mine-block-geometries";
+import {
+  blockDetailEnabled,
+  dirtBlockMaterial,
+  rockBlockMaterial,
+} from "./mine-block-materials";
+import { OreCrystals } from "./mine-block-render";
+import {
+  biomeDirtColorAt,
   cellHash,
+  GLOWING_ORES,
   ORE_COLORS,
   rockColorsForBiome,
 } from "./mine-render-palette";
@@ -148,23 +160,23 @@ const FP_WORK_LIGHT_COLOR = "#ffd9a0";
 const FP_ENTRY_FILL_COLOR = "#d8c2a4";
 /** Deep claim rock tint (the default biome's softest rock gray). */
 const FP_ROCK_TINT = rockColorsForBiome("default")[0];
+/** A representative shallow-bunker dirt color for the warm pass so the
+ * dirt program compiles before a fresh room's first paint. */
+const FP_WARM_DIRT_HEX = biomeDirtColorAt(4, 5);
 /** 190 boundary cells (the six face planes around the volume) plus up
  * to one interior undug cell per volume cell. Every cell, including the
  * depth-0 floor plane, starts as solid claim rock (F-115). */
 const FP_ROCK_BOUNDARY_COUNT =
   2 * FP_ROWS * FP_DEPTH + 2 * FP_COLS * FP_DEPTH + 2 * FP_COLS * FP_ROWS;
 const FP_ROCK_CAPACITY = FP_ROCK_BOUNDARY_COUNT + FP_COLS * FP_ROWS * FP_DEPTH;
+/** The dirt/ore-base mesh only ever holds interior cells (the boundary
+ * shell is all claim rock), so it caps at one per volume cell. */
+const FP_DIRT_CAPACITY = FP_COLS * FP_ROWS * FP_DEPTH;
 /** Interior diggable rock renders slightly brighter than the boundary
  * so "this one can open later" reads at a glance. */
 const FP_ROCK_INTERIOR_LIFT = 1.08;
 /** One loot glint per dug cell that still holds uncollected ore. */
 const FP_LOOT_CAPACITY = FP_CELL_COUNT;
-/** Boundary shell and plain interior rock tints, and the dirt tint for
- * the softer blocks, so a wall of claim rock reads as dirt-and-stone with
- * ore glinting through (F-116). */
-const FP_BOUNDARY_TINT = new Color().setScalar(1);
-const FP_ROCK_INTERIOR_TINT = new Color().setScalar(FP_ROCK_INTERIOR_LIFT);
-const FP_DIRT_TINT = new Color("#8a6a45");
 
 declare global {
   interface Window {
@@ -331,16 +343,39 @@ const rockScale = new Vector3();
 const rockEuler = new Euler();
 const rockColor = new Color();
 
-function writeRockInstance(
+/** A faceted rock body (the mine's dodecahedron): full per-cell rotation
+ * so no two blocks repeat, scaled just past the cell so seams close. */
+function writeRockBody(
   mesh: InstancedMesh,
   index: number,
   x: number,
   y: number,
   z: number,
-  tint: Color,
 ): void {
-  // Deterministic tiny jitter hashed from the cell coordinates so the
-  // hewn rock never shimmers across rebuilds.
+  const salt = fpCellIndex(x + 1, y + 1, z + 1);
+  rockEuler.set(
+    cellHash(salt, 1, 13) * 3.1,
+    cellHash(salt, 2, 17) * 3.1,
+    cellHash(salt, 3, 19) * 3.1,
+  );
+  rockQuaternion.setFromEuler(rockEuler);
+  // ROCK_BLOCK_GEOMETRY is a 0.62 dodecahedron; ~1.06 fills the cell and
+  // pushes vertices past the boundary so adjacent rock closes its seams.
+  rockScale.setScalar(1.06 + cellHash(salt, 4, 53) * 0.05);
+  rockPosition.set(x, y, -z);
+  rockMatrix.compose(rockPosition, rockQuaternion, rockScale);
+  mesh.setMatrixAt(index, rockMatrix);
+}
+
+/** A soft dirt/ore-base body (the mine's rounded cube): tiny jitter only,
+ * scaled to fill the cell. */
+function writeDirtBody(
+  mesh: InstancedMesh,
+  index: number,
+  x: number,
+  y: number,
+  z: number,
+): void {
   const salt = fpCellIndex(x + 1, y + 1, z + 1);
   rockEuler.set(
     (cellHash(salt, 1, 11) - 0.5) * 0.08,
@@ -348,35 +383,72 @@ function writeRockInstance(
     (cellHash(salt, 3, 37) - 0.5) * 0.08,
   );
   rockQuaternion.setFromEuler(rockEuler);
-  // DIRT_BLOCK_GEOMETRY is a 0.94 rounded cube; the scale band keeps
-  // every block at or past cell size so seams close.
+  // DIRT_BLOCK_GEOMETRY is a 0.94 rounded cube; the scale band keeps every
+  // block at or past cell size so seams close.
   rockScale.setScalar(1.07 + cellHash(salt, 4, 53) * 0.05);
   rockPosition.set(x, y, -z);
   rockMatrix.compose(rockPosition, rockQuaternion, rockScale);
   mesh.setMatrixAt(index, rockMatrix);
-  mesh.setColorAt(index, tint);
 }
 
-/** Tint an interior block by kind (F-116): ore glows in its ore color,
- * dirt reads warm-brown, plain rock keeps the lifted gray. Mutates and
- * returns the shared scratch color (no per-cell allocation). */
-function bunkerBlockTint(block: BunkerBlock): Color {
-  if (block.kind === "ore" && block.ore) {
-    return rockColor.set(ORE_COLORS[block.ore]);
+const FP_FACE_NEIGHBORS: readonly (readonly [number, number, number])[] = [
+  [1, 0, 0],
+  [-1, 0, 0],
+  [0, 1, 0],
+  [0, -1, 0],
+  [0, 0, 1],
+  [0, 0, -1],
+];
+
+/** True when an undug cell touches open space on any face, so its front
+ * (an ore vein) would actually be visible to the player. */
+function fpCellExposed(
+  grid: FpSolidGrid,
+  x: number,
+  y: number,
+  z: number,
+): boolean {
+  for (const [dx, dy, dz] of FP_FACE_NEIGHBORS) {
+    const nx = x + dx;
+    const ny = y + dy;
+    const nz = z + dz;
+    if (nx < 0 || nx >= FP_COLS || ny < 0 || ny >= FP_ROWS) continue;
+    if (nz < 0 || nz >= FP_DEPTH) continue;
+    if (grid[fpCellIndex(nx, ny, nz)] === FP_OPEN) return true;
   }
-  if (block.kind === "dirt") {
-    return rockColor.copy(FP_DIRT_TINT);
+  return false;
+}
+
+/** An exposed ore cell that gets crystal art overlaid on its open face. */
+interface FpOreCell {
+  key: number;
+  x: number;
+  y: number;
+  z: number;
+  hashCol: number;
+  hashRow: number;
+  ore: OreId;
+}
+
+/** Cheap equality so the ore-crystal list only triggers a React update
+ * when the exposed ore veins actually change (a dig, not every rebuild). */
+function sameFpOreCells(a: FpOreCell[], b: FpOreCell[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].key !== b[i].key || a[i].ore !== b[i].ore) return false;
   }
-  return rockColor.copy(FP_ROCK_INTERIOR_TINT);
+  return true;
 }
 
 /**
- * The claim rock: ONE InstancedMesh over shared singletons (dirt block
- * geometry + rock material). The 190 boundary cells surrounding the
- * volume are written once at mount; the interior undug instances are
- * rebuilt whenever the bunker (its dug list) changes. Only the
- * per-mount InstancedMesh is disposed on unmount; the geometry and
- * material singletons stay alive (frame-loop-performance rule).
+ * The claim rock, rendered like the mine at this depth (F-116): rock
+ * cells use the faceted rock dodecahedron and rock material, dirt and ore
+ * bases use the rounded dirt cube and the depth's dirt material, and
+ * exposed ore veins get the mine's crystal cluster on their open face.
+ * Two InstancedMeshes (rock + dirt) plus a handful of crystal groups; the
+ * boundary shell writes once at mount, the interior rebuilds only when the
+ * dug list changes. The geometry and material singletons stay alive; only
+ * the per-mount meshes dispose on unmount (frame-loop-performance rule).
  */
 function FpRockInstances({
   bunker,
@@ -386,81 +458,140 @@ function FpRockInstances({
   detail: boolean;
 }) {
   const groupRef = useRef<Group | null>(null);
-  const meshRef = useRef<InstancedMesh | null>(null);
+  const rockMeshRef = useRef<InstancedMesh | null>(null);
+  const dirtMeshRef = useRef<InstancedMesh | null>(null);
   const gridRef = useRef<FpSolidGrid | null>(null);
   if (!gridRef.current) gridRef.current = createFpSolidGrid();
+  const [oreCells, setOreCells] = useState<FpOreCell[]>([]);
+
+  // The bunker spans five rows, so one depth-appropriate dirt color reads
+  // as "the dirt you'd see at this depth" without a per-row material.
+  const footprint = bunker.footprint;
+  const dirtHex = useMemo(() => {
+    const centerRow = footprint.row + Math.floor(FP_ROWS / 2);
+    const centerCol = footprint.col + Math.floor(FP_COLS / 2);
+    return biomeDirtColorAt(centerCol, centerRow);
+  }, [footprint.row, footprint.col]);
 
   useLayoutEffect(() => {
     const group = groupRef.current;
     if (!group) return;
-    const mesh = new InstancedMesh(
-      DIRT_BLOCK_GEOMETRY,
+    const rockMesh = new InstancedMesh(
+      ROCK_BLOCK_GEOMETRY,
       rockBlockMaterial(FP_ROCK_TINT, detail),
       FP_ROCK_CAPACITY,
     );
-    mesh.frustumCulled = false;
+    const dirtMesh = new InstancedMesh(
+      DIRT_BLOCK_GEOMETRY,
+      dirtBlockMaterial(dirtHex, detail),
+      FP_DIRT_CAPACITY,
+    );
+    rockMesh.frustumCulled = false;
+    dirtMesh.frustumCulled = false;
+    // The six boundary face planes are all solid claim rock.
     let index = 0;
     for (let y = 0; y < FP_ROWS; y++) {
       for (let z = 0; z < FP_DEPTH; z++) {
-        writeRockInstance(mesh, index++, -1, y, z, FP_BOUNDARY_TINT);
-        writeRockInstance(mesh, index++, FP_COLS, y, z, FP_BOUNDARY_TINT);
+        writeRockBody(rockMesh, index++, -1, y, z);
+        writeRockBody(rockMesh, index++, FP_COLS, y, z);
       }
     }
     for (let x = 0; x < FP_COLS; x++) {
       for (let z = 0; z < FP_DEPTH; z++) {
-        writeRockInstance(mesh, index++, x, -1, z, FP_BOUNDARY_TINT);
-        writeRockInstance(mesh, index++, x, FP_ROWS, z, FP_BOUNDARY_TINT);
+        writeRockBody(rockMesh, index++, x, -1, z);
+        writeRockBody(rockMesh, index++, x, FP_ROWS, z);
       }
     }
     for (let x = 0; x < FP_COLS; x++) {
       for (let y = 0; y < FP_ROWS; y++) {
-        writeRockInstance(mesh, index++, x, y, -1, FP_BOUNDARY_TINT);
-        writeRockInstance(mesh, index++, x, y, FP_DEPTH, FP_BOUNDARY_TINT);
+        writeRockBody(rockMesh, index++, x, y, -1);
+        writeRockBody(rockMesh, index++, x, y, FP_DEPTH);
       }
     }
-    mesh.count = index;
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    group.add(mesh);
-    meshRef.current = mesh;
+    rockMesh.count = index;
+    rockMesh.instanceMatrix.needsUpdate = true;
+    dirtMesh.count = 0;
+    group.add(rockMesh);
+    group.add(dirtMesh);
+    rockMeshRef.current = rockMesh;
+    dirtMeshRef.current = dirtMesh;
     return () => {
-      group.remove(mesh);
-      mesh.dispose();
-      meshRef.current = null;
+      group.remove(rockMesh);
+      group.remove(dirtMesh);
+      rockMesh.dispose();
+      dirtMesh.dispose();
+      rockMeshRef.current = null;
+      dirtMeshRef.current = null;
     };
-  }, [detail]);
+  }, [detail, dirtHex]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies(detail): a detail flip recreates the InstancedMesh above, so the interior instances must rewrite onto the new mesh even though the body never reads detail.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(detail): a detail flip recreates the meshes above, so the interior instances must rewrite onto the new meshes even though the body never reads detail.
   useLayoutEffect(() => {
-    const mesh = meshRef.current;
+    const rockMesh = rockMeshRef.current;
+    const dirtMesh = dirtMeshRef.current;
     const grid = gridRef.current;
-    if (!mesh || !grid) return;
+    if (!rockMesh || !dirtMesh || !grid) return;
     buildFpSolidGrid(bunker, grid);
     const blockSeed = bunker.blockSeed;
-    let index = FP_ROCK_BOUNDARY_COUNT;
-    // Depth 0 (the floor plane) is solid claim rock too now (F-115), so
-    // it is part of the diggable interior rather than an open plane. Each
-    // undug cell is tinted by its generated block kind (F-116).
+    // Depth 0 (the floor plane) is solid claim rock too now (F-115), so it
+    // is part of the diggable interior rather than an open plane. Each
+    // undug cell renders as its generated block kind at that depth (F-116).
+    let rockIndex = FP_ROCK_BOUNDARY_COUNT;
+    let dirtIndex = 0;
+    const ores: FpOreCell[] = [];
     for (let z = 0; z < FP_DEPTH; z++) {
       for (let y = 0; y < FP_ROWS; y++) {
         for (let x = 0; x < FP_COLS; x++) {
           if (grid[fpCellIndex(x, y, z)] !== FP_ROCK_UNDUG) continue;
-          const tint =
+          const block =
             blockSeed === undefined
-              ? FP_ROCK_INTERIOR_TINT
-              : bunkerBlockTint(
-                  bunkerCellBlock(blockSeed, bunker.footprint, x, y, z),
-                );
-          writeRockInstance(mesh, index++, x, y, z, tint);
+              ? null
+              : bunkerCellBlock(blockSeed, bunker.footprint, x, y, z);
+          if (block?.kind === "rock") {
+            writeRockBody(rockMesh, rockIndex++, x, y, z);
+            continue;
+          }
+          // Dirt and ore share the rounded dirt body (ore overlays crystals).
+          writeDirtBody(dirtMesh, dirtIndex++, x, y, z);
+          if (
+            block?.kind === "ore" &&
+            block.ore &&
+            fpCellExposed(grid, x, y, z)
+          ) {
+            ores.push({
+              key: fpCellIndex(x, y, z),
+              x,
+              y,
+              z,
+              hashCol: bunker.footprint.col + x + z * FP_COLS,
+              hashRow: bunker.footprint.row + y,
+              ore: block.ore,
+            });
+          }
         }
       }
     }
-    mesh.count = index;
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    rockMesh.count = rockIndex;
+    dirtMesh.count = dirtIndex;
+    rockMesh.instanceMatrix.needsUpdate = true;
+    dirtMesh.instanceMatrix.needsUpdate = true;
+    setOreCells((prev) => (sameFpOreCells(prev, ores) ? prev : ores));
   }, [bunker, detail]);
 
-  return <group ref={groupRef} />;
+  return (
+    <group ref={groupRef}>
+      {oreCells.map((cell) => (
+        <group key={cell.key} position={[cell.x, cell.y, -cell.z]}>
+          <OreCrystals
+            col={cell.hashCol}
+            row={cell.hashRow}
+            color={ORE_COLORS[cell.ore]}
+            glow={GLOWING_ORES.has(cell.ore)}
+          />
+        </group>
+      ))}
+    </group>
+  );
 }
 
 // Shared singletons for the overflow-loot glints (never disposed).
@@ -1371,6 +1502,15 @@ function warmBunkerFpMaterials(
   );
   rockWarm.setColorAt(0, rockColor.setScalar(1));
   group.add(rockWarm);
+  // The interior dirt/ore-base blocks compile their own program here so a
+  // fresh room paints without a first-frame material stall (F-116).
+  group.add(
+    new InstancedMesh(
+      FP_WARMUP_GEOMETRY,
+      dirtBlockMaterial(FP_WARM_DIRT_HEX, detail),
+      1,
+    ),
+  );
   // Compile the pickaxe view-model's wood + metal programs here so the
   // first dig swing never stalls on a pipeline build.
   group.add(createFpPickaxe());

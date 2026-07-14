@@ -336,6 +336,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Break the cells where ore glints to bank what they are worth.",
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
+  "Tip: The bag chip in the top corner of the bunker view opens your cargo bag. Walking and digging pause while it is open.",
   "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
   "Tip: Enter your shaft, wait for the car, then choose the top or bottom arrow.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
@@ -2883,6 +2884,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setMineCanvasPainted(false);
   }, []);
 
+  // Open the cargo bag from inside first person. Releasing the pointer
+  // lock frees the cursor for the panel; the keyboard and tool-key
+  // effects detach while the bag is open (they gate on bagPanelOpen), and
+  // the bag overlay (z 36) sits above the fp touch zones, so digging and
+  // walking pause behind it and the miner stays put.
+  const openBagFromFp = useCallback(() => {
+    if (typeof document !== "undefined") document.exitPointerLock?.();
+    setBagPanelOpen(true);
+  }, []);
+
   // Forced exit: if the gate closes while inside (raid resolves against
   // the player, terminal collapse, bunker vanishes), drop back to 2D.
   useEffect(() => {
@@ -3024,9 +3035,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, []);
 
   // First-person tool keys: 0 or backtick = pick, 1-6 = part slots,
-  // q = pry toggle. Movement keys live in attachFpKeyboard.
+  // q = pry toggle. Movement keys live in attachFpKeyboard. Both pause
+  // while the bag panel is open so typing does not reselect a tool.
   useEffect(() => {
-    if (!fpBunkerActive) return;
+    if (!fpBunkerActive || bagPanelOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (bunkerToolKeyIgnored(event)) return;
       if (event.key === "0" || event.code === "Backquote") {
@@ -3051,6 +3063,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [
     activeBunkerInventory,
     fpBunkerActive,
+    bagPanelOpen,
     selectFpPart,
     selectFpPick,
     toggleFpPry,
@@ -3059,19 +3072,22 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // First-person keyboard: WASD/arrows plus Space live in the shared
   // fp input singleton while the mode is on; detach zeroes everything.
   useEffect(() => {
-    if (!fpBunkerActive) return;
+    // Detached while the bag panel is open so WASD and dig do not drive
+    // the miner behind the modal; resetFpInput zeroes any held input.
+    if (!fpBunkerActive || bagPanelOpen) return;
     const detach = attachFpKeyboard();
     return () => {
       detach();
       resetFpInput();
     };
-  }, [fpBunkerActive]);
+  }, [fpBunkerActive, bagPanelOpen]);
 
   // Second-Escape exit: while pointer lock is held the browser consumes
   // the first Escape to leave the lock, so any Escape that reaches this
-  // handler means "leave the bunker view".
+  // handler means "leave the bunker view". Paused while the bag is open so
+  // Escape closes the bag (its own handler) instead of exiting the view.
   useEffect(() => {
-    if (!fpBunkerActive) return;
+    if (!fpBunkerActive || bagPanelOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (document.pointerLockElement) return;
@@ -3080,7 +3096,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [exitFpBunker, fpBunkerActive]);
+  }, [exitFpBunker, fpBunkerActive, bagPanelOpen]);
 
   // The flat view's only bunker key: "f" enters first person. The old
   // 2D part-selection digits and Escape-stow retired with the hammer,
@@ -3711,9 +3727,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           tool={bunkerToolAction}
           selectedPartId={selectedBasePart}
           denyNotice={fpDenyNotice}
+          bagOreCount={carriedOreCount}
+          bagStackCount={carriedOreStackCount}
+          bagCapacity={bagCapacity}
+          bagOpen={bagPanelOpen}
           onSelectPart={selectFpPart}
           onSelectPick={selectFpPick}
           onTogglePry={toggleFpPry}
+          onOpenBag={openBagFromFp}
           onExit={exitFpBunker}
         />
       )}

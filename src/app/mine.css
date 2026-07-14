@@ -1568,6 +1568,23 @@ button[data-bag-full-flash="true"] {
   cursor: pointer;
 }
 
+.bunker-fp-bag {
+  position: absolute;
+  z-index: 12;
+  top: calc(10px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(245, 197, 66, 0.75);
+  border-radius: 999px;
+  background: rgba(14, 20, 28, 0.92);
+  color: #f5c542;
+  font-weight: 900;
+  font-size: 0.82rem;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .bunker-fp-resume-hint {
   position: absolute;
   z-index: 11;

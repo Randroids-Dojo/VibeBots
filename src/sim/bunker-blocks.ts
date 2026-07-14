@@ -16,7 +16,7 @@
 
 import type { BunkerFootprint } from "./bunker";
 import type { MineCell } from "./mine/cells";
-import type { OreId } from "./mine/ores";
+import { type OreId, oreReserveAt } from "./mine/ores";
 import { generatedCell } from "./mine/world";
 
 /** The pre-mined starter room: 3 wide (local x), 3 tall (local y), 3
@@ -89,6 +89,35 @@ export function bunkerCellBlock(
   const row = bunkerCellMineRow(footprint, y);
   const col = footprint.col + x + z * BUNKER_DEPTH_COLUMN_STRIDE;
   return coerceBunkerBlock(generatedCell(blockSeed, col, row));
+}
+
+/**
+ * The ore a broken bunker block drops (F-116), by ABSOLUTE cell. A block
+ * yields the full ore reserve of its mine row, the same total you get from
+ * fully mining that cell on the surface, so bunker digging pays the
+ * depth-appropriate ore. Rock and dirt drop nothing.
+ *
+ * A bunker cell's mine row is exactly its absolute `row` (the local-y
+ * round-trip through `bunkerCellMineRow` cancels), so the yield reads the
+ * reserve at `row` directly. Returns null when the block is not ore or the
+ * bunker has no block seed (legacy claims hard-reset per Q-022, and credit
+ * nothing in the meantime). Deterministic integer math only.
+ */
+export function bunkerCellOreYield(
+  footprint: BunkerFootprint,
+  blockSeed: number | undefined,
+  col: number,
+  row: number,
+  depth: number,
+): { ore: OreId; units: number } | null {
+  if (blockSeed === undefined) return null;
+  const x = col - footprint.col;
+  const y = footprint.row + footprint.height - 1 - row;
+  const block = bunkerCellBlock(blockSeed, footprint, x, y, depth);
+  if (block.kind !== "ore" || !block.ore) return null;
+  const units = oreReserveAt(block.ore, row);
+  if (units <= 0) return null;
+  return { ore: block.ore, units };
 }
 
 /** Reduce a raw mine cell to a bunker block: keep ore and plain rock,

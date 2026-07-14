@@ -332,6 +332,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
   "Tip: In first person, hold the pick and drag your aim to mine claim rock cell after cell. Parts place at the crosshair; pry returns them to your pack.",
   "Tip: A fresh claim is a small pre-mined room in solid rock. Dig the walls, and even the floor, to open the space you want.",
+  "Tip: Digging your bunker walls pays ore now, richer the deeper you carve. It banks with your surface haul, and overflow waits as a pile to walk over.",
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
@@ -1230,6 +1231,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const placeBunkerPart = useBunkerStore((s) => s.placePart);
   const removeBunkerPart = useBunkerStore((s) => s.removePart);
   const excavateBunkerCellRemote = useBunkerStore((s) => s.excavateCell);
+  const collectBunkerLootRemote = useBunkerStore((s) => s.collectLoot);
   const startBunkerRaid = useBunkerStore((s) => s.startRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
   const resetBankedBunker = useBunkerStore((s) => s.resetBunker);
@@ -2928,6 +2930,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         });
       };
 
+      if (intent.kind === "collect") {
+        // Only banked bunkers carry overflow loot; a pending claim settles
+        // its overflow at bank, so there is nothing to collect mid-trip.
+        if (pendingBunkerActive) return;
+        void collectBunkerLootRemote(col, row, depth).then((ok) => {
+          if (ok) {
+            triggerShopHaptic("commit");
+            playMineSfxEvent("dig-rock");
+          }
+        });
+        return;
+      }
+
       if (intent.kind === "dig") {
         commit(
           () => excavatePendingBunkerCell(col, row, depth),
@@ -2982,6 +2997,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       activeBunker,
       activeBunkerInventory,
       bunkerEditingAllowed,
+      collectBunkerLootRemote,
       excavateBunkerCellRemote,
       excavatePendingBunkerCell,
       pendingBunkerActive,

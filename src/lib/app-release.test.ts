@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest roomier-bunker-spawn note complete", () => {
+  it("keeps the latest bunker-ore note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.260-roomier-bunker-spawn");
+    expect(release.noticeId).toBe("2026-07-14-0.1.261-bunker-ore");
     expect(latestNote).toMatchObject({
+      version: "0.1.261",
+      title: "Dig your bunker for ore, not just space",
+      intro: "Every block you dig out of your bunker now pays ore.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Blocks you dig out of your bunker now drop the same ore their depth would pay on the surface, and deeper rooms carry richer ore. Ore veins glint in the walls so you can see what a cell is worth before you break it.",
+      "Ore dug on a trip rides home in your bag and banks with your surface haul, capped to one bagful of bunker ore per cash-out. Whatever overflows stays as a glinting pile at the cell that you walk over in first person to collect.",
+      "A banked bunker pays dug ore straight to your vibes with no bag cap. The pre-mined starter room never pays. MINE_VERSION advances to 56; SIM_VERSION stays at 5.",
+    ]);
+  });
+
+  it("keeps the archived roomier-bunker-spawn note complete", () => {
+    const release = getAppRelease();
+    const spawnNote = release.notes.find((note) => note.version === "0.1.260");
+
+    expect(spawnNote).toMatchObject({
       version: "0.1.260",
       title: "Stand up in a roomier bunker spawn",
       intro: "A fresh claim now opens into a room you can stand up in.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(spawnNote?.changes.map((change) => change.text)).toEqual([
       "A fresh bunker claim now carves a taller, deeper starter room (three cells wide, tall, and deep) so you spawn standing with headroom overhead and space before the working face, instead of pressed inside a cramped pocket.",
       "MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

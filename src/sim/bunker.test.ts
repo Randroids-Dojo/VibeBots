@@ -23,6 +23,7 @@ import {
   clankerXpFor,
   containsBunkerCell3D,
   createBunker,
+  creditBunkerDig,
   DEFAULT_BUNKER_SKIN,
   excavateBunkerCell,
   FLOOR_SPIKES_DAMAGE,
@@ -38,9 +39,38 @@ import {
   removeBasePart,
   resolveBunkerRaid,
   STARTER_BASE_PART_INVENTORY,
+  settleBunkerDig,
+  takeBunkerLootAt,
 } from "./bunker";
+import {
+  bunkerCellBlock,
+  bunkerSpawnPocketCells,
+  deriveBunkerBlockSeed,
+} from "./bunker-blocks";
+import { oreReserveAt } from "./mine/ores";
+import { createMine } from "./mine/world";
 
 const openTerrain = (): BunkerRaidTerrainKind => "empty";
+
+/** The first ore (col,row,depth) in a bunker's volume, so ore-yield tests
+ * do not hardcode a generator-dependent cell. */
+function firstBunkerOreCell(
+  bunker: BunkerState,
+): { col: number; row: number; depth: number } | null {
+  const { footprint, blockSeed } = bunker;
+  if (blockSeed === undefined) return null;
+  const bottomRow = footprint.row + footprint.height - 1;
+  for (let depth = 0; depth < BUNKER_CLAIM_DEPTH; depth++) {
+    for (let y = 0; y < footprint.height; y++) {
+      for (let x = 0; x < footprint.width; x++) {
+        if (bunkerCellBlock(blockSeed, footprint, x, y, depth).kind === "ore") {
+          return { col: footprint.col + x, row: bottomRow - y, depth };
+        }
+      }
+    }
+  }
+  return null;
+}
 
 /**
  * A bunker with every cell excavated. The redesign makes a fresh claim
@@ -1130,5 +1160,160 @@ describe("bunker excavation (dig-out depth)", () => {
       terrainAt: openTerrain,
     });
     expect(dugRaid).toEqual(flatRaid);
+  });
+});
+
+describe("bunker ore crediting (F-116)", () => {
+  it("credits a dug ore cell's full reserve into the bag, no overflow", () => {
+    const footprint = proposedBunkerFootprint(60, 30);
+    const bunker = createBunker(
+      footprint,
+      deriveBunkerBlockSeed(4242, footprint),
+    );
+    const ore = firstBunkerOreCell(bunker);
+    if (!ore) throw new Error("expected an ore cell in the volume");
+    const state = createMine(1);
+    const result = creditBunkerDig(state, bunker, ore.col, ore.row, ore.depth);
+    const block = bunkerCellBlock(
+      bunker.blockSeed ?? 0,
+      footprint,
+      ore.col - footprint.col,
+      footprint.row + footprint.height - 1 - ore.row,
+      ore.depth,
+    );
+    const reserve = oreReserveAt(block.ore ?? "coal", ore.row);
+    // The starter bag (4 slots x 5) may not hold a deep reserve; whatever
+    // fits enters cargo and the rest spills to loot.
+    expect(result.taken + result.spilled).toBe(reserve);
+    expect(state.miner.carried[block.ore ?? "coal"]).toBe(result.taken);
+    if (result.spilled > 0) {
+      expect(result.bunker.loot).toContainEqual(
+        expect.objectContaining({
+          col: ore.col,
+          row: ore.row,
+          depth: ore.depth,
+        }),
+      );
+    }
+  });
+
+  it("credits nothing for a rock/dirt cell and leaves the bag untouched", () => {
+    const footprint = proposedBunkerFootprint(60, 30);
+    const bunker = createBunker(
+      footprint,
+      deriveBunkerBlockSeed(4242, footprint),
+    );
+    // Find a non-ore cell.
+    const bottomRow = footprint.row + footprint.height - 1;
+    let target: { col: number; row: number; depth: number } | null = null;
+    for (let y = 0; y < footprint.height && !target; y++) {
+      for (let x = 0; x < footprint.width; x++) {
+        if (
+          bunkerCellBlock(bunker.blockSeed ?? 0, footprint, x, y, 1).kind !==
+          "ore"
+        ) {
+          target = { col: footprint.col + x, row: bottomRow - y, depth: 1 };
+          break;
+        }
+      }
+    }
+    if (!target) throw new Error("expected a non-ore cell");
+    const state = createMine(1);
+    const result = creditBunkerDig(
+      state,
+      bunker,
+      target.col,
+      target.row,
+      target.depth,
+    );
+    expect(result.taken).toBe(0);
+    expect(result.spilled).toBe(0);
+    expect(result.bunker.loot ?? []).toHaveLength(0);
+  });
+
+  it("settleBunkerDig skips the spawn pocket and is idempotent", () => {
+    const footprint = proposedBunkerFootprint(60, 30);
+    const base = createBunker(
+      footprint,
+      deriveBunkerBlockSeed(4242, footprint),
+    );
+    const ore = firstBunkerOreCell(base);
+    if (!ore) throw new Error("expected an ore cell in the volume");
+    const bunker = { ...base, dug: [...base.dug, ore] };
+
+    const stateA = createMine(1);
+    const settledA = settleBunkerDig(stateA, bunker);
+    const stateB = createMine(1);
+    const settledB = settleBunkerDig(stateB, bunker);
+    // Same inputs -> same authoritative bag and same loot.
+    expect(stateA.miner.carried).toEqual(stateB.miner.carried);
+    expect(settledA.loot ?? []).toEqual(settledB.loot ?? []);
+
+    // Settling an already-settled bunker (with loot) recomputes the same
+    // result, never doubling the payout (idempotent).
+    const stateC = createMine(1);
+    const settledC = settleBunkerDig(stateC, settledA);
+    expect(stateC.miner.carried).toEqual(stateA.miner.carried);
+    expect(settledC.loot ?? []).toEqual(settledA.loot ?? []);
+  });
+
+  it("never pays a pocket cell (pre-mined starter room is free)", () => {
+    const footprint = proposedBunkerFootprint(60, 30);
+    const bunker = createBunker(
+      footprint,
+      deriveBunkerBlockSeed(4242, footprint),
+    );
+    // dug is exactly the pocket; settling credits nothing.
+    const state = createMine(1);
+    const settled = settleBunkerDig(state, bunker);
+    expect(state.miner.carried).toEqual({});
+    expect(settled.loot ?? []).toHaveLength(0);
+    // Sanity: the pocket really is the whole dug set here.
+    expect(bunker.dug).toEqual(bunkerSpawnPocketCells(footprint));
+  });
+
+  it("takeBunkerLootAt removes the whole pile at a cell and returns its ore", () => {
+    const footprint = proposedBunkerFootprint(60, 30);
+    const withLoot: BunkerState = {
+      ...createBunker(footprint, deriveBunkerBlockSeed(4242, footprint)),
+      loot: [
+        { col: footprint.col, row: footprint.row, depth: 2, ores: { coal: 3 } },
+        {
+          col: footprint.col + 1,
+          row: footprint.row,
+          depth: 2,
+          ores: { copper: 4 },
+        },
+      ],
+    };
+    const result = takeBunkerLootAt(withLoot, footprint.col, footprint.row, 2);
+    expect(result.ores).toEqual({ coal: 3 });
+    // Only the target cell is cleared; the other loot pile survives.
+    expect(result.bunker.loot).toEqual([
+      {
+        col: footprint.col + 1,
+        row: footprint.row,
+        depth: 2,
+        ores: { copper: 4 },
+      },
+    ]);
+  });
+
+  it("takeBunkerLootAt is a no-op on a cell with no loot", () => {
+    const footprint = proposedBunkerFootprint(60, 30);
+    const withLoot: BunkerState = {
+      ...createBunker(footprint, deriveBunkerBlockSeed(4242, footprint)),
+      loot: [
+        { col: footprint.col, row: footprint.row, depth: 2, ores: { coal: 3 } },
+      ],
+    };
+    const result = takeBunkerLootAt(
+      withLoot,
+      footprint.col + 5,
+      footprint.row,
+      4,
+    );
+    expect(result.ores).toEqual({});
+    expect(result.bunker.loot).toHaveLength(1);
   });
 });

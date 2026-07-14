@@ -11,6 +11,7 @@ import {
   BUNKER_RAID_COOLDOWN_HOURS,
   BUNKER_SKIN_CATALOG,
   type BunkerFootprint,
+  type BunkerLoot,
   type BunkerRaidRewardReport,
   type BunkerRaidSnapshot,
   type BunkerSkinId,
@@ -35,13 +36,20 @@ import {
   removeBasePart,
   resolveBunkerRaid,
   STARTER_BASE_PART_INVENTORY,
+  takeBunkerLootAt,
 } from "@/sim/bunker";
-import { withSpawnPocket } from "@/sim/bunker-blocks";
+import {
+  bunkerCellOreYield,
+  deriveBunkerBlockSeed,
+  withSpawnPocket,
+} from "@/sim/bunker-blocks";
 import {
   cellAt,
   createMine,
   DEFAULT_GEAR,
   NO_CONSUMABLES,
+  type OreId,
+  oreDef,
   type WorldDiff,
 } from "@/sim/mine";
 import { applyAchievementProgress } from "./achievements";
@@ -101,12 +109,63 @@ function normalizedDugCells(value: unknown): DugBunkerCell[] {
   });
 }
 
+/** Coerce a stored block seed (bigint arrives as string) to an unsigned
+ * 32-bit integer, or undefined for legacy claims that predate F-116. */
+function normalizedBlockSeed(value: unknown): number | undefined {
+  const n =
+    typeof value === "bigint"
+      ? Number(value)
+      : typeof value === "string"
+        ? Number(value)
+        : typeof value === "number"
+          ? value
+          : Number.NaN;
+  if (!Number.isFinite(n)) return undefined;
+  return n >>> 0;
+}
+
+/** Keep only well-formed overflow-loot entries (F-116): a 3D cell plus a
+ * positive-integer ore pile. Malformed entries drop rather than throw. */
+function normalizedBunkerLoot(value: unknown): BunkerLoot[] {
+  if (!Array.isArray(value)) return [];
+  const loot: BunkerLoot[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const candidate = entry as Record<string, unknown>;
+    if (
+      !Number.isInteger(candidate.col) ||
+      !Number.isInteger(candidate.row) ||
+      !Number.isInteger(candidate.depth) ||
+      !candidate.ores ||
+      typeof candidate.ores !== "object"
+    ) {
+      continue;
+    }
+    const ores: BunkerLoot["ores"] = {};
+    for (const [id, n] of Object.entries(candidate.ores as object)) {
+      if (typeof n === "number" && Number.isInteger(n) && n > 0) {
+        ores[id as keyof BunkerLoot["ores"]] = n;
+      }
+    }
+    if (Object.keys(ores).length === 0) continue;
+    loot.push({
+      col: candidate.col as number,
+      row: candidate.row as number,
+      depth: candidate.depth as number,
+      ores,
+    });
+  }
+  return loot;
+}
+
 function parseBunkerState(
   row: {
     footprint: unknown;
     core: unknown;
     parts: unknown;
     dug?: unknown;
+    block_seed?: unknown;
+    loot?: unknown;
     skin?: unknown;
     skins_owned?: unknown;
   } | null,
@@ -128,6 +187,10 @@ function parseBunkerState(
     // Guarantee an open spawn pocket even for legacy claims stored under
     // the old depth-0-open model (F-115), so nobody spawns in solid rock.
     dug: withSpawnPocket(footprint, normalizedDugCells(row.dug)),
+    // bigint arrives as a string from the driver; coerce, and treat a
+    // missing seed as undefined (legacy claims, F-116).
+    blockSeed: normalizedBlockSeed(row.block_seed),
+    loot: normalizedBunkerLoot(row.loot),
     skin: isBunkerSkinId(row.skin) ? row.skin : DEFAULT_BUNKER_SKIN,
     skinsOwned,
     parts: parts
@@ -233,13 +296,15 @@ export async function loadBunkerView(
     defense_xp: number;
   }>;
   const bunkerRows = (await sql`
-    SELECT footprint, core, parts, dug, skin, skins_owned
+    SELECT footprint, core, parts, dug, block_seed, loot, skin, skins_owned
     FROM bunkers
     WHERE player_id = ${playerId}`) as Array<{
     footprint: unknown;
     core: unknown;
     parts: unknown;
     dug: unknown;
+    block_seed: unknown;
+    loot: unknown;
     skin: unknown;
     skins_owned: unknown;
   }>;
@@ -317,16 +382,19 @@ export async function claimBunker(
   if (!footprintIsCleared(Number(worlds[0].seed), diff, footprint)) {
     return { ok: false, status: 409, error: "clear the full 7x5 claim first" };
   }
-  const bunker = createBunker(footprint);
+  const blockSeed = deriveBunkerBlockSeed(Number(worlds[0].seed), footprint);
+  const bunker = createBunker(footprint, blockSeed);
   await ensureStarterBaseParts(sql, playerId);
   await sql`
-    INSERT INTO bunkers (player_id, footprint, core, parts, dug)
+    INSERT INTO bunkers (player_id, footprint, core, parts, dug, block_seed, loot)
     VALUES (
       ${playerId},
       ${JSON.stringify(bunker.footprint)}::jsonb,
       ${JSON.stringify(bunker.core)}::jsonb,
       ${JSON.stringify(bunker.parts)}::jsonb,
-      ${JSON.stringify(bunker.dug)}::jsonb
+      ${JSON.stringify(bunker.dug)}::jsonb,
+      ${blockSeed},
+      ${JSON.stringify(bunker.loot ?? [])}::jsonb
     )`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
@@ -515,7 +583,7 @@ export async function excavateBunker(
   col: number,
   row: number,
   depth: number,
-): Promise<BunkerOperationResult<{ newStamps?: string[] }>> {
+): Promise<BunkerOperationResult<{ newStamps?: string[]; oreVibes?: number }>> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
@@ -523,11 +591,32 @@ export async function excavateBunker(
   if (!dug.ok) {
     return { ok: false, status: 409, error: `cannot dig: ${dug.reason}` };
   }
+  // A banked bunker has no trip bag, so its ore credits vibes to the
+  // balance directly, atomically with the dug write (F-116). The server
+  // recomputes the drop from the stored block seed so the client can
+  // never claim ore that is not there; a cell can only be dug once
+  // (excavateBunkerCell rejects an open cell), so this never double-pays.
+  const drop = bunkerCellOreYield(
+    view.bunker.footprint,
+    view.bunker.blockSeed,
+    col,
+    row,
+    depth,
+  );
+  const oreVibes = drop ? drop.units * oreDef(drop.ore).value : 0;
   await sql`
-    UPDATE bunkers
-    SET dug = ${JSON.stringify(dug.bunker.dug)}::jsonb,
-        updated_at = now()
-    WHERE player_id = ${playerId}`;
+    WITH dug_update AS (
+      UPDATE bunkers
+      SET dug = ${JSON.stringify(dug.bunker.dug)}::jsonb,
+          updated_at = now()
+      WHERE player_id = ${playerId}
+      RETURNING player_id
+    )
+    UPDATE players
+    SET emeralds = emeralds + ${oreVibes}
+    WHERE id = ${playerId}
+      AND ${oreVibes} > 0
+      AND EXISTS (SELECT 1 FROM dug_update)`;
   // Groundbreaker is backfill-only: the empty patch increments nothing,
   // and the refresh inside applyAchievementProgress re-reads the
   // durable jsonb_array_length(bunkers.dug), which the UPDATE above
@@ -543,7 +632,46 @@ export async function excavateBunker(
       }
     })(),
   ]);
-  return { ok: true, view: latestView, newStamps };
+  return { ok: true, view: latestView, newStamps, oreVibes };
+}
+
+/**
+ * Collect the overflow loot at one bunker cell (F-116). Walking over the
+ * cell in first person credits its vibes straight to the balance, then
+ * clears the pile atomically so it can never pay twice. A cell with no
+ * loot is a no-op that just returns the current view.
+ */
+export async function collectBunkerLoot(
+  sql: Sql,
+  playerId: string,
+  col: number,
+  row: number,
+  depth: number,
+): Promise<BunkerOperationResult<{ oreVibes?: number }>> {
+  const view = await loadBunkerView(sql, playerId);
+  if (!view.bunker)
+    return { ok: false, status: 409, error: "claim a bunker first" };
+  const taken = takeBunkerLootAt(view.bunker, col, row, depth);
+  let oreVibes = 0;
+  for (const [id, n] of Object.entries(taken.ores) as Array<[OreId, number]>) {
+    oreVibes += oreDef(id).value * n;
+  }
+  if (oreVibes <= 0) {
+    return { ok: true, view, oreVibes: 0 };
+  }
+  await sql`
+    WITH loot_update AS (
+      UPDATE bunkers
+      SET loot = ${JSON.stringify(taken.bunker.loot ?? [])}::jsonb,
+          updated_at = now()
+      WHERE player_id = ${playerId}
+      RETURNING player_id
+    )
+    UPDATE players
+    SET emeralds = emeralds + ${oreVibes}
+    WHERE id = ${playerId}
+      AND EXISTS (SELECT 1 FROM loot_update)`;
+  return { ok: true, view: await loadBunkerView(sql, playerId), oreVibes };
 }
 
 async function saveBasePartInventory(

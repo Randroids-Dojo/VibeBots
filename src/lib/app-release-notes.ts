@@ -1,9 +1,22 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.258-call-elevator";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.259-bunker-claim-bank-fix";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.259",
+      date: "2026-07-14",
+      title: "Save a bunker you just claimed",
+      intro: "Cashing out now keeps a bunker you claimed on the same dive.",
+      changes: [
+        {
+          build,
+          text: "Claiming a bunker and cashing out on the same trip now saves the claim instead of failing at the surface. The pre-mined starter room no longer trips the cash-out check.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.258",
       date: "2026-07-14",

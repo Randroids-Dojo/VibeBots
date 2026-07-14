@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-call-closeout" data-date="2026-07-14">
+    <h3>Close the verified elevator call and boarding blockers</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/close-elevator-call</code>.</dd>
+      <dt>PR</dt><dd>#192.</dd>
+      <dt>Changed</dt><dd>Closed the shipped call-and-destination task plus F-123, F-129, and F-134 after PR #189 passed its exact-main and production gates. The append-only followup entries now record the final implementation and verification evidence, and their four HTML Dots moved to the archive. F-128 remains open for the separate durable journey-counter, zero-loot progress, and retry contract.</dd>
+      <dt>Verification</dt><dd>Main is exactly <code>785e4934</code>. Required CI run 29346541000 and Code Quality run 29346537896 passed on that SHA. Production deployment <code>dpl_9LyoZKw4tAvHc1ukbxUwxi4F6CG3</code> is READY with aliases <code>vibebots.randroid.dev</code>, <code>vibe-bots.vercel.app</code>, and the main-branch Vercel aliases. PR #189 also passed the full 1,424-test unit suite and all 23 focused elevator and release browser checks before merge.</dd>
+      <dt>Assumptions</dt><dd>Closing the three release blockers does not close F-128. Journey durability and telemetry migration remain separate product work.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. REQ-028 remains done, and REQ-032 continues to link the open F-128 journey-progress boundary.</dd>
+      <dt>Followups</dt><dd>Resolved F-123, F-129, and F-134. Archived Dots VibeBots-call-the-elevator-b0ad0961, VibeBots-f-123-cap-3b1d0917, VibeBots-f-129-resume-07f277fc, and VibeBots-f-134-keep-76218013.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-call-and-destination" data-date="2026-07-14">
     <h3>Call the elevator, board it, then choose where to go</h3>
     <dl>

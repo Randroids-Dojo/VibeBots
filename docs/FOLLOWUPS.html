@@ -44,6 +44,7 @@
       <dt>Blocker (if any)</dt><dd>Resolve before call-and-destination elevator travel ships. A valid exit attempt must not turn the supporting car into a fall-through shaft.</dd>
       <dt>Unblock condition</dt><dd>Keep the boarded car as support until the miner actually leaves the rail, or reject lateral exit until the target is traversable. Keep elevator phase synchronized and run hazard, payload, and turn finalization exactly once for every accepted action. Cover an open exit, a solid multi-hit wall, a one-hit dig, blocked metal, rock, gas, magma, and boulder cells in both directions. Prove no fall, collapse, or phase desynchronization while still boarded, and normal gravity only after the miner leaves the rail.</dd>
       <dt>PR / Dot reference</dt><dd>Tracking PR #188; Dot VibeBots-f-134-keep-76218013.</dd>
+      <dt>Resolved</dt><dd>2026-07-14, PR #189 (package 0.1.258, merge <code>785e4934</code>). Boarded-aware settlement now keeps the car as support through open exits, one-hit and multi-hit dirt, pickaxe-blocked and breakable rock, metal, boulder, gas, magma, and restored pending-dynamite finalization in both directions. The phase stays boarded until the miner enters the side cell, then normal gravity resumes exactly once. The full 1,424-test unit suite, all 23 focused elevator and release browser checks, exact-main CI run 29346541000, and production deployment <code>dpl_9LyoZKw4tAvHc1ukbxUwxi4F6CG3</code> passed.</dd>
     </dl>
   </section>
 
@@ -91,6 +92,7 @@
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-129-resume-07f277fc.</dd>
       <dt>Progress update 2026-07-14</dt><dd>Package 0.1.258 targets this contract by persisting the explicitly selected Up or Down destination through the shared automatic travel loop and restoring that direction after reload. Ascent must still reach the surface and bank exactly once. Keep F-129 open until focused mid-ascent, mid-descent, repeated-reload, endpoint, and duplicate-bank verification passes.</dd>
       <dt>Verification update 2026-07-14</dt><dd>Focused replay, persistence, store, and browser coverage now passes for mid-descent and mid-ascent restoration, endpoint restoration, same-mount direction reversal, a refused early action, Recall cancellation, repeated reload during one ascent, the exact submitted action list, and one surface bank request while pending input is rejected. F-129 acceptance is satisfied pending merge, exact-main CI, and production verification.</dd>
+      <dt>Resolved</dt><dd>2026-07-14, PR #189 (package 0.1.258, merge <code>785e4934</code>). Restored rides now carry either <code>ride-up</code> or <code>ride-down</code> through the shared automatic loop. The browser proof restores from two distinct boot-time persisted checkpoints during one ascent, submits the exact expected action log, and observes one surface bank request. Mid-descent, endpoints, reversal, refusal, Recall cancellation, and pending-bank input remain covered. Exact-main CI run 29346541000 and production deployment <code>dpl_9LyoZKw4tAvHc1ukbxUwxi4F6CG3</code> passed.</dd>
     </dl>
   </section>
 
@@ -167,6 +169,7 @@
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-123-cap-3b1d0917.</dd>
       <dt>Progress update 2026-07-14</dt><dd>Package 0.1.258 targets the blocker by separating shaft entry into call, visible arrival, boarding, and explicit destination selection before selected travel auto-chains. The entry turn still needs one shared finalization with no duplicate fall or support settlement. Keep F-123 open until charged-shaft, adjacent-charge, hazard, payload, one-step, multi-step, and no-double-finalizer tests pass.</dd>
       <dt>Verification update 2026-07-14</dt><dd>Focused sim coverage now passes for surface and lateral entry, live charges on the target and boarding cells, adjacent charge resolution, hazards, support settlement, payload pickup, short and multi-row travel, and single finalization. Browser coverage proves entry waits for the visibly moving car without an initial fall or snap. F-123 acceptance is satisfied pending merge, exact-main CI, and production verification.</dd>
+      <dt>Resolved</dt><dd>2026-07-14, PR #189 (package 0.1.258, merge <code>785e4934</code>). Surface and lateral entry now run one full-turn finalization before the call, boarding, and selected ride sequence. Charged rail cells, adjacent charges, hazards, payloads, short and multi-row travel, support settlement, and the no-double-finalizer contract are covered. Shaft-local compositor evidence proves the car arrives while the miner and camera remain fixed. Exact-main CI run 29346541000 and production deployment <code>dpl_9LyoZKw4tAvHc1ukbxUwxi4F6CG3</code> passed.</dd>
     </dl>
   </section>
 

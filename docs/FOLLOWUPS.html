@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-129" data-f="F-129" data-priority="blocks-release">
+    <h3>F-129: Resume elevator travel in either direction after reload</h3>
+    <dl>
+      <dt>Context</dt><dd>The evolving elevator slice restores interrupted automatic travel with a down-only <code>resumeElevatorDown</code> boolean. Deterministic replay only infers implicit entry or <code>ride-down</code>, and the mount effect can only restart descent. Automatic ascent uses the same multi-step loop, so reloading after an intermediate <code>ride-up</code> leaves the player stranded on the rail and skips the expected arrival and cash-out behavior.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before automatic elevator travel ships.</dd>
+      <dt>Unblock condition</dt><dd>Replace the down-only boolean with a nullable restored direction for <code>ride-down</code> or <code>ride-up</code>. Infer the direction from the last successful replay action only while the miner remains on owned rail between that direction's endpoints and the trip is nonterminal. Carry it through world load, consume it after the world, scene, and painted canvas are ready, then resume through the shared automatic loop. A reload during ascent with banked cargo must reach row zero and run the normal authoritative cash-out exactly once. Cover mid-descent, mid-ascent, direction reversal, repeated reload, surface and bottom endpoints, a failed or interrupted ride, terminal collapse, and no duplicate move or cash-out after restoration.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-129-resume-07f277fc.</dd>
+    </dl>
+  </section>
+
   <section id="F-128" data-f="F-128" data-priority="nice-to-have">
     <h3>F-128: Define honest elevator journey telemetry</h3>
     <dl>

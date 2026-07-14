@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-directional-resume-monitoring" data-date="2026-07-14">
+    <h3>Resume an interrupted elevator ascent after reload</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>The final bounded client and persistence scan found that new reload recovery only restarts automatic descent. Added F-129 and a matching HTML Dot to carry a restored ride direction, resume ascent through the shared loop, and preserve the normal surface cash-out.</dd>
+      <dt>Verification</dt><dd>Traced saved-trip replay, the down-only store field, world-load restoration, the mount effect, both directions in the shared automatic ride loop, and the descent-only reload smoke. Confirmed that a last successful <code>ride-up</code> at an intermediate row produces no restart signal.</dd>
+      <dt>Assumptions</dt><dd>Reload preserves an in-progress automatic command in either direction. Direction is inferred only from successful replayed actions while still between valid rail endpoints, and restoration never duplicates arrival cash-out.</dd>
+      <dt>GDD coverage</dt><dd>REQ-026 and REQ-028 stay done and now link F-129 because persistent trip replay and logged elevator travel exist while upward reload continuity remains open.</dd>
+      <dt>Followups</dt><dd>Added F-129 with Dot VibeBots-f-129-resume-07f277fc.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-support-state-sync-monitoring" data-date="2026-07-14">
     <h3>Replace support stock from an accepted elevator response</h3>
     <dl>

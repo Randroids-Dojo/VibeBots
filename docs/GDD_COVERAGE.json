@@ -587,7 +587,9 @@
         "src/sim/mine/replay.test.ts",
         "tests/e2e/mine-save-slots.spec.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-129"
+      ]
     },
     {
       "id": "REQ-027",
@@ -635,7 +637,8 @@
         "F-124",
         "F-125",
         "F-126",
-        "F-128"
+        "F-128",
+        "F-129"
       ]
     },
     {

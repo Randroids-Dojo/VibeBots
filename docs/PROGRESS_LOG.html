@@ -57,6 +57,32 @@
     </dl>
   </article>
 
+  <article data-slice="bunker-excavation-progress-monitoring" data-date="2026-07-14">
+    <h3>Keep authored bunker pocket cells out of player progress</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/scheduled-full-e2e-followups</code>.</dd>
+      <dt>PR</dt><dd>#187.</dd>
+      <dt>Changed</dt><dd>Post-merge monitoring of PR #186 found that the new twelve-cell starter pocket is persisted inside <code>bunkers.dug</code>, the same durable array whose length backfills <code>bunkerCellsDug</code>. Added F-133 and a matching HTML Dot so authored spawn safety cannot unlock Groundbreaker or inflate future excavation telemetry before the player digs. Synced the monitoring branch with current main while preserving both append-only progress articles and the F-131/F-132 records.</dd>
+      <dt>Verification</dt><dd>Traced fresh and pending bunker creation through <code>createBunker</code>, the cash-out insert, <code>applyAchievementProgress</code>, the <code>jsonb_array_length(bunkers.dug)</code> backfill, and Groundbreaker's target of one. Confirmed reset preserves the combined dug array and legacy reads union the authored pocket, so the ownership problem crosses claim, reload, and reset boundaries rather than being a copy-only issue.</dd>
+      <dt>Assumptions</dt><dd>Authored starter geometry is not player excavation. Live product signals must use authoritative player actions or bounded deltas and must not retain bunker coordinates or raw cell lists.</dd>
+      <dt>GDD coverage</dt><dd>REQ-044 remains done for the starter-room behavior and now links F-133 for truthful progress ownership.</dd>
+      <dt>Followups</dt><dd>Added F-133 with Dot VibeBots-f-133-keep-d9343235.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="scheduled-full-e2e-timeout-monitoring" data-date="2026-07-14">
+    <h3>Keep timed-out scheduled browser runs visible and diagnosable</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/scheduled-full-e2e-followups</code>.</dd>
+      <dt>PR</dt><dd>#187.</dd>
+      <dt>Changed</dt><dd>Added F-131 and F-132 with matching HTML Dots after scheduled Full E2E run 29323594310 timed out three shards, concluded as cancelled, and retained no artifacts despite eleven visible failed tests. F-131 owns the structural timeout, visibility, and evidence contract. F-132 owns repeated mine and bunker state failures under serial Software-GL load until retained traces can classify them.</dd>
+      <dt>Verification</dt><dd>Confirmed the run was not superseded and all three cancellations landed at the workflow's exact 20-minute job deadline. Confirmed <code>fail-fast: false</code>, zero retained artifacts, and an upload step guarded only by <code>failure()</code>. Compared the eleven visible failure families with the five-item known-flake list, prior scheduled runs 29242796543 and 29188294201, focused feature evidence, F-047, F-127, F-130, and the current HTML Dots backlog. Dash, whitespace, lint, and type checks pass; lint retains only the two documented pre-existing warnings. The dependency gate remains current for VibeKit v0.3.0, Rapier 0.19.3, Next 16.2.10, three 0.185.1, and React Three Fiber 9.6.1.</dd>
+      <dt>Assumptions</dt><dd>A non-superseded scheduled timeout is actionable even when GitHub labels the run cancelled. Missing traces are not enough evidence to split the first-person bunker failures into a separate product defect.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. These followups protect verification infrastructure and evidence quality rather than gameplay requirements.</dd>
+      <dt>Followups</dt><dd>Added F-131 with Dot VibeBots-f-131-make-b3c5367d and F-132 with Dot VibeBots-f-132-stabilize-943ff4ba.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-dig-out-model" data-date="2026-07-14">
     <h3>Rebuild the bunker interior as a dig-out voxel volume</h3>
     <dl>

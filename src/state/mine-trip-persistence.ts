@@ -4,6 +4,7 @@ import {
   type DugBunkerCell,
   type PendingBunkerBuild,
 } from "@/sim/bunker";
+import { withSpawnPocket } from "@/sim/bunker-blocks";
 import {
   applyAction,
   createMine,
@@ -84,7 +85,9 @@ function normalizedTripDug(value: unknown): DugBunkerCell[] {
       Number.isInteger(candidate.row) &&
       typeof candidate.depth === "number" &&
       Number.isInteger(candidate.depth) &&
-      candidate.depth >= 1 &&
+      // Depth 0 is diggable and the spawn pocket ships as depth-0 dug
+      // cells (F-115), so a locally persisted trip keeps them.
+      candidate.depth >= 0 &&
       candidate.depth < BUNKER_CLAIM_DEPTH
     );
   });
@@ -106,7 +109,11 @@ export function normalizePendingBunker(
         ...part,
         depth: normalizedTripDepth(part.depth),
       })),
-      dug: normalizedTripDug(bunker.dug),
+      // Seed the spawn pocket so a pending claim persisted before the
+      // dig-out redesign (F-115) still opens into a walkable room.
+      dug: bunker.footprint
+        ? withSpawnPocket(bunker.footprint, normalizedTripDug(bunker.dug))
+        : normalizedTripDug(bunker.dug),
     },
   };
 }

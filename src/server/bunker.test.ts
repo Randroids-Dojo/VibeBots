@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { bunkerCells, proposedBunkerFootprint } from "@/sim/bunker";
+import { bunkerSpawnPocketCells } from "@/sim/bunker-blocks";
 import { applyAchievementProgress } from "./achievements";
 import {
   buyBasePart,
@@ -663,8 +664,8 @@ describe("bunker server helpers", () => {
     const result = await resetBunker(sql as never, "player-1");
     expect(result.ok).toBe(true);
 
-    // One UPDATE persists the emptied parts, refilled rock, and the
-    // restored core together.
+    // One UPDATE persists the emptied parts, the preserved excavation
+    // (F-120: reset keeps dug-out rock), and the restored core together.
     const updateCall = sql.mock.calls.find((call) =>
       (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
     );
@@ -677,7 +678,11 @@ describe("bunker server helpers", () => {
     expect(updateQuery).toContain("core");
     const bound = ((updateCall ?? []) as unknown[]).slice(1);
     expect(bound[0]).toBe("[]");
-    expect(bound[1]).toBe("[]");
+    // The dug set survives the reset (F-120) and always carries the spawn
+    // pocket seeded on load (F-115): 12 pocket cells plus the one dug cell.
+    const persistedDug = JSON.parse(String(bound[1]));
+    expect(persistedDug).toContainEqual({ col: 4, row: 3, depth: 1 });
+    expect(persistedDug).toHaveLength(13);
     expect(JSON.parse(String(bound[2])).durability).toBe(160);
 
     // The inventory upsert carries the refunds: the undamaged wall and
@@ -898,7 +903,11 @@ describe("bunker depth normalization", () => {
       { partId: "wall-panel", col: 1, row: 4, depth: 0, durability: 90 },
       { partId: "door-panel", col: 2, row: 4, depth: 0, durability: 60 },
     ]);
-    expect(view.bunker?.dug).toEqual([]);
+    // A legacy row has no dug set, but load seeds the spawn pocket (F-115)
+    // so the claim still opens into a walkable room.
+    expect(view.bunker?.dug).toEqual(
+      bunkerSpawnPocketCells({ col: 1, row: 4, width: 7, height: 5 }),
+    );
   });
 });
 
@@ -917,7 +926,9 @@ describe("bunker excavation wrapper", () => {
               footprint: { col: 1, row: 4, width: 7, height: 5 },
               core: { col: 4, row: 6, depth: 0, durability: 160 },
               parts: [],
-              dug: [],
+              // One open floor cell so the depth-1 dig below chains from
+              // it; depth-3 stays unreachable (no open neighbor).
+              dug: [{ col: 2, row: 5, depth: 0 }],
             },
           ];
         }

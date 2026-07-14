@@ -141,10 +141,11 @@ describe("bunker fp tutorial state machine", () => {
     startAtLook(makeStorage());
     ride({ yaw: 1.3 });
     expect(getFpTutorialCard()).toBe("walk");
-    tick({ px: 4 });
-    tick({ px: 5 });
+    // Spawn px is 3; small strafes stay under the one-cell threshold.
+    tick({ px: 3.4 });
+    tick({ px: 3.7 });
     expect(getFpTutorialCard()).toBe("walk");
-    tick({ pz: -0.8 });
+    tick({ px: 4.2 });
     expect(getFpTutorialCard()).toBeNull();
     tick({}, FP_TUTORIAL_STEP_GAP_MS);
     expect(getFpTutorialCard()).toBe("dig");

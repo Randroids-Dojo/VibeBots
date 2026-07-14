@@ -156,26 +156,22 @@ export function fpSpawnCell(
 }
 
 /**
- * Fills all 175 cells of `out` from the bunker state. Depth 0 is open
- * by claim; depths 1-4 are rock unless dug. Parts and the core then
- * stamp their solidity over the open cells they occupy. Legacy wire
- * shapes (parts without depth, bunkers without dug) normalize to the
- * tunnel plane and an unexcavated interior.
+ * Fills all 175 cells of `out` from the bunker state. Every cell starts
+ * as solid claim rock (F-115/F-116); the dug set (including the depth-0
+ * plane and the pre-mined spawn pocket) opens cells, then parts and the
+ * core stamp their solidity over what they occupy. Legacy wire shapes
+ * (parts without depth, bunkers without dug) normalize to an
+ * unexcavated interior.
  */
 export function buildFpSolidGrid(bunker: BunkerState, out: FpSolidGrid): void {
-  const planeCells = FP_COLS * FP_ROWS;
-  for (let z = 0; z < FP_DEPTH; z++) {
-    const base = z * planeCells;
-    const fill = z === 0 ? FP_OPEN : FP_ROCK_UNDUG;
-    for (let i = 0; i < planeCells; i++) out[base + i] = fill;
-  }
+  out.fill(FP_ROCK_UNDUG);
   const footprint = bunker.footprint;
   const bottomRow = footprint.row + footprint.height - 1;
   for (const cell of bunker.dug ?? []) {
     const x = cell.col - footprint.col;
     const y = bottomRow - cell.row;
     const z = cell.depth;
-    if (!fpCellInGrid(x, y, z) || z === 0) continue;
+    if (!fpCellInGrid(x, y, z)) continue;
     out[fpCellIndex(x, y, z)] = FP_OPEN;
   }
   for (const part of bunker.parts) {

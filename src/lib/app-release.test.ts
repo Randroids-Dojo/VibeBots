@@ -24,17 +24,36 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest placeable-elevator note complete", () => {
+  it("keeps the latest dig-out-bunker note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.256-place-elevator");
+    expect(release.noticeId).toBe("2026-07-14-0.1.257-dig-out-bunker");
     expect(latestNote).toMatchObject({
+      version: "0.1.257",
+      title: "Dig your bunker out of solid rock",
+      intro:
+        "A fresh claim is a small room in the rock, and the floor digs too.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A fresh bunker claim now drops you into a small pre-mined room instead of a wide open plane. Everything around it, including the floor under your feet, is solid claim rock you dig out cell by cell to carve the shape you want.",
+      "The floor plane is diggable now, so you can sink rooms below the entry as well as tunnel deeper into the rock.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived placeable-elevator note complete", () => {
+    const release = getAppRelease();
+    const elevatorNote = release.notes.find(
+      (note) => note.version === "0.1.256",
+    );
+
+    expect(elevatorNote).toMatchObject({
       version: "0.1.256",
       title: "Put your elevator where you want it",
       intro: "Choose the shaft, then extend it one premium rail at a time.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(elevatorNote?.changes.map((change) => change.text)).toEqual([
       "Buy the first 25-vibe rail at any surface column to anchor one persistent shaft. Each later purchase adds one row at a depth-scaled premium, keeping rail meaningfully more expensive than ladders.",
       "Press Down over the shaft at the surface or walk into its rail from either side underground. The car boards you safely before gravity runs and carries you automatically to the rail bottom.",
       "Existing elevator owners get one free shaft placement that preserves every rail they already bought. MINE_VERSION advances to 54; SIM_VERSION stays at 5.",

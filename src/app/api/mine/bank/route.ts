@@ -29,6 +29,8 @@ import {
   type BasePartId,
   type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
+  BUNKER_CLAIM_HEIGHT,
+  BUNKER_CLAIM_WIDTH,
   type BunkerFootprint,
   type BunkerState,
   createBunker,
@@ -79,12 +81,17 @@ const placedBasePartSchema = z.object({
 const dugBunkerCellSchema = z.object({
   col: z.number().int(),
   row: z.number().int().min(1),
+  // Every cell, including the depth-0 floor plane, starts as solid claim
+  // rock and is dug out (F-115); the spawn pocket ships as depth-0 dug.
   depth: z
     .number()
     .int()
-    .min(1)
+    .min(0)
     .max(BUNKER_CLAIM_DEPTH - 1),
 });
+// The whole 7x5x5 volume is diggable, so the dug list can name every cell.
+const MAX_DUG_CELLS =
+  BUNKER_CLAIM_WIDTH * BUNKER_CLAIM_HEIGHT * BUNKER_CLAIM_DEPTH;
 const GEAR_LOG_FIELDS = [
   "pickaxe",
   "battery",
@@ -129,8 +136,8 @@ const bodySchema = z.object({
       claimRow: z.number().int().min(1),
       claimedAtMoveCount: z.number().int().min(0).max(MAX_TRIP_MOVES),
       parts: z.array(placedBasePartSchema).max(174),
-      // 7x5x4 interior cells; depth 0 is open by claiming and never listed.
-      dug: z.array(dugBunkerCellSchema).max(140).default([]),
+      // Any of the 7x5x5 cells may be dug out, including the depth-0 floor.
+      dug: z.array(dugBunkerCellSchema).max(MAX_DUG_CELLS).default([]),
     })
     .optional(),
 });

@@ -130,3 +130,57 @@ export function isBunkerPocketCell(
     z < BUNKER_POCKET_DEPTH
   );
 }
+
+/**
+ * The absolute {col,row,depth} cells of the pre-mined spawn pocket for a
+ * footprint: a 3x2x2 room centered on the spawn column at the floor.
+ * Seeded into the bunker's `dug` set at claim so the player spawns
+ * inside an open room instead of a solid-rock trap. Local y grows up
+ * from the floor (row = bottomRow - y); depth grows into the rock.
+ */
+export function bunkerSpawnPocketCells(
+  footprint: BunkerFootprint,
+): Array<{ col: number; row: number; depth: number }> {
+  const spawnX = Math.floor(footprint.width / 2);
+  const half = (BUNKER_POCKET_WIDTH - 1) / 2;
+  const bottomRow = footprint.row + footprint.height - 1;
+  const cells: Array<{ col: number; row: number; depth: number }> = [];
+  for (let z = 0; z < BUNKER_POCKET_DEPTH; z++) {
+    for (let y = 0; y < BUNKER_POCKET_HEIGHT; y++) {
+      for (let dx = -half; dx <= half; dx++) {
+        cells.push({
+          col: footprint.col + spawnX + dx,
+          row: bottomRow - y,
+          depth: z,
+        });
+      }
+    }
+  }
+  return cells;
+}
+
+/**
+ * Union the spawn pocket into a dug set, deduped. Load boundaries call
+ * this so every bunker, including legacy claims stored before the
+ * dig-out redesign, always ships an open spawn room. Without it a
+ * pre-F-115 bunker (dug set from the old depth-0-open model) would spawn
+ * the player inside solid rock.
+ */
+export function withSpawnPocket(
+  footprint: BunkerFootprint,
+  dug: Array<{ col: number; row: number; depth: number }>,
+): Array<{ col: number; row: number; depth: number }> {
+  const seen = new Set(dug.map((cell) => cellKey(cell)));
+  const merged = [...dug];
+  for (const cell of bunkerSpawnPocketCells(footprint)) {
+    const key = cellKey(cell);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(cell);
+  }
+  return merged;
+}
+
+function cellKey(cell: { col: number; row: number; depth: number }): string {
+  return `${cell.col},${cell.row},${cell.depth}`;
+}

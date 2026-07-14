@@ -7,8 +7,10 @@ import {
   type BunkerBlock,
   bunkerCellBlock,
   bunkerCellMineRow,
+  bunkerSpawnPocketCells,
   deriveBunkerBlockSeed,
   isBunkerPocketCell,
+  withSpawnPocket,
 } from "./bunker-blocks";
 
 const FOOTPRINT: BunkerFootprint = { col: 100, row: 40, width: 7, height: 5 };
@@ -108,5 +110,41 @@ describe("isBunkerPocketCell", () => {
     expect(isBunkerPocketCell(spawnX, spawnX + 2, 0, 0)).toBe(false);
     expect(isBunkerPocketCell(spawnX, spawnX, 2, 0)).toBe(false);
     expect(isBunkerPocketCell(spawnX, spawnX, 0, 2)).toBe(false);
+  });
+});
+
+describe("withSpawnPocket", () => {
+  const pocketSize =
+    BUNKER_POCKET_WIDTH * BUNKER_POCKET_HEIGHT * BUNKER_POCKET_DEPTH;
+
+  it("adds the whole spawn pocket to an empty dug set", () => {
+    const merged = withSpawnPocket(FOOTPRINT, []);
+    expect(merged).toHaveLength(pocketSize);
+    expect(merged).toEqual(
+      expect.arrayContaining(bunkerSpawnPocketCells(FOOTPRINT)),
+    );
+  });
+
+  it("keeps existing dug cells and does not duplicate the pocket", () => {
+    // A legacy dug cell outside the pocket plus one already inside it.
+    const legacy = [
+      { col: FOOTPRINT.col, row: FOOTPRINT.row, depth: 3 },
+      bunkerSpawnPocketCells(FOOTPRINT)[0],
+    ];
+    const merged = withSpawnPocket(FOOTPRINT, legacy);
+    // pocket size + the one out-of-pocket legacy cell (the in-pocket one
+    // is already counted).
+    expect(merged).toHaveLength(pocketSize + 1);
+    expect(merged).toContainEqual({
+      col: FOOTPRINT.col,
+      row: FOOTPRINT.row,
+      depth: 3,
+    });
+  });
+
+  it("does not mutate the input dug array", () => {
+    const legacy = [{ col: FOOTPRINT.col, row: FOOTPRINT.row, depth: 2 }];
+    withSpawnPocket(FOOTPRINT, legacy);
+    expect(legacy).toHaveLength(1);
   });
 });

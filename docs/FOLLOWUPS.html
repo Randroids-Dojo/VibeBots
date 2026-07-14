@@ -52,6 +52,26 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-127" data-f="F-127" data-priority="nice-to-have">
+    <h3>F-127: Stabilize the mine action readiness gate</h3>
+    <dl>
+      <dt>Context</dt><dd>Required CI run 29308527889 on PR #181 failed the critical <code>mine actions begin immediately and settle smoothly</code> smoke at an unchanged app head. The first attempt left <code>Opening the shaft</code> visible beyond five seconds; its retry reached the scene but an ArrowRight press produced no miner motion within two seconds. Replacement run 29308854077 passed the same shard, confirming an intermittent readiness or input-attachment race that is not in the known-flake list.</dd>
+      <dt>Blocker (if any)</dt><dd>None. This required check can block unrelated PRs until the product gate and harness agree on when the mine is playable.</dd>
+      <dt>Unblock condition</dt><dd>Reproduce with the exact serial shard order and repeated current-main runs while capturing compile gate, scene-ready, input-listener, canvas diagnostic, console, and network state. If the product can expose a ready canvas before input is attached, fix that ordering. If the harness mixes weak sentinels, wait on one authoritative playable signal before pressing the key. Do not hide the failure by only extending timeouts. Acceptance requires ten consecutive focused passes and three consecutive critical shard passes under CI-like load, with a failed run retaining enough evidence to distinguish slow startup from dropped input. Record any temporary known-flake classification in <code>docs/CI_WORKFLOW.html</code> and remove it when fixed.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-127-stabilize-fee0d73b.</dd>
+    </dl>
+  </section>
+
+  <section id="F-126" data-f="F-126" data-priority="nice-to-have">
+    <h3>F-126: Include adjacent elevator boarding in return-home estimates</h3>
+    <dl>
+      <dt>Context</dt><dd>The placeable-elevator slice teaches <code>step</code> to board owned rail safely from either side, but <code>returnHomeEstimate</code> only recognizes the free elevator route when the miner already occupies a rail cell. Its path search treats an adjacent support-free rail cell as unstable, so the HUD can report a blocked route or ladder shortage while the same state can board, ride down, and ride home safely.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve with or immediately after the placeable-elevator slice so its route warning matches the action the player can actually take.</dd>
+      <dt>Unblock condition</dt><dd>Model a legal left or right automatic boarding step into owned rail as a safe zero-ladder, zero-energy route home without making ordinary unsupported lateral cells traversable. Use the placed shaft column and current rail depth, including entry at the bottom row. Unit coverage must include left and right adjacency, a support-free rail cell, bottom entry, a non-default shaft column, an out-of-range row, and the existing on-rail case. Add a mine HUD smoke assertion that an adjacent boardable shaft reports a safe return with no false ladder or battery warning.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-126-include-c6db104e.</dd>
+    </dl>
+  </section>
+
   <section id="F-125" data-f="F-125" data-priority="polish">
     <h3>F-125: Retire the legacy elevator column fallback after backfill</h3>
     <dl>
@@ -158,6 +178,7 @@
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
       <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-116-generate-d11cf988 created under VibeBots-first-person-3d-30115c4e.</dd>
       <dt>Monitoring update</dt><dd>F-120 is a blocking prerequisite for any ore-bearing reset path. Resource payout, the explicit zero battery spend, bag overflow, depletion, and bunker mutation must share one server-authoritative transaction and retry contract.</dd>
+      <dt>Monitoring correction</dt><dd>The established mine contract takes precedence over the earlier bag-full sentence: a bunker block still breaks when cargo is full, fitting ore enters cargo, and overflow becomes deterministic persistent collectible 3D bunker loot. Do not stop the dig at capacity. Cover partial and full cargo, reload, collection, reset, retry, and duplicate prevention inside the F-120 and F-122 authoritative transaction.</dd>
     </dl>
   </section>
 
@@ -182,7 +203,7 @@
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-114-minecraft-1876edfe (child of VibeBots-first-person-3d-30115c4e); branch <code>feat/bunker-fp-mining-feel</code>, package 0.1.255.</dd>
       <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-114-minecraft-1876edfe created under VibeBots-first-person-3d-30115c4e.</dd>
       <dt>Resolved</dt><dd>Branch <code>feat/bunker-fp-mining-feel</code> (package 0.1.255, PR #182). A first-person pickaxe view-model is rigged to the camera in view space and swung on every dig strike: the strike lands at the swing's impact point (<code>FP_SWING_IMPACT</code>), and a completed swing auto-restarts while the primary input stays held, so holding mines block after block at the swing cadence. Drag-retarget is inherent, because the per-frame crosshair raycast already tracks the aimed cell, so dragging look (touch) or the mouse (desktop) mid-hold moves the strike to the newly targeted in-range cell; reach reuses <code>FP_MAX_REACH</code> (about three blocks). The swing state machine is extracted to a pure, node-unit-tested <code>bunker-fp-swing.ts</code> (<code>createFpSwingState</code>/<code>startFpSwing</code>/<code>advanceFpSwing</code>/<code>fpSwingThrow</code>); the rig maps its 0..1 throw to the pickaxe pose, allocation-free (module-scope scratch Vector3/Euler/Quaternion, no per-frame construction). Input adds an <code>fpInput.actHeld</code> flag held while the primary press is active: desktop sets it on left-button down and clears it on button up or pointer-lock loss; touch sets it on a dig-mode look-zone press, so the long-press quick-pry now applies to the build and pry tools only (the dig hold owns continuous mining). A same-cell guard (<code>FP_DIG_REPEAT_GUARD</code>) prevents a banked round-trip in flight from being struck twice before the grid rebuild flips the cell out of the diggable set. <code>data-fp-swinging</code> exposes the swing state to tests. Pinned by nine swing unit tests and a hold-to-mine e2e (a single sustained hold mines two-plus cells straight down the column, with a Rule 10 consecutive-frame swing-motion proof), plus the existing dig, build, and pry desktop and touch e2es still green. Deferred to F-116: a per-block cracking-progress overlay, since current bunker claim rock breaks in one strike; real break counts and ore drops land with mineable blocks.</dd>
-      <dt>Monitoring update</dt><dd>2026-07-14: PR #182 landed the pick view-model and held repeat. Remaining acceptance still needs mouse and touch tests that move the aim while held, Rule 10 motion proof that isolates the pick from the always-animated core, block removal, crumble burst, and idle bob, plus the required frame-loop heap comparison. F-116 owns runtime crack progress and its reset on retarget. Banked repeat safety is tracked separately as F-122.</dd>
+      <dt>Monitoring update</dt><dd>2026-07-14: PR #182 landed the pick view-model and held repeat. Remaining acceptance still needs mouse and touch tests that move the aim while held, Rule 10 motion proof that isolates the pick from the always-animated core, block removal, crumble burst, and idle bob, plus the required frame-loop heap comparison. Update the touch and desktop <code>FP_TUTORIAL_COPY</code> from tap or click to holding, with text coverage. F-116 owns runtime crack progress and its reset on retarget. Banked repeat safety is tracked separately as F-122.</dd>
     </dl>
   </section>
 
@@ -313,6 +334,7 @@
       <dt>Blocker (if any)</dt><dd>Sequence after F-100 so the trace reads the registered <code>bunker-fp</code> probe.</dd>
       <dt>Unblock condition</dt><dd>Add a source-aware diagnostic allowlist that preserves at least <code>fpEyeY</code>, <code>fpOpenCells</code>, and <code>fpGrounded</code> without adding per-frame string or object allocation. Unit tests must reject unapproved keys and retain approved bounded values; an end-to-end trace test must prove the fields reach a <code>bunker-fp</code> payload.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-101-preserve-6cc8e8f6 (child of VibeBots-first-person-3d-30115c4e).</dd>
+      <dt>Monitoring update</dt><dd>PR #182 now publishes bounded <code>fpSwinging</code> state from the first-person canvas. Retain that boolean beside the existing approved diagnostics so an opt-in <code>bunker-fp</code> trace distinguishes idle from held mining. Do not retain target coordinates, cell keys, or other high-cardinality aim data. Pin idle and held samples through the source-aware allowlist and payload path.</dd>
     </dl>
   </section>
 

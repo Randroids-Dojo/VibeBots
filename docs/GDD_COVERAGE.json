@@ -386,7 +386,8 @@
         "src/sim/mine/supports.test.ts"
       ],
       "followupRefs": [
-        "F-012"
+        "F-012",
+        "F-126"
       ]
     },
     {
@@ -407,7 +408,8 @@
       ],
       "followupRefs": [
         "F-016",
-        "F-019"
+        "F-019",
+        "F-127"
       ]
     },
     {
@@ -447,7 +449,9 @@
         "src/sim/mine/replay.test.ts",
         "tests/e2e/mine-core.spec.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-126"
+      ]
     },
     {
       "id": "REQ-021",
@@ -522,7 +526,9 @@
         "tests/e2e/mine-firetv-controls.spec.ts",
         "src/lib/tv-remote-input.test.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-127"
+      ]
     },
     {
       "id": "REQ-024",

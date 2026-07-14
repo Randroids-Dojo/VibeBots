@@ -2,8 +2,8 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>F-121 Make elevator upgrades truly atomic and resync conflicts</title>
-<meta name="dot-title" content="F-121 Make elevator upgrades truly atomic and resync conflicts">
+<title>F-121 Resync elevator conflicts with authoritative state</title>
+<meta name="dot-title" content="F-121 Resync elevator conflicts with authoritative state">
 <meta name="dot-status" content="open">
 <meta name="dot-priority" content="1">
 <meta name="dot-issue-type" content="task">
@@ -11,9 +11,9 @@
 </head>
 <body>
 <article>
-<h1>F-121 Make elevator upgrades truly atomic and resync conflicts</h1>
+<h1>F-121 Resync elevator conflicts with authoritative state</h1>
 <section id="description">
-Lock player and world preconditions before either elevator mutation so no race can carve the shaft without the matching debit and depth update. Return stable conflicts with authoritative state and replace the client view.
+Require expected depth plus an idempotency key, distinguish elevator rejection reasons, return or refetch authoritative state, replace the stale client view, and record structured conflict outcomes for live testing.
 </section>
 </article>
 </body>

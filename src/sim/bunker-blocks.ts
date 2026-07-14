@@ -19,12 +19,15 @@ import type { MineCell } from "./mine/cells";
 import type { OreId } from "./mine/ores";
 import { generatedCell } from "./mine/world";
 
-/** The pre-mined starter room: 3 wide (local x), 2 tall (local y), 2
+/** The pre-mined starter room: 3 wide (local x), 3 tall (local y), 3
  * deep (local z), centered on the spawn column at the bunker floor, so
- * the player clearly stands inside a room facing diggable rock. */
+ * the player spawns standing in an open chamber, with headroom overhead
+ * and diggable rock a few steps ahead, instead of pressed inside a
+ * cramped box. The bunker core sits at the top-front-center of this
+ * volume and reads as the room's exposed centerpiece. */
 export const BUNKER_POCKET_WIDTH = 3;
-export const BUNKER_POCKET_HEIGHT = 2;
-export const BUNKER_POCKET_DEPTH = 2;
+export const BUNKER_POCKET_HEIGHT = 3;
+export const BUNKER_POCKET_DEPTH = 3;
 
 /** One depth layer is offset this far in the generator's column space so
  * the five stacked layers get distinct blocks while sharing each row's
@@ -133,7 +136,7 @@ export function isBunkerPocketCell(
 
 /**
  * The absolute {col,row,depth} cells of the pre-mined spawn pocket for a
- * footprint: a 3x2x2 room centered on the spawn column at the floor.
+ * footprint: a 3x3x3 room centered on the spawn column at the floor.
  * Seeded into the bunker's `dug` set at claim so the player spawns
  * inside an open room instead of a solid-rock trap. Local y grows up
  * from the floor (row = bottomRow - y); depth grows into the rock.

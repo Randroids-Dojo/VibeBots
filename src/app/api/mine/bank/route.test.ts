@@ -311,13 +311,13 @@ describe("POST /api/mine/bank", () => {
 
   it("validates pending bunker parts stacked across depths", () => {
     // A pocket floor cell is open at depth 0; digging one layer past the
-    // pocket (depth 2) opens a second buildable cell in the same column.
+    // pocket (depth 3) opens a second buildable cell in the same column.
     const result = validatePendingBunkerClaim(
       {
         claimCol: START_COL,
         claimRow: 5,
         claimedAtMoveCount: 5,
-        dug: [{ col: START_COL - 1, row: 5, depth: 2 }],
+        dug: [{ col: START_COL - 1, row: 5, depth: 3 }],
         parts: [
           {
             partId: "wall-panel",
@@ -330,7 +330,7 @@ describe("POST /api/mine/bank", () => {
             partId: "wall-panel",
             col: START_COL - 1,
             row: 5,
-            depth: 2,
+            depth: 3,
             durability: BASE_PART_CATALOG["wall-panel"].durability,
           },
         ],
@@ -345,7 +345,7 @@ describe("POST /api/mine/bank", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.bunker.parts.map((part) => part.depth)).toEqual([0, 2]);
+    expect(result.bunker.parts.map((part) => part.depth)).toEqual([0, 3]);
   });
 
   it("banks a fresh claim whose dug payload carries the whole spawn pocket", () => {
@@ -560,7 +560,7 @@ describe("POST /api/mine/bank", () => {
         claimCol: START_COL,
         claimRow: 5,
         claimedAtMoveCount: 5,
-        dug: [{ col: START_COL - 1, row: 5, depth: 2 }],
+        dug: [{ col: START_COL - 1, row: 5, depth: 3 }],
         parts: [
           {
             partId: "wall-panel",

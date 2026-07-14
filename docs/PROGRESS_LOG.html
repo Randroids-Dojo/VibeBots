@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-placement-migration-monitoring" data-date="2026-07-14">
+    <h3>Retire the free legacy elevator relocation path</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>Continued monitoring found a new <code>elevator_placement_chosen_at</code> compatibility marker, a gear-response flag, and a one-time free relocation transaction for existing rail owners. Expanded F-124 so the bounded alpha cleanup removes this marker and branch together with the support-refund and rail-installation paths. Expanded F-121 so accepted and rejected relocation requests use the same durable bounded outcome telemetry as place and extend operations.</dd>
+      <dt>Verification</dt><dd>Traced the schema column, compatibility-marker registry, player profile, gear response, upgrade route's free relocation transaction, client placement flag, rejection test after the marker is set, and the relocation branch's intentional balance-event bypass. Confirmed that the new path is compatibility plumbing rather than a permanent product rule and still needs operational completion telemetry during its window.</dd>
+      <dt>Assumptions</dt><dd>The tiny existing alpha cohort may choose a location once during a bounded window. After cutoff, current rail state has an explicit valid placement or fails fast with Start fresh or support guidance and no mutation. A zero-price relocation emits no economy event but does emit one deduplicated operational outcome.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. F-121 and F-124 remain linked to REQ-028.</dd>
+      <dt>Followups</dt><dd>Expanded F-121 and F-124 plus their matching HTML Dots. No new followup ID was needed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-directional-resume-monitoring" data-date="2026-07-14">
     <h3>Resume an interrupted elevator ascent after reload</h3>
     <dl>

@@ -13,7 +13,7 @@
 <article>
 <h1>F-124 Retire the one-time elevator support-refund path</h1>
 <section id="description">
-After every existing rail owner is reconciled, remove the write-on-read support refund migration and its current-profile plumbing. Separate legacy reconciliation from ordinary purchases so every newly purchased row credits each removed ladder or plank without refunding old rows twice. During the bounded window compare rail state semantically and repair once. If a guarded repair loses its compare-and-swap, return reread authoritative state or a stable retryable conflict, never a stale successful load. Retire both temporary markers, then fail fast without mutation when marked current-version rail state drifts.
+After every existing rail owner is reconciled, remove the write-on-read support refund migration and its current-profile plumbing. Separate legacy reconciliation from ordinary purchases so every newly purchased row credits each removed ladder or plank without refunding old rows twice. During the bounded window compare rail state semantically and repair once. If a guarded repair loses its compare-and-swap, return reread authoritative state or a stable retryable conflict, never a stale successful load. Retire the support-refund, rail-installation, and placement-chosen markers plus the free legacy relocation branch, then fail fast without mutation when current-version rail or placement state is incompatible.
 </section>
 </article>
 </body>

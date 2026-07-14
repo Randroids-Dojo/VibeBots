@@ -13,7 +13,7 @@
 <article>
 <h1>F-121 Resync elevator conflicts with authoritative state</h1>
 <section id="description">
-Require expected depth plus an idempotency key, distinguish elevator rejection reasons, return or refetch authoritative state, and replace the stale client view, including authoritative ladder and plank counts after success. Preserve one success-only elevator.upgrade balance event per committed purchase. Persist and deduplicate one bounded structured outcome per request through a transactional outbox or equivalent durable record, including retry and crash recovery, while telemetry delivery failures never fail committed gameplay. Log expected preflight cash-out races with the stable trip conflict code at warning severity, not as generic persistence errors.
+Require expected depth plus an idempotency key, distinguish elevator rejection reasons, return or refetch authoritative state, and replace the stale client view, including authoritative ladder and plank counts after success. Preserve one success-only elevator.upgrade balance event per committed purchase. Persist and deduplicate one bounded structured outcome per place, extend, or temporary legacy relocation request through a transactional outbox or equivalent durable record, including retry and crash recovery, while telemetry delivery failures never fail committed gameplay. Log expected preflight cash-out races with the stable trip conflict code at warning severity, not as generic persistence errors.
 </section>
 </article>
 </body>

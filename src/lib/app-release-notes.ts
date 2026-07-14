@@ -1,9 +1,22 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.254-pick-first";
+export const RELEASE_NOTICE_ID = "2026-07-14-0.1.255-hold-to-mine";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.255",
+      date: "2026-07-14",
+      title: "Swing the pickaxe and hold to dig",
+      intro: "The pick swings at the block, and holding the dig keeps mining.",
+      changes: [
+        {
+          build,
+          text: "Digging in the bunker now swings a pickaxe at the block you are aiming at. Hold the dig and it keeps swinging, so you can drag your aim across the claim rock and mine cell after cell without tapping each one. Reach stays about three blocks ahead.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.254",
       date: "2026-07-13",

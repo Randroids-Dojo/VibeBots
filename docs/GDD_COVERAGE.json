@@ -1072,11 +1072,20 @@
       "id": "REQ-043",
       "requirement": "First-person bunker mining shows a moving pick strike, repeats while held, displays block progress, and retargets to the current in-range crosshair cell without per-frame allocation.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/components/bunker-fp-swing.ts",
+        "src/components/bunker-fp-canvas.tsx",
+        "src/components/bunker-fp-input.ts",
+        "src/components/bunker-fp-hud.tsx"
+      ],
+      "testRefs": [
+        "src/components/bunker-fp-swing.test.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
+      ],
       "followupRefs": [
         "F-114",
+        "F-116",
         "F-122"
       ]
     },

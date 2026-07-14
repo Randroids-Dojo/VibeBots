@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-14-0.1.262-groundbreaker-real-dig",
+      releaseNoticeId: "2026-07-14-0.1.263-bunker-block-art",
       releaseSummary:
-        "Groundbreaker waits for a real dig: The first-dig bunker stamp no longer pops before you dig.",
+        "Bunker walls show real dirt, rock, and ore: Your bunker interior now renders the mine's blocks instead of one flat gray.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-14-0.1.262-groundbreaker-real-dig",
+      releaseNoticeId: "2026-07-14-0.1.263-bunker-block-art",
       attempted: 2,
       sent: 1,
       expired: 1,

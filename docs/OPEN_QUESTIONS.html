@@ -38,40 +38,6 @@
 <main id="open">
   <h2>Open</h2>
 
-  <section data-q="Q-022" data-status="resolved">
-    <h3>Q-022: Do existing full-block bunker parts migrate or reset under the thin-piece model?</h3>
-    <dl>
-      <dt>Context</dt><dd>The 2026-07-13 bunker redesign (F-117) replaces cell-filling parts with thin slot parts (thin floors, thin wall dividers up to 4 per cell, overhead floors, roofs, stairs). Existing placements are one-full-block-per-cell and have no slot or orientation, so they cannot be interpreted 1:1 under the new model.</dd>
-      <dt>Options</dt><dd>
-        <ol type="A">
-          <li>Refund every placed part to inventory on first load under the new model and let the player rebuild with the thin pieces.</li>
-          <li>Best-effort convert a full-block wall to four wall faces, a full floor to a floor slab, etc.</li>
-          <li>Wipe placements with no refund.</li>
-        </ol>
-      </dd>
-      <dt>Recommended default</dt><dd>A. The bunker feature is young and the geometries do not map cleanly (a full-block wall is not four thin faces the player would have chosen), so refunding is honest and lossless and lets players rebuild deliberately. C is punitive; B invents layouts the player never placed.</dd>
-      <dt>Resolution</dt><dd>Dev decision (2026-07-13): C, hard reset. With only two alpha players there is no migration to protect, so the redesign simply resets existing bunker state (and the associated mine claim data as needed) rather than building refund or conversion plumbing. Rebuild from scratch under the new model.</dd>
-      <dt>Status</dt><dd>resolved</dd>
-    </dl>
-  </section>
-
-  <section data-q="Q-021" data-status="resolved">
-    <h3>Q-021: Does mining inside the bunker cost battery?</h3>
-    <dl>
-      <dt>Context</dt><dd>The 2026-07-13 bunker redesign (F-116) makes the claim's rock generate and mine like the mine, dropping 3D ore into the bag. Today walking and digging inside the bunker are free. If mining yields real ore for free, the bunker becomes an unbounded ore farm; if it costs battery, it is a real but bounded mining space.</dd>
-      <dt>Options</dt><dd>
-        <ol type="A">
-          <li>Mining inside the bunker costs battery like the mine (walking stays free, only mining spends); running dry ends the session like a normal trip.</li>
-          <li>Mining inside is free and unlimited.</li>
-          <li>Mining is free but bunker rock yields no ore (keep the current "dig for space, not loot" model, contradicting the request).</li>
-        </ol>
-      </dd>
-      <dt>Recommended default</dt><dd>A. It honors the request (real ore, bag fills like normal) while keeping the economy bounded by the same battery budget as the mine, so the bunker is a productive space rather than a free farm. Revisit if battery-in-the-bunker feels punishing during playtest.</dd>
-      <dt>Resolution</dt><dd>Dev decision (2026-07-13): B, no battery cost. The claim is a bounded number of blocks, so there is no farming exploit to guard against; mining inside the bunker stays free (like walking) and still drops ore into the bag. The bag capacity is the only limit.</dd>
-      <dt>Status</dt><dd>resolved</dd>
-    </dl>
-  </section>
-
   <section data-q="Q-020" data-status="open">
     <h3>Q-020: Should an all-rock bunker stay nearly unraidable?</h3>
     <dl>
@@ -302,6 +268,41 @@
 
 <aside id="resolved">
   <h2>Resolved</h2>
+
+  <section data-q="Q-022" data-status="resolved">
+    <h3>Q-022: Do existing full-block bunker parts migrate or reset under the thin-piece model?</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-07-13 bunker redesign (F-117) replaces cell-filling parts with thin slot parts (thin floors, thin wall dividers up to 4 per cell, overhead floors, roofs, stairs). Existing placements are one-full-block-per-cell and have no slot or orientation, so they cannot be interpreted 1:1 under the new model.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Refund every placed part to inventory on first load under the new model and let the player rebuild with the thin pieces.</li>
+          <li>Best-effort convert a full-block wall to four wall faces, a full floor to a floor slab, etc.</li>
+          <li>Wipe placements with no refund.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The bunker feature is young and the geometries do not map cleanly (a full-block wall is not four thin faces the player would have chosen), so refunding is honest and lossless and lets players rebuild deliberately. C is punitive; B invents layouts the player never placed.</dd>
+      <dt>Resolution</dt><dd>Dev decision (2026-07-13): C, hard reset. With only two alpha players there is no migration to protect, so the redesign simply resets existing bunker state (and the associated mine claim data as needed) rather than building refund or conversion plumbing. Rebuild from scratch under the new model.</dd>
+      <dt>Implementation clarification</dt><dd>Fail fast when an old full-block layout is detected. Tell the player that the state is incompatible and offer a confirmed Start fresh action. Do not silently reset, migrate, convert, or refund the old layout.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-021" data-status="resolved">
+    <h3>Q-021: Does mining inside the bunker cost battery?</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-07-13 bunker redesign (F-116) makes the claim's rock generate and mine like the mine, dropping 3D ore into the bag. Today walking and digging inside the bunker are free. If mining yields real ore for free, the bunker becomes an unbounded ore farm; if it costs battery, it is a real but bounded mining space.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Mining inside the bunker costs battery like the mine (walking stays free, only mining spends); running dry ends the session like a normal trip.</li>
+          <li>Mining inside is free and unlimited.</li>
+          <li>Mining is free but bunker rock yields no ore (keep the current "dig for space, not loot" model, contradicting the request).</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It honors the request (real ore, bag fills like normal) while keeping the economy bounded by the same battery budget as the mine, so the bunker is a productive space rather than a free farm. Revisit if battery-in-the-bunker feels punishing during playtest.</dd>
+      <dt>Resolution</dt><dd>Dev decision (2026-07-13): B, no battery cost. The claim is a bounded number of blocks, so there is no farming exploit to guard against; mining inside the bunker stays free (like walking) and still drops ore into the bag. The bag capacity is the only limit.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+    </dl>
+  </section>
 
   <section data-q="Q-014" data-status="resolved">
     <h3>Q-014: Should battle behavior be inferred, configurable, or hybrid?</h3>

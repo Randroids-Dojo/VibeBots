@@ -69,7 +69,7 @@
       <dt>Context</dt><dd>The dig-energy expectation (energy in [58.5, 59.0] after the scripted digs) assumes 0.2-cost swings, but the unseeded world sometimes places a two-hit 0.4-per-swing cell at the dig column, landing exactly 59.2. Reproduced 2 of 8 runs locally on the hammer-retirement branch and on unmodified main; no product code path involved. Separately, the keyboard suite's workshop-Escape case fails on unmodified main in the same local environment only.</dd>
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Route a fixed seed (routeStarterMineWorld or equivalent) so the dig column's cells are deterministic, or assert against the HUD's per-swing cost instead of a fixed band. Note the workshop-Escape local repro alongside if it persists.</dd>
-      <dt>PR / Dot reference</dt><dd>Branch <code>fix/mine-core-dig-energy-seed</code>, PR pending.</dd>
+      <dt>PR / Dot reference</dt><dd>Branch <code>fix/mine-core-dig-energy-seed</code>, PR #177.</dd>
       <dt>Resolved</dt><dd>The "mine digs and tracks depth and energy" test now calls <code>routeStarterMineWorld(page, 424242, ...)</code> and forces the dig column's row-1 block to <code>{ kind: "dirt" }</code> before <code>page.goto</code>, so the swing total is a deterministic 1.0 and the [58.5, 59.0] energy band always holds. Test-only change, no product path, no version bump. Verified: the seeded test passed 6/6 with <code>--repeat-each=6</code> where the unseeded world flaked 2 of 8. The separately-noted workshop-Escape case is a local-environment artifact on unmodified main (not this diff) and is not addressed here; it never fails in CI.</dd>
     </dl>
   </section>

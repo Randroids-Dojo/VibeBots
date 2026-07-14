@@ -21,11 +21,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Entering the bunker arms the pick so you can dig right away.",
+    "The pick swings at the block, and holding the dig keeps mining.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "hands you the pick instead of a wall",
+    "swings a pickaxe at the block",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.255", "Swing the pickaxe and hold to dig"],
     ["0.1.254", "Step inside with the pick already out"],
     ["0.1.253", "Pry straight back to your pack"],
     ["0.1.252", "The bunker teaches itself"],

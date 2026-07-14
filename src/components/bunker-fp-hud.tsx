@@ -303,6 +303,7 @@ export function BunkerFpHud({
       fpInput.lookX = 0;
       fpInput.lookY = 0;
       fpInput.act = false;
+      fpInput.actHeld = false;
       fpInput.pryAct = false;
     };
   }, []);
@@ -356,6 +357,15 @@ export function BunkerFpHud({
       performance.now(),
       getFpTargetSnapshot(),
     );
+    if (tool === "dig") {
+      // Digging holds to mine: the press keeps the pickaxe swinging so
+      // dragging the aim across cells mines each one (F-114). The edge
+      // act guarantees a strike even on a sub-frame tap. No long-press
+      // pry here (holding means keep mining, not right-click).
+      fpInput.act = true;
+      fpInput.actHeld = true;
+      return;
+    }
     // A press held still through the hold window quick-pries whatever
     // the crosshair saw at press start (the touch right-click); the
     // predicate re-checks stillness and that the target never changed.
@@ -390,6 +400,7 @@ export function BunkerFpHud({
   const lookCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (look.current.pointerId !== event.pointerId) return;
     window.clearTimeout(longPressTimerRef.current);
+    fpInput.actHeld = false;
     look.current.active = false;
     look.current.pointerId = -1;
   };
@@ -397,13 +408,17 @@ export function BunkerFpHud({
   const lookUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (look.current.pointerId !== event.pointerId) return;
     window.clearTimeout(longPressTimerRef.current);
+    // Releasing always stops any held dig mining.
+    fpInput.actHeld = false;
     // A quick, still tap acts with the current tool; the rig consumes
     // the flag on its next frame against the live crosshair target. A
-    // press the long-press hold already consumed never also acts.
+    // press the long-press hold already consumed never also acts. Dig
+    // taps already fired their strike on press (hold-to-mine), so they
+    // do not tap-act again.
     const wasTap = shouldFireFpTapAct(look.current, performance.now());
     look.current.active = false;
     look.current.pointerId = -1;
-    if (wasTap) fpInput.act = true;
+    if (wasTap && tool !== "dig") fpInput.act = true;
   };
 
   return (

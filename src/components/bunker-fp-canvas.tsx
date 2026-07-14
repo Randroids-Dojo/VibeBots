@@ -22,6 +22,7 @@ import {
   LineSegments as LineSegmentsImpl,
   Matrix4,
   Mesh,
+  MeshStandardMaterial,
   Quaternion,
   Vector3,
 } from "three/webgpu";
@@ -70,6 +71,13 @@ import {
   type FpRayHit,
   raycastFpGrid,
 } from "./bunker-fp-raycast";
+import {
+  advanceFpSwing,
+  createFpSwingState,
+  type FpSwingState,
+  fpSwingThrow,
+  startFpSwing,
+} from "./bunker-fp-swing";
 import {
   resetFpBoxedIn,
   resetFpTarget,
@@ -202,6 +210,84 @@ const FP_BURST_DIRS: readonly (readonly [number, number, number])[] =
     Object.freeze([0.55, 0.2, -0.6] as const),
     Object.freeze([-0.5, 0.3, 0.5] as const),
   ]);
+
+/** Skip re-issuing a dig for the same cell within this window so a
+ * banked round-trip still in flight cannot be struck twice before the
+ * grid rebuild flips the cell out of the diggable set. */
+const FP_DIG_REPEAT_GUARD = 0.55;
+
+/**
+ * First-person pickaxe view-model (F-114). Rigged to the camera so it
+ * rides in view space and swung on every dig strike, so mining reads
+ * like Minecraft: the pick chops forward, connects with the rock at
+ * FP_SWING_IMPACT, then eases back. Geometry and materials are shared
+ * module singletons (the warm pass compiles the program); the rig only
+ * mutates the group transform, so steady-state frames never allocate.
+ * Swing timing and the throw curve live in bunker-fp-swing.ts.
+ *
+ * Resting pose and swing throw are in the camera's view space (+x
+ * right, +y up, -z forward). At rest the head is raised up-left; the
+ * swing rotates it forward-down into the rock ahead.
+ */
+const FP_PICK_POS_X = 0.4;
+const FP_PICK_POS_Y = -0.42;
+const FP_PICK_POS_Z = -0.72;
+const FP_PICK_REST_X = -0.55;
+const FP_PICK_REST_Y = 0.6;
+const FP_PICK_REST_Z = 0.28;
+const FP_PICK_SWING_X = 1.5;
+const FP_PICK_SWING_Z = -0.5;
+
+// depthTest/Write off + a high render order draw the view-model over
+// the world, so the pick never clips into a wall directly ahead.
+const FP_PICK_HANDLE_MATERIAL = new MeshStandardMaterial({
+  color: 0x6b4a2f,
+  roughness: 0.85,
+  metalness: 0.05,
+  depthTest: false,
+  depthWrite: false,
+});
+const FP_PICK_HEAD_MATERIAL = new MeshStandardMaterial({
+  color: 0x9aa3ad,
+  roughness: 0.35,
+  metalness: 0.65,
+  depthTest: false,
+  depthWrite: false,
+});
+// Handle runs up +y from the grip (group origin); the head crossbar and
+// two flared tips sit at its top so the silhouette reads as a pickaxe.
+const FP_PICK_HANDLE_GEOMETRY = new BoxGeometry(0.05, 0.52, 0.05).translate(
+  0,
+  0.26,
+  0,
+);
+const FP_PICK_HEAD_BAR_GEOMETRY = new BoxGeometry(0.34, 0.07, 0.08).translate(
+  0,
+  0.52,
+  0,
+);
+const FP_PICK_HEAD_TIP_GEOMETRY = new BoxGeometry(0.07, 0.07, 0.09);
+
+function createFpPickaxe(): Group {
+  const group = new Group();
+  const handle = new Mesh(FP_PICK_HANDLE_GEOMETRY, FP_PICK_HANDLE_MATERIAL);
+  const bar = new Mesh(FP_PICK_HEAD_BAR_GEOMETRY, FP_PICK_HEAD_MATERIAL);
+  const leftTip = new Mesh(FP_PICK_HEAD_TIP_GEOMETRY, FP_PICK_HEAD_MATERIAL);
+  leftTip.position.set(-0.2, 0.47, 0.02);
+  const rightTip = new Mesh(FP_PICK_HEAD_TIP_GEOMETRY, FP_PICK_HEAD_MATERIAL);
+  rightTip.position.set(0.2, 0.47, 0.02);
+  for (const mesh of [handle, bar, leftTip, rightTip]) {
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 999;
+    group.add(mesh);
+  }
+  return group;
+}
+
+// Scratch for the pickaxe world transform (per frame, no allocation).
+const fpPickOffset = new Vector3();
+const fpPickEuler = new Euler();
+const fpPickQuat = new Quaternion();
 
 /** One Fog and one Color live for the canvas's life (the F-075
  * no-recompile invariant: swapping the objects rekeys the node cache
@@ -523,6 +609,7 @@ function BunkerFpRig({
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
+  const scene = useThree((state) => state.scene);
   const yawRef = useRef(0);
   const pitchRef = useRef(FP_SPAWN_PITCH);
   const datasetCacheRef = useRef<Record<string, number | string>>({});
@@ -642,6 +729,8 @@ function BunkerFpRig({
     // jump button (F-094); desktop keeps Space and no auto-jump.
     inputScratchRef.current.autoJump = coarse;
     const publishLock = () => {
+      // Losing the lock (Escape) must not leave the pick mining.
+      if (document.pointerLockElement !== canvas) fpInput.actHeld = false;
       canvas.dataset.fpLock =
         document.pointerLockElement === canvas
           ? "locked"
@@ -671,8 +760,17 @@ function BunkerFpRig({
       if (coarse) return;
       const locked = document.pointerLockElement === canvas;
       if (!locked && !lockUnavailableRef.current) return;
-      if (event.button === 0) fpInput.act = true;
-      else if (event.button === 2) fpInput.pryAct = true;
+      if (event.button === 0) {
+        // Edge act guarantees a strike on the fastest click; actHeld
+        // keeps the pick swinging while the button stays down.
+        fpInput.act = true;
+        fpInput.actHeld = true;
+      } else if (event.button === 2) {
+        fpInput.pryAct = true;
+      }
+    };
+    const onMouseUp = (event: MouseEvent) => {
+      if (event.button === 0) fpInput.actHeld = false;
     };
     const onContextMenu = (event: Event) => {
       event.preventDefault();
@@ -681,13 +779,16 @@ function BunkerFpRig({
     canvas.addEventListener("mousedown", onMouseDown);
     canvas.addEventListener("contextmenu", onContextMenu);
     document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
     document.addEventListener("pointerlockchange", publishLock);
     return () => {
       canvas.removeEventListener("click", onClick);
       canvas.removeEventListener("mousedown", onMouseDown);
       canvas.removeEventListener("contextmenu", onContextMenu);
       document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
       document.removeEventListener("pointerlockchange", publishLock);
+      fpInput.actHeld = false;
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     };
   }, [gl]);
@@ -746,11 +847,39 @@ function BunkerFpRig({
     };
   }, [detail]);
 
+  // Pickaxe view-model: a scene child whose world transform the frame
+  // loop derives from the camera (view-space offset + swing), so it
+  // rides in front of the eye without depending on the camera being in
+  // the scene graph. Shared geometry and materials (warmed by
+  // warmBunkerFpMaterials) mean the mount only creates the meshes, and
+  // nothing here allocates.
+  const pickaxeRef = useRef<Group | null>(null);
+  useLayoutEffect(() => {
+    const pick = createFpPickaxe();
+    pick.visible = false;
+    scene.add(pick);
+    pickaxeRef.current = pick;
+    return () => {
+      scene.remove(pick);
+      pickaxeRef.current = null;
+    };
+  }, [scene]);
+
+  // Dig swing state: a single active swing at a time, its strike landing
+  // once at FP_SWING_IMPACT. The same-cell guard rate-limits repeated
+  // digs while a banked round-trip is still settling.
+  const swingRef = useRef<FpSwingState | null>(null);
+  if (!swingRef.current) swingRef.current = createFpSwingState();
+  const lastDigCellRef = useRef(-1);
+  const lastDigAtRef = useRef(-1);
+
   useFrame((state, delta) => {
     const move = moveRef.current;
     const solid = solidRef.current;
     const rayHit = rayHitRef.current;
-    if (!move || !solid || !rayHit) return;
+    const swing = swingRef.current;
+    if (!move || !solid || !rayHit || !swing) return;
+    const isDig = tool === "dig";
 
     // Test-only one-shot camera aim (no-op in normal play).
     const hook = window.__vibebotsFp;
@@ -937,26 +1066,57 @@ function BunkerFpRig({
     }
 
     // Edit intents (input cadence; the intent object is the only
-    // allocation and only on an accepted act).
-    if (fpInput.act || fpInput.pryAct) {
-      const quickPry = fpInput.pryAct;
+    // allocation and only on an accepted act). Quick pry (right-click or
+    // touch long-press) and a pry-tool tap both pry the crosshair part.
+    // A build tap places. Digging instead drives the pickaxe swing
+    // below: the strike lands mid-swing and holding keeps it swinging,
+    // so dragging the aim across cells mines each one (F-114).
+    const wantPry = fpInput.pryAct || (fpInput.act && tool === "pry");
+    fpInput.pryAct = false;
+    if (isDig) {
+      // The swing owns digging; consume the press edge so it does not
+      // also fall through to a build/pry act.
+      if (fpInput.act || fpInput.actHeld) startFpSwing(swing);
       fpInput.act = false;
-      fpInput.pryAct = false;
-      const action = quickPry ? "pry" : tool;
-      if (action === "pry") {
-        if (targetPryable) {
-          onEdit({
-            kind: "pry",
-            cell: fpGridCellFromLocal(
-              bunker.footprint,
-              rayHit.x,
-              rayHit.y,
-              rayHit.z,
-            ),
-          });
-        }
-      } else if (action === "dig") {
-        if (targetDiggable) {
+    } else if (fpInput.act) {
+      fpInput.act = false;
+      if (!wantPry && placeOk) {
+        onEdit({
+          kind: "place",
+          cell: fpGridCellFromLocal(
+            bunker.footprint,
+            rayHit.placeX,
+            rayHit.placeY,
+            rayHit.placeZ,
+          ),
+        });
+      }
+    }
+    if (wantPry && targetPryable) {
+      onEdit({
+        kind: "pry",
+        cell: fpGridCellFromLocal(
+          bunker.footprint,
+          rayHit.x,
+          rayHit.y,
+          rayHit.z,
+        ),
+      });
+    }
+
+    // Advance the active swing and land the dig at impact. The swing
+    // auto-restarts while the input stays held in dig mode, so a held
+    // press mines block after block at the swing cadence.
+    if (advanceFpSwing(swing, delta, isDig && fpInput.actHeld)) {
+      if (isDig && targetDiggable) {
+        const digCell = fpCellIndex(rayHit.x, rayHit.y, rayHit.z);
+        const nowSec = state.clock.elapsedTime;
+        if (
+          digCell !== lastDigCellRef.current ||
+          nowSec - lastDigAtRef.current >= FP_DIG_REPEAT_GUARD
+        ) {
+          lastDigCellRef.current = digCell;
+          lastDigAtRef.current = nowSec;
           onEdit({
             kind: "dig",
             cell: fpGridCellFromLocal(
@@ -967,16 +1127,30 @@ function BunkerFpRig({
             ),
           });
         }
-      } else if (placeOk) {
-        onEdit({
-          kind: "place",
-          cell: fpGridCellFromLocal(
-            bunker.footprint,
-            rayHit.placeX,
-            rayHit.placeY,
-            rayHit.placeZ,
-          ),
-        });
+      }
+    }
+
+    // Pickaxe pose: shown only with the dig tool; a small idle bob at
+    // rest, the swing arc overriding it mid-strike (peaks fully forward
+    // exactly at FP_SWING_IMPACT, where the dig lands). The view-space
+    // offset and swing rotation ride the camera basis into world space.
+    const pickaxe = pickaxeRef.current;
+    if (pickaxe) {
+      pickaxe.visible = isDig;
+      if (isDig) {
+        const throwAmt = fpSwingThrow(swing);
+        const bob = Math.sin(state.clock.elapsedTime * 2.1) * 0.006;
+        fpPickOffset
+          .set(FP_PICK_POS_X, FP_PICK_POS_Y + bob, FP_PICK_POS_Z)
+          .applyQuaternion(camera.quaternion);
+        pickaxe.position.copy(camera.position).add(fpPickOffset);
+        fpPickEuler.set(
+          FP_PICK_REST_X + throwAmt * FP_PICK_SWING_X,
+          FP_PICK_REST_Y,
+          FP_PICK_REST_Z + throwAmt * FP_PICK_SWING_Z,
+        );
+        fpPickQuat.setFromEuler(fpPickEuler);
+        pickaxe.quaternion.copy(camera.quaternion).multiply(fpPickQuat);
       }
     }
 
@@ -1016,6 +1190,7 @@ function BunkerFpRig({
     setDatasetNumber(cache, dataset, "fpPitch", pitchRef.current, 2);
     setDatasetNumber(cache, dataset, "fpOpenCells", openCellsRef.current, 0);
     setDatasetText(cache, dataset, "fpGrounded", move.grounded ? "1" : "0");
+    setDatasetText(cache, dataset, "fpSwinging", swing.active ? "1" : "0");
 
     // Tutorial observations (F-097): cheap scalars every frame; the
     // machine early-returns when idle or complete and notifies its
@@ -1066,6 +1241,9 @@ function warmBunkerFpMaterials(
   );
   rockWarm.setColorAt(0, rockColor.setScalar(1));
   group.add(rockWarm);
+  // Compile the pickaxe view-model's wood + metal programs here so the
+  // first dig swing never stalls on a pipeline build.
+  group.add(createFpPickaxe());
   for (const id of BASE_PART_IDS) bunkerPartFpGeometry(id, tier);
   scene.add(group);
   let disposed = false;

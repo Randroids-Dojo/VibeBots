@@ -683,6 +683,160 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
   });
 });
 
+test("first-person hold-to-mine swings the pickaxe and digs cell after cell", async ({
+  page,
+}) => {
+  // Software-GL runners compile the fp scene slowly, and this test
+  // decodes two full screenshots for the swing motion proof.
+  test.setTimeout(240_000);
+  const mine = createMine(6062, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 6; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      setCell(mine, col, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 6062,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: null,
+        inventory: FP_BUNKER_VIEW.inventory,
+        activeRaid: null,
+        player: FP_BUNKER_VIEW.player,
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
+    },
+    {
+      seed: 6062,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "5");
+
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
+  await claimSheet.getByRole("button", { name: "Close" }).click();
+
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
+      timeout: 45_000,
+    })
+    .toBe("34");
+
+  // Entry arms the pick; aim level so the ray runs straight down the
+  // claim-rock column ahead.
+  await expect(page.getByTestId("bunker-fp-pick")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await armFpPointer(page);
+  await aimFp(page, 0, 0);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 10_000,
+    })
+    .toBe("3:0:1:rock-diggable");
+  await expect(canvas).toHaveAttribute("data-fp-swinging", "0");
+
+  // Hold the primary input: the pickaxe swings and mines block after
+  // block down the column without releasing (F-114).
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("no canvas bounding box");
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  try {
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-swinging"), {
+        timeout: 10_000,
+      })
+      .toBe("1");
+
+    // Rule 10: the swing is visible motion, not just a state flag. Two
+    // frames a swing-beat apart differ.
+    const frameA = await canvas.screenshot();
+    await page.waitForTimeout(110);
+    const frameB = await canvas.screenshot();
+    expect(
+      await imagePixelDifferenceRatio(page, frameA, frameB),
+    ).toBeGreaterThan(0.00005);
+
+    // A single sustained hold mines at least two cells deep (34 -> >=36).
+    await expect
+      .poll(
+        async () => Number(await canvas.getAttribute("data-fp-open-cells")),
+        {
+          timeout: 20_000,
+        },
+      )
+      .toBeGreaterThanOrEqual(36);
+  } finally {
+    await page.mouse.up();
+  }
+
+  // Releasing settles the swing.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-swinging"), {
+      timeout: 10_000,
+    })
+    .toBe("0");
+
+  // Every mined cell sits in the miner's column, dug in depth order.
+  const dug = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}")
+        .pendingBunker?.bunker.dug as
+        | { col: number; row: number; depth: number }[]
+        | undefined,
+  );
+  expect(dug?.length ?? 0).toBeGreaterThanOrEqual(2);
+  for (const cell of dug ?? []) {
+    expect(cell.col).toBe(START_COL);
+    expect(cell.row).toBe(5);
+  }
+  expect((dug ?? []).map((c) => c.depth)).toEqual(
+    (dug ?? []).map((_, i) => i + 1),
+  );
+});
+
 test.describe("phone viewport", () => {
   test.use({
     viewport: { width: 390, height: 760 },
@@ -851,8 +1005,18 @@ test.describe("phone viewport", () => {
       })
       .not.toBeNull();
 
-    // Face the wall (local 5,0,0) across the open cell (4,0,0). The
-    // tool stays the default build: the long press pries regardless.
+    // Arm build (the dig tool now owns the look-zone hold for mining, so
+    // quick-pry via long-press is a build/pry-tool affordance). A stray
+    // tap act after the hold would place a wall into the open cell,
+    // which this test exists to prove does not happen.
+    await page.getByTestId("bunker-fp-slot-wall-panel").click();
+    await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    // Face the wall (local 5,0,0) across the open cell (4,0,0). The long
+    // press pries the part regardless of the armed build tool.
     await aimFp(page, -1.57, 0);
     await expect
       .poll(async () => canvas.getAttribute("data-fp-target"), {

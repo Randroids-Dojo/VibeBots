@@ -1401,14 +1401,16 @@ test("a repeatedly restored elevator ascent banks its exact action log once", as
   });
   await page.addInitScript(
     (trip) => {
-      if (sessionStorage.getItem("elevator-restored-ascent") === "ready") {
-        return;
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (sessionStorage.getItem("elevator-restored-ascent") !== "ready") {
+        localStorage.setItem(key, JSON.stringify(trip));
+        sessionStorage.setItem("elevator-restored-ascent", "ready");
       }
-      localStorage.setItem(
-        "vibebots-mine-trip-v2-slot-1",
-        JSON.stringify(trip),
-      );
-      sessionStorage.setItem("elevator-restored-ascent", "ready");
+      (
+        window as typeof window & {
+          __elevatorTripAtDocumentStart?: string | null;
+        }
+      ).__elevatorTripAtDocumentStart = localStorage.getItem(key);
     },
     {
       seed: 9298,
@@ -1427,22 +1429,76 @@ test("a repeatedly restored elevator ascent banks its exact action log once", as
     timeout: 10_000,
   });
   await expect(status).toHaveAttribute("data-elevator-riding", "ride-up");
-  await expect
-    .poll(async () => Number(await status.getAttribute("data-depth")))
-    .toBeGreaterThan(0);
+  const readDepth = async () => Number(await status.getAttribute("data-depth"));
+  const readMoves = (raw: string | null): string[] => {
+    if (!raw) throw new Error("Persisted mine trip is unavailable");
+    const parsed = JSON.parse(raw) as { moves?: unknown };
+    if (!Array.isArray(parsed.moves)) {
+      throw new Error("Persisted mine trip has no action log");
+    }
+    return parsed.moves.filter(
+      (move): move is string => typeof move === "string",
+    );
+  };
+  const readDocumentStartTrip = () =>
+    page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __elevatorTripAtDocumentStart?: string | null;
+          }
+        ).__elevatorTripAtDocumentStart ?? null,
+    );
+  const readLiveRideUpCount = () =>
+    page.evaluate(() => {
+      const raw = localStorage.getItem("vibebots-mine-trip-v2-slot-1");
+      if (!raw) return -1;
+      const parsed = JSON.parse(raw) as { moves?: unknown };
+      return Array.isArray(parsed.moves)
+        ? parsed.moves.filter((move) => move === "ride-up").length
+        : -1;
+    });
+  await expect.poll(readDepth).toBeGreaterThan(0);
+  const initialDocumentMoves = readMoves(await readDocumentStartTrip());
+  expect(initialDocumentMoves).toEqual(initialMoves);
+  let priorRideUpCount = initialDocumentMoves.filter(
+    (move) => move === "ride-up",
+  ).length;
   await dismissReleaseNotes(page);
 
+  const checkpointDepths: number[] = [];
+  const checkpointTrips: string[] = [];
+  const rowsPerRide = railDepth / ridesPerJourney;
   for (let reload = 0; reload < 2; reload += 1) {
+    await expect.poll(readLiveRideUpCount).toBeGreaterThan(priorRideUpCount);
     await page.reload();
     await awaitMineSceneReady(page);
+    const checkpointTrip = await readDocumentStartTrip();
+    const checkpointMoves = readMoves(checkpointTrip);
+    const rideUpCount = checkpointMoves.filter(
+      (move) => move === "ride-up",
+    ).length;
+    expect(checkpointMoves).toEqual(
+      expectedBankMoves.slice(0, checkpointMoves.length),
+    );
+    expect(rideUpCount).toBeGreaterThan(priorRideUpCount);
+    expect(rideUpCount).toBeLessThan(ridesPerJourney);
+    const checkpointDepth = railDepth - rideUpCount * rowsPerRide;
+    expect(checkpointDepth).toBeGreaterThan(0);
+    checkpointDepths.push(checkpointDepth);
+    checkpointTrips.push(checkpointTrip ?? "");
+
     await expect(status).toHaveAttribute("data-elevator-stage", "riding", {
       timeout: 10_000,
     });
     await expect(status).toHaveAttribute("data-elevator-riding", "ride-up");
-    await expect
-      .poll(async () => Number(await status.getAttribute("data-depth")))
-      .toBeGreaterThan(0);
+    const restoredDepth = await readDepth();
+    expect(restoredDepth).toBeGreaterThan(0);
+    expect(restoredDepth).toBeLessThanOrEqual(checkpointDepth);
+    priorRideUpCount = rideUpCount;
   }
+  expect(new Set(checkpointDepths).size).toBe(2);
+  expect(new Set(checkpointTrips).size).toBe(2);
 
   await expect.poll(() => bankRequests, { timeout: 10_000 }).toBe(1);
   expect(bankMoves).toEqual(expectedBankMoves);

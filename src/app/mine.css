@@ -1641,6 +1641,67 @@ button[data-bag-full-flash="true"] {
   color: #f59e0b;
 }
 
+/* Progressive tutorial card (F-097): one small non-modal card at a
+ * time, bottom-center above the carried chip and hotbar, well clear
+ * of the crosshair. Rendered as a div with action buttons for the
+ * teaching steps and as a single button for the tap-to-finish closer. */
+.bunker-fp-tutorial {
+  position: absolute;
+  z-index: 12;
+  bottom: calc(150px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(360px, calc(100% - 24px));
+  padding: 10px 14px;
+  border: 1px solid #54e0c7;
+  border-radius: 12px;
+  background: rgba(10, 18, 22, 0.92);
+  color: #d9fef4;
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-align: left;
+  line-height: 1.4;
+  pointer-events: auto;
+}
+
+button.bunker-fp-tutorial {
+  cursor: pointer;
+}
+
+button.bunker-fp-tutorial strong {
+  flex: 0 0 auto;
+  color: #54e0c7;
+}
+
+.bunker-fp-tutorial p {
+  margin: 0;
+}
+
+.bunker-fp-tutorial-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.bunker-fp-tutorial-actions button {
+  min-width: 28px;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid rgba(84, 224, 199, 0.4);
+  border-radius: 999px;
+  background: rgba(17, 21, 31, 0.72);
+  color: #8ef3df;
+  font-weight: 800;
+  font-size: 0.64rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 /* Bottom hotbar: pick slot, divider, six part slots, pry toggle.
  * Sized to fit 390px portrait (9 cells across with 2px gaps). */
 .bunker-fp-hotbar {

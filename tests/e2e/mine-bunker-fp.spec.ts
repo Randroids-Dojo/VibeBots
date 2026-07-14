@@ -947,6 +947,239 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
   );
 });
 
+/** The tutorial card's current step, or "none". Reads the DOM
+ * directly so expect.poll stays bounded (no implicit locator wait). */
+function tutorialStep(page: Page): Promise<string> {
+  return page.evaluate(
+    () =>
+      document
+        .querySelector('[data-testid="bunker-fp-tutorial"]')
+        ?.getAttribute("data-step") ?? "none",
+  );
+}
+
+test("the progressive tutorial chains look, walk, dig, and place, and skip persists", async ({
+  page,
+}) => {
+  // Software-GL runners compile the fp scene slowly, and this test
+  // enters the viewer twice (once fresh, once after the reload).
+  test.setTimeout(300_000);
+  const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 6; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      setCell(mine, col, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 6061,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: null,
+        inventory: {
+          "wall-panel": 2,
+          "floor-panel": 3,
+          "roof-panel": 3,
+          "door-panel": 1,
+          "basic-turret": 0,
+          "floor-spikes": 0,
+        },
+        activeRaid: null,
+        player: FP_BUNKER_VIEW.player,
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
+    },
+    {
+      seed: 6061,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "5");
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
+  await claimSheet.getByRole("button", { name: "Close" }).click();
+
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+
+  // Fresh profile: the look card shows after the settle-in delay.
+  await expect.poll(() => tutorialStep(page), { timeout: 30_000 }).toBe("look");
+  await expect(page.getByTestId("bunker-fp-tutorial")).toContainText(
+    "look around",
+  );
+
+  // Looking past the threshold hides the card; the walk card follows
+  // after the advance gap.
+  await aimFp(page, 1.57, 0.4);
+  await expect.poll(() => tutorialStep(page), { timeout: 10_000 }).toBe("walk");
+
+  // Line the view back up for the dig, then walk the demonstration
+  // distance; the dig card follows.
+  await aimFp(page, 0, 0);
+  await page.keyboard.down("d");
+  await expect.poll(() => tutorialStep(page), { timeout: 15_000 }).toBe("dig");
+  await page.keyboard.up("d");
+
+  // The pick digs the interior rock straight ahead.
+  await page.keyboard.press("0");
+  await expect(page.getByTestId("bunker-fp-pick")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 10_000,
+    })
+    .toContain("rock-diggable");
+  await armFpPointer(page);
+  const openBefore = Number(await canvas.getAttribute("data-fp-open-cells"));
+  await canvas.click();
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-open-cells")), {
+      timeout: 10_000,
+    })
+    .toBe(openBefore + 1);
+  await expect
+    .poll(() => tutorialStep(page), { timeout: 10_000 })
+    .toBe("place");
+
+  // Placing a wall into the dug cell advances to pry.
+  await page.keyboard.press("1");
+  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-place"), {
+      timeout: 10_000,
+    })
+    .not.toBe("none");
+  await canvas.click();
+  await expect.poll(() => tutorialStep(page), { timeout: 10_000 }).toBe("pry");
+
+  // Skip tutorial ends the chain and persists the done flag.
+  await page.getByTestId("bunker-fp-tutorial-skip").click();
+  await expect(page.getByTestId("bunker-fp-tutorial")).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("vibebots-bunker-fp-tutorial-done"),
+    ),
+  ).toBe("1");
+
+  // A later visit with the flag set never shows a card.
+  await page.reload();
+  await dismissReleaseNotes(page);
+  await expect(status).toHaveAttribute("data-depth", "5");
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  await page.waitForTimeout(2600);
+  await expect(page.getByTestId("bunker-fp-tutorial")).toHaveCount(0);
+});
+
+test("the settings replay button re-arms the tutorial for the next entry", async ({
+  page,
+}) => {
+  // Two fp entries on a software-GL runner.
+  test.setTimeout(300_000);
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FP_BUNKER_VIEW),
+    });
+  });
+  // A profile that already finished the tutorial.
+  await page.addInitScript(() => {
+    localStorage.setItem("vibebots-bunker-fp-tutorial-done", "1");
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+
+  // Completed profile: no cards inside the bunker.
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  await page.waitForTimeout(2600);
+  await expect(page.getByTestId("bunker-fp-tutorial")).toHaveCount(0);
+
+  // Back in the flat view, the settings menu clears the flag and
+  // confirms inline.
+  await page.getByRole("button", { name: "Exit bunker" }).click();
+  await expect(status).toHaveAttribute("data-fp-mode", "0");
+  await awaitMineSceneReady(page);
+  const gear = page.getByRole("button", { name: "Open settings" });
+  await gear.click();
+  const replay = page.getByTestId("replay-bunker-tutorial");
+  await expect(replay).toBeVisible();
+  await replay.click();
+  await expect(
+    page.getByText("Shows the next time you enter your bunker."),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("vibebots-bunker-fp-tutorial-done"),
+    ),
+  ).toBeNull();
+  await gear.click();
+
+  // The next entry starts the chain from the look card again.
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  await expect.poll(() => tutorialStep(page), { timeout: 45_000 }).toBe("look");
+});
+
 test("an enclosed spawn shows the boxed-in escape hint until a part is pried", async ({
   page,
 }) => {

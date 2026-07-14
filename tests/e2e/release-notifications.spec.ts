@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The flat-view build cursor retires; first person is the builder.",
+    "A step-by-step walkthrough the first time you go inside.",
   );
   await expect(dialog.locator("li")).toHaveCount(3);
   await expect(dialog.locator("li").first()).toContainText(
-    "Building now happens inside the bunker only",
+    "walks you through everything one card at a time",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "boxed in, a hint now says exactly how to pry free or reset",
+    "Replay bunker tutorial lives in the settings gear",
   );
   await expect(dialog.locator("li").nth(2)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -51,6 +51,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.252", "The bunker teaches itself"],
     ["0.1.251", "One way to build: walk inside"],
     ["0.1.250", "Pry with a long press, land with a view"],
     ["0.1.249", "Reset your bunker, hop like you expect"],

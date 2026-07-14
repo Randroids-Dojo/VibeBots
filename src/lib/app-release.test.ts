@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest hammer-retirement note complete", () => {
+  it("keeps the latest tutorial note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.251-hammer-retirement");
+    expect(release.noticeId).toBe("2026-07-13-0.1.252-bunker-tutorial");
     expect(latestNote).toMatchObject({
+      version: "0.1.252",
+      title: "The bunker teaches itself",
+      intro: "A step-by-step walkthrough the first time you go inside.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Your first time inside the bunker now walks you through everything one card at a time: look, walk, dig, place, and pry, each advancing a moment after you actually do it. Skip a step or the whole thing any time.",
+      "Want it again later? Replay bunker tutorial lives in the settings gear, and the cards return the next time you enter.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived hammer-retirement note complete", () => {
+    const release = getAppRelease();
+    const retireNote = release.notes.find((note) => note.version === "0.1.251");
+
+    expect(retireNote).toMatchObject({
       version: "0.1.251",
       title: "One way to build: walk inside",
       intro: "The flat-view build cursor retires; first person is the builder.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(retireNote?.changes.map((change) => change.text)).toEqual([
       "Building now happens inside the bunker only. The flat view keeps claiming, raids, repairs, skins, and a single Enter bunker button; the old part-cursor controls and scaffold walk are gone, so the arrow keys always just move the miner.",
       "First person no longer shows the mine's flat-view controls on top of the scene, and if your base has you boxed in, a hint now says exactly how to pry free or reset.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

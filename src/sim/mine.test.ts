@@ -1026,6 +1026,102 @@ describe("mine", () => {
     });
   });
 
+  it.each([
+    ["left", -1],
+    ["right", 1],
+  ] as const)("keeps boarded %s digs supported until the miner leaves the car", (dir, offset) => {
+    const shaftCol = 5;
+    const row = 4;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: 12,
+      elevatorColumn: shaftCol,
+    };
+    const boardedState = (seed: number) => {
+      const state = createMine(seed, gear);
+      state.miner.col = shaftCol;
+      state.miner.row = row;
+      state.elevatorPhase = "boarded";
+      setCell(state, shaftCol, row, { kind: "empty" });
+      setCell(state, shaftCol, row + 1, { kind: "empty" });
+      setCell(state, shaftCol, row + 2, { kind: "empty" });
+      setCell(state, shaftCol, row + 3, { kind: "dirt" });
+      return state;
+    };
+    const exitCol = shaftCol + offset;
+
+    const open = boardedState(2361 + offset);
+    setCell(open, exitCol, row, { kind: "empty" });
+    setCell(open, exitCol, row + 1, { kind: "empty" });
+    setCell(open, exitCol, row + 2, { kind: "dirt" });
+
+    expect(applyAction(open, dir)).toMatchObject({
+      ok: true,
+      dug: null,
+      fell: 1,
+    });
+    expect(open.miner).toMatchObject({ col: exitCol, row: row + 1 });
+    expect(open.elevatorPhase).toBe("idle");
+
+    const oneHit = boardedState(2363 + offset);
+    setCell(oneHit, exitCol, row, { kind: "dirt", hp: 1 });
+    setCell(oneHit, exitCol, row + 1, { kind: "empty" });
+    setCell(oneHit, exitCol, row + 2, { kind: "dirt" });
+
+    expect(applyAction(oneHit, dir)).toMatchObject({
+      ok: true,
+      dug: "dirt",
+      dugAt: { col: exitCol, row },
+      fell: 1,
+    });
+    expect(oneHit.miner).toMatchObject({ col: exitCol, row: row + 1 });
+    expect(oneHit.elevatorPhase).toBe("idle");
+
+    const multiHit = boardedState(2365 + offset);
+    const hazardCol = shaftCol + 4;
+    setCell(multiHit, exitCol, row, { kind: "dirt", hp: 2 });
+    setCell(multiHit, exitCol, row + 1, { kind: "empty" });
+    setCell(multiHit, exitCol, row + 2, { kind: "dirt" });
+    setCell(multiHit, hazardCol, 2, { kind: "boulder", fallIn: 1 });
+    setCell(multiHit, hazardCol, 3, { kind: "empty" });
+    setCell(multiHit, hazardCol, 4, { kind: "empty" });
+    setCell(multiHit, hazardCol, 5, { kind: "dirt" });
+
+    expect(applyAction(multiHit, dir)).toMatchObject({
+      ok: true,
+      dug: null,
+      cracked: { kind: "dirt", remaining: 1 },
+    });
+    expect(multiHit.miner).toMatchObject({ col: shaftCol, row });
+    expect(multiHit.elevatorPhase).toBe("boarded");
+    expect(cellAt(multiHit, hazardCol, 2)?.kind).toBe("empty");
+    expect(cellAt(multiHit, hazardCol, 4)?.kind).toBe("boulder");
+
+    expect(applyAction(multiHit, dir)).toMatchObject({
+      ok: true,
+      dug: "dirt",
+      dugAt: { col: exitCol, row },
+      fell: 1,
+    });
+    expect(multiHit.miner).toMatchObject({ col: exitCol, row: row + 1 });
+    expect(multiHit.elevatorPhase).toBe("idle");
+    expect(cellAt(multiHit, hazardCol, 4)?.kind).toBe("boulder");
+
+    for (const [index, kind] of (
+      ["metal", "boulder", "gas", "magma"] as const
+    ).entries()) {
+      const blocked = boardedState(2367 + offset + index * 10);
+      setCell(blocked, exitCol, row, { kind });
+
+      expect(applyAction(blocked, dir)).toEqual({
+        ok: false,
+        reason: "blocked",
+      });
+      expect(blocked.miner).toMatchObject({ col: shaftCol, row });
+      expect(blocked.elevatorPhase).toBe("boarded");
+    }
+  });
+
   it("settles a falling hazard and its unsupported ladder while boarding", () => {
     const shaftCol = 9;
     const hazardCol = shaftCol + 2;

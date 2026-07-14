@@ -662,14 +662,17 @@ test("surface entry calls the car before an explicit ride to the bottom", async 
   await expect(canvas).toHaveAttribute("data-miner-x", "3.00");
 
   await resetMineMotionProbe(page);
+  const callFrameA = await canvas.screenshot();
   await page.keyboard.press("ArrowDown");
   await expect(status).toHaveAttribute("data-elevator-stage", "calling");
   await expect(status).toHaveAttribute("data-depth", "0");
+  const callFrameB = await canvas.screenshot();
   await page.waitForTimeout(250);
   await expect(status).toHaveAttribute("data-depth", "0");
   const callSamples = (await readMineMotionProbe(page)).filter(
     (sample) => sample.stage === "calling",
   );
+  expect(Buffer.compare(callFrameA, callFrameB)).not.toBe(0);
   expect(callSamples.length).toBeGreaterThan(2);
   expect(
     motionRange(callSamples, (sample) => sample.carY),
@@ -770,6 +773,51 @@ test("surface entry calls the car before an explicit ride to the bottom", async 
   await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
     timeout: 10_000,
   });
+  await expect(
+    page.getByRole("button", { name: "Go to bottom" }),
+  ).toBeVisible();
+});
+
+test("reduced motion reaches the elevator choices promptly", async ({
+  page,
+}) => {
+  const railDepth = 4;
+  const gear = {
+    ...DEFAULT_GEAR,
+    elevator: railDepth,
+    elevatorColumn: START_COL,
+  };
+  const mine = createMine(9300, gear, STARTING_CONSUMABLES);
+  for (let row = 1; row <= railDepth; row += 1) {
+    setCell(mine, START_COL, row, { kind: "empty" });
+  }
+  const baseDiff = exportDiff(mine);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      json: { activeSlot: 1, seed: 9300, tripIndex: 0, diff: baseDiff },
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({
+      json: {
+        gear,
+        consumables: STARTING_CONSUMABLES,
+        balance: 0,
+      },
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await awaitMineSceneReady(page);
+  const status = page.getByLabel("Mine status");
+  await page.keyboard.press("ArrowDown");
+
+  await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+    timeout: 2_000,
+  });
+  await expect(status).toHaveAttribute("data-elevator-phase", "boarded");
   await expect(
     page.getByRole("button", { name: "Go to bottom" }),
   ).toBeVisible();
@@ -1145,10 +1193,11 @@ test("a restored upward elevator ride continues to the surface", async ({
   ).toBeVisible();
 });
 
-test("a restored elevator arrival at the top banks its haul once", async ({
+test("a repeatedly restored elevator ascent banks its exact action log once", async ({
   page,
 }) => {
-  const railDepth = 6;
+  const railDepth = 60;
+  const ridesPerJourney = railDepth / 6;
   const gear = {
     ...DEFAULT_GEAR,
     elevator: railDepth,
@@ -1158,11 +1207,21 @@ test("a restored elevator arrival at the top banks its haul once", async ({
   for (let row = 1; row <= railDepth; row += 1) {
     setCell(mine, START_COL, row, { kind: "empty" });
   }
-  setCell(mine, START_COL, 3, {
+  setCell(mine, START_COL, 30, {
     kind: "empty",
     drop: { coal: 2 },
   });
   const baseDiff = exportDiff(mine);
+  const initialMoves = [
+    "down",
+    ...Array.from({ length: ridesPerJourney }, () => "ride-down"),
+    "ride-up",
+  ];
+  const expectedBankMoves = [
+    "down",
+    ...Array.from({ length: ridesPerJourney }, () => "ride-down"),
+    ...Array.from({ length: ridesPerJourney }, () => "ride-up"),
+  ];
   await page.route("**/api/mine/world", async (route) => {
     await route.fulfill({
       json: { activeSlot: 1, seed: 9298, tripIndex: 0, diff: baseDiff },
@@ -1208,10 +1267,14 @@ test("a restored elevator arrival at the top banks its haul once", async ({
   });
   await page.addInitScript(
     (trip) => {
+      if (sessionStorage.getItem("elevator-restored-ascent") === "ready") {
+        return;
+      }
       localStorage.setItem(
         "vibebots-mine-trip-v2-slot-1",
         JSON.stringify(trip),
       );
+      sessionStorage.setItem("elevator-restored-ascent", "ready");
     },
     {
       seed: 9298,
@@ -1220,15 +1283,35 @@ test("a restored elevator arrival at the top banks its haul once", async ({
       gear,
       consumables: STARTING_CONSUMABLES,
       baseDiff,
-      moves: ["down", "ride-down", "ride-up"],
+      moves: initialMoves,
     },
   );
 
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");
-  await expect.poll(() => bankRequests, { timeout: 10_000 }).toBe(1);
-  expect(bankMoves.at(-1)).toBe("ride-up");
+  await expect(status).toHaveAttribute("data-elevator-stage", "riding", {
+    timeout: 10_000,
+  });
+  await expect(status).toHaveAttribute("data-elevator-riding", "ride-up");
+  await expect
+    .poll(async () => Number(await status.getAttribute("data-depth")))
+    .toBeGreaterThan(0);
   await dismissReleaseNotes(page);
+
+  for (let reload = 0; reload < 2; reload += 1) {
+    await page.reload();
+    await awaitMineSceneReady(page);
+    await expect(status).toHaveAttribute("data-elevator-stage", "riding", {
+      timeout: 10_000,
+    });
+    await expect(status).toHaveAttribute("data-elevator-riding", "ride-up");
+    await expect
+      .poll(async () => Number(await status.getAttribute("data-depth")))
+      .toBeGreaterThan(0);
+  }
+
+  await expect.poll(() => bankRequests, { timeout: 10_000 }).toBe(1);
+  expect(bankMoves).toEqual(expectedBankMoves);
   await expect(status).toHaveAttribute("data-depth", "0");
   await expect(status).toHaveAttribute("data-elevator-riding", "");
   await expect(status).toHaveAttribute("data-elevator-stage", "choosing");

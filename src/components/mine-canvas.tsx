@@ -319,6 +319,7 @@ const ELEVATOR_CAR_POST_GEOMETRY = new BoxGeometry(0.07, 0.9, 0.07);
 const ELEVATOR_CAR_ROOF_GEOMETRY = new BoxGeometry(0.9, 0.08, 0.5);
 const ELEVATOR_CAR_GATE_GEOMETRY = new BoxGeometry(0.055, 0.72, 0.055);
 const ELEVATOR_CAR_LAMP_GEOMETRY = new BoxGeometry(0.18, 0.1, 0.08);
+const ELEVATOR_REDUCED_MOTION_SECONDS = 0.12;
 const ELEVATOR_GUIDE_MATERIAL = new MeshStandardMaterial({
   color: "#9aa7ff",
   roughness: 0.45,
@@ -1856,7 +1857,9 @@ function MineScene({
           carMotion.toX = railColumn;
           carMotion.toY = targetY;
           carMotion.startedAt = t;
-          carMotion.duration = reducedMotion ? 0.12 : ELEVATOR_CALL_SECONDS;
+          carMotion.duration = reducedMotion
+            ? ELEVATOR_REDUCED_MOTION_SECONDS
+            : ELEVATOR_CALL_SECONDS;
           carMotion.easeWeight = 1;
           carMotion.frames = 0;
           elevatorGate.position.y = 0.55;
@@ -1882,9 +1885,12 @@ function MineScene({
           onElevatorStageComplete?.(visual.sequence, stage);
         }
       } else if (stage === "boarding") {
+        const boardingDuration = reducedMotion
+          ? ELEVATOR_REDUCED_MOTION_SECONDS
+          : ELEVATOR_BOARD_SECONDS;
         const boardingProgress = Math.max(
           0,
-          Math.min(1, (t - visual.startedAt) / ELEVATOR_BOARD_SECONDS),
+          Math.min(1, (t - visual.startedAt) / boardingDuration),
         );
         elevatorCar.position.set(railColumn, targetY, 0);
         elevatorGate.position.y = 0.55 * (1 - boardingProgress);

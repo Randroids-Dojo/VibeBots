@@ -459,6 +459,13 @@ function settleMiner(state: MineState): number {
   return fell;
 }
 
+function settleMinerAfterStep(state: MineState): number {
+  // A boarded lateral swing is still a full turn, but the car supports the
+  // miner until that swing actually moves them out of the rail column.
+  if (state.elevatorPhase === "boarded" && isOnElevatorRail(state)) return 0;
+  return settleMiner(state);
+}
+
 function isFatalMinerFall(state: MineState, fell: number): boolean {
   return fell > safeFallRows(state.gear);
 }
@@ -867,7 +874,7 @@ function stepMine(state: MineState, dir: Direction): MoveResult {
     const fallEmptied: Array<{ col: number; row: number }> = [];
     const fallTick = tickFalls(state, fallEmptied);
     const settled = settleAfterEmptied(state, emptied, fallEmptied);
-    const fell = settleMiner(state);
+    const fell = settleMinerAfterStep(state);
     const fellTooFar = isFatalMinerFall(state, fell);
     const oreHarvested = {
       ore,
@@ -948,7 +955,7 @@ function stepMine(state: MineState, dir: Direction): MoveResult {
       const fallEmptiedMid: Array<{ col: number; row: number }> = [];
       const fallTickMid = tickFalls(state, fallEmptiedMid);
       const settledMid = settleAfterEmptied(state, [], fallEmptiedMid);
-      const fellMid = settleMiner(state);
+      const fellMid = settleMinerAfterStep(state);
       const fellTooFarMid = isFatalMinerFall(state, fellMid);
       if (
         fallTickMid.crushed ||
@@ -1060,7 +1067,7 @@ function stepMine(state: MineState, dir: Direction): MoveResult {
   const fallEmptied: Array<{ col: number; row: number }> = [];
   const fallTick = tickFalls(state, fallEmptied);
   const settled = settleAfterEmptied(state, emptied, fallEmptied);
-  const fell = settleMiner(state);
+  const fell = settleMinerAfterStep(state);
   const fellTooFar = isFatalMinerFall(state, fell);
   const { pickedUp, pickedUpBag } = pickupAtMiner(state);
 

@@ -1062,6 +1062,77 @@
         "F-003",
         "F-112"
       ]
+    },
+    {
+      "id": "REQ-043",
+      "requirement": "First-person bunker mining shows a moving pick strike, repeats while held, displays block progress, and retargets to the current in-range crosshair cell without per-frame allocation.",
+      "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": [
+        "F-114"
+      ]
+    },
+    {
+      "id": "REQ-044",
+      "requirement": "A fresh or reset bunker has a deterministic pre-mined 3x2x2 starter room with a grounded passable spawn instead of an open flat plane or solid-rock trap.",
+      "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": [
+        "F-115",
+        "F-120"
+      ]
+    },
+    {
+      "id": "REQ-045",
+      "requirement": "Bunker rock uses deterministic mine generation and break rules, spends no battery, deposits ore into the shared cargo flow, preserves depletion, and cannot pay rewards again after reset or retry.",
+      "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": [
+        "F-116",
+        "F-120"
+      ]
+    },
+    {
+      "id": "REQ-046",
+      "requirement": "Bunker construction uses rotatable sub-cell slots for thin floors, walls, roofs, and stairs, with deterministic support and destruction rules plus a confirmed hard reset for incompatible old layouts.",
+      "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": [
+        "F-117"
+      ]
+    },
+    {
+      "id": "REQ-047",
+      "requirement": "The bunker core is removed as state, geometry, and target; live Clankers hunt the player under explicit disconnect and expiry behavior.",
+      "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": [
+        "F-104",
+        "F-105",
+        "F-118"
+      ]
+    },
+    {
+      "id": "REQ-048",
+      "requirement": "A claimed bunker has one flat-view entry affordance and one in-bunker menu for raid, repair, skin, and safe confirmed reset actions on touch and desktop.",
+      "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": [
+        "F-119",
+        "F-120"
+      ]
     }
   ]
 }

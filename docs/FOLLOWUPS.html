@@ -52,6 +52,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-120" data-f="F-120" data-priority="blocks-release">
+    <h3>F-120: Prevent reset-driven bunker ore farming and unsafe respawns</h3>
+    <dl>
+      <dt>Context</dt><dd>Monitoring followup after PR #178. F-116 makes bunker rock yield normal ore, F-115 replaces the empty depth-zero plane with a pre-mined starter room, and F-119 keeps Reset accessible. The current reset contract clears every dug cell. Under the redesign, repeating Reset would recreate the same ore-bearing volume for unlimited rewards and would erase the starter room, leaving the next first-person spawn inside solid rock.</dd>
+      <dt>Blocker (if any)</dt><dd>Settle the reset contract before F-116 or the F-119 in-bunker Reset control ships.</dd>
+      <dt>Unblock condition</dt><dd>Reset must preserve server-owned resource depletion so no mined cell can pay out twice. Either keep excavation history or restore exhausted filler that yields no ore. Reset must always restore or preserve the F-115 starter pocket, choose a grounded passable spawn, retain the established active-raid guard, and settle the authoritative bunker plus player resources atomically. The Q-022 incompatible-layout path must fail fast with a clear Start fresh action and hard-reset old bunker state without migration or refund plumbing. Simulation, route, and end-to-end tests must repeat mine, reset, and reload cycles and prove total rewards do not increase, the pocket remains open, and the player never spawns inside rock.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-120-prevent-2b381d8f (child of VibeBots-first-person-3d-30115c4e).</dd>
+    </dl>
+  </section>
+
   <section id="F-119" data-f="F-119" data-priority="nice-to-have">
     <h3>F-119: Bunker UI/UX pass, in-bunker menu for bunker controls</h3>
     <dl>
@@ -59,6 +69,8 @@
       <dt>Design / recommended default</dt><dd>Post-claim, keep exactly one flat-view affordance (Enter bunker) and fold claim status into it; retire the separate Bunker button once claimed. Inside first person, add one hotbar/HUD toggle (a gear or menu button) that opens a compact panel with Raid, Repair, Skins, and Reset. Keep claiming itself in the flat view (you cannot claim from inside). One consistent menu, same on touch and desktop (RULE 7).</dd>
       <dt>Dependencies</dt><dd>Independent of the sim changes; coordinate the in-bunker raid control with the live-raid arc (F-104..F-113) so the raid button drives the live start path, not the interim projection.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-119-put-d9c9aef9 created under VibeBots-first-person-3d-30115c4e.</dd>
+      <dt>Monitoring update</dt><dd>The in-bunker Reset action must use F-120's no-ore-regeneration contract and must exit or remount first person from the authoritative response so the live canvas never continues over invalidated geometry.</dd>
     </dl>
   </section>
 
@@ -69,6 +81,8 @@
       <dt>Design / recommended default</dt><dd>Drop <code>BunkerCore</code> from the sim state, the fp core mesh, the placement "core" rejection reason, and the starter-kit core seed. Raids currently target the core cell; retarget raid pathing to the player cell only (this already matches the live first-person raid direction, where clankers hunt the player). The freed center cell becomes ordinary buildable/diggable space.</dd>
       <dt>Dependencies</dt><dd>Touches the raid resolver, so it MUST be sequenced with the in-flight live-raid arc (F-104..F-113) to avoid a merge fight over <code>resolveBunkerRaid</code>/core targeting. Prefer landing after the live resolver replaces the interim core-targeted projection, or coordinate the core removal inside that arc.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-118-remove-14a07ffe created under VibeBots-first-person-3d-30115c4e.</dd>
+      <dt>Monitoring update</dt><dd>Q-019 still sends Clankers toward the core while the player is absent. Removing the core must append a Q-019 decision update that defines player absence, disconnect, and expiry under the player-targeted resolver before the old fallback is deleted.</dd>
     </dl>
   </section>
 
@@ -79,6 +93,8 @@
       <dt>Design / recommended default</dt><dd>Shift the part model from cell-occupancy to sub-cell slot occupancy: a placed part records a cell plus a slot (floor, ceiling/roof, or one of four wall faces) plus orientation for stairs. Multiple parts can share a cell (up to 4 walls + a floor + a roof + a stair). Collision treats wall slabs as thin planes on cell faces and floor/roof slabs as thin planes at cell top/bottom; the DDA raycast targets the nearest slot face. Overhead floors need a support check (>=2 walls in the supporting ring); cascade-destroy dependent floors when supports break. Render-only thin geometry over the new thin colliders (part-visuals rule: colliders define shape). This is the largest change and likely bumps <code>MINE_VERSION</code>; existing bunkers are hard-reset rather than migrated (Q-022 resolved: only two alpha players, so reset existing bunker state instead of building refund or conversion plumbing).</dd>
       <dt>Dependencies</dt><dd>Foundational for building; interacts with F-116 (what a "cell" is once it is a mineable block) and F-114 (place vs mine targeting). Sequence the slot model before or with F-116.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-117-rework-8a28b100 created under VibeBots-first-person-3d-30115c4e.</dd>
+      <dt>Monitoring update</dt><dd>Q-022 is resolved: do not migrate, convert, or refund old full-block layouts. Fail fast with a clear incompatible-state response and a confirmed Start fresh action that hard-resets the old bunker before the thin-slot model loads.</dd>
     </dl>
   </section>
 
@@ -89,6 +105,8 @@
       <dt>Design / recommended default</dt><dd>Generate the claim volume's rock from the mine's own cell generator keyed to the claim's world depth, so bunker blocks carry the same kinds, ore, and hit counts. Mining a bunker block runs the mine's break rhythm, drops the same ore/resources, and deposits into the shared bag with the usual capacity and overflow rules. Mining inside the bunker does NOT cost battery (Q-021 resolved: the claim is a bounded number of blocks, so no farming exploit; digging stays free like walking). Bag-full stops the dig with the normal "hold full" feedback.</dd>
       <dt>Dependencies</dt><dd>Large economy change; pairs with F-114 (mining feel) and F-115 (the pre-mined spawn pocket). Likely bumps <code>MINE_VERSION</code>. Reconcile with F-117 slot placement (you place thin parts against mined-out faces).</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-116-generate-d11cf988 created under VibeBots-first-person-3d-30115c4e.</dd>
+      <dt>Monitoring update</dt><dd>F-120 is a blocking prerequisite for any ore-bearing reset path. Resource payout, the explicit zero battery spend, bag overflow, depletion, and bunker mutation must share one server-authoritative transaction and retry contract.</dd>
     </dl>
   </section>
 
@@ -99,6 +117,8 @@
       <dt>Design / recommended default</dt><dd>At claim time, seed the <code>dug</code> set (or its successor) with a 3-wide by 2-tall by 2-deep pocket centered on the spawn cell instead of opening the full depth-0 plane; everything else starts solid. The spawn stays grounded on the pocket floor facing into diggable rock. Small once F-116's generation model is in place; can ship a first version over today's excavation model with a fixed pocket.</dd>
       <dt>Dependencies</dt><dd>Sits on the excavation/generation model (F-116) but a basic fixed-pocket version is independent and can land early.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-115-spawn-d41dce55 created under VibeBots-first-person-3d-30115c4e.</dd>
+      <dt>Monitoring update</dt><dd>F-120 must preserve the starter pocket and grounded spawn across Reset, reload, and incompatible-state recovery.</dd>
     </dl>
   </section>
 
@@ -109,6 +129,7 @@
       <dt>Design / recommended default</dt><dd>Add a first-person pickaxe view-model with a swing animation triggered per strike (allocation-free, driven from the existing rig useFrame). Hold-to-mine: while the act input is held and the crosshair rests on a diggable cell, auto-repeat the dig at the block's break cadence with a cracking-progress overlay that resets when the target changes. Drag retarget: the mined cell always follows the current crosshair/held target, so dragging look (touch) or moving the mouse (desktop) mid-hold moves the strike to the newly targeted in-range cell. Reuse <code>FP_MAX_REACH</code>. Per RULE 10, prove the swing and crack move with consecutive-frame pixel diffs.</dd>
       <dt>Dependencies</dt><dd>The "striking a real block" payoff pairs with F-116 (real blocks with break counts and ore), but the swing/hold/drag interaction can land first over the current single-tap dig.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-114-minecraft-1876edfe created under VibeBots-first-person-3d-30115c4e.</dd>
     </dl>
   </section>
 

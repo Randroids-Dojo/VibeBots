@@ -1839,7 +1839,7 @@ async function enterFreshClaimFp(page: Page, seed: number): Promise<void> {
   await expect(status).toHaveAttribute("data-fp-mode", "1");
 }
 
-test("first-person bunker interior renders dirt and rock, not one flat gray", async ({
+test("first-person bunker interior renders dirt, rock, and ore, not one flat gray", async ({
   page,
 }) => {
   // Software-GL runners compile the fp scene slowly and this decodes a full
@@ -1857,6 +1857,15 @@ test("first-person bunker interior renders dirt and rock, not one flat gray", as
     .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 20_000 })
     .not.toBeNull();
   await page.waitForTimeout(1200);
+
+  // Seed 1 exposes ore on the spawn-facing wall, so the crystal overlay
+  // must actually render (the warm/neutral pixel check alone would pass with
+  // every ore cluster absent). The probe counts exposed ore veins.
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-ore-cells")), {
+      timeout: 20_000,
+    })
+    .toBeGreaterThan(0);
 
   // The undug walls surrounding the spawn pocket carry the depth's dirt and
   // rock. Before per-kind meshes the whole interior was one flat rock gray

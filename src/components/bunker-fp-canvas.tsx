@@ -40,7 +40,7 @@ import {
   type BunkerState,
   DEFAULT_BUNKER_SKIN,
 } from "@/sim/bunker";
-import { bunkerCellBlock } from "@/sim/bunker-blocks";
+import { bunkerCellBlock, bunkerCellGenCoords } from "@/sim/bunker-blocks";
 import type { OreId } from "@/sim/mine/ores";
 import {
   buildFpSolidGrid,
@@ -391,32 +391,44 @@ function writeDirtBody(
   mesh.setMatrixAt(index, rockMatrix);
 }
 
-const FP_FACE_NEIGHBORS: readonly (readonly [number, number, number])[] = [
-  [1, 0, 0],
-  [-1, 0, 0],
-  [0, 1, 0],
-  [0, -1, 0],
-  [0, 0, 1],
-  [0, 0, -1],
+/** Face neighbors paired with the rotation that turns OreCrystals' local
+ * +Z cluster to point out that face. Grid z maps to world -z (worldZ =
+ * -depth), so a shallower open neighbor (dz -1) faces world +Z (identity).
+ * Ordered by how visible the face usually is from the dug-in side: the
+ * pocket-facing shallow face first, then the side walls, then floor and
+ * ceiling, then the deep back face last. */
+const FP_ORE_FACES: readonly {
+  d: readonly [number, number, number];
+  rot: readonly [number, number, number];
+}[] = [
+  { d: [0, 0, -1], rot: [0, 0, 0] },
+  { d: [1, 0, 0], rot: [0, Math.PI / 2, 0] },
+  { d: [-1, 0, 0], rot: [0, -Math.PI / 2, 0] },
+  { d: [0, 1, 0], rot: [-Math.PI / 2, 0, 0] },
+  { d: [0, -1, 0], rot: [Math.PI / 2, 0, 0] },
+  { d: [0, 0, 1], rot: [0, Math.PI, 0] },
 ];
 
-/** True when an undug cell touches open space on any face, so its front
- * (an ore vein) would actually be visible to the player. */
-function fpCellExposed(
+/** The rotation that orients an undug ore cell's crystals out its first
+ * open face, or null when the cell touches no open space (fully buried, so
+ * no crystals render). Prefers the pocket-facing shallow face so a vein
+ * exposed from a side, floor, ceiling, or back still points into the gap
+ * instead of poking into solid rock. */
+function fpExposedOreRotation(
   grid: FpSolidGrid,
   x: number,
   y: number,
   z: number,
-): boolean {
-  for (const [dx, dy, dz] of FP_FACE_NEIGHBORS) {
-    const nx = x + dx;
-    const ny = y + dy;
-    const nz = z + dz;
+): readonly [number, number, number] | null {
+  for (const face of FP_ORE_FACES) {
+    const nx = x + face.d[0];
+    const ny = y + face.d[1];
+    const nz = z + face.d[2];
     if (nx < 0 || nx >= FP_COLS || ny < 0 || ny >= FP_ROWS) continue;
     if (nz < 0 || nz >= FP_DEPTH) continue;
-    if (grid[fpCellIndex(nx, ny, nz)] === FP_OPEN) return true;
+    if (grid[fpCellIndex(nx, ny, nz)] === FP_OPEN) return face.rot;
   }
-  return false;
+  return null;
 }
 
 /** An exposed ore cell that gets crystal art overlaid on its open face. */
@@ -428,14 +440,24 @@ interface FpOreCell {
   hashCol: number;
   hashRow: number;
   ore: OreId;
+  rot: readonly [number, number, number];
 }
 
 /** Cheap equality so the ore-crystal list only triggers a React update
- * when the exposed ore veins actually change (a dig, not every rebuild). */
+ * when the exposed ore veins actually change (a dig, not every rebuild).
+ * The open face (rot) is part of identity: digging a neighbor can turn a
+ * cell's crystals to a new face without changing the exposed set. */
 function sameFpOreCells(a: FpOreCell[], b: FpOreCell[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     if (a[i].key !== b[i].key || a[i].ore !== b[i].ore) return false;
+    if (
+      a[i].rot[0] !== b[i].rot[0] ||
+      a[i].rot[1] !== b[i].rot[1] ||
+      a[i].rot[2] !== b[i].rot[2]
+    ) {
+      return false;
+    }
   }
   return true;
 }
@@ -463,6 +485,7 @@ function FpRockInstances({
   const gridRef = useRef<FpSolidGrid | null>(null);
   if (!gridRef.current) gridRef.current = createFpSolidGrid();
   const [oreCells, setOreCells] = useState<FpOreCell[]>([]);
+  const glDomElement = useThree((state) => state.gl.domElement);
 
   // The bunker spans five rows, so one depth-appropriate dirt color reads
   // as "the dirt you'd see at this depth" without a per-row material.
@@ -553,20 +576,21 @@ function FpRockInstances({
           }
           // Dirt and ore share the rounded dirt body (ore overlays crystals).
           writeDirtBody(dirtMesh, dirtIndex++, x, y, z);
-          if (
-            block?.kind === "ore" &&
-            block.ore &&
-            fpCellExposed(grid, x, y, z)
-          ) {
-            ores.push({
-              key: fpCellIndex(x, y, z),
-              x,
-              y,
-              z,
-              hashCol: bunker.footprint.col + x + z * FP_COLS,
-              hashRow: bunker.footprint.row + y,
-              ore: block.ore,
-            });
+          if (block?.kind === "ore" && block.ore) {
+            const rot = fpExposedOreRotation(grid, x, y, z);
+            if (rot) {
+              const art = bunkerCellGenCoords(bunker.footprint, x, y, z);
+              ores.push({
+                key: fpCellIndex(x, y, z),
+                x,
+                y,
+                z,
+                hashCol: art.col,
+                hashRow: art.row,
+                ore: block.ore,
+                rot,
+              });
+            }
           }
         }
       }
@@ -576,12 +600,19 @@ function FpRockInstances({
     rockMesh.instanceMatrix.needsUpdate = true;
     dirtMesh.instanceMatrix.needsUpdate = true;
     setOreCells((prev) => (sameFpOreCells(prev, ores) ? prev : ores));
-  }, [bunker, detail]);
+    // Probe the exposed-ore-vein count (rebuild cadence, not per-frame) so a
+    // test can assert ore actually renders, not just that dirt and rock do.
+    glDomElement.dataset.fpOreCells = String(ores.length);
+  }, [bunker, detail, glDomElement]);
 
   return (
     <group ref={groupRef}>
       {oreCells.map((cell) => (
-        <group key={cell.key} position={[cell.x, cell.y, -cell.z]}>
+        <group
+          key={cell.key}
+          position={[cell.x, cell.y, -cell.z]}
+          rotation={[cell.rot[0], cell.rot[1], cell.rot[2]]}
+        >
           <OreCrystals
             col={cell.hashCol}
             row={cell.hashRow}

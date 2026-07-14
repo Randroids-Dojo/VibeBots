@@ -1374,8 +1374,14 @@ function MineScene({
     let visualTargetY = -mine.miner.row;
     // One step-timing pair per frame: the camera and the miner glide on
     // identical durations so they arrive together.
-    const stepSeconds = minerStepSeconds(mine.gear);
-    const chainSeconds = minerChainStepSeconds(mine.gear);
+    const reducedBoardingMotion =
+      reducedMotion && presentationStage === "boarding";
+    const stepSeconds = reducedBoardingMotion
+      ? ELEVATOR_REDUCED_MOTION_SECONDS
+      : minerStepSeconds(mine.gear);
+    const chainSeconds = reducedBoardingMotion
+      ? ELEVATOR_REDUCED_MOTION_SECONDS
+      : minerChainStepSeconds(mine.gear);
     // The surface ground visual sits higher than an underground cell
     // floor, so lift the bot at the ground line to keep feet on the
     // grass instead of shin-deep in the first block row. The camera

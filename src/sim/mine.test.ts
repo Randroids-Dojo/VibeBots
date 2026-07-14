@@ -1037,8 +1037,8 @@ describe("mine", () => {
       elevator: 12,
       elevatorColumn: shaftCol,
     };
-    const boardedState = (seed: number) => {
-      const state = createMine(seed, gear);
+    const boardedState = (seed: number, pickaxe = DEFAULT_GEAR.pickaxe) => {
+      const state = createMine(seed, { ...gear, pickaxe });
       state.miner.col = shaftCol;
       state.miner.row = row;
       state.elevatorPhase = "boarded";
@@ -1107,10 +1107,47 @@ describe("mine", () => {
     expect(multiHit.elevatorPhase).toBe("idle");
     expect(cellAt(multiHit, hazardCol, 4)?.kind).toBe("boulder");
 
+    const lockedRock = boardedState(2367 + offset);
+    setCell(lockedRock, exitCol, row, { kind: "rock", rockTier: 1 });
+
+    expect(applyAction(lockedRock, dir)).toEqual({
+      ok: false,
+      reason: "rock",
+      requiredPickaxeLevel: 2,
+    });
+    expect(lockedRock.miner).toMatchObject({ col: shaftCol, row });
+    expect(lockedRock.elevatorPhase).toBe("boarded");
+
+    const breakableRock = boardedState(2369 + offset, 2);
+    setCell(breakableRock, exitCol, row, { kind: "rock", rockTier: 1 });
+    setCell(breakableRock, exitCol, row + 1, { kind: "empty" });
+    setCell(breakableRock, exitCol, row + 2, { kind: "dirt" });
+
+    for (const remaining of [3, 2, 1]) {
+      expect(applyAction(breakableRock, dir)).toMatchObject({
+        ok: true,
+        dug: null,
+        cracked: { kind: "rock", remaining },
+      });
+      expect(breakableRock.miner).toMatchObject({ col: shaftCol, row });
+      expect(breakableRock.elevatorPhase).toBe("boarded");
+    }
+    expect(applyAction(breakableRock, dir)).toMatchObject({
+      ok: true,
+      dug: "rock",
+      dugAt: { col: exitCol, row },
+      fell: 1,
+    });
+    expect(breakableRock.miner).toMatchObject({
+      col: exitCol,
+      row: row + 1,
+    });
+    expect(breakableRock.elevatorPhase).toBe("idle");
+
     for (const [index, kind] of (
       ["metal", "boulder", "gas", "magma"] as const
     ).entries()) {
-      const blocked = boardedState(2367 + offset + index * 10);
+      const blocked = boardedState(2371 + offset + index * 10);
       setCell(blocked, exitCol, row, { kind });
 
       expect(applyAction(blocked, dir)).toEqual({
@@ -1120,6 +1157,73 @@ describe("mine", () => {
       expect(blocked.miner).toMatchObject({ col: shaftCol, row });
       expect(blocked.elevatorPhase).toBe("boarded");
     }
+  });
+
+  it.each([
+    ["left", -1],
+    ["right", 1],
+  ] as const)("keeps the car supporting a restored boarded %s swing that detonates a cleared charge", (dir, offset) => {
+    const shaftCol = 5;
+    const rail = 6;
+    const row = rail;
+    const state = createMine(2410 + offset, {
+      ...DEFAULT_GEAR,
+      pickaxe: 2,
+      elevator: rail,
+      elevatorColumn: shaftCol,
+    });
+    state.miner.col = shaftCol;
+    state.miner.row = row;
+    state.elevatorPhase = "boarded";
+    state.pendingDynamite = { col: shaftCol, row: 0, tier: 1 };
+    setCell(state, shaftCol, row, { kind: "empty" });
+    setCell(state, shaftCol, row + 1, { kind: "empty" });
+    setCell(state, shaftCol, row + 2, { kind: "dirt" });
+
+    const exitCol = shaftCol + offset;
+    setCell(state, exitCol, row, { kind: "rock", rockTier: 1 });
+    setCell(state, exitCol, row + 1, { kind: "empty" });
+    setCell(state, exitCol, row + 2, { kind: "dirt" });
+    const hazardCol = shaftCol + offset * 4;
+    setCell(state, hazardCol, 2, {
+      kind: "boulder",
+      fallIn: 3,
+    });
+    setCell(state, hazardCol, 3, { kind: "empty" });
+    setCell(state, hazardCol, 4, { kind: "dirt" });
+
+    const detonated = applyAction(state, dir);
+
+    expect(detonated).toMatchObject({
+      ok: true,
+      dug: null,
+      cracked: { kind: "rock", remaining: 3 },
+      exploded: { col: shaftCol, row: 0, tier: 1 },
+    });
+    expect(detonated.ok && detonated.fell).toBeUndefined();
+    expect(state.pendingDynamite).toBeUndefined();
+    expect(state.miner).toMatchObject({ col: shaftCol, row });
+    expect(state.elevatorPhase).toBe("boarded");
+    expect(cellAt(state, hazardCol, 2)?.fallIn).toBe(2);
+
+    for (const remaining of [2, 1]) {
+      expect(applyAction(state, dir)).toMatchObject({
+        ok: true,
+        cracked: { kind: "rock", remaining },
+      });
+      expect(state.miner).toMatchObject({ col: shaftCol, row });
+      expect(state.elevatorPhase).toBe("boarded");
+    }
+    expect(applyAction(state, dir)).toMatchObject({
+      ok: true,
+      dug: "rock",
+      fell: 1,
+    });
+    expect(state.miner).toMatchObject({
+      col: exitCol,
+      row: row + 1,
+    });
+    expect(state.elevatorPhase).toBe("idle");
   });
 
   it("settles a falling hazard and its unsupported ladder while boarding", () => {

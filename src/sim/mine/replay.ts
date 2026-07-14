@@ -1745,7 +1745,7 @@ function maybeExplodePendingDynamite(
     explosion.ladderFalls && explosion.ladderFalls.length > 0
       ? [...(result.ladderFalls ?? []), ...explosion.ladderFalls]
       : result.ladderFalls;
-  const fell = settleGravity ? settleMiner(state) : 0;
+  const fell = settleGravity ? settleMinerAfterStep(state) : 0;
   const totalFell = (result.fell ?? 0) + fell;
   if (isFatalMinerFall(state, totalFell)) {
     const lost = minerLostCargo(state.miner);

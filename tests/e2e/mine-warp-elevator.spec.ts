@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { imageRegionPixelDifferenceRatio } from "./support/image-pixels";
 import {
   awaitMineSceneReady,
   createMine,
@@ -15,6 +16,9 @@ import {
   STARTING_CONSUMABLES,
   setCell,
 } from "./support/mine-helpers";
+
+const NORMAL_ELEVATOR_ENTRY_MS = 1_460;
+const REDUCED_ELEVATOR_ENTRY_MARGIN_MS = 560;
 
 interface MineMotionSample {
   minerY: number;
@@ -107,6 +111,38 @@ function motionRange(
   const values = samples.map(value).filter(Number.isFinite);
   if (values.length === 0) return 0;
   return Math.max(...values) - Math.min(...values);
+}
+
+async function startMineCompositorCapture(page: Page): Promise<{
+  frames: Buffer[];
+  stop: () => Promise<void>;
+}> {
+  const session = await page.context().newCDPSession(page);
+  const frames: Buffer[] = [];
+  let active = true;
+  session.on(
+    "Page.screencastFrame",
+    (event: { data: string; sessionId: number }) => {
+      if (active && frames.length < 30) {
+        frames.push(Buffer.from(event.data, "base64"));
+      }
+      void session
+        .send("Page.screencastFrameAck", { sessionId: event.sessionId })
+        .catch(() => undefined);
+    },
+  );
+  await session.send("Page.startScreencast", {
+    format: "png",
+    everyNthFrame: 1,
+  });
+  return {
+    frames,
+    stop: async () => {
+      active = false;
+      await session.send("Page.stopScreencast");
+      await session.detach();
+    },
+  };
 }
 
 test("the warp pad gates jumps on a planted beacon (REQ-029)", async ({
@@ -662,17 +698,58 @@ test("surface entry calls the car before an explicit ride to the bottom", async 
   await expect(canvas).toHaveAttribute("data-miner-x", "3.00");
 
   await resetMineMotionProbe(page);
-  const callFrameA = await canvas.screenshot();
   await page.keyboard.press("ArrowDown");
   await expect(status).toHaveAttribute("data-elevator-stage", "calling");
   await expect(status).toHaveAttribute("data-depth", "0");
-  const callFrameB = await canvas.screenshot();
-  await page.waitForTimeout(250);
+  // A requested Playwright screenshot can outlive this short animation and
+  // capture the chooser. The bounded screencast samples compositor frames
+  // without blocking rendering, starts inside calling, and stops while the
+  // diagnostic car position is still short of its destination.
+  const callCapture = await startMineCompositorCapture(page);
+  try {
+    await expect
+      .poll(() => callCapture.frames.length, { timeout: 2_000 })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () =>
+        Number(await canvas.getAttribute("data-elevator-car-y")),
+      )
+      .toBeGreaterThan(-1.8);
+  } finally {
+    await callCapture.stop();
+  }
   await expect(status).toHaveAttribute("data-depth", "0");
   const callSamples = (await readMineMotionProbe(page)).filter(
     (sample) => sample.stage === "calling",
   );
-  expect(Buffer.compare(callFrameA, callFrameB)).not.toBe(0);
+  expect(callCapture.frames.length).toBeGreaterThan(2);
+  const firstCallFrame = callCapture.frames[0];
+  const lastCallFrame = callCapture.frames.at(-1) ?? firstCallFrame;
+  const shaftPixelChange = await imageRegionPixelDifferenceRatio(
+    page,
+    firstCallFrame,
+    lastCallFrame,
+    { left: 0.45, top: 0.54, right: 0.55, bottom: 0.98 },
+  );
+  const ambientPixelChange = Math.max(
+    await imageRegionPixelDifferenceRatio(page, firstCallFrame, lastCallFrame, {
+      left: 0.34,
+      top: 0.54,
+      right: 0.44,
+      bottom: 0.98,
+    }),
+    await imageRegionPixelDifferenceRatio(page, firstCallFrame, lastCallFrame, {
+      left: 0.56,
+      top: 0.54,
+      right: 0.66,
+      bottom: 0.98,
+    }),
+  );
+  // The center crop follows only the shaft and moving car. Equal-size crops
+  // on both sides establish the ambient flicker floor for the same frames.
+  expect(shaftPixelChange).toBeGreaterThan(
+    Math.max(0.05, ambientPixelChange + 0.02),
+  );
   expect(callSamples.length).toBeGreaterThan(2);
   expect(
     motionRange(callSamples, (sample) => sample.carY),
@@ -812,11 +889,68 @@ test("reduced motion reaches the elevator choices promptly", async ({
   await dismissReleaseNotes(page);
   await awaitMineSceneReady(page);
   const status = page.getByLabel("Mine status");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      ),
+    )
+    .toBe(true);
+  await page.evaluate(() => {
+    const browserWindow = window as typeof window & {
+      __elevatorEntryTiming?: {
+        startedAt: number | null;
+        elapsedMs: number | null;
+      };
+    };
+    const status = document.querySelector<HTMLElement>(
+      '[aria-label="Mine status"]',
+    );
+    if (!status) throw new Error("Mine status is unavailable");
+    const timing = { startedAt: null, elapsedMs: null } as {
+      startedAt: number | null;
+      elapsedMs: number | null;
+    };
+    browserWindow.__elevatorEntryTiming = timing;
+    const observer = new MutationObserver(() => {
+      if (
+        timing.startedAt !== null &&
+        status.dataset.elevatorStage === "choosing"
+      ) {
+        timing.elapsedMs = performance.now() - timing.startedAt;
+        observer.disconnect();
+      }
+    });
+    observer.observe(status, {
+      attributes: true,
+      attributeFilter: ["data-elevator-stage"],
+    });
+    window.addEventListener(
+      "keydown",
+      () => {
+        timing.startedAt = performance.now();
+      },
+      { capture: true, once: true },
+    );
+  });
   await page.keyboard.press("ArrowDown");
 
   await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
-    timeout: 2_000,
+    timeout: 10_000,
   });
+  const transitionElapsedMs = await page.evaluate(
+    () =>
+      (
+        window as typeof window & {
+          __elevatorEntryTiming?: { elapsedMs: number | null };
+        }
+      ).__elevatorEntryTiming?.elapsedMs ?? Number.POSITIVE_INFINITY,
+  );
+  // Keep the locator timeout wide for a contended CI renderer, but measure
+  // the in-page transition itself. Unchanged normal timing is 1.46 seconds.
+  expect(transitionElapsedMs).toBeLessThan(
+    NORMAL_ELEVATOR_ENTRY_MS - REDUCED_ELEVATOR_ENTRY_MARGIN_MS,
+  );
   await expect(status).toHaveAttribute("data-elevator-phase", "boarded");
   await expect(
     page.getByRole("button", { name: "Go to bottom" }),

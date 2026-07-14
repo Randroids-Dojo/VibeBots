@@ -59,7 +59,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Auto-jump on touch in <code>stepFpMovement</code> (grounded, horizontal collision against a one-block step whose two cells above are clear, hop) and remove the touch jump button; Space keeps jumping on desktop. Acceptance: a Pixel-viewport e2e walks up a placed block without any jump input, and the button is gone from the fp HUD.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (feedback slice after fp building).</dd>
-      <dt>Resolved</dt><dd>Branch <code>feat/bunker-feedback</code> (package 0.1.249, PR pending): auto-jump in <code>stepFpMovement</code> for coarse-pointer sessions (one-block landing plus a two-cell bonk guard; the arc pokes exactly two cells above the feet), jump button removed, Space unchanged on desktop. Pinned by five movement unit tests and a 390x760 hasTouch e2e climbing a placed block with no jump input.</dd>
+      <dt>Resolved</dt><dd>Branch <code>feat/bunker-feedback</code> (package 0.1.249, PR #170): auto-jump in <code>stepFpMovement</code> for coarse-pointer sessions (one-block landing plus a two-cell bonk guard; the arc pokes exactly two cells above the feet), jump button removed, Space unchanged on desktop. Pinned by five movement unit tests and a 390x760 hasTouch e2e climbing a placed block with no jump input.</dd>
     </dl>
   </section>
 
@@ -70,7 +70,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>A player-facing Reset bunker action in the bunker sheet: server route refunds undamaged placed parts to inventory, clears parts and dug cells, restores core durability, keeps the claim, blocked mid-raid, confirm-guarded in the UI. Acceptance: the dev resets the Pixel base in production and rebuilds from inside; route + sim tests cover refund and damaged-part handling.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-first-person-3d-30115c4e (feedback slice after fp building).</dd>
-      <dt>Resolved</dt><dd>Branch <code>feat/bunker-feedback</code> (package 0.1.249, PR pending): pure <code>applyBunkerReset</code> (undamaged parts refund at full durability, damaged parts are lost per the removeBasePart contract, dug cleared, core restored, footprint and skins kept), server wrapper with the raid-active 409, <code>/api/bunker/reset</code> route, both store paths, and a two-step-confirm sheet row hidden during raids. En route fixed a real phone bug the row exposed: the open sheet sat under the toolbelt (z-index), so its bottom rows refused taps. Production acceptance: the dev resets the Pixel base after deploy.</dd>
+      <dt>Resolved</dt><dd>Branch <code>feat/bunker-feedback</code> (package 0.1.249, PR #170): pure <code>applyBunkerReset</code> (undamaged parts refund at full durability, damaged parts are lost per the removeBasePart contract, dug cleared, core restored, footprint and skins kept), server wrapper with the raid-active 409, <code>/api/bunker/reset</code> route, both store paths, and a two-step-confirm sheet row hidden during raids. En route fixed a real phone bug the row exposed: the open sheet sat under the toolbelt (z-index), so its bottom rows refused taps. Production acceptance: the dev resets the Pixel base after deploy.</dd>
     </dl>
   </section>
 

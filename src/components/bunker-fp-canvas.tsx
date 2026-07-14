@@ -117,6 +117,15 @@ const FP_FOG_FAR = 16;
 const FP_TOUCH_LOOK = 0.0042;
 const FP_MOUSE_LOOK = 0.0023;
 const FP_PITCH_LIMIT = 1.45;
+/** Fresh corridors put rock 0.7 units from the eye; starting the view
+ * tipped slightly down grounds it on the floor line, so the first
+ * frame reads "a place to dig into", not a wall filling the screen. */
+const FP_SPAWN_PITCH = -0.15;
+/** The overhead work light over the room center. */
+const FP_WORK_LIGHT_COLOR = "#ffd9a0";
+/** Entry fill at the corridor mouth: warm enough that hewn stone reads
+ * as a lived-in interior instead of a cold shaft. */
+const FP_ENTRY_FILL_COLOR = "#d8c2a4";
 /** Deep claim rock tint (the default biome's softest rock gray). */
 const FP_ROCK_TINT = rockColorsForBiome("default")[0];
 /** 190 boundary cells (the six face planes around the volume) plus up
@@ -526,7 +535,7 @@ function BunkerFpRig({
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
   const yawRef = useRef(0);
-  const pitchRef = useRef(0);
+  const pitchRef = useRef(FP_SPAWN_PITCH);
   const datasetCacheRef = useRef<Record<string, number | string>>({});
   const inputScratchRef = useRef<FpMoveInput>({
     forward: 0,
@@ -577,7 +586,8 @@ function BunkerFpRig({
   }, [bunker]);
 
   // Spawn once per mount: the miner's mine cell on the tunnel plane,
-  // feet on the room floor, facing -z (into the rock).
+  // feet on the room floor, facing -z (into the rock) with the view
+  // tipped slightly down (FP_SPAWN_PITCH) so the floor grounds it.
   const moveRef = useRef<FpMoveState | null>(null);
   if (!moveRef.current) {
     const cell = fpSpawnCell(bunker.footprint, entry.col, entry.row);
@@ -597,7 +607,7 @@ function BunkerFpRig({
   useLayoutEffect(() => {
     const move = moveRef.current;
     if (!move) return;
-    fpCameraEuler.set(0, 0, 0);
+    fpCameraEuler.set(FP_SPAWN_PITCH, 0, 0);
     camera.quaternion.setFromEuler(fpCameraEuler);
     camera.position.set(move.px, move.py + FP_EYE_HEIGHT, move.pz);
   }, [camera]);
@@ -1081,20 +1091,21 @@ function BunkerFpScene({
     <>
       <FpAtmosphere />
       {/* Fixed light set (constant count, no recompiles): dim ambient,
-          one warm work light over the room center, and a cool fill at
-          the entry plane so the corridor mouth stays readable. */}
+          one warm work light over the room center, and a warm fill at
+          the entry plane so the corridor mouth reads as a lived-in
+          interior rather than cold rock. */}
       <ambientLight intensity={0.4} />
       <pointLight
         position={[centerX, 3.4, -2]}
         intensity={14}
         distance={12}
-        color="#ffd9a0"
+        color={FP_WORK_LIGHT_COLOR}
       />
       <pointLight
         position={[centerX, 2.4, 1.1]}
         intensity={4}
         distance={9}
-        color="#9fb4d8"
+        color={FP_ENTRY_FILL_COLOR}
       />
       <FpRockInstances bunker={bunker} detail={detail} />
       <FpPlacedParts

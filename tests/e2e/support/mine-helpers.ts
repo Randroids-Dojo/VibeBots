@@ -138,6 +138,26 @@ export async function touchHoldDrag(
   };
 }
 
+/** A still touch press held for `ms`, then released: no move events, so
+ * tap-slop logic sees zero travel (long-press gestures). */
+export async function touchHold(
+  page: Page,
+  point: { x: number; y: number },
+  ms: number,
+): Promise<void> {
+  const client = await page.context().newCDPSession(page);
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ id: 1, x: point.x, y: point.y }],
+  });
+  await page.waitForTimeout(ms);
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await client.detach();
+}
+
 export async function touchPinchOut(
   page: Page,
   center: { x: number; y: number },

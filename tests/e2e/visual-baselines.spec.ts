@@ -1,7 +1,7 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import { dismissReleaseNotes } from "./support/mine-helpers";
+import { digTo, dismissReleaseNotes, START_COL } from "./support/mine-helpers";
 
 /**
  * Visual regression baselines (process slice, graphics G5 hardening).
@@ -22,10 +22,14 @@ import { dismissReleaseNotes } from "./support/mine-helpers";
 
 const SNAPSHOT_DIR = path.join(__dirname, "visual-baselines.spec.ts-snapshots");
 
-function platformBaselinesExist(): boolean {
-  if (!existsSync(SNAPSHOT_DIR)) return false;
-  const suffix = `-${process.platform}.png`;
-  return readdirSync(SNAPSHOT_DIR).some((file) => file.endsWith(suffix));
+/** Per scene, not per platform: a freshly added scene must skip until
+ * its own baseline is generated (via the CI dispatch or a local
+ * UPDATE_VISUAL_BASELINES run), or adding a scene would fail every
+ * runner that has baselines only for the older scenes. */
+function sceneBaselineExists(name: string): boolean {
+  return existsSync(
+    path.join(SNAPSHOT_DIR, `${name}-chromium-${process.platform}.png`),
+  );
 }
 
 /** Explicit opt-in for regeneration runs: Playwright's default
@@ -82,8 +86,8 @@ const SCENES: ReadonlyArray<{
 for (const scene of SCENES) {
   test(`visual baseline: ${scene.name}`, async ({ page }) => {
     test.skip(
-      !platformBaselinesExist() && !updatingSnapshots(),
-      "no committed visual baselines for this platform yet",
+      !sceneBaselineExists(scene.name) && !updatingSnapshots(),
+      "no committed baseline for this scene on this platform yet",
     );
     test.setTimeout(120_000);
     await openPausedHolodeck(page, scene.scenario, scene.gallerySet);
@@ -98,3 +102,113 @@ for (const scene of SCENES) {
     });
   });
 }
+
+/** The banked-claim fixture the fp e2e suite drives: deterministic
+ * footprint and parts, so the corridor spawn view depends only on the
+ * scene's own materials, instancing, and lighting. */
+const FP_BASELINE_VIEW = {
+  bunker: {
+    footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+    core: { col: START_COL, row: 3, durability: 160 },
+    parts: [
+      { partId: "wall-panel", col: START_COL - 3, row: 1, durability: 90 },
+    ],
+  },
+  inventory: {
+    "wall-panel": 6,
+    "floor-panel": 4,
+    "roof-panel": 4,
+    "door-panel": 1,
+    "basic-turret": 0,
+    "floor-spikes": 0,
+  },
+  activeRaid: null,
+  player: {
+    balance: 120,
+    trackXp: 40,
+    defenseXp: 120,
+    overallLevel: 2,
+    levelCap: 100,
+    progressXp: 20,
+    neededXp: 80,
+    nextLevelXp: 200,
+    beaconLimit: 3,
+  },
+};
+
+/** Down the open claim row from the spawn cell: hewn walls both
+ * sides, the floor line, fog falloff, and the warm entry fill. The
+ * spawn rock face itself is a near-black featureless plane, so the
+ * along-row view is the one that can actually catch a material or
+ * lighting break. The DOM hotbar and target label sit below the clip. */
+const FP_CORRIDOR_CLIP = { x: 240, y: 120, width: 640, height: 400 };
+const FP_CORRIDOR_YAW = 1.57;
+const FP_CORRIDOR_PITCH = -0.2;
+
+/**
+ * First-person corridor from the fixed spawn cell: guards the fp rock
+ * instancing, fog, and the corridor lighting (warm entry fill) against
+ * silent regressions on the WebGL2 fallback. The aim is pinned through
+ * the one-shot test hook so the capture never depends on spawn-default
+ * drift.
+ */
+test("visual baseline: bunker-fp-corridor", async ({ page }) => {
+  test.skip(
+    !sceneBaselineExists("bunker-fp-corridor") && !updatingSnapshots(),
+    "no committed baseline for this scene on this platform yet",
+  );
+  test.setTimeout(180_000);
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FP_BASELINE_VIEW),
+    });
+  });
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  await expect(status).toHaveAttribute("data-scene-painted", "true", {
+    timeout: 45_000,
+  });
+  // Pin the aim: down the open claim row, slightly floorward.
+  await page.evaluate(
+    ([yaw, pitch]) => {
+      (
+        window as unknown as {
+          __vibebotsFp?: { setYaw?: number; setPitch?: number };
+        }
+      ).__vibebotsFp = { setYaw: yaw, setPitch: pitch };
+    },
+    [FP_CORRIDOR_YAW, FP_CORRIDOR_PITCH] as const,
+  );
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-yaw")), {
+      timeout: 10_000,
+    })
+    .toBeCloseTo(FP_CORRIDOR_YAW, 1);
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-pitch")), {
+      timeout: 10_000,
+    })
+    .toBeCloseTo(FP_CORRIDOR_PITCH, 1);
+  // Let the compile-gated first frames and lighting settle.
+  await page.waitForTimeout(2_000);
+  await expect(page).toHaveScreenshot("bunker-fp-corridor.png", {
+    clip: FP_CORRIDOR_CLIP,
+    // Headless runs cannot hold pointer lock, so the resume hint stays
+    // up mid-frame; mask it (DOM copy is not this baseline's subject).
+    mask: [page.locator(".bunker-fp-resume-hint")],
+    maxDiffPixelRatio: 0.02,
+    timeout: 30_000,
+  });
+});

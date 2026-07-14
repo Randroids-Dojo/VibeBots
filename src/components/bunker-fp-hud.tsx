@@ -24,6 +24,13 @@ import {
 } from "@/sim/bunker";
 import { fpInput } from "./bunker-fp-input";
 import {
+  beginFpLookPress,
+  createFpLookPress,
+  FP_LONG_PRESS_MS,
+  shouldFireFpLongPress,
+  shouldFireFpTapAct,
+} from "./bunker-fp-press";
+import {
   type FpTargetInfo,
   getFpTargetSnapshot,
   subscribeFpTarget,
@@ -32,11 +39,6 @@ import type {
   BunkerToolAction,
   CarriedBunkerPart,
 } from "./mine-bunker-toolbelt";
-
-/** Taps on the look zone shorter than this act with the current tool. */
-const FP_TAP_MS = 250;
-/** ... unless the pointer wandered further than this (a look drag). */
-const FP_TAP_SLOP_PX = 12;
 
 function PickIcon() {
   return (
@@ -82,8 +84,9 @@ function FpTargetLabel() {
  * SIBLING of the canvas (Rule 10: all text is DOM, never in-canvas).
  * Desktop gets the exit button, crosshair, and a resume hint while
  * pointer lock is off; coarse pointers get the move/look touch zones
- * (a quick tap on the look zone acts with the current tool; one-block
- * steps auto-jump per F-094, so there is no jump button).
+ * (a quick tap on the look zone acts with the current tool, a long
+ * still press over an unchanged target quick-pries like right-click;
+ * one-block steps auto-jump per F-094, so there is no jump button).
  * Both get the bottom hotbar: pick slot, six part slots with counts,
  * pry toggle, and the carried-part chip. All zones write the shared
  * fpInput singleton the rig consumes each frame; the target label
@@ -118,16 +121,8 @@ export function BunkerFpHud({
   const ringRef = useRef<HTMLDivElement | null>(null);
   const knobRef = useRef<HTMLDivElement | null>(null);
   const [stickOn, setStickOn] = useState(false);
-  const look = useRef({
-    active: false,
-    pointerId: -1,
-    x: 0,
-    y: 0,
-    startX: 0,
-    startY: 0,
-    startedAt: 0,
-    moved: 0,
-  });
+  const look = useRef(createFpLookPress());
+  const longPressTimerRef = useRef<number>(0);
   useEffect(() => {
     setCoarse(window.matchMedia("(hover: none) and (pointer: coarse)").matches);
     const onLockChange = () => setLocked(Boolean(document.pointerLockElement));
@@ -138,9 +133,11 @@ export function BunkerFpHud({
     };
   }, []);
 
-  // Any lingering held input dies with the overlay.
+  // Any lingering held input (or armed hold timer) dies with the
+  // overlay.
   useEffect(() => {
     return () => {
+      window.clearTimeout(longPressTimerRef.current);
       fpInput.forward = 0;
       fpInput.strafe = 0;
       fpInput.lookX = 0;
@@ -191,14 +188,28 @@ export function BunkerFpHud({
 
   const lookDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId);
-    look.current.active = true;
-    look.current.pointerId = event.pointerId;
-    look.current.x = event.clientX;
-    look.current.y = event.clientY;
-    look.current.startX = event.clientX;
-    look.current.startY = event.clientY;
-    look.current.startedAt = performance.now();
-    look.current.moved = 0;
+    beginFpLookPress(
+      look.current,
+      event.pointerId,
+      event.clientX,
+      event.clientY,
+      performance.now(),
+      getFpTargetSnapshot(),
+    );
+    // A press held still through the hold window quick-pries whatever
+    // the crosshair saw at press start (the touch right-click); the
+    // predicate re-checks stillness and that the target never changed.
+    window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = window.setTimeout(() => {
+      const press = look.current;
+      if (
+        !shouldFireFpLongPress(press, performance.now(), getFpTargetSnapshot())
+      ) {
+        return;
+      }
+      press.longPressFired = true;
+      fpInput.pryAct = true;
+    }, FP_LONG_PRESS_MS);
   };
   const lookMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!look.current.active || look.current.pointerId !== event.pointerId) {
@@ -218,20 +229,20 @@ export function BunkerFpHud({
   };
   const lookCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (look.current.pointerId !== event.pointerId) return;
+    window.clearTimeout(longPressTimerRef.current);
     look.current.active = false;
     look.current.pointerId = -1;
   };
 
   const lookUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (look.current.pointerId !== event.pointerId) return;
-    const wasTap =
-      look.current.active &&
-      performance.now() - look.current.startedAt < FP_TAP_MS &&
-      look.current.moved < FP_TAP_SLOP_PX;
+    window.clearTimeout(longPressTimerRef.current);
+    // A quick, still tap acts with the current tool; the rig consumes
+    // the flag on its next frame against the live crosshair target. A
+    // press the long-press hold already consumed never also acts.
+    const wasTap = shouldFireFpTapAct(look.current, performance.now());
     look.current.active = false;
     look.current.pointerId = -1;
-    // A quick, still tap acts with the current tool; the rig consumes
-    // the flag on its next frame against the live crosshair target.
     if (wasTap) fpInput.act = true;
   };
 

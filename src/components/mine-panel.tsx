@@ -2592,6 +2592,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     dismissFloatingMenus();
     setBunkerPanelOpen(false);
     setMineCanvasPainted(false);
+    // Arrive with the pick out: digging deep claim rock is the first
+    // move in a fresh claim and the first tool the tutorial teaches, so
+    // Pick is the default rather than the build ghost.
+    setBunkerToolSelection("dig");
     setFpBunkerActive(true);
   }, [activeBunker, dismissFloatingMenus, elevatorAutoDir, fpBunkerAllowed]);
 

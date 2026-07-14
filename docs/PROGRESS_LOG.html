@@ -31,6 +31,16 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-fp-pick-default" data-date="2026-07-13">
+    <h3>Step inside with the pick already out</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-fp-pick-default</code>.</dd>
+      <dt>PR</dt><dd>#176.</dd>
+      <dt>Changed</dt><dd>Package 0.1.254, two tutorial corrections from a Pixel playtest. (1) Entering the bunker should start in Pick mode, not with the build ghost armed on a wall: <code>enterFpBunker</code> now sets the tool selection to <code>"dig"</code> on every entry path (floating button, panel row, "f" key, auto-enter), so the hotbar arrives with Pick pressed and no part slot selected; digging out the deep claim rock is the first move in a fresh claim and the first tool the tutorial teaches, and the dig card drops its now-redundant "Select the pick" lead. (2) The walk card promised an automatic hop over a low step, but a bare claim has no one-block step to try it on (the surrounding claim rock is full height and touch has no jump button), so the touch walk copy now teaches walking only ("Hold the left stick to walk around the bunker.") and desktop reads "Space jumps"; the step hop stays a surface tip and reveals itself once a dug or placed ledge exists. Tip review (Rule 13): the one-block-step tip still reads true (it names the step as the precondition), no changes. Stamp review (Rule 14): none (tutorial copy and a default selection, not a milestone). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+      <dt>Verified</dt><dd>Typecheck, Biome, dash, and whitespace clean; full unit suite and release chain green. e2e (<code>mine-bunker-fp.spec.ts</code>): the pending-claim building loop now asserts Pick is pressed and the wall slot is not the instant fp mode opens, before it selects the wall to build; the tutorial, dig-place round-trip, and phone-hotbar flows still pass since each selects its tool explicitly. release-notifications e2e updated in both the fresh-browser block (new intro, two changes, MINE_VERSION line at nth(1)) and the recent-notes list, and re-run green against a rebuilt bundle.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-pry-stow" data-date="2026-07-13">
     <h3>Prying stows automatically: parts chain pry to pry</h3>
     <dl>

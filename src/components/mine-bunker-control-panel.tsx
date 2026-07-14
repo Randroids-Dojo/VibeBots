@@ -235,7 +235,7 @@ export function BunkerControlPanel({
 
         <p className="bunker-status-copy">
           {hasBunker
-            ? "Close this sheet, select a part, then point where it should go."
+            ? "Enter the bunker to build inside: place, pry, and dig in first person."
             : !preview
               ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
               : localBlockerCount > 0

@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-13-0.1.250-bunker-fp-polish";
+export const RELEASE_NOTICE_ID = "2026-07-13-0.1.251-hammer-retirement";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.251",
+      date: "2026-07-13",
+      title: "One way to build: walk inside",
+      intro: "The flat-view build cursor retires; first person is the builder.",
+      changes: [
+        {
+          build,
+          text: "Building now happens inside the bunker only. The flat view keeps claiming, raids, repairs, skins, and a single Enter bunker button; the old part-cursor controls and scaffold walk are gone, so the arrow keys always just move the miner.",
+        },
+        {
+          build,
+          text: "First person no longer shows the mine's flat-view controls on top of the scene, and if your base has you boxed in, a hint now says exactly how to pry free or reset.",
+        },
+        { build, text: "MINE_VERSION and SIM_VERSION are unchanged." },
+      ],
+    },
     {
       version: "0.1.250",
       date: "2026-07-13",

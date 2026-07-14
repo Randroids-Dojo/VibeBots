@@ -114,8 +114,11 @@ test("first-person bunker viewer walks, looks, jumps, and exits in place", async
   const distanceBefore = await status.getAttribute("data-horizontal-distance");
   const energyBefore = await status.getAttribute("data-energy");
   expect(depthBefore).toBe("1");
+  await expect(
+    page.getByRole("region", { name: "Dig controls" }),
+  ).toBeVisible();
 
-  // Enter from the toolbelt (the miner stands inside the claim).
+  // Enter from the floating button (the miner stands inside the claim).
   const enterButton = page.getByTestId("bunker-fp-enter");
   await expect(enterButton).toBeVisible();
   await enterButton.click();
@@ -129,8 +132,21 @@ test("first-person bunker viewer walks, looks, jumps, and exits in place", async
       timeout: 45_000,
     })
     .not.toBeNull();
+  // The 2D mine chrome yields the whole screen to the fp HUD: the
+  // consumable belt (with its ladder chip and plank buttons), the zoom
+  // cluster, and the settings gear all unmount while fp mode is on.
+  await expect(page.getByRole("region", { name: "Dig controls" })).toHaveCount(
+    0,
+  );
+  await expect(page.locator("[data-ladder-chip]")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Zoom controls" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name: "Open settings" })).toHaveCount(
+    0,
+  );
   await expect(
-    page.getByRole("region", { name: "Bunker build tool" }),
+    page.getByRole("button", { name: "Place plank left" }),
   ).toHaveCount(0);
   await expect
     .poll(async () => canvas.getAttribute("data-fp-grounded"), {
@@ -222,6 +238,16 @@ test("first-person bunker viewer walks, looks, jumps, and exits in place", async
   );
   await expect(status).toHaveAttribute("data-energy", energyBefore ?? "");
   await expect(page.getByTestId("bunker-fp-enter")).toBeVisible();
+  // The suppressed 2D chrome returns with the flat view.
+  await expect(
+    page.getByRole("region", { name: "Dig controls" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Zoom controls" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open settings" }),
+  ).toBeVisible();
 });
 
 test("the bunker status panel's 3D row enters the banked bunker", async ({
@@ -955,4 +981,69 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
     "aria-label",
     "Wall x5",
   );
+});
+
+test("an enclosed spawn shows the boxed-in escape hint until a part is pried", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  // Walls on both open lateral neighbors of the spawn cell (local
+  // (3,0,0): +z is undug rock, -z is boundary rock), the sealed
+  // legacy-base scenario the hint exists for.
+  const boxedView = {
+    ...FP_BUNKER_VIEW,
+    bunker: {
+      ...FP_BUNKER_VIEW.bunker,
+      parts: [
+        { partId: "wall-panel", col: START_COL - 1, row: 5, durability: 90 },
+        { partId: "wall-panel", col: START_COL + 1, row: 5, durability: 90 },
+      ],
+    },
+  };
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(boxedView),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+
+  const hint = page.getByTestId("bunker-fp-boxed-hint");
+  await expect(hint).toBeVisible({ timeout: 20_000 });
+  await expect(hint).toContainText("Boxed in?");
+
+  // Prying a wall is the escape in progress: the hint stands down
+  // while the part is in hand.
+  await aimFp(page, -1.57, 0);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 20_000,
+    })
+    .toBe("4:0:0:part");
+  await armFpPointer(page);
+  await canvas.click({ button: "right" });
+  const carried = page.locator(".bunker-fp-carried");
+  await expect(carried).toBeVisible({ timeout: 10_000 });
+  await expect(hint).toHaveCount(0);
+
+  // Putting it back re-encloses the player, so the hint returns; a
+  // tap dismisses it until the next enclosure.
+  await page.getByRole("button", { name: "Put back" }).click();
+  await expect(carried).toHaveCount(0);
+  await expect(hint).toBeVisible({ timeout: 10_000 });
+  await hint.click();
+  await expect(hint).toHaveCount(0);
 });

@@ -43,7 +43,6 @@ import {
 import { createWebGPU } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
 import type {
-  BasePartId,
   BunkerFootprint,
   BunkerRaidSnapshot,
   BunkerState,
@@ -112,14 +111,7 @@ import {
   OreCrystals,
   teeterUrgency,
 } from "./mine-block-render";
-import {
-  BunkerOverlay,
-  type BunkerToolVisualEvent,
-} from "./mine-bunker-overlay";
-import type {
-  BunkerToolAction,
-  CarriedBunkerPart,
-} from "./mine-bunker-toolbelt";
+import { BunkerOverlay } from "./mine-bunker-overlay";
 import {
   CRUSH_HOLD_SECONDS,
   FATAL_FALL_HOLD_SECONDS,
@@ -947,16 +939,7 @@ function MineScene({
   bunkerBlockedCells,
   bunker,
   activeBunkerRaid,
-  bunkerEditingEnabled,
-  bunkerTargetCell,
-  bunkerHammerEquipped,
-  bunkerToolAction,
-  selectedBunkerPartId,
-  carriedBunkerPart,
-  bunkerToolEvent,
   onToggleSupport,
-  onBunkerCellHover,
-  onBunkerCellTap,
   graphicsFeatures,
   onWarmed,
 }: MineCanvasProps & {
@@ -2379,16 +2362,6 @@ function MineScene({
         blockedCells={bunkerBlockedCells}
         bunker={bunker}
         activeRaid={activeBunkerRaid}
-        editingEnabled={bunkerEditingEnabled && Boolean(bunkerHammerEquipped)}
-        targetCell={bunkerTargetCell}
-        toolAction={bunkerToolAction}
-        selectedPartId={selectedBunkerPartId}
-        carriedPart={carriedBunkerPart}
-        toolEvent={bunkerToolEvent}
-        miner={mine.miner}
-        scaffoldVisible={bunkerHammerEquipped}
-        onBunkerCellHover={onBunkerCellHover}
-        onBunkerCellTap={onBunkerCellTap}
       />
       {/* Instanced particles: sparks render fullbright, debris and dust
           take the scene light. Unit cube scaled per instance (W3). */}
@@ -2456,16 +2429,7 @@ interface MineCanvasProps {
   bunkerBlockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
   activeBunkerRaid?: BunkerRaidSnapshot | null;
-  bunkerEditingEnabled?: boolean;
-  bunkerTargetCell?: MineCoord | null;
-  bunkerHammerEquipped?: boolean;
-  bunkerToolAction?: BunkerToolAction;
-  selectedBunkerPartId?: BasePartId;
-  carriedBunkerPart?: CarriedBunkerPart | null;
-  bunkerToolEvent?: BunkerToolVisualEvent | null;
   onToggleSupport?: (target: CollectTarget) => void;
-  onBunkerCellHover?: (cell: MineCoord) => void;
-  onBunkerCellTap?: (cell: MineCoord) => void;
   /** Fires once, after the first frame has actually rendered. */
   onFirstFrame?: () => void;
 }

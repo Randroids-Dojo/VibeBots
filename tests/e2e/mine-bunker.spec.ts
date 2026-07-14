@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { imagePixelDifferenceRatio } from "./support/image-pixels";
 import {
   countRaidXpPixels,
@@ -22,6 +22,87 @@ function deferredSignal(): { promise: Promise<void>; resolve: () => void } {
     resolve = settle;
   });
   return { promise, resolve };
+}
+
+/** Aims the fp camera through the one-shot test hook and waits for the
+ * rig to consume it (the mine-bunker-fp.spec.ts helper). */
+async function aimFp(page: Page, yaw: number, pitch: number): Promise<void> {
+  await page.evaluate(
+    ([yawValue, pitchValue]) => {
+      (
+        window as unknown as {
+          __vibebotsFp?: { setYaw?: number; setPitch?: number };
+        }
+      ).__vibebotsFp = { setYaw: yawValue, setPitch: pitchValue };
+    },
+    [yaw, pitch] as const,
+  );
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-yaw")), {
+      timeout: 10_000,
+    })
+    .toBeCloseTo(yaw, 1);
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-pitch")), {
+      timeout: 10_000,
+    })
+    .toBeCloseTo(pitch, 1);
+}
+
+/** First canvas click acquires (or proves unavailable) pointer lock
+ * and is swallowed by design; later clicks act. */
+async function armFpPointer(page: Page): Promise<void> {
+  const canvas = page.locator("canvas");
+  await canvas.click();
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-lock"), {
+      timeout: 10_000,
+    })
+    .not.toBe("unlocked");
+}
+
+/** Places one wall from the fp hotbar into local cell (2,0,0) (mine
+ * cell START_COL - 1 on the claim's bottom row): the shared fp editing
+ * step for the pending-claim tests below. */
+async function placeWallInFp(page: Page): Promise<void> {
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-fp-mode",
+    "1",
+  );
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  const wallSlot = page.getByTestId("bunker-fp-slot-wall-panel");
+  await wallSlot.click();
+  await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
+  // Aim down-left from the spawn: the ray crosses open cell (2,0,0)
+  // and lands on the floor boundary, making the crossed cell the
+  // place cell (the mine-bunker-fp.spec.ts geometry).
+  await aimFp(page, 1.57, -0.62);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-place"), {
+      timeout: 10_000,
+    })
+    .toBe("2:0:0");
+  await armFpPointer(page);
+  await canvas.click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            JSON.parse(
+              localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+            ).pendingBunker?.bunker.parts.length ?? 0,
+        ),
+      { timeout: 10_000 },
+    )
+    .toBe(1);
 }
 
 test("mine bunker builder starts a Clanker raid", async ({ page }) => {
@@ -183,9 +264,12 @@ test("mine bunker builder starts a Clanker raid", async ({ page }) => {
   await expect(builder).toContainText("Walk over 25 defense XP on the ground");
   await expect(builder.getByRole("button", { name: "Place" })).toHaveCount(0);
   await expect(builder.getByRole("button", { name: "Remove" })).toHaveCount(0);
+  // Editing after a survived raid happens in first person: the Enter
+  // affordance stays, the retired 2D toolbelt never mounts.
+  await expect(page.getByTestId("bunker-fp-enter")).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Bunker build tool" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     builder.getByRole("button", { name: "Walk over raid XP" }),
   ).toBeDisabled();
@@ -445,9 +529,7 @@ test("mine bunker builder explains miner death after an open Clanker path", asyn
   await expect(builder).toContainText("Miner killed");
   await expect(builder).toContainText("Clankers follow open bunker cells");
   await expect(builder).toContainText("Fully enclose the player cell");
-  await expect(
-    page.getByRole("region", { name: "Bunker build tool" }),
-  ).toHaveCount(0);
+  await expect(page.getByTestId("bunker-fp-enter")).toHaveCount(0);
 });
 
 test("mine requires an explicit bunker claim mode before showing the claim panel", async ({
@@ -616,6 +698,8 @@ test("bunker claim mode highlights uncleared claim cells in red", async ({
 });
 
 test("bunker claims can be edited before banking", async ({ page }) => {
+  // Software-GL runners compile the fp scene slowly.
+  test.setTimeout(240_000);
   await page.setViewportSize({ width: 390, height: 760 });
   const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
   for (let row = 1; row <= 6; row++) {
@@ -699,89 +783,57 @@ test("bunker claims can be edited before banking", async ({ page }) => {
     "Ready to claim. Build now, then bank at surface to save.",
   );
   await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
-  await expect(status).toContainText(
-    "Close this sheet, select a part, then point where it should go.",
-  );
+  await expect(status).toContainText("Enter the bunker to build inside");
   await status.getByRole("button", { name: "Close" }).click();
-  const tool = page.getByRole("region", { name: "Bunker build tool" });
-  await expect(tool).toBeVisible();
-  await expect(tool.getByLabel("Base parts")).toBeVisible();
-  await expect(tool.getByRole("button", { name: "Wall x6" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Swing hammer/ })).toHaveCount(
-    0,
-  );
-  await expect(
-    page.getByRole("button", { name: "Equip bunker hammer" }),
-  ).toHaveCount(0);
-  await expect(tool.getByRole("button", { name: "Pry" })).toHaveAttribute(
-    "aria-pressed",
-    "false",
-  );
 
-  await tool.getByRole("button", { name: "Wall x6" }).click();
-  await expect(tool.getByRole("button", { name: "Wall x6" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
+  // The 2D hammer flow retired: no toolbelt region, no part slots or
+  // pry tool in the flat view. The single Enter affordance remains.
+  await expect(
+    page.getByRole("region", { name: "Bunker build tool" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Wall x\d+/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Pry" })).toHaveCount(0);
+  await expect(page.getByTestId("bunker-fp-enter")).toBeVisible();
+
+  // Cell taps in the flat view no longer edit: tap the claim area and
+  // confirm no part appears and no scaffold action ever logs.
+  await page.mouse.click(195, 240);
+  await page.waitForTimeout(400);
+  const tripAfterTap = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}"),
   );
-  await page.keyboard.press("d");
-  await expect(tool).toContainText(/Hammering [1-3]\/4/, { timeout: 4_000 });
-  const hammerFrameA = await page.locator("canvas").screenshot();
-  await page.waitForTimeout(70);
-  const hammerFrameB = await page.locator("canvas").screenshot();
+  expect(tripAfterTap.pendingBunker?.bunker.parts).toEqual([]);
   expect(
-    await imagePixelDifferenceRatio(page, hammerFrameA, hammerFrameB),
-  ).toBeGreaterThan(0.00005);
-  await expect(tool.getByRole("button", { name: "Wall x5" })).toBeVisible({
-    timeout: 5_000,
-  });
-  const firstPart = await page.evaluate(() =>
+    (tripAfterTap.moves ?? []).some((move: string) =>
+      move.startsWith("bunker-scaffold-"),
+    ),
+  ).toBe(false);
+
+  // Building happens inside: enter first person and place one wall
+  // from the hotbar into the pending (unbanked) claim.
+  await placeWallInFp(page);
+  const placedPart = await page.evaluate(() =>
     JSON.parse(
       localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
     ).pendingBunker?.bunker.parts.at(-1),
   );
-  expect(firstPart).toMatchObject({ partId: "wall-panel" });
-
-  await tool.getByRole("button", { name: "Pry" }).click();
-  await page.keyboard.press("d");
-  await expect(tool).toContainText("Carrying", { timeout: 4_000 });
-  await expect(tool).toContainText("Durability 90/90");
-
-  const touchSurface = page.locator("[data-touch-surface]");
-  const touchBox = await touchSurface.boundingBox();
-  if (!touchBox) throw new Error("mine touch surface has no bounding box");
-  const startX = touchBox.x + touchBox.width / 2;
-  const startY = touchBox.y + touchBox.height / 2;
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(startX - 48, startY - 48, { steps: 5 });
-  await page.mouse.up();
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => {
-          const trip = JSON.parse(
-            localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
-          );
-          return trip.pendingBunker?.bunker.parts[0] ?? null;
-        }),
-      { timeout: 5_000 },
-    )
-    .toMatchObject({
-      partId: "wall-panel",
-      col: firstPart.col - 2,
-      row: firstPart.row - 1,
-    });
-  await expect(tool).not.toContainText("Carrying");
+  expect(placedPart).toMatchObject({
+    partId: "wall-panel",
+    col: START_COL - 1,
+    row: 5,
+    depth: 0,
+  });
+  await page.getByRole("button", { name: "Exit bunker" }).click();
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
-    "data-depth",
-    "4",
+    "data-fp-mode",
+    "0",
   );
-  await tool.getByRole("button", { name: "Deselect" }).click();
-  await expect(tool.getByRole("button", { name: "Deselect" })).toHaveCount(0);
-  await expect(page.getByLabel("Mine status")).toHaveAttribute(
-    "data-depth",
-    "4",
-  );
+
+  // Digit keys arm nothing in 2D anymore; "1" then "d" is a normal
+  // move right (the retired cursor flow would have hammered instead).
+  // The carved column beside the shaft has no floor at row 5, so the
+  // step right also falls one row.
+  await page.keyboard.press("1");
   await page.keyboard.press("d");
   await expect
     .poll(() =>
@@ -793,12 +845,29 @@ test("bunker claims can be edited before banking", async ({ page }) => {
       }),
     )
     .toBe("right");
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "6",
+  );
+
+  // The pending claim, its placed wall, and the move all survive a
+  // reload; raids stay gated until the claim banks at the surface.
   await page.reload();
   await dismissReleaseNotes(page);
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-depth",
     "6",
   );
+  const reloadedPart = await page.evaluate(() =>
+    JSON.parse(
+      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+    ).pendingBunker?.bunker.parts.at(-1),
+  );
+  expect(reloadedPart).toMatchObject({
+    partId: "wall-panel",
+    col: START_COL - 1,
+    row: 5,
+  });
   await expect(
     page.getByRole("button", { name: "Open bunker status" }),
   ).toBeVisible();
@@ -817,6 +886,9 @@ test("bunker claims can be edited before banking", async ({ page }) => {
 test("reset bunker refunds a pending claim's parts through the two-step confirm", async ({
   page,
 }) => {
+  // Software-GL runners compile the fp scene slowly (the wall is
+  // placed through the first-person builder).
+  test.setTimeout(240_000);
   const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
   for (let row = 1; row <= 6; row++) {
     for (let col = START_COL - 3; col <= START_COL + 3; col++) {
@@ -893,28 +965,19 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
     "5",
   );
 
-  // Claim locally and place one wall from the starter kit.
+  // Claim locally and place one wall from the starter kit through the
+  // first-person builder (the only build flow since the hammer
+  // retired).
   await page.getByRole("button", { name: "Start bunker claim" }).click();
   const status = page.getByRole("region", { name: "Bunker status" });
   await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await status.getByRole("button", { name: "Close" }).click();
-  const tool = page.getByRole("region", { name: "Bunker build tool" });
-  await tool.getByRole("button", { name: "Wall x6" }).click();
-  await page.keyboard.press("d");
-  await expect(tool.getByRole("button", { name: "Wall x5" })).toBeVisible({
-    timeout: 5_000,
-  });
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          JSON.parse(
-            localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
-          ).pendingBunker?.bunker.parts.length ?? 0,
-      ),
-    )
-    .toBe(1);
-  await tool.getByRole("button", { name: "Deselect" }).click();
+  await placeWallInFp(page);
+  await page.getByRole("button", { name: "Exit bunker" }).click();
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-fp-mode",
+    "0",
+  );
 
   // Open the sheet: the Reset row is a two-step confirm. The first tap
   // arms it without resetting anything.
@@ -953,10 +1016,19 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
     ),
   ).toBe(6);
 
-  // The claim survives, the toolbelt shows the refunded stock in the
-  // DOM, and the miner never moved.
+  // The claim survives, the fp hotbar shows the refunded stock, and
+  // the miner never moved (fp walking is free and logs no actions).
   await page.getByRole("button", { name: "Close" }).click();
-  await expect(tool.getByRole("button", { name: "Wall x6" })).toBeVisible();
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-fp-mode",
+    "1",
+  );
+  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
+    "aria-label",
+    "Wall x6",
+  );
+  await page.getByRole("button", { name: "Exit bunker" }).click();
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-depth",
     "5",

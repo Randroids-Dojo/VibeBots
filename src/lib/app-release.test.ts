@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest fp-polish note complete", () => {
+  it("keeps the latest hammer-retirement note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-13-0.1.250-bunker-fp-polish");
+    expect(release.noticeId).toBe("2026-07-13-0.1.251-hammer-retirement");
     expect(latestNote).toMatchObject({
+      version: "0.1.251",
+      title: "One way to build: walk inside",
+      intro: "The flat-view build cursor retires; first person is the builder.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Building now happens inside the bunker only. The flat view keeps claiming, raids, repairs, skins, and a single Enter bunker button; the old part-cursor controls and scaffold walk are gone, so the arrow keys always just move the miner.",
+      "First person no longer shows the mine's flat-view controls on top of the scene, and if your base has you boxed in, a hint now says exactly how to pry free or reset.",
+      "MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived fp-polish note complete", () => {
+    const release = getAppRelease();
+    const polishNote = release.notes.find((note) => note.version === "0.1.250");
+
+    expect(polishNote).toMatchObject({
       version: "0.1.250",
       title: "Pry with a long press, land with a view",
       intro: "Touch polish for building inside the bunker.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(polishNote?.changes.map((change) => change.text)).toEqual([
       "Hold a touch on any placed part to pry it loose, whatever tool you have out. A quick tap still acts with the current tool.",
       "Entering the bunker now greets you with the floor and a warm work light instead of a face full of rock, and the whole first-person loop measured allocation-clean so phones stay smooth.",
       "MINE_VERSION and SIM_VERSION are unchanged.",

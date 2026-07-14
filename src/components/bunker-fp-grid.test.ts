@@ -21,6 +21,7 @@ import {
   FP_SOLID_PART,
   FP_SPIKES,
   fpCellBlocks,
+  fpCellBoxedIn,
   fpCellIndex,
   fpGridCellFromLocal,
   fpLocalFromGrid,
@@ -193,6 +194,93 @@ describe("fp solidity", () => {
     for (let i = 0; i < FP_CELL_COUNT; i++) {
       expect(grid[i]).not.toBe(FP_SOLID_PART);
     }
+  });
+});
+
+describe("fpCellBoxedIn", () => {
+  it("is open on a fresh claim (rock ahead, tunnel row beside)", () => {
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(corridorBunker(), grid);
+    // Spawn cell (3,0,0): +z is undug rock and -z is the boundary, but
+    // both x neighbors are open tunnel plane.
+    expect(fpCellBoxedIn(grid, 3, 0, 0)).toBe(false);
+  });
+
+  it("boxes in a spawn walled on both open sides", () => {
+    const bunker = corridorBunker();
+    const inventory = { ...STARTER_BASE_PART_INVENTORY };
+    const left = placeBasePart(
+      bunker,
+      inventory,
+      "wall-panel",
+      MINER_COL - 1,
+      MINER_ROW,
+    );
+    if (!left.ok) throw new Error("left wall failed");
+    const right = placeBasePart(
+      left.bunker,
+      left.inventory,
+      "wall-panel",
+      MINER_COL + 1,
+      MINER_ROW,
+    );
+    if (!right.ok) throw new Error("right wall failed");
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(right.bunker, grid);
+    // (3,0,0): -z boundary, +z undug rock, both x neighbors walls.
+    expect(fpCellBoxedIn(grid, 3, 0, 0)).toBe(true);
+    // The cell above the walls is not boxed (open row beside it).
+    expect(fpCellBoxedIn(grid, 3, 1, 0)).toBe(false);
+  });
+
+  it("treats doors and spikes as passable neighbors", () => {
+    const bunker = corridorBunker();
+    const inventory = { ...STARTER_BASE_PART_INVENTORY };
+    const left = placeBasePart(
+      bunker,
+      inventory,
+      "wall-panel",
+      MINER_COL - 1,
+      MINER_ROW,
+    );
+    if (!left.ok) throw new Error("left wall failed");
+    const door = placeBasePart(
+      left.bunker,
+      left.inventory,
+      "door-panel",
+      MINER_COL + 1,
+      MINER_ROW,
+    );
+    if (!door.ok) throw new Error("door failed");
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(door.bunker, grid);
+    expect(fpCellBoxedIn(grid, 3, 0, 0)).toBe(false);
+  });
+
+  it("counts a dug deep cell surrounded by rock as boxed in", () => {
+    const bunker = corridorBunker();
+    const dug = excavateBunkerCell(bunker, MINER_COL, MINER_ROW, 1);
+    if (!dug.ok) throw new Error("excavate failed");
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(dug.bunker, grid);
+    // (3,0,1): -z neighbor is the open tunnel plane, so not boxed.
+    expect(fpCellBoxedIn(grid, 3, 0, 1)).toBe(false);
+    // Seal the tunnel-plane mouth with a wall: now every lateral
+    // neighbor of the dug cell is rock or that wall.
+    const inventory = { ...STARTER_BASE_PART_INVENTORY };
+    const sealed = placeBasePart(
+      dug.bunker,
+      inventory,
+      "wall-panel",
+      MINER_COL,
+      MINER_ROW,
+    );
+    if (!sealed.ok) throw new Error("seal failed");
+    buildFpSolidGrid(sealed.bunker, grid);
+    expect(fpCellBoxedIn(grid, 3, 0, 1)).toBe(true);
+    // The carried-part skip: prying that sealing wall stands the hint
+    // down even though the part still occupies its cell.
+    expect(fpCellBoxedIn(grid, 3, 0, 1, fpCellIndex(3, 0, 0))).toBe(false);
   });
 });
 

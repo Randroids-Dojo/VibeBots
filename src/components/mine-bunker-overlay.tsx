@@ -9,10 +9,9 @@ import {
   type BunkerRaidSnapshot,
   type BunkerSkinId,
   type BunkerState,
-  containsBunkerCell,
   DEFAULT_BUNKER_SKIN,
 } from "@/sim/bunker";
-import type { Direction, MineCoord, MinerState } from "@/sim/mine";
+import type { MineCoord } from "@/sim/mine";
 import {
   hasCoarsePointer,
   readStoredGraphicsQuality,
@@ -20,11 +19,6 @@ import {
 } from "./graphics-quality";
 import { useBlockDetail } from "./mine-block-render";
 import { bunkerPartGeometry } from "./mine-bunker-part-geometry";
-import {
-  BUNKER_TOOL_HIGHLIGHT,
-  type BunkerToolAction,
-  type CarriedBunkerPart,
-} from "./mine-bunker-toolbelt";
 import { cellX } from "./mine-render-palette";
 import {
   SelectedSupportCellOutline,
@@ -44,14 +38,6 @@ import {
   transientAnimationActive,
   transientAnimationProgress,
 } from "./mine-transient-animation";
-
-export interface BunkerToolVisualEvent {
-  key: number;
-  kind: "build" | "pry" | "stow";
-  direction: Direction;
-  target: MineCoord;
-  progress?: number;
-}
 
 const CLANKER_LEGS = [
   { x: -0.32, side: -1, phase: 0 },
@@ -624,185 +610,22 @@ function BasePartVisual({
   );
 }
 
-function BunkerScaffoldGantry({ footprint }: { footprint: BunkerFootprint }) {
-  const centerCol = footprint.col + (footprint.width - 1) / 2;
-  const centerRow = footprint.row + (footprint.height - 1) / 2;
-  return (
-    <group position={[0, 0, 0.18]} renderOrder={4}>
-      {Array.from({ length: footprint.width + 1 }, (_, index) => {
-        const col = footprint.col + index - 0.5;
-        return (
-          <mesh
-            key={`gantry-upright:${col}`}
-            position={[
-              cellX(col),
-              -centerRow,
-              index === 0 || index === footprint.width ? 0.02 : 0,
-            ]}
-          >
-            <boxGeometry args={[0.055, footprint.height, 0.055]} />
-            <meshStandardMaterial
-              color="#f59e0b"
-              emissive="#6f3508"
-              emissiveIntensity={0.32}
-              metalness={0.58}
-              roughness={0.34}
-              transparent
-              opacity={0.48}
-            />
-          </mesh>
-        );
-      })}
-      {Array.from({ length: footprint.height + 1 }, (_, index) => {
-        const row = footprint.row + index - 0.5;
-        return (
-          <mesh
-            key={`gantry-crossbar:${row}`}
-            position={[cellX(centerCol), -row, 0]}
-          >
-            <boxGeometry args={[footprint.width, 0.045, 0.045]} />
-            <meshStandardMaterial
-              color="#fbbf24"
-              emissive="#6f3508"
-              emissiveIntensity={0.24}
-              metalness={0.54}
-              roughness={0.36}
-              transparent
-              opacity={0.34}
-            />
-          </mesh>
-        );
-      })}
-      {Array.from(
-        { length: footprint.width },
-        (_, index) => footprint.col + index,
-      ).map((col) => (
-        <mesh
-          key={`gantry-brace:${col}`}
-          position={[cellX(col), -centerRow, -0.01]}
-          rotation={[0, 0, col % 2 === 0 ? 0.58 : -0.58]}
-        >
-          <boxGeometry args={[0.035, footprint.height * 1.1, 0.035]} />
-          <meshStandardMaterial
-            color="#7b4a17"
-            metalness={0.5}
-            roughness={0.42}
-            transparent
-            opacity={0.24}
-          />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function BunkerHammerEffect({
-  event,
-  miner,
-}: {
-  event: BunkerToolVisualEvent;
-  miner: MinerState;
-}) {
-  const hammerRef = useRef<Group>(null);
-  const sparksRef = useRef<Group>(null);
-  const startedAtRef = useRef<number | null>(null);
-  useFrame((state) => {
-    const hammer = hammerRef.current;
-    const sparks = sparksRef.current;
-    if (!hammer || !sparks) return;
-    startedAtRef.current ??= state.clock.elapsedTime;
-    const age = state.clock.elapsedTime - startedAtRef.current;
-    const duration = event.kind === "stow" ? 0.42 : 0.34;
-    if (age >= duration) {
-      hammer.visible = false;
-      sparks.visible = false;
-      return;
-    }
-    const progress = age / duration;
-    const directionAngle =
-      event.direction === "right"
-        ? -0.55
-        : event.direction === "left"
-          ? Math.PI + 0.55
-          : event.direction === "up"
-            ? Math.PI / 2
-            : -Math.PI / 2;
-    hammer.visible = true;
-    hammer.position.set(cellX(miner.col), -miner.row, 1.28);
-    hammer.rotation.z = directionAngle + Math.sin(progress * Math.PI) * 1.35;
-    const impact = Math.max(0, 1 - Math.abs(progress - 0.58) * 8);
-    sparks.visible = event.kind !== "stow" && impact > 0;
-    sparks.position.set(cellX(event.target.col), -event.target.row, 1.12);
-    sparks.scale.setScalar(0.45 + impact * 0.9);
-  });
-  return (
-    <>
-      <group ref={hammerRef} visible={false} renderOrder={60}>
-        <mesh position={[0.28, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <boxGeometry args={[0.08, 0.58, 0.08]} />
-          <meshStandardMaterial color="#7a4a24" roughness={0.7} />
-        </mesh>
-        <mesh position={[0.58, 0, 0]}>
-          <boxGeometry args={[0.34, 0.2, 0.16]} />
-          <meshStandardMaterial
-            color="#c8d0dc"
-            emissive="#75420f"
-            emissiveIntensity={0.18}
-            metalness={0.72}
-            roughness={0.24}
-          />
-        </mesh>
-      </group>
-      <group ref={sparksRef} visible={false} renderOrder={61}>
-        {[0, 1, 2, 3].map((index) => (
-          <mesh
-            key={index}
-            position={[
-              index % 2 === 0 ? -0.13 : 0.13,
-              index < 2 ? -0.1 : 0.1,
-              0,
-            ]}
-            rotation={[0, 0, (index * Math.PI) / 4]}
-          >
-            <boxGeometry args={[0.28, 0.035, 0.035]} />
-            <meshBasicMaterial color="#ffd166" toneMapped={false} />
-          </mesh>
-        ))}
-      </group>
-    </>
-  );
-}
-
+/**
+ * The flat mine view's bunker layer. Since the hammer flow retired
+ * this is render-only: claim outline and preview, blocked claim cells,
+ * placed tunnel-plane parts, the core, raid clankers, and XP pickups.
+ * All editing happens in the first-person view.
+ */
 export function BunkerOverlay({
   preview,
   blockedCells,
   bunker,
   activeRaid,
-  editingEnabled,
-  targetCell,
-  toolAction,
-  selectedPartId,
-  carriedPart,
-  toolEvent,
-  miner,
-  scaffoldVisible,
-  onBunkerCellHover,
-  onBunkerCellTap,
 }: {
   preview?: BunkerFootprint | null;
   blockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
   activeRaid?: BunkerRaidSnapshot | null;
-  editingEnabled?: boolean;
-  targetCell?: MineCoord | null;
-  toolAction?: BunkerToolAction;
-  selectedPartId?: BasePartId;
-  carriedPart?: CarriedBunkerPart | null;
-  toolEvent?: BunkerToolVisualEvent | null;
-  miner?: MinerState;
-  scaffoldVisible?: boolean;
-  onBunkerCellHover?: (cell: MineCoord) => void;
-  onBunkerCellTap?: (cell: MineCoord) => void;
 }) {
   // Resolved once per overlay render (not per part): the quality read
   // touches localStorage and matchMedia.
@@ -813,7 +636,6 @@ export function BunkerOverlay({
   );
   const footprint = bunker?.footprint ?? preview;
   if (!footprint) return null;
-  const canEditBunker = Boolean(bunker && (editingEnabled ?? !activeRaid));
   const outlineColor = bunker ? "#54e0c7" : "#f5c542";
   const outlineOpacity = bunker ? 0.5 : 0.42;
   const lines = [];
@@ -872,141 +694,25 @@ export function BunkerOverlay({
         <SelectedSupportCellOutline col={cell.col} row={cell.row} />
       </group>
     )) ?? [];
-  const cellFromPoint = (event: {
-    point: { x: number; y: number };
-  }): MineCoord => ({
-    col: Math.round(event.point.x),
-    row: Math.round(-event.point.y),
-  });
-  const carriedKey = carriedPart
-    ? `${carriedPart.source.col}:${carriedPart.source.row}`
-    : null;
-  const targetColor =
-    BUNKER_TOOL_HIGHLIGHT[toolAction === "pry" ? "pry" : "build"];
-  const validTarget =
-    targetCell && containsBunkerCell(footprint, targetCell.col, targetCell.row)
-      ? targetCell
-      : null;
-  const targetHighlight = validTarget ? (
-    <group key={`bunker-target:${validTarget.col}:${validTarget.row}`}>
-      <mesh
-        position={[cellX(validTarget.col), -validTarget.row, 1.04]}
-        renderOrder={20}
-      >
-        <planeGeometry args={[1.08, 1.08]} />
-        <meshBasicMaterial
-          color={targetColor}
-          transparent
-          opacity={0.18}
-          depthWrite={false}
-          depthTest={false}
-          toneMapped={false}
-        />
-      </mesh>
-      <SelectedSupportCellOutline col={validTarget.col} row={validTarget.row} />
-    </group>
-  ) : null;
-  const cellTargetPlane =
-    bunker && canEditBunker && onBunkerCellTap && onBunkerCellHover ? (
-      // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
-      <mesh
-        position={[
-          cellX(footprint.col + (footprint.width - 1) / 2),
-          -(footprint.row + (footprint.height - 1) / 2),
-          0.44,
-        ]}
-        renderOrder={12}
-        onPointerMove={(e) => {
-          onBunkerCellHover(cellFromPoint(e));
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onBunkerCellTap(cellFromPoint(e));
-        }}
-      >
-        <planeGeometry args={[footprint.width, footprint.height]} />
-        <meshBasicMaterial
-          color={targetColor}
-          transparent
-          opacity={0}
-          depthWrite={false}
-          depthTest={false}
-        />
-      </mesh>
-    ) : null;
-  const targetPart = validTarget
-    ? bunker?.parts.find(
-        (part) =>
-          part.col === validTarget.col &&
-          part.row === validTarget.row &&
-          (part.depth ?? 0) === 0,
-      )
-    : null;
-  const previewPartId = carriedPart?.part.partId ?? selectedPartId;
-  const constructionProgress =
-    validTarget &&
-    toolEvent?.kind === "build" &&
-    toolEvent.target.col === validTarget.col &&
-    toolEvent.target.row === validTarget.row
-      ? (toolEvent.progress ?? 0.25)
-      : 0.12;
-  const ghost =
-    validTarget &&
-    toolAction === "build" &&
-    previewPartId &&
-    !targetPart &&
-    !(
-      bunker?.core.col === validTarget.col &&
-      bunker.core.row === validTarget.row
-    ) ? (
-      <group
-        position={[
-          cellX(validTarget.col),
-          -validTarget.row + (1 - constructionProgress) * 0.4,
-          0.52,
-        ]}
-        scale={[0.92, Math.max(0.12, constructionProgress), 0.92]}
-      >
-        <BasePartVisual
-          detail={detail}
-          durability={BASE_PART_CATALOG[previewPartId].durability}
-          partId={previewPartId}
-          skin={bunker?.skin}
-          tier={tier}
-        />
-      </group>
-    ) : null;
   // The flat mine view draws the tunnel plane only: parts placed on
   // deeper layers belong to the first-person view.
   const parts =
     bunker?.parts
       .filter((part) => (part.depth ?? 0) === 0)
-      .map((part) => {
-        const partCell = { col: part.col, row: part.row };
-        const partKey = `${part.col}:${part.row}`;
-        const carried = carriedKey === partKey;
-        return (
-          // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
-          <group
-            key={`bunker-part:${part.col}:${part.row}`}
-            position={[cellX(part.col), -part.row, 0.5]}
-            visible={!carried}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!canEditBunker) return;
-              onBunkerCellTap?.(partCell);
-            }}
-          >
-            <BasePartVisual
-              detail={detail}
-              durability={part.durability}
-              partId={part.partId}
-              skin={bunker?.skin}
-              tier={tier}
-            />
-          </group>
-        );
-      }) ?? [];
+      .map((part) => (
+        <group
+          key={`bunker-part:${part.col}:${part.row}`}
+          position={[cellX(part.col), -part.row, 0.5]}
+        >
+          <BasePartVisual
+            detail={detail}
+            durability={part.durability}
+            partId={part.partId}
+            skin={bunker?.skin}
+            tier={tier}
+          />
+        </group>
+      )) ?? [];
   const clankers =
     activeRaid?.clankers.map((clanker) => (
       <ClankerMesh key={clanker.id} clanker={clanker} raid={activeRaid} />
@@ -1027,9 +733,6 @@ export function BunkerOverlay({
     <>
       {lines}
       {blocked}
-      {scaffoldVisible && bunker && (
-        <BunkerScaffoldGantry footprint={bunker.footprint} />
-      )}
       {bunker && (
         <mesh position={[cellX(bunker.core.col), -bunker.core.row, 0.62]}>
           <octahedronGeometry args={[0.28, 0]} />
@@ -1042,17 +745,7 @@ export function BunkerOverlay({
           />
         </mesh>
       )}
-      {cellTargetPlane}
-      {targetHighlight}
-      {ghost}
       {parts}
-      {toolEvent && miner && (
-        <BunkerHammerEffect
-          key={toolEvent.key}
-          event={toolEvent}
-          miner={miner}
-        />
-      )}
       {clankers}
       {xpPickups}
     </>

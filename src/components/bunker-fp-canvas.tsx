@@ -48,6 +48,7 @@ import {
   FP_ROWS,
   type FpEditIntent,
   type FpSolidGrid,
+  fpCellBoxedIn,
   fpCellIndex,
   fpCellInGrid,
   fpGridCellFromLocal,
@@ -69,7 +70,17 @@ import {
   type FpRayHit,
   raycastFpGrid,
 } from "./bunker-fp-raycast";
-import { resetFpTarget, setFpTarget } from "./bunker-fp-target-state";
+import {
+  resetFpBoxedIn,
+  resetFpTarget,
+  setFpBoxedIn,
+  setFpTarget,
+} from "./bunker-fp-target-state";
+import {
+  BUNKER_TOOL_HIGHLIGHT,
+  type BunkerToolAction,
+  type CarriedBunkerPart,
+} from "./bunker-tool-types";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import {
   graphicsFeaturesFor,
@@ -80,11 +91,6 @@ import {
 } from "./graphics-quality";
 import { DIRT_BLOCK_GEOMETRY } from "./mine-block-geometries";
 import { blockDetailEnabled, rockBlockMaterial } from "./mine-block-materials";
-import {
-  BUNKER_TOOL_HIGHLIGHT,
-  type BunkerToolAction,
-  type CarriedBunkerPart,
-} from "./mine-bunker-toolbelt";
 import { cellHash, rockColorsForBiome } from "./mine-render-palette";
 import type {
   SurfaceGeometryLayer,
@@ -518,6 +524,7 @@ function BunkerFpRig({
   entry,
   coreRef,
   tool,
+  carried,
   onEdit,
   outlineRef,
   ghostRef,
@@ -527,6 +534,7 @@ function BunkerFpRig({
   entry: FpEntryCell;
   coreRef: RefObject<Mesh | null>;
   tool: BunkerToolAction;
+  carried: CarriedBunkerPart | null;
   onEdit: (intent: FpEditIntent) => void;
   outlineRef: RefObject<LineSegments | null>;
   ghostRef: RefObject<Group | null>;
@@ -558,6 +566,11 @@ function BunkerFpRig({
   const openCellsRef = useRef(0);
   const burstRemainingRef = useRef(0);
   const burstCellRef = useRef({ x: 0, y: 0, z: 0 });
+  // Boxed-in escape hint (the sealed-legacy-base case): recomputed on
+  // grid rebuilds, carry changes, and occupied-cell changes only, four
+  // grid reads each time, never every frame.
+  const occupiedCellRef = useRef(-1);
+  const carriedIndexRef = useRef(-1);
   if (!solidRef.current || !prevSolidRef.current) {
     solidRef.current = createFpSolidGrid();
     prevSolidRef.current = createFpSolidGrid();
@@ -566,6 +579,23 @@ function BunkerFpRig({
     prevSolidRef.current.set(solidRef.current);
     openCellsRef.current = countFpOpenCells(solidRef.current);
   }
+  const refreshBoxedIn = useCallback(() => {
+    const solid = solidRef.current;
+    const cellIndex = occupiedCellRef.current;
+    if (!solid || cellIndex < 0) {
+      setFpBoxedIn(false);
+      return;
+    }
+    setFpBoxedIn(
+      fpCellBoxedIn(
+        solid,
+        cellIndex % FP_COLS,
+        Math.floor(cellIndex / FP_COLS) % FP_ROWS,
+        Math.floor(cellIndex / (FP_COLS * FP_ROWS)),
+        carriedIndexRef.current,
+      ),
+    );
+  }, []);
   useLayoutEffect(() => {
     const solid = solidRef.current;
     const prev = prevSolidRef.current;
@@ -575,6 +605,7 @@ function BunkerFpRig({
     buildFpSolidGrid(bunker, solid);
     gridRevisionRef.current += 1;
     openCellsRef.current = countFpOpenCells(solid);
+    refreshBoxedIn();
     for (let i = 0; i < FP_CELL_COUNT; i++) {
       if (prev[i] !== FP_ROCK_UNDUG || solid[i] !== FP_OPEN) continue;
       const cell = burstCellRef.current;
@@ -583,7 +614,22 @@ function BunkerFpRig({
       cell.z = Math.floor(i / (FP_COLS * FP_ROWS));
       burstRemainingRef.current = FP_BURST_SECONDS;
     }
-  }, [bunker]);
+  }, [bunker, refreshBoxedIn]);
+
+  // The carried part's source cell counts as passable for the hint
+  // (prying is the escape in progress); local index at prop cadence.
+  let carriedIndex = -1;
+  if (carried) {
+    const footprint = bunker.footprint;
+    const cx = carried.source.col - footprint.col;
+    const cy = footprint.row + footprint.height - 1 - carried.source.row;
+    const cz = carried.part.depth ?? 0;
+    if (fpCellInGrid(cx, cy, cz)) carriedIndex = fpCellIndex(cx, cy, cz);
+  }
+  useLayoutEffect(() => {
+    carriedIndexRef.current = carriedIndex;
+    refreshBoxedIn();
+  }, [carriedIndex, refreshBoxedIn]);
 
   // Spawn once per mount: the miner's mine cell on the tunnel plane,
   // feet on the room floor, facing -z (into the rock) with the view
@@ -600,6 +646,9 @@ function BunkerFpRig({
       vz: 0,
       grounded: true,
     };
+    // Feet start on the room floor (py -0.5 is cell y 0) regardless of
+    // the miner's row; the frame loop keeps this in sync afterwards.
+    occupiedCellRef.current = fpCellIndex(cell.x, 0, cell.z);
   }
 
   // Aim the camera before the first frame so the compile-gated first
@@ -679,8 +728,22 @@ function BunkerFpRig({
     };
   }, [gl]);
 
-  // The DOM target label empties when the viewer unmounts.
-  useEffect(() => resetFpTarget, []);
+  // The DOM target label and the boxed-in hint empty when the viewer
+  // unmounts.
+  useEffect(
+    () => () => {
+      resetFpTarget();
+      resetFpBoxedIn();
+    },
+    [],
+  );
+
+  // The spawn cell can already be boxed in (a sealed legacy base):
+  // publish once on mount; later refreshes ride grid, carry, and cell
+  // changes.
+  useEffect(() => {
+    refreshBoxedIn();
+  }, [refreshBoxedIn]);
 
   // Crosshair state: a per-mount ray hit record the frame loop reuses,
   // plus change signatures so probe strings, the target label, and
@@ -754,6 +817,19 @@ function BunkerFpRig({
     fpInput.jump = false;
     input.yaw = yawRef.current;
     stepFpMovement(move, input, solid, Math.min(delta, FP_DT_CLAMP));
+
+    // Occupied-cell tracking for the boxed-in hint: scalar compare per
+    // frame, the four-neighbor check only when the cell changes.
+    const feetX = Math.round(move.px);
+    const feetY = Math.round(move.py);
+    const feetZ = Math.round(-move.pz);
+    const occupied = fpCellInGrid(feetX, feetY, feetZ)
+      ? fpCellIndex(feetX, feetY, feetZ)
+      : -1;
+    if (occupied !== occupiedCellRef.current) {
+      occupiedCellRef.current = occupied;
+      refreshBoxedIn();
+    }
 
     fpCameraEuler.set(pitchRef.current, yawRef.current, 0);
     camera.quaternion.setFromEuler(fpCameraEuler);
@@ -1138,6 +1214,7 @@ function BunkerFpScene({
         entry={entry}
         coreRef={coreRef}
         tool={tool}
+        carried={carried}
         onEdit={onEdit}
         outlineRef={outlineRef}
         ghostRef={ghostRef}

@@ -51,3 +51,34 @@ export function subscribeFpTarget(listener: () => void): () => void {
 export function getFpTargetSnapshot(): FpTargetInfo {
   return snapshot;
 }
+
+/**
+ * Second mini store, same pattern: whether the player's current cell
+ * has no passable lateral neighbor (boxed in by parts or rock). The
+ * rig recomputes it at grid-rebuild and cell-change cadence, never per
+ * frame; the HUD's escape hint chip subscribes.
+ */
+
+let boxedIn = false;
+const boxedInListeners = new Set<() => void>();
+
+export function setFpBoxedIn(value: boolean): void {
+  if (boxedIn === value) return;
+  boxedIn = value;
+  for (const listener of boxedInListeners) listener();
+}
+
+export function resetFpBoxedIn(): void {
+  setFpBoxedIn(false);
+}
+
+export function subscribeFpBoxedIn(listener: () => void): () => void {
+  boxedInListeners.add(listener);
+  return () => {
+    boxedInListeners.delete(listener);
+  };
+}
+
+export function getFpBoxedInSnapshot(): boolean {
+  return boxedIn;
+}

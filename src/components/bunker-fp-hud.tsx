@@ -32,13 +32,12 @@ import {
 } from "./bunker-fp-press";
 import {
   type FpTargetInfo,
+  getFpBoxedInSnapshot,
   getFpTargetSnapshot,
+  subscribeFpBoxedIn,
   subscribeFpTarget,
 } from "./bunker-fp-target-state";
-import type {
-  BunkerToolAction,
-  CarriedBunkerPart,
-} from "./mine-bunker-toolbelt";
+import type { BunkerToolAction, CarriedBunkerPart } from "./bunker-tool-types";
 
 function PickIcon() {
   return (
@@ -60,6 +59,39 @@ function fpTargetLabel(target: FpTargetInfo): string {
     return `${def.name} ${target.durability}/${def.durability}`;
   }
   return "";
+}
+
+/**
+ * Escape hint for a player enclosed by parts or rock (a sealed legacy
+ * base): visible while the rig reports no passable lateral neighbor.
+ * Tapping it dismisses it until the player is boxed in again (getting
+ * free rearms it), so it can never nag someone who knows the tools.
+ */
+function FpBoxedInHint() {
+  const boxedIn = useSyncExternalStore(
+    subscribeFpBoxedIn,
+    getFpBoxedInSnapshot,
+    getFpBoxedInSnapshot,
+  );
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    if (!boxedIn) setDismissed(false);
+  }, [boxedIn]);
+  if (!boxedIn || dismissed) return null;
+  return (
+    <button
+      type="button"
+      className="bunker-fp-boxed-hint"
+      data-testid="bunker-fp-boxed-hint"
+      onClick={() => setDismissed(true)}
+    >
+      <span>
+        Boxed in? Hold a touch on a part to pry it loose, or Exit and use Bunker
+        then Reset.
+      </span>
+      <strong aria-hidden="true">&#10005;</strong>
+    </button>
+  );
 }
 
 /** Subscribes to the crosshair target store on its own, so a target
@@ -286,6 +318,7 @@ export function BunkerFpHud({
         aria-hidden="true"
       />
       <FpTargetLabel />
+      <FpBoxedInHint />
       <div
         className="bunker-fp-hotbar"
         role="toolbar"

@@ -18,7 +18,6 @@ import {
 import {
   addConsumables,
   applyAction,
-  type BunkerScaffoldAction,
   carryoverConsumables,
   cellAt,
   createMine,
@@ -250,10 +249,6 @@ export interface MineSessionState {
   markFallVisualImpact: (key: number) => void;
   clearFallVisualImpact: () => void;
   move: (action: MineAction) => void;
-  moveOnBunkerScaffold: (
-    action: BunkerScaffoldAction,
-    footprint: BunkerFootprint,
-  ) => MoveResult;
   clearTerminalResult: () => void;
   loadWorld: () => Promise<void>;
   loadGear: () => Promise<void>;
@@ -538,26 +533,6 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // device while real progress on this one is still tiny.
         if (moves.length === 1) void get().checkWorldFreshness();
       }
-    },
-
-    moveOnBunkerScaffold: (action, footprint) => {
-      const { mine, tick, moves, cashOut } = get();
-      if (cashOut.state === "pending") {
-        return { ok: false, reason: "blocked" };
-      }
-      const result = applyAction(mine, action, {
-        bunkerFootprint: footprint,
-      });
-      if (result.ok) moves.push(action);
-      set({
-        tick: tick + 1,
-        lastResult: result,
-        lastAction: action,
-        bunkerReplayFootprint: footprint,
-        ...(result.ok && result.collapsed ? { pendingBunker: null } : null),
-      });
-      if (result.ok) persistCurrentTrip();
-      return result;
     },
 
     clearTerminalResult: () => {

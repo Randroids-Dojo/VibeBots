@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-telemetry-cardinality-monitoring" data-date="2026-07-14">
+    <h3>Keep player-selected shaft coordinates out of telemetry</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/elevator-monitoring-followups</code>.</dd>
+      <dt>PR</dt><dd>#181.</dd>
+      <dt>Changed</dt><dd>The latest telemetry audit found exact player-selected shaft columns in older balance and cash-out monitoring paths, plus an unasserted migration-required warning. Expanded F-121 to replace coordinate and full-gear payloads with bounded placement states. Expanded F-124 to pin the fail-fast migration warning without a generic error or balance event.</dd>
+      <dt>Verification</dt><dd>Traced <code>elevator.upgrade</code> balance properties, cash-out request summaries, <code>gear_not_owned</code> detail and submitted payloads, the migration-required warning, and the associated route tests. Confirmed that the newer outcome and journey contracts already exclude coordinates, but these older paths and the warning assertion were not covered explicitly.</dd>
+      <dt>Assumptions</dt><dd>Operational diagnosis needs a stable accepted or rejected state, not a player's exact shaft location or full request snapshot. A rejected compatibility cash-out emits one bounded warning and no economy event.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changes. F-121 and F-124 remain linked to REQ-028.</dd>
+      <dt>Followups</dt><dd>Expanded F-121 and F-124 plus their matching HTML Dots. No new followup ID was needed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-repair-cas-resolution-monitoring" data-date="2026-07-14">
     <h3>Keep the authoritative checkpoint after a repair race</h3>
     <dl>

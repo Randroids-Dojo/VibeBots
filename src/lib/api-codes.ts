@@ -14,6 +14,13 @@ export const TRIP_ALREADY_CASHED_OUT_CODE = "trip_already_cashed_out";
 export const STALE_TRIP_CHECKPOINT_CODE = "stale_trip_checkpoint";
 
 /**
+ * A banked bunker edit lost an optimistic-concurrency race: another device
+ * changed the bunker first. The 409 body carries the authoritative view so the
+ * client can adopt it and retry (F-122).
+ */
+export const BUNKER_REVISION_CONFLICT_CODE = "bunker-revision-conflict";
+
+/**
  * Optional request header carrying a hex sha-256 of the sender's own push
  * endpoint, so save-sync pushes skip the device that caused the update.
  */

@@ -73,6 +73,8 @@ const FP_BUNKER_VIEW = {
     nextLevelXp: 200,
     beaconLimit: 3,
   },
+  // Banked edits echo this as expectedRevision (F-122).
+  revision: 0,
 };
 
 /** Turn the opt-in deep collector on before the app boots (F-054). */
@@ -1230,7 +1232,9 @@ test.describe("phone viewport", () => {
         timeout: 10_000,
       })
       .toBe("34");
-    expect(removeBodies).toEqual([{ col: START_COL + 2, row: 5, depth: 0 }]);
+    expect(removeBodies).toEqual([
+      { col: START_COL + 2, row: 5, depth: 0, expectedRevision: 0 },
+    ]);
 
     // Releasing the hold must NOT also fire the tap act: with build
     // armed and a valid place cell, a stray act would spend a wall
@@ -1374,7 +1378,9 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
       timeout: 10_000,
     })
     .toBe("34");
-  expect(excavateBodies).toEqual([{ col: START_COL, row: 5, depth: 1 }]);
+  expect(excavateBodies).toEqual([
+    { col: START_COL, row: 5, depth: 1, expectedRevision: 0 },
+  ]);
 
   // Place a wall into the dug cell through the banked place API.
   await page.keyboard.press("1");
@@ -1390,7 +1396,13 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
     })
     .toBe("3:0:1:part");
   expect(placeBodies).toEqual([
-    { partId: "wall-panel", col: START_COL, row: 5, depth: 1 },
+    {
+      partId: "wall-panel",
+      col: START_COL,
+      row: 5,
+      depth: 1,
+      expectedRevision: 0,
+    },
   ]);
   await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
     "aria-label",

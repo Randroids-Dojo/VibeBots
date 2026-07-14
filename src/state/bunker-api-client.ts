@@ -59,15 +59,24 @@ export function placeRemoteBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  expectedRevision?: number,
 ) {
   return bunkerApi(
     "/api/bunker/parts/place",
-    jsonPost({ partId, col, row, depth }),
+    jsonPost({ partId, col, row, depth, expectedRevision }),
   );
 }
 
-export function removeRemoteBunkerPart(col: number, row: number, depth = 0) {
-  return bunkerApi("/api/bunker/parts/remove", jsonPost({ col, row, depth }));
+export function removeRemoteBunkerPart(
+  col: number,
+  row: number,
+  depth = 0,
+  expectedRevision?: number,
+) {
+  return bunkerApi(
+    "/api/bunker/parts/remove",
+    jsonPost({ col, row, depth, expectedRevision }),
+  );
 }
 
 export function moveRemoteBunkerPart(
@@ -77,10 +86,19 @@ export function moveRemoteBunkerPart(
   toRow: number,
   fromDepth = 0,
   toDepth = 0,
+  expectedRevision?: number,
 ) {
   return bunkerApi(
     "/api/bunker/parts/move",
-    jsonPost({ fromCol, fromRow, toCol, toRow, fromDepth, toDepth }),
+    jsonPost({
+      fromCol,
+      fromRow,
+      toCol,
+      toRow,
+      fromDepth,
+      toDepth,
+      expectedRevision,
+    }),
   );
 }
 
@@ -88,8 +106,12 @@ export function excavateRemoteBunkerCell(
   col: number,
   row: number,
   depth: number,
+  expectedRevision?: number,
 ) {
-  return bunkerApi("/api/bunker/excavate", jsonPost({ col, row, depth }));
+  return bunkerApi(
+    "/api/bunker/excavate",
+    jsonPost({ col, row, depth, expectedRevision }),
+  );
 }
 
 export function collectRemoteBunkerLoot(

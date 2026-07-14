@@ -773,7 +773,7 @@
       "id": "REQ-035",
       "requirement": "Consumable base parts let the player build a multi-level bunker piece by piece on a cell grid, with inventory spend, removal rules, and part-local durability.",
       "gddRef": "docs/gdd/08-base-building.html#building-parts",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",

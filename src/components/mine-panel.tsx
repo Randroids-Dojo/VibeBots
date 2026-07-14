@@ -89,6 +89,11 @@ import { SAVE_SYNC_CHANNEL, useMineStore } from "@/state/mine-store";
 import type { FpEditIntent } from "./bunker-fp-grid";
 import { BunkerFpHud } from "./bunker-fp-hud";
 import { attachFpKeyboard, resetFpInput } from "./bunker-fp-input";
+import type {
+  BunkerToolAction,
+  BunkerToolSelection,
+  CarriedBunkerPart,
+} from "./bunker-tool-types";
 import { COMPILE_GATE_DEADLINE_MS } from "./compile-gate";
 import {
   eventInsideRef,
@@ -97,19 +102,7 @@ import {
 } from "./dismissible-dialog-frame";
 import { AccountSyncPopup } from "./mine-account-popup";
 import { MineBagPanel } from "./mine-bag-panel";
-import {
-  advanceBunkerBuildCursor,
-  BUNKER_BUILD_HITS,
-  type BunkerBuildDirection,
-  bunkerBuildPath,
-} from "./mine-bunker-build";
 import { BunkerControlPanel } from "./mine-bunker-control-panel";
-import {
-  type BunkerToolAction,
-  BunkerToolbelt,
-  type BunkerToolSelection,
-  type CarriedBunkerPart,
-} from "./mine-bunker-toolbelt";
 import {
   CRUSH_REPORT_AFTER_IMPACT_MS,
   FALL_REPORT_AFTER_IMPACT_MS,
@@ -148,14 +141,6 @@ import { StampCollectAlert } from "./stamp-collect-alert";
 import { useForegroundReturn } from "./use-foreground-return";
 
 type MineSceneStatus = "loading" | "ready" | "error";
-type BunkerConstructionOrder = {
-  key: number;
-  target: MineCoord;
-  kind: "build" | "move" | "pry";
-  partId: BasePartId;
-  path: Direction[];
-  hit: number;
-};
 const MINE_SCENE_LOAD_ERROR =
   "The network dropped before the mine could load. Your save was not changed. Check the connection and retry.";
 const STRATUM_BANNER_MS = 2600;
@@ -333,9 +318,8 @@ const MINE_SURFACE_TIPS = [
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Player levels unlock higher raid tiers: bigger waves, tougher bites, more XP.",
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
-  "Tip: Select a bunker part, then point or swipe where it goes. Deselect to move normally.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
-  "Tip: Standing in your claim, Enter bunker walks it in first person. Exit any time.",
+  "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
   "Tip: In first person the pick digs deep claim rock; parts place at the crosshair; pry carries.",
   "Tip: Inside the bunker, hold a touch on a placed part to pry it loose, whatever tool is out.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
@@ -1192,7 +1176,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (s) => s.excavatePendingBunkerCell,
   );
   const resetPendingBunker = useMineStore((s) => s.resetPendingBunker);
-  const moveOnBunkerScaffold = useMineStore((s) => s.moveOnBunkerScaffold);
   const gear = useMineStore((s) => s.gear);
   const worldLoaded = useMineStore((s) => s.worldLoaded);
   const loadGear = useMineStore((s) => s.loadGear);
@@ -1360,22 +1343,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // First-person bunker viewer mode: the fp canvas replaces MineCanvas
   // and the 2D movement inputs are suppressed while it is on.
   const [fpBunkerActive, setFpBunkerActive] = useState(false);
+  // Tool state lives here (not in the fp canvas) so exits and forced
+  // exits can always reset it; only the fp hotbar writes it now.
   const [bunkerToolSelection, setBunkerToolSelection] =
     useState<BunkerToolSelection>(null);
   const [carriedBunkerPart, setCarriedBunkerPart] =
     useState<CarriedBunkerPart | null>(null);
-  const [bunkerConstruction, setBunkerConstruction] =
-    useState<BunkerConstructionOrder | null>(null);
-  const [bunkerToolEvent, setBunkerToolEvent] = useState<{
-    key: number;
-    kind: "build" | "pry" | "stow";
-    direction: Direction;
-    target: MineCoord;
-    progress?: number;
-  } | null>(null);
-  const [bunkerTargetCell, setBunkerTargetCell] = useState<MineCoord | null>(
-    null,
-  );
   // The column whose stall sheet is open. Standing on a stall no longer
   // auto-opens it: a prompt button appears and tapping it sets this.
   // Stepping off clears it, so walking by never pops the menu.
@@ -1408,13 +1381,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const lastAutoCashOutKeyRef = useRef<string | null>(null);
   const previousMinerRowRef = useRef(mine.miner.row);
   const inputDiagnosticKeysRef = useRef<Set<string>>(new Set());
-  const bunkerToolEventKeyRef = useRef(0);
-  const bunkerConstructionKeyRef = useRef(0);
-  const bunkerTargetCellRef = useRef<MineCoord | null>(null);
-  const bunkerBuildDirectionRef = useRef<
-    (direction: BunkerBuildDirection) => boolean
-  >(() => false);
-  const bunkerBuildReleaseRef = useRef<() => void>(() => {});
   void tick;
   const activeBunker = pendingBunker?.bunker ?? bunker;
   const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
@@ -1438,10 +1404,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       : bunkerToolSelection === "dig"
         ? "dig"
         : "build";
-  const bunkerScaffoldActive =
-    bunkerToolSelection !== null ||
-    carriedBunkerPart !== null ||
-    bunkerConstruction !== null;
 
   useEffect(() => {
     if (mine.miner.row !== 0) return;
@@ -1908,19 +1870,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       if (dir === "up" && isAutoRepeat && climbWouldPlaceLadder(state.mine)) {
         return false;
       }
-      const startCol = state.mine.miner.col;
-      const startRow = state.mine.miner.row;
-      if (
-        bunkerToolSelection &&
-        activeBunker &&
-        containsBunkerCell(activeBunker.footprint, startCol, startRow)
-      ) {
-        return bunkerBuildDirectionRef.current(dir);
-      }
       state.move(dir);
       return true;
     },
-    [activeBunker, bunkerToolSelection, elevatorAutoDir, mineSceneReady],
+    [elevatorAutoDir, mineSceneReady],
   );
 
   directionActionRef.current = performDirectionAction;
@@ -1955,7 +1908,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   const releaseDirection = useCallback((dir: Direction | null) => {
     directionCadenceRef.current?.release(dir);
-    bunkerBuildReleaseRef.current();
   }, []);
 
   // Gamepad D-pad movement (a paired controller, or a TV remote surfaced
@@ -2588,10 +2540,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBunkerClaimMode(false);
     setBunkerPanelOpen(false);
     setBunkerToolSelection(null);
-    setBunkerConstruction(null);
     setCarriedBunkerPart(null);
-    setBunkerTargetCell(null);
-    bunkerTargetCellRef.current = null;
   }, [collectMode]);
 
   useEffect(() => {
@@ -2599,284 +2548,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setBunkerClaimMode(false);
     setBunkerPanelOpen(false);
     setBunkerToolSelection(null);
-    setBunkerConstruction(null);
     setCarriedBunkerPart(null);
-    setBunkerTargetCell(null);
-    bunkerTargetCellRef.current = null;
   }, [bunkerEditingAllowed, miner.row, terminalMineState]);
 
   useEffect(() => {
     if (activeBunker && bunkerEditingAllowed) return;
     setBunkerToolSelection(null);
-    setBunkerConstruction(null);
     setCarriedBunkerPart(null);
-    setBunkerTargetCell(null);
-    bunkerTargetCellRef.current = null;
   }, [activeBunker, bunkerEditingAllowed]);
-
-  const emitBunkerToolEvent = useCallback(
-    (kind: "build" | "pry" | "stow", target: MineCoord, progress?: number) => {
-      const dc = target.col - miner.col;
-      const dr = target.row - miner.row;
-      const direction: Direction =
-        Math.abs(dc) >= Math.abs(dr)
-          ? dc < 0
-            ? "left"
-            : "right"
-          : dr < 0
-            ? "up"
-            : "down";
-      bunkerToolEventKeyRef.current += 1;
-      setBunkerToolEvent({
-        key: bunkerToolEventKeyRef.current,
-        kind,
-        direction,
-        target,
-        progress,
-      });
-    },
-    [miner.col, miner.row],
-  );
-
-  const updateBunkerTarget = useCallback((cell: MineCoord | null) => {
-    bunkerTargetCellRef.current = cell;
-    setBunkerTargetCell(cell);
-  }, []);
-
-  const setBunkerCellTarget = useCallback(
-    (cell: MineCoord) => {
-      if (
-        !bunkerToolSelection ||
-        bunkerToolSelection === "dig" ||
-        !activeBunker ||
-        !containsBunkerCell(activeBunker.footprint, cell.col, cell.row)
-      )
-        return;
-      updateBunkerTarget(cell);
-    },
-    [activeBunker, bunkerToolSelection, updateBunkerTarget],
-  );
-
-  const queueBunkerConstruction = useCallback(
-    (cell: MineCoord) => {
-      // The dig tool is first-person only; the 2D hammer never digs.
-      if (
-        !activeBunker ||
-        !bunkerEditingAllowed ||
-        !bunkerToolSelection ||
-        bunkerToolSelection === "dig" ||
-        !containsBunkerCell(activeBunker.footprint, cell.col, cell.row)
-      )
-        return;
-      updateBunkerTarget(cell);
-      // The 2D flow edits the tunnel plane only; deeper parts neither
-      // block nor get targeted here.
-      const occupied = activeBunker.parts.find(
-        (part) =>
-          part.col === cell.col &&
-          part.row === cell.row &&
-          (part.depth ?? 0) === 0,
-      );
-      if (bunkerToolSelection === "pry") {
-        if (!occupied) {
-          triggerShopHaptic("deny");
-          playMineSfxEvent("deny");
-          return;
-        }
-      } else if (
-        occupied ||
-        (activeBunker.core.col === cell.col &&
-          activeBunker.core.row === cell.row)
-      ) {
-        triggerShopHaptic("deny");
-        playMineSfxEvent("deny");
-        return;
-      }
-      const partId =
-        occupied?.partId ?? carriedBunkerPart?.part.partId ?? selectedBasePart;
-      if (
-        bunkerToolSelection !== "pry" &&
-        !carriedBunkerPart &&
-        activeBunkerInventory[partId] <= 0
-      ) {
-        triggerShopHaptic("deny");
-        playMineSfxEvent("deny");
-        return;
-      }
-      const path = bunkerBuildPath(
-        useMineStore.getState().mine,
-        activeBunker,
-        cell,
-        {
-          allowOccupiedTarget: bunkerToolSelection === "pry",
-        },
-      );
-      if (!path) {
-        triggerShopHaptic("deny");
-        playMineSfxEvent("deny");
-        return;
-      }
-      bunkerConstructionKeyRef.current += 1;
-      setBunkerConstruction({
-        key: bunkerConstructionKeyRef.current,
-        target: cell,
-        kind:
-          bunkerToolSelection === "pry"
-            ? "pry"
-            : carriedBunkerPart
-              ? "move"
-              : "build",
-        partId,
-        path,
-        hit: 0,
-      });
-    },
-    [
-      activeBunker,
-      activeBunkerInventory,
-      bunkerEditingAllowed,
-      bunkerToolSelection,
-      carriedBunkerPart,
-      selectedBasePart,
-      updateBunkerTarget,
-    ],
-  );
-
-  const aimBunkerConstruction = useCallback(
-    (direction: BunkerBuildDirection): boolean => {
-      if (!activeBunker || !bunkerToolSelection) return false;
-      setBunkerConstruction(null);
-      const next = advanceBunkerBuildCursor(
-        bunkerTargetCellRef.current,
-        { col: miner.col, row: miner.row },
-        direction,
-        activeBunker.footprint,
-      );
-      updateBunkerTarget(next);
-      return true;
-    },
-    [
-      activeBunker,
-      bunkerToolSelection,
-      miner.col,
-      miner.row,
-      updateBunkerTarget,
-    ],
-  );
-
-  const commitBunkerAim = useCallback(() => {
-    const target = bunkerTargetCellRef.current;
-    if (target && bunkerToolSelection) queueBunkerConstruction(target);
-  }, [bunkerToolSelection, queueBunkerConstruction]);
-
-  bunkerBuildDirectionRef.current = aimBunkerConstruction;
-  bunkerBuildReleaseRef.current = commitBunkerAim;
-
-  useEffect(() => {
-    if (!bunkerConstruction || !activeBunker) return;
-    const delay = bunkerConstruction.path.length > 0 ? 210 : 310;
-    const timer = window.setTimeout(() => {
-      const current = bunkerConstruction;
-      if (current.path.length > 0) {
-        const [direction, ...remaining] = current.path;
-        const result = moveOnBunkerScaffold(
-          `bunker-scaffold-${direction}`,
-          activeBunker.footprint,
-        );
-        if (!result.ok) {
-          triggerShopHaptic("deny");
-          setBunkerConstruction(null);
-          return;
-        }
-        setBunkerConstruction({ ...current, path: remaining });
-        return;
-      }
-
-      const requiredHits = current.kind === "pry" ? 2 : BUNKER_BUILD_HITS;
-      const nextHit = current.hit + 1;
-      emitBunkerToolEvent(
-        current.kind === "pry" ? "pry" : "build",
-        current.target,
-        nextHit / requiredHits,
-      );
-      triggerShopHaptic(nextHit === requiredHits ? "commit" : "press");
-      playMineSfxEvent(current.kind === "pry" ? "clang" : "plank");
-      if (nextHit < requiredHits) {
-        setBunkerConstruction({ ...current, hit: nextHit });
-        return;
-      }
-
-      if (current.kind === "pry") {
-        const part = activeBunker.parts.find(
-          (candidate) =>
-            candidate.col === current.target.col &&
-            candidate.row === current.target.row &&
-            (candidate.depth ?? 0) === 0,
-        );
-        if (part) {
-          setCarriedBunkerPart({ source: current.target, part });
-          setBunkerToolSelection(part.partId);
-        }
-        setBunkerConstruction(null);
-        updateBunkerTarget(null);
-        return;
-      }
-
-      if (current.kind === "move" && carriedBunkerPart) {
-        const source = carriedBunkerPart.source;
-        if (pendingBunkerActive) {
-          const moved = movePendingBunkerPart(
-            source.col,
-            source.row,
-            current.target.col,
-            current.target.row,
-          );
-          if (moved) setCarriedBunkerPart(null);
-          else triggerShopHaptic("deny");
-        } else {
-          void moveBunkerPart(
-            source.col,
-            source.row,
-            current.target.col,
-            current.target.row,
-          ).then((moved) => {
-            if (moved) setCarriedBunkerPart(null);
-            else triggerShopHaptic("deny");
-          });
-        }
-      } else if (pendingBunkerActive) {
-        const placed = placePendingBunkerPart(
-          current.partId,
-          current.target.col,
-          current.target.row,
-        );
-        if (!placed) triggerShopHaptic("deny");
-      } else {
-        void placeBunkerPart(
-          current.partId,
-          current.target.col,
-          current.target.row,
-        ).then((placed) => {
-          if (!placed) triggerShopHaptic("deny");
-        });
-      }
-      setBunkerConstruction(null);
-      updateBunkerTarget(null);
-    }, delay);
-    return () => window.clearTimeout(timer);
-  }, [
-    activeBunker,
-    bunkerConstruction,
-    carriedBunkerPart,
-    emitBunkerToolEvent,
-    moveBunkerPart,
-    moveOnBunkerScaffold,
-    movePendingBunkerPart,
-    pendingBunkerActive,
-    placeBunkerPart,
-    placePendingBunkerPart,
-    updateBunkerTarget,
-  ]);
 
   const cancelCarriedBunkerPart = useCallback(() => {
     setCarriedBunkerPart(null);
@@ -2925,37 +2604,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     removePendingBunkerPart,
   ]);
 
-  const selectBunkerTool = useCallback(
-    (selection: BunkerToolSelection) => {
-      if (!activeBunker) return;
-      setBunkerConstruction(null);
-      updateBunkerTarget(null);
-      if (selection === null) {
-        if (bunkerScaffoldActive) {
-          emitBunkerToolEvent("stow", { col: miner.col, row: miner.row });
-          moveOnBunkerScaffold("bunker-scaffold-stow", activeBunker.footprint);
-        }
-        setCarriedBunkerPart(null);
-        setBunkerToolSelection(null);
-        return;
-      }
-      setCollectMode(false);
-      setBunkerPanelOpen(false);
-      setBunkerToolSelection(selection);
-    },
-    [
-      activeBunker,
-      bunkerScaffoldActive,
-      emitBunkerToolEvent,
-      miner.col,
-      miner.row,
-      moveOnBunkerScaffold,
-      updateBunkerTarget,
-    ],
-  );
-
   const enterFpBunker = useCallback(() => {
-    // Every Enter affordance (toolbelt button, panel row, "f" key)
+    // Every Enter affordance (floating button, panel row, "f" key)
     // funnels through this single guard.
     if (!fpBunkerAllowed || elevatorAutoDir) return;
     const currentMiner = useMineStore.getState().mine.miner;
@@ -2969,19 +2619,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     ) {
       return;
     }
-    // Stow the hammer, close the sheet, and re-arm the first-paint
-    // veil so the canvas swap hides behind it.
-    if (bunkerScaffoldActive) selectBunkerTool(null);
+    // Close the sheet and any floating menus, and re-arm the
+    // first-paint veil so the canvas swap hides behind it.
+    dismissFloatingMenus();
     setBunkerPanelOpen(false);
     setMineCanvasPainted(false);
     setFpBunkerActive(true);
-  }, [
-    activeBunker,
-    bunkerScaffoldActive,
-    elevatorAutoDir,
-    fpBunkerAllowed,
-    selectBunkerTool,
-  ]);
+  }, [activeBunker, dismissFloatingMenus, elevatorAutoDir, fpBunkerAllowed]);
 
   const exitFpBunker = useCallback(() => {
     setFpBunkerActive(false);
@@ -2996,11 +2640,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setFpBunkerActive(false);
   }, [fpBunkerAllowed]);
 
-  // The dig tool exists only inside the first-person view: any way out
-  // (exit button, Escape, forced exit) resets the selection to build.
+  // Tool state exists only inside the first-person view: any way out
+  // (exit button, Escape, forced exit) clears the selection and puts a
+  // carried part back. The part never left its cell while carried, so
+  // clearing the carry is lossless, and the flat view can never show a
+  // stale carried chip (it has no carry affordances anymore).
   useEffect(() => {
     if (fpBunkerActive) return;
-    setBunkerToolSelection((prev) => (prev === "dig" ? null : prev));
+    setBunkerToolSelection(null);
+    setCarriedBunkerPart(null);
   }, [fpBunkerActive]);
 
   /**
@@ -3116,9 +2764,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     ],
   );
 
-  // First-person hotbar selection: direct state writes, never the 2D
-  // selectBunkerTool path (its deselect stows via a scaffold move-log
-  // action, which fp mode must never issue).
+  // First-person hotbar selection: direct state writes; fp mode never
+  // issues move-log actions.
   const selectFpPart = useCallback((partId: BasePartId) => {
     setBunkerToolSelection(partId);
   }, []);
@@ -3188,36 +2835,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [exitFpBunker, fpBunkerActive]);
 
+  // The flat view's only bunker key: "f" enters first person. The old
+  // 2D part-selection digits and Escape-stow retired with the hammer,
+  // so digits and direction keys always mean normal mine movement here.
   useEffect(() => {
-    const onBunkerToolKey = (event: KeyboardEvent) => {
+    const onBunkerEnterKey = (event: KeyboardEvent) => {
       if (fpBunkerActive) return;
       if (bunkerToolKeyIgnored(event)) return;
-      if (event.key === "Escape" && bunkerToolSelection) {
-        event.preventDefault();
-        selectBunkerTool(null);
-        return;
-      }
-      if (event.key === "f" || event.key === "F") {
-        if (!activeBunker) return;
-        event.preventDefault();
-        enterFpBunker();
-        return;
-      }
-      const slot = Number(event.key) - 1;
-      const partId = BASE_PART_IDS[slot];
-      if (!partId || !activeBunker) return;
+      if (event.key !== "f" && event.key !== "F") return;
+      if (!activeBunker) return;
       event.preventDefault();
-      selectBunkerTool(bunkerToolSelection === partId ? null : partId);
+      enterFpBunker();
     };
-    window.addEventListener("keydown", onBunkerToolKey);
-    return () => window.removeEventListener("keydown", onBunkerToolKey);
-  }, [
-    activeBunker,
-    bunkerToolSelection,
-    enterFpBunker,
-    fpBunkerActive,
-    selectBunkerTool,
-  ]);
+    window.addEventListener("keydown", onBunkerEnterKey);
+    return () => window.removeEventListener("keydown", onBunkerEnterKey);
+  }, [activeBunker, enterFpBunker, fpBunkerActive]);
 
   useEffect(() => {
     if (!elevatorAutoDir) return;
@@ -3682,15 +3314,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               bunkerBlockedCells={localBlockedBunkerCells}
               bunker={activeBunker}
               activeBunkerRaid={activeBunkerRaid}
-              bunkerEditingEnabled={bunkerEditingAllowed}
-              bunkerTargetCell={bunkerTargetCell}
-              bunkerHammerEquipped={bunkerScaffoldActive}
-              bunkerToolAction={bunkerToolAction}
-              selectedBunkerPartId={selectedBasePart}
-              carriedBunkerPart={carriedBunkerPart}
-              bunkerToolEvent={bunkerToolEvent}
-              onBunkerCellHover={setBunkerCellTarget}
-              onBunkerCellTap={queueBunkerConstruction}
               onToggleSupport={toggleCollectTarget}
               onFirstFrame={handleMineFirstFrame}
             />
@@ -3724,7 +3347,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onRetry={retryMineSceneLoad}
         />
       )}
-      {batteryLow && (
+      {batteryLow && !fpBunkerActive && (
         <div
           className="mine-battery-edge-warning"
           data-battery-edge-warning="true"
@@ -3736,9 +3359,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onDirection={act}
           onReleaseDirection={releaseDirection}
           onZoomChange={adjustCameraZoom}
-          buildDirectionMode={bunkerToolSelection !== null}
-          onBuildDirection={aimBunkerConstruction}
-          onReleaseBuildDirection={commitBunkerAim}
         />
       )}
       {mineSceneReady && movementTouchEnabled && tvMode && (
@@ -3834,245 +3454,253 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         appBuild={appRelease.build}
         mineVersion={MINE_VERSION}
       />
-      <button
-        ref={settingsButtonRef}
-        type="button"
-        aria-label="Open settings"
-        aria-expanded={settingsOpen}
-        onClick={() => setSettingsOpen((open) => !open)}
-        style={{
-          position: "absolute",
-          top: 58,
-          right: 14,
-          zIndex: 7,
-          width: 42,
-          height: 42,
-          borderRadius: 12,
-          border: "1px solid #26304a",
-          background: "rgba(17, 21, 31, 0.88)",
-          color: "#e6e8ee",
-          fontSize: "1.12rem",
-          fontWeight: 800,
-          pointerEvents: "auto",
-          cursor: "pointer",
-        }}
-      >
-        &#9881;
-      </button>
-      <section
-        aria-label="Zoom controls"
-        data-camera-zoom={cameraZoom.toFixed(2)}
-        data-camera-zoom-max={maxCameraZoom.toFixed(2)}
-        style={{
-          position: "absolute",
-          top: 108,
-          right: 14,
-          zIndex: 7,
-          display: "grid",
-          gridTemplateRows: "42px 42px",
-          gap: 6,
-          pointerEvents: "none",
-        }}
-      >
-        <button
-          type="button"
-          aria-label="Zoom in"
-          title="Zoom in"
-          disabled={minCameraZoomReached}
-          onClick={() => adjustCameraZoom(-MINE_CAMERA_BUTTON_STEP)}
-          style={{
-            ...zoomButtonStyle,
-            opacity: minCameraZoomReached ? 0.42 : 1,
-            cursor: minCameraZoomReached ? "default" : "pointer",
-          }}
-        >
-          +
-        </button>
-        <button
-          type="button"
-          aria-label="Zoom out"
-          title="Zoom out"
-          disabled={maxCameraZoomReached}
-          onClick={() => adjustCameraZoom(MINE_CAMERA_BUTTON_STEP)}
-          style={{
-            ...zoomButtonStyle,
-            opacity: maxCameraZoomReached ? 0.42 : 1,
-            cursor: maxCameraZoomReached ? "default" : "pointer",
-          }}
-        >
-          -
-        </button>
-      </section>
-      {settingsOpen && (
-        <section
-          ref={settingsMenuRef}
-          aria-label="Settings"
-          style={{
-            position: "absolute",
-            top: 206,
-            right: 14,
-            zIndex: 7,
-            width: 238,
-            border: "1px solid #26304a",
-            borderRadius: 12,
-            background: "rgba(17, 21, 31, 0.96)",
-            boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42)",
-            padding: 10,
-            color: "#e6e8ee",
-          }}
-        >
+      {/* Mine-shell chrome hides while first-person mode owns the
+          screen (the fp HUD has its own exit and hotbar): settings
+          gear and menu, zoom cluster, the consumable cluster below,
+          and the scrap panel. Dialogs and popups stay. */}
+      {!fpBunkerActive && (
+        <>
           <button
+            ref={settingsButtonRef}
             type="button"
-            onClick={() => {
-              setSettingsOpen(false);
-              setStampBookFocusId(null);
-              setStampBookOpen(true);
-            }}
+            aria-label="Open settings"
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen((open) => !open)}
             style={{
-              width: "100%",
-              minHeight: 40,
-              borderRadius: 10,
-              border: "1px solid #f5c542",
-              background: "#2d2616",
-              color: "#f5c542",
-              fontSize: "0.9rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              marginBottom: 8,
-            }}
-          >
-            Stamp Book
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsOpen(false);
-              setSaveSlotsOpen(true);
-            }}
-            style={{
-              width: "100%",
-              minHeight: 40,
-              borderRadius: 10,
-              border: "1px solid #cdd6ea",
-              background: "#20283a",
+              position: "absolute",
+              top: 58,
+              right: 14,
+              zIndex: 7,
+              width: 42,
+              height: 42,
+              borderRadius: 12,
+              border: "1px solid #26304a",
+              background: "rgba(17, 21, 31, 0.88)",
               color: "#e6e8ee",
-              fontSize: "0.9rem",
+              fontSize: "1.12rem",
               fontWeight: 800,
+              pointerEvents: "auto",
               cursor: "pointer",
-              marginBottom: 8,
             }}
           >
-            Load game
+            &#9881;
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsOpen(false);
-              setAccountOpen(true);
-            }}
+          <section
+            aria-label="Zoom controls"
+            data-camera-zoom={cameraZoom.toFixed(2)}
+            data-camera-zoom-max={maxCameraZoom.toFixed(2)}
             style={{
-              width: "100%",
-              minHeight: 40,
-              borderRadius: 10,
-              border: "1px solid #9fb6ff",
-              background: "#1c2440",
-              color: "#c7d4ff",
-              fontSize: "0.9rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              marginBottom: 8,
+              position: "absolute",
+              top: 108,
+              right: 14,
+              zIndex: 7,
+              display: "grid",
+              gridTemplateRows: "42px 42px",
+              gap: 6,
+              pointerEvents: "none",
             }}
           >
-            Account
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsOpen(false);
-              setReleaseNotesOpenCount((count) => count + 1);
-            }}
-            style={{
-              width: "100%",
-              minHeight: 40,
-              borderRadius: 10,
-              border: "1px solid #54e0c7",
-              background: "#172b30",
-              color: "#54e0c7",
-              fontSize: "0.9rem",
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            Release notes
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsOpen(false);
-              openFeedback({ source: "pause" });
-            }}
-            style={{
-              width: "100%",
-              minHeight: 40,
-              borderRadius: 10,
-              border: "1px solid #f0c36b",
-              background: "#2d2616",
-              color: "#f0c36b",
-              fontSize: "0.9rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              marginTop: 8,
-            }}
-          >
-            Feedback
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsOpen(false);
-              setCreditsOpen(true);
-            }}
-            style={{
-              width: "100%",
-              minHeight: 40,
-              borderRadius: 10,
-              border: "1px solid #9fb6ff",
-              background: "#1c2440",
-              color: "#c7d4ff",
-              fontSize: "0.9rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              marginTop: 8,
-            }}
-          >
-            Credits
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsOpen(false);
-              router.push("/holodeck");
-            }}
-            style={{
-              width: "100%",
-              minHeight: 40,
-              borderRadius: 10,
-              border: "1px solid #54e0c7",
-              background: "#172b30",
-              color: "#54e0c7",
-              fontSize: "0.9rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              marginTop: 8,
-            }}
-          >
-            Holodeck
-          </button>
-          <ReleaseNotificationControl />
-          <PerfTelemetryControl />
-        </section>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              title="Zoom in"
+              disabled={minCameraZoomReached}
+              onClick={() => adjustCameraZoom(-MINE_CAMERA_BUTTON_STEP)}
+              style={{
+                ...zoomButtonStyle,
+                opacity: minCameraZoomReached ? 0.42 : 1,
+                cursor: minCameraZoomReached ? "default" : "pointer",
+              }}
+            >
+              +
+            </button>
+            <button
+              type="button"
+              aria-label="Zoom out"
+              title="Zoom out"
+              disabled={maxCameraZoomReached}
+              onClick={() => adjustCameraZoom(MINE_CAMERA_BUTTON_STEP)}
+              style={{
+                ...zoomButtonStyle,
+                opacity: maxCameraZoomReached ? 0.42 : 1,
+                cursor: maxCameraZoomReached ? "default" : "pointer",
+              }}
+            >
+              -
+            </button>
+          </section>
+          {settingsOpen && (
+            <section
+              ref={settingsMenuRef}
+              aria-label="Settings"
+              style={{
+                position: "absolute",
+                top: 206,
+                right: 14,
+                zIndex: 7,
+                width: 238,
+                border: "1px solid #26304a",
+                borderRadius: 12,
+                background: "rgba(17, 21, 31, 0.96)",
+                boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42)",
+                padding: 10,
+                color: "#e6e8ee",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setStampBookFocusId(null);
+                  setStampBookOpen(true);
+                }}
+                style={{
+                  width: "100%",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #f5c542",
+                  background: "#2d2616",
+                  color: "#f5c542",
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  marginBottom: 8,
+                }}
+              >
+                Stamp Book
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setSaveSlotsOpen(true);
+                }}
+                style={{
+                  width: "100%",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #cdd6ea",
+                  background: "#20283a",
+                  color: "#e6e8ee",
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  marginBottom: 8,
+                }}
+              >
+                Load game
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setAccountOpen(true);
+                }}
+                style={{
+                  width: "100%",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #9fb6ff",
+                  background: "#1c2440",
+                  color: "#c7d4ff",
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  marginBottom: 8,
+                }}
+              >
+                Account
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setReleaseNotesOpenCount((count) => count + 1);
+                }}
+                style={{
+                  width: "100%",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #54e0c7",
+                  background: "#172b30",
+                  color: "#54e0c7",
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                Release notes
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  openFeedback({ source: "pause" });
+                }}
+                style={{
+                  width: "100%",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #f0c36b",
+                  background: "#2d2616",
+                  color: "#f0c36b",
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  marginTop: 8,
+                }}
+              >
+                Feedback
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setCreditsOpen(true);
+                }}
+                style={{
+                  width: "100%",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #9fb6ff",
+                  background: "#1c2440",
+                  color: "#c7d4ff",
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  marginTop: 8,
+                }}
+              >
+                Credits
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  router.push("/holodeck");
+                }}
+                style={{
+                  width: "100%",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #54e0c7",
+                  background: "#172b30",
+                  color: "#54e0c7",
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  marginTop: 8,
+                }}
+              >
+                Holodeck
+              </button>
+              <ReleaseNotificationControl />
+              <PerfTelemetryControl />
+            </section>
+          )}
+        </>
       )}
-      {baseReturn && (
+      {!fpBunkerActive && baseReturn && (
         <>
           <button
             ref={baseReturnButtonRef}
@@ -4280,10 +3908,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             setBunkerClaimMode(true);
           }}
           onCancelClaim={() => setBunkerClaimMode(false)}
-          onOpenPanel={() => {
-            if (bunkerScaffoldActive) selectBunkerTool(null);
-            setBunkerPanelOpen(true);
-          }}
+          onOpenPanel={() => setBunkerPanelOpen(true)}
           onDismissPanel={() => setBunkerPanelOpen(false)}
           onClaim={() => {
             if (claimPendingBunker(miner.col, miner.row)) {
@@ -4291,10 +3916,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               setBunkerPanelOpen(true);
             }
           }}
-          onStartRaid={(tier) => {
-            if (bunkerScaffoldActive) selectBunkerTool(null);
-            void startBunkerRaid(tier);
-          }}
+          onStartRaid={(tier) => void startBunkerRaid(tier)}
           onFinishRaid={() => void finishBunkerRaid()}
           onRepair={() => void repairBunker()}
           onReset={() => {
@@ -4316,27 +3938,23 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           }
         />
       )}
+      {/* THE build entry point: the hammer toolbelt retired, so a
+          single floating button enters the first-person builder while
+          the miner stands inside an editable claim. */}
       {!fpBunkerActive &&
         activeBunker &&
         bunkerEditingAllowed &&
         !terminalMineState &&
         containsBunkerCell(activeBunker.footprint, miner.col, miner.row) && (
-          <BunkerToolbelt
-            inventory={activeBunkerInventory}
-            selection={bunkerToolSelection}
-            carried={carriedBunkerPart}
-            constructionLabel={
-              bunkerConstruction
-                ? bunkerConstruction.path.length > 0
-                  ? "Walking into range"
-                  : `Hammering ${bunkerConstruction.hit}/${bunkerConstruction.kind === "pry" ? 2 : BUNKER_BUILD_HITS}`
-                : null
-            }
-            onSelect={selectBunkerTool}
-            onStowCarried={stowCarriedBunkerPart}
-            onCancelCarried={cancelCarriedBunkerPart}
-            onEnterFp={enterFpBunker}
-          />
+          <button
+            type="button"
+            className="bunker-fp-enter-trigger"
+            data-testid="bunker-fp-enter"
+            aria-label="Enter bunker"
+            onClick={enterFpBunker}
+          >
+            Enter bunker
+          </button>
         )}
       {stall && openStallCol === miner.col && (
         <StallMenu
@@ -4519,7 +4137,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onToggleCell={toggleBagCell}
       />
 
-      {collectMode && (
+      {collectMode && !fpBunkerActive && (
         <section
           aria-label="Scrap mode"
           style={{
@@ -4643,422 +4261,422 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       )}
 
       {/* Consumable cluster: thumb-reach icon buttons. Movement is the
-          thumbstick (or WASD/arrows); the D-pad is gone. */}
-      <section
-        aria-label="Dig controls"
-        style={{
-          position: "absolute",
-          right: 12,
-          bottom: 18,
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          maxWidth: "calc(100vw - 24px)",
-          zIndex: 9,
-          pointerEvents: "none",
-        }}
-      >
-        <span
-          className={
-            ladderShort || returnRouteBlocked
-              ? "mine-hud-chip-danger"
-              : undefined
-          }
-          data-ladder-chip="true"
+          thumbstick (or WASD/arrows); the D-pad is gone. Hidden while
+          the first-person view owns the screen (its HUD replaces it). */}
+      {!fpBunkerActive && (
+        <section
+          aria-label="Dig controls"
           style={{
-            ...chipStyle,
-            color: ladderShort || returnRouteBlocked ? "#ffe7e7" : "#8b93a7",
+            position: "absolute",
+            right: 12,
+            bottom: 18,
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            maxWidth: "calc(100vw - 24px)",
+            zIndex: 9,
+            pointerEvents: "none",
           }}
         >
-          {ladderShort || returnRouteBlocked ? "!" : ""} &#129692;{" "}
-          {mine.consumables.ladder}
-          {returnRouteBlocked
-            ? " route blocked"
-            : ladderShort
-              ? `/${laddersNeeded} needed`
-              : ""}
-        </span>
-        <span style={{ ...chipStyle, color: "#8b93a7" }}>
-          &#129717; {mine.consumables.plank}
-        </span>
-        <button
-          type="button"
-          aria-label="Place plank left"
-          onClick={() => {
-            setDynamiteMenuOpen(false);
-            setRecoveryMenuOpen(false);
-            move("plank-left");
-          }}
-          disabled={!leftPlankEnabled}
-          style={{
-            ...iconButtonStyle,
-            opacity: leftPlankEnabled ? 1 : 0.42,
-            cursor: leftPlankEnabled ? "pointer" : "default",
-          }}
-        >
-          &#129717; {"\u25C0"}
-        </button>
-        <button
-          type="button"
-          aria-label="Place plank right"
-          onClick={() => {
-            setDynamiteMenuOpen(false);
-            setRecoveryMenuOpen(false);
-            move("plank-right");
-          }}
-          disabled={!rightPlankEnabled}
-          style={{
-            ...iconButtonStyle,
-            opacity: rightPlankEnabled ? 1 : 0.42,
-            cursor: rightPlankEnabled ? "pointer" : "default",
-          }}
-        >
-          &#129717; {"\u25B6"}
-        </button>
-        <button
-          type="button"
-          aria-label="Scrap placed supports"
-          aria-pressed={collectMode}
-          onClick={() => {
-            setDynamiteMenuOpen(false);
-            setRecoveryMenuOpen(false);
-            setCollectMode((open) => {
-              const next = !open;
-              if (next) {
-                setBunkerClaimMode(false);
-                setBunkerPanelOpen(false);
-                setBunkerToolSelection(null);
-                setBunkerConstruction(null);
-                setCarriedBunkerPart(null);
-                setBunkerTargetCell(null);
-                bunkerTargetCellRef.current = null;
-              }
-              return next;
-            });
-          }}
-          disabled={!collectMode && visibleSupports.length === 0}
-          style={{
-            ...iconButtonStyle,
-            opacity: collectMode || visibleSupports.length > 0 ? 1 : 0.42,
-            cursor:
-              collectMode || visibleSupports.length > 0 ? "pointer" : "default",
-            ...(collectMode
-              ? {
-                  background: "#172b30",
-                  borderColor: "#54e0c7",
-                  color: "#54e0c7",
-                }
-              : null),
-          }}
-        >
-          &#8635;
-        </button>
-        <div
-          ref={dynamiteMenuRef}
-          style={{ position: "relative", pointerEvents: "auto" }}
-        >
+          <span
+            className={
+              ladderShort || returnRouteBlocked
+                ? "mine-hud-chip-danger"
+                : undefined
+            }
+            data-ladder-chip="true"
+            style={{
+              ...chipStyle,
+              color: ladderShort || returnRouteBlocked ? "#ffe7e7" : "#8b93a7",
+            }}
+          >
+            {ladderShort || returnRouteBlocked ? "!" : ""} &#129692;{" "}
+            {mine.consumables.ladder}
+            {returnRouteBlocked
+              ? " route blocked"
+              : ladderShort
+                ? `/${laddersNeeded} needed`
+                : ""}
+          </span>
+          <span style={{ ...chipStyle, color: "#8b93a7" }}>
+            &#129717; {mine.consumables.plank}
+          </span>
           <button
             type="button"
-            aria-label={`Dynamite ${DYNAMITE_TIER_LABELS[selectedDynamiteTier]} (${mine.consumables.dynamite})`}
+            aria-label="Place plank left"
             onClick={() => {
+              setDynamiteMenuOpen(false);
               setRecoveryMenuOpen(false);
-              setDynamiteMenuOpen((open) => !open);
+              move("plank-left");
             }}
-            disabled={!!elevatorAutoDir}
-            aria-pressed={dynamiteMenuOpen}
+            disabled={!leftPlankEnabled}
             style={{
               ...iconButtonStyle,
-              ...(dynamiteMenuOpen
+              opacity: leftPlankEnabled ? 1 : 0.42,
+              cursor: leftPlankEnabled ? "pointer" : "default",
+            }}
+          >
+            &#129717; {"\u25C0"}
+          </button>
+          <button
+            type="button"
+            aria-label="Place plank right"
+            onClick={() => {
+              setDynamiteMenuOpen(false);
+              setRecoveryMenuOpen(false);
+              move("plank-right");
+            }}
+            disabled={!rightPlankEnabled}
+            style={{
+              ...iconButtonStyle,
+              opacity: rightPlankEnabled ? 1 : 0.42,
+              cursor: rightPlankEnabled ? "pointer" : "default",
+            }}
+          >
+            &#129717; {"\u25B6"}
+          </button>
+          <button
+            type="button"
+            aria-label="Scrap placed supports"
+            aria-pressed={collectMode}
+            onClick={() => {
+              setDynamiteMenuOpen(false);
+              setRecoveryMenuOpen(false);
+              setCollectMode((open) => {
+                const next = !open;
+                if (next) {
+                  setBunkerClaimMode(false);
+                  setBunkerPanelOpen(false);
+                }
+                return next;
+              });
+            }}
+            disabled={!collectMode && visibleSupports.length === 0}
+            style={{
+              ...iconButtonStyle,
+              opacity: collectMode || visibleSupports.length > 0 ? 1 : 0.42,
+              cursor:
+                collectMode || visibleSupports.length > 0
+                  ? "pointer"
+                  : "default",
+              ...(collectMode
                 ? {
-                    background: "#3a2430",
-                    borderColor: "#ffb347",
-                    boxShadow: "0 0 12px rgba(255, 179, 71, 0.42)",
+                    background: "#172b30",
+                    borderColor: "#54e0c7",
+                    color: "#54e0c7",
                   }
                 : null),
             }}
           >
-            &#129512; {mine.consumables.dynamite} &#9662;
+            &#8635;
           </button>
-          {dynamiteMenuOpen && (
-            <div
-              role="menu"
-              aria-label="Dynamite tiers"
+          <div
+            ref={dynamiteMenuRef}
+            style={{ position: "relative", pointerEvents: "auto" }}
+          >
+            <button
+              type="button"
+              aria-label={`Dynamite ${DYNAMITE_TIER_LABELS[selectedDynamiteTier]} (${mine.consumables.dynamite})`}
+              onClick={() => {
+                setRecoveryMenuOpen(false);
+                setDynamiteMenuOpen((open) => !open);
+              }}
+              disabled={!!elevatorAutoDir}
+              aria-pressed={dynamiteMenuOpen}
               style={{
-                position: "absolute",
-                right: 0,
-                bottom: 54,
-                width: 260,
-                padding: 10,
-                borderRadius: 12,
-                border: "1px solid #34415f",
-                background: "rgba(10, 13, 20, 0.96)",
-                color: "#e6e8ee",
-                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
+                ...iconButtonStyle,
+                ...(dynamiteMenuOpen
+                  ? {
+                      background: "#3a2430",
+                      borderColor: "#ffb347",
+                      boxShadow: "0 0 12px rgba(255, 179, 71, 0.42)",
+                    }
+                  : null),
               }}
             >
+              &#129512; {mine.consumables.dynamite} &#9662;
+            </button>
+            {dynamiteMenuOpen && (
               <div
+                role="menu"
+                aria-label="Dynamite tiers"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 6,
+                  position: "absolute",
+                  right: 0,
+                  bottom: 54,
+                  width: 260,
+                  padding: 10,
+                  borderRadius: 12,
+                  border: "1px solid #34415f",
+                  background: "rgba(10, 13, 20, 0.96)",
+                  color: "#e6e8ee",
+                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
                 }}
               >
-                {DYNAMITE_TIERS.map((tier) => {
-                  const selected = tier === selectedDynamiteTier;
-                  const locked = tier > unlockedDynamiteTier;
-                  return (
-                    <button
-                      key={tier}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={selected}
-                      onClick={() => setSelectedDynamiteTier(tier)}
-                      style={{
-                        border: selected
-                          ? "1px solid #ffb347"
-                          : "1px solid #2c3a5c",
-                        background: selected
-                          ? "rgba(255, 179, 71, 0.16)"
-                          : "rgba(38, 48, 74, 0.55)",
-                        color: locked ? "#8b93a7" : "#f5efe3",
-                        borderRadius: 8,
-                        padding: "8px 6px",
-                        textAlign: "left",
-                        fontWeight: 800,
-                        cursor: "pointer",
-                      }}
-                    >
-                      T{tier} {DYNAMITE_TIER_LABELS[tier]}
-                      {locked ? " lock" : ""}
-                    </button>
-                  );
-                })}
-              </div>
-              <p
-                style={{
-                  margin: "8px 0 10px",
-                  fontSize: "0.72rem",
-                  opacity: 0.78,
-                }}
-              >
-                {DYNAMITE_TIER_BLURBS[selectedDynamiteTier]}
-              </p>
-              {dynamiteHelperText && (
-                <p
+                <div
                   style={{
-                    margin: "0 0 8px",
-                    fontSize: "0.72rem",
-                    color: "#ffcf7a",
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 6,
                   }}
                 >
-                  {dynamiteHelperText}
+                  {DYNAMITE_TIERS.map((tier) => {
+                    const selected = tier === selectedDynamiteTier;
+                    const locked = tier > unlockedDynamiteTier;
+                    return (
+                      <button
+                        key={tier}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={selected}
+                        onClick={() => setSelectedDynamiteTier(tier)}
+                        style={{
+                          border: selected
+                            ? "1px solid #ffb347"
+                            : "1px solid #2c3a5c",
+                          background: selected
+                            ? "rgba(255, 179, 71, 0.16)"
+                            : "rgba(38, 48, 74, 0.55)",
+                          color: locked ? "#8b93a7" : "#f5efe3",
+                          borderRadius: 8,
+                          padding: "8px 6px",
+                          textAlign: "left",
+                          fontWeight: 800,
+                          cursor: "pointer",
+                        }}
+                      >
+                        T{tier} {DYNAMITE_TIER_LABELS[tier]}
+                        {locked ? " lock" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p
+                  style={{
+                    margin: "8px 0 10px",
+                    fontSize: "0.72rem",
+                    opacity: 0.78,
+                  }}
+                >
+                  {DYNAMITE_TIER_BLURBS[selectedDynamiteTier]}
                 </p>
-              )}
-              <button
-                type="button"
-                aria-label={`Deploy tier ${selectedDynamiteTier} dynamite`}
-                disabled={!canConfirmDynamite}
-                onClick={() => {
-                  if (!canConfirmDynamite) return;
-                  setDynamiteMenuOpen(false);
-                  move(`dynamite-${selectedDynamiteTier}` as MineAction);
-                }}
-                style={{
-                  ...sheetButtonStyle(canConfirmDynamite),
-                  width: "100%",
-                  minHeight: 36,
-                }}
-              >
-                &#10003; Deploy
-              </button>
-            </div>
-          )}
-        </div>
-        <div
-          ref={recoveryMenuRef}
-          style={{ position: "relative", pointerEvents: "auto" }}
-        >
-          <button
-            type="button"
-            aria-label="Recovery options"
-            onClick={() => {
-              setDynamiteMenuOpen(false);
-              if (recoveryMenuOpen) setAbandonArmed(false);
-              setRecoveryMenuOpen(!recoveryMenuOpen);
-            }}
-            disabled={!!elevatorAutoDir}
-            aria-pressed={recoveryMenuOpen}
-            style={{
-              ...iconButtonStyle,
-              ...(recoveryMenuOpen
-                ? {
-                    background: "#21314a",
-                    borderColor: "#8fb8ff",
-                    boxShadow: "0 0 12px rgba(143, 184, 255, 0.34)",
-                  }
-                : null),
-            }}
+                {dynamiteHelperText && (
+                  <p
+                    style={{
+                      margin: "0 0 8px",
+                      fontSize: "0.72rem",
+                      color: "#ffcf7a",
+                    }}
+                  >
+                    {dynamiteHelperText}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  aria-label={`Deploy tier ${selectedDynamiteTier} dynamite`}
+                  disabled={!canConfirmDynamite}
+                  onClick={() => {
+                    if (!canConfirmDynamite) return;
+                    setDynamiteMenuOpen(false);
+                    move(`dynamite-${selectedDynamiteTier}` as MineAction);
+                  }}
+                  style={{
+                    ...sheetButtonStyle(canConfirmDynamite),
+                    width: "100%",
+                    minHeight: 36,
+                  }}
+                >
+                  &#10003; Deploy
+                </button>
+              </div>
+            )}
+          </div>
+          <div
+            ref={recoveryMenuRef}
+            style={{ position: "relative", pointerEvents: "auto" }}
           >
-            &#129526; {mine.consumables.rope} &#9662;
-          </button>
-          {recoveryMenuOpen && (
-            <div
-              role="menu"
-              aria-label="Recovery actions"
+            <button
+              type="button"
+              aria-label="Recovery options"
+              onClick={() => {
+                setDynamiteMenuOpen(false);
+                if (recoveryMenuOpen) setAbandonArmed(false);
+                setRecoveryMenuOpen(!recoveryMenuOpen);
+              }}
+              disabled={!!elevatorAutoDir}
+              aria-pressed={recoveryMenuOpen}
               style={{
-                position: "absolute",
-                right: 0,
-                bottom: 54,
-                width: 244,
-                padding: 10,
-                borderRadius: 12,
-                border: "1px solid #34415f",
-                background: "rgba(10, 13, 20, 0.96)",
-                color: "#e6e8ee",
-                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
+                ...iconButtonStyle,
+                ...(recoveryMenuOpen
+                  ? {
+                      background: "#21314a",
+                      borderColor: "#8fb8ff",
+                      boxShadow: "0 0 12px rgba(143, 184, 255, 0.34)",
+                    }
+                  : null),
               }}
             >
-              <button
-                type="button"
-                role="menuitem"
-                aria-label={`Recall (${mine.consumables.rope}, range ${currentRecallRange})`}
-                onClick={() => {
-                  setRecoveryMenuOpen(false);
-                  setAbandonArmed(false);
-                  if (!elevatorAutoDir) move("recall");
-                }}
-                disabled={
-                  !!elevatorAutoDir ||
-                  mine.consumables.rope <= 0 ||
-                  miner.row === 0 ||
-                  miner.row > currentRecallRange
-                }
+              &#129526; {mine.consumables.rope} &#9662;
+            </button>
+            {recoveryMenuOpen && (
+              <div
+                role="menu"
+                aria-label="Recovery actions"
                 style={{
-                  ...sheetButtonStyle(
-                    !elevatorAutoDir &&
-                      mine.consumables.rope > 0 &&
-                      miner.row > 0 &&
-                      miner.row <= currentRecallRange,
-                  ),
-                  width: "100%",
-                  minHeight: 36,
-                  marginBottom: 8,
+                  position: "absolute",
+                  right: 0,
+                  bottom: 54,
+                  width: 244,
+                  padding: 10,
+                  borderRadius: 12,
+                  border: "1px solid #34415f",
+                  background: "rgba(10, 13, 20, 0.96)",
+                  color: "#e6e8ee",
+                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
                 }}
               >
-                &#129526; Recall ({mine.consumables.rope}) row{" "}
-                {currentRecallRange}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                aria-label="Abandon trip"
-                onClick={() => {
-                  if (abandonArmed) {
+                <button
+                  type="button"
+                  role="menuitem"
+                  aria-label={`Recall (${mine.consumables.rope}, range ${currentRecallRange})`}
+                  onClick={() => {
+                    setRecoveryMenuOpen(false);
                     setAbandonArmed(false);
-                    setRecoveryMenuOpen(false);
-                    move("abandon");
-                  } else {
-                    setAbandonArmed(true);
+                    if (!elevatorAutoDir) move("recall");
+                  }}
+                  disabled={
+                    !!elevatorAutoDir ||
+                    mine.consumables.rope <= 0 ||
+                    miner.row === 0 ||
+                    miner.row > currentRecallRange
                   }
-                }}
-                disabled={!!elevatorAutoDir || miner.row === 0}
-                style={{
-                  ...sheetButtonStyle(!elevatorAutoDir && miner.row > 0),
-                  width: "100%",
-                  minHeight: 36,
-                  ...(abandonArmed
-                    ? {
-                        background: "#7a2c2c",
-                        borderColor: "#ff6b6b",
-                        color: "#ffd9d9",
-                      }
-                    : null),
-                }}
-              >
-                {abandonArmed ? "Sure?" : "Abandon"}
-              </button>
-            </div>
+                  style={{
+                    ...sheetButtonStyle(
+                      !elevatorAutoDir &&
+                        mine.consumables.rope > 0 &&
+                        miner.row > 0 &&
+                        miner.row <= currentRecallRange,
+                    ),
+                    width: "100%",
+                    minHeight: 36,
+                    marginBottom: 8,
+                  }}
+                >
+                  &#129526; Recall ({mine.consumables.rope}) row{" "}
+                  {currentRecallRange}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  aria-label="Abandon trip"
+                  onClick={() => {
+                    if (abandonArmed) {
+                      setAbandonArmed(false);
+                      setRecoveryMenuOpen(false);
+                      move("abandon");
+                    } else {
+                      setAbandonArmed(true);
+                    }
+                  }}
+                  disabled={!!elevatorAutoDir || miner.row === 0}
+                  style={{
+                    ...sheetButtonStyle(!elevatorAutoDir && miner.row > 0),
+                    width: "100%",
+                    minHeight: 36,
+                    ...(abandonArmed
+                      ? {
+                          background: "#7a2c2c",
+                          borderColor: "#ff6b6b",
+                          color: "#ffd9d9",
+                        }
+                      : null),
+                  }}
+                >
+                  {abandonArmed ? "Sure?" : "Abandon"}
+                </button>
+              </div>
+            )}
+          </div>
+          {miner.row >= 1 && mine.consumables.beacon > 0 && (
+            <button
+              type="button"
+              aria-label="Plant warp beacon"
+              aria-disabled={beaconButtonDisabled}
+              onClick={() => {
+                if (elevatorAutoDir) return;
+                setDynamiteMenuOpen(false);
+                setRecoveryMenuOpen(false);
+                move("place-beacon");
+              }}
+              disabled={!!elevatorAutoDir}
+              title={
+                beaconDepthAllowed
+                  ? "Plant warp beacon"
+                  : `Warpcoil range ${beaconRange} rows`
+              }
+              style={{
+                ...iconButtonStyle,
+                opacity: beaconButtonDisabled ? 0.42 : 1,
+                cursor: beaconButtonDisabled ? "default" : "pointer",
+              }}
+            >
+              &#128225; {mine.consumables.beacon}
+            </button>
           )}
-        </div>
-        {miner.row >= 1 && mine.consumables.beacon > 0 && (
-          <button
-            type="button"
-            aria-label="Plant warp beacon"
-            aria-disabled={beaconButtonDisabled}
-            onClick={() => {
-              if (elevatorAutoDir) return;
-              setDynamiteMenuOpen(false);
-              setRecoveryMenuOpen(false);
-              move("place-beacon");
-            }}
-            disabled={!!elevatorAutoDir}
-            title={
-              beaconDepthAllowed
-                ? "Plant warp beacon"
-                : `Warpcoil range ${beaconRange} rows`
-            }
-            style={{
-              ...iconButtonStyle,
-              opacity: beaconButtonDisabled ? 0.42 : 1,
-              cursor: beaconButtonDisabled ? "default" : "pointer",
-            }}
-          >
-            &#128225; {mine.consumables.beacon}
-          </button>
-        )}
-        {(() => {
-          const onBeacon = currentCell?.beacon;
-          return (
-            onBeacon &&
-            miner.row <= warpRange(mine.gear) && (
-              <button
-                type="button"
-                aria-label="Warp home"
-                onClick={() => {
-                  if (!elevatorAutoDir) {
-                    setRecoveryMenuOpen(false);
-                    move("warp-home");
-                  }
-                }}
-                disabled={!!elevatorAutoDir}
-                style={iconButtonStyle}
-              >
-                &#127756;
-              </button>
-            )
-          );
-        })()}
-        {canRideElevatorDown && (
-          <button
-            type="button"
-            aria-label="Ride elevator down"
-            onClick={() => {
-              setRecoveryMenuOpen(false);
-              startElevatorRide("ride-down");
-            }}
-            disabled={!!elevatorAutoDir}
-            style={iconButtonStyle}
-          >
-            &#128727;&#11015;&#65039;
-          </button>
-        )}
-        {canRideElevatorUp && (
-          <button
-            type="button"
-            aria-label="Ride elevator up"
-            onClick={() => {
-              setRecoveryMenuOpen(false);
-              startElevatorRide("ride-up");
-            }}
-            disabled={!!elevatorAutoDir}
-            style={iconButtonStyle}
-          >
-            &#128727;&#11014;&#65039;
-          </button>
-        )}
-      </section>
+          {(() => {
+            const onBeacon = currentCell?.beacon;
+            return (
+              onBeacon &&
+              miner.row <= warpRange(mine.gear) && (
+                <button
+                  type="button"
+                  aria-label="Warp home"
+                  onClick={() => {
+                    if (!elevatorAutoDir) {
+                      setRecoveryMenuOpen(false);
+                      move("warp-home");
+                    }
+                  }}
+                  disabled={!!elevatorAutoDir}
+                  style={iconButtonStyle}
+                >
+                  &#127756;
+                </button>
+              )
+            );
+          })()}
+          {canRideElevatorDown && (
+            <button
+              type="button"
+              aria-label="Ride elevator down"
+              onClick={() => {
+                setRecoveryMenuOpen(false);
+                startElevatorRide("ride-down");
+              }}
+              disabled={!!elevatorAutoDir}
+              style={iconButtonStyle}
+            >
+              &#128727;&#11015;&#65039;
+            </button>
+          )}
+          {canRideElevatorUp && (
+            <button
+              type="button"
+              aria-label="Ride elevator up"
+              onClick={() => {
+                setRecoveryMenuOpen(false);
+                startElevatorRide("ride-up");
+              }}
+              disabled={!!elevatorAutoDir}
+              style={iconButtonStyle}
+            >
+              &#128727;&#11014;&#65039;
+            </button>
+          )}
+        </section>
+      )}
 
       {/* One-shot onboarding: gone after the first action. */}
       {tick === 0 && (

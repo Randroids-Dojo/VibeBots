@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   BASE_PART_CATALOG,
+  BASIC_TURRET_AMMO,
   type BunkerFootprint,
   type BunkerState,
+  CLANKER_TANK_TURRET_SHOTS,
   clankerKindFor,
   clankerXpFor,
   containsBunkerCell,
@@ -111,7 +113,7 @@ describe("createLiveRaid", () => {
     expect(createLiveRaid(bunker, 2.9).tier).toBe(2);
   });
 
-  it("tracks only blocking parts and spikes, ignoring turrets", () => {
+  it("splits blocking parts and spikes from turrets", () => {
     const bunker = makeBunker(
       [{ col: 8, row: 7, depth: 0 }],
       [
@@ -123,6 +125,13 @@ describe("createLiveRaid", () => {
     const raid = createLiveRaid(bunker, 1);
     const ids = raid.parts.map((p) => p.partId).sort();
     expect(ids).toEqual(["floor-spikes", "wall-panel"]);
+    expect(raid.turrets).toHaveLength(1);
+    expect(raid.turrets[0]).toMatchObject({
+      col: 8,
+      row: 5,
+      depth: 0,
+      ammo: BASIC_TURRET_AMMO,
+    });
   });
 });
 
@@ -511,5 +520,92 @@ describe("outcome report and validation (F-110)", () => {
       ok: false,
       reason: "part-wear",
     });
+  });
+});
+
+describe("turrets (F-143)", () => {
+  const SEALED_PLAYER: LiveRaidCell = { col: 8, row: 7, depth: 2 };
+
+  it("shoots down Clankers it can see and spends ammo", () => {
+    // Player sealed away, so Clankers idle in the approach; a turret on the
+    // left perimeter is on the same row as the left-side spawns and picks
+    // them off along a clear line.
+    const bunker = makeBunker(
+      [
+        { col: 8, row: 7, depth: 2 },
+        { col: 5, row: 5, depth: 0 },
+      ],
+      [part("basic-turret", 5, 5, 0)],
+    );
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    expect(raid.outcome).toBe("won");
+    const turretKills = raid.clankers.filter((c) => c.death === "turret");
+    expect(turretKills.length).toBeGreaterThan(0);
+    expect(raid.turrets[0].ammo).toBeLessThan(BASIC_TURRET_AMMO);
+    // A turret-killed Clanker still drops its XP pickup.
+    for (const killed of turretKills) {
+      expect(raid.xpPickups.some((p) => p.id === `${killed.id}-xp`)).toBe(true);
+    }
+  });
+
+  it("does not shoot through undug rock", () => {
+    // Turret is in range of and axis-aligned with the nearest left Clanker
+    // (distance 3), but the cells between are undug rock, so it cannot fire.
+    const bunker = makeBunker(
+      [
+        { col: 8, row: 7, depth: 2 },
+        { col: 7, row: 5, depth: 0 },
+      ],
+      [part("basic-turret", 7, 5, 0)],
+    );
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    expect(raid.clankers.some((c) => c.death === "turret")).toBe(false);
+    expect(raid.turrets[0].ammo).toBe(BASIC_TURRET_AMMO);
+  });
+
+  it("is inert with no ammo", () => {
+    const bunker = makeBunker(
+      [
+        { col: 8, row: 7, depth: 2 },
+        { col: 5, row: 5, depth: 0 },
+      ],
+      [part("basic-turret", 5, 5, 0)],
+    );
+    const raid = createLiveRaid(bunker, 1);
+    for (const turret of raid.turrets) turret.ammo = 0;
+    runToEnd(raid, SEALED_PLAYER);
+    expect(raid.clankers.some((c) => c.death === "turret")).toBe(false);
+  });
+
+  it("makes a tank soak more shots than a standard Clanker", () => {
+    // Tier 3 spawns a tank at index 3 (id clanker-4) on the right at
+    // (13,5,0) and a standard at index 1 (id clanker-2) at (12,5,0). A
+    // right-perimeter turret picks the nearer standard first, then needs two
+    // shots to drop the tank.
+    const bunker = makeBunker(
+      [
+        { col: 8, row: 7, depth: 2 },
+        { col: 11, row: 5, depth: 0 },
+      ],
+      [part("basic-turret", 11, 5, 0)],
+    );
+    const raid = createLiveRaid(bunker, 3);
+    const tank = raid.clankers.find((c) => c.kind === "tank");
+    expect(tank).toBeDefined();
+    runToEnd(raid, SEALED_PLAYER);
+    // Whichever standard the turret dropped fell to a single shot.
+    const standardTurretKill = raid.clankers.find(
+      (c) => c.kind === "standard" && c.death === "turret",
+    );
+    if (standardTurretKill) expect(standardTurretKill.hits).toBe(1);
+    // The tank, if the turret killed it, soaked the full quota.
+    if (tank?.death === "turret") {
+      expect(tank.hits).toBe(CLANKER_TANK_TURRET_SHOTS);
+    } else {
+      // Otherwise it at least absorbed a hit and lived past it.
+      expect(tank?.hits ?? 0).toBeGreaterThan(0);
+    }
   });
 });

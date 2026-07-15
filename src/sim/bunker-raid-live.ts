@@ -31,6 +31,7 @@
 
 import {
   BASE_PART_CATALOG,
+  BASIC_TURRET_AMMO,
   type BasePartId,
   BUNKER_CLAIM_DEPTH,
   BUNKER_RAID_DURATION_SECONDS,
@@ -39,6 +40,7 @@ import {
   CLANKER_BASE_BITE_DAMAGE,
   CLANKER_BITE_DAMAGE_PER_TIER,
   CLANKER_BREACHER_BITE_FACTOR,
+  CLANKER_TANK_TURRET_SHOTS,
   type ClankerKind,
   clankerKindFor,
   clankerXpFor,
@@ -71,6 +73,13 @@ export const LIVE_MOVE_ENERGY_COST = 1;
 export const LIVE_CHEW_ENERGY_COST = 3;
 export const LIVE_SPIKE_ENERGY_COST = 12;
 
+/** Turret fire: a turret with ammo shoots the nearest Clanker within this
+ * Chebyshev range along an axis-aligned clear line of sight, once per
+ * period. A hit stops a standard or breacher Clanker outright; a tank soaks
+ * CLANKER_TANK_TURRET_SHOTS (mirrors the interim resolver). Provisional. */
+export const LIVE_TURRET_RANGE = 3;
+export const LIVE_TURRET_SHOT_PERIOD_TICKS = LIVE_RAID_TICKS_PER_SECOND;
+
 /** Pathing weight of a still-standing blocking part: passable but far more
  * expensive than open air, so Clankers prefer open routes yet will chew
  * through when a wall is the shortest way in. Not an energy cost (that is
@@ -83,7 +92,7 @@ const CHEW_PATH_WEIGHT = 8;
 const APPROACH_MARGIN = 4;
 
 export type LiveRaidOutcome = "active" | "won" | "lost";
-export type LiveClankerDeath = "energy" | "reached-player";
+export type LiveClankerDeath = "energy" | "reached-player" | "turret";
 
 export interface LiveRaidCell {
   col: number;
@@ -99,9 +108,19 @@ export interface LiveRaidClanker {
   depth: number;
   energy: number;
   alive: boolean;
+  /** Turret shots absorbed so far (tanks soak more than one). */
+  hits: number;
   /** Tick the Clanker died on, or -1 while alive (for death animation). */
   deathTick: number;
   death: LiveClankerDeath | null;
+}
+
+/** A turret defending the bunker: fixed cell and remaining ammo. */
+export interface LiveRaidTurret {
+  col: number;
+  row: number;
+  depth: number;
+  ammo: number;
 }
 
 /** Working copy of a part whose durability the raid mutates. Spikes carry
@@ -142,6 +161,7 @@ export interface LiveRaidState {
   clankers: LiveRaidClanker[];
   /** Blocking and spike parts only; other cells never gate movement. */
   parts: LiveRaidPart[];
+  turrets: LiveRaidTurret[];
   xpPickups: LiveRaidXpPickup[];
 }
 
@@ -195,6 +215,7 @@ export function createLiveRaid(
       depth: spawn.depth,
       energy,
       alive: true,
+      hits: 0,
       deathTick: -1,
       death: null,
     });
@@ -211,6 +232,14 @@ export function createLiveRaid(
       depth: part.depth,
       durability: part.durability,
     }));
+  const turrets: LiveRaidTurret[] = bunker.parts
+    .filter((part) => part.partId === "basic-turret" && part.durability > 0)
+    .map((part) => ({
+      col: part.col,
+      row: part.row,
+      depth: part.depth,
+      ammo: BASIC_TURRET_AMMO,
+    }));
   return {
     version: BUNKER_RAID_LIVE_VERSION,
     raidId,
@@ -224,6 +253,7 @@ export function createLiveRaid(
     dug: bunker.dug.map((cell) => ({ ...cell })),
     clankers,
     parts,
+    turrets,
     xpPickups: [],
   };
 }
@@ -464,6 +494,92 @@ function stepOneClanker(
   }
 }
 
+/** A cell blocks a turret's line of sight when it is undug rock or holds a
+ * standing blocking part. Open dug cells, the mine approach, spikes, and
+ * turrets do not block the shot. */
+function blocksSight(
+  state: LiveRaidState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  if (inApproach(state.footprint, col, row, depth)) return false;
+  if (!containsBunkerCell(state.footprint, col, row)) return true;
+  if (depth < 0 || depth >= BUNKER_CLAIM_DEPTH) return true;
+  if (!isDug(state, { col, row, depth })) return true;
+  const part = livePartAt(state, col, row, depth);
+  return Boolean(part && BASE_PART_CATALOG[part.partId].blocksClankers);
+}
+
+/** Manhattan distance of an axis-aligned, in-range, unobstructed turret shot
+ * at the Clanker, or null if the turret cannot see it. Axis-aligned means
+ * exactly one coordinate differs, so the shot travels a cardinal line. */
+function turretShotDistance(
+  state: LiveRaidState,
+  turret: LiveRaidTurret,
+  clanker: LiveRaidClanker,
+): number | null {
+  const dCol = clanker.col - turret.col;
+  const dRow = clanker.row - turret.row;
+  const dDepth = clanker.depth - turret.depth;
+  const axes =
+    (dCol !== 0 ? 1 : 0) + (dRow !== 0 ? 1 : 0) + (dDepth !== 0 ? 1 : 0);
+  if (axes !== 1) return null;
+  const distance = Math.abs(dCol) + Math.abs(dRow) + Math.abs(dDepth);
+  if (distance < 1 || distance > LIVE_TURRET_RANGE) return null;
+  const stepCol = dCol === 0 ? 0 : dCol > 0 ? 1 : -1;
+  const stepRow = dRow === 0 ? 0 : dRow > 0 ? 1 : -1;
+  const stepDepth = dDepth === 0 ? 0 : dDepth > 0 ? 1 : -1;
+  for (let i = 1; i < distance; i++) {
+    if (
+      blocksSight(
+        state,
+        turret.col + stepCol * i,
+        turret.row + stepRow * i,
+        turret.depth + stepDepth * i,
+      )
+    ) {
+      return null;
+    }
+  }
+  return distance;
+}
+
+function clankerShotsToStop(kind: ClankerKind): number {
+  return kind === "tank" ? CLANKER_TANK_TURRET_SHOTS : 1;
+}
+
+/** Fire every turret with ammo at the nearest Clanker it can see (ties break
+ * by Clanker id for determinism). A hit spends one ammo and adds to the
+ * target's soak; a Clanker that has taken enough shots dies and drops its
+ * XP. A standard or breacher falls to one shot, a tank to
+ * CLANKER_TANK_TURRET_SHOTS. */
+function fireTurrets(state: LiveRaidState): void {
+  for (const turret of state.turrets) {
+    if (turret.ammo <= 0) continue;
+    let target: LiveRaidClanker | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const clanker of state.clankers) {
+      if (!clanker.alive) continue;
+      const distance = turretShotDistance(state, turret, clanker);
+      if (distance === null) continue;
+      if (
+        distance < bestDistance ||
+        (distance === bestDistance && target !== null && clanker.id < target.id)
+      ) {
+        bestDistance = distance;
+        target = clanker;
+      }
+    }
+    if (!target) continue;
+    turret.ammo -= 1;
+    target.hits += 1;
+    if (target.hits >= clankerShotsToStop(target.kind)) {
+      killClanker(state, target, "turret");
+    }
+  }
+}
+
 /**
  * Advance the raid one tick against the player's current cell. Mutates
  * `state` in place and returns it. On action ticks each alive Clanker moves
@@ -479,6 +595,11 @@ export function stepLiveRaid(
 ): LiveRaidState {
   if (state.outcome !== "active") return state;
   state.tick += 1;
+
+  // Turrets fire first so they can thin the wave before it advances.
+  if (state.tick % LIVE_TURRET_SHOT_PERIOD_TICKS === 0) {
+    fireTurrets(state);
+  }
 
   const isActionTick = state.tick % LIVE_CLANKER_MOVE_PERIOD_TICKS === 0;
   if (isActionTick) {

@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="live-raid-turrets" data-date="2026-07-15">
+    <h3>Make turrets fire in the live raid sim</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/live-raid-turrets</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>F-143, the fourth live-raid arc slice, still shipping dark. The sim core deliberately left turrets unmodelled, so a placed turret had zero effect in a live raid. Now <code>src/sim/bunker-raid-live.ts</code> tracks turrets with ammo and fires them: on a fixed cadence (<code>LIVE_TURRET_SHOT_PERIOD_TICKS</code>, once per second) each turret with ammo shoots the nearest Clanker within <code>LIVE_TURRET_RANGE</code> along an axis-aligned, unobstructed 3D line of sight, where undug rock and standing blocking parts block the shot but open cells, the mine approach, spikes, and other turrets do not. A hit spends one ammo and adds to the target's soak; a standard or breacher falls to one shot and a tank soaks <code>CLANKER_TANK_TURRET_SHOTS</code> (mirroring the interim resolver), with a stopped Clanker dropping its XP pickup like any other kill. Turrets fire before Clankers advance each tick so they thin the wave. This completes the buildable defense set in the live model (walls chew, spikes drain, turrets shoot). Render-only over unchanged colliders; the muzzle and projectile visuals belong to the client loop.</dd>
+      <dt>Verification</dt><dd>dash clean, sim-purity clean (axis stepping uses plain comparisons, no banned Math), Biome clean, full type-check, full sim unit suite (380 tests) green. Four new tests plus an extended split-parts test: a lined-up turret shoots down idling Clankers and spends ammo (and each turret kill still drops XP), a turret does not fire through undug rock, an out-of-ammo turret is inert, and a tank soaks two shots where a standard falls to one. Verified by trace that the tank path genuinely takes two hits (turret drops a standard in one and the tank in two, exhausting all three ammo).</dd>
+      <dt>Assumptions</dt><dd>Axis-aligned line of sight (exactly one coordinate differs) matches the interim resolver's shape and is cheap and legible; a diagonal shot is intentionally not modelled. Firing before movement lets turrets stop a Clanker on the cell it currently occupies, which is the natural read of an autofiring turret. Nearest-target with an id tie-break keeps the choice deterministic. Killing outright rather than draining energy matches the interim "turret-destroyed" semantics and keeps the tank-soak count meaningful.</dd>
+      <dt>GDD</dt><dd>Resolved F-143 and appended a build-log entry. Rule 14: no new stamp (a defense-parity fix, not a new mechanic or milestone). Invisible infra slice: no package bump, release note, or tip (Rule 13). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="live-raid-sealed" data-date="2026-07-15">
     <h3>Define the live raid sealed verdict for the Buttoned Up stamp</h3>
     <dl>

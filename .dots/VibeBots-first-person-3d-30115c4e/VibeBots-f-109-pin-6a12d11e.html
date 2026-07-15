@@ -36,6 +36,12 @@ Comment 4980856802 dismisses raid lifecycle telemetry as out of scope. The exist
 <section id="fallback-token-context-pr-223-exact-review">
 Bind every fallback server-scoped idempotency token to the actor, operation family, event kind, canonical digest of the server-relevant lifecycle inputs, expiry, and recorded outcome or conflict state. Store the digest rather than raw sensitive payload. Validate every binding before reusing a request-to-result mapping. An unexpired identical context returns the stored result without a second event; mismatched or expired reuse returns a stable rejection and never suppresses a legitimate later event. Cover cross-actor reuse, same-token different-digest reuse, conflicting state, and expired replay, and prove each emits no second event and cannot suppress a legitimate fresh-token operation. F-150 shares this binding and replay rule.
 </section>
+<section id="telemetry-exactly-once-scope-pr-223-full-review">
+The older exactly-once wording applies only to the committed gameplay transition or fixed rejection result and its uniquely keyed outbox enqueue. One logical request creates at most one recorded result and one outbox row, and replay returns that result without another transition or enqueue. Sink delivery is at least once unless the sink deduplicates the stable internal key. Never claim exactly-once network delivery across a crash after send and before acknowledgement.
+</section>
+<section id="telemetry-sink-health-path-pr-223-full-review">
+Keep lifecycle delivery failures outside the lifecycle sink that failed. Persist bounded delivery attempt state on the uniquely keyed outbox row and report one fixed-reason telemetry_sink_failed health record through the independent server monitoring logger or an equivalent health channel. Include only operation family, event kind, attempt state, and a fixed error class. Omit actor, request, raid, report, snapshot, and human text. Never enqueue the health record into the failed sink, never create another lifecycle outbox row for it, swallow failure of the health channel, and prove outage, retry, recovery, terminal failure, no recursion, and unchanged gameplay settlement.
+</section>
 </article>
 </body>
 </html>

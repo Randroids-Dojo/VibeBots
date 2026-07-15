@@ -33,6 +33,9 @@ Comment 4980856802 calls reconnect, re-roll, and damage gaps pre-existing instea
 <section id="pre-dispatch-cancellation-boundary-pr-223-review">
 Cancellation applies only to local animation, input, or queued intent that has not been dispatched. Start runs through the same write queue behind every earlier queued or dispatched mutation. Once a request is dispatched, keep it ordered until its authoritative success or conflict response is adopted; never drop that response or retry outside the same stable request identity. An accepted Start cancels only later pre-dispatch edit intent and local animation. Cover pre-dispatch cancellation with no request, an attempted post-dispatch cancellation that leaves the request ordered through response adoption, a delayed dispatched edit followed by Start that proves edit then Start server order, accepted Start canceling only later undispatched edit intent, conflict replacement, and one identity-preserving retry with no duplicate write or stale overwrite.
 </section>
+<section id="cancel-in-flight-phrase-superseded-pr-223-full-review">
+The historical phrase cancel in-flight edits in the local player wiring section is superseded and must not be read as permission to abort a dispatched request. It means only pre-dispatch local animation, input, or queued intent. A request is dispatched once transport may have delivered it, and from that point its queue position, stable identity, and authoritative response adoption remain mandatory even if the local UI stops showing the action.
+</section>
 </article>
 </body>
 </html>

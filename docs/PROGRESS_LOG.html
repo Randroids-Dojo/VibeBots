@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr-223-full-review-contract-precision" data-date="2026-07-15">
+    <h3>Resolve the full exact-head contract review</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, fifteenth additive audit commit.</dd>
+      <dt>Changed</dt><dd>Triaged all seven current threads from full CodeRabbit review 4706102366 on exact head <code>6e974c2b</code> without rewriting published history. F-107 now treats server-authored <code>durationSeconds</code> as required compatibility data, validates it against the shared production duration, and initializes timing from the received value. F-109 now limits exactly-once claims to the committed request result and unique outbox enqueue, while sink delivery is at least once without sink deduplication and sink-health reporting uses an independent non-recursive channel. F-112 now preserves both the malformed blob and last known-good local state until confirmed recovery. F-146 explicitly supersedes its historical cancellation shorthand. F-157 now defines the validation contract for the already-published successor-reference attribute. Added the review result to F-148 and its matching Dot. No runtime, CI, settings, ruleset, requirement, release, or production state changed.</dd>
+      <dt>Verification</dt><dd>Full run <code>2d41ac8a-c012-4a19-aaf6-8e2a2d10ff3b</code> submitted CHANGES_REQUESTED review 4706102366 with seven current unresolved threads. Source inspection confirms <code>BUNKER_RAID_DURATION_SECONDS</code> is 180 seconds, the current first-person runtime still owns fixed timing, and the server monitoring module has an independent logging path. The sole <code>data-f-successor</code> edge is F-123 to F-149 on a non-primary correction <code>dt</code> carrying <code>data-f-ref="F-123"</code>; both distinct IDs resolve to exactly one primary plus one matching Dot, and the one-edge graph is unique and acyclic. The newer GDD record already separates audit-branch synchronization from PR #224's administrator bypass; this slice names and supersedes the exact ambiguous historical phrase. Diff, dash, all six affected Dots, lint, typecheck, and full unit verification are recorded on the additive head.</dd>
+      <dt>Assumptions</dt><dd>The current early-alpha runtime supports one authored production duration, so exact equality to the shared constant is safer than inventing a range. A successor reference is navigation-only and cannot create priority, dependency, closeout, merge, or primary authority. Append-only correction means superseding ambiguous text through a new current-truth record, never deleting or rewriting its published source.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first exact-review contract record to <code>docs/gdd/08-base-building.html</code>. Rule 13: no tip change. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended contract precision to F-107, F-109, F-112, F-146, F-148, and F-157 plus their six matching HTML Dots. F-148 requires a new exact-head review, thread inspection, and quiet window after this push. F-152 remains the independent normal-merge eligibility hold.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-223-f071-dot-reference-repair" data-date="2026-07-15">
     <h3>Give the real-device baseline a resolvable task identity</h3>
     <dl>

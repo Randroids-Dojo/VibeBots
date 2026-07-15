@@ -15,6 +15,9 @@
 <section id="description">
 Complete F-112 after PR #204: preserve incompatible state, require confirmed Start fresh recovery, and reject malformed bounded checkpoint shapes without partial replacement.
 </section>
+<section id="preservation-boundary-pr-223-full-review">
+Until the player confirms Start fresh trip, preserve both the malformed checkpoint blob and the last known-good local state. Detection, cancellation, navigation, and reload must not delete or replace either one, start a clean trip, or partially adopt data from the bad blob. Reload shows the same incompatibility choice. One confirmed reset removes the bad blob exactly once, starts one clean state, and leaves the clean state stable on the next reload.
+</section>
 </article>
 </body>
 </html>

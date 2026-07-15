@@ -30,6 +30,9 @@ Commit c27a0f65 placed new polish F-148 inside Nice To Have after cutoff ac99bcf
 <section id="merged-post-cutoff-evidence-pr-221">
 Main c84a4403 places polish F-161 inside Nice To Have after cutoff ac99bcf1. The current scan is 33 wrong-bucket plus 38 outside-bucket primaries, total 71, while only 70 are grandfathered. Keep F-161 as the failing post-cutoff case and expose it under Polish through a current-state index or non-primary pointer without moving the merged primary or expanding the allowlist.
 </section>
+<section id="successor-reference-semantics-pr-223-full-review">
+This section supersedes the earlier instruction to introduce a successor attribute later. data-f-successor is allowed only on a non-primary correction dt that also carries data-f-ref. data-f-ref identifies the one historical primary being corrected, while data-f-successor identifies the one current substantive owner for navigation only. Both source and target must be distinct valid F-IDs, and each must resolve to exactly one primary plus one matching HTML Dot on the target base or exact head. The mapping is unique per source and must not be malformed, dangling, self-referential, cyclic, duplicated, or conflicting. It never creates primary, priority, dependency, closeout, or merge authority. Validate new and surviving post-cutoff edges after every head or base movement. Cover the valid F-123 to F-149 edge plus missing source, missing target, missing Dot, self edge, cycle, duplicate, conflicting target, primary placement, and standalone priority-pointer misuse.
+</section>
 </article>
 </body>
 </html>

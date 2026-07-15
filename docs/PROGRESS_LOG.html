@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="exact-review-contract-clarifications" data-date="2026-07-15">
+    <h3>Clarify current audit ownership after exact-head review</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, seventh additive audit commit.</dd>
+      <dt>Changed</dt><dd>Answered exact-head CodeRabbit review 4703478209 without rewriting published history. Consolidated the current ownership boundary: F-105 owns no-voluntary-exit disconnect policy, database-clock expiry, no reward, and damage persistence; F-106 owns exact row identity, atomic result and wear, conflicts, and authoritative replacement; F-119 owns the cross-platform control lock and menu. Added the shared F-109 and F-150 telemetry idempotency contract: one stable <code>(operation_family, logical_request_id, event_kind)</code> tuple, an atomically persisted request-to-result mapping and unique outbox row, explicit sink deduplication limits, and retry and crash coverage. Pinned F-158 to the user's Android portrait viewport at 390x760 with stable upright, travel-facing, believable-size pixels, and clarified that F-104 owns current rendered proof while F-144 owns the phone frame budget for F-159. Updated six matching HTML Dots. No runtime or CI configuration changed.</dd>
+      <dt>Verification</dt><dd>Verified review 4703478209 is CHANGES_REQUESTED on exact prior head <code>98c3a674</code> with five current threads. The F-109/F-150 and F-158 findings were actionable; the F-105/F-119 and F-159 notes warranted additive current-authority summaries; the CodeQL wording finding was rejected because the existing record says the observed default setup is <code>not-configured</code>, not configured. <code>git diff --check</code>, dash checks, full lint, typecheck, all unit tests, and <code>dot-html show</code> for the six affected Dots pass before publication.</dd>
+      <dt>Assumptions</dt><dd>Append-only records may contain historical options that no longer express current authority, so a new explicit summary is safer than altering or deleting them. A retry needs the same logical request identity and a persisted result mapping; an internal event ID alone is not enough. A telemetry sink without durable deduplication cannot truthfully promise exactly-once delivery after a send-before-acknowledgement crash. Review wording does not authorize a CodeQL or ruleset setting change.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first audit build-log clarification to <code>docs/gdd/08-base-building.html</code> while preserving every earlier item. Rule 13 and Rule 14 do not apply to this monitoring-only correction. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> remain unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended current contract or acceptance clarification to F-105, F-109, F-119, F-150, F-158, and F-159 plus their six matching Dots.</dd>
+    </dl>
+  </article>
+
   <article data-slice="f100-exact-order-diagnosis" data-date="2026-07-15">
     <h3>Narrow the telemetry regression signal</h3>
     <dl>

@@ -42,23 +42,40 @@ export const CLANKER_KIND_CARAPACE: Record<string, string> = {
   tank: "#46604e",
 };
 
+function applyMaterialOpacity(item: Material, opacity: number) {
+  item.transparent = true;
+  item.opacity = opacity;
+  item.depthWrite = opacity >= 0.95;
+}
+
+// Allocation-free even on the active burst frame: the single-material
+// case skips the array wrap, and the group traversal reuses one
+// module-level visitor with the opacity parked in a scratch (traverse is
+// synchronous, so sequential calls in one frame never interleave). The
+// burst path runs inside useFrame, so per .claude/rules/frame-loop-performance.md
+// neither helper may allocate.
 export function setMaterialOpacity(
   material: Material | Material[],
   opacity: number,
 ) {
-  const materials = Array.isArray(material) ? material : [material];
-  for (const item of materials) {
-    item.transparent = true;
-    item.opacity = opacity;
-    item.depthWrite = opacity >= 0.95;
+  if (Array.isArray(material)) {
+    for (let index = 0; index < material.length; index += 1) {
+      applyMaterialOpacity(material[index], opacity);
+    }
+    return;
   }
+  applyMaterialOpacity(material, opacity);
+}
+
+let groupTraversalOpacity = 1;
+function applyGroupChildOpacity(child: object) {
+  const mesh = child as Mesh;
+  if (mesh.material) setMaterialOpacity(mesh.material, groupTraversalOpacity);
 }
 
 export function setGroupMaterialOpacity(group: Group, opacity: number) {
-  group.traverse((child) => {
-    const mesh = child as Mesh;
-    if (mesh.material) setMaterialOpacity(mesh.material, opacity);
-  });
+  groupTraversalOpacity = opacity;
+  group.traverse(applyGroupChildOpacity);
 }
 
 /** The animated part refs of one clanker, grouped so the per-frame

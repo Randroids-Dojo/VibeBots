@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="clanker-visual-module" data-date="2026-07-15">
+    <h3>Share the Clanker body between the flat raid and first person</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/clanker-visual-module</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Second of three prerequisite slices for the first-person live raid loop. The Clanker geometry, its per-frame body animator, and the specialist carapace tints lived inside <code>mine-bunker-overlay.tsx</code> bound to the flat-mine raid; the first-person raid needs the identical Clanker but with 3D sim-driven motion instead of 2D path playback. Extracted a new render-only module <code>src/components/clanker-visual.tsx</code> exporting <code>ClankerBody</code> (the legs, carapace, armor, head, eye, sensor, mandibles, vents, and self-destruct burst geometry), <code>animateClankerBody</code>, the <code>ClankerParts</code> ref bundle, <code>CLANKER_KIND_CARAPACE</code>, and the opacity helpers. The host owns the outer transform group and its frame loop, so each caller supplies its own motion: <code>ClankerMesh</code> stays in the overlay as a thin wrapper keeping the 2D path interpolation and burst timing, now rendering <code>&lt;ClankerBody&gt;</code> inside its positioned group. The flat raid's rendered output is unchanged (the JSX and animator moved byte-for-byte).</dd>
+      <dt>Verification</dt><dd>dash clean, Biome clean, full type-check, full unit suite (1527) green. Pure extraction with identical geometry and animation, so no behavior change; the 2D bunker-raid visual is covered by the scheduled visual matrix, and the first-person reuse arrives with the raid-loop slice.</dd>
+      <dt>Assumptions</dt><dd>Kept <code>ClankerBody</code> placement-agnostic (rendered at the host group's local origin) so the 2D overlay and the first-person canvas can position and animate it differently over the same geometry. Render-only refactor, so no version bump, release note, tip, or stamp. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+      <dt>GDD</dt><dd>Recorded clanker-visual-module progress and appended a build-log entry. Rule 13/14: no tip or stamp (a code-sharing refactor).</dd>
+    </dl>
+  </article>
+
   <article data-slice="live-raid-client-plumbing" data-date="2026-07-15">
     <h3>Wire the client store to start and resolve live raids</h3>
     <dl>

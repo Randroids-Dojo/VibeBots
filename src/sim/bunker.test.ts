@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  allowedBunkerSlots,
   applyBunkerRepairs,
   applyBunkerReset,
   BASE_PART_CATALOG,
@@ -8,6 +9,8 @@ import {
   BUNKER_CLAIM_WIDTH,
   BUNKER_RAID_TIER_CAP,
   BUNKER_SKIN_CATALOG,
+  BUNKER_SLOTS,
+  type BunkerSlot,
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
@@ -16,6 +19,7 @@ import {
   CLANKER_SELF_DESTRUCT_XP,
   CLANKER_TANK_XP,
   canBuyBasePart,
+  canonicalWallSlot,
   clankerKindFor,
   clankerXpFor,
   containsBunkerCell3D,
@@ -24,6 +28,7 @@ import {
   DEFAULT_BUNKER_SKIN,
   excavateBunkerCell,
   isBunkerSkinId,
+  isBunkerWallSlot,
   maxBunkerRaidTier,
   moveBasePart,
   overallPlayerLevel,
@@ -744,5 +749,86 @@ describe("bunker ore crediting (F-116)", () => {
     );
     expect(result.ores).toEqual({});
     expect(result.bunker.loot).toHaveLength(1);
+  });
+});
+
+// This foundation slice ships only the pure slot vocabulary (types, the
+// per-part slot map, and canonical wall dedup). Slot-aware place, remove,
+// occupancy, and the reset boundary land with the slice that lets the UI
+// place thin parts, where their invariants can be exercised end to end.
+describe("bunker thin sub-cell slots (F-117)", () => {
+  it("maps each part to the slots it may occupy", () => {
+    expect(allowedBunkerSlots("wall-panel")).toEqual([
+      "wall-px",
+      "wall-nx",
+      "wall-pz",
+      "wall-nz",
+    ]);
+    expect(allowedBunkerSlots("door-panel")).toEqual([
+      "wall-px",
+      "wall-nx",
+      "wall-pz",
+      "wall-nz",
+    ]);
+    expect(allowedBunkerSlots("floor-panel")).toEqual(["floor"]);
+    expect(allowedBunkerSlots("roof-panel")).toEqual(["roof"]);
+    expect(allowedBunkerSlots("basic-turret")).toEqual(["mount"]);
+    expect(allowedBunkerSlots("floor-spikes")).toEqual(["mount"]);
+    expect(BUNKER_SLOTS).toContain("floor");
+    expect(
+      ["wall-px", "wall-nx", "wall-pz", "wall-nz"].every((slot) =>
+        isBunkerWallSlot(slot as BunkerSlot),
+      ),
+    ).toBe(true);
+    expect(isBunkerWallSlot("floor")).toBe(false);
+    expect(isBunkerWallSlot("mount")).toBe(false);
+  });
+
+  it("pins wall dividers to a single canonical face", () => {
+    const bunker = allDugBunker(4, 5);
+    const fp = bunker.footprint;
+    const c = centerCell(bunker);
+    // An interior -x face is the +x face of the cell to its left.
+    expect(canonicalWallSlot(fp, c.col, c.row, 0, "wall-nx")).toEqual({
+      col: c.col - 1,
+      row: c.row,
+      depth: 0,
+      slot: "wall-px",
+    });
+    // An interior -z face is the +z face of the cell in front of it.
+    expect(canonicalWallSlot(fp, c.col, c.row, 1, "wall-nz")).toEqual({
+      col: c.col,
+      row: c.row,
+      depth: 0,
+      slot: "wall-pz",
+    });
+    // +x / +z faces are already canonical.
+    expect(canonicalWallSlot(fp, c.col, c.row, 0, "wall-px")).toEqual({
+      col: c.col,
+      row: c.row,
+      depth: 0,
+      slot: "wall-px",
+    });
+    // An edge wall whose lower neighbor is outside the footprint keeps
+    // its own face rather than resolving onto a nonexistent cell.
+    expect(canonicalWallSlot(fp, fp.col, c.row, 0, "wall-nx")).toEqual({
+      col: fp.col,
+      row: c.row,
+      depth: 0,
+      slot: "wall-nx",
+    });
+    expect(canonicalWallSlot(fp, c.col, c.row, 0, "wall-nz")).toEqual({
+      col: c.col,
+      row: c.row,
+      depth: 0,
+      slot: "wall-nz",
+    });
+    // Non-wall slots pass through untouched.
+    expect(canonicalWallSlot(fp, c.col, c.row, 0, "floor")).toEqual({
+      col: c.col,
+      row: c.row,
+      depth: 0,
+      slot: "floor",
+    });
   });
 });

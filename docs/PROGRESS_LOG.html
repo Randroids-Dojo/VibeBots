@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="f101-trace-ingestion-boundary-audit" data-date="2026-07-15">
+    <h3>Pin the in-base telemetry ingestion boundary</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, tenth additive audit commit.</dd>
+      <dt>Changed</dt><dd>Traced the new first-person base diagnostics from <code>src/components/bunker-fp-canvas.tsx</code> through the client probe, deep trace route, storage, and insights readback. Preserved F-109 as the existing live-raid lifecycle telemetry owner. Appended one F-101 acceptance clarification because the deep trace route currently accepts arbitrary bounded diagnostic key names and short-string values even though the client helper has an allowlist. The server ingestion boundary must enforce source-specific approved keys and value domains before persistence so stale or direct callers cannot inject unapproved or high-cardinality data. Updated the matching F-101 HTML Dot. No runtime, CI, settings, ruleset, or production state changed.</dd>
+      <dt>Verification</dt><dd>Source inspection confirmed exact main publishes <code>fpEyeY</code>, <code>fpOpenCells</code>, <code>fpGrounded</code>, and <code>fpSwinging</code>; does not publish <code>fpRaidActive</code> or <code>fpClankersAlive</code>; drops the published bunker fields in the mine-only client allowlist; and accepts up to twenty arbitrary diagnostic names and short-string values per snapshot in <code>POST /api/performance/trace</code>. The runtime constants pin the bunker claim to 175 cells, the tier-five wave to at most 14 Clankers, and the quantized eye height to 0.22 through 4.27. F-109 and its Dot already cover bounded lifecycle outcomes, so no duplicate primary was added. Diff, dash, HTML Dot parse, lint, typecheck, and unit verification are recorded on the exact audit head.</dd>
+      <dt>Assumptions</dt><dd>Client filtering improves ordinary payload quality but cannot define the persistence boundary. Source-aware server schemas may keep diagnostics optional for older clients while rejecting unknown keys and invalid values without collecting raw horizontal position or pose, targets, raid IDs, cell keys, or human text. The approved quantized <code>fpEyeY</code> height is bounded performance context, not raw location telemetry.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first telemetry-boundary audit item to <code>docs/gdd/08-base-building.html</code>. Rule 13: no mine tip change. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended the server-ingestion acceptance boundary to F-101 and its matching HTML Dot. F-109 remains the separate owner for start, resolve, loss, expiry, forfeit, conflict, recovery, rejection, retry, and sink-failure lifecycle outcomes.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-224-current-main-reconciliation" data-date="2026-07-15">
     <h3>Reconcile the raid audit with current main</h3>
     <dl>

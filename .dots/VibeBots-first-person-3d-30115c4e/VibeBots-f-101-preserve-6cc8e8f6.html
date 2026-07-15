@@ -30,6 +30,9 @@ Exact main 98d269ee labels first-person samples bunker-fp, but perf-probe.ts sti
 <section id="telemetry-evidence-precision-correction-pr-223">
 The current-main confirmation above overstates the runtime inventory. Exact main publishes fpEyeY, fpOpenCells, fpGrounded, and fpSwinging, and the mine-only allowlist drops those four. fpRaidActive and fpClankersAlive are absent from the runtime dataset and still need to be added. Carry all six through the source-aware payload, persistence, insights, and byBuild proof.
 </section>
+<section id="trace-ingestion-allowlist-boundary-pr-223">
+The client collector is not the complete boundary. Exact main's performance trace route accepts and persists up to twenty arbitrary diagnostic keys per snapshot with arbitrary short-string values, so a stale or direct caller can bypass the helper allowlist. Enforce source-specific key and value schemas before persistence. Keep diagnostics optional. Pin booleans to canonical 0 or 1, open cells to canonical integers from 0 through 175, live Clankers to canonical integers from 0 through 14, and fpEyeY to a canonical two-decimal finite value from 0.22 through 4.27. Give approved mine keys their own bounded domains. Reject unknown, cross-source, malformed, out-of-range, known-but-unapproved fpClankersVisible, raw horizontal position or pose, target, raid-ID, and cell-key fields. Route tests must prove accepted values and no write on every rejection.
+</section>
 </article>
 </body>
 </html>

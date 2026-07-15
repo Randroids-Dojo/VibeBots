@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-144" data-f="F-144" data-priority="nice-to-have">
+    <h3>F-144: Add a raid-burst heap-churn scenario</h3>
+    <dl>
+      <dt>Context</dt><dd>The Clanker self-destruct burst path (<code>setGroupMaterialOpacity</code> in <code>src/components/clanker-visual.tsx</code>, called from <code>useFrame</code> while a burst is visible) was rewritten allocation-free when the Clanker body was extracted. The existing <code>scripts/measure-heap-churn.mjs</code> scenarios never start a raid or drive a self-destruct burst, so they cannot regression-test this frame path; the fix was verified by inspection of the diff.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Nice-to-have hardening for the frame-loop budget (F-074 lineage).</dd>
+      <dt>Unblock condition</dt><dd>Add a bounded raid-burst scenario to <code>scripts/measure-heap-churn.mjs</code> (or a targeted <code>scripts/profile-allocations.mjs</code> capture) that renders a dying Clanker through its burst frames, so a future edit to the shared opacity helpers or the burst animation is caught if it reintroduces per-frame allocation. Best folded into the first-person raid client loop slice, which already exercises live Clanker deaths.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during the clanker-visual extraction (PR #220); child of the first-person 3D raid arc.</dd>
+    </dl>
+  </section>
+
   <section id="F-143" data-f="F-143" data-priority="blocks-release">
     <h3>F-143: Give turrets a live-raid effect</h3>
     <dl>

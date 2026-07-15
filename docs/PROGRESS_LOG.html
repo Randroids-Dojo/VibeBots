@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="scheduled-matrix-timeout-audit" data-date="2026-07-15">
+    <h3>Route the cancelled scheduled matrix</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, fifth additive audit commit.</dd>
+      <dt>Changed</dt><dd>Recorded scheduled Full E2E run 29406448908 without changing runtime or CI configuration. F-131 owns the repeated exact-deadline cancellation, skipped failure-only upload, zero artifacts, and missing final assertions. F-132 owns exact serial reproduction and classification of the seven tests outside the documented known-flake list. F-100 records that its active-surface telemetry test is one of those repeat failures, so the new in-base telemetry path does not rely on stale resolution evidence. Updated the three matching HTML Dots.</dd>
+      <dt>Verification</dt><dd>Verified run 29406448908 is a non-superseded schedule on exact unchanged main <code>c40b7e16</code>. Full E2E shard 4 passed. Jobs 87322957496, 87322957571, and 87322957504 reached 37 of 47, 13 of 47, and 31 of 47 results before cancellation at the workflow's exact 20-minute job limit. Each of the seven newly routed tests failed both attempts. The report step was skipped and the artifacts API reports zero artifacts. Required quality, typecheck, unit, build, and both critical shards passed. Diff, dash, lint, typecheck, unit, and Dot checks are recorded from this exact audit head before publication.</dd>
+      <dt>Assumptions</dt><dd>The matching job deadlines, unchanged main SHA, stable origin ref, and absence of a superseding run establish a workflow timeout rather than a manual or concurrency cancellation. The repeated tests are regression signals until disproven, but the artifactless logs do not establish whether their cause is product behavior, fixture state, readiness, or software-rendering timing. No CI configuration change is authorized in this audit.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed and no GDD file was edited. The artifactless REQ-026 reload failure is routed for retained reproduction rather than used to revise product coverage. Rule 13 and Rule 14 do not apply to monitoring-only evidence. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> remain unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended current evidence to F-100, F-131, and F-132 plus their three matching Dots.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-224-exact-review-audit" data-date="2026-07-15">
     <h3>Route the exact-head forfeit review</h3>
     <dl>

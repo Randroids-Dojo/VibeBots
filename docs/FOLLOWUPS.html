@@ -383,6 +383,7 @@
       <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-115-spawn-d41dce55 created under VibeBots-first-person-3d-30115c4e.</dd>
       <dt>Monitoring update</dt><dd>F-120 must preserve the starter pocket and grounded spawn across Reset, reload, and incompatible-state recovery.</dd>
       <dt>Resolved</dt><dd>2026-07-14, branch <code>feat/bunker-mineable-blocks</code> (package 0.1.256). Bunker openness is now pure excavation state instead of an implicit open depth-0 plane: <code>isOpenBunkerCell</code> is dug-membership only, <code>excavateBunkerCell</code> accepts depth 0 (the floor plane is diggable), and <code>createBunker</code> seeds a 3x2x2 spawn pocket (<code>bunkerSpawnPocketCells</code>) into <code>dug</code> so a fresh claim opens a small pre-mined room facing solid rock. The three read boundaries (<code>parseBunkerState</code>, the bank Zod <code>dug</code> schema, <code>normalizePendingBunker</code>) allow depth-0 dug cells, raise the dug cap to the full 7x5x5 volume, and union the pocket on load (<code>withSpawnPocket</code>) so legacy claims stored under the old model still open a walkable room instead of trapping the spawn in rock (Q-022 still hard-resets truly incompatible state). The first-person <code>FpRockInstances</code> now renders the depth-0 rock too and its capacity covers the whole volume. Pinned by the flipped <code>bunker</code>/<code>bunker-blocks</code>/<code>bunker-fp-grid</code> unit suites and the updated pending-claim first-person e2es (fresh claim opens 12 pocket cells; digging straight ahead lands on the depth-2 rock behind the pocket). Deferred to F-116: ore drops and per-block kind/tint render.</dd>
+      <dt>Post-merge monitoring update</dt><dd>PR #193, package 0.1.260, merge commit <code>13c1bac7</code>, later enlarged the shipped pocket to 3x3x3, or 27 cells, by setting the width, height, and depth constants to 3. Runtime helpers and current first-person tests reflect that newer behavior. The F-115 Dot is closed with original PR #186 and superseding PR #193 evidence. F-168 owns reconciling the stale current GDD summary and active guidance without rewriting this historical decision or its resolved record.</dd>
     </dl>
   </section>
 
@@ -1335,6 +1336,16 @@
 
 <section id="polish">
   <h2>Polish</h2>
+
+  <section id="F-168" data-f="F-168" data-priority="polish">
+    <h3>F-168: Reconcile the current bunker spawn-pocket contract</h3>
+    <dl>
+      <dt>Context</dt><dd>Exact-head review of F-167 proposed changing its 27-cell pocket and 148-cell remaining-excavation counts to 12 and 163 by reading the older F-115 3x2x2 decision. Current runtime is explicitly 3x3x3: <code>BUNKER_POCKET_WIDTH</code>, <code>BUNKER_POCKET_HEIGHT</code>, and <code>BUNKER_POCKET_DEPTH</code> are all 3, <code>bunkerSpawnPocketCells</code> loops the full volume, and current first-person and server tests assert 27 cells. PR #193, package 0.1.260, merge commit <code>13c1bac7</code>, records the roomier-pocket enlargement, but the current GDD summary still says 3x2x2 and the older F-115 text had no superseding pointer. That split source of truth can mislead future reviews and fixture work.</dd>
+      <dt>Blocker (if any)</dt><dd>None for runtime correctness. This is current-contract cleanup so the GDD and active guidance agree with shipped behavior.</dd>
+      <dt>Unblock condition</dt><dd>Keep historical progress and resolved ledger records byte-preserved. Update the current bunker GDD summary to 3x3x3, append a superseding note wherever active F-115 guidance can still be mistaken for the current size, and verify current player-facing tests and fixture builders derive pocket membership from <code>bunkerSpawnPocketCells</code> or the exported pocket constants instead of copying stale dimensions. Cite PR #193 and merge commit <code>13c1bac7</code> as the roomier-pocket source. F-167 separately owns the max-cap payload fixture cleanup.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-168-reconcile-da7fffab under the first-person 3D bunker arc.</dd>
+    </dl>
+  </section>
 
   <section id="F-167" data-f="F-167" data-priority="polish">
     <h3>F-167: Make maxed bunker fixtures match real client payloads</h3>

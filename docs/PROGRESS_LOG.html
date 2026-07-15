@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="core-removal-review-correction" data-date="2026-07-15">
+    <h3>Correct the Dot verification and pocket-contract owner</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Addressed exact-head review without rewriting the prior progress entry. Added this newest correction article to record the F-118 Dot inspection omitted from that entry. Kept F-167's 27-cell pocket and 148-cell remaining-excavation counts after confirming they match current runtime, and added F-168 with a matching bunker-arc Dot to reconcile the stale 3x2x2 current GDD summary and active guidance with the 3x3x3 pocket shipped by PR #193, package 0.1.260, at <code>13c1bac7</code>. Appended a superseding monitoring update to F-115, closed its Dot with original PR #186 and superseding PR #193 evidence, and preserved its historical decision and resolved record.</dd>
+      <dt>Verification</dt><dd>Confirmed <code>BUNKER_POCKET_WIDTH</code>, <code>BUNKER_POCKET_HEIGHT</code>, and <code>BUNKER_POCKET_DEPTH</code> are all 3 in <code>src/sim/bunker-blocks.ts</code>; <code>bunkerSpawnPocketCells</code> loops all three dimensions; current first-person and server tests assert 27 cells. Ran <code>dot-html show</code> for F-115, F-118, and F-164 through F-168, <code>dot-html tree VibeBots-first-person-3d-30115c4e</code>, Node append-only progress, ledger-structure, GDD-reference, and Dot-pairing checks, <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>F-167 retains the correct current payload counts. F-168 is polish because the runtime and tests agree while current documentation does not.</dd>
+      <dt>GDD coverage</dt><dd>REQ-044 keeps its done status and existing requirement text, and its <code>followupRefs</code> now includes F-168 as the owner for the needed current-summary correction. No historical GDD build-log item changed.</dd>
+      <dt>Followups</dt><dd>Added F-168, tracked by Dot <code>VibeBots-f-168-reconcile-da7fffab</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="core-removal-post-merge-followups" data-date="2026-07-15">
     <h3>Own the remaining core-removal cleanup</h3>
     <dl>

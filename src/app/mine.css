@@ -1578,12 +1578,14 @@ button[data-bag-full-flash="true"] {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 12px;
   align-items: center;
   max-width: min(92vw, 520px);
   padding: 8px 18px;
   border: 1px solid #f5715a;
-  border-radius: 999px;
+  border-radius: 22px;
   background: rgba(22, 10, 12, 0.92);
   color: #ffd6cc;
   font-weight: 900;
@@ -1616,6 +1618,50 @@ button[data-bag-full-flash="true"] {
 
 .bunker-fp-raid-lost {
   color: #ff8a7a;
+}
+
+/* Leave-raid control (F-162): a deliberate, two-step forfeit path so touch
+   players (no Escape key) can bail out of a live raid. The panel is
+   pointer-events: none, so every control here re-enables pointer events. */
+.bunker-fp-raid-abandon,
+.bunker-fp-raid-abandon-yes,
+.bunker-fp-raid-abandon-no {
+  min-height: 36px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.78rem;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.bunker-fp-raid-abandon {
+  border: 1px solid rgba(245, 113, 90, 0.55);
+  background: rgba(22, 10, 12, 0.5);
+  color: #ffb4a2;
+}
+
+.bunker-fp-raid-abandon-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  font-size: 0.8rem;
+}
+
+.bunker-fp-raid-abandon-yes {
+  border: 1px solid #f5715a;
+  background: #f5715a;
+  color: #1a0709;
+  font-weight: 900;
+}
+
+.bunker-fp-raid-abandon-no {
+  border: 1px solid rgba(226, 232, 240, 0.4);
+  background: rgba(14, 20, 28, 0.85);
+  color: #e2e8f0;
 }
 
 .bunker-fp-raid-start {

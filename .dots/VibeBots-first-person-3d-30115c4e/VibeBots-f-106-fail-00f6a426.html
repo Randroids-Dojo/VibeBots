@@ -36,6 +36,9 @@ The draft test checks SQL tokens but not one exact selected row, affected count,
 <section id="mutation-origin-correction-2026-07-15">
 The bodyless POST takes no Request and cannot call sameOriginMutationRequired. With the embedded save cookie using SameSite=None, require stable same_origin_required rejection before mutation and route tests for hostile Origin, hostile Sec-Fetch-Site, missing evidence policy, and same-origin success.
 </section>
+<section id="exact-head-review-evidence-pr-224">
+Review 4703051386 confirms missing route and smoke coverage, a mock that cannot model zero or multiple affected rows, a player-wide multi-row update, and duplicate settlement SQL. Fix them only inside the clean successor's exact-identity, row-count, transaction, wear, conflict, telemetry, and same-origin contract.
+</section>
 </article>
 </body>
 </html>

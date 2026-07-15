@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr-224-exact-review-audit" data-date="2026-07-15">
+    <h3>Route the exact-head forfeit review</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, fourth additive audit commit.</dd>
+      <dt>Changed</dt><dd>Recorded CodeRabbit CHANGES_REQUESTED review 4703051386 on PR #224 exact head <code>3584937c</code> and mapped all seven unresolved threads without creating a primary. F-148 owns the exact-head review result. F-154 owns the first-published single-row, idempotency, and scheduled-expiry overclaims. F-106 owns the missing route and smoke tests, SQL mock that cannot model zero or multiple rows, player-wide multi-row update, and duplicated settlement SQL. F-105 owns the newly concrete discarded-render ref leakage into cleanup plus missing Strict Effects, rejection, reload, tab-close, and resolve-race coverage. F-119 corrects the test target to the decided desktop-and-touch no-exit lock plus acknowledged involuntary recovery. Updated the five matching Dots. No runtime code changed.</dd>
+      <dt>Verification</dt><dd>Verified review 4703051386 is CHANGES_REQUESTED on exact head <code>3584937c</code> at 10:06:42Z. GraphQL reports seven current, non-outdated, unresolved threads: 3586313973, 3586313981, 3586313990, 3586313999, 3586314014, 3586314017, and 3586314024. Hold comment 4979375861 records the review result and keeps the independent Q-019, same-origin, telemetry, acknowledgement, serialization, wear, and F-162 blockers open. <code>git diff --check</code>, dash checks, full lint, typecheck, all 135 unit files with 1,540 tests, and <code>dot-html show</code> for all five affected Dots pass.</dd>
+      <dt>Assumptions</dt><dd>The bot's additional notes that no-wear voluntary exit matches Q-019 and that the bodyless route needs no same-origin guard are incorrect against the authoritative GDD, Q-019 text, and <code>SameSite=None</code> guest cookie. Review suggestions do not override product authority, the security boundary, or append-only history. PR #224 remains held and preserved; valid corrections belong on the clean current-main successor.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first audit build-log item while preserving all prior items. Rule 13: the voluntary-forfeit release note and tip remain held. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> remain unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended exact review evidence to F-105, F-106, F-119, F-148, and F-154 plus their five matching Dots.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ruleset-root-and-escape-policy-audit" data-date="2026-07-15">
     <h3>Pin the ruleset root cause and Escape policy drift</h3>
     <dl>

@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="live-raid-settlement" data-date="2026-07-15">
+    <h3>Compute the live raid settlement purely, ahead of the resolve route</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/live-raid-settlement</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Fifth live-raid arc slice, advancing F-105 and F-108, still shipping dark. The forthcoming resolve route needs to turn a validated client outcome into a persisted result; that computation is pure, so it lands first, separate from the risky DB and concurrency wiring. Added <code>settleLiveRaidOutcome(snapshot, tier, report)</code> to <code>src/sim/bunker-raid-live.ts</code>: it validates the report against the frozen start snapshot, then returns the snapshot with each part's durability updated from the report (input untouched) plus the reward to grant. A survive grants vibes scaled by tier (<code>LIVE_RAID_SURVIVE_VIBES_BASE + tier * LIVE_RAID_SURVIVE_VIBES_PER_TIER</code>, mirroring the interim raid's 20 + 10 per tier) plus the collected defense XP the report carries; a loss grants nothing, matching interim raids. Also tightened <code>validateLiveRaidOutcome</code>'s part-wear check from "no more parts than the snapshot" to "exactly the snapshot's blocking and spike parts", which closes a small exploit where a client could omit a damaged part from its report to keep that defense pristine (an honest report always covers every tracked part, so honest clients are unaffected). The route, persistence, single-settle CAS, and expiry stay as the next slice.</dd>
+      <dt>Verification</dt><dd>dash clean, sim-purity clean, Biome clean, full type-check, full sim unit suite (384 tests) green. Four new tests: a survive settles with tier-scaled vibes and the collected XP, a loss settles with no reward while the settled bunker records the chewed wall's reduced durability (and the passed-in snapshot is not mutated), an invalid report refuses to settle and surfaces the rejection reason, and a report that omits a tracked part is rejected.</dd>
+      <dt>Assumptions</dt><dd>Keeping the settlement pure and separate from the DB is deliberate: persistence and single-settle concurrency are the error-prone part and deserve their own focused slice, while the deterministic reward and wear math is easy to test in isolation and is exactly what the route will call. Mirroring the interim survive vibes keeps the economy consistent across the interim-to-live transition; the constants are provisional like the rest of the live-raid balance. Requiring full part-wear coverage is safe because the sim's own report always includes every tracked part with its final (possibly zero) durability.</dd>
+      <dt>GDD</dt><dd>Recorded progress on F-105 and F-108 and appended a build-log entry. Invisible infra slice: no package bump, release note, tip (Rule 13), or stamp (Rule 14). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="live-raid-turrets" data-date="2026-07-15">
     <h3>Make turrets fire in the live raid sim</h3>
     <dl>

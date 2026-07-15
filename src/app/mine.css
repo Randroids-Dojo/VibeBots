@@ -1626,8 +1626,8 @@ button[data-bag-full-flash="true"] {
 .bunker-fp-raid-abandon,
 .bunker-fp-raid-abandon-yes,
 .bunker-fp-raid-abandon-no {
-  min-height: 36px;
-  padding: 4px 14px;
+  min-height: 44px;
+  padding: 6px 16px;
   border-radius: 999px;
   font-weight: 800;
   font-size: 0.78rem;

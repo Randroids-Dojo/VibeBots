@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="core-removal-telemetry-fixture-dependency" data-date="2026-07-15">
+    <h3>Block the core-removal comparison on a representative bunker fixture</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Added an append-only F-166 clarification after a current-main telemetry audit found that <code>scripts/measure-heap-churn.mjs</code> supplies <code>dug: []</code>, which lets its first-person heap probe run boxed inside solid claim rock instead of the shipped 3x3x3 spawn pocket. Made the matching F-166 Dot depend on existing F-168, which already owns deriving runtime-facing fixtures from <code>bunkerSpawnPocketCells</code> or exported pocket constants. Kept F-102 as the separate owner for failed uploads and short in-base visits.</dd>
+      <dt>Verification</dt><dd>Confirmed the mock body and route wiring in <code>scripts/measure-heap-churn.mjs</code>, the cast-only response path in <code>src/state/bunker-api-client.ts</code>, unchanged bunker adoption in <code>src/state/bunker-store.ts</code>, solid-first grid construction in <code>src/components/bunker-fp-grid.ts</code>, and runtime pocket seeding in <code>src/sim/bunker.ts</code>. Ran <code>dot-html show</code> for F-166 and F-168, <code>dot-html ready --json</code>, <code>dot-html tree VibeBots-first-person-3d-30115c4e</code>, Node append-only progress, ledger-structure, and Dot-pairing checks, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, and <code>git diff --check</code>. Lint passed with the existing broken <code>src/app/(auth)/sign-in/AGENTS.md</code> symlink notice and existing optional-chain warning in <code>src/components/mine-input-cadence.ts</code>.</dd>
+      <dt>Assumptions</dt><dd>F-168 remains polish for runtime and documentation correctness, but its heap-script fixture correction is a prerequisite for accepting F-166 evidence. No runtime, schema, release, tip, stamp, or telemetry collector behavior changes here.</dd>
+      <dt>GDD coverage</dt><dd>None. Existing REQ-044 followup ownership already includes F-168, and this clarification changes only verification sequencing.</dd>
+      <dt>Followups</dt><dd>No new followup. Linked existing F-166 after existing F-168 in HTML Dots and clarified the dependency in the F-166 ledger record.</dd>
+    </dl>
+  </article>
+
   <article data-slice="core-removal-review-correction" data-date="2026-07-15">
     <h3>Correct the Dot verification and pocket-contract owner</h3>
     <dl>

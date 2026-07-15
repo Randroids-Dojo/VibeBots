@@ -18,6 +18,12 @@ Repair CodeQL visibility to the main ruleset and prove a normal protected merge 
 <section id="evidence-pr-217">
 PR #217 repeated the issue in ruleset suite 3339356888. Exact-head review and all required checks were green, but the merge still recorded bypass.
 </section>
+<section id="port-fidelity-2026-07-15">
+Fixture every delayed, missing, stale-head, superseded-head, threshold, and configuration state, distinguish a real pull-request-rule failure, and prove one actual protected merge passes with no override.
+</section>
+<section id="evidence-pr-219">
+Ruleset suite 3339548159 recorded bypass even though exact-head and post-merge CI, CodeQL, preview, and production were green.
+</section>
 </article>
 </body>
 </html>

@@ -18,6 +18,15 @@ Fail the required gate when a PR edits, deletes, or reorders a committed ledger 
 <section id="evidence-through-pr-217">
 The 12 newest progress articles through PR #217 use GDD instead of GDD coverage and omit Followups. Validate each new record's required schema as well as later immutability, and accept newest-first corrections.
 </section>
+<section id="port-fidelity-2026-07-15">
+Validate monotonic new F-IDs, exact allowed open-question and coverage mutations, approved history replacement without trusting the final diff, reference-removal fixtures, and fail-fast execution before review or merge readiness.
+</section>
+<section id="evidence-pr-219">
+PR #219 commit b328bf37 added a malformed progress article, then 54afbe47 edited its committed Branch, PR, and Assumptions in place before merge despite an explicit append-only hold.
+</section>
+<section id="evidence-pr-220">
+Initial head c1a8c5c8 added another top progress article with GDD instead of GDD coverage, no Followups field, and a pending PR value. The hold requires a separate newest-first correction.
+</section>
 </article>
 </body>
 </html>

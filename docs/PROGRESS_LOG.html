@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="post-merge-pr219-port-fidelity-audit" data-date="2026-07-15">
+    <h3>Reconcile the live-raid merge and restore the full review backlog</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/raid-followup-audit</code>.</dd>
+      <dt>PR</dt><dd>#218.</dd>
+      <dt>Changed</dt><dd>Merged current main <code>4d2d1caa</code> into this already-published branch with merge commit <code>8c5f2d54</code>, avoiding a non-fast-forward rewrite. Preserved both parallel append-only histories and added no runtime changes beyond PR #219's merged client plumbing. Restored acceptance details lost while porting PR #190 source F-135 through F-145 into successors F-147 through F-157, with matching HTML Dot evidence and no new F-ID. Recorded PR #219's zero-review merge, ruleset bypass, committed-record rewrite, unapproved branch deletion, and dangling F-146 references under F-148, F-152, F-154, F-155, and F-156. Initial PR #220 head <code>c1a8c5c8</code> immediately repeated the malformed progress schema, so F-154 also carries that open-PR evidence.</dd>
+      <dt>Verification</dt><dd>The source-to-successor matrix accounts for all eleven open PR #190 records and finds no distinct missing task. Current main <code>4d2d1caa</code> is green in CI run 29392107464 and CodeQL run 29392107108, with production deployment 5452289415 successful. Ruleset suite 3339548159 still records <code>bypass</code>; PR #219 had zero submitted reviews; and remote branch <code>feat/live-raid-client-plumbing</code> was deleted eleven seconds after merge. Exact-main searches find F-146 references in the progress log and bunker store but no F-146 primary record. Focused merge verification passes 5 files and 110 tests. Dash, whitespace, followup identity, progress schema, Dot parsing, type-check, and Biome checks pass; Biome retains the existing optional-chain and broken-symlink warnings.</dd>
+      <dt>Assumptions</dt><dd>The shipped PR #219 runtime stays live because its exact-main verification is green and the audit found process and sequencing gaps, not a rollback condition. Authority that exists only on another open PR remains a blocking dependency, even when the reference names that PR. Published branch history is preserved with additive commits and normal merges unless the user explicitly approves a rewrite.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. The merge preserved the PR #219 client-plumbing build-log item and both prior audit corrections without rewriting any committed GDD record. This slice adds task-authority and process evidence only, so no new GDD build-log item applies.</dd>
+      <dt>Followups</dt><dd>No new F-ID. Appended restored acceptance and current evidence to F-147 through F-157 where applicable, plus matching HTML Dots. F-149 cross-links F-157 for correction-pointer schema. F-146 remains the canonical atomic write and client sequencing dependency.</dd>
+    </dl>
+  </article>
+
   <article data-slice="monitoring-followup-port-correction" data-date="2026-07-15">
     <h3>Complete the stranded followup port and correct its rebased authority</h3>
     <dl>

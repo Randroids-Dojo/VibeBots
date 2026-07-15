@@ -15,6 +15,12 @@
 <section id="description">
 Require every referenced followup and matching HTML Dot to exist on the target base or same exact head, with global open-PR ID collision detection.
 </section>
+<section id="port-fidelity-2026-07-15">
+Reject identical duplicate authority across open PRs, require an explicit merge dependency when another PR owns the record, move authority exactly once, and recheck for dangling references after conflict resolution.
+</section>
+<section id="evidence-pr-219">
+Current main 4d2d1caa references F-146 in the progress log and bunker store, but F-146 and its matching Dot exist only on unmerged PR #218.
+</section>
 </article>
 </body>
 </html>

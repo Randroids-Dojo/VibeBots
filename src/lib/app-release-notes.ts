@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-15-0.1.265-fp-live-raid";
+export const RELEASE_NOTICE_ID = "2026-07-15-0.1.266-fp-specialist-tints";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.266",
+      date: "2026-07-15",
+      title: "Spot breachers and tanks in first person",
+      intro:
+        "Specialist Clankers now wear their colors inside a first-person raid.",
+      changes: [
+        {
+          build,
+          text: "Breachers and tanks now show their rust and armor shells when you fight a raid in first person, just like the flat view, so you can read a specialist coming down the hall and prioritize it instead of meeting every Clanker as an unknown.",
+        },
+        {
+          build,
+          text: "This is a visual change only; the raid plays out exactly as before. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.265",
       date: "2026-07-15",

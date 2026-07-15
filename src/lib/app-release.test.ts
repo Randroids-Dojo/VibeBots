@@ -24,18 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest fp-live-raid note complete", () => {
+  it("keeps the latest fp-specialist-tints note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-15-0.1.265-fp-live-raid");
+    expect(release.noticeId).toBe("2026-07-15-0.1.266-fp-specialist-tints");
     expect(latestNote).toMatchObject({
+      version: "0.1.266",
+      title: "Spot breachers and tanks in first person",
+      intro:
+        "Specialist Clankers now wear their colors inside a first-person raid.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Breachers and tanks now show their rust and armor shells when you fight a raid in first person, just like the flat view, so you can read a specialist coming down the hall and prioritize it instead of meeting every Clanker as an unknown.",
+      "This is a visual change only; the raid plays out exactly as before. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived fp-live-raid note complete", () => {
+    const release = getAppRelease();
+    const raidNote = release.notes.find((note) => note.version === "0.1.265");
+
+    expect(raidNote).toMatchObject({
       version: "0.1.265",
       title: "Fight a bunker raid from inside",
       intro:
         "Start a live raid in the first-person bunker and hold the Clankers off yourself.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(raidNote?.changes.map((change) => change.text)).toEqual([
       "Standing inside your bunker in first person, a Start raid control now waits with a tier stepper. Begin the raid and the Clankers hunt you through your dug halls in real time while you stay in to defend, instead of watching a flat replay from the sheet.",
       "A banner tracks how many Clankers are left and your remaining time. Every Clanker that falls drops XP where it dies for you to collect by walking over it, and the raid ends the moment a Clanker reaches your cell or the whole wave is spent. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

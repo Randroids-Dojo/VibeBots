@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="stranded-bunker-acceptance" data-date="2026-07-15">
+    <h3>Restore the bunker acceptance stranded on held audit branches</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Compared current main and PR #228 against held audit PRs #190, #218, and #223. PR #218 is fully superseded by PR #223, and PR #190's eleven new primary IDs map to later successors, but live source inspection found two current contracts that were not fully carried: F-116 still lacks mine-equivalent break cadence, canonical shared cargo, missing-seed recovery, collect-route coverage, and an evidence-based decision about whether a fresh bunker must expose ore to the starter room; F-133 still lacks layout-safe player-dig authority, real prior-unlock consistency, and full route and retry proof. Preserved both historical closed Dots, added active successor Dots under the first-person bunker arc, appended current-truth corrections to F-116, F-120, F-133, F-164, and F-165, documented what the shipped <code>/api/bunker/collect</code> does, returned REQ-045 to partial without narrowing the GDD, and added F-169 plus its Dot for render-only phone legibility after an ore vein is proven exposed.</dd>
+      <dt>Verification</dt><dd>Traced current <code>bunkerCellOreYield</code>, per-depth generation, pending settlement, banked excavation, overflow collection, <code>playerDugCellCount</code>, achievement-row loading, and their unit, route, and browser coverage. An exact temporary Vitest reproduction sampled 10,000 derived bunker seeds at claim rows 5, 40, 80, and 160 and found valid fresh claims with zero ore adjacent to the starter pocket at every row; the temporary diagnostic file was removed. Compared every PR #190 source ID with its PR #223 successor and every changed PR #218 Dot with PR #223. Ran <code>dot-html show</code> for active successor Dots <code>VibeBots-finish-f-116-4e952895</code> and <code>VibeBots-finish-f-133-34fc7af5</code>, inspected the preserved archived Dots, parsed GDD coverage JSON, and ran the append-only, structure, pairing, typecheck, lint, dash, and whitespace checks.</dd>
+      <dt>Assumptions</dt><dd>The current GDD remains the design authority until the user explicitly approves a narrower cargo or mining rule. For this early alpha cohort, an ambiguous stored bunker fails visibly with a confirmed Start fresh recovery instead of growing a permanent migration chain. Held source PRs remain untouched until their unique current-truth acceptance is durably carried.</dd>
+      <dt>GDD coverage</dt><dd>REQ-045 changed from done to partial because current bunker mining does not yet match the documented mine break and shared-cargo contract. The runtime starter-room behavior is shipped, while F-168 owns correcting REQ-044's stale 3x2x2 requirement text to the current 3x3x3 contract. F-133 stays active for Groundbreaker progress correctness. Added a newest-first correction to the base-building build log; no historical item changed.</dd>
+      <dt>Followups</dt><dd>Added F-169 with Dot <code>VibeBots-f-169-make-94837679</code> for proven-exposed phone legibility. Added active successor Dots <code>VibeBots-finish-f-116-4e952895</code> and <code>VibeBots-finish-f-133-34fc7af5</code> under existing F-116 and F-133, and extended existing F-164 and F-165 ownership. F-116 owns the separate exposure guarantee and depth-biome correctness so the live report is not misclassified from hidden-ore totals.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-performance-activity-context" data-date="2026-07-15">
     <h3>Keep bunker activity context with performance traces</h3>
     <dl>

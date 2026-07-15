@@ -14,6 +14,7 @@
 <h1>F-165 Fail visibly on incompatible bunker wire state</h1>
 <section id="description">
 Add an explicit bunker wire and stored-state compatibility boundary. A stale loaded client must receive a stable refresh-required response instead of dereferencing a missing field into a blank scene. Cover old-client and new-server skew plus unsafe rollback to an old server after null-core writes. Incompatible alpha state must explain the problem and offer confirmed Start fresh recovery. Bound any temporary bridge, then remove the cold-start DROP NOT NULL migration path. Do not carry permanent silent migration chains.
+Treat a missing blockSeed or an unversioned authored-pocket layout as incompatible stored generation state. Reject it before returning no ore, counting raw dug cells, or subtracting current pocket geometry. The player sees one stable explanation and a confirmed Start fresh bunker action. Cover current valid rows, missing seed, missing or unsupported layout identity, cancellation, confirmation, duplicate confirmation, and reload before and after recovery.
 </section>
 </article>
 </body>

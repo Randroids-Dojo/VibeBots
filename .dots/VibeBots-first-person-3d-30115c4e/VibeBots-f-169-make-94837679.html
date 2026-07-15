@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-169 Make exposed bunker ore unmistakable</title>
+<meta name="dot-title" content="F-169 Make exposed bunker ore unmistakable">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-15T17:58:42.288274-05:00">
+</head>
+<body>
+<article>
+<h1>F-169 Make exposed bunker ore unmistakable</h1>
+<section id="description">
+Make exposed shallow bunker ore unmistakable in first person without changing yields. Use a deterministic fixture whose ore cell is actually adjacent to open space, assert the exposed count before judging contrast, and prove coal or copper differs from nearby bare dirt or rock at 390x760. Cover hidden-to-revealed-to-dug lifecycle, bounded shared geometry and materials, no frame-loop allocation, and low-cardinality diagnostics. After deploy, compare real-device source=bunker-fp telemetry by build for draw calls, triangles, heap span, and stalls without recording seeds, coordinates, or raw cells. F-116 separately owns whether a fresh compatible claim guarantees an exposed vein and whether depth layers preserve the intended biome.
+</section>
+</article>
+</body>
+</html>

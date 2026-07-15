@@ -24,6 +24,7 @@ import {
   liveRaidMaxDefenseXp,
   liveRaidOutcomeReport,
   liveRaidPartWear,
+  liveRaidSealed,
   liveRaidWaveSize,
   stepLiveRaid,
   validateLiveRaidOutcome,
@@ -392,11 +393,60 @@ describe("outcome report and validation (F-110)", () => {
       ...report,
       outcome: "lost" as const,
       minerKilled: true,
+      sealed: false,
       defenseXp: 25,
     };
     expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
       ok: false,
       reason: "reward-on-loss",
+    });
+  });
+
+  it("marks a fully-sealed survive as sealed and a breach as not", () => {
+    // Sealed rock: no Clanker ever enters the footprint.
+    const sealed = createLiveRaid(
+      makeBunker([{ col: 8, row: 7, depth: 2 }]),
+      1,
+    );
+    runToEnd(sealed, SEALED_PLAYER);
+    expect(sealed.breached).toBe(false);
+    expect(liveRaidSealed(sealed)).toBe(true);
+    expect(liveRaidOutcomeReport(sealed).sealed).toBe(true);
+
+    // An open corridor loss: Clankers entered the footprint to reach the
+    // player, so the claim was breached and is never sealed.
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    const lost = createLiveRaid(makeBunker(corridor), 1);
+    runToEnd(lost, { col: 8, row: 5, depth: 0 });
+    expect(lost.breached).toBe(true);
+    expect(liveRaidSealed(lost)).toBe(false);
+  });
+
+  it("treats a survive where a Clanker got in as not sealed", () => {
+    const won = createLiveRaid(makeBunker([{ col: 8, row: 7, depth: 2 }]), 1);
+    runToEnd(won, SEALED_PLAYER);
+    expect(won.outcome).toBe("won");
+    // Force the breach flag: a survive that let a Clanker inside is not
+    // sealed even though the miner lived.
+    won.breached = true;
+    expect(liveRaidSealed(won)).toBe(false);
+    expect(liveRaidOutcomeReport(won).sealed).toBe(false);
+  });
+
+  it("rejects a sealed flag on a loss", () => {
+    const { bunker, report } = sealedWonReport();
+    const bad = {
+      ...report,
+      outcome: "lost" as const,
+      minerKilled: true,
+      defenseXp: 0,
+      sealed: true,
+    };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "sealed-on-loss",
     });
   });
 

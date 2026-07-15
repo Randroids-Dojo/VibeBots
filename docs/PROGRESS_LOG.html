@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="live-raid-sealed" data-date="2026-07-15">
+    <h3>Define the live raid sealed verdict for the Buttoned Up stamp</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/live-raid-sealed</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>F-109 (partial), the third live-raid arc slice, still shipping dark. The interim raid had a "sealed" verdict (survived and no Clanker could target the player) behind the Buttoned Up stamp; the 3D live model needed its own exact meaning. Added it to <code>src/sim/bunker-raid-live.ts</code>: the raid state now carries a <code>breached</code> flag that flips true the first time any Clanker enters the bunker footprint, and <code>liveRaidSealed(state)</code> is a survive with no breach (nothing ever got in). It rides on <code>LiveRaidOutcomeReport.sealed</code>, and <code>validateLiveRaidOutcome</code> rejects a sealed flag on a loss (a breach happened by definition) while trusting a sealed win, since it only gates a cosmetic stamp and is not worth a replay. Defense wear was already captured by <code>liveRaidPartWear</code>. Turret ammunition and the atomic cross-lifecycle settlement remain out of scope here (F-143 and the server slices).</dd>
+      <dt>Verification</dt><dd>dash clean, sim-purity clean, Biome clean, full type-check, full sim unit suite (376 tests) green. Three new tests: a fully-sealed rock survive reports sealed with no breach, an open-corridor loss records a breach and is never sealed, and a survive whose breach flag is set reports not-sealed; plus a validator rejection for a sealed flag on a loss.</dd>
+      <dt>Assumptions</dt><dd>Breach means entering the footprint at all, not just reaching the player, which matches the Buttoned Up spirit that a sealed claim let nothing in. Trusting a sealed win without snapshot proof is safe because the stamp is cosmetic (Rule 14: stamps never grant power), so the light-validation altitude from Q-024 applies here too. A win is not required to be sealed, since a Clanker can breach the volume yet still be drained before reaching the player.</dd>
+      <dt>GDD</dt><dd>Recorded progress on F-109 and appended a build-log entry. Rule 14 stamp review: no new stamp; Buttoned Up keeps its meaning and will read <code>liveRaidSealed</code> when raids are wired, so no copy or progress-source change now. Invisible infra slice: no package bump, release note, or tip (Rule 13). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="live-raid-outcome-bounds" data-date="2026-07-15">
     <h3>Bound the client-reported live raid outcome for the server to trust</h3>
     <dl>

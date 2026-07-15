@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="live-raid-movement-authority-correction" data-date="2026-07-15">
+    <h3>Correct the live-raid decision: movement matters, Clankers hunt the live player</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/live-raid-hunt-player</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Docs only. Corrects the design captured hours earlier in PR #206, which read the "do not overthink the anti-cheat" steer as "movement is cosmetic, defenses decide it" (Q-024 option A) and had the wave hunt a frozen spawn cell. On review the dev rejected that: they want Clankers to eat through the blocks to breach, keep pushing toward the live player while energy lasts, spend energy destroying walls, lose extra energy crossing spikes, and die (animated) at zero energy, and if even one Clanker reaches the player the miner dies with a lost dialogue resolved at the surface. So movement genuinely decides survival. Resolved as Q-024 option D: the client runs the real-time raid and the server trusts a bounded outcome (applied against a frozen start snapshot, within authored duration, damage no worse than the snapshot allows, settle once) rather than replaying a trace, which honors "do not overthink the anti-cheat" as client authority instead of server replay. Updated Q-024 (added option D, flipped the recommended default and status to resolved), reworked Q-019 to locked-in with a disconnect-resolves-as-forfeit-loss fallback, rewrote the two GDD live-raid spec bullets and the F-118 note, appended a superseding GDD build-log entry, and appended corrected rescope notes to F-104 (now the client-run sim contract), F-105 (expiry is a forfeit loss, not penalty-neutral), F-108 (snapshot bounds the trusted outcome), F-110 (slimmed to bounding the reported-outcome payload), and F-111 (dropped: no cross-engine determinism when the client is authoritative). The core stays removed (F-118); the wave hunts the live player.</dd>
+      <dt>Verification</dt><dd>dash check (U+2014/U+2013 clean across the changed docs), <code>git diff --check</code>. Docs-only slice: no code, tests, package bump, or version change.</dd>
+      <dt>Assumptions</dt><dd>Client authority over the raid is acceptable for the alpha because the only exploit is a player winning their own defense, exactly the "do not overthink the anti-cheat" direction; the server still owns start, the frozen snapshot, single settlement, expiry, and the light outcome bounds. Kept the superseded #206 records intact (append-only) and layered corrections on top, following this repo's existing "Decision update supersedes the clause above" convention (see F-107). A disconnect resolving as a forfeit loss is correct under D because an absent player cannot be dodging, so it cannot count as survival.</dd>
+      <dt>GDD</dt><dd>Rewrote the first-person and Minecraft-style live-raid spec bullets in <code>docs/gdd/08-base-building.html</code> and appended a superseding build-log entry; no requirement text or coverage status changed. No version bump, release note, tip (Rule 13), or stamp (Rule 14): a design correction with no player-visible change yet.</dd>
+    </dl>
+  </article>
+
   <article data-slice="live-raid-movement-authority" data-date="2026-07-15">
     <h3>Settle the live-raid movement authority: defenses decide it, not dodging</h3>
     <dl>

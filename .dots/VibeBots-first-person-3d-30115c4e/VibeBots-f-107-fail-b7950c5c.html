@@ -27,6 +27,9 @@ The draft filters to current raid version but returns success when an unsupporte
 <section id="authoritative-duration-gate-pr-223-full-review">
 Treat the server-authored durationSeconds as required compatibility data. Before runtime creation, require a finite positive integer exactly equal to the build's shared BUNKER_RAID_DURATION_SECONDS value, then initialize runtime timing from that received server value. Missing, malformed, non-finite, fractional, non-positive, or mismatched values enter the same confirmed Start fresh incompatibility path. Never substitute the client constant, clamp the value, or continue with a default. Accelerated test fixtures do not weaken the production gate.
 </section>
+<section id="pr-226-hidden-state-evidence">
+Main d722ae8e silently ignores the newest unresolved row when its raid version is unsupported or its live snapshot is malformed. The row remains stored, can control cooldown, and can coexist with a later live row. The live-only route also accepts the stale flat client's tier-only body. Require an explicit protocol discriminator, structured incompatibility body, confirmed Start fresh recovery, and reload proof. Never hide, infer, migrate, or reinterpret unsupported active state.
+</section>
 </article>
 </body>
 </html>

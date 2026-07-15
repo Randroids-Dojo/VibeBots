@@ -142,7 +142,7 @@ describe("loadBunkerView live raid discrimination", () => {
       return [];
     };
 
-  it("exposes an active live raid and leaves the interim field null", async () => {
+  it("exposes an active live raid", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-15T00:00:00.000Z"));
     const sql = vi.fn(
@@ -157,7 +157,6 @@ describe("loadBunkerView live raid discrimination", () => {
 
     const view = await loadBunkerView(sql as never, "player-1");
 
-    expect(view.activeRaid).toBeNull();
     expect(view.activeLiveRaid?.raidId).toBe("live-active");
     expect(view.activeLiveRaid?.tier).toBe(2);
   });
@@ -178,7 +177,6 @@ describe("loadBunkerView live raid discrimination", () => {
 
     const view = await loadBunkerView(sql as never, "player-1");
 
-    expect(view.activeRaid).toBeNull();
     expect(view.activeLiveRaid).toBeNull();
   });
 
@@ -431,6 +429,5 @@ describe("forfeitLiveRaid (F-160)", () => {
     expect(queries.some((q) => q.includes("UPDATE bunkers"))).toBe(false);
     // The returned view shows the raid cleared, so re-entry cannot re-roll it.
     expect(result.view.activeLiveRaid).toBeNull();
-    expect(result.view.activeRaid).toBeNull();
   });
 });

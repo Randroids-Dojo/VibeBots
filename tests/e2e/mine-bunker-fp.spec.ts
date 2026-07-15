@@ -61,7 +61,6 @@ const FP_BUNKER_VIEW = {
     "basic-turret": 0,
     "floor-spikes": 0,
   },
-  activeRaid: null,
   player: {
     balance: 120,
     trackXp: 40,
@@ -466,86 +465,6 @@ test("second Escape leaves the first-person view", async ({ page }) => {
   await awaitMineSceneReady(page);
 });
 
-test("the first-person entry hides while a failed raid blocks editing", async ({
-  page,
-}) => {
-  await page.route("**/api/bunker", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...FP_BUNKER_VIEW,
-        bunker: {
-          ...FP_BUNKER_VIEW.bunker,
-          core: { col: START_COL, row: 3, durability: 128 },
-        },
-        activeRaid: {
-          raidId: "raid-fp-gate",
-          tier: 1,
-          durationSeconds: 3,
-          startedAtMs: Date.now() - 3000,
-          clankers: [
-            {
-              id: "clanker-1",
-              col: START_COL - 6,
-              row: 0,
-              targetCol: START_COL,
-              targetRow: 3,
-              batterySteps: 9,
-              deathStep: 8,
-              status: "self-destructed",
-              path: [
-                { col: START_COL - 6, row: 0 },
-                { col: START_COL, row: 3 },
-              ],
-            },
-          ],
-          turretShots: 0,
-          turretDamage: 0,
-          spikeTriggers: 0,
-          spikeDamage: 0,
-          totalPartDurability: 90,
-          incomingDamage: 32,
-          partDamage: [
-            {
-              clankerId: "clanker-1",
-              col: START_COL,
-              row: 3,
-              target: "core",
-              damage: 32,
-            },
-          ],
-          coreDamage: 32,
-          xpPickups: [],
-          allClankersDead: true,
-          breached: true,
-          minerKilled: true,
-          survived: false,
-          reward: { vibes: 0, defenseXp: 0 },
-        },
-      }),
-    });
-  });
-
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  await digTo(page, 1);
-
-  // Editing is blocked after the failed raid: no toolbelt and no Enter
-  // affordance anywhere (the single floating entry is hidden mid-raid, and
-  // the sheet never had its own entry row after the F-119 consolidation).
-  await expect(
-    page.getByRole("region", { name: "Bunker build tool" }),
-  ).toHaveCount(0);
-  await expect(page.getByTestId("bunker-fp-enter")).toHaveCount(0);
-  await page.getByRole("button", { name: "Open bunker status" }).click();
-  const builder = page.getByRole("region", { name: "Bunker status" });
-  await expect(builder).toContainText("Miner killed");
-  await expect(page.getByTestId("bunker-fp-enter-panel")).toHaveCount(0);
-  const status = page.getByLabel("Mine status");
-  await expect(status).toHaveAttribute("data-fp-mode", "0");
-});
-
 test("first-person building loop on a pending claim: place, chained pry refunds, dig, place from stock", async ({
   page,
 }) => {
@@ -588,7 +507,6 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
           "basic-turret": 0,
           "floor-spikes": 0,
         },
-        activeRaid: null,
         player: FP_BUNKER_VIEW.player,
       }),
     });
@@ -902,7 +820,6 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
       body: JSON.stringify({
         bunker: null,
         inventory: FP_BUNKER_VIEW.inventory,
-        activeRaid: null,
         player: FP_BUNKER_VIEW.player,
       }),
     });
@@ -1462,7 +1379,6 @@ test("the progressive tutorial chains look, walk, dig, place, and pry, and compl
           "basic-turret": 0,
           "floor-spikes": 0,
         },
-        activeRaid: null,
         player: FP_BUNKER_VIEW.player,
       }),
     });
@@ -1976,7 +1892,6 @@ async function enterFreshClaimFp(page: Page, seed: number): Promise<void> {
       body: JSON.stringify({
         bunker: null,
         inventory: FP_BUNKER_VIEW.inventory,
-        activeRaid: null,
         player: FP_BUNKER_VIEW.player,
       }),
     });

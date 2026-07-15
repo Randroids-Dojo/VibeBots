@@ -1,7 +1,6 @@
 import type {
   BasePartInventory,
   BunkerRaidRewardReport,
-  BunkerRaidSnapshot,
   BunkerState,
 } from "@/sim/bunker";
 
@@ -20,8 +19,7 @@ export interface BunkerPlayerProgress {
 /**
  * A live first-person raid in flight (Q-024 option D). The client runs the
  * raid in real time against this frozen bunker snapshot and reports a bounded
- * outcome, which the server settles against the same snapshot. Distinct from
- * the interim server-resolved `activeRaid`; at most one of the two is ever set.
+ * outcome, which the server settles against the same snapshot.
  */
 export interface LiveRaidActiveView {
   raidId: string;
@@ -37,7 +35,6 @@ export interface LiveRaidActiveView {
 export interface BunkerView {
   bunker: BunkerState | null;
   inventory: BasePartInventory;
-  activeRaid: BunkerRaidSnapshot | null;
   /**
    * A live raid in flight, or null when none is active or the active row has
    * run past its authored duration plus server grace (an expired raid never
@@ -57,7 +54,6 @@ export interface BunkerView {
 }
 
 export interface BunkerRouteResponse extends BunkerView {
-  raid?: BunkerRaidSnapshot;
   /** The frozen snapshot returned when a live raid is started. */
   liveRaid?: LiveRaidActiveView | null;
   reward?: BunkerRaidRewardReport;

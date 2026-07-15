@@ -51,6 +51,9 @@ Main f7a31888 and production deployment 5461023827 expose the visible forfeit ac
 <section id="request-result-sink-boundary-review-4706659004">
 Every older phrase that lists sink failure among lifecycle or touch-abandon outcomes is historical and superseded for request-result semantics. One logical forfeit request records at most one accepted or rejected gameplay result and one uniquely keyed lifecycle outbox row. A lifecycle sink outage never becomes a gameplay result reason, never creates an additional request-result or lifecycle outbox row, and never changes the replayed result. Persist delivery-attempt state on the existing outbox row and report at most one bounded telemetry_sink_failed delivery-health record through the independent non-recursive monitoring channel. Cover accepted and rejected gameplay outcomes, duplicate replay, sink outage, retry, recovery, terminal delivery failure, no second result row, no recursive outbox row, and unchanged settlement.
 </section>
+<section id="pr-226-lifecycle-visibility-evidence">
+Main d722ae8e adds no bounded accepted or rejected lifecycle records for start, resolve, forfeit, expiry, incompatible state, or duplicate requests. It removes the client's activeBunkerRaid diagnostic value while retaining the dead server field. A balance reward event is not a lifecycle result. Keep the fixed-value request-result, unique outbox, privacy, replay, and independent non-recursive sink-health contracts open.
+</section>
 </article>
 </body>
 </html>

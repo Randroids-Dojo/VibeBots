@@ -48,6 +48,9 @@ PR #225 exact heads 90b9fa66 and 734aeeba reuse the bodyless player-wide route, 
 <section id="production-exposure-pr-225">
 Main f7a31888 and production deployment 5461023827 expose the control over the same player-wide no-identity route. CI proves the mocked success path only. Exact identity, one-active-row enforcement, affected-row proof, atomic settlement, stable conflict and authoritative replacement, and delayed or failed response recovery remain open.
 </section>
+<section id="pr-226-active-row-invariant-evidence">
+Main d722ae8e selects one unresolved row with newest-first LIMIT 1, then startLiveRaid performs a plain insert after a separate read. The schema is unique only on player plus raid ID. Concurrent starts can both pass, and a hidden legacy or malformed row can remain unresolved beside a later live row. Add a database-backed one-active-row invariant or equivalent transaction, exact affected-row proof, and deterministic authoritative conflict replacement.
+</section>
 </article>
 </body>
 </html>

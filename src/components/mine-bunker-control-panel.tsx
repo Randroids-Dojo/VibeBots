@@ -9,7 +9,6 @@ import {
   bunkerRepairPlan,
   DEFAULT_BUNKER_SKIN,
   DEFENSE_XP_PER_LEVEL,
-  maxBunkerRaidTier,
 } from "@/sim/bunker";
 import type { MineCoord } from "@/sim/mine";
 import { useBunkerStore } from "@/state/bunker-store";
@@ -36,11 +35,9 @@ export function BunkerControlPanel({
   onOpenPanel,
   onDismissPanel,
   onClaim,
-  onStartRaid,
   onRepair,
   onReset,
   onSelectSkin,
-  onFinishRaid,
 }: {
   minerRow: number;
   claimMode: boolean;
@@ -55,16 +52,13 @@ export function BunkerControlPanel({
   onOpenPanel: () => void;
   onDismissPanel: () => void;
   onClaim: () => void;
-  onStartRaid: (tier: number) => void;
   onRepair?: () => void;
   /** Resets the bunker to a bare claim (F-093): undamaged parts refund
    * to inventory, damaged parts are lost, dug cells refill. */
   onReset?: () => void;
   onSelectSkin?: (skinId: BunkerSkinId) => void;
-  onFinishRaid: () => void;
 }) {
   const status = useBunkerStore((s) => s.status);
-  const activeRaid = useBunkerStore((s) => s.activeRaid);
   const player = useBunkerStore((s) => s.player);
   const lastReward = useBunkerStore((s) => s.lastRaidReward);
   const note = useBunkerStore((s) => s.note);
@@ -75,26 +69,6 @@ export function BunkerControlPanel({
     status !== "loading" &&
     preview !== null &&
     localBlockerCount === 0;
-  const uncollectedPickups = (activeRaid?.xpPickups ?? []).filter(
-    (pickup) => !pickup.collected,
-  );
-  const uncollectedPickupXp = uncollectedPickups.reduce(
-    (sum, pickup) => sum + pickup.defenseXp,
-    0,
-  );
-  const collectedPickupXp = (activeRaid?.xpPickups ?? []).reduce(
-    (sum, pickup) => sum + (pickup.collected ? pickup.defenseXp : 0),
-    0,
-  );
-  const finishDisabled =
-    pendingClaim ||
-    Boolean(activeRaid?.survived && uncollectedPickups.length > 0);
-  // Raid tier selection (F-084): one tier per player level, capped by
-  // the sim's ceiling. The pick clamps whenever the level changes so it
-  // never exceeds what the server will accept.
-  const tierCeiling = maxBunkerRaidTier(player?.overallLevel ?? 1);
-  const [raidTier, setRaidTier] = useState(1);
-  const pickedTier = Math.min(raidTier, tierCeiling);
   // Memoized: the parts scan only reruns when a mutation response swaps
   // the bunker reference, not on every raid-tick re-render.
   const repairPlan = useMemo(
@@ -148,18 +122,8 @@ export function BunkerControlPanel({
   // the spawn pocket (F-120: no ore regen, never respawn in rock), so a
   // dug-out-but-unbuilt claim has nothing to reset.
   const resetAvailable =
-    hasBunker &&
-    !activeRaid &&
-    onReset !== undefined &&
-    (bunker?.parts.length ?? 0) > 0;
+    hasBunker && onReset !== undefined && (bunker?.parts.length ?? 0) > 0;
   const balance = player?.balance ?? 0;
-  const raidButtonLabel = activeRaid
-    ? activeRaid.survived
-      ? uncollectedPickups.length > 0
-        ? "Walk over raid XP"
-        : "Finish raid"
-      : "End failed raid"
-    : "Start Clanker raid";
   const levelProgressMax =
     player?.nextLevelXp === null
       ? DEFENSE_XP_PER_LEVEL
@@ -287,7 +251,7 @@ export function BunkerControlPanel({
           </div>
         )}
 
-        {!hasBunker ? (
+        {!hasBunker && (
           <div className="bunker-status-actions">
             <button
               type="button"
@@ -305,49 +269,9 @@ export function BunkerControlPanel({
               Cancel
             </button>
           </div>
-        ) : (
-          <>
-            {!activeRaid && tierCeiling > 1 && (
-              <fieldset className="bunker-raid-tier" aria-label="Raid tier">
-                <button
-                  type="button"
-                  aria-label="Lower raid tier"
-                  onClick={() => setRaidTier(Math.max(1, pickedTier - 1))}
-                  disabled={pickedTier <= 1}
-                >
-                  -
-                </button>
-                <span data-testid="bunker-raid-tier">
-                  {`Tier ${pickedTier}`}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Raise raid tier"
-                  onClick={() =>
-                    setRaidTier(Math.min(tierCeiling, pickedTier + 1))
-                  }
-                  disabled={pickedTier >= tierCeiling}
-                >
-                  +
-                </button>
-              </fieldset>
-            )}
-            <button
-              type="button"
-              className="bunker-raid-button"
-              onClick={
-                activeRaid ? onFinishRaid : () => onStartRaid(pickedTier)
-              }
-              disabled={finishDisabled || (!activeRaid && pendingClaim)}
-            >
-              {activeRaid
-                ? raidButtonLabel
-                : `${raidButtonLabel} (T${pickedTier})`}
-            </button>
-          </>
         )}
 
-        {hasBunker && !activeRaid && !pendingClaim && (
+        {hasBunker && !pendingClaim && (
           <>
             <p
               className="bunker-balance"
@@ -424,15 +348,6 @@ export function BunkerControlPanel({
         {pendingClaim && hasBunker && (
           <p className="bunker-status-note">
             Raids unlock after the bunker saves at the surface.
-          </p>
-        )}
-        {activeRaid && (
-          <p className="bunker-status-note">
-            {activeRaid.survived
-              ? uncollectedPickups.length > 0
-                ? `${activeRaid.clankers.length} ${activeRaid.clankers.length === 1 ? "Clanker" : "Clankers"} dead. Walk over ${uncollectedPickupXp} defense XP on the ground.`
-                : `All raid XP collected: ${collectedPickupXp} defense XP.`
-              : `Miner killed. The raid ended and all XP vanished. ${BUNKER_MINER_DEATH_TIP}`}
           </p>
         )}
         {note && <p className="bunker-status-note">{note}</p>}

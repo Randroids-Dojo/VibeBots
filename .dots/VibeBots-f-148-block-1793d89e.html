@@ -72,6 +72,9 @@ PR #225 exact head 734aeeba was squash-merged at 17:03:59Z as main f7a31888 with
 <section id="pr-scoped-codeql-wording-correction-review-4706659004">
 Preserve older green CI, CodeQL, and preview phrases as historical shorthand for visible pull-request checks. For PR #225, the green security-named signal was a PR-scoped Code Quality/SARIF run on a pull ref, not the protected default-branch CodeQL rule. Repository default CodeQL setup remained not-configured, the ruleset still waited for results, and suite 3346530001 recorded administrator bypass. The green PR check cannot satisfy F-152. Incremental run 30ae30e7-c2c8-47a4-96c4-4d7d563fe94f covered only 18 of 37 files and submitted CHANGES_REQUESTED review 4706659004 on d5aa7780. Apply both valid findings additively, then require a new full base-to-exact-head review and reset all exact-head gates.
 </section>
+<section id="final-read-race-pr-226">
+PR #226 reviews were read at about 18:16:52Z. Explicit same-account HOLD review 4706986449 was submitted one second later on exact head a48466a4, and the administrator merge completed at 18:17:03Z without another read. Immediately before any merge attempt, read exact head, base, reviews, threads, and blocking comments as one bound snapshot. Any new activity or ref movement fails the attempt and resets all checks plus the quiet window. A read that predates the latest review is stale even when only one second old.
+</section>
 </article>
 </body>
 </html>

@@ -207,7 +207,6 @@ test.describe("phone viewport", () => {
             "basic-turret": 0,
             "floor-spikes": 0,
           },
-          activeRaid: null,
           player: {
             balance: 120,
             trackXp: 40,

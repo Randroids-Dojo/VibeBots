@@ -42,6 +42,9 @@ PR #225 exact heads 90b9fa66 and 734aeeba exit first person immediately and rely
 <section id="production-exposure-pr-225">
 Main f7a31888 and production deployment 5461023827 expose the touch trigger while forfeit remains outside the shared queue. Green CI does not cover delayed load, edit, Start, resolve, duplicate exit, immediate re-entry, or Strict Effects ordering. Keep the additive current-main correction open.
 </section>
+<section id="pr-226-sequencing-evidence">
+Main d722ae8e retains the admitted race: load, start, resolve, and forfeit run outside shared serialization, while equal revisions are adopted. A load begun before Start can return later at the same revision and clear activeLiveRaid. The retirement does not fix that ordering or add exact lifecycle identity. Do not let F-118 compound the state-shape change before all lifecycle operations and loads share one authoritative sequencing contract.
+</section>
 </article>
 </body>
 </html>

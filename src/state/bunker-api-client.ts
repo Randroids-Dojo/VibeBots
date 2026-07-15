@@ -135,15 +135,10 @@ export function setRemoteBunkerSkin(skinId: BunkerSkinId) {
   return bunkerApi("/api/bunker/skin", jsonPost({ skinId }));
 }
 
-export function startRemoteBunkerRaid(tier = 1) {
-  return bunkerApi("/api/bunker/raid/start", jsonPost({ tier }));
-}
-
-/** Opt into the live first-person raid: the same start route, but the
- * `mode` flag freezes a start snapshot the client fights against and
- * later resolves (Q-024 option D). */
+/** Start the live first-person raid (Q-024 option D), the only raid path: the
+ * start route freezes a snapshot the client fights against and later resolves. */
 export function startRemoteLiveBunkerRaid(tier = 1) {
-  return bunkerApi("/api/bunker/raid/start", jsonPost({ tier, mode: "live" }));
+  return bunkerApi("/api/bunker/raid/start", jsonPost({ tier }));
 }
 
 /** Submit the bounded outcome of a live raid the client just fought.
@@ -159,12 +154,4 @@ export function resolveRemoteLiveRaid(report: LiveRaidOutcomeReport) {
  * no-op that just returns the current view. */
 export function forfeitRemoteLiveRaid() {
   return bunkerApi("/api/bunker/raid/forfeit", jsonPost({}));
-}
-
-export function collectRemoteRaidPickup(col: number, row: number) {
-  return bunkerApi("/api/bunker/raid/collect", jsonPost({ col, row }));
-}
-
-export function finishRemoteBunkerRaid() {
-  return bunkerApi("/api/bunker/raid/finish", jsonPost({}));
 }

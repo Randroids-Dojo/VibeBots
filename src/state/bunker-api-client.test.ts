@@ -6,23 +6,19 @@ import {
   bunkerErrorMessage,
   buyRemoteBasePart,
   claimRemoteBunker,
-  collectRemoteRaidPickup,
   excavateRemoteBunkerCell,
-  finishRemoteBunkerRaid,
   loadRemoteBunker,
   moveRemoteBunkerPart,
   placeRemoteBunkerPart,
   removeRemoteBunkerPart,
   resetRemoteBunker,
   resolveRemoteLiveRaid,
-  startRemoteBunkerRaid,
   startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 
 const view: BunkerRouteResponse = {
   bunker: null,
   inventory: { ...EMPTY_BASE_PART_INVENTORY },
-  activeRaid: null,
   player: {
     balance: 12,
     trackXp: 0,
@@ -135,24 +131,6 @@ describe("bunker API client", () => {
     );
     expect(lastBody()).toEqual({ col: 8, row: 6, depth: 1 });
 
-    await startRemoteBunkerRaid();
-    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
-      "/api/bunker/raid/start",
-    );
-    expect(lastBody()).toEqual({ tier: 1 });
-
-    await collectRemoteRaidPickup(9, 4);
-    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
-      "/api/bunker/raid/collect",
-    );
-    expect(lastBody()).toEqual({ col: 9, row: 4 });
-
-    await finishRemoteBunkerRaid();
-    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
-      "/api/bunker/raid/finish",
-    );
-    expect(lastBody()).toEqual({});
-
     await resetRemoteBunker();
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe("/api/bunker/reset");
     expect(lastBody()).toEqual({});
@@ -163,10 +141,10 @@ describe("bunker API client", () => {
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
       "/api/bunker/raid/start",
     );
-    expect(lastBody()).toEqual({ tier: 1, mode: "live" });
+    expect(lastBody()).toEqual({ tier: 1 });
 
     await startRemoteLiveBunkerRaid(3);
-    expect(lastBody()).toEqual({ tier: 3, mode: "live" });
+    expect(lastBody()).toEqual({ tier: 3 });
 
     const report: LiveRaidOutcomeReport = {
       version: 1,
@@ -194,7 +172,7 @@ describe("bunker API client", () => {
       vi.fn().mockResolvedValue(jsonResponse({ error: "blocked" }, 409)),
     );
 
-    await expect(startRemoteBunkerRaid()).resolves.toEqual({
+    await expect(startRemoteLiveBunkerRaid()).resolves.toEqual({
       ok: false,
       status: 409,
       body: { error: "blocked" },

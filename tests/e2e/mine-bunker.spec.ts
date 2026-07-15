@@ -3,7 +3,6 @@ import { imagePixelDifferenceRatio } from "./support/image-pixels";
 import {
   aimFp,
   armFpPointer,
-  countRaidXpPixels,
   countRedPixels,
   createMine,
   DEFAULT_GEAR,
@@ -17,14 +16,6 @@ import {
   STARTING_CONSUMABLES,
   setCell,
 } from "./support/mine-helpers";
-
-function deferredSignal(): { promise: Promise<void>; resolve: () => void } {
-  let resolve!: () => void;
-  const promise = new Promise<void>((settle) => {
-    resolve = settle;
-  });
-  return { promise, resolve };
-}
 
 /** Places one wall from the fp hotbar into local cell (2,0,0) (mine
  * cell START_COL - 1 on the claim's bottom row): the shared fp editing
@@ -69,433 +60,6 @@ async function placeWallInFp(page: Page): Promise<void> {
     .toBe(1);
 }
 
-test("mine bunker builder starts a Clanker raid", async ({ page }) => {
-  const bunkerView = {
-    bunker: {
-      footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-      core: { col: START_COL, row: 3, durability: 160 },
-      parts: [
-        {
-          partId: "wall-panel",
-          col: START_COL - 3,
-          row: 1,
-          durability: 90,
-        },
-      ],
-    },
-    inventory: {
-      "wall-panel": 6,
-      "floor-panel": 4,
-      "roof-panel": 4,
-      "door-panel": 1,
-      "basic-turret": 0,
-      "floor-spikes": 0,
-    },
-    activeRaid: null,
-    player: {
-      balance: 120,
-      trackXp: 40,
-      defenseXp: 120,
-      overallLevel: 2,
-      levelCap: 100,
-      progressXp: 20,
-      neededXp: 80,
-      nextLevelXp: 200,
-      beaconLimit: 3,
-    },
-  };
-  await page.route("**/api/bunker", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(bunkerView),
-    });
-  });
-  await page.route("**/api/bunker/raid/start", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...bunkerView,
-        activeRaid: {
-          raidId: "raid-smoke",
-          tier: 1,
-          durationSeconds: 180,
-          startedAtMs: Date.now(),
-          clankers: [
-            {
-              id: "clanker-1",
-              col: START_COL - 6,
-              row: 0,
-              targetCol: START_COL - 3,
-              targetRow: 1,
-              batterySteps: 9,
-              deathStep: 9,
-              status: "battery-drained",
-              path: [
-                { col: START_COL - 6, row: 0 },
-                { col: START_COL - 5, row: 0 },
-                { col: START_COL - 4, row: 0 },
-                { col: START_COL - 3, row: 0 },
-                { col: START_COL - 3, row: 1 },
-                { col: START_COL - 3, row: 1 },
-                { col: START_COL - 3, row: 1 },
-                { col: START_COL - 3, row: 1 },
-                { col: START_COL - 3, row: 1 },
-                { col: START_COL - 3, row: 1 },
-              ],
-            },
-          ],
-          turretShots: 0,
-          turretDamage: 0,
-          spikeTriggers: 0,
-          spikeDamage: 0,
-          totalPartDurability: 90,
-          incomingDamage: 40,
-          partDamage: [
-            {
-              clankerId: "clanker-1",
-              col: START_COL - 3,
-              row: 1,
-              target: "part",
-              partId: "wall-panel",
-              damage: 40,
-            },
-          ],
-          coreDamage: 0,
-          xpPickups: [
-            {
-              id: "clanker-1-xp",
-              col: START_COL - 3,
-              row: 0,
-              defenseXp: 25,
-              collected: false,
-            },
-          ],
-          allClankersDead: true,
-          breached: false,
-          minerKilled: false,
-          survived: true,
-          reward: { vibes: 30, defenseXp: 25 },
-        },
-        raid: {
-          raidId: "raid-smoke",
-          tier: 1,
-          durationSeconds: 180,
-          startedAtMs: Date.now(),
-          clankers: [],
-          turretShots: 0,
-          turretDamage: 0,
-          spikeTriggers: 0,
-          spikeDamage: 0,
-          totalPartDurability: 90,
-          incomingDamage: 40,
-          partDamage: [],
-          coreDamage: 0,
-          xpPickups: [],
-          allClankersDead: true,
-          breached: false,
-          minerKilled: false,
-          survived: true,
-          reward: { vibes: 30, defenseXp: 25 },
-        },
-      }),
-    });
-  });
-  await page.route("**/api/bunker/raid/collect", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(bunkerView),
-    });
-  });
-
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  await digTo(page, 1);
-  await page.getByRole("button", { name: "Open bunker status" }).click();
-  const builder = page.getByRole("region", { name: "Bunker status" });
-  await expect(builder).toBeVisible();
-  await expect(builder.getByLabel("Player level progress")).toContainText(
-    "Level 2/100",
-  );
-  await expect(builder.getByLabel("Player level progress")).toContainText(
-    "Beacon cap 3",
-  );
-  await builder.getByRole("button", { name: "Start Clanker raid" }).click();
-  await expect(builder).toBeVisible();
-  await expect(builder).toContainText("1 Clanker dead");
-  await expect(builder).toContainText("Walk over 25 defense XP on the ground");
-  await expect(builder.getByRole("button", { name: "Place" })).toHaveCount(0);
-  await expect(builder.getByRole("button", { name: "Remove" })).toHaveCount(0);
-  // Editing after a survived raid happens in first person: the Enter
-  // affordance stays, the retired 2D toolbelt never mounts.
-  await expect(page.getByTestId("bunker-fp-enter")).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Bunker build tool" }),
-  ).toHaveCount(0);
-  await expect(
-    builder.getByRole("button", { name: "Walk over raid XP" }),
-  ).toBeDisabled();
-  const xpLocator = page.locator("[data-raid-xp-direction]");
-  await expect(xpLocator).toBeVisible();
-  await expect(xpLocator).toHaveAttribute("data-raid-xp-direction", "up-left");
-  await expect(xpLocator).toHaveAttribute("data-raid-xp-row-distance", "1");
-  await expect(xpLocator).toHaveAttribute("data-raid-xp-col-distance", "3");
-});
-
-test("mine retries raid XP pickup while the miner overlaps it", async ({
-  page,
-}) => {
-  test.setTimeout(120_000);
-  const activeRaid = {
-    raidId: "raid-pickup-retry",
-    tier: 1,
-    durationSeconds: 180,
-    startedAtMs: Date.now(),
-    clankers: [],
-    turretShots: 0,
-    turretDamage: 0,
-    spikeTriggers: 0,
-    spikeDamage: 0,
-    totalPartDurability: 90,
-    incomingDamage: 0,
-    partDamage: [],
-    coreDamage: 0,
-    xpPickups: [
-      {
-        id: "clanker-1-xp",
-        col: START_COL - 1,
-        row: 1,
-        defenseXp: 25,
-        collected: false,
-      },
-    ],
-    allClankersDead: true,
-    breached: false,
-    minerKilled: false,
-    survived: true,
-    reward: { vibes: 30, defenseXp: 25 },
-  };
-  const collectedRaid = {
-    ...activeRaid,
-    xpPickups: [{ ...activeRaid.xpPickups[0], collected: true }],
-  };
-  const bunkerView = {
-    bunker: {
-      footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-      core: { col: START_COL, row: 3, durability: 160 },
-      parts: [],
-    },
-    inventory: {
-      "wall-panel": 2,
-      "floor-panel": 3,
-      "roof-panel": 3,
-      "door-panel": 1,
-      "basic-turret": 0,
-      "floor-spikes": 0,
-    },
-    activeRaid,
-    player: {
-      balance: 120,
-      trackXp: 40,
-      defenseXp: 120,
-      overallLevel: 2,
-      levelCap: 100,
-      progressXp: 20,
-      neededXp: 80,
-      nextLevelXp: 200,
-      beaconLimit: 3,
-    },
-  };
-  let collectAttempts = 0;
-  await page.route("**/api/bunker", async (route) => {
-    // Mirror the collect route: once the second collect has landed, any
-    // bunker refetch must agree, or a poll can revert the collected
-    // pickup and hide the builder button behind a phantom active raid.
-    const collected = collectAttempts >= 2;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        collected ? { ...bunkerView, activeRaid: collectedRaid } : bunkerView,
-      ),
-    });
-  });
-  const firstCollectRequest = deferredSignal();
-  const releaseFirstCollect = deferredSignal();
-  await page.route("**/api/bunker/raid/collect", async (route) => {
-    collectAttempts += 1;
-    if (collectAttempts === 1) {
-      firstCollectRequest.resolve();
-      await releaseFirstCollect.promise;
-    }
-    const collected = collectAttempts >= 2;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...bunkerView,
-        activeRaid: collected ? collectedRaid : activeRaid,
-        raid: collected ? collectedRaid : activeRaid,
-      }),
-    });
-  });
-
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  await digTo(page, 1);
-  await firstCollectRequest.promise;
-  const xpLocator = page.locator("[data-raid-xp-direction]");
-  await expect(xpLocator).toBeVisible();
-  await expect(xpLocator).toHaveAttribute("data-raid-xp-direction", "here");
-  await expect(xpLocator).toContainText("XP here");
-  const canvas = page.locator("canvas");
-  // The pixel crop assumes the camera has settled on the miner at row 1;
-  // a frame-starved runner can lag the rig near the surface for a while.
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {
-      timeout: 45_000,
-    })
-    .toBeLessThan(-0.9);
-  await expect
-    .poll(async () => countRaidXpPixels(page, await canvas.screenshot()), {
-      message: "the raid XP pickup should render as a visible world marker",
-      timeout: 20_000,
-    })
-    .toBeGreaterThan(1_000);
-  const pendingXpPixels = await countRaidXpPixels(
-    page,
-    await canvas.screenshot(),
-  );
-  releaseFirstCollect.resolve();
-  await expect
-    .poll(() => collectAttempts, {
-      message: "XP pickup should retry while the miner stays on it",
-      timeout: 15_000,
-    })
-    .toBeGreaterThanOrEqual(2);
-  await page.getByRole("button", { name: "Open bunker status" }).click();
-  const builder = page.getByRole("region", { name: "Bunker status" });
-  await expect(builder).toContainText("All raid XP collected: 25 defense XP.");
-  await expect(xpLocator).toHaveCount(0);
-  await expect
-    .poll(async () => countRaidXpPixels(page, await canvas.screenshot()), {
-      message: "the raid XP pickup world marker should clear after collection",
-      timeout: 10_000,
-    })
-    .toBeLessThan(pendingXpPixels - 500);
-  await expect(
-    builder.getByRole("button", { name: "Finish raid" }),
-  ).toBeVisible();
-});
-
-test("mine bunker builder explains miner death after an open Clanker path", async ({
-  page,
-}) => {
-  await page.route("**/api/bunker", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        bunker: {
-          footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-          core: { col: START_COL, row: 3, durability: 128 },
-          parts: [
-            {
-              partId: "wall-panel",
-              col: START_COL - 3,
-              row: 1,
-              durability: 90,
-            },
-          ],
-        },
-        inventory: {
-          "wall-panel": 2,
-          "floor-panel": 3,
-          "roof-panel": 3,
-          "door-panel": 1,
-          "basic-turret": 0,
-          "floor-spikes": 0,
-        },
-        activeRaid: {
-          raidId: "raid-failed-smoke",
-          tier: 1,
-          durationSeconds: 3,
-          startedAtMs: Date.now() - 3000,
-          clankers: [
-            {
-              id: "clanker-1",
-              col: START_COL - 6,
-              row: 0,
-              targetCol: START_COL,
-              targetRow: 3,
-              batterySteps: 9,
-              deathStep: 8,
-              status: "self-destructed",
-              path: [
-                { col: START_COL - 6, row: 0 },
-                { col: START_COL - 5, row: 0 },
-                { col: START_COL - 4, row: 0 },
-                { col: START_COL - 3, row: 0 },
-                { col: START_COL - 2, row: 0 },
-                { col: START_COL - 2, row: 1 },
-                { col: START_COL - 1, row: 1 },
-                { col: START_COL, row: 1 },
-                { col: START_COL, row: 2 },
-                { col: START_COL, row: 3 },
-              ],
-            },
-          ],
-          turretShots: 0,
-          turretDamage: 0,
-          spikeTriggers: 0,
-          spikeDamage: 0,
-          totalPartDurability: 90,
-          incomingDamage: 32,
-          partDamage: [
-            {
-              clankerId: "clanker-1",
-              col: START_COL,
-              row: 3,
-              target: "core",
-              damage: 32,
-            },
-          ],
-          coreDamage: 32,
-          xpPickups: [],
-          allClankersDead: true,
-          breached: true,
-          minerKilled: true,
-          survived: false,
-          reward: { vibes: 0, defenseXp: 0 },
-        },
-        player: {
-          balance: 120,
-          trackXp: 40,
-          defenseXp: 120,
-          overallLevel: 2,
-          levelCap: 100,
-          progressXp: 20,
-          neededXp: 80,
-          nextLevelXp: 200,
-          beaconLimit: 3,
-        },
-      }),
-    });
-  });
-
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  await digTo(page, 1);
-  await page.getByRole("button", { name: "Open bunker status" }).click();
-  const builder = page.getByRole("region", { name: "Bunker status" });
-  await expect(builder).toContainText("Miner killed");
-  await expect(builder).toContainText("Clankers follow open bunker cells");
-  await expect(builder).toContainText("Fully enclose the player cell");
-  await expect(page.getByTestId("bunker-fp-enter")).toHaveCount(0);
-});
-
 test("mine requires an explicit bunker claim mode before showing the claim panel", async ({
   page,
 }) => {
@@ -514,7 +78,6 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
           "basic-turret": 0,
           "floor-spikes": 0,
         },
-        activeRaid: null,
         player: {
           balance: 120,
           trackXp: 0,
@@ -607,7 +170,6 @@ test("bunker claim mode highlights uncleared claim cells in red", async ({
           "basic-turret": 0,
           "floor-spikes": 0,
         },
-        activeRaid: null,
         player: {
           balance: 120,
           trackXp: 0,
@@ -701,7 +263,6 @@ test("bunker claims can be edited before banking", async ({ page }) => {
           "basic-turret": 0,
           "floor-spikes": 0,
         },
-        activeRaid: null,
         player: {
           balance: 120,
           trackXp: 0,
@@ -839,10 +400,6 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   await page.getByRole("button", { name: "Open bunker status" }).click();
   const reopenedStatus = page.getByRole("region", { name: "Bunker status" });
   await expect(reopenedStatus).toBeVisible();
-  const raidButton = reopenedStatus.getByRole("button", {
-    name: "Start Clanker raid",
-  });
-  await expect(raidButton).toBeDisabled();
   await expect(reopenedStatus).toContainText(
     "Raids unlock after the bunker saves at the surface.",
   );
@@ -890,7 +447,6 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
           "basic-turret": 0,
           "floor-spikes": 0,
         },
-        activeRaid: null,
         player: {
           balance: 120,
           trackXp: 0,
@@ -1036,7 +592,6 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
       "basic-turret": 0,
       "floor-spikes": 0,
     },
-    activeRaid: null,
     player: {
       balance: 100,
       trackXp: 40,

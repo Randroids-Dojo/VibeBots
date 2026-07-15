@@ -4,8 +4,6 @@ import {
   applyBunkerRepairs,
   applyBunkerReset,
   BASE_PART_CATALOG,
-  type BasePartId,
-  type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
@@ -16,7 +14,6 @@ import {
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
-  bunkerLayoutNeedsReset,
   bunkerRepairPlan,
   CLANKER_BREACHER_XP,
   CLANKER_SELF_DESTRUCT_XP,
@@ -755,37 +752,11 @@ describe("bunker ore crediting (F-116)", () => {
   });
 });
 
+// This foundation slice ships only the pure slot vocabulary (types, the
+// per-part slot map, and canonical wall dedup). Slot-aware place, remove,
+// occupancy, and the reset boundary land with the slice that lets the UI
+// place thin parts, where their invariants can be exercised end to end.
 describe("bunker thin sub-cell slots (F-117)", () => {
-  const inventory = (): BasePartInventory => ({
-    ...STARTER_BASE_PART_INVENTORY,
-    "basic-turret": 1,
-    "floor-spikes": 2,
-  });
-
-  // Fold one placement onto a running (bunker, inventory), asserting it
-  // lands so slot chains read as a sequence of moves, not nested ifs.
-  function place(
-    state: { bunker: BunkerState; inventory: BasePartInventory },
-    partId: BasePartId,
-    col: number,
-    row: number,
-    depth: number,
-    slot?: BunkerSlot,
-  ): { bunker: BunkerState; inventory: BasePartInventory } {
-    const result = placeBasePart(
-      state.bunker,
-      state.inventory,
-      partId,
-      col,
-      row,
-      depth,
-      slot,
-    );
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error(`place failed: ${result.reason}`);
-    return { bunker: result.bunker, inventory: result.inventory };
-  }
-
   it("maps each part to the slots it may occupy", () => {
     expect(allowedBunkerSlots("wall-panel")).toEqual([
       "wall-px",
@@ -859,213 +830,5 @@ describe("bunker thin sub-cell slots (F-117)", () => {
       depth: 0,
       slot: "floor",
     });
-  });
-
-  it("holds up to one part per slot in a single cell", () => {
-    const bunker = allDugBunker(4, 5);
-    const c = centerCell(bunker);
-    let state = { bunker, inventory: inventory() };
-    state = place(state, "wall-panel", c.col, c.row, 0, "wall-px");
-    state = place(state, "wall-panel", c.col, c.row, 0, "wall-nx");
-    state = place(state, "wall-panel", c.col, c.row, 0, "wall-pz");
-    state = place(state, "wall-panel", c.col, c.row, 0, "wall-nz");
-    state = place(state, "floor-panel", c.col, c.row, 0, "floor");
-    state = place(state, "roof-panel", c.col, c.row, 0, "roof");
-    state = place(state, "basic-turret", c.col, c.row, 0, "mount");
-    expect(state.bunker.parts).toHaveLength(7);
-    // A second part in a taken slot is rejected before stock is touched.
-    expect(
-      placeBasePart(
-        state.bunker,
-        state.inventory,
-        "wall-panel",
-        c.col,
-        c.row,
-        0,
-        "wall-px",
-      ),
-    ).toEqual({ ok: false, reason: "occupied" });
-    expect(
-      placeBasePart(
-        state.bunker,
-        state.inventory,
-        "basic-turret",
-        c.col,
-        c.row,
-        0,
-        "mount",
-      ),
-    ).toEqual({ ok: false, reason: "occupied" });
-  });
-
-  it("rejects the same divider built from the neighboring cell", () => {
-    const bunker = allDugBunker(4, 5);
-    const c = centerCell(bunker);
-    const placed = placeBasePart(
-      bunker,
-      inventory(),
-      "wall-panel",
-      c.col,
-      c.row,
-      0,
-      "wall-px",
-    );
-    expect(placed.ok).toBe(true);
-    if (!placed.ok) return;
-    // The -x face of the cell to the right is the same physical slab.
-    expect(
-      placeBasePart(
-        placed.bunker,
-        placed.inventory,
-        "wall-panel",
-        c.col + 1,
-        c.row,
-        0,
-        "wall-nx",
-      ),
-    ).toEqual({ ok: false, reason: "occupied" });
-  });
-
-  it("rejects a part in a slot it cannot use", () => {
-    const bunker = allDugBunker(4, 5);
-    const c = centerCell(bunker);
-    expect(
-      placeBasePart(
-        bunker,
-        inventory(),
-        "floor-panel",
-        c.col,
-        c.row,
-        0,
-        "wall-px",
-      ),
-    ).toEqual({ ok: false, reason: "slot" });
-    expect(
-      placeBasePart(
-        bunker,
-        inventory(),
-        "wall-panel",
-        c.col,
-        c.row,
-        0,
-        "floor",
-      ),
-    ).toEqual({ ok: false, reason: "slot" });
-    expect(
-      placeBasePart(
-        bunker,
-        inventory(),
-        "basic-turret",
-        c.col,
-        c.row,
-        0,
-        "wall-px",
-      ),
-    ).toEqual({ ok: false, reason: "slot" });
-  });
-
-  it("treats a legacy full-cell part as filling every slot in its cell", () => {
-    const bunker = allDugBunker(4, 5);
-    const c = centerCell(bunker);
-    const legacy = placeBasePart(
-      bunker,
-      inventory(),
-      "wall-panel",
-      c.col,
-      c.row,
-      0,
-    );
-    expect(legacy.ok).toBe(true);
-    if (!legacy.ok) return;
-    expect(legacy.bunker.parts[0].slot).toBeUndefined();
-    // A slot part cannot share a cell a legacy whole-cell part fills.
-    expect(
-      placeBasePart(
-        legacy.bunker,
-        legacy.inventory,
-        "floor-panel",
-        c.col,
-        c.row,
-        0,
-        "floor",
-      ),
-    ).toEqual({ ok: false, reason: "occupied" });
-    // And a legacy placement cannot share a cell that already has a slot.
-    const slotted = placeBasePart(
-      bunker,
-      inventory(),
-      "floor-panel",
-      c.col,
-      c.row,
-      0,
-      "floor",
-    );
-    expect(slotted.ok).toBe(true);
-    if (!slotted.ok) return;
-    expect(
-      placeBasePart(
-        slotted.bunker,
-        slotted.inventory,
-        "wall-panel",
-        c.col,
-        c.row,
-        0,
-      ),
-    ).toEqual({ ok: false, reason: "occupied" });
-  });
-
-  it("removes only the addressed slot and refunds it", () => {
-    const bunker = allDugBunker(4, 5);
-    const c = centerCell(bunker);
-    let state = { bunker, inventory: inventory() };
-    state = place(state, "wall-panel", c.col, c.row, 0, "wall-px");
-    state = place(state, "floor-panel", c.col, c.row, 0, "floor");
-    const walls = state.inventory["wall-panel"];
-    // A different slot in the same cell does not match.
-    expect(
-      removeBasePart(state.bunker, state.inventory, c.col, c.row, 0, "wall-pz"),
-    ).toEqual({ ok: false, reason: "missing" });
-    const removed = removeBasePart(
-      state.bunker,
-      state.inventory,
-      c.col,
-      c.row,
-      0,
-      "wall-px",
-    );
-    expect(removed.ok).toBe(true);
-    if (!removed.ok) return;
-    expect(removed.bunker.parts).toHaveLength(1);
-    expect(removed.bunker.parts[0].slot).toBe("floor");
-    expect(removed.inventory["wall-panel"]).toBe(walls + 1);
-  });
-
-  it("flags a pre-thin-model layout for a confirmed reset (Q-022)", () => {
-    const bunker = allDugBunker(4, 5);
-    const c = centerCell(bunker);
-    expect(bunkerLayoutNeedsReset(bunker)).toBe(false);
-    const legacy = placeBasePart(
-      bunker,
-      inventory(),
-      "wall-panel",
-      c.col,
-      c.row,
-      0,
-    );
-    expect(legacy.ok).toBe(true);
-    if (!legacy.ok) return;
-    expect(bunkerLayoutNeedsReset(legacy.bunker)).toBe(true);
-    const slotted = placeBasePart(
-      bunker,
-      inventory(),
-      "wall-panel",
-      c.col,
-      c.row,
-      0,
-      "wall-px",
-    );
-    expect(slotted.ok).toBe(true);
-    if (!slotted.ok) return;
-    expect(bunkerLayoutNeedsReset(slotted.bunker)).toBe(false);
   });
 });

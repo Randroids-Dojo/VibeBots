@@ -10,7 +10,8 @@ export type BalanceEventName =
   | "consumable.purchase"
   | "base_part.purchase"
   | "elevator.upgrade"
-  | "bunker.raid_reward";
+  | "bunker.raid_reward"
+  | "bunker.live_raid_reward";
 
 export type BalanceEventProperties = Record<
   string,

@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="live-raid-resolve-route" data-date="2026-07-15">
+    <h3>Resolve a live raid once, settling the reported outcome server-side</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/live-raid-resolve-route</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Second server-lifecycle slice of the live raid arc (F-106, completing F-105's settlement path), shipping dark. This is the payoff that consumes both prior slices: the frozen start snapshot (start persistence) and the pure <code>settleLiveRaidOutcome</code> (settlement). New <code>resolveLiveRaid(sql, playerId, report)</code> in <code>src/server/bunker.ts</code> loads the active live row, settles the client-reported outcome against the frozen snapshot (never the live bunker), and claims the row with a <code>result IS NULL</code> compare-and-set so exactly one resolve wins (a second resolve gets 409 "raid already finished"). An invalid report is refused with 422 and its rejection reason; defense wear is written back to the bunker on a win or a loss, and only a survive credits vibes and defense XP, records a <code>bunker.live_raid_reward</code> balance event, and applies the survived/sealed achievement progress, mirroring the interim finish. New <code>/api/bunker/raid/resolve</code> route with a bounded report schema (part-wear capped at 200 for the 175-cell volume; the frozen snapshot is the real bound on trust). Bunker edits (place, remove, move, excavate) are now frozen while a live raid is active, so overwriting the bunker with the settled snapshot on resolve can never clobber a concurrent change; repair and reset already blocked via the shared guard.</dd>
+      <dt>Verification</dt><dd>dash clean, sim-purity clean, Biome clean, full type-check, full unit suite (1522) green. Six new server tests: a survive applies wear once and credits tier-scaled vibes plus the reported XP; an invalid report returns 422 with its reason; a loss applies wear but grants no reward and never credits the player; a second resolve is refused; a resolve with no active live raid is refused; and a bunker edit is frozen while a live raid is active (rejected before any write).</dd>
+      <dt>Assumptions</dt><dd>Freezing edits during a live raid is what makes the resolve-time bunker overwrite safe, and it matches the arc plan (mutations rejected during an active raid). The reward mirrors the interim finish's plumbing (emeralds + defense XP, balance event, achievements) so the economy stays consistent across the interim-to-live transition. F-106's granular 409-with-latest-view resync and the unique DB-level active-raid invariant, F-107's unsupported-version fail-fast UI, and full lazy finalization of an expired row on the very next load (this arc still cleans up at the next start) remain follow-ups. No client calls this route yet, so it is dark until the first-person raid loop wires it.</dd>
+      <dt>GDD</dt><dd>Recorded progress on F-105 and F-106 and appended a build-log entry. Invisible infra slice: no package bump, release note, tip (Rule 13), or stamp (Rule 14, though the survived/sealed achievement hooks are now wired to fire when raids go live). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="live-raid-start-persistence" data-date="2026-07-15">
     <h3>Persist a versioned live-raid start snapshot on the server</h3>
     <dl>

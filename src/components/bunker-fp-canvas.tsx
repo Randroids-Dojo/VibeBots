@@ -815,34 +815,6 @@ function FpPlacedParts({
   );
 }
 
-/** The bunker core as a slowly spinning octahedron; the rig's frame
- * loop owns the spin so the scene adds no extra useFrame. */
-function FpCore({
-  bunker,
-  coreRef,
-}: {
-  bunker: BunkerState;
-  coreRef: RefObject<Mesh | null>;
-}) {
-  const footprint = bunker.footprint;
-  const x = bunker.core.col - footprint.col;
-  const y = footprint.row + footprint.height - 1 - bunker.core.row;
-  const z = bunker.core.depth ?? 0;
-  return (
-    <mesh ref={coreRef} position={[x, y, -z]}>
-      <octahedronGeometry args={[0.42, 0]} />
-      <meshStandardMaterial
-        color="#c084fc"
-        emissive="#8b5cf6"
-        emissiveIntensity={0.85}
-        metalness={0.35}
-        roughness={0.3}
-        flatShading
-      />
-    </mesh>
-  );
-}
-
 // Module-scope scratch for the camera orientation (frame loop).
 const fpCameraEuler = new Euler(0, 0, 0, "YXZ");
 // Reused scratch for the player's sim cell fed to the raid each frame.
@@ -857,8 +829,6 @@ function fpKindCode(kind: FpRayHit["kind"]): number {
   switch (kind) {
     case "part":
       return 1;
-    case "core":
-      return 2;
     case "spikes":
       return 3;
     case "door":
@@ -888,7 +858,6 @@ function countFpOpenCells(solid: FpSolidGrid): number {
 function BunkerFpRig({
   bunker,
   entry,
-  coreRef,
   tool,
   onEdit,
   outlineRef,
@@ -900,7 +869,6 @@ function BunkerFpRig({
 }: {
   bunker: BunkerState;
   entry: FpEntryCell;
-  coreRef: RefObject<Mesh | null>;
   tool: BunkerToolAction;
   onEdit: (intent: FpEditIntent) => void;
   outlineRef: RefObject<LineSegments | null>;
@@ -1322,12 +1290,6 @@ function BunkerFpRig({
     camera.quaternion.setFromEuler(fpCameraEuler);
     camera.position.set(move.px, move.py + FP_EYE_HEIGHT, move.pz);
 
-    const core = coreRef.current;
-    if (core) {
-      core.rotation.y = state.clock.elapsedTime * 0.7;
-      core.rotation.x = Math.sin(state.clock.elapsedTime * 0.9) * 0.12;
-    }
-
     // Crosshair raycast from the eye along the camera forward (scalar
     // yaw/pitch basis, no vector allocations).
     const eyeY = move.py + FP_EYE_HEIGHT;
@@ -1708,7 +1670,6 @@ function BunkerFpScene({
     );
   }
   const tier = tierRef.current;
-  const coreRef = useRef<Mesh | null>(null);
   const outlineRef = useRef<LineSegments | null>(null);
   const ghostRef = useRef<Group | null>(null);
   // The live-raid runtime, shared: the rig steps it against the player
@@ -1748,7 +1709,6 @@ function BunkerFpScene({
       <FpRockInstances bunker={bunker} detail={detail} />
       <FpLootGlints bunker={bunker} />
       <FpPlacedParts bunker={bunker} detail={detail} tier={tier} />
-      <FpCore bunker={bunker} coreRef={coreRef} />
       <FpClankerLayer
         runtimeRef={raidRuntimeRef}
         footprint={bunker.footprint}
@@ -1774,7 +1734,6 @@ function BunkerFpScene({
       <BunkerFpRig
         bunker={bunker}
         entry={entry}
-        coreRef={coreRef}
         tool={tool}
         onEdit={onEdit}
         outlineRef={outlineRef}

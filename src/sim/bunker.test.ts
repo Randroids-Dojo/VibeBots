@@ -6,7 +6,6 @@ import {
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
-  BUNKER_CORE_MAX_DURABILITY,
   BUNKER_RAID_TIER_CAP,
   BUNKER_SKIN_CATALOG,
   type BunkerState,
@@ -80,6 +79,17 @@ function allDugBunker(minerCol: number, minerRow: number): BunkerState {
     }
   }
   return { ...bunker, dug };
+}
+
+/** The footprint's center cell on the tunnel plane: the cell the retired
+ * core used to occupy (F-118). Kept as a stable central reference for
+ * placement and reset tests. */
+function centerCell(bunker: BunkerState): { col: number; row: number } {
+  const { footprint } = bunker;
+  return {
+    col: footprint.col + Math.floor(footprint.width / 2),
+    row: footprint.row + Math.floor(footprint.height / 2),
+  };
 }
 
 /** A bunker with the whole depth-0 plane dug out but deeper cells still
@@ -288,24 +298,21 @@ describe("specialist Clankers (F-085)", () => {
 });
 
 describe("bunker repairs and stacked rooms (F-086)", () => {
-  it("prices repairs proportionally and restores everything", () => {
+  it("prices repairs proportionally and restores every part", () => {
     const bunker = allDugBunker(10, 10);
+    const center = centerCell(bunker);
     const wall = BASE_PART_CATALOG["wall-panel"];
     const placed = placeBasePart(
       bunker,
       STARTER_BASE_PART_INVENTORY,
       "wall-panel",
-      bunker.core.col - 1,
-      bunker.core.row,
+      center.col - 1,
+      center.row,
     );
     if (!placed.ok) throw new Error(placed.reason);
-    // Chip the wall to half and the core by 20.
+    // Chip the wall to half durability.
     const damaged = {
       ...placed.bunker,
-      core: {
-        ...placed.bunker.core,
-        durability: BUNKER_CORE_MAX_DURABILITY - 20,
-      },
       parts: placed.bunker.parts.map((part) => ({
         ...part,
         durability: Math.floor(wall.durability / 2),
@@ -313,20 +320,17 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     };
     const plan = bunkerRepairPlan(damaged);
     expect(plan.partCount).toBe(1);
-    expect(plan.coreMissing).toBe(20);
     // Concrete expectation: the wall (price 6) at half durability costs
-    // ceil(0.5 * 6 * 0.5) = 2, the core's 20 missing points cost
-    // ceil(20 * 0.25) = 5, so the plan totals 7 vibes.
-    expect(plan.totalCost).toBe(7);
+    // ceil(0.5 * 6 * 0.5) = 2, so the plan totals 2 vibes.
+    expect(plan.totalCost).toBe(2);
     const repaired = applyBunkerRepairs(damaged);
-    expect(repaired.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
     expect(repaired.parts[0].durability).toBe(wall.durability);
     expect(bunkerRepairPlan(repaired).totalCost).toBe(0);
   });
 
   it("resets the bunker to a bare claim, refunding only undamaged parts", () => {
     const bunker = planeDugBunker(10, 10);
-    const { col, row } = bunker.core;
+    const { col, row } = centerCell(bunker);
     let current = bunker;
     let stock = STARTER_BASE_PART_INVENTORY;
     for (const [partId, c, r] of [
@@ -341,11 +345,10 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     }
     const dugOut = excavateBunkerCell(current, col, row, 1);
     if (!dugOut.ok) throw new Error(dugOut.reason);
-    // One wall chipped, the door untouched, the core dented, one cell
-    // dug, a purchased skin selected.
+    // One wall chipped, the door untouched, one cell dug, a purchased
+    // skin selected.
     const damaged = {
       ...dugOut.bunker,
-      core: { ...dugOut.bunker.core, durability: 40 },
       skin: "gilded" as const,
       skinsOwned: ["gilded" as const],
       parts: dugOut.bunker.parts.map((part, index) =>
@@ -365,12 +368,8 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     // Reset clears the built layout but keeps the excavation and its
     // depletion (F-120): the dug-out rock survives.
     expect(reset.bunker.dug).toEqual(damaged.dug);
-    expect(reset.bunker.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
-    // The claim itself survives: footprint, core cell, and skins.
+    // The claim itself survives: footprint and skins.
     expect(reset.bunker.footprint).toEqual(damaged.footprint);
-    expect(reset.bunker.core.col).toBe(damaged.core.col);
-    expect(reset.bunker.core.row).toBe(damaged.core.row);
-    expect(reset.bunker.core.depth).toBe(damaged.core.depth);
     expect(reset.bunker.skin).toBe("gilded");
     expect(reset.bunker.skinsOwned).toEqual(["gilded"]);
     // Pure: the inputs are untouched.
@@ -385,7 +384,6 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     // The pre-mined spawn pocket survives a reset (F-115/F-120).
     expect(reset.bunker.dug).toEqual(bunker.dug);
     expect(reset.bunker.dug.length).toBeGreaterThan(0);
-    expect(reset.bunker.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
     expect(reset.inventory).toEqual(STARTER_BASE_PART_INVENTORY);
   });
 });
@@ -483,35 +481,32 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
     ).toEqual({ ok: false, reason: "missing" });
   });
 
-  it("blocks only the core's exact 3D cell", () => {
+  it("builds on the freed center cell the core used to occupy (F-118)", () => {
     const bunker = planeDugBunker(4, 5);
-    expect(
-      placeBasePart(
-        bunker,
-        inventory(),
-        "wall-panel",
-        bunker.core.col,
-        bunker.core.row,
-        0,
-      ),
-    ).toEqual({ ok: false, reason: "core" });
-    const dugBehindCore = excavateBunkerCell(
+    const center = centerCell(bunker);
+    const placed = placeBasePart(
       bunker,
-      bunker.core.col,
-      bunker.core.row,
-      1,
-    );
-    expect(dugBehindCore.ok).toBe(true);
-    if (!dugBehindCore.ok) return;
-    const behindCore = placeBasePart(
-      dugBehindCore.bunker,
       inventory(),
       "wall-panel",
-      bunker.core.col,
-      bunker.core.row,
+      center.col,
+      center.row,
+      0,
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    // And the cell directly behind it opens and builds like any other.
+    const dugBehind = excavateBunkerCell(bunker, center.col, center.row, 1);
+    expect(dugBehind.ok).toBe(true);
+    if (!dugBehind.ok) return;
+    const behind = placeBasePart(
+      dugBehind.bunker,
+      inventory(),
+      "wall-panel",
+      center.col,
+      center.row,
       1,
     );
-    expect(behindCore.ok).toBe(true);
+    expect(behind.ok).toBe(true);
   });
 
   it("moves parts across depths without changing durability", () => {

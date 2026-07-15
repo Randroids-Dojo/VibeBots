@@ -150,12 +150,24 @@ async function applySchema(sql: Sql): Promise<void> {
     CREATE TABLE IF NOT EXISTS bunkers (
       player_id uuid PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
       footprint jsonb NOT NULL,
-      core jsonb NOT NULL,
       parts jsonb NOT NULL DEFAULT '[]'::jsonb,
       skin text,
       skins_owned jsonb NOT NULL DEFAULT '[]'::jsonb,
       updated_at timestamptz NOT NULL DEFAULT now()
     )`;
+  // F-118 retired the bunker core. Fresh databases never create the column;
+  // existing ones keep their now-dead `core` jsonb but drop its NOT NULL so
+  // inserts that no longer supply it succeed. The column data is left in
+  // place rather than dropped (non-destructive); a later cleanup can drop it.
+  await sql`
+    DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bunkers' AND column_name = 'core'
+      ) THEN
+        ALTER TABLE bunkers ALTER COLUMN core DROP NOT NULL;
+      END IF;
+    END $$`;
   await sql`
     ALTER TABLE bunkers
     ADD COLUMN IF NOT EXISTS skin text`;

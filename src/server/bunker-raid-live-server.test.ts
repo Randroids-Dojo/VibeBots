@@ -12,13 +12,11 @@ import {
 } from "./bunker";
 
 const FOOTPRINT = { col: 1, row: 1, width: 7, height: 5 };
-const CORE = { col: 4, row: 3, durability: 160, depth: 0 };
 
 /** A bunkers-table row with one wall at an arbitrary (unworn) durability. */
 function bunkerRow(durability: number) {
   return {
     footprint: FOOTPRINT,
-    core: CORE,
     parts: [{ partId: "wall-panel", col: 3, row: 3, durability, depth: 1 }],
     dug: [{ col: 3, row: 3, depth: 1 }],
     block_seed: null,
@@ -58,8 +56,7 @@ describe("startLiveRaid (F-108)", () => {
         queries.push(query);
         if (query.includes("SELECT emeralds, track_xp, defense_xp"))
           return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-        if (query.includes("SELECT footprint, core, parts"))
-          return [bunkerRow(88)];
+        if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
         // The raid row is empty until the INSERT, then reads back the frozen row.
         if (query.includes("SELECT snapshot")) {
           return insertedSnapshot
@@ -105,8 +102,7 @@ describe("startLiveRaid (F-108)", () => {
       const query = strings.join(" ");
       if (query.includes("SELECT emeralds, track_xp, defense_xp"))
         return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-      if (query.includes("SELECT footprint, core, parts"))
-        return [bunkerRow(88)];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
       if (query.includes("SELECT snapshot"))
         return [
           {
@@ -135,8 +131,7 @@ describe("loadBunkerView live raid discrimination", () => {
       const query = strings.join(" ");
       if (query.includes("SELECT emeralds, track_xp, defense_xp"))
         return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-      if (query.includes("SELECT footprint, core, parts"))
-        return [bunkerRow(88)];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
       if (query.includes("SELECT snapshot")) return raidRows;
       if (query.includes("SELECT part_id, count")) return [];
       return [];
@@ -189,8 +184,7 @@ describe("loadBunkerView live raid discrimination", () => {
       queries.push(query);
       if (query.includes("SELECT emeralds, track_xp, defense_xp"))
         return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-      if (query.includes("SELECT footprint, core, parts"))
-        return [bunkerRow(88)];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
       if (query.includes("SELECT snapshot"))
         return [
           {
@@ -296,8 +290,7 @@ describe("resolveLiveRaid (F-105/F-106)", () => {
         // loadBunkerView after resolution: the raid is settled, so no active row.
         if (query.includes("SELECT emeralds, track_xp, defense_xp"))
           return [{ emeralds: 100, track_xp: 1000, defense_xp: 540 }];
-        if (query.includes("SELECT footprint, core, parts"))
-          return [bunkerRow(20)];
+        if (query.includes("SELECT footprint, parts")) return [bunkerRow(20)];
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) return [];
         return [];
@@ -400,8 +393,7 @@ describe("forfeitLiveRaid (F-160)", () => {
         }
         if (query.includes("SELECT emeralds, track_xp, defense_xp"))
           return [{ emeralds: 100, track_xp: 1000, defense_xp: 500 }];
-        if (query.includes("SELECT footprint, core, parts"))
-          return [bunkerRow(20)];
+        if (query.includes("SELECT footprint, parts")) return [bunkerRow(20)];
         // The forfeit settled the row, so loadBunkerView finds no active raid.
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) return [];

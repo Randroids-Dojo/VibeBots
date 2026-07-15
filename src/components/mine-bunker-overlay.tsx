@@ -95,8 +95,8 @@ function BasePartVisual({
 /**
  * The flat mine view's bunker layer. Since the hammer flow retired
  * this is render-only: claim outline and preview, blocked claim cells,
- * placed tunnel-plane parts, the core, raid clankers, and XP pickups.
- * All editing happens in the first-person view.
+ * and placed tunnel-plane parts. All editing happens in the
+ * first-person view.
  */
 export function BunkerOverlay({
   preview,
@@ -197,18 +197,6 @@ export function BunkerOverlay({
     <>
       {lines}
       {blocked}
-      {bunker && (
-        <mesh position={[cellX(bunker.core.col), -bunker.core.row, 0.62]}>
-          <octahedronGeometry args={[0.28, 0]} />
-          <meshStandardMaterial
-            color="#c084fc"
-            emissive="#8b5cf6"
-            emissiveIntensity={0.7}
-            roughness={0.35}
-            flatShading
-          />
-        </mesh>
-      )}
       {parts}
     </>
   );

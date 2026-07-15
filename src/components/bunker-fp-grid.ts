@@ -25,8 +25,6 @@ export const FP_CELL_COUNT = FP_COLS * FP_ROWS * FP_DEPTH;
 export const FP_OPEN = 0;
 /** A placed blocking part (wall, floor, roof, turret pedestal). */
 export const FP_SOLID_PART = 1;
-/** The bunker core: solid so the player cannot stand inside it. */
-export const FP_CORE = 2;
 /** Floor spikes: walkable for the owner, rendered in the cell. */
 export const FP_SPIKES = 3;
 /** Undug claim rock (depths 1-4): solid until excavated. */
@@ -91,9 +89,7 @@ export function fpCellInGrid(x: number, y: number, z: number): boolean {
 /** True when a solidity value blocks movement. Open cells, spikes
  * (owner-immune), and the owner's door all pass. */
 export function fpCellBlocks(value: number): boolean {
-  return (
-    value === FP_SOLID_PART || value === FP_CORE || value === FP_ROCK_UNDUG
-  );
+  return value === FP_SOLID_PART || value === FP_ROCK_UNDUG;
 }
 
 /**
@@ -159,10 +155,10 @@ export function fpSpawnCell(
 /**
  * Fills all 175 cells of `out` from the bunker state. Every cell starts
  * as solid claim rock (F-115/F-116); the dug set (including the depth-0
- * plane and the pre-mined spawn pocket) opens cells, then parts and the
- * core stamp their solidity over what they occupy. Legacy wire shapes
- * (parts without depth, bunkers without dug) normalize to an
- * unexcavated interior.
+ * plane and the pre-mined spawn pocket) opens cells, then parts stamp
+ * their solidity over what they occupy. Legacy wire shapes (parts
+ * without depth, bunkers without dug) normalize to an unexcavated
+ * interior.
  */
 export function buildFpSolidGrid(bunker: BunkerState, out: FpSolidGrid): void {
   out.fill(FP_ROCK_UNDUG);
@@ -186,11 +182,5 @@ export function buildFpSolidGrid(bunker: BunkerState, out: FpSolidGrid): void {
         : part.partId === "floor-spikes"
           ? FP_SPIKES
           : FP_SOLID_PART;
-  }
-  const coreX = bunker.core.col - footprint.col;
-  const coreY = bottomRow - bunker.core.row;
-  const coreZ = bunker.core.depth ?? 0;
-  if (fpCellInGrid(coreX, coreY, coreZ)) {
-    out[fpCellIndex(coreX, coreY, coreZ)] = FP_CORE;
   }
 }

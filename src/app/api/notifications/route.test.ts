@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-15-0.1.269-first-person-raids-only",
+      releaseNoticeId: "2026-07-15-0.1.270-bunker-core-removed",
       releaseSummary:
-        "Raids are first-person only now: The flat Start-raid button is gone; you defend your bunker from inside.",
+        "The bunker core is gone: The pink diamond in the middle of your bunker is retired, freeing that cell to build in.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-15-0.1.269-first-person-raids-only",
+      releaseNoticeId: "2026-07-15-0.1.270-bunker-core-removed",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -832,11 +832,10 @@ export async function POST(request: Request): Promise<Response> {
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
     ), claimed_bunker AS (
-      INSERT INTO bunkers (player_id, footprint, core, parts, dug, block_seed, loot)
+      INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot)
       SELECT
         ${playerId},
         ${JSON.stringify(claimedBunker?.footprint ?? {})}::jsonb,
-        ${JSON.stringify(claimedBunker?.core ?? {})}::jsonb,
         ${JSON.stringify(claimedBunker?.parts ?? [])}::jsonb,
         ${JSON.stringify(claimedBunker?.dug ?? [])}::jsonb,
         ${claimedBunker?.blockSeed ?? null},

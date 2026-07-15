@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-15-0.1.269-first-person-raids-only";
+export const RELEASE_NOTICE_ID = "2026-07-15-0.1.270-bunker-core-removed";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.270",
+      date: "2026-07-15",
+      title: "The bunker core is gone",
+      intro:
+        "The pink diamond in the middle of your bunker is retired, freeing that cell to build in.",
+      changes: [
+        {
+          build,
+          text: "The spinning core that sat in the center of every bunker is removed. It never did anything you could use, and it took up a buildable cell, so it is gone. The cell it stood in is now ordinary open space you can walk through, build on, or dig behind.",
+        },
+        {
+          build,
+          text: "Repairs now cover only your placed parts, since there is no core left to patch. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.269",
       date: "2026-07-15",

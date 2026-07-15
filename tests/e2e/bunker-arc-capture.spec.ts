@@ -41,7 +41,6 @@ test("bunker arc capture run", async ({ page }) => {
   const view = {
     bunker: {
       footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-      core: { col: START_COL, row: 3, durability: 140 },
       parts: damagedParts,
       skin: "steelworks",
       skinsOwned: [] as string[],
@@ -88,7 +87,6 @@ test("bunker arc capture run", async ({ page }) => {
   );
   await page.route("**/api/bunker/repair", (route) => {
     current = structuredClone(current);
-    current.bunker.core.durability = 160;
     current.bunker.parts = current.bunker.parts.map((part) => ({
       ...part,
       durability: 90,

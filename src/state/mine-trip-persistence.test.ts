@@ -336,11 +336,6 @@ describe("pending bunker depth normalization", () => {
       claimedAtMoveCount: 0,
       bunker: {
         footprint: bunker.footprint,
-        core: {
-          col: bunker.core.col,
-          row: bunker.core.row,
-          durability: bunker.core.durability,
-        },
         parts: [
           { partId: "wall-panel", col: 2, row: 5, durability: 90 },
           { partId: "door-panel", col: 3, row: 5, depth: 9, durability: 60 },
@@ -355,7 +350,6 @@ describe("pending bunker depth normalization", () => {
 
     const loaded = loadLocalTrip(1);
 
-    expect(loaded?.pendingBunker?.bunker.core.depth).toBe(0);
     expect(loaded?.pendingBunker?.bunker.parts).toEqual([
       { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
       { partId: "door-panel", col: 3, row: 5, depth: 0, durability: 60 },
@@ -415,14 +409,6 @@ describe("pending bunker validation (F-112)", () => {
     expect(normalizePendingBunker(withBunker({ parts: {} }))).toBeNull();
   });
 
-  it("returns null for a malformed core", () => {
-    expect(normalizePendingBunker(withBunker({ core: null }))).toBeNull();
-    expect(normalizePendingBunker(withBunker({ core: "core" }))).toBeNull();
-    expect(
-      normalizePendingBunker(withBunker({ core: { col: 1, row: 1 } })),
-    ).toBeNull();
-  });
-
   it("returns null for a malformed dug cell", () => {
     expect(normalizePendingBunker(withBunker({ dug: [null] }))).toBeNull();
     // Missing depth: dug cells always carry a real depth, so this is corruption.
@@ -452,7 +438,6 @@ describe("pending bunker validation (F-112)", () => {
     const normalized = normalizePendingBunker(valid);
     expect(normalized).not.toBeNull();
     expect(normalized?.bunker.dug).toEqual(valid.bunker.dug);
-    expect(normalized?.bunker.core.depth).toBe(0);
   });
 
   it("drops a stored trip whose pending bunker is malformed", () => {

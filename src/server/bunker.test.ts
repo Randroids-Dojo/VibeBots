@@ -75,11 +75,10 @@ function makeBuySql({
     if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
       return [{ emeralds: 200, track_xp: trackXp, defense_xp: defenseXp }];
     }
-    if (query.includes("SELECT footprint, core, parts")) {
+    if (query.includes("SELECT footprint, parts")) {
       return [
         {
           footprint: { col: 1, row: 1, width: 7, height: 5 },
-          core: { col: 4, row: 3, durability: 160 },
           parts,
         },
       ];
@@ -109,7 +108,7 @@ describe("bunker server helpers", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) return [];
+        if (query.includes("SELECT footprint, parts")) return [];
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) {
           return [
@@ -185,11 +184,10 @@ describe("bunker server helpers", () => {
           // Guarded debit: only returns a row when the player can afford it.
           return emeralds >= 7 ? [{ emeralds: emeralds - 7 }] : [];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 3, durability: 140 },
               parts: damagedParts,
             },
           ];
@@ -214,7 +212,7 @@ describe("bunker server helpers", () => {
       true,
     );
     // The persisted bunker carries the restored durabilities, not just any
-    // UPDATE: inspect the core/parts JSON bound into the UPDATE bunkers call.
+    // UPDATE: inspect the parts JSON bound into the UPDATE bunkers call.
     const updateCall = rich.mock.calls.find((call) =>
       (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
     );
@@ -222,13 +220,8 @@ describe("bunker server helpers", () => {
     const bound = ((updateCall ?? []) as unknown[])
       .slice(1)
       .filter((value): value is string => typeof value === "string");
-    const coreJson = bound.find(
-      (value) => value.includes('"durability"') && !value.includes('"partId"'),
-    );
     const partsJson = bound.find((value) => value.includes('"partId"'));
-    expect(coreJson).toBeDefined();
     expect(partsJson).toBeDefined();
-    expect(JSON.parse(coreJson ?? "{}").durability).toBe(160);
     expect(
       JSON.parse(partsJson ?? "[]").map(
         (part: { durability: number }) => part.durability,
@@ -244,11 +237,10 @@ describe("bunker server helpers", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 50, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 3, depth: 0, durability: 100 },
               parts: [
                 { partId: "wall-panel", col: 3, row: 3, durability: 90 },
                 { partId: "wall-panel", col: 5, row: 3, durability: 45 },
@@ -274,7 +266,6 @@ describe("bunker server helpers", () => {
                     durationSeconds: 180,
                     bunker: {
                       footprint,
-                      core: { col: 4, row: 3, durability: 160, depth: 0 },
                       parts: [],
                       dug: [],
                       block_seed: null,
@@ -319,8 +310,8 @@ describe("bunker server helpers", () => {
     const result = await resetBunker(sql as never, "player-1");
     expect(result.ok).toBe(true);
 
-    // One UPDATE persists the emptied parts, the preserved excavation
-    // (F-120: reset keeps dug-out rock), and the restored core together.
+    // One UPDATE persists the emptied parts and the preserved excavation
+    // (F-120: reset keeps dug-out rock) together.
     const updateCall = sql.mock.calls.find((call) =>
       (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
     );
@@ -330,7 +321,6 @@ describe("bunker server helpers", () => {
     ).join(" ");
     expect(updateQuery).toContain("SET parts");
     expect(updateQuery).toContain("dug");
-    expect(updateQuery).toContain("core");
     const bound = ((updateCall ?? []) as unknown[]).slice(1);
     expect(bound[0]).toBe("[]");
     // The dug set survives the reset (F-120) and always carries the spawn
@@ -339,7 +329,6 @@ describe("bunker server helpers", () => {
     const persistedDug = JSON.parse(String(bound[1]));
     expect(persistedDug).toContainEqual({ col: 4, row: 3, depth: 1 });
     expect(persistedDug).toHaveLength(27);
-    expect(JSON.parse(String(bound[2])).durability).toBe(160);
 
     // The inventory upsert carries the refunds: the undamaged wall and
     // door return (2 -> 3, 0 -> 1); the damaged wall is lost.
@@ -361,7 +350,7 @@ describe("bunker server helpers", () => {
       if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
         return [{ emeralds: 50, track_xp: 0, defense_xp: 0 }];
       }
-      if (query.includes("SELECT footprint, core, parts")) return [];
+      if (query.includes("SELECT footprint, parts")) return [];
       if (query.includes("SELECT snapshot")) return [];
       if (query.includes("SELECT part_id, count")) return [];
       return [];
@@ -383,11 +372,10 @@ describe("bunker server helpers", () => {
           // Guarded debit: only returns a row when the player can afford it.
           return emeralds >= 120 ? [{ emeralds: emeralds - 120 }] : [];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 3, durability: 160 },
               parts: [],
               skin: "steelworks",
               skins_owned: skinsOwned,
@@ -500,11 +488,10 @@ describe("bunker depth normalization", () => {
       if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
         return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
       }
-      if (query.includes("SELECT footprint, core, parts")) {
+      if (query.includes("SELECT footprint, parts")) {
         return [
           {
             footprint: { col: 1, row: 4, width: 7, height: 5 },
-            core: { col: 4, row: 6, durability: 160 },
             parts: [
               { partId: "wall-panel", col: 1, row: 4, durability: 90 },
               {
@@ -526,7 +513,6 @@ describe("bunker depth normalization", () => {
 
     const view = await loadBunkerView(sql as never, "player-1");
 
-    expect(view.bunker?.core).toMatchObject({ col: 4, row: 6, depth: 0 });
     expect(view.bunker?.parts).toEqual([
       { partId: "wall-panel", col: 1, row: 4, depth: 0, durability: 90 },
       { partId: "door-panel", col: 2, row: 4, depth: 0, durability: 60 },
@@ -548,11 +534,10 @@ describe("bunker excavation wrapper", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint: { col: 1, row: 4, width: 7, height: 5 },
-              core: { col: 4, row: 6, depth: 0, durability: 160 },
               parts: [],
               // One open floor cell so the depth-1 dig below chains from
               // it; depth-3 stays unreachable (no open neighbor).
@@ -610,11 +595,10 @@ describe("bunker excavation wrapper", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 42, depth: 0, durability: 160 },
               parts: [],
               dug: [target.open],
               block_seed: blockSeed,
@@ -658,11 +642,10 @@ describe("bunker loot collection", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 5, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 42, depth: 0, durability: 160 },
               parts: [],
               dug: [{ col: 2, row: 44, depth: 0 }],
               loot: [{ col: 2, row: 44, depth: 0, ores: { coal: 4 } }],
@@ -695,11 +678,10 @@ describe("bunker loot collection", () => {
       if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
         return [{ emeralds: 5, track_xp: 0, defense_xp: 0 }];
       }
-      if (query.includes("SELECT footprint, core, parts")) {
+      if (query.includes("SELECT footprint, parts")) {
         return [
           {
             footprint,
-            core: { col: 4, row: 42, depth: 0, durability: 160 },
             parts: [],
             dug: [{ col: 2, row: 44, depth: 0 }],
             loot: [],
@@ -730,11 +712,10 @@ describe("bunker part wrappers with depth", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint: { col: 1, row: 4, width: 7, height: 5 },
-              core: { col: 4, row: 6, depth: 0, durability: 160 },
               parts: [],
               dug: [
                 { col: 2, row: 5, depth: 1 },
@@ -783,11 +764,10 @@ describe("banked edit revision guard (F-122)", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint: { col: 1, row: 1, width: 7, height: 5 },
-              core: { col: 4, row: 3, depth: 0, durability: 160 },
               parts: [],
               // The placement cell (1,1,0) is dug open so placeBasePart
               // reaches the revision-guarded write.

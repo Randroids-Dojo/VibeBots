@@ -65,9 +65,10 @@ export const mineConsumablesSchema = z.object({
 // trip route, the trip-response reader, and local persistence all restore the
 // same nested PendingBunkerBuild, so validating it in one place stops the old
 // hand-rolled normalizer from throwing when it dereferenced malformed data
-// (a `parts: [null]` element, a non-object core, out-of-range cells). Invalid
-// input is rejected as a stable incompatible-state; legacy shapes coerce:
-// a missing depth lands on the tunnel plane and a missing dug list is empty.
+// (a `parts: [null]` element, out-of-range cells). Invalid input is rejected
+// as a stable incompatible-state; legacy shapes coerce: a missing depth lands
+// on the tunnel plane, a missing dug list is empty, and a legacy `core` field
+// (F-118 removed the core) is silently dropped by the object strip.
 const BUNKER_PART_LIMIT = 174;
 const MAX_BUNKER_CELLS =
   BUNKER_CLAIM_WIDTH * BUNKER_CLAIM_HEIGHT * BUNKER_CLAIM_DEPTH;
@@ -84,9 +85,9 @@ const bunkerCellDepth = z
   .int()
   .min(0)
   .max(BUNKER_CLAIM_DEPTH - 1);
-// Parts and the core predate the depth axis (F-115), so their depth is
-// coerced onto the tunnel plane rather than rejected: a missing, non-integer,
-// or out-of-range depth lands on 0, matching the legacy resume behavior.
+// Parts predate the depth axis (F-115), so their depth is coerced onto the
+// tunnel plane rather than rejected: a missing, non-integer, or out-of-range
+// depth lands on 0, matching the legacy resume behavior.
 const legacyPartDepth = z.preprocess(
   (value) =>
     typeof value === "number" &&
@@ -131,15 +132,6 @@ const bunkerFootprintSchema = z.object({
   height: z.number().int().min(1).max(BUNKER_CLAIM_HEIGHT),
 });
 
-const bunkerCoreSchema = z.object({
-  col: z.number().int(),
-  row: z.number().int().min(1),
-  depth: legacyPartDepth,
-  // The core can sit at 0 after raid damage, so allow it (unlike a placed
-  // part, which is removed at 0); the max covers full core durability.
-  durability: z.number().int().min(0).max(PART_DURABILITY_MAX),
-});
-
 const bunkerLootSchema = z.object({
   col: z.number().int(),
   row: z.number().int().min(1),
@@ -154,7 +146,6 @@ const basePartInventorySchema = z.record(z.string(), z.number().int().min(0));
 const bunkerStateSchema = z
   .object({
     footprint: bunkerFootprintSchema,
-    core: bunkerCoreSchema,
     parts: z.array(placedBasePartSchema).max(BUNKER_PART_LIMIT),
     dug: z.array(dugBunkerCellSchema).max(MAX_BUNKER_CELLS).default([]),
     blockSeed: z.number().int().optional(),

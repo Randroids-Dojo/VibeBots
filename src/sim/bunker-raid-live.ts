@@ -794,16 +794,18 @@ export function validateLiveRaidOutcome(
   ) {
     return { ok: false, reason: "reward-range" };
   }
-  // Every reported worn part must map to a distinct snapshot blocking/spike
-  // part at the same cell, its durability only ever reduced, so a client
-  // cannot fabricate a defense or claim it took no damage where it did.
+  // The report must account for exactly the snapshot's blocking and spike
+  // parts, each mapped to a distinct cell with durability only ever reduced,
+  // so a client cannot fabricate a defense, claim it took no damage where it
+  // did, or omit a damaged part to keep it pristine. Turrets are not
+  // durability-tracked and are absent by design.
   const snapshotParts = new Map<string, number>();
   for (const part of bunker.parts) {
     const def = BASE_PART_CATALOG[part.partId];
     if (!def.blocksClankers && part.partId !== "floor-spikes") continue;
     snapshotParts.set(cellKey(part.col, part.row, part.depth), part.durability);
   }
-  if (report.partWear.length > snapshotParts.size) {
+  if (report.partWear.length !== snapshotParts.size) {
     return { ok: false, reason: "part-wear" };
   }
   const seen = new Set<string>();
@@ -823,4 +825,61 @@ export function validateLiveRaidOutcome(
     }
   }
   return { ok: true };
+}
+
+export const LIVE_RAID_SURVIVE_VIBES_BASE = 20;
+export const LIVE_RAID_SURVIVE_VIBES_PER_TIER = 10;
+
+/** The result of settling a raid: the frozen snapshot with part wear
+ * applied, plus the verdict and the reward to credit. */
+export interface LiveRaidSettlement {
+  bunker: BunkerState;
+  survived: boolean;
+  sealed: boolean;
+  reward: { vibes: number; defenseXp: number };
+}
+
+/**
+ * Settle a client-reported raid outcome against the frozen start snapshot
+ * (F-105/F-108): validate the report, then compute the worn bunker and the
+ * reward to grant, all purely so the resolve route only has to persist the
+ * result. A survive grants vibes scaled by tier (mirroring the interim
+ * raid) plus the collected defense XP the report carries; a loss grants
+ * nothing (matching interim raids). `bunker` is the frozen snapshot.
+ */
+export function settleLiveRaidOutcome(
+  bunker: BunkerState,
+  tier: number,
+  report: LiveRaidOutcomeReport,
+):
+  | { ok: true; settlement: LiveRaidSettlement }
+  | { ok: false; reason: LiveRaidOutcomeRejection } {
+  const valid = validateLiveRaidOutcome(bunker, tier, report);
+  if (!valid.ok) return valid;
+  const wearByCell = new Map<string, number>();
+  for (const worn of report.partWear) {
+    wearByCell.set(cellKey(worn.col, worn.row, worn.depth), worn.durability);
+  }
+  const parts = bunker.parts.map((part) => {
+    const worn = wearByCell.get(cellKey(part.col, part.row, part.depth));
+    return worn === undefined ? part : { ...part, durability: worn };
+  });
+  const survived = report.outcome === "won";
+  const normalizedTier = Math.max(1, Math.floor(tier));
+  return {
+    ok: true,
+    settlement: {
+      bunker: { ...bunker, parts },
+      survived,
+      sealed: report.sealed,
+      reward: survived
+        ? {
+            vibes:
+              LIVE_RAID_SURVIVE_VIBES_BASE +
+              normalizedTier * LIVE_RAID_SURVIVE_VIBES_PER_TIER,
+            defenseXp: report.defenseXp,
+          }
+        : { vibes: 0, defenseXp: 0 },
+    },
+  };
 }

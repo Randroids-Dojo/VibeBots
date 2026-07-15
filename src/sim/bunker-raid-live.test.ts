@@ -19,6 +19,8 @@ import {
   LIVE_CLANKER_ENERGY_PER_TIER,
   LIVE_RAID_DURATION_TICKS,
   LIVE_RAID_EXPIRY_GRACE_TICKS,
+  LIVE_RAID_SURVIVE_VIBES_BASE,
+  LIVE_RAID_SURVIVE_VIBES_PER_TIER,
   type LiveRaidCell,
   type LiveRaidOutcomeReport,
   type LiveRaidState,
@@ -28,6 +30,7 @@ import {
   liveRaidPartWear,
   liveRaidSealed,
   liveRaidWaveSize,
+  settleLiveRaidOutcome,
   stepLiveRaid,
   validateLiveRaidOutcome,
 } from "./bunker-raid-live";
@@ -607,5 +610,87 @@ describe("turrets (F-143)", () => {
       // Otherwise it at least absorbed a hit and lived past it.
       expect(tank?.hits ?? 0).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("settlement (F-105/F-108)", () => {
+  const SEALED_PLAYER: LiveRaidCell = { col: 8, row: 7, depth: 2 };
+
+  it("settles a survive with tier-scaled vibes and the collected XP", () => {
+    const bunker = makeBunker([{ col: 8, row: 7, depth: 2 }]);
+    const raid = createLiveRaid(bunker, 2);
+    runToEnd(raid, SEALED_PLAYER);
+    for (const pickup of raid.xpPickups) {
+      collectLiveRaidPickup(raid, {
+        col: pickup.col,
+        row: pickup.row,
+        depth: pickup.depth,
+      });
+    }
+    const report = liveRaidOutcomeReport(raid);
+    const settled = settleLiveRaidOutcome(bunker, 2, report);
+    expect(settled.ok).toBe(true);
+    if (!settled.ok) return;
+    expect(settled.settlement.survived).toBe(true);
+    expect(settled.settlement.sealed).toBe(true);
+    expect(settled.settlement.reward.vibes).toBe(
+      LIVE_RAID_SURVIVE_VIBES_BASE + 2 * LIVE_RAID_SURVIVE_VIBES_PER_TIER,
+    );
+    expect(settled.settlement.reward.defenseXp).toBe(report.defenseXp);
+    expect(report.defenseXp).toBeGreaterThan(0);
+  });
+
+  it("settles a loss with no reward and applies part wear to the bunker", () => {
+    const dug: DugBunkerCell[] = [];
+    for (let depth = 0; depth <= 3; depth++)
+      dug.push({ col: 5, row: 5, depth });
+    const bunker = makeBunker(dug, [part("wall-panel", 5, 5, 1)]);
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, { col: 5, row: 5, depth: 3 });
+    expect(raid.outcome).toBe("lost");
+    const report = liveRaidOutcomeReport(raid);
+    const settled = settleLiveRaidOutcome(bunker, 1, report);
+    expect(settled.ok).toBe(true);
+    if (!settled.ok) return;
+    expect(settled.settlement.survived).toBe(false);
+    expect(settled.settlement.reward).toEqual({ vibes: 0, defenseXp: 0 });
+    const wall = settled.settlement.bunker.parts.find(
+      (p) => p.col === 5 && p.row === 5 && p.depth === 1,
+    );
+    // The wave chewed the wall down to break it, so the settled bunker
+    // records the reduced durability, not the pristine snapshot value.
+    expect(wall?.durability).toBeLessThan(
+      BASE_PART_CATALOG["wall-panel"].durability,
+    );
+    // The snapshot passed in is not mutated.
+    expect(bunker.parts[0].durability).toBe(
+      BASE_PART_CATALOG["wall-panel"].durability,
+    );
+  });
+
+  it("refuses to settle an invalid report, surfacing the reason", () => {
+    const bunker = makeBunker([{ col: 8, row: 7, depth: 2 }]);
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    const report = liveRaidOutcomeReport(raid);
+    const bad = { ...report, defenseXp: liveRaidMaxDefenseXp(1) + 1 };
+    const settled = settleLiveRaidOutcome(bunker, 1, bad);
+    expect(settled).toEqual({ ok: false, reason: "reward-range" });
+  });
+
+  it("rejects a report that omits a damaged part (cannot keep it pristine)", () => {
+    const bunker = makeBunker(
+      [{ col: 8, row: 7, depth: 2 }],
+      [part("wall-panel", 8, 7, 2), part("floor-spikes", 8, 6, 2)],
+    );
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    const report = liveRaidOutcomeReport(raid);
+    // Drop one tracked part from the report.
+    const bad = { ...report, partWear: report.partWear.slice(0, 1) };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "part-wear",
+    });
   });
 });

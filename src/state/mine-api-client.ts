@@ -23,7 +23,6 @@ import {
   TRIP_ALREADY_CASHED_OUT_CODE,
 } from "@/lib/api-codes";
 import type { AccountSaveSummary } from "@/server/account-summary";
-import type { PendingBunkerBuild } from "@/sim/bunker";
 import {
   isMineAction,
   MINE_VERSION,
@@ -405,30 +404,6 @@ export function accountCloudLoadFromResponse(
   };
 }
 
-function isPendingBunkerBuild(value: unknown): value is PendingBunkerBuild {
-  if (!value || typeof value !== "object") return false;
-  const raw = value as Record<string, unknown>;
-  if (
-    typeof raw.claimCol !== "number" ||
-    typeof raw.claimRow !== "number" ||
-    typeof raw.claimedAtMoveCount !== "number" ||
-    !raw.bunker ||
-    typeof raw.bunker !== "object" ||
-    !raw.inventory ||
-    typeof raw.inventory !== "object"
-  ) {
-    return false;
-  }
-  const bunker = raw.bunker as Record<string, unknown>;
-  return (
-    Boolean(bunker.footprint) &&
-    typeof bunker.footprint === "object" &&
-    Boolean(bunker.core) &&
-    typeof bunker.core === "object" &&
-    Array.isArray(bunker.parts)
-  );
-}
-
 export function accountTripFromResponse(value: unknown): SavedTrip | null {
   if (!value || typeof value !== "object") return null;
   const body = value as Record<string, unknown>;
@@ -437,6 +412,9 @@ export function accountTripFromResponse(value: unknown): SavedTrip | null {
   const raw = trip as Partial<Record<keyof SavedTrip, unknown>>;
   const pendingBunkerPresent =
     raw.pendingBunker !== null && raw.pendingBunker !== undefined;
+  // One shared schema validates the checkpoint (F-112): a present-but-invalid
+  // bunker rejects the whole trip instead of loading a half-broken state.
+  const pendingBunker = normalizePendingBunker(raw.pendingBunker);
   if (
     raw.mineVersion !== MINE_VERSION ||
     typeof raw.seed !== "number" ||
@@ -450,7 +428,7 @@ export function accountTripFromResponse(value: unknown): SavedTrip | null {
     !raw.moves.every(
       (move) => typeof move === "string" && isMineAction(move),
     ) ||
-    (pendingBunkerPresent && !isPendingBunkerBuild(raw.pendingBunker))
+    (pendingBunkerPresent && pendingBunker === null)
   ) {
     return null;
   }
@@ -462,9 +440,7 @@ export function accountTripFromResponse(value: unknown): SavedTrip | null {
     consumables: raw.consumables as SavedTrip["consumables"],
     baseDiff: raw.baseDiff as SavedTrip["baseDiff"],
     moves: raw.moves as SavedTrip["moves"],
-    pendingBunker: pendingBunkerPresent
-      ? normalizePendingBunker(raw.pendingBunker as PendingBunkerBuild)
-      : null,
+    pendingBunker,
     terminalReplayConsumed:
       typeof raw.terminalReplayConsumed === "boolean"
         ? raw.terminalReplayConsumed

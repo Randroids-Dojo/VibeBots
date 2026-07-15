@@ -876,6 +876,7 @@ describe("mine store upgrade flow", () => {
         claimedAtMoveCount: 0,
         bunker: {
           footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+          core: { col: START_COL, row: 3, depth: 0, durability: 100 },
           parts: [],
         },
         inventory: {},
@@ -919,6 +920,48 @@ describe("mine store upgrade flow", () => {
     expect(store().lastResult).toBeNull();
     expect(store().pendingBunker).toBeNull();
     expect(store().resumeElevatorDirection).toBeNull();
+  });
+
+  it("surfaces a fresh-start notice when a stored trip cannot be restored (F-112)", async () => {
+    const bunker = createBunker({
+      col: START_COL - 3,
+      row: 1,
+      width: 7,
+      height: 5,
+    });
+    const malformed = {
+      mineVersion: MINE_VERSION,
+      seed: 4242,
+      tripIndex: 1,
+      gear: DEFAULT_GEAR,
+      consumables: NO_CONSUMABLES,
+      baseDiff: [],
+      moves: ["down"] as MineAction[],
+      // A null part would have thrown in the old normalizer; now the trip is
+      // dropped and the player is told a fresh one started.
+      pendingBunker: {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 0,
+        bunker: { ...bunker, parts: [null] },
+        inventory: { ...STARTER_BASE_PART_INVENTORY },
+      },
+    };
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify(malformed),
+    );
+    // The world load fails (guest/offline), so the local resume path runs.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({}, 500)));
+
+    await store().loadWorld();
+
+    expect(store().shopNote).toBe(
+      "Your saved trip couldn't be restored, so a fresh one started.",
+    );
+    expect(store().pendingBunker).toBeNull();
+    // The unusable blob was dropped so it cannot nag on the next load.
+    expect(localStorage.getItem("vibebots-mine-trip-v2-slot-1")).toBeNull();
   });
 
   it("clears pending bunker state when a live move collapses", () => {

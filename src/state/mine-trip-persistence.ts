@@ -1,10 +1,5 @@
-import {
-  BUNKER_CLAIM_DEPTH,
-  type BunkerFootprint,
-  type DugBunkerCell,
-  type PendingBunkerBuild,
-} from "@/sim/bunker";
-import { withSpawnPocket } from "@/sim/bunker-blocks";
+import { pendingBunkerBuildSchema } from "@/server/mine-trip-schema";
+import type { BunkerFootprint, PendingBunkerBuild } from "@/sim/bunker";
 import {
   applyAction,
   createMine,
@@ -59,61 +54,21 @@ function migrateLegacyTripToSlotOne(): void {
   }
 }
 
-/** Saved trips survive deploys (MINE_VERSION does not bump for the depth
- * axis), so pre-depth pendingBunker saves resume against the new sim.
- * Anything without a valid depth lands on the tunnel plane (depth 0). */
-function normalizedTripDepth(value: unknown): number {
-  return typeof value === "number" &&
-    Number.isInteger(value) &&
-    value >= 0 &&
-    value < BUNKER_CLAIM_DEPTH
-    ? value
-    : 0;
-}
-
-function normalizedTripDug(value: unknown): DugBunkerCell[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((cell): cell is DugBunkerCell => {
-    if (!cell || typeof cell !== "object") return false;
-    const candidate = cell as Record<string, unknown>;
-    return (
-      typeof candidate.col === "number" &&
-      Number.isInteger(candidate.col) &&
-      typeof candidate.row === "number" &&
-      Number.isInteger(candidate.row) &&
-      typeof candidate.depth === "number" &&
-      Number.isInteger(candidate.depth) &&
-      // Depth 0 is diggable and the spawn pocket ships as depth-0 dug
-      // cells (F-115), so a locally persisted trip keeps them.
-      candidate.depth >= 0 &&
-      candidate.depth < BUNKER_CLAIM_DEPTH
-    );
-  });
-}
-
+/**
+ * Validate and normalize a persisted or transmitted pending-bunker checkpoint
+ * against the one shared bounded schema (F-112). Returns null for malformed
+ * input (a null part, a non-object core, out-of-range cells, oversized
+ * collections) instead of throwing the way the old hand-rolled normalizer did
+ * when it dereferenced those shapes; valid legacy saves coerce (missing depth
+ * lands on the tunnel plane, the spawn pocket is re-seeded). A null pending is
+ * a valid "no checkpoint", so it passes through as null.
+ */
 export function normalizePendingBunker(
-  pending: PendingBunkerBuild | null | undefined,
+  pending: unknown,
 ): PendingBunkerBuild | null {
-  if (!pending?.bunker) return pending ?? null;
-  const bunker = pending.bunker;
-  return {
-    ...pending,
-    bunker: {
-      ...bunker,
-      core: bunker.core
-        ? { ...bunker.core, depth: normalizedTripDepth(bunker.core.depth) }
-        : bunker.core,
-      parts: (bunker.parts ?? []).map((part) => ({
-        ...part,
-        depth: normalizedTripDepth(part.depth),
-      })),
-      // Seed the spawn pocket so a pending claim persisted before the
-      // dig-out redesign (F-115) still opens into a walkable room.
-      dug: bunker.footprint
-        ? withSpawnPocket(bunker.footprint, normalizedTripDug(bunker.dug))
-        : normalizedTripDug(bunker.dug),
-    },
-  };
+  if (pending == null) return null;
+  const parsed = pendingBunkerBuildSchema.safeParse(pending);
+  return parsed.success ? (parsed.data as PendingBunkerBuild) : null;
 }
 
 export function loadLocalTrip(slot: SaveSlotId): SavedTrip | null {
@@ -141,13 +96,42 @@ export function loadLocalTrip(slot: SaveSlotId): SavedTrip | null {
       removeLocalTrip(slot);
       return null;
     }
+    const pendingPresent = saved.pendingBunker != null;
+    const pendingBunker = normalizePendingBunker(saved.pendingBunker);
+    if (pendingPresent && pendingBunker === null) {
+      // A stored checkpoint whose bunker no longer validates is unusable, so
+      // drop it and start fresh rather than resume a half-broken trip (F-112).
+      removeLocalTrip(slot);
+      return null;
+    }
     return {
       ...saved,
       gear: normalizeGear(saved.gear),
-      pendingBunker: normalizePendingBunker(saved.pendingBunker),
+      pendingBunker,
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Whether the slot holds a trip whose pending bunker is present but no longer
+ * validates (F-112). The store shows a fresh-start notice for this corrupt
+ * checkpoint specifically, while a routine version or shape mismatch stays
+ * silent the way it always has. Check it before {@link loadLocalTrip}, which
+ * drops the unusable blob.
+ */
+export function storedTripPendingBunkerIsCorrupt(slot: SaveSlotId): boolean {
+  try {
+    const raw = localStorage.getItem(localTripKey(slot));
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return (
+      parsed?.pendingBunker != null &&
+      normalizePendingBunker(parsed.pendingBunker) === null
+    );
+  } catch {
+    return false;
   }
 }
 

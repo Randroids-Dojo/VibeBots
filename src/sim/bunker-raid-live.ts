@@ -131,6 +131,10 @@ export interface LiveRaidState {
   durationTicks: number;
   outcome: LiveRaidOutcome;
   minerKilled: boolean;
+  /** True once any Clanker ever entered the bunker footprint (breached the
+   * claim), so a survive can distinguish "nothing got in" from "held them
+   * off inside". Drives the sealed verdict and the Buttoned Up stamp. */
+  breached: boolean;
   footprint: BunkerFootprint;
   /** Frozen open set for the raid; the bunker is locked against edits and
    * digging while a raid runs, so openness only changes as parts break. */
@@ -215,6 +219,7 @@ export function createLiveRaid(
     durationTicks: LIVE_RAID_DURATION_TICKS,
     outcome: "active",
     minerKilled: false,
+    breached: false,
     footprint: bunker.footprint,
     dug: bunker.dug.map((cell) => ({ ...cell })),
     clankers,
@@ -436,6 +441,11 @@ function stepOneClanker(
   clanker.col = best.col;
   clanker.row = best.row;
   clanker.depth = best.depth;
+  // Entering the footprint counts as a breach, even if the Clanker dies to
+  // a spike on the very cell it entered: the claim was no longer sealed.
+  if (containsBunkerCell(state.footprint, best.col, best.row)) {
+    state.breached = true;
+  }
 
   // Crossing a live spike drains extra energy and consumes a spike use.
   const spike = livePartAt(state, best.col, best.row, best.depth);
@@ -511,6 +521,13 @@ export function collectLiveRaidPickup(
   return pickup.defenseXp;
 }
 
+/** A sealed raid is a survive where no Clanker ever entered the footprint:
+ * the claim held everything off. Drives the Buttoned Up stamp. A lost or
+ * breached raid is never sealed. */
+export function liveRaidSealed(state: LiveRaidState): boolean {
+  return state.outcome === "won" && !state.breached;
+}
+
 /** Defense XP actually banked from a raid: the sum of collected pickups.
  * A lost raid returns 0 (no survival reward), matching interim raids. */
 export function liveRaidDefenseXp(state: LiveRaidState): number {
@@ -565,6 +582,8 @@ export interface LiveRaidOutcomeReport {
   raidId: string;
   outcome: "won" | "lost";
   minerKilled: boolean;
+  /** Survive with nothing ever entering the footprint (Buttoned Up). */
+  sealed: boolean;
   endedTick: number;
   clankersKilled: number;
   defenseXp: number;
@@ -582,6 +601,7 @@ export function liveRaidOutcomeReport(
     raidId: state.raidId,
     outcome: state.outcome === "lost" ? "lost" : "won",
     minerKilled: state.minerKilled,
+    sealed: liveRaidSealed(state),
     endedTick: state.tick,
     clankersKilled: state.clankers.filter((clanker) => !clanker.alive).length,
     defenseXp: liveRaidDefenseXp(state),
@@ -593,6 +613,7 @@ export type LiveRaidOutcomeRejection =
   | "version"
   | "outcome-shape"
   | "outcome-consistency"
+  | "sealed-on-loss"
   | "tick-range"
   | "clankers-range"
   | "reward-on-loss"
@@ -620,6 +641,12 @@ export function validateLiveRaidOutcome(
   // A loss is exactly a miner death; a win is exactly no miner death.
   if ((report.outcome === "lost") !== report.minerKilled) {
     return { ok: false, reason: "outcome-consistency" };
+  }
+  // A lost raid can never be sealed (a breach happened by definition). A
+  // sealed win is trusted: it only gates a cosmetic stamp, so proving it
+  // against the snapshot is not worth a replay.
+  if (report.sealed && report.outcome !== "won") {
+    return { ok: false, reason: "sealed-on-loss" };
   }
   if (
     !Number.isInteger(report.endedTick) ||

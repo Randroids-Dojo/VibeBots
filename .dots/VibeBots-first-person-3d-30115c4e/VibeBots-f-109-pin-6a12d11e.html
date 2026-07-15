@@ -30,6 +30,9 @@ The draft emits no lifecycle event. Add bounded server-derived accepted or rejec
 <section id="telemetry-idempotency-contract-pr-223-review">
 Use the shared tuple (operation_family, logical_request_id, event_kind) as the internal event key. The logical request ID is the authoritative settlement or mutation identity when one exists; otherwise require a bounded idempotency token. Persist the request-to-result mapping and uniquely keyed outbox row atomically with the gameplay transition, or with the fixed rejection record when no transition commits. A retry looks up the same tuple, returns the recorded result, and never enqueues a second event. Keep the tuple out of analytics fields and use it only for sink idempotency or durable delivery deduplication. Do not claim exactly-once delivery when a crash after send cannot be deduplicated. Cover retries around commit, rejection, crash after send, sink recovery, conflict, expiry, and no-op. F-150 shares this tuple and replay rule.
 </section>
+<section id="merged-telemetry-out-of-scope-rejection-pr-224">
+Comment 4980856802 dismisses raid lifecycle telemetry as out of scope. The existing F-109 contract separately owns bounded start, resolve, loss, expiry, conflict, recovery, rejection, retry, and sink-failure outcomes. F-101 maps the user's new in-base telemetry request to missing bounded performance context. PR #224 merged as main 98d269ee with neither gap fixed, so both production gates remain open.
+</section>
 </article>
 </body>
 </html>

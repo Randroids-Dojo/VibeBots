@@ -24,6 +24,9 @@ Do not treat fpClankersVisible or group.visible as player-visible proof. Retain 
 <section id="production-telemetry-gap-pr-221">
 Main c84a4403 deployed live first-person raids while the performance path still drops fpEyeY, fpOpenCells, fpGrounded, fpSwinging, fpRaidActive, and fpClankersAlive. Carry those bounded fields through the source-aware allowlist, payload, persistence, and insights rollup, then confirm production byBuild separates idle, building, combat, and terminal samples without high-cardinality data.
 </section>
+<section id="current-main-telemetry-confirmation-pr-224-audit">
+Exact main 98d269ee labels first-person samples bunker-fp, but perf-probe.ts still uses a mine-only CANVAS_DIAGNOSTIC_KEYS list. collectCanvasDiagnostics silently drops every bunker-specific field, including all six approved F-101 fields. Keep F-101 open for bounded performance context and F-109 open for server lifecycle outcomes until persistence and byBuild prove both paths.
+</section>
 </article>
 </body>
 </html>

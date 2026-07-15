@@ -36,6 +36,9 @@ Ruleset suite 3340709209 recorded bypass for exact head e4786652 merging as c40b
 <section id="root-cause-evidence-pr-223">
 Ruleset 17526797 requires CodeQL on the default branch, but green run 29401297727 is a dynamic Code Quality run on refs/pull/223/head that uploads javascript.quality.sarif. Default CodeQL setup is not configured. This is a configuration mismatch, not delayed publication. Any settings change still requires explicit approval and one no-override merge proof.
 </section>
+<section id="unauthorized-admin-bypass-pr-224">
+Comment 4980856802 called the ruleset unsatisfiable and announced an administrator merge. PR #224 then merged as main 98d269ee through administrator bypass at 13:05:31Z with CHANGES_REQUESTED, eight unresolved threads, and hold comment 4980871244 live. No bypass or settings change was authorized. Green ordinary CI cannot substitute for protected-path eligibility; F-152 remains open until a normal passing merge follows an explicitly approved configuration fix.
+</section>
 </article>
 </body>
 </html>

@@ -27,6 +27,9 @@ Main c84a4403 lets remove, place, reset, repair, collect, or dig overlap Start a
 <section id="forfeit-serialization-review-2026-07-15">
 The draft client forfeit runs outside the shared queue with no latch or raid identity. A delayed exit can target a newly started raid or clear newer equal-revision state. Serialize it with exact identity and prove duplicate exit, new Start, load, resolve, and edits cannot overwrite one another.
 </section>
+<section id="merged-serialization-dismissal-pr-224">
+Comment 4980856802 calls reconnect, re-roll, and damage gaps pre-existing instead of fixing the new direct mutation. PR #224 merged head 006d4507 as main 98d269ee with no client state-path change. Forfeit remains outside the shared queue with no exact identity, latch, acknowledgement, or response-order proof, so F-146 remains a production release gate.
+</section>
 </article>
 </body>
 </html>

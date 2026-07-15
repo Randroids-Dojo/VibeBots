@@ -39,6 +39,9 @@ The bodyless POST takes no Request and cannot call sameOriginMutationRequired. W
 <section id="exact-head-review-evidence-pr-224">
 Review 4703051386 confirms missing route and smoke coverage, a mock that cannot model zero or multiple affected rows, a player-wide multi-row update, and duplicate settlement SQL. Fix them only inside the clean successor's exact-identity, row-count, transaction, wear, conflict, telemetry, and same-origin contract.
 </section>
+<section id="merged-all-row-dismissal-pr-224">
+Comment 4980856802 claims forfeiting every unresolved current-version row is correct and a no-match update is intentional idempotency. PR #224 then merged head 006d4507 as main 98d269ee without changing runtime or tests. That does not satisfy exact raid identity, one-active-row enforcement, affected-row proof, atomic wear, stable conflicts, same-origin validation, or authoritative replacement. Every F-106 gate remains open on production main.
+</section>
 </article>
 </body>
 </html>

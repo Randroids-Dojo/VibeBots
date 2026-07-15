@@ -4,6 +4,7 @@ import {
   type LiveRaidOutcomeReport,
 } from "@/sim/bunker-raid-live";
 import {
+  forfeitLiveRaid,
   loadBunkerView,
   placeBunkerPart,
   resolveLiveRaid,
@@ -382,5 +383,54 @@ describe("resolveLiveRaid (F-105/F-106)", () => {
       status: 409,
       error: "no active live raid",
     });
+  });
+});
+
+describe("forfeitLiveRaid (F-160)", () => {
+  /** A forfeit-path sql mock: records the forfeit UPDATE payload and serves a
+   * loadBunkerView with no active raid (the row is settled by the forfeit). */
+  function makeForfeitSql() {
+    const queries: string[] = [];
+    let forfeitPayload: unknown = null;
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        queries.push(query);
+        if (query.includes("UPDATE bunker_raids")) {
+          forfeitPayload = JSON.parse(values[0] as string);
+          return [];
+        }
+        if (query.includes("SELECT emeralds, track_xp, defense_xp"))
+          return [{ emeralds: 100, track_xp: 1000, defense_xp: 500 }];
+        if (query.includes("SELECT footprint, core, parts"))
+          return [bunkerRow(20)];
+        // The forfeit settled the row, so loadBunkerView finds no active raid.
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) return [];
+        return [];
+      },
+    );
+    return { sql, queries, forfeitPayload: () => forfeitPayload };
+  }
+
+  it("settles the active row as a no-reward forfeit and returns a raid-free view", async () => {
+    const { sql, queries, forfeitPayload } = makeForfeitSql();
+
+    const result = await forfeitLiveRaid(sql as never, "player-1");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // A no-reward forfeit result is written to the raid row...
+    expect(forfeitPayload()).toEqual({ outcome: "forfeit", survived: false });
+    // ...guarded to the active live row only (so a finished raid is untouched).
+    const forfeitQuery = queries.find((q) => q.includes("UPDATE bunker_raids"));
+    expect(forfeitQuery).toContain("result IS NULL");
+    expect(forfeitQuery).toContain("raid_version");
+    // No player or bunker mutation runs: a forfeit costs no reward and no wear.
+    expect(queries.some((q) => q.includes("UPDATE players"))).toBe(false);
+    expect(queries.some((q) => q.includes("UPDATE bunkers"))).toBe(false);
+    // The returned view shows the raid cleared, so re-entry cannot re-roll it.
+    expect(result.view.activeLiveRaid).toBeNull();
+    expect(result.view.activeRaid).toBeNull();
   });
 });

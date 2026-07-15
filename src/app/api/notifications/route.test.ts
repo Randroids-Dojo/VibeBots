@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-15-0.1.266-fp-specialist-tints",
+      releaseNoticeId: "2026-07-15-0.1.267-raid-forfeit-on-exit",
       releaseSummary:
-        "Spot breachers and tanks in first person: Specialist Clankers now wear their colors inside a first-person raid.",
+        "Leaving a live raid now forfeits it: Walk out of a first-person raid mid-fight and it counts as a loss.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-15-0.1.266-fp-specialist-tints",
+      releaseNoticeId: "2026-07-15-0.1.267-raid-forfeit-on-exit",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -27,6 +27,9 @@ Main c84a4403 deployed live first-person raids while the performance path still 
 <section id="current-main-telemetry-confirmation-pr-224-audit">
 Exact main 98d269ee labels first-person samples bunker-fp, but perf-probe.ts still uses a mine-only CANVAS_DIAGNOSTIC_KEYS list. collectCanvasDiagnostics silently drops every bunker-specific field, including all six approved F-101 fields. Keep F-101 open for bounded performance context and F-109 open for server lifecycle outcomes until persistence and byBuild prove both paths.
 </section>
+<section id="telemetry-evidence-precision-correction-pr-223">
+The current-main confirmation above overstates the runtime inventory. Exact main publishes fpEyeY, fpOpenCells, fpGrounded, and fpSwinging, and the mine-only allowlist drops those four. fpRaidActive and fpClankersAlive are absent from the runtime dataset and still need to be added. Carry all six through the source-aware payload, persistence, insights, and byBuild proof.
+</section>
 </article>
 </body>
 </html>

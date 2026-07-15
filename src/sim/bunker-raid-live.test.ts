@@ -15,11 +15,18 @@ import {
   createLiveRaid,
   LIVE_CLANKER_BASE_ENERGY,
   LIVE_CLANKER_ENERGY_PER_TIER,
+  LIVE_RAID_DURATION_TICKS,
+  LIVE_RAID_EXPIRY_GRACE_TICKS,
   type LiveRaidCell,
+  type LiveRaidOutcomeReport,
   type LiveRaidState,
   liveRaidDefenseXp,
+  liveRaidMaxDefenseXp,
+  liveRaidOutcomeReport,
   liveRaidPartWear,
+  liveRaidWaveSize,
   stepLiveRaid,
+  validateLiveRaidOutcome,
 } from "./bunker-raid-live";
 
 const FOOTPRINT: BunkerFootprint = { col: 5, row: 5, width: 7, height: 5 };
@@ -283,5 +290,176 @@ describe("determinism and terminal stability", () => {
     stepLiveRaid(raid, player);
     expect(raid.tick).toBe(settledTick);
     expect(JSON.stringify(raid)).toBe(snapshot);
+  });
+});
+
+describe("outcome report and validation (F-110)", () => {
+  const SEALED_PLAYER: LiveRaidCell = { col: 8, row: 7, depth: 2 };
+  function sealedWonReport(tier = 1): {
+    bunker: BunkerState;
+    report: LiveRaidOutcomeReport;
+  } {
+    const bunker = makeBunker([{ col: 8, row: 7, depth: 2 }]);
+    const raid = createLiveRaid(bunker, tier);
+    runToEnd(raid, SEALED_PLAYER);
+    return { bunker, report: liveRaidOutcomeReport(raid) };
+  }
+
+  it("reports a settled win with the full wave drained", () => {
+    const { report } = sealedWonReport(1);
+    expect(report.outcome).toBe("won");
+    expect(report.minerKilled).toBe(false);
+    expect(report.clankersKilled).toBe(liveRaidWaveSize(1));
+    expect(report.defenseXp).toBe(0); // dropped but uncollected
+  });
+
+  it("validates an honest report against its snapshot", () => {
+    const { bunker, report } = sealedWonReport(2);
+    expect(validateLiveRaidOutcome(bunker, 2, report)).toEqual({ ok: true });
+  });
+
+  it("validates a report carrying collected XP up to the wave maximum", () => {
+    const bunker = makeBunker([{ col: 8, row: 7, depth: 2 }]);
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    for (const pickup of raid.xpPickups) {
+      collectLiveRaidPickup(raid, {
+        col: pickup.col,
+        row: pickup.row,
+        depth: pickup.depth,
+      });
+    }
+    const report = liveRaidOutcomeReport(raid);
+    expect(report.defenseXp).toBe(liveRaidMaxDefenseXp(1));
+    expect(validateLiveRaidOutcome(bunker, 1, report)).toEqual({ ok: true });
+  });
+
+  it("validates an honest loss report as a miner death with no reward", () => {
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    const bunker = makeBunker(corridor);
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, { col: 8, row: 5, depth: 0 });
+    const report = liveRaidOutcomeReport(raid);
+    expect(report.outcome).toBe("lost");
+    expect(report.defenseXp).toBe(0);
+    expect(validateLiveRaidOutcome(bunker, 1, report)).toEqual({ ok: true });
+  });
+
+  it("rejects a stale sim version", () => {
+    const { bunker, report } = sealedWonReport();
+    const bad = { ...report, version: BUNKER_RAID_LIVE_VERSION + 1 };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "version",
+    });
+  });
+
+  it("rejects a win that claims a miner death (and vice versa)", () => {
+    const { bunker, report } = sealedWonReport();
+    const bad = { ...report, minerKilled: true };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "outcome-consistency",
+    });
+  });
+
+  it("rejects an out-of-range end tick", () => {
+    const { bunker, report } = sealedWonReport();
+    const bad = {
+      ...report,
+      endedTick: LIVE_RAID_DURATION_TICKS + LIVE_RAID_EXPIRY_GRACE_TICKS + 1,
+    };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "tick-range",
+    });
+  });
+
+  it("rejects more kills than the wave can hold", () => {
+    const { bunker, report } = sealedWonReport();
+    const bad = { ...report, clankersKilled: liveRaidWaveSize(1) + 1 };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "clankers-range",
+    });
+  });
+
+  it("rejects any reward on a loss", () => {
+    const { bunker, report } = sealedWonReport();
+    const bad = {
+      ...report,
+      outcome: "lost" as const,
+      minerKilled: true,
+      defenseXp: 25,
+    };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "reward-on-loss",
+    });
+  });
+
+  it("rejects a reward above the wave maximum", () => {
+    const { bunker, report } = sealedWonReport();
+    const bad = { ...report, defenseXp: liveRaidMaxDefenseXp(1) + 1 };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "reward-range",
+    });
+  });
+
+  it("rejects a fabricated part not in the snapshot", () => {
+    const bunker = makeBunker(
+      [{ col: 8, row: 7, depth: 2 }],
+      [part("wall-panel", 8, 7, 2)],
+    );
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    const report = liveRaidOutcomeReport(raid);
+    const bad = {
+      ...report,
+      partWear: [
+        ...report.partWear,
+        {
+          partId: "wall-panel" as const,
+          col: 0,
+          row: 0,
+          depth: 0,
+          durability: 1,
+        },
+      ],
+    };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "part-wear",
+    });
+  });
+
+  it("rejects a part durability above its snapshot value", () => {
+    const bunker = makeBunker(
+      [{ col: 8, row: 7, depth: 2 }],
+      [part("wall-panel", 8, 7, 2)],
+    );
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    const report = liveRaidOutcomeReport(raid);
+    const wall = BASE_PART_CATALOG["wall-panel"].durability;
+    const bad = {
+      ...report,
+      partWear: [
+        {
+          partId: "wall-panel" as const,
+          col: 8,
+          row: 7,
+          depth: 2,
+          durability: wall + 1,
+        },
+      ],
+    };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "part-wear",
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BunkerRouteResponse } from "@/lib/bunker-api-types";
 import { EMPTY_BASE_PART_INVENTORY } from "@/sim/bunker";
+import type { LiveRaidOutcomeReport } from "@/sim/bunker-raid-live";
 import {
   bunkerErrorMessage,
   buyRemoteBasePart,
@@ -13,7 +14,9 @@ import {
   placeRemoteBunkerPart,
   removeRemoteBunkerPart,
   resetRemoteBunker,
+  resolveRemoteLiveRaid,
   startRemoteBunkerRaid,
+  startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 
 const view: BunkerRouteResponse = {
@@ -153,6 +156,36 @@ describe("bunker API client", () => {
     await resetRemoteBunker();
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe("/api/bunker/reset");
     expect(lastBody()).toEqual({});
+  });
+
+  it("keeps the live-raid request shapes", async () => {
+    await startRemoteLiveBunkerRaid();
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
+      "/api/bunker/raid/start",
+    );
+    expect(lastBody()).toEqual({ tier: 1, mode: "live" });
+
+    await startRemoteLiveBunkerRaid(3);
+    expect(lastBody()).toEqual({ tier: 3, mode: "live" });
+
+    const report: LiveRaidOutcomeReport = {
+      version: 1,
+      raidId: "live-abc",
+      outcome: "won",
+      minerKilled: false,
+      sealed: true,
+      endedTick: 42,
+      clankersKilled: 6,
+      defenseXp: 150,
+      partWear: [
+        { partId: "wall-panel", col: 8, row: 6, depth: 1, durability: 40 },
+      ],
+    };
+    await resolveRemoteLiveRaid(report);
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
+      "/api/bunker/raid/resolve",
+    );
+    expect(lastBody()).toEqual(report);
   });
 
   it("returns non-ok responses with their parsed error bodies", async () => {

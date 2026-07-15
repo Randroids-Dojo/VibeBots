@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { BunkerRouteResponse } from "@/lib/bunker-api-types";
+import type {
+  BunkerRouteResponse,
+  LiveRaidActiveView,
+} from "@/lib/bunker-api-types";
 import {
   BASE_PART_CATALOG,
   type BunkerRaidRewardReport,
@@ -16,6 +19,8 @@ import {
   loadRemoteBunker,
   placeRemoteBunkerPart,
   resetRemoteBunker,
+  resolveRemoteLiveRaid,
+  startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 import { useBunkerStore } from "./bunker-store";
 
@@ -30,6 +35,8 @@ vi.mock("./bunker-api-client", async (importOriginal) => {
     loadRemoteBunker: vi.fn(),
     placeRemoteBunkerPart: vi.fn(),
     resetRemoteBunker: vi.fn(),
+    resolveRemoteLiveRaid: vi.fn(),
+    startRemoteLiveBunkerRaid: vi.fn(),
   };
 });
 
@@ -40,6 +47,8 @@ const mockedFinish = vi.mocked(finishRemoteBunkerRaid);
 const mockedLoad = vi.mocked(loadRemoteBunker);
 const mockedPlace = vi.mocked(placeRemoteBunkerPart);
 const mockedReset = vi.mocked(resetRemoteBunker);
+const mockedResolveLive = vi.mocked(resolveRemoteLiveRaid);
+const mockedStartLive = vi.mocked(startRemoteLiveBunkerRaid);
 
 const view: BunkerRouteResponse = {
   bunker: null,
@@ -81,6 +90,7 @@ describe("bunker store", () => {
       bunker: null,
       inventory: { ...EMPTY_BASE_PART_INVENTORY },
       activeRaid: null,
+      activeLiveRaid: null,
       player: null,
       revision: 0,
       lastRaidReward: null,
@@ -117,6 +127,94 @@ describe("bunker store", () => {
       player: view.player,
       lastRaidReward: null,
       note: null,
+    });
+  });
+
+  it("adopts an active live raid from a view and clears it when gone", async () => {
+    const liveRaid: LiveRaidActiveView = {
+      raidId: "live-abc",
+      tier: 2,
+      startedAtMs: 1_000,
+      durationSeconds: 180,
+      graceSeconds: 60,
+      bunker: createBunker(proposedBunkerFootprint(10, 8)),
+    };
+    mockedLoad.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: { ...view, activeLiveRaid: liveRaid },
+    });
+
+    await useBunkerStore.getState().loadBunker();
+    expect(useBunkerStore.getState().activeLiveRaid).toEqual(liveRaid);
+
+    // A later view without the field resets it (the raid resolved).
+    mockedLoad.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: { ...view, revision: 1 },
+    });
+    await useBunkerStore.getState().loadBunker();
+    expect(useBunkerStore.getState().activeLiveRaid).toBeNull();
+  });
+
+  it("starts a live raid through the opt-in start path", async () => {
+    const liveRaid: LiveRaidActiveView = {
+      raidId: "live-xyz",
+      tier: 1,
+      startedAtMs: 2_000,
+      durationSeconds: 180,
+      graceSeconds: 60,
+      bunker: createBunker(proposedBunkerFootprint(10, 8)),
+    };
+    mockedStartLive.mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { ...view, activeLiveRaid: liveRaid, liveRaid },
+    });
+
+    const body = await useBunkerStore.getState().startLiveRaid(1);
+
+    expect(body).not.toBeNull();
+    expect(mockedStartLive).toHaveBeenCalledWith(1);
+    expect(useBunkerStore.getState().activeLiveRaid).toEqual(liveRaid);
+  });
+
+  it("resolves a live raid and adopts the settled view", async () => {
+    useBunkerStore.setState({
+      activeLiveRaid: {
+        raidId: "live-xyz",
+        tier: 1,
+        startedAtMs: 2_000,
+        durationSeconds: 180,
+        graceSeconds: 60,
+        bunker: createBunker(proposedBunkerFootprint(10, 8)),
+      },
+    });
+    mockedResolveLive.mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { ...view, revision: 1, reward },
+    });
+
+    const body = await useBunkerStore.getState().resolveLiveRaid({
+      version: 1,
+      raidId: "live-xyz",
+      outcome: "won",
+      minerKilled: false,
+      sealed: true,
+      endedTick: 42,
+      clankersKilled: 6,
+      defenseXp: 150,
+      partWear: [],
+    });
+
+    expect(body).not.toBeNull();
+    expect(mockedResolveLive).toHaveBeenCalledOnce();
+    expect(useBunkerStore.getState()).toMatchObject({
+      status: "ready",
+      activeLiveRaid: null,
+      lastRaidReward: reward,
     });
   });
 

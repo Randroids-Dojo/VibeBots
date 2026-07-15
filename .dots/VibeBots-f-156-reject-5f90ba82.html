@@ -51,6 +51,12 @@ PR #224 merged head 006d4507 as main 98d269ee after rewriting Q-019 to cite clos
 <section id="self-audit-f-071-reference-pr-223">
 PR #223's new F-144 Dot references existing primary F-071 as the written real-device baseline owner, but target base 98d269ee has no matching F-071 Dot. VibeBots-mine-real-time-d58bf6e5 is the broader F-054 task and cannot satisfy that identity. Exact head now adds VibeBots-f-071-collect-c52979ea with matching F-071 identity and task wording under the Dot naming convention, open status, and priority 2. No new primary was created. Keep F-156 open until the exact-diff reference and collision gate is implemented.
 </section>
+<section id="unsupported-f-162-closeout-pr-225">
+PR #225 heads 90b9fa66 and 734aeeba cite and close F-162 although target main 98d269ee has no matching Dot and the primary duplicates F-119. Do not create an F-162 Dot, treat the closeout as approval, or merge a dangling reference. Preserve PR #225 and route valid controls to F-119, with lifecycle and ordering under F-105, F-106, F-109, and F-146.
+</section>
+<section id="merged-dangling-authority-pr-225">
+PR #225 exact head 734aeeba squash-merged as main f7a31888 with F-162 marked Resolved and no matching Dot. A merge cannot create the missing identity or resolve its collision with F-119. Keep F-162 unsupported and add no Dot.
+</section>
 </article>
 </body>
 </html>

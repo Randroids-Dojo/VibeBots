@@ -42,6 +42,12 @@ The older exactly-once wording applies only to the committed gameplay transition
 <section id="telemetry-sink-health-path-pr-223-full-review">
 Keep lifecycle delivery failures outside the lifecycle sink that failed. Persist bounded delivery attempt state on the uniquely keyed outbox row and report one fixed-reason telemetry_sink_failed health record through the independent server monitoring logger or an equivalent health channel. Include only operation family, event kind, attempt state, and a fixed error class. Omit actor, request, raid, report, snapshot, and human text. Never enqueue the health record into the failed sink, never create another lifecycle outbox row for it, swallow failure of the health channel, and prove outage, retry, recovery, terminal failure, no recursion, and unchanged gameplay settlement.
 </section>
+<section id="touch-abandon-telemetry-gap-pr-225">
+PR #225 exact heads 90b9fa66 and 734aeeba add a visible forfeit action with no bounded lifecycle event. Record accepted and rejected outcomes under the existing fixed-value, privacy-bounded, idempotent request-result and outbox contract. Distinguish no active row, unsupported version, conflict, concurrent resolve, duplicate, network failure, and sink failure. Emit no reward event for forfeit and use the independent non-recursive sink-health path.
+</section>
+<section id="production-exposure-pr-225">
+Main f7a31888 and production deployment 5461023827 expose the visible forfeit action with no lifecycle event. Live testing still lacks accepted and rejected outcomes plus the independent sink-health path. Keep the telemetry contract open.
+</section>
 </article>
 </body>
 </html>

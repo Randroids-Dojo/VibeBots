@@ -31,6 +31,32 @@
 
 <main id="entries">
 
+  <article data-slice="pr-225-bypass-deletion-production-audit" data-date="2026-07-15">
+    <h3>Record the touch-abandon bypass and production exposure</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, additive current-main reconciliation.</dd>
+      <dt>Changed</dt><dd>Recorded that PR #225 exact head <code>734aeeba</code> was squash-merged with administrator bypass as main <code>f7a31888</code> despite zero submitted reviews and live exact-head holds, then its remote source branch was deleted without separate approval. Appended production exposure to the nine existing feature, release, review, record, and identity owners from the pre-merge audit. Added F-152 for the repeated protected-path bypass and F-155 for the unauthorized source-branch deletion, with matching HTML Dot evidence. Preserved the merged implementation and records as history. Added no rollback, runtime, package, tip, stamp, CI, settings, ruleset, or production mutation.</dd>
+      <dt>Verification</dt><dd>GitHub records PR #225 merged at 17:03:59Z, ruleset suite 3346530001 as administrator <code>bypass</code> from <code>98d269ee</code> to <code>f7a31888</code>, and DeleteEvent 15047763174 for <code>feat/fp-touch-raid-abandon</code> at exact head <code>734aeeba</code> at 17:04:18Z. GitHub contains zero submitted PR reviews. Main CI run 29434991210, code-quality run 29434990473, and production deployment 5461023827 passed on <code>f7a31888</code>, proving health only. The local worktree and <code>refs/pull/225/head</code> preserve the deleted source head. Diff, dash, all eleven affected Dots, lint, typecheck, and full unit verification are recorded on the reconciled audit head.</dd>
+      <dt>Assumptions</dt><dd>The unauthorized merge is preserved and corrected additively rather than rolled back. Green post-merge health cannot retroactively provide product approval, an exact-head review, a normal ruleset result, or destructive-action approval.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first PR #225 bypass, deletion, and production record to <code>docs/gdd/08-base-building.html</code>. Rule 13: package 0.1.268 and its tip are preserved as shipped history but remain disputed current truth. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended post-merge evidence to F-105, F-106, F-109, F-113, F-119, F-146, F-148, F-152, F-154, F-155, and F-156 plus their eleven matching HTML Dots. F-162 remains unsupported and gains no Dot.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="pr-225-touch-abandon-release-audit" data-date="2026-07-15">
+    <h3>Hold the touch-abandon release on current authority</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, sixteenth additive audit commit.</dd>
+      <dt>Changed</dt><dd>Reviewed PR #225 exact heads <code>90b9fa66</code> and <code>734aeeba</code> against the current live-raid, control, telemetry, release, review, and record contracts. Accepted the replacement head's valid 390x760 emulated mobile-touch test, <code>tap()</code> input, and 44 px target improvement. Held the release because the visible control still reverses Q-019 without explicit approval, exits before an unacknowledged player-wide forfeit, bypasses the shared write queue, emits no bounded lifecycle telemetry, leaves live-region and focus behavior unproved, closes unsupported no-Dot F-162, and rewrites published records in place. Appended evidence to nine existing followups and their matching HTML Dots. Added no runtime, package, tip, stamp, CI, settings, ruleset, or production change.</dd>
+      <dt>Verification</dt><dd>Source and commit-range inspection confirmed that <code>734aeeba</code> changes styling, the browser scenario, and published records only. It does not change the route, server settlement, client store, cleanup trigger, mutation queue, acknowledgement, or telemetry. The replacement browser scenario now uses a 390x760 <code>hasTouch</code> and <code>isMobile</code> context with tap input and a 44 px target. GitHub showed zero submitted reviews on both heads. CodeRabbit comment 4983139890 reported a review limit on the first head. Holds 4983151961, 4983199156, and 4983225062 record the exact gates and reset. Diff, dash, nine Dots, lint, typecheck, and full unit verification are recorded on this additive audit head.</dd>
+      <dt>Assumptions</dt><dd>No user instruction approved voluntary active-combat exit, administrator bypass, history rewrite, merge, or branch deletion. Exposing an existing unsafe mutation through a new player-facing control makes its acknowledgement, recovery, ordering, and telemetry part of the release slice even when the underlying route predates the HUD change.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first PR #225 audit item to <code>docs/gdd/08-base-building.html</code>. Rule 13: the package 0.1.268 tip remains held. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended PR #225 evidence and replacement-head dispositions to F-105, F-106, F-109, F-113, F-119, F-146, F-148, F-154, and F-156 plus their nine matching HTML Dots. F-162 remains unsupported and gains no Dot.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-223-full-review-contract-precision" data-date="2026-07-15">
     <h3>Resolve the full exact-head contract review</h3>
     <dl>

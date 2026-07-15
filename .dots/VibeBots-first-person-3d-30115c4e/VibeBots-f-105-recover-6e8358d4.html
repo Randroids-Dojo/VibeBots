@@ -48,6 +48,15 @@ Q-019 and the current GDD supersede historical choose-one notes. F-105 owns the 
 <section id="merged-unapproved-q019-rewrite-pr-224">
 PR #224 merged head 006d4507 as main 98d269ee after rewriting Q-019 in place to call voluntary Escape an approved middle ground and explicitly permit no-wear forfeit, without user approval or a matching GDD decision. A merge does not choose product policy. Preserve the no-voluntary-exit, database-clock expiry, zero-reward, damage-stands contract until an explicit decision says otherwise.
 </section>
+<section id="touch-abandon-policy-trigger-hold-pr-225">
+PR #225 exact head 90b9fa66 turns the unapproved voluntary forfeit into a visible control and still uses component-unmount cleanup as the network trigger. Local exit precedes settlement, Strict Effects or incidental remount can trigger cleanup, and unload can drop the fetch. Preserve no voluntary exit until explicit approval. Involuntary absence remains server-clock recovery with zero survival reward and policy-compliant defense damage.
+</section>
+<section id="touch-abandon-replacement-head-pr-225">
+Replacement head 734aeeba changes touch proof and target size only. It leaves the unapproved policy and cleanup trigger unchanged, so this hold remains open.
+</section>
+<section id="production-exposure-pr-225">
+Main f7a31888 and production deployment 5461023827 expose voluntary touch exit through the unchanged component-cleanup trigger. Merge and green CI do not provide explicit policy approval or make a React lifecycle effect reliable settlement authority. Keep server-clock recovery and policy correction open.
+</section>
 </article>
 </body>
 </html>

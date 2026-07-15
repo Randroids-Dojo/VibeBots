@@ -36,6 +36,12 @@ Cancellation applies only to local animation, input, or queued intent that has n
 <section id="cancel-in-flight-phrase-superseded-pr-223-full-review">
 The historical phrase cancel in-flight edits in the local player wiring section is superseded and must not be read as permission to abort a dispatched request. It means only pre-dispatch local animation, input, or queued intent. A request is dispatched once transport may have delivered it, and from that point its queue position, stable identity, and authoritative response adoption remain mandatory even if the local UI stops showing the action.
 </section>
+<section id="touch-abandon-queue-violation-pr-225">
+PR #225 exact heads 90b9fa66 and 734aeeba exit first person immediately and rely on canvas-unmount cleanup to fire-and-forget forfeit outside the shared queue. They have no stable exact-raid identity, pending latch, acknowledgement gate, or response-order protection. Require one queue with freshest execution state and complete authoritative adoption across load, edit, Start, resolve, duplicate exit, re-entry, and Strict Effects replay.
+</section>
+<section id="production-exposure-pr-225">
+Main f7a31888 and production deployment 5461023827 expose the touch trigger while forfeit remains outside the shared queue. Green CI does not cover delayed load, edit, Start, resolve, duplicate exit, immediate re-entry, or Strict Effects ordering. Keep the additive current-main correction open.
+</section>
 </article>
 </body>
 </html>

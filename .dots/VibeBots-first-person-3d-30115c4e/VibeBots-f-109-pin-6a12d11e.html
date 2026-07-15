@@ -33,6 +33,9 @@ Use the shared tuple (operation_family, logical_request_id, event_kind) as the i
 <section id="merged-telemetry-out-of-scope-rejection-pr-224">
 Comment 4980856802 dismisses raid lifecycle telemetry as out of scope. The existing F-109 contract separately owns bounded start, resolve, loss, expiry, conflict, recovery, rejection, retry, and sink-failure outcomes. F-101 maps the user's new in-base telemetry request to missing bounded performance context. PR #224 merged as main 98d269ee with neither gap fixed, so both production gates remain open.
 </section>
+<section id="fallback-token-context-pr-223-exact-review">
+Bind every fallback server-scoped idempotency token to the actor, operation family, event kind, canonical digest of the server-relevant lifecycle inputs, expiry, and recorded outcome or conflict state. Store the digest rather than raw sensitive payload. Validate every binding before reusing a request-to-result mapping. An unexpired identical context returns the stored result without a second event; mismatched or expired reuse returns a stable rejection and never suppresses a legitimate later event. Cover cross-actor reuse, same-token different-digest reuse, conflicting state, and expired replay, and prove each emits no second event and cannot suppress a legitimate fresh-token operation. F-150 shares this binding and replay rule.
+</section>
 </article>
 </body>
 </html>

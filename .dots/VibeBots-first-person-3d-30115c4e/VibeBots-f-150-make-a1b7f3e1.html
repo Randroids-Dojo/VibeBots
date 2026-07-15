@@ -21,6 +21,9 @@ Carry identical ordinary, bunker, and total deltas through response, success mon
 <section id="telemetry-idempotency-contract-pr-223-review">
 Use the shared tuple (operation_family, logical_request_id, event_kind) as the internal event key. The logical request ID is the authoritative settlement or mutation identity when one exists; otherwise require a bounded idempotency token. Persist the request-to-result mapping and uniquely keyed outbox row atomically with the gameplay transition, or with the fixed rejection record when no transition commits. A retry looks up the same tuple, returns the recorded result, and never enqueues a second event. Keep the tuple out of analytics fields and use it only for sink idempotency or durable delivery deduplication. Do not claim exactly-once delivery when a crash after send cannot be deduplicated. Cover retries around commit, rejection, crash after send, sink recovery, conflict, and no-op. F-109 shares this tuple and replay rule.
 </section>
+<section id="fallback-token-context-pr-223-exact-review">
+Bind every fallback server-scoped idempotency token to the actor, operation family, event kind, canonical digest of the server-relevant mutation inputs, expiry, and recorded outcome or conflict state. Store the digest rather than raw sensitive payload. Validate every binding before reusing a request-to-result mapping. An unexpired identical context returns the stored result without a second event; mismatched or expired reuse returns a stable rejection and never suppresses a legitimate later event. Cover cross-actor reuse, same-token different-digest reuse, conflicting state, and expired replay, and prove each emits no second event and cannot suppress a legitimate fresh-token operation. F-109 shares this binding and replay rule.
+</section>
 </article>
 </body>
 </html>

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr-223-exact-review-governance-precision" data-date="2026-07-15">
+    <h3>Resolve the exact-head governance and fallback-token review</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, twelfth additive audit commit.</dd>
+      <dt>Changed</dt><dd>Triaged all five current threads from exact-head CodeRabbit review 4705552940 without rewriting history. Appended the exact 60-second reset contract to F-148, the after-arrival elevator boundary to F-149, and the branch rewrite approval manifest to F-151. F-152 already requires explicit user approval before a CI or ruleset configuration change, so its persisted record stayed unchanged. Bound shared F-109/F-150 fallback idempotency tokens to actor, operation family, event kind, canonical input digest, bounded expiry, and recorded outcome or conflict state, with stable rejection for cross-actor, changed-input, conflicting, or expired reuse. Added a newest-first GDD clarification that audit merge <code>6f883972</code> brought exact main into the PR #223 branch, while PR #224 created main <code>98d269ee</code> through administrator bypass. No runtime, CI, settings, ruleset, requirement, release, or production state changed.</dd>
+      <dt>Verification</dt><dd>Full run <code>99d85d0b-dbe5-4d76-b555-ed5400c0f0ca</code> submitted CHANGES_REQUESTED review 4705552940 on exact head <code>aeabeaec</code>. GraphQL reports five current, non-outdated, unresolved threads: 3588533392, 3588533398, 3588533408, 3588533410, and 3588533420. Source inspection confirms F-152's explicit approval requirement and commit <code>6f883972</code> has parents <code>d15f8c43</code> and <code>98d269ee</code>, while PR #224 created <code>98d269ee</code> through ruleset suite 3343700704 administrator bypass. The review's additional F-147 source note is false against PR #190 source F-135, and its CodeQL wording note is already corrected by the newer exact review record. Diff, dash, all five affected Dots, lint, typecheck, and full unit verification are recorded on the additive head.</dd>
+      <dt>Assumptions</dt><dd>The HTML Dot file is the persisted record and <code>dot-html</code> has no history-preserving note or update command, so contract precision is appended and validated through <code>dot-html show</code>. A review can require clearer self-contained Dot wording without authorizing edits to committed descriptions or build-log history. A fallback token stores a canonical digest, not raw sensitive payload, and a rejected expired token leaves a legitimate later operation available under a fresh token.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first exact-review clarification to <code>docs/gdd/08-base-building.html</code>. Rule 13: the voluntary-forfeit tip remains disputed. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended exact-review evidence and contract precision to F-109, F-148, F-149, F-150, and F-151 plus their five matching HTML Dots. F-152 remains the independent normal-merge eligibility hold.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-223-exact-review-telemetry-matrix" data-date="2026-07-15">
     <h3>Resolve the exact-head telemetry review</h3>
     <dl>

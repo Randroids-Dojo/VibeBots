@@ -15,6 +15,9 @@
 <section id="description">
 Reject unapproved non-fast-forward PR branch updates. Approved rewrites require exact leases, reachability proof, fresh checks and review, and durable evidence.
 </section>
+<section id="rewrite-approval-manifest-pr-223-exact-review">
+Before any non-fast-forward update, require explicit user approval naming the branch, expected old head, proposed new head, reason, and every commit that would lose reachability. If approved, fetch immediately, use an exact force-with-lease expectation, verify remote head and intended reachability, record both heads, discard stale checks and reviews, obtain fresh exact-head evidence, and restart the settle window.
+</section>
 </article>
 </body>
 </html>

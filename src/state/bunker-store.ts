@@ -330,6 +330,13 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
       await startRemoteBunkerRaid(tier),
       "bunker action failed",
     ),
+  // Dependency (F-146, PR #218), safe while dark: these run outside the
+  // serializeEdit chain and applyResponse adopts equal revisions, so a
+  // loadBunker begun before a start can return afterward at the same
+  // bunker revision (a live start inserts a raid row without bumping the
+  // revision) and clear the just-adopted activeLiveRaid. Resolve them
+  // under the global sequencing contract before the first-person raid
+  // loop wires these to the UI.
   startLiveRaid: async (tier = 1) =>
     applyMutationResult(
       set,

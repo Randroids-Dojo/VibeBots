@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-143" data-f="F-143" data-priority="blocks-release">
+    <h3>F-143: Give turrets a live-raid effect</h3>
+    <dl>
+      <dt>Context</dt><dd>The first slice of the live raid sim (<code>src/sim/bunker-raid-live.ts</code>, Q-024 option D) implements the dev-described model exactly: Clankers chew blocks, hunt the live player, cross spikes for extra energy, and die when drained. It deliberately does not yet model the Basic Turret, which the interim resolver does fire. So a turret placed in a bunker currently has zero effect in a live raid, which will read as a broken defense once live raids ship.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before live raids replace the interim resolver, so every buildable defense actually works in the mode that resolves raids.</dd>
+      <dt>Unblock condition</dt><dd>Model turret fire in the live sim: a turret with ammo shoots the nearest in-range Clanker on a fixed cadence (mirror the interim <code>BASIC_TURRET_*</code> constants and tank soak), consuming ammo and either killing or heavily draining the target so it dies and drops its XP pickup. Decide range and line-of-sight in 3D (Chebyshev with axis-aligned sight is the interim shape) and pin it with sim tests: a turret drains ammo, stops Clankers within range, tanks soak the documented shots, and an out-of-ammo turret is inert. Keep it render-only over unchanged colliders; no economy change.</dd>
+      <dt>PR / Dot reference</dt><dd>Opened alongside the live raid sim slice (PR pending); child of the first-person 3D arc.</dd>
+    </dl>
+  </section>
+
   <section id="F-134" data-f="F-134" data-priority="blocks-release">
     <h3>F-134: Keep the elevator car supporting blocked exits</h3>
     <dl>

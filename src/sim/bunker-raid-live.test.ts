@@ -1,0 +1,287 @@
+import { describe, expect, it } from "vitest";
+import {
+  BASE_PART_CATALOG,
+  type BunkerFootprint,
+  type BunkerState,
+  clankerKindFor,
+  clankerXpFor,
+  containsBunkerCell,
+  type DugBunkerCell,
+  type PlacedBasePart,
+} from "./bunker";
+import {
+  BUNKER_RAID_LIVE_VERSION,
+  collectLiveRaidPickup,
+  createLiveRaid,
+  LIVE_CLANKER_BASE_ENERGY,
+  LIVE_CLANKER_ENERGY_PER_TIER,
+  type LiveRaidCell,
+  type LiveRaidState,
+  liveRaidDefenseXp,
+  liveRaidPartWear,
+  stepLiveRaid,
+} from "./bunker-raid-live";
+
+const FOOTPRINT: BunkerFootprint = { col: 5, row: 5, width: 7, height: 5 };
+
+function makeBunker(
+  dug: DugBunkerCell[],
+  parts: PlacedBasePart[] = [],
+): BunkerState {
+  return {
+    footprint: FOOTPRINT,
+    // The live sim ignores the core (F-118 removed it); a dummy keeps the
+    // BunkerState shape valid.
+    core: { col: 8, row: 7, depth: 0, durability: 100 },
+    parts,
+    dug,
+    blockSeed: 1,
+  };
+}
+
+function part(
+  partId: PlacedBasePart["partId"],
+  col: number,
+  row: number,
+  depth: number,
+): PlacedBasePart {
+  return {
+    partId,
+    col,
+    row,
+    depth,
+    durability: BASE_PART_CATALOG[partId].durability,
+  };
+}
+
+/** Step until the raid settles or the tick cap is hit, holding the player
+ * at a fixed cell. Returns the final state (mutated in place). */
+function runToEnd(
+  state: LiveRaidState,
+  player: LiveRaidCell,
+  cap = 4000,
+): LiveRaidState {
+  let guard = 0;
+  while (state.outcome === "active" && guard < cap) {
+    stepLiveRaid(state, player);
+    guard++;
+  }
+  return state;
+}
+
+function stepTimes(
+  state: LiveRaidState,
+  player: LiveRaidCell,
+  ticks: number,
+): void {
+  for (let i = 0; i < ticks; i++) stepLiveRaid(state, player);
+}
+
+describe("createLiveRaid", () => {
+  it("spawns 4 + 2*tier Clankers with tier-scaled energy outside the footprint", () => {
+    const bunker = makeBunker([{ col: 8, row: 7, depth: 0 }]);
+    const raid = createLiveRaid(bunker, 3);
+    expect(raid.version).toBe(BUNKER_RAID_LIVE_VERSION);
+    expect(raid.clankers).toHaveLength(4 + 3 * 2);
+    for (let i = 0; i < raid.clankers.length; i++) {
+      const clanker = raid.clankers[i];
+      expect(clanker.kind).toBe(clankerKindFor(i, 3));
+      expect(clanker.energy).toBe(
+        LIVE_CLANKER_BASE_ENERGY + 3 * LIVE_CLANKER_ENERGY_PER_TIER,
+      );
+      expect(clanker.alive).toBe(true);
+      expect(clanker.depth).toBe(0);
+      expect(containsBunkerCell(FOOTPRINT, clanker.col, clanker.row)).toBe(
+        false,
+      );
+    }
+  });
+
+  it("normalizes a sub-1 tier and floors fractional tiers", () => {
+    const bunker = makeBunker([{ col: 8, row: 7, depth: 0 }]);
+    expect(createLiveRaid(bunker, 0).clankers).toHaveLength(6);
+    expect(createLiveRaid(bunker, 2.9).tier).toBe(2);
+  });
+
+  it("tracks only blocking parts and spikes, ignoring turrets", () => {
+    const bunker = makeBunker(
+      [{ col: 8, row: 7, depth: 0 }],
+      [
+        part("wall-panel", 6, 5, 0),
+        part("floor-spikes", 7, 5, 0),
+        part("basic-turret", 8, 5, 0),
+      ],
+    );
+    const raid = createLiveRaid(bunker, 1);
+    const ids = raid.parts.map((p) => p.partId).sort();
+    expect(ids).toEqual(["floor-spikes", "wall-panel"]);
+  });
+});
+
+describe("connectivity and outcomes", () => {
+  it("survives when no dug opening reaches the player (sealed rock is safe)", () => {
+    // A single isolated interior cell: no path from the mine approach.
+    const player: LiveRaidCell = { col: 8, row: 7, depth: 2 };
+    const bunker = makeBunker([{ col: 8, row: 7, depth: 2 }]);
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, player);
+    expect(raid.outcome).toBe("won");
+    expect(raid.minerKilled).toBe(false);
+    expect(raid.clankers.every((c) => !c.alive)).toBe(true);
+    expect(raid.clankers.every((c) => c.death === "energy")).toBe(true);
+    // Every drained Clanker drops an XP pickup.
+    expect(raid.xpPickups).toHaveLength(raid.clankers.length);
+  });
+
+  it("loses when an open corridor lets a Clanker reach the player", () => {
+    const player: LiveRaidCell = { col: 8, row: 5, depth: 0 };
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    const bunker = makeBunker(corridor);
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, player);
+    expect(raid.outcome).toBe("lost");
+    expect(raid.minerKilled).toBe(true);
+    expect(raid.clankers.some((c) => c.death === "reached-player")).toBe(true);
+  });
+});
+
+describe("walls and chewing", () => {
+  // A deep shaft forces the only route through the wall: the player sits
+  // below the tunnel plane where no exposed perimeter face reaches them, so
+  // the wall in the shaft is genuinely the sole way in.
+  function shaftWithWall(): { dug: DugBunkerCell[]; player: LiveRaidCell } {
+    const dug: DugBunkerCell[] = [];
+    for (let depth = 0; depth <= 3; depth++)
+      dug.push({ col: 5, row: 5, depth });
+    return { dug, player: { col: 5, row: 5, depth: 3 } };
+  }
+
+  it("chews a blocking wall in the path, dropping its durability over time", () => {
+    const { dug, player } = shaftWithWall();
+    const bunker = makeBunker(dug, [part("wall-panel", 5, 5, 1)]);
+    const raid = createLiveRaid(bunker, 1);
+    const startDurability = BASE_PART_CATALOG["wall-panel"].durability;
+    // A few action ticks: the lead Clanker descends to the wall and bites it.
+    stepTimes(raid, player, 12);
+    const wall = liveRaidPartWear(raid).find(
+      (p) => p.col === 5 && p.row === 5 && p.depth === 1,
+    );
+    expect(wall).toBeDefined();
+    expect(wall?.durability).toBeLessThan(startDurability);
+  });
+
+  it("breaks through a single wall and still reaches the player", () => {
+    const { dug, player } = shaftWithWall();
+    const bunker = makeBunker(dug, [part("wall-panel", 5, 5, 1)]);
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, player);
+    // One wall does not save you at tier 1: the wave chews through.
+    expect(raid.outcome).toBe("lost");
+  });
+});
+
+describe("spikes", () => {
+  it("drains a crossing Clanker harder than an open cell and spends a spike use", () => {
+    const player: LiveRaidCell = { col: 5, row: 5, depth: 4 };
+    // A vertical shaft the lead Clanker descends; a spike sits partway down.
+    const shaft: DugBunkerCell[] = [];
+    for (let depth = 0; depth <= 4; depth++) {
+      shaft.push({ col: 5, row: 5, depth });
+    }
+    const withSpike = createLiveRaid(
+      makeBunker(shaft, [part("floor-spikes", 5, 5, 2)]),
+      1,
+    );
+    const noSpike = createLiveRaid(makeBunker(shaft), 1);
+    // Step to a point where the lead Clanker has crossed depth 2 but not yet
+    // reached the player at depth 4.
+    stepTimes(withSpike, player, 8);
+    stepTimes(noSpike, player, 8);
+    expect(withSpike.outcome).toBe("active");
+    const leadWith = withSpike.clankers[0];
+    const leadNo = noSpike.clankers[0];
+    expect(leadWith.energy).toBeLessThan(leadNo.energy);
+    const spike = liveRaidPartWear(withSpike).find(
+      (p) => p.col === 5 && p.row === 5 && p.depth === 2,
+    );
+    expect(spike?.durability).toBeLessThan(
+      BASE_PART_CATALOG["floor-spikes"].durability,
+    );
+  });
+});
+
+describe("rewards", () => {
+  it("drops collectible XP pickups worth clankerXpFor on a survive", () => {
+    const player: LiveRaidCell = { col: 8, row: 7, depth: 2 };
+    const raid = createLiveRaid(makeBunker([{ col: 8, row: 7, depth: 2 }]), 1);
+    runToEnd(raid, player);
+    expect(raid.outcome).toBe("won");
+    const pickup = raid.xpPickups[0];
+    expect(pickup.defenseXp).toBe(clankerXpFor(raid.clankers[0].kind));
+    expect(pickup.collected).toBe(false);
+    const gained = collectLiveRaidPickup(raid, {
+      col: pickup.col,
+      row: pickup.row,
+      depth: pickup.depth,
+    });
+    expect(gained).toBe(pickup.defenseXp);
+    // Collecting the same pickup twice yields nothing.
+    expect(
+      collectLiveRaidPickup(raid, {
+        col: pickup.col,
+        row: pickup.row,
+        depth: pickup.depth,
+      }),
+    ).toBe(0);
+    expect(liveRaidDefenseXp(raid)).toBe(pickup.defenseXp);
+  });
+
+  it("grants no reward on a loss (matches interim raids)", () => {
+    const player: LiveRaidCell = { col: 8, row: 5, depth: 0 };
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    const raid = createLiveRaid(makeBunker(corridor), 1);
+    runToEnd(raid, player);
+    expect(raid.outcome).toBe("lost");
+    // Even a pickup that was dropped before the loss cannot be banked.
+    const dropped = raid.xpPickups[0];
+    if (dropped) {
+      expect(
+        collectLiveRaidPickup(raid, {
+          col: dropped.col,
+          row: dropped.row,
+          depth: dropped.depth,
+        }),
+      ).toBe(0);
+    }
+    expect(liveRaidDefenseXp(raid)).toBe(0);
+  });
+});
+
+describe("determinism and terminal stability", () => {
+  it("produces identical state for identical inputs", () => {
+    const player: LiveRaidCell = { col: 8, row: 7, depth: 2 };
+    const a = createLiveRaid(makeBunker([{ col: 8, row: 7, depth: 2 }]), 2);
+    const b = createLiveRaid(makeBunker([{ col: 8, row: 7, depth: 2 }]), 2);
+    runToEnd(a, player);
+    runToEnd(b, player);
+    expect(a).toEqual(b);
+  });
+
+  it("is a no-op once the outcome has settled", () => {
+    const player: LiveRaidCell = { col: 8, row: 5, depth: 0 };
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    const raid = createLiveRaid(makeBunker(corridor), 1);
+    runToEnd(raid, player);
+    const settledTick = raid.tick;
+    const snapshot = JSON.stringify(raid);
+    stepLiveRaid(raid, player);
+    expect(raid.tick).toBe(settledTick);
+    expect(JSON.stringify(raid)).toBe(snapshot);
+  });
+});

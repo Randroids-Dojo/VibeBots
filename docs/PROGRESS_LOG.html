@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="monitoring-followup-port" data-date="2026-07-15">
+    <h3>Move stranded review findings onto collision-free main authority</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/raid-followup-audit</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Ported the ten still-open findings stranded on conflicting PR #190 to monotonic F-147 through F-156 with matching HTML Dots: held dig release, exact-head review enforcement, elevator closeout truth, bunker ore payout and telemetry, branch history rewrite approval, a normally mergeable main ruleset, remaining bunker ore art and crystal lifetime, commit-history append-only validation, remote branch deletion approval, and base-or-same-head followup validation. Added append-only correction pointers from F-100, F-114, F-116, F-123, F-143, and F-146. Added an active successor Dot for the unfinished F-112 fail-fast recovery while preserving its original close metadata, and a retrospective closed Dot for main's resolved turret F-143. Extended the current raid owners with terminal-report, unsupported-version, lifecycle telemetry, expiry-race, thin-slot identity, and post-merge evidence. PR #190 stays untouched, held, and unmergeable.</dd>
+      <dt>Verification</dt><dd>Exact base remains <code>670f1ea2</code>; its CI run 29389607008, CodeQL run 29389607058, and production deployment 5451819695 are green. Dependency Upgrade Gate remains current for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.10</code>, three <code>0.185.1</code>, and React Three Fiber <code>9.6.1</code>. Latest scheduled Full E2E run 29323594310 is cancelled, not failed. Followup identity check finds 125 unique primary sections through F-156. Intended Dots are open at their recorded priorities, except the retrospective F-143 Dot is correctly closed. Dash and whitespace checks, type-check, and focused bunker, store, server, and live-raid suites pass (4 files, 85 tests). Biome passes with the existing optional-chain and broken-symlink warnings.</dd>
+      <dt>Assumptions</dt><dd>An ID that exists only on an unmerged branch is not target-base authority, so the successor allocates new monotonic IDs and corrects old F-142 references append-only. Simultaneous multi-machine play remains unsupported, but every conflict must fail explicitly and replace local state from one complete authoritative result. Incompatible early-alpha state fails fast into a confirmed fresh-state action instead of gaining a permanent migration chain.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first build-log correction in <code>docs/gdd/08-base-building.html</code> that redirects the absent F-142 owner to F-153, records PRs #206 through #216 as merged without editing their historical pending text, and points process prevention to F-154 and F-156.</dd>
+      <dt>Followups</dt><dd>Created F-147 through F-156 and their HTML Dots. Added active successor Dot <code>VibeBots-finish-f-112-c8429f3b</code> and closed historical Dot <code>VibeBots-f-143-give-e0dd2408</code>. Appended nonduplicative evidence to F-100, F-104 through F-110, F-112 through F-114, F-116, F-117, F-123, F-143, and F-146.</dd>
+    </dl>
+  </article>
+
   <article data-slice="raid-followup-audit" data-date="2026-07-15">
     <h3>Audit merged bunker concurrency, raid lifecycle, and live-sim performance claims</h3>
     <dl>

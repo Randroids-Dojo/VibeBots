@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="voluntary-raid-forfeit-release-audit" data-date="2026-07-15">
+    <h3>Hold the voluntary raid-forfeit release claim</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223 follow-up audit commit.</dd>
+      <dt>Changed</dt><dd>Reviewed the evolving, unpushed <code>feat/fp-raid-forfeit-on-exit</code> diff after it added package 0.1.267, release notes, a mine tip, and an F-160 Resolved pair. Appended current truth under F-105, F-113, and F-119: the copy conflicts with Q-019's no-voluntary-exit decision, touch has no active-raid Exit, and effect-cleanup fetch failure, unload cancellation, unacknowledged resolve, immediate re-entry, and equal-revision response races can still leave or recreate the raid. Appended record-integrity holds under F-154, F-156, and F-160: the draft closeout lacks <code>data-f-ref</code> and a base-owned matching Dot, routes implementation through duplicate F-160 authority, and overclaims unmount-only cleanup, one-row idempotence, no-wear policy alignment, scheduled expiry, reachable browser coverage, and no-reroll guarantees. Updated the six matching Dots. No runtime code changed.</dd>
+      <dt>Verification</dt><dd>Inspected the exact uncommitted worktree diff from base <code>c40b7e16</code>: package 0.1.267 notice <code>2026-07-15-0.1.267-raid-forfeit-on-exit</code>, the voluntary-forfeit tip, generic unresolved-row update, fire-and-forget cleanup wiring, impossible active-HUD Exit click, and unreferenced F-160 closeout. Confirmed the active HUD renders Exit only when the raid is inactive and the draft e2e waits for the active panel before clicking the absent control. The branch's first targeted Chromium run failed at <code>mine-bunker-fp.spec.ts:2285</code> after logging <code>panelLiveBeforeExit=true startBeforeExit=0 resolveCalls=1 forfeit=0</code>. A sealed-bunker rewrite still clicked the hidden control and failed again at line 2324 with one expected forfeit request and zero received. <code>git diff --check</code>, <code>pnpm check:dashes</code>, full <code>pnpm lint</code>, and <code>dot-html show</code> for all affected Dots pass. The prior commit's full typecheck and 135-file, 1,540-test unit suite remain green; this follow-up changes docs and Dots only.</dd>
+      <dt>Assumptions</dt><dd>The external diff is work in progress and can still be corrected before first publication, so these records hold its observed claims without treating them as durable implementation authority. The chosen Q-019 policy remains no voluntary exit until the user explicitly reopens it. No new primary was needed.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first build-log correction while preserving the prior audit and merged feature items. Rule 13: the new voluntary-forfeit tip is held because its cross-platform rule is not approved or true. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> remain unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended evidence to F-105, F-113, F-119, F-154, F-156, and F-160 plus their existing matching Dots. F-160 stays closed as duplicate authority; implementation gates remain open under their canonical owners.</dd>
+    </dl>
+  </article>
+
   <article data-slice="current-main-live-raid-audit" data-date="2026-07-15">
     <h3>Preserve the live raid audit on current main</h3>
     <dl>

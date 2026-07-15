@@ -118,7 +118,7 @@ export const EMPTY_BASE_PART_INVENTORY: BasePartInventory = {
 
 /**
  * Enough to fully enclose the player cell on day one: a sealed 3x3
- * room around the core takes 3 floors, 3 roofs, 1 wall, and the door,
+ * room around the spawn takes 3 floors, 3 roofs, 1 wall, and the door,
  * which leaves spare walls for layering or a roomier shape. Every
  * granted part blocks Clankers, so a sealed starter room genuinely
  * survives a raid (see "the starter kit seals the player cell").
@@ -137,14 +137,6 @@ export interface BunkerFootprint {
   row: number;
   width: number;
   height: number;
-}
-
-export interface BunkerCore {
-  col: number;
-  row: number;
-  /** 0..BUNKER_CLAIM_DEPTH-1; legacy rows normalize to 0 (the tunnel plane). */
-  depth: number;
-  durability: number;
 }
 
 export interface PlacedBasePart {
@@ -217,7 +209,6 @@ export interface BunkerLoot {
 
 export interface BunkerState {
   footprint: BunkerFootprint;
-  core: BunkerCore;
   parts: PlacedBasePart[];
   /** Excavated cells in dig order (now including the depth-0 plane and
    * the pre-mined spawn pocket); legacy rows normalize to []. */
@@ -307,14 +298,10 @@ export function maxBunkerRaidTier(playerLevel: number): number {
 
 /** Repair pricing (F-086): proportional to the damage, half the part's
  * shop price for a full restore, always at least 1 vibe per damaged
- * part; the core repairs at a flat rate per missing point. */
-export const CORE_REPAIR_COST_PER_POINT = 0.25;
-export const BUNKER_CORE_MAX_DURABILITY = 160;
-
+ * part. */
 export interface BunkerRepairPlan {
   totalCost: number;
   partCount: number;
-  coreMissing: number;
 }
 
 export function bunkerRepairPlan(bunker: BunkerState): BunkerRepairPlan {
@@ -330,22 +317,14 @@ export function bunkerRepairPlan(bunker: BunkerState): BunkerRepairPlan {
       Math.ceil((missing / def.durability) * def.price * 0.5),
     );
   }
-  const coreMissing = Math.max(
-    0,
-    BUNKER_CORE_MAX_DURABILITY - bunker.core.durability,
-  );
-  if (coreMissing > 0) {
-    totalCost += Math.ceil(coreMissing * CORE_REPAIR_COST_PER_POINT);
-  }
-  return { totalCost, partCount, coreMissing };
+  return { totalCost, partCount };
 }
 
-/** Restore every damaged part and the core to full durability. Pure:
- * affordability is the caller's (server's) concern. */
+/** Restore every damaged part to full durability. Pure: affordability is
+ * the caller's (server's) concern. */
 export function applyBunkerRepairs(bunker: BunkerState): BunkerState {
   return {
     ...bunker,
-    core: { ...bunker.core, durability: BUNKER_CORE_MAX_DURABILITY },
     parts: bunker.parts.map((part) => ({
       ...part,
       durability: BASE_PART_CATALOG[part.partId].durability,
@@ -368,10 +347,9 @@ export function isBasePartDamaged(part: PlacedBasePart): boolean {
  * Reset the bunker to a bare claim (F-093). Refund rule: every placed
  * part still at full catalog durability returns to inventory; damaged
  * parts are lost, matching removeBasePart's "damaged parts do not
- * refund" contract. Placed parts and excavated cells clear, the core
- * restores to full durability, and the claim itself (footprint, core
- * position, skin, owned skins) is untouched. Pure: raid gating and
- * persistence are the caller's (server's) concern.
+ * refund" contract. Placed parts clear, excavated cells stay dug, and
+ * the claim itself (footprint, skin, owned skins) is untouched. Pure:
+ * raid gating and persistence are the caller's (server's) concern.
  */
 export function applyBunkerReset(
   bunker: BunkerState,
@@ -385,7 +363,6 @@ export function applyBunkerReset(
   return {
     bunker: {
       ...bunker,
-      core: { ...bunker.core, durability: BUNKER_CORE_MAX_DURABILITY },
       parts: [],
       // Keep the excavation and its depletion (F-120): reset clears the
       // built layout, not the dug-out rock, so mined ore never regrows
@@ -716,12 +693,6 @@ export function createBunker(
 ): BunkerState {
   return {
     footprint,
-    core: {
-      col: footprint.col + Math.floor(footprint.width / 2),
-      row: footprint.row + Math.floor(footprint.height / 2),
-      depth: 0,
-      durability: BUNKER_CORE_MAX_DURABILITY,
-    },
     parts: [],
     // The whole volume starts solid; the spawn pocket is the only open
     // room a fresh claim ships with (F-115).
@@ -741,20 +712,13 @@ export function placeBasePart(
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
       ok: false;
-      reason: "outside" | "rock" | "core" | "occupied" | "stock";
+      reason: "outside" | "rock" | "occupied" | "stock";
     } {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
   }
   if (!isOpenBunkerCell(bunker, col, row, depth)) {
     return { ok: false, reason: "rock" };
-  }
-  if (
-    bunker.core.col === col &&
-    bunker.core.row === row &&
-    bunker.core.depth === depth
-  ) {
-    return { ok: false, reason: "core" };
   }
   if (
     bunker.parts.some(
@@ -821,7 +785,7 @@ export function moveBasePart(
   | { ok: true; bunker: BunkerState }
   | {
       ok: false;
-      reason: "missing" | "outside" | "rock" | "core" | "occupied";
+      reason: "missing" | "outside" | "rock" | "occupied";
     } {
   const part = bunker.parts.find((candidate) => {
     return (
@@ -836,13 +800,6 @@ export function moveBasePart(
   }
   if (!isOpenBunkerCell(bunker, toCol, toRow, toDepth)) {
     return { ok: false, reason: "rock" };
-  }
-  if (
-    bunker.core.col === toCol &&
-    bunker.core.row === toRow &&
-    bunker.core.depth === toDepth
-  ) {
-    return { ok: false, reason: "core" };
   }
   if (
     bunker.parts.some((candidate) => {

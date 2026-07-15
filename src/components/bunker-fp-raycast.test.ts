@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   createFpSolidGrid,
-  FP_CORE,
   FP_DEPTH,
   FP_DOOR_OWNED,
   FP_ROCK_UNDUG,
@@ -82,10 +81,8 @@ describe("fp crosshair raycast", () => {
     expect([hit.placeX, hit.placeY, hit.placeZ]).toEqual([4, 0, 0]);
   });
 
-  it("reports the core, a door, and spikes by kind", () => {
+  it("reports a door and spikes by kind", () => {
     const grid = corridorGrid();
-    grid[fpCellIndex(4, 0, 0)] = FP_CORE;
-    expect(cast(grid, [2, 0.22, 0], [1, 0, 0]).kind).toBe("core");
     grid[fpCellIndex(4, 0, 0)] = FP_DOOR_OWNED;
     expect(cast(grid, [2, 0.22, 0], [1, 0, 0]).kind).toBe("door");
     grid[fpCellIndex(4, 0, 0)] = FP_SPIKES;

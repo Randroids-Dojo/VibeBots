@@ -1202,9 +1202,22 @@
       "id": "REQ-047",
       "requirement": "The bunker core is removed as state, geometry, and target; live Clankers hunt the player under explicit disconnect and expiry behavior.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/bunker.ts",
+        "src/sim/bunker-raid-live.ts",
+        "src/components/bunker-fp-canvas.tsx",
+        "src/components/bunker-fp-grid.ts",
+        "src/components/mine-bunker-overlay.tsx",
+        "src/server/bunker.ts"
+      ],
+      "testRefs": [
+        "src/sim/bunker.test.ts",
+        "src/components/bunker-fp-grid.test.ts",
+        "src/sim/bunker-raid-live.test.ts",
+        "src/server/bunker-raid-live-server.test.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
+      ],
       "followupRefs": [
         "F-104",
         "F-105",

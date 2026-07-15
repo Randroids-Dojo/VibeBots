@@ -336,11 +336,6 @@ describe("pending bunker depth normalization", () => {
       claimedAtMoveCount: 0,
       bunker: {
         footprint: bunker.footprint,
-        core: {
-          col: bunker.core.col,
-          row: bunker.core.row,
-          durability: bunker.core.durability,
-        },
         parts: [
           { partId: "wall-panel", col: 2, row: 5, durability: 90 },
           { partId: "door-panel", col: 3, row: 5, depth: 9, durability: 60 },
@@ -355,7 +350,6 @@ describe("pending bunker depth normalization", () => {
 
     const loaded = loadLocalTrip(1);
 
-    expect(loaded?.pendingBunker?.bunker.core.depth).toBe(0);
     expect(loaded?.pendingBunker?.bunker.parts).toEqual([
       { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
       { partId: "door-panel", col: 3, row: 5, depth: 0, durability: 60 },
@@ -415,12 +409,16 @@ describe("pending bunker validation (F-112)", () => {
     expect(normalizePendingBunker(withBunker({ parts: {} }))).toBeNull();
   });
 
-  it("returns null for a malformed core", () => {
-    expect(normalizePendingBunker(withBunker({ core: null }))).toBeNull();
-    expect(normalizePendingBunker(withBunker({ core: "core" }))).toBeNull();
-    expect(
-      normalizePendingBunker(withBunker({ core: { col: 1, row: 1 } })),
-    ).toBeNull();
+  it("strips a legacy core field from a stored checkpoint (F-118)", () => {
+    // A checkpoint saved before the core was removed still carries one; the
+    // object schema drops the unknown key rather than rejecting the trip.
+    const result = normalizePendingBunker(
+      withBunker({ core: { col: 3, row: 3, depth: 0, durability: 160 } }),
+    );
+    expect(result).not.toBeNull();
+    expect(result?.bunker).not.toHaveProperty("core");
+    expect(result?.bunker.footprint).toBeDefined();
+    expect(Array.isArray(result?.bunker.parts)).toBe(true);
   });
 
   it("returns null for a malformed dug cell", () => {
@@ -431,15 +429,35 @@ describe("pending bunker validation (F-112)", () => {
     ).toBeNull();
   });
 
-  it("returns null for an oversized parts array", () => {
-    const parts = Array.from({ length: 175 }, () => ({
-      partId: "wall-panel",
-      col: 1,
-      row: 1,
-      depth: 0,
-      durability: 10,
-    }));
-    expect(normalizePendingBunker(withBunker({ parts }))).toBeNull();
+  it("caps the checkpoint parts array at the 175-cell volume, not the old 174", () => {
+    // Checkpoint validation only bounds shape and array length (the bank
+    // route is the authoritative placement/occupancy boundary; see its
+    // "maxed 175-part bunker" test). This proves the length cap moved off
+    // 174 to the full 5 x 5 x 7 = 175-cell volume now the core is gone.
+    const uniqueParts = [];
+    for (let depth = 0; depth < 5; depth++) {
+      for (let row = 1; row <= 5; row++) {
+        for (let col = 1; col <= 7; col++) {
+          uniqueParts.push({
+            partId: "wall-panel",
+            col,
+            row,
+            depth,
+            durability: 10,
+          });
+        }
+      }
+    }
+    expect(uniqueParts).toHaveLength(175);
+    const accepted = normalizePendingBunker(withBunker({ parts: uniqueParts }));
+    expect(accepted).not.toBeNull();
+    expect(accepted?.bunker.parts).toHaveLength(175);
+    // A 176th part (one cell repeated) exceeds the volume and is rejected.
+    expect(
+      normalizePendingBunker(
+        withBunker({ parts: [...uniqueParts, uniqueParts[0]] }),
+      ),
+    ).toBeNull();
   });
 
   it("passes a null pending through as no checkpoint", () => {
@@ -452,7 +470,6 @@ describe("pending bunker validation (F-112)", () => {
     const normalized = normalizePendingBunker(valid);
     expect(normalized).not.toBeNull();
     expect(normalized?.bunker.dug).toEqual(valid.bunker.dug);
-    expect(normalized?.bunker.core.depth).toBe(0);
   });
 
   it("drops a stored trip whose pending bunker is malformed", () => {

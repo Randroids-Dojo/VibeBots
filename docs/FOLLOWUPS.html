@@ -137,6 +137,16 @@
     </dl>
   </section>
 
+  <section id="F-163" data-f="F-163" data-priority="polish">
+    <h3>F-163: Physically drop the retired bunkers.core column</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised while removing the bunker core (F-118, PR #227). To avoid a destructive column drop on the live store without approval, that slice left the <code>bunkers.core</code> jsonb column in place: it is removed from the <code>CREATE TABLE</code> so fresh databases never create it, and an idempotent migration (<code>ALTER TABLE bunkers ALTER COLUMN core DROP NOT NULL</code>, guarded by an information_schema existence check) relaxes the constraint on existing databases so inserts that no longer supply it succeed. No code reads or writes the column anymore, but on existing databases the column and its old data still physically exist.</dd>
+      <dt>Blocker (if any)</dt><dd>None for correctness: the column is dead (unwritten, unread) and harmless. This is cleanup only.</dd>
+      <dt>Unblock condition</dt><dd>Physically dropping a column deletes its data, which is a destructive action under Rule 6, so it needs the user's explicit go-ahead first. Once approved, add <code>ALTER TABLE bunkers DROP COLUMN IF EXISTS core</code> to the schema migrations (idempotent), remove the <code>DROP NOT NULL</code> guard migration in the same pass, and confirm no code path references the column. Owner: whoever next touches bunker persistence with approval in hand; there is no urgency.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during the core-removal slice (PR #227); child of the first-person 3D bunker arc.</dd>
+    </dl>
+  </section>
+
   <section id="F-133" data-f="F-133" data-priority="blocks-release">
     <h3>F-133: Keep starter bunker pockets out of excavation progress</h3>
     <dl>
@@ -308,6 +318,7 @@
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
       <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-118-remove-14a07ffe created under VibeBots-first-person-3d-30115c4e.</dd>
       <dt>Monitoring update</dt><dd>Q-019 still sends Clankers toward the core while the player is absent. Removing the core must append a Q-019 decision update that defines player absence, disconnect, and expiry under the player-targeted resolver before the old fallback is deleted.</dd>
+      <dt>Resolved</dt><dd>2026-07-15, branch <code>feat/remove-bunker-core</code> (package 0.1.270). The <code>BunkerCore</code> type, the <code>core</code> field on <code>BunkerState</code>, and the constants <code>BUNKER_CORE_MAX_DURABILITY</code>/<code>CORE_REPAIR_COST_PER_POINT</code> are gone. <code>createBunker</code> no longer seeds a core, <code>placeBasePart</code>/<code>moveBasePart</code> dropped the <code>"core"</code> rejection reason (the center cell is ordinary buildable/diggable space now), and <code>bunkerRepairPlan</code>/<code>applyBunkerRepairs</code> price and restore only placed parts (the <code>coreMissing</code> field is removed). Render: the spinning purple octahedron is deleted from the first-person canvas (<code>FpCore</code> and its frame-loop spin) and the flat 2D overlay; the fp grid dropped <code>FP_CORE</code> so the former core cell reads as open pocket floor, and the raycast lost its <code>"core"</code> hit kind. Persistence: <code>parseBunkerState</code>, <code>bunkerRowSnapshot</code> (the frozen live-raid start snapshot), the bank claim INSERT, and the checkpoint Zod schema (<code>bunkerCoreSchema</code>) no longer carry a core; a legacy <code>core</code> key in a stored checkpoint is silently stripped. DB: the <code>bunkers.core</code> column is dropped from the CREATE and its <code>NOT NULL</code> is relaxed on existing databases (non-destructive; the column and its data stay, unwritten and unread, for a later cleanup drop). This was safe because the interim raid (the only core-targeting code) was retired first (F-092). No <code>MINE_VERSION</code>, <code>SIM_VERSION</code>, or raid-version bump: the core was never a mine payout, the live sim already ignored it, and old raid snapshots parse fine once the field is optional. Pinned by the updated bunker, fp-grid, fp-raycast, server-bunker, and checkpoint suites, plus fp e2e open-cell recounts (the freed cell now counts as open). Tips (Rule 13) and stamps (Rule 14) reviewed: no change (a removal, not a new rule or goal). Q-019 updated: with the core gone, an absent or disconnected player's raid resolves as a forfeit (F-160 on voluntary exit, expiry-as-forfeit for abandoned tabs); there is no core fallback target left.</dd>
     </dl>
   </section>
 

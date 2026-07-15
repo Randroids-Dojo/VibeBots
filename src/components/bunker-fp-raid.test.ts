@@ -18,7 +18,6 @@ const FOOTPRINT: BunkerFootprint = { col: 5, row: 5, width: 7, height: 5 };
 function makeBunker(dug: DugBunkerCell[]): BunkerState {
   return {
     footprint: FOOTPRINT,
-    core: { col: 8, row: 7, depth: 0, durability: 100 },
     parts: [],
     dug,
     blockSeed: 1,

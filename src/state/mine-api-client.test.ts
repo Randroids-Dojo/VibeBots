@@ -513,7 +513,6 @@ describe("mine API client", () => {
       claimedAtMoveCount: 6,
       bunker: {
         footprint: { col: 3, row: 4, width: 3, height: 3 },
-        core: { col: 4, row: 5, durability: 10 },
         parts: [],
       },
       inventory: {
@@ -565,7 +564,7 @@ describe("mine API client", () => {
           ...baseTrip,
           pendingBunker: {
             ...validPendingBunker,
-            bunker: { footprint: {}, core: {}, parts: "nope" },
+            bunker: { footprint: {}, parts: "nope" },
           },
         },
       }),
@@ -834,7 +833,6 @@ describe("account trip pending bunker depth normalization", () => {
           claimedAtMoveCount: 0,
           bunker: {
             footprint: { col: 1, row: 4, width: 7, height: 5 },
-            core: { col: 4, row: 6, durability: 160 },
             parts: [{ partId: "wall-panel", col: 2, row: 5, durability: 90 }],
           },
           inventory: {},
@@ -842,7 +840,6 @@ describe("account trip pending bunker depth normalization", () => {
       },
     });
 
-    expect(trip?.pendingBunker?.bunker.core.depth).toBe(0);
     expect(trip?.pendingBunker?.bunker.parts).toEqual([
       { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
     ]);

@@ -270,8 +270,8 @@ describe("bunker fp tutorial state machine", () => {
   it("auto-skips the dig step when no diggable rock remains", () => {
     startAtLook(makeStorage());
     ride({ yaw: 1.3 });
-    // A fully dug volume: every cell open except the core.
-    tick({ openCells: FP_CELL_COUNT - 1, px: 6 });
+    // A fully dug volume: every cell open, no rock left to dig.
+    tick({ openCells: FP_CELL_COUNT, px: 6 });
     expect(getFpTutorialCard()).toBeNull();
     tick({}, FP_TUTORIAL_STEP_GAP_MS);
     expect(getFpTutorialCard()).toBe("place");

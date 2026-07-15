@@ -42,7 +42,6 @@ const FP_PLANE_DUG = (() => {
 const FP_BUNKER_VIEW = {
   bunker: {
     footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-    core: { col: START_COL, row: 3, durability: 160 },
     dug: FP_PLANE_DUG,
     parts: [
       {
@@ -551,13 +550,13 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     .not.toBeNull();
 
   // A fresh claim opens only the pre-mined spawn pocket (3x3x3 = 27
-  // cells, one of which the core occupies, leaving 26 walkable); the rest
+  // walkable cells now that F-118 freed the former core cell); the rest
   // of the volume is solid claim rock (F-115).
   await expect
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 20_000,
     })
-    .toBe("26");
+    .toBe("27");
 
   // Spawn faces -z: the ray crosses the open pocket cells (3,0,1) and
   // (3,0,2) and lands on the first claim rock behind them at depth 3.
@@ -619,7 +618,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
       timeout: 10_000,
     })
     .toBe("2:0:0:part");
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "25");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
   await expect(page.locator(".bunker-fp-target-label")).toHaveText(
     "Wall 90/90",
   );
@@ -657,7 +656,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     `Wall x${wallCount - 2}`,
     { timeout: 10_000 },
   );
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "24");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "25");
 
   // Right-click pry refunds the wall straight to the pack: the count
   // rises, the mesh disappears, and no carried chip ever shows.
@@ -675,7 +674,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     { timeout: 10_000 },
   );
   await expect(carried).toHaveCount(0);
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "25");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
   const afterPry = await canvas.screenshot();
   expect(
     await imagePixelDifferenceRatio(page, beforePry, afterPry),
@@ -694,7 +693,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     timeout: 10_000,
   });
   await expect(carried).toHaveCount(0);
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "27");
   const afterPries = await page.evaluate(() => {
     const trip = JSON.parse(
       localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
@@ -725,7 +724,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 10_000,
     })
-    .toBe("27");
+    .toBe("28");
   const afterDig = await canvas.screenshot();
   expect(
     await imagePixelDifferenceRatio(page, beforeDig, afterDig),
@@ -859,7 +858,7 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 45_000,
     })
-    .toBe("26");
+    .toBe("27");
 
   // Entry arms the pick; aim level so the ray runs straight down the
   // claim-rock column ahead. The spawn pocket opens depths 0-2, so the
@@ -955,15 +954,13 @@ test.describe("phone viewport", () => {
     test.skip(browserName !== "chromium", "uses CDP touch events");
     // Software-GL phone runs compile the fp scene slowly.
     test.setTimeout(240_000);
-    // A three-block plateau on the room floor to the spawn's right, and
-    // the core moved off the spawn column so its cell cannot trip the
-    // auto-jump headroom guard. Climbing the first face proves the hop;
-    // the plateau keeps the mover grounded on top for stable asserts.
+    // A three-block plateau on the room floor to the spawn's right.
+    // Climbing the first face proves the hop; the plateau keeps the
+    // mover grounded on top for stable asserts.
     const stepView = {
       ...FP_BUNKER_VIEW,
       bunker: {
         footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-        core: { col: START_COL - 2, row: 3, durability: 160 },
         dug: FP_PLANE_DUG,
         parts: [1, 2, 3].map((offset) => ({
           partId: "wall-panel",
@@ -1147,7 +1144,7 @@ test.describe("phone viewport", () => {
       .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
         timeout: 10_000,
       })
-      .toBe("34");
+      .toBe("35");
     expect(removeBodies).toEqual([
       { col: START_COL + 2, row: 5, depth: 0, expectedRevision: 0 },
     ]);
@@ -1157,7 +1154,7 @@ test.describe("phone viewport", () => {
     // back into (4,0,0). Stock, cells, and the place API stay quiet.
     await page.waitForTimeout(400);
     await expect(wallSlot).toHaveAttribute("aria-label", "Wall x7");
-    await expect(canvas).toHaveAttribute("data-fp-open-cells", "34");
+    await expect(canvas).toHaveAttribute("data-fp-open-cells", "35");
     expect(removeBodies).toHaveLength(1);
     expect(placeBodies).toEqual([]);
   });
@@ -1273,12 +1270,13 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
       timeout: 45_000,
     })
     .not.toBeNull();
-  // 35 tunnel-plane cells minus the core and the fixture's wall.
+  // 35 tunnel-plane cells minus the fixture's wall (F-118 freed the
+  // former core cell, so it counts as open now).
   await expect
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 20_000,
     })
-    .toBe("33");
+    .toBe("34");
 
   // Dig the rock straight ahead through the banked excavate API.
   await page.keyboard.press("0");
@@ -1293,7 +1291,7 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 10_000,
     })
-    .toBe("34");
+    .toBe("35");
   expect(excavateBodies).toEqual([
     { col: START_COL, row: 5, depth: 1, expectedRevision: 0 },
   ]);
@@ -1938,7 +1936,7 @@ test("first-person bunker interior renders dirt, rock, and ore, not one flat gra
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 45_000,
     })
-    .toBe("26");
+    .toBe("27");
   // Let the scene settle real frames before sampling.
   await expect
     .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 20_000 })
@@ -1970,11 +1968,10 @@ test("first-person bunker interior renders dirt, rock, and ore, not one flat gra
 });
 
 /** A banked raid start: the store adopts activeLiveRaid and the fp view
- * switches into the fight. The frozen snapshot carries depth on the core
- * and parts (the server normalizes these), so the client sim reads them. */
+ * switches into the fight. The frozen snapshot carries depth on its
+ * parts (the server normalizes these), so the client sim reads them. */
 const RAID_BUNKER = {
   footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-  core: { col: START_COL, row: 3, depth: 0, durability: 160 },
   dug: FP_PLANE_DUG,
   parts: [
     {

@@ -138,7 +138,9 @@ const bodySchema = z.object({
       claimCol: z.number().int(),
       claimRow: z.number().int().min(1),
       claimedAtMoveCount: z.number().int().min(0).max(MAX_TRIP_MOVES),
-      parts: z.array(placedBasePartSchema).max(174),
+      // One part per cell, so the whole 7x5x5 volume is the cap. F-118 removed
+      // the core, so every cell is buildable (the old cap of 174 reserved it).
+      parts: z.array(placedBasePartSchema).max(MAX_DUG_CELLS),
       // Any of the 7x5x5 cells may be dug out, including the depth-0 floor.
       dug: z.array(dugBunkerCellSchema).max(MAX_DUG_CELLS).default([]),
     })
@@ -832,11 +834,10 @@ export async function POST(request: Request): Promise<Response> {
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
     ), claimed_bunker AS (
-      INSERT INTO bunkers (player_id, footprint, core, parts, dug, block_seed, loot)
+      INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot)
       SELECT
         ${playerId},
         ${JSON.stringify(claimedBunker?.footprint ?? {})}::jsonb,
-        ${JSON.stringify(claimedBunker?.core ?? {})}::jsonb,
         ${JSON.stringify(claimedBunker?.parts ?? [])}::jsonb,
         ${JSON.stringify(claimedBunker?.dug ?? [])}::jsonb,
         ${claimedBunker?.blockSeed ?? null},

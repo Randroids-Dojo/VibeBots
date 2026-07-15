@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-146 Make bunker mutations atomic and serialize every client write</title>
+<meta name="dot-title" content="F-146 Make bunker mutations atomic and serialize every client write">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T23:36:43.811776-05:00">
+</head>
+<body>
+<article>
+<h1>F-146 Make bunker mutations atomic and serialize every client write</h1>
+<section id="description">
+Make every bunker mutation all-or-nothing across bunker revision, inventory, refunds, balance, and owned-item rows. Serialize all client bunker writes, return stable conflicts with the complete authoritative view, and inject secondary-write failures plus overlapping operations in tests.
+</section>
+</article>
+</body>
+</html>

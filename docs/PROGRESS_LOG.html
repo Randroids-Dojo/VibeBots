@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="raid-followup-audit" data-date="2026-07-15">
+    <h3>Audit merged bunker concurrency, raid lifecycle, and live-sim performance claims</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/raid-followup-audit</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Read-only audit of exact <code>main</code> at <code>23d01c81</code> after PRs #202 and #215 found that several merged claims were narrower than their durable wording. Added F-146 for split bunker and inventory writes plus client methods that bypass the mutation queue. Appended corrections to F-122, F-105, and F-106 for partial commit and recovery gaps, the missing unique active-raid invariant, stable conflict resync, and bounded lifecycle telemetry. Updated F-104 and F-092 for allocation-heavy live pathfinding, a conditional loss-test premise, the client-authoritative option D contract, and fail-fast incompatible state. Reviewed PR #216's in-progress load-time expiry path and recorded its no-wear conflict with Q-019 plus the missing exact-boundary and repeated-load proof. No runtime code changed.</dd>
+      <dt>Verification</dt><dd>Dependency Upgrade Gate current for VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.10</code>, three <code>0.185.1</code>, and React Three Fiber <code>9.6.1</code>. Latest scheduled Full E2E run 29323594310 was cancelled, not failed. Focused current-main suites passed: <code>bunker-raid-live.test.ts</code>, <code>bunker-store.test.ts</code>, <code>bunker-raid-live-server.test.ts</code>, and <code>bunker.test.ts</code>, 84 tests total. The passing suites do not inject the documented secondary-write failures. Dash, whitespace, followup identity, newest-progress, HTML Dot, type-check, and Biome checks passed; Biome retained the existing optional-chain and broken-symlink warnings.</dd>
+      <dt>Assumptions</dt><dd>The user does not support simultaneous multi-machine play, so the contract remains simple: one winner, explicit conflict failure, and complete authoritative replacement. Gameplay state must still be all-or-nothing across retries and deploys. Telemetry uses bounded server-derived outcomes and stays best-effort; balance rewards remain success-only and deduplicated.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed and no GDD build log applies because this slice records followups only. The existing Q-024 option D and Q-019 contracts remain authoritative until their open lifecycle tasks settle the no-report wear policy.</dd>
+      <dt>Followups</dt><dd>Created F-146 and its HTML Dot. Added nonduplicative acceptance evidence to the still-open F-105, F-106, F-104, and F-092 work, and corrected F-122 without rewriting its historical Resolved entry.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-entry-dedup" data-date="2026-07-15">
     <h3>One way into the bunker: drop the redundant sheet entry button</h3>
     <dl>

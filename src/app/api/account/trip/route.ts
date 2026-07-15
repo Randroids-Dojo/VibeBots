@@ -15,6 +15,7 @@ import { db, storageConfigured } from "@/server/db";
 import {
   mineConsumablesSchema,
   mineGearSchema,
+  pendingBunkerBuildSchema,
 } from "@/server/mine-trip-schema";
 import { currentPlayerId } from "@/server/player";
 import { sameOriginMutationRequired } from "@/server/request-guards";
@@ -32,7 +33,10 @@ const tripSchema = z.object({
   moves: z
     .array(z.string().refine(isMineAction, { message: "invalid mine action" }))
     .max(MAX_TRIP_MOVES),
-  pendingBunker: z.unknown().optional(),
+  // Bounded so a malformed checkpoint (a null part, a bad core, oversized
+  // collections) is rejected with a stable 400 instead of being stored and
+  // later throwing in the client normalizer (F-112).
+  pendingBunker: pendingBunkerBuildSchema.nullish(),
   terminalReplayConsumed: z.boolean().optional(),
 });
 

@@ -88,6 +88,7 @@ import {
   type SavedTrip,
   type SaveSlotId,
   saveLocalTrip,
+  storedTripPendingBunkerIsCorrupt,
   validSaveSlot,
 } from "./mine-trip-persistence";
 import { enqueueStampAlertsFromResponse } from "./stamp-alert-store";
@@ -651,8 +652,19 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return;
       }
       const slot = get().activeSlot;
+      // Check before loadLocalTrip drops the blob: a corrupt pending-bunker
+      // checkpoint gets a clear fresh-start notice, while a routine version or
+      // shape mismatch resets silently as it always has (F-112).
+      const corruptCheckpoint = storedTripPendingBunkerIsCorrupt(slot);
       const saved = loadLocalTrip(slot);
-      if (saved) resume(slot, saved.seed, saved.tripIndex, saved.baseDiff);
+      if (saved) {
+        resume(slot, saved.seed, saved.tripIndex, saved.baseDiff);
+      } else if (corruptCheckpoint) {
+        set({
+          shopNote:
+            "Your saved trip couldn't be restored, so a fresh one started.",
+        });
+      }
     },
 
     loadGear: async () => {

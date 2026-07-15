@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="live-raid-lazy-expiry" data-date="2026-07-15">
+    <h3>Settle an abandoned live raid on the next load, not just at the next start</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/live-raid-lazy-expiry</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Closes F-105's remaining lazy-finalization gap. A live raid past its authored duration plus the 60s server grace already reported inactive (so it never wedged bunker ops), but the stale row was only actually settled at the next raid start. Now <code>loadBunkerView</code> settles it on the very next load or bunker op: when the active row is a readable, past-grace live raid it calls a new <code>finalizeExpiredLiveRaids</code> helper that writes a forfeit-loss result (no reward, no wear, matching the corrected Q-024 loss stakes) under the same idempotent <code>result IS NULL</code> guard, so an abandoned raid closes exactly once. The redundant cleanup that <code>startLiveRaid</code> did before inserting is removed, since the <code>loadBunkerView</code> it already calls now finalizes stale rows. This is the "finalize stale rows lazily during load or the next bunker operation" clause of F-105's unblock condition.</dd>
+      <dt>Verification</dt><dd>dash clean, sim-purity clean, Biome clean, full type-check, full unit suite (1523) green. New test: a past-grace live raid is settled as a forfeit loss on a plain <code>loadBunkerView</code> (an <code>UPDATE bunker_raids</code> runs and the raid reports inactive). The existing start, resolve, discrimination, and edit-freeze tests still pass unchanged.</dd>
+      <dt>Assumptions</dt><dd>Finalizing inside <code>loadBunkerView</code> is exactly the lazy-on-load pattern F-105 asked for; it writes only when an expired live row is present (the common active and no-raid cases issue no write), and the <code>result IS NULL</code> guard makes it a one-time settle. An expiry forfeit applies no wear because there is no client report, so the frozen defenses stand untouched, consistent with the start slice.</dd>
+      <dt>GDD</dt><dd>Recorded final progress on F-105 and appended a build-log entry. Invisible infra slice: no package bump, release note, tip (Rule 13), or stamp (Rule 14). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="live-raid-resolve-route" data-date="2026-07-15">
     <h3>Resolve a live raid once, settling the reported outcome server-side</h3>
     <dl>

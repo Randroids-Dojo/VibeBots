@@ -381,6 +381,25 @@ function bunkerRaidActive(view: BunkerView): boolean {
   return view.activeRaid !== null || view.activeLiveRaid != null;
 }
 
+/** Settle any stale past-grace live raid row as a forfeit loss (no reward, no
+ * wear), so an abandoned raid closes lazily on the next load or bunker op
+ * (F-105) rather than lingering unresolved. Idempotent: the `result IS NULL`
+ * guard means a row settles at most once. */
+async function finalizeExpiredLiveRaids(
+  sql: Sql,
+  playerId: string,
+): Promise<void> {
+  await sql`
+    UPDATE bunker_raids
+    SET result = ${JSON.stringify({ outcome: "forfeit", survived: false })}::jsonb,
+        rewarded_at = now()
+    WHERE player_id = ${playerId}
+      AND result IS NULL
+      AND raid_version = ${BUNKER_RAID_LIVE_VERSION}
+      AND started_at
+        < now() - make_interval(secs => duration_seconds + ${LIVE_RAID_GRACE_SECONDS})`;
+}
+
 async function ensureStarterBaseParts(
   sql: Sql,
   playerId: string,
@@ -460,15 +479,27 @@ export async function loadBunkerView(
   const isLiveRaidRow =
     raidRow !== undefined &&
     Number(raidRow.raid_version) === BUNKER_RAID_LIVE_VERSION;
+  let activeRaid: BunkerRaidSnapshot | null = null;
+  let activeLiveRaid: LiveRaidActiveView | null = null;
+  if (isLiveRaidRow) {
+    activeLiveRaid = liveRaidActiveViewFrom(
+      raidRow.snapshot,
+      raidRow.started_at,
+    );
+    if (!activeLiveRaid && normalizeLiveRaidStartSnapshot(raidRow.snapshot)) {
+      // A readable but past-grace live raid: settle it as a forfeit loss now
+      // (F-105), so an abandoned raid closes on the next load, not only at the
+      // next raid start.
+      await finalizeExpiredLiveRaids(sql, playerId);
+    }
+  } else if (raidRow) {
+    activeRaid = normalizeBunkerRaidSnapshot(raidRow.snapshot);
+  }
   return {
     bunker: parseBunkerState(bunkerRows[0] ?? null),
     inventory: await ensureStarterBaseParts(sql, playerId),
-    activeRaid: isLiveRaidRow
-      ? null
-      : normalizeBunkerRaidSnapshot(raidRow?.snapshot),
-    activeLiveRaid: isLiveRaidRow
-      ? liveRaidActiveViewFrom(raidRow.snapshot, raidRow.started_at)
-      : null,
+    activeRaid,
+    activeLiveRaid,
     revision: Number.isFinite(revisionValue) ? revisionValue : 0,
     player: {
       balance: player.emeralds,
@@ -1167,18 +1198,9 @@ export async function startLiveRaid(
       };
     }
   }
-  // Close any stale past-grace live row as a forfeit loss (no reward, no wear)
-  // before opening a new one, so orphaned unresolved rows never accumulate
-  // (F-105). The active-raid guard above already proved none is still running.
-  await sql`
-    UPDATE bunker_raids
-    SET result = ${JSON.stringify({ outcome: "forfeit", survived: false })}::jsonb,
-        rewarded_at = now()
-    WHERE player_id = ${playerId}
-      AND result IS NULL
-      AND raid_version = ${BUNKER_RAID_LIVE_VERSION}
-      AND started_at
-        < now() - make_interval(secs => duration_seconds + ${LIVE_RAID_GRACE_SECONDS})`;
+  // A stale past-grace live row was already settled as a forfeit loss by the
+  // loadBunkerView call above (F-105), so no cleanup is needed here before
+  // opening the new raid.
   const startedAtMs = Date.now();
   const raidId = `live-${startedAtMs.toString(36)}`;
   // Frozen snapshot: the bunker is stored in the bunkers-row shape so it reads

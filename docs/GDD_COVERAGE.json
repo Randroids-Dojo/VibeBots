@@ -1214,7 +1214,9 @@
       "testRefs": [
         "src/sim/bunker.test.ts",
         "src/components/bunker-fp-grid.test.ts",
-        "src/sim/bunker-raid-live.test.ts"
+        "src/sim/bunker-raid-live.test.ts",
+        "src/server/bunker-raid-live-server.test.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
       ],
       "followupRefs": [
         "F-104",

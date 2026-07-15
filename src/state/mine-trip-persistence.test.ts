@@ -430,20 +430,31 @@ describe("pending bunker validation (F-112)", () => {
   });
 
   it("accepts a full 175-part bunker but rejects 176 (F-118 freed the core cell)", () => {
-    const makeParts = (count: number) =>
-      Array.from({ length: count }, () => ({
-        partId: "wall-panel",
-        col: 1,
-        row: 1,
-        depth: 0,
-        durability: 10,
-      }));
-    // 7 x 5 x 5 = 175 cells, all buildable now that the core is gone.
+    // One part in every distinct cell of the 7 x 5 x 5 volume: 5 depths x
+    // 5 rows x 7 cols = 175 unique cells, all buildable now the core is gone.
+    const uniqueParts = [];
+    for (let depth = 0; depth < 5; depth++) {
+      for (let row = 1; row <= 5; row++) {
+        for (let col = 1; col <= 7; col++) {
+          uniqueParts.push({
+            partId: "wall-panel",
+            col,
+            row,
+            depth,
+            durability: 10,
+          });
+        }
+      }
+    }
+    expect(uniqueParts).toHaveLength(175);
+    const accepted = normalizePendingBunker(withBunker({ parts: uniqueParts }));
+    expect(accepted).not.toBeNull();
+    expect(accepted?.bunker.parts).toHaveLength(175);
+    // A 176th part (one cell repeated) exceeds the volume and is rejected.
     expect(
-      normalizePendingBunker(withBunker({ parts: makeParts(175) })),
-    ).not.toBeNull();
-    expect(
-      normalizePendingBunker(withBunker({ parts: makeParts(176) })),
+      normalizePendingBunker(
+        withBunker({ parts: [...uniqueParts, uniqueParts[0]] }),
+      ),
     ).toBeNull();
   });
 

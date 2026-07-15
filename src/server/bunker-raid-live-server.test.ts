@@ -156,6 +156,35 @@ describe("loadBunkerView live raid discrimination", () => {
     expect(view.activeLiveRaid?.tier).toBe(2);
   });
 
+  it("resolves a legacy snapshot whose frozen bunker still carries a core (F-118)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T00:00:00.000Z"));
+    // A snapshot frozen before the core was removed serialized one into its
+    // bunker; the new parser must ignore it, not crash, and expose the raid.
+    const legacy = liveSnapshot(88, "live-legacy");
+    (legacy.bunker as Record<string, unknown>).core = {
+      col: 4,
+      row: 3,
+      depth: 0,
+      durability: 160,
+    };
+    const sql = vi.fn(
+      baseSql([
+        {
+          snapshot: legacy,
+          raid_version: BUNKER_RAID_LIVE_VERSION,
+          started_at: new Date().toISOString(),
+        },
+      ]),
+    );
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.activeLiveRaid?.raidId).toBe("live-legacy");
+    expect(view.activeLiveRaid?.bunker).not.toHaveProperty("core");
+    expect(view.activeLiveRaid?.bunker.parts).toHaveLength(1);
+  });
+
   it("treats a live raid past duration plus grace as inactive", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-15T01:00:00.000Z"));

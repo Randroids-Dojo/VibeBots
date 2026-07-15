@@ -181,6 +181,36 @@ describe("loadBunkerView live raid discrimination", () => {
     expect(view.activeLiveRaid).toBeNull();
   });
 
+  it("settles a past-grace live raid as a forfeit loss on load", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T01:00:00.000Z"));
+    const queries: string[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      queries.push(query);
+      if (query.includes("SELECT emeralds, track_xp, defense_xp"))
+        return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
+      if (query.includes("SELECT footprint, core, parts"))
+        return [bunkerRow(88)];
+      if (query.includes("SELECT snapshot"))
+        return [
+          {
+            snapshot: liveSnapshot(88, "live-stale"),
+            raid_version: BUNKER_RAID_LIVE_VERSION,
+            started_at: new Date("2026-07-15T00:00:00.000Z").toISOString(),
+          },
+        ];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.activeLiveRaid).toBeNull();
+    // The abandoned raid is settled as a forfeit loss now, not left open.
+    expect(queries.some((q) => q.includes("UPDATE bunker_raids"))).toBe(true);
+  });
+
   it("freezes bunker edits while a live raid is active", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-15T00:00:00.000Z"));

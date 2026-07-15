@@ -15,6 +15,27 @@
 <section id="description">
 F-106: Allow only one concurrent mutation to win, return a stable conflict response to the loser, and replace local state with the latest server view.
 </section>
+<section id="evidence-prs-215-216">
+The raid-row compare-and-set currently precedes separate wear, reward, achievement, telemetry, and reload statements. Make full settlement atomic or resumable and keep edits blocked through the authoritative result. F-109 owns lifecycle telemetry.
+</section>
+<section id="client-resolve-ack-2026-07-15">
+The unpublished client marks resolve done before an optional callback and discards the request promise, while Start has no pending latch. Keep both mutations pending until acknowledgement, retry ambiguous resolve failures by raid identity, replace state from authoritative conflicts, and cover rapid taps, lost responses, reload, concurrent start or settle, and exactly one reward.
+</section>
+<section id="production-concurrency-exploit-pr-221">
+Main c84a4403 has no unique unresolved-row invariant, so two concurrent starts can insert separate raids and settle twice as the older row resurfaces. Resolve also claims the row before separate wear, reward, achievement, telemetry, and view writes, making later failure partial and unretryable. Add one atomic or resumable settlement, unique active-row constraint, stable authoritative conflict body, pending latch, acknowledged completion, and exact concurrent-start plus injected-failure coverage.
+</section>
+<section id="forfeit-wip-review-2026-07-15">
+The draft endpoint targets every unresolved current-version row without raid identity, compare token, affected-row check, unique-active invariant, atomic wear, or same-origin request validation. It returns success when nothing matched. Require exact identity, atomicity, stable conflict plus authoritative view, and overlap coverage.
+</section>
+<section id="cleanup-acknowledgement-race-2026-07-15">
+The draft marks resolve complete before server acknowledgement, then skips fallback recovery after a failed request. Otherwise it exposes flat play while fire-and-forget forfeit remains pending. Keep recovery locked until an exact authoritative result is adopted and retry ambiguous failures by stable raid identity.
+</section>
+<section id="forfeit-verification-correction-2026-07-15">
+The draft test checks SQL tokens but not one exact selected row, affected count, or atomic wear. Add route and smoke coverage plus no row, multiple rows, exact identity, duplicate, concurrency, post-grace, failures, same-origin rejection, telemetry failure, and authoritative response cases.
+</section>
+<section id="mutation-origin-correction-2026-07-15">
+The bodyless POST takes no Request and cannot call sameOriginMutationRequired. With the embedded save cookie using SameSite=None, require stable same_origin_required rejection before mutation and route tests for hostile Origin, hostile Sec-Fetch-Site, missing evidence policy, and same-origin success.
+</section>
 </article>
 </body>
 </html>

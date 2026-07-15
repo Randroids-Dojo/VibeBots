@@ -15,6 +15,15 @@
 <section id="description">
 F-101: Retain allocation-safe bunker context such as eye height, open cells, and grounded state in performance snapshots with unit and trace coverage.
 </section>
+<section id="live-raid-telemetry-2026-07-15">
+Retain fpSwinging plus bounded fpRaidActive and fpClankersAlive through the bunker-fp dataset, source-aware allowlist, payload, persistence, and insights path. Keep raid IDs, positions, and cell keys out of telemetry.
+</section>
+<section id="render-probe-correction-2026-07-15">
+Do not treat fpClankersVisible or group.visible as player-visible proof. Retain authoritative bounded fpClankersAlive for bunker-fp telemetry and keep pixel render QA separate.
+</section>
+<section id="production-telemetry-gap-pr-221">
+Main c84a4403 deployed live first-person raids while the performance path still drops fpEyeY, fpOpenCells, fpGrounded, fpSwinging, fpRaidActive, and fpClankersAlive. Carry those bounded fields through the source-aware allowlist, payload, persistence, and insights rollup, then confirm production byBuild separates idle, building, combat, and terminal samples without high-cardinality data.
+</section>
 </article>
 </body>
 </html>

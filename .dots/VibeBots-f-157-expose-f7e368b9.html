@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-157 Expose current followup priorities without rewriting history</title>
+<meta name="dot-title" content="F-157 Expose current followup priorities without rewriting history">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="3">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-15T00:27:38.690237-05:00">
+</head>
+<body>
+<article>
+<h1>F-157 Expose current followup priorities without rewriting history</h1>
+<section id="description">
+Keep data-priority authoritative while preserving historical primary records. Add a current priority index or non-primary pointers, grandfather the audited container mismatches and one historical closure identity, and validate pointer targets, priorities, uniqueness, and post-cutoff placement.
+</section>
+<section id="port-fidelity-2026-07-15">
+Define a primary as a section with data-f and no non-primary data-role, record an explicit cutoff or allowlist, and pin the 69-item baseline as 31 records under the wrong named bucket plus 38 outside every named bucket.
+</section>
+<section id="baseline-ac99bcf1">
+PR #220 added nice-to-have F-144 inside Blocks Release before validation existed. The ac99bcf1 allowlist is now 32 wrong-bucket plus 38 outside-bucket records, total 70, with no later mismatch allowed.
+</section>
+<section id="correction-reference-semantics-2026-07-15">
+A correction references the primary whose history it corrects, so the F-123 sequence pointer references F-123 while its prose names F-149 as current substantive owner. Put the reference on every correction in its first commit and never add it later by rewriting history. Introduce a separate successor attribute later if machine-readable redirection is needed. For published unreferenced corrections, use an explicit pre-enforcement cutoff plus current-state projection or a clean successor. Priority pointers remain non-primary and unique by target.
+</section>
+<section id="post-cutoff-evidence-pr-221">
+Commit c27a0f65 placed new polish F-148 inside Nice To Have after cutoff ac99bcf1 and supplied no Dots for its four new primaries. Commit e2aab3cb rewrote those IDs in place, left replacement F-161 in the same mismatched container, and still added no Dots. Reject the post-cutoff placement and missing identities. An additive correction cannot make either published primary disappear.
+</section>
+<section id="merged-post-cutoff-evidence-pr-221">
+Main c84a4403 places polish F-161 inside Nice To Have after cutoff ac99bcf1. The current scan is 33 wrong-bucket plus 38 outside-bucket primaries, total 71, while only 70 are grandfathered. Keep F-161 as the failing post-cutoff case and expose it under Polish through a current-state index or non-primary pointer without moving the merged primary or expanding the allowlist.
+</section>
+</article>
+</body>
+</html>

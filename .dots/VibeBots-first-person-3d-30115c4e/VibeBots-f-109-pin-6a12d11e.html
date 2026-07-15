@@ -15,6 +15,18 @@
 <section id="description">
 F-109: Define turret ammo and wear, spike wear, the exact 3D sealed rule, and any resulting Buttoned Up stamp copy or progress changes.
 </section>
+<section id="telemetry-scope">
+Live testing also needs one bounded server-owned lifecycle event for start, resolve, loss, expiry, conflict, invalid report, and incompatible-state recovery. Keep reward telemetry success-only and make sink failure non-fatal.
+</section>
+<section id="zero-durability-projection-2026-07-15">
+Treat persisted zero-durability defenses as destroyed and nonblocking in live render and player collision while retaining server repair ownership. Pin exact-tick wall, door, and spike transitions plus settle, reload, repair, and shared Clanker and player traversal.
+</section>
+<section id="production-telemetry-pr-221">
+The deployed reward event includes a unique raid ID and client-reported kill count that can disagree with XP or terminal state. Remove those fields, keep success balance telemetry server-derived and exactly once, and add a separate fixed-reason lifecycle event for accepted and rejected start, resolve, loss, expiry, conflict, recovery, retry, and sink failure without reports, wear, snapshots, coordinates, seeds, or human text.
+</section>
+<section id="forfeit-telemetry-review-2026-07-15">
+The draft emits no lifecycle event. Add bounded server-derived accepted or rejected forfeit and expiry outcomes with fixed reasons, no raid ID or payload, exactly once, and non-fatal sink failure. Emit no reward balance event for a forfeit.
+</section>
 </article>
 </body>
 </html>

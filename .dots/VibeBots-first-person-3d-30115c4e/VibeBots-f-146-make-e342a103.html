@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-146 Make bunker mutations atomic and serialize every client write</title>
+<meta name="dot-title" content="F-146 Make bunker mutations atomic and serialize every client write">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T23:36:43.811776-05:00">
+</head>
+<body>
+<article>
+<h1>F-146 Make bunker mutations atomic and serialize every client write</h1>
+<section id="description">
+Make every bunker mutation all-or-nothing across bunker revision, inventory, refunds, balance, and owned-item rows. Serialize all client bunker writes, return stable conflicts with the complete authoritative view, and inject secondary-write failures plus overlapping operations in tests.
+</section>
+<section id="live-ui-hard-gate-2026-07-15">
+The first-person live raid UI branch published d7f6a5f5 from ac99bcf1 before F-146 implementation. Ledger authority alone does not unblock start or resolve call sites. Land the global queue, atomic writes, authoritative replacement, and overlap tests first.
+</section>
+<section id="local-player-wiring-gate-2026-07-15">
+The unpublished player path now wires unlatched start and fire-and-forget resolve before F-146. Overflow collection still runs before the raid gate, its same-raid response can restart the local wave, and an active dig swing can land after start. Keep the path unshippable, put every edit and lifecycle action behind one queue and combat gate, key runtime by raid ID, cancel in-flight edits, and prove no duplicate start, rejected edit churn, or wave restart.
+</section>
+<section id="production-atomicity-exploit-pr-221">
+Main c84a4403 lets remove, place, reset, repair, collect, or dig overlap Start and resolve outside one queue and atomic boundary. Resolve can restore a refunded part, erase a consumed placement, or overwrite paid repair durability. Serialize every bunker mutation against one freshest authoritative revision and prove no duplicate or lost inventory, balance, part, or revision across delayed overlaps.
+</section>
+<section id="forfeit-serialization-review-2026-07-15">
+The draft client forfeit runs outside the shared queue with no latch or raid identity. A delayed exit can target a newly started raid or clear newer equal-revision state. Serialize it with exact identity and prove duplicate exit, new Start, load, resolve, and edits cannot overwrite one another.
+</section>
+</article>
+</body>
+</html>

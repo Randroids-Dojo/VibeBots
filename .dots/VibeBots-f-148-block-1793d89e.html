@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-148 Block merges until exact-head review gates pass</title>
+<meta name="dot-title" content="F-148 Block merges until exact-head review gates pass">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T23:58:51.452428-05:00">
+</head>
+<body>
+<article>
+<h1>F-148 Block merges until exact-head review gates pass</h1>
+<section id="description">
+Require a submitted exact-head bot review, zero unresolved threads, the settle window, and an enforceable merge hold. Flat comments and green rate-limit statuses do not satisfy the gate.
+</section>
+<section id="port-fidelity-2026-07-15">
+Inspect GraphQL review nodes, thread resolution, the CodeRabbit summary marker, and the reviewed commit range through the exact current head.
+</section>
+<section id="evidence-pr-219">
+PR #219 merged 54afbe47 with zero submitted reviews while CodeRabbit was rate limited and exact-head holds remained active.
+</section>
+<section id="evidence-pr-220">
+PR #220 merged 91410fa9 with zero submitted reviews 71 seconds after an exact-head hold restated its unresolved blockers.
+</section>
+<section id="evidence-pr-221">
+PR #221 head c27a0f65 reached green CI, CodeQL, and preview with zero submitted reviews while CodeRabbit reported a 42-minute rate limit behind a success status. After exact-head and no-rewrite holds, e2aab3cb replaced it and reached green checks without resolving the runtime or history blockers. Require a submitted review through the exact final head, zero unresolved threads, a settled wait, and a normally passing ruleset before merge.
+</section>
+<section id="merged-evidence-pr-221">
+PR #221 merged e2aab3cb at 07:22:16Z as c84a4403 with zero submitted reviews, 176 seconds after the revised exact-head hold. Ruleset suite 3340413085 records administrator bypass. Green checks, comments, and elapsed time did not supply a review node or enforceable hold.
+</section>
+<section id="exact-head-hold-pr-222">
+Head 0b034750 opened with zero submitted reviews while CodeRabbit reported success without a review node. Hold comment 4978126587 records the blockers. Recompute from the next head and require a submitted review, zero unresolved threads, and a fresh settled wait.
+</section>
+<section id="replacement-head-hold-pr-222">
+Head e4786652 replaced the previously held commit with zero submitted reviews. Comments 4978170952, 4978176956, and 4978184507 record the remaining blockers and fresh-successor requirement. Discard prior checks and never bypass.
+</section>
+<section id="merged-review-evidence-pr-222">
+PR #222 merged at 07:56:18Z with zero submitted reviews and active holds. Exact-head CHANGES_REQUESTED review 4702070384 arrived 44 seconds later with three unresolved threads covering proof overclaim, frame-loop allocation, and missing rendered tint evidence. This is a review-in-flight merge failure.
+</section>
+</article>
+</body>
+</html>

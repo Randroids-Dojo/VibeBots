@@ -15,6 +15,15 @@
 <section id="description">
 F-107: Reject incompatible active raid versions with a clear explanation and confirmed Start fresh recovery. Do not maintain old resolvers indefinitely.
 </section>
+<section id="first-person-version-gate-2026-07-15">
+LiveRaidActiveView currently omits raid version and the client ignores authored duration. Require matching row and snapshot versions plus a supported duration before runtime creation, or show the confirmed Start fresh recovery. Never run current constants over incompatible state.
+</section>
+<section id="production-fail-fast-gap-pr-221">
+Main c84a4403 still defaults a missing snapshot version to current, can normalize an unknown row toward interim state, and sends no persisted raid version to the live client. Reject missing, malformed, old, or future state with one stable explanation and a confirmed Start fresh action that abandons it without reward. Do not add a migration chain.
+</section>
+<section id="forfeit-version-review-2026-07-15">
+The draft filters to current raid version but returns success when an unsupported unresolved row remains. Return the fail-fast incompatible-state response and confirmed Start fresh recovery. Never silently skip bad state and unlock normal play.
+</section>
 </article>
 </body>
 </html>

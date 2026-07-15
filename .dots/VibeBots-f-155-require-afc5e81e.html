@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-155 Require approval before remote branch deletion</title>
+<meta name="dot-title" content="F-155 Require approval before remote branch deletion">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T23:58:51.468029-05:00">
+</head>
+<body>
+<article>
+<h1>F-155 Require approval before remote branch deletion</h1>
+<section id="description">
+Preflight automatic or manual remote branch deletion and require explicit current approval naming the branch, exact head, mechanism, and reason.
+</section>
+<section id="evidence-pr-217">
+PR #217 deleted feat/bunker-entry-dedup at b498dcf7 nine seconds after merge with no separate branch-deletion approval in the complete PR record.
+</section>
+<section id="port-fidelity-2026-07-15">
+Prove the exact head is retained through the intended PR ref and named reachable history, fail safely on remote-head movement, and never weaken repository deletion protection to add the operator check.
+</section>
+<section id="evidence-pr-219">
+PR #219 deleted feat/live-raid-client-plumbing at 54afbe47 eleven seconds after merge despite explicit holds and no separate deletion approval.
+</section>
+<section id="evidence-pr-220">
+PR #220 deleted feat/clanker-visual-module at 91410fa9 nine seconds after merge despite explicit holds and no separate deletion approval.
+</section>
+<section id="evidence-pr-221">
+PR #221 deleted feat/fp-live-raid-loop at e2aab3cb at 07:22:39Z, 23 seconds after its bypass merge, despite an explicit no-delete hold and no separate approval naming the branch, expected head, mechanism, and reason. Main retention does not substitute for destructive-action approval.
+</section>
+<section id="evidence-pr-222">
+Remote branch feat/fp-specialist-clanker-tints at e4786652 was deleted 11 seconds after merge despite an explicit no-delete instruction and without separate approval naming branch, expected head, mechanism, and reason.
+</section>
+</article>
+</body>
+</html>

@@ -15,6 +15,27 @@
 <section id="description">
 F-119: Keep one post-claim Enter bunker affordance and add an in-bunker menu with safe raid, repair, skin, and confirmed reset flows.
 </section>
+<section id="evidence-pr-217">
+PR #217 safely removed the looser sheet entry. The surviving floating entry also requires the shared bunker edit gate and a non-terminal mine state. The in-bunker controls remain open.
+</section>
+<section id="live-loop-menu-review-2026-07-15">
+Do not add a standalone raid control. Put Raid, Repair, Skins, and confirmed Reset in the one in-bunker menu. Apply one combat lock across touch and desktop, block Escape and edit tools, use dodge-accurate copy, resolve a loss into the authored surface return instead of another in-room Start, reflow below corner actions at 390 px portrait, and keep the one-second timer out of a continuous live announcement.
+</section>
+<section id="accepted-state-combat-gate-2026-07-15">
+Pending and accepted raid state must lock Start, Exit, Bag, Pick, Build, and Pry before any renderer frame. Derive the gate from the request latch and authoritative bunker store, not only the frame HUD snapshot, and cover compile delay plus renderer stall.
+</section>
+<section id="production-exposure-pr-221">
+Main c84a4403 deployed a standalone Start control and frame-delayed combat gate without the one Raid, Repair, Skins, and confirmed Reset menu. Apply one consistent accepted-state lock across desktop Escape, touch Exit, tools, narrow layout, and the first paused renderer frame.
+</section>
+<section id="forfeit-control-review-2026-07-15">
+Do not turn voluntary Escape or touch Exit into an ordinary forfeit. Q-019 chooses no voluntary exit during combat. Block those controls from authoritative pending or active state, keep mine actions locked on reload, and leave involuntary disconnect recovery to F-105.
+</section>
+<section id="pending-forfeit-ui-correction-2026-07-15">
+The draft exposes flat play before recovery settles, and Enter ignores activeLiveRaid, so the player can immediately remount a tick-zero raid. Lock movement, tools, actions, and re-entry until authoritative recovery is acknowledged across touch, desktop, reload, remount, failed resolve, and retry.
+</section>
+<section id="forfeit-e2e-reachability-correction-2026-07-15">
+The active raid panel hides the only Exit button, which returns only after resolve. Do not add a voluntary raid Exit to make the test reachable. Prove Escape and touch Exit stay unavailable during pending or active combat, then test involuntary recovery under F-105.
+</section>
 </article>
 </body>
 </html>

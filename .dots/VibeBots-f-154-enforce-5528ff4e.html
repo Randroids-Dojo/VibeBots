@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-154 Enforce append-only records across PR commit history</title>
+<meta name="dot-title" content="F-154 Enforce append-only records across PR commit history">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T23:58:51.465686-05:00">
+</head>
+<body>
+<article>
+<h1>F-154 Enforce append-only records across PR commit history</h1>
+<section id="description">
+Fail the required gate when a PR edits, deletes, or reorders a committed ledger or GDD record. Corrections must append and report the first offending commit.
+</section>
+<section id="evidence-through-pr-217">
+The 12 newest progress articles through PR #217 use GDD instead of GDD coverage and omit Followups. Validate each new record's required schema as well as later immutability, and accept newest-first corrections.
+</section>
+<section id="port-fidelity-2026-07-15">
+Validate monotonic new F-IDs, exact allowed open-question and coverage mutations, approved history replacement without trusting the final diff, reference-removal fixtures, and fail-fast execution before review or merge readiness.
+</section>
+<section id="evidence-pr-219">
+PR #219 commit b328bf37 added a malformed progress article, then 54afbe47 edited its committed Branch, PR, and Assumptions in place before merge despite an explicit append-only hold.
+</section>
+<section id="evidence-pr-220">
+Initial head c1a8c5c8 added another top progress article with GDD instead of GDD coverage, no Followups field, and a pending PR value. The hold requires a separate newest-first correction.
+</section>
+<section id="structural-evidence-pr-218">
+Published head c7ec6b88 added a sixth unmatched article and dl pair while merging parallel histories. The additive repair returns to current base's five historical unmatched boundaries. F-154 owns safe repair of those five plus whole-tree sibling, balance, and new-record schema validation.
+</section>
+<section id="merged-history-pr-220">
+PR #220 commit 91410fa9 rewrote the committed progress and GDD records from c1a8c5c8 in place, added F-144 without a Dot, and merged despite the exact history hold.
+</section>
+<section id="structural-cleanup-pr-218">
+PR #218 inserts only the missing close tags for the five historical malformed progress records and its own merge boundary. Record-by-record validation must keep every article a complete sibling with one closed dl.
+</section>
+<section id="append-only-policy-correction-pr-218">
+Commit 96d7c7b5 added five close pairs inside historical base records. The follow-on removes exactly those pairs to restore origin/main bytes and retains only the PR218 raid-followup-audit boundary. Validation must accept the inherited five-pair baseline, reject every new structural defect, and require explicit approval or a separate projection before normalizing history.
+</section>
+<section id="exact-head-schema-evidence-pr-221">
+PR #221 commit c27a0f65 added a seven-field progress article with unsupported Frame loop, GDD instead of GDD coverage, and no Followups. Commit e2aab3cb then rewrote committed records, added unsupported Sequencing for eight fields, renumbered its published followups in place, and still supplied no matching Dots. Preserve both pushed states and require a truthful newest-first correction on a clean successor unless the user explicitly approves an exact history rewrite.
+</section>
+<section id="ship-path-pr-218">
+Current-tree repair cannot erase commit 96d7c7b5 editing historical boundaries, and adding correction references to records from earlier PR #218 commits would create another history edit. Keep PR #218 held. Carry the final intended records to a fresh branch from current main with every reference present in its first commit, unless an exact non-fast-forward rewrite is separately approved.
+</section>
+<section id="merged-history-evidence-pr-221">
+PR #221 published c27a0f65 with F-145 through F-148 plus a seven-field progress article, then e2aab3cb rewrote those records to F-158 through F-161 and eight fields. Squash merge c84a4403 exposes only the final tree on main, but the pull-request history preserves both published states. Preserve merged records and append truthful current state.
+</section>
+<section id="exact-head-schema-evidence-pr-222">
+Head 0b034750 repeats the malformed progress schema with unsupported Frame loop and GDD, wrong field order, and no GDD coverage or Followups. It also preclaims allocation-free and end-to-end evidence that its exact code and tests do not prove. Require one truthful newest-first seven-field article.
+</section>
+<section id="published-record-rewrite-pr-222">
+Head e4786652 edits the progress article first published by 0b034750, replacing its fields, order, and claims in place. The final tree schema is corrected but pull-request history is not append-only. Keep PR #222 held and carry final work plus one truthful first-commit article on a fresh successor.
+</section>
+<section id="merged-history-evidence-pr-222">
+PR #222 squash-merged as c40b7e16 with the e4786652 tree. The squash does not erase 0b034750 or its later in-place article mutation. Preserve the merged record and add the current-main audit as a new first-commit correction.
+</section>
+</article>
+</body>
+</html>

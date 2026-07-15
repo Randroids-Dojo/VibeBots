@@ -3,6 +3,7 @@ import { apiErrorCode, BUNKER_REVISION_CONFLICT_CODE } from "@/lib/api-codes";
 import type {
   BunkerPlayerProgress,
   BunkerRouteResponse,
+  LiveRaidActiveView,
 } from "@/lib/bunker-api-types";
 import {
   type BasePartId,
@@ -13,6 +14,7 @@ import {
   type BunkerState,
   EMPTY_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
+import type { LiveRaidOutcomeReport } from "@/sim/bunker-raid-live";
 import {
   type BunkerApiResult,
   bunkerErrorMessage,
@@ -28,8 +30,10 @@ import {
   removeRemoteBunkerPart,
   repairRemoteBunker,
   resetRemoteBunker,
+  resolveRemoteLiveRaid,
   setRemoteBunkerSkin,
   startRemoteBunkerRaid,
+  startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 import { enqueueStampAlertsFromResponse } from "./stamp-alert-store";
 
@@ -41,6 +45,10 @@ export interface BunkerStoreState {
   bunker: BunkerState | null;
   inventory: BasePartInventory;
   activeRaid: BunkerRaidSnapshot | null;
+  /** A live first-person raid in flight, frozen from a start snapshot
+   * (Q-024 option D). Mutually exclusive with `activeRaid`; the client
+   * fights it in the first-person canvas and resolves it. */
+  activeLiveRaid: LiveRaidActiveView | null;
   player: BunkerPlayerProgress | null;
   /** Last server revision the store has adopted (F-122). Banked edits echo
    * it as `expectedRevision` and the store drops any response that would
@@ -84,6 +92,13 @@ export interface BunkerStoreState {
     depth: number,
   ) => Promise<BunkerMutationResult>;
   startRaid: (tier?: number) => Promise<BunkerMutationResult>;
+  /** Start a live first-person raid (opt-in `mode: "live"`); the
+   * response carries the frozen `activeLiveRaid` snapshot to fight. */
+  startLiveRaid: (tier?: number) => Promise<BunkerMutationResult>;
+  /** Submit a fought live raid's bounded outcome to settle it. */
+  resolveLiveRaid: (
+    report: LiveRaidOutcomeReport,
+  ) => Promise<BunkerMutationResult>;
   repairBunker: () => Promise<BunkerMutationResult>;
   resetBunker: () => Promise<BunkerMutationResult>;
   setSkin: (skinId: BunkerSkinId) => Promise<BunkerMutationResult>;
@@ -144,6 +159,7 @@ function applyResponse(
     bunker: body.bunker,
     inventory: body.inventory,
     activeRaid: body.activeRaid,
+    activeLiveRaid: body.activeLiveRaid ?? null,
     player: body.player,
     revision: body.revision,
     lastRaidReward: body.reward ?? null,
@@ -187,6 +203,7 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
   bunker: null,
   inventory: { ...EMPTY_BASE_PART_INVENTORY },
   activeRaid: null,
+  activeLiveRaid: null,
   player: null,
   revision: 0,
   lastRaidReward: null,
@@ -311,6 +328,27 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
       set,
       get,
       await startRemoteBunkerRaid(tier),
+      "bunker action failed",
+    ),
+  // Dependency (F-146, PR #218), safe while dark: these run outside the
+  // serializeEdit chain and applyResponse adopts equal revisions, so a
+  // loadBunker begun before a start can return afterward at the same
+  // bunker revision (a live start inserts a raid row without bumping the
+  // revision) and clear the just-adopted activeLiveRaid. Resolve them
+  // under the global sequencing contract before the first-person raid
+  // loop wires these to the UI.
+  startLiveRaid: async (tier = 1) =>
+    applyMutationResult(
+      set,
+      get,
+      await startRemoteLiveBunkerRaid(tier),
+      "bunker action failed",
+    ),
+  resolveLiveRaid: async (report) =>
+    applyMutationResult(
+      set,
+      get,
+      await resolveRemoteLiveRaid(report),
       "bunker action failed",
     ),
   collectRaidPickup: async (col, row) =>

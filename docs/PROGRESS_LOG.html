@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr-223-f146-cancellation-boundary" data-date="2026-07-15">
+    <h3>Keep dispatched bunker writes inside the authoritative queue</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, thirteenth additive audit commit.</dd>
+      <dt>Changed</dt><dd>Resolved a valid non-threaded note from exact-head review 4705552940 without rewriting the earlier F-146 Dot text. Appended the cancellation boundary to F-146 and its matching Dot: Start may clear only local animation, input, or queued intent that has not emitted a request. Every dispatched mutation stays at the head of the shared write queue until its authoritative success or conflict response is adopted. Start and later work cannot overtake it, and retry keeps the same stable request identity. No runtime, CI, settings, ruleset, requirement, release, or production state changed.</dd>
+      <dt>Verification</dt><dd>The earlier F-146 primary already requires one queue, freshest revision at execution, and complete authoritative replacement, while its player-facing correction permits cancellation only for the edit animation on accepted Start. Source comparison confirms the abbreviated Dot phrase <q>cancel in-flight edits</q> could otherwise authorize dropping a dispatched response, duplicating a retry, or letting Start overtake stale state. The new contract covers pre-dispatch cancellation with no request, an attempted post-dispatch cancellation that preserves ordering through response adoption, a delayed edit followed by Start that proves edit then Start server order, accepted Start canceling only later undispatched intent, conflict replacement, and one identity-preserving retry. Diff, dash, Dot, lint, typecheck, and full unit verification are recorded on the additive head.</dd>
+      <dt>Assumptions</dt><dd>Cancellation is a local pre-dispatch action, never a network or authoritative-state shortcut. If transport cancellation cannot prove the server did not commit, the request remains logically dispatched and its stable identity plus authoritative response or conflict replacement still controls recovery.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first F-146 contract clarification to <code>docs/gdd/08-base-building.html</code>. Rule 13: no tip change. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended the pre-dispatch cancellation boundary to F-146 and its matching HTML Dot. F-148 still requires a full reviewed-range exact-head pass, and F-152 remains the independent normal-merge eligibility hold.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-223-exact-review-governance-precision" data-date="2026-07-15">
     <h3>Resolve the exact-head governance and fallback-token review</h3>
     <dl>

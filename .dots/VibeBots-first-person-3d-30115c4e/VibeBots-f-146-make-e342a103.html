@@ -30,6 +30,9 @@ The draft client forfeit runs outside the shared queue with no latch or raid ide
 <section id="merged-serialization-dismissal-pr-224">
 Comment 4980856802 calls reconnect, re-roll, and damage gaps pre-existing instead of fixing the new direct mutation. PR #224 merged head 006d4507 as main 98d269ee with no client state-path change. Forfeit remains outside the shared queue with no exact identity, latch, acknowledgement, or response-order proof, so F-146 remains a production release gate.
 </section>
+<section id="pre-dispatch-cancellation-boundary-pr-223-review">
+Cancellation applies only to local animation, input, or queued intent that has not been dispatched. Start runs through the same write queue behind every earlier queued or dispatched mutation. Once a request is dispatched, keep it ordered until its authoritative success or conflict response is adopted; never drop that response or retry outside the same stable request identity. An accepted Start cancels only later pre-dispatch edit intent and local animation. Cover pre-dispatch cancellation with no request, an attempted post-dispatch cancellation that leaves the request ordered through response adoption, a delayed dispatched edit followed by Start that proves edit then Start server order, accepted Start canceling only later undispatched edit intent, conflict replacement, and one identity-preserving retry with no duplicate write or stale overwrite.
+</section>
 </article>
 </body>
 </html>

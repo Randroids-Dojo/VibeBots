@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr218-merge-structure-correction" data-date="2026-07-15">
+    <h3>Restore complete sibling records after the parallel-history merge</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/raid-followup-audit</code>.</dd>
+      <dt>PR</dt><dd>#218.</dd>
+      <dt>Changed</dt><dd>Corrected the published merge result at <code>c7ec6b88</code> by inserting the missing closing <code>dl</code> and <code>article</code> tags after the original <code>raid-followup-audit</code> entry. The merge conflict had nested PR #219's <code>live-raid-client-plumbing</code> article inside that earlier record. No prose, field, runtime code, article order, or GDD record changed. Extended F-154 and its matching Dot so whole-ledger sibling structure is validated in addition to newest-entry schema and commit-history immutability.</dd>
+      <dt>Verification</dt><dd>A delta-aware whole-ledger tag scan finds that current base already has five more opening <code>article</code>/<code>dl</code> tags than closing tags. Published head <code>c7ec6b88</code> added a sixth unmatched pair; this repair returns the branch to the five-pair base baseline and gives the two merged records separate sibling boundaries. The newest correction has the exact seven required fields in order. Dash, whitespace, Dot parsing, type-check, Biome, and 5 focused files with 110 tests remain green; Biome retains only the documented optional-chain and broken-symlink warnings.</dd>
+      <dt>Assumptions</dt><dd>Adding the two missing structural close tags is the smallest safe repair for the already-published merge defect. It restores the committed records as separate siblings without rewriting their text. It does not claim the five historical unmatched boundaries are valid or resolved; F-154 owns their safe cleanup and prevention.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status or GDD build-log record changed. This is an HTML record-boundary repair plus prevention evidence only.</dd>
+      <dt>Followups</dt><dd>No new F-ID. F-154 and Dot <code>VibeBots-f-154-enforce-5528ff4e</code> now require whole-ledger structural validation and carry the exact published-head evidence.</dd>
+    </dl>
+  </article>
+
   <article data-slice="post-merge-pr219-port-fidelity-audit" data-date="2026-07-15">
     <h3>Reconcile the live-raid merge and restore the full review backlog</h3>
     <dl>
@@ -93,6 +106,8 @@
       <dt>Assumptions</dt><dd>The user does not support simultaneous multi-machine play, so the contract remains simple: one winner, explicit conflict failure, and complete authoritative replacement. Gameplay state must still be all-or-nothing across retries and deploys. Telemetry uses bounded server-derived outcomes and stays best-effort; balance rewards remain success-only and deduplicated.</dd>
       <dt>GDD coverage</dt><dd>No requirement status changed and no GDD build log applies because this slice records followups only. The existing Q-024 option D and Q-019 contracts remain authoritative until their open lifecycle tasks settle the no-report wear policy.</dd>
       <dt>Followups</dt><dd>Created F-146 and its HTML Dot. Added nonduplicative acceptance evidence to the still-open F-105, F-106, F-104, and F-092 work, and corrected F-122 without rewriting its historical Resolved entry.</dd>
+    </dl>
+  </article>
   <article data-slice="live-raid-client-plumbing" data-date="2026-07-15">
     <h3>Wire the client store to start and resolve live raids</h3>
     <dl>

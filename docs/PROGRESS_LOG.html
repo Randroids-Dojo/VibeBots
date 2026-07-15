@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="f100-exact-order-diagnosis" data-date="2026-07-15">
+    <h3>Narrow the telemetry regression signal</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, sixth additive audit commit.</dd>
+      <dt>Changed</dt><dd>Appended exact-main reproduction evidence without changing runtime or CI configuration. F-100 now distinguishes seven green local attribution runs from the artifactless scheduled failure. F-132 records that three exact-order shard-1 runs cleared F-100 first try while the accent-light and late-Clerk predecessor tests each failed initial and recovered on retry in all three passes. Updated the two matching HTML Dots. No new primary was needed because F-132 already owns classification of recurring serial software-rendering failures.</dd>
+      <dt>Verification</dt><dd>Used two detached exact-main <code>c40b7e16</code> worktrees, each with one isolated Playwright port and one production build. The focused F-100 path passed four of four. Three runs of Chromium shard 1 with <code>CI=true</code>, <code>--fully-parallel</code>, one worker, and one retry passed F-100 first try in 30.5, 30.4, and 30.3 seconds after 27 executed predecessors plus one expected capture skip. Accent-light initial attempts failed in 7.7, 7.7, and 7.8 seconds and their retries passed in 40.1, 39.9, and 40.0 seconds. Late-Clerk initial attempts failed in 7.1, 7.2, and 7.2 seconds and their retries passed in 7.9, 7.8, and 8.1 seconds. Each run stopped only after F-100 completed, with no source changes. Diff, dash, lint, typecheck, unit, and Dot checks are recorded from this additive audit before publication.</dd>
+      <dt>Assumptions</dt><dd>A local pass cannot erase two exact-CI failures whose assertions were lost, and a retry pass cannot prove the initial readiness contract healthy. The evidence narrows classification without declaring a product regression or adding known flakes. The unexecuted remainder of each local shard is unknown, not green.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed and no GDD file was edited. F-100's shipped attribution contract remains implemented, F-101's bounded in-base diagnostics remain open, and the incomplete scheduled REQ-026 failure remains under F-132. Rule 13 and Rule 14 do not apply to monitoring-only evidence. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> remain unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended exact reproduction evidence to F-100 and F-132 plus their two matching Dots.</dd>
+    </dl>
+  </article>
+
   <article data-slice="scheduled-matrix-timeout-audit" data-date="2026-07-15">
     <h3>Route the cancelled scheduled matrix</h3>
     <dl>

@@ -75,6 +75,9 @@ Preserve older green CI, CodeQL, and preview phrases as historical shorthand for
 <section id="final-read-race-pr-226">
 PR #226 reviews were read at about 18:16:52Z. Explicit same-account HOLD review 4706986449 was submitted one second later on exact head a48466a4, and the administrator merge completed at 18:17:03Z without another read. Immediately before any merge attempt, read exact head, base, reviews, threads, and blocking comments as one bound snapshot. Any new activity or ref movement fails the attempt and resets all checks plus the quiet window. A read that predates the latest review is stale even when only one second old.
 </section>
+<section id="final-read-timestamp-precision-pr-223">
+The final review-and-thread query was issued at 18:16:50.625Z and its result arrived at 18:16:52.316Z. Review 4706986449 was submitted at 18:16:53Z, after that query snapshot, and merge completed at 18:17:03Z. The prior about-18:16:52 wording refers to the result time. Require a new bound read immediately before merge and fail the attempt on any newer activity.
+</section>
 </article>
 </body>
 </html>

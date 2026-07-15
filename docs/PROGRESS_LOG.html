@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr-223-pr226-hold-scope-precision" data-date="2026-07-15">
+    <h3>Separate the merge hold from destructive-action approval</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, additive exact-head audit correction.</dd>
+      <dt>Changed</dt><dd>Corrected the PR #226 evidence without editing its committed record. Review 4706986449 held the merge only. Administrator bypass and source-branch deletion remain unauthorized through their separate missing-approval contracts, not through wording the review did not contain. Added exact issue and result timestamps for the final stale review query. No new primary, runtime, package, release, tip, stamp, CI, settings, ruleset, schema, or production change was added.</dd>
+      <dt>Verification</dt><dd>The external transcript records the final query issued at 18:16:50.625Z and its result at 18:16:52.316Z. GitHub records review 4706986449 submitted at 18:16:53Z, merge at 18:17:03Z, ruleset suite 3347328396 as <code>bypass</code>, and DeleteEvent 15051788971 at 18:17:17Z. The review body calls itself an explicit merge hold and does not separately prohibit bypass or deletion. Diff, dash, both Dots, lint, typecheck, and unit verification are required on the corrected head.</dd>
+      <dt>Assumptions</dt><dd>Merge approval, protected-path eligibility, and destructive-action approval are three independent facts. Evidence for one cannot be broadened to cover another.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first evidence-precision item to <code>docs/gdd/08-base-building.html</code>. Rule 13: no tip change. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended precision corrections to F-148 and F-155 plus their two matching HTML Dots. Every exact-head CI, preview, review, thread-inspection, and quiet-window result resets after this correction.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-226-retirement-bypass-production-audit" data-date="2026-07-15">
     <h3>Keep the live raid blockers active after flat-raid retirement</h3>
     <dl>

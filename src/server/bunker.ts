@@ -1,5 +1,5 @@
 import { BUNKER_REVISION_CONFLICT_CODE } from "@/lib/api-codes";
-import type { BunkerView } from "@/lib/bunker-api-types";
+import type { BunkerView, LiveRaidActiveView } from "@/lib/bunker-api-types";
 import {
   applyBunkerRaidWear,
   applyBunkerRepairs,
@@ -10,6 +10,7 @@ import {
   type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
   BUNKER_RAID_COOLDOWN_HOURS,
+  BUNKER_RAID_DURATION_SECONDS,
   BUNKER_SKIN_CATALOG,
   type BunkerFootprint,
   type BunkerLoot,
@@ -44,6 +45,11 @@ import {
   deriveBunkerBlockSeed,
   withSpawnPocket,
 } from "@/sim/bunker-blocks";
+import {
+  BUNKER_RAID_LIVE_VERSION,
+  LIVE_RAID_EXPIRY_GRACE_TICKS,
+  LIVE_RAID_TICKS_PER_SECOND,
+} from "@/sim/bunker-raid-live";
 import {
   cellAt,
   createMine,
@@ -286,6 +292,93 @@ function normalizeBunkerRaidSnapshot(
   };
 }
 
+/** Server grace beyond a live raid's authored duration before it is treated
+ * as expired, in seconds (mirrors the sim's tick-based grace). */
+const LIVE_RAID_GRACE_SECONDS =
+  LIVE_RAID_EXPIRY_GRACE_TICKS / LIVE_RAID_TICKS_PER_SECOND;
+
+/** The frozen bunker snapshot persisted when a live raid starts (F-108). The
+ * bunker is stored in the bunkers-row shape so `parseBunkerState` reads it
+ * back with the same normalization the live view and settlement rely on. */
+interface LiveRaidStartSnapshot {
+  version: number;
+  raidId: string;
+  tier: number;
+  durationSeconds: number;
+  bunker: BunkerState;
+}
+
+/** Serialize a BunkerState into the bunkers-row shape used inside a frozen
+ * live-raid snapshot, so it round-trips through `parseBunkerState`. */
+function bunkerRowSnapshot(bunker: BunkerState) {
+  return {
+    footprint: bunker.footprint,
+    core: bunker.core,
+    parts: bunker.parts,
+    dug: bunker.dug,
+    block_seed: bunker.blockSeed,
+    loot: bunker.loot,
+    skin: bunker.skin,
+    skins_owned: bunker.skinsOwned,
+  };
+}
+
+function normalizeLiveRaidStartSnapshot(
+  snapshot: unknown,
+): LiveRaidStartSnapshot | null {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const candidate = snapshot as Partial<LiveRaidStartSnapshot> & {
+    bunker?: unknown;
+  };
+  if (typeof candidate.raidId !== "string") return null;
+  const bunker = parseBunkerState(
+    candidate.bunker && typeof candidate.bunker === "object"
+      ? (candidate.bunker as Parameters<typeof parseBunkerState>[0])
+      : null,
+  );
+  if (!bunker) return null;
+  return {
+    version: numberValue(candidate.version, BUNKER_RAID_LIVE_VERSION),
+    raidId: candidate.raidId,
+    tier: numberValue(candidate.tier, 1),
+    durationSeconds: numberValue(
+      candidate.durationSeconds,
+      BUNKER_RAID_DURATION_SECONDS,
+    ),
+    bunker,
+  };
+}
+
+/** Build the client-facing view of a live raid from its stored row, or null
+ * when the snapshot is unreadable or the raid has run past duration + grace
+ * (an expired raid is reported inactive so it never wedges bunker ops). */
+function liveRaidActiveViewFrom(
+  snapshot: unknown,
+  startedAt: string | Date,
+): LiveRaidActiveView | null {
+  const start = normalizeLiveRaidStartSnapshot(snapshot);
+  if (!start) return null;
+  const startedAtMs = new Date(startedAt).getTime();
+  const expiresAtMs =
+    startedAtMs + (start.durationSeconds + LIVE_RAID_GRACE_SECONDS) * 1000;
+  if (Date.now() >= expiresAtMs) return null;
+  return {
+    raidId: start.raidId,
+    tier: start.tier,
+    startedAtMs,
+    durationSeconds: start.durationSeconds,
+    graceSeconds: LIVE_RAID_GRACE_SECONDS,
+    bunker: start.bunker,
+  };
+}
+
+/** True when any raid, interim or live, is currently blocking bunker
+ * operations. A live raid past its grace is not active (it returns null from
+ * `liveRaidActiveViewFrom`), so it never blocks. */
+function bunkerRaidActive(view: BunkerView): boolean {
+  return view.activeRaid !== null || view.activeLiveRaid != null;
+}
+
 async function ensureStarterBaseParts(
   sql: Sql,
   playerId: string,
@@ -344,12 +437,16 @@ export async function loadBunkerView(
     revision: unknown;
   }>;
   const raidRows = (await sql`
-    SELECT snapshot
+    SELECT snapshot, raid_version, started_at
     FROM bunker_raids
     WHERE player_id = ${playerId}
       AND result IS NULL
     ORDER BY started_at DESC
-    LIMIT 1`) as Array<{ snapshot: unknown }>;
+    LIMIT 1`) as Array<{
+    snapshot: unknown;
+    raid_version: unknown;
+    started_at: string | Date;
+  }>;
   const player = playerRows[0] ?? {
     emeralds: 0,
     track_xp: 0,
@@ -357,10 +454,19 @@ export async function loadBunkerView(
   };
   const progress = playerLevelProgress(player.defense_xp);
   const revisionValue = Number(bunkerRows[0]?.revision);
+  const raidRow = raidRows[0];
+  const isLiveRaidRow =
+    raidRow !== undefined &&
+    Number(raidRow.raid_version) === BUNKER_RAID_LIVE_VERSION;
   return {
     bunker: parseBunkerState(bunkerRows[0] ?? null),
     inventory: await ensureStarterBaseParts(sql, playerId),
-    activeRaid: normalizeBunkerRaidSnapshot(raidRows[0]?.snapshot),
+    activeRaid: isLiveRaidRow
+      ? null
+      : normalizeBunkerRaidSnapshot(raidRow?.snapshot),
+    activeLiveRaid: isLiveRaidRow
+      ? liveRaidActiveViewFrom(raidRow.snapshot, raidRow.started_at)
+      : null,
     revision: Number.isFinite(revisionValue) ? revisionValue : 0,
     player: {
       balance: player.emeralds,
@@ -811,7 +917,7 @@ export async function resetBunker(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
-  if (view.activeRaid)
+  if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "finish the raid first" };
   const reset = applyBunkerReset(view.bunker, view.inventory);
   // Bump the revision so an in-flight banked edit loses its guard and the
@@ -835,7 +941,7 @@ export async function repairBunker(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
-  if (view.activeRaid)
+  if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "finish the raid first" };
   const plan = bunkerRepairPlan(view.bunker);
   if (plan.totalCost <= 0)
@@ -927,7 +1033,7 @@ export async function startBunkerRaid(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
-  if (view.activeRaid)
+  if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "raid already active" };
   const tierCeiling = maxBunkerRaidTier(view.player.overallLevel);
   if (tier > tierCeiling) {
@@ -1003,6 +1109,100 @@ export async function startBunkerRaid(
       ${raid.durationSeconds}
     )`;
   return { ok: true, view: await loadBunkerView(sql, playerId), raid };
+}
+
+/**
+ * Start a live first-person raid (Q-024 option D, F-108). Unlike the interim
+ * raid, nothing is resolved and no wear is applied here: the current bunker is
+ * frozen into a versioned snapshot the client runs the raid against in real
+ * time, then reports a bounded outcome for the resolve route to settle against
+ * this same snapshot. The active-raid guard, tier ceiling, and cooldown mirror
+ * the interim start.
+ */
+export async function startLiveRaid(
+  sql: Sql,
+  playerId: string,
+  tier: number,
+): Promise<BunkerOperationResult<{ liveRaid: LiveRaidActiveView }>> {
+  const view = await loadBunkerView(sql, playerId);
+  if (!view.bunker)
+    return { ok: false, status: 409, error: "claim a bunker first" };
+  if (bunkerRaidActive(view))
+    return { ok: false, status: 409, error: "raid already active" };
+  const tierCeiling = maxBunkerRaidTier(view.player.overallLevel);
+  if (tier > tierCeiling) {
+    return {
+      ok: false,
+      status: 422,
+      error: `tier ${tier} unlocks at player level ${tier}`,
+    };
+  }
+  const recentRows = (await sql`
+    SELECT started_at
+    FROM bunker_raids
+    WHERE player_id = ${playerId}
+    ORDER BY started_at DESC
+    LIMIT 1`) as Array<{ started_at: string | Date }>;
+  const lastStartedAt = recentRows[0]?.started_at;
+  if (lastStartedAt) {
+    const cooldownMs = BUNKER_RAID_COOLDOWN_HOURS * 60 * 60 * 1000;
+    const remainingMs =
+      new Date(lastStartedAt).getTime() + cooldownMs - Date.now();
+    if (remainingMs > 0) {
+      const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+      return {
+        ok: false,
+        status: 409,
+        error: `raid cooldown active: ${remainingHours}h remaining`,
+      };
+    }
+  }
+  // Close any stale past-grace live row as a forfeit loss (no reward, no wear)
+  // before opening a new one, so orphaned unresolved rows never accumulate
+  // (F-105). The active-raid guard above already proved none is still running.
+  await sql`
+    UPDATE bunker_raids
+    SET result = ${JSON.stringify({ outcome: "forfeit", survived: false })}::jsonb,
+        rewarded_at = now()
+    WHERE player_id = ${playerId}
+      AND result IS NULL
+      AND raid_version = ${BUNKER_RAID_LIVE_VERSION}
+      AND started_at
+        < now() - make_interval(secs => duration_seconds + ${LIVE_RAID_GRACE_SECONDS})`;
+  const startedAtMs = Date.now();
+  const raidId = `live-${startedAtMs.toString(36)}`;
+  // Frozen snapshot: the bunker is stored in the bunkers-row shape so it reads
+  // back through parseBunkerState. Its type is inferred, not LiveRaidStartSnapshot
+  // (whose bunker is the parsed BunkerState, not the row shape).
+  const snapshot = {
+    version: BUNKER_RAID_LIVE_VERSION,
+    raidId,
+    tier,
+    durationSeconds: BUNKER_RAID_DURATION_SECONDS,
+    bunker: bunkerRowSnapshot(view.bunker),
+  };
+  await sql`
+    INSERT INTO bunker_raids (
+      player_id,
+      raid_id,
+      tier,
+      snapshot,
+      duration_seconds,
+      raid_version
+    )
+    VALUES (
+      ${playerId},
+      ${raidId},
+      ${tier},
+      ${JSON.stringify(snapshot)}::jsonb,
+      ${BUNKER_RAID_DURATION_SECONDS},
+      ${BUNKER_RAID_LIVE_VERSION}
+    )`;
+  const refreshed = await loadBunkerView(sql, playerId);
+  if (!refreshed.activeLiveRaid) {
+    return { ok: false, status: 500, error: "failed to start live raid" };
+  }
+  return { ok: true, view: refreshed, liveRaid: refreshed.activeLiveRaid };
 }
 
 export async function collectBunkerRaidPickup(

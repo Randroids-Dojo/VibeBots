@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyBunkerRaidWear,
   applyBunkerRepairs,
   applyBunkerReset,
   BASE_PART_CATALOG,
@@ -10,7 +9,6 @@ import {
   BUNKER_CORE_MAX_DURABILITY,
   BUNKER_RAID_TIER_CAP,
   BUNKER_SKIN_CATALOG,
-  type BunkerRaidTerrainKind,
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
@@ -26,9 +24,6 @@ import {
   creditBunkerDig,
   DEFAULT_BUNKER_SKIN,
   excavateBunkerCell,
-  FLOOR_SPIKES_DAMAGE,
-  FLOOR_SPIKES_DURABILITY,
-  isBunkerPerimeterCell,
   isBunkerSkinId,
   maxBunkerRaidTier,
   moveBasePart,
@@ -37,7 +32,6 @@ import {
   playerLevelProgress,
   proposedBunkerFootprint,
   removeBasePart,
-  resolveBunkerRaid,
   STARTER_BASE_PART_INVENTORY,
   settleBunkerDig,
   takeBunkerLootAt,
@@ -49,8 +43,6 @@ import {
 } from "./bunker-blocks";
 import { oreReserveAt } from "./mine/ores";
 import { createMine } from "./mine/world";
-
-const openTerrain = (): BunkerRaidTerrainKind => "empty";
 
 /** The first ore (col,row,depth) in a bunker's volume, so ore-yield tests
  * do not hardcode a generator-dependent cell. */
@@ -103,24 +95,6 @@ function planeDugBunker(minerCol: number, minerRow: number): BunkerState {
   return { ...bunker, dug };
 }
 
-function fullyEnclosedBunker(minerCol: number, minerRow: number) {
-  const bunker = allDugBunker(minerCol, minerRow);
-  return {
-    ...bunker,
-    parts: bunkerCells(bunker.footprint)
-      .filter((cell) =>
-        isBunkerPerimeterCell(bunker.footprint, cell.col, cell.row),
-      )
-      .map((cell) => ({
-        partId: "wall-panel" as const,
-        col: cell.col,
-        row: cell.row,
-        depth: 0,
-        durability: BASE_PART_CATALOG["wall-panel"].durability,
-      })),
-  };
-}
-
 describe("bunker vertical slice sim", () => {
   it("proposes a fixed underground footprint with the miner bottom-center", () => {
     const footprint = proposedBunkerFootprint(10, 8);
@@ -143,50 +117,6 @@ describe("bunker vertical slice sim", () => {
       "basic-turret": 0,
       "floor-spikes": 0,
     });
-  });
-
-  it("the starter kit seals the player cell and survives an open-field raid", () => {
-    let base = allDugBunker(10, 8);
-    let inventory = STARTER_BASE_PART_INVENTORY;
-    const core = base.core;
-    // The sealed 3x3 starter room built from the granted kit alone:
-    // floors underneath, roofs overhead, a wall and the door beside.
-    const room = [
-      ["floor-panel", core.col - 1, core.row + 1],
-      ["floor-panel", core.col, core.row + 1],
-      ["floor-panel", core.col + 1, core.row + 1],
-      ["roof-panel", core.col - 1, core.row - 1],
-      ["roof-panel", core.col, core.row - 1],
-      ["roof-panel", core.col + 1, core.row - 1],
-      ["wall-panel", core.col - 1, core.row],
-      ["door-panel", core.col + 1, core.row],
-    ] as const;
-    for (const [partId, col, row] of room) {
-      const placed = placeBasePart(base, inventory, partId, col, row);
-      expect(placed.ok, `${partId} at ${col},${row}`).toBe(true);
-      if (!placed.ok) return;
-      base = placed.bunker;
-      inventory = placed.inventory;
-    }
-    expect(inventory["wall-panel"]).toBeGreaterThan(0);
-
-    const raid = resolveBunkerRaid(base, 1, "sealed-starter-raid", {
-      terrainAt: openTerrain,
-    });
-
-    // With the room sealed, no clanker can even target the player
-    // cell: they fall back to the claim perimeter and never reach in.
-    expect(
-      raid.clankers.some(
-        (clanker) =>
-          clanker.targetCol === core.col && clanker.targetRow === core.row,
-      ),
-    ).toBe(false);
-    expect(raid.coreDamage).toBe(0);
-    expect(raid.minerKilled).toBe(false);
-    expect(raid.survived).toBe(true);
-    expect(raid.sealed).toBe(true);
-    expect(raid.reward.vibes).toBeGreaterThan(0);
   });
 
   it("places and removes consumable wall parts", () => {
@@ -254,382 +184,6 @@ describe("bunker vertical slice sim", () => {
         durability: BASE_PART_CATALOG["wall-panel"].durability,
       },
     ]);
-  });
-
-  it("resolves a tier-one Clanker raid into damage, dead clankers, and XP pickups", () => {
-    const bunker = fullyEnclosedBunker(4, 5);
-
-    const raid = resolveBunkerRaid(bunker, 1, "test-raid");
-    expect(raid.durationSeconds).toBeLessThan(180);
-    expect(raid.clankers).toHaveLength(6);
-    expect(raid.allClankersDead).toBe(true);
-    expect(
-      raid.clankers.map((clanker) => `${clanker.col},${clanker.row}`),
-    ).toEqual(
-      [-2, 10, -3, 11, -4, 12].map(
-        (col) => `${col},${bunker.footprint.row - 1}`,
-      ),
-    );
-    expect(raid.partDamage.length).toBeGreaterThan(0);
-    expect(raid.incomingDamage).toBeGreaterThan(0);
-    expect(
-      raid.clankers.every((clanker) => clanker.status === "battery-drained"),
-    ).toBe(true);
-    expect(
-      raid.partDamage.some(
-        (event) => event.damage >= BASE_PART_CATALOG["wall-panel"].durability,
-      ),
-    ).toBe(true);
-    expect(raid.xpPickups).toHaveLength(6);
-    expect(
-      raid.xpPickups.every(
-        (pickup) => pickup.defenseXp === CLANKER_SELF_DESTRUCT_XP,
-      ),
-    ).toBe(true);
-    expect(raid.survived).toBe(true);
-    expect(raid.reward).toEqual({ vibes: 30, defenseXp: 150 });
-    expect(playerLevelProgress(raid.reward.defenseXp)).toMatchObject({
-      level: 2,
-      progressXp: 50,
-      beaconLimit: 3,
-    });
-  });
-
-  it("spends remaining Clanker battery chewing a surviving blocker", () => {
-    const base = fullyEnclosedBunker(10, 8);
-    const bunker = {
-      ...base,
-      parts: base.parts.map((part) => ({ ...part, durability: 500 })),
-    };
-    const blockingWall = bunker.parts[0];
-    expect(blockingWall).toBeDefined();
-    if (!blockingWall) return;
-    const raid = resolveBunkerRaid(bunker, 1, "chew-raid");
-    const clanker = raid.clankers[0];
-    const damage = raid.partDamage.find((event) => {
-      return event.clankerId === clanker?.id;
-    });
-
-    expect(clanker).toMatchObject({
-      targetCol: blockingWall.col,
-      targetRow: blockingWall.row,
-      status: "battery-drained",
-      deathStep: 9,
-    });
-    expect(clanker?.path).toHaveLength(10);
-    expect(damage).toMatchObject({
-      target: "part",
-      partId: "wall-panel",
-      damage: 192,
-    });
-    expect(
-      raid.xpPickups.find((pickup) => pickup.id === `${clanker?.id}-xp`),
-    ).toMatchObject({
-      col: blockingWall.col - 1,
-      row: blockingWall.row,
-      collected: false,
-    });
-  });
-
-  it("plans clanker paths through open cells toward the player cell", () => {
-    const base = allDugBunker(10, 8);
-    const firstSpawn = {
-      col: base.footprint.col - 3,
-      row: base.footprint.row - 1,
-    };
-    const open = new Set<string>();
-    for (let col = firstSpawn.col; col <= base.footprint.col; col++) {
-      open.add(`${col},${firstSpawn.row}`);
-    }
-    for (let row = base.footprint.row; row <= base.core.row; row++) {
-      open.add(`${base.footprint.col},${row}`);
-    }
-    for (let col = base.footprint.col; col <= base.core.col; col++) {
-      open.add(`${col},${base.core.row}`);
-    }
-
-    const raid = resolveBunkerRaid(base, 1, "open-raid", {
-      terrainAt: (col, row) => (open.has(`${col},${row}`) ? "empty" : "dirt"),
-    });
-
-    expect(raid.clankers[0].path).toEqual([
-      { col: firstSpawn.col, row: firstSpawn.row },
-      { col: firstSpawn.col + 1, row: firstSpawn.row },
-      { col: firstSpawn.col + 2, row: firstSpawn.row },
-      { col: firstSpawn.col + 3, row: firstSpawn.row },
-      { col: base.footprint.col, row: base.footprint.row },
-      { col: base.footprint.col + 1, row: base.footprint.row },
-      { col: base.footprint.col + 2, row: base.footprint.row },
-      { col: base.core.col, row: base.footprint.row },
-      { col: base.core.col, row: base.footprint.row + 1 },
-      { col: base.core.col, row: base.core.row },
-    ]);
-  });
-
-  it("prefers an open bunker route to the miner over biting a nearby wall", () => {
-    let base = allDugBunker(10, 8);
-    const placed = placeBasePart(
-      base,
-      STARTER_BASE_PART_INVENTORY,
-      "wall-panel",
-      base.footprint.col,
-      base.footprint.row,
-    );
-    expect(placed.ok).toBe(true);
-    if (!placed.ok) return;
-    base = placed.bunker;
-    const firstSpawn = {
-      col: base.footprint.col - 3,
-      row: base.footprint.row - 1,
-    };
-    const open = new Set<string>();
-    for (let col = firstSpawn.col; col <= base.footprint.col + 1; col++) {
-      open.add(`${col},${firstSpawn.row}`);
-    }
-    for (let row = base.footprint.row; row <= base.core.row; row++) {
-      open.add(`${base.footprint.col + 1},${row}`);
-    }
-    for (let col = base.footprint.col + 1; col <= base.core.col; col++) {
-      open.add(`${col},${base.core.row}`);
-    }
-
-    const raid = resolveBunkerRaid(base, 1, "gap-raid", {
-      terrainAt: (col, row) => (open.has(`${col},${row}`) ? "empty" : "dirt"),
-    });
-
-    expect(raid.clankers[0]).toMatchObject({
-      targetCol: base.core.col,
-      targetRow: base.core.row,
-    });
-    expect(raid.clankers[0]?.path).toContainEqual({
-      col: base.footprint.col + 1,
-      row: base.footprint.row,
-    });
-    expect(raid.partDamage).not.toContainEqual(
-      expect.objectContaining({
-        col: base.footprint.col,
-        row: base.footprint.row,
-        target: "part",
-      }),
-    );
-    expect(raid.minerKilled).toBe(true);
-    expect(raid.survived).toBe(false);
-  });
-
-  it("kills the miner and clears XP when an open route reaches the player cell", () => {
-    const base = allDugBunker(10, 8);
-    const raid = resolveBunkerRaid(base, 1, "core-raid", {
-      terrainAt: openTerrain,
-    });
-
-    expect(
-      raid.clankers.some((clanker) => clanker.targetCol === base.core.col),
-    ).toBe(true);
-    expect(
-      raid.clankers.some((clanker) => {
-        return clanker.status === "self-destructed";
-      }),
-    ).toBe(true);
-    expect(raid.coreDamage).toBeGreaterThan(0);
-    expect(raid.xpPickups).toHaveLength(0);
-    expect(raid.minerKilled).toBe(true);
-    expect(raid.survived).toBe(false);
-    expect(raid.sealed).toBe(false);
-    expect(raid.reward).toEqual({ vibes: 0, defenseXp: 0 });
-  });
-
-  it("never spawns clankers inside occupied generated cells", () => {
-    const base = allDugBunker(10, 8);
-    const blocked = new Map<string, BunkerRaidTerrainKind>([
-      [`${base.footprint.col - 3},${base.footprint.row - 1}`, "dirt"],
-      [`${base.footprint.col - 4},${base.footprint.row - 1}`, "ore"],
-      [`${base.footprint.col - 5},${base.footprint.row - 1}`, "part-cache"],
-    ]);
-
-    const raid = resolveBunkerRaid(base, 1, "blocked-spawn-raid", {
-      terrainAt: (col, row) => {
-        if (row === 0) return "empty";
-        return blocked.get(`${col},${row}`) ?? "dirt";
-      },
-    });
-
-    expect(raid.clankers[0].row).toBe(0);
-    expect(raid.clankers[0].path?.[0]).toEqual({
-      col: base.footprint.col - 3,
-      row: 0,
-    });
-  });
-
-  it("chews a short ore cell route when it beats a long open detour", () => {
-    const base = allDugBunker(10, 8);
-    const placed = placeBasePart(
-      base,
-      { ...STARTER_BASE_PART_INVENTORY, "wall-panel": 1 },
-      "wall-panel",
-      base.footprint.col,
-      base.footprint.row,
-    );
-    expect(placed.ok).toBe(true);
-    if (!placed.ok) return;
-    const oreKey = `${base.footprint.col - 1},${base.footprint.row - 1}`;
-    const openKeys = new Set<string>([
-      `${base.footprint.col - 3},${base.footprint.row - 1}`,
-      `${base.footprint.col - 2},${base.footprint.row - 1}`,
-      `${base.footprint.col},${base.footprint.row - 1}`,
-      oreKey,
-    ]);
-
-    const raid = resolveBunkerRaid(placed.bunker, 1, "ore-raid", {
-      terrainAt: (col, row) => {
-        const key = `${col},${row}`;
-        if (key === oreKey) return "ore";
-        return openKeys.has(key) ? "empty" : "rock";
-      },
-    });
-
-    expect(raid.clankers[0].targetCol).toBe(base.footprint.col);
-    expect(raid.clankers[0].targetRow).toBe(base.footprint.row);
-    expect(raid.clankers[0].path).toContainEqual({
-      col: base.footprint.col - 1,
-      row: base.footprint.row - 1,
-    });
-  });
-
-  it("spreads clanker targets instead of stacking every route", () => {
-    const base = fullyEnclosedBunker(10, 8);
-    const raid = resolveBunkerRaid(base, 1, "spread-raid", {
-      terrainAt: openTerrain,
-    });
-
-    const targetKeys = new Set(
-      raid.clankers.map(
-        (clanker) => `${clanker.targetCol},${clanker.targetRow}`,
-      ),
-    );
-    expect(targetKeys.size).toBeGreaterThan(3);
-  });
-
-  it("lets Basic Turrets autofire with limited ammo during raids", () => {
-    const base = allDugBunker(4, 5);
-    const placed = placeBasePart(
-      base,
-      { ...STARTER_BASE_PART_INVENTORY, "basic-turret": 1 },
-      "basic-turret",
-      base.footprint.col,
-      base.footprint.row,
-    );
-
-    expect(placed.ok).toBe(true);
-    if (!placed.ok) return;
-
-    const raid = resolveBunkerRaid(placed.bunker, 1, "turret-raid");
-
-    expect(raid.turretShots).toBe(3);
-    expect(raid.turretDamage).toBe(54);
-    expect(
-      raid.clankers.filter((clanker) => clanker.status === "turret-destroyed"),
-    ).toHaveLength(3);
-    expect(
-      raid.clankers.some((clanker) => {
-        return clanker.status === "self-destructed";
-      }),
-    ).toBe(true);
-    expect(raid.xpPickups.length).toBeGreaterThan(0);
-    expect(raid.survived).toBe(true);
-
-    const worn = applyBunkerRaidWear(placed.bunker, raid);
-    expect(worn.parts).toEqual([
-      {
-        partId: "basic-turret",
-        col: base.footprint.col,
-        row: base.footprint.row,
-        depth: 0,
-        durability: 2,
-      },
-    ]);
-  });
-
-  it("damages Clankers with Floor Spikes and wears them down", () => {
-    const base = allDugBunker(4, 5);
-    const placed = placeBasePart(
-      base,
-      { ...STARTER_BASE_PART_INVENTORY, "floor-spikes": 1 },
-      "floor-spikes",
-      base.footprint.col,
-      base.footprint.row,
-    );
-
-    expect(placed.ok).toBe(true);
-    if (!placed.ok) return;
-
-    const raid = resolveBunkerRaid(placed.bunker, 1, "spike-raid");
-
-    expect(raid.spikeTriggers).toBe(1);
-    expect(raid.spikeDamage).toBe(FLOOR_SPIKES_DAMAGE);
-    expect(raid.coreDamage).toBeGreaterThan(0);
-
-    const worn = applyBunkerRaidWear(placed.bunker, raid);
-    expect(worn.parts).toEqual([
-      {
-        partId: "floor-spikes",
-        col: base.footprint.col,
-        row: base.footprint.row,
-        depth: 0,
-        durability: FLOOR_SPIKES_DURABILITY - 1,
-      },
-    ]);
-  });
-
-  it("removes Floor Spikes when their durability reaches zero", () => {
-    const base = createBunker(proposedBunkerFootprint(4, 5));
-    const bunker = {
-      ...base,
-      parts: [
-        {
-          partId: "floor-spikes" as const,
-          col: base.footprint.col,
-          row: base.footprint.row,
-          depth: 0,
-          durability: 1,
-        },
-      ],
-    };
-
-    const worn = applyBunkerRaidWear(bunker, {
-      clankers: [],
-      spikeTriggers: 1,
-      turretShots: 0,
-    });
-
-    expect(worn.parts).toEqual([]);
-  });
-
-  it("removes Basic Turrets when enough Clankers survive the autofire", () => {
-    const base = allDugBunker(4, 5);
-    const bunker = {
-      ...base,
-      parts: [
-        {
-          partId: "basic-turret" as const,
-          col: base.footprint.col,
-          row: base.footprint.row,
-          depth: 0,
-          durability: 2,
-        },
-      ],
-    };
-
-    const worn = applyBunkerRaidWear(bunker, {
-      clankers: [
-        { id: "c1", col: 1, row: 1, targetCol: 2, targetRow: 1 },
-        { id: "c2", col: 1, row: 2, targetCol: 2, targetRow: 2 },
-        { id: "c3", col: 1, row: 3, targetCol: 2, targetRow: 3 },
-      ],
-      spikeTriggers: 0,
-      turretShots: 1,
-    });
-
-    expect(worn.parts).toEqual([]);
   });
 
   it("gates turret and spike purchases by level and owned limits", () => {
@@ -708,19 +262,6 @@ describe("raid tiers (F-084)", () => {
     expect(maxBunkerRaidTier(3)).toBe(3);
     expect(maxBunkerRaidTier(99)).toBe(BUNKER_RAID_TIER_CAP);
   });
-
-  it("scales the wave and the reward pool with tier", () => {
-    const bunker = createBunker(proposedBunkerFootprint(10, 10));
-    const low = resolveBunkerRaid(bunker, 1, "raid-low");
-    const high = resolveBunkerRaid(bunker, 3, "raid-high");
-    expect(high.clankers.length).toBeGreaterThan(low.clankers.length);
-    // Each higher-tier Clanker also reaches farther: reward scaling rides
-    // the larger wave (more kills, more pickups) while battery makes the
-    // wave harder to stop.
-    expect(high.clankers[0]?.batterySteps ?? 0).toBeGreaterThan(
-      low.clankers[0]?.batterySteps ?? 0,
-    );
-  });
 });
 
 describe("specialist Clankers (F-085)", () => {
@@ -743,19 +284,6 @@ describe("specialist Clankers (F-085)", () => {
     expect(clankerXpFor("tank")).toBe(CLANKER_TANK_XP);
     expect(CLANKER_TANK_XP).toBeGreaterThan(CLANKER_BREACHER_XP);
     expect(CLANKER_BREACHER_XP).toBeGreaterThan(CLANKER_SELF_DESTRUCT_XP);
-  });
-
-  it("stamps every raid clanker with its kind and replays identically", () => {
-    const bunker = allDugBunker(10, 10);
-    const a = resolveBunkerRaid(bunker, 3, "raid-kinds");
-    const b = resolveBunkerRaid(bunker, 3, "raid-kinds");
-    expect(b).toEqual(a);
-    const kinds = a.clankers.map((clanker) => clanker.kind);
-    expect(kinds).toContain("breacher");
-    expect(kinds).toContain("tank");
-    for (const [index, kind] of kinds.entries()) {
-      expect(kind).toBe(clankerKindFor(index, 3));
-    }
   });
 });
 
@@ -859,39 +387,6 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     expect(reset.bunker.dug.length).toBeGreaterThan(0);
     expect(reset.bunker.core.durability).toBe(BUNKER_CORE_MAX_DURABILITY);
     expect(reset.inventory).toEqual(STARTER_BASE_PART_INVENTORY);
-  });
-
-  it("seals a stacked two-room layout with existing parts", () => {
-    // Two rooms one above the other inside the claim: the outer shell
-    // plus an interior floor row splitting them. The seal must hold
-    // (no clanker can target the core) exactly as in a single room.
-    const bunker = allDugBunker(10, 10);
-    const { col, row } = bunker.core;
-    let current = bunker;
-    let stock = STARTER_BASE_PART_INVENTORY;
-    const place = (
-      partId: Parameters<typeof placeBasePart>[2],
-      c: number,
-      r: number,
-    ) => {
-      const result = placeBasePart(current, stock, partId, c, r);
-      if (!result.ok) throw new Error(`${partId}@${c},${r}: ${result.reason}`);
-      current = result.bunker;
-      stock = result.inventory;
-    };
-    // Outer shell around a 1-wide, 2-tall interior (core on the lower level).
-    place("floor-panel", col, row + 1);
-    place("roof-panel", col, row - 2);
-    place("wall-panel", col - 1, row);
-    place("door-panel", col + 1, row);
-    place("wall-panel", col - 1, row - 1);
-    place("wall-panel", col + 1, row - 1);
-    // Interior floor between the two levels: the second room sits above.
-    place("floor-panel", col, row - 1);
-    const raid = resolveBunkerRaid(current, 1, "raid-stacked");
-    expect(raid.survived).toBe(true);
-    expect(raid.sealed).toBe(true);
-    expect(raid.coreDamage).toBe(0);
   });
 });
 
@@ -1055,49 +550,6 @@ describe("bunker depth axis (7x5x5 groundwork)", () => {
       { partId: "wall-panel", col, row, depth: 2, durability: 33 },
     ]);
   });
-
-  it("resolves raids over the tunnel plane only until live 3D raids land", () => {
-    const flat = fullyEnclosedBunker(4, 5);
-    const deepParts = [
-      {
-        partId: "wall-panel" as const,
-        col: flat.footprint.col + 1,
-        row: flat.footprint.row + 1,
-        depth: 2,
-        durability: BASE_PART_CATALOG["wall-panel"].durability,
-      },
-      {
-        partId: "basic-turret" as const,
-        col: flat.footprint.col + 2,
-        row: flat.footprint.row + 1,
-        depth: 3,
-        durability: BASE_PART_CATALOG["basic-turret"].durability,
-      },
-      {
-        partId: "floor-spikes" as const,
-        col: flat.footprint.col + 3,
-        row: flat.footprint.row + 1,
-        depth: 1,
-        durability: FLOOR_SPIKES_DURABILITY,
-      },
-    ];
-    const withDeep = { ...flat, parts: [...flat.parts, ...deepParts] };
-
-    const flatRaid = resolveBunkerRaid(flat, 1, "depth-raid", {
-      terrainAt: openTerrain,
-    });
-    const deepRaid = resolveBunkerRaid(withDeep, 1, "depth-raid", {
-      terrainAt: openTerrain,
-    });
-    // Deep turrets add no shots, deep spikes never trigger, deep walls
-    // never block or soak: the snapshots are indistinguishable.
-    expect(deepRaid).toEqual(flatRaid);
-
-    const worn = applyBunkerRaidWear(withDeep, deepRaid);
-    for (const part of deepParts) {
-      expect(worn.parts).toContainEqual(part);
-    }
-  });
 });
 
 describe("bunker excavation (dig-out depth)", () => {
@@ -1142,24 +594,6 @@ describe("bunker excavation (dig-out depth)", () => {
       { col, row, depth: 1 },
       { col, row, depth: 2 },
     ]);
-  });
-
-  it("keeps raids indifferent to dug rock until live 3D raids land", () => {
-    const flat = fullyEnclosedBunker(4, 5);
-    const dugOut = {
-      ...flat,
-      dug: [
-        { col: flat.footprint.col + 1, row: flat.footprint.row + 1, depth: 1 },
-        { col: flat.footprint.col + 1, row: flat.footprint.row + 1, depth: 2 },
-      ],
-    };
-    const flatRaid = resolveBunkerRaid(flat, 1, "dug-raid", {
-      terrainAt: openTerrain,
-    });
-    const dugRaid = resolveBunkerRaid(dugOut, 1, "dug-raid", {
-      terrainAt: openTerrain,
-    });
-    expect(dugRaid).toEqual(flatRaid);
   });
 });
 

@@ -24,18 +24,36 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest touch-raid-abandon note complete", () => {
+  it("keeps the latest first-person-raids-only note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-15-0.1.268-touch-raid-abandon");
+    expect(release.noticeId).toBe("2026-07-15-0.1.269-first-person-raids-only");
     expect(latestNote).toMatchObject({
+      version: "0.1.269",
+      title: "Raids are first-person only now",
+      intro:
+        "The flat Start-raid button is gone; you defend your bunker from inside.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The old flat raid, started from the bunker sheet and watched as a top-down replay, is retired. To raid now, stand in your claim, enter your bunker in first person, and start a live raid from inside, where the Clankers hunt you through your dug halls in real time.",
+      "The bunker sheet keeps claiming, repairs, skins, and reset; only the raid moved inside. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived touch-raid-abandon note complete", () => {
+    const release = getAppRelease();
+    const abandonNote = release.notes.find(
+      (note) => note.version === "0.1.268",
+    );
+
+    expect(abandonNote).toMatchObject({
       version: "0.1.268",
       title: "Abandon a live raid from your phone",
       intro:
         "The first-person raid HUD now has a way to leave a fight without a keyboard.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(abandonNote?.changes.map((change) => change.text)).toEqual([
       "On a phone there is no Escape key, so a live raid now carries a Leave raid button in its HUD. It asks you to confirm before it drops you out, so a stray tap while you are fighting cannot cost you the raid.",
       "Confirming leaves and forfeits the raid, exactly like stepping out on desktop: no rewards, and it is gone when you come back. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

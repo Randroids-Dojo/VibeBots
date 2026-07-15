@@ -15,7 +15,6 @@ import {
   claimRemoteBunker,
   collectRemoteBunkerLoot,
   excavateRemoteBunkerCell,
-  finishRemoteBunkerRaid,
   forfeitRemoteLiveRaid,
   loadRemoteBunker,
   placeRemoteBunkerPart,
@@ -32,7 +31,6 @@ vi.mock("./bunker-api-client", async (importOriginal) => {
     claimRemoteBunker: vi.fn(),
     collectRemoteBunkerLoot: vi.fn(),
     excavateRemoteBunkerCell: vi.fn(),
-    finishRemoteBunkerRaid: vi.fn(),
     forfeitRemoteLiveRaid: vi.fn(),
     loadRemoteBunker: vi.fn(),
     placeRemoteBunkerPart: vi.fn(),
@@ -45,7 +43,6 @@ vi.mock("./bunker-api-client", async (importOriginal) => {
 const mockedClaim = vi.mocked(claimRemoteBunker);
 const mockedCollect = vi.mocked(collectRemoteBunkerLoot);
 const mockedExcavate = vi.mocked(excavateRemoteBunkerCell);
-const mockedFinish = vi.mocked(finishRemoteBunkerRaid);
 const mockedLoad = vi.mocked(loadRemoteBunker);
 const mockedPlace = vi.mocked(placeRemoteBunkerPart);
 const mockedReset = vi.mocked(resetRemoteBunker);
@@ -56,7 +53,6 @@ const mockedStartLive = vi.mocked(startRemoteLiveBunkerRaid);
 const view: BunkerRouteResponse = {
   bunker: null,
   inventory: { ...EMPTY_BASE_PART_INVENTORY },
-  activeRaid: null,
   player: {
     balance: 12,
     trackXp: 0,
@@ -92,7 +88,6 @@ describe("bunker store", () => {
       status: "idle",
       bunker: null,
       inventory: { ...EMPTY_BASE_PART_INVENTORY },
-      activeRaid: null,
       activeLiveRaid: null,
       player: null,
       revision: 0,
@@ -126,7 +121,6 @@ describe("bunker store", () => {
       status: "ready",
       bunker,
       inventory: view.inventory,
-      activeRaid: null,
       player: view.player,
       lastRaidReward: null,
       note: null,
@@ -318,19 +312,6 @@ describe("bunker store", () => {
       note: "finish the raid first",
     });
   });
-
-  it("returns successful mutation bodies and stores raid rewards", async () => {
-    const body: BunkerRouteResponse = { ...view, reward };
-    mockedFinish.mockResolvedValue({ ok: true, status: 200, body });
-
-    await expect(useBunkerStore.getState().finishRaid()).resolves.toBe(body);
-
-    expect(useBunkerStore.getState()).toMatchObject({
-      status: "ready",
-      lastRaidReward: reward,
-      note: null,
-    });
-  });
 });
 
 describe("banked edit concurrency (F-122)", () => {
@@ -349,7 +330,6 @@ describe("banked edit concurrency (F-122)", () => {
       status: "ready",
       bunker,
       inventory: { ...EMPTY_BASE_PART_INVENTORY },
-      activeRaid: null,
       player: view.player,
       revision: 2,
       lastRaidReward: null,

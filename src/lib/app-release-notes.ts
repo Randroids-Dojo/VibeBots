@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-15-0.1.268-touch-raid-abandon";
+export const RELEASE_NOTICE_ID = "2026-07-15-0.1.269-first-person-raids-only";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.269",
+      date: "2026-07-15",
+      title: "Raids are first-person only now",
+      intro:
+        "The flat Start-raid button is gone; you defend your bunker from inside.",
+      changes: [
+        {
+          build,
+          text: "The old flat raid, started from the bunker sheet and watched as a top-down replay, is retired. To raid now, stand in your claim, enter your bunker in first person, and start a live raid from inside, where the Clankers hunt you through your dug halls in real time.",
+        },
+        {
+          build,
+          text: "The bunker sheet keeps claiming, repairs, skins, and reset; only the raid moved inside. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.268",
       date: "2026-07-15",

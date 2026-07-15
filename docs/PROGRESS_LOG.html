@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="post-merge-pr220-authority-repair" data-date="2026-07-15">
+    <h3>Reconcile the Clanker extraction and restore complete ledger structure</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/raid-followup-audit</code>.</dd>
+      <dt>PR</dt><dd>#218.</dd>
+      <dt>Changed</dt><dd>Merged current main <code>ac99bcf1</code> through normal merge commit <code>20259aa7</code>, preserving PR #220's shipped Clanker extraction and frame-rule scope without rewriting this published branch. Added the missing matching Dot for main's raid-burst F-144 and append-only authority corrections that keep held PR #190's different F-144 meaning under successor F-155. Recorded PR #220's zero-review merge, ruleset bypass, committed progress and GDD rewrites, unapproved branch deletion, cross-PR ID collision, missing affected-path measurement, and priority mismatch under F-148, F-152, F-154 through F-157, and F-144. Inserted only the missing close tags for the five historical progress records plus the PR #218 merge boundary, so every progress article is again a complete sibling. Published live-loop head <code>d7f6a5f5</code> and its subsequent unpublished player integration are hard-gated under existing F-101, F-104 through F-107, F-109, F-119, F-144, and F-146 authority. The appended acceptance covers bounded bunker telemetry; allocation-safe pathing and frame rules; truthful Clanker, defense, turret, approach, death, and pickup presentation; server-clock resume or forfeit; acknowledged start and resolve; fail-fast version recovery; zero-durability persistence; one cross-input bunker menu and combat lock; targeted phone render evidence; and atomic serialized writes. No runtime code changed beyond the exact current-main merge.</dd>
+      <dt>Verification</dt><dd>Current main <code>ac99bcf1</code> is green in CI run 29392881805 and CodeQL run 29392881403, with production deployment 5452437348 successful. Ruleset suite 3339675317 records <code>bypass</code>; PR #220 had zero submitted reviews; and its remote branch was deleted nine seconds after merge. The combined ledger has 148 unique primary F-IDs and 127 id-backed primaries. A record-by-record scan finds every progress article contains one article open and close plus one <code>dl</code> open and close, with no nesting; the newest article has the exact seven required fields in order. The new F-144 Dot and every touched Dot parse. Dash, whitespace, type-check, Biome, and 5 focused files with 110 tests pass; Biome retains only the documented optional-chain and broken-symlink warnings.</dd>
+      <dt>Assumptions</dt><dd>Green exact-main runtime evidence means the allocation-removal code can remain live; missing targeted burst evidence and process defects do not justify an unapproved rollback. Current main now owns F-144 even though its branch introduced that ID incorrectly. Landing backlog authority is not implementation: the first-person live raid UI remains blocked until F-101, F-104 through F-107, F-109, F-119, F-144, and F-146 acceptance is implemented and tested.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first correction to <code>docs/gdd/08-base-building.html</code> that preserves PR #220's committed build-log text, records the affected-path and live-loop review, and keeps the player-facing UI behind F-101, F-104 through F-107, F-109, F-119, F-144, and F-146. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> remain unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary F-ID. Added matching Dot <code>VibeBots-f-144-add-9e42a451</code> for current-main F-144. Appended current evidence and corrections to F-101, F-104 through F-107, F-109, F-119, F-143, F-144, F-146, F-148, F-152, and F-154 through F-157 plus their matching HTML Dots.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr218-merge-structure-correction" data-date="2026-07-15">
     <h3>Restore complete sibling records after the parallel-history merge</h3>
     <dl>
@@ -1156,6 +1169,8 @@
       <dt>Assumptions</dt><dd>Clamping the taper to the floor (rather than re-sloping the fade to land on it) is the minimal continuous form and only ADDS ore relative to the old curve in the affected rows, so the economy change is a strict small buff near band edges; Recommended default per Rule 7, reversible by tuning ORE_TRACE_SHARE.</dd>
       <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/06-mining.html</code> gained a build log entry.</dd>
       <dt>Followups</dt><dd>F-041 resolved (entry updated). None raised.</dd>
+    </dl>
+  </article>
   <article data-slice="local-e2e-storage-parity" data-date="2026-07-12">
     <h3>Local Playwright runs always match the CI storage contract (F-048)</h3>
     <dl>
@@ -1179,6 +1194,8 @@
       <dt>Assumptions</dt><dd>No global mute exists in the app (the mine sfx already plays unconditionally), so the workshop sounds do too, matching platform behavior until a settings toggle exists; tone volumes stay at or below the mine's quietest cues.</dd>
       <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/02-parts-and-connectors.html</code> gained a build log entry.</dd>
       <dt>Followups</dt><dd>F-050 and F-052 resolved (entries updated). None raised.</dd>
+    </dl>
+  </article>
   <article data-slice="scheduled-run-visibility" data-date="2026-07-12">
     <h3>Surface scheduled Full E2E failures; re-audit the Holodeck route smoke (F-047, F-080)</h3>
     <dl>
@@ -1216,6 +1233,8 @@
       <dt>Assumptions</dt><dd>Two columns is "close enough to feel it" for Walked Away (matches the crush check's own column-based frame); one rescue event per settle pass reads better than per-cell credit, which would make wide roofs farm the stamp.</dd>
       <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/06-mining.html</code> gained a build log entry.</dd>
       <dt>Followups</dt><dd>F-049 resolved (entry updated; the gas-leak counters named in its context stay unshipped and can ride the same channel later). None raised.</dd>
+    </dl>
+  </article>
   <article data-slice="holodeck-compile-gate" data-date="2026-07-12">
     <h3>Gate holodeck frames behind the shader compile (F-072)</h3>
     <dl>
@@ -1226,6 +1245,8 @@
       <dt>Assumptions</dt><dd>A brief backdrop-only beat on holodeck entry (while programs compile off-thread) reads better than a hard page freeze of the same duration; the mine and other canvases keep their existing warm-up behavior and can adopt the gate in their own slices if telemetry warrants it.</dd>
       <dt>GDD coverage</dt><dd>No coverage rows changed; <code>docs/gdd/05-test-arena.html</code> gained a build log entry.</dd>
       <dt>Followups</dt><dd>F-072 resolved (entry updated). None raised.</dd>
+    </dl>
+  </article>
   <article data-slice="adjacent-cell-seam-bridges" data-date="2026-07-11">
     <h3>Replace full cell backplates with adjacency-only seams</h3>
     <dl>
@@ -1730,6 +1751,8 @@
       <dt>Assumptions</dt><dd>Recommended default: scratch-object reuse is documented at each advance* signature and the returned pose is consumed synchronously by every caller (mine canvas, holodeck showcase); tests keep fresh-object semantics via the default out parameter. Dataset QA surfaces keep their exact keys and formats, so existing motion smokes read them unchanged. Rule 13: mine tips reviewed for the 0.1.199 bump, no change because a performance fix alters no mine rule, control, economy, hazard, shop, or recovery behavior. Rule 14: stamp review done, none added because a bug fix is explicitly not stamp material.</dd>
       <dt>GDD coverage</dt><dd>No status changes. Build-log entry added to <code>docs/gdd/06-mining.html</code>.</dd>
       <dt>Followups</dt><dd>Progress and attribution recorded on <code>F-074</code>. New <code>F-075</code> for the per-tick React reconcile churn (memoized cell subtree or imperative grid) and <code>F-076</code> to adopt the shared <code>dataset-diagnostics</code> helpers in the arena, workshop, and holodeck loops. Prevention captured per the continuous-improvement requirement: new path-scoped rule <code>.claude/rules/frame-loop-performance.md</code> (known allocation patterns, scratch idioms, measurement workflow), pre-commit checklist item 6 in <code>AGENTS.md</code>, and the measurement probes committed as <code>scripts/measure-heap-churn.mjs</code> and <code>scripts/profile-allocations.mjs</code>.</dd>
+    </dl>
+  </article>
   <article data-slice="save-sync-stale-checkpoint" data-date="2026-07-07">
     <h3>Save sync slice B: reject stale trip checkpoints</h3>
     <dl>

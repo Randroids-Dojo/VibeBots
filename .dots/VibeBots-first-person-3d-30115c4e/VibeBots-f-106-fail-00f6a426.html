@@ -18,6 +18,9 @@ F-106: Allow only one concurrent mutation to win, return a stable conflict respo
 <section id="evidence-prs-215-216">
 The raid-row compare-and-set currently precedes separate wear, reward, achievement, telemetry, and reload statements. Make full settlement atomic or resumable and keep edits blocked through the authoritative result. F-109 owns lifecycle telemetry.
 </section>
+<section id="client-resolve-ack-2026-07-15">
+The unpublished client marks resolve done before an optional callback and discards the request promise, while Start has no pending latch. Keep both mutations pending until acknowledgement, retry ambiguous resolve failures by raid identity, replace state from authoritative conflicts, and cover rapid taps, lost responses, reload, concurrent start or settle, and exactly one reward.
+</section>
 </article>
 </body>
 </html>

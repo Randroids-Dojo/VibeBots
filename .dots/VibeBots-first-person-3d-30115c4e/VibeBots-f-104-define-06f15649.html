@@ -15,6 +15,21 @@
 <section id="description">
 F-104: Replace the rounded trace proposal with physically valid server replay, a canonical start, elapsed-time validation, and trace-derived v2 pickups. Keep collect v1-only.
 </section>
+<section id="live-loop-review-2026-07-15">
+Published head d7f6a5f5 calls allocation-heavy stepLiveRaid from the future frame path and lets an active tick-zero state serialize as won. Require reusable bounded pathfinding buffers, targeted allocation evidence, terminal-only reports, and a post-combat pickup phase. Extend the frame-loop rule to cover src/components/bunker-fp-*.ts and src/components/bunker-fp-*.tsx, including logic helpers, the canvas, and raid render callers.
+</section>
+<section id="local-render-review-2026-07-15">
+The unpublished renderer after d7f6a5f5 paints every Clanker as standard, turns horizontal headings 90 degrees from the authored +X axis, and can burst at the prior interpolated cell. Render each recorded kind, cover four cardinal headings, pin the terminal cell before death animation, cover specialists and moving energy deaths, and upload XP transforms only when they change. Disable Exit and all bunker edit tools in both DOM and rig input during combat, with desktop and touch coverage.
+</section>
+<section id="local-frame-wiring-2026-07-15">
+The unpublished canvas polls allocating pickup and alive scans from useFrame and resolves in the final-death frame, making final and missed XP unreachable. Use indexed reusable state and a distinct post-combat collection phase, then allow a terminal report only when it is resolve-ready.
+</section>
+<section id="live-durability-projection-2026-07-15">
+Raid wear currently opens cells only in sim state while render and player collision retain the original parts. Project live durability into both at the exact action tick without frame allocations, and cover wall, door, spike, and player traversal transitions.
+</section>
+<section id="presentation-and-e2e-gate-2026-07-15">
+Add pooled turret shot feedback plus the miner contact death animation, input lock, loss dialogue, acknowledged resolve, and surface return. Drive Clanker deaths from a monotonic event rather than a callback-order-dependent one-frame pulse. Prove motion with a fixed player and camera plus a visible Clanker, use controlled current and expired clocks, and assert exactly one valid resolve after presentation and pickup phases. Align the visible exterior approach with sim spawn so Clankers never clip through shell rock.
+</section>
 </article>
 </body>
 </html>

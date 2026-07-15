@@ -15,6 +15,15 @@
 <section id="description">
 F-105: Add idempotent server expiry and recovery so close-tab, reload, disconnect, and repeated finalization cannot wedge the bunker.
 </section>
+<section id="live-loop-clock-review-2026-07-15">
+Published head d7f6a5f5 ignores startedAtMs, drops elapsed time after eight catch-up ticks, and restarts tick zero on reload. Pin one server-clock resume or forfeit contract across backgrounding, reload, expiry, and concurrent finalization.
+</section>
+<section id="canvas-clock-wiring-2026-07-15">
+The unpublished canvas clamps every frame delta to 0.05 before the raid driver, so low frame rate and stalls slow the fight and bypass catch-up while the server clock keeps running. It also recreates the runtime when a same-raid response replaces the view object. Use startedAtMs plus stable raid ID and test the exact caller under stalls, backgrounding, same-ID refresh, reload, and expiry.
+</section>
+<section id="e2e-clock-and-resume-2026-07-15">
+Use a controlled current startedAtMs for the happy path and a separate expired fixture. On reload with an unresolved raid, force same-raid first-person resume from server time or immediate forfeit before normal mine input. Cover reload, navigation back, expiry, and no mine action while unresolved.
+</section>
 </article>
 </body>
 </html>

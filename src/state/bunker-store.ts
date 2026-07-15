@@ -9,7 +9,6 @@ import {
   type BasePartId,
   type BasePartInventory,
   type BunkerRaidRewardReport,
-  type BunkerRaidSnapshot,
   type BunkerSkinId,
   type BunkerState,
   EMPTY_BASE_PART_INVENTORY,
@@ -21,9 +20,7 @@ import {
   buyRemoteBasePart,
   claimRemoteBunker,
   collectRemoteBunkerLoot,
-  collectRemoteRaidPickup,
   excavateRemoteBunkerCell,
-  finishRemoteBunkerRaid,
   forfeitRemoteLiveRaid,
   loadRemoteBunker,
   moveRemoteBunkerPart,
@@ -33,7 +30,6 @@ import {
   resetRemoteBunker,
   resolveRemoteLiveRaid,
   setRemoteBunkerSkin,
-  startRemoteBunkerRaid,
   startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 import { enqueueStampAlertsFromResponse } from "./stamp-alert-store";
@@ -45,10 +41,9 @@ export interface BunkerStoreState {
   status: BunkerStoreStatus;
   bunker: BunkerState | null;
   inventory: BasePartInventory;
-  activeRaid: BunkerRaidSnapshot | null;
   /** A live first-person raid in flight, frozen from a start snapshot
-   * (Q-024 option D). Mutually exclusive with `activeRaid`; the client
-   * fights it in the first-person canvas and resolves it. */
+   * (Q-024 option D). The client fights it in the first-person canvas and
+   * resolves it. */
   activeLiveRaid: LiveRaidActiveView | null;
   player: BunkerPlayerProgress | null;
   /** Last server revision the store has adopted (F-122). Banked edits echo
@@ -92,9 +87,8 @@ export interface BunkerStoreState {
     row: number,
     depth: number,
   ) => Promise<BunkerMutationResult>;
-  startRaid: (tier?: number) => Promise<BunkerMutationResult>;
-  /** Start a live first-person raid (opt-in `mode: "live"`); the
-   * response carries the frozen `activeLiveRaid` snapshot to fight. */
+  /** Start a live first-person raid; the response carries the frozen
+   * `activeLiveRaid` snapshot to fight. This is the only raid path. */
   startLiveRaid: (tier?: number) => Promise<BunkerMutationResult>;
   /** Submit a fought live raid's bounded outcome to settle it. */
   resolveLiveRaid: (
@@ -104,11 +98,6 @@ export interface BunkerStoreState {
   repairBunker: () => Promise<BunkerMutationResult>;
   resetBunker: () => Promise<BunkerMutationResult>;
   setSkin: (skinId: BunkerSkinId) => Promise<BunkerMutationResult>;
-  collectRaidPickup: (
-    col: number,
-    row: number,
-  ) => Promise<BunkerMutationResult>;
-  finishRaid: () => Promise<BunkerMutationResult>;
 }
 
 type Getter = () => BunkerStoreState;
@@ -160,7 +149,6 @@ function applyResponse(
     status: "ready",
     bunker: body.bunker,
     inventory: body.inventory,
-    activeRaid: body.activeRaid,
     activeLiveRaid: body.activeLiveRaid ?? null,
     player: body.player,
     revision: body.revision,
@@ -204,7 +192,6 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
   status: "idle",
   bunker: null,
   inventory: { ...EMPTY_BASE_PART_INVENTORY },
-  activeRaid: null,
   activeLiveRaid: null,
   player: null,
   revision: 0,
@@ -325,20 +312,12 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
         "bunker action failed",
       ),
     ),
-  startRaid: async (tier = 1) =>
-    applyMutationResult(
-      set,
-      get,
-      await startRemoteBunkerRaid(tier),
-      "bunker action failed",
-    ),
-  // Dependency (F-146, PR #218), safe while dark: these run outside the
-  // serializeEdit chain and applyResponse adopts equal revisions, so a
-  // loadBunker begun before a start can return afterward at the same
-  // bunker revision (a live start inserts a raid row without bumping the
-  // revision) and clear the just-adopted activeLiveRaid. Resolve them
-  // under the global sequencing contract before the first-person raid
-  // loop wires these to the UI.
+  // Dependency (F-146, PR #218): these run outside the serializeEdit chain
+  // and applyResponse adopts equal revisions, so a loadBunker begun before a
+  // start can return afterward at the same bunker revision (a live start
+  // inserts a raid row without bumping the revision) and clear the
+  // just-adopted activeLiveRaid. Resolve them under the global sequencing
+  // contract.
   startLiveRaid: async (tier = 1) =>
     applyMutationResult(
       set,
@@ -358,20 +337,6 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
       set,
       get,
       await forfeitRemoteLiveRaid(),
-      "bunker action failed",
-    ),
-  collectRaidPickup: async (col, row) =>
-    applyMutationResult(
-      set,
-      get,
-      await collectRemoteRaidPickup(col, row),
-      "bunker action failed",
-    ),
-  finishRaid: async () =>
-    applyMutationResult(
-      set,
-      get,
-      await finishRemoteBunkerRaid(),
       "bunker action failed",
     ),
 }));

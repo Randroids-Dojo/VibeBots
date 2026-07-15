@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { LiveRaidActiveView } from "@/lib/bunker-api-types";
 import {
   buyBasePart,
   claimBunker,
-  collectBunkerRaidPickup,
   excavateBunker,
-  finishBunkerRaid,
   loadBunkerView,
   moveBunkerPart,
   placeBunkerPart,
@@ -12,18 +11,17 @@ import {
   repairBunker,
   resetBunker,
   setBunkerSkin,
-  startBunkerRaid,
+  startLiveRaid,
 } from "@/server/bunker";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
+import { createBunker, proposedBunkerFootprint } from "@/sim/bunker";
 import { POST as claimPost } from "./claim/route";
 import { POST as excavatePost } from "./excavate/route";
 import { POST as buyPartPost } from "./parts/buy/route";
 import { POST as movePartPost } from "./parts/move/route";
 import { POST as placePartPost } from "./parts/place/route";
 import { POST as removePartPost } from "./parts/remove/route";
-import { POST as collectRaidPost } from "./raid/collect/route";
-import { POST as finishRaidPost } from "./raid/finish/route";
 import { POST as startRaidPost } from "./raid/start/route";
 import { POST as repairPost } from "./repair/route";
 import { POST as resetPost } from "./reset/route";
@@ -42,9 +40,7 @@ vi.mock("@/server/player", () => ({
 vi.mock("@/server/bunker", () => ({
   buyBasePart: vi.fn(),
   claimBunker: vi.fn(),
-  collectBunkerRaidPickup: vi.fn(),
   excavateBunker: vi.fn(),
-  finishBunkerRaid: vi.fn(),
   loadBunkerView: vi.fn(),
   moveBunkerPart: vi.fn(),
   placeBunkerPart: vi.fn(),
@@ -52,7 +48,7 @@ vi.mock("@/server/bunker", () => ({
   repairBunker: vi.fn(),
   resetBunker: vi.fn(),
   setBunkerSkin: vi.fn(),
-  startBunkerRaid: vi.fn(),
+  startLiveRaid: vi.fn(),
 }));
 
 const mockedDb = vi.mocked(db);
@@ -60,15 +56,13 @@ const mockedStorageConfigured = vi.mocked(storageConfigured);
 const mockedPlayer = vi.mocked(getOrCreatePlayerId);
 const mockedBuy = vi.mocked(buyBasePart);
 const mockedClaim = vi.mocked(claimBunker);
-const mockedCollect = vi.mocked(collectBunkerRaidPickup);
-const mockedFinish = vi.mocked(finishBunkerRaid);
 const mockedLoad = vi.mocked(loadBunkerView);
 const mockedMove = vi.mocked(moveBunkerPart);
 const mockedPlace = vi.mocked(placeBunkerPart);
 const mockedSkin = vi.mocked(setBunkerSkin);
 const mockedRemove = vi.mocked(removeBunkerPart);
 const mockedExcavate = vi.mocked(excavateBunker);
-const mockedStart = vi.mocked(startBunkerRaid);
+const mockedStart = vi.mocked(startLiveRaid);
 const mockedRepair = vi.mocked(repairBunker);
 const mockedReset = vi.mocked(resetBunker);
 
@@ -82,7 +76,6 @@ const view = {
     "basic-turret": 0,
     "floor-spikes": 0,
   },
-  activeRaid: null,
   player: {
     balance: 12,
     trackXp: 80,
@@ -97,26 +90,13 @@ const view = {
   revision: 0,
 };
 
-const raid = {
+const liveRaid: LiveRaidActiveView = {
   raidId: "raid-1",
   tier: 1,
+  startedAtMs: 0,
   durationSeconds: 180,
-  clankers: [],
-  turretShots: 0,
-  turretDamage: 0,
-  spikeTriggers: 0,
-  spikeDamage: 0,
-  totalPartDurability: 0,
-  incomingDamage: 0,
-  partDamage: [],
-  coreDamage: 0,
-  xpPickups: [],
-  allClankersDead: true,
-  breached: false,
-  minerKilled: false,
-  survived: true,
-  sealed: false,
-  reward: { vibes: 30, defenseXp: 60 },
+  graceSeconds: 60,
+  bunker: createBunker(proposedBunkerFootprint(10, 8)),
 };
 
 function jsonRequest(url: string, body: unknown): Request {
@@ -143,58 +123,7 @@ describe("bunker API routes", () => {
     mockedStart.mockResolvedValue({
       ok: true,
       view,
-      raid,
-    });
-    mockedCollect.mockResolvedValue({
-      ok: true,
-      view,
-      raid: {
-        raidId: "raid-1",
-        tier: 1,
-        durationSeconds: 180,
-        clankers: [],
-        turretShots: 0,
-        turretDamage: 0,
-        spikeTriggers: 0,
-        spikeDamage: 0,
-        totalPartDurability: 0,
-        incomingDamage: 0,
-        partDamage: [],
-        coreDamage: 0,
-        xpPickups: [
-          {
-            id: "raid-1-clanker-1-xp",
-            col: 7,
-            row: 4,
-            defenseXp: 25,
-            collected: true,
-          },
-        ],
-        allClankersDead: true,
-        breached: false,
-        minerKilled: false,
-        survived: true,
-        sealed: false,
-        reward: { vibes: 30, defenseXp: 25 },
-      },
-    });
-    mockedFinish.mockResolvedValue({
-      ok: true,
-      view,
-      raid,
-      reward: {
-        survived: true,
-        vibesGained: 30,
-        xpGained: 60,
-        defenseXpBefore: 20,
-        defenseXpAfter: 80,
-        levelBefore: 1,
-        levelAfter: 1,
-        leveledUp: false,
-        beaconLimitBefore: 2,
-        beaconLimitAfter: 2,
-        newStamps: ["survival-first-defense"],
-      },
+      liveRaid,
     });
   });
 
@@ -358,14 +287,14 @@ describe("bunker API routes", () => {
     });
   });
 
-  it("starts the tier-one Clanker raid", async () => {
+  it("starts the live first-person raid", async () => {
     const res = await startRaidPost(
       jsonRequest("http://localhost/api/bunker/raid/start", { tier: 1 }),
     );
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      raid: { raidId: "raid-1", durationSeconds: 180 },
+      liveRaid: { raidId: "raid-1", tier: 1, durationSeconds: 180 },
     });
     expect(mockedStart).toHaveBeenCalledWith(
       expect.any(Function),
@@ -387,65 +316,6 @@ describe("bunker API routes", () => {
 
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toEqual({ error: "raid already active" });
-  });
-
-  it("collects raid XP from the miner cell", async () => {
-    const res = await collectRaidPost(
-      jsonRequest("http://localhost/api/bunker/raid/collect", {
-        col: 7,
-        row: 4,
-      }),
-    );
-
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({
-      raid: {
-        raidId: "raid-1",
-        xpPickups: [{ collected: true, defenseXp: 25 }],
-      },
-    });
-    expect(mockedCollect).toHaveBeenCalledWith(
-      expect.any(Function),
-      "player-1",
-      7,
-      4,
-    );
-  });
-
-  it("keeps the custom invalid pickup response for malformed collect bodies", async () => {
-    const res = await collectRaidPost(
-      jsonRequest("http://localhost/api/bunker/raid/collect", "{"),
-    );
-
-    expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toEqual({ error: "invalid pickup cell" });
-    expect(mockedCollect).not.toHaveBeenCalled();
-  });
-
-  it("keeps the custom invalid pickup response for invalid cells", async () => {
-    const res = await collectRaidPost(
-      jsonRequest("http://localhost/api/bunker/raid/collect", {
-        col: "left",
-        row: 4,
-      }),
-    );
-
-    expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toEqual({ error: "invalid pickup cell" });
-    expect(mockedCollect).not.toHaveBeenCalled();
-  });
-
-  it("finishes the active raid and returns its reward", async () => {
-    const res = await finishRaidPost();
-
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({
-      raid: { raidId: "raid-1" },
-      reward: { vibesGained: 30, xpGained: 60 },
-      // Stamps ride the app-wide top-level channel (see applyResponse).
-      newStamps: ["survival-first-defense"],
-    });
-    expect(mockedFinish).toHaveBeenCalledWith(expect.any(Function), "player-1");
   });
 
   it("accepts Basic Turret base part purchases", async () => {

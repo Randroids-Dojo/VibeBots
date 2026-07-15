@@ -1,7 +1,6 @@
 import { BUNKER_REVISION_CONFLICT_CODE } from "@/lib/api-codes";
 import type { BunkerView, LiveRaidActiveView } from "@/lib/bunker-api-types";
 import {
-  applyBunkerRaidWear,
   applyBunkerRepairs,
   applyBunkerReset,
   BASE_PART_CATALOG,
@@ -15,14 +14,12 @@ import {
   type BunkerFootprint,
   type BunkerLoot,
   type BunkerRaidRewardReport,
-  type BunkerRaidSnapshot,
   type BunkerSkinId,
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
   bunkerRepairPlan,
   canBuyBasePart,
-  canCollectBunkerRaidPickupFrom,
   createBunker,
   DEFAULT_BUNKER_SKIN,
   type DugBunkerCell,
@@ -36,7 +33,6 @@ import {
   playerLevelProgress,
   proposedBunkerFootprint,
   removeBasePart,
-  resolveBunkerRaid,
   STARTER_BASE_PART_INVENTORY,
   takeBunkerLootAt,
 } from "@/sim/bunker";
@@ -255,45 +251,6 @@ function numberValue(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function normalizeBunkerRaidSnapshot(
-  snapshot: unknown,
-): BunkerRaidSnapshot | null {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const candidate = snapshot as Partial<BunkerRaidSnapshot>;
-  if (typeof candidate.raidId !== "string") return null;
-  return {
-    raidId: candidate.raidId,
-    tier: numberValue(candidate.tier, 1),
-    durationSeconds: numberValue(candidate.durationSeconds),
-    startedAtMs: numberValue(candidate.startedAtMs) || undefined,
-    clankers: Array.isArray(candidate.clankers)
-      ? (candidate.clankers as BunkerRaidSnapshot["clankers"]).map(
-          (clanker) => ({ ...clanker, kind: clanker.kind ?? "standard" }),
-        )
-      : [],
-    turretShots: numberValue(candidate.turretShots),
-    turretDamage: numberValue(candidate.turretDamage),
-    spikeTriggers: numberValue(candidate.spikeTriggers),
-    spikeDamage: numberValue(candidate.spikeDamage),
-    totalPartDurability: numberValue(candidate.totalPartDurability),
-    incomingDamage: numberValue(candidate.incomingDamage),
-    partDamage: Array.isArray(candidate.partDamage) ? candidate.partDamage : [],
-    coreDamage: numberValue(candidate.coreDamage),
-    xpPickups: Array.isArray(candidate.xpPickups) ? candidate.xpPickups : [],
-    allClankersDead: Boolean(candidate.allClankersDead),
-    breached: Boolean(candidate.breached),
-    minerKilled: Boolean(candidate.minerKilled),
-    survived: Boolean(candidate.survived),
-    // Pre-0.1.214 snapshots carry no sealed flag: old raids cannot
-    // prove an enclosure, so they never credit the Buttoned Up stamp.
-    sealed: candidate.sealed === true,
-    reward: {
-      vibes: numberValue(candidate.reward?.vibes),
-      defenseXp: numberValue(candidate.reward?.defenseXp),
-    },
-  };
-}
-
 /** Server grace beyond a live raid's authored duration before it is treated
  * as expired, in seconds (mirrors the sim's tick-based grace). */
 const LIVE_RAID_GRACE_SECONDS =
@@ -378,7 +335,7 @@ function liveRaidActiveViewFrom(
  * operations. A live raid past its grace is not active (it returns null from
  * `liveRaidActiveViewFrom`), so it never blocks. */
 function bunkerRaidActive(view: BunkerView): boolean {
-  return view.activeRaid !== null || view.activeLiveRaid != null;
+  return view.activeLiveRaid != null;
 }
 
 /** Settle any stale past-grace live raid row as a forfeit loss (no reward, no
@@ -503,7 +460,6 @@ export async function loadBunkerView(
   const isLiveRaidRow =
     raidRow !== undefined &&
     Number(raidRow.raid_version) === BUNKER_RAID_LIVE_VERSION;
-  let activeRaid: BunkerRaidSnapshot | null = null;
   let activeLiveRaid: LiveRaidActiveView | null = null;
   if (isLiveRaidRow) {
     activeLiveRaid = liveRaidActiveViewFrom(
@@ -516,13 +472,13 @@ export async function loadBunkerView(
       // next raid start.
       await finalizeExpiredLiveRaids(sql, playerId);
     }
-  } else if (raidRow) {
-    activeRaid = normalizeBunkerRaidSnapshot(raidRow.snapshot);
   }
+  // A legacy interim (raid_version NULL) row is ignored: the interim raid is
+  // retired, so only a live raid can be active. Such rows remain opaque
+  // history and cannot wedge a new live raid.
   return {
     bunker: parseBunkerState(bunkerRows[0] ?? null),
     inventory: await ensureStarterBaseParts(sql, playerId),
-    activeRaid,
     activeLiveRaid,
     revision: Number.isFinite(revisionValue) ? revisionValue : 0,
     player: {
@@ -1090,99 +1046,12 @@ export async function setBunkerSkin(
   return { ok: true, view: await loadBunkerView(sql, playerId), newStamps };
 }
 
-export async function startBunkerRaid(
-  sql: Sql,
-  playerId: string,
-  tier: number,
-): Promise<BunkerOperationResult<{ raid: BunkerRaidSnapshot }>> {
-  const view = await loadBunkerView(sql, playerId);
-  if (!view.bunker)
-    return { ok: false, status: 409, error: "claim a bunker first" };
-  if (bunkerRaidActive(view))
-    return { ok: false, status: 409, error: "raid already active" };
-  const tierCeiling = maxBunkerRaidTier(view.player.overallLevel);
-  if (tier > tierCeiling) {
-    return {
-      ok: false,
-      status: 422,
-      error: `tier ${tier} unlocks at player level ${tier}`,
-    };
-  }
-  const recentRows = (await sql`
-    SELECT started_at
-    FROM bunker_raids
-    WHERE player_id = ${playerId}
-    ORDER BY started_at DESC
-    LIMIT 1`) as Array<{ started_at: string | Date }>;
-  const lastStartedAt = recentRows[0]?.started_at;
-  if (lastStartedAt) {
-    const cooldownMs = BUNKER_RAID_COOLDOWN_HOURS * 60 * 60 * 1000;
-    const availableAt = new Date(lastStartedAt).getTime() + cooldownMs;
-    const remainingMs = availableAt - Date.now();
-    if (remainingMs > 0) {
-      const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
-      return {
-        ok: false,
-        status: 409,
-        error: `raid cooldown active: ${remainingHours}h remaining`,
-      };
-    }
-  }
-  const startedAtMs = Date.now();
-  const worlds = (await sql`
-    SELECT seed, diff
-    FROM mine_worlds
-    WHERE player_id = ${playerId}`) as Array<{
-    seed: string | number;
-    diff: unknown;
-  }>;
-  const world = worlds[0];
-  const diff = Array.isArray(world?.diff) ? (world.diff as WorldDiff) : [];
-  const mine =
-    world === undefined
-      ? null
-      : createMine(Number(world.seed), DEFAULT_GEAR, NO_CONSUMABLES, diff);
-  const raidId = `raid-${startedAtMs.toString(36)}`;
-  const raid = resolveBunkerRaid(view.bunker, tier, raidId, {
-    startedAtMs,
-    terrainAt:
-      mine === null
-        ? undefined
-        : (col, row) => cellAt(mine, col, row)?.kind ?? "empty",
-  });
-  const wornBunker = applyBunkerRaidWear(view.bunker, raid);
-  await sql`
-    UPDATE bunkers
-    SET parts = ${JSON.stringify(wornBunker.parts)}::jsonb,
-        core = ${JSON.stringify(wornBunker.core)}::jsonb,
-        revision = revision + 1,
-        updated_at = now()
-    WHERE player_id = ${playerId}`;
-  await sql`
-    INSERT INTO bunker_raids (
-      player_id,
-      raid_id,
-      tier,
-      snapshot,
-      duration_seconds
-    )
-    VALUES (
-      ${playerId},
-      ${raid.raidId},
-      ${raid.tier},
-      ${JSON.stringify(raid)}::jsonb,
-      ${raid.durationSeconds}
-    )`;
-  return { ok: true, view: await loadBunkerView(sql, playerId), raid };
-}
-
 /**
- * Start a live first-person raid (Q-024 option D, F-108). Unlike the interim
- * raid, nothing is resolved and no wear is applied here: the current bunker is
- * frozen into a versioned snapshot the client runs the raid against in real
- * time, then reports a bounded outcome for the resolve route to settle against
- * this same snapshot. The active-raid guard, tier ceiling, and cooldown mirror
- * the interim start.
+ * Start a live first-person raid (Q-024 option D, F-108), the only raid path.
+ * Nothing is resolved and no wear is applied here: the current bunker is frozen
+ * into a versioned snapshot the client runs the raid against in real time, then
+ * reports a bounded outcome for the resolve route to settle against this same
+ * snapshot.
  */
 export async function startLiveRaid(
   sql: Sql,
@@ -1385,192 +1254,5 @@ export async function resolveLiveRaid(
       newStamps,
     },
     sealed: settlement.sealed,
-  };
-}
-
-export async function collectBunkerRaidPickup(
-  sql: Sql,
-  playerId: string,
-  col: number,
-  row: number,
-): Promise<BunkerOperationResult<{ raid: BunkerRaidSnapshot }>> {
-  const rows = (await sql`
-    SELECT raid_id, snapshot
-    FROM bunker_raids
-    WHERE player_id = ${playerId}
-      AND result IS NULL
-    ORDER BY started_at DESC
-    LIMIT 1`) as Array<{ raid_id: string; snapshot: unknown }>;
-  const rowData = rows[0];
-  if (!rowData || typeof rowData.snapshot !== "object") {
-    return { ok: false, status: 409, error: "no active raid" };
-  }
-  const raid = normalizeBunkerRaidSnapshot(rowData.snapshot);
-  if (!raid) return { ok: false, status: 409, error: "no active raid" };
-  if (!raid.survived) {
-    return { ok: true, view: await loadBunkerView(sql, playerId), raid };
-  }
-  let collected = false;
-  const updatedRaid: BunkerRaidSnapshot = {
-    ...raid,
-    xpPickups: raid.xpPickups.map((pickup) => {
-      if (!canCollectBunkerRaidPickupFrom(pickup, col, row)) {
-        return pickup;
-      }
-      collected = true;
-      return { ...pickup, collected: true };
-    }),
-  };
-  if (collected) {
-    const collectedXp = updatedRaid.xpPickups.reduce((sum, pickup) => {
-      return sum + (pickup.collected ? pickup.defenseXp : 0);
-    }, 0);
-    updatedRaid.reward = {
-      ...updatedRaid.reward,
-      defenseXp: collectedXp,
-    };
-    await sql`
-      UPDATE bunker_raids
-      SET snapshot = ${JSON.stringify(updatedRaid)}::jsonb
-      WHERE player_id = ${playerId}
-        AND raid_id = ${rowData.raid_id}
-        AND result IS NULL`;
-  }
-  return {
-    ok: true,
-    view: await loadBunkerView(sql, playerId),
-    raid: updatedRaid,
-  };
-}
-
-export async function finishBunkerRaid(
-  sql: Sql,
-  playerId: string,
-): Promise<
-  BunkerOperationResult<{
-    raid: BunkerRaidSnapshot;
-    reward: BunkerRaidRewardReport;
-  }>
-> {
-  const rows = (await sql`
-    SELECT raid_id, snapshot, started_at, duration_seconds
-    FROM bunker_raids
-    WHERE player_id = ${playerId}
-      AND result IS NULL
-    ORDER BY started_at DESC
-    LIMIT 1`) as Array<{
-    raid_id: string;
-    snapshot: unknown;
-    started_at: string;
-    duration_seconds: number;
-  }>;
-  const row = rows[0];
-  if (!row || typeof row.snapshot !== "object") {
-    return { ok: false, status: 409, error: "no active raid" };
-  }
-  const raid = normalizeBunkerRaidSnapshot(row.snapshot);
-  if (!raid) return { ok: false, status: 409, error: "no active raid" };
-  const elapsed = Date.now() - new Date(row.started_at).getTime();
-  if (!raid.allClankersDead && elapsed < row.duration_seconds * 1000) {
-    return { ok: false, status: 409, error: "raid still in progress" };
-  }
-  const uncollectedXpPickups = raid.survived
-    ? raid.xpPickups.filter((pickup) => !pickup.collected)
-    : [];
-  if (uncollectedXpPickups.length > 0) {
-    return {
-      ok: false,
-      status: 409,
-      error: "collect raid XP pickups first",
-    };
-  }
-  const collectedDefenseXp = raid.survived
-    ? raid.xpPickups.reduce((sum, pickup) => {
-        return sum + (pickup.collected ? pickup.defenseXp : 0);
-      }, 0)
-    : 0;
-  const completedRaid: BunkerRaidSnapshot = {
-    ...raid,
-    reward: raid.survived
-      ? { ...raid.reward, defenseXp: collectedDefenseXp }
-      : { vibes: 0, defenseXp: 0 },
-  };
-  const rewarded = (await sql`
-    UPDATE bunker_raids
-    SET result = ${JSON.stringify(completedRaid)}::jsonb,
-        rewarded_at = now()
-    WHERE player_id = ${playerId}
-      AND raid_id = ${row.raid_id}
-      AND result IS NULL
-    RETURNING raid_id`) as Array<{ raid_id: string }>;
-  if (rewarded.length === 0) {
-    return { ok: false, status: 409, error: "raid already finished" };
-  }
-  const beforeRows = (await sql`
-    SELECT track_xp, defense_xp
-    FROM players
-    WHERE id = ${playerId}`) as Array<{
-    track_xp: number;
-    defense_xp: number;
-  }>;
-  const before = beforeRows[0] ?? { track_xp: 0, defense_xp: 0 };
-  const beforeProgress = playerLevelProgress(before.defense_xp);
-  let defenseXpAfter = before.defense_xp;
-  let newStamps: string[] = [];
-  if (raid.survived) {
-    const playerRows = (await sql`
-      UPDATE players
-      SET emeralds = emeralds + ${completedRaid.reward.vibes},
-          defense_xp = defense_xp + ${completedRaid.reward.defenseXp}
-      WHERE id = ${playerId}
-      RETURNING defense_xp`) as Array<{ defense_xp: number }>;
-    defenseXpAfter = playerRows[0]?.defense_xp ?? defenseXpAfter;
-    try {
-      newStamps = await applyAchievementProgress(sql, playerId, {
-        bunkerRaidsSurvived: 1,
-        raidsSurvivedSealed: raid.sealed ? 1 : 0,
-      });
-    } catch {
-      // Stamps are cosmetic and must never block a raid reward.
-    }
-  }
-  const afterProgress = playerLevelProgress(defenseXpAfter);
-  if (raid.survived) {
-    try {
-      await recordBalanceEvent(sql, playerId, "bunker.raid_reward", {
-        raidId: row.raid_id,
-        tier: raid.tier,
-        survived: raid.survived,
-        vibesGained: completedRaid.reward.vibes,
-        defenseXpGained: completedRaid.reward.defenseXp,
-        defenseXpBefore: before.defense_xp,
-        defenseXpAfter,
-        levelBefore: beforeProgress.level,
-        levelAfter: afterProgress.level,
-        clankers: raid.clankers.length,
-        incomingDamage: raid.incomingDamage,
-        breached: raid.breached,
-      });
-    } catch {
-      // Balance events support tuning, but should not fail a raid reward.
-    }
-  }
-  return {
-    ok: true,
-    view: await loadBunkerView(sql, playerId),
-    raid: completedRaid,
-    reward: {
-      survived: raid.survived,
-      vibesGained: completedRaid.reward.vibes,
-      xpGained: completedRaid.reward.defenseXp,
-      defenseXpBefore: before.defense_xp,
-      defenseXpAfter,
-      levelBefore: beforeProgress.level,
-      levelAfter: afterProgress.level,
-      leveledUp: afterProgress.level > beforeProgress.level,
-      beaconLimitBefore: beforeProgress.beaconLimit,
-      beaconLimitAfter: afterProgress.beaconLimit,
-      newStamps,
-    },
   };
 }

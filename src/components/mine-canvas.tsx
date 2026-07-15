@@ -42,11 +42,7 @@ import {
 } from "@/components/mine-camera";
 import { createWebGPU } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
-import type {
-  BunkerFootprint,
-  BunkerRaidSnapshot,
-  BunkerState,
-} from "@/sim/bunker";
+import type { BunkerFootprint, BunkerState } from "@/sim/bunker";
 import {
   biomeAt,
   type CollectTarget,
@@ -996,7 +992,6 @@ function MineScene({
   bunkerPreview,
   bunkerBlockedCells,
   bunker,
-  activeBunkerRaid,
   onToggleSupport,
   onElevatorStageComplete,
   graphicsFeatures,
@@ -2702,7 +2697,6 @@ function MineScene({
         preview={bunkerPreview}
         blockedCells={bunkerBlockedCells}
         bunker={bunker}
-        activeRaid={activeBunkerRaid}
       />
       {/* Instanced particles: sparks render fullbright, debris and dust
           take the scene light. Unit cube scaled per instance (W3). */}
@@ -2770,7 +2764,6 @@ interface MineCanvasProps {
   bunkerPreview?: BunkerFootprint | null;
   bunkerBlockedCells?: readonly MineCoord[];
   bunker?: BunkerState | null;
-  activeBunkerRaid?: BunkerRaidSnapshot | null;
   onToggleSupport?: (target: CollectTarget) => void;
   onElevatorStageComplete?: (
     sequence: number,

@@ -523,6 +523,39 @@ describe("bunker depth normalization", () => {
       bunkerSpawnPocketCells({ col: 1, row: 4, width: 7, height: 5 }),
     );
   });
+
+  it("ignores a legacy core field on a stored bunker row (F-118)", async () => {
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        // A row written before the core was removed may still carry one as
+        // a stray property; the parser no longer reads it, so it is ignored
+        // and the bunker loads without a core rather than crashing.
+        return [
+          {
+            footprint: { col: 1, row: 4, width: 7, height: 5 },
+            core: { col: 4, row: 6, depth: 0, durability: 160 },
+            parts: [{ partId: "wall-panel", col: 1, row: 4, durability: 90 }],
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("INSERT INTO player_base_parts")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker).not.toBeNull();
+    expect(view.bunker).not.toHaveProperty("core");
+    expect(view.bunker?.parts).toEqual([
+      { partId: "wall-panel", col: 1, row: 4, depth: 0, durability: 90 },
+    ]);
+  });
 });
 
 describe("bunker excavation wrapper", () => {

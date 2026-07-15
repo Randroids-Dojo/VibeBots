@@ -138,7 +138,9 @@ const bodySchema = z.object({
       claimCol: z.number().int(),
       claimRow: z.number().int().min(1),
       claimedAtMoveCount: z.number().int().min(0).max(MAX_TRIP_MOVES),
-      parts: z.array(placedBasePartSchema).max(174),
+      // One part per cell, so the whole 7x5x5 volume is the cap. F-118 removed
+      // the core, so every cell is buildable (the old cap of 174 reserved it).
+      parts: z.array(placedBasePartSchema).max(MAX_DUG_CELLS),
       // Any of the 7x5x5 cells may be dug out, including the depth-0 floor.
       dug: z.array(dugBunkerCellSchema).max(MAX_DUG_CELLS).default([]),
     })

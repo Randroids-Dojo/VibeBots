@@ -69,9 +69,12 @@ export const mineConsumablesSchema = z.object({
 // as a stable incompatible-state; legacy shapes coerce: a missing depth lands
 // on the tunnel plane, a missing dug list is empty, and a legacy `core` field
 // (F-118 removed the core) is silently dropped by the object strip.
-const BUNKER_PART_LIMIT = 174;
 const MAX_BUNKER_CELLS =
   BUNKER_CLAIM_WIDTH * BUNKER_CLAIM_HEIGHT * BUNKER_CLAIM_DEPTH;
+// One part per cell, so the whole 7x5x5 volume is the cap. F-118 removed the
+// core, so every cell is now buildable (the old cap of 174 reserved the core
+// cell).
+const BUNKER_PART_LIMIT = MAX_BUNKER_CELLS;
 // Match the authoritative bank route's part bounds (min 1, max 1000): a placed
 // part always has positive durability, and aligning avoids a checkpoint that
 // resumes locally but is then rejected at bank.

@@ -451,6 +451,29 @@ describe("POST /api/mine/bank", () => {
     expect(mockedDb).not.toHaveBeenCalled();
   });
 
+  it("rejects a pending bunker over the full-volume part cap (F-118: 175 cells)", async () => {
+    const res = await post({
+      moves: ["down", "down", "down", "down", "down"],
+      pendingBunker: {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        // 176 exceeds the 7 x 5 x 5 = 175 cell volume that is now fully
+        // buildable (the old cap of 174 reserved the removed core cell).
+        parts: Array.from({ length: 176 }, () => ({
+          partId: "wall-panel",
+          col: START_COL - 3,
+          row: 1,
+          depth: 0,
+          durability: BASE_PART_CATALOG["wall-panel"].durability,
+        })),
+      },
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockedDb).not.toHaveBeenCalled();
+  });
+
   it("validates a locally claimed bunker against the replayed claim moment", () => {
     const result = validatePendingBunkerClaim(
       {

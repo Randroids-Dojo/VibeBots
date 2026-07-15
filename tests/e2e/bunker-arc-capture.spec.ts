@@ -91,7 +91,9 @@ test("bunker arc capture run", async ({ page }) => {
       ...part,
       durability: 90,
     }));
-    current.player = { ...current.player, balance: current.player.balance - 7 };
+    // Parts-only cost now the core is gone (F-118): the one wall at 45/90
+    // durability (price 6) repairs for ceil(0.5 * 6 * 0.5) = 2 vibes.
+    current.player = { ...current.player, balance: current.player.balance - 2 };
     return route.fulfill({
       status: 200,
       contentType: "application/json",

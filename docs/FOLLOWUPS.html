@@ -137,6 +137,16 @@
     </dl>
   </section>
 
+  <section id="F-163" data-f="F-163" data-priority="polish">
+    <h3>F-163: Physically drop the retired bunkers.core column</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised while removing the bunker core (F-118, PR #227). To avoid a destructive column drop on the live store without approval, that slice left the <code>bunkers.core</code> jsonb column in place: it is removed from the <code>CREATE TABLE</code> so fresh databases never create it, and an idempotent migration (<code>ALTER TABLE bunkers ALTER COLUMN core DROP NOT NULL</code>, guarded by an information_schema existence check) relaxes the constraint on existing databases so inserts that no longer supply it succeed. No code reads or writes the column anymore, but on existing databases the column and its old data still physically exist.</dd>
+      <dt>Blocker (if any)</dt><dd>None for correctness: the column is dead (unwritten, unread) and harmless. This is cleanup only.</dd>
+      <dt>Unblock condition</dt><dd>Physically dropping a column deletes its data, which is a destructive action under Rule 6, so it needs the user's explicit go-ahead first. Once approved, add <code>ALTER TABLE bunkers DROP COLUMN IF EXISTS core</code> to the schema migrations (idempotent), remove the <code>DROP NOT NULL</code> guard migration in the same pass, and confirm no code path references the column. Owner: whoever next touches bunker persistence with approval in hand; there is no urgency.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during the core-removal slice (PR #227); child of the first-person 3D bunker arc.</dd>
+    </dl>
+  </section>
+
   <section id="F-133" data-f="F-133" data-priority="blocks-release">
     <h3>F-133: Keep starter bunker pockets out of excavation progress</h3>
     <dl>

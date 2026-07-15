@@ -409,6 +409,18 @@ describe("pending bunker validation (F-112)", () => {
     expect(normalizePendingBunker(withBunker({ parts: {} }))).toBeNull();
   });
 
+  it("strips a legacy core field from a stored checkpoint (F-118)", () => {
+    // A checkpoint saved before the core was removed still carries one; the
+    // object schema drops the unknown key rather than rejecting the trip.
+    const result = normalizePendingBunker(
+      withBunker({ core: { col: 3, row: 3, depth: 0, durability: 160 } }),
+    );
+    expect(result).not.toBeNull();
+    expect(result?.bunker).not.toHaveProperty("core");
+    expect(result?.bunker.footprint).toBeDefined();
+    expect(Array.isArray(result?.bunker.parts)).toBe(true);
+  });
+
   it("returns null for a malformed dug cell", () => {
     expect(normalizePendingBunker(withBunker({ dug: [null] }))).toBeNull();
     // Missing depth: dug cells always carry a real depth, so this is corruption.
@@ -417,15 +429,22 @@ describe("pending bunker validation (F-112)", () => {
     ).toBeNull();
   });
 
-  it("returns null for an oversized parts array", () => {
-    const parts = Array.from({ length: 175 }, () => ({
-      partId: "wall-panel",
-      col: 1,
-      row: 1,
-      depth: 0,
-      durability: 10,
-    }));
-    expect(normalizePendingBunker(withBunker({ parts }))).toBeNull();
+  it("accepts a full 175-part bunker but rejects 176 (F-118 freed the core cell)", () => {
+    const makeParts = (count: number) =>
+      Array.from({ length: count }, () => ({
+        partId: "wall-panel",
+        col: 1,
+        row: 1,
+        depth: 0,
+        durability: 10,
+      }));
+    // 7 x 5 x 5 = 175 cells, all buildable now that the core is gone.
+    expect(
+      normalizePendingBunker(withBunker({ parts: makeParts(175) })),
+    ).not.toBeNull();
+    expect(
+      normalizePendingBunker(withBunker({ parts: makeParts(176) })),
+    ).toBeNull();
   });
 
   it("passes a null pending through as no checkpoint", () => {

@@ -214,7 +214,9 @@ export function FpClankerLayer({
     if (xpMesh) {
       let count = 0;
       if (runtime) {
-        for (const pickup of runtime.state.xpPickups) {
+        const pickups = runtime.state.xpPickups;
+        for (let p = 0; p < pickups.length; p += 1) {
+          const pickup = pickups[p];
           if (pickup.collected) continue;
           if (count >= FP_XP_CAPACITY) break;
           xpPosition.set(

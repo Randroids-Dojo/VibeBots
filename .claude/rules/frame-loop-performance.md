@@ -5,6 +5,8 @@ paths:
   - "src/components/mine-*.ts"
   - "src/components/mine-*.tsx"
   - "src/components/clanker-*.tsx"
+  - "src/components/bunker-fp-*.ts"
+  - "src/components/bunker-fp-*.tsx"
   - "src/components/miner-*.ts"
   - "src/components/arena-*.tsx"
   - "src/components/workshop-*.tsx"

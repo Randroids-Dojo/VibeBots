@@ -1287,8 +1287,9 @@ function BunkerFpRig({
         collectFpRaidPickup(raid, fpRaidPlayerCell);
       }
       let aliveClankers = 0;
-      for (const clanker of raid.state.clankers) {
-        if (clanker.alive) aliveClankers += 1;
+      const raidClankers = raid.state.clankers;
+      for (let ci = 0; ci < raidClankers.length; ci += 1) {
+        if (raidClankers[ci].alive) aliveClankers += 1;
       }
       const secondsLeft = Math.max(
         0,

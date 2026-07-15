@@ -232,6 +232,7 @@
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
       <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-119-put-d9c9aef9 created under VibeBots-first-person-3d-30115c4e.</dd>
       <dt>Monitoring update</dt><dd>The in-bunker Reset action must use F-120's no-ore-regeneration contract and must exit or remount first person from the authoritative response so the live canvas never continues over invalidated geometry.</dd>
+      <dt>Progress (2026-07-15, step 1)</dt><dd>Surfaced by an Android playtest ("what happened to consolidating the bunker menus"). The redundant second entry is gone: the status sheet's <q>Enter bunker (3D)</q> row was removed, leaving the floating <q>Enter bunker</q> button (shown in the same states) as the single entry affordance; the <code>onEnterFp</code> prop and its CSS are deleted, and the three first-person entry e2es were repointed to the single button and pass against a production build. Still pending (the substantive remainder): the in-first-person toggle menu holding Raid, Repair, Skins, and confirmed Reset so those controls are reachable while inside the bunker, and folding the flat-view <q>Bunker</q>/<q>Enter bunker</q> pair down once that menu exists. The in-bunker Raid control should drive the live start path, so it is best finished alongside the client raid loop.</dd>
     </dl>
   </section>
 

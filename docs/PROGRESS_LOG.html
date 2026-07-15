@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-entry-dedup" data-date="2026-07-15">
+    <h3>One way into the bunker: drop the redundant sheet entry button</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-entry-dedup</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>First step of F-119 (menu consolidation), from a player playtest flagging that the bunker has too many overlapping menus. Standing in a claim there were two ways into first person: a floating <q>Enter bunker</q> button and a redundant <q>Enter bunker (3D)</q> row inside the status sheet. The sheet row is removed; the floating button (which is shown in exactly the same states, whenever no raid is active and the miner stands in the claim) is now the single entry affordance. The <code>onEnterFp</code> prop and its dead CSS are gone. The substantive rest of F-119, moving the raid, repair, skin, and reset controls into an in-first-person menu so the flat-view sheet is no longer the only place to reach them, is the next step.</dd>
+      <dt>Verification</dt><dd>dash clean, Biome clean, full type-check, full unit suite (1523) green. The three affected first-person e2e tests were repointed to the single floating entry and pass locally against a production build (the entry tests run in the scheduled full matrix, not the required gate, so they were run directly): entering the banked bunker while asserting the sheet now has no 3D row, the bag-chip flow, and the failed-raid entry-hidden flow.</dd>
+      <dt>Assumptions</dt><dd>Kept the floating button (the code already called it <q>THE build entry point</q>) rather than the sheet row, since it is always on screen while editable and does not require opening the sheet. Player-visible but minor (one duplicate control removed), so no package bump or release note; the flat-view sheet still holds the claim, raid, repair, skin, and reset controls until the in-first-person menu lands.</dd>
+      <dt>GDD</dt><dd>Recorded F-119 progress and appended a build-log entry. Rule 13/14: no tip or stamp (a control de-duplication). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="live-raid-lazy-expiry" data-date="2026-07-15">
     <h3>Settle an abandoned live raid on the next load, not just at the next start</h3>
     <dl>

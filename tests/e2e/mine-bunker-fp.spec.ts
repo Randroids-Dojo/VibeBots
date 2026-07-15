@@ -354,7 +354,7 @@ test("first-person bunker viewer walks, looks, jumps, and exits in place", async
   ).toBeVisible();
 });
 
-test("the bunker status panel's 3D row enters the banked bunker", async ({
+test("the single floating entry enters the banked bunker and the sheet has no redundant 3D row", async ({
   page,
 }) => {
   // Software-GL runners compile the fp scene slowly.
@@ -371,19 +371,18 @@ test("the bunker status panel's 3D row enters the banked bunker", async ({
   await dismissReleaseNotes(page);
   await digTo(page, 1);
 
-  // The second Enter affordance: the row inside the bunker status
-  // sheet (the toolbelt button is covered by the walk/look/jump test).
+  // The single Enter affordance: the floating Enter bunker button. The
+  // sheet's redundant 3D-entry row was removed in the menu consolidation
+  // (F-119), and the status sheet must offer no second way in.
   await page.getByRole("button", { name: "Open bunker status" }).click();
-  const panelEnter = page.getByTestId("bunker-fp-enter-panel");
-  await expect(panelEnter).toBeVisible();
-  await panelEnter.click();
+  await expect(page.getByTestId("bunker-fp-enter-panel")).toHaveCount(0);
+  await page.getByRole("button", { name: "Dismiss bunker status" }).click();
+  const enter = page.getByTestId("bunker-fp-enter");
+  await expect(enter).toBeVisible();
+  await enter.click();
 
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-fp-mode", "1");
-  // Entering closes the sheet so it cannot sit over the fp view.
-  await expect(page.getByRole("region", { name: "Bunker status" })).toHaveCount(
-    0,
-  );
   const canvas = page.locator("canvas");
   await expect
     .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
@@ -412,8 +411,7 @@ test("the first-person bag chip opens the cargo bag and Escape returns to the vi
   await dismissReleaseNotes(page);
   await digTo(page, 1);
 
-  await page.getByRole("button", { name: "Open bunker status" }).click();
-  await page.getByTestId("bunker-fp-enter-panel").click();
+  await page.getByTestId("bunker-fp-enter").click();
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-fp-mode", "1");
   const canvas = page.locator("canvas");
@@ -533,8 +531,9 @@ test("the first-person entry hides while a failed raid blocks editing", async ({
   await dismissReleaseNotes(page);
   await digTo(page, 1);
 
-  // Editing is blocked after the failed raid: no toolbelt, no Enter
-  // affordance anywhere, and the panel offers no 3D row either.
+  // Editing is blocked after the failed raid: no toolbelt and no Enter
+  // affordance anywhere (the single floating entry is hidden mid-raid, and
+  // the sheet never had its own entry row after the F-119 consolidation).
   await expect(
     page.getByRole("region", { name: "Bunker build tool" }),
   ).toHaveCount(0);

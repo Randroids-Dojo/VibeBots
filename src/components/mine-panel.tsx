@@ -4459,12 +4459,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             }
           }}
           onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
-          onEnterFp={
-            activeBunker &&
-            containsBunkerCell(activeBunker.footprint, miner.col, miner.row)
-              ? enterFpBunker
-              : undefined
-          }
         />
       )}
       {/* THE build entry point: the hammer toolbelt retired, so a

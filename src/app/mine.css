@@ -1650,16 +1650,6 @@ button[data-bag-full-flash="true"] {
   box-shadow: 0 0 14px rgba(84, 224, 199, 0.4);
 }
 
-.bunker-enter-fp-button {
-  width: 100%;
-  min-height: 40px;
-  border: 1px solid #54e0c7;
-  border-radius: 9px;
-  background: rgba(84, 224, 199, 0.12);
-  color: #8ef3df;
-  font-weight: 900;
-}
-
 /* First-person crosshair: a 2px cross that stays readable over any
  * rock or part color via difference blending. Hidden while the pointer
  * is fine and unlocked (no aim without the lock). */

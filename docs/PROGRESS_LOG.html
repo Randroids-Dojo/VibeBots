@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="core-removal-telemetry-fixture-ownership" data-date="2026-07-15">
+    <h3>Keep the telemetry fixture repair with its release-blocking evidence</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Corrected the scheduling split introduced by the prior F-166 dependency record. F-166 now owns repairing the executable <code>scripts/measure-heap-churn.mjs</code> fixture before collecting its priority-1 core-removal evidence, while F-168 remains the independent priority-3 GDD and active-guidance cleanup. Removed the cross-priority Dot block, clarified both Dot descriptions, and appended superseding ownership notes to F-166 and F-168 without changing their prior ledger records.</dd>
+      <dt>Verification</dt><dd>Validated <code>dot-block</code> semantics against the installed <code>dots-html</code> storage implementation and dependency tests, confirmed that the previous F-168 value correctly represented a blocker rather than the current Dot identifier, and rebutted the inverted exact-head review finding. Ran <code>dot-html show</code> for F-166 and F-168, <code>dot-html ready --json</code>, <code>dot-html tree VibeBots-first-person-3d-30115c4e</code>, Node append-only progress, ledger-structure, and Dot-pairing checks, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, and <code>git diff --check</code>. Lint passed with the existing broken <code>src/app/(auth)/sign-in/AGENTS.md</code> symlink notice and existing optional-chain warning in <code>src/components/mine-input-cadence.ts</code>.</dd>
+      <dt>Assumptions</dt><dd>A release-blocking evidence task should own the small fixture repair required to make its measurement valid instead of waiting behind unrelated polish. No runtime, schema, release, tip, stamp, or telemetry collector behavior changes here.</dd>
+      <dt>GDD coverage</dt><dd>None. REQ-044 still points to F-168 for the current-summary correction, while this change only separates executable measurement ownership from documentation cleanup.</dd>
+      <dt>Followups</dt><dd>No new followup. Clarified the existing F-166 and F-168 scopes and made both independently ready in HTML Dots.</dd>
+    </dl>
+  </article>
+
   <article data-slice="core-removal-telemetry-fixture-dependency" data-date="2026-07-15">
     <h3>Block the core-removal comparison on a representative bunker fixture</h3>
     <dl>

@@ -32,6 +32,7 @@ import { CanvasDrawCallProbe } from "@/components/canvas-draw-call-probe";
 import { startFramesWhenSettled } from "@/components/compile-gate";
 import { createWebGPU } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
+import type { LiveRaidActiveView } from "@/lib/bunker-api-types";
 import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
@@ -41,7 +42,12 @@ import {
   DEFAULT_BUNKER_SKIN,
 } from "@/sim/bunker";
 import { bunkerCellBlock, bunkerCellGenCoords } from "@/sim/bunker-blocks";
+import {
+  LIVE_RAID_TICKS_PER_SECOND,
+  type LiveRaidOutcomeReport,
+} from "@/sim/bunker-raid-live";
 import type { OreId } from "@/sim/mine/ores";
+import { FpClankerLayer } from "./bunker-fp-clankers";
 import {
   buildFpSolidGrid,
   createFpSolidGrid,
@@ -69,6 +75,15 @@ import {
   stepFpMovement,
 } from "./bunker-fp-movement";
 import { bunkerPartFpGeometry } from "./bunker-fp-part-geometry";
+import {
+  advanceFpRaid,
+  collectFpRaidPickup,
+  createFpRaidRuntime,
+  type FpRaidRuntime,
+  fpRaidEnded,
+  fpRaidReport,
+} from "./bunker-fp-raid";
+import { resetFpRaidHud, setFpRaidHud } from "./bunker-fp-raid-hud";
 import {
   createFpRayHit,
   FP_MAX_REACH,
@@ -203,6 +218,11 @@ export interface BunkerFpCanvasProps {
   onEdit: (intent: FpEditIntent) => void;
   onExit: () => void;
   onFirstFrame?: () => void;
+  /** The live raid to fight in first person, or null when none is
+   * active. Set by an in-bunker Start control; cleared once resolved. */
+  liveRaid?: LiveRaidActiveView | null;
+  /** Submit the fought raid's bounded outcome to settle it. */
+  onResolveRaid?: (report: LiveRaidOutcomeReport) => void;
 }
 
 /** Target outline colors by action (build, pry, dig): one shared
@@ -822,6 +842,8 @@ function FpCore({
 
 // Module-scope scratch for the camera orientation (frame loop).
 const fpCameraEuler = new Euler(0, 0, 0, "YXZ");
+// Reused scratch for the player's sim cell fed to the raid each frame.
+const fpRaidPlayerCell = { col: 0, row: 0, depth: 0 };
 
 function clampFpPitch(pitch: number): number {
   return Math.min(FP_PITCH_LIMIT, Math.max(-FP_PITCH_LIMIT, pitch));
@@ -869,6 +891,9 @@ function BunkerFpRig({
   outlineRef,
   ghostRef,
   detail,
+  liveRaid,
+  onResolveRaid,
+  raidRuntimeRef,
 }: {
   bunker: BunkerState;
   entry: FpEntryCell;
@@ -878,6 +903,9 @@ function BunkerFpRig({
   outlineRef: RefObject<LineSegments | null>;
   ghostRef: RefObject<Group | null>;
   detail: boolean;
+  liveRaid: LiveRaidActiveView | null;
+  onResolveRaid?: (report: LiveRaidOutcomeReport) => void;
+  raidRuntimeRef: RefObject<FpRaidRuntime | null>;
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -953,6 +981,28 @@ function BunkerFpRig({
       burstRemainingRef.current = FP_BURST_SECONDS;
     }
   }, [bunker, refreshBoxedIn]);
+
+  // Live raid lifecycle: build the client runtime from the frozen start
+  // snapshot when a raid begins (so the fight and the server's later
+  // validation agree), and drop it plus the HUD when the raid clears.
+  const raidResolvedRef = useRef(false);
+  useEffect(() => {
+    if (liveRaid) {
+      raidRuntimeRef.current = createFpRaidRuntime(
+        liveRaid.bunker,
+        liveRaid.tier,
+        liveRaid.raidId,
+      );
+      raidResolvedRef.current = false;
+    } else {
+      raidRuntimeRef.current = null;
+      raidResolvedRef.current = false;
+      resetFpRaidHud();
+    }
+    return () => {
+      resetFpRaidHud();
+    };
+  }, [liveRaid, raidRuntimeRef]);
 
   // Spawn once per mount: the miner's mine cell on the tunnel plane,
   // feet on the room floor, facing -z (into the rock) with the view
@@ -1221,6 +1271,50 @@ function BunkerFpRig({
       }
     }
 
+    // Live raid: step the sim against the player's current cell, collect
+    // any walked-over XP, publish the HUD, and resolve once on the end.
+    // While a raid runs the player only moves (edits stay frozen), so
+    // any queued act input is dropped here before the tool block below.
+    const raid = raidRuntimeRef.current;
+    const raidActive = raid !== null;
+    if (raid) {
+      fpRaidPlayerCell.col = bunker.footprint.col + feetX;
+      fpRaidPlayerCell.row =
+        bunker.footprint.row + bunker.footprint.height - 1 - feetY;
+      fpRaidPlayerCell.depth = feetZ;
+      if (!fpRaidEnded(raid)) {
+        advanceFpRaid(raid, fpRaidPlayerCell, Math.min(delta, FP_DT_CLAMP));
+        collectFpRaidPickup(raid, fpRaidPlayerCell);
+      }
+      let aliveClankers = 0;
+      const raidClankers = raid.state.clankers;
+      for (let ci = 0; ci < raidClankers.length; ci += 1) {
+        if (raidClankers[ci].alive) aliveClankers += 1;
+      }
+      const secondsLeft = Math.max(
+        0,
+        Math.ceil(
+          (raid.state.durationTicks - raid.state.tick) /
+            LIVE_RAID_TICKS_PER_SECOND,
+        ),
+      );
+      setFpRaidHud(
+        true,
+        secondsLeft,
+        aliveClankers,
+        raid.state.clankers.length,
+        raid.state.breached,
+        raid.state.outcome,
+      );
+      if (fpRaidEnded(raid) && !raidResolvedRef.current) {
+        raidResolvedRef.current = true;
+        onResolveRaid?.(fpRaidReport(raid));
+      }
+      fpInput.act = false;
+      fpInput.actHeld = false;
+      fpInput.pryAct = false;
+    }
+
     fpCameraEuler.set(pitchRef.current, yawRef.current, 0);
     camera.quaternion.setFromEuler(fpCameraEuler);
     camera.position.set(move.px, move.py + FP_EYE_HEIGHT, move.pz);
@@ -1281,7 +1375,7 @@ function BunkerFpRig({
       } else if (placeOk) {
         outlineKind = FP_OUTLINE_BUILD;
       }
-      outline.visible = outlineKind >= 0;
+      outline.visible = outlineKind >= 0 && !raidActive;
       if (outlineKind >= 0) {
         outline.position.set(rayHit.x, rayHit.y, -rayHit.z);
         if (outlineKindRef.current !== outlineKind) {
@@ -1294,7 +1388,7 @@ function BunkerFpRig({
     // Ghost preview at the place cell (build mode only).
     const ghost = ghostRef.current;
     if (ghost) {
-      const ghostVisible = tool === "build" && placeOk;
+      const ghostVisible = !raidActive && tool === "build" && placeOk;
       ghost.visible = ghostVisible;
       if (ghostVisible) {
         ghost.position.set(rayHit.placeX, rayHit.placeY, -rayHit.placeZ);
@@ -1434,8 +1528,8 @@ function BunkerFpRig({
     // offset and swing rotation ride the camera basis into world space.
     const pickaxe = pickaxeRef.current;
     if (pickaxe) {
-      pickaxe.visible = isDig;
-      if (isDig) {
+      pickaxe.visible = isDig && !raidActive;
+      if (isDig && !raidActive) {
         const throwAmt = fpSwingThrow(swing);
         const bob = Math.sin(state.clock.elapsedTime * 2.1) * 0.006;
         fpPickOffset
@@ -1583,6 +1677,8 @@ function BunkerFpScene({
   selectedPartId,
   onEdit,
   onWarmed,
+  liveRaid,
+  onResolveRaid,
 }: {
   bunker: BunkerState;
   entry: FpEntryCell;
@@ -1590,6 +1686,8 @@ function BunkerFpScene({
   selectedPartId: BasePartId;
   onEdit: (intent: FpEditIntent) => void;
   onWarmed: () => void;
+  liveRaid: LiveRaidActiveView | null;
+  onResolveRaid?: (report: LiveRaidOutcomeReport) => void;
 }) {
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
@@ -1610,6 +1708,9 @@ function BunkerFpScene({
   const coreRef = useRef<Mesh | null>(null);
   const outlineRef = useRef<LineSegments | null>(null);
   const ghostRef = useRef<Group | null>(null);
+  // The live-raid runtime, shared: the rig steps it against the player
+  // cell, the Clanker layer reads it to render. Null when no raid runs.
+  const raidRuntimeRef = useRef<FpRaidRuntime | null>(null);
 
   useEffect(() => {
     const warm = warmBunkerFpMaterials(gl, scene, camera, detail, tier);
@@ -1645,6 +1746,10 @@ function BunkerFpScene({
       <FpLootGlints bunker={bunker} />
       <FpPlacedParts bunker={bunker} detail={detail} tier={tier} />
       <FpCore bunker={bunker} coreRef={coreRef} />
+      <FpClankerLayer
+        runtimeRef={raidRuntimeRef}
+        footprint={bunker.footprint}
+      />
       {/* Target outline and ghost preview: mounted once over shared
           singletons, positioned and shown imperatively by the rig. */}
       <lineSegments
@@ -1672,6 +1777,9 @@ function BunkerFpScene({
         outlineRef={outlineRef}
         ghostRef={ghostRef}
         detail={detail}
+        liveRaid={liveRaid}
+        onResolveRaid={onResolveRaid}
+        raidRuntimeRef={raidRuntimeRef}
       />
     </>
   );
@@ -1684,6 +1792,8 @@ export default function BunkerFpCanvas({
   selectedPartId,
   onEdit,
   onFirstFrame,
+  liveRaid,
+  onResolveRaid,
 }: BunkerFpCanvasProps) {
   const features = graphicsFeaturesFor(
     resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
@@ -1708,6 +1818,8 @@ export default function BunkerFpCanvas({
         selectedPartId={selectedPartId}
         onEdit={onEdit}
         onWarmed={startFrames}
+        liveRaid={liveRaid ?? null}
+        onResolveRaid={onResolveRaid}
       />
       <CanvasDrawCallProbe onFirstFrame={onFirstFrame} />
       <PerfProbeBridge source="bunker-fp" />

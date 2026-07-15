@@ -1568,6 +1568,110 @@ button[data-bag-full-flash="true"] {
   cursor: pointer;
 }
 
+/* Live-raid HUD: a top-center status banner while a raid runs (above
+   every fixed canvas control per Rule 10), and a start control shown in
+   its place when no raid is active. */
+.bunker-fp-raid-panel {
+  position: absolute;
+  z-index: 14;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  max-width: min(92vw, 520px);
+  padding: 8px 18px;
+  border: 1px solid #f5715a;
+  border-radius: 999px;
+  background: rgba(22, 10, 12, 0.92);
+  color: #ffd6cc;
+  font-weight: 900;
+  font-size: 0.88rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.bunker-fp-raid-banner {
+  color: #ffb4a2;
+}
+
+.bunker-fp-raid-timer {
+  min-width: 44px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.bunker-fp-raid-breach {
+  color: #ff5a3c;
+}
+
+.bunker-fp-raid-result {
+  font-size: 1.1rem;
+}
+
+.bunker-fp-raid-won {
+  color: #7bffb0;
+}
+
+.bunker-fp-raid-lost {
+  color: #ff8a7a;
+}
+
+.bunker-fp-raid-start {
+  position: absolute;
+  z-index: 12;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.bunker-fp-raid-tier {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffd6cc;
+  font-weight: 800;
+}
+
+.bunker-fp-raid-tier button {
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid #f5715a;
+  border-radius: 8px;
+  background: rgba(22, 10, 12, 0.92);
+  color: #ffd6cc;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.bunker-fp-raid-tier button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bunker-fp-raid-start-button {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid #f5715a;
+  border-radius: 999px;
+  background: rgba(44, 14, 12, 0.95);
+  color: #ffb4a2;
+  font-weight: 900;
+  font-size: 0.88rem;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.bunker-fp-raid-start-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .bunker-fp-bag {
   position: absolute;
   z-index: 12;

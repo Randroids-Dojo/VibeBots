@@ -24,17 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest fp-bunker-bag note complete", () => {
+  it("keeps the latest fp-live-raid note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.264-fp-bunker-bag");
+    expect(release.noticeId).toBe("2026-07-15-0.1.265-fp-live-raid");
     expect(latestNote).toMatchObject({
+      version: "0.1.265",
+      title: "Fight a bunker raid from inside",
+      intro:
+        "Start a live raid in the first-person bunker and hold the Clankers off yourself.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Standing inside your bunker in first person, a Start raid control now waits with a tier stepper. Begin the raid and the Clankers hunt you through your dug halls in real time while you stay in to defend, instead of watching a flat replay from the sheet.",
+      "A banner tracks how many Clankers are left and your remaining time. Every Clanker that falls drops XP where it dies for you to collect by walking over it, and the raid ends the moment a Clanker reaches your cell or the whole wave is spent. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived fp-bunker-bag note complete", () => {
+    const release = getAppRelease();
+    const bagNote = release.notes.find((note) => note.version === "0.1.264");
+
+    expect(bagNote).toMatchObject({
       version: "0.1.264",
       title: "Check your bag from inside the bunker",
       intro: "The first-person bunker HUD now shows and opens your cargo bag.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(bagNote?.changes.map((change) => change.text)).toEqual([
       "A bag chip now rides in the top corner of the first-person bunker view, showing your carried ore and stack slots at a glance. Tap it to open the full bag, drop cargo, and read your haul without leaving the bunker.",
       "Opening the bag pauses your walking and digging behind it, and Escape closes the bag and drops you straight back into the view. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

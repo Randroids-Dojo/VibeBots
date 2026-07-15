@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="live-raid-client-plumbing" data-date="2026-07-15">
+    <h3>Wire the client store to start and resolve live raids</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-fp-controls-menu</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>First of three prerequisite slices for the first-person live raid loop (Q-024 option D). The server backend already starts, resolves-once, and lazily expires live raids; the client had no way to reach it. Added two api-client calls: <code>startRemoteLiveBunkerRaid(tier)</code> posts <code>mode: "live"</code> to the existing start route, and <code>resolveRemoteLiveRaid(report)</code> posts a bounded <code>LiveRaidOutcomeReport</code> to <code>/api/bunker/raid/resolve</code>. The bunker store gained an <code>activeLiveRaid</code> field (the frozen start snapshot the client fights), adopted in <code>applyResponse</code> from every view so it clears when a raid resolves, plus <code>startLiveRaid</code> and <code>resolveLiveRaid</code> actions on the shared mutation path. No UI reads <code>activeLiveRaid</code> yet, so this ships dark.</dd>
+      <dt>Verification</dt><dd>dash clean, Biome clean, full type-check, full unit suite (1527, up 4) green. New coverage: the two api-client request shapes (<code>{tier, mode: "live"}</code> and the report body), store adoption of a live view then clearing it when the field is absent, and the two store actions adopting their settled views.</dd>
+      <dt>Assumptions</dt><dd><code>activeRaid</code> and <code>activeLiveRaid</code> stay mutually exclusive (the server sets at most one); the store mirrors that without enforcing it, since <code>loadBunkerView</code> is the single source. Invisible plumbing, so no package bump, release note, tip, or stamp.</dd>
+      <dt>GDD</dt><dd>Recorded live-raid client-plumbing progress and appended a build-log entry. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-entry-dedup" data-date="2026-07-15">
     <h3>One way into the bunker: drop the redundant sheet entry button</h3>
     <dl>

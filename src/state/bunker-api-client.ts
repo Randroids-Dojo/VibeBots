@@ -1,5 +1,6 @@
 import type { BunkerRouteResponse } from "@/lib/bunker-api-types";
 import type { BasePartId, BunkerSkinId } from "@/sim/bunker";
+import type { LiveRaidOutcomeReport } from "@/sim/bunker-raid-live";
 
 export type BunkerApiResult =
   | { ok: true; status: number; body: BunkerRouteResponse }
@@ -136,6 +137,20 @@ export function setRemoteBunkerSkin(skinId: BunkerSkinId) {
 
 export function startRemoteBunkerRaid(tier = 1) {
   return bunkerApi("/api/bunker/raid/start", jsonPost({ tier }));
+}
+
+/** Opt into the live first-person raid: the same start route, but the
+ * `mode` flag freezes a start snapshot the client fights against and
+ * later resolves (Q-024 option D). */
+export function startRemoteLiveBunkerRaid(tier = 1) {
+  return bunkerApi("/api/bunker/raid/start", jsonPost({ tier, mode: "live" }));
+}
+
+/** Submit the bounded outcome of a live raid the client just fought.
+ * The server validates it against the frozen start snapshot before it
+ * settles wear and rewards (single-submission guarded server-side). */
+export function resolveRemoteLiveRaid(report: LiveRaidOutcomeReport) {
+  return bunkerApi("/api/bunker/raid/resolve", jsonPost(report));
 }
 
 export function collectRemoteRaidPickup(col: number, row: number) {

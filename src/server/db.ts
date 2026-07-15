@@ -189,6 +189,13 @@ async function applySchema(sql: Sql): Promise<void> {
       rewarded_at timestamptz,
       PRIMARY KEY (player_id, raid_id)
     )`;
+  // Discriminates a live first-person raid row (Q-024 option D) from the
+  // interim server-resolved raid. NULL on legacy and interim rows; the live
+  // lifecycle sets it to BUNKER_RAID_LIVE_VERSION so the view can tell the two
+  // snapshot shapes apart.
+  await sql`
+    ALTER TABLE bunker_raids
+    ADD COLUMN IF NOT EXISTS raid_version integer`;
   await sql`
     CREATE TABLE IF NOT EXISTS match_records (
       id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

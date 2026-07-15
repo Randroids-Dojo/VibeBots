@@ -31,6 +31,18 @@
 
 <main id="entries">
 
+  <article data-slice="live-raid-outcome-bounds" data-date="2026-07-15">
+    <h3>Bound the client-reported live raid outcome for the server to trust</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/live-raid-outcome-bounds</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>F-110, the second live-raid arc slice, still shipping dark. Under Q-024 option D the server trusts a client-reported outcome instead of replaying the raid, so it needs a cheap way to prove that report is not inflated. Added the pure primitives for that to <code>src/sim/bunker-raid-live.ts</code>: <code>LiveRaidOutcomeReport</code> (a deliberately small payload of verdict, wave attrition, earned XP, and surviving part durability), <code>liveRaidOutcomeReport</code> to derive it from a settled raid, and <code>validateLiveRaidOutcome(snapshot, tier, report)</code> which bounds the report against the frozen start snapshot without any replay: the sim version matches, a loss is exactly a miner death, the end tick sits within the authored duration plus a 60s grace, kills stay within the wave, a loss banks nothing, the reward is capped by the wave's total kill XP (<code>liveRaidMaxDefenseXp</code>), and every worn part maps to a distinct snapshot blocking-or-spike part with durability only ever reduced (no fabricated or under-damaged defenses). Rejections return a stable reason code. Also exported <code>liveRaidWaveSize</code> and <code>LIVE_RAID_EXPIRY_GRACE_TICKS</code> (the latter reused by the F-105 expiry slice). No route, persistence, or client wiring yet; the HTTP byte cap and exactly-once settle guard stay with the resolve route (F-106).</dd>
+      <dt>Verification</dt><dd>dash clean, sim-purity clean, Biome clean, full type-check, full sim unit suite (373 tests) green. Twelve new tests: an honest win and loss report validate against their snapshot, a report carrying collected XP up to the wave maximum validates, and each rejection path (stale version, win-claims-death consistency, out-of-range tick, too many kills, reward on a loss, reward above the wave max, a fabricated part, and a part durability above its snapshot value) is pinned.</dd>
+      <dt>Assumptions</dt><dd>Light bounds, not a replay, are the right altitude per Q-024's "do not overthink the anti-cheat": with a handful of alpha players the only exploit is winning your own defense, so proving a report is no better than the snapshot and wave could produce is enough. Capping reward by the wave's total kill XP is a deliberately loose upper bound (the exact collectible set depends on which pickups the player walked over), which is safe because it can only ever be generous, never stricter than reality. A win is not required to have drained the full wave, since a duration timeout with the player alive is also a win, so the validator only bounds kills from above.</dd>
+      <dt>GDD</dt><dd>Recorded progress on F-110 (primitives landed; route-level byte cap and single-settle pending) and appended a build-log entry to <code>docs/gdd/08-base-building.html</code>. Invisible infra slice: no requirement or coverage change, no package bump, release note, tip (Rule 13), or stamp (Rule 14). <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="live-raid-sim-core" data-date="2026-07-15">
     <h3>Build the live raid sim core: energy-budget Clankers hunt the live player</h3>
     <dl>

@@ -530,3 +530,149 @@ export function liveRaidPartWear(state: LiveRaidState): LiveRaidPart[] {
     durability: Math.max(0, part.durability),
   }));
 }
+
+/** Grace ticks after the authored duration before an unresolved raid is
+ * force-settled by the server (F-105). Also the upper bound the outcome
+ * validator allows on a reported end tick. */
+export const LIVE_RAID_EXPIRY_GRACE_TICKS = LIVE_RAID_TICKS_PER_SECOND * 60;
+
+/** Clankers in a wave of the given tier. */
+export function liveRaidWaveSize(tier: number): number {
+  return 4 + Math.max(1, Math.floor(tier)) * 2;
+}
+
+/** Highest defense XP a tier's wave can be worth: the sum of every
+ * Clanker's kill value. The server caps a reported reward by this. */
+export function liveRaidMaxDefenseXp(tier: number): number {
+  const normalizedTier = Math.max(1, Math.floor(tier));
+  const count = liveRaidWaveSize(normalizedTier);
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    total += clankerXpFor(clankerKindFor(i, normalizedTier));
+  }
+  return total;
+}
+
+/**
+ * The bounded outcome a client reports to the server after a raid settles.
+ * Under Q-024 option D the server trusts this against the frozen start
+ * snapshot instead of replaying the raid, so it is kept deliberately small
+ * (F-110): a verdict, the wave attrition, the earned XP, and the surviving
+ * part durability.
+ */
+export interface LiveRaidOutcomeReport {
+  version: number;
+  raidId: string;
+  outcome: "won" | "lost";
+  minerKilled: boolean;
+  endedTick: number;
+  clankersKilled: number;
+  defenseXp: number;
+  partWear: LiveRaidPart[];
+}
+
+/** Derive the reportable outcome from a settled raid. Call only on a
+ * finished raid; an "active" state reports as a win, which the validator's
+ * consistency checks would still bound. */
+export function liveRaidOutcomeReport(
+  state: LiveRaidState,
+): LiveRaidOutcomeReport {
+  return {
+    version: state.version,
+    raidId: state.raidId,
+    outcome: state.outcome === "lost" ? "lost" : "won",
+    minerKilled: state.minerKilled,
+    endedTick: state.tick,
+    clankersKilled: state.clankers.filter((clanker) => !clanker.alive).length,
+    defenseXp: liveRaidDefenseXp(state),
+    partWear: liveRaidPartWear(state),
+  };
+}
+
+export type LiveRaidOutcomeRejection =
+  | "version"
+  | "outcome-shape"
+  | "outcome-consistency"
+  | "tick-range"
+  | "clankers-range"
+  | "reward-on-loss"
+  | "reward-range"
+  | "part-wear";
+
+/**
+ * Light server-side bounds on a client-reported outcome (F-110). This is
+ * not a replay: it only proves the report is internally consistent and no
+ * better than the frozen snapshot and wave could possibly produce, so a
+ * client cannot inflate a reward, under-report damage, or fabricate a
+ * defense. `bunker` is the frozen start snapshot.
+ */
+export function validateLiveRaidOutcome(
+  bunker: BunkerState,
+  tier: number,
+  report: LiveRaidOutcomeReport,
+): { ok: true } | { ok: false; reason: LiveRaidOutcomeRejection } {
+  if (report.version !== BUNKER_RAID_LIVE_VERSION) {
+    return { ok: false, reason: "version" };
+  }
+  if (report.outcome !== "won" && report.outcome !== "lost") {
+    return { ok: false, reason: "outcome-shape" };
+  }
+  // A loss is exactly a miner death; a win is exactly no miner death.
+  if ((report.outcome === "lost") !== report.minerKilled) {
+    return { ok: false, reason: "outcome-consistency" };
+  }
+  if (
+    !Number.isInteger(report.endedTick) ||
+    report.endedTick < 0 ||
+    report.endedTick > LIVE_RAID_DURATION_TICKS + LIVE_RAID_EXPIRY_GRACE_TICKS
+  ) {
+    return { ok: false, reason: "tick-range" };
+  }
+  const waveSize = liveRaidWaveSize(tier);
+  if (
+    !Number.isInteger(report.clankersKilled) ||
+    report.clankersKilled < 0 ||
+    report.clankersKilled > waveSize
+  ) {
+    return { ok: false, reason: "clankers-range" };
+  }
+  if (report.outcome === "lost" && report.defenseXp !== 0) {
+    return { ok: false, reason: "reward-on-loss" };
+  }
+  if (
+    !Number.isFinite(report.defenseXp) ||
+    report.defenseXp < 0 ||
+    report.defenseXp > liveRaidMaxDefenseXp(tier)
+  ) {
+    return { ok: false, reason: "reward-range" };
+  }
+  // Every reported worn part must map to a distinct snapshot blocking/spike
+  // part at the same cell, its durability only ever reduced, so a client
+  // cannot fabricate a defense or claim it took no damage where it did.
+  const snapshotParts = new Map<string, number>();
+  for (const part of bunker.parts) {
+    const def = BASE_PART_CATALOG[part.partId];
+    if (!def.blocksClankers && part.partId !== "floor-spikes") continue;
+    snapshotParts.set(cellKey(part.col, part.row, part.depth), part.durability);
+  }
+  if (report.partWear.length > snapshotParts.size) {
+    return { ok: false, reason: "part-wear" };
+  }
+  const seen = new Set<string>();
+  for (const worn of report.partWear) {
+    const key = cellKey(worn.col, worn.row, worn.depth);
+    const original = snapshotParts.get(key);
+    if (original === undefined || seen.has(key)) {
+      return { ok: false, reason: "part-wear" };
+    }
+    seen.add(key);
+    if (
+      !Number.isFinite(worn.durability) ||
+      worn.durability < 0 ||
+      worn.durability > original
+    ) {
+      return { ok: false, reason: "part-wear" };
+    }
+  }
+  return { ok: true };
+}

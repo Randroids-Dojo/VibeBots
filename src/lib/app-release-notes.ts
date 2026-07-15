@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-15-0.1.267-raid-forfeit-on-exit";
+export const RELEASE_NOTICE_ID = "2026-07-15-0.1.268-touch-raid-abandon";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.268",
+      date: "2026-07-15",
+      title: "Abandon a live raid from your phone",
+      intro:
+        "The first-person raid HUD now has a way to leave a fight without a keyboard.",
+      changes: [
+        {
+          build,
+          text: "On a phone there is no Escape key, so a live raid now carries a Leave raid button in its HUD. It asks you to confirm before it drops you out, so a stray tap while you are fighting cannot cost you the raid.",
+        },
+        {
+          build,
+          text: "Confirming leaves and forfeits the raid, exactly like stepping out on desktop: no rewards, and it is gone when you come back. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.267",
       date: "2026-07-15",

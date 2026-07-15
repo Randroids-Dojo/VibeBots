@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-15-0.1.267-raid-forfeit-on-exit",
+      releaseNoticeId: "2026-07-15-0.1.268-touch-raid-abandon",
       releaseSummary:
-        "Leaving a live raid now forfeits it: Walk out of a first-person raid mid-fight and it counts as a loss.",
+        "Abandon a live raid from your phone: The first-person raid HUD now has a way to leave a fight without a keyboard.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-15-0.1.267-raid-forfeit-on-exit",
+      releaseNoticeId: "2026-07-15-0.1.268-touch-raid-abandon",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -34,6 +34,7 @@ import {
   canCollectBunkerRaidPickupFrom,
   containsBunkerCell,
   isBasePartDamaged,
+  maxBunkerRaidTier,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
 import {
@@ -327,6 +328,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Follow the XP arrow to the bright pickup, then collect when it says XP here.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Player levels unlock higher raid tiers: bigger waves, tougher bites, more XP.",
+  "Tip: Inside your bunker, Start raid drops you into a live first-person fight. The Clankers hunt you through the halls, and stopping one drops XP to walk over.",
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
@@ -1234,6 +1236,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const excavateBunkerCellRemote = useBunkerStore((s) => s.excavateCell);
   const collectBunkerLootRemote = useBunkerStore((s) => s.collectLoot);
   const startBunkerRaid = useBunkerStore((s) => s.startRaid);
+  const activeBunkerLiveRaid = useBunkerStore((s) => s.activeLiveRaid);
+  const startBunkerLiveRaid = useBunkerStore((s) => s.startLiveRaid);
+  const resolveBunkerLiveRaid = useBunkerStore((s) => s.resolveLiveRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
   const resetBankedBunker = useBunkerStore((s) => s.resetBunker);
   const setBunkerSkin = useBunkerStore((s) => s.setSkin);
@@ -3705,6 +3710,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               onEdit={applyFpBunkerEdit}
               onExit={exitFpBunker}
               onFirstFrame={handleMineFirstFrame}
+              liveRaid={activeBunkerLiveRaid}
+              onResolveRaid={(report) => void resolveBunkerLiveRaid(report)}
             />
           ) : (
             <MineCanvas
@@ -3741,6 +3748,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onTogglePry={toggleFpPry}
           onOpenBag={openBagFromFp}
           onExit={exitFpBunker}
+          onStartLiveRaid={(tier) => void startBunkerLiveRaid(tier)}
+          raidTierCeiling={maxBunkerRaidTier(bunkerPlayer?.overallLevel ?? 1)}
+          raidStartAllowed={!pendingBunkerActive}
         />
       )}
       {!fpBunkerActive && mineSceneReady && (

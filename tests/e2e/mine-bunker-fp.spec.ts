@@ -2053,3 +2053,153 @@ test("first-person bunker interior renders dirt, rock, and ore, not one flat gra
   expect(warm).toBeGreaterThan(0.04);
   expect(neutral).toBeGreaterThan(0.04);
 });
+
+/** A banked raid start: the store adopts activeLiveRaid and the fp view
+ * switches into the fight. The frozen snapshot carries depth on the core
+ * and parts (the server normalizes these), so the client sim reads them. */
+const RAID_BUNKER = {
+  footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+  core: { col: START_COL, row: 3, depth: 0, durability: 160 },
+  dug: FP_PLANE_DUG,
+  parts: [
+    {
+      partId: "wall-panel",
+      col: START_COL - 3,
+      row: 1,
+      depth: 0,
+      durability: 90,
+    },
+  ],
+  blockSeed: 1,
+};
+
+const LIVE_RAID_ACTIVE = {
+  raidId: "live-test-1",
+  tier: 1,
+  startedAtMs: 1_000,
+  durationSeconds: 180,
+  graceSeconds: 60,
+  bunker: RAID_BUNKER,
+};
+
+const LIVE_RAID_START = {
+  ...FP_BUNKER_VIEW,
+  activeLiveRaid: LIVE_RAID_ACTIVE,
+  liveRaid: LIVE_RAID_ACTIVE,
+};
+
+const LIVE_RAID_RESOLVED = {
+  ...FP_BUNKER_VIEW,
+  activeLiveRaid: null,
+  reward: {
+    survived: false,
+    vibesGained: 0,
+    xpGained: 0,
+    defenseXpBefore: 120,
+    defenseXpAfter: 120,
+    levelBefore: 2,
+    levelAfter: 2,
+    leveledUp: false,
+    beaconLimitBefore: 3,
+    beaconLimitAfter: 3,
+    newStamps: [],
+  },
+  newStamps: [],
+};
+
+test("first-person live raid starts, animates, and resolves", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(240_000);
+  const resolveBodies: unknown[] = [];
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ json: FP_BUNKER_VIEW });
+  });
+  await page.route("**/api/bunker/raid/start", async (route) => {
+    await route.fulfill({ json: LIVE_RAID_START });
+  });
+  await page.route("**/api/bunker/raid/resolve", async (route) => {
+    resolveBodies.push(route.request().postDataJSON());
+    await route.fulfill({ json: LIVE_RAID_RESOLVED });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+
+  // Look level into the room so the approaching wave is in frame.
+  await aimFp(page, 0, 0);
+
+  // Start the raid: the start control gives way to the raid banner and
+  // the player stays inside (fp mode never drops).
+  await page.getByTestId("bunker-fp-raid-start-button").click();
+  await expect(page.getByTestId("bunker-fp-raid-panel")).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+
+  // The Clanker render layer actually draws the wave (not just the HUD
+  // counting it): its dataset probe reports the number of Clanker bodies
+  // it makes visible each frame, and that rises above zero while the raid
+  // is live.
+  await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-fp-clankers-visible")),
+      { timeout: 15_000 },
+    )
+    .toBeGreaterThan(0);
+
+  // Capture a short sequence while the player retreats so the Clanker
+  // wave chases into frame, and prove motion with a consecutive-frame
+  // diff. Holding "s" backs the miner away from the converging wave: the
+  // Clankers stay ahead of the camera (in view) and the raid lasts long
+  // enough to catch them crossing the open depth-0 plane, instead of the
+  // stationary player being reached in a couple of frames.
+  await aimFp(page, 0, -0.28);
+  await page.keyboard.down("s");
+  const frames: Buffer[] = [];
+  for (let i = 0; i < 12; i++) {
+    const shot = await canvas.screenshot();
+    frames.push(shot);
+    await testInfo.attach(`raid-frame-${i}`, {
+      body: shot,
+      contentType: "image/png",
+    });
+    if (process.env.FP_RAID_CAPTURE_DIR) {
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(
+        `${process.env.FP_RAID_CAPTURE_DIR}/raid-frame-${i}.png`,
+        shot,
+      );
+    }
+  }
+  await page.keyboard.up("s");
+  // Motion somewhere across the retreat (the sim animates the wave and
+  // the walk moves the camera).
+  let maxDiff = 0;
+  for (let i = 1; i < frames.length; i++) {
+    maxDiff = Math.max(
+      maxDiff,
+      await imagePixelDifferenceRatio(page, frames[i - 1], frames[i]),
+    );
+  }
+  expect(maxDiff).toBeGreaterThan(0.001);
+
+  // The stationary player is reached, so the raid ends and the client
+  // submits exactly one bounded outcome report to the resolve route.
+  await expect
+    .poll(() => resolveBodies.length, { timeout: 120_000 })
+    .toBeGreaterThan(0);
+
+  // Once settled the view clears the raid and the start control returns.
+  await expect(page.getByTestId("bunker-fp-raid-start-button")).toBeVisible({
+    timeout: 20_000,
+  });
+});

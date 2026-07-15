@@ -84,6 +84,46 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-145" data-f="F-145" data-priority="nice-to-have">
+    <h3>F-145: Confirm the first-person Clanker orientation on a real phone</h3>
+    <dl>
+      <dt>Context</dt><dd>The first-person live raid loop (PR #221) draws the shared <code>ClankerBody</code> in the room through a fixed pool, tilted upright and scaled to a cell by three constants in <code>bunker-fp-clankers.tsx</code>: <code>FP_CLANKER_TILT_X</code> (<code>-Math.PI/2</code>), <code>FP_CLANKER_SCALE</code> (0.62), and <code>FP_CLANKER_FLOOR_LIFT</code> (0.32). The automated e2e proves the layer draws the wave (the <code>data-fp-clankers-visible</code> probe rises above zero) and that the loop resolves, but it could not frame a Clanker body head-on: the raid resolves within a couple of capture frames against a cornered player and the Clankers enter from outside the &tilde;75&deg; view cone. So the exact upright pose, footing, and size are unverified against a human eye.</dd>
+      <dt>Blocker (if any)</dt><dd>None. The geometry is the same body the flat raid already renders correctly; only the first-person transform is unconfirmed.</dd>
+      <dt>Unblock condition</dt><dd>Fight a live raid in first person on the user's Android portrait device (390x760), confirm the Clankers stand upright on the floor, face their travel direction, and read at a believable size, and tune the three constants if not. If a headless proof is wanted, drive the e2e player to circle a large open plane so a Clanker stays in the view cone long enough to screenshot, and sample the frame for the Clanker silhouette.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during the first-person raid client loop (PR #221); child of the first-person 3D raid arc.</dd>
+    </dl>
+  </section>
+
+  <section id="F-146" data-f="F-146" data-priority="nice-to-have">
+    <h3>F-146: Tint specialist Clankers in the first-person raid</h3>
+    <dl>
+      <dt>Context</dt><dd>The flat raid renders breachers and tanks with their own carapace tints (<code>CLANKER_KIND_CARAPACE</code>), but the first-person layer <code>FpClankerLayer</code> currently renders every slot with the uniform <code>kind="standard"</code> body. From tier 2 a live raid fields breachers and from tier 3 tanks, so in first person a player cannot tell a wall-biting breacher or a turret-soaking tank apart from a standard unit by sight.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Cosmetic legibility for higher raid tiers.</dd>
+      <dt>Unblock condition</dt><dd>Read each Clanker's <code>kind</code> from the live raid state through the runtime view and pass it to the slot's <code>ClankerBody</code> so breachers and tanks wear their carapace tint in first person, matching the flat raid. The pool mixes kinds per slot, so either rebuild the slot body when its kind changes or key a small per-kind sub-pool; keep it allocation-free in the frame loop. Pin it with a first-person raid test at a specialist tier.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during the first-person raid client loop (PR #221); child of the first-person 3D raid arc.</dd>
+    </dl>
+  </section>
+
+  <section id="F-147" data-f="F-147" data-priority="nice-to-have">
+    <h3>F-147: Decide re-entry after leaving a first-person raid</h3>
+    <dl>
+      <dt>Context</dt><dd>In the first-person raid loop (PR #221) the raid runs client-side and submits one bounded outcome report on resolve. Exiting first-person mode mid-raid, reloading, or disconnecting is not yet defined for the live path: the client stops stepping, and whether the server later resolves the abandoned raid as a forfeit (clankers target the core, per the planned expiry-as-forfeit rule) and what a returning player sees is unspecified in the client. A player could also re-enter and expect a fresh raid.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before the live raid replaces the interim flat raid, so an abandoned or re-entered raid has one predictable outcome.</dd>
+      <dt>Unblock condition</dt><dd>Define and implement the client behavior for leaving a live raid: either submit a forfeit report on exit, or rely on the server expiry-as-forfeit and show the returning player the resolved result. A new raid must not be startable while one is active, and re-entering must not silently re-roll or double-resolve. Cover exit-mid-raid, reload-mid-raid, and re-entry in tests, and align with the Q-019 player-absence decision.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during the first-person raid client loop (PR #221); child of the first-person 3D raid arc.</dd>
+    </dl>
+  </section>
+
+  <section id="F-148" data-f="F-148" data-priority="polish">
+    <h3>F-148: Optional stamp for fighting a raid in first person</h3>
+    <dl>
+      <dt>Context</dt><dd>Rule 14 review for the first-person raid client loop (PR #221). Surviving a live raid already earns First Defense (any raid survived) and Buttoned Up (survived fully sealed), both fed by <code>resolveLiveRaid</code>, so the survival milestone is covered. A dedicated stamp marking the marquee new mechanic (a raid fought live, in first person, present in the bunker) was considered but deferred to avoid new durable-counter plumbing in this slice.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Purely additive cosmetic milestone.</dd>
+      <dt>Unblock condition</dt><dd>If a distinct first-person-raid stamp is wanted, add a durable counter (for example <code>liveRaidsSurvived</code> or <code>liveRaidsFought</code>) incremented in <code>resolveLiveRaid</code> only on the live path, plus the achievement definition, defaults, merge, and tests. Start the counter fresh (old profiles cannot prove live participation), keep it cosmetic only, and target 1 so it is a first-use milestone, not a grind.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during the first-person raid client loop (PR #221); child of the first-person 3D raid arc.</dd>
+    </dl>
+  </section>
+
   <section id="F-133" data-f="F-133" data-priority="blocks-release">
     <h3>F-133: Keep starter bunker pockets out of excavation progress</h3>
     <dl>

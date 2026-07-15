@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-14-0.1.264-fp-bunker-bag",
+      releaseNoticeId: "2026-07-15-0.1.265-fp-live-raid",
       releaseSummary:
-        "Check your bag from inside the bunker: The first-person bunker HUD now shows and opens your cargo bag.",
+        "Fight a bunker raid from inside: Start a live raid in the first-person bunker and hold the Clankers off yourself.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-14-0.1.264-fp-bunker-bag",
+      releaseNoticeId: "2026-07-15-0.1.265-fp-live-raid",
       attempted: 2,
       sent: 1,
       expired: 1,

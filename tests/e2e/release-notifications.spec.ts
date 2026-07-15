@@ -21,11 +21,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The first-person bunker HUD now shows and opens your cargo bag.",
+    "Start a live raid in the first-person bunker and hold the Clankers off yourself.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "A bag chip now rides in the top corner of the first-person bunker view",
+    "a Start raid control now waits with a tier stepper",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.265", "Fight a bunker raid from inside"],
     ["0.1.264", "Check your bag from inside the bunker"],
     ["0.1.263", "Bunker walls show real dirt, rock, and ore"],
     ["0.1.262", "Groundbreaker waits for a real dig"],

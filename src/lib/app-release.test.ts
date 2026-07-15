@@ -24,18 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest fp-specialist-tints note complete", () => {
+  it("keeps the latest raid-forfeit-on-exit note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-15-0.1.266-fp-specialist-tints");
+    expect(release.noticeId).toBe("2026-07-15-0.1.267-raid-forfeit-on-exit");
     expect(latestNote).toMatchObject({
+      version: "0.1.267",
+      title: "Leaving a live raid now forfeits it",
+      intro:
+        "Walk out of a first-person raid mid-fight and it counts as a loss.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Step out of the bunker while a live raid is still going and it now settles right away as a forfeit. The raid ends, you earn no rewards, and it is gone when you come back, instead of lingering until it timed out.",
+      "That means you can no longer duck out of a raid that is going badly and re-enter to fight it again from the start. The choice to leave is final. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived fp-specialist-tints note complete", () => {
+    const release = getAppRelease();
+    const tintsNote = release.notes.find((note) => note.version === "0.1.266");
+
+    expect(tintsNote).toMatchObject({
       version: "0.1.266",
       title: "Spot breachers and tanks in first person",
       intro:
         "Specialist Clankers now wear their colors inside a first-person raid.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(tintsNote?.changes.map((change) => change.text)).toEqual([
       "Breachers and tanks now show their rust and armor shells when you fight a raid in first person, just like the flat view, so you can read a specialist coming down the hall and prioritize it instead of meeting every Clanker as an unknown.",
       "This is a visual change only; the raid plays out exactly as before. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

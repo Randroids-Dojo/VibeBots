@@ -400,6 +400,30 @@ async function finalizeExpiredLiveRaids(
         < now() - make_interval(secs => duration_seconds + ${LIVE_RAID_GRACE_SECONDS})`;
 }
 
+/**
+ * Forfeit the active live raid on demand (F-160). Leaving the first-person
+ * view mid-raid abandons the fight: the row settles as a forfeit now (no
+ * reward, no wear), exactly like the expiry path but without waiting out the
+ * duration and grace. This closes the raid immediately so re-entering
+ * first person cannot spin up a fresh runtime against the same row and
+ * re-roll the outcome. Idempotent via the `result IS NULL` guard: a natural
+ * resolve (or a prior forfeit) that already claimed the row wins, and this
+ * becomes a no-op that just returns the current view.
+ */
+export async function forfeitLiveRaid(
+  sql: Sql,
+  playerId: string,
+): Promise<BunkerOperationResult> {
+  await sql`
+    UPDATE bunker_raids
+    SET result = ${JSON.stringify({ outcome: "forfeit", survived: false })}::jsonb,
+        rewarded_at = now()
+    WHERE player_id = ${playerId}
+      AND result IS NULL
+      AND raid_version = ${BUNKER_RAID_LIVE_VERSION}`;
+  return { ok: true, view: await loadBunkerView(sql, playerId) };
+}
+
 async function ensureStarterBaseParts(
   sql: Sql,
   playerId: string,

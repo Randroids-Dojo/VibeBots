@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-15-0.1.266-fp-specialist-tints";
+export const RELEASE_NOTICE_ID = "2026-07-15-0.1.267-raid-forfeit-on-exit";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.267",
+      date: "2026-07-15",
+      title: "Leaving a live raid now forfeits it",
+      intro:
+        "Walk out of a first-person raid mid-fight and it counts as a loss.",
+      changes: [
+        {
+          build,
+          text: "Step out of the bunker while a live raid is still going and it now settles right away as a forfeit. The raid ends, you earn no rewards, and it is gone when you come back, instead of lingering until it timed out.",
+        },
+        {
+          build,
+          text: "That means you can no longer duck out of a raid that is going badly and re-enter to fight it again from the start. The choice to leave is final. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.266",
       date: "2026-07-15",

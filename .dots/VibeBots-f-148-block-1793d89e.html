@@ -39,6 +39,12 @@ Head e4786652 replaced the previously held commit with zero submitted reviews. C
 <section id="merged-review-evidence-pr-222">
 PR #222 merged at 07:56:18Z with zero submitted reviews and active holds. Exact-head CHANGES_REQUESTED review 4702070384 arrived 44 seconds later with three unresolved threads covering proof overclaim, frame-loop allocation, and missing rendered tint evidence. This is a review-in-flight merge failure.
 </section>
+<section id="exact-review-evidence-pr-223">
+PR #223 exact head bdce0ecc eventually received APPROVED review 4702572200 after incremental commands produced no review node. GraphQL showed zero threads and the 60-second quiet window passed. The adjacent summary-edit timeout did not invalidate that review. The review gate passed, but F-152 still blocks normal merge eligibility.
+</section>
+<section id="exact-head-hold-pr-224">
+PR #224 head 3584937c opened with zero reviews and zero threads. CodeRabbit reported success, but comment 4978998108 says its 29-minute review limit prevented review of the selected 17 files. Require an exact-head review node, inspect threads, restart the settled wait, and never bypass.
+</section>
 </article>
 </body>
 </html>

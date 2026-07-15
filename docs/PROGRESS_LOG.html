@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="ruleset-root-and-escape-policy-audit" data-date="2026-07-15">
+    <h3>Pin the ruleset root cause and Escape policy drift</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, third additive audit commit.</dd>
+      <dt>Changed</dt><dd>Appended exact current evidence without changing runtime code or rewriting prior records. F-152 now identifies the ruleset mismatch: the active default-branch rule requires CodeQL while the green pull-request workflow uploads code-quality SARIF and repository default CodeQL setup is not configured. F-148 records the exact review sequence that finally produced an approval node on PR #223 head <code>bdce0ecc</code>, then records PR #224 head <code>3584937c</code> opening with a rate-limited success status and zero submitted reviews. F-155 corrects a false deletion alert by distinguishing a local pull-ref alias from a live remote head. PR #224 is held under F-119, F-154, and F-156: its passing desktop Escape test proves the voluntary-exit contract rejected by Q-019, its first commit publishes unproved completion records, and new primary F-162 duplicates F-119, has no Dot, and reopens the decided no-active-exit policy. Updated the six matching Dots. No Dot was created for duplicate F-162.</dd>
+      <dt>Verification</dt><dd>Verified ruleset 17526797, exact-head Code Quality run 29401297727, repository default CodeQL setup, APPROVED review 4702572200, zero PR #223 GraphQL review threads, its settled bot window, and reflog plus remote-head and GitHub evidence for the local pull-ref alias. Verified PR #224 exact head <code>3584937c</code>, base <code>c40b7e16</code>, matching remote ref, one 17-file first commit, green required checks and preview, zero submitted reviews, zero threads, and CodeRabbit rate-limit comment 4978998108. Eleven targeted Chromium variants failed or timed out; the twelfth passed with one forfeit request and zero resolve requests only after desktop Escape plus a repaired test-only <code>requestAnimationFrame</code> shim. A selected 28-test Chromium run passed in 7.4 minutes. Those runs validate current harness mechanics, but do not cover reload, disconnect, touch parity, acknowledged recovery, exact raid identity, same-origin enforcement, telemetry, or defense wear. Posted exact-head hold comment 4979035142. <code>git diff --check</code>, dash checks, full lint, typecheck, all 135 unit files with 1,540 tests, and <code>dot-html show</code> for all six affected Dots pass.</dd>
+      <dt>Assumptions</dt><dd>PR #224's published records are durable pull-request history, so a normal follow-up must not edit or delete them. The safe implementation path is a clean current-main successor after audit authority lands. Q-019's no-voluntary-exit decision remains authoritative unless the user explicitly reopens it. Any CI or ruleset change still requires explicit user approval.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first audit build-log item while preserving all prior items. Rule 13: the voluntary-forfeit tip remains held because it describes an unapproved, desktop-only rule. Rule 14: no stamp applies to documentation-only audit work. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> remain unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended evidence to F-119, F-148, F-152, F-154, F-155, and F-156 plus their matching Dots. PR #224's F-162 remains rejected as duplicate published authority and received no Dot.</dd>
+    </dl>
+  </article>
+
   <article data-slice="voluntary-raid-forfeit-release-audit" data-date="2026-07-15">
     <h3>Hold the voluntary raid-forfeit release claim</h3>
     <dl>

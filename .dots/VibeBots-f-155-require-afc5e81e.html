@@ -33,6 +33,9 @@ PR #221 deleted feat/fp-live-raid-loop at e2aab3cb at 07:22:39Z, 23 seconds afte
 <section id="evidence-pr-222">
 Remote branch feat/fp-specialist-clanker-tints at e4786652 was deleted 11 seconds after merge despite an explicit no-delete instruction and without separate approval naming branch, expected head, mechanism, and reason.
 </section>
+<section id="ref-identity-correction-pr-223">
+The monitored origin/pr-223-audit name was a local alias fetched from refs/pull/223/head. Reflog proves that provenance, while exact ls-remote and GitHub evidence provided no support for a live branch deletion. Distinguish synthetic pull refs and local aliases from live heads before reporting destructive action.
+</section>
 </article>
 </body>
 </html>

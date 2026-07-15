@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-performance-activity-context" data-date="2026-07-15">
+    <h3>Keep bunker activity context with performance traces</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Extended existing F-101 instead of creating a duplicate telemetry followup. First-person walking, mining, building, and live raids all report under <code>bunker-fp</code>, while the trace allowlist currently drops the bounded activity signals already available on the canvas. The F-101 ledger and Dot now require low-cardinality <code>fpRaidActive</code> and <code>fpClankersVisible</code> context beside eye height, open cells, grounded state, and held mining, with high-cardinality aim and Clanker-kind data explicitly excluded.</dd>
+      <dt>Verification</dt><dd>Traced <code>perfSurfaceSource</code> and both collectors in <code>src/components/mine-panel.tsx</code>, confirmed source-reactive session restart in <code>src/components/perf-telemetry.tsx</code>, inspected the current diagnostic allowlist in <code>src/components/perf-probe.ts</code>, and confirmed change-gated <code>fpClankersVisible</code> plus allocation-free <code>raidActive</code> state in the first-person render paths. Ran <code>dot-html show</code> for F-101, Node append-only progress, ledger-structure, and Dot-pairing checks, <code>pnpm typecheck</code>, <code>pnpm lint</code>, <code>pnpm check:dashes</code>, and <code>git diff --check</code>. Lint passed with the existing broken <code>src/app/(auth)/sign-in/AGENTS.md</code> symlink notice and existing optional-chain warning in <code>src/components/mine-input-cadence.ts</code>.</dd>
+      <dt>Assumptions</dt><dd>One shared <code>bunker-fp</code> source remains correct when bounded activity fields make its workloads separable. Exact coordinates, target keys, and Clanker-kind strings are unnecessary for performance diagnosis and remain excluded.</dd>
+      <dt>GDD coverage</dt><dd>None. REQ-041 already names F-101 as the owner for first-person diagnostic retention, so this update sharpens its acceptance criteria without changing requirement status.</dd>
+      <dt>Followups</dt><dd>No new followup. Extended existing F-101 and its matching HTML Dot.</dd>
+    </dl>
+  </article>
+
   <article data-slice="core-removal-telemetry-fixture-ownership" data-date="2026-07-15">
     <h3>Keep the telemetry fixture repair with its release-blocking evidence</h3>
     <dl>

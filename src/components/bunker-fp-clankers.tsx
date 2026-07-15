@@ -170,11 +170,14 @@ export function FpClankerLayer({
         kindsRef.current = next;
         setKinds(next);
         // Mirror the distinct kinds this wave fields so a test can prove the
-        // specialist tints reach the render layer. Built once per raid, in
-        // this change branch, so the frame loop stays allocation-free.
+        // specialist tints reach the render layer. Sourced from `next`, the
+        // exact array the slot JSX indexes for its `kind` prop (over the live
+        // wave range), so the probe tracks what the bodies render, not the raw
+        // sim views. Built once per raid, in this change branch, so the frame
+        // loop stays allocation-free.
         const distinct = new Set<string>();
         for (let index = 0; index < runtime.views.length; index += 1) {
-          distinct.add(runtime.views[index].kind);
+          distinct.add(next[index]);
         }
         state.gl.domElement.dataset.fpClankerKinds = Array.from(distinct)
           .sort()

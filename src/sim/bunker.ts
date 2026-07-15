@@ -139,6 +139,64 @@ export interface BunkerFootprint {
   height: number;
 }
 
+/**
+ * Sub-cell slots a thin part occupies (F-117). One cell holds at most one
+ * part per slot: four wall faces on the horizontal boundaries, a floor
+ * slab, a roof slab, and one interior mount (turret, spikes, or stair).
+ * Wall faces sit on the boundary *between* two cells; `canonicalWallSlot`
+ * pins each divider to a single (cell, face) so it cannot be placed from
+ * both sides. Axes match the fp grid: `px`/`nx` face col+1/col-1, `pz`/`nz`
+ * face depth+1/depth-1; floor is the cell's bottom (toward the cell below,
+ * row+1), roof its top (toward the cell above, row-1).
+ */
+export const BUNKER_SLOTS = [
+  "floor",
+  "roof",
+  "wall-px",
+  "wall-nx",
+  "wall-pz",
+  "wall-nz",
+  "mount",
+] as const;
+export type BunkerSlot = (typeof BUNKER_SLOTS)[number];
+
+export function isBunkerWallSlot(slot: BunkerSlot): boolean {
+  return (
+    slot === "wall-px" ||
+    slot === "wall-nx" ||
+    slot === "wall-pz" ||
+    slot === "wall-nz"
+  );
+}
+
+const WALL_SLOTS: readonly BunkerSlot[] = [
+  "wall-px",
+  "wall-nx",
+  "wall-pz",
+  "wall-nz",
+];
+
+/**
+ * Which slots a part may occupy under the thin model (F-117). Walls and
+ * doors are boundary dividers (any of the four wall faces); floor and roof
+ * are the horizontal slabs; turrets, spikes, and future stairs stand in
+ * the cell interior (the single mount slot).
+ */
+export function allowedBunkerSlots(partId: BasePartId): readonly BunkerSlot[] {
+  switch (partId) {
+    case "wall-panel":
+    case "door-panel":
+      return WALL_SLOTS;
+    case "floor-panel":
+      return ["floor"];
+    case "roof-panel":
+      return ["roof"];
+    case "basic-turret":
+    case "floor-spikes":
+      return ["mount"];
+  }
+}
+
 export interface PlacedBasePart {
   partId: BasePartId;
   col: number;
@@ -146,6 +204,16 @@ export interface PlacedBasePart {
   /** 0..BUNKER_CLAIM_DEPTH-1; legacy rows normalize to 0 (the tunnel plane). */
   depth: number;
   durability: number;
+  /**
+   * Sub-cell slot this thin part occupies (F-117). Absent on legacy
+   * full-cell parts placed before the thin model; `bunkerLayoutNeedsReset`
+   * detects those so Q-022's confirmed Start fresh can hard-reset them.
+   * Wall slots are stored in canonical form (see `canonicalWallSlot`).
+   */
+  slot?: BunkerSlot;
+  /** Quarter-turn yaw (0..3) for rotatable parts such as stairs; absent or
+   * 0 for parts whose slot fully determines their facing (walls, slabs). */
+  orientation?: number;
 }
 
 /** Cosmetic bunker skins (F-087, REQ-034/REQ-038): palette variants for
@@ -517,6 +585,83 @@ export function containsBunkerCell3D(
   );
 }
 
+/** One sub-cell slot anchored to an absolute cell (F-117). */
+export interface BunkerSlotRef {
+  col: number;
+  row: number;
+  depth: number;
+  slot: BunkerSlot;
+}
+
+/**
+ * Canonical (cell, face) for a wall divider (F-117). A wall between two
+ * cells is one physical slab; addressing it from either side must resolve
+ * to the same slot so it cannot be placed twice. We pin it to the lower
+ * coordinate on its axis when that neighbor is in-footprint: a `wall-nx`
+ * becomes the `wall-px` of the cell to its left, a `wall-nz` the `wall-pz`
+ * of the cell in front of it. An edge wall whose lower neighbor is outside
+ * the footprint keeps its own face. Non-wall slots are returned unchanged.
+ */
+export function canonicalWallSlot(
+  footprint: BunkerFootprint,
+  col: number,
+  row: number,
+  depth: number,
+  slot: BunkerSlot,
+): BunkerSlotRef {
+  if (
+    slot === "wall-nx" &&
+    containsBunkerCell3D(footprint, col - 1, row, depth)
+  ) {
+    return { col: col - 1, row, depth, slot: "wall-px" };
+  }
+  if (
+    slot === "wall-nz" &&
+    containsBunkerCell3D(footprint, col, row, depth - 1)
+  ) {
+    return { col, row, depth: depth - 1, slot: "wall-pz" };
+  }
+  return { col, row, depth, slot };
+}
+
+/**
+ * True when a part already occupies `ref`'s slot (F-117). A legacy
+ * full-cell part (no slot) fills its whole cell, so it conflicts with any
+ * slot in that cell and vice versa. Slot parts conflict only with the same
+ * canonical slot in the same cell. Legacy and slot parts never coexist in
+ * a live bunker (Q-022 forces a reset before the thin model), so mixed
+ * occupancy only matters for defensive correctness here.
+ */
+function bunkerSlotOccupied(
+  bunker: BunkerState,
+  ref: BunkerSlotRef,
+  ignore?: PlacedBasePart,
+): boolean {
+  return bunker.parts.some((part) => {
+    if (part === ignore) return false;
+    if (
+      part.col !== ref.col ||
+      part.row !== ref.row ||
+      part.depth !== ref.depth
+    ) {
+      return false;
+    }
+    if (part.slot === undefined || ref.slot === undefined) return true;
+    return part.slot === ref.slot;
+  });
+}
+
+/**
+ * True when a stored bunker predates the thin-slot model (F-117): it holds
+ * placed parts that fill whole cells instead of sub-cell slots. Q-022
+ * resolved to fail fast on these and offer a confirmed Start fresh hard
+ * reset rather than migrate or refund. An empty bunker, or one whose parts
+ * all carry slots, is already compatible.
+ */
+export function bunkerLayoutNeedsReset(bunker: BunkerState): boolean {
+  return bunker.parts.some((part) => part.slot === undefined);
+}
+
 /** Open = walkable/buildable air. Every cell (including the depth-0
  * plane) starts as solid claim rock (F-115/F-116); a cell is open only
  * if it has been excavated, and the pre-mined spawn pocket is seeded
@@ -708,11 +853,13 @@ export function placeBasePart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
+  orientation?: number,
 ):
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
       ok: false;
-      reason: "outside" | "rock" | "occupied" | "stock";
+      reason: "outside" | "rock" | "occupied" | "stock" | "slot";
     } {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
@@ -720,23 +867,40 @@ export function placeBasePart(
   if (!isOpenBunkerCell(bunker, col, row, depth)) {
     return { ok: false, reason: "rock" };
   }
-  if (
-    bunker.parts.some(
-      (part) => part.col === col && part.row === row && part.depth === depth,
-    )
-  ) {
-    return { ok: false, reason: "occupied" };
+  if (slot !== undefined && !allowedBunkerSlots(partId).includes(slot)) {
+    return { ok: false, reason: "slot" };
   }
+  // Walls resolve to a canonical divider so the same face cannot be built
+  // from both cells; other slots keep their placement cell. Legacy parts
+  // (no slot) fill the whole cell as before.
+  const ref =
+    slot === undefined
+      ? null
+      : canonicalWallSlot(bunker.footprint, col, row, depth, slot);
+  const occupied = ref
+    ? bunkerSlotOccupied(bunker, ref)
+    : bunker.parts.some(
+        (part) => part.col === col && part.row === row && part.depth === depth,
+      );
+  if (occupied) return { ok: false, reason: "occupied" };
   if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
   const def = BASE_PART_CATALOG[partId];
+  const placed: PlacedBasePart = ref
+    ? {
+        partId,
+        col: ref.col,
+        row: ref.row,
+        depth: ref.depth,
+        durability: def.durability,
+        slot: ref.slot,
+      }
+    : { partId, col, row, depth, durability: def.durability };
+  if (orientation !== undefined) placed.orientation = orientation;
   return {
     ok: true,
     bunker: {
       ...bunker,
-      parts: [
-        ...bunker.parts,
-        { partId, col, row, depth, durability: def.durability },
-      ],
+      parts: [...bunker.parts, placed],
     },
     inventory: addBasePartInventory(inventory, partId, -1),
   };
@@ -748,13 +912,26 @@ export function removeBasePart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
 ):
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
       ok: false;
       reason: "missing" | "damaged";
     } {
+  const ref =
+    slot === undefined
+      ? null
+      : canonicalWallSlot(bunker.footprint, col, row, depth, slot);
   const part = bunker.parts.find((candidate) => {
+    if (ref) {
+      return (
+        candidate.col === ref.col &&
+        candidate.row === ref.row &&
+        candidate.depth === ref.depth &&
+        candidate.slot === ref.slot
+      );
+    }
     return (
       candidate.col === col &&
       candidate.row === row &&
@@ -781,13 +958,33 @@ export function moveBasePart(
   toRow: number,
   fromDepth = 0,
   toDepth = 0,
+  fromSlot?: BunkerSlot,
+  toSlot?: BunkerSlot,
 ):
   | { ok: true; bunker: BunkerState }
   | {
       ok: false;
       reason: "missing" | "outside" | "rock" | "occupied";
     } {
+  const fromRef =
+    fromSlot === undefined
+      ? null
+      : canonicalWallSlot(
+          bunker.footprint,
+          fromCol,
+          fromRow,
+          fromDepth,
+          fromSlot,
+        );
   const part = bunker.parts.find((candidate) => {
+    if (fromRef) {
+      return (
+        candidate.col === fromRef.col &&
+        candidate.row === fromRef.row &&
+        candidate.depth === fromRef.depth &&
+        candidate.slot === fromRef.slot
+      );
+    }
     return (
       candidate.col === fromCol &&
       candidate.row === fromRow &&
@@ -801,17 +998,48 @@ export function moveBasePart(
   if (!isOpenBunkerCell(bunker, toCol, toRow, toDepth)) {
     return { ok: false, reason: "rock" };
   }
-  if (
-    bunker.parts.some((candidate) => {
-      return (
-        candidate !== part &&
-        candidate.col === toCol &&
-        candidate.row === toRow &&
-        candidate.depth === toDepth
-      );
-    })
-  ) {
-    return { ok: false, reason: "occupied" };
+  const toRef =
+    toSlot === undefined
+      ? null
+      : canonicalWallSlot(bunker.footprint, toCol, toRow, toDepth, toSlot);
+  const occupied = toRef
+    ? bunkerSlotOccupied(bunker, toRef, part)
+    : bunker.parts.some((candidate) => {
+        return (
+          candidate !== part &&
+          candidate.col === toCol &&
+          candidate.row === toRow &&
+          candidate.depth === toDepth
+        );
+      });
+  if (occupied) return { ok: false, reason: "occupied" };
+  if (toRef) {
+    if (
+      fromRef &&
+      fromRef.col === toRef.col &&
+      fromRef.row === toRef.row &&
+      fromRef.depth === toRef.depth &&
+      fromRef.slot === toRef.slot
+    ) {
+      return { ok: true, bunker };
+    }
+    return {
+      ok: true,
+      bunker: {
+        ...bunker,
+        parts: bunker.parts.map((candidate) =>
+          candidate === part
+            ? {
+                ...candidate,
+                col: toRef.col,
+                row: toRef.row,
+                depth: toRef.depth,
+                slot: toRef.slot,
+              }
+            : candidate,
+        ),
+      },
+    };
   }
   if (fromCol === toCol && fromRow === toRow && fromDepth === toDepth) {
     return { ok: true, bunker };

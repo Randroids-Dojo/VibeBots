@@ -1,21 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
+  allowedBunkerSlots,
   applyBunkerRepairs,
   applyBunkerReset,
   BASE_PART_CATALOG,
+  type BasePartId,
+  type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
   BUNKER_RAID_TIER_CAP,
   BUNKER_SKIN_CATALOG,
+  BUNKER_SLOTS,
+  type BunkerSlot,
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
+  bunkerLayoutNeedsReset,
   bunkerRepairPlan,
   CLANKER_BREACHER_XP,
   CLANKER_SELF_DESTRUCT_XP,
   CLANKER_TANK_XP,
   canBuyBasePart,
+  canonicalWallSlot,
   clankerKindFor,
   clankerXpFor,
   containsBunkerCell3D,
@@ -24,6 +31,7 @@ import {
   DEFAULT_BUNKER_SKIN,
   excavateBunkerCell,
   isBunkerSkinId,
+  isBunkerWallSlot,
   maxBunkerRaidTier,
   moveBasePart,
   overallPlayerLevel,
@@ -744,5 +752,364 @@ describe("bunker ore crediting (F-116)", () => {
     );
     expect(result.ores).toEqual({});
     expect(result.bunker.loot).toHaveLength(1);
+  });
+});
+
+describe("bunker thin sub-cell slots (F-117)", () => {
+  const inventory = (): BasePartInventory => ({
+    ...STARTER_BASE_PART_INVENTORY,
+    "basic-turret": 1,
+    "floor-spikes": 2,
+  });
+
+  // Fold one placement onto a running (bunker, inventory), asserting it
+  // lands so slot chains read as a sequence of moves, not nested ifs.
+  function place(
+    state: { bunker: BunkerState; inventory: BasePartInventory },
+    partId: BasePartId,
+    col: number,
+    row: number,
+    depth: number,
+    slot?: BunkerSlot,
+    orientation?: number,
+  ): { bunker: BunkerState; inventory: BasePartInventory } {
+    const result = placeBasePart(
+      state.bunker,
+      state.inventory,
+      partId,
+      col,
+      row,
+      depth,
+      slot,
+      orientation,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(`place failed: ${result.reason}`);
+    return { bunker: result.bunker, inventory: result.inventory };
+  }
+
+  it("maps each part to the slots it may occupy", () => {
+    expect(allowedBunkerSlots("wall-panel")).toEqual([
+      "wall-px",
+      "wall-nx",
+      "wall-pz",
+      "wall-nz",
+    ]);
+    expect(allowedBunkerSlots("door-panel")).toEqual([
+      "wall-px",
+      "wall-nx",
+      "wall-pz",
+      "wall-nz",
+    ]);
+    expect(allowedBunkerSlots("floor-panel")).toEqual(["floor"]);
+    expect(allowedBunkerSlots("roof-panel")).toEqual(["roof"]);
+    expect(allowedBunkerSlots("basic-turret")).toEqual(["mount"]);
+    expect(allowedBunkerSlots("floor-spikes")).toEqual(["mount"]);
+    expect(BUNKER_SLOTS).toContain("floor");
+    expect(
+      ["wall-px", "wall-nx", "wall-pz", "wall-nz"].every((slot) =>
+        isBunkerWallSlot(slot as BunkerSlot),
+      ),
+    ).toBe(true);
+    expect(isBunkerWallSlot("floor")).toBe(false);
+    expect(isBunkerWallSlot("mount")).toBe(false);
+  });
+
+  it("pins wall dividers to a single canonical face", () => {
+    const bunker = allDugBunker(4, 5);
+    const fp = bunker.footprint;
+    const c = centerCell(bunker);
+    // An interior -x face is the +x face of the cell to its left.
+    expect(canonicalWallSlot(fp, c.col, c.row, 0, "wall-nx")).toEqual({
+      col: c.col - 1,
+      row: c.row,
+      depth: 0,
+      slot: "wall-px",
+    });
+    // An interior -z face is the +z face of the cell in front of it.
+    expect(canonicalWallSlot(fp, c.col, c.row, 1, "wall-nz")).toEqual({
+      col: c.col,
+      row: c.row,
+      depth: 0,
+      slot: "wall-pz",
+    });
+    // +x / +z faces are already canonical.
+    expect(canonicalWallSlot(fp, c.col, c.row, 0, "wall-px")).toEqual({
+      col: c.col,
+      row: c.row,
+      depth: 0,
+      slot: "wall-px",
+    });
+    // An edge wall whose lower neighbor is outside the footprint keeps
+    // its own face rather than resolving onto a nonexistent cell.
+    expect(canonicalWallSlot(fp, fp.col, c.row, 0, "wall-nx")).toEqual({
+      col: fp.col,
+      row: c.row,
+      depth: 0,
+      slot: "wall-nx",
+    });
+    expect(canonicalWallSlot(fp, c.col, c.row, 0, "wall-nz")).toEqual({
+      col: c.col,
+      row: c.row,
+      depth: 0,
+      slot: "wall-nz",
+    });
+    // Non-wall slots pass through untouched.
+    expect(canonicalWallSlot(fp, c.col, c.row, 0, "floor")).toEqual({
+      col: c.col,
+      row: c.row,
+      depth: 0,
+      slot: "floor",
+    });
+  });
+
+  it("holds up to one part per slot in a single cell", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    let state = { bunker, inventory: inventory() };
+    state = place(state, "wall-panel", c.col, c.row, 0, "wall-px");
+    state = place(state, "wall-panel", c.col, c.row, 0, "wall-nx");
+    state = place(state, "wall-panel", c.col, c.row, 0, "wall-pz");
+    state = place(state, "wall-panel", c.col, c.row, 0, "wall-nz");
+    state = place(state, "floor-panel", c.col, c.row, 0, "floor");
+    state = place(state, "roof-panel", c.col, c.row, 0, "roof");
+    state = place(state, "basic-turret", c.col, c.row, 0, "mount");
+    expect(state.bunker.parts).toHaveLength(7);
+    // A second part in a taken slot is rejected before stock is touched.
+    expect(
+      placeBasePart(
+        state.bunker,
+        state.inventory,
+        "wall-panel",
+        c.col,
+        c.row,
+        0,
+        "wall-px",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+    expect(
+      placeBasePart(
+        state.bunker,
+        state.inventory,
+        "basic-turret",
+        c.col,
+        c.row,
+        0,
+        "mount",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("rejects the same divider built from the neighboring cell", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    const placed = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-px",
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    // The -x face of the cell to the right is the same physical slab.
+    expect(
+      placeBasePart(
+        placed.bunker,
+        placed.inventory,
+        "wall-panel",
+        c.col + 1,
+        c.row,
+        0,
+        "wall-nx",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("rejects a part in a slot it cannot use", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "floor-panel",
+        c.col,
+        c.row,
+        0,
+        "wall-px",
+      ),
+    ).toEqual({ ok: false, reason: "slot" });
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "wall-panel",
+        c.col,
+        c.row,
+        0,
+        "floor",
+      ),
+    ).toEqual({ ok: false, reason: "slot" });
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "basic-turret",
+        c.col,
+        c.row,
+        0,
+        "wall-px",
+      ),
+    ).toEqual({ ok: false, reason: "slot" });
+  });
+
+  it("treats a legacy full-cell part as filling every slot in its cell", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    const legacy = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+    );
+    expect(legacy.ok).toBe(true);
+    if (!legacy.ok) return;
+    expect(legacy.bunker.parts[0].slot).toBeUndefined();
+    // A slot part cannot share a cell a legacy whole-cell part fills.
+    expect(
+      placeBasePart(
+        legacy.bunker,
+        legacy.inventory,
+        "floor-panel",
+        c.col,
+        c.row,
+        0,
+        "floor",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+    // And a legacy placement cannot share a cell that already has a slot.
+    const slotted = placeBasePart(
+      bunker,
+      inventory(),
+      "floor-panel",
+      c.col,
+      c.row,
+      0,
+      "floor",
+    );
+    expect(slotted.ok).toBe(true);
+    if (!slotted.ok) return;
+    expect(
+      placeBasePart(
+        slotted.bunker,
+        slotted.inventory,
+        "wall-panel",
+        c.col,
+        c.row,
+        0,
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("removes only the addressed slot and refunds it", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    let state = { bunker, inventory: inventory() };
+    state = place(state, "wall-panel", c.col, c.row, 0, "wall-px");
+    state = place(state, "floor-panel", c.col, c.row, 0, "floor");
+    const walls = state.inventory["wall-panel"];
+    // A different slot in the same cell does not match.
+    expect(
+      removeBasePart(state.bunker, state.inventory, c.col, c.row, 0, "wall-pz"),
+    ).toEqual({ ok: false, reason: "missing" });
+    const removed = removeBasePart(
+      state.bunker,
+      state.inventory,
+      c.col,
+      c.row,
+      0,
+      "wall-px",
+    );
+    expect(removed.ok).toBe(true);
+    if (!removed.ok) return;
+    expect(removed.bunker.parts).toHaveLength(1);
+    expect(removed.bunker.parts[0].slot).toBe("floor");
+    expect(removed.inventory["wall-panel"]).toBe(walls + 1);
+  });
+
+  it("moves a slotted part to a new slot, keeping durability", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    const placed = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-px",
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const worn = {
+      ...placed.bunker,
+      parts: placed.bunker.parts.map((part) => ({ ...part, durability: 40 })),
+    };
+    const moved = moveBasePart(
+      worn,
+      c.col,
+      c.row,
+      c.col,
+      c.row,
+      0,
+      0,
+      "wall-px",
+      "wall-pz",
+    );
+    expect(moved.ok).toBe(true);
+    if (!moved.ok) return;
+    expect(moved.bunker.parts).toHaveLength(1);
+    expect(moved.bunker.parts[0]).toMatchObject({
+      partId: "wall-panel",
+      col: c.col,
+      row: c.row,
+      depth: 0,
+      slot: "wall-pz",
+      durability: 40,
+    });
+  });
+
+  it("flags a pre-thin-model layout for a confirmed reset (Q-022)", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    expect(bunkerLayoutNeedsReset(bunker)).toBe(false);
+    const legacy = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+    );
+    expect(legacy.ok).toBe(true);
+    if (!legacy.ok) return;
+    expect(bunkerLayoutNeedsReset(legacy.bunker)).toBe(true);
+    const slotted = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-px",
+    );
+    expect(slotted.ok).toBe(true);
+    if (!slotted.ok) return;
+    expect(bunkerLayoutNeedsReset(slotted.bunker)).toBe(false);
   });
 });

@@ -153,6 +153,14 @@ export function resolveRemoteLiveRaid(report: LiveRaidOutcomeReport) {
   return bunkerApi("/api/bunker/raid/resolve", jsonPost(report));
 }
 
+/** Forfeit the active live raid on demand (F-160): leaving first person
+ * mid-raid abandons it now (no reward, no wear) so it cannot be re-rolled by
+ * re-entering. Idempotent server-side; a raid that already resolved is a
+ * no-op that just returns the current view. */
+export function forfeitRemoteLiveRaid() {
+  return bunkerApi("/api/bunker/raid/forfeit", jsonPost({}));
+}
+
 export function collectRemoteRaidPickup(col: number, row: number) {
   return bunkerApi("/api/bunker/raid/collect", jsonPost({ col, row }));
 }

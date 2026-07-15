@@ -223,6 +223,9 @@ export interface BunkerFpCanvasProps {
   liveRaid?: LiveRaidActiveView | null;
   /** Submit the fought raid's bounded outcome to settle it. */
   onResolveRaid?: (report: LiveRaidOutcomeReport) => void;
+  /** Forfeit an unresolved raid when the player leaves first person
+   * mid-fight, so it settles now and cannot be re-rolled by re-entering. */
+  onForfeitRaid?: () => void;
 }
 
 /** Target outline colors by action (build, pry, dig): one shared
@@ -1794,6 +1797,7 @@ export default function BunkerFpCanvas({
   onFirstFrame,
   liveRaid,
   onResolveRaid,
+  onForfeitRaid,
 }: BunkerFpCanvasProps) {
   const features = graphicsFeaturesFor(
     resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
@@ -1803,6 +1807,42 @@ export default function BunkerFpCanvas({
   // compile-gate.tsx for the reconciliation trap).
   const [frameloop, setFrameloop] = useState<"never" | "always">("never");
   const startFrames = useCallback(() => setFrameloop("always"), []);
+
+  // Forfeit an abandoned raid on the way out (F-160). Leaving first person
+  // while a raid is still unresolved (the player did not fight it to a
+  // natural win or loss) settles it as a forfeit now, so re-entering cannot
+  // spin up a fresh runtime against the same row and re-roll the outcome.
+  // This lives on the outer (plain DOM) canvas component, not inside the
+  // R3F scene: its unmount cleanup is a normal React DOM teardown that runs
+  // reliably when the fp view is torn down, and it keys off the `liveRaid`
+  // prop (still the active raid at unmount, since exiting fp does not clear
+  // the store) rather than the scene's runtime ref, so it fires even when
+  // the player leaves before the scene's runtime effect has committed.
+  const liveRaidRef = useRef<LiveRaidActiveView | null>(liveRaid ?? null);
+  liveRaidRef.current = liveRaid ?? null;
+  // The raid id the scene reported a natural win or loss for. Tracking the id
+  // (rather than a boolean flag reset between raids) means a fresh raid is
+  // unresolved by construction, so no prior raid's resolution can suppress
+  // this one's forfeit.
+  const resolvedRaidIdRef = useRef<string | null>(null);
+  const handleResolveRaid = useCallback(
+    (report: LiveRaidOutcomeReport) => {
+      resolvedRaidIdRef.current = liveRaidRef.current?.raidId ?? null;
+      onResolveRaid?.(report);
+    },
+    [onResolveRaid],
+  );
+  const onForfeitRaidRef = useRef(onForfeitRaid);
+  onForfeitRaidRef.current = onForfeitRaid;
+  useEffect(() => {
+    return () => {
+      const active = liveRaidRef.current;
+      if (active && resolvedRaidIdRef.current !== active.raidId) {
+        onForfeitRaidRef.current?.();
+      }
+    };
+  }, []);
+
   return (
     <Canvas
       camera={{ position: [3, 0.22, 0], fov: 75, near: 0.05, far: 30 }}
@@ -1819,7 +1859,7 @@ export default function BunkerFpCanvas({
         onEdit={onEdit}
         onWarmed={startFrames}
         liveRaid={liveRaid ?? null}
-        onResolveRaid={onResolveRaid}
+        onResolveRaid={handleResolveRaid}
       />
       <CanvasDrawCallProbe onFirstFrame={onFirstFrame} />
       <PerfProbeBridge source="bunker-fp" />

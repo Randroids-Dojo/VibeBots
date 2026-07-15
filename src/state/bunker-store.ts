@@ -24,6 +24,7 @@ import {
   collectRemoteRaidPickup,
   excavateRemoteBunkerCell,
   finishRemoteBunkerRaid,
+  forfeitRemoteLiveRaid,
   loadRemoteBunker,
   moveRemoteBunkerPart,
   placeRemoteBunkerPart,
@@ -99,6 +100,7 @@ export interface BunkerStoreState {
   resolveLiveRaid: (
     report: LiveRaidOutcomeReport,
   ) => Promise<BunkerMutationResult>;
+  forfeitLiveRaid: () => Promise<BunkerMutationResult>;
   repairBunker: () => Promise<BunkerMutationResult>;
   resetBunker: () => Promise<BunkerMutationResult>;
   setSkin: (skinId: BunkerSkinId) => Promise<BunkerMutationResult>;
@@ -349,6 +351,13 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
       set,
       get,
       await resolveRemoteLiveRaid(report),
+      "bunker action failed",
+    ),
+  forfeitLiveRaid: async () =>
+    applyMutationResult(
+      set,
+      get,
+      await forfeitRemoteLiveRaid(),
       "bunker action failed",
     ),
   collectRaidPickup: async (col, row) =>

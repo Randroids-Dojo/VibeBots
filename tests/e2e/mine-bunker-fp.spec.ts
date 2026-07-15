@@ -2214,3 +2214,105 @@ test("first-person live raid starts, animates, and resolves", async ({
     timeout: 20_000,
   });
 });
+
+test("leaving a live raid mid-fight forfeits it instead of re-rolling on re-entry", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const forfeitBodies: unknown[] = [];
+  let resolveCalls = 0;
+
+  // Pause the render loop on demand. The live raid steps its sim inside the
+  // R3F frame loop, and a headless runner stutters rAF and then processes a
+  // catch-up burst on each interaction; against a player who spawns at the
+  // entry edge (reachable from the un-wallable mine-approach cell directly in
+  // front, so no in-bunker wall can seal it), that lets the fight resolve on
+  // its own and race the forfeit. Freezing rAF once the raid is on screen
+  // holds the sim at its opening tick, so leaving is unambiguously a
+  // mid-fight abandon. React effects (the unmount forfeit) run off the
+  // scheduler, not rAF, so they still fire while the loop is frozen.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __freezeRaf?: boolean };
+    w.__freezeRaf = false;
+    const real = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) =>
+      real((t) => {
+        // While frozen, defer the frame callback instead of running it: keep
+        // the rAF chain alive (so R3F's shared render loop resumes cleanly
+        // once unfrozen for the re-entry) but never advance the sim.
+        if (w.__freezeRaf) {
+          window.requestAnimationFrame(cb);
+          return;
+        }
+        cb(t);
+      });
+  });
+  const setFreeze = (frozen: boolean) =>
+    page.evaluate((f) => {
+      (window as unknown as { __freezeRaf?: boolean }).__freezeRaf = f;
+    }, frozen);
+
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ json: FP_BUNKER_VIEW });
+  });
+  await page.route("**/api/bunker/raid/start", async (route) => {
+    await route.fulfill({ json: LIVE_RAID_START });
+  });
+  await page.route("**/api/bunker/raid/resolve", async (route) => {
+    resolveCalls += 1;
+    await route.fulfill({ json: LIVE_RAID_RESOLVED });
+  });
+  // Leaving fp mid-raid settles the abandoned fight as a forfeit; the cleared
+  // view carries no active raid, so the store drops it on adoption (F-160).
+  await page.route("**/api/bunker/raid/forfeit", async (route) => {
+    forfeitBodies.push(route.request().postDataJSON());
+    await route.fulfill({ json: { ...FP_BUNKER_VIEW, activeLiveRaid: null } });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+
+  await aimFp(page, 0, 0);
+  await page.getByTestId("bunker-fp-raid-start-button").click();
+  // The raid is up on screen: the HUD banner replaced the Start control.
+  await expect(page.getByTestId("bunker-fp-raid-panel")).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByTestId("bunker-fp-raid-start-button")).toHaveCount(0);
+  // Freeze the sim at its opening tick so leaving is a clean mid-fight abandon.
+  await setFreeze(true);
+
+  // Leave first person while the raid runs. The Exit control is hidden during
+  // a raid, so a player abandons a fight the only way they can: Escape drops
+  // out of the bunker view (no pointer lock is held in this headless run, so a
+  // single Escape reaches the exit handler). The canvas unmounts with the raid
+  // unresolved, so the client forfeits the abandoned raid once.
+  await page.keyboard.press("Escape");
+  await expect(status).toHaveAttribute("data-fp-mode", "0");
+  await expect.poll(() => forfeitBodies.length, { timeout: 15_000 }).toBe(1);
+  // A forfeit is a server-derived no-reward settlement, not a fought outcome,
+  // so the client never submits a resolve report for the abandoned raid.
+  expect(resolveCalls).toBe(0);
+
+  // Re-enter with the loop running again: the forfeited raid is gone (the
+  // store adopted the cleared view), so the fight does not re-roll. The Start
+  // control returns, not the raid panel.
+  await setFreeze(false);
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+  await expect(page.getByTestId("bunker-fp-raid-start-button")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByTestId("bunker-fp-raid-panel")).toHaveCount(0);
+});

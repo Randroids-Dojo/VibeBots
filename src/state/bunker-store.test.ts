@@ -16,6 +16,7 @@ import {
   collectRemoteBunkerLoot,
   excavateRemoteBunkerCell,
   finishRemoteBunkerRaid,
+  forfeitRemoteLiveRaid,
   loadRemoteBunker,
   placeRemoteBunkerPart,
   resetRemoteBunker,
@@ -32,6 +33,7 @@ vi.mock("./bunker-api-client", async (importOriginal) => {
     collectRemoteBunkerLoot: vi.fn(),
     excavateRemoteBunkerCell: vi.fn(),
     finishRemoteBunkerRaid: vi.fn(),
+    forfeitRemoteLiveRaid: vi.fn(),
     loadRemoteBunker: vi.fn(),
     placeRemoteBunkerPart: vi.fn(),
     resetRemoteBunker: vi.fn(),
@@ -48,6 +50,7 @@ const mockedLoad = vi.mocked(loadRemoteBunker);
 const mockedPlace = vi.mocked(placeRemoteBunkerPart);
 const mockedReset = vi.mocked(resetRemoteBunker);
 const mockedResolveLive = vi.mocked(resolveRemoteLiveRaid);
+const mockedForfeitLive = vi.mocked(forfeitRemoteLiveRaid);
 const mockedStartLive = vi.mocked(startRemoteLiveBunkerRaid);
 
 const view: BunkerRouteResponse = {
@@ -215,6 +218,34 @@ describe("bunker store", () => {
       status: "ready",
       activeLiveRaid: null,
       lastRaidReward: reward,
+    });
+  });
+
+  it("forfeits a live raid and adopts the cleared view (F-160)", async () => {
+    useBunkerStore.setState({
+      activeLiveRaid: {
+        raidId: "live-abandon",
+        tier: 2,
+        startedAtMs: 3_000,
+        durationSeconds: 180,
+        graceSeconds: 60,
+        bunker: createBunker(proposedBunkerFootprint(10, 8)),
+      },
+    });
+    mockedForfeitLive.mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { ...view, revision: 1, activeLiveRaid: null },
+    });
+
+    const body = await useBunkerStore.getState().forfeitLiveRaid();
+
+    expect(body).not.toBeNull();
+    expect(mockedForfeitLive).toHaveBeenCalledOnce();
+    // The cleared view drops the active raid, so re-entry starts no runtime.
+    expect(useBunkerStore.getState()).toMatchObject({
+      status: "ready",
+      activeLiveRaid: null,
     });
   });
 

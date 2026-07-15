@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr-223-f071-dot-reference-repair" data-date="2026-07-15">
+    <h3>Give the real-device baseline a resolvable task identity</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, fourteenth additive audit commit.</dd>
+      <dt>Changed</dt><dd>Resolved a valid additional note from PR #218 review 4701703955 against the clean successor. PR #223's new F-144 Dot references F-071, but target base <code>98d269ee</code> contains only the F-071 primary. Added exactly one matching open priority-2 F-071 HTML Dot, appended current-truth records to F-071 and F-156, and left the historical F-071 <q>not started</q> field unchanged. The broader F-054 performance task is not reused as a false identity. No runtime, CI, settings, ruleset, requirement, release, or production state changed.</dd>
+      <dt>Verification</dt><dd>Repository-wide Dot search and git history confirm F-071 was added by commit <code>74aa5f0e</code> without a matching Dot. <code>VibeBots-mine-real-time-d58bf6e5</code> predates it and owns F-054's broader analysis. The new Dot uses matching F-071 identity and task wording under the Dot naming convention, its open status and priority 2 match the authoritative primary, and its scope names the device, surface, telemetry-quality, F-103, and F-144 boundaries. Diff, dash, Dot, lint, typecheck, and full unit verification are recorded on the additive head.</dd>
+      <dt>Assumptions</dt><dd>Adding a missing task identity for an existing open primary is a correction, not a second primary. Root placement preserves the committed F-054 Dot path; the relationship is explicit in descriptions and does not require relocating task history.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first reference-integrity audit record to <code>docs/gdd/08-base-building.html</code>. Rule 13: no tip change. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. F-071 remains open for the missing real-device baselines. F-103 owns trustworthy bunker rollups, F-144 consumes the baseline for raid-burst acceptance, and F-156 remains open for automated exact-diff reference validation. F-148 still requires a full reviewed-range exact-head pass, and F-152 remains the independent normal-merge eligibility hold.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-223-f146-cancellation-boundary" data-date="2026-07-15">
     <h3>Keep dispatched bunker writes inside the authoritative queue</h3>
     <dl>

@@ -2316,3 +2316,139 @@ test("leaving a live raid mid-fight forfeits it instead of re-rolling on re-entr
   });
   await expect(page.getByTestId("bunker-fp-raid-panel")).toHaveCount(0);
 });
+
+test.describe("phone viewport (touch abandon)", () => {
+  test.use({
+    viewport: { width: 390, height: 760 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("the touch abandon control forfeits a live raid behind a two-step confirm", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "uses touch tap events");
+    test.setTimeout(240_000);
+    const forfeitBodies: unknown[] = [];
+    let resolveCalls = 0;
+
+    // Same rAF freeze harness as the Escape-forfeit test above: hold the sim at
+    // its opening tick so leaving is an unambiguous mid-fight abandon and cannot
+    // race a self-resolving fight. See that test for why deferring (not
+    // skipping) the frame callback keeps R3F's shared loop alive for re-entry.
+    await page.addInitScript(() => {
+      const w = window as unknown as { __freezeRaf?: boolean };
+      w.__freezeRaf = false;
+      const real = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = (cb) =>
+        real((t) => {
+          if (w.__freezeRaf) {
+            window.requestAnimationFrame(cb);
+            return;
+          }
+          cb(t);
+        });
+    });
+    const setFreeze = (frozen: boolean) =>
+      page.evaluate((f) => {
+        (window as unknown as { __freezeRaf?: boolean }).__freezeRaf = f;
+      }, frozen);
+
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({ json: FP_BUNKER_VIEW });
+    });
+    await page.route("**/api/bunker/raid/start", async (route) => {
+      await route.fulfill({ json: LIVE_RAID_START });
+    });
+    await page.route("**/api/bunker/raid/resolve", async (route) => {
+      resolveCalls += 1;
+      await route.fulfill({ json: LIVE_RAID_RESOLVED });
+    });
+    await page.route("**/api/bunker/raid/forfeit", async (route) => {
+      forfeitBodies.push(route.request().postDataJSON());
+      await route.fulfill({
+        json: { ...FP_BUNKER_VIEW, activeLiveRaid: null },
+      });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await digTo(page, 1);
+    await page.getByTestId("bunker-fp-enter").click();
+    const status = page.getByLabel("Mine status");
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    const canvas = page.locator("canvas");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+        timeout: 45_000,
+      })
+      .not.toBeNull();
+
+    await aimFp(page, 0, 0);
+    await page.getByTestId("bunker-fp-raid-start-button").click();
+    await expect(page.getByTestId("bunker-fp-raid-panel")).toBeVisible({
+      timeout: 15_000,
+    });
+    await setFreeze(true);
+
+    // On a phone the abandon control has to be an honest touch target: at least
+    // 44px tall and fully inside the 390px viewport, not clipped off-screen.
+    const abandon = page.getByTestId("bunker-fp-raid-abandon");
+    const box = await abandon.boundingBox();
+    expect(box).not.toBeNull();
+    if (box) {
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(390);
+    }
+
+    // Touch players have no Escape key, so the raid HUD carries an in-panel
+    // abandon affordance. Arming it must NOT leave on its own: a stray tap
+    // while fighting cannot cost the raid. The first tap only reveals the
+    // confirm.
+    await abandon.tap();
+    await expect(
+      page.getByTestId("bunker-fp-raid-abandon-confirm"),
+    ).toBeVisible();
+    await expect(page.getByTestId("bunker-fp-raid-abandon")).toHaveCount(0);
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    expect(forfeitBodies.length).toBe(0);
+
+    // "Stay" backs out: the confirm collapses to the arming button and the
+    // player is still in first person, still raiding, nothing forfeited.
+    await page.getByTestId("bunker-fp-raid-abandon-no").tap();
+    await expect(
+      page.getByTestId("bunker-fp-raid-abandon-confirm"),
+    ).toHaveCount(0);
+    await expect(page.getByTestId("bunker-fp-raid-abandon")).toBeVisible();
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    expect(forfeitBodies.length).toBe(0);
+
+    // Re-arm, then commit: "Forfeit" leaves first person and settles the
+    // abandoned fight, exactly like the desktop Escape path (F-160).
+    await page.getByTestId("bunker-fp-raid-abandon").tap();
+    await expect(
+      page.getByTestId("bunker-fp-raid-abandon-confirm"),
+    ).toBeVisible();
+    await page.getByTestId("bunker-fp-raid-abandon-yes").tap();
+    await expect(status).toHaveAttribute("data-fp-mode", "0");
+    await expect.poll(() => forfeitBodies.length, { timeout: 15_000 }).toBe(1);
+    expect(resolveCalls).toBe(0);
+
+    // Re-enter with the loop running again: the forfeited raid is gone, so the
+    // fight does not re-roll. The Start control returns, not the raid panel.
+    await setFreeze(false);
+    await page.getByTestId("bunker-fp-enter").click();
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+        timeout: 45_000,
+      })
+      .not.toBeNull();
+    await expect(page.getByTestId("bunker-fp-raid-start-button")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByTestId("bunker-fp-raid-panel")).toHaveCount(0);
+  });
+});

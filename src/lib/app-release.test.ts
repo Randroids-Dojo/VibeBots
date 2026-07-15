@@ -24,18 +24,36 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest raid-forfeit-on-exit note complete", () => {
+  it("keeps the latest touch-raid-abandon note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-15-0.1.267-raid-forfeit-on-exit");
+    expect(release.noticeId).toBe("2026-07-15-0.1.268-touch-raid-abandon");
     expect(latestNote).toMatchObject({
+      version: "0.1.268",
+      title: "Abandon a live raid from your phone",
+      intro:
+        "The first-person raid HUD now has a way to leave a fight without a keyboard.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "On a phone there is no Escape key, so a live raid now carries a Leave raid button in its HUD. It asks you to confirm before it drops you out, so a stray tap while you are fighting cannot cost you the raid.",
+      "Confirming leaves and forfeits the raid, exactly like stepping out on desktop: no rewards, and it is gone when you come back. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived raid-forfeit-on-exit note complete", () => {
+    const release = getAppRelease();
+    const forfeitNote = release.notes.find(
+      (note) => note.version === "0.1.267",
+    );
+
+    expect(forfeitNote).toMatchObject({
       version: "0.1.267",
       title: "Leaving a live raid now forfeits it",
       intro:
         "Walk out of a first-person raid mid-fight and it counts as a loss.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(forfeitNote?.changes.map((change) => change.text)).toEqual([
       "Step out of the bunker while a live raid is still going and it now settles right away as a forfeit. The raid ends, you earn no rewards, and it is gone when you come back, instead of lingering until it timed out.",
       "That means you can no longer duck out of a raid that is going badly and re-enter to fight it again from the start. The choice to leave is final. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

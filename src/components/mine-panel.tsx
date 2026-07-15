@@ -329,7 +329,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Player levels unlock higher raid tiers: bigger waves, tougher bites, more XP.",
   "Tip: Inside your bunker, Start raid drops you into a live first-person fight. The Clankers hunt you through the halls, and stopping one drops XP to walk over.",
-  "Tip: Leaving your bunker during a live raid forfeits it. You cannot slip out and re-enter to retry, so hold your ground.",
+  "Tip: Leaving a live raid forfeits it: press Escape or tap Leave raid in the HUD. You cannot slip out and re-enter to retry, so hold your ground.",
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",

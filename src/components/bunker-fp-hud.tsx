@@ -285,6 +285,14 @@ export function BunkerFpHud({
     getFpRaidHudSnapshot,
   );
   const raidActive = raid.active;
+  // Two-step guard for leaving a live raid (F-162). The in-fight Exit control
+  // is hidden on purpose, so touch players (no Escape key) get a deliberate
+  // Leave-raid control that arms a forfeit confirmation before it drops out.
+  // Reset whenever a raid is not running so a stale arm never greets the next.
+  const [abandonArmed, setAbandonArmed] = useState(false);
+  useEffect(() => {
+    if (!raidActive) setAbandonArmed(false);
+  }, [raidActive]);
   const [raidTier, setRaidTier] = useState(1);
   const pickedTier = Math.min(raidTier, Math.max(1, raidTierCeiling));
   const js = useRef(createJoystick());
@@ -502,6 +510,40 @@ export function BunkerFpHud({
                 <span className="bunker-fp-raid-breach">
                   Breached! Seal your cell
                 </span>
+              )}
+              {abandonArmed ? (
+                <div
+                  className="bunker-fp-raid-abandon-confirm"
+                  data-testid="bunker-fp-raid-abandon-confirm"
+                >
+                  <span>Leave and forfeit this raid?</span>
+                  <button
+                    type="button"
+                    className="bunker-fp-raid-abandon-yes"
+                    data-testid="bunker-fp-raid-abandon-yes"
+                    onClick={onExit}
+                  >
+                    Forfeit
+                  </button>
+                  <button
+                    type="button"
+                    className="bunker-fp-raid-abandon-no"
+                    data-testid="bunker-fp-raid-abandon-no"
+                    onClick={() => setAbandonArmed(false)}
+                  >
+                    Stay
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="bunker-fp-raid-abandon"
+                  data-testid="bunker-fp-raid-abandon"
+                  aria-expanded={false}
+                  onClick={() => setAbandonArmed(true)}
+                >
+                  Leave raid
+                </button>
               )}
             </>
           ) : (

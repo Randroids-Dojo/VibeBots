@@ -7,6 +7,7 @@ import {
   proposedBunkerFootprint,
   STARTER_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
+import { bunkerSpawnPocketCells } from "@/sim/bunker-blocks";
 import {
   createMine,
   DEFAULT_GEAR,
@@ -449,6 +450,93 @@ describe("POST /api/mine/bank", () => {
 
     expect(res.status).toBe(400);
     expect(mockedDb).not.toHaveBeenCalled();
+  });
+
+  it("rejects a pending bunker over the full-volume part cap (F-118: 175 cells)", async () => {
+    const res = await post({
+      moves: ["down", "down", "down", "down", "down"],
+      pendingBunker: {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        // 176 exceeds the 7 x 5 x 5 = 175 cell volume that is now fully
+        // buildable (the old cap of 174 reserved the removed core cell).
+        parts: Array.from({ length: 176 }, () => ({
+          partId: "wall-panel",
+          col: START_COL - 3,
+          row: 1,
+          depth: 0,
+          durability: BASE_PART_CATALOG["wall-panel"].durability,
+        })),
+      },
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockedDb).not.toHaveBeenCalled();
+  });
+
+  it("accepts a legitimately maxed 175-part bunker at the bank boundary (F-118)", () => {
+    // A part in every cell of the 7 x 5 x 5 volume, only possible now the
+    // core no longer reserves the center cell. Build a valid dig order by
+    // flood-filling out from the pre-mined spawn pocket (each dig must be
+    // face-adjacent to an already-open cell), then a wall in every cell.
+    const footprint = { col: START_COL - 3, row: 1, width: 7, height: 5 };
+    const key = (c: number, r: number, d: number) => `${c},${r},${d}`;
+    const open = new Set(
+      bunkerSpawnPocketCells(footprint).map((c) => key(c.col, c.row, c.depth)),
+    );
+    const allCells: Array<{ col: number; row: number; depth: number }> = [];
+    for (let depth = 0; depth < 5; depth++) {
+      for (let row = footprint.row; row < footprint.row + 5; row++) {
+        for (let col = footprint.col; col < footprint.col + 7; col++) {
+          allCells.push({ col, row, depth });
+        }
+      }
+    }
+    const dug: Array<{ col: number; row: number; depth: number }> = [];
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const cell of allCells) {
+        const k = key(cell.col, cell.row, cell.depth);
+        if (open.has(k)) continue;
+        const adjacentToOpen = [
+          [cell.col - 1, cell.row, cell.depth],
+          [cell.col + 1, cell.row, cell.depth],
+          [cell.col, cell.row - 1, cell.depth],
+          [cell.col, cell.row + 1, cell.depth],
+          [cell.col, cell.row, cell.depth - 1],
+          [cell.col, cell.row, cell.depth + 1],
+        ].some(([c, r, d]) => open.has(key(c, r, d)));
+        if (adjacentToOpen) {
+          open.add(k);
+          dug.push(cell);
+          progressed = true;
+        }
+      }
+    }
+    expect(open.size).toBe(175);
+    const parts = allCells.map((cell) => ({
+      partId: "wall-panel" as const,
+      col: cell.col,
+      row: cell.row,
+      depth: cell.depth,
+      durability: BASE_PART_CATALOG["wall-panel"].durability,
+    }));
+
+    const result = validatePendingBunkerClaim(
+      { claimCol: START_COL, claimRow: 5, claimedAtMoveCount: 5, dug, parts },
+      123,
+      DEFAULT_GEAR,
+      STARTING_CONSUMABLES,
+      pendingBunkerBaseDiff(),
+      ["down", "down", "down", "down", "down"],
+      { ...STARTER_BASE_PART_INVENTORY, "wall-panel": 175 },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.bunker.parts).toHaveLength(175);
   });
 
   it("validates a locally claimed bunker against the replayed claim moment", () => {

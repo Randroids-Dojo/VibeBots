@@ -23,8 +23,7 @@ import { generatedCell } from "./mine/world";
  * deep (local z), centered on the spawn column at the bunker floor, so
  * the player spawns standing in an open chamber, with headroom overhead
  * and diggable rock a few steps ahead, instead of pressed inside a
- * cramped box. The bunker core sits at the top-front-center of this
- * volume and reads as the room's exposed centerpiece. */
+ * cramped box. */
 export const BUNKER_POCKET_WIDTH = 3;
 export const BUNKER_POCKET_HEIGHT = 3;
 export const BUNKER_POCKET_DEPTH = 3;

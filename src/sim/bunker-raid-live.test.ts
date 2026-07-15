@@ -43,9 +43,6 @@ function makeBunker(
 ): BunkerState {
   return {
     footprint: FOOTPRINT,
-    // The live sim ignores the core (F-118 removed it); a dummy keeps the
-    // BunkerState shape valid.
-    core: { col: 8, row: 7, depth: 0, durability: 100 },
     parts,
     dug,
     blockSeed: 1,

@@ -199,7 +199,6 @@ function normalizedBunkerLoot(value: unknown): BunkerLoot[] {
 function parseBunkerState(
   row: {
     footprint: unknown;
-    core: unknown;
     parts: unknown;
     dug?: unknown;
     block_seed?: unknown;
@@ -210,18 +209,12 @@ function parseBunkerState(
 ): BunkerState | null {
   if (!row) return null;
   const footprint = row.footprint as BunkerFootprint;
-  const storedCore = row.core as BunkerState["core"];
-  const core = {
-    ...storedCore,
-    depth: normalizedBunkerDepth(storedCore.depth),
-  };
   const parts = Array.isArray(row.parts) ? row.parts : [];
   const skinsOwned = Array.isArray(row.skins_owned)
     ? row.skins_owned.filter(isBunkerSkinId)
     : [];
   return {
     footprint,
-    core,
     // Guarantee an open spawn pocket even for legacy claims stored under
     // the old depth-0-open model (F-115), so nobody spawns in solid rock.
     dug: withSpawnPocket(footprint, normalizedDugCells(row.dug)),
@@ -272,7 +265,6 @@ interface LiveRaidStartSnapshot {
 function bunkerRowSnapshot(bunker: BunkerState) {
   return {
     footprint: bunker.footprint,
-    core: bunker.core,
     parts: bunker.parts,
     dug: bunker.dug,
     block_seed: bunker.blockSeed,
@@ -425,11 +417,10 @@ export async function loadBunkerView(
     defense_xp: number;
   }>;
   const bunkerRows = (await sql`
-    SELECT footprint, core, parts, dug, block_seed, loot, skin, skins_owned, revision
+    SELECT footprint, parts, dug, block_seed, loot, skin, skins_owned, revision
     FROM bunkers
     WHERE player_id = ${playerId}`) as Array<{
     footprint: unknown;
-    core: unknown;
     parts: unknown;
     dug: unknown;
     block_seed: unknown;
@@ -542,11 +533,10 @@ export async function claimBunker(
   const bunker = createBunker(footprint, blockSeed);
   await ensureStarterBaseParts(sql, playerId);
   await sql`
-    INSERT INTO bunkers (player_id, footprint, core, parts, dug, block_seed, loot)
+    INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot)
     VALUES (
       ${playerId},
       ${JSON.stringify(bunker.footprint)}::jsonb,
-      ${JSON.stringify(bunker.core)}::jsonb,
       ${JSON.stringify(bunker.parts)}::jsonb,
       ${JSON.stringify(bunker.dug)}::jsonb,
       ${blockSeed},
@@ -927,9 +917,9 @@ async function saveBunkerAndInventory(
 
 /**
  * Reset the bunker to a bare claim (F-093): undamaged placed parts
- * refund to inventory, damaged parts are lost, excavation refills, and
- * the core restores to full. The claim, skin, and owned skins stay.
- * Blocked while a raid is active, the same guard as repairs.
+ * refund to inventory, damaged parts are lost, and the excavation stays
+ * dug. The claim, skin, and owned skins stay. Blocked while a raid is
+ * active, the same guard as repairs.
  */
 export async function resetBunker(
   sql: Sql,
@@ -947,7 +937,6 @@ export async function resetBunker(
     UPDATE bunkers
     SET parts = ${JSON.stringify(reset.bunker.parts)}::jsonb,
         dug = ${JSON.stringify(reset.bunker.dug)}::jsonb,
-        core = ${JSON.stringify(reset.bunker.core)}::jsonb,
         revision = revision + 1,
         updated_at = now()
     WHERE player_id = ${playerId}`;
@@ -984,8 +973,7 @@ export async function repairBunker(
   const repaired = applyBunkerRepairs(view.bunker);
   await sql`
     UPDATE bunkers
-    SET core = ${JSON.stringify(repaired.core)},
-        parts = ${JSON.stringify(repaired.parts)},
+    SET parts = ${JSON.stringify(repaired.parts)},
         revision = revision + 1
     WHERE player_id = ${playerId}`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };

@@ -41,7 +41,6 @@ test("bunker arc capture run", async ({ page }) => {
   const view = {
     bunker: {
       footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-      core: { col: START_COL, row: 3, durability: 140 },
       parts: damagedParts,
       skin: "steelworks",
       skinsOwned: [] as string[],
@@ -88,12 +87,13 @@ test("bunker arc capture run", async ({ page }) => {
   );
   await page.route("**/api/bunker/repair", (route) => {
     current = structuredClone(current);
-    current.bunker.core.durability = 160;
     current.bunker.parts = current.bunker.parts.map((part) => ({
       ...part,
       durability: 90,
     }));
-    current.player = { ...current.player, balance: current.player.balance - 7 };
+    // Parts-only cost now the core is gone (F-118): the one wall at 45/90
+    // durability (price 6) repairs for ceil(0.5 * 6 * 0.5) = 2 vibes.
+    current.player = { ...current.player, balance: current.player.balance - 2 };
     return route.fulfill({
       status: 200,
       contentType: "application/json",

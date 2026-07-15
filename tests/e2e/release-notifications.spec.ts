@@ -21,11 +21,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The flat Start-raid button is gone; you defend your bunker from inside.",
+    "The pink diamond in the middle of your bunker is retired, freeing that cell to build in.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "enter your bunker in first person, and start a live raid from inside",
+    "The spinning core that sat in the center of every bunker is removed",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.270", "The bunker core is gone"],
     ["0.1.269", "Raids are first-person only now"],
     ["0.1.268", "Abandon a live raid from your phone"],
     ["0.1.267", "Leaving a live raid now forfeits it"],

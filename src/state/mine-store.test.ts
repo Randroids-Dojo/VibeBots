@@ -876,7 +876,6 @@ describe("mine store upgrade flow", () => {
         claimedAtMoveCount: 0,
         bunker: {
           footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-          core: { col: START_COL, row: 3, depth: 0, durability: 100 },
           parts: [],
         },
         inventory: {},

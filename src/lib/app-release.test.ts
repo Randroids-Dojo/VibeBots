@@ -24,18 +24,36 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest first-person-raids-only note complete", () => {
+  it("keeps the latest bunker-core-removed note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-15-0.1.269-first-person-raids-only");
+    expect(release.noticeId).toBe("2026-07-15-0.1.270-bunker-core-removed");
     expect(latestNote).toMatchObject({
+      version: "0.1.270",
+      title: "The bunker core is gone",
+      intro:
+        "The pink diamond in the middle of your bunker is retired, freeing that cell to build in.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The spinning core that sat in the center of every bunker is removed. It never did anything you could use, and it took up a buildable cell, so it is gone. The cell it stood in is now ordinary open space you can walk through, build on, or dig behind.",
+      "Repairs now cover only your placed parts, since there is no core left to patch. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived first-person-raids-only note complete", () => {
+    const release = getAppRelease();
+    const raidsOnlyNote = release.notes.find(
+      (note) => note.version === "0.1.269",
+    );
+
+    expect(raidsOnlyNote).toMatchObject({
       version: "0.1.269",
       title: "Raids are first-person only now",
       intro:
         "The flat Start-raid button is gone; you defend your bunker from inside.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(raidsOnlyNote?.changes.map((change) => change.text)).toEqual([
       "The old flat raid, started from the bunker sheet and watched as a top-down replay, is retired. To raid now, stand in your claim, enter your bunker in first person, and start a live raid from inside, where the Clankers hunt you through your dug halls in real time.",
       "The bunker sheet keeps claiming, repairs, skins, and reset; only the raid moved inside. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

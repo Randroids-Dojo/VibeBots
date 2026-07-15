@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-165 Fail visibly on incompatible bunker wire state</title>
+<meta name="dot-title" content="F-165 Fail visibly on incompatible bunker wire state">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-15T14:41:41.318538-05:00">
+</head>
+<body>
+<article>
+<h1>F-165 Fail visibly on incompatible bunker wire state</h1>
+<section id="description">
+Add an explicit bunker wire and stored-state compatibility boundary. A stale loaded client must receive a stable refresh-required response instead of dereferencing a missing field into a blank scene. Cover old-client and new-server skew plus unsafe rollback to an old server after null-core writes. Incompatible alpha state must explain the problem and offer confirmed Start fresh recovery. Bound any temporary bridge, then remove the cold-start DROP NOT NULL migration path. Do not carry permanent silent migration chains.
+</section>
+</article>
+</body>
+</html>

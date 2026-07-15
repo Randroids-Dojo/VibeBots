@@ -13,7 +13,6 @@ import {
   createFpSolidGrid,
   FP_CELL_COUNT,
   FP_COLS,
-  FP_CORE,
   FP_DEPTH,
   FP_DOOR_OWNED,
   FP_OPEN,
@@ -90,21 +89,18 @@ describe("fp grid mapping", () => {
 });
 
 describe("fp solidity", () => {
-  it("blocks parts, the core, and rock; passes air, spikes, and doors", () => {
+  it("blocks parts and rock; passes air, spikes, and doors", () => {
     expect(fpCellBlocks(FP_OPEN)).toBe(false);
     expect(fpCellBlocks(FP_SPIKES)).toBe(false);
     expect(fpCellBlocks(FP_DOOR_OWNED)).toBe(false);
     expect(fpCellBlocks(FP_SOLID_PART)).toBe(true);
-    expect(fpCellBlocks(FP_CORE)).toBe(true);
     expect(fpCellBlocks(FP_ROCK_UNDUG)).toBe(true);
   });
 
-  it("opens the spawn pocket on a fresh claim, rock elsewhere, core solid", () => {
+  it("opens the spawn pocket on a fresh claim, rock elsewhere", () => {
     const bunker = corridorBunker();
     const grid = createFpSolidGrid();
     buildFpSolidGrid(bunker, grid);
-    const coreX = bunker.core.col - footprint.col;
-    const coreY = footprint.row + footprint.height - 1 - bunker.core.row;
     // Openness is exactly the sim's pre-mined pocket (F-115), so derive
     // it from the claim's own dug set rather than a hard-coded plane.
     const open = new Set(
@@ -120,12 +116,7 @@ describe("fp solidity", () => {
       for (let y = 0; y < FP_ROWS; y++) {
         for (let z = 0; z < FP_DEPTH; z++) {
           const idx = fpCellIndex(x, y, z);
-          const expected =
-            x === coreX && y === coreY && z === 0
-              ? FP_CORE
-              : open.has(idx)
-                ? FP_OPEN
-                : FP_ROCK_UNDUG;
+          const expected = open.has(idx) ? FP_OPEN : FP_ROCK_UNDUG;
           expect(grid[idx]).toBe(expected);
         }
       }
@@ -170,13 +161,13 @@ describe("fp solidity", () => {
     expect(grid[fpCellIndex(5, 0, 1)]).toBe(FP_OPEN);
     expect(grid[fpCellIndex(5, 0, 2)]).toBe(FP_SOLID_PART);
     expect(grid[fpCellIndex(5, 0, 3)]).toBe(FP_ROCK_UNDUG);
-    expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_CORE);
+    // The former core cell (F-118) is ordinary open pocket floor now.
+    expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_OPEN);
   });
 
   it("normalizes legacy wire shapes (parts without depth, no dug list)", () => {
     const legacy = {
       footprint,
-      core: { col: MINER_COL, row: MINER_ROW - 2, durability: 160 },
       parts: [
         {
           partId: "wall-panel",
@@ -189,7 +180,9 @@ describe("fp solidity", () => {
     const grid = createFpSolidGrid();
     buildFpSolidGrid(legacy, grid);
     expect(grid[fpCellIndex(0, 0, 0)]).toBe(FP_SOLID_PART);
-    expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_CORE);
+    // No dug list on a legacy wire shape, so the interior (including the
+    // former core cell, F-118) reads as unexcavated rock.
+    expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_ROCK_UNDUG);
     for (let z = 1; z < FP_DEPTH; z++) {
       expect(grid[fpCellIndex(3, 0, z)]).toBe(FP_ROCK_UNDUG);
     }

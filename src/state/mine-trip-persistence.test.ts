@@ -429,9 +429,11 @@ describe("pending bunker validation (F-112)", () => {
     ).toBeNull();
   });
 
-  it("accepts a full 175-part bunker but rejects 176 (F-118 freed the core cell)", () => {
-    // One part in every distinct cell of the 7 x 5 x 5 volume: 5 depths x
-    // 5 rows x 7 cols = 175 unique cells, all buildable now the core is gone.
+  it("caps the checkpoint parts array at the 175-cell volume, not the old 174", () => {
+    // Checkpoint validation only bounds shape and array length (the bank
+    // route is the authoritative placement/occupancy boundary; see its
+    // "maxed 175-part bunker" test). This proves the length cap moved off
+    // 174 to the full 5 x 5 x 7 = 175-cell volume now the core is gone.
     const uniqueParts = [];
     for (let depth = 0; depth < 5; depth++) {
       for (let row = 1; row <= 5; row++) {

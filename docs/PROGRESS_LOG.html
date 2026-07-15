@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr-223-partial-review-codeql-sink-precision" data-date="2026-07-15">
+    <h3>Separate PR security checks from protected rules and sink health from gameplay results</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/live-raid-audit-current-main</code>.</dd>
+      <dt>PR</dt><dd>#223, additive correction after exact-head review 4706659004.</dd>
+      <dt>Changed</dt><dd>Accepted both valid findings from the partial exact-head review without rewriting published records. F-148 and its matching Dot now distinguish PR-scoped Code Quality/SARIF checks from the still-unconfigured protected default-branch CodeQL rule. F-109 and its matching Dot now state that a sink outage is delivery health only, never a gameplay result reason or another request-result or lifecycle outbox row. No new primary, runtime, package, release, tip, stamp, CI, settings, ruleset, or production change was added.</dd>
+      <dt>Verification</dt><dd>Incremental run <code>30ae30e7-c2c8-47a4-96c4-4d7d563fe94f</code> selected 18 of 37 files and submitted CHANGES_REQUESTED review 4706659004 on exact head <code>d5aa7780</code>. Thread 3589461895 identified the PR-scoped versus protected-CodeQL ambiguity. Thread 3589461900 identified the request-result versus sink-health ambiguity. Repository evidence already records default CodeQL as <code>not-configured</code>, PR-scoped SARIF on a pull ref, a waiting protected rule, and administrator-bypass suite 3346530001. The existing F-109 out-of-band correction already defines the independent non-recursive <code>telemetry_sink_failed</code> channel. Diff, dash, both Dots, lint, typecheck, and full unit verification are required on the new exact head.</dd>
+      <dt>Assumptions</dt><dd>A pull-request check and a protected default-branch rule are distinct evidence surfaces. Delivery failure can change outbox attempt state and independent sink-health reporting, but it cannot create or rewrite the gameplay request result.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Added a newest-first review-precision item to <code>docs/gdd/08-base-building.html</code>. Rule 13: no tip change. Rule 14: no stamp applies. <code>MINE_VERSION</code> and <code>SIM_VERSION</code> are unchanged.</dd>
+      <dt>Followups</dt><dd>No new primary. Appended exact review corrections to F-109 and F-148 plus their two matching HTML Dots. F-148 requires a new full base-to-exact-head review because this run covered only 18 of 37 files, and F-152 remains the independent normal-ruleset eligibility hold.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-225-bypass-deletion-production-audit" data-date="2026-07-15">
     <h3>Record the touch-abandon bypass and production exposure</h3>
     <dl>

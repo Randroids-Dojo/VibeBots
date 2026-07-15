@@ -69,6 +69,9 @@ PR #225 head 90b9fa66 reached green CI, CodeQL, and preview while CodeRabbit com
 <section id="administrator-merge-breach-pr-225">
 PR #225 exact head 734aeeba was squash-merged at 17:03:59Z as main f7a31888 with zero submitted reviews, a rate-limited CodeRabbit status, and all exact-head holds live. Ruleset suite 3346530001 records administrator bypass. Green main CI and production health cannot retroactively supply review, finding disposition, thread inspection, or a settled wait.
 </section>
+<section id="pr-scoped-codeql-wording-correction-review-4706659004">
+Preserve older green CI, CodeQL, and preview phrases as historical shorthand for visible pull-request checks. For PR #225, the green security-named signal was a PR-scoped Code Quality/SARIF run on a pull ref, not the protected default-branch CodeQL rule. Repository default CodeQL setup remained not-configured, the ruleset still waited for results, and suite 3346530001 recorded administrator bypass. The green PR check cannot satisfy F-152. Incremental run 30ae30e7-c2c8-47a4-96c4-4d7d563fe94f covered only 18 of 37 files and submitted CHANGES_REQUESTED review 4706659004 on d5aa7780. Apply both valid findings additively, then require a new full base-to-exact-head review and reset all exact-head gates.
+</section>
 </article>
 </body>
 </html>

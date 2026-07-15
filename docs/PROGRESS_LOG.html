@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="monitoring-followup-port-correction" data-date="2026-07-15">
+    <h3>Complete the stranded followup port and correct its rebased authority</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/raid-followup-audit</code>.</dd>
+      <dt>PR</dt><dd>#218.</dd>
+      <dt>Changed</dt><dd>Corrected the committed successor inventory without rewriting it. The earlier article says ten open PR #190 findings moved to F-147 through F-156, but source F-136 was also open and distinct. Added collision-free F-157 plus its HTML Dot for a current-priority index or non-primary priority pointers, the 69 historical container mismatches, the one historical F-033 non-primary identity exception, and post-cutoff placement validation. The earlier article also says its exact base remained <code>670f1ea2</code>; after the additive rebase, commit <code>60e734e8</code> is parented directly by current-main commit <code>8bf95001</code>. Its 125-primary count covered only id-backed template sections, not every legacy primary shape. The historical article stays byte-for-byte and this newest-first entry supplies current truth.</dd>
+      <dt>Verification</dt><dd>Git ancestry confirms <code>60e734e8^</code> is <code>8bf95001</code>, so PR #218 is zero commits behind that base before this additive correction. Source branch <code>df25f313</code> contains primary F-136 and open Dot <code>VibeBots-f-136-expose-f9a7b12c</code>; neither exists on current main. The authoritative primary selector now yields 147 unique records with no duplicate F-ID; 126 are id-backed template sections through F-157. <code>dot-html show VibeBots-f-157-expose-f7e368b9</code> parses the open priority-3 Dot. Dash, whitespace, exact newest-progress schema, type-check, and Biome checks pass; Biome retains the existing optional-chain and broken-symlink warnings.</dd>
+      <dt>Assumptions</dt><dd>An open task that exists only on an unmerged source branch is not target-base authority. A source inventory omission is corrected with the next monotonic ID and a new commit, never by rewriting an already published record or reusing the stranded ID.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed and no GDD build-log entry applies because this is task-authority and ledger-presentation followup capture only.</dd>
+      <dt>Followups</dt><dd>Created F-157 and matching Dot <code>VibeBots-f-157-expose-f7e368b9</code> as the collision-free successor to PR #190 source F-136. This completes the eleven-item source inventory across F-147 through F-157.</dd>
+    </dl>
+  </article>
+
   <article data-slice="post-merge-pr217-audit" data-date="2026-07-15">
     <h3>Audit the single bunker entry after merge and preserve its process evidence</h3>
     <dl>

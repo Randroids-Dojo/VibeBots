@@ -1384,6 +1384,17 @@
 <section id="polish">
   <h2>Polish</h2>
 
+  <section id="F-157" data-f="F-157" data-priority="polish">
+    <h3>F-157: Expose current followup priorities without rewriting history</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #190 source F-136 never reached the target base and was omitted from the first collision-free successor inventory. The primary followup's <code>data-priority</code> is authoritative, but the historical physical bucket layout no longer represents current priority. The source audit found 69 primary records whose container disagreed with, or did not expose, that authority. Moving those durable records would violate the append-only ledger contract, while reading only bucket headings hides current blockers and cleanup priorities.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Complete before another human view, script, or backlog report treats physical container placement as current priority.</dd>
+      <dt>Unblock condition</dt><dd>Keep every historical primary followup byte-for-byte and keep <code>data-priority</code> authoritative. Add either a non-primary current-priority index or bucket pointers with <code>data-role="priority-pointer"</code> and <code>data-f-ref="F-NNN"</code>; pointers never carry <code>data-f</code> or an <code>id</code>. Validate that every pointer targets exactly one primary, appears under the target's priority, and introduces no duplicate primary identity, pointer reference, or document id. Recompute and pin the historical mismatch baseline, grandfather exactly the source-audited 69 when current-base evidence agrees, and fail on any additional post-cutoff mismatch. Preserve the historical <code>F-033-closure-2026-06-25</code> record as the one grandfathered non-primary <code>data-f</code> exception; all new closures, pointers, and corrections use <code>data-f-ref</code>. Cover the baseline count, target integrity, priority agreement, primary and pointer uniqueness, the F-033 exception, a valid post-cutoff entry, and a deliberately misplaced post-cutoff fixture.</dd>
+      <dt>PR / Dot reference</dt><dd>Successor to PR #190 source F-136; Dot <code>VibeBots-f-157-expose-f7e368b9</code>.</dd>
+      <dt>Cross-links</dt><dd>F-154 owns byte-for-byte preservation and newest-first corrections across commit history. F-157 owns how current priority is exposed without moving old records, plus physical placement validation for new primaries.</dd>
+    </dl>
+  </section>
+
   <section id="F-132" data-f="F-132" data-priority="polish">
     <h3>F-132: Stabilize recurring mine and bunker E2E state under software rendering</h3>
     <dl>

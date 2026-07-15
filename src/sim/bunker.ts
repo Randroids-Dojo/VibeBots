@@ -879,10 +879,6 @@ export function removeBasePart(
   };
 }
 
-// Move stays whole-cell in this slice: the thin build kit places and pries
-// (place/remove), and the only mover today is the 2D drag on legacy layouts.
-// Slot-aware move (with target-slot validation and no legacy-to-slot
-// conversion) lands with the slice that lets the UI relocate a thin part.
 export function moveBasePart(
   bunker: BunkerState,
   fromCol: number,

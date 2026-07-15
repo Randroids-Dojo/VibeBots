@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr-198-dependency-monitoring" data-date="2026-07-14">
+    <h3>Make cross-PR backlog ownership fail fast</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/f135-f136-followups</code>.</dd>
+      <dt>PR</dt><dd>#190, correcting dependency order after merged PR #198.</dd>
+      <dt>Changed</dt><dd>Added F-145 with priority-1 HTML Dot VibeBots-f-145-require-6e9f3eef. PR #198 moved its deferred art owner from a conflicting F-135 to F-142, but both F-142 and its Dot existed only on unmerged PR #190. The implementation PR then bypass-merged first and left main with dangling backlog references. F-145 requires the exact PR diff to resolve every new followup and Dot reference on the target base or same head, and to expose another open PR as a blocking dependency instead of assuming merge order.</dd>
+      <dt>Verification</dt><dd>Confirmed main <code>115d8dc6</code> references F-142 while <code>git show 115d8dc6:docs/FOLLOWUPS.html</code> has no F-142 primary entry and main has no matching HTML Dot. PR #190 head <code>8edf0afd</code> contains both authoritative records but is <code>DIRTY</code> and <code>CONFLICTING</code> against the new main. Local dash, diff, followup identity, newest-entry, and Dot checks pass. The branch contains 145 unique primary followup IDs with F-145 as the maximum, and Dot VibeBots-f-145-require-6e9f3eef is open at priority 1.</dd>
+      <dt>Assumptions</dt><dd>A reference is merge-safe only when its authority exists on the target base or the same exact head. An ID present on another remote branch is a dependency, not current target-branch truth.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. REQ-045 remains partial with F-142, and F-145 is process enforcement with no canonical GDD row.</dd>
+      <dt>Followups</dt><dd>Added <a href="FOLLOWUPS.html#F-145">F-145</a> with Dot VibeBots-f-145-require-6e9f3eef. Appended a dependency pointer to <a href="FOLLOWUPS.html#F-142">F-142</a> without editing its committed evidence. No telemetry followup changed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-198-bypass-monitoring" data-date="2026-07-14">
     <h3>Record the bunker art bypass and enforce durable history</h3>
     <dl>

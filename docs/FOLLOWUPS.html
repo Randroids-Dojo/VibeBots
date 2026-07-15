@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-145" data-f="F-145" data-priority="blocks-release">
+    <h3>F-145: Require referenced followups to exist before merge</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #198 changed its deferred block-art owner from a conflicting F-135 to F-142, but F-142 and Dot VibeBots-f-142-make-e5bfa0eb existed only on still-open PR #190. The implementation PR then merged first, so main <code>115d8dc6</code> references an authoritative followup and Dot that do not exist on main. PR #190 became conflicting after the merge, extending the dangling state.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before another PR introduces backlog ownership that depends on an unmerged branch. A valid ID on some remote branch is not a valid reference on the target branch.</dd>
+      <dt>Unblock condition</dt><dd>For every newly introduced F-ID, followup anchor, and Dot reference in the exact PR diff, require the authoritative primary followup and matching HTML Dot to exist on the target base or the same exact head. If either record lives on another open PR, expose that dependency in merge readiness and block until the dependency lands, or coordinate moving the single authoritative record without duplicating identity. Recompute after either head or target-base movement, and reject a reference that becomes dangling again after conflict resolution. Report the file, reference, missing owner, and known open PR. Cover base-owned records, same-PR records, missing followup, missing Dot, cross-PR ordering, conflicting dependencies, superseded dependencies, duplicate attempted carry, and a base update that satisfies the dependency.</dd>
+      <dt>PR / Dot reference</dt><dd>Tracking PR #190; Dot VibeBots-f-145-require-6e9f3eef.</dd>
+    </dl>
+  </section>
+
   <section id="F-144" data-f="F-144" data-priority="blocks-release">
     <h3>F-144: Require explicit approval before remote branch deletion</h3>
     <dl>
@@ -66,6 +76,7 @@
       <dt>PR / Dot reference</dt><dd>Tracking PR #190; Dot VibeBots-f-142-make-e5bfa0eb.</dd>
       <dt>Exact-depth and crumble extension</dt><dd>PR #198 discards <code>block.rockTier</code>, paints every rock with the default palette's first tier, and gives every dirt and ore base one center-row dirt tint. Crystal layout hashes also use a seven-column depth stride and a top-down row while <code>bunkerCellBlock</code> generates with its 1009-column stride and <code>bunkerCellMineRow</code>. Ore identity and payout stay correct, but the pixels do not match the exact corresponding mine cell claimed by the release and GDD text. Share one pure generator-coordinate resolver with rendering, preserve generated rock tier, and bucket instanced bodies by the actual finite dirt and rock palettes, or narrow every player-facing and ledger claim to the deliberately uniform art. The dig burst has the same original no-op: it always combines dirt geometry with the default rock node material and calls <code>setColorAt</code>, so dirt, rock, and ore crumble gray. Select a prewarmed block-kind and ore material at bunker-update or accepted-dig cadence, never by allocating in <code>useFrame</code>, and add visible burst proof for dirt, each rock tier boundary, glowing and non-glowing ore, and rapid retargeting.</dd>
       <dt>Evidence update after PR #198</dt><dd>PR #198 final head <code>6acb0b18</code> merged at 20:58:55 UTC as main <code>115d8dc6</code> before F-142 or its HTML Dot existed on main. The shipped followup commits correctly orient crystals toward a deterministic open face, share authoritative generator coordinates, make a known-ore seed fail when the generated ore list is empty, and refresh crystal layout when footprint coordinates change. They do not share crystal geometry, warm either crystal program, prove visible ore pixels or the reveal and removal lifecycle, cover 390x760 or white-card artifacts, preserve generated rock tier and dirt palette fidelity, color the crumble burst, or provide bounded renderer, heap, allocation, and post-F-100 real-device evidence. Exact-main CI run 29367812672, CodeQL run 29367811756, GitHub production deployment 5447759333, and Vercel deployment <code>dpl_F5TmB3vMJXfSLF2vC8Z68y5894Jc</code> passed, but green deployment does not satisfy those open acceptance items. F-142 and its Dot remain open.</dd>
+      <dt>Cross-PR dependency extension</dt><dd>F-145 owns the process failure that let PR #198 merge references to F-142 and its Dot before either authoritative record existed on main.</dd>
     </dl>
   </section>
 
